@@ -7,6 +7,7 @@ import { UnitPreferencesProvider } from '@/contexts/unit-preferences-context'
 // Fish On button hidden for now
 // import FishOnButtonWrapper from '@/app/components/catch-log/fish-on-button-wrapper'
 import PinGate from '@/app/components/common/pin-gate'
+import AuthGate from '@/app/components/auth/auth-gate'
 import { GoogleAnalytics } from '@next/third-parties/google'
 
 const geistSans = Geist({
@@ -39,7 +40,9 @@ export default function RootLayout({
         <AuthProvider>
           <MixpanelProvider>
             <UnitPreferencesProvider>
-              {children}
+              <AuthGate>
+                {children}
+              </AuthGate>
               {/* <FishOnButtonWrapper /> */}
             </UnitPreferencesProvider>
           </MixpanelProvider>

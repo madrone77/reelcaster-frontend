@@ -3,28 +3,24 @@
 import { useRef, useState, useEffect, useCallback } from 'react'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
 import { OpenMeteoDailyForecast } from '../../utils/fishingCalculations'
-import { ForecastSectionOverlay } from '../auth/forecast-section-overlay'
 import { getScoreBgClass, getScoreGradient, getScoreLabel } from '@/app/utils/score-utils'
 
 interface DayOutlookNewProps {
   forecasts: OpenMeteoDailyForecast[]
   selectedDay?: number
   onDaySelect?: (dayIndex: number) => void
-  shouldBlurAfterDay?: number | null
 }
 
 export default function DayOutlookNew({
   forecasts,
   selectedDay = 0,
   onDaySelect,
-  shouldBlurAfterDay,
 }: DayOutlookNewProps) {
   const scrollRef = useRef<HTMLDivElement>(null)
   const [canScrollLeft, setCanScrollLeft] = useState(false)
   const [canScrollRight, setCanScrollRight] = useState(true)
 
   const displayForecasts = forecasts.slice(0, 14)
-  const hasBlurredCards = shouldBlurAfterDay !== null
 
   // Check scroll position
   const updateScrollButtons = () => {
@@ -105,20 +101,16 @@ export default function DayOutlookNew({
               const dayDate = date.getDate()
 
               const isSelected = selectedDay === index
-              const shouldBlur = shouldBlurAfterDay != null && index > shouldBlurAfterDay
-              const isClickable = !shouldBlur
 
               return (
                 <button
                   key={index}
-                  onClick={() => isClickable && onDaySelect?.(index)}
-                  disabled={!isClickable}
+                  onClick={() => onDaySelect?.(index)}
                   className={`
                     flex-shrink-0 w-[160px] p-3 rounded-lg transition-all duration-200 relative
                     border border-white/5
-                    ${shouldBlur ? 'blur-sm' : ''}
                     ${isSelected ? 'ring-2 ring-blue-500/50' : ''}
-                    ${!isClickable ? 'cursor-default' : 'cursor-pointer hover:border-white/10'}
+                    cursor-pointer hover:border-white/10
                   `}
                   style={{
                     backgroundColor: '#242424',
@@ -147,28 +139,6 @@ export default function DayOutlookNew({
             })}
           </div>
 
-          {/* Overlay for blurred cards */}
-          {hasBlurredCards && (
-            <>
-              {/* Mobile: percentage-based positioning (no arrow buttons) */}
-              <div
-                className="absolute top-0 bottom-0 right-0 pointer-events-auto sm:hidden"
-                style={{ left: '40%' }}
-              >
-                <ForecastSectionOverlay />
-              </div>
-              {/* Desktop: precise pixel positioning (accounts for arrow buttons) */}
-              <div
-                className="absolute top-0 bottom-0 bg-transparent pointer-events-auto hidden sm:block"
-                style={{
-                  left: `${52 + ((shouldBlurAfterDay || 0) + 1) * 172}px`,
-                  right: '52px',
-                }}
-              >
-                <ForecastSectionOverlay />
-              </div>
-            </>
-          )}
         </div>
 
         {/* Right Arrow - hidden on mobile, swipe to scroll instead */}

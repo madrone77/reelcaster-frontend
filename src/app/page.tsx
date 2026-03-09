@@ -46,7 +46,6 @@ function V2ForecastContent() {
     setMobilePeriod,
     showAlgorithmModal,
     setShowAlgorithmModal,
-    shouldBlurAfterDay,
     currentLocation,
     hasValidCoordinates,
     handleHotspotChange,
@@ -126,7 +125,7 @@ function V2ForecastContent() {
                 forecasts={forecastData}
                 selectedDay={selectedDay}
                 onDaySelect={setSelectedDay}
-                shouldBlurAfterDay={shouldBlurAfterDay}
+
               />
 
               <MapLayerControls
@@ -164,7 +163,7 @@ function V2ForecastContent() {
                 forecasts={forecastData}
                 selectedDay={selectedDay}
                 onDaySelect={setSelectedDay}
-                shouldBlurAfterDay={shouldBlurAfterDay}
+
                 compact
               />
 

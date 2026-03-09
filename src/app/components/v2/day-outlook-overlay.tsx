@@ -9,7 +9,6 @@ interface DayOutlookOverlayProps {
   forecasts: OpenMeteoDailyForecast[]
   selectedDay: number
   onDaySelect: (dayIndex: number) => void
-  shouldBlurAfterDay: number | null
   compact?: boolean
 }
 
@@ -17,7 +16,6 @@ export default function DayOutlookOverlay({
   forecasts,
   selectedDay,
   onDaySelect,
-  shouldBlurAfterDay,
   compact = false,
 }: DayOutlookOverlayProps) {
   const scrollRef = useRef<HTMLDivElement>(null)
@@ -88,16 +86,13 @@ export default function DayOutlookOverlay({
               const dayDate = date.getDate()
 
               const isSelected = selectedDay === index
-              const shouldBlur = shouldBlurAfterDay != null && index > shouldBlurAfterDay
 
               return (
                 <button
                   key={index}
-                  onClick={() => !shouldBlur && onDaySelect(index)}
-                  disabled={shouldBlur}
+                  onClick={() => onDaySelect(index)}
                   className={`flex-shrink-0 transition-all duration-200 rounded-lg border
                     ${compact ? 'px-3 py-1.5 min-w-[80px]' : 'px-4 py-2 min-w-[100px]'}
-                    ${shouldBlur ? 'blur-sm opacity-50' : ''}
                     ${isSelected
                       ? 'bg-blue-600 border-blue-500/50'
                       : 'bg-rc-bg-dark border-rc-bg-light hover:bg-rc-bg-light'

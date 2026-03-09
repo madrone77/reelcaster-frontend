@@ -54,7 +54,6 @@ function V1ForecastContent() {
     isCachedData,
     isRefreshing,
     cacheInfo,
-    shouldBlurAfterDay,
     currentLocation,
     hasValidCoordinates,
     handleHotspotChange,
@@ -138,7 +137,6 @@ function V1ForecastContent() {
                 forecasts={forecastData}
                 selectedDay={selectedDay}
                 onDaySelect={setSelectedDay}
-                shouldBlurAfterDay={shouldBlurAfterDay}
               />
 
               {currentLocation && (

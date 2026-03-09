@@ -52,13 +52,15 @@ export default function V2DetailsGrid({
 
   const precipitationProbability = selectedWeather?.precipitationProbability ?? 0
 
-  // Tide data
-  const currentHeightDisplay = tideData ? convertHeight(tideData.currentHeight, 'm', heightUnit).toFixed(1) : '--'
-  const changeRateDisplay = tideData ? Math.abs(convertHeight(tideData.changeRate, 'm', heightUnit)).toFixed(2) : '--'
-  const currentSpeedDisplay = tideData?.currentSpeed !== undefined
+  // Tide data — guard against undefined numeric fields
+  const currentHeightDisplay = tideData?.currentHeight != null
+    ? convertHeight(tideData.currentHeight, 'm', heightUnit).toFixed(1) : '--'
+  const changeRateDisplay = tideData?.changeRate != null
+    ? Math.abs(convertHeight(tideData.changeRate, 'm', heightUnit)).toFixed(2) : '--'
+  const currentSpeedDisplay = tideData?.currentSpeed != null
     ? convertWind(tideData.currentSpeed, 'knots', windUnit).toFixed(1)
     : '--'
-  const currentDirection = tideData?.currentDirection !== undefined
+  const currentDirection = tideData?.currentDirection != null
     ? `${Math.round(tideData.currentDirection)}°`
     : '--'
 

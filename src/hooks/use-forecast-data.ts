@@ -10,7 +10,6 @@ import { CHSWaterData } from '@/app/utils/chsTideApi'
 import { fetchForecastBundle, DataSourceMetadata } from '@/app/utils/forecastDataProvider'
 import ForecastCacheService from '@/app/utils/forecastCacheService'
 import { useAnalytics } from '@/hooks/use-analytics'
-import { useAuthForecast } from '@/hooks/use-auth-forecast'
 import { setAlgorithmVersion } from '@/app/utils/speciesAlgorithms'
 import type { AlgorithmVersion } from '@/app/components/forecast/algorithm-version-toggle'
 import {
@@ -54,9 +53,6 @@ export interface UseForecastDataReturn {
   isCachedData: boolean
   isRefreshing: boolean
   cacheInfo: { createdAt?: string; expiresAt?: string }
-
-  // Auth
-  shouldBlurAfterDay: number | null
 
   // Location data
   currentLocation: typeof fishingLocations[number] | undefined
@@ -105,8 +101,8 @@ export function useForecastData(): UseForecastDataReturn {
   const [isRefreshing, setIsRefreshing] = useState(false)
   const [cacheInfo, setCacheInfo] = useState<{ createdAt?: string; expiresAt?: string }>({})
 
-  // Use auth forecast hook
-  const { forecastData, shouldBlurAfterDay } = useAuthForecast(forecasts)
+  // All forecasts available to authenticated users
+  const forecastData = forecasts
 
   // Coordinate validation
   const hasValidCoordinates = lat !== 0 && lon !== 0
@@ -386,7 +382,6 @@ export function useForecastData(): UseForecastDataReturn {
     isCachedData,
     isRefreshing,
     cacheInfo,
-    shouldBlurAfterDay,
     currentLocation,
     currentHotspot,
     hasValidCoordinates,
