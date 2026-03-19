@@ -87,6 +87,32 @@ export { bestValue as sgBestValue }
 
 const PROXY_BASE = '/api/stormglass'
 
+// ─── Circuit Breaker ────────────────────────────────────────────────────────
+
+/** Stops hammering Stormglass when it's returning errors (e.g. 503). */
+const circuitBreaker = {
+  failures: 0,
+  lastFailure: 0,
+  threshold: 3,          // open after 3 consecutive failures
+  cooldownMs: 5 * 60_000, // wait 5 minutes before retrying
+
+  recordFailure() {
+    this.failures++
+    this.lastFailure = Date.now()
+  },
+
+  recordSuccess() {
+    this.failures = 0
+  },
+
+  isOpen(): boolean {
+    if (this.failures < this.threshold) return false
+    // Allow a retry after cooldown
+    if (Date.now() - this.lastFailure > this.cooldownMs) return false
+    return true
+  },
+}
+
 // ─── Weather ────────────────────────────────────────────────────────────────
 
 const ALL_WEATHER_PARAMS = [
@@ -116,6 +142,7 @@ export async function fetchStormglassWeather(
   startDate?: Date,
   endDate?: Date,
 ): Promise<StormglassWeatherResponse | null> {
+  if (circuitBreaker.isOpen()) return null
   try {
     const now = new Date()
     const start = startDate ?? now
@@ -132,11 +159,14 @@ export async function fetchStormglassWeather(
     const response = await fetch(`${PROXY_BASE}/weather?${qs}`)
     if (!response.ok) {
       console.warn(`Stormglass weather returned ${response.status}`)
+      circuitBreaker.recordFailure()
       return null
     }
+    circuitBreaker.recordSuccess()
     return await response.json()
   } catch (error) {
     console.error('Error fetching Stormglass weather:', error)
+    circuitBreaker.recordFailure()
     return null
   }
 }
@@ -149,6 +179,7 @@ export async function fetchStormglassTideExtremes(
   startDate?: Date,
   endDate?: Date,
 ): Promise<StormglassTideExtremesResponse | null> {
+  if (circuitBreaker.isOpen()) return null
   try {
     const now = new Date()
     const start = startDate ?? now
@@ -162,10 +193,15 @@ export async function fetchStormglassTideExtremes(
     })
 
     const response = await fetch(`${PROXY_BASE}/tide/extremes?${qs}`)
-    if (!response.ok) return null
+    if (!response.ok) {
+      circuitBreaker.recordFailure()
+      return null
+    }
+    circuitBreaker.recordSuccess()
     return await response.json()
   } catch (error) {
     console.error('Error fetching Stormglass tide extremes:', error)
+    circuitBreaker.recordFailure()
     return null
   }
 }
@@ -178,6 +214,7 @@ export async function fetchStormglassTideSeaLevel(
   startDate?: Date,
   endDate?: Date,
 ): Promise<StormglassTideSeaLevelResponse | null> {
+  if (circuitBreaker.isOpen()) return null
   try {
     const now = new Date()
     const start = startDate ?? now
@@ -191,10 +228,15 @@ export async function fetchStormglassTideSeaLevel(
     })
 
     const response = await fetch(`${PROXY_BASE}/tide/sea-level?${qs}`)
-    if (!response.ok) return null
+    if (!response.ok) {
+      circuitBreaker.recordFailure()
+      return null
+    }
+    circuitBreaker.recordSuccess()
     return await response.json()
   } catch (error) {
     console.error('Error fetching Stormglass tide sea level:', error)
+    circuitBreaker.recordFailure()
     return null
   }
 }
@@ -207,6 +249,7 @@ export async function fetchStormglassAstronomy(
   startDate?: Date,
   endDate?: Date,
 ): Promise<StormglassAstronomyResponse | null> {
+  if (circuitBreaker.isOpen()) return null
   try {
     const now = new Date()
     const start = startDate ?? now
@@ -220,10 +263,15 @@ export async function fetchStormglassAstronomy(
     })
 
     const response = await fetch(`${PROXY_BASE}/astronomy?${qs}`)
-    if (!response.ok) return null
+    if (!response.ok) {
+      circuitBreaker.recordFailure()
+      return null
+    }
+    circuitBreaker.recordSuccess()
     return await response.json()
   } catch (error) {
     console.error('Error fetching Stormglass astronomy:', error)
+    circuitBreaker.recordFailure()
     return null
   }
 }
