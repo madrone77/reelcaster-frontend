@@ -1,16 +1,10 @@
 // Forecast Cache Service - Handles caching of fishing forecast data
-import { createClient } from '@supabase/supabase-js'
+import { supabase } from '@/lib/supabase'
 import { ProcessedOpenMeteoData } from './openMeteoApi'
 import { OpenMeteoDailyForecast } from './fishingCalculations'
 import { CHSWaterData } from './chsTideApi'
 
-// Environment variables with fallbacks
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
-const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
 const defaultCacheDurationHours = parseInt(process.env.FORECAST_CACHE_DURATION_HOURS || '6')
-
-// Only create client if environment variables are available
-const supabase = (supabaseUrl && supabaseKey) ? createClient(supabaseUrl, supabaseKey) : null
 
 export interface CacheEntry {
   id: string
