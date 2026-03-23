@@ -17,6 +17,7 @@ interface WeightControlsPanelProps {
   normalizedWeights: Record<FactorKey, number>
   avgScores: Record<FactorKey, number | null>
   activePreset: string | null
+  customCurveKeys?: FactorKey[]
   onToggle: (key: FactorKey, enabled: boolean) => void
   onWeightChange: (key: FactorKey, value: number) => void
   onApplyPreset: (presetId: string) => void
@@ -24,6 +25,7 @@ interface WeightControlsPanelProps {
   onDisableAll: () => void
   onReset: () => void
   onCopyWeights: () => void
+  onFactorDrillDown?: (key: FactorKey) => void
 }
 
 export default function WeightControlsPanel({
@@ -31,6 +33,7 @@ export default function WeightControlsPanel({
   normalizedWeights,
   avgScores,
   activePreset,
+  customCurveKeys = [],
   onToggle,
   onWeightChange,
   onApplyPreset,
@@ -38,6 +41,7 @@ export default function WeightControlsPanel({
   onDisableAll,
   onReset,
   onCopyWeights,
+  onFactorDrillDown,
 }: WeightControlsPanelProps) {
   const [collapsedGroups, setCollapsedGroups] = useState<
     Record<FactorGroup, boolean>
@@ -147,8 +151,10 @@ export default function WeightControlsPanel({
                         (normalizedWeights[meta.key] ?? 0) * 100
                       }
                       avgScore={avgScores[meta.key]}
+                      hasCustomCurve={customCurveKeys.includes(meta.key)}
                       onToggle={(v) => onToggle(meta.key, v)}
                       onWeightChange={(v) => onWeightChange(meta.key, v)}
+                      onDrillDown={() => onFactorDrillDown?.(meta.key)}
                     />
                   ))}
                 </div>

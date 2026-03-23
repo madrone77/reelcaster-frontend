@@ -10,6 +10,7 @@ import DataControls from './data-controls'
 import WeightControlsPanel from './weight-controls-panel'
 import StackedScoreChart, { type ChartDataPoint } from './stacked-score-chart'
 import ComparisonSummary from './comparison-summary'
+import FactorDrillDown from './factor-drill-down'
 
 import {
   FISHING_LOCATIONS,
@@ -18,10 +19,13 @@ import {
 } from '@/app/config/locations'
 import {
   generateOpenMeteoDailyForecasts,
+  createTideDataAtTimestamp,
   type OpenMeteoDailyForecast,
   type FishingScore,
 } from '@/app/utils/fishingCalculations'
 import { fetchForecastBundle } from '@/app/utils/forecastDataProvider'
+import type { ProcessedOpenMeteoData } from '@/app/utils/openMeteoApi'
+import type { CHSWaterData } from '@/app/utils/chsTideApi'
 
 import {
   FACTOR_META,
@@ -33,6 +37,13 @@ import {
   type FactorKey,
   type FactorState,
 } from '@/app/utils/algorithmDesigner'
+import {
+  DEFAULT_SCORING_CURVES,
+  evaluateCurve,
+  extractBlockAveragedData,
+  FACTOR_INPUT_MAP,
+  type ScoringCurve,
+} from '@/app/utils/scoringCurves'
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
@@ -97,6 +108,12 @@ export default function AlgorithmDesignerPage() {
   )
   const [activePreset, setActivePreset] = useState<string | null>('default')
 
+  // Drill-down state
+  const [activeDrillDown, setActiveDrillDown] = useState<FactorKey | null>(null)
+  const [customCurves, setCustomCurves] = useState<Partial<Record<FactorKey, ScoringCurve>>>({})
+  const [rawWeatherData, setRawWeatherData] = useState<ProcessedOpenMeteoData | null>(null)
+  const [rawTideData, setRawTideData] = useState<CHSWaterData | null>(null)
+
   // ─── Data loading ──────────────────────────────────────────────────────
 
   const loadData = useCallback(async () => {
@@ -114,6 +131,10 @@ export default function AlgorithmDesignerPage() {
       const prevCHS = hasCHSRef.current
       hasCHSRef.current = chsAvailable
       setHasCHS(chsAvailable)
+
+      // Store raw data for drill-down
+      setRawWeatherData(bundle.weather)
+      setRawTideData(bundle.tide ?? null)
 
       const forecasts = generateOpenMeteoDailyForecasts(
         bundle.weather,
@@ -232,6 +253,27 @@ export default function AlgorithmDesignerPage() {
     setActivePreset('default')
   }, [hasCHS])
 
+  // ─── Drill-down handlers ──────────────────────────────────────────────
+
+  const handleFactorDrillDown = useCallback((key: FactorKey) => {
+    setActiveDrillDown(key)
+  }, [])
+
+  const handleCurveChange = useCallback(
+    (key: FactorKey, curve: ScoringCurve) => {
+      setCustomCurves((prev) => ({ ...prev, [key]: curve }))
+    },
+    [],
+  )
+
+  const handleCurveReset = useCallback((key: FactorKey) => {
+    setCustomCurves((prev) => {
+      const next = { ...prev }
+      delete next[key]
+      return next
+    })
+  }, [])
+
   // ─── Location handlers ────────────────────────────────────────────────
 
   const handleLocationChange = useCallback((locationId: string) => {
@@ -268,6 +310,28 @@ export default function AlgorithmDesignerPage() {
 
   const normalized = useMemo(() => normalizeWeights(factorStates), [factorStates])
 
+  // Reconstruct averaged block data from raw weather + tide for drill-down
+  const blockRawData = useMemo(() => {
+    if (!rawWeatherData || !todayForecast) return null
+
+    // Group minutely15 by day, same as generateOpenMeteoDailyForecasts
+    const minutelyByDay: Record<string, typeof rawWeatherData.minutely15> = {}
+    for (const m of rawWeatherData.minutely15) {
+      const d = new Date(m.timestamp * 1000)
+      const key = `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`
+      if (!minutelyByDay[key]) minutelyByDay[key] = []
+      minutelyByDay[key].push(m)
+    }
+
+    // Get day 1 (today) — same as generateOpenMeteoDailyForecasts uses dayKeys[1]
+    const dayKeys = Object.keys(minutelyByDay).sort()
+    const todayKey = dayKeys[1] // index 0 is partial previous day
+    if (!todayKey) return null
+
+    const dayMinutely = minutelyByDay[todayKey]
+    return extractBlockAveragedData(dayMinutely)
+  }, [rawWeatherData, todayForecast])
+
   const { chartData, originalAvg, customAvg, originalBest, customBest, avgScores } =
     useMemo(() => {
       if (!todayForecast) {
@@ -294,11 +358,35 @@ export default function AlgorithmDesignerPage() {
       const factorSums: Record<FactorKey, number> = {} as any
       for (const f of FACTOR_META) factorSums[f.key] = 0
 
-      for (const block of blocks) {
-        const bd = block.score.breakdown
+      for (let i = 0; i < blocks.length; i++) {
+        const block = blocks[i]
+        // Start with production breakdown
+        const bd = { ...block.score.breakdown }
+
+        // Override breakdown scores for factors with custom curves
+        if (blockRawData && blockRawData[i] && Object.keys(customCurves).length > 0) {
+          const avgBlock = blockRawData[i]
+          const tideAtBlock = rawTideData
+            ? createTideDataAtTimestamp(rawTideData, avgBlock.timestamp)
+            : null
+
+          for (const [factorKey, curve] of Object.entries(customCurves) as [FactorKey, ScoringCurve][]) {
+            const def = FACTOR_INPUT_MAP[factorKey]
+            const rawVal = def.extractor(
+              avgBlock,
+              tideAtBlock ?? rawTideData,
+              todayForecast.sunrise,
+              todayForecast.sunset,
+            )
+            if (rawVal !== null) {
+              bd[factorKey] = evaluateCurve(curve, rawVal)
+            }
+          }
+        }
+
         const contributions = calculateFactorContributions(bd, normalized)
         const customScore = recalculateScore(bd, normalized)
-        const origScore = getOriginalScore(bd, hasCHS)
+        const origScore = getOriginalScore(block.score.breakdown, hasCHS)
 
         const timeStr = formatTime(block.startTime)
         const windowStr = formatTimeRange(block.startTime, block.endTime)
@@ -339,7 +427,62 @@ export default function AlgorithmDesignerPage() {
         customBest: { window: custBestWindow, score: custBestScore },
         avgScores: avgScoresResult,
       }
-    }, [todayForecast, normalized, hasCHS])
+    }, [todayForecast, normalized, hasCHS, customCurves, blockRawData, rawTideData])
+
+  // Drill-down data for the active factor
+  const drillDownData = useMemo(() => {
+    if (!activeDrillDown || !todayForecast) return null
+
+    const key = activeDrillDown
+    const curve = customCurves[key] ?? DEFAULT_SCORING_CURVES[key]
+    const defaultCurve = DEFAULT_SCORING_CURVES[key]
+    const blocks = todayForecast.twoHourForecasts
+
+    let inputSum = 0
+    let inputCount = 0
+
+    const timelineBlocks = blocks.map((block, i) => {
+      const productionScore = block.score.breakdown[key] ?? 0
+
+      let rawInput: number | null = null
+      let customScore = productionScore
+
+      if (blockRawData && blockRawData[i]) {
+        const avgBlock = blockRawData[i]
+        const tideAtBlock = rawTideData
+          ? createTideDataAtTimestamp(rawTideData, avgBlock.timestamp)
+          : null
+
+        const def = FACTOR_INPUT_MAP[key]
+        rawInput = def.extractor(
+          avgBlock,
+          tideAtBlock ?? rawTideData,
+          todayForecast.sunrise,
+          todayForecast.sunset,
+        )
+
+        if (rawInput !== null) {
+          customScore = evaluateCurve(curve, rawInput)
+          inputSum += rawInput
+          inputCount++
+        }
+      }
+
+      return {
+        time: formatTime(block.startTime),
+        rawInput,
+        productionScore,
+        customScore,
+      }
+    })
+
+    return {
+      curve,
+      defaultCurve,
+      blocks: timelineBlocks,
+      avgInput: inputCount > 0 ? inputSum / inputCount : null,
+    }
+  }, [activeDrillDown, todayForecast, customCurves, blockRawData, rawTideData])
 
   // ─── Render ───────────────────────────────────────────────────────────
 
@@ -411,6 +554,7 @@ export default function AlgorithmDesignerPage() {
                     normalizedWeights={normalized}
                     avgScores={avgScores}
                     activePreset={activePreset}
+                    customCurveKeys={Object.keys(customCurves) as FactorKey[]}
                     onToggle={handleToggle}
                     onWeightChange={handleWeightChange}
                     onApplyPreset={handleApplyPreset}
@@ -418,10 +562,25 @@ export default function AlgorithmDesignerPage() {
                     onDisableAll={handleDisableAll}
                     onReset={handleReset}
                     onCopyWeights={handleCopyWeights}
+                    onFactorDrillDown={handleFactorDrillDown}
                   />
                 </div>
 
-                <div className="xl:col-span-8">
+                <div className="xl:col-span-8 space-y-6">
+                  {/* Factor Drill-Down — stacked above the chart */}
+                  {activeDrillDown && drillDownData && (
+                    <FactorDrillDown
+                      factorKey={activeDrillDown}
+                      onClose={() => setActiveDrillDown(null)}
+                      curve={drillDownData.curve}
+                      defaultCurve={drillDownData.defaultCurve}
+                      onCurveChange={(curve) => handleCurveChange(activeDrillDown, curve)}
+                      onReset={() => handleCurveReset(activeDrillDown)}
+                      blocks={drillDownData.blocks}
+                      avgInput={drillDownData.avgInput}
+                    />
+                  )}
+
                   <StackedScoreChart
                     data={chartData}
                     factorStates={factorStates}

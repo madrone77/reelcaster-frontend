@@ -1,5 +1,6 @@
 'use client'
 
+import { ChevronRight } from 'lucide-react'
 import { Switch } from '@/components/ui/switch'
 import { Slider } from '@/components/ui/slider'
 import type { FactorMeta, FactorState } from '@/app/utils/algorithmDesigner'
@@ -9,8 +10,10 @@ interface FactorWeightRowProps {
   state: FactorState
   normalizedPct: number
   avgScore: number | null
+  hasCustomCurve?: boolean
   onToggle: (enabled: boolean) => void
   onWeightChange: (value: number) => void
+  onDrillDown?: () => void
 }
 
 export default function FactorWeightRow({
@@ -18,8 +21,10 @@ export default function FactorWeightRow({
   state,
   normalizedPct,
   avgScore,
+  hasCustomCurve,
   onToggle,
   onWeightChange,
+  onDrillDown,
 }: FactorWeightRowProps) {
   const Icon = meta.icon
 
@@ -30,7 +35,7 @@ export default function FactorWeightRow({
       }`}
     >
       {/* Fix #4: Use grid layout instead of magic calc offset */}
-      <div className="grid grid-cols-[auto_auto_1fr_auto] items-center gap-2 sm:gap-3">
+      <div className="grid grid-cols-[auto_auto_auto_1fr_auto] items-center gap-2 sm:gap-3">
         <Switch
           checked={state.enabled}
           onCheckedChange={onToggle}
@@ -39,10 +44,15 @@ export default function FactorWeightRow({
 
         {/* Fix #9: On mobile show icon only, on sm+ show icon + name */}
         <div className="flex items-center gap-1.5 shrink-0">
-          <div
-            className="w-2 h-2 rounded-full shrink-0"
-            style={{ backgroundColor: meta.color }}
-          />
+          <div className="relative">
+            <div
+              className="w-2 h-2 rounded-full shrink-0"
+              style={{ backgroundColor: meta.color }}
+            />
+            {hasCustomCurve && (
+              <div className="absolute -top-0.5 -right-0.5 w-1.5 h-1.5 rounded-full bg-blue-500" />
+            )}
+          </div>
           <Icon className="w-4 h-4 shrink-0" style={{ color: meta.color }} />
           <span
             className={`text-sm font-medium truncate hidden sm:inline max-w-[120px] ${
@@ -53,6 +63,15 @@ export default function FactorWeightRow({
             {meta.name}
           </span>
         </div>
+
+        {/* Drill-down button */}
+        <button
+          onClick={onDrillDown}
+          className="w-5 h-5 flex items-center justify-center rounded text-rc-text-muted hover:text-rc-text hover:bg-rc-bg-light transition-colors shrink-0"
+          title={`Drill into ${meta.name}`}
+        >
+          <ChevronRight className="w-3.5 h-3.5" />
+        </button>
 
         <div className="min-w-0">
           <Slider
@@ -72,9 +91,10 @@ export default function FactorWeightRow({
 
       {/* Score badge — aligned under the slider using same grid */}
       {avgScore !== null && state.enabled && (
-        <div className="grid grid-cols-[auto_auto_1fr_auto] items-center gap-2 sm:gap-3 mt-0.5">
+        <div className="grid grid-cols-[auto_auto_auto_1fr_auto] items-center gap-2 sm:gap-3 mt-0.5">
           <div /> {/* switch placeholder */}
           <div /> {/* icon placeholder */}
+          <div /> {/* drill-down placeholder */}
           <span className="text-xs text-rc-text-muted">
             score: {avgScore.toFixed(1)}/10
           </span>
