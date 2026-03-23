@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { ChevronDown, ChevronUp, RotateCcw } from 'lucide-react'
+import { ChevronDown, ChevronRight, RotateCcw, Clipboard, Check } from 'lucide-react'
 import {
   FACTOR_META,
   FACTOR_GROUPS,
@@ -23,6 +23,7 @@ interface WeightControlsPanelProps {
   onEnableAll: () => void
   onDisableAll: () => void
   onReset: () => void
+  onCopyWeights: () => void
 }
 
 export default function WeightControlsPanel({
@@ -36,6 +37,7 @@ export default function WeightControlsPanel({
   onEnableAll,
   onDisableAll,
   onReset,
+  onCopyWeights,
 }: WeightControlsPanelProps) {
   const [collapsedGroups, setCollapsedGroups] = useState<
     Record<FactorGroup, boolean>
@@ -47,10 +49,18 @@ export default function WeightControlsPanel({
     timing: false,
   })
 
+  const [copied, setCopied] = useState(false)
+
   const toggleGroup = (group: FactorGroup) =>
     setCollapsedGroups((prev) => ({ ...prev, [group]: !prev[group] }))
 
   const allEnabled = Object.values(factorStates).every((f) => f.enabled)
+
+  const handleCopy = () => {
+    onCopyWeights()
+    setCopied(true)
+    setTimeout(() => setCopied(false), 2000)
+  }
 
   return (
     <div className="bg-rc-bg-dark border border-rc-bg-light rounded-xl flex flex-col max-h-[calc(100vh-200px)]">
@@ -73,6 +83,23 @@ export default function WeightControlsPanel({
           >
             {allEnabled ? 'Disable All' : 'Enable All'}
           </button>
+          {/* Fix #6: Copy weights as JSON */}
+          <button
+            onClick={handleCopy}
+            className="flex items-center gap-1.5 px-3 py-1.5 text-rc-text-muted hover:text-rc-text text-xs transition-colors ml-auto"
+          >
+            {copied ? (
+              <>
+                <Check className="w-3 h-3 text-emerald-400" />
+                <span className="text-emerald-400">Copied</span>
+              </>
+            ) : (
+              <>
+                <Clipboard className="w-3 h-3" />
+                Copy JSON
+              </>
+            )}
+          </button>
         </div>
       </div>
 
@@ -90,16 +117,16 @@ export default function WeightControlsPanel({
 
           return (
             <div key={group.key}>
-              {/* Group header */}
+              {/* Group header — Fix #3: correct chevron direction */}
               <button
                 onClick={() => toggleGroup(group.key)}
                 className="w-full px-4 py-2 bg-rc-bg-darkest flex justify-between items-center hover:bg-rc-bg-light/50 transition-colors"
               >
                 <span className="text-xs font-semibold uppercase tracking-wider text-rc-text-muted flex items-center gap-1.5">
                   {collapsed ? (
-                    <ChevronDown className="w-3 h-3" />
+                    <ChevronRight className="w-3 h-3" />
                   ) : (
-                    <ChevronUp className="w-3 h-3" />
+                    <ChevronDown className="w-3 h-3" />
                   )}
                   {group.name}
                 </span>
