@@ -11,6 +11,7 @@ import {
   ResponsiveContainer,
   Tooltip,
 } from 'recharts'
+import { BarChart3 } from 'lucide-react'
 import {
   FACTOR_META,
   FACTOR_META_MAP,
@@ -135,6 +136,17 @@ export default function StackedScoreChart({
         </p>
       </div>
 
+      {/* Fix #8: Empty state when all factors disabled */}
+      {enabledFactors.length === 0 ? (
+        <div className="flex flex-col items-center justify-center h-[400px] text-center">
+          <BarChart3 className="w-12 h-12 text-rc-text-muted mb-4" />
+          <h3 className="text-lg font-medium text-rc-text mb-2">No Factors Enabled</h3>
+          <p className="text-sm text-rc-text-muted">
+            Enable at least one factor in the weight panel to see the chart.
+          </p>
+        </div>
+      ) : (
+      <>
       <div className="w-full h-[400px]">
         <ResponsiveContainer width="100%" height="100%">
           <ComposedChart
@@ -225,6 +237,8 @@ export default function StackedScoreChart({
           <span className="text-xs text-rc-text-muted">Original Score</span>
         </div>
       </div>
+      </>
+      )}
     </div>
   )
 }

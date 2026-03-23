@@ -1,6 +1,7 @@
 'use client'
 
-import { useState, useCallback, useMemo } from 'react'
+import { useState, useCallback, useMemo, useEffect, useRef } from 'react'
+import { Info } from 'lucide-react'
 import { AppShell } from '@/app/components/layout'
 import DashboardHeader from '@/app/components/forecast/dashboard-header'
 import ModernLoadingState from '@/app/components/common/modern-loading-state'
@@ -85,10 +86,10 @@ export default function AlgorithmDesignerPage() {
 
   // Data state
   const [todayForecast, setTodayForecast] = useState<OpenMeteoDailyForecast | null>(null)
+  const hasCHSRef = useRef(true) // Fix #5: track CHS as a ref, not derived from factor state
   const [hasCHS, setHasCHS] = useState(true)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [hasLoaded, setHasLoaded] = useState(false)
 
   // Weight state
   const [factorStates, setFactorStates] = useState<Record<FactorKey, FactorState>>(
@@ -110,6 +111,8 @@ export default function AlgorithmDesignerPage() {
       })
 
       const chsAvailable = !!bundle.tide
+      const prevCHS = hasCHSRef.current
+      hasCHSRef.current = chsAvailable
       setHasCHS(chsAvailable)
 
       const forecasts = generateOpenMeteoDailyForecasts(
@@ -121,17 +124,11 @@ export default function AlgorithmDesignerPage() {
       // Use today (index 0)
       setTodayForecast(forecasts[0] ?? null)
 
-      // Reset weights if CHS availability changed
-      setFactorStates((prev) => {
-        const prevCHS = prev.waterTemperature.enabled || prev.currentSpeed.enabled
-        if (prevCHS !== chsAvailable) {
-          setActivePreset('default')
-          return getDefaultFactorStates(chsAvailable)
-        }
-        return prev
-      })
-
-      setHasLoaded(true)
+      // Fix #5: Reset weights only when CHS availability actually changes
+      if (prevCHS !== chsAvailable) {
+        setFactorStates(getDefaultFactorStates(chsAvailable))
+        setActivePreset('default')
+      }
     } catch (e: any) {
       console.error('Algorithm Designer data load failed:', e)
       setError(e.message || 'Failed to load forecast data')
@@ -139,6 +136,37 @@ export default function AlgorithmDesignerPage() {
       setLoading(false)
     }
   }, [selectedHotspot, selectedSpecies])
+
+  // Fix #1: Auto-load on mount
+  const initialLoadDone = useRef(false)
+  useEffect(() => {
+    if (!initialLoadDone.current) {
+      initialLoadDone.current = true
+      loadData()
+    }
+  }, [loadData])
+
+  // Fix #2: Auto-reload when location/hotspot/species change (skip initial)
+  const isFirstRender = useRef(true)
+  useEffect(() => {
+    if (isFirstRender.current) {
+      isFirstRender.current = false
+      return
+    }
+    loadData()
+  }, [selectedHotspot, selectedSpecies]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Fix #10: Keyboard shortcut — Cmd/Ctrl+Enter to refresh
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
+        e.preventDefault()
+        loadData()
+      }
+    }
+    window.addEventListener('keydown', handler)
+    return () => window.removeEventListener('keydown', handler)
+  }, [loadData])
 
   // ─── Weight handlers ───────────────────────────────────────────────────
 
@@ -162,8 +190,8 @@ export default function AlgorithmDesignerPage() {
     (presetId: string) => {
       const preset = WEIGHT_PRESETS.find((p) => p.id === presetId)
       if (!preset) return
-      setFactorStates((prev) => {
-        const next = { ...prev }
+      setFactorStates(() => {
+        const next = {} as Record<FactorKey, FactorState>
         for (const meta of FACTOR_META) {
           next[meta.key] = {
             enabled: (preset.weights[meta.key] ?? 0) > 0,
@@ -220,6 +248,21 @@ export default function AlgorithmDesignerPage() {
     },
     [selectedLocation],
   )
+
+  // ─── Copy weights handler (Fix #6) ────────────────────────────────────
+
+  const handleCopyWeights = useCallback(() => {
+    const normalized = normalizeWeights(factorStates)
+    const output: Record<string, { enabled: boolean; rawWeight: number; normalizedPct: string }> = {}
+    for (const meta of FACTOR_META) {
+      output[meta.key] = {
+        enabled: factorStates[meta.key].enabled,
+        rawWeight: factorStates[meta.key].rawWeight,
+        normalizedPct: `${(normalized[meta.key] * 100).toFixed(1)}%`,
+      }
+    }
+    navigator.clipboard.writeText(JSON.stringify(output, null, 2))
+  }, [factorStates])
 
   // ─── Computed ─────────────────────────────────────────────────────────
 
@@ -322,7 +365,17 @@ export default function AlgorithmDesignerPage() {
             onRefresh={loadData}
           />
 
-          {/* Loading / Error / Empty */}
+          {/* Fix #7: No-CHS data indicator */}
+          {!loading && !hasCHS && todayForecast && (
+            <div className="flex items-center gap-2 px-4 py-2.5 bg-amber-500/10 border border-amber-500/20 rounded-lg">
+              <Info className="w-4 h-4 text-amber-400 shrink-0" />
+              <p className="text-xs text-amber-300">
+                CHS tide station data unavailable for this location. Marine factors (water temperature, current speed/direction) are disabled.
+              </p>
+            </div>
+          )}
+
+          {/* Loading / Error */}
           {loading && <ModernLoadingState forecastDays={3} />}
 
           {error && (
@@ -336,15 +389,6 @@ export default function AlgorithmDesignerPage() {
                   Retry
                 </button>
               </div>
-            </div>
-          )}
-
-          {!loading && !error && !hasLoaded && (
-            <div className="text-center py-16">
-              <p className="text-rc-text-muted text-sm">
-                Select a location and click <strong>Refresh Data</strong> to
-                load forecast data.
-              </p>
             </div>
           )}
 
@@ -373,6 +417,7 @@ export default function AlgorithmDesignerPage() {
                     onEnableAll={handleEnableAll}
                     onDisableAll={handleDisableAll}
                     onReset={handleReset}
+                    onCopyWeights={handleCopyWeights}
                   />
                 </div>
 
@@ -383,6 +428,11 @@ export default function AlgorithmDesignerPage() {
                   />
                 </div>
               </div>
+
+              {/* Keyboard shortcut hint */}
+              <p className="text-xs text-rc-text-muted text-center">
+                Press <kbd className="px-1.5 py-0.5 bg-rc-bg-light rounded text-rc-text-light text-[10px] font-mono">Cmd+Enter</kbd> to refresh data
+              </p>
             </>
           )}
         </div>
