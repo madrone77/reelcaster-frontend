@@ -9,6 +9,7 @@
 import type { FactorKey } from './algorithmDesigner'
 import type { OpenMeteo15MinData } from './openMeteoApi'
 import type { CHSWaterData } from './chsTideApi'
+import type { TidalPhaseConfig } from './tidalPhaseScoring'
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
@@ -528,4 +529,13 @@ export function extractBlockAveragedData(
 
 function avg(items: OpenMeteo15MinData[], getter: (item: OpenMeteo15MinData) => number): number {
   return items.reduce((sum, item) => sum + getter(item), 0) / items.length
+}
+
+// ─── Custom Curve Value Union ───────────────────────────────────────────
+
+/** Union type — tide factor can use TidalPhaseConfig, all others use ScoringCurve */
+export type CustomCurveValue = ScoringCurve | TidalPhaseConfig
+
+export function isTidalPhaseConfig(curve: CustomCurveValue): curve is TidalPhaseConfig {
+  return 'phaseProfile' in curve
 }

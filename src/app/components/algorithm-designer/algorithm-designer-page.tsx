@@ -42,8 +42,15 @@ import {
   evaluateCurve,
   extractBlockAveragedData,
   FACTOR_INPUT_MAP,
+  isTidalPhaseConfig,
   type ScoringCurve,
+  type CustomCurveValue,
 } from '@/app/utils/scoringCurves'
+import {
+  computeTidalPhaseScore,
+  DEFAULT_TIDAL_PHASE_CONFIG,
+  type TidalPhaseConfig,
+} from '@/app/utils/tidalPhaseScoring'
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
@@ -110,7 +117,7 @@ export default function AlgorithmDesignerPage() {
 
   // Drill-down state
   const [activeDrillDown, setActiveDrillDown] = useState<FactorKey | null>(null)
-  const [customCurves, setCustomCurves] = useState<Partial<Record<FactorKey, ScoringCurve>>>({})
+  const [customCurves, setCustomCurves] = useState<Partial<Record<FactorKey, CustomCurveValue>>>({})
   const [rawWeatherData, setRawWeatherData] = useState<ProcessedOpenMeteoData | null>(null)
   const [rawTideData, setRawTideData] = useState<CHSWaterData | null>(null)
 
@@ -260,7 +267,7 @@ export default function AlgorithmDesignerPage() {
   }, [])
 
   const handleCurveChange = useCallback(
-    (key: FactorKey, curve: ScoringCurve) => {
+    (key: FactorKey, curve: CustomCurveValue) => {
       setCustomCurves((prev) => ({ ...prev, [key]: curve }))
     },
     [],
@@ -370,16 +377,25 @@ export default function AlgorithmDesignerPage() {
             ? createTideDataAtTimestamp(rawTideData, avgBlock.timestamp)
             : null
 
-          for (const [factorKey, curve] of Object.entries(customCurves) as [FactorKey, ScoringCurve][]) {
-            const def = FACTOR_INPUT_MAP[factorKey]
-            const rawVal = def.extractor(
-              avgBlock,
-              tideAtBlock ?? rawTideData,
-              todayForecast.sunrise,
-              todayForecast.sunset,
-            )
-            if (rawVal !== null) {
-              bd[factorKey] = evaluateCurve(curve, rawVal)
+          for (const [factorKey, curve] of Object.entries(customCurves) as [FactorKey, CustomCurveValue][]) {
+            // Tidal phase scoring
+            if (factorKey === 'tide' && isTidalPhaseConfig(curve) && tideAtBlock) {
+              bd.tide = computeTidalPhaseScore(curve, tideAtBlock, avgBlock.timestamp).score
+              continue
+            }
+
+            // Single-curve scoring (all other factors)
+            if (!isTidalPhaseConfig(curve)) {
+              const def = FACTOR_INPUT_MAP[factorKey]
+              const rawVal = def.extractor(
+                avgBlock,
+                tideAtBlock ?? rawTideData,
+                todayForecast.sunrise,
+                todayForecast.sunset,
+              )
+              if (rawVal !== null) {
+                bd[factorKey] = evaluateCurve(curve, rawVal)
+              }
             }
           }
         }
@@ -434,9 +450,18 @@ export default function AlgorithmDesignerPage() {
     if (!activeDrillDown || !todayForecast) return null
 
     const key = activeDrillDown
-    const curve = customCurves[key] ?? DEFAULT_SCORING_CURVES[key]
+    const customCurve = customCurves[key]
+    const isTide = key === 'tide'
+
+    // Resolve single-curve (non-tide or tide without phase config)
+    const curve: ScoringCurve = (customCurve && !isTidalPhaseConfig(customCurve) ? customCurve : null) ?? DEFAULT_SCORING_CURVES[key]
     const defaultCurve = DEFAULT_SCORING_CURVES[key]
     const blocks = todayForecast.twoHourForecasts
+
+    // Resolve tidal phase config
+    const tidalPhaseConfig: TidalPhaseConfig = isTide && customCurve && isTidalPhaseConfig(customCurve)
+      ? customCurve
+      : DEFAULT_TIDAL_PHASE_CONFIG
 
     let inputSum = 0
     let inputCount = 0
@@ -453,16 +478,25 @@ export default function AlgorithmDesignerPage() {
           ? createTideDataAtTimestamp(rawTideData, avgBlock.timestamp)
           : null
 
-        const def = FACTOR_INPUT_MAP[key]
-        rawInput = def.extractor(
-          avgBlock,
-          tideAtBlock ?? rawTideData,
-          todayForecast.sunrise,
-          todayForecast.sunset,
-        )
+        if (isTide && tideAtBlock) {
+          // Tidal phase scoring — rawInput is phase percentage
+          const result = computeTidalPhaseScore(tidalPhaseConfig, tideAtBlock, avgBlock.timestamp)
+          rawInput = result.phase * 100
+          customScore = result.score
+        } else {
+          const def = FACTOR_INPUT_MAP[key]
+          rawInput = def.extractor(
+            avgBlock,
+            tideAtBlock ?? rawTideData,
+            todayForecast.sunrise,
+            todayForecast.sunset,
+          )
+          if (rawInput !== null) {
+            customScore = evaluateCurve(curve, rawInput)
+          }
+        }
 
         if (rawInput !== null) {
-          customScore = evaluateCurve(curve, rawInput)
           inputSum += rawInput
           inputCount++
         }
@@ -481,6 +515,7 @@ export default function AlgorithmDesignerPage() {
       defaultCurve,
       blocks: timelineBlocks,
       avgInput: inputCount > 0 ? inputSum / inputCount : null,
+      tidalPhaseConfig: isTide ? tidalPhaseConfig : undefined,
     }
   }, [activeDrillDown, todayForecast, customCurves, blockRawData, rawTideData])
 
@@ -578,6 +613,10 @@ export default function AlgorithmDesignerPage() {
                       onReset={() => handleCurveReset(activeDrillDown)}
                       blocks={drillDownData.blocks}
                       avgInput={drillDownData.avgInput}
+                      tidalPhaseConfig={drillDownData.tidalPhaseConfig}
+                      onTidalPhaseConfigChange={(cfg) => handleCurveChange(activeDrillDown, cfg)}
+                      rawTideData={rawTideData}
+                      todayForecast={todayForecast}
                     />
                   )}
 
