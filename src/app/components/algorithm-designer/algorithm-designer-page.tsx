@@ -4,7 +4,6 @@ import { useState, useCallback, useMemo, useEffect, useRef } from 'react'
 import { Info } from 'lucide-react'
 import { AppShell } from '@/app/components/layout'
 import DashboardHeader from '@/app/components/forecast/dashboard-header'
-import ModernLoadingState from '@/app/components/common/modern-loading-state'
 import ErrorState from '@/app/components/common/error-state'
 import DataControls from './data-controls'
 import WeightControlsPanel from './weight-controls-panel'
@@ -38,6 +37,10 @@ import {
   type FactorState,
 } from '@/app/utils/algorithmDesigner'
 import {
+  PROD_CHS_WEIGHTS as SHARED_CHS_WEIGHTS,
+  PROD_NO_CHS_WEIGHTS as SHARED_NO_CHS_WEIGHTS,
+} from '@/app/utils/algorithmWeights'
+import {
   DEFAULT_SCORING_CURVES,
   evaluateCurve,
   extractBlockAveragedData,
@@ -69,21 +72,9 @@ function formatTimeRange(startTs: number, endTs: number): string {
   return `${formatTime(startTs)}-${formatTime(endTs)}`
 }
 
-/** Production weights (with CHS data) */
-const PROD_CHS_WEIGHTS: Record<FactorKey, number> = {
-  pressure: 0.13, wind: 0.12, temperature: 0.09, waterTemperature: 0.05,
-  precipitation: 0.10, tide: 0.08, currentSpeed: 0.04, currentDirection: 0.02,
-  cloudCover: 0.06, visibility: 0.06, sunshine: 0.05, lightning: 0.05,
-  atmospheric: 0.04, comfort: 0.04, timeOfDay: 0.04, species: 0.03,
-}
-
-/** Production weights (without CHS data) */
-const PROD_NO_CHS_WEIGHTS: Record<FactorKey, number> = {
-  pressure: 0.14, wind: 0.13, temperature: 0.11, waterTemperature: 0,
-  precipitation: 0.11, tide: 0.11, currentSpeed: 0, currentDirection: 0,
-  cloudCover: 0.06, visibility: 0.06, sunshine: 0.05, lightning: 0.05,
-  atmospheric: 0.04, comfort: 0.04, timeOfDay: 0.04, species: 0.06,
-}
+/** Production weights — imported from shared utility */
+const PROD_CHS_WEIGHTS = SHARED_CHS_WEIGHTS
+const PROD_NO_CHS_WEIGHTS = SHARED_NO_CHS_WEIGHTS
 
 function getOriginalScore(breakdown: FishingScore['breakdown'], hasCHS: boolean): number {
   const w = hasCHS ? PROD_CHS_WEIGHTS : PROD_NO_CHS_WEIGHTS
@@ -554,7 +545,12 @@ export default function AlgorithmDesignerPage() {
           )}
 
           {/* Loading / Error */}
-          {loading && <ModernLoadingState forecastDays={3} />}
+          {loading && (
+            <div className="flex items-center justify-center py-16">
+              <div className="w-6 h-6 border-2 border-rc-bg-light border-t-blue-500 rounded-full animate-spin" />
+              <span className="ml-3 text-sm text-rc-text-muted">Loading forecast data...</span>
+            </div>
+          )}
 
           {error && (
             <div>
