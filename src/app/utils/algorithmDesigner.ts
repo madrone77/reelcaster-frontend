@@ -6,12 +6,14 @@
 
 import {
   Gauge,
+  TrendingDown,
   Wind,
   Thermometer,
   CloudRain,
   Waves,
   Droplets,
   ArrowRightLeft,
+  Activity,
   Compass,
   Cloud,
   Eye,
@@ -29,12 +31,14 @@ import type { FishingScore } from './fishingCalculations'
 
 export type FactorKey =
   | 'pressure'
+  | 'pressureTrend'
   | 'wind'
   | 'temperature'
   | 'waterTemperature'
   | 'precipitation'
   | 'tide'
   | 'currentSpeed'
+  | 'currentAcceleration'
   | 'currentDirection'
   | 'cloudCover'
   | 'visibility'
@@ -62,17 +66,19 @@ export interface FactorMeta {
   color: string
 }
 
-// ─── Factor metadata (16 entries) ───────────────────────────────────────────
+// ─── Factor metadata (18 entries) ───────────────────────────────────────────
 
 export const FACTOR_META: FactorMeta[] = [
-  { key: 'pressure',         name: 'Barometric Pressure',   icon: Gauge,          group: 'weather',       defaultWeight: 13, color: '#3b82f6' },
-  { key: 'wind',             name: 'Wind Speed',            icon: Wind,           group: 'weather',       defaultWeight: 12, color: '#06b6d4' },
-  { key: 'temperature',      name: 'Air Temperature',       icon: Thermometer,    group: 'weather',       defaultWeight: 9,  color: '#f97316' },
-  { key: 'precipitation',    name: 'Precipitation',         icon: CloudRain,      group: 'weather',       defaultWeight: 10, color: '#6366f1' },
-  { key: 'tide',             name: 'Tide Movement',         icon: Waves,          group: 'marine',        defaultWeight: 8,  color: '#14b8a6' },
-  { key: 'waterTemperature', name: 'Water Temperature',     icon: Droplets,       group: 'marine',        defaultWeight: 5,  color: '#0ea5e9' },
-  { key: 'currentSpeed',     name: 'Current Speed',         icon: ArrowRightLeft, group: 'marine',        defaultWeight: 4,  color: '#22d3ee' },
-  { key: 'currentDirection', name: 'Current Direction',     icon: Compass,        group: 'marine',        defaultWeight: 2,  color: '#67e8f9' },
+  { key: 'pressure',             name: 'Barometric Pressure',   icon: Gauge,          group: 'weather',       defaultWeight: 11, color: '#3b82f6' },
+  { key: 'pressureTrend',        name: 'Pressure Trend',        icon: TrendingDown,   group: 'weather',       defaultWeight: 8,  color: '#60a5fa' },
+  { key: 'wind',                 name: 'Wind Speed',            icon: Wind,           group: 'weather',       defaultWeight: 11, color: '#06b6d4' },
+  { key: 'temperature',          name: 'Air Temperature',       icon: Thermometer,    group: 'weather',       defaultWeight: 8,  color: '#f97316' },
+  { key: 'precipitation',        name: 'Precipitation',         icon: CloudRain,      group: 'weather',       defaultWeight: 9,  color: '#6366f1' },
+  { key: 'tide',                 name: 'Tide Movement',         icon: Waves,          group: 'marine',        defaultWeight: 7,  color: '#14b8a6' },
+  { key: 'waterTemperature',     name: 'Water Temperature',     icon: Droplets,       group: 'marine',        defaultWeight: 4,  color: '#0ea5e9' },
+  { key: 'currentSpeed',         name: 'Current Speed',         icon: ArrowRightLeft, group: 'marine',        defaultWeight: 3,  color: '#22d3ee' },
+  { key: 'currentAcceleration',  name: 'Current Acceleration',  icon: Activity,       group: 'marine',        defaultWeight: 4,  color: '#2dd4bf' },
+  { key: 'currentDirection',     name: 'Current Direction',     icon: Compass,        group: 'marine',        defaultWeight: 2,  color: '#67e8f9' },
   { key: 'cloudCover',       name: 'Cloud Cover',           icon: Cloud,          group: 'environmental', defaultWeight: 6,  color: '#a78bfa' },
   { key: 'visibility',       name: 'Visibility',            icon: Eye,            group: 'environmental', defaultWeight: 6,  color: '#818cf8' },
   { key: 'sunshine',         name: 'Sunshine',              icon: Sun,            group: 'environmental', defaultWeight: 5,  color: '#fbbf24' },
@@ -113,9 +119,9 @@ export const WEIGHT_PRESETS: WeightPreset[] = [
     id: 'weather-heavy',
     name: 'Weather Heavy',
     weights: {
-      pressure: 20, wind: 18, temperature: 14, precipitation: 16,
-      tide: 5, waterTemperature: 3, currentSpeed: 2, currentDirection: 1,
-      cloudCover: 6, visibility: 4, sunshine: 3, atmospheric: 3,
+      pressure: 16, pressureTrend: 14, wind: 16, temperature: 12, precipitation: 14,
+      tide: 4, waterTemperature: 2, currentSpeed: 1, currentAcceleration: 2, currentDirection: 1,
+      cloudCover: 5, visibility: 4, sunshine: 3, atmospheric: 3,
       lightning: 2, comfort: 1, timeOfDay: 1, species: 1,
     },
   },
@@ -123,20 +129,20 @@ export const WEIGHT_PRESETS: WeightPreset[] = [
     id: 'tide-focused',
     name: 'Tide Focused',
     weights: {
-      pressure: 8, wind: 8, temperature: 5, precipitation: 5,
-      tide: 22, waterTemperature: 10, currentSpeed: 12, currentDirection: 8,
+      pressure: 6, pressureTrend: 4, wind: 6, temperature: 4, precipitation: 4,
+      tide: 20, waterTemperature: 8, currentSpeed: 10, currentAcceleration: 12, currentDirection: 6,
       cloudCover: 3, visibility: 3, sunshine: 2, atmospheric: 2,
-      lightning: 3, comfort: 2, timeOfDay: 4, species: 3,
+      lightning: 3, comfort: 2, timeOfDay: 3, species: 2,
     },
   },
   {
     id: 'safety-first',
     name: 'Safety First',
     weights: {
-      pressure: 8, wind: 18, temperature: 6, precipitation: 12,
-      tide: 5, waterTemperature: 3, currentSpeed: 4, currentDirection: 2,
-      cloudCover: 4, visibility: 10, sunshine: 2, atmospheric: 6,
-      lightning: 12, comfort: 5, timeOfDay: 2, species: 1,
+      pressure: 7, pressureTrend: 5, wind: 16, temperature: 5, precipitation: 11,
+      tide: 4, waterTemperature: 3, currentSpeed: 3, currentAcceleration: 3, currentDirection: 2,
+      cloudCover: 4, visibility: 9, sunshine: 2, atmospheric: 5,
+      lightning: 11, comfort: 5, timeOfDay: 2, species: 1,
     },
   },
 ]
@@ -198,7 +204,7 @@ export function getDefaultFactorStates(hasCHS: boolean): Record<FactorKey, Facto
     FACTOR_META.map((f) => [
       f.key,
       {
-        enabled: hasCHS ? true : !['waterTemperature', 'currentSpeed', 'currentDirection'].includes(f.key),
+        enabled: hasCHS ? true : !['waterTemperature', 'currentSpeed', 'currentAcceleration', 'currentDirection'].includes(f.key),
         rawWeight: f.defaultWeight,
       } satisfies FactorState,
     ]),

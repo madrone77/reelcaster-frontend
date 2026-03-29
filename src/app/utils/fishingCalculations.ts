@@ -277,9 +277,10 @@ export interface FishingScore {
   total: number
   breakdown: {
     pressure: number
+    pressureTrend: number
     wind: number
     temperature: number
-    waterTemperature: number // NEW: Water temperature factor
+    waterTemperature: number
     precipitation: number
     cloudCover: number
     timeOfDay: number
@@ -289,9 +290,10 @@ export interface FishingScore {
     atmospheric: number
     comfort: number
     tide: number
-    currentSpeed: number // NEW: Current speed factor
-    currentDirection: number // NEW: Current direction factor
-    species: number // Species-specific adjustment
+    currentSpeed: number
+    currentAcceleration: number
+    currentDirection: number
+    species: number
   }
   // Species-specific fields
   isSafe?: boolean
@@ -381,6 +383,7 @@ export const calculateOpenMeteoFishingScore = (
         breakdown: {
           // V2 uses 'pressureTrend', V1 uses 'pressure'
           pressure: (speciesResult.factors.pressureTrend?.score || speciesResult.factors.pressure?.score || 0.5) * 10,
+          pressureTrend: 5, // Computed in general algorithm, neutral default for species
           // V2 uses 'seaState', V1 uses 'wind'
           wind: (speciesResult.factors.seaState?.score || speciesResult.factors.wind?.score || 0.5) * 10,
           temperature: speciesResult.factors.waterTemp?.score * 10 || speciesResult.factors.temperature?.score * 10 || 5,
@@ -396,6 +399,7 @@ export const calculateOpenMeteoFishingScore = (
           // V2 uses 'tidalCurrent', V1 uses 'tidalRange' or 'slackTide'
           tide: (speciesResult.factors.tidalCurrent?.score || speciesResult.factors.tidalRange?.score || speciesResult.factors.slackTide?.score || 0.5) * 10,
           currentSpeed: (speciesResult.factors.tidalCurrent?.score || speciesResult.factors.currentFlow?.score || 0.5) * 10,
+          currentAcceleration: 5, // Not in species algorithms
           currentDirection: 5, // Not separately tracked
           species: seasonalityScore * 10,
         },
@@ -414,7 +418,15 @@ export const calculateOpenMeteoFishingScore = (
   // Enhanced algorithm with 13 factors including species-specific adjustments
 
   // Core Weather Factors - with species adjustments
-  let pressureScore = calculatePressureScore(minuteData.pressure) // 14%
+  let pressureScore = calculatePressureScore(minuteData.pressure)
+
+  // Pressure trend: compute 3-hour delta from pressure history
+  let pressureTrendDelta = 0
+  if (extendedContext?.pressureHistory && extendedContext.pressureHistory.length >= 12) {
+    const hist = extendedContext.pressureHistory
+    pressureTrendDelta = minuteData.pressure - hist[Math.max(0, hist.length - 12)]
+  }
+  const pressureTrendScore = calculatePressureTrendScore(pressureTrendDelta)
   let windScore = calculateEnhancedWindScore(
     minuteData.windSpeed / 3.6,
     minuteData.windGusts / 3.6,
@@ -445,8 +457,9 @@ export const calculateOpenMeteoFishingScore = (
   let tideScore: number
   let waterTempScore = 5.0 // Default neutral score
   let currentSpeedScore = 5.0
+  let currentAccelScore = 5.0
   let currentDirectionScore = 5.0
-  
+
   if (tideData) {
     // CHS data available - use enhanced scoring
     tideScore = calculateEnhancedTideScore(tideData, speciesProfile)
@@ -454,6 +467,14 @@ export const calculateOpenMeteoFishingScore = (
     const currentScores = calculateCurrentScore(tideData.currentSpeed, tideData.currentDirection, speciesProfile)
     currentSpeedScore = currentScores.speed
     currentDirectionScore = currentScores.direction
+
+    // Current acceleration: compute speed 30 min ago vs now
+    if (tideData.currentSpeed !== undefined) {
+      const tideState30minAgo = calculateTideStateAtTimestamp(tideData, minuteData.timestamp - 1800)
+      const speed30minAgo = tideState30minAgo?.currentSpeed ?? tideData.currentSpeed
+      const accel = (tideData.currentSpeed - speed30minAgo) / 0.5 // kt/hr
+      currentAccelScore = calculateCurrentAccelerationScore(accel)
+    }
   } else {
     // No tide data - use default score
     tideScore = 5.0
@@ -529,6 +550,7 @@ export const calculateOpenMeteoFishingScore = (
 
   const breakdown = {
     pressure: Math.round(pressureScore * 100) / 100,
+    pressureTrend: Math.round(pressureTrendScore * 100) / 100,
     wind: Math.round(windScore * 100) / 100,
     temperature: Math.round(temperatureScore * 100) / 100,
     waterTemperature: Math.round(waterTempScore * 100) / 100,
@@ -542,6 +564,7 @@ export const calculateOpenMeteoFishingScore = (
     comfort: Math.round(comfortScore * 100) / 100,
     tide: Math.round(tideScore * 100) / 100,
     currentSpeed: Math.round(currentSpeedScore * 100) / 100,
+    currentAcceleration: Math.round(currentAccelScore * 100) / 100,
     currentDirection: Math.round(currentDirectionScore * 100) / 100,
     species: Math.round(speciesAdjustment * 100) / 100,
   }
@@ -550,42 +573,45 @@ export const calculateOpenMeteoFishingScore = (
   let totalScore: number
   
   if (tideData && 'waterLevels' in tideData) {
-    // With CHS data - include water temperature and current factors
+    // With CHS data - 18 factors including pressure trend and current acceleration
     totalScore =
-      pressureScore * 0.13 + // Barometric pressure
-      windScore * 0.12 + // Enhanced wind
-      temperatureScore * 0.09 + // Air temperature
-      waterTempScore * 0.05 + // Water temperature (NEW)
-      precipitationScore * 0.10 + // Precipitation
-      tideScore * 0.08 + // Tide movement
-      currentSpeedScore * 0.04 + // Current speed (NEW)
-      currentDirectionScore * 0.02 + // Current direction (NEW)
-      cloudScore * 0.06 + // Cloud cover
-      visibilityScore * 0.06 + // Visibility
-      sunshineScore * 0.05 + // Sunshine duration
-      lightningScore * 0.05 + // Lightning safety
-      atmosphericScore * 0.04 + // Atmospheric stability
-      comfortScore * 0.04 + // Angler comfort
-      timeScore * 0.04 + // Time of day
-      speciesAdjustment * 0.03 // Species factor
-    // Total = 1.00 (100%)
+      pressureScore * 0.11 +
+      pressureTrendScore * 0.08 +
+      windScore * 0.11 +
+      temperatureScore * 0.08 +
+      waterTempScore * 0.04 +
+      precipitationScore * 0.09 +
+      tideScore * 0.07 +
+      currentSpeedScore * 0.03 +
+      currentAccelScore * 0.04 +
+      currentDirectionScore * 0.02 +
+      cloudScore * 0.05 +
+      visibilityScore * 0.05 +
+      sunshineScore * 0.05 +
+      lightningScore * 0.04 +
+      atmosphericScore * 0.04 +
+      comfortScore * 0.03 +
+      timeScore * 0.04 +
+      speciesAdjustment * 0.03
+    // Total = 1.00
   } else {
-    // Without CHS data - use original weights
+    // Without CHS data — 15 factors (marine factors zeroed)
     totalScore =
-      pressureScore * 0.14 + // Barometric pressure
-      windScore * 0.13 + // Enhanced wind
-      temperatureScore * 0.11 + // Temperature
-      precipitationScore * 0.11 + // Precipitation
-      tideScore * 0.11 + // Tide conditions
-      cloudScore * 0.06 + // Cloud cover
-      visibilityScore * 0.06 + // Visibility
-      sunshineScore * 0.05 + // Sunshine duration
-      lightningScore * 0.05 + // Lightning safety
-      atmosphericScore * 0.04 + // Atmospheric stability
-      comfortScore * 0.04 + // Angler comfort
-      timeScore * 0.04 + // Time of day
-      speciesAdjustment * 0.06 // Species factor
-    // Total = 1.00 (100%)
+      pressureScore * 0.12 +
+      pressureTrendScore * 0.08 +
+      windScore * 0.12 +
+      temperatureScore * 0.10 +
+      precipitationScore * 0.10 +
+      tideScore * 0.10 +
+      cloudScore * 0.05 +
+      visibilityScore * 0.05 +
+      sunshineScore * 0.05 +
+      lightningScore * 0.05 +
+      atmosphericScore * 0.04 +
+      comfortScore * 0.04 +
+      timeScore * 0.04 +
+      speciesAdjustment * 0.06
+    // Total = 1.00 (marine factors: waterTemp, currentSpeed, currentAccel, currentDir = 0)
   }
 
   return {
@@ -775,6 +801,31 @@ export const calculateEnhancedWindScore = (windSpeed: number, windGusts: number,
   else if (windDirection >= 270 || windDirection <= 45) directionBonus = 0.95 // Slight westerly penalty
 
   return Math.min(score * directionBonus, 10)
+}
+
+// Pressure trend scoring — falling pressure triggers feeding
+export const calculatePressureTrendScore = (delta3hr: number): number => {
+  // delta3hr: pressure change over 3 hours in hPa (negative = falling)
+  // Falling pressure is good for fishing (fish feed more aggressively)
+  if (delta3hr <= -4) return 10    // Rapid fall — peak feeding trigger
+  if (delta3hr <= -2) return 9     // Falling — very good
+  if (delta3hr <= -0.5) return 7   // Slightly falling — good
+  if (delta3hr <= 0.5) return 5    // Stable — neutral
+  if (delta3hr <= 2) return 3      // Rising — below average
+  if (delta3hr <= 4) return 1      // Rapid rise — worst
+  return 1
+}
+
+// Current acceleration scoring — rate of change in current speed
+export const calculateCurrentAccelerationScore = (accelKtPerHr: number): number => {
+  // accelKtPerHr: change in current speed (kt/hr) over 30 min
+  // Positive = accelerating (baitfish sweep), threshold 0.3+ kt/hr (NOAA CO-OPS)
+  const absAccel = Math.abs(accelKtPerHr)
+  if (absAccel < 0.1) return 3     // Stagnant — no change
+  if (absAccel < 0.3) return 5     // Slight change
+  if (absAccel < 0.5) return 8     // NOAA threshold — good trigger
+  if (absAccel < 0.8) return 10    // Strong acceleration — peak
+  return 9                          // Very strong (diminishing returns)
 }
 
 // New scoring functions for water temperature and currents

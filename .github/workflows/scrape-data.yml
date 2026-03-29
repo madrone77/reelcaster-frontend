@@ -108,6 +108,45 @@ jobs:
             --max-time 600 || echo "notifications_failed=true" >> $GITHUB_OUTPUT
         continue-on-error: true
 
+      - name: Capture Prediction Snapshots
+        id: capture_predictions
+        run: |
+          echo "Capturing prediction snapshots for accuracy tracking..."
+          curl -X POST "${{ secrets.APP_URL }}/api/admin/accuracy/capture-predictions" \
+            -H "Content-Type: application/json" \
+            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
+            -L \
+            --fail \
+            --show-error \
+            --max-time 300 || echo "capture_failed=true" >> $GITHUB_OUTPUT
+        continue-on-error: true
+
+      - name: Fetch Historical Actuals
+        id: fetch_actuals
+        run: |
+          echo "Fetching historical actuals for accuracy tracking..."
+          curl -X POST "${{ secrets.APP_URL }}/api/admin/accuracy/fetch-actuals" \
+            -H "Content-Type: application/json" \
+            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
+            -L \
+            --fail \
+            --show-error \
+            --max-time 300 || echo "actuals_failed=true" >> $GITHUB_OUTPUT
+        continue-on-error: true
+
+      - name: Compute Accuracy Comparisons
+        id: compute_comparisons
+        run: |
+          echo "Computing accuracy comparisons..."
+          curl -X POST "${{ secrets.APP_URL }}/api/admin/accuracy/compute-comparisons" \
+            -H "Content-Type: application/json" \
+            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
+            -L \
+            --fail \
+            --show-error \
+            --max-time 300 || echo "comparisons_failed=true" >> $GITHUB_OUTPUT
+        continue-on-error: true
+
       - name: Create summary
         if: always()
         run: |
@@ -175,6 +214,25 @@ jobs:
           else
             echo "### ❌ Scheduled Notifications" >> $GITHUB_STEP_SUMMARY
             echo "- Status: Failed or Skipped" >> $GITHUB_STEP_SUMMARY
+          fi
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          # Prediction Accuracy Tracking
+          echo "### Prediction Accuracy Tracking" >> $GITHUB_STEP_SUMMARY
+          if [ "${{ steps.capture_predictions.outcome }}" == "success" ]; then
+            echo "- Capture Predictions: ✅ Success" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "- Capture Predictions: ❌ Failed" >> $GITHUB_STEP_SUMMARY
+          fi
+          if [ "${{ steps.fetch_actuals.outcome }}" == "success" ]; then
+            echo "- Fetch Actuals: ✅ Success" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "- Fetch Actuals: ❌ Failed" >> $GITHUB_STEP_SUMMARY
+          fi
+          if [ "${{ steps.compute_comparisons.outcome }}" == "success" ]; then
+            echo "- Compute Comparisons: ✅ Success" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "- Compute Comparisons: ❌ Failed" >> $GITHUB_STEP_SUMMARY
           fi
 
       - name: Notify on failure

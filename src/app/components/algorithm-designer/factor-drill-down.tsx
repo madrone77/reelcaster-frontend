@@ -3,9 +3,13 @@
 import { ArrowLeft, RotateCcw } from 'lucide-react'
 import { FACTOR_META_MAP, type FactorKey } from '@/app/utils/algorithmDesigner'
 import type { ScoringCurve } from '@/app/utils/scoringCurves'
+import type { TidalPhaseConfig } from '@/app/utils/tidalPhaseScoring'
+import type { CHSWaterData } from '@/app/utils/chsTideApi'
+import type { OpenMeteoDailyForecast } from '@/app/utils/fishingCalculations'
 import RawDataTimeline, { type TimelineBlock } from './raw-data-timeline'
 import ScoringCurveChart from './scoring-curve-chart'
 import BreakpointEditor from './breakpoint-editor'
+import TidalPhaseDrillDown from './tidal-phase/tidal-phase-drill-down'
 
 interface FactorDrillDownProps {
   factorKey: FactorKey
@@ -16,6 +20,11 @@ interface FactorDrillDownProps {
   onReset: () => void
   blocks: TimelineBlock[]
   avgInput: number | null
+  // Tidal phase scoring (optional — only for tide factor)
+  tidalPhaseConfig?: TidalPhaseConfig
+  onTidalPhaseConfigChange?: (config: TidalPhaseConfig) => void
+  rawTideData?: CHSWaterData | null
+  todayForecast?: OpenMeteoDailyForecast | null
 }
 
 export default function FactorDrillDown({
@@ -27,11 +36,16 @@ export default function FactorDrillDown({
   onReset,
   blocks,
   avgInput,
+  tidalPhaseConfig,
+  onTidalPhaseConfigChange,
+  rawTideData,
+  todayForecast,
 }: FactorDrillDownProps) {
   const meta = FACTOR_META_MAP[factorKey]
   const Icon = meta.icon
   const isSpecies = factorKey === 'species'
-  const hasCustom = JSON.stringify(curve.breakpoints) !== JSON.stringify(defaultCurve.breakpoints)
+  const isTidalPhase = factorKey === 'tide' && tidalPhaseConfig && onTidalPhaseConfigChange && rawTideData && todayForecast
+  const hasCustom = !isTidalPhase && JSON.stringify(curve.breakpoints) !== JSON.stringify(defaultCurve.breakpoints)
 
   return (
     <div className="bg-rc-bg-dark border border-rc-bg-light rounded-xl overflow-hidden">
@@ -54,7 +68,9 @@ export default function FactorDrillDown({
 
         <div className="min-w-0 flex-1">
           <h3 className="text-sm font-semibold text-rc-text">{meta.name}</h3>
-          <p className="text-xs text-rc-text-muted truncate">{curve.description}</p>
+          <p className="text-xs text-rc-text-muted truncate">
+            {isTidalPhase ? 'Phase-normalized scoring with configurable flood/ebb segments' : curve.description}
+          </p>
         </div>
 
         {hasCustom && !isSpecies && (
@@ -69,84 +85,95 @@ export default function FactorDrillDown({
       </div>
 
       {/* ── Content ──────────────────────────────────────────── */}
-      <div className="p-4 space-y-4">
-        {/* Top row: two charts side by side */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div>
-            <h4 className="text-xs font-semibold text-rc-text-muted uppercase tracking-wider mb-2">
-              Raw Data + Score
-            </h4>
-            <div className="bg-rc-bg-darkest border border-rc-bg-light rounded-xl p-2">
-              <RawDataTimeline
-                blocks={blocks}
-                color={meta.color}
-                inputLabel={curve.inputLabel}
-                inputUnit={curve.inputUnit}
-              />
-            </div>
-          </div>
-
-          <div>
-            <h4 className="text-xs font-semibold text-rc-text-muted uppercase tracking-wider mb-2">
-              Scoring Curve
-            </h4>
-            <div className="bg-rc-bg-darkest border border-rc-bg-light rounded-xl p-2">
-              {isSpecies ? (
-                <div className="h-[200px] flex items-center justify-center">
-                  <p className="text-xs text-rc-text-muted text-center px-4">
-                    Composite modifier from species profiles — not a single-input curve.
-                  </p>
+      <div className="p-4">
+        {isTidalPhase ? (
+          <TidalPhaseDrillDown
+            config={tidalPhaseConfig}
+            onConfigChange={onTidalPhaseConfigChange}
+            rawTideData={rawTideData}
+            todayForecast={todayForecast}
+          />
+        ) : (
+          <div className="space-y-4">
+            {/* Top row: two charts side by side */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <h4 className="text-xs font-semibold text-rc-text-muted uppercase tracking-wider mb-2">
+                  Raw Data + Score
+                </h4>
+                <div className="bg-rc-bg-darkest border border-rc-bg-light rounded-xl p-2">
+                  <RawDataTimeline
+                    blocks={blocks}
+                    color={meta.color}
+                    inputLabel={curve.inputLabel}
+                    inputUnit={curve.inputUnit}
+                  />
                 </div>
-              ) : (
-                <ScoringCurveChart
-                  curve={curve}
-                  defaultCurve={defaultCurve}
-                  color={meta.color}
-                  avgInput={avgInput}
-                />
-              )}
-            </div>
-          </div>
-        </div>
+              </div>
 
-        {/* Bottom row: breakpoints + modifiers */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div>
-            <h4 className="text-xs font-semibold text-rc-text-muted uppercase tracking-wider mb-2">
-              Breakpoints
-            </h4>
-            <div className="bg-rc-bg-darkest border border-rc-bg-light rounded-xl p-3">
-              {isSpecies ? (
-                <p className="text-xs text-rc-text-muted text-center py-3">
-                  Uses multi-factor species profiles. Not directly editable here.
-                </p>
-              ) : (
-                <BreakpointEditor curve={curve} onChange={onCurveChange} />
-              )}
-            </div>
-          </div>
-
-          {curve.modifiers && curve.modifiers.length > 0 && (
-            <div>
-              <h4 className="text-xs font-semibold text-rc-text-muted uppercase tracking-wider mb-2">
-                Modifiers
-              </h4>
-              <div className="bg-rc-bg-darkest border border-rc-bg-light rounded-xl p-3">
-                <ul className="space-y-2">
-                  {curve.modifiers.map((mod, i) => (
-                    <li
-                      key={i}
-                      className="flex items-start gap-2 text-xs text-rc-text-muted leading-relaxed"
-                    >
-                      <span className="shrink-0 mt-1.5 w-1.5 h-1.5 rounded-full bg-rc-text-muted/40" />
-                      {mod}
-                    </li>
-                  ))}
-                </ul>
+              <div>
+                <h4 className="text-xs font-semibold text-rc-text-muted uppercase tracking-wider mb-2">
+                  Scoring Curve
+                </h4>
+                <div className="bg-rc-bg-darkest border border-rc-bg-light rounded-xl p-2">
+                  {isSpecies ? (
+                    <div className="h-[200px] flex items-center justify-center">
+                      <p className="text-xs text-rc-text-muted text-center px-4">
+                        Composite modifier from species profiles — not a single-input curve.
+                      </p>
+                    </div>
+                  ) : (
+                    <ScoringCurveChart
+                      curve={curve}
+                      defaultCurve={defaultCurve}
+                      color={meta.color}
+                      avgInput={avgInput}
+                    />
+                  )}
+                </div>
               </div>
             </div>
-          )}
-        </div>
+
+            {/* Bottom row: breakpoints + modifiers */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <h4 className="text-xs font-semibold text-rc-text-muted uppercase tracking-wider mb-2">
+                  Breakpoints
+                </h4>
+                <div className="bg-rc-bg-darkest border border-rc-bg-light rounded-xl p-3">
+                  {isSpecies ? (
+                    <p className="text-xs text-rc-text-muted text-center py-3">
+                      Uses multi-factor species profiles. Not directly editable here.
+                    </p>
+                  ) : (
+                    <BreakpointEditor curve={curve} onChange={onCurveChange} />
+                  )}
+                </div>
+              </div>
+
+              {curve.modifiers && curve.modifiers.length > 0 && (
+                <div>
+                  <h4 className="text-xs font-semibold text-rc-text-muted uppercase tracking-wider mb-2">
+                    Modifiers
+                  </h4>
+                  <div className="bg-rc-bg-darkest border border-rc-bg-light rounded-xl p-3">
+                    <ul className="space-y-2">
+                      {curve.modifiers.map((mod, i) => (
+                        <li
+                          key={i}
+                          className="flex items-start gap-2 text-xs text-rc-text-muted leading-relaxed"
+                        >
+                          <span className="shrink-0 mt-1.5 w-1.5 h-1.5 rounded-full bg-rc-text-muted/40" />
+                          {mod}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
       </div>
     </div>
   )
