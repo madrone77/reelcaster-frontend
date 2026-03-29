@@ -78,6 +78,24 @@ export const DEFAULT_SCORING_CURVES: Record<FactorKey, ScoringCurve> = {
     ],
   },
 
+  // ── Pressure Trend (calculatePressureTrendScore) ──────────────────────
+  // 3-hour pressure change — falling pressure triggers feeding
+  pressureTrend: {
+    inputLabel: '3hr Pressure Change',
+    inputUnit: 'hPa',
+    inputRange: [-5, 5],
+    description: 'Falling barometric pressure triggers fish feeding. Steep drops are even better.',
+    breakpoints: [
+      { input: -4, score: 10 },
+      { input: -2, score: 9 },
+      { input: -0.5, score: 7 },
+      { input: 0, score: 5 },
+      { input: 0.5, score: 4 },
+      { input: 2, score: 2 },
+      { input: 4, score: 1 },
+    ],
+  },
+
   // ── Wind (calculateEnhancedWindScore) ─────────────────────────────────
   // Uses effective wind = max(speed, gusts*0.7) in m/s
   wind: {
@@ -321,6 +339,24 @@ export const DEFAULT_SCORING_CURVES: Record<FactorKey, ScoringCurve> = {
     ],
   },
 
+  // ── Current Acceleration (calculateCurrentAccelerationScore) ──────────
+  // Rate of change of current speed — NOAA CO-OPS 0.3+ kt/hr threshold
+  currentAcceleration: {
+    inputLabel: 'Current Acceleration',
+    inputUnit: 'kt/hr',
+    inputRange: [-1, 1],
+    description: 'Rate of change in current speed. 0.3+ kt/hr acceleration triggers baitfish sweep.',
+    modifiers: ['NOAA CO-OPS documented threshold: 0.3 kt/hr over 30 minutes'],
+    breakpoints: [
+      { input: -1.0, score: 3 },
+      { input: -0.3, score: 5 },
+      { input: 0, score: 3 },
+      { input: 0.3, score: 8 },
+      { input: 0.5, score: 10 },
+      { input: 1.0, score: 9 },
+    ],
+  },
+
   // ── Current Direction (calculateCurrentScore — direction only) ────────
   currentDirection: {
     inputLabel: 'Current Direction',
@@ -375,6 +411,13 @@ export const FACTOR_INPUT_MAP: Record<FactorKey, FactorInputDef> = {
   pressure: {
     extractor: (b) => b.pressure,
     label: 'Pressure',
+    unit: 'hPa',
+  },
+  pressureTrend: {
+    // 3-hour delta — computed in page useMemo from raw minutely data
+    // The extractor returns null; the page overrides with computed delta
+    extractor: () => null,
+    label: '3hr Pressure Δ',
     unit: 'hPa',
   },
   wind: {
@@ -469,6 +512,12 @@ export const FACTOR_INPUT_MAP: Record<FactorKey, FactorInputDef> = {
     },
     label: 'Current Speed',
     unit: 'kn',
+  },
+  currentAcceleration: {
+    // Rate of change of current speed — computed in page useMemo from tide data at T and T-30min
+    extractor: () => null,
+    label: 'Current Accel',
+    unit: 'kt/hr',
   },
   currentDirection: {
     extractor: (_b, tide) => {
