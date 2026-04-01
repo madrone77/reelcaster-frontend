@@ -1,4 +1,5 @@
-Deploy the current branch to production. Follow these steps exactly in order:
+Deploy the current branch to production. Follow these steps exactly in order.
+The target repo is `madrone77/reelcaster-frontend`. Do NOT ask for confirmation at any step — run the full pipeline automatically.
 
 1. **Stop local dev server** on port 3004:
    - Run: `lsof -ti:3004 | xargs kill -9 2>/dev/null || true`
@@ -19,11 +20,11 @@ Deploy the current branch to production. Follow these steps exactly in order:
 
 5. **Push and create a PR** against main:
    - Run: `git push -u origin <branch-name>`
-   - Create a PR with: `gh pr create --base main --title "<short title>" --body "<brief description of changes>"`
-   - Show the PR URL to the user
+   - Create a PR with: `gh pr create --repo madrone77/reelcaster-frontend --base main --title "<short title>" --body "<brief description of changes>"`
+   - Show the PR URL
 
-6. **Merge the PR**:
-   - Run: `gh pr merge --merge --delete-branch`
+6. **Merge the PR** immediately (do NOT wait for user confirmation):
+   - Run: `gh pr merge --repo madrone77/reelcaster-frontend --merge --delete-branch`
    - Confirm merge succeeded
 
 7. **Switch back to main** and pull latest:
@@ -33,5 +34,3 @@ Deploy the current branch to production. Follow these steps exactly in order:
    - Run: `pnpm dev --port 3004` in the background
 
 9. **Report** the final status: PR URL, merge status, current branch/commit, and confirm dev server is running.
-
-IMPORTANT: Ask the user for confirmation before step 6 (merging). Show them the PR URL first so they can review if needed.
