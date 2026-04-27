@@ -1,5 +1,5 @@
 // BlueCaster API client
-// The API returns a nested response; we normalize it for components.
+// The API returns a nested response; we normalize it for components
 
 export interface BlueCasterCityPage {
   page: {
