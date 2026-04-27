@@ -9,6 +9,7 @@
 import type { FactorKey } from './algorithmDesigner'
 import type { OpenMeteo15MinData } from './openMeteoApi'
 import type { CHSWaterData } from './chsTideApi'
+import type { TidalPhaseConfig } from './tidalPhaseScoring'
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
@@ -74,6 +75,24 @@ export const DEFAULT_SCORING_CURVES: Record<FactorKey, ScoringCurve> = {
       { input: 1022.5, score: 8 },
       { input: 1027.5, score: 2 },
       { input: 1037.5, score: 1 },
+    ],
+  },
+
+  // ── Pressure Trend (calculatePressureTrendScore) ──────────────────────
+  // 3-hour pressure change — falling pressure triggers feeding
+  pressureTrend: {
+    inputLabel: '3hr Pressure Change',
+    inputUnit: 'hPa',
+    inputRange: [-5, 5],
+    description: 'Falling barometric pressure triggers fish feeding. Steep drops are even better.',
+    breakpoints: [
+      { input: -4, score: 10 },
+      { input: -2, score: 9 },
+      { input: -0.5, score: 7 },
+      { input: 0, score: 5 },
+      { input: 0.5, score: 4 },
+      { input: 2, score: 2 },
+      { input: 4, score: 1 },
     ],
   },
 
@@ -320,6 +339,24 @@ export const DEFAULT_SCORING_CURVES: Record<FactorKey, ScoringCurve> = {
     ],
   },
 
+  // ── Current Acceleration (calculateCurrentAccelerationScore) ──────────
+  // Rate of change of current speed — NOAA CO-OPS 0.3+ kt/hr threshold
+  currentAcceleration: {
+    inputLabel: 'Current Acceleration',
+    inputUnit: 'kt/hr',
+    inputRange: [-1, 1],
+    description: 'Rate of change in current speed. 0.3+ kt/hr acceleration triggers baitfish sweep.',
+    modifiers: ['NOAA CO-OPS documented threshold: 0.3 kt/hr over 30 minutes'],
+    breakpoints: [
+      { input: -1.0, score: 3 },
+      { input: -0.3, score: 5 },
+      { input: 0, score: 3 },
+      { input: 0.3, score: 8 },
+      { input: 0.5, score: 10 },
+      { input: 1.0, score: 9 },
+    ],
+  },
+
   // ── Current Direction (calculateCurrentScore — direction only) ────────
   currentDirection: {
     inputLabel: 'Current Direction',
@@ -374,6 +411,13 @@ export const FACTOR_INPUT_MAP: Record<FactorKey, FactorInputDef> = {
   pressure: {
     extractor: (b) => b.pressure,
     label: 'Pressure',
+    unit: 'hPa',
+  },
+  pressureTrend: {
+    // 3-hour delta — computed in page useMemo from raw minutely data
+    // The extractor returns null; the page overrides with computed delta
+    extractor: () => null,
+    label: '3hr Pressure Δ',
     unit: 'hPa',
   },
   wind: {
@@ -469,6 +513,12 @@ export const FACTOR_INPUT_MAP: Record<FactorKey, FactorInputDef> = {
     label: 'Current Speed',
     unit: 'kn',
   },
+  currentAcceleration: {
+    // Rate of change of current speed — computed in page useMemo from tide data at T and T-30min
+    extractor: () => null,
+    label: 'Current Accel',
+    unit: 'kt/hr',
+  },
   currentDirection: {
     extractor: (_b, tide) => {
       if (tide?.currentDirection === undefined) return null
@@ -528,4 +578,13 @@ export function extractBlockAveragedData(
 
 function avg(items: OpenMeteo15MinData[], getter: (item: OpenMeteo15MinData) => number): number {
   return items.reduce((sum, item) => sum + getter(item), 0) / items.length
+}
+
+// ─── Custom Curve Value Union ───────────────────────────────────────────
+
+/** Union type — tide factor can use TidalPhaseConfig, all others use ScoringCurve */
+export type CustomCurveValue = ScoringCurve | TidalPhaseConfig
+
+export function isTidalPhaseConfig(curve: CustomCurveValue): curve is TidalPhaseConfig {
+  return 'phaseProfile' in curve
 }

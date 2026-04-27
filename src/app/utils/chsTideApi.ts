@@ -259,6 +259,59 @@ export const fetchWaterLevels = async (
   }
 }
 
+/**
+ * Fetch observed (actual) water levels from CHS IWLS API.
+ * Uses time-series-code=wlo (observed) instead of wlp (predicted).
+ * Falls back to predicted data if observed is unavailable.
+ */
+export const fetchObservedWaterLevels = async (
+  stationId: string,
+  startTime: Date,
+  endTime: Date
+): Promise<CHSWaterLevel[]> => {
+  const cacheKey = `observed-${stationId}-${startTime.toISOString()}-${endTime.toISOString()}`
+  const cached = responseCache.get(cacheKey)
+
+  if (cached && Date.now() - cached.timestamp < CACHE_DURATION) {
+    return cached.data
+  }
+
+  try {
+    // Try observed water levels first (wlo = water level observed)
+    const params = new URLSearchParams({
+      'time-series-code': 'wlo',
+      from: startTime.toISOString(),
+      to: endTime.toISOString(),
+    })
+
+    const endpoint = `${CHS_API_BASE}/stations/${stationId}/data?${params}`
+    const response = await rateLimitedFetch(endpoint)
+
+    if (!response.ok) throw new Error(`Failed to fetch observed water levels: ${response.status}`)
+
+    const data = await response.json()
+
+    if (data && data.length > 0) {
+      const waterLevels: CHSWaterLevel[] = data.map((item: any) => ({
+        timestamp: new Date(item.eventDate).getTime() / 1000,
+        height: item.value,
+        type: 'observed' as const,
+        quality: item.qcFlagCode === '2' ? 'good' : 'fair',
+      }))
+
+      responseCache.set(cacheKey, { data: waterLevels, timestamp: Date.now() })
+      return waterLevels
+    }
+
+    // Fall back to predicted data if observed is empty
+    console.warn(`No observed data for station ${stationId}, falling back to predicted`)
+    return fetchWaterLevels(stationId, startTime, endTime)
+  } catch (error) {
+    console.error('Error fetching observed water levels, falling back to predicted:', error)
+    return fetchWaterLevels(stationId, startTime, endTime)
+  }
+}
+
 // Fetch tide events (high/low tides)
 export const fetchTideEvents = async (
   stationId: string,

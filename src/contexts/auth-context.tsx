@@ -11,6 +11,7 @@ interface AuthContextType {
   isPasswordRecovery: boolean
   signUp: (email: string, password: string) => Promise<{ error: any }>
   signIn: (email: string, password: string) => Promise<{ error: any }>
+  signInWithGoogle: () => Promise<{ error: any }>
   signOut: () => Promise<void>
   resetPasswordForEmail: (email: string) => Promise<{ error: any }>
   updatePassword: (newPassword: string) => Promise<{ error: any }>
@@ -70,6 +71,24 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return { error }
   }
 
+  const signInWithGoogle = async () => {
+    // Always honor the actual origin we're running on (handles localhost,
+    // Vercel previews, and prod without needing per-env NEXT_PUBLIC_APP_URL).
+    const redirectUrl = `${window.location.origin}/auth/callback`
+
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: 'google',
+      options: {
+        redirectTo: redirectUrl,
+        queryParams: {
+          access_type: 'offline',
+          prompt: 'consent',
+        },
+      },
+    })
+    return { error }
+  }
+
   const signOut = async () => {
     await supabase.auth.signOut()
   }
@@ -100,6 +119,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     isPasswordRecovery,
     signUp,
     signIn,
+    signInWithGoogle,
     signOut,
     resetPasswordForEmail,
     updatePassword,
