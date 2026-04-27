@@ -63,7 +63,10 @@ function StatusBadge({ status }: { status: "open" | "non_retention" | "closed" |
   }
   if (status === "non_retention") {
     return (
-      <span className="border border-amber-500 text-amber-700 text-[10px] px-2 py-0.5 rounded-full uppercase tracking-wider font-semibold">
+      <span
+        className="border border-amber-500 text-amber-700 text-[10px] px-2 py-0.5 rounded-full uppercase tracking-wider font-semibold"
+        title="Non-Retention"
+      >
         NR
       </span>
     );
@@ -81,9 +84,11 @@ function StatusBadge({ status }: { status: "open" | "non_retention" | "closed" |
 export default function CitySpeciesTable({
   rows,
   regulatoryAreas,
+  areaName,
 }: {
   rows: SpeciesRow[];
   regulatoryAreas: RegulatoryArea[];
+  areaName?: string;
 }) {
   if (!rows || rows.length === 0) return null;
 
@@ -106,26 +111,30 @@ export default function CitySpeciesTable({
       {/* Table wrapper */}
       <div className="overflow-x-auto -mx-6 px-6">
         <table className="w-full border-collapse font-mono text-xs uppercase tracking-wider min-w-[700px]">
+          <caption className="sr-only">
+            Species availability and regulations for {areaName ?? "this area"}
+          </caption>
           <thead>
             <tr className="border-b border-stone-300">
-              <th className="text-left py-3 pr-4 text-slate-500 font-semibold w-40">
+              <th scope="col" className="text-left py-3 pr-4 text-slate-500 font-semibold w-40">
                 Species
               </th>
               {visibleMonths.map((m) => (
                 <th
                   key={m}
+                  scope="col"
                   className="text-center py-3 px-2 text-slate-500 font-semibold w-16"
                 >
                   {MONTH_LABELS[m - 1]}
                 </th>
               ))}
-              <th className="text-center py-3 px-2 text-slate-500 font-semibold w-16">
+              <th scope="col" className="text-center py-3 px-2 text-slate-500 font-semibold w-16">
                 Limit
               </th>
-              <th className="text-center py-3 px-2 text-slate-500 font-semibold w-16">
+              <th scope="col" className="text-center py-3 px-2 text-slate-500 font-semibold w-16">
                 Size
               </th>
-              <th className="text-center py-3 px-2 text-slate-500 font-semibold w-20">
+              <th scope="col" className="text-center py-3 px-2 text-slate-500 font-semibold w-20">
                 Status
               </th>
             </tr>
@@ -136,9 +145,9 @@ export default function CitySpeciesTable({
                 key={sp.species_slug}
                 className="border-b border-stone-200 hover:bg-stone-50 transition-colors"
               >
-                <td className="py-2.5 pr-4 text-slate-900 font-semibold normal-case text-sm">
+                <th scope="row" className="py-2.5 pr-4 text-slate-900 font-semibold normal-case text-sm text-left">
                   {sp.species_name}
-                </td>
+                </th>
                 {visibleMonths.map((m) => {
                   const rating = getRatingForMonth(sp, m);
                   const style = rating ? RATING_STYLES[rating] : "";

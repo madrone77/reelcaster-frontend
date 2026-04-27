@@ -1,5 +1,7 @@
 import type { BlueCasterCityPage } from "@/lib/bluecaster";
 
+const SITE_URL = "https://reelcaster.com";
+
 function BreadcrumbLD({ data }: { data: BlueCasterCityPage }) {
   const items = data.page.hero.breadcrumb;
   if (!items || items.length === 0) return null;
@@ -11,7 +13,7 @@ function BreadcrumbLD({ data }: { data: BlueCasterCityPage }) {
       "@type": "ListItem",
       position: i + 1,
       name: item.label,
-      item: `https://reelcaster.com${item.href}`,
+      item: `${SITE_URL}${item.href}`,
     })),
   };
 
@@ -58,22 +60,23 @@ function ArticleLD({ data }: { data: BlueCasterCityPage }) {
     "@type": "Article",
     headline: data.page.seo?.title ?? `Fishing ${data.hierarchy.city.name}`,
     description: data.page.seo?.meta_description ?? "",
+    ...(data.page.published_at && { datePublished: data.page.published_at }),
     author: {
       "@type": "Organization",
       name: "ReelCaster",
-      url: "https://reelcaster.com",
+      url: SITE_URL,
     },
     publisher: {
       "@type": "Organization",
       name: "ReelCaster",
-      url: "https://reelcaster.com",
+      url: SITE_URL,
     },
     about: data.species_table?.map((s) => ({
       "@type": "Thing",
       name: s.species_name,
     })),
     mainEntityOfPage: data.page.seo?.canonical_url
-      ? `https://reelcaster.com${data.page.seo.canonical_url}`
+      ? `${SITE_URL}${data.page.seo.canonical_url}`
       : undefined,
   };
 

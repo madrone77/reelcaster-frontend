@@ -10,7 +10,7 @@ export default function CityAbout({
   if (!md) return null;
 
   return (
-    <section className="max-w-6xl mx-auto px-6 py-12">
+    <section id="about" className="max-w-6xl mx-auto px-6 py-12">
       <h2 className="text-2xl md:text-3xl font-black uppercase tracking-tight text-slate-900 mb-6">
         About Fishing {cityName}
       </h2>

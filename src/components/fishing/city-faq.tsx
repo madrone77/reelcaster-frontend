@@ -14,8 +14,9 @@ export default function CityFaq({ faq }: { faq: FaqEntry[] }) {
       <dl className="space-y-2">
         {faq.map((entry, i) => (
           <details
-            key={i}
+            key={entry.q.slice(0, 40).replace(/\s+/g, "-").toLowerCase()}
             className="group border border-stone-200 rounded-lg overflow-hidden"
+            {...(i === 0 ? { open: true } : {})}
           >
             <summary className="flex items-center justify-between px-5 py-4 cursor-pointer hover:bg-stone-50 transition-colors list-none [&::-webkit-details-marker]:hidden">
               <dt className="text-sm font-semibold text-slate-900 pr-4">
@@ -27,6 +28,7 @@ export default function CityFaq({ faq }: { faq: FaqEntry[] }) {
                 viewBox="0 0 24 24"
                 stroke="currentColor"
                 strokeWidth={2}
+                aria-hidden="true"
               >
                 <path
                   strokeLinecap="round"

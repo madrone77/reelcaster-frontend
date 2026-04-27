@@ -8,7 +8,7 @@ export default function CityLocalIntel({
   if (!md) return null;
 
   return (
-    <section className="max-w-6xl mx-auto px-6 py-12">
+    <section className="max-w-6xl mx-auto px-6 py-12" aria-label="Local fishing tips">
       <h2 className="text-2xl md:text-3xl font-black uppercase tracking-tight text-slate-900 mb-6">
         Local Intel
       </h2>

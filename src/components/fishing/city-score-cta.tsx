@@ -16,11 +16,11 @@ export default function CityScoreCta({
             <p className="font-mono text-xs tracking-widest uppercase text-slate-400 mb-2">
               RC Score Today
             </p>
-            <div className="flex items-end gap-1">
+            <div className="flex items-end gap-1" aria-hidden="true">
               {[40, 65, 85, 55, 70].map((h, i) => (
                 <div
                   key={i}
-                  className="w-3 rounded-sm bg-slate-300"
+                  className={`w-3 rounded-sm bg-slate-300${score == null ? " opacity-30" : ""}`}
                   style={{ height: `${h * 0.4}px` }}
                 />
               ))}

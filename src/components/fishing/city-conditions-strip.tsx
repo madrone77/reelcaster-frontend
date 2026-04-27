@@ -46,7 +46,7 @@ export default function CityConditionsStrip({
   if (items.length === 0) return null;
 
   return (
-    <section className="bg-stone-100 border-y border-stone-200">
+    <section className="bg-stone-100 border-y border-stone-200" aria-label="Current fishing conditions">
       <div className="max-w-6xl mx-auto px-6 py-3 flex items-center gap-6 overflow-x-auto">
         <div className="flex items-center gap-6 font-mono text-xs tracking-wider text-slate-600 whitespace-nowrap">
           {items.map((item) => (
@@ -59,7 +59,10 @@ export default function CityConditionsStrip({
 
         <div className="ml-auto flex items-center gap-1.5 shrink-0">
           <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-          <span className="font-mono text-xs tracking-wider text-emerald-600 font-semibold uppercase">
+          <span
+            className="font-mono text-xs tracking-wider text-emerald-600 font-semibold uppercase"
+            aria-label="Data updated live"
+          >
             Live
           </span>
         </div>

@@ -13,17 +13,23 @@ const QUARTER_ORDER: Record<string, number> = {
   winter: 3,
 };
 
+const QUALITY_STYLES: Record<string, string> = {
+  peak: "border-blue-700 text-blue-800 bg-blue-50",
+  excellent: "border-emerald-600 text-emerald-700 bg-emerald-50",
+  good: "border-slate-400 text-slate-600 bg-slate-50",
+  fair: "border-amber-500 text-amber-600 bg-amber-50",
+};
+
 function QualityBadge({ quality }: { quality: string | null }) {
   if (!quality) return null;
 
-  const isPeak = quality.toLowerCase() === "peak";
+  const key = quality.toLowerCase();
+  const style = QUALITY_STYLES[key];
+  if (!style) return null;
+
   return (
     <span
-      className={`border text-[10px] px-2 py-0.5 rounded-full uppercase tracking-wider font-semibold ${
-        isPeak
-          ? "border-emerald-600 text-emerald-700"
-          : "border-slate-400 text-slate-600"
-      }`}
+      className={`border text-[10px] px-2 py-0.5 rounded-full uppercase tracking-wider font-semibold ${style}`}
     >
       {quality}
     </span>
@@ -48,10 +54,11 @@ export default function CitySeasonalGuide({
       </h2>
 
       <div className="space-y-2">
-        {sorted.map((entry) => (
+        {sorted.map((entry, i) => (
           <details
             key={entry.quarter}
             className="group border border-stone-200 rounded-lg overflow-hidden"
+            {...(i === 0 ? { open: true } : {})}
           >
             <summary className="flex items-center justify-between px-5 py-4 cursor-pointer hover:bg-stone-50 transition-colors list-none [&::-webkit-details-marker]:hidden">
               <div className="flex items-center gap-4 flex-wrap">
@@ -80,6 +87,7 @@ export default function CitySeasonalGuide({
                 viewBox="0 0 24 24"
                 stroke="currentColor"
                 strokeWidth={2}
+                aria-hidden="true"
               >
                 <path
                   strokeLinecap="round"

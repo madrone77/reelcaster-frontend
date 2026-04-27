@@ -3,6 +3,12 @@ import type { BlueCasterCityPage } from "@/lib/bluecaster";
 
 type Charter = BlueCasterCityPage["charters"][number];
 
+function formatBusinessType(type: string): string {
+  return type
+    .replace(/_/g, " ")
+    .replace(/\b\w/g, (c) => c.toUpperCase());
+}
+
 export default function CityLocalExperts({
   charters,
 }: {
@@ -40,6 +46,7 @@ export default function CityLocalExperts({
                     viewBox="0 0 24 24"
                     stroke="currentColor"
                     strokeWidth={1}
+                    aria-hidden="true"
                   >
                     <path
                       strokeLinecap="round"
@@ -64,14 +71,16 @@ export default function CityLocalExperts({
 
               {charter.business_type && (
                 <span className="inline-block mt-1 border border-slate-300 text-slate-600 text-[10px] px-2 py-0.5 uppercase tracking-widest font-medium rounded-full">
-                  {charter.business_type}
+                  {formatBusinessType(charter.business_type)}
                 </span>
               )}
 
               {charter.rating != null && charter.review_count != null && (
                 <p className="text-sm text-slate-600 mt-2">
-                  {charter.rating}&starf; rating from {charter.review_count}{" "}
-                  reviews
+                  <span aria-label={`${charter.rating} out of 5 stars`}>
+                    {charter.rating}&starf;
+                  </span>{" "}
+                  rating from {charter.review_count} reviews
                 </p>
               )}
 
