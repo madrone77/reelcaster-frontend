@@ -34,9 +34,11 @@ CREATE TABLE prediction_snapshots (
   tide_input JSONB,
 
   -- Metadata
-  captured_at TIMESTAMPTZ DEFAULT NOW(),
+  captured_at TIMESTAMPTZ DEFAULT NOW()
+);
 
-  UNIQUE(location_id, hotspot_name, forecast_date, block_start_time, algorithm_version, COALESCE(species_name, '__general__'))
+CREATE UNIQUE INDEX idx_pred_snap_unique ON prediction_snapshots(
+  location_id, hotspot_name, forecast_date, block_start_time, algorithm_version, COALESCE(species_name, '__general__')
 );
 
 CREATE INDEX idx_pred_snap_date ON prediction_snapshots(forecast_date DESC);
@@ -157,9 +159,11 @@ CREATE TABLE accuracy_comparisons (
   bite_count INTEGER DEFAULT 0,
 
   -- Metadata
-  computed_at TIMESTAMPTZ DEFAULT NOW(),
+  computed_at TIMESTAMPTZ DEFAULT NOW()
+);
 
-  UNIQUE(comparison_date, location_id, hotspot_name, algorithm_version, COALESCE(species_name, '__general__'))
+CREATE UNIQUE INDEX idx_acc_comp_unique ON accuracy_comparisons(
+  comparison_date, location_id, hotspot_name, algorithm_version, COALESCE(species_name, '__general__')
 );
 
 CREATE INDEX idx_acc_comp_date ON accuracy_comparisons(comparison_date DESC);

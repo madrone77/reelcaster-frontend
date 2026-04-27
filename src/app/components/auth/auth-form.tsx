@@ -23,8 +23,31 @@ export function AuthForm({ defaultMode = 'signin', onSuccess, source = 'auth-for
   const [error, setError] = useState('')
   const [success, setSuccess] = useState(false)
   const [loading, setLoading] = useState(false)
-  const { signIn, signUp, resetPasswordForEmail } = useAuth()
+  const { signIn, signUp, signInWithGoogle, resetPasswordForEmail } = useAuth()
   const { trackEvent } = useAnalytics()
+  const [googleLoading, setGoogleLoading] = useState(false)
+
+  const handleGoogle = async () => {
+    setError('')
+    setGoogleLoading(true)
+    try {
+      const { error } = await signInWithGoogle()
+      if (error) {
+        setError(error.message)
+        setGoogleLoading(false)
+        return
+      }
+      trackEvent('Sign In', {
+        method: 'google',
+        source,
+        timestamp: new Date().toISOString(),
+      })
+      // Browser is redirecting to Google — keep button in loading state.
+    } catch {
+      setError('Could not start Google sign-in')
+      setGoogleLoading(false)
+    }
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -128,6 +151,33 @@ export function AuthForm({ defaultMode = 'signin', onSuccess, source = 'auth-for
           </Alert>
         )}
 
+        {mode !== 'forgot' && (
+          <>
+            <button
+              type="button"
+              onClick={handleGoogle}
+              disabled={loading || googleLoading}
+              className="w-full h-11 rounded-md text-sm font-medium bg-rc-bg-light border border-rc-bg-light text-rc-text hover:bg-rc-bg-dark transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+            >
+              {googleLoading ? (
+                <span className="h-4 w-4 animate-spin rounded-full border-2 border-rc-text border-t-transparent" />
+              ) : (
+                <GoogleGlyph />
+              )}
+              <span>{mode === 'signin' ? 'Sign in with Google' : 'Sign up with Google'}</span>
+            </button>
+
+            <div className="relative">
+              <div className="absolute inset-0 flex items-center">
+                <div className="w-full border-t border-rc-bg-light" />
+              </div>
+              <div className="relative flex justify-center text-xs uppercase">
+                <span className="bg-rc-bg-dark px-2 text-rc-text-muted">or continue with email</span>
+              </div>
+            </div>
+          </>
+        )}
+
         <div className="space-y-2">
           <Label htmlFor={`${source}-email`} className="text-sm font-medium text-rc-text">
             Email address
@@ -227,5 +277,28 @@ export function AuthForm({ defaultMode = 'signin', onSuccess, source = 'auth-for
         </button>
       </form>
     </div>
+  )
+}
+
+function GoogleGlyph() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 18 18" aria-hidden="true">
+      <path
+        fill="#EA4335"
+        d="M9 3.48c1.69 0 2.83.73 3.48 1.34l2.54-2.48C13.46.89 11.43 0 9 0 5.48 0 2.44 2.02.96 4.96l2.91 2.26C4.6 5.05 6.62 3.48 9 3.48z"
+      />
+      <path
+        fill="#4285F4"
+        d="M17.64 9.2c0-.74-.06-1.28-.19-1.84H9v3.34h4.96c-.1.83-.64 2.08-1.84 2.92l2.84 2.2c1.7-1.57 2.68-3.88 2.68-6.62z"
+      />
+      <path
+        fill="#FBBC05"
+        d="M3.88 10.78A5.54 5.54 0 0 1 3.58 9c0-.62.11-1.22.29-1.78L.96 4.96A9 9 0 0 0 0 9c0 1.45.35 2.82.96 4.04l2.92-2.26z"
+      />
+      <path
+        fill="#34A853"
+        d="M9 18c2.43 0 4.47-.8 5.96-2.18l-2.84-2.2c-.76.53-1.78.9-3.12.9-2.38 0-4.4-1.57-5.12-3.74L.97 13.04C2.45 15.98 5.48 18 9 18z"
+      />
+    </svg>
   )
 }

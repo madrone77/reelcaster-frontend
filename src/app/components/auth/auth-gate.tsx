@@ -4,7 +4,7 @@ import { useEffect } from 'react'
 import { useRouter, usePathname } from 'next/navigation'
 import { useAuth } from '@/contexts/auth-context'
 
-const PUBLIC_PREFIXES = ['/login', '/signup', '/auth/']
+const PUBLIC_PREFIXES = ['/login', '/signup', '/auth/', '/fishing', '/pricing', '/explore']
 
 export default function AuthGate({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth()
