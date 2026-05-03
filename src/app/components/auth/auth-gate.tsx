@@ -4,6 +4,7 @@ import { useEffect } from 'react'
 import { useRouter, usePathname } from 'next/navigation'
 import { useAuth } from '@/contexts/auth-context'
 
+const PUBLIC_EXACT = ['/']
 const PUBLIC_PREFIXES = ['/login', '/signup', '/auth/', '/fishing', '/pricing', '/explore']
 
 export default function AuthGate({ children }: { children: React.ReactNode }) {
@@ -11,7 +12,9 @@ export default function AuthGate({ children }: { children: React.ReactNode }) {
   const router = useRouter()
   const pathname = usePathname()
 
-  const isPublicRoute = PUBLIC_PREFIXES.some(p => pathname.startsWith(p))
+  const isPublicRoute =
+    PUBLIC_EXACT.includes(pathname) ||
+    PUBLIC_PREFIXES.some(p => pathname.startsWith(p))
 
   useEffect(() => {
     if (!loading && !user && !isPublicRoute) {
