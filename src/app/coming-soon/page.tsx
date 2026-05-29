@@ -24,7 +24,7 @@ function Wordmark() {
       <div className="font-extrabold text-white leading-[0.85] tracking-tight text-6xl sm:text-7xl md:text-8xl">
         REEL
       </div>
-      <div className="mt-2 sm:mt-3 text-[0.65rem] sm:text-xs md:text-sm font-light text-white tracking-[0.55em] uppercase text-center">
+      <div className="mt-2 sm:mt-3 text-xs sm:text-sm md:text-base font-medium text-white tracking-[0.55em] uppercase text-center">
         Caster
       </div>
     </div>
@@ -39,7 +39,7 @@ export default function ComingSoonPage() {
     >
       <Wordmark />
       <p
-        className={`${montserrat.className} text-lg sm:text-xl font-light tracking-[0.3em] uppercase text-white/90`}
+        className={`${montserrat.className} text-xl sm:text-2xl font-medium tracking-[0.3em] uppercase text-white/90`}
       >
         Fishing Intelligence. Coming Soon.
       </p>
