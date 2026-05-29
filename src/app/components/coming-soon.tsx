@@ -1,32 +1,40 @@
-import Image from 'next/image'
+import { Montserrat } from 'next/font/google'
+
+const montserrat = Montserrat({
+  subsets: ['latin'],
+  weight: ['300', '800'],
+  display: 'swap',
+})
+
+function Wordmark() {
+  return (
+    <div
+      role="img"
+      aria-label="ReelCaster"
+      className={`${montserrat.className} border-[3px] border-white/95 px-6 sm:px-8 md:px-10 py-4 sm:py-5 md:py-6 select-none`}
+    >
+      <div className="font-extrabold text-white leading-[0.85] tracking-tight text-6xl sm:text-7xl md:text-8xl">
+        REEL
+      </div>
+      <div className="mt-2 sm:mt-3 text-[0.65rem] sm:text-xs md:text-sm font-light text-white tracking-[0.55em] uppercase text-center">
+        Caster
+      </div>
+    </div>
+  )
+}
 
 export default function ComingSoon() {
   return (
-    <main className="fixed inset-0 overflow-hidden bg-black">
-      <Image
-        src="/coming-soon-hero.jpg"
-        alt=""
-        fill
-        priority
-        sizes="100vw"
-        className="object-cover object-center opacity-70"
-      />
-
-      <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/40 to-black/10" />
-
-      <div className="relative z-10 flex h-full flex-col items-center justify-end px-6 pb-[12vh] text-center">
-        <Image
-          src="/reelcaster-logo.png"
-          alt="ReelCaster"
-          width={765}
-          height={395}
-          priority
-          className="w-full max-w-xs sm:max-w-sm md:max-w-md"
-        />
-        <p className="mt-6 text-lg sm:text-xl font-light tracking-[0.3em] uppercase text-white/90">
-          Coming Soon
-        </p>
-      </div>
+    <main
+      className="fixed inset-0 flex flex-col items-center justify-center gap-8 px-6 text-center"
+      style={{ backgroundColor: '#1F40E0' }}
+    >
+      <Wordmark />
+      <p
+        className={`${montserrat.className} text-lg sm:text-xl font-light tracking-[0.3em] uppercase text-white/90`}
+      >
+        Fishing Intelligence. Coming Soon.
+      </p>
     </main>
   )
 }
