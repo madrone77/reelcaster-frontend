@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import type { Metadata } from "next";
 import { fetchHierarchy } from "@/lib/bluecaster";
 import { COVERED_PROVINCES } from "@/lib/regions";
@@ -62,5 +63,9 @@ export default async function ExplorePage() {
     }
   }
 
-  return <ExploreCanvas spots={spots} provinces={provinces} />;
+  return (
+    <Suspense fallback={null}>
+      <ExploreCanvas spots={spots} provinces={provinces} />
+    </Suspense>
+  );
 }
