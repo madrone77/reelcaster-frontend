@@ -43,6 +43,11 @@ export default function AuthGate({ children }: { children: React.ReactNode }) {
     }
   }, [loading, user, isPublicRoute, router])
 
+  // Public pages render immediately and never wait on auth — no loading flash.
+  if (isPublicRoute) {
+    return <>{children}</>
+  }
+
   if (loading) {
     return (
       <div className="fixed inset-0 bg-rc-bg-darkest flex items-center justify-center z-[9998]">
@@ -56,10 +61,6 @@ export default function AuthGate({ children }: { children: React.ReactNode }) {
         </div>
       </div>
     )
-  }
-
-  if (isPublicRoute) {
-    return <>{children}</>
   }
 
   if (!user) {
