@@ -25,6 +25,15 @@ export const metadata: Metadata = {
     'Get accurate fishing forecasts for Victoria, Sidney, Tofino, Vancouver, Squamish, Sooke, and Port Renfrew. Find the best fishing spots and conditions.',
   keywords:
     'fishing forecast, BC fishing, British Columbia, Victoria, Tofino, Vancouver, Sooke, fishing conditions, fishing spots',
+  icons: {
+    icon: [
+      { url: '/favicon.ico', sizes: 'any' },
+      { url: '/favicon-32x32.png', type: 'image/png', sizes: '32x32' },
+      { url: '/favicon-16x16.png', type: 'image/png', sizes: '16x16' },
+    ],
+    apple: '/apple-touch-icon.png',
+  },
+  manifest: '/site.webmanifest',
 }
 
 export default function RootLayout({
