@@ -20,7 +20,7 @@ import "maplibre-gl/dist/maplibre-gl.css";
 import type { RailSpot } from "../lib/explore-data";
 import { buildReliefStyle } from "@/lib/map/relief-style";
 import { spotsToFeatureCollection, SELECT_HEX } from "../lib/spot-geojson";
-import { useCurrents } from "../lib/use-currents";
+import { useCurrentsFlow } from "../lib/use-currents-flow";
 
 const SOURCE_ID = "bc-spots";
 const CLUSTER = "bc-clusters";
@@ -73,8 +73,9 @@ export default function ExploreMap({
   const [hoveredSlug, setHoveredSlug] = useState<string | null>(null);
   const [mapObj, setMapObj] = useState<MlMap | null>(null);
 
-  // Animated tidal-current overlay (canvas particle field over the map).
-  useCurrents({ map: mapObj, enabled: currents, timeIso: null });
+  // Animated tidal-current overlay — bathy-relief WebGL flow (heatmap field +
+  // white particle ribbons) as a MapLibre custom layer clipped at the coastline.
+  useCurrentsFlow({ map: mapObj, enabled: currents, timeIso: null });
 
   // Flip layer visibility for the relief/labels toggles once the style is up.
   useEffect(() => {
