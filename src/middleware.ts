@@ -4,7 +4,7 @@ import { NextResponse, type NextRequest } from 'next/server'
 // These prefixes stay reachable so the team can still operate the system:
 // the coming-soon page itself, the API, admin, and the auth/login flow.
 // `/explore` is publicly live (soft-launched) while the rest stays walled.
-const ALLOW_PREFIXES = ['/coming-soon', '/api', '/admin', '/auth', '/login', '/signup', '/explore']
+const ALLOW_PREFIXES = ['/coming-soon', '/api', '/admin', '/auth', '/login', '/signup', '/explore', '/pricing']
 
 export function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl
