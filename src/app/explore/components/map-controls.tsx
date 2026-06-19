@@ -1,6 +1,6 @@
 "use client";
 
-import { Mountain, Tag, Waves, Fish } from "lucide-react";
+import { Mountain, Tag, Waves, Fish, LocateFixed, Loader2 } from "lucide-react";
 import type { SpeciesOption } from "../lib/explore-data";
 
 interface MapControlsProps {
@@ -13,6 +13,8 @@ interface MapControlsProps {
   species: SpeciesOption[];
   speciesFilter: string | null;
   onSpeciesChange: (id: string | null) => void;
+  onNearMe: () => void;
+  locating: boolean;
 }
 
 function Chip({
@@ -58,9 +60,26 @@ export default function MapControls({
   species,
   speciesFilter,
   onSpeciesChange,
+  onNearMe,
+  locating,
 }: MapControlsProps) {
   return (
     <div className="fixed z-30 bottom-28 left-1/2 -translate-x-1/2 lg:bottom-6 lg:left-[420px] lg:translate-x-0 flex items-center gap-1 bg-rc-panel/95 backdrop-blur border border-rc-rule rounded-xl shadow-rc-panel p-1.5">
+      <button
+        type="button"
+        onClick={onNearMe}
+        disabled={locating}
+        aria-label="Find spots near me"
+        className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-semibold text-rc-ink-mute hover:bg-rc-surface hover:text-rc-ink-soft transition-colors disabled:opacity-60"
+      >
+        {locating ? (
+          <Loader2 className="w-3.5 h-3.5 animate-spin" />
+        ) : (
+          <LocateFixed className="w-3.5 h-3.5" />
+        )}
+        Near me
+      </button>
+      <span className="w-px h-5 bg-rc-rule mx-0.5" aria-hidden />
       <Chip active={relief} onClick={onToggleRelief} icon={Mountain} label="Relief" />
       <Chip active={labels} onClick={onToggleLabels} icon={Tag} label="Labels" />
       <Chip active={currents} onClick={onToggleCurrents} icon={Waves} label="Currents" />

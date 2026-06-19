@@ -14,7 +14,7 @@ import {
   type ForecastDay,
   type ForecastStripModel,
 } from "./lib/forecast-strip";
-import { fetchForecast14d } from "@/lib/bluecaster-client";
+import { fetchForecast14d, fetchNearbyByCoords } from "@/lib/bluecaster-client";
 import type { Forecast14dPayload } from "@/lib/bluecaster/live-spot-types";
 import { useSubscription } from "@/hooks/use-subscription";
 import { useExploreState } from "./lib/use-explore-state";
@@ -228,6 +228,55 @@ export default function ExploreShell({
     setQuery({ spot: null });
   }, [setQuery]);
 
+  // ── "Near me": geolocate → jump to the nearest covered city, else fit the
+  //    map to the returned nearby spots / user point. ──────────────────────
+  const [locating, setLocating] = useState(false);
+  const coveredCitySlugs = useMemo(() => {
+    const set = new Set<string>();
+    for (const prov of data.locations)
+      for (const region of prov.regions)
+        for (const city of region.cities) set.add(city.slug);
+    return set;
+  }, [data.locations]);
+
+  const handleNearMe = useCallback(() => {
+    if (typeof navigator === "undefined" || !navigator.geolocation) return;
+    setLocating(true);
+    navigator.geolocation.getCurrentPosition(
+      async (pos) => {
+        try {
+          const { latitude, longitude } = pos.coords;
+          const near = await fetchNearbyByCoords(latitude, longitude);
+          const citySlug = near?.nearest_city?.slug ?? null;
+          if (citySlug && coveredCitySlugs.has(citySlug)) {
+            setQuery({ loc: citySlug, spot: null });
+          } else {
+            const spots = near?.nearby_spots ?? [];
+            if (spots.length > 0) {
+              let w = Infinity, s = Infinity, e = -Infinity, n = -Infinity;
+              for (const sp of spots) {
+                w = Math.min(w, sp.lng);
+                e = Math.max(e, sp.lng);
+                s = Math.min(s, sp.lat);
+                n = Math.max(n, sp.lat);
+              }
+              mapRef.current?.fitBounds(
+                [[w, s], [e, n]],
+                { padding: 80, maxZoom: 11, duration: 800 },
+              );
+            } else {
+              mapRef.current?.flyTo({ center: [longitude, latitude], zoom: 9, duration: 800 });
+            }
+          }
+        } finally {
+          setLocating(false);
+        }
+      },
+      () => setLocating(false),
+      { enableHighAccuracy: false, timeout: 8000 },
+    );
+  }, [coveredCitySlugs, setQuery]);
+
   const handleSelectDay = useCallback(
     (d: ForecastDay) => {
       setQuery({ day: d.iso === today ? null : d.iso });
@@ -268,6 +317,8 @@ export default function ExploreShell({
         species={data.species}
         speciesFilter={speciesFilter}
         onSpeciesChange={setSpeciesFilter}
+        onNearMe={handleNearMe}
+        locating={locating}
       />
 
       <LeftRail

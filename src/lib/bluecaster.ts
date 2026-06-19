@@ -5,11 +5,16 @@ import type {
   SpotPageInitial,
   Forecast14dPayload,
 } from "./bluecaster/live-spot-types";
+import type { IntelEvidence, PoolIntelligence } from "./bluecaster/intel-types";
 
 export type {
   SpotPageInitial,
   Forecast14dPayload,
 } from "./bluecaster/live-spot-types";
+export type {
+  IntelEvidence,
+  PoolIntelligence,
+} from "./bluecaster/intel-types";
 
 export interface BlueCasterCityPage {
   page: {
@@ -754,5 +759,41 @@ export async function fetchSpotForecast(
       datetime: opts.datetime,
     },
     900,
+  );
+}
+
+// =============================================================================
+// Intelligence — "why this score" evidence + community catch pool
+// =============================================================================
+
+/**
+ * Evidence + algo-variable confidence behind a spot×species score.
+ * Keys off the spot UUID + species UUID (note BC's param is `fishing_spot_id`).
+ */
+export async function fetchIntelEvidence(
+  spotId: string,
+  speciesId: string,
+): Promise<IntelEvidence | null> {
+  return bcGet<IntelEvidence>(
+    "/api/v1/intel/evidence",
+    { fishing_spot_id: spotId, species_id: speciesId },
+    60,
+  );
+}
+
+/**
+ * Anonymized community catch-rate aggregates for a spot×species. BlueCaster
+ * suppresses buckets where n<5 and gates access; reelcaster's app key reads
+ * the public aggregate. `revalidate:0` keeps it live (tracks fresh catches).
+ */
+export async function fetchPoolIntelligence(
+  spotId: string,
+  speciesId: string,
+  timeWindow: "season" | "month" | "week" = "season",
+): Promise<PoolIntelligence | null> {
+  return bcGet<PoolIntelligence>(
+    "/api/v1/pool/intelligence",
+    { spot_id: spotId, species_id: speciesId, time_window: timeWindow },
+    0,
   );
 }
