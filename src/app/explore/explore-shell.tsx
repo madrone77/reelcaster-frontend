@@ -14,7 +14,7 @@ import {
   type ForecastDay,
   type ForecastStripModel,
 } from "./lib/forecast-strip";
-import { fetchForecast14d, fetchNearbyByCoords } from "@/lib/bluecaster-client";
+import { fetchForecast14d } from "@/lib/bluecaster-client";
 import type { Forecast14dPayload } from "@/lib/bluecaster/live-spot-types";
 import { useSubscription } from "@/hooks/use-subscription";
 import { useExploreState } from "./lib/use-explore-state";
@@ -26,6 +26,18 @@ import MobileSheet from "./components/mobile-sheet";
 import ForecastStrip, { MobileForecastStrip } from "./components/forecast-strip";
 
 const MAP_TZ = "America/Vancouver";
+
+function haversineKm(lat1: number, lng1: number, lat2: number, lng2: number): number {
+  const R = 6371;
+  const dLat = ((lat2 - lat1) * Math.PI) / 180;
+  const dLng = ((lng2 - lng1) * Math.PI) / 180;
+  const a =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos((lat1 * Math.PI) / 180) *
+      Math.cos((lat2 * Math.PI) / 180) *
+      Math.sin(dLng / 2) ** 2;
+  return 2 * R * Math.asin(Math.sqrt(a));
+}
 
 function boundsOf(spots: RailSpot[]): [[number, number], [number, number]] | null {
   if (spots.length === 0) return null;
@@ -228,54 +240,35 @@ export default function ExploreShell({
     setQuery({ spot: null });
   }, [setQuery]);
 
-  // ── "Near me": geolocate → jump to the nearest covered city, else fit the
-  //    map to the returned nearby spots / user point. ──────────────────────
+  // ── "Near me": geolocate → jump to the nearest covered city (client-side
+  //    haversine over the loaded hierarchy — no API round-trip). ────────────
   const [locating, setLocating] = useState(false);
-  const coveredCitySlugs = useMemo(() => {
-    const set = new Set<string>();
-    for (const prov of data.locations)
-      for (const region of prov.regions)
-        for (const city of region.cities) set.add(city.slug);
-    return set;
-  }, [data.locations]);
 
   const handleNearMe = useCallback(() => {
     if (typeof navigator === "undefined" || !navigator.geolocation) return;
     setLocating(true);
     navigator.geolocation.getCurrentPosition(
-      async (pos) => {
-        try {
-          const { latitude, longitude } = pos.coords;
-          const near = await fetchNearbyByCoords(latitude, longitude);
-          const citySlug = near?.nearest_city?.slug ?? null;
-          if (citySlug && coveredCitySlugs.has(citySlug)) {
-            setQuery({ loc: citySlug, spot: null });
-          } else {
-            const spots = near?.nearby_spots ?? [];
-            if (spots.length > 0) {
-              let w = Infinity, s = Infinity, e = -Infinity, n = -Infinity;
-              for (const sp of spots) {
-                w = Math.min(w, sp.lng);
-                e = Math.max(e, sp.lng);
-                s = Math.min(s, sp.lat);
-                n = Math.max(n, sp.lat);
+      (pos) => {
+        const { latitude, longitude } = pos.coords;
+        let best: CityNode | null = null;
+        let bestKm = Infinity;
+        for (const prov of data.locations)
+          for (const region of prov.regions)
+            for (const city of region.cities) {
+              const km = haversineKm(latitude, longitude, city.lat, city.lng);
+              if (km < bestKm) {
+                bestKm = km;
+                best = city;
               }
-              mapRef.current?.fitBounds(
-                [[w, s], [e, n]],
-                { padding: 80, maxZoom: 11, duration: 800 },
-              );
-            } else {
-              mapRef.current?.flyTo({ center: [longitude, latitude], zoom: 9, duration: 800 });
             }
-          }
-        } finally {
-          setLocating(false);
-        }
+        if (best) setQuery({ loc: best.slug, spot: null });
+        else mapRef.current?.flyTo({ center: [longitude, latitude], zoom: 9, duration: 800 });
+        setLocating(false);
       },
       () => setLocating(false),
       { enableHighAccuracy: false, timeout: 8000 },
     );
-  }, [coveredCitySlugs, setQuery]);
+  }, [data.locations, setQuery]);
 
   const handleSelectDay = useCallback(
     (d: ForecastDay) => {

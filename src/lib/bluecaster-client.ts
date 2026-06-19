@@ -14,7 +14,6 @@ import type {
   SpotPageInitial,
 } from "./bluecaster/live-spot-types";
 import type { IntelEvidence, PoolIntelligence } from "./bluecaster/intel-types";
-import type { BlueCasterByCoordinates } from "./bluecaster";
 
 export async function fetchForecast14d(
   spotSlug: string
@@ -78,22 +77,4 @@ export async function fetchPoolIntelligence(
   });
   if (!res.ok) return null;
   return (await res.json()) as PoolIntelligence;
-}
-
-/** Nearest city / spots for a GPS point — powers Explore "Near me". */
-export async function fetchNearbyByCoords(
-  lat: number,
-  lng: number,
-  radiusKm = 50
-): Promise<BlueCasterByCoordinates | null> {
-  const qs = new URLSearchParams({
-    lat: String(lat),
-    lng: String(lng),
-    radius_km: String(radiusKm),
-  });
-  const res = await fetch(`/api/bluecaster/spots/by-coordinates?${qs}`, {
-    cache: "no-store",
-  });
-  if (!res.ok) return null;
-  return (await res.json()) as BlueCasterByCoordinates;
 }
