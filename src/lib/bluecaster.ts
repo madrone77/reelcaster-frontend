@@ -4,17 +4,23 @@
 import type {
   SpotPageInitial,
   Forecast14dPayload,
+  SpotScorePayload,
+  PointConditions,
 } from "./bluecaster/live-spot-types";
 import type { IntelEvidence, PoolIntelligence } from "./bluecaster/intel-types";
+import type { CatchPreviewResponse } from "./bluecaster/catch-ingest-types";
 
 export type {
   SpotPageInitial,
   Forecast14dPayload,
+  SpotScorePayload,
+  PointConditions,
 } from "./bluecaster/live-spot-types";
 export type {
   IntelEvidence,
   PoolIntelligence,
 } from "./bluecaster/intel-types";
+export type { CatchPreviewResponse } from "./bluecaster/catch-ingest-types";
 
 export interface BlueCasterCityPage {
   page: {
@@ -259,6 +265,48 @@ export async function fetchSpotForecast14d(
   const res = await fetch(`${baseUrl}/api/v1/spots/${slug}/forecast-14d`, {
     headers: { "x-api-key": apiKey },
     next: { revalidate: 60 },
+  });
+  if (res.status === 404) return null;
+  if (!res.ok) throw new Error(`BlueCaster API error: ${res.status}`);
+  return res.json();
+}
+
+// Per-hour factor breakdown for a spot×species over `days` (default 1).
+// Multi-day mode of the score endpoint — each hour carries the full
+// factor_contributions used by the spot-detail "Score explained" charts.
+export async function fetchSpotScore(
+  spotId: string,
+  speciesId: string,
+  days = 1
+): Promise<SpotScorePayload | null> {
+  const baseUrl = process.env.BLUECASTER_API_URL;
+  const apiKey = process.env.BLUECASTER_API_KEY;
+  if (!baseUrl || !apiKey) throw new Error("BlueCaster env vars not set");
+
+  const qs = new URLSearchParams({ species: speciesId, days: String(days) });
+  const res = await fetch(
+    `${baseUrl}/api/v1/fishing-spots/${spotId}/score?${qs}`,
+    { headers: { "x-api-key": apiKey }, cache: "no-store" }
+  );
+  if (res.status === 404) return null;
+  if (!res.ok) throw new Error(`BlueCaster API error: ${res.status}`);
+  return res.json();
+}
+
+// Single-point conditions (pressure + trend, minutes-to-slack, moon) — the
+// fields the spot-page payload omits. Path is NOT under /api/v1.
+export async function fetchPointConditions(
+  lat: number,
+  lng: number
+): Promise<PointConditions | null> {
+  const baseUrl = process.env.BLUECASTER_API_URL;
+  const apiKey = process.env.BLUECASTER_API_KEY;
+  if (!baseUrl || !apiKey) throw new Error("BlueCaster env vars not set");
+
+  const qs = new URLSearchParams({ lat: String(lat), lng: String(lng) });
+  const res = await fetch(`${baseUrl}/api/map/point-conditions?${qs}`, {
+    headers: { "x-api-key": apiKey },
+    next: { revalidate: 120 },
   });
   if (res.status === 404) return null;
   if (!res.ok) throw new Error(`BlueCaster API error: ${res.status}`);
@@ -760,6 +808,36 @@ export async function fetchSpotForecast(
     },
     900,
   );
+}
+
+// =============================================================================
+// Photo-first catch ingest — vision preview (non-destructive)
+// =============================================================================
+
+/**
+ * Forward an uploaded catch photo to BlueCaster's vision-preview endpoint.
+ * Returns AI-extracted species/lure/size, EXIF time+GPS, nearest-spot match
+ * (with distance), and a conditions snapshot — used to pre-fill the Log-a-catch
+ * form before the angler confirms. Multipart passthrough; never persists.
+ */
+export async function previewCatchPhoto(
+  file: File,
+): Promise<CatchPreviewResponse | null> {
+  const baseUrl = process.env.BLUECASTER_API_URL;
+  const apiKey = process.env.BLUECASTER_API_KEY;
+  if (!baseUrl || !apiKey) throw new Error("BlueCaster env vars not set");
+
+  const form = new FormData();
+  form.append("photo", file, file.name || "catch.jpg");
+
+  const res = await fetch(`${baseUrl}/api/v1/ingest/catch/preview`, {
+    method: "POST",
+    headers: { "x-api-key": apiKey },
+    body: form,
+    cache: "no-store",
+  });
+  if (!res.ok) return null;
+  return (await res.json()) as CatchPreviewResponse;
 }
 
 // =============================================================================

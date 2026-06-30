@@ -12,6 +12,7 @@ interface AuthContextType {
   signUp: (email: string, password: string) => Promise<{ error: any }>
   signIn: (email: string, password: string) => Promise<{ error: any }>
   signInWithGoogle: () => Promise<{ error: any }>
+  signInWithMagicLink: (email: string) => Promise<{ error: any }>
   signOut: () => Promise<void>
   resetPasswordForEmail: (email: string) => Promise<{ error: any }>
   updatePassword: (newPassword: string) => Promise<{ error: any }>
@@ -89,6 +90,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return { error }
   }
 
+  const signInWithMagicLink = async (email: string) => {
+    // Passwordless email sign-in / sign-up. Supabase sends a magic link that
+    // lands on /auth/callback; `shouldCreateUser` defaults to true, so this
+    // doubles as sign-up for new anglers.
+    const redirectUrl = `${window.location.origin}/auth/callback`
+
+    const { error } = await supabase.auth.signInWithOtp({
+      email,
+      options: {
+        emailRedirectTo: redirectUrl,
+      },
+    })
+    return { error }
+  }
+
   const signOut = async () => {
     await supabase.auth.signOut()
   }
@@ -120,6 +136,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     signUp,
     signIn,
     signInWithGoogle,
+    signInWithMagicLink,
     signOut,
     resetPasswordForEmail,
     updatePassword,

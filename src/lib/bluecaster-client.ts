@@ -12,8 +12,13 @@
 import type {
   Forecast14dPayload,
   SpotPageInitial,
+  SpotScorePayload,
+  PointConditions,
 } from "./bluecaster/live-spot-types";
 import type { IntelEvidence, PoolIntelligence } from "./bluecaster/intel-types";
+import type { CatchPreviewResponse } from "./bluecaster/catch-ingest-types";
+
+export type { CatchPreviewResponse } from "./bluecaster/catch-ingest-types";
 
 export async function fetchForecast14d(
   spotSlug: string
@@ -43,6 +48,54 @@ export async function fetchSpotLive(
   );
   if (!res.ok) return null;
   return (await res.json()) as SpotPageInitial;
+}
+
+/** Per-hour factor breakdown for a spot×species (Score explained charts). */
+export async function fetchSpotScore(
+  spotId: string,
+  speciesId: string,
+  days = 1
+): Promise<SpotScorePayload | null> {
+  const qs = new URLSearchParams({ species: speciesId, days: String(days) });
+  const res = await fetch(
+    `/api/bluecaster/fishing-spots/${encodeURIComponent(spotId)}/score?${qs}`,
+    { cache: "no-store" }
+  );
+  if (!res.ok) return null;
+  return (await res.json()) as SpotScorePayload;
+}
+
+/** Extended now-conditions (pressure, minutes-to-slack, moon) for a point. */
+export async function fetchPointConditions(
+  lat: number,
+  lng: number
+): Promise<PointConditions | null> {
+  const qs = new URLSearchParams({ lat: String(lat), lng: String(lng) });
+  const res = await fetch(`/api/bluecaster/point-conditions?${qs}`, {
+    cache: "no-store",
+  });
+  if (!res.ok) return null;
+  return (await res.json()) as PointConditions;
+}
+
+/**
+ * Photo-first catch ingest preview — upload a catch photo and get back
+ * AI species/lure/size + EXIF time/GPS + nearest-spot match + conditions
+ * snapshot to pre-fill the Log-a-catch form. Returns null on any failure
+ * (the form then falls back to manual entry).
+ */
+export async function fetchCatchPreview(
+  file: File,
+): Promise<CatchPreviewResponse | null> {
+  const form = new FormData();
+  form.append("photo", file);
+  const res = await fetch("/api/bluecaster/ingest/catch/preview", {
+    method: "POST",
+    body: form,
+    cache: "no-store",
+  });
+  if (!res.ok) return null;
+  return (await res.json()) as CatchPreviewResponse;
 }
 
 /** "Why this score" — evidence + confidence behind a spot×species score. */

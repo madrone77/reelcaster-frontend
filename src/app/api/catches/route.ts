@@ -50,6 +50,10 @@ interface CreateCatchInput {
   lure_name?: string
   notes?: string
   photos?: string[]
+  // Conditions context (jsonb) captured at log time
+  weather_snapshot?: Record<string, unknown>
+  tide_snapshot?: Record<string, unknown>
+  moon_phase?: number
   // Offline sync
   client_id?: string
 }
@@ -276,6 +280,9 @@ export async function POST(request: NextRequest) {
         lure_name: body.lure_name || null,
         notes: body.notes || null,
         photos: body.photos || [],
+        weather_snapshot: body.weather_snapshot || null,
+        tide_snapshot: body.tide_snapshot || null,
+        moon_phase: body.moon_phase ?? null,
         client_id: body.client_id || null,
         synced_at: new Date().toISOString(),
       })

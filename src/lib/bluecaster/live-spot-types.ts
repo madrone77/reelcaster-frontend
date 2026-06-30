@@ -264,3 +264,66 @@ export type Forecast14dPayload = {
   hourlyConditionsGrid: HourlyConditions[][];
   tide14d: LiveTidePoint[];
 };
+
+// ─── Score breakdown (factor contributions over time) ──────────────────
+// Wire shape of GET /api/v1/fishing-spots/[id]/score?species=<id>&days=N
+// (multi-day mode). Powers the spot-detail "Score explained" charts — each
+// hour carries the full per-factor breakdown (fit, weight, contribution).
+
+export type ScoreHour = {
+  hour_utc: string;
+  stocks: Array<{
+    stock_id: string;
+    score: number;
+    factor_contributions: FactorContributions | null;
+  }>;
+};
+
+export type ScoreSpeciesEntry = {
+  best_score: number | null;
+  best_hour_utc: string | null;
+  hours: ScoreHour[];
+};
+
+export type ScoreDay = {
+  date: string; // YYYY-MM-DD
+  species: Record<string, ScoreSpeciesEntry>;
+};
+
+export type SpotScorePayload = {
+  spot_id: string;
+  species_ids: string[];
+  forecast_version: number;
+  days: ScoreDay[];
+  meta?: { days_requested: number; days_returned: number };
+};
+
+// ─── Point conditions ──────────────────────────────────────────────────
+// Wire shape of GET /api/map/point-conditions?lat&lng. Surfaces the fields
+// the spot-page payload omits (pressure + trend, minutes-to-slack, moon).
+
+export type PointConditionsCell = {
+  air_temp_c: number | null;
+  wind_speed_kt: number | null;
+  wind_direction_deg: number | null;
+  wind_gust_kt: number | null;
+  barometric_pressure_hpa: number | null;
+  pressure_trend_3h: number | null;
+  cloud_cover_pct: number | null;
+  precipitation_mm: number | null;
+  sea_surface_temp_c: number | null;
+  wave_height_m: number | null;
+  swell_height_m: number | null;
+  tide_height_m: number | null;
+  tide_phase: string | null;
+  minutes_to_next_slack: number | null;
+  moon_phase: number | null;
+  moon_illumination_pct: number | null;
+};
+
+export type PointConditions = {
+  lat: number;
+  lng: number;
+  hour_utc: string;
+  conditions: PointConditionsCell | null;
+};

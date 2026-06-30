@@ -101,7 +101,7 @@ export default function SpotDrawer({
 }) {
   const tier = tierFor(spot.score);
   const peak = fmtPeak(spot.peakHour);
-  const spotHref = `/fishing/${spot.provinceCode.toLowerCase()}/${spot.citySlug}/${spot.slug}`;
+  const spotHref = `/explore/spot/${spot.slug}`;
 
   const [whyOpen, setWhyOpen] = useState(false);
   const { page, pool, evidence, evidenceLoading } = useSpotIntel({

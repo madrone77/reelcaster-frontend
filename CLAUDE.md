@@ -976,6 +976,15 @@ ReelCaster includes a mobile-first catch logging system that allows anglers to q
 - **UI**: Floating action button with haptic feedback
 - **Database**: Supabase PostgreSQL with RLS
 
+### Light-themed "Log a catch" + "Notifications" surfaces (Explore, 2026-06-29)
+
+A second, light **rc-*** themed catch + alert UX layered on the existing backends (the legacy dark Fish-On FAB and `/alerts` are left in place):
+
+- **Log a catch** — shared form `src/app/log-catch/catch-form.tsx`, used by (1) `src/app/explore/spot/components/log-catch-dialog.tsx` (opened by the spot page's LOG CATCH button, pre-filled with the current spot + live conditions) and (2) the standalone page `src/app/log-catch/` (photo dropzone). Photos upload to a **private `catch-photos` Supabase Storage bucket** (owner-only RLS under `${uid}/...`, signed-URL reads) via `src/lib/catch-photo-upload.ts`; the catch persists to the app's own `catch_logs` through `POST /api/catches` (extended to store `weather_snapshot`/`tide_snapshot`/`moon_phase`). **AI auto-fill** (species/lure/size + EXIF time/GPS + nearest-spot match + conditions snapshot) reuses **BlueCaster's** `POST /api/v1/ingest/catch/preview` via proxy `src/app/api/bluecaster/ingest/catch/preview/route.ts` → `previewCatchPhoto`/`fetchCatchPreview`. NOT committed to BlueCaster's pool (`/api/v1/ingest/catch`) — deferred.
+- **Alerts** — `create-alert-dialog.tsx` (opened by SET ALERT) + the `/notifications` "Your alerts" page (`src/app/notifications/`, replaced the old mock) both drive the existing **Custom Alert Engine** via `/api/alerts` (`alert_kind:"score"`, `include_history`, PUT/DELETE). Tier gating via `useSubscription()`. No new alert backend.
+- **Nav + wall:** `explore-top-bar.tsx` gained "Log a catch" + "Notifications" (active-count badge), `usePathname`-aware. **Any new walled-off route must be added to `src/middleware.ts` `ALLOW_PREFIXES`** or it renders `/coming-soon`.
+- **Magic-link auth**: `signInWithMagicLink` (`signInWithOtp`) was added to `src/contexts/auth-context.tsx` for the spot-page sign-up gate.
+
 ## Development Guidelines
 
 When implementing a large new feature always create a detailed step by step plan as a task list. Ask me any clarifying question and then start implementation.
