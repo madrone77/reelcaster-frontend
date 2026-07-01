@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import type { MapRef } from "react-map-gl/maplibre";
 import type { MapSpotsPayload } from "@/lib/bluecaster";
 import {
@@ -22,8 +23,11 @@ import ExploreTopBar from "./components/explore-top-bar";
 import ExploreMap from "./components/explore-map";
 import MapControls from "./components/map-controls";
 import LeftRail from "./components/left-rail";
-import MobileSheet from "./components/mobile-sheet";
-import ForecastStrip, { MobileForecastStrip } from "./components/forecast-strip";
+import LocationSelector from "./components/location-selector";
+import MobileSpotList from "./components/mobile-spot-list";
+import MobileFilterSheet from "./components/mobile-filter-sheet";
+import ExploreFooter from "./components/explore-footer";
+import ForecastStrip from "./components/forecast-strip";
 
 const MAP_TZ = "America/Vancouver";
 
@@ -65,8 +69,13 @@ export default function ExploreShell({
   bbox: string;
 }) {
   const mapRef = useRef<MapRef>(null);
+  const router = useRouter();
   const { isPaid } = useSubscription();
   const { citySlug, spotSlug, day, setQuery } = useExploreState();
+
+  // Mobile (<lg) map-filter sheet (species + layer toggles + near-me),
+  // opened by the location header's filter button.
+  const [filterOpen, setFilterOpen] = useState(false);
 
   // ── Map-layer toggles + species filter (MapControls) ────────────────
   const [relief, setRelief] = useState(true);
@@ -207,12 +216,25 @@ export default function ExploreShell({
     mapRef.current?.fitBounds(bounds, {
       padding: desktop
         ? { left: 460, top: 100, right: 80, bottom: 60 }
-        : { left: 40, top: 80, right: 40, bottom: 120 },
+        : { left: 24, top: 24, right: 24, bottom: 24 },
       maxZoom: 12,
       duration: 800,
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedCity?.slug]);
+
+  // The map is a single instance whose container flips between an in-flow
+  // block (<lg) and a full-screen absolute pane (lg+). trackResize handles
+  // size changes, but the positioning-scheme swap on a live breakpoint cross
+  // needs one nudge so tiles don't stay blank.
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const mql = window.matchMedia("(min-width:1024px)");
+    const onChange = () =>
+      requestAnimationFrame(() => mapRef.current?.getMap()?.resize());
+    mql.addEventListener("change", onChange);
+    return () => mql.removeEventListener("change", onChange);
+  }, []);
 
   const handleSelectCity = useCallback(
     (city: CityNode) => {
@@ -223,6 +245,15 @@ export default function ExploreShell({
 
   const handleSelectSpot = useCallback(
     (slug: string) => {
+      // Mobile (<lg) has no rail/drawer — go straight to the responsive spot
+      // page. Desktop keeps the in-rail drawer + flyTo.
+      if (
+        typeof window !== "undefined" &&
+        !window.matchMedia("(min-width:1024px)").matches
+      ) {
+        router.push(`/explore/spot/${slug}`);
+        return;
+      }
       setQuery({ spot: slug });
       const spot = displaySpots.find((s) => s.slug === slug);
       if (spot) {
@@ -233,7 +264,7 @@ export default function ExploreShell({
         });
       }
     },
-    [setQuery, displaySpots],
+    [router, setQuery, displaySpots],
   );
 
   const handleCloseSpot = useCallback(() => {
@@ -283,10 +314,23 @@ export default function ExploreShell({
   const initialZoom = selectedCity ? 9 : 4.5;
 
   return (
-    <div className="relative h-full">
+    <div className="relative pt-14 lg:pt-0 min-h-dvh lg:min-h-0 lg:h-full">
       <ExploreTopBar />
 
-      <div className="absolute inset-x-0 top-14 bottom-0">
+      {/* Mobile-only location header (in-flow) — the screenshot's pill +
+          filter button. Desktop shows the same selector inside the rail. */}
+      <div className="lg:hidden bg-rc-panel border-b border-rc-rule relative z-10">
+        <LocationSelector
+          locations={data.locations}
+          selectedCity={selectedCity}
+          onSelectCity={handleSelectCity}
+          onFilterClick={() => setFilterOpen(true)}
+        />
+      </div>
+
+      {/* The single map instance. Mobile: a contained in-flow block.
+          Desktop: the full-screen absolute pane, exactly as before. */}
+      <div className="relative h-[45dvh] min-h-[280px] w-full lg:absolute lg:inset-x-0 lg:top-14 lg:bottom-0 lg:h-auto lg:min-h-0 lg:w-auto">
         <ExploreMap
           mapRef={mapRef}
           spots={railSpots}
@@ -300,6 +344,11 @@ export default function ExploreShell({
         />
       </div>
 
+      {/* Mobile-only document flow: spot list + footer (in-flow). */}
+      <MobileSpotList spots={railSpots} onSelectSpot={handleSelectSpot} />
+      <ExploreFooter />
+
+      {/* Desktop-only floating panels (unchanged). */}
       <MapControls
         relief={relief}
         labels={labels}
@@ -334,22 +383,21 @@ export default function ExploreShell({
         onSelectDay={handleSelectDay}
       />
 
-      <MobileForecastStrip
-        model={stripModel}
-        selectedIso={selectedIso}
-        onSelectDay={handleSelectDay}
-      />
-
-      <MobileSheet
-        locations={data.locations}
-        selectedCity={selectedCity}
-        spots={railSpots}
-        selectedSpot={selectedSpot}
-        date={selectedIso}
-        tz={MAP_TZ}
-        onSelectCity={handleSelectCity}
-        onSelectSpot={handleSelectSpot}
-        onCloseSpot={handleCloseSpot}
+      {/* Mobile-only map-filter sheet (species + layers + near-me). */}
+      <MobileFilterSheet
+        open={filterOpen}
+        onClose={() => setFilterOpen(false)}
+        relief={relief}
+        labels={labels}
+        currents={currents}
+        onToggleRelief={() => setRelief((v) => !v)}
+        onToggleLabels={() => setLabels((v) => !v)}
+        onToggleCurrents={() => setCurrents((v) => !v)}
+        species={data.species}
+        speciesFilter={speciesFilter}
+        onSpeciesChange={setSpeciesFilter}
+        onNearMe={handleNearMe}
+        locating={locating}
       />
     </div>
   );

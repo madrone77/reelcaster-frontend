@@ -149,6 +149,18 @@ function localHour(iso: string, tz: string): number {
   );
 }
 
+// "YYYY-MM-DD" of an instant in the spot's local zone — used to window a full
+// local day out of a payload that spans two UTC days (the /score endpoint keys
+// on UTC days, so a local evening lands in the *next* UTC day).
+function localDate(iso: string, tz: string): string {
+  return new Intl.DateTimeFormat("en-CA", {
+    timeZone: tz,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(new Date(iso));
+}
+
 function buildSeries(
   entry: ScoreSpeciesEntry | undefined,
   tz: string,
@@ -161,7 +173,13 @@ function buildSeries(
   const weightByKey = new Map<string, number>();
   const kindByKey = new Map<string, FactorKind>();
 
+  // Window to the current local day: the caller passes two UTC days of hours so
+  // the local evening (which lives in the next UTC day) is present; keep only
+  // the hours whose local date is today, one per local-hour slot.
+  const todayLocal = localDate(new Date().toISOString(), tz);
+
   for (const hour of entry.hours) {
+    if (localDate(hour.hour_utc, tz) !== todayLocal) continue;
     const h = localHour(hour.hour_utc, tz);
     const fc = hour.stocks?.[0]?.factor_contributions ?? null;
     const factors = extractFactors(fc);
@@ -216,12 +234,33 @@ function CurveChart({
   marker: number;
   windowRange: Range;
 }) {
-  const linePts = fits.map((f, i) => `${curveX(i).toFixed(2)},${curveY(f).toFixed(2)}`);
-  const areaPath = `M ${curveX(0).toFixed(2)},${BOT} L ${linePts.join(" L ")} L ${curveX(
-    23,
-  ).toFixed(2)},${BOT} Z`;
+  // Break the line/area at null gaps so missing hours read as empty rather than
+  // a fake drop to the baseline.
+  const segs: { i: number; f: number }[][] = [];
+  let run: { i: number; f: number }[] = [];
+  fits.forEach((f, i) => {
+    if (f == null) {
+      if (run.length) segs.push(run);
+      run = [];
+    } else {
+      run.push({ i, f });
+    }
+  });
+  if (run.length) segs.push(run);
+
+  const ptsOf = (seg: { i: number; f: number }[]) =>
+    seg.map((p) => `${curveX(p.i).toFixed(2)},${curveY(p.f).toFixed(2)}`).join(" L ");
+  const linePath = segs.map((seg) => `M ${ptsOf(seg)}`).join(" ");
+  const areaPath = segs
+    .map(
+      (seg) =>
+        `M ${curveX(seg[0].i).toFixed(2)},${BOT} L ${ptsOf(seg)} L ${curveX(
+          seg[seg.length - 1].i,
+        ).toFixed(2)},${BOT} Z`,
+    )
+    .join(" ");
   const mx = curveX(marker);
-  const my = curveY(fits[marker]);
+  const markerFit = fits[marker];
   return (
     <>
       <svg
@@ -241,8 +280,8 @@ function CurveChart({
           />
         )}
         <path d={areaPath} fill="var(--rc-brand)" opacity="0.1" />
-        <polyline
-          points={linePts.join(" ")}
+        <path
+          d={linePath}
           fill="none"
           stroke="var(--rc-brand)"
           strokeWidth={2}
@@ -259,14 +298,16 @@ function CurveChart({
           vectorEffect="non-scaling-stroke"
         />
       </svg>
-      <span
-        className="absolute w-2 h-2 rounded-full bg-rc-ink ring-2 ring-rc-panel pointer-events-none"
-        style={{
-          left: `${mx}%`,
-          top: `${(my / CHART_H) * 100}%`,
-          transform: "translate(-50%,-50%)",
-        }}
-      />
+      {markerFit != null && (
+        <span
+          className="absolute w-2 h-2 rounded-full bg-rc-ink ring-2 ring-rc-panel pointer-events-none"
+          style={{
+            left: `${mx}%`,
+            top: `${(curveY(markerFit) / CHART_H) * 100}%`,
+            transform: "translate(-50%,-50%)",
+          }}
+        />
+      )}
     </>
   );
 }
@@ -293,8 +334,8 @@ function BarChart({
                 i === marker ? "ring-1 ring-rc-ink" : ""
               }`}
               style={{
-                height: `${fit == null ? 4 : Math.max(4, fit * 100)}%`,
-                opacity: fit == null ? 0.12 : inWin ? 0.95 : 0.3 + 0.6 * fit,
+                height: `${fit == null ? 0 : Math.max(4, fit * 100)}%`,
+                opacity: fit == null ? 0 : inWin ? 0.95 : 0.3 + 0.6 * fit,
               }}
             />
           </div>
@@ -311,23 +352,28 @@ function BarChart({
 function FactorRow({
   f,
   marker,
+  nowHour,
   onSelectHour,
   windowRange,
-  showNow,
+  windowLabel,
+  showAnnotations,
 }: {
   f: FactorSeries;
   marker: number;
+  nowHour: number;
   onSelectHour?: (hour: number) => void;
   windowRange: Range;
-  showNow: boolean;
+  windowLabel?: string | null;
+  showAnnotations: boolean;
 }) {
   // Contribution shown for the selected hour; fall back to the day's peak.
   const atMarker = f.contribs[marker];
   const peak = f.contribs.reduce<number>((m, v) => (v != null && v > m ? v : m), 0);
   const contribution = Math.round((atMarker ?? peak) * 100);
   const valueLine = formatFactorValue(f.key, f.raws[marker], f.fits[marker]);
-  const markerPct =
-    f.kind === "bars" ? ((marker + 0.5) / 24) * 100 : curveX(marker);
+  const slotPct = (i: number) =>
+    f.kind === "bars" ? ((i + 0.5) / 24) * 100 : curveX(i);
+  const nowPct = slotPct(nowHour);
 
   return (
     <div className="py-3 border-b border-rc-rule-soft last:border-0">
@@ -350,11 +396,19 @@ function FactorRow({
         </div>
       </div>
 
-      <div className="relative">
-        {showNow && (
+      <div className={`relative ${showAnnotations ? "mt-4" : ""}`}>
+        {showAnnotations && windowRange && windowLabel && (
+          <span
+            className="absolute z-10 -translate-y-full font-rc-mono text-[8px] font-bold text-rc-brand whitespace-nowrap pointer-events-none"
+            style={{ left: `${slotPct(windowRange[0])}%` }}
+          >
+            BEST WINDOW {windowLabel}
+          </span>
+        )}
+        {showAnnotations && (
           <span
             className="absolute z-10 -translate-x-1/2 -translate-y-full bg-rc-ink text-white font-rc-mono text-[8px] font-bold px-1 py-0.5 rounded pointer-events-none"
-            style={{ left: `${markerPct}%` }}
+            style={{ left: `${nowPct}%` }}
           >
             NOW
           </span>
@@ -404,6 +458,7 @@ export default function FactorCharts({
   tzAbbrev,
   nowHour,
   windowRange = null,
+  windowLabel = null,
 }: {
   entry: ScoreSpeciesEntry | undefined;
   tz: string;
@@ -413,6 +468,7 @@ export default function FactorCharts({
   tzAbbrev?: string;
   nowHour?: number;
   windowRange?: Range;
+  windowLabel?: string | null;
 }) {
   const series = useMemo(() => buildSeries(entry, tz), [entry, tz]);
 
@@ -435,9 +491,11 @@ export default function FactorCharts({
             key={f.key}
             f={f}
             marker={selectedHour}
+            nowHour={nowHour ?? selectedHour}
             onSelectHour={onSelectHour}
             windowRange={windowRange}
-            showNow={i === 0 && selectedHour === nowHour}
+            windowLabel={windowLabel}
+            showAnnotations={i === 0}
           />
         ))}
       </div>

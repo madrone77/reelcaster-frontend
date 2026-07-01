@@ -48,7 +48,7 @@ export default function ScoreCard({
     .join(" · ");
 
   return (
-    <div className="rounded-2xl border border-rc-rule bg-rc-panel p-4 lg:p-5 shadow-rc-panel">
+    <div>
       <div className="rc-label text-[9px] text-rc-ink-mute">{nowLabel}</div>
 
       <div className="flex items-end gap-4 mt-2">
@@ -88,22 +88,22 @@ export default function ScoreCard({
         </div>
       )}
 
-      <div className="flex gap-2 mt-4">
+      <div className="flex gap-2.5 mt-4">
         <button
           type="button"
           onClick={onSetAlert}
-          className="flex-1 flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-lg bg-rc-brand hover:bg-rc-brand-hover text-white font-rc-mono text-xs font-semibold tracking-[0.08em] transition-colors"
+          className="flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-lg bg-rc-brand hover:bg-rc-brand-hover text-white text-sm font-semibold transition-colors"
         >
-          <Bell className="w-3.5 h-3.5" />
-          SET ALERT
+          <Bell className="w-4 h-4" />
+          Set alert
         </button>
         <button
           type="button"
           onClick={onLogCatch}
-          className="flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-lg border border-rc-rule text-rc-ink font-rc-mono text-xs font-semibold tracking-[0.08em] hover:bg-rc-surface transition-colors"
+          className="flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-lg border border-rc-rule text-rc-ink text-sm font-semibold hover:bg-rc-surface transition-colors"
         >
-          <Fish className="w-3.5 h-3.5" />
-          LOG CATCH
+          <Fish className="w-4 h-4" />
+          Log catch
         </button>
       </div>
     </div>

@@ -33,7 +33,7 @@ export default function NeighbourSpots({
 }) {
   if (spots.length === 0) return null;
   return (
-    <div className="rounded-xl border border-rc-rule bg-rc-panel p-4 lg:p-5">
+    <div>
       <div className="flex items-center justify-between mb-4">
         <div className="rc-label text-[9px]">NEIGHBOURING SPOTS</div>
         <Link

@@ -24,10 +24,13 @@ export default function LocationSelector({
   locations,
   selectedCity,
   onSelectCity,
+  onFilterClick,
 }: {
   locations: ProvinceNode[];
   selectedCity: CityNode | null;
   onSelectCity: (city: CityNode) => void;
+  /** Mobile only — opens the map-filter sheet. Omitted on desktop (inert). */
+  onFilterClick?: () => void;
 }) {
   const [open, setOpen] = useState(false);
   const [expanded, setExpanded] = useState<Set<string>>(() => {
@@ -82,6 +85,7 @@ export default function LocationSelector({
         <button
           type="button"
           aria-label="Filters"
+          onClick={onFilterClick}
           className="flex items-center justify-center w-9 h-9 rounded-lg border border-rc-rule text-rc-ink-soft hover:bg-rc-surface transition-colors shrink-0"
         >
           <SlidersHorizontal className="w-4 h-4" />

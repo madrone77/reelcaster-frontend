@@ -56,7 +56,7 @@ export default function SpotProfile({
         : "—";
 
   return (
-    <div className="rounded-xl border border-rc-rule bg-rc-panel p-4">
+    <div>
       <div className="rc-label text-[9px] mb-3">SPOT PROFILE</div>
       <div className="grid grid-cols-2 gap-3">
         <ProfileCell label="DEPTH" value={depth} sub={titleCase(spot.bottomType)} />

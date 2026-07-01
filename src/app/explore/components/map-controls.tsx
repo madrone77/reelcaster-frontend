@@ -64,7 +64,7 @@ export default function MapControls({
   locating,
 }: MapControlsProps) {
   return (
-    <div className="fixed z-30 bottom-28 left-1/2 -translate-x-1/2 lg:bottom-6 lg:left-[420px] lg:translate-x-0 flex items-center gap-1 bg-rc-panel/95 backdrop-blur border border-rc-rule rounded-xl shadow-rc-panel p-1.5">
+    <div className="hidden lg:flex fixed z-30 bottom-6 left-[420px] items-center gap-1 bg-rc-panel/95 backdrop-blur border border-rc-rule rounded-xl shadow-rc-panel p-1.5">
       <button
         type="button"
         onClick={onNearMe}

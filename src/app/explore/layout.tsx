@@ -10,6 +10,10 @@ const plexMono = IBM_Plex_Mono({
   variable: "--font-plex-mono",
 });
 
+// Opt the viewport into the safe-area insets so the mobile document-flow
+// footer (`pb-safe`) clears the iOS home indicator / notch.
+export const viewport = { viewportFit: "cover" as const };
+
 export default function ExploreLayout({
   children,
 }: {
@@ -18,7 +22,7 @@ export default function ExploreLayout({
   return (
     <div
       data-theme="rc-light"
-      className={`${inter.variable} ${plexMono.variable} h-dvh overflow-hidden bg-rc-page text-rc-ink font-rc-sans`}
+      className={`${inter.variable} ${plexMono.variable} min-h-dvh overflow-y-auto lg:h-dvh lg:overflow-hidden bg-rc-page text-rc-ink font-rc-sans`}
     >
       {children}
     </div>

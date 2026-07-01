@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { ArrowUpCircle, ChevronLeft, Star } from "lucide-react";
+import { ArrowUpCircle, ChevronLeft } from "lucide-react";
 import { useAuth } from "@/contexts/auth-context";
 import ExploreTopBar from "../../components/explore-top-bar";
 import DayCell from "../../components/day-cell";
@@ -95,7 +95,9 @@ export default function SpotDetailShell({
     if (!selId) return;
     let cancelled = false;
     setScore(null);
-    fetchSpotScore(spot.id, selId, 1)
+    // days=2: /score keys on UTC days, so the spot's local evening lives in the
+    // *next* UTC day. Fetch two and let the chart window a full local day.
+    fetchSpotScore(spot.id, selId, 2)
       .then((d) => !cancelled && setScore(d))
       .catch(() => {});
     return () => {
@@ -156,9 +158,19 @@ export default function SpotDetailShell({
     [page.hourlyConditionsGrid],
   );
 
-  const scoreEntry = selId
-    ? score?.days?.[0]?.species?.[selId]
-    : undefined;
+  // Merge the two fetched UTC days into one hour list; FactorCharts windows it
+  // down to the current local day (fills the local evening that day-0 alone drops).
+  const scoreEntry = useMemo(() => {
+    if (!selId || !score?.days?.length) return undefined;
+    const d0 = score.days[0]?.species?.[selId];
+    const d1 = score.days[1]?.species?.[selId];
+    if (!d0 && !d1) return undefined;
+    return {
+      best_score: d0?.best_score ?? null,
+      best_hour_utc: d0?.best_hour_utc ?? null,
+      hours: [...(d0?.hours ?? []), ...(d1?.hours ?? [])],
+    };
+  }, [score, selId]);
 
   const handleDay = (day: ForecastDay) => {
     if (day.locked) {
@@ -281,14 +293,17 @@ export default function SpotDetailShell({
   const pills = (
     <div className="flex flex-wrap items-center gap-2">
       {page.regAreaCode && (
-        <span className="px-2 py-0.5 rounded-full bg-rc-surface text-rc-ink-soft font-rc-mono text-[10px] font-semibold uppercase tracking-[0.06em]">
+        <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-rc-good-bg text-rc-good-ink font-rc-mono text-[10px] font-semibold uppercase tracking-[0.06em]">
+          <span className="w-1.5 h-1.5 rounded-full bg-rc-good" />
           PFMA {page.regAreaCode} · Open
         </span>
       )}
       {regulation && (
         <span
           className={`px-2 py-0.5 rounded-full text-[10px] font-semibold uppercase tracking-[0.06em] ${
-            REG_PILL[regulation.status] ?? "bg-rc-surface text-rc-ink-mute"
+            regulation.status === "Open"
+              ? "bg-rc-brand-soft text-rc-brand"
+              : (REG_PILL[regulation.status] ?? "bg-rc-surface text-rc-ink-mute")
           }`}
         >
           {selSpecies?.name} · {regulation.status}
@@ -298,38 +313,10 @@ export default function SpotDetailShell({
   );
 
   return (
-    <div className="h-dvh overflow-y-auto bg-rc-page">
+    <div className="h-dvh overflow-y-auto bg-rc-panel">
       <ExploreTopBar />
 
       <div className="pt-14">
-        {/* Mobile spot header */}
-        <div className="lg:hidden flex items-center gap-3 px-4 py-3 border-b border-rc-rule bg-rc-panel">
-          <Link
-            href="/explore"
-            aria-label="Back to map"
-            className="shrink-0 w-9 h-9 rounded-lg border border-rc-rule flex items-center justify-center text-rc-ink-soft hover:bg-rc-surface transition-colors"
-          >
-            <ChevronLeft className="w-5 h-5" />
-          </Link>
-          <div className="min-w-0 flex-1">
-            <h1 className="text-lg font-bold text-rc-ink leading-tight truncate">
-              {spot.name}
-            </h1>
-            {subtitle && (
-              <p className="font-rc-mono text-[11px] text-rc-ink-mute truncate">
-                {subtitle}
-              </p>
-            )}
-          </div>
-          <button
-            type="button"
-            aria-label="Save spot"
-            className="shrink-0 w-9 h-9 rounded-lg border border-rc-rule flex items-center justify-center text-rc-ink-soft hover:bg-rc-surface transition-colors"
-          >
-            <Star className="w-4 h-4" />
-          </button>
-        </div>
-
         {/* Desktop sub-header: breadcrumb + freshness */}
         <div className="hidden lg:flex flex-wrap items-center justify-between gap-2 px-4 lg:px-6 py-3 border-b border-rc-rule">
           <div className="flex items-center gap-2 font-rc-mono text-[11px] text-rc-ink-mute">
@@ -358,16 +345,26 @@ export default function SpotDetailShell({
         {/* Body: single stack on mobile, two columns on desktop */}
         <div className="grid grid-cols-1 lg:grid-cols-[380px_1fr] gap-4 lg:gap-6 px-4 lg:px-6 py-4 lg:py-6 max-w-[1400px] mx-auto">
           {/* ── Left: summary ─────────────────────────────────────────── */}
-          <div className="space-y-4 lg:space-y-6">
+          <div className="space-y-4">
             <SpotMiniMap
               spot={spot}
               score={nowScore ?? todayScore}
               speciesName={selSpecies?.name ?? null}
             />
 
-            {pills}
-
-            <h1 className="hidden lg:block rc-title-lg text-3xl">{spot.name}</h1>
+            <div>
+              {pills}
+              <h1 className="rc-title-lg text-3xl lg:text-4xl mt-3">
+                {spot.name}
+              </h1>
+              <p className="font-rc-mono text-xs text-rc-ink-mute mt-1.5">
+                {`${Math.abs(spot.lat).toFixed(2)}°${
+                  spot.lat >= 0 ? "N" : "S"
+                } · ${Math.abs(spot.lng).toFixed(2)}°${
+                  spot.lng >= 0 ? "E" : "W"
+                }`}
+              </p>
+            </div>
 
             <ScoreCard
               nowLabel={nowLabel}
@@ -381,22 +378,26 @@ export default function SpotDetailShell({
               onLogCatch={handleLogCatch}
             />
 
-            <NowConditions
-              rightNow={tilesSnapshot}
-              pressureMb={pressureMb}
-              pressureTrend={pressureTrend}
-              tideSeries={tideSeries}
-              label={conditionsLabel}
-            />
+            <div className="border-t border-rc-rule pt-5">
+              <NowConditions
+                rightNow={tilesSnapshot}
+                pressureMb={pressureMb}
+                pressureTrend={pressureTrend}
+                tideSeries={tideSeries}
+                label={conditionsLabel}
+              />
+            </div>
 
-            <SpotProfile spot={spot} seasonState={seasonState} />
+            <div className="border-t border-rc-rule pt-5">
+              <SpotProfile spot={spot} seasonState={seasonState} />
+            </div>
           </div>
 
           {/* ── Right: forecast + score + neighbours ──────────────────── */}
-          <div className="space-y-4 lg:space-y-6">
+          <div className="divide-y divide-rc-rule [&>*]:py-6 [&>*:first-child]:pt-0 [&>*:last-child]:pb-0">
             {/* Species selector */}
             {species.length > 1 && (
-              <div className="rounded-xl border border-rc-rule bg-rc-panel p-4">
+              <div>
                 <div className="flex items-baseline justify-between mb-3">
                   <div className="rc-label text-[9px]">Species</div>
                   <div className="font-rc-mono text-[10px] text-rc-ink-mute italic">
@@ -413,7 +414,7 @@ export default function SpotDetailShell({
             )}
 
             {/* 14-day strip */}
-            <div className="rounded-xl border border-rc-rule bg-rc-panel p-4">
+            <div>
               <div className="flex items-start justify-between gap-3 mb-3">
                 <div>
                   <div className="rc-label text-[9px]">
@@ -445,7 +446,7 @@ export default function SpotDetailShell({
             </div>
 
             {/* 24h chart */}
-            <div className="rounded-xl border border-rc-rule bg-rc-panel p-4">
+            <div>
               <div className="rc-label text-[9px] mb-3">
                 24-Hour Forecast{selSpecies ? ` · ${selSpecies.name}` : ""}
                 {selHourScore != null
@@ -462,7 +463,7 @@ export default function SpotDetailShell({
 
             {/* Score explained + Pro upsell */}
             {scoreEntry && (
-              <div className="rounded-xl border border-rc-rule bg-rc-panel p-4 space-y-4">
+              <div className="space-y-4">
                 <FactorCharts
                   entry={scoreEntry}
                   tz={TZ}
@@ -472,6 +473,7 @@ export default function SpotDetailShell({
                   tzAbbrev={tzAbbrev}
                   nowHour={nowHour}
                   windowRange={win.window}
+                  windowLabel={win.label}
                 />
                 <button
                   type="button"
@@ -490,7 +492,7 @@ export default function SpotDetailShell({
 
             {/* Description */}
             {spot.seoIntro && (
-              <div className="rounded-xl border border-rc-rule bg-rc-surface p-5">
+              <div>
                 <p className="rc-body text-rc-ink-soft leading-relaxed">
                   {spot.seoIntro}
                 </p>
