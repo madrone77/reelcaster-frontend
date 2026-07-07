@@ -1,4 +1,4 @@
-// Builds the GeoJSON FeatureCollection the Explore map's clustered source
+// Builds the GeoJSON FeatureCollection the Explore map's spot source
 // renders. Pin color/opacity/label are baked into feature properties so the GL
 // paint expressions stay cheap. Matches BlueCaster's MapExplorer pins 1:1
 // (app/map/MapExplorer.tsx + scoring-ui.ts).
@@ -15,7 +15,7 @@ const SCALE: Array<[number, string]> = [
   [0, "#e11d48"], //  rose-600 — Poor
 ];
 export const NO_DATA_COLOR = "#9ca3af"; // zinc-400 — unscored dot
-export const SELECT_HEX = "#1F40E0"; // cobalt — selected stroke + cluster
+export const SELECT_HEX = "#1F40E0"; // cobalt — selected stroke
 export const FRESH_HEX = "#10b981"; // emerald-500 — (reserved; no fresh data yet)
 
 export function scoreColor(score: number | null): string {
