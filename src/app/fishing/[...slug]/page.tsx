@@ -6,7 +6,6 @@ import {
   fetchSpotLivePage,
   fetchSpecies,
   type BlueCasterCityPage,
-  type BlueCasterSpotPage,
   type SpotPageInitial,
 } from "@/lib/bluecaster";
 import MarketingHeader from "@/app/components/marketing/marketing-header";
@@ -26,8 +25,14 @@ import CityFaq from "@/components/fishing/city-faq";
 import CityJsonLd from "@/components/fishing/city-json-ld";
 import CityRegulationAlerts from "@/components/fishing/city-regulation-alerts";
 import CityCatchReports from "@/components/fishing/city-catch-reports";
-import SpotJsonLd from "@/components/fishing/spot-json-ld";
+import LiveSpotJsonLd from "@/components/fishing/live-spot-json-ld";
 import LiveSpotPage from "@/components/fishing/live-spot-page";
+
+// ISR: rebuild at most every 60s. Vercel issues `Cache-Control: s-maxage=60,
+// stale-while-revalidate=...` on the rendered HTML, so warm cache hits at
+// the edge are ~10ms vs. ~1-3s cold SSR. Forecast data is generated hourly
+// in BC; 60s freshness is well inside that cadence.
+export const revalidate = 60;
 
 interface PageProps {
   params: Promise<{ slug: string[] }>;
@@ -127,7 +132,14 @@ export default async function FishingPage({ params }: PageProps) {
   }
 
   if (spotSlug) {
-    return <SpotPage spotSlug={spotSlug} speciesSlug={speciesSlug ?? null} />;
+    return (
+      <SpotPage
+        provinceCode={provinceCode}
+        citySlug={citySlug}
+        spotSlug={spotSlug}
+        speciesSlug={speciesSlug ?? null}
+      />
+    );
   }
 
   return <CityPage citySlug={citySlug} />;
@@ -209,25 +221,27 @@ async function CityPage({ citySlug }: { citySlug: string }) {
 // reserved for a future "deep-link a species" wiring inside LiveSpotPage.
 
 async function SpotPage({
+  provinceCode,
+  citySlug,
   spotSlug,
 }: {
+  provinceCode: string;
+  citySlug: string;
   spotSlug: string;
   speciesSlug: string | null;
 }) {
-  // Two fetches:
-  //   - `live` drives the visible page. Works against any spot in
-  //     `fishing_spots` — does NOT require a curated `spot_pages` row.
-  //   - `thin` is enrichment for SEO JSON-LD. Only present for spots that
-  //     have been through the SEO-page wizard. Renders when available; the
-  //     page works fine without it.
-  // If `live` 404s the spot doesn't exist; that's the only true 404 here.
-  let thin: BlueCasterSpotPage | null = null;
+  // Single fetch — the live payload drives both the visible page and the
+  // JSON-LD enrichment. We used to fetch the thin /page endpoint in parallel
+  // just to source JSON-LD fields; that was a full BlueCaster roundtrip per
+  // SSR for no UX gain. LiveSpotJsonLd synthesizes BreadcrumbList / Place /
+  // Article from the live payload + URL params.
+  //
+  // The live endpoint resolves against `fishing_spots` directly — no
+  // requirement for a curated `spot_pages` row. notFound() only when the
+  // spot itself doesn't exist.
   let live: SpotPageInitial | null;
   try {
-    [thin, live] = await Promise.all([
-      fetchSpotPage(spotSlug).catch(() => null),
-      fetchSpotLivePage(spotSlug),
-    ]);
+    live = await fetchSpotLivePage(spotSlug);
   } catch {
     notFound();
   }
@@ -236,12 +250,13 @@ async function SpotPage({
     notFound();
   }
 
-  const hasPublishedSeoPage =
-    thin != null && thin.page.status === "published";
-
   return (
     <>
-      {hasPublishedSeoPage && thin && <SpotJsonLd data={thin} />}
+      <LiveSpotJsonLd
+        data={live}
+        provinceCode={provinceCode}
+        citySlug={citySlug}
+      />
       <LiveSpotPage data={live} />
     </>
   );
