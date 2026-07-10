@@ -41,6 +41,9 @@ const expr = (e: unknown) => e as ExpressionSpecification;
  * panning/zooming the full covered set stays on the GPU. Empty `origin` so
  * every style URL (tiles, glyphs, places GeoJSON) is root-relative same-origin.
  */
+/** Current map viewport, in lng/lat. The rail lists whatever falls inside it. */
+export type MapBounds = { w: number; s: number; e: number; n: number };
+
 export default function ExploreMap({
   mapRef,
   spots,
@@ -51,6 +54,7 @@ export default function ExploreMap({
   relief,
   labels,
   currents,
+  onBoundsChange,
 }: {
   mapRef: RefObject<MapRef | null>;
   spots: RailSpot[];
@@ -61,10 +65,57 @@ export default function ExploreMap({
   relief: boolean;
   labels: boolean;
   currents: boolean;
+  /** Fired on load and after every pan/zoom — drives the viewport spot list. */
+  onBoundsChange?: (b: MapBounds) => void;
 }) {
   const [cursor, setCursor] = useState<string>("");
   const [hoveredSlug, setHoveredSlug] = useState<string | null>(null);
   const [mapObj, setMapObj] = useState<MlMap | null>(null);
+
+  // Report the viewport up so the rail can list only what's on screen.
+  const emitBounds = useCallback(
+    (map: MlMap) => {
+      if (!onBoundsChange) return;
+      const b = map.getBounds();
+      onBoundsChange({
+        w: b.getWest(),
+        s: b.getSouth(),
+        e: b.getEast(),
+        n: b.getNorth(),
+      });
+    },
+    [onBoundsChange],
+  );
+
+  // Attach straight to the map instance rather than react-map-gl's onLoad:
+  // `load` only fires once the STYLE finishes loading, and the relief style can
+  // stall ("Style is not done loading"), which would leave the rail unfiltered
+  // forever. Bounds are valid from the moment the map exists, so emit at once
+  // and on every moveend.
+  useEffect(() => {
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    let tries = 0;
+    let map: MlMap | undefined;
+    const handleMoveEnd = () => {
+      if (map) emitBounds(map);
+    };
+    // Poll with setTimeout, not rAF: rAF is throttled to a standstill in a
+    // background tab, which would leave the rail permanently unfiltered.
+    const attach = () => {
+      map = mapRef.current?.getMap();
+      if (!map) {
+        if (tries++ < 60) timer = setTimeout(attach, 50);
+        return;
+      }
+      emitBounds(map);
+      map.on("moveend", handleMoveEnd);
+    };
+    attach();
+    return () => {
+      if (timer) clearTimeout(timer);
+      map?.off("moveend", handleMoveEnd);
+    };
+  }, [emitBounds, mapRef]);
 
   // Animated tidal-current overlay — bathy-relief WebGL flow (heatmap field +
   // white particle ribbons) as a MapLibre custom layer clipped at the coastline.

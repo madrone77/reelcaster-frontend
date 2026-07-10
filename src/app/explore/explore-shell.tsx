@@ -8,7 +8,6 @@ import {
   rescoreSpots,
   type CityNode,
   type ExploreData,
-  type RailSpot,
 } from "./lib/explore-data";
 import {
   buildForecastDays,
@@ -20,7 +19,7 @@ import type { Forecast14dPayload } from "@/lib/bluecaster/live-spot-types";
 import { useSubscription } from "@/hooks/use-subscription";
 import { useExploreState } from "./lib/use-explore-state";
 import ExploreTopBar from "./components/explore-top-bar";
-import ExploreMap from "./components/explore-map";
+import ExploreMap, { type MapBounds } from "./components/explore-map";
 import MapControls from "./components/map-controls";
 import LeftRail from "./components/left-rail";
 import LocationSelector from "./components/location-selector";
@@ -30,6 +29,9 @@ import ExploreFooter from "./components/explore-footer";
 import ForecastStrip from "./components/forecast-strip";
 
 const MAP_TZ = "America/Vancouver";
+
+/** Zoom a city search jumps to. Wide enough to frame a city's spot cluster. */
+const CITY_ZOOM = 10;
 
 function haversineKm(lat1: number, lng1: number, lat2: number, lng2: number): number {
   const R = 6371;
@@ -41,24 +43,6 @@ function haversineKm(lat1: number, lng1: number, lat2: number, lng2: number): nu
       Math.cos((lat2 * Math.PI) / 180) *
       Math.sin(dLng / 2) ** 2;
   return 2 * R * Math.asin(Math.sqrt(a));
-}
-
-function boundsOf(spots: RailSpot[]): [[number, number], [number, number]] | null {
-  if (spots.length === 0) return null;
-  let w = Infinity,
-    s = Infinity,
-    e = -Infinity,
-    n = -Infinity;
-  for (const spot of spots) {
-    w = Math.min(w, spot.lng);
-    e = Math.max(e, spot.lng);
-    s = Math.min(s, spot.lat);
-    n = Math.max(n, spot.lat);
-  }
-  return [
-    [w, s],
-    [e, n],
-  ];
 }
 
 export default function ExploreShell({
@@ -148,13 +132,23 @@ export default function ExploreShell({
     return null;
   }, [data.locations, activeCitySlug]);
 
-  const railSpots = useMemo(
-    () =>
-      selectedCity
-        ? displaySpots.filter((s) => s.citySlug === selectedCity.slug)
-        : displaySpots,
-    [displaySpots, selectedCity],
-  );
+  // ── Viewport-driven rail ────────────────────────────────────────────────
+  // The sidebar lists whatever is on screen, not whatever city is "selected".
+  // Every covered spot is already client-side (one COVERED_BBOX_ALL fetch on
+  // the server), so panning costs zero network round-trips — we just re-filter.
+  const [bounds, setBounds] = useState<MapBounds | null>(null);
+
+  const visibleSpots = useMemo(() => {
+    if (!bounds) return displaySpots;
+    const { w, s, e, n } = bounds;
+    // A viewport dragged across the antimeridian reports w > e; treat that as
+    // two spans rather than an empty range.
+    const inLng = (lng: number) =>
+      w <= e ? lng >= w && lng <= e : lng >= w || lng <= e;
+    return displaySpots
+      .filter((sp) => sp.lat >= s && sp.lat <= n && inLng(sp.lng))
+      .sort((a, b) => (b.score ?? -1) - (a.score ?? -1));
+  }, [displaySpots, bounds]);
 
   const selectedSpot = useMemo(
     () => displaySpots.find((s) => s.slug === spotSlug) ?? null,
@@ -164,8 +158,9 @@ export default function ExploreShell({
   // ── Forecast strip: 14-day grid for the anchor spot (the selected spot,
   //    or the top-scoring spot in view). Cached per slug. ─────────────────
   const anchorSpot = useMemo(
-    () => selectedSpot ?? railSpots.find((s) => s.score !== null) ?? railSpots[0] ?? null,
-    [selectedSpot, railSpots],
+    () =>
+      selectedSpot ?? visibleSpots.find((s) => s.score !== null) ?? visibleSpots[0] ?? null,
+    [selectedSpot, visibleSpots],
   );
 
   const fcCacheRef = useRef<Map<string, Forecast14dPayload>>(new Map());
@@ -208,16 +203,14 @@ export default function ExploreShell({
     return buildForecastDays(fcPayload, anchorSpot.bestSpeciesId, isPaid);
   }, [fcPayload, anchorSpot, isPaid]);
 
-  // Keep the map framed on the selected location's spots.
+  // A city is a viewport ANCHOR, not a filter: jump the map there at a fixed
+  // zoom and let the rail show whatever lands in view. This also serves the
+  // ?loc=<city> deep link from the city SEO pages, so that funnel still works.
   useEffect(() => {
-    const bounds = boundsOf(railSpots);
-    if (!bounds) return;
-    const desktop = typeof window !== "undefined" && window.innerWidth >= 1024;
-    mapRef.current?.fitBounds(bounds, {
-      padding: desktop
-        ? { left: 460, top: 100, right: 80, bottom: 60 }
-        : { left: 24, top: 24, right: 24, bottom: 24 },
-      maxZoom: 12,
+    if (!selectedCity) return;
+    mapRef.current?.flyTo({
+      center: [selectedCity.lng, selectedCity.lat],
+      zoom: CITY_ZOOM,
       duration: 800,
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -311,7 +304,8 @@ export default function ExploreShell({
   const initialCenter = selectedCity
     ? { lat: selectedCity.lat, lng: selectedCity.lng }
     : { lat: 50.5, lng: -126.5 };
-  const initialZoom = selectedCity ? 9 : 4.5;
+  // Match CITY_ZOOM on a deep link so the map doesn't visibly re-zoom on mount.
+  const initialZoom = selectedCity ? CITY_ZOOM : 4.5;
 
   return (
     <div className="relative pt-14 lg:pt-0 min-h-dvh lg:min-h-0 lg:h-full">
@@ -333,7 +327,7 @@ export default function ExploreShell({
       <div className="relative h-[45dvh] min-h-[280px] w-full lg:absolute lg:inset-x-0 lg:top-14 lg:bottom-0 lg:h-auto lg:min-h-0 lg:w-auto">
         <ExploreMap
           mapRef={mapRef}
-          spots={railSpots}
+          spots={displaySpots}
           selectedSlug={selectedSpot?.slug ?? null}
           onSelect={handleSelectSpot}
           initialCenter={initialCenter}
@@ -341,11 +335,12 @@ export default function ExploreShell({
           relief={relief}
           labels={labels}
           currents={currents}
+          onBoundsChange={setBounds}
         />
       </div>
 
       {/* Mobile-only document flow: spot list + footer (in-flow). */}
-      <MobileSpotList spots={railSpots} onSelectSpot={handleSelectSpot} />
+      <MobileSpotList spots={visibleSpots} onSelectSpot={handleSelectSpot} />
       <ExploreFooter />
 
       {/* Desktop-only floating panels (unchanged). */}
@@ -366,7 +361,7 @@ export default function ExploreShell({
       <LeftRail
         locations={data.locations}
         selectedCity={selectedCity}
-        spots={railSpots}
+        spots={visibleSpots}
         selectedSpot={selectedSpot}
         date={selectedIso}
         tz={MAP_TZ}
