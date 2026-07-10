@@ -8,8 +8,9 @@ import {
  * Phase 8 — section presence on the public homepage at `/`.
  *
  * Asserts each major section wrapper renders, plus chrome and SEO basics.
- * Conditional sections (FeaturedCities, SpeciesPreview) skip gracefully when
- * the BC test instance has no published cities/species.
+ * SpeciesPreview skips gracefully when the BC test instance has no
+ * published species. (FeaturedCities/FeaturedSpots/DFO-alerts sections were
+ * removed with the /fishing pages + scraper cleanup.)
  */
 
 test.describe('/ (marketing homepage)', () => {
@@ -34,54 +35,24 @@ test.describe('/ (marketing homepage)', () => {
     await expect(page.getByTestId('homepage-how-it-works')).toBeVisible();
   });
 
-  test('featured cities section renders with at least one city card', async ({ page }) => {
+  test('species preview section renders with at least one species card', async ({ page }) => {
     // Wait for AuthGate to flip from its Loading splash before asserting on
     // public-page testids (the SSR shell ships the testids inside an RSC
     // payload that only attaches to the DOM after hydration).
-    await expect(page.getByTestId('marketing-header')).toBeVisible();
-    await expect(page.getByTestId('homepage-featured-cities')).toBeVisible();
-    await expect(page.getByTestId('city-carousel')).toBeVisible();
-    await expect(page.getByTestId('city-card').first()).toBeVisible();
-  });
-
-  test('species preview section renders with at least one species card', async ({ page }) => {
     await expect(page.getByTestId('marketing-header')).toBeVisible();
     await expect(page.getByTestId('homepage-species-preview')).toBeVisible();
     await expect(page.getByTestId('species-card').first()).toBeVisible();
   });
 
-  test('regulation alerts strip — section + cards (skips when no high-signal notices)', async ({
-    page,
-  }) => {
+  test('removed homepage sections stay removed', async ({ page }) => {
     await expect(page.getByTestId('marketing-header')).toBeVisible();
-    const strip = page.getByTestId('homepage-regulation-alerts');
-    if (!(await strip.isVisible().catch(() => false))) {
-      test.skip(true, 'no critical/high or closure/opening DFO notices in test instance');
-      return;
+    for (const removed of [
+      'homepage-featured-cities',
+      'homepage-featured-spots',
+      'homepage-regulation-alerts',
+    ]) {
+      await expect(page.getByTestId(removed)).toHaveCount(0);
     }
-    await expect(strip).toBeVisible();
-    await expect(strip.getByRole('heading', { level: 2 })).toContainText(/water/i);
-    await expect(page.getByTestId('regulation-alert-card').first()).toBeVisible();
-    // "All notices" link points at /regulations
-    const allNotices = strip.getByRole('link', { name: /All notices/ }).first();
-    await expect(allNotices).toHaveAttribute('href', '/regulations');
-  });
-
-  test('featured spots section — section + cards (skips when no published spots)', async ({
-    page,
-  }) => {
-    await expect(page.getByTestId('marketing-header')).toBeVisible();
-    const section = page.getByTestId('homepage-featured-spots');
-    if (!(await section.isVisible().catch(() => false))) {
-      test.skip(true, 'no published spots in test instance hierarchy');
-      return;
-    }
-    await expect(section).toBeVisible();
-    const card = page.getByTestId('spot-card').first();
-    await expect(card).toBeVisible();
-    // Card href shape: /fishing/<province>/<city>/<spot>
-    const href = await card.getAttribute('href');
-    expect(href).toMatch(/^\/fishing\/[a-z]{2}\/[a-z0-9-]+\/[a-z0-9-]+$/);
   });
 
   test('final CTA section renders', async ({ page }) => {

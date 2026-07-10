@@ -3,12 +3,12 @@ import { env } from '../fixtures/env';
 import { freeUser, loginAs, setUserTier, resetUserState } from '../fixtures/users';
 
 /**
- * Pin the authed icon-sidebar to exactly the four product-blueprint nodes:
- *   Dashboard · My Spots · Alerts · Catch Log
+ * Pin the authed icon-sidebar to exactly the three product-blueprint nodes:
+ *   Alerts · Catch Log · Profile
  *
- * The Search button + UserMenu live outside MAIN_NAV_ITEMS, so they're not
- * part of the testid set. Removed entries (Reports/, Species Calendar,
- * DFO Notices, Profile) must NOT reappear without an explicit decision.
+ * The Search button lives outside MAIN_NAV_ITEMS, so it's not part of the
+ * testid set. Removed entries (Dashboard, My Spots, Reports, Species
+ * Calendar, DFO Notices) must NOT reappear without an explicit decision.
  */
 
 const enabled =
@@ -17,7 +17,7 @@ const enabled =
   Boolean(freeUser.email) &&
   Boolean(freeUser.password);
 
-test.describe('regression: dashboard sidebar shape', () => {
+test.describe('regression: icon sidebar shape', () => {
   test.skip(!enabled, 'admin/test-user credentials missing in .env.test');
 
   test.beforeEach(async () => {
@@ -25,7 +25,7 @@ test.describe('regression: dashboard sidebar shape', () => {
     await resetUserState(freeUser.email);
   });
 
-  test('icon sidebar shows exactly 4 nav entries with the expected hrefs', async ({
+  test('icon sidebar shows exactly 3 nav entries with the expected hrefs', async ({
     page,
   }) => {
     // The icon sidebar is desktop-only (lg:flex w-[100px]). Force a wide
@@ -33,15 +33,14 @@ test.describe('regression: dashboard sidebar shape', () => {
     await page.setViewportSize({ width: 1440, height: 900 });
 
     await loginAs(page, freeUser);
-    const r = await page.goto('/dashboard');
+    const r = await page.goto('/alerts');
     expect(r?.status()).toBeLessThan(400);
     await expect(page.getByText(/Loading\.\.\./).first()).toHaveCount(0, { timeout: 15_000 });
 
     const expected = [
-      { id: 'dashboard', href: '/dashboard' },
-      { id: 'my-spots', href: '/my-spots' },
       { id: 'alerts', href: '/alerts' },
       { id: 'catch-log', href: '/profile/catch-log' },
+      { id: 'profile', href: '/profile' },
     ] as const;
 
     for (const { id, href } of expected) {
@@ -50,7 +49,7 @@ test.describe('regression: dashboard sidebar shape', () => {
       await expect(link).toHaveAttribute('href', href);
     }
 
-    for (const removed of ['reports', 'species-calendar', 'dfo-notices', 'profile']) {
+    for (const removed of ['dashboard', 'my-spots', 'reports', 'species-calendar', 'dfo-notices']) {
       await expect(
         page.getByTestId(`nav-${removed}`),
         `nav-${removed} should not exist after sidebar cleanup`,

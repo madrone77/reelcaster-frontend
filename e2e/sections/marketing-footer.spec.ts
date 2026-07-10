@@ -6,7 +6,7 @@ import { test, expect } from '@playwright/test';
  * Pins their hrefs so a refactor can't quietly drop or rewire them.
  */
 
-const PAGES_WITH_FOOTER = ['/', '/fishing', '/pricing'];
+const PAGES_WITH_FOOTER = ['/', '/species', '/pricing'];
 
 const LEGAL_LINKS: Array<{ label: string; href: string }> = [
   { label: 'Privacy', href: '/privacy' },

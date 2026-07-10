@@ -23,7 +23,7 @@ function adminClient() {
 
 /**
  * Sign in via the public /login page and assert we land somewhere authenticated.
- * Pages that redirect on auth (root → /favorite-spots etc) settle to whatever URL.
+ * Pages that redirect on auth (login/signup → /explore) settle to whatever URL.
  * Specs that need a specific landing page should navigate after this returns.
  */
 export async function loginAs(page: Page, user: TestUser) {

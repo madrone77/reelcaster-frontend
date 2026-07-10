@@ -222,12 +222,6 @@ export default function LocationPanel() {
           <section className="p-3 border-t border-rc-bg-light" aria-label="Favorite spots">
             <div className="flex items-center justify-between mb-2">
               <SectionHeader>Favorites</SectionHeader>
-              <button
-                onClick={() => router.push('/favorite-spots')}
-                className="text-[10px] text-blue-400 hover:text-blue-300 transition-colors"
-              >
-                Edit
-              </button>
             </div>
             <ul className="space-y-0.5">
               {favoriteSpots.map(spot => (
