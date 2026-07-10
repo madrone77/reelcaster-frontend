@@ -53,7 +53,7 @@ export default function MobileSpotList({
     <section className="lg:hidden bg-rc-page">
       <div className="px-4 pt-4 pb-2 flex items-end justify-between gap-3">
         <div className="min-w-0">
-          <div className="rc-label text-[9px]">Viewing all spots</div>
+          <div className="rc-label text-[9px]">Spots in view</div>
           <div className="text-[15px] font-semibold text-rc-ink mt-0.5">
             {spots.length} spot{spots.length === 1 ? "" : "s"}
             {spots.length > 0 && (
@@ -115,11 +115,11 @@ export default function MobileSpotList({
         {spots.length === 0 && (
           <div className="text-center py-10 px-4">
             <p className="text-sm font-semibold text-rc-ink mb-1">
-              No published spots here yet
+              No spots in view
             </p>
             <p className="text-xs text-rc-ink-mute">
-              Coverage is rolling out across BC, WA, and OR — new spots are
-              added every week.
+              Pan or zoom out to find spots, or search a city above. Coverage is
+              rolling out across BC, WA, and OR.
             </p>
           </div>
         )}

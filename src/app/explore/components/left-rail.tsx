@@ -55,7 +55,9 @@ export default function LeftRail({
           />
 
           <div className="rc-label text-[9px] px-4 pt-1 pb-2">
-            Viewing all spots
+            {spots.length > 0
+              ? `${spots.length} spot${spots.length === 1 ? "" : "s"} in view`
+              : "Spots in view"}
           </div>
 
           <div className="flex-1 overflow-y-auto px-3 pb-3 space-y-3">
@@ -70,11 +72,11 @@ export default function LeftRail({
             {spots.length === 0 && (
               <div className="text-center py-10 px-4">
                 <p className="text-sm font-semibold text-rc-ink mb-1">
-                  No published spots here yet
+                  No spots in view
                 </p>
                 <p className="text-xs text-rc-ink-mute">
-                  Coverage is rolling out across BC, WA, and OR — new spots are
-                  added every week.
+                  Pan or zoom out to find spots, or search a city above.
+                  Coverage is rolling out across BC, WA, and OR.
                 </p>
               </div>
             )}

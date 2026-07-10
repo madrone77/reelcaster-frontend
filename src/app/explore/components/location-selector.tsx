@@ -1,12 +1,7 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
-import { ChevronDown, ChevronRight, MapPin, SlidersHorizontal } from "lucide-react";
-import {
-  Collapsible,
-  CollapsibleContent,
-  CollapsibleTrigger,
-} from "@/components/ui/collapsible";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { MapPin, Search, SlidersHorizontal, X } from "lucide-react";
 import {
   TIER_PILL,
   tierFor,
@@ -15,10 +10,10 @@ import {
 } from "../lib/explore-data";
 
 /**
- * The rail header from the Figma ("Victoria · Vancouver Island South" + ⌄
- * and a filter button). The chevron expands an in-rail tree of locations —
- * province → region groups, each expandable down to cities — satisfying
- * "locations on the left panel, expand each location".
+ * City search. Picking a city does NOT filter the spot list — it flies the map
+ * to that city at a fixed zoom, and the rail then lists whatever is in view.
+ * (The old province → region → city tree implied cities *contain* spots; they
+ * don't. Spots are geographic; the viewport decides what you see.)
  */
 export default function LocationSelector({
   locations,
@@ -33,16 +28,26 @@ export default function LocationSelector({
   onFilterClick?: () => void;
 }) {
   const [open, setOpen] = useState(false);
-  const [expanded, setExpanded] = useState<Set<string>>(() => {
-    const initial = new Set<string>();
-    if (selectedCity) {
-      initial.add(`${selectedCity.provinceCode}/${selectedCity.regionSlug}`);
-    }
-    return initial;
-  });
+  const [query, setQuery] = useState("");
   const rootRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
 
-  // Close the tree on outside click.
+  // Flatten the hierarchy once — it's only a browse affordance now.
+  const allCities = useMemo(
+    () => locations.flatMap((prov) => prov.regions.flatMap((r) => r.cities)),
+    [locations],
+  );
+
+  const results = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    if (!q) return allCities;
+    return allCities.filter(
+      (c) =>
+        c.name.toLowerCase().includes(q) || c.regionName.toLowerCase().includes(q),
+    );
+  }, [allCities, query]);
+
+  // Close on outside click.
   useEffect(() => {
     if (!open) return;
     const onDown = (e: MouseEvent) => {
@@ -52,13 +57,15 @@ export default function LocationSelector({
     return () => document.removeEventListener("mousedown", onDown);
   }, [open]);
 
-  const toggleGroup = (key: string) => {
-    setExpanded((prev) => {
-      const next = new Set(prev);
-      if (next.has(key)) next.delete(key);
-      else next.add(key);
-      return next;
-    });
+  // Focus the field when the panel opens.
+  useEffect(() => {
+    if (open) inputRef.current?.focus();
+  }, [open]);
+
+  const pick = (city: CityNode) => {
+    onSelectCity(city);
+    setOpen(false);
+    setQuery("");
   };
 
   return (
@@ -74,13 +81,9 @@ export default function LocationSelector({
             <MapPin className="w-4 h-4 text-rc-brand" />
           </span>
           <span className="font-semibold text-[15px] text-rc-ink truncate">
-            {selectedCity
-              ? `${selectedCity.name} · ${selectedCity.regionName}`
-              : "All locations"}
+            {selectedCity ? selectedCity.name : "Search a city"}
           </span>
-          <ChevronDown
-            className={`w-4 h-4 text-rc-ink-mute shrink-0 ml-auto transition-transform ${open ? "rotate-180" : ""}`}
-          />
+          <Search className="w-4 h-4 text-rc-ink-mute shrink-0 ml-auto" />
         </button>
         <button
           type="button"
@@ -93,69 +96,70 @@ export default function LocationSelector({
       </div>
 
       {open && (
-        <div className="absolute left-2 right-2 top-full z-20 mt-1 max-h-[60vh] overflow-y-auto bg-rc-panel border border-rc-rule rounded-xl shadow-rc-panel py-1">
-          {locations.map((prov) => (
-            <div key={prov.code} className="py-1">
-              <div className="rc-label px-3 py-1.5">{prov.name}</div>
-              {prov.regions.map((region) => {
-                const key = `${prov.code}/${region.slug}`;
-                const isOpen = expanded.has(key);
-                return (
-                  <Collapsible
-                    key={key}
-                    open={isOpen}
-                    onOpenChange={() => toggleGroup(key)}
-                  >
-                    <CollapsibleTrigger className="w-full flex items-center gap-2 px-3 py-2 hover:bg-rc-surface transition-colors">
-                      <ChevronRight
-                        className={`w-3.5 h-3.5 text-rc-ink-mute transition-transform ${isOpen ? "rotate-90" : ""}`}
-                      />
-                      <span className="text-sm font-medium text-rc-ink truncate">
-                        {region.name}
-                      </span>
-                      <span className="rc-label text-[9px] ml-auto shrink-0">
-                        {region.cities.reduce((n, c) => n + c.spotCount, 0)}{" "}
-                        spots
-                      </span>
-                    </CollapsibleTrigger>
-                    <CollapsibleContent>
-                      {region.cities.map((city) => {
-                        const tier = tierFor(city.bestScore);
-                        const isSelected = selectedCity?.slug === city.slug;
-                        return (
-                          <button
-                            key={city.slug}
-                            type="button"
-                            onClick={() => {
-                              onSelectCity(city);
-                              setOpen(false);
-                            }}
-                            className={`w-full flex items-center gap-2 pl-9 pr-3 py-2 text-left transition-colors ${
-                              isSelected
-                                ? "bg-rc-brand-soft text-rc-brand"
-                                : "hover:bg-rc-surface text-rc-ink"
-                            }`}
-                          >
-                            <span className="text-sm truncate">{city.name}</span>
-                            <span className="font-rc-mono text-[10px] text-rc-ink-mute ml-auto shrink-0">
-                              {city.spotCount} spot{city.spotCount === 1 ? "" : "s"}
-                            </span>
-                            {city.bestScore !== null && (
-                              <span
-                                className={`shrink-0 px-1.5 py-0.5 rounded-full text-[10px] font-semibold ${TIER_PILL[tier]}`}
-                              >
-                                {city.bestScore}
-                              </span>
-                            )}
-                          </button>
-                        );
-                      })}
-                    </CollapsibleContent>
-                  </Collapsible>
-                );
-              })}
-            </div>
-          ))}
+        <div className="absolute left-2 right-2 top-full z-20 mt-1 bg-rc-panel border border-rc-rule rounded-xl shadow-rc-panel overflow-hidden">
+          <div className="flex items-center gap-2 px-3 py-2 border-b border-rc-rule">
+            <Search className="w-4 h-4 text-rc-ink-mute shrink-0" />
+            <input
+              ref={inputRef}
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && results[0]) pick(results[0]);
+                if (e.key === "Escape") setOpen(false);
+              }}
+              placeholder="Search a city…"
+              className="flex-1 bg-transparent text-sm text-rc-ink placeholder:text-rc-ink-mute outline-none py-1"
+            />
+            {query && (
+              <button
+                type="button"
+                aria-label="Clear"
+                onClick={() => setQuery("")}
+                className="text-rc-ink-mute hover:text-rc-ink shrink-0"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            )}
+          </div>
+
+          <div className="max-h-[50vh] overflow-y-auto py-1">
+            {results.map((city) => {
+              const tier = tierFor(city.bestScore);
+              const isSelected = selectedCity?.slug === city.slug;
+              return (
+                <button
+                  key={city.slug}
+                  type="button"
+                  onClick={() => pick(city)}
+                  className={`w-full flex items-center gap-2 px-3 py-2 text-left transition-colors ${
+                    isSelected
+                      ? "bg-rc-brand-soft text-rc-brand"
+                      : "hover:bg-rc-surface text-rc-ink"
+                  }`}
+                >
+                  <span className="min-w-0">
+                    <span className="block text-sm truncate">{city.name}</span>
+                    <span className="block text-[11px] text-rc-ink-mute truncate">
+                      {city.regionName}
+                    </span>
+                  </span>
+                  {city.bestScore !== null && (
+                    <span
+                      className={`ml-auto shrink-0 px-1.5 py-0.5 rounded-full text-[10px] font-semibold ${TIER_PILL[tier]}`}
+                    >
+                      {city.bestScore}
+                    </span>
+                  )}
+                </button>
+              );
+            })}
+
+            {results.length === 0 && (
+              <p className="px-3 py-6 text-center text-xs text-rc-ink-mute">
+                No city matches “{query}”.
+              </p>
+            )}
+          </div>
         </div>
       )}
     </div>
