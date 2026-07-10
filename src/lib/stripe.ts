@@ -1,15 +1,22 @@
 import Stripe from 'stripe';
+import { getServerSecret } from '@/lib/secrets';
 
-const secret = process.env.STRIPE_SECRET_KEY;
-if (!secret) {
-  // Fail loud at import time on the server so misconfig is obvious.
-  throw new Error('STRIPE_SECRET_KEY is required');
+// Lazy singleton: constructing the client at import time made `next build`
+// throw while collecting page data (the secret only exists at runtime).
+// getServerSecret prefers Vault when configured and falls back to
+// process.env, so this is also the migration-ready pattern.
+let cached: Stripe | null = null;
+
+export async function getStripe(): Promise<Stripe> {
+  if (!cached) {
+    const secret = await getServerSecret('STRIPE_SECRET_KEY');
+    cached = new Stripe(secret, {
+      apiVersion: '2026-04-22.dahlia',
+      typescript: true,
+    });
+  }
+  return cached;
 }
-
-export const stripe = new Stripe(secret, {
-  apiVersion: '2026-04-22.dahlia',
-  typescript: true,
-});
 
 export function appOrigin(req?: Request): string {
   if (req) {

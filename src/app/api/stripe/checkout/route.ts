@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
-import { stripe, appOrigin } from '@/lib/stripe';
+import { getStripe, appOrigin } from '@/lib/stripe';
 import { ANNUAL_PRICE_ID, resolveMonthlyPriceId, type PricingPlan } from '@/lib/pricing';
 
 export const runtime = 'nodejs';
@@ -37,6 +37,8 @@ export async function POST(request: NextRequest) {
   if (!user) {
     return NextResponse.json({ error: 'unauthorized' }, { status: 401 });
   }
+
+  const stripe = await getStripe();
 
   let body: CheckoutBody;
   try {
