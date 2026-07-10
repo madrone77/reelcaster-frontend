@@ -2,13 +2,9 @@
 
 import { usePathname } from 'next/navigation'
 import Link from 'next/link'
-import { useState, useEffect } from 'react'
-import { ChevronDown, ChevronUp, PanelLeftClose, PanelLeftOpen, Search } from 'lucide-react'
-import { supabase } from '@/lib/supabase'
+import { PanelLeftClose, PanelLeftOpen, Search } from 'lucide-react'
 import {
   MAIN_NAV_ITEMS,
-  ADMIN_NAV_ITEMS,
-  isAdminEmail,
   isRouteActive,
   type NavItem,
 } from '@/app/config/navigation'
@@ -71,24 +67,6 @@ export default function IconSidebar({
   onToggleLocationPanel,
 }: IconSidebarProps) {
   const pathname = usePathname()
-  const [isAdmin, setIsAdmin] = useState(false)
-  const [adminExpanded, setAdminExpanded] = useState(false)
-
-  useEffect(() => {
-    const checkAdmin = async () => {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (isAdminEmail(user?.email)) {
-        setIsAdmin(true)
-      }
-    }
-    checkAdmin()
-
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      setIsAdmin(isAdminEmail(session?.user?.email))
-    })
-
-    return () => subscription.unsubscribe()
-  }, [])
 
   return (
     <div className="hidden lg:flex w-[100px] h-screen bg-rc-bg-darkest border-r border-rc-bg-light flex-col fixed left-0 top-0 z-50">
@@ -133,36 +111,6 @@ export default function IconSidebar({
           ))}
         </ul>
       </nav>
-
-      {/* Admin Section */}
-      {isAdmin && (
-        <div className="border-t border-rc-bg-light py-2 px-2">
-          <button
-            onClick={() => setAdminExpanded(!adminExpanded)}
-            className="w-full h-9 flex items-center justify-center rounded-lg text-rc-text-muted hover:text-rc-text-light hover:bg-rc-bg-light transition-colors"
-            aria-expanded={adminExpanded}
-            aria-label="Toggle admin menu"
-          >
-            {adminExpanded ? (
-              <ChevronDown className="w-4 h-4" />
-            ) : (
-              <ChevronUp className="w-4 h-4" />
-            )}
-          </button>
-
-          {adminExpanded && (
-            <ul className="mt-1 space-y-2" aria-label="Admin navigation">
-              {ADMIN_NAV_ITEMS.map(item => (
-                <NavItemCard
-                  key={item.id}
-                  item={item}
-                  isActive={isRouteActive(item.href, pathname)}
-                />
-              ))}
-            </ul>
-          )}
-        </div>
-      )}
     </div>
   )
 }

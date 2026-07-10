@@ -14,14 +14,14 @@ export default function AuthCallbackPage() {
       if (event === 'PASSWORD_RECOVERY') {
         router.replace('/auth/reset-password')
       } else if (event === 'SIGNED_IN') {
-        router.replace('/favorite-spots')
+        router.replace('/explore')
       }
     })
 
     // Fallback: if already signed in, redirect immediately
     supabase.auth.getSession().then(({ data: { session } }) => {
       if (session) {
-        router.replace('/favorite-spots')
+        router.replace('/explore')
       }
     })
 

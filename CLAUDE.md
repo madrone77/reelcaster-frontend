@@ -39,25 +39,31 @@ pnpm lint
 ```
 src/app/
 ├── components/         # Feature-specific components
-│   ├── auth/          # Authentication components (auth-button, auth-dialog, user-menu)
-│   ├── charts/        # Data visualization (mobile-friendly-chart)
-│   ├── common/        # Shared components (sidebar, loading, error states)
-│   ├── forecast/      # Active forecast UI (day-outlook, hourly-chart, weather-conditions, etc.)
-│   ├── location/      # Location selection (compact-location-selector)
-│   └── ui/           # Enhanced UI components
-├── utils/            # API integrations and utilities
-├── profile/          # User profile page
-├── page.tsx          # Main application page (fishing forecast)
-└── layout.tsx        # Root layout
+│   ├── account/       # Profile/account cards
+│   ├── alerts/        # Custom alert UI
+│   ├── auth/          # AuthForm, AuthGate, forecast-section-overlay
+│   ├── catch-log/     # Fish-on FAB + quick catch modal (legacy dark UI)
+│   ├── common/        # Shared bits still used by AppShell pages
+│   ├── forecast/      # AppShell page chrome (dashboard-header) — most of the old forecast UI was deleted 2026-07
+│   ├── layout/        # AppShell, icon-sidebar, mobile tab bar, location panel
+│   ├── location/      # Location selection helpers
+│   ├── notifications/ # Notification preference forms
+│   ├── paywall/, pricing/, search/, waitlist/, marketing/, ui/
+├── explore/           # The Explore map + spot pages (primary surface)
+├── utils/             # Legacy scoring engine (kept for alerts + notification emails)
+├── profile/           # User profile pages
+└── layout.tsx         # Root layout
 ```
 
 ### Key Routes
 
-- `/` - Main fishing forecast page with location-based forecasts
-- `/profile` - User profile and preferences page
-- `/profile/catch-log` - Catch logging history and statistics
-- `/profile/custom-alerts` - Custom alert configuration
-- `/admin/send-email` - Admin email broadcast system (manual email sending)
+- `/explore` - Explore map (primary public surface); `/explore/spot/[slug]` - spot detail
+- `/` - Marketing homepage (walled behind /coming-soon in production)
+- `/pricing`, `/billing/*` - purchase flow; `/login`, `/signup`, `/auth/*` - auth flow
+- `/profile` (+ `catch-log`, `custom-alerts`, `forecast-emails`, `notification-settings`)
+- `/alerts`, `/notifications`, `/log-catch` - kept alongside the explore soft-launch
+
+Deleted 2026-07: `/dashboard`, `/fishing/*`, `/historical-reports`, `/my-spots`, `/favorite-spots`, `/settings/*`, all `/admin/*` pages.
 
 ## External APIs
 
@@ -94,87 +100,6 @@ The application integrates with multiple data sources:
    - Provides visual weather overlays (temperature, precipitation, wind, clouds)
    - Used in forecast weather map for enhanced visualizations
 
-## Interactive Weather Map
-
-The forecast page includes an interactive weather map with **dual visualization options**: a custom Mapbox-based map and an official Windy-powered map. Users can toggle between both map types, with their preference saved locally.
-
-### Map Options
-
-#### 1. Mapbox Map (Custom Implementation)
-
-**Features:**
-- **Mapbox GL Base Map**: Dark theme matching app design
-- **Hotspot Markers**: Clickable markers for all fishing locations in the selected area
-- **Weather Tile Layers**: Real-time weather overlays from OpenWeatherMap
-  - Temperature layer (heat map visualization)
-  - Precipitation layer (rainfall intensity)
-  - Wind layer (direction and speed)
-  - Cloud cover layer
-- **Layer Controls**: Toggle individual layers on/off with opacity adjustment
-- **Timeline Scrubber**: Playback forecast data through 14-day period
-- **Current Weather Display**: Real-time temp, wind, and precipitation metrics
-- **Interactive Markers**: Click hotspot markers to change location and reload forecast
-- **Wind Flow Visualization**: Custom animated directional arrows showing wind patterns over water (arrow length indicates wind intensity)
-
-**Environment Variables:**
-```env
-# Required - Mapbox GL base map
-NEXT_PUBLIC_MAPBOX_TOKEN=your_mapbox_access_token
-
-# Optional - Weather tile layers (map works without this, but layers won't display)
-NEXT_PUBLIC_OPENWEATHERMAP_API_KEY=your_openweathermap_api_key
-```
-
-**API Keys:**
-- **Mapbox** (Free tier: 50,000 loads/month): https://account.mapbox.com/access-tokens/
-- **OpenWeatherMap** (Free tier: 60 calls/min, 1M tiles/month): https://home.openweathermap.org/api_keys
-
-**Technical Implementation:**
-- Map Library: react-map-gl v8.x with Mapbox GL JS
-- Tile Rendering: OpenWeatherMap raster tiles via Source/Layer
-- Timeline Playback: Auto-advance through forecast data points (500ms intervals)
-- Marker Interaction: Click handler updates URL params and triggers forecast reload
-- Responsive Design: 500px height on mobile, maintains aspect ratio on desktop
-
-#### 2. Windy Map (Official Integration)
-
-**Features:**
-- **Official Windy Visualization**: Industry-leading wind flow animations
-- **Multiple Weather Layers**: Wind, temperature, precipitation, clouds, and 20+ other parameters
-- **Hotspot Markers**: Same clickable markers as Mapbox version
-- **Interactive Forecast**: Click anywhere on map for detailed point forecast
-- **Timeline Controls**: Playback forecast data with Windy's built-in timeline
-- **Layer Menu**: Access to Windy's full layer selection (bottom-right)
-
-**Environment Variables:**
-```env
-# Required - Windy API key
-NEXT_PUBLIC_WINDY_API_KEY=your_windy_api_key
-```
-
-**API Keys:**
-- **Windy API** (Testing tier: Free for development only): https://api.windy.com/keys
-  - **Note**: Professional tier required for production use (contact Windy for pricing)
-
-**Technical Implementation:**
-- Map Library: Leaflet 1.4.x (loaded via Windy CDN)
-- API Integration: Windy Map Forecast API
-- Custom Markers: Leaflet divIcon with custom styling
-- Documentation: https://api.windy.com/map-forecast/docs
-
-### Map Switcher
-
-Users can toggle between map types using the **Map Type** switcher above the map. The selection is saved to `localStorage` and persists across sessions.
-
-### Key Files
-
-- **Switcher**: `src/app/components/forecast/forecast-map-switcher.tsx` - Main component with toggle
-- **Mapbox Map**: `src/app/components/forecast/forecast-map.tsx` - Custom Mapbox implementation
-- **Windy Map**: `src/app/components/forecast/forecast-map-windy.tsx` - Official Windy integration
-- **Wind Particles**: `src/app/components/forecast/wind-particle-layer.tsx` - Custom wind animation (Mapbox only)
-- **Integration**: `src/app/page.tsx` - Integrated between location selector and forecast header
-- **Data Flow**: Uses existing `openMeteoData` state for timeline playback
-
 ## Explore relief map (`/explore`)
 
 The Explore page renders a **bathymetric color-relief nautical chart** (ported from BlueCaster's `test/map/1` / "bathy-relief" system) instead of a generic base map — **no `NEXT_PUBLIC_MAPBOX_TOKEN` required**. It uses **MapLibre GL** (`react-map-gl/maplibre`, already-installed `maplibre-gl`), not Mapbox.
@@ -206,57 +131,28 @@ When creating new components:
 
 ### Active Components
 
-Based on current usage analysis, these components are actively used:
+The 2026-07 cleanup deleted all dead components (verified by an import-graph
+reachability scan — everything left in `src/app/components/` is reachable from
+a live page). Highlights:
 
-**Auth Components:**
-
-- `auth-button.tsx` - Authentication button with user menu
-- `auth-dialog.tsx` - Login/signup dialog
-- `forecast-section-overlay.tsx` - Auth overlay for forecast sections
-- `user-menu.tsx` - User profile menu
-
-**Charts:**
-
-- `mobile-friendly-chart.tsx` - Data visualization component for charts
-
-**Layout (New Design System):**
+**Layout (AppShell pages: alerts, profile, billing):**
 
 - `app-shell.tsx` - Main layout wrapper with icon sidebar, location panel, mobile nav
-- `icon-sidebar.tsx` - Desktop icon-based sidebar navigation
-- `location-panel.tsx` - Desktop location/hotspot selector panel
+- `icon-sidebar.tsx` - Desktop icon-based sidebar navigation (Alerts · Catch Log · Profile)
+- `location-panel.tsx` / `mobile-location-sheet.tsx` - Location selection
 - `mobile-tab-bar.tsx` - Mobile bottom navigation
-- `mobile-location-sheet.tsx` - Mobile location selector sheet
-- `dashboard-header.tsx` - Page header with title and optional controls
+- `forecast/dashboard-header.tsx` - Page header (name is legacy; the dashboard itself is gone)
 
-**Common:**
+**Auth:**
 
-- `modern-loading-state.tsx` - Loading state component
-- `error-state.tsx` - Error display component
-
-**Forecast (Main UI):**
-
-- `new-forecast-header.tsx` - Forecast page header
-- `forecast-map-switcher.tsx` - Map type switcher with localStorage persistence
-- `forecast-map.tsx` - Custom Mapbox GL map with OpenWeatherMap layers
-- `forecast-map-windy.tsx` - Official Windy map integration with Leaflet
-- `wind-particle-layer.tsx` - Custom canvas-based wind animation overlay
-- `day-outlook.tsx` - Daily forecast overview
-- `overall-score.tsx` - Fishing score summary
-- `hourly-chart.tsx` - Hourly fishing score chart
-- `hourly-table.tsx` - Detailed hourly data table
-- `weather-conditions.tsx` - Current conditions display
-- `species-regulations.tsx` - Fishing regulations info
-- `fishing-reports.tsx` - Recent fishing reports
-
-**Location:**
-
-- `compact-location-selector.tsx` - Location picker component
+- `auth/auth-form.tsx` - Shared login/signup form
+- `auth/auth-gate.tsx` - Client-side auth redirect for gated routes
+- `auth/forecast-section-overlay.tsx` - Auth overlay for gated sections
 
 **Catch Log:**
 
-- `fish-on-button.tsx` - Floating action button for quick catch logging
-- `fish-on-button-wrapper.tsx` - Auth-aware wrapper component
-- `quick-catch-modal.tsx` - Outcome selection modal (Bite/Landed)
+- `catch-log/fish-on-button.tsx` + `quick-catch-modal.tsx` - Legacy dark quick-capture UI
+- `src/app/log-catch/catch-form.tsx` - Light rc-* themed catch form (explore surface)
 
 ### API Integration
 
@@ -662,101 +558,21 @@ The following are not currently set up but may be beneficial:
 - Testing framework
 - CI/CD pipeline configuration
 
-## Automated Scraping System
+## Scraping System (REMOVED 2026-07-10)
 
-ReelCaster uses two automated scraping systems to keep data fresh:
+The automated scraping system (fishing-reports scraper, DFO regulations scraper,
+DFO fishery-notices scraper) was deleted in the 2026-07 cleanup along with the
+old dashboard, the `/fishing` SEO pages, and `/historical-reports`. What remains:
 
-### 1. Fishing Reports Scraper
-
-- **Source**: FishingVictoria.com weekly reports (published Sundays)
-- **Parser**: Hybrid Cheerio+OpenAI approach (Cheerio extracts sections, AI parses natural language)
-- **Cost Optimization**: ~25-40% token reduction via pre-extraction with Cheerio
-- **Alternatives**: Claude Haiku (80% cheaper), Groq Llama (95% cheaper), pure Cheerio (impossible - unstructured text)
-- **Frequency**: Daily check at 2 AM UTC (reports published Sundays)
-- **Smart Logic**: Checks Sunday dates specifically, stops after finding latest report per location
-- **Storage**: `fishing_reports` table (JSONB)
-- **API**: `/api/fishing-reports/scrape?weeks=4` (PUBLIC - no auth required)
-
-### 2. Regulations Scraper
-
-- **Source**: DFO Pacific Region fishing regulations
-- **Parser**: Cheerio (HTML parsing) - NO OpenAI needed
-- **Areas**: 19 (Victoria, Sidney), 20 (Sooke, Port Renfrew)
-- **Storage**: `fishing_regulations` + related tables (normalized)
-- **API**: `/api/regulations/scrape?area_id=19`
-
-### Key Files
-
-- **API Endpoints**: `src/app/api/fishing-reports/scrape/` and `src/app/api/regulations/scrape/`
-- **Scrapers**: `src/app/utils/scrape-fishing-report.ts` and `src/app/utils/dfoScraperV2.ts`
-- **Manual Scripts**: `scripts/scrape-historical-reports.ts` and `scripts/scrape-and-update-regulations.ts`
-- **GitHub Actions**: `.github/workflows/scrape-data.yml` (runs daily at 2 AM UTC)
-- **Documentation**: `docs/scraping-system.md` (comprehensive guide)
-
-### Adding New Areas/Locations
-
-The system is fully dynamic - just add data to the database and the frontend automatically displays it.
-
-**For Fishing Reports**: Update locations array in `/api/fishing-reports/scrape/route.ts`
-**For Regulations**: Add to `AREA_NAMES` in `src/app/utils/dfoScraperV2.ts`, run scraper
-
-See `docs/scraping-system.md` for detailed instructions.
-
-## Email Broadcast System
-
-ReelCaster includes an admin email broadcast system for sending customized emails to all registered users.
-
-### Features
-
-- **Manual Email Composition**: Admin can compose custom messages with rich text
-- **Optional Data Sections**: Toggle inclusion of forecast, weather, tides, and fishing reports
-- **Location-Specific Data**: Select location for forecast/tide data
-- **Email Preview**: Preview emails before sending
-- **Batch Sending**: Emails sent in batches of 20 to avoid rate limits
-- **Progress Tracking**: Real-time progress and result reporting
-- **Responsive Templates**: Beautiful, mobile-friendly HTML email templates
-
-### Setup Requirements
-
-**Environment Variables** (add to `.env.local`):
-```env
-# Supabase Service Role Key (for accessing auth.users)
-SUPABASE_SERVICE_ROLE_KEY=your_service_role_key
-
-# Resend API Key (for email sending)
-# Free tier: 100 emails/day, 3,000 emails/month
-RESEND_API_KEY=your_resend_api_key
-```
-
-### Key Files
-
-- **Admin Page**: `/admin/send-email` - Email composition interface
-- **API Endpoints**:
-  - `/api/admin/preview-email` - Generate email preview
-  - `/api/admin/send-broadcast` - Send emails to all users
-- **Email Service**: `src/lib/email-service.ts` - Email sending logic
-- **Email Template**: `src/lib/email-templates/admin-broadcast.ts` - HTML template
-- **Components**:
-  - `src/app/components/admin/email-composer.tsx` - Composer UI
-  - `src/app/components/admin/email-preview.tsx` - Preview modal
-- **Documentation**: `docs/email-broadcast-system.md` - Comprehensive guide
-
-### Usage
-
-1. Navigate to `/admin/send-email`
-2. Compose custom message
-3. Select location and toggle data sections
-4. Preview email
-5. Send to all users
-
-### Technology
-
-- **Email Service**: Resend (https://resend.com)
-- **Template Engine**: Custom TypeScript/HTML generator
-- **Batch Processing**: 20 emails per batch with rate limiting
-- **Authentication**: Supabase Admin API for user access
-
-See `docs/email-broadcast-system.md` for detailed setup and usage instructions.
+- **Regulations READ chain is kept**: `GET /api/regulations` and
+  `src/app/data/regulations/` — used by the location
+  components rendered on `/explore`. The `fishing_regulations` and `dfo_fishery_notices`
+  tables still exist in Supabase but are no longer refreshed (data is frozen).
+- `src/lib/dfo-notice-service.ts` (notification emails) still reads `dfo_fishery_notices`.
+- The daily GitHub Action is now `.github/workflows/daily-jobs.yml` (scheduled
+  notifications only — the accuracy pipeline was deleted with the admin pages);
+  `scrape-data.yml` was deleted.
+- The weekly Vercel cron for regulations scraping was removed from `vercel.json`.
 
 ## Automated Notification System
 
@@ -816,9 +632,8 @@ CRON_SECRET=your_cron_secret_key
   - `src/app/components/notifications/species-selector.tsx` - Multi-select species
   - `src/app/components/notifications/weather-threshold-sliders.tsx` - Threshold controls
   - `src/app/components/notifications/regulatory-preferences.tsx` - Regulation settings
-- **Automation**: `.github/workflows/scrape-data.yml` - Runs daily at 2 AM UTC after scraping
+- **Automation**: `.github/workflows/daily-jobs.yml` - Runs daily at 2 AM UTC
 - **Migration Script**: `scripts/migrate-notification-preferences.ts` - One-time data migration
-- **Documentation**: `docs/notification-system.md` - Comprehensive architecture guide
 
 ### How It Works
 
@@ -847,13 +662,12 @@ CRON_SECRET=your_cron_secret_key
 ### Technology
 
 - **Map Library**: Mapbox GL JS (react-map-gl wrapper)
-- **Email Service**: Resend (shared with broadcast system)
+- **Email Service**: Resend
 - **Automation**: GitHub Actions (daily cron job)
 - **Weather Data**: Open Meteo API (7-day forecasts)
 - **Scoring Algorithm**: Species-specific 13-factor calculation
 - **Database**: Supabase PostgreSQL with RLS policies
 
-See `docs/notification-system.md` for detailed architecture and implementation guide.
 
 ## Custom Alert Engine
 
@@ -940,9 +754,7 @@ ReelCaster includes a mobile-first catch logging system that allows anglers to q
 - **Button Wrapper**: `src/app/components/catch-log/fish-on-button-wrapper.tsx` - Auth integration
 - **History Page**: `src/app/profile/catch-log/page.tsx` - Catch history and stats
 - **API Endpoints**:
-  - `/api/catches` - CRUD operations
-  - `/api/catches/sync` - Batch offline sync
-  - `/api/lures` - Lure CRUD
+  - `/api/catches` - CRUD operations (sync manager posts here per-catch)
 - **Services**:
   - `src/lib/geolocation-service.ts` - GPS capture helper
   - `src/lib/offline-catch-store.ts` - IndexedDB wrapper

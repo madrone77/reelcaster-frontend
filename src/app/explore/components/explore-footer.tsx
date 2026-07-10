@@ -16,10 +16,6 @@ export default function ExploreFooter() {
           <Link href="/pricing" className="hover:text-rc-ink-soft transition-colors">
             Pricing
           </Link>
-          <span aria-hidden>·</span>
-          <Link href="/fishing" className="hover:text-rc-ink-soft transition-colors">
-            Coverage
-          </Link>
         </div>
       </div>
     </footer>

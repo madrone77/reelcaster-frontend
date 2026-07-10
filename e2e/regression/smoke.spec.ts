@@ -4,8 +4,8 @@ import { test, expect } from '@playwright/test';
  * Regression baseline: every public route loads without server error.
  *
  * Phase 0 established the route-group skeleton; Phase 2 made `/` public
- * (marketing homepage), moved the V2 forecast to `/dashboard`, and added
- * `/species`, `/species/[slug]`, and `/regulations` to the public surface.
+ * (marketing homepage) and added `/species`, `/species/[slug]`, and
+ * `/regulations` to the public surface.
  */
 
 const PUBLIC_ROUTES = [
@@ -14,18 +14,13 @@ const PUBLIC_ROUTES = [
   '/signup',
   '/pricing',
   '/explore',
-  '/fishing',
-  '/fishing/bc',
-  '/fishing/bc/victoria',
   '/species',
   '/regulations',
 ];
 
 const AUTH_GATED_ROUTES_REDIRECT_TO_LOGIN = [
   '/profile',
-  '/my-spots',
   '/alerts',
-  '/dashboard',
 ];
 
 const LEGACY_REDIRECTS: Array<{ from: string; to: string }> = [
@@ -66,12 +61,6 @@ test.describe('Phase 5 smoke: legacy paths redirect to their public counterparts
 });
 
 test.describe('Phase 0 smoke: SEO basics on public surfaces', () => {
-  test('/fishing/bc/victoria has a non-empty <title>', async ({ page }) => {
-    await page.goto('/fishing/bc/victoria');
-    const title = await page.title();
-    expect(title.trim().length).toBeGreaterThan(0);
-  });
-
   test('/robots.txt is reachable', async ({ request }) => {
     const r = await request.get('/robots.txt');
     expect(r.status()).toBe(200);

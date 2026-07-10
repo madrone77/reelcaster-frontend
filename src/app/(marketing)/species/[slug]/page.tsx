@@ -44,16 +44,15 @@ export default async function SpeciesDetailPage({ params }: PageProps) {
   const data = await fetchSpecies(slug);
   if (!data) notFound();
 
-  const { species, featured_cities, top_spots } = data;
+  const { species, top_spots } = data;
 
   // seasonal_calendar may be free-form JSONB. We attempt a best-effort render
   // when it's an object keyed by month index; otherwise fall back gracefully.
   const seasonalRow = parseSeasonal(species.seasonal_calendar);
 
   // Heuristic: a "stub" species row has only slug+name. Show a graceful
-  // "Profile coming soon" panel rather than a near-empty page. Featured
-  // cities + top spots still render if those arrays are non-empty —
-  // those are not gated on the stub flag.
+  // "Profile coming soon" panel rather than a near-empty page. Top spots
+  // still render if the array is non-empty — not gated on the stub flag.
   const isStub =
     species.scientific_name == null &&
     species.family == null &&
@@ -151,34 +150,6 @@ export default async function SpeciesDetailPage({ params }: PageProps) {
               Color reflects historical abundance. Always verify current regulations
               before fishing.
             </p>
-          </section>
-        )}
-
-        {featured_cities.length > 0 && (
-          <section
-            data-testid="section-species-featured-cities"
-            className="max-w-4xl mx-auto px-6 py-6"
-          >
-            <h2 className="text-sm font-semibold text-rc-text uppercase tracking-widest mb-3">
-              Featured cities
-            </h2>
-            <ul className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              {featured_cities.map((c) => (
-                <li key={c.page_slug}>
-                  <Link
-                    href={`/fishing/${c.province ?? 'bc'}/${c.page_slug}`}
-                    className="block bg-rc-bg-dark border border-rc-bg-light rounded-lg p-4 hover:border-blue-500/40 transition-colors"
-                  >
-                    <h3 className="font-semibold text-rc-text">{c.name}</h3>
-                    {c.blurb && (
-                      <p className="text-xs text-rc-text-muted mt-1 line-clamp-2">
-                        {c.blurb}
-                      </p>
-                    )}
-                  </Link>
-                </li>
-              ))}
-            </ul>
           </section>
         )}
 

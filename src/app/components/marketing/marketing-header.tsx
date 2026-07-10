@@ -5,7 +5,6 @@ import { Fish, LogOut } from 'lucide-react';
 import { useAuth } from '@/contexts/auth-context';
 
 const NAV = [
-  { href: '/fishing', label: 'Fishing' },
   { href: '/species', label: 'Species' },
   { href: '/regulations', label: 'Regulations' },
   { href: '/pricing', label: 'Pricing' },
@@ -43,10 +42,10 @@ export default function MarketingHeader() {
           {loading ? null : user ? (
             <>
               <Link
-                href="/dashboard"
+                href="/explore"
                 className="hidden sm:inline-flex text-sm font-medium text-rc-text-light hover:text-rc-text px-3 py-1.5 transition-colors"
               >
-                Dashboard
+                Explore
               </Link>
               <button
                 type="button"

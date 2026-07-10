@@ -20,8 +20,6 @@ export default function MarketingFooter() {
         <div>
           <h4 className="font-semibold text-rc-text mb-3">Forecasts</h4>
           <ul className="space-y-2 text-rc-text-muted">
-            <li><Link href="/fishing" className="hover:text-rc-text">All regions</Link></li>
-            <li><Link href="/fishing/bc" className="hover:text-rc-text">British Columbia</Link></li>
             <li><Link href="/explore" className="hover:text-rc-text">Explore map</Link></li>
           </ul>
         </div>

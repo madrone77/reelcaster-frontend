@@ -43,7 +43,7 @@ function BillingSuccessInner() {
           setPolling(false)
           subscription.refresh()
           // Give the user a moment to read the success state, then bounce.
-          setTimeout(() => router.replace('/dashboard'), 2000)
+          setTimeout(() => router.replace('/explore'), 2000)
           return
         }
       } catch {
@@ -88,12 +88,12 @@ function BillingSuccessInner() {
               Activating your account…
             </div>
           ) : status?.is_active ? (
-            <div className="mt-6 text-sm text-green-400">All set — taking you to the dashboard.</div>
+            <div className="mt-6 text-sm text-green-400">All set — taking you to Explore.</div>
           ) : (
             <div className="mt-6 text-sm text-rc-text-muted">
               Stripe is still finalizing the payment. You can{' '}
-              <Link href="/dashboard" className="text-blue-400 hover:text-blue-300 underline">
-                head to your dashboard
+              <Link href="/explore" className="text-blue-400 hover:text-blue-300 underline">
+                head to Explore
               </Link>{' '}
               — Pro features unlock as soon as the webhook lands.
             </div>

@@ -6,7 +6,7 @@ import { loginAs, freeUser, proUser, setUserTier, resetUserState } from '../fixt
  *
  * These specs exercise the upgrade dance without actually completing a Stripe
  * checkout: we don't fill the card form here. The full Stripe-test-mode E2E
- * (4242 card → success page → webhook → pro dashboard) is exercised by the
+ * (4242 card → success page → webhook → pro tier) is exercised by the
  * full-funnel canary spec added in Phase 7.
  */
 
@@ -35,11 +35,6 @@ test.describe('Free → upgrade prompts', () => {
     // contract tests in api/contracts.spec.ts.
   });
 
-  test('my-spots page → empty-state mentions 5-spot free cap', async ({ page }) => {
-    await loginAs(page, freeUser);
-    await page.goto('/my-spots');
-    await expect(page.getByText(/Free plan tracks up to 5 spots/i)).toBeVisible();
-  });
 });
 
 test.describe('Stripe success / cancel pages', () => {
@@ -62,7 +57,7 @@ test.describe('Stripe success / cancel pages', () => {
     await page.goto('/billing/success?session_id=cs_test_dummy');
     await expect(page.getByTestId('billing-success')).toBeVisible();
     // Pro tier already active → polling should resolve quickly and redirect.
-    await page.waitForURL((url) => url.pathname === '/dashboard', { timeout: 15_000 });
+    await page.waitForURL((url) => url.pathname === '/explore', { timeout: 15_000 });
   });
 });
 
@@ -88,24 +83,3 @@ test.describe('Pricing feature callout', () => {
   });
 });
 
-test.describe('User menu billing entry', () => {
-  test('Pro user sees Manage subscription', async ({ page }) => {
-    await loginAs(page, proUser);
-    await page.goto('/dashboard');
-    // The user-menu trigger is rendered in the icon sidebar; on smaller viewports
-    // it lives in the mobile tab bar. We assert the testid exists somewhere in
-    // the document for a paid user — exact placement depends on viewport.
-    const portalEntries = page.getByTestId('manage-subscription');
-    await expect(portalEntries.first()).toHaveCount(1, { timeout: 5_000 }).catch(async () => {
-      // If the dropdown is collapsed by default, open it via the Account button.
-      await page.getByRole('button', { name: /account/i }).first().click();
-      await expect(page.getByTestId('manage-subscription').first()).toBeVisible();
-    });
-  });
-
-  test('Free user does NOT see Manage subscription', async ({ page }) => {
-    await loginAs(page, freeUser);
-    await page.goto('/dashboard');
-    await expect(page.getByTestId('manage-subscription')).toHaveCount(0);
-  });
-});

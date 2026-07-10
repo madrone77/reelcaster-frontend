@@ -13,7 +13,6 @@ const PUBLIC_PREFIXES = [
   '/login',
   '/signup',
   '/auth/',
-  '/fishing',
   '/pricing',
   '/explore',
   '/regulations',

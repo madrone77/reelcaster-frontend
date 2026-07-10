@@ -153,7 +153,6 @@ export default function CatchLogPage() {
           title="Catch Log"
           showTimeframe={false}
           showSetLocation={false}
-          showCustomize={false}
         />
 
         <div className="max-w-4xl mx-auto">

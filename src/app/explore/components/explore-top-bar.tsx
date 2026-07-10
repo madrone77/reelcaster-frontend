@@ -10,7 +10,6 @@ import { useAuth } from "@/contexts/auth-context";
 const NAV = [
   { href: "/explore", label: "Explore" },
   { href: "/species", label: "Species" },
-  { href: "/fishing", label: "Fishing guide" },
   { href: "/regulations", label: "Regulations" },
   { href: "/log-catch", label: "Log a catch" },
   { href: "/notifications", label: "Notifications" },
@@ -107,7 +106,7 @@ export default function ExploreTopBar() {
           </Link>
 
           <Link
-            href="/fishing"
+            href="/explore"
             aria-label="Search spots"
             className="flex items-center justify-center w-8 h-8 rounded-lg border border-rc-rule text-rc-ink-soft hover:bg-rc-surface transition-colors"
           >

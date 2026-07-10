@@ -5,7 +5,6 @@ export default function robots() {
         userAgent: "*",
         allow: [
           "/",
-          "/fishing/",
           "/species/",
           "/regulations",
           "/pricing",
@@ -19,14 +18,10 @@ export default function robots() {
           "/faq",
         ],
         disallow: [
-          "/admin/",
           "/api/",
           "/profile/",
-          "/dashboard",
           "/alerts",
-          "/my-spots",
           "/billing/",
-          "/settings/",
           "/notifications",
         ],
       },
