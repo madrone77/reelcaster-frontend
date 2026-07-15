@@ -4,98 +4,124 @@ import type { RightNowSnapshot } from "@/lib/bluecaster/live-spot-types";
 
 // ── mini visualizations ─────────────────────────────────────────────────
 
-/** Compass dial with a needle pointing in the wind-from bearing. */
+// One shared accent (brand blue, on a light-blue fill) across every RIGHT NOW
+// viz — the compass needle, the tide/pressure curves, the sea bars, and the
+// temp-gauge knob — so the row reads as one system instead of six one-offs.
+
+/** Compass dial with cardinal ticks and a needle pointing in the wind-from bearing. */
 function CompassArrow({ deg }: { deg: number }) {
   return (
     <svg viewBox="0 0 32 32" className="w-7 h-7 shrink-0" aria-hidden>
-      <circle
-        cx="16"
-        cy="16"
-        r="14"
-        fill="none"
-        stroke="var(--rc-rule)"
-        strokeWidth="1.5"
-      />
+      <circle cx="16" cy="16" r="14" fill="none" stroke="var(--rc-rule)" strokeWidth="1.5" />
+      {[0, 90, 180, 270].map((t) => (
+        <line
+          key={t}
+          x1="16"
+          y1="3"
+          x2="16"
+          y2="6"
+          stroke="var(--rc-ink-mute)"
+          strokeWidth="1.5"
+          strokeLinecap="round"
+          transform={`rotate(${t} 16 16)`}
+        />
+      ))}
       <g transform={`rotate(${deg} 16 16)`}>
-        <path d="M16 5 L20 18 L16 15 L12 18 Z" fill="var(--rc-brand)" />
+        <line x1="16" y1="16" x2="16" y2="6" stroke="var(--rc-brand)" strokeWidth="2" strokeLinecap="round" />
+        <circle cx="16" cy="6" r="2.6" fill="var(--rc-brand)" />
       </g>
     </svg>
   );
 }
 
-/** Compact tide curve over the day. */
+/** Compact tide curve over the day — filled area, peak marker, mean reference line. */
 function TideSpark({ series }: { series: (number | null)[] }) {
   const vals = series.filter((v): v is number => v != null);
   if (vals.length < 2) return null;
   const min = Math.min(...vals);
   const max = Math.max(...vals);
   const span = max - min || 1;
-  const pts = series.map((v, i) => {
-    const x = (i / (series.length - 1)) * 100;
-    const y = v == null ? 50 : 100 - ((v - min) / span) * 100;
-    return `${x.toFixed(1)},${y.toFixed(1)}`;
+  const mean = vals.reduce((a, b) => a + b, 0) / vals.length;
+  const yFor = (v: number) => 100 - ((v - min) / span) * 100;
+  const pts = series.map((v, i) => ({
+    x: (i / (series.length - 1)) * 100,
+    y: v == null ? null : yFor(v),
+  }));
+  const line = pts
+    .filter((p): p is { x: number; y: number } => p.y != null)
+    .map((p, i) => `${i === 0 ? "M" : "L"}${p.x.toFixed(1)},${p.y.toFixed(1)}`)
+    .join(" ");
+  let peakIdx = 0;
+  series.forEach((v, i) => {
+    if (v != null && (series[peakIdx] == null || v > (series[peakIdx] as number))) peakIdx = i;
   });
+  const peak = pts[peakIdx];
+  const meanY = yFor(mean);
   return (
-    <svg
-      viewBox="0 0 100 100"
-      preserveAspectRatio="none"
-      className="w-14 h-6 shrink-0"
-      aria-hidden
-    >
-      <polyline
-        points={pts.join(" ")}
-        fill="none"
-        stroke="var(--rc-brand)"
-        strokeWidth={3}
-        vectorEffect="non-scaling-stroke"
-      />
+    <svg viewBox="0 0 100 100" preserveAspectRatio="none" className="w-14 h-7 shrink-0" aria-hidden>
+      <line x1="0" y1={meanY} x2="100" y2={meanY} stroke="var(--rc-rule)" strokeWidth={1} strokeDasharray="3 3" />
+      <path d={`${line} L100,100 L0,100 Z`} fill="var(--rc-brand-soft)" stroke="none" />
+      <path d={line} fill="none" stroke="var(--rc-brand)" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round" vectorEffect="non-scaling-stroke" />
+      {peak.y != null && <circle cx={peak.x} cy={peak.y} r={3.2} fill="var(--rc-brand)" />}
     </svg>
   );
 }
 
-/** Small vertical bar cluster for the SEA tile (decorative, scaled to sea state). */
-function SeaBars({ level }: { level: number }) {
-  const pattern = [0.45, 0.7, 0.55, 0.9, 0.65, 1];
+/** Compact wave-height bars over the day — real hourly data, not decoration. */
+function SeaSpark({ series }: { series: (number | null)[] }) {
+  const vals = series.filter((v): v is number => v != null);
+  if (vals.length < 2) return null;
+  const min = Math.min(...vals);
+  const max = Math.max(...vals);
+  const span = max - min || 1;
+  const N = 8;
+  const bars = Array.from({ length: N }, (_, i) => {
+    const idx = Math.round((i / (N - 1)) * (series.length - 1));
+    return series[idx];
+  });
+  const bw = 100 / N;
   return (
-    <div className="flex items-end gap-[2px] h-6 w-10 shrink-0" aria-hidden>
-      {pattern.map((p, i) => (
-        <div
-          key={i}
-          className="flex-1 rounded-[1px] bg-rc-brand"
-          style={{
-            height: `${Math.max(18, p * (0.4 + 0.6 * level) * 100)}%`,
-            opacity: 0.45 + 0.5 * p,
-          }}
-        />
-      ))}
-    </div>
+    <svg viewBox="0 0 100 100" preserveAspectRatio="none" className="w-14 h-7 shrink-0" aria-hidden>
+      {bars.map((v, i) => {
+        if (v == null) return null;
+        const rel = (v - min) / span;
+        const h = Math.max(8, rel * 100);
+        return (
+          <rect
+            key={i}
+            x={(i * bw + bw * 0.2).toFixed(1)}
+            y={(100 - h).toFixed(1)}
+            width={(bw * 0.6).toFixed(1)}
+            height={h.toFixed(1)}
+            rx={1.5}
+            fill="var(--rc-brand)"
+            opacity={(0.35 + 0.65 * rel).toFixed(2)}
+          />
+        );
+      })}
+    </svg>
   );
 }
 
-/** Direction-only pressure trend line (no hourly series is available). */
+/** Pressure trend as a smooth curve between the two known readings (now, and
+ * 3h ago derived from the trend) — same fill/stroke language as tide, without
+ * implying an hourly series we don't have. */
 function PressureSpark({ trend }: { trend: number | null }) {
   if (trend == null) return null;
-  const y1 = trend > 0.2 ? 80 : trend < -0.2 ? 20 : 50;
-  const y2 = trend > 0.2 ? 20 : trend < -0.2 ? 80 : 50;
+  const y1 = trend > 0.2 ? 78 : trend < -0.2 ? 22 : 50;
+  const y2 = trend > 0.2 ? 22 : trend < -0.2 ? 78 : 50;
+  const path = `M2,${y1} Q50,${(y1 + y2) / 2} 98,${y2}`;
   return (
-    <svg
-      viewBox="0 0 100 100"
-      preserveAspectRatio="none"
-      className="w-14 h-6 shrink-0"
-      aria-hidden
-    >
-      <polyline
-        points={`2,${y1} 98,${y2}`}
-        fill="none"
-        stroke="var(--rc-brand)"
-        strokeWidth={3}
-        vectorEffect="non-scaling-stroke"
-      />
+    <svg viewBox="0 0 100 100" preserveAspectRatio="none" className="w-14 h-7 shrink-0" aria-hidden>
+      <path d={`${path} L98,100 L2,100 Z`} fill="var(--rc-brand-soft)" stroke="none" />
+      <path d={path} fill="none" stroke="var(--rc-brand)" strokeWidth={2.5} strokeLinecap="round" vectorEffect="non-scaling-stroke" />
+      <circle cx="98" cy={y2} r={3.2} fill="var(--rc-brand)" />
     </svg>
   );
 }
 
-/** Horizontal gradient gauge (cool→warm) with a knob at the current temp. */
+/** Horizontal range gauge with a knob at the current temp — same blue accent
+ * as the other RIGHT NOW visualizations. */
 function TempGauge({
   value,
   min,
@@ -109,14 +135,9 @@ function TempGauge({
   const pct = Math.max(0, Math.min(100, ((value - min) / (max - min)) * 100));
   return (
     <div className="mt-2.5 w-full">
-      <div
-        className="relative h-1.5 rounded-full"
-        style={{
-          background: "linear-gradient(90deg, #3B82F6, #10B981, #F59E0B)",
-        }}
-      >
+      <div className="relative h-1.5 rounded-full bg-rc-brand-soft">
         <span
-          className="absolute top-1/2 w-3 h-3 -translate-x-1/2 -translate-y-1/2 rounded-full bg-rc-panel border-2 border-rc-ink shadow-sm"
+          className="absolute top-1/2 w-3 h-3 -translate-x-1/2 -translate-y-1/2 rounded-full bg-rc-brand shadow-sm"
           style={{ left: `${pct}%` }}
         />
       </div>
@@ -167,19 +188,22 @@ type Metric = {
  * RIGHT NOW conditions panel. Wind / sea / water / air come from the spot-page
  * `rightNow` snapshot; pressure (+3h trend) comes from point-conditions, which
  * the spot-page payload omits. Tide curve is drawn from the day's tide series.
- * Rendered flush (no card) as a 2 col × 3 row divided grid per the mockup.
+ * Rendered flush (no card) as a 2 col × 3 row divided grid per the mockup —
+ * labels IBM Plex Mono uppercase, values Inter, hairline dividers.
  */
 export default function NowConditions({
   rightNow,
   pressureMb,
   pressureTrend,
   tideSeries,
+  seaSeries,
   label = "RIGHT NOW",
 }: {
   rightNow: RightNowSnapshot | null;
   pressureMb: number | null;
   pressureTrend: number | null;
   tideSeries: (number | null)[];
+  seaSeries: (number | null)[];
   label?: string;
 }) {
   const rn = rightNow;
@@ -225,10 +249,7 @@ export default function NowConditions({
       label: "SEA",
       value: seaState(rn?.waveM ?? null),
       sub: seaRange,
-      viz:
-        rn?.waveM != null ? (
-          <SeaBars level={Math.min(1, rn.waveM / 2)} />
-        ) : null,
+      viz: <SeaSpark series={seaSeries} />,
     },
     {
       label: "PRESSURE",

@@ -201,7 +201,7 @@ export default function CreateAlertDialog({
               {threshold}
             </span>
             <span
-              className={`px-2 py-0.5 rounded-full text-[10px] font-semibold uppercase tracking-[0.06em] ${TIER_PILL[tier]}`}
+              className={`px-2 py-0.5 rounded font-rc-mono text-[11px] font-bold uppercase tracking-[0.06em] ${TIER_PILL[tier]}`}
             >
               {tier}
             </span>

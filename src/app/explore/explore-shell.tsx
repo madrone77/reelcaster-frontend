@@ -9,6 +9,7 @@ import {
   type CityNode,
   type ExploreData,
   type RailSpot,
+  type SpeciesOption,
 } from "./lib/explore-data";
 import {
   buildForecastDays,
@@ -81,6 +82,7 @@ export default function ExploreShell({
   const [relief, setRelief] = useState(true);
   const [labels, setLabels] = useState(true);
   const [currents, setCurrents] = useState(false);
+  const [wind, setWind] = useState(false);
   const [speciesFilter, setSpeciesFilter] = useState<string | null>(null);
 
   const today = data.date;
@@ -135,6 +137,20 @@ export default function ExploreShell({
       .sort((a, b) => (b.score ?? -1) - (a.score ?? -1));
   }, [effectiveSpots, speciesFilter, data.species]);
 
+  // Re-derive per-species best scores from the current day's spots so the
+  // filter chips reflect whichever date the user is viewing, not just today.
+  const speciesWithScores = useMemo<SpeciesOption[]>(() => {
+    const best: Record<string, number> = {};
+    for (const spot of effectiveSpots) {
+      for (const [sid, score] of Object.entries(spot.scoresBySpecies)) {
+        if (!(sid in best) || score > best[sid]) best[sid] = score;
+      }
+    }
+    return data.species
+      .map((s) => ({ ...s, bestScore: best[s.id] ?? null }))
+      .sort((a, b) => (b.bestScore ?? -1) - (a.bestScore ?? -1));
+  }, [effectiveSpots, data.species]);
+
   const activeCitySlug = citySlug ?? data.defaultCitySlug;
 
   const selectedCity = useMemo<CityNode | null>(() => {
@@ -155,6 +171,62 @@ export default function ExploreShell({
         : displaySpots,
     [displaySpots, selectedCity],
   );
+
+  // ── Hour scrubber ───────────────────────────────────────────────────
+  // Regional best score per hour across the mapped spots — the envelope the
+  // scrubber's ticks + readout report. The hour drives pin recolor only
+  // (the rail stays ranked by day peak).
+  const hourlyMax = useMemo(() => {
+    const arr: (number | null)[] = new Array(24).fill(null);
+    for (const s of railSpots) {
+      for (let h = 0; h < 24; h++) {
+        const v = s.hours24[h];
+        if (typeof v === "number" && (arr[h] === null || v > (arr[h] as number))) {
+          arr[h] = v;
+        }
+      }
+    }
+    return arr;
+  }, [railSpots]);
+
+  const peakHour = useMemo(() => {
+    let best = -1;
+    let hr = 12;
+    hourlyMax.forEach((v, h) => {
+      if (v !== null && v > best) {
+        best = v;
+        hr = h;
+      }
+    });
+    return hr;
+  }, [hourlyMax]);
+
+  const [hour, setHour] = useState(peakHour);
+  // Snap the handle to the peak whenever the day/city changes the curve.
+  useEffect(() => {
+    setHour(peakHour);
+  }, [peakHour]);
+
+  // Hourly scrubber shows by default; the strip's "Hours" control collapses it
+  // to a compact day-cells-only state.
+  const [hourExpanded, setHourExpanded] = useState(true);
+  // Whole 14-day strip hide/show (collapses to a "Show" chip).
+  const [stripHidden, setStripHidden] = useState(false);
+
+  const hasHourly = hourlyMax.some((v) => v !== null);
+  const scrubberOpen = hasHourly && hourExpanded;
+
+  // Rail spots re-scored to the scrubbed hour (score + tier reflect the hour,
+  // list re-ranks). Falls back to the day peak where an hour has no value.
+  const railDisplaySpots = useMemo(() => {
+    if (!hasHourly) return railSpots;
+    return railSpots
+      .map((s) => {
+        const hv = s.hours24[hour];
+        return hv == null ? s : { ...s, score: hv };
+      })
+      .sort((a, b) => (b.score ?? -1) - (a.score ?? -1));
+  }, [railSpots, hour, hasHourly]);
 
   const selectedSpot = useMemo(
     () => displaySpots.find((s) => s.slug === spotSlug) ?? null,
@@ -215,7 +287,7 @@ export default function ExploreShell({
     const desktop = typeof window !== "undefined" && window.innerWidth >= 1024;
     mapRef.current?.fitBounds(bounds, {
       padding: desktop
-        ? { left: 460, top: 100, right: 80, bottom: 60 }
+        ? { left: 460, top: 40, right: 80, bottom: 200 }
         : { left: 24, top: 24, right: 24, bottom: 24 },
       maxZoom: 12,
       duration: 800,
@@ -304,6 +376,7 @@ export default function ExploreShell({
   const handleSelectDay = useCallback(
     (d: ForecastDay) => {
       setQuery({ day: d.iso === today ? null : d.iso });
+      setHourExpanded(true); // tapping a day reveals the hourly scrubber
     },
     [setQuery, today],
   );
@@ -341,38 +414,41 @@ export default function ExploreShell({
           relief={relief}
           labels={labels}
           currents={currents}
+          wind={wind}
+          hour={hasHourly ? hour : null}
         />
       </div>
 
       {/* Mobile-only document flow: spot list + footer (in-flow). */}
-      <MobileSpotList spots={railSpots} onSelectSpot={handleSelectSpot} />
+      <MobileSpotList spots={railDisplaySpots} tz={MAP_TZ} onSelectSpot={handleSelectSpot} />
       <ExploreFooter />
-
-      {/* Desktop-only floating panels (unchanged). */}
-      <MapControls
-        relief={relief}
-        labels={labels}
-        currents={currents}
-        onToggleRelief={() => setRelief((v) => !v)}
-        onToggleLabels={() => setLabels((v) => !v)}
-        onToggleCurrents={() => setCurrents((v) => !v)}
-        species={data.species}
-        speciesFilter={speciesFilter}
-        onSpeciesChange={setSpeciesFilter}
-        onNearMe={handleNearMe}
-        locating={locating}
-      />
 
       <LeftRail
         locations={data.locations}
         selectedCity={selectedCity}
-        spots={railSpots}
+        spots={railDisplaySpots}
         selectedSpot={selectedSpot}
         date={selectedIso}
         tz={MAP_TZ}
+        bottomInset={stripHidden ? 64 : scrubberOpen ? 208 : 152}
         onSelectCity={handleSelectCity}
         onSelectSpot={handleSelectSpot}
         onCloseSpot={handleCloseSpot}
+        mapControls={{
+          relief,
+          labels,
+          currents,
+          wind,
+          onToggleRelief: () => setRelief((v) => !v),
+          onToggleLabels: () => setLabels((v) => !v),
+          onToggleCurrents: () => setCurrents((v) => !v),
+          onToggleWind: () => setWind((v) => !v),
+          species: speciesWithScores,
+          speciesFilter,
+          onSpeciesChange: setSpeciesFilter,
+          onNearMe: handleNearMe,
+          locating,
+        }}
       />
 
       <ForecastStrip
@@ -381,6 +457,13 @@ export default function ExploreShell({
         selectedIso={selectedIso}
         loading={fcLoading}
         onSelectDay={handleSelectDay}
+        scrub={scrubberOpen ? { hours: hourlyMax, hour, onScrub: setHour } : null}
+        hourlyAvailable={hasHourly}
+        hourExpanded={hourExpanded}
+        onToggleHours={() => setHourExpanded((v) => !v)}
+        hidden={stripHidden}
+        onHide={() => setStripHidden(true)}
+        onShow={() => setStripHidden(false)}
       />
 
       {/* Mobile-only map-filter sheet (species + layers + near-me). */}

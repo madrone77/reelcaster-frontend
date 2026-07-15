@@ -5,13 +5,16 @@ import { NextResponse, type NextRequest } from 'next/server'
 // the coming-soon page itself, the API, admin, and the auth/login flow.
 // `/explore` is publicly live (soft-launched) while the rest stays walled.
 // `/log-catch` + `/notifications` ship with the explore soft-launch.
-const ALLOW_PREFIXES = ['/coming-soon', '/api', '/admin', '/auth', '/login', '/signup', '/explore', '/pricing', '/log-catch', '/notifications']
+// `/` (the redesigned marketing homepage) + `/about` opened for review —
+// revert if the homepage should stay behind the wall a bit longer.
+const ALLOW_PREFIXES = ['/coming-soon', '/api', '/admin', '/auth', '/login', '/signup', '/explore', '/pricing', '/log-catch', '/notifications', '/about']
+const ALLOW_EXACT = ['/']
 
 export function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl
-  const allowed = ALLOW_PREFIXES.some(
-    (p) => pathname === p || pathname.startsWith(p + '/'),
-  )
+  const allowed =
+    ALLOW_EXACT.includes(pathname) ||
+    ALLOW_PREFIXES.some((p) => pathname === p || pathname.startsWith(p + '/'))
   if (allowed) return NextResponse.next()
 
   const url = req.nextUrl.clone()

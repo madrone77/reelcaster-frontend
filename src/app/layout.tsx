@@ -1,5 +1,5 @@
 import type { Metadata } from 'next'
-import { Geist, Geist_Mono } from 'next/font/google'
+import { Geist, Geist_Mono, Russo_One } from 'next/font/google'
 import './globals.css'
 import { AuthProvider } from '@/contexts/auth-context'
 import { MixpanelProvider } from '@/contexts/mixpanel-context'
@@ -19,6 +19,13 @@ const geistMono = Geist_Mono({
   subsets: ['latin'],
 })
 
+// Brand logo / wordmark font — used only for the "ReelCaster" wordmark.
+const russoOne = Russo_One({
+  weight: '400',
+  variable: '--font-russo',
+  subsets: ['latin'],
+})
+
 export const metadata: Metadata = {
   title: 'BC Fishing Forecast - British Columbia Fishing Conditions',
   description:
@@ -34,7 +41,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
+      <body className={`${geistSans.variable} ${geistMono.variable} ${russoOne.variable} antialiased`}>
         <AuthProvider>
           <MixpanelProvider>
             <UnitPreferencesProvider>

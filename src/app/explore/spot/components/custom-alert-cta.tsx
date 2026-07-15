@@ -17,8 +17,8 @@ export default function CustomAlertCta({
 }) {
   return (
     <div className="grid grid-cols-1 lg:grid-cols-[1fr_auto] gap-3">
-      <div className="rounded-2xl bg-rc-brand-soft p-5 flex flex-col sm:flex-row sm:items-center gap-4">
-        <div className="shrink-0 w-12 h-12 rounded-xl bg-rc-brand flex items-center justify-center text-white">
+      <div className="rounded bg-rc-brand-soft p-5 flex flex-col sm:flex-row sm:items-center gap-4">
+        <div className="shrink-0 w-12 h-12 rounded bg-rc-brand flex items-center justify-center text-white">
           <Bell className="w-5 h-5" />
         </div>
         <div className="min-w-0 flex-1">
@@ -32,16 +32,16 @@ export default function CustomAlertCta({
         </div>
         <Link
           href="/profile/custom-alerts"
-          className="shrink-0 inline-flex items-center justify-center px-5 py-3 rounded-xl bg-rc-brand hover:bg-rc-brand-hover text-white font-rc-mono text-sm font-semibold tracking-[0.04em] transition-colors"
+          className="shrink-0 inline-flex items-center justify-center px-5 py-3 rounded bg-rc-brand hover:bg-rc-brand-hover text-white font-rc-mono text-sm font-semibold tracking-[0.04em] transition-colors"
         >
           Create alert →
         </Link>
       </div>
 
-      <div className="rounded-2xl bg-rc-brand-soft p-5 flex items-center justify-center">
+      <div className="rounded bg-rc-brand-soft p-5 flex items-center justify-center">
         <Link
           href="/pricing"
-          className="inline-flex items-center justify-center px-5 py-3 rounded-xl bg-rc-brand hover:bg-rc-brand-hover text-white font-rc-mono text-sm font-semibold tracking-[0.04em] transition-colors"
+          className="inline-flex items-center justify-center px-5 py-3 rounded bg-rc-brand hover:bg-rc-brand-hover text-white font-rc-mono text-sm font-semibold tracking-[0.04em] transition-colors"
         >
           Got questions?
         </Link>

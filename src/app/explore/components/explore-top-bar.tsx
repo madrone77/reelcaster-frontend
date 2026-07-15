@@ -8,9 +8,9 @@ import { Search } from "lucide-react";
 import { useAuth } from "@/contexts/auth-context";
 
 const NAV = [
+  { href: "/about", label: "About" },
   { href: "/explore", label: "Explore" },
   { href: "/species", label: "Species" },
-  { href: "/fishing", label: "Fishing guide" },
   { href: "/regulations", label: "Regulations" },
   { href: "/log-catch", label: "Log a catch" },
   { href: "/notifications", label: "Notifications" },

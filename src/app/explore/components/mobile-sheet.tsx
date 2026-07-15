@@ -107,6 +107,7 @@ export default function MobileSheet({
                 <SpotCard
                   key={spot.id}
                   spot={spot}
+                  tz={tz}
                   onSelect={() => onSelectSpot(spot.slug)}
                 />
               ))}
