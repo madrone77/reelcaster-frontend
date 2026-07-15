@@ -20,6 +20,13 @@ const TIER_HEX: Record<string, string> = {
 
 type Layer = "bathy" | "satellite" | "currents" | "winds";
 
+const OWM_KEY = process.env.NEXT_PUBLIC_OPENWEATHERMAP_API_KEY;
+
+// All four surface unconditionally. Bathymetry, Satellite, and Currents need
+// no key (Satellite runs on Esri's free World Imagery tiles, not Mapbox);
+// Winds needs an OpenWeatherMap key and shows the base map with no overlay
+// until NEXT_PUBLIC_OPENWEATHERMAP_API_KEY is set — a quiet no-op, not a
+// blank/broken map.
 const TABS: [Layer, string][] = [
   ["bathy", "Bathymetry"],
   ["satellite", "Satellite"],
@@ -27,19 +34,16 @@ const TABS: [Layer, string][] = [
   ["winds", "Winds"],
 ];
 
-const MAPBOX_TOKEN = process.env.NEXT_PUBLIC_MAPBOX_TOKEN;
-const OWM_KEY = process.env.NEXT_PUBLIC_OPENWEATHERMAP_API_KEY;
-
 const SAT_LAYER = "spot-sat";
 const WIND_LAYER = "spot-wind";
 
 /**
  * Compact spot map — reuses the bathymetric relief style + WebGL currents flow
  * from the Explore map, framed on a single spot with a tier-colored score pin.
- * Four tabs: Bathymetry / Satellite (Mapbox raster) / Currents / Winds (OWM
- * raster). Satellite & Winds are added to the live map object (not the style)
- * and toggled by visibility; they degrade to the base map when their env key
- * is unset.
+ * Four tabs: Bathymetry / Satellite (Esri World Imagery, keyless) / Currents /
+ * Winds (OWM raster). Satellite & Winds are added to the live map object (not
+ * the style) and toggled by visibility; Winds degrades to the base map with
+ * no overlay when NEXT_PUBLIC_OPENWEATHERMAP_API_KEY is unset.
  */
 export default function SpotMiniMap({
   spot,
@@ -151,23 +155,23 @@ export default function SpotMiniMap({
       >
         {/* Satellite / Winds rasters — declared so react-map-gl manages them (it
             reconciles the style and would wipe imperatively-added layers). Layers
-            render above the relief base; visibility follows the active tab. */}
-        {MAPBOX_TOKEN && (
-          <Source
+            render above the relief base; visibility follows the active tab.
+            Satellite is Esri's free World Imagery service — no key required. */}
+        <Source
+          id={SAT_LAYER}
+          type="raster"
+          tiles={[
+            "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
+          ]}
+          tileSize={256}
+          attribution="Esri, Maxar, Earthstar Geographics"
+        >
+          <Layer
             id={SAT_LAYER}
             type="raster"
-            tiles={[
-              `https://api.mapbox.com/v4/mapbox.satellite/{z}/{x}/{y}.jpg?access_token=${MAPBOX_TOKEN}`,
-            ]}
-            tileSize={256}
-          >
-            <Layer
-              id={SAT_LAYER}
-              type="raster"
-              layout={{ visibility: layer === "satellite" ? "visible" : "none" }}
-            />
-          </Source>
-        )}
+            layout={{ visibility: layer === "satellite" ? "visible" : "none" }}
+          />
+        </Source>
         {OWM_KEY && (
           <Source
             id={WIND_LAYER}

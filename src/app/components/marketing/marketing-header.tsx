@@ -2,18 +2,25 @@
 
 import Link from 'next/link';
 import Image from 'next/image';
+import { usePathname } from 'next/navigation';
 import { useAuth } from '@/contexts/auth-context';
 
+// Keep in step with the routes that actually exist — /fishing, /species and
+// /regulations were removed, and anything not on the middleware allowlist
+// silently rewrites to /coming-soon rather than 404ing, so dead links here
+// look like real pages until you click them.
 const NAV = [
   { href: '/about', label: 'About' },
   { href: '/explore', label: 'Explore' },
-  { href: '/fishing', label: 'Forecast' },
-  { href: '/log-catch', label: 'Catch Log' },
+  { href: '/catches', label: 'Catch Log' },
   { href: '/pricing', label: 'Pricing' },
 ];
 
 export default function MarketingHeader() {
   const { user, loading, signOut } = useAuth();
+  const pathname = usePathname();
+  const isActive = (href: string) =>
+    pathname === href || pathname.startsWith(`${href}/`);
 
   return (
     <header
@@ -27,7 +34,14 @@ export default function MarketingHeader() {
 
         <nav className="hidden md:flex items-center gap-7 text-sm font-medium text-rc-ink-soft">
           {NAV.map((item) => (
-            <Link key={item.href} href={item.href} className="hover:text-rc-ink transition-colors">
+            <Link
+              key={item.href}
+              href={item.href}
+              aria-current={isActive(item.href) ? 'page' : undefined}
+              className={`transition-colors ${
+                isActive(item.href) ? 'text-rc-brand font-semibold' : 'hover:text-rc-ink'
+              }`}
+            >
               {item.label}
             </Link>
           ))}
@@ -71,7 +85,14 @@ export default function MarketingHeader() {
 
       <nav className="md:hidden flex items-center gap-4 px-6 pb-3 -mt-1 text-xs font-medium text-rc-ink-mute overflow-x-auto">
         {NAV.map((item) => (
-          <Link key={item.href} href={item.href} className="whitespace-nowrap hover:text-rc-ink">
+          <Link
+            key={item.href}
+            href={item.href}
+            aria-current={isActive(item.href) ? 'page' : undefined}
+            className={`whitespace-nowrap ${
+              isActive(item.href) ? 'text-rc-brand font-semibold' : 'hover:text-rc-ink'
+            }`}
+          >
             {item.label}
           </Link>
         ))}

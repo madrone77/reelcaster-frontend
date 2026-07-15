@@ -595,7 +595,7 @@ export default function LogCatchShell() {
   return (
     <div className="min-h-dvh bg-rc-page">
       <ExploreTopBar />
-      <main className="pt-14">
+      <main className="pt-16">
         <div
           className={`mx-auto px-4 sm:px-6 ${
             step === "review"

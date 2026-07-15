@@ -61,7 +61,7 @@ export default function LeftRail({
   return (
     <aside
       style={{ bottom: `${bottomInset}px` }}
-      className="hidden lg:flex flex-col fixed left-6 top-[64px] w-96 z-30 bg-rc-panel/88 backdrop-blur-md rounded-xl border border-rc-rule shadow-rc-panel overflow-hidden transition-[bottom] duration-200"
+      className="hidden lg:flex flex-col fixed left-6 top-[72px] w-96 z-30 bg-rc-panel/88 backdrop-blur-md rounded-xl border border-rc-rule shadow-rc-panel overflow-hidden transition-[bottom] duration-200"
     >
       {selectedSpot ? (
         <div key={selectedSpot.id} className="animate-fade-in h-full overflow-y-auto">

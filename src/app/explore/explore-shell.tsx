@@ -400,7 +400,7 @@ export default function ExploreShell({
   }, [selectedCity]);
 
   return (
-    <div className="relative pt-14 lg:pt-0 min-h-dvh lg:min-h-0 lg:h-full">
+    <div className="relative pt-16 lg:pt-0 min-h-dvh lg:min-h-0 lg:h-full">
       <ExploreTopBar />
 
       {/* Mobile-only location header (in-flow) — the screenshot's pill +
@@ -416,7 +416,7 @@ export default function ExploreShell({
 
       {/* The single map instance. Mobile: a contained in-flow block.
           Desktop: the full-screen absolute pane, exactly as before. */}
-      <div className="relative h-[45dvh] min-h-[280px] w-full lg:absolute lg:inset-x-0 lg:top-14 lg:bottom-0 lg:h-auto lg:min-h-0 lg:w-auto">
+      <div className="relative h-[45dvh] min-h-[280px] w-full lg:absolute lg:inset-x-0 lg:top-16 lg:bottom-0 lg:h-auto lg:min-h-0 lg:w-auto">
         <ExploreMap
           mapRef={mapRef}
           spots={railSpots}

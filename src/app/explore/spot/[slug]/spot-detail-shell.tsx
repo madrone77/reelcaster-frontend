@@ -378,7 +378,7 @@ export default function SpotDetailShell({
     <div className="h-dvh overflow-y-auto bg-rc-panel">
       <ExploreTopBar />
 
-      <div className="pt-14">
+      <div className="pt-16">
         {/* Desktop sub-header: breadcrumb + freshness */}
         <div className="hidden lg:flex flex-wrap items-center justify-between gap-2 px-4 lg:px-6 py-3 border-b border-rc-rule">
           <div className="flex items-center gap-2 font-rc-mono text-[11px] text-rc-ink-mute">

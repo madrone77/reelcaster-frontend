@@ -78,25 +78,24 @@ export default function ScoreHero() {
         <span className="font-rc-mono text-[10px] text-rc-ink-mute">Updated 5 min ago</span>
       </div>
 
-      <div className="flex items-center justify-between gap-3 mt-4">
-        <div className="min-w-0">
-          <span className="inline-flex px-2 py-0.5 rounded bg-rc-brand-soft font-rc-mono text-[10px] font-semibold text-rc-brand uppercase tracking-[0.04em]">
-            Chinook · Peak season
-          </span>
-          <p className="text-2xl font-bold text-rc-ink mt-2">Constance Bank</p>
-        </div>
-        <div className="text-right shrink-0">
+      <div className="flex items-center justify-between gap-3 mt-5">
+        <span className="inline-flex px-2 py-0.5 rounded bg-rc-brand-soft font-rc-mono text-[10px] font-semibold text-rc-brand uppercase tracking-[0.04em]">
+          Chinook · Peak season
+        </span>
+        <div className="flex items-center gap-2 shrink-0">
           <span
-            className="text-[64px] leading-none font-bold tracking-[-0.03em] tabular-nums text-rc-good"
+            className="text-[40px] leading-none font-bold tracking-[-0.03em] tabular-nums text-rc-good"
             aria-label={`Fishing score ${DEMO_SCORE} out of 100, ${tier.label}`}
           >
             {n}
           </span>
-          <span className={`block mt-1 px-2 py-0.5 rounded font-rc-mono text-[10px] font-bold uppercase tracking-[0.04em] ${tier.bg} ${tier.ink}`}>
+          <span className={`px-2 py-0.5 rounded font-rc-mono text-[10px] font-bold uppercase tracking-[0.04em] ${tier.bg} ${tier.ink}`}>
             {tier.label}
           </span>
         </div>
       </div>
+
+      <p className="text-2xl font-bold text-rc-ink mt-3">Constance Bank</p>
 
       <div className="flex items-center gap-1.5 mt-4 font-rc-mono text-xs text-rc-ink">
         <span className="w-1.5 h-1.5 rounded-full bg-rc-good shrink-0" />

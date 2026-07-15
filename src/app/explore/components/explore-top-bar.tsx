@@ -16,8 +16,11 @@ const NAV = [
 ];
 
 /**
- * Fixed 56px white top bar per the Figma spec — replaces the marketing
- * header on this route. Re-homes the key internal links the header carried.
+ * Fixed 64px top bar. Deliberately mirrors MarketingHeader's styling (same
+ * mark, height, nav type, and 4px control corners) so the chrome doesn't
+ * change character when you cross from /about into the product — only the
+ * links and the signed-in affordances differ. Stays `fixed` (not `sticky`)
+ * because Explore owns its own scroll containers.
  */
 export default function ExploreTopBar() {
   const { user, session, loading } = useAuth();
@@ -54,51 +57,43 @@ export default function ExploreTopBar() {
     pathname === href || pathname.startsWith(`${href}/`);
 
   return (
-    <header className="fixed top-0 inset-x-0 h-14 z-40 bg-rc-panel border-b border-rc-rule shadow-rc-bar">
-      <div className="h-full px-4 sm:px-6 flex items-center justify-between gap-3">
-        <div className="flex items-center gap-4 sm:gap-6 min-w-0">
-          <Link href="/" className="shrink-0 flex items-center" aria-label="ReelCaster home">
-            <Image
-              src="/reelcaster-logo.svg"
-              alt="ReelCaster"
-              width={82}
-              height={37}
-              priority
-            />
-          </Link>
+    <header className="fixed top-0 inset-x-0 h-16 z-40 bg-rc-panel/90 backdrop-blur-sm border-b border-rc-rule">
+      <div className="h-full px-4 sm:px-6 flex items-center gap-8">
+        <Link href="/" className="shrink-0 flex items-center" aria-label="ReelCaster home">
+          <Image src="/reelcaster-mark.svg" alt="ReelCaster" width={104} height={48} priority />
+        </Link>
 
-          <nav className="hidden md:flex items-center gap-1 text-sm font-medium">
-            {NAV.map((item) => {
-              const active = isActive(item.href);
-              const showBadge =
-                item.href === "/notifications" && !!alertCount && alertCount > 0;
-              return (
-                <Link
-                  key={item.href}
-                  href={item.href}
-                  aria-current={active ? "page" : undefined}
-                  className={`px-3 py-1.5 rounded-md transition-colors flex items-center gap-1.5 ${
-                    active
-                      ? "bg-rc-brand-soft text-rc-brand font-semibold"
-                      : "text-rc-ink-soft hover:bg-rc-surface hover:text-rc-ink"
-                  }`}
-                >
-                  {item.label}
-                  {showBadge && (
-                    <span className="inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full bg-rc-badge text-rc-ink text-[10px] font-bold">
-                      {alertCount}
-                    </span>
-                  )}
-                </Link>
-              );
-            })}
-          </nav>
-        </div>
+        <nav className="hidden md:flex items-center gap-7 text-sm font-medium text-rc-ink-soft">
+          {NAV.map((item) => {
+            const active = isActive(item.href);
+            const showBadge =
+              item.href === "/notifications" && !!alertCount && alertCount > 0;
+            return (
+              <Link
+                key={item.href}
+                href={item.href}
+                aria-current={active ? "page" : undefined}
+                className={`flex items-center gap-1.5 transition-colors ${
+                  active
+                    ? "text-rc-brand font-semibold"
+                    : "hover:text-rc-ink"
+                }`}
+              >
+                {item.label}
+                {showBadge && (
+                  <span className="inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full bg-rc-badge text-rc-ink text-[10px] font-bold">
+                    {alertCount}
+                  </span>
+                )}
+              </Link>
+            );
+          })}
+        </nav>
 
-        <div className="flex items-center gap-2 sm:gap-3">
+        <div className="flex items-center gap-2 sm:gap-3 ml-auto">
           <Link
             href="/pricing"
-            className="hidden sm:flex items-center gap-2 pl-3 pr-3.5 py-1.5 rounded-full border border-rc-rule bg-rc-panel text-sm hover:border-rc-brand transition-colors"
+            className="hidden sm:flex items-center gap-2 pl-3 pr-3.5 py-1.5 rounded border border-rc-rule bg-rc-panel text-sm hover:border-rc-brand transition-colors"
           >
             <span className="w-2 h-2 rounded-full bg-rc-badge" />
             <span className="text-rc-ink-soft">Free</span>
@@ -108,7 +103,7 @@ export default function ExploreTopBar() {
           <Link
             href="/explore"
             aria-label="Search spots"
-            className="flex items-center justify-center w-8 h-8 rounded-lg border border-rc-rule text-rc-ink-soft hover:bg-rc-surface transition-colors"
+            className="flex items-center justify-center w-8 h-8 rounded border border-rc-rule text-rc-ink-soft hover:bg-rc-surface transition-colors"
           >
             <Search className="w-4 h-4" />
           </Link>
@@ -122,12 +117,24 @@ export default function ExploreTopBar() {
               {initials}
             </Link>
           ) : (
-            <Link
-              href="/login"
-              className="px-3 py-1.5 rounded-md bg-rc-brand hover:bg-rc-brand-hover text-sm font-semibold text-white transition-colors"
-            >
-              Log in
-            </Link>
+            // Same signed-out pairing as MarketingHeader (About, the
+            // homepage, etc.) — "Sign in" text link + a filled sign-up CTA —
+            // so the auth affordance doesn't change shape crossing from the
+            // marketing site into the product.
+            <>
+              <Link
+                href="/login"
+                className="hidden sm:inline-flex text-sm font-medium text-rc-ink-soft hover:text-rc-ink px-3 py-1.5 transition-colors"
+              >
+                Sign in
+              </Link>
+              <Link
+                href="/signup"
+                className="px-4 py-2 rounded bg-rc-brand hover:bg-rc-brand-hover text-sm font-semibold text-white transition-colors"
+              >
+                Start free trial
+              </Link>
+            </>
           )}
         </div>
       </div>

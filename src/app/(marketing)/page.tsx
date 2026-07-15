@@ -3,6 +3,12 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { Compass, Bell, Anchor } from 'lucide-react';
 import ScoreHero from '@/app/components/marketing/score-hero';
+import {
+  DfoIcon,
+  NoaaIcon,
+  EcmwfIcon,
+  NcepIcon,
+} from '@/app/components/marketing/data-source-icons';
 import SpotMiniMap from '@/app/explore/spot/components/spot-mini-map';
 import type { LiveSpot } from '@/lib/bluecaster/live-spot-types';
 
@@ -73,10 +79,10 @@ function tickerDot(score: number) {
 }
 
 const DATA_SOURCES = [
-  { label: 'DFO / MPO', body: 'tides · regulations', logo: '/data-source-dfo.png' },
-  { label: 'NOAA', body: 'buoys · water temp', logo: '/data-source-noaa.png' },
-  { label: 'ECMWF', body: 'wind · pressure', logo: '/data-source-ecmwf.png' },
-  { label: 'NCEP GFS', body: 'global forecast', logo: '/data-source-ncep.png' },
+  { label: 'DFO / MPO', body: 'tides · regulations', Icon: DfoIcon },
+  { label: 'NOAA', body: 'buoys · water temp', Icon: NoaaIcon },
+  { label: 'ECMWF', body: 'wind · pressure', Icon: EcmwfIcon },
+  { label: 'NCEP GFS', body: 'global forecast', Icon: NcepIcon },
 ];
 
 const FEATURES = [
@@ -130,7 +136,7 @@ function Hero() {
             <br />
             <span className="text-rc-brand font-extrabold">Before you go.</span>
           </h1>
-          <p className="text-lg md:text-[25px] font-light leading-snug mb-8 max-w-md" style={{ color: '#5A6675' }}>
+          <p className="text-[25px] font-light leading-snug mb-8" style={{ color: '#5A6675' }}>
             Reelcaster combines tides, weather, water conditions, and
             regulations into one simple score, so you know exactly when and
             where to fish.
@@ -256,8 +262,8 @@ function TrustStrip() {
       <div className="max-w-6xl mx-auto px-6 py-6 flex flex-wrap items-center justify-center gap-x-10 gap-y-3">
         <span className="rc-label text-[10px] shrink-0">Trusted data sources</span>
         {DATA_SOURCES.map((d, i) => (
-          <span key={d.label} className={`flex items-center gap-2 ${i > 0 ? 'pl-10 border-l border-rc-rule' : ''}`}>
-            <Image src={d.logo} alt="" width={26} height={26} className="w-6 h-6 shrink-0" aria-hidden />
+          <span key={d.label} className={`flex items-center gap-2.5 ${i > 0 ? 'pl-10 border-l border-rc-rule' : ''}`}>
+            <d.Icon className="w-6 h-6 shrink-0 text-rc-ink" />
             <span className="leading-tight">
               <span className="block text-sm font-semibold text-rc-ink">{d.label}</span>
               <span className="block font-rc-mono text-[10px] text-rc-ink-mute">{d.body}</span>
@@ -367,7 +373,15 @@ function FinalCta() {
         <h2 className="text-3xl md:text-[38px] font-bold tracking-[-0.02em] text-white mb-3">
           The next great fishing window is coming.
         </h2>
-        <p className="text-base text-white/90">Know when it happens before everyone else.</p>
+        <p className="text-base text-white/90 mb-8">
+          Know when it happens before everyone else.
+        </p>
+        <Link
+          href="/signup"
+          className="inline-flex items-center px-6 py-3 rounded bg-white hover:bg-white/90 text-sm font-bold uppercase tracking-[0.03em] text-rc-brand transition-colors"
+        >
+          Start free trial
+        </Link>
       </div>
     </section>
   );

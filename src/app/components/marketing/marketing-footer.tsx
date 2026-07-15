@@ -12,22 +12,26 @@ const LEGAL_LINKS: Array<{ href: string; label: string }> = [
 export default function MarketingFooter() {
   const year = new Date().getFullYear();
   return (
-    <footer data-testid="marketing-footer" className="border-t border-rc-rule bg-rc-surface mt-16">
+    <footer data-testid="marketing-footer" className="border-t border-rc-rule bg-rc-surface">
+      {/* Only routes that still exist: /fishing, /species and /regulations
+          were removed, and unlisted paths rewrite to /coming-soon instead of
+          404ing — so a stale link here reads as a real page until clicked. */}
       <div className="max-w-6xl mx-auto px-6 py-12 grid grid-cols-2 md:grid-cols-4 gap-8 text-sm">
         <div>
-          <h4 className="rc-label text-[10px] mb-3">Forecasts</h4>
+          <h4 className="rc-label text-[10px] mb-3">Product</h4>
           <ul className="space-y-2 text-rc-ink-soft">
-            <li><Link href="/fishing" className="hover:text-rc-ink">All regions</Link></li>
-            <li><Link href="/fishing/bc" className="hover:text-rc-ink">British Columbia</Link></li>
             <li><Link href="/explore" className="hover:text-rc-ink">Explore the map</Link></li>
+            <li><Link href="/catches" className="hover:text-rc-ink">Catch log</Link></li>
+            <li><Link href="/pricing" className="hover:text-rc-ink">Pro pricing</Link></li>
           </ul>
         </div>
 
         <div>
-          <h4 className="rc-label text-[10px] mb-3">Species &amp; Regs</h4>
+          <h4 className="rc-label text-[10px] mb-3">Company</h4>
           <ul className="space-y-2 text-rc-ink-soft">
-            <li><Link href="/species" className="hover:text-rc-ink">Species library</Link></li>
-            <li><Link href="/regulations" className="hover:text-rc-ink">DFO notices</Link></li>
+            <li><Link href="/about" className="hover:text-rc-ink">About</Link></li>
+            <li><Link href="/faq" className="hover:text-rc-ink">FAQ</Link></li>
+            <li><Link href="/contact" className="hover:text-rc-ink">Contact</Link></li>
           </ul>
         </div>
 
@@ -36,7 +40,6 @@ export default function MarketingFooter() {
           <ul className="space-y-2 text-rc-ink-soft">
             <li><Link href="/signup" className="hover:text-rc-ink">Start free</Link></li>
             <li><Link href="/login" className="hover:text-rc-ink">Sign in</Link></li>
-            <li><Link href="/pricing" className="hover:text-rc-ink">Pro pricing</Link></li>
           </ul>
         </div>
 

@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { Bell } from "lucide-react";
 import { tierFor, TIER_PILL, TIER_TEXT } from "../../lib/explore-data";
 
@@ -95,18 +94,23 @@ export default function ScoreCard({
         </div>
       )}
 
-      {/* DFO notice — regulatory data, muted chrome, hairline border, no fill. */}
+      {/* DFO notice — regulatory data, muted chrome, hairline border, no fill.
+          Points at DFO's own recreational-fishing page: the in-app
+          /regulations route was removed, and on regs we link the source
+          rather than restate it. */}
       {dfoArea && (
-        <Link
-          href="/regulations"
+        <a
+          href="https://www.pac.dfo-mpo.gc.ca/fm-gp/rec/index-eng.html"
+          target="_blank"
+          rel="noopener noreferrer"
           className="mt-3 flex min-h-[44px] items-center justify-between gap-2 rounded border border-rc-fair-border bg-rc-fair-bg px-3 py-2 font-rc-mono text-[11px] text-rc-fair-ink hover:brightness-[0.98] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-rc-brand transition-all"
         >
           <span className="truncate">
             DFO · PFMA {dfoArea}
             {speciesName ? ` · ${speciesName} ${regOpen ? "open" : "closed"}` : ""}
           </span>
-          <span className="shrink-0 text-rc-brand">Regulations →</span>
-        </Link>
+          <span className="shrink-0 text-rc-brand">Regulations ↗</span>
+        </a>
       )}
 
       {/* Single alert action — saving lives on the star beside the spot name.
