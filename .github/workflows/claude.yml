@@ -39,14 +39,14 @@ jobs:
           # Same as claude-code-review.yml: the Claude GitHub App isn't
           # installed on this repo, so fall back to the workflow token.
           github_token: ${{ secrets.GITHUB_TOKEN }}
+          # Same as claude-code-review.yml: the action's default model id is
+          # retired and 404s, so pin a current one.
+          model: "claude-sonnet-5"
 
           # This is an optional setting that allows Claude to read CI results on PRs
           additional_permissions: |
             actions: read
-          
-          # Optional: Specify model (defaults to Claude Sonnet 4, uncomment for Claude Opus 4)
-          # model: "claude-opus-4-20250514"
-          
+
           # Optional: Customize the trigger phrase (default: @claude)
           # trigger_phrase: "/claude"
           

@@ -42,10 +42,11 @@ jobs:
           # died at "Claude Code is not installed on this repository". The
           # default workflow token is the documented alternative.
           github_token: ${{ secrets.GITHUB_TOKEN }}
+          # Pin the model. The action's built-in default is a retired id
+          # (claude-sonnet-4-20250514) and now 404s with not_found_error, so
+          # leaving this unset fails the run.
+          model: "claude-sonnet-5"
 
-          # Optional: Specify model (defaults to Claude Sonnet 4, uncomment for Claude Opus 4)
-          # model: "claude-opus-4-20250514"
-          
           # Direct prompt for automated review (no @claude mention needed)
           direct_prompt: |
             Please review this pull request and provide feedback on:
