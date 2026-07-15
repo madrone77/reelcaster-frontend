@@ -29,12 +29,13 @@ export default function MarketingHeader() {
       : pathname === href || pathname.startsWith(`${href}/`);
 
   return (
-    // The bar carries the hero's page tint (#F0EFED) on every surface, so the
-    // nav reads as part of the page rather than a white strip laid over it.
-    // No backdrop-blur: an opaque bar has no backdrop to blur.
+    // Same tint as the hero and the signals section (--rc-band), and no rule
+    // beneath it — the bar and the first section are one surface, so a divider
+    // would only draw a line through the middle of it. No backdrop-blur
+    // either: an opaque bar has no backdrop to blur.
     <header
       data-testid="marketing-header"
-      className="border-b border-rc-rule bg-rc-page sticky top-0 z-30"
+      className="bg-rc-band sticky top-0 z-30"
     >
       <div className="max-w-6xl mx-auto px-6 h-16 flex items-center gap-8">
         <Link href="/" className="shrink-0 flex items-center" aria-label="ReelCaster home">

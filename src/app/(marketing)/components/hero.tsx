@@ -3,7 +3,7 @@ import HeroScoreCard from './hero-score-card';
 
 export default function Hero() {
   return (
-    <section data-testid="homepage-hero" className="bg-rc-page">
+    <section data-testid="homepage-hero" className="bg-rc-band">
       <div className="max-w-6xl mx-auto px-6 pt-14 pb-16 md:pt-20 md:pb-24 grid gap-12 lg:grid-cols-2 lg:items-center">
         <div>
           <h1

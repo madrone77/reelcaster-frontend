@@ -10,8 +10,9 @@ export default function SignalsSection() {
     >
       <div className="max-w-6xl mx-auto grid gap-14 px-6 py-16 md:py-24 lg:grid-cols-2 lg:items-center">
         <div>
-          <h2 className="text-3xl md:text-4xl font-black tracking-[-0.02em] text-rc-ink">
-            One number. <span className="text-rc-brand">Hundreds of signals.</span>
+          <h2 className="text-3xl md:text-4xl font-black tracking-[-0.02em] leading-[1.15]">
+            <span className="block text-rc-ink">One number.</span>
+            <span className="block text-rc-brand">Hundreds of signals.</span>
           </h2>
           <p className="mt-5 max-w-lg text-sm md:text-base leading-relaxed text-rc-ink-soft">
             Reelcaster analyzes tides, current, weather, pressure, water
