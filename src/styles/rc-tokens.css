@@ -25,6 +25,10 @@
   --rc-rule:         #DEE2EA;   /* borders · dividers */
   --rc-rule-soft:    #ECEEF3;   /* internal cell dividers */
 
+  /* dark navy marketing bands (landing ticker · pricing section) */
+  --rc-navy:         #16234E;
+  --rc-navy-deep:    #0F1B3D;
+
   /* ─── SCORE TIERS ───────────────────────────────────────── */
   /* GOOD ≥ 75 */
   --rc-good:         #16A34A;   /* number · pin · bar fill */

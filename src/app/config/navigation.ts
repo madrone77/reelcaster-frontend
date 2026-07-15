@@ -35,7 +35,7 @@ export const MAIN_NAV_ITEMS: NavItem[] = [
     id: 'catch-log',
     label: 'Catch Log',
     mobileLabel: 'Catches',
-    href: '/profile/catch-log',
+    href: '/catches',
     icon: Anchor,
   },
   {
@@ -49,7 +49,7 @@ export const MAIN_NAV_ITEMS: NavItem[] = [
 /**
  * Check if a route is active based on current pathname.
  * `/` and `/profile` use exact-match because more specific routes
- * (`/profile/catch-log`) live underneath and own their own nav entry.
+ * live underneath and own their own nav entry.
  */
 const EXACT_MATCH_ROUTES = new Set(['/', '/profile'])
 

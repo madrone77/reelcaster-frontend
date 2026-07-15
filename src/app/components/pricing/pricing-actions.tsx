@@ -107,15 +107,15 @@ export default function PricingActions({ defaultRegion, monthlyDollarsNow }: Pro
   return (
     <>
       {successFlag && (
-        <div className="max-w-6xl mx-auto px-6 -mt-4 mb-6">
-          <div className="bg-emerald-500/15 border border-emerald-500/40 rounded-lg p-4 text-sm text-emerald-200">
+        <div className="mt-6">
+          <div className="bg-rc-good-bg border border-rc-good-border rounded-lg p-4 text-sm text-rc-good-ink">
             Welcome to Pro Intel — your account is unlocked. It may take a few seconds for the badge to appear.
           </div>
         </div>
       )}
       {canceledFlag && (
-        <div className="max-w-6xl mx-auto px-6 -mt-4 mb-6">
-          <div className="bg-amber-500/15 border border-amber-500/40 rounded-lg p-4 text-sm text-amber-200">
+        <div className="mt-6">
+          <div className="bg-rc-fair-bg border border-rc-fair-border rounded-lg p-4 text-sm text-rc-fair-ink">
             Checkout canceled. No charge was made.
           </div>
         </div>
@@ -126,7 +126,7 @@ export default function PricingActions({ defaultRegion, monthlyDollarsNow }: Pro
           type="button"
           onClick={() => setOpen('annual')}
           disabled={loading}
-          className="flex-1 inline-flex items-center justify-center px-5 py-3 bg-blue-600 text-white text-sm font-semibold rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-60"
+          className="flex-1 inline-flex items-center justify-center px-5 py-3 bg-rc-brand text-white text-sm font-bold rounded-md hover:bg-rc-brand-hover transition-colors disabled:opacity-60"
         >
           Get Season Pass — $79/yr
         </button>
@@ -134,7 +134,7 @@ export default function PricingActions({ defaultRegion, monthlyDollarsNow }: Pro
           type="button"
           onClick={() => setOpen('monthly')}
           disabled={loading}
-          className="flex-1 inline-flex items-center justify-center px-5 py-3 bg-rc-bg-dark border border-rc-bg-light text-rc-text text-sm font-semibold rounded-lg hover:border-blue-500/40 transition-colors disabled:opacity-60"
+          className="flex-1 inline-flex items-center justify-center px-5 py-3 border border-rc-brand bg-rc-panel text-rc-brand text-sm font-bold rounded-md hover:bg-rc-brand-soft transition-colors disabled:opacity-60"
         >
           Go Monthly — ${monthlyDollarsNow}/mo this month
         </button>
@@ -142,28 +142,28 @@ export default function PricingActions({ defaultRegion, monthlyDollarsNow }: Pro
 
       {open && (
         <div
-          className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-4"
+          className="fixed inset-0 z-50 bg-rc-ink/50 flex items-center justify-center p-4"
           onClick={() => !submitting && setOpen(null)}
         >
           <div
-            className="bg-rc-bg-dark border border-rc-bg-light rounded-xl shadow-xl max-w-md w-full p-6"
+            className="bg-rc-panel border border-rc-rule rounded-xl shadow-rc-panel max-w-md w-full p-6"
             onClick={(e) => e.stopPropagation()}
           >
-            <h2 className="text-xl font-bold text-rc-text mb-1">
+            <h2 className="text-xl font-bold text-rc-ink mb-1">
               {open === 'annual' ? 'Season Pass — $79/yr' : `Monthly — $${monthlyDollarsNow}/mo`}
             </h2>
-            <p className="text-sm text-rc-text-muted mb-5">
+            <p className="text-sm text-rc-ink-mute mb-5">
               Where do you mostly fish? We&apos;re live in BC, WA, and OR.
             </p>
 
-            <label className="block text-xs font-medium text-rc-text-muted uppercase tracking-wide mb-1.5">
+            <label className="block text-xs font-medium text-rc-ink-mute uppercase tracking-wide mb-1.5">
               Primary region
             </label>
             <select
               value={region}
               onChange={(e) => setRegion(e.target.value)}
               disabled={submitting}
-              className="w-full bg-rc-bg-light border border-rc-bg-light rounded-lg px-3 py-2.5 text-sm text-rc-text mb-4 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full bg-rc-surface border border-rc-rule rounded-lg px-3 py-2.5 text-sm text-rc-ink mb-4 focus:outline-none focus:ring-2 focus:ring-rc-brand"
             >
               {REGIONS.map((r) => (
                 <option key={r.value} value={r.value}>
@@ -173,13 +173,13 @@ export default function PricingActions({ defaultRegion, monthlyDollarsNow }: Pro
             </select>
 
             {region === 'Other' && (
-              <p className="text-xs text-amber-300 bg-amber-500/15 border border-amber-500/40 rounded-md p-3 mb-4">
+              <p className="text-xs text-rc-fair-ink bg-rc-fair-bg border border-rc-fair-border rounded-md p-3 mb-4">
                 Pro Intel isn&apos;t live in your region yet. We&apos;ll redirect you to drop a waitlist pin.
               </p>
             )}
 
             {error && (
-              <p className="text-xs text-red-300 bg-red-500/15 border border-red-500/40 rounded-md p-3 mb-4">
+              <p className="text-xs text-rc-poor-ink bg-rc-poor-bg border border-rc-poor/30 rounded-md p-3 mb-4">
                 {error}
               </p>
             )}
@@ -189,7 +189,7 @@ export default function PricingActions({ defaultRegion, monthlyDollarsNow }: Pro
                 type="button"
                 onClick={() => setOpen(null)}
                 disabled={submitting}
-                className="flex-1 px-4 py-2.5 bg-rc-bg-darkest border border-rc-bg-light rounded-lg text-sm font-medium text-rc-text hover:border-blue-500/40 transition-colors disabled:opacity-60"
+                className="flex-1 px-4 py-2.5 bg-rc-panel border border-rc-rule rounded-lg text-sm font-medium text-rc-ink hover:border-rc-brand/40 transition-colors disabled:opacity-60"
               >
                 Cancel
               </button>
@@ -197,7 +197,7 @@ export default function PricingActions({ defaultRegion, monthlyDollarsNow }: Pro
                 type="button"
                 onClick={startCheckout}
                 disabled={submitting}
-                className="flex-1 px-4 py-2.5 bg-blue-600 hover:bg-blue-700 rounded-lg text-sm font-semibold text-white transition-colors disabled:opacity-60"
+                className="flex-1 px-4 py-2.5 bg-rc-brand hover:bg-rc-brand-hover rounded-lg text-sm font-bold text-white transition-colors disabled:opacity-60"
               >
                 {submitting
                   ? 'Starting…'

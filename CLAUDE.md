@@ -41,7 +41,7 @@ src/app/
 ├── components/         # Feature-specific components
 │   ├── account/       # Profile/account cards
 │   ├── alerts/        # Custom alert UI
-│   ├── auth/          # AuthForm, AuthGate, forecast-section-overlay
+│   ├── auth/          # AuthForm, AuthGate
 │   ├── catch-log/     # Fish-on FAB + quick catch modal (legacy dark UI)
 │   ├── common/        # Shared bits still used by AppShell pages
 │   ├── forecast/      # AppShell page chrome (dashboard-header) — most of the old forecast UI was deleted 2026-07
@@ -58,12 +58,15 @@ src/app/
 ### Key Routes
 
 - `/explore` - Explore map (primary public surface); `/explore/spot/[slug]` - spot detail
-- `/` - Marketing homepage (walled behind /coming-soon in production)
+- `/` - Marketing landing page (public since 2026-07-15; light rc-* design, sections in `src/app/(marketing)/components/`, static demo hero data, real seasonal prices from `src/lib/pricing.ts`, illustrations in `public/landing/`)
 - `/pricing`, `/billing/*` - purchase flow; `/login`, `/signup`, `/auth/*` - auth flow
+- `/about`, `/contact`, `/faq`, `/privacy`, `/terms` - info/legal pages (unwalled + restyled light 2026-07-15)
 - `/profile` (+ `catch-log`, `custom-alerts`, `forecast-emails`, `notification-settings`)
 - `/alerts`, `/notifications`, `/log-catch` - kept alongside the explore soft-launch
 
-Deleted 2026-07: `/dashboard`, `/fishing/*`, `/historical-reports`, `/my-spots`, `/favorite-spots`, `/settings/*`, all `/admin/*` pages.
+The whole public surface (`/`, explore, pricing, auth, info pages) is on the light rc-* design system as of 2026-07-15; only signed-in AppShell pages (alerts, profile, billing) remain on the legacy dark theme.
+
+Deleted 2026-07: `/dashboard`, `/fishing/*`, `/historical-reports`, `/my-spots`, `/favorite-spots`, `/settings/*`, all `/admin/*` pages; `/species`, `/species/[slug]`, `/regulations` (deleted 2026-07-15 — the regulations DATA chain `/api/regulations` + `dfo-notice-service.ts` survives for /explore and notification emails; species fetchers were removed from `src/lib/bluecaster.ts` but the `bluecaster-client.ts` species list used by the log-catch wizard is untouched).
 
 ## External APIs
 
@@ -145,14 +148,13 @@ a live page). Highlights:
 
 **Auth:**
 
-- `auth/auth-form.tsx` - Shared login/signup form
+- `auth/auth-form.tsx` - Shared login/signup form (light rc-* styling via className overrides; shadcn primitives untouched)
 - `auth/auth-gate.tsx` - Client-side auth redirect for gated routes
-- `auth/forecast-section-overlay.tsx` - Auth overlay for gated sections
 
 **Catch Log:**
 
-- `catch-log/fish-on-button.tsx` + `quick-catch-modal.tsx` - Legacy dark quick-capture UI
-- `src/app/log-catch/catch-form.tsx` - Light rc-* themed catch form (explore surface)
+- `src/app/log-catch/` - Photo-first catch wizard (upload → analyzing → location → review); `catch-form.tsx` still used by the spot-page dialog only
+- `src/app/catches/` - "My catches" list page
 
 ### API Integration
 
@@ -728,77 +730,139 @@ ReelCaster includes a custom alert engine that allows users to define multi-vari
 - **Email Service**: Resend (shared infrastructure)
 - **Database**: Supabase PostgreSQL with RLS policies
 
-## Catch Logging System (Fish On)
+## Catch Logging System — photo-first wizard with auto analysis (2026-07-11)
 
-ReelCaster includes a mobile-first catch logging system that allows anglers to quickly log catches with minimal friction. The system features offline-first architecture with background sync.
+ReelCaster's catch log is a photo-first wizard: drop a photo → BlueCaster reads
+EXIF + runs vision (species/lure/size) + computes a conditions snapshot → a
+map picker matches (or creates) the nearest saved spot within 400 m → a fully
+editable review screen → save to the private catch log (+ fire-and-forget
+commit into BlueCaster's intelligence pool). The old offline-first "Fish On"
+FAB + IndexedDB stack (dark theme, GPS-only quick-capture) was retired in this
+revamp — deleted: `src/app/components/catch-log/`, `src/app/profile/catch-log/`,
+`src/lib/offline-catch-store.ts`, `src/lib/catch-sync-manager.ts`, the `idb`
+dependency, and the commented `FishOnButtonWrapper` in `layout.tsx`.
 
-### Features
+### Wizard flow (`/log-catch`)
 
-- **Quick Capture**: Large "Fish On" floating action button for instant logging
-- **Auto-Captured Data**: GPS coordinates, accuracy, heading, speed, timestamp
-- **Two Outcome Types**: Bite (lost) or Landed (in the boat)
-- **Offline-First**: IndexedDB storage with Supabase sync when online
-- **Deferred Details**: Species, depth, lure, size, weight can be added later
-- **Retention Tracking**: Released or Kept status
-- **Predefined Lures**: BC fishing lures with custom entry option
+Client-side step machine in `src/app/log-catch/log-catch-shell.tsx` (a `File`
+can't survive navigation): `upload → analyzing → location → review`.
 
-### Database Schema
+1. **Upload** (`steps/upload-step.tsx`) — same dropzone as before (JPG/PNG/
+   WebP/HEIC/HEIF, 25 MB cap).
+2. **Analyzing** (`steps/analyzing-step.tsx`) — animated checklist while
+   `src/lib/photo-prep.ts` runs client-side (EXIF read from the ORIGINAL via
+   `exifr` before any conversion strips it; HEIC→JPEG via `heic2any`; a
+   downscaled ≤3 MB analysis copy via `browser-image-compression`, since
+   Anthropic's vision API rejects large images even though the bucket takes
+   25 MB) and then makes the ONE `fetchCatchPreview` call. The full-quality
+   `uploadFile` uploads to the `catch-photos` bucket in parallel
+   (fire-and-forget) so the storage path is ready by the review step.
+3. **Location** (`steps/location-step.tsx`) — `src/app/components/location/
+   pin-picker-map.tsx` (MapLibre relief style, draggable pin, no Mapbox
+   token). Pin starts at EXIF GPS, else the fallback chain in
+   `src/lib/geo-fallback.ts` (browser geolocation **only if permission is
+   already granted — never auto-prompts** → `/api/geo` [Vercel IP geo
+   headers, free, null on localhost] → last-viewed Explore city
+   [`localStorage["rc:lastCity"]`, written by `explore-shell.tsx`] → Victoria
+   default). When the pin is only approximate (ip/city/default source) the
+   step shows a "Use my precise location" button — the sole place the
+   browser's location permission popup can appear (explicit user tap,
+   `handleUseMyLocation` in the shell). Every pin move (debounced 400 ms) calls
+   `fetchNearestSpots(lat, lng, 400)` → matched spot + score, or an amber
+   "no mapped spot" card with **Create** → `wizard/create-spot-modal.tsx`
+   (name input; coordinates + "DFO n-m" mgmt area auto-filled) →
+   `createCustomSpot` (authed).
+4. **Review** (`steps/review-step.tsx`) — photo + vision badge, species name +
+   confidence chip + "Not right?" (`wizard/species-picker.tsx`, species-at-spot
+   first, full BlueCaster list as fallback; changing species or the catch time
+   refetches the score), editable weight/length/lure/depth
+   (`wizard/stat-row.tsx`, imperial UI ↔ metric storage via `src/lib/units.ts`),
+   an AUTO/EDITED **conditions grid** (`wizard/conditions-grid.tsx`: tide,
+   current, wind, pressure, water temp, sky — each cell click-to-edit), the
+   same map (drag re-matches), and Save-as-draft / Save-catch.
 
-- **`catch_logs`**: Individual catch records with GPS, weather context, and optional details
-- **`lures`**: Predefined BC lures + user-created custom lures
+### Data model (`catch_logs`, extended 2026-07-11)
 
-### Key Files
+Beyond the original GPS/species/weight/length/lure/notes/photos columns
+(`supabase/migrations/20251220_create_catch_logs.sql`), migration
+`20260711_catch_log_revamp.sql` added: `status` (`draft`|`logged`),
+`spot_id`/`spot_slug` (BlueCaster fishing_spots reference — no FK, cross-
+database), `species_bc_id` (BlueCaster species uuid, needed to re-fetch
+species-specific scores; `species_id` stays the frontend text slug),
+`species_confidence`, `score` + `score_status` (`scored`|`pending`|`none`),
+`mgmt_area`, `pool_observation_id`. Conditions stay in `weather_snapshot`
+jsonb, now written as a typed **v2** shape (`{v:2, tide, current, wind,
+pressure, water, sky}` — see `src/lib/catch-log-types.ts`, `readSnapshot()`
+handles both v1 and v2 for list rendering).
 
-- **Floating Button**: `src/app/components/catch-log/fish-on-button.tsx` - Global FAB
-- **Quick Capture Modal**: `src/app/components/catch-log/quick-catch-modal.tsx` - Outcome selection
-- **Button Wrapper**: `src/app/components/catch-log/fish-on-button-wrapper.tsx` - Auth integration
-- **History Page**: `src/app/profile/catch-log/page.tsx` - Catch history and stats
-- **API Endpoints**:
-  - `/api/catches` - CRUD operations (sync manager posts here per-catch)
-- **Services**:
-  - `src/lib/geolocation-service.ts` - GPS capture helper
-  - `src/lib/offline-catch-store.ts` - IndexedDB wrapper
-  - `src/lib/catch-sync-manager.ts` - Background sync
-- **Migrations**:
-  - `supabase/migrations/20251220_create_catch_logs.sql`
-  - `supabase/migrations/20251220_create_lures.sql`
+### BlueCaster endpoints this depends on
 
-### UX Flow
+- `POST /api/v1/ingest/catch/preview` (extended 2026-07-11: snapshot now
+  carries current/pressure/sky/gusts/air-temp/visibility; accepts client
+  EXIF/`file_lastmod`/`tz_offset_minutes` fields and no longer hard-rejects
+  photos with no EXIF; 400 m match radius). Proxy:
+  `src/app/api/bluecaster/ingest/catch/preview/route.ts`.
+- `GET /api/v1/spots/by-coordinates` (new) — nearest-spot + candidates +
+  today's score + DFO area for a raw lat/lng. Proxy: `.../spots/by-
+  coordinates/route.ts`, fetcher `fetchNearestSpots`.
+- `GET /api/v1/fishing-spots/[id]/snapshot` (new) — historical-capable
+  conditions for a spot at any UTC instant (unlike forecast-only
+  `/api/map/point-conditions`). Proxy + fetcher: `fetchSpotSnapshot`.
+- `GET /api/v1/fishing-spots/[id]/score-hour` (new proxy, existing BlueCaster
+  endpoint's single-hour mode) — score at the exact catch hour; empty
+  `stocks` → render "—". Fetcher: `fetchSpotScoreHour`.
+- `POST /api/v1/fishing-spots/custom` (fixed 2026-07-11 — was creating
+  `is_active=false` spots invisible to matching/scoring, with no
+  `city_fishing_spots` row or `spot_species_presence` seed, so new spots
+  never scored). Proxy requires a signed-in session (mutates shared
+  BlueCaster data): `src/app/api/bluecaster/fishing-spots/custom/route.ts`.
+- `POST /api/v1/ingest/catch` (pool commit — newly wired into this flow;
+  previously unused by reelcaster) — fired after a **logged** (non-draft)
+  save, `contributes_to_pool:true, gps_stays_private:true`,
+  `idempotency-key` = the catch row id. Never blocks the save; on success
+  PUTs `pool_observation_id` back onto the row. Proxy:
+  `src/app/api/bluecaster/ingest/catch/route.ts`.
+- `GET /api/v1/species` — species-picker fallback list, proxy
+  `src/app/api/bluecaster/species/route.ts`, 1h cache.
 
-1. **Quick Capture (2 taps)**:
-   - Tap "Fish On" button → GPS capture starts
-   - Select outcome → "Bite" or "In the Boat"
-   - Done → Catch saved locally, syncs when online
+**Known limitation (by design, not a bug):** `score`/`score_status` reflect a
+snapshot taken at log time only when the catch falls inside BlueCaster's
+current forecast window (`session_scores` has no historical rows) — older
+catches, and any catch logged before its spot's first scoring run, get
+`score_status:"none"`/`"pending"` and render "—". True historical re-scoring
+(the conditions layer IS historical-capable) is future work.
 
-2. **Add Details (optional)**:
-   - Species, Retention status (Released/Kept)
-   - Depth, Size, Weight
-   - Lure selection, Notes, Photos
+### `/catches` — "My catches" list
 
-### Offline Sync Strategy
+`src/app/catches/` (added to `middleware.ts` `ALLOW_PREFIXES`) replaces the
+old `/profile/catch-log`: reads `GET /api/catches` (extended with `status`,
+`q` full-text-ish search via `.or()`, `sort`/`order`) + `GET /api/catches/
+stats` (season aggregates). Season stats row, species chips with counts,
+search + sort + grid/list toggle, month-grouped rows, NEW (<48h) and DRAFT
+badges. Thumbnails via batched `getCatchPhotoSignedUrls()` (one
+`createSignedUrls` call, not N).
 
-- All catches stored locally first (instant response)
-- Background sync every 30 seconds when online
-- `client_id` prevents duplicates during sync
-- Exponential backoff with max 5 retries
-- Conflict detection with manual resolution
+### Also still true from the original design
 
-### Technology
+- **Log a catch (spot-page dialog)** — `src/app/explore/spot/components/
+  log-catch-dialog.tsx` still wraps the original `src/app/log-catch/
+  catch-form.tsx` (unchanged; the wizard rebuild only touched the standalone
+  `/log-catch` page, which stopped importing `CatchForm`). Opened by the spot
+  page's LOG CATCH button, pre-filled with the current spot + live conditions.
+- **Alerts** — `create-alert-dialog.tsx` + `/notifications` still drive the
+  Custom Alert Engine via `/api/alerts`, unrelated to this revamp.
+- **Nav + wall:** any new walled-off route must be added to `src/middleware.ts`
+  `ALLOW_PREFIXES` or it renders `/coming-soon`.
 
-- **Local Storage**: IndexedDB via `idb` library
-- **GPS**: Browser Geolocation API with high accuracy
-- **Sync**: Custom sync manager with queue
-- **UI**: Floating action button with haptic feedback
-- **Database**: Supabase PostgreSQL with RLS
+### Secrets via HashiCorp Vault (runtime OIDC loader, 2026-06-30)
 
-### Light-themed "Log a catch" + "Notifications" surfaces (Explore, 2026-06-29)
+Server secrets can be sourced at runtime from a self-hosted Vault instead of (or alongside) Vercel env vars. Integration is in place; the full rollout across consumers is still pending.
 
-A second, light **rc-*** themed catch + alert UX layered on the existing backends (the legacy dark Fish-On FAB and `/alerts` are left in place):
-
-- **Log a catch** — shared form `src/app/log-catch/catch-form.tsx`, used by (1) `src/app/explore/spot/components/log-catch-dialog.tsx` (opened by the spot page's LOG CATCH button, pre-filled with the current spot + live conditions) and (2) the standalone page `src/app/log-catch/` (photo dropzone). Photos upload to a **private `catch-photos` Supabase Storage bucket** (owner-only RLS under `${uid}/...`, signed-URL reads) via `src/lib/catch-photo-upload.ts`; the catch persists to the app's own `catch_logs` through `POST /api/catches` (extended to store `weather_snapshot`/`tide_snapshot`/`moon_phase`). **AI auto-fill** (species/lure/size + EXIF time/GPS + nearest-spot match + conditions snapshot) reuses **BlueCaster's** `POST /api/v1/ingest/catch/preview` via proxy `src/app/api/bluecaster/ingest/catch/preview/route.ts` → `previewCatchPhoto`/`fetchCatchPreview`. NOT committed to BlueCaster's pool (`/api/v1/ingest/catch`) — deferred.
-- **Alerts** — `create-alert-dialog.tsx` (opened by SET ALERT) + the `/notifications` "Your alerts" page (`src/app/notifications/`, replaced the old mock) both drive the existing **Custom Alert Engine** via `/api/alerts` (`alert_kind:"score"`, `include_history`, PUT/DELETE). Tier gating via `useSubscription()`. No new alert backend.
-- **Nav + wall:** `explore-top-bar.tsx` gained "Log a catch" + "Notifications" (active-count badge), `usePathname`-aware. **Any new walled-off route must be added to `src/middleware.ts` `ALLOW_PREFIXES`** or it renders `/coming-soon`.
-- **Magic-link auth**: `signInWithMagicLink` (`signInWithOtp`) was added to `src/contexts/auth-context.tsx` for the spot-page sign-up gate.
+- **Loader:** `src/lib/secrets.ts` (`getServerSecret(name)` / `loadServerSecrets()` / `resolveSecret()`), built on the pure, unit-testable HTTP client `src/lib/vault-client.ts` (`vaultJwtLogin`, `vaultKvRead` — KV v2). Per-warm-instance in-memory cache (TTL `VAULT_CACHE_TTL_MS`, default 5 min) with inflight dedupe.
+- **Auth:** on Vercel, each request's **OIDC token** (`@vercel/oidc` → `getVercelOidcToken()`) is exchanged for a short-lived Vault token via the JWT auth method. `VAULT_TOKEN` (static) overrides for local/non-Vercel runtimes. Vault JWT role binds on `project_id=prj_WoRjjGtjUopMvMCKJkQbiYHPhuZw` + `environment` (issuer `https://oidc.vercel.com`, aud `https://vercel.com/reelcaster-devs-projects`).
+- **Fallback:** when `VAULT_ADDR` is unset, everything resolves from `process.env` — so local dev, tests, and current Vercel env keep working unchanged. Env vars documented in `.env.example` (VAULT_*).
+- **CONSTRAINT:** `getVercelOidcToken()` cannot run at module level (token is per-request). The ~40 server files that read secrets as module-level constants / client singletons (`const x = process.env.SUPABASE_SERVICE_ROLE_KEY!`, `new Stripe(...)`, etc.) must become **lazy async getters** (`await getSupabaseAdmin()`) to migrate. Not yet done — only the loader + a probe ship so far.
+- **Probe:** `GET /api/secrets/health?name=<KEY>` (auth `Bearer $CRON_SECRET`) reports `resolvedFrom: vault|env` + length, never the value. Remove after migration. Vault client flow verified locally against an API mock; the OIDC leg needs a preview deploy + a reachable Vault.
 
 ### Secrets via HashiCorp Vault (runtime OIDC loader, 2026-06-30)
 

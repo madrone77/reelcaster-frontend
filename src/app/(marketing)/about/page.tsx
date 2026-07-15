@@ -67,13 +67,13 @@ export default function AboutPage() {
 
       <article data-testid="section-about">
         <header className="max-w-5xl mx-auto px-6 pt-14 pb-8 md:pt-20 md:pb-10">
-          <p className="text-rc-text-muted text-xs tracking-[0.25em] uppercase font-medium mb-3">
+          <p className="font-rc-mono text-[10px] tracking-[0.14em] uppercase text-rc-ink-mute mb-3">
             About · ReelCaster
           </p>
-          <h1 className="text-4xl md:text-5xl font-black uppercase tracking-tight text-rc-text mb-4">
+          <h1 className="text-4xl md:text-5xl font-black tracking-[-0.02em] text-rc-ink mb-4">
             Fishing intelligence for BC waters
           </h1>
-          <p className="max-w-2xl text-base md:text-lg leading-relaxed text-rc-text-light">
+          <p className="max-w-2xl text-base md:text-lg leading-relaxed text-rc-ink-soft">
             ReelCaster pulls forecasts, tides, DFO regulations, and species
             behaviour into one place so you can plan a trip in minutes
             instead of stitching together six tabs.
@@ -85,13 +85,13 @@ export default function AboutPage() {
             {PILLARS.map((p) => (
               <div
                 key={p.title}
-                className="bg-rc-bg-dark border border-rc-bg-light rounded-xl p-5"
+                className="bg-rc-panel border border-rc-rule rounded-xl p-5"
               >
-                <div className="p-2.5 rounded-lg bg-blue-500/20 inline-flex mb-4">
-                  <p.icon className="w-5 h-5 text-blue-400" />
+                <div className="p-2.5 rounded-lg bg-rc-brand-soft inline-flex mb-4">
+                  <p.icon className="w-5 h-5 text-rc-brand" />
                 </div>
-                <h3 className="text-rc-text font-semibold mb-2">{p.title}</h3>
-                <p className="text-sm text-rc-text-light leading-relaxed">
+                <h3 className="text-rc-ink font-semibold mb-2">{p.title}</h3>
+                <p className="text-sm text-rc-ink-soft leading-relaxed">
                   {p.body}
                 </p>
               </div>
@@ -99,8 +99,8 @@ export default function AboutPage() {
           </div>
         </section>
 
-        <section className="max-w-3xl mx-auto px-6 pb-16 space-y-6 text-rc-text-light leading-relaxed">
-          <h2 className="text-2xl font-bold text-rc-text">Who it&rsquo;s for</h2>
+        <section className="max-w-3xl mx-auto px-6 pb-16 space-y-6 text-rc-ink-soft leading-relaxed">
+          <h2 className="text-2xl font-bold text-rc-ink">Who it&rsquo;s for</h2>
           <p>
             BC recreational anglers — chinook and coho chasers, halibut
             crews, prawners, lingcod hunters, and shore-based jiggers. If you
@@ -108,7 +108,7 @@ export default function AboutPage() {
             this for you.
           </p>
 
-          <h2 className="text-2xl font-bold text-rc-text pt-2">
+          <h2 className="text-2xl font-bold text-rc-ink pt-2">
             How we make decisions
           </h2>
           <p>
@@ -119,14 +119,14 @@ export default function AboutPage() {
             sell user data.
           </p>
 
-          <h2 className="text-2xl font-bold text-rc-text pt-2">What&rsquo;s next</h2>
+          <h2 className="text-2xl font-bold text-rc-ink pt-2">What&rsquo;s next</h2>
           <p>
             More provinces, deeper species behaviour models, more languages,
             and better offline support for boat days with no signal. Got an
             ask?{' '}
             <Link
               href="/contact"
-              className="text-blue-400 hover:text-blue-300 underline underline-offset-2"
+              className="text-rc-brand hover:text-rc-brand-hover underline underline-offset-2"
             >
               Tell us
             </Link>
@@ -136,15 +136,15 @@ export default function AboutPage() {
           <div className="pt-6 flex flex-wrap gap-3">
             <Link
               href="/pricing"
-              className="inline-flex items-center bg-green-600 hover:bg-green-500 rounded-full text-sm font-medium transition-colors"
+              className="inline-flex items-center rounded-md bg-rc-brand px-5 py-2.5 text-sm font-bold text-white transition-colors hover:bg-rc-brand-hover"
             >
-              <span className="px-5 py-2.5 text-rc-text">See plans</span>
+              See plans
             </Link>
             <Link
               href="/explore"
-              className="inline-flex items-center bg-rc-bg-dark hover:bg-rc-bg-light border border-rc-bg-light rounded-full text-sm transition-colors"
+              className="inline-flex items-center rounded-md border border-rc-brand bg-rc-panel px-5 py-2.5 text-sm font-bold text-rc-brand transition-colors hover:bg-rc-brand-soft"
             >
-              <span className="px-5 py-2.5 text-rc-text">Explore the map</span>
+              Explore the map
             </Link>
           </div>
         </section>

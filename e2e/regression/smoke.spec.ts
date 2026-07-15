@@ -3,9 +3,9 @@ import { test, expect } from '@playwright/test';
 /**
  * Regression baseline: every public route loads without server error.
  *
- * Phase 0 established the route-group skeleton; Phase 2 made `/` public
- * (marketing homepage) and added `/species`, `/species/[slug]`, and
- * `/regulations` to the public surface.
+ * 2026-07-15: `/species` + `/regulations` pages were deleted (not in the five
+ * core flows) and the static info/legal pages were unwalled with the light
+ * landing redesign.
  */
 
 const PUBLIC_ROUTES = [
@@ -14,18 +14,16 @@ const PUBLIC_ROUTES = [
   '/signup',
   '/pricing',
   '/explore',
-  '/species',
-  '/regulations',
+  '/privacy',
+  '/terms',
+  '/contact',
+  '/about',
+  '/faq',
 ];
 
 const AUTH_GATED_ROUTES_REDIRECT_TO_LOGIN = [
   '/profile',
   '/alerts',
-];
-
-const LEGACY_REDIRECTS: Array<{ from: string; to: string }> = [
-  { from: '/dfo-notices', to: '/regulations' },
-  { from: '/species-calendar', to: '/species' },
 ];
 
 test.describe('Phase 0 smoke: public routes resolve', () => {
@@ -47,15 +45,6 @@ test.describe('Phase 0 smoke: gated routes redirect signed-out to /login', () =>
       // AuthGate's effect runs client-side; give it a beat to redirect.
       await page.waitForURL((url) => url.pathname.startsWith('/login'), { timeout: 10_000 });
       expect(new URL(page.url()).pathname).toMatch(/^\/login/);
-    });
-  }
-});
-
-test.describe('Phase 5 smoke: legacy paths redirect to their public counterparts', () => {
-  for (const { from, to } of LEGACY_REDIRECTS) {
-    test(`GET ${from} lands on ${to}`, async ({ page }) => {
-      await page.goto(from, { waitUntil: 'domcontentloaded' });
-      expect(new URL(page.url()).pathname).toBe(to);
     });
   }
 });

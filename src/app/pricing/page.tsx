@@ -56,13 +56,13 @@ export default async function PricingPage() {
     <article>
       {/* Hero */}
       <section className="max-w-6xl mx-auto px-6 pt-14 pb-10 md:pt-20 md:pb-14">
-        <p className="font-mono text-xs tracking-[0.25em] uppercase text-rc-text-muted mb-3">
+        <p className="font-rc-mono text-[10px] tracking-[0.14em] uppercase text-rc-ink-mute mb-3">
           ReelCaster Pro Intel
         </p>
-        <h1 className="text-4xl md:text-6xl font-black uppercase tracking-tight text-rc-text mb-5">
+        <h1 className="text-4xl md:text-6xl font-black tracking-[-0.02em] text-rc-ink mb-5">
           Pricing
         </h1>
-        <p className="max-w-2xl text-base md:text-lg leading-relaxed text-rc-text-light">
+        <p className="max-w-2xl text-base md:text-lg leading-relaxed text-rc-ink-soft">
           Pro Intel unlocks the full 14-day forecast, unlimited alerts, and
           custom spot profiles. Monthly pricing is utility-based — peak fishing
           months cost more, off-season is steeply discounted. The Season Pass
@@ -81,25 +81,25 @@ export default async function PricingPage() {
       <section className="max-w-6xl mx-auto px-6 py-8">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
           {/* Annual */}
-          <div className="bg-rc-bg-dark border-2 border-blue-500/60 rounded-lg p-6 md:p-8 relative">
-            <span className="absolute -top-3 left-6 px-2 py-0.5 text-[10px] tracking-widest uppercase rounded-full bg-blue-600 text-white">
+          <div className="bg-rc-panel border-2 border-rc-brand rounded-md shadow-rc-panel p-6 md:p-8 relative">
+            <span className="absolute -top-3 left-6 px-2 py-0.5 text-[10px] font-rc-mono tracking-[0.14em] uppercase rounded-full bg-rc-good-bg text-rc-good-ink border border-rc-good-border">
               Best value
             </span>
-            <p className="font-mono text-xs uppercase tracking-widest text-rc-text-muted mb-2">
+            <p className="font-rc-mono text-[10px] uppercase tracking-[0.14em] text-rc-ink-mute mb-2">
               Season Pass
             </p>
             <div className="flex items-baseline gap-1 mb-4">
-              <span className="text-4xl font-black text-rc-text">$79</span>
-              <span className="text-sm text-rc-text-muted">/ year</span>
+              <span className="text-4xl font-black text-rc-ink">$79</span>
+              <span className="text-sm text-rc-ink-mute">/ year</span>
             </div>
-            <p className="text-sm text-rc-text-light mb-5">
+            <p className="text-sm text-rc-ink-soft mb-5">
               365 days from purchase. Pays for itself in roughly six peak-season
               months.
             </p>
-            <ul className="space-y-2 text-sm text-rc-text-light">
+            <ul className="space-y-2 text-sm text-rc-ink-soft">
               {PLAN_FEATURES.map((f) => (
                 <li key={f} className="flex items-start gap-2">
-                  <span className="text-emerald-400 mt-0.5">✓</span>
+                  <span className="text-rc-good mt-0.5">✓</span>
                   <span>{f}</span>
                 </li>
               ))}
@@ -107,24 +107,24 @@ export default async function PricingPage() {
           </div>
 
           {/* Monthly Seasonal */}
-          <div className="bg-rc-bg-dark border border-rc-bg-light rounded-lg p-6 md:p-8">
-            <p className="font-mono text-xs uppercase tracking-widest text-rc-text-muted mb-2">
+          <div className="bg-rc-panel border border-rc-rule rounded-md p-6 md:p-8">
+            <p className="font-rc-mono text-[10px] uppercase tracking-[0.14em] text-rc-ink-mute mb-2">
               Monthly · Seasonal
             </p>
             <div className="flex items-baseline gap-1 mb-4">
-              <span className="text-4xl font-black text-rc-text">
+              <span className="text-4xl font-black text-rc-ink">
                 ${monthlyDollarsNow}
               </span>
-              <span className="text-sm text-rc-text-muted">/ month, this month</span>
+              <span className="text-sm text-rc-ink-mute">/ month, this month</span>
             </div>
-            <p className="text-sm text-rc-text-light mb-5">
+            <p className="text-sm text-rc-ink-soft mb-5">
               You&apos;re billed at the rate active when you subscribe; rate
               auto-rolls each month with the season. Cancel any time.
             </p>
-            <ul className="space-y-2 text-sm text-rc-text-light">
+            <ul className="space-y-2 text-sm text-rc-ink-soft">
               {PLAN_FEATURES.map((f) => (
                 <li key={f} className="flex items-start gap-2">
-                  <span className="text-emerald-400 mt-0.5">✓</span>
+                  <span className="text-rc-good mt-0.5">✓</span>
                   <span>{f}</span>
                 </li>
               ))}
@@ -135,33 +135,33 @@ export default async function PricingPage() {
 
       {/* Seasonal price curve */}
       <section className="max-w-6xl mx-auto px-6 py-8">
-        <h2 className="text-2xl md:text-3xl font-black uppercase tracking-tight text-rc-text mb-2">
+        <h2 className="text-2xl md:text-3xl font-black tracking-[-0.02em] text-rc-ink mb-2">
           The Seasonal Curve
         </h2>
-        <p className="text-sm text-rc-text-light mb-6 max-w-2xl">
+        <p className="text-sm text-rc-ink-soft mb-6 max-w-2xl">
           We charge what the forecast is worth. Monthly rates ramp up with peak
           fishing season and fall back in the off-season — so the people fishing
           most pay the most, and casual users barely pay at all.
         </p>
-        <div className="bg-rc-bg-dark border border-rc-bg-light rounded-lg p-4 md:p-6">
+        <div className="bg-rc-panel border border-rc-rule rounded-lg p-4 md:p-6">
           <SeasonPricingGraph currentMonth={currentMonth} />
-          <div className="mt-4 grid grid-cols-3 gap-2 text-xs text-rc-text-muted">
-            <div>Peak (Apr–Sep): <strong className="text-rc-text">$15/mo</strong></div>
-            <div>Shoulder (Mar, Oct): <strong className="text-rc-text">$10/mo</strong></div>
-            <div>Off-season (Nov–Feb): <strong className="text-rc-text">$5/mo</strong></div>
+          <div className="mt-4 grid grid-cols-3 gap-2 text-xs text-rc-ink-mute">
+            <div>Peak (Apr–Sep): <strong className="text-rc-ink">$15/mo</strong></div>
+            <div>Shoulder (Mar, Oct): <strong className="text-rc-ink">$10/mo</strong></div>
+            <div>Off-season (Nov–Feb): <strong className="text-rc-ink">$5/mo</strong></div>
           </div>
         </div>
       </section>
 
       {/* Coverage note */}
       <section className="max-w-6xl mx-auto px-6 py-8">
-        <div className="bg-rc-bg-light border border-rc-bg-light rounded-lg p-5 text-sm text-rc-text-light">
-          Pro Intel is sold only in covered regions: <strong className="text-rc-text">British
-          Columbia</strong>, <strong className="text-rc-text">Washington</strong>, and{" "}
-          <strong className="text-rc-text">Oregon</strong>. If you fish elsewhere,{" "}
+        <div className="bg-rc-surface border border-rc-rule rounded-lg p-5 text-sm text-rc-ink-soft">
+          Pro Intel is sold only in covered regions: <strong className="text-rc-ink">British
+          Columbia</strong>, <strong className="text-rc-ink">Washington</strong>, and{" "}
+          <strong className="text-rc-ink">Oregon</strong>. If you fish elsewhere,{" "}
           <Link
             href="/explore"
-            className="underline underline-offset-2 hover:text-rc-text"
+            className="text-rc-brand hover:text-rc-brand-hover underline underline-offset-2"
           >
             drop a waitlist pin
           </Link>{" "}
@@ -169,8 +169,8 @@ export default async function PricingPage() {
         </div>
       </section>
 
-      <footer className="max-w-5xl mx-auto px-6 py-12 border-t border-rc-bg-light text-center">
-        <p className="text-xs text-rc-text-muted">
+      <footer className="max-w-5xl mx-auto px-6 py-12 border-t border-rc-rule text-center">
+        <p className="text-xs text-rc-ink-mute">
           Data provided by ReelCaster. Regulations are reference only &mdash;
           always verify with DFO. Billing handled by Stripe.
         </p>

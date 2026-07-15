@@ -7,7 +7,7 @@ export default function PricingLayout({
   children: React.ReactNode;
 }) {
   return (
-    <div className="min-h-screen bg-rc-bg-darkest text-rc-text flex flex-col">
+    <div className="min-h-screen bg-rc-page text-rc-ink font-rc-sans antialiased flex flex-col">
       <MarketingHeader />
       <main className="flex-1">{children}</main>
       <MarketingFooter />

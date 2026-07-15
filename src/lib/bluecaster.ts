@@ -8,7 +8,17 @@ import type {
   PointConditions,
 } from "./bluecaster/live-spot-types";
 import type { IntelEvidence, PoolIntelligence } from "./bluecaster/intel-types";
-import type { CatchPreviewResponse } from "./bluecaster/catch-ingest-types";
+import type {
+  CatchPreviewResponse,
+  CatchPreviewExtras,
+  NearestSpotsResponse,
+  SpotSnapshotResponse,
+  BlueCasterSpeciesItem,
+  CreateCustomSpotResponse,
+  PoolCommitPayload,
+  PoolCommitResponse,
+  SpotScoreHourResponse,
+} from "./bluecaster/catch-ingest-types";
 
 export type {
   SpotPageInitial,
@@ -478,59 +488,6 @@ async function bcGet<T>(
   }
 }
 
-// ── Species ────────────────────────────────────────────────────────
-
-export interface BlueCasterSpeciesSummary {
-  id: string;
-  slug: string;
-  name: string;
-  scientific_name: string | null;
-  family: string | null;
-  seasonal_calendar: unknown;
-}
-
-export async function fetchSpeciesList(
-  opts: { limit?: number; q?: string } = {},
-): Promise<BlueCasterSpeciesSummary[]> {
-  const data = await bcGet<{ species: BlueCasterSpeciesSummary[] }>(
-    "/api/v1/species",
-    { limit: opts.limit, q: opts.q },
-  );
-  return data?.species ?? [];
-}
-
-export interface BlueCasterSpeciesDetail {
-  species: BlueCasterSpeciesSummary & {
-    behavior_profile: unknown;
-  };
-  featured_cities: Array<{
-    page_slug: string;
-    name: string | null;
-    city_slug: string | null;
-    province: string | null;
-    blurb: string | null;
-  }>;
-  top_spots: Array<{
-    id: string;
-    name: string;
-    slug: string;
-    lat: number;
-    lng: number;
-    rank: number | null;
-    confidence: number | null;
-    peak_season_months: number[];
-  }>;
-  meta: { featured_cities_count: number; top_spots_count: number };
-}
-
-export async function fetchSpecies(
-  slug: string,
-): Promise<BlueCasterSpeciesDetail | null> {
-  return bcGet<BlueCasterSpeciesDetail>(
-    `/api/v1/species/${encodeURIComponent(slug)}`,
-  );
-}
-
 // ── Multi-day / multi-species spot forecast ────────────────────────
 
 export interface BlueCasterMultiDayForecast {
@@ -602,6 +559,7 @@ export async function fetchSpotForecast(
  */
 export async function previewCatchPhoto(
   file: File,
+  extras?: CatchPreviewExtras,
 ): Promise<CatchPreviewResponse | null> {
   const baseUrl = process.env.BLUECASTER_API_URL;
   const apiKey = process.env.BLUECASTER_API_KEY;
@@ -609,6 +567,13 @@ export async function previewCatchPhoto(
 
   const form = new FormData();
   form.append("photo", file, file.name || "catch.jpg");
+  if (extras) {
+    for (const [key, value] of Object.entries(extras)) {
+      if (value !== undefined && value !== null && value !== "") {
+        form.append(key, String(value));
+      }
+    }
+  }
 
   const res = await fetch(`${baseUrl}/api/v1/ingest/catch/preview`, {
     method: "POST",
@@ -618,6 +583,154 @@ export async function previewCatchPhoto(
   });
   if (!res.ok) return null;
   return (await res.json()) as CatchPreviewResponse;
+}
+
+// =============================================================================
+// Catch wizard (2026-07) — nearest spot, snapshot, species, custom spot, pool
+// =============================================================================
+
+/**
+ * Nearest saved spot for a raw coordinate (the map picker's 400 m matching)
+ * + up-to-5km candidates with today's peak scores + the DFO subarea at the
+ * query point (auto-fills the create-spot modal's MGMT AREA).
+ */
+export async function fetchNearestSpots(
+  lat: number,
+  lng: number,
+  radiusM = 400,
+  limit = 5,
+): Promise<NearestSpotsResponse | null> {
+  const baseUrl = process.env.BLUECASTER_API_URL;
+  const apiKey = process.env.BLUECASTER_API_KEY;
+  if (!baseUrl || !apiKey) throw new Error("BlueCaster env vars not set");
+
+  const qs = new URLSearchParams({
+    lat: String(lat),
+    lng: String(lng),
+    radius_m: String(radiusM),
+    limit: String(limit),
+  });
+  const res = await fetch(`${baseUrl}/api/v1/spots/by-coordinates?${qs}`, {
+    headers: { "x-api-key": apiKey },
+    cache: "no-store",
+  });
+  if (!res.ok) return null;
+  return (await res.json()) as NearestSpotsResponse;
+}
+
+/**
+ * Conditions snapshot for a spot at an arbitrary UTC instant — historical
+ * capable (unlike point-conditions). Used by the review screen when the
+ * spot or catch time changes.
+ */
+export async function fetchSpotSnapshot(
+  spotId: string,
+  datetimeUtcIso: string,
+): Promise<SpotSnapshotResponse | null> {
+  const baseUrl = process.env.BLUECASTER_API_URL;
+  const apiKey = process.env.BLUECASTER_API_KEY;
+  if (!baseUrl || !apiKey) throw new Error("BlueCaster env vars not set");
+
+  const qs = new URLSearchParams({ datetime: datetimeUtcIso });
+  const res = await fetch(
+    `${baseUrl}/api/v1/fishing-spots/${spotId}/snapshot?${qs}`,
+    { headers: { "x-api-key": apiKey }, cache: "no-store" },
+  );
+  if (!res.ok) return null;
+  return (await res.json()) as SpotSnapshotResponse;
+}
+
+/** Full species list (species-picker fallback when no spot is matched). */
+export async function fetchBlueCasterSpecies(): Promise<
+  BlueCasterSpeciesItem[] | null
+> {
+  const baseUrl = process.env.BLUECASTER_API_URL;
+  const apiKey = process.env.BLUECASTER_API_KEY;
+  if (!baseUrl || !apiKey) throw new Error("BlueCaster env vars not set");
+
+  const res = await fetch(`${baseUrl}/api/v1/species?limit=500`, {
+    headers: { "x-api-key": apiKey },
+    next: { revalidate: 3600 },
+  });
+  if (!res.ok) return null;
+  const data = (await res.json()) as { species: BlueCasterSpeciesItem[] };
+  return data.species ?? null;
+}
+
+/**
+ * Single-hour score for a spot×species at a specific UTC instant — the
+ * "score at catch time" snapshot. Empty `stocks` = hour outside the
+ * current forecast window (render "—").
+ */
+export async function fetchSpotScoreHour(
+  spotId: string,
+  speciesId: string,
+  datetimeUtcIso: string,
+): Promise<SpotScoreHourResponse | null> {
+  const baseUrl = process.env.BLUECASTER_API_URL;
+  const apiKey = process.env.BLUECASTER_API_KEY;
+  if (!baseUrl || !apiKey) throw new Error("BlueCaster env vars not set");
+
+  const qs = new URLSearchParams({
+    species: speciesId,
+    datetime: datetimeUtcIso,
+  });
+  const res = await fetch(
+    `${baseUrl}/api/v1/fishing-spots/${spotId}/score?${qs}`,
+    { headers: { "x-api-key": apiKey }, cache: "no-store" },
+  );
+  if (!res.ok) return null;
+  return (await res.json()) as SpotScoreHourResponse;
+}
+
+/** Create a custom (user) spot — approved+active, score pending until the
+ *  next batch scoring run. */
+export async function createCustomSpot(input: {
+  name: string;
+  lat: number;
+  lng: number;
+}): Promise<CreateCustomSpotResponse | null> {
+  const baseUrl = process.env.BLUECASTER_API_URL;
+  const apiKey = process.env.BLUECASTER_API_KEY;
+  if (!baseUrl || !apiKey) throw new Error("BlueCaster env vars not set");
+
+  const res = await fetch(`${baseUrl}/api/v1/fishing-spots/custom`, {
+    method: "POST",
+    headers: { "x-api-key": apiKey, "Content-Type": "application/json" },
+    body: JSON.stringify(input),
+    cache: "no-store",
+  });
+  if (!res.ok) return null;
+  return (await res.json()) as CreateCustomSpotResponse;
+}
+
+/**
+ * Commit a saved catch into BlueCaster's intelligence pool
+ * (`POST /api/v1/ingest/catch`). Fire-and-forget from the save path —
+ * failures must never block the user's save. `idempotencyKey` should be
+ * the reelcaster catch row id so retries replay instead of duplicating.
+ */
+export async function commitCatchToPool(
+  payload: PoolCommitPayload,
+  photo: File | null,
+  idempotencyKey: string,
+): Promise<PoolCommitResponse | null> {
+  const baseUrl = process.env.BLUECASTER_API_URL;
+  const apiKey = process.env.BLUECASTER_API_KEY;
+  if (!baseUrl || !apiKey) throw new Error("BlueCaster env vars not set");
+
+  const form = new FormData();
+  form.append("payload", JSON.stringify(payload));
+  if (photo) form.append("photo", photo, photo.name || "catch.jpg");
+
+  const res = await fetch(`${baseUrl}/api/v1/ingest/catch`, {
+    method: "POST",
+    headers: { "x-api-key": apiKey, "idempotency-key": idempotencyKey },
+    body: form,
+    cache: "no-store",
+  });
+  if (!res.ok) return null;
+  return (await res.json()) as PoolCommitResponse;
 }
 
 // =============================================================================

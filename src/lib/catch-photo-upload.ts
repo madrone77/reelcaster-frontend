@@ -32,3 +32,23 @@ export async function getCatchPhotoSignedUrl(
   if (error || !data) return null;
   return data.signedUrl;
 }
+
+/**
+ * Batch signed URLs for a list page — ONE storage round-trip instead of
+ * N createSignedUrl calls. Returns a path→url map (failed paths omitted).
+ */
+export async function getCatchPhotoSignedUrls(
+  paths: string[],
+  expiresIn = 3600,
+): Promise<Map<string, string>> {
+  const out = new Map<string, string>();
+  if (paths.length === 0) return out;
+  const { data, error } = await supabase.storage
+    .from(BUCKET)
+    .createSignedUrls(paths, expiresIn);
+  if (error || !data) return out;
+  for (const entry of data) {
+    if (entry.signedUrl && entry.path) out.set(entry.path, entry.signedUrl);
+  }
+  return out;
+}

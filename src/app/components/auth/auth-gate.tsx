@@ -15,8 +15,6 @@ const PUBLIC_PREFIXES = [
   '/auth/',
   '/pricing',
   '/explore',
-  '/regulations',
-  '/species',
   '/privacy',
   '/terms',
   '/contact',

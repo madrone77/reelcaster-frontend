@@ -5,8 +5,6 @@ export default function robots() {
         userAgent: "*",
         allow: [
           "/",
-          "/species/",
-          "/regulations",
           "/pricing",
           "/login",
           "/signup",
