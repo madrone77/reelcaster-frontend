@@ -22,13 +22,13 @@ export default function Hero() {
             <Link
               href="/signup"
               data-testid="marketing-primary-cta"
-              className="inline-flex items-center justify-center rounded-md bg-rc-brand px-8 py-3 text-sm font-bold tracking-wide text-white transition-colors hover:bg-rc-brand-hover"
+              className="inline-flex items-center justify-center rounded bg-rc-brand px-8 py-3 text-sm font-bold tracking-wide text-white transition-colors hover:bg-rc-brand-hover"
             >
               START FREE
             </Link>
             <Link
               href="#how-it-works"
-              className="inline-flex items-center justify-center rounded-md border border-rc-brand bg-rc-panel px-8 py-3 text-sm font-bold tracking-wide text-rc-brand transition-colors hover:bg-rc-brand-soft"
+              className="inline-flex items-center justify-center rounded border border-rc-brand bg-rc-panel px-8 py-3 text-sm font-bold tracking-wide text-rc-brand transition-colors hover:bg-rc-brand-soft"
             >
               HOW IT WORKS
             </Link>

@@ -6,7 +6,7 @@ export default function SignalsSection() {
     <section
       id="how-it-works"
       data-testid="homepage-how-it-works"
-      className="bg-rc-page scroll-mt-16"
+      className="bg-rc-band scroll-mt-16"
     >
       <div className="max-w-6xl mx-auto grid gap-14 px-6 py-16 md:py-24 lg:grid-cols-2 lg:items-center">
         <div>
@@ -23,7 +23,7 @@ export default function SignalsSection() {
           </p>
           <Link
             href="/signup"
-            className="mt-9 inline-flex w-full max-w-md items-center justify-center rounded-md bg-rc-brand px-8 py-3 text-sm font-bold tracking-wide text-white transition-colors hover:bg-rc-brand-hover"
+            className="mt-9 inline-flex w-full max-w-md items-center justify-center rounded bg-rc-brand px-8 py-3 text-sm font-bold tracking-wide text-white transition-colors hover:bg-rc-brand-hover"
           >
             START FREE
           </Link>

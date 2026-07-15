@@ -22,10 +22,18 @@ export default function MarketingHeader() {
   const isActive = (href: string) =>
     pathname === href || pathname.startsWith(`${href}/`);
 
+  // About takes the marketing hero's page tint (#F0EFED) so the bar reads as
+  // part of the page instead of a white strip laid over it. Everywhere else
+  // the nav stays translucent white and blurs whatever scrolls beneath it —
+  // an opaque bar has no backdrop to blur, so the blur comes off with it.
+  const tintedNav = pathname === '/about';
+
   return (
     <header
       data-testid="marketing-header"
-      className="border-b border-rc-rule bg-rc-panel/90 backdrop-blur-sm sticky top-0 z-30"
+      className={`border-b border-rc-rule sticky top-0 z-30 ${
+        tintedNav ? 'bg-rc-page' : 'bg-rc-panel/90 backdrop-blur-sm'
+      }`}
     >
       <div className="max-w-6xl mx-auto px-6 h-16 flex items-center gap-8">
         <Link href="/" className="shrink-0 flex items-center" aria-label="ReelCaster home">

@@ -22,6 +22,7 @@
   --rc-panel:        #FFFFFF;   /* cards · top bar · drawer */
   --rc-surface:      #F7F8FA;   /* inset fields · sub-cards */
   --rc-bg:           #F0EFED;   /* app background */
+  --rc-band:         #F3F3F5;   /* light marketing band (signals section) */
   --rc-rule:         #DEE2EA;   /* borders · dividers */
   --rc-rule-soft:    #ECEEF3;   /* internal cell dividers */
 

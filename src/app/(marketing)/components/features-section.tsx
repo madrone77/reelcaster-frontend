@@ -29,7 +29,7 @@ export default function FeaturesSection() {
           {FEATURES.map(({ icon: Icon, title, body }) => (
             <div
               key={title}
-              className="rounded-md border border-rc-rule/70 bg-rc-surface/60 p-6"
+              className="rounded border border-rc-rule/70 bg-rc-surface/60 p-6"
             >
               <span className="flex h-10 w-10 items-center justify-center rounded-full bg-rc-brand-soft text-rc-brand">
                 <Icon className="h-5 w-5" />
