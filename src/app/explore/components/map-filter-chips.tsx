@@ -67,7 +67,11 @@ export default function MapFilterChips({
 
   const chipBase = "px-2.5 py-1 rounded text-[11px] transition-colors";
   const chipOn = "bg-rc-brand-soft border border-rc-brand text-rc-ink font-semibold";
-  const chipOff = "border border-rc-rule text-rc-ink-soft font-medium hover:bg-rc-surface";
+  // Explicitly white, not transparent: in the rail these sit on a white panel
+  // so a bare outline looked fine, but the chips also overlay the map on the
+  // marketing section — where the bathymetry showed straight through the label.
+  const chipOff =
+    "bg-rc-panel border border-rc-rule text-rc-ink-soft font-medium hover:bg-rc-surface";
 
   return (
     <div className="flex flex-wrap items-center gap-1.5">
