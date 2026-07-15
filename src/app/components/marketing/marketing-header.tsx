@@ -1,94 +1,97 @@
 'use client';
 
 import Link from 'next/link';
-import { LogOut } from 'lucide-react';
+import Image from 'next/image';
+import { usePathname } from 'next/navigation';
 import { useAuth } from '@/contexts/auth-context';
 
+// Keep in step with the routes that actually exist — /fishing, /species and
+// /regulations were removed, and anything not on the middleware allowlist
+// silently rewrites to /coming-soon rather than 404ing, so dead links here
+// look like real pages until you click them.
 const NAV = [
+  { href: '/about', label: 'About' },
   { href: '/explore', label: 'Explore' },
   { href: '/catches', label: 'Catch Log' },
   { href: '/pricing', label: 'Pricing' },
 ];
 
-function Logo() {
-  return (
-    <Link
-      href="/"
-      className="flex flex-col items-center border-2 border-rc-brand bg-rc-panel px-2.5 py-1 leading-none"
-      aria-label="Reelcaster home"
-    >
-      <span className="border-b-2 border-rc-brand pb-0.5 text-lg font-black tracking-tight text-rc-brand">
-        REEL
-      </span>
-      <span className="mt-0.5 font-rc-mono text-[7px] font-semibold tracking-[0.35em] text-rc-brand">
-        CASTER
-      </span>
-    </Link>
-  );
-}
-
 export default function MarketingHeader() {
   const { user, loading, signOut } = useAuth();
+  const pathname = usePathname();
+  const isActive = (href: string) =>
+    pathname === href || pathname.startsWith(`${href}/`);
 
   return (
     <header
       data-testid="marketing-header"
-      className="sticky top-0 z-30 border-b border-rc-rule bg-rc-panel/95 backdrop-blur-sm"
+      className="border-b border-rc-rule bg-rc-panel/90 backdrop-blur-sm sticky top-0 z-30"
     >
-      <div className="max-w-6xl mx-auto flex h-16 items-center justify-between px-6">
-        <Logo />
+      <div className="max-w-6xl mx-auto px-6 h-16 flex items-center gap-8">
+        <Link href="/" className="shrink-0 flex items-center" aria-label="ReelCaster home">
+          <Image src="/reelcaster-mark.svg" alt="ReelCaster" width={104} height={48} priority />
+        </Link>
 
-        <div className="flex items-center gap-8">
-          <nav className="hidden md:flex items-center gap-7 text-sm font-medium text-rc-brand">
-            {NAV.map((item) => (
+        <nav className="hidden md:flex items-center gap-7 text-sm font-medium text-rc-ink-soft">
+          {NAV.map((item) => (
+            <Link
+              key={item.href}
+              href={item.href}
+              aria-current={isActive(item.href) ? 'page' : undefined}
+              className={`transition-colors ${
+                isActive(item.href) ? 'text-rc-brand font-semibold' : 'hover:text-rc-ink'
+              }`}
+            >
+              {item.label}
+            </Link>
+          ))}
+        </nav>
+
+        <div className="flex items-center gap-2 min-h-[36px] ml-auto">
+          {loading ? null : user ? (
+            <>
               <Link
-                key={item.label}
-                href={item.href}
-                className="transition-colors hover:text-rc-brand-hover"
+                href="/dashboard"
+                className="hidden sm:inline-flex text-sm font-medium text-rc-ink-soft hover:text-rc-ink px-3 py-1.5 transition-colors"
               >
-                {item.label}
+                Dashboard
               </Link>
-            ))}
-          </nav>
-
-          <div className="flex min-h-[34px] items-center gap-5">
-            {loading ? null : user ? (
               <button
                 type="button"
                 onClick={() => signOut()}
-                className="inline-flex items-center gap-1.5 rounded-md border border-rc-rule px-3.5 py-1.5 text-sm font-semibold text-rc-ink-soft transition-colors hover:bg-rc-surface"
-                title={user.email ?? 'Sign out'}
+                className="inline-flex items-center px-4 py-2 rounded border border-rc-rule hover:bg-rc-surface text-sm font-semibold text-rc-ink transition-colors"
               >
-                <LogOut className="h-3.5 w-3.5" />
-                <span className="hidden sm:inline">Sign out</span>
+                Sign out
               </button>
-            ) : (
-              <>
-                <Link
-                  href="/login"
-                  className="text-sm font-bold text-rc-brand transition-colors hover:text-rc-brand-hover"
-                >
-                  Sign in
-                </Link>
-                <Link
-                  href="/signup"
-                  className="text-sm font-bold text-rc-brand transition-colors hover:text-rc-brand-hover"
-                >
-                  Start free trial
-                </Link>
-              </>
-            )}
-          </div>
+            </>
+          ) : (
+            <>
+              <Link
+                href="/login"
+                className="hidden sm:inline-flex text-sm font-medium text-rc-ink-soft hover:text-rc-ink px-3 py-1.5 transition-colors"
+              >
+                Sign in
+              </Link>
+              <Link
+                href="/signup"
+                className="inline-flex items-center px-4 py-2 rounded bg-rc-brand hover:bg-rc-brand-hover text-sm font-semibold text-white transition-colors"
+              >
+                Start free trial
+              </Link>
+            </>
+          )}
         </div>
       </div>
 
-      {/* Mobile nav strip */}
-      <nav className="md:hidden -mt-1 flex items-center gap-5 overflow-x-auto px-6 pb-2.5 text-xs font-medium text-rc-brand">
+      <nav className="md:hidden flex items-center gap-4 px-6 pb-3 -mt-1 text-xs font-medium text-rc-ink-mute overflow-x-auto">
         {NAV.map((item) => (
           <Link
-            key={item.label}
+            key={item.href}
             href={item.href}
-            className="whitespace-nowrap transition-colors hover:text-rc-brand-hover"
+            aria-current={isActive(item.href) ? 'page' : undefined}
+            className={`whitespace-nowrap ${
+              isActive(item.href) ? 'text-rc-brand font-semibold' : 'hover:text-rc-ink'
+            }`}
           >
             {item.label}
           </Link>

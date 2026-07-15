@@ -93,14 +93,14 @@
   --color-popover: var(--popover);
   --color-card-foreground: var(--card-foreground);
   --color-card: var(--card);
-  --radius-sm: calc(var(--radius) - 4px);
-  --radius-md: calc(var(--radius) - 2px);
-  --radius-lg: var(--radius);
-  --radius-xl: calc(var(--radius) + 4px);
+  --radius-sm: 4px;
+  --radius-md: 4px;
+  --radius-lg: 4px;
+  --radius-xl: 4px;
 }
 
 :root {
-  --radius: 0.625rem;
+  --radius: 4px;
   --background: oklch(1 0 0);
   --foreground: oklch(0.145 0 0);
   --card: oklch(1 0 0);
@@ -190,6 +190,18 @@
   .maplibregl-ctrl-attrib-button {
     @apply bg-rc-bg-dark/80!;
   }
+  /* Zoom controls float top-right, 24px inset, aligned near the rail's top. */
+  .maplibregl-ctrl-top-right {
+    z-index: 40;
+  }
+  .maplibregl-ctrl-top-right .maplibregl-ctrl {
+    margin: 8px 24px 0 0;
+  }
+  /* 88% opacity + blur, matching the frosted panels. */
+  .maplibregl-ctrl-group {
+    background: rgba(255, 255, 255, 0.88) !important;
+    backdrop-filter: blur(8px);
+  }
 }
 
 /* Mobile safe area utilities */
@@ -251,6 +263,38 @@
 
 .animate-shake {
   animation: shake 0.4s ease-out;
+}
+
+/* Favorite star "pop" — plays when a spot is favorited. */
+@keyframes fav-pop {
+  70% { transform: scale(1.5); }
+  100% { transform: scale(1); }
+}
+
+.animate-fav-pop {
+  animation: fav-pop 600ms ease;
+}
+
+/* Ticker strip — continuous marquee of spot scores; content is duplicated
+   once in the DOM so the loop from -50% back to 0 is seamless. Pauses on
+   hover so a name can actually be read, and sits still for reduced motion. */
+@keyframes marquee {
+  from { transform: translateX(0); }
+  to { transform: translateX(-50%); }
+}
+
+.animate-marquee {
+  animation: marquee 28s linear infinite;
+}
+
+.animate-marquee:hover {
+  animation-play-state: paused;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-marquee {
+    animation: none;
+  }
 }
 
 /* Scrollbar styling for dark theme */

@@ -1,24 +1,19 @@
 "use client";
 
 import { useState } from "react";
-import { ChevronUp } from "lucide-react";
+import { ChevronDown, CloudSun } from "lucide-react";
 import type { ForecastStripModel, ForecastDay } from "../lib/forecast-strip";
 import DayCell from "./day-cell";
+import HourScrubber from "./hour-scrubber";
 import UpgradeDialog from "./upgrade-dialog";
 
 const CONFIDENCE_NOTE = "confidence fades past day 7 · ECMWF + GFS";
 
-function bestWindowLabel(model: ForecastStripModel): string | null {
-  const d = model.bestDay;
-  if (!d) return null;
-  return `${d.dow} ${d.date}${d.peakLabel ? ` · ${d.peakLabel}` : ""}`;
-}
-
 /**
- * Floating 14-day forecast strip (desktop) — spans from just right of the
- * rail to the right edge, per the Figma. Always top-right in both list and
- * drawer modes. Tapping a day drives the map; the "Hide" button collapses
- * it to a reopen chip.
+ * Docked 14-day forecast strip (desktop) — a full-bleed instrument panel
+ * pinned to the bottom edge (square, no card chrome), the map sitting above
+ * it. Day cells pick the day (drives the map); tapping a day reveals the
+ * hourly scrubber (progressive disclosure — collapsed to cells by default).
  */
 export default function ForecastStrip({
   model,
@@ -26,14 +21,35 @@ export default function ForecastStrip({
   selectedIso,
   loading,
   onSelectDay,
+  scrub,
+  hourlyAvailable,
+  hourExpanded,
+  onToggleHours,
+  hidden,
+  onHide,
+  onShow,
 }: {
   model: ForecastStripModel | null;
   speciesName: string | null;
   selectedIso: string;
   loading: boolean;
   onSelectDay: (day: ForecastDay) => void;
+  /** Hour scrubber — present only when expanded. Null = cells only. */
+  scrub?: {
+    hours: (number | null)[];
+    hour: number;
+    onScrub: (h: number) => void;
+  } | null;
+  /** Whether hourly data exists (controls the show/hide-hours toggle). */
+  hourlyAvailable?: boolean;
+  hourExpanded?: boolean;
+  /** Toggle the hourly scrubber open/closed. */
+  onToggleHours?: () => void;
+  /** Whole-strip hide/show. */
+  hidden?: boolean;
+  onHide?: () => void;
+  onShow?: () => void;
 }) {
-  const [hidden, setHidden] = useState(false);
   const [upgradeOpen, setUpgradeOpen] = useState(false);
 
   const handleDay = (day: ForecastDay) => {
@@ -44,61 +60,99 @@ export default function ForecastStrip({
     onSelectDay(day);
   };
 
+  // Hidden → a compact "Show" chip pinned bottom-left (aligned to the rail).
   if (hidden) {
     return (
       <button
         type="button"
-        onClick={() => setHidden(false)}
-        className="hidden lg:flex fixed top-20 right-6 z-30 items-center gap-2 px-3 py-2 rounded-lg bg-rc-panel border border-rc-rule shadow-rc-panel text-sm font-semibold text-rc-ink-soft hover:text-rc-ink transition-colors"
+        onClick={onShow}
+        className="hidden lg:flex fixed bottom-4 left-6 z-30 items-center gap-2 px-3 py-2 rounded bg-rc-panel/88 backdrop-blur-md border border-rc-rule shadow-rc-panel hover:border-rc-ink-mute transition-colors"
       >
-        <ChevronUp className="w-4 h-4" />
-        14-day forecast
+        <CloudSun className="w-4 h-4 text-rc-ink-mute" />
+        <span className="rc-label text-[9px]">14-Day Forecast</span>
+        <span className="text-xs font-semibold text-rc-brand ml-1">Show</span>
       </button>
     );
   }
 
   return (
     <>
-      <div className="hidden lg:block fixed top-20 left-[420px] right-6 z-30 bg-rc-panel border border-rc-rule rounded-xl shadow-rc-panel px-4 py-3">
-        {/* Header */}
-        <div className="flex items-start justify-between gap-3 mb-3">
-          <div className="min-w-0">
-            <div className="rc-label text-[9px]">
-              14-Day Forecast{speciesName ? ` · ${speciesName}` : ""}
-            </div>
-            <div className="font-rc-mono text-[10px] text-rc-ink-mute italic mt-0.5">
-              {CONFIDENCE_NOTE}
-            </div>
-          </div>
-          <div className="flex items-center gap-3 shrink-0">
-            {model?.bestDay && (
-              <span className="flex items-center gap-1.5 font-rc-mono text-[11px] text-rc-ink-soft">
-                <span className="w-1.5 h-1.5 rounded-full bg-rc-good" />
-                Best window {bestWindowLabel(model)}
+      <div className={`hidden lg:flex flex-col ${scrub ? "h-[184px]" : "h-[128px]"} fixed inset-x-0 bottom-0 z-30 bg-rc-panel/88 backdrop-blur-md border-t border-rc-rule shadow-rc-bar px-6 py-2.5`}>
+        {/* Header — single compact row */}
+        <div className="flex items-center justify-between gap-4 mb-2 shrink-0">
+          <div className="flex items-center gap-3 min-w-0">
+            <div className="flex items-center gap-1.5 shrink-0">
+              <CloudSun className="w-4 h-4 text-rc-ink-mute" />
+              <span className="rc-label text-[9px] text-rc-ink">
+                14-Day Forecast{speciesName ? ` · ${speciesName}` : ""}
               </span>
+            </div>
+            {model?.bestDay && (
+              <div className="flex items-center gap-1.5 min-w-0">
+                <span className="w-1.5 h-1.5 rounded-full bg-rc-good shrink-0" />
+                <span className="font-rc-mono text-[11px] tracking-[0.02em] text-rc-ink truncate">
+                  Best window {model.bestDay.dow} {model.bestDay.date}
+                </span>
+                {model.bestDay.peakLabel && (
+                  <span className="font-rc-mono text-[11px] tracking-[0.02em] font-bold text-rc-ink shrink-0">
+                    {model.bestDay.peakLabel}
+                  </span>
+                )}
+              </div>
             )}
-            <button
-              type="button"
-              onClick={() => setHidden(true)}
-              className="px-2.5 py-1 rounded-md bg-rc-brand text-white text-xs font-semibold hover:bg-rc-brand-hover transition-colors"
-            >
-              Hide
-            </button>
+            {hourlyAvailable && onToggleHours && (
+              <button
+                type="button"
+                onClick={onToggleHours}
+                aria-label={hourExpanded ? "Hide hours" : "Show hours"}
+                className="flex items-center gap-1 shrink-0 px-2 py-0.5 rounded border border-rc-rule text-[11px] font-medium text-rc-ink-soft hover:bg-rc-surface transition-colors"
+              >
+                {hourExpanded ? "Hide hours" : "Show hours"}
+                <ChevronDown
+                  className={`w-3 h-3 transition-transform ${hourExpanded ? "" : "rotate-180"}`}
+                />
+              </button>
+            )}
+          </div>
+          <div className="flex items-center gap-4 shrink-0">
+            <span className="font-rc-mono text-[10px] text-rc-ink-mute italic hidden xl:inline">
+              {CONFIDENCE_NOTE}
+            </span>
+            {onHide && (
+              <button
+                type="button"
+                onClick={onHide}
+                className="text-xs font-semibold text-rc-brand hover:text-rc-brand-hover transition-colors"
+              >
+                Hide
+              </button>
+            )}
           </div>
         </div>
 
+        {/* Hour scrubber — progressive: shown only when a day is expanded */}
+        {!loading && model && scrub && (
+          <div className="mb-2.5 pb-2.5 border-b border-rc-rule-soft shrink-0">
+            <HourScrubber
+              hours={scrub.hours}
+              hour={scrub.hour}
+              onScrub={scrub.onScrub}
+            />
+          </div>
+        )}
+
         {/* Cells */}
         {loading || !model ? (
-          <div className="flex gap-1.5">
+          <div className="flex gap-1.5 flex-1 min-h-0">
             {Array.from({ length: 14 }).map((_, i) => (
               <div
                 key={i}
-                className="flex-1 h-[88px] rounded-lg bg-rc-surface animate-pulse"
+                className="flex-1 rounded bg-rc-surface animate-pulse"
               />
             ))}
           </div>
         ) : (
-          <div className="flex gap-1.5">
+          <div className="flex gap-1.5 flex-1 min-h-0">
             {model.days.map((day) => (
               <DayCell
                 key={day.index}
@@ -109,10 +163,6 @@ export default function ForecastStrip({
             ))}
           </div>
         )}
-
-        <div className="font-rc-mono text-[10px] text-rc-ink-mute italic mt-2 text-right">
-          tap a day · selected day drives the map
-        </div>
       </div>
 
       <UpgradeDialog open={upgradeOpen} onOpenChange={setUpgradeOpen} />

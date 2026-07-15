@@ -17,12 +17,18 @@ export default function HourlyBars({
   tz,
   selectedHour = null,
   onSelectHour,
+  dense = false,
+  hideLabel = false,
 }: {
   /** Hourly scores 0–100, null = unavailable. */
   hours: (number | null)[];
   tz: string;
   selectedHour?: number | null;
   onSelectHour?: (hour: number) => void;
+  /** Compact variant for the narrow rail card — shorter label + bars. */
+  dense?: boolean;
+  /** Omit the "24H · BEST WINDOW" header row (the card carries that in its conclusion line). */
+  hideLabel?: boolean;
 }) {
   const nowHour = currentLocalHour(tz);
   const marker = selectedHour ?? nowHour;
@@ -31,20 +37,23 @@ export default function HourlyBars({
 
   return (
     <div>
-      <div className="flex items-baseline justify-between mb-2">
-        <div className="rc-label text-[9px]">
-          24H{label ? ` · BEST WINDOW ${label}` : ""}
-        </div>
-        {onSelectHour && (
-          <div className="font-rc-mono text-[9px] text-rc-ink-mute italic">
-            tap a bar to scrub
+      {!hideLabel && (
+        <div className="flex items-baseline justify-between mb-1.5 gap-2">
+          <div className="rc-label text-[9px] whitespace-nowrap">
+            24H{label ? ` · BEST WINDOW ${label}` : ""}
           </div>
-        )}
-      </div>
-      <div className="relative flex items-end gap-[3px] h-16">
+          {onSelectHour && (
+            <div className="font-rc-mono text-[9px] text-rc-ink-mute italic shrink-0">
+              tap a bar to scrub
+            </div>
+          )}
+        </div>
+      )}
+      <div className={`relative flex items-end gap-[2px] ${dense ? "h-10" : "h-16"}`}>
         {hours.map((score, i) => {
           const inWindow = window !== null && i >= window[0] && i <= window[1];
-          const h = score === null ? 6 : Math.max(6, (score / 100) * 64);
+          const maxH = dense ? 40 : 64;
+          const h = score === null ? 6 : Math.max(6, (score / 100) * maxH);
           const color =
             score === null
               ? "bg-rc-rule-soft"

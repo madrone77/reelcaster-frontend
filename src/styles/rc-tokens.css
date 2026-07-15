@@ -77,10 +77,10 @@
   --rc-space-8:   64px;
 
   /* ─── RADIUS ────────────────────────────────────────────── */
-  --rc-radius-xs:    4px;   /* pills · badges · chips */
-  --rc-radius-sm:    8px;   /* buttons · fields · forecast cells */
-  --rc-radius-md:   12px;   /* cards · panels · drawer */
-  --rc-radius-lg:   16px;
+  --rc-radius-xs:    4px;
+  --rc-radius-sm:    4px;
+  --rc-radius-md:    4px;
+  --rc-radius-lg:    4px;
   --rc-radius-full: 999px;
 
   /* ─── ELEVATION ─────────────────────────────────────────── */

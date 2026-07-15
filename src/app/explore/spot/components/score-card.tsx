@@ -1,6 +1,6 @@
 "use client";
 
-import { Bell, Fish } from "lucide-react";
+import { Bell } from "lucide-react";
 import { tierFor, TIER_PILL, TIER_TEXT } from "../../lib/explore-data";
 
 /**
@@ -17,8 +17,10 @@ export default function ScoreCard({
   windowLabel,
   windowPeak,
   tidePhase,
+  dfoArea,
+  speciesName,
+  regOpen,
   onSetAlert,
-  onLogCatch,
 }: {
   /** e.g. "NOW · CHINOOK · 07:00 PDT" */
   nowLabel: string;
@@ -34,10 +36,14 @@ export default function ScoreCard({
   windowPeak: number | null;
   /** Tide phase at the peak, e.g. "Tide flooding". */
   tidePhase: string | null;
+  /** DFO regulatory area code, e.g. "19-4". */
+  dfoArea: string | null;
+  /** Driver species common name, e.g. "Dungeness Crab". */
+  speciesName: string | null;
+  /** Whether the driver species is open (retention) in this area. */
+  regOpen: boolean;
   /** Tapped "Set alert" — the shell gates signed-out anglers into sign-up. */
   onSetAlert: () => void;
-  /** Tapped "Log catch" — the shell gates signed-out anglers into sign-up. */
-  onLogCatch: () => void;
 }) {
   const tier = tierFor(score ?? peak);
   const windowSub = [
@@ -53,17 +59,17 @@ export default function ScoreCard({
 
       <div className="flex items-end gap-4 mt-2">
         <span
-          className={`text-[64px] leading-[0.8] font-bold tracking-[-0.04em] ${TIER_TEXT[tier]}`}
+          className={`text-[64px] leading-[0.8] font-bold tracking-[-0.04em] ${
+            tier === "fair" ? "text-rc-fair-ink" : TIER_TEXT[tier]
+          }`}
         >
           {score ?? peak ?? "—"}
         </span>
         <div className="pb-1.5 space-y-1.5">
           <span
-            className={`inline-block px-2 py-0.5 rounded-full text-xs font-semibold ${TIER_PILL[tier]}`}
+            className={`inline-block px-2 py-0.5 rounded font-rc-mono text-[11px] font-bold ${TIER_PILL[tier]}`}
           >
-            {score != null || peak != null
-              ? `✓ ${tier.toUpperCase()}`
-              : "NO SCORE"}
+            {score != null || peak != null ? tier.toUpperCase() : "NO SCORE"}
           </span>
           {peak != null && (
             <p className="font-rc-mono text-xs text-rc-ink-soft">
@@ -75,7 +81,7 @@ export default function ScoreCard({
       </div>
 
       {windowLabel && (
-        <div className="mt-4 rounded-xl bg-rc-good-bg text-center py-3 px-3">
+        <div className="mt-4 rounded bg-rc-good-bg text-center py-3 px-3">
           <div className="rc-label text-[9px] text-rc-good-ink">BEST WINDOW</div>
           <div className="text-lg font-bold text-rc-good-ink mt-0.5">
             {windowLabel}
@@ -88,24 +94,35 @@ export default function ScoreCard({
         </div>
       )}
 
-      <div className="flex gap-2.5 mt-4">
-        <button
-          type="button"
-          onClick={onSetAlert}
-          className="flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-lg bg-rc-brand hover:bg-rc-brand-hover text-white text-sm font-semibold transition-colors"
+      {/* DFO notice — regulatory data, muted chrome, hairline border, no fill.
+          Points at DFO's own recreational-fishing page: the in-app
+          /regulations route was removed, and on regs we link the source
+          rather than restate it. */}
+      {dfoArea && (
+        <a
+          href="https://www.pac.dfo-mpo.gc.ca/fm-gp/rec/index-eng.html"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="mt-3 flex min-h-[44px] items-center justify-between gap-2 rounded border border-rc-fair-border bg-rc-fair-bg px-3 py-2 font-rc-mono text-[11px] text-rc-fair-ink hover:brightness-[0.98] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-rc-brand transition-all"
         >
-          <Bell className="w-4 h-4" />
-          Set alert
-        </button>
-        <button
-          type="button"
-          onClick={onLogCatch}
-          className="flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-lg border border-rc-rule text-rc-ink text-sm font-semibold hover:bg-rc-surface transition-colors"
-        >
-          <Fish className="w-4 h-4" />
-          Log catch
-        </button>
-      </div>
+          <span className="truncate">
+            DFO · PFMA {dfoArea}
+            {speciesName ? ` · ${speciesName} ${regOpen ? "open" : "closed"}` : ""}
+          </span>
+          <span className="shrink-0 text-rc-brand">Regulations ↗</span>
+        </a>
+      )}
+
+      {/* Single alert action — saving lives on the star beside the spot name.
+          Outlined (not filled) so the score numeral stays the loudest thing. */}
+      <button
+        type="button"
+        onClick={onSetAlert}
+        className="mt-4 w-full flex items-center justify-center gap-2 px-4 py-3 rounded border border-rc-brand text-rc-brand hover:bg-rc-brand-soft text-sm font-semibold focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-rc-brand transition-colors"
+      >
+        <Bell className="w-4 h-4" />
+        Set alert
+      </button>
     </div>
   );
 }

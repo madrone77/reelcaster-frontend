@@ -28,7 +28,7 @@ function ProfileCell({
   sub?: string | null;
 }) {
   return (
-    <div className="rounded-lg border border-rc-rule bg-rc-surface p-3">
+    <div className="rounded border border-rc-rule bg-rc-surface p-3">
       <div className="rc-label text-[9px]">{label}</div>
       <div className="text-sm font-bold text-rc-ink mt-1">{value}</div>
       {sub && (
@@ -60,18 +60,18 @@ export default function SpotProfile({
       <div className="rc-label text-[9px] mb-3">SPOT PROFILE</div>
       <div className="grid grid-cols-2 gap-3">
         <ProfileCell label="DEPTH" value={depth} sub={titleCase(spot.bottomType)} />
+        {/* Launch/ramp data isn't in the spot payload yet — explicit unbuilt
+            state (not a bare "—", which reads as a load failure). */}
+        <ProfileCell label="LAUNCH" value="Not mapped" />
+        <ProfileCell
+          label="PEAK"
+          value={seasonState ? SEASON_LABEL[seasonState] : "—"}
+        />
         <ProfileCell
           label="STRUCTURE"
           value={titleCase(spot.spotType) ?? "—"}
           sub={titleCase(spot.exposure)}
         />
-        <ProfileCell
-          label="PEAK"
-          value={seasonState ? SEASON_LABEL[seasonState] : "—"}
-        />
-        {spot.dfoSubarea && (
-          <ProfileCell label="DFO AREA" value={spot.dfoSubarea} />
-        )}
       </div>
     </div>
   );
