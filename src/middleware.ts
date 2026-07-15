@@ -2,19 +2,18 @@ import { NextResponse, type NextRequest } from 'next/server'
 
 // Coming-soon wall. Every public-facing route is rewritten to /coming-soon.
 // These prefixes stay reachable so the team can still operate the system:
-// the coming-soon page itself, the API, admin, and the auth/login flow.
+// the coming-soon page itself, the API, and the auth/login flow.
 // `/explore` is publicly live (soft-launched) while the rest stays walled.
 // `/log-catch` + `/notifications` ship with the explore soft-launch.
-// `/` (the redesigned marketing homepage) + `/about` opened for review —
-// revert if the homepage should stay behind the wall a bit longer.
-const ALLOW_PREFIXES = ['/coming-soon', '/api', '/admin', '/auth', '/login', '/signup', '/explore', '/pricing', '/log-catch', '/notifications', '/about']
-const ALLOW_EXACT = ['/']
+// `/` (exact match only — `startsWith('//')` can't hit a real path) is the
+// public landing page. Info/legal pages are public (linked from the footer).
+const ALLOW_PREFIXES = ['/', '/coming-soon', '/api', '/auth', '/login', '/signup', '/explore', '/pricing', '/log-catch', '/catches', '/notifications', '/privacy', '/terms', '/contact', '/about', '/faq']
 
 export function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl
-  const allowed =
-    ALLOW_EXACT.includes(pathname) ||
-    ALLOW_PREFIXES.some((p) => pathname === p || pathname.startsWith(p + '/'))
+  const allowed = ALLOW_PREFIXES.some(
+    (p) => pathname === p || pathname.startsWith(p + '/'),
+  )
   if (allowed) return NextResponse.next()
 
   const url = req.nextUrl.clone()

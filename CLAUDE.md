@@ -39,25 +39,34 @@ pnpm lint
 ```
 src/app/
 ├── components/         # Feature-specific components
-│   ├── auth/          # Authentication components (auth-button, auth-dialog, user-menu)
-│   ├── charts/        # Data visualization (mobile-friendly-chart)
-│   ├── common/        # Shared components (sidebar, loading, error states)
-│   ├── forecast/      # Active forecast UI (day-outlook, hourly-chart, weather-conditions, etc.)
-│   ├── location/      # Location selection (compact-location-selector)
-│   └── ui/           # Enhanced UI components
-├── utils/            # API integrations and utilities
-├── profile/          # User profile page
-├── page.tsx          # Main application page (fishing forecast)
-└── layout.tsx        # Root layout
+│   ├── account/       # Profile/account cards
+│   ├── alerts/        # Custom alert UI
+│   ├── auth/          # AuthForm, AuthGate
+│   ├── catch-log/     # Fish-on FAB + quick catch modal (legacy dark UI)
+│   ├── common/        # Shared bits still used by AppShell pages
+│   ├── forecast/      # AppShell page chrome (dashboard-header) — most of the old forecast UI was deleted 2026-07
+│   ├── layout/        # AppShell, icon-sidebar, mobile tab bar, location panel
+│   ├── location/      # Location selection helpers
+│   ├── notifications/ # Notification preference forms
+│   ├── paywall/, pricing/, search/, waitlist/, marketing/, ui/
+├── explore/           # The Explore map + spot pages (primary surface)
+├── utils/             # Legacy scoring engine (kept for alerts + notification emails)
+├── profile/           # User profile pages
+└── layout.tsx         # Root layout
 ```
 
 ### Key Routes
 
-- `/` - Main fishing forecast page with location-based forecasts
-- `/profile` - User profile and preferences page
-- `/profile/catch-log` - Catch logging history and statistics
-- `/profile/custom-alerts` - Custom alert configuration
-- `/admin/send-email` - Admin email broadcast system (manual email sending)
+- `/explore` - Explore map (primary public surface); `/explore/spot/[slug]` - spot detail
+- `/` - Marketing landing page (public since 2026-07-15; light rc-* design, sections in `src/app/(marketing)/components/`, static demo hero data, real seasonal prices from `src/lib/pricing.ts`, illustrations in `public/landing/`)
+- `/pricing`, `/billing/*` - purchase flow; `/login`, `/signup`, `/auth/*` - auth flow
+- `/about`, `/contact`, `/faq`, `/privacy`, `/terms` - info/legal pages (unwalled + restyled light 2026-07-15)
+- `/profile` (+ `catch-log`, `custom-alerts`, `forecast-emails`, `notification-settings`)
+- `/alerts`, `/notifications`, `/log-catch` - kept alongside the explore soft-launch
+
+The whole public surface (`/`, explore, pricing, auth, info pages) is on the light rc-* design system as of 2026-07-15; only signed-in AppShell pages (alerts, profile, billing) remain on the legacy dark theme.
+
+Deleted 2026-07: `/dashboard`, `/fishing/*`, `/historical-reports`, `/my-spots`, `/favorite-spots`, `/settings/*`, all `/admin/*` pages; `/species`, `/species/[slug]`, `/regulations` (deleted 2026-07-15 — the regulations DATA chain `/api/regulations` + `dfo-notice-service.ts` survives for /explore and notification emails; species fetchers were removed from `src/lib/bluecaster.ts` but the `bluecaster-client.ts` species list used by the log-catch wizard is untouched).
 
 ## External APIs
 
@@ -94,87 +103,6 @@ The application integrates with multiple data sources:
    - Provides visual weather overlays (temperature, precipitation, wind, clouds)
    - Used in forecast weather map for enhanced visualizations
 
-## Interactive Weather Map
-
-The forecast page includes an interactive weather map with **dual visualization options**: a custom Mapbox-based map and an official Windy-powered map. Users can toggle between both map types, with their preference saved locally.
-
-### Map Options
-
-#### 1. Mapbox Map (Custom Implementation)
-
-**Features:**
-- **Mapbox GL Base Map**: Dark theme matching app design
-- **Hotspot Markers**: Clickable markers for all fishing locations in the selected area
-- **Weather Tile Layers**: Real-time weather overlays from OpenWeatherMap
-  - Temperature layer (heat map visualization)
-  - Precipitation layer (rainfall intensity)
-  - Wind layer (direction and speed)
-  - Cloud cover layer
-- **Layer Controls**: Toggle individual layers on/off with opacity adjustment
-- **Timeline Scrubber**: Playback forecast data through 14-day period
-- **Current Weather Display**: Real-time temp, wind, and precipitation metrics
-- **Interactive Markers**: Click hotspot markers to change location and reload forecast
-- **Wind Flow Visualization**: Custom animated directional arrows showing wind patterns over water (arrow length indicates wind intensity)
-
-**Environment Variables:**
-```env
-# Required - Mapbox GL base map
-NEXT_PUBLIC_MAPBOX_TOKEN=your_mapbox_access_token
-
-# Optional - Weather tile layers (map works without this, but layers won't display)
-NEXT_PUBLIC_OPENWEATHERMAP_API_KEY=your_openweathermap_api_key
-```
-
-**API Keys:**
-- **Mapbox** (Free tier: 50,000 loads/month): https://account.mapbox.com/access-tokens/
-- **OpenWeatherMap** (Free tier: 60 calls/min, 1M tiles/month): https://home.openweathermap.org/api_keys
-
-**Technical Implementation:**
-- Map Library: react-map-gl v8.x with Mapbox GL JS
-- Tile Rendering: OpenWeatherMap raster tiles via Source/Layer
-- Timeline Playback: Auto-advance through forecast data points (500ms intervals)
-- Marker Interaction: Click handler updates URL params and triggers forecast reload
-- Responsive Design: 500px height on mobile, maintains aspect ratio on desktop
-
-#### 2. Windy Map (Official Integration)
-
-**Features:**
-- **Official Windy Visualization**: Industry-leading wind flow animations
-- **Multiple Weather Layers**: Wind, temperature, precipitation, clouds, and 20+ other parameters
-- **Hotspot Markers**: Same clickable markers as Mapbox version
-- **Interactive Forecast**: Click anywhere on map for detailed point forecast
-- **Timeline Controls**: Playback forecast data with Windy's built-in timeline
-- **Layer Menu**: Access to Windy's full layer selection (bottom-right)
-
-**Environment Variables:**
-```env
-# Required - Windy API key
-NEXT_PUBLIC_WINDY_API_KEY=your_windy_api_key
-```
-
-**API Keys:**
-- **Windy API** (Testing tier: Free for development only): https://api.windy.com/keys
-  - **Note**: Professional tier required for production use (contact Windy for pricing)
-
-**Technical Implementation:**
-- Map Library: Leaflet 1.4.x (loaded via Windy CDN)
-- API Integration: Windy Map Forecast API
-- Custom Markers: Leaflet divIcon with custom styling
-- Documentation: https://api.windy.com/map-forecast/docs
-
-### Map Switcher
-
-Users can toggle between map types using the **Map Type** switcher above the map. The selection is saved to `localStorage` and persists across sessions.
-
-### Key Files
-
-- **Switcher**: `src/app/components/forecast/forecast-map-switcher.tsx` - Main component with toggle
-- **Mapbox Map**: `src/app/components/forecast/forecast-map.tsx` - Custom Mapbox implementation
-- **Windy Map**: `src/app/components/forecast/forecast-map-windy.tsx` - Official Windy integration
-- **Wind Particles**: `src/app/components/forecast/wind-particle-layer.tsx` - Custom wind animation (Mapbox only)
-- **Integration**: `src/app/page.tsx` - Integrated between location selector and forecast header
-- **Data Flow**: Uses existing `openMeteoData` state for timeline playback
-
 ## Explore relief map (`/explore`)
 
 The Explore page renders a **bathymetric color-relief nautical chart** (ported from BlueCaster's `test/map/1` / "bathy-relief" system) instead of a generic base map — **no `NEXT_PUBLIC_MAPBOX_TOKEN` required**. It uses **MapLibre GL** (`react-map-gl/maplibre`, already-installed `maplibre-gl`), not Mapbox.
@@ -206,57 +134,27 @@ When creating new components:
 
 ### Active Components
 
-Based on current usage analysis, these components are actively used:
+The 2026-07 cleanup deleted all dead components (verified by an import-graph
+reachability scan — everything left in `src/app/components/` is reachable from
+a live page). Highlights:
 
-**Auth Components:**
-
-- `auth-button.tsx` - Authentication button with user menu
-- `auth-dialog.tsx` - Login/signup dialog
-- `forecast-section-overlay.tsx` - Auth overlay for forecast sections
-- `user-menu.tsx` - User profile menu
-
-**Charts:**
-
-- `mobile-friendly-chart.tsx` - Data visualization component for charts
-
-**Layout (New Design System):**
+**Layout (AppShell pages: alerts, profile, billing):**
 
 - `app-shell.tsx` - Main layout wrapper with icon sidebar, location panel, mobile nav
-- `icon-sidebar.tsx` - Desktop icon-based sidebar navigation
-- `location-panel.tsx` - Desktop location/hotspot selector panel
+- `icon-sidebar.tsx` - Desktop icon-based sidebar navigation (Alerts · Catch Log · Profile)
+- `location-panel.tsx` / `mobile-location-sheet.tsx` - Location selection
 - `mobile-tab-bar.tsx` - Mobile bottom navigation
-- `mobile-location-sheet.tsx` - Mobile location selector sheet
-- `dashboard-header.tsx` - Page header with title and optional controls
+- `forecast/dashboard-header.tsx` - Page header (name is legacy; the dashboard itself is gone)
 
-**Common:**
+**Auth:**
 
-- `modern-loading-state.tsx` - Loading state component
-- `error-state.tsx` - Error display component
-
-**Forecast (Main UI):**
-
-- `new-forecast-header.tsx` - Forecast page header
-- `forecast-map-switcher.tsx` - Map type switcher with localStorage persistence
-- `forecast-map.tsx` - Custom Mapbox GL map with OpenWeatherMap layers
-- `forecast-map-windy.tsx` - Official Windy map integration with Leaflet
-- `wind-particle-layer.tsx` - Custom canvas-based wind animation overlay
-- `day-outlook.tsx` - Daily forecast overview
-- `overall-score.tsx` - Fishing score summary
-- `hourly-chart.tsx` - Hourly fishing score chart
-- `hourly-table.tsx` - Detailed hourly data table
-- `weather-conditions.tsx` - Current conditions display
-- `species-regulations.tsx` - Fishing regulations info
-- `fishing-reports.tsx` - Recent fishing reports
-
-**Location:**
-
-- `compact-location-selector.tsx` - Location picker component
+- `auth/auth-form.tsx` - Shared login/signup form (light rc-* styling via className overrides; shadcn primitives untouched)
+- `auth/auth-gate.tsx` - Client-side auth redirect for gated routes
 
 **Catch Log:**
 
-- `fish-on-button.tsx` - Floating action button for quick catch logging
-- `fish-on-button-wrapper.tsx` - Auth-aware wrapper component
-- `quick-catch-modal.tsx` - Outcome selection modal (Bite/Landed)
+- `src/app/log-catch/` - Photo-first catch wizard (upload → analyzing → location → review); `catch-form.tsx` still used by the spot-page dialog only
+- `src/app/catches/` - "My catches" list page
 
 ### API Integration
 
@@ -662,101 +560,21 @@ The following are not currently set up but may be beneficial:
 - Testing framework
 - CI/CD pipeline configuration
 
-## Automated Scraping System
+## Scraping System (REMOVED 2026-07-10)
 
-ReelCaster uses two automated scraping systems to keep data fresh:
+The automated scraping system (fishing-reports scraper, DFO regulations scraper,
+DFO fishery-notices scraper) was deleted in the 2026-07 cleanup along with the
+old dashboard, the `/fishing` SEO pages, and `/historical-reports`. What remains:
 
-### 1. Fishing Reports Scraper
-
-- **Source**: FishingVictoria.com weekly reports (published Sundays)
-- **Parser**: Hybrid Cheerio+OpenAI approach (Cheerio extracts sections, AI parses natural language)
-- **Cost Optimization**: ~25-40% token reduction via pre-extraction with Cheerio
-- **Alternatives**: Claude Haiku (80% cheaper), Groq Llama (95% cheaper), pure Cheerio (impossible - unstructured text)
-- **Frequency**: Daily check at 2 AM UTC (reports published Sundays)
-- **Smart Logic**: Checks Sunday dates specifically, stops after finding latest report per location
-- **Storage**: `fishing_reports` table (JSONB)
-- **API**: `/api/fishing-reports/scrape?weeks=4` (PUBLIC - no auth required)
-
-### 2. Regulations Scraper
-
-- **Source**: DFO Pacific Region fishing regulations
-- **Parser**: Cheerio (HTML parsing) - NO OpenAI needed
-- **Areas**: 19 (Victoria, Sidney), 20 (Sooke, Port Renfrew)
-- **Storage**: `fishing_regulations` + related tables (normalized)
-- **API**: `/api/regulations/scrape?area_id=19`
-
-### Key Files
-
-- **API Endpoints**: `src/app/api/fishing-reports/scrape/` and `src/app/api/regulations/scrape/`
-- **Scrapers**: `src/app/utils/scrape-fishing-report.ts` and `src/app/utils/dfoScraperV2.ts`
-- **Manual Scripts**: `scripts/scrape-historical-reports.ts` and `scripts/scrape-and-update-regulations.ts`
-- **GitHub Actions**: `.github/workflows/scrape-data.yml` (runs daily at 2 AM UTC)
-- **Documentation**: `docs/scraping-system.md` (comprehensive guide)
-
-### Adding New Areas/Locations
-
-The system is fully dynamic - just add data to the database and the frontend automatically displays it.
-
-**For Fishing Reports**: Update locations array in `/api/fishing-reports/scrape/route.ts`
-**For Regulations**: Add to `AREA_NAMES` in `src/app/utils/dfoScraperV2.ts`, run scraper
-
-See `docs/scraping-system.md` for detailed instructions.
-
-## Email Broadcast System
-
-ReelCaster includes an admin email broadcast system for sending customized emails to all registered users.
-
-### Features
-
-- **Manual Email Composition**: Admin can compose custom messages with rich text
-- **Optional Data Sections**: Toggle inclusion of forecast, weather, tides, and fishing reports
-- **Location-Specific Data**: Select location for forecast/tide data
-- **Email Preview**: Preview emails before sending
-- **Batch Sending**: Emails sent in batches of 20 to avoid rate limits
-- **Progress Tracking**: Real-time progress and result reporting
-- **Responsive Templates**: Beautiful, mobile-friendly HTML email templates
-
-### Setup Requirements
-
-**Environment Variables** (add to `.env.local`):
-```env
-# Supabase Service Role Key (for accessing auth.users)
-SUPABASE_SERVICE_ROLE_KEY=your_service_role_key
-
-# Resend API Key (for email sending)
-# Free tier: 100 emails/day, 3,000 emails/month
-RESEND_API_KEY=your_resend_api_key
-```
-
-### Key Files
-
-- **Admin Page**: `/admin/send-email` - Email composition interface
-- **API Endpoints**:
-  - `/api/admin/preview-email` - Generate email preview
-  - `/api/admin/send-broadcast` - Send emails to all users
-- **Email Service**: `src/lib/email-service.ts` - Email sending logic
-- **Email Template**: `src/lib/email-templates/admin-broadcast.ts` - HTML template
-- **Components**:
-  - `src/app/components/admin/email-composer.tsx` - Composer UI
-  - `src/app/components/admin/email-preview.tsx` - Preview modal
-- **Documentation**: `docs/email-broadcast-system.md` - Comprehensive guide
-
-### Usage
-
-1. Navigate to `/admin/send-email`
-2. Compose custom message
-3. Select location and toggle data sections
-4. Preview email
-5. Send to all users
-
-### Technology
-
-- **Email Service**: Resend (https://resend.com)
-- **Template Engine**: Custom TypeScript/HTML generator
-- **Batch Processing**: 20 emails per batch with rate limiting
-- **Authentication**: Supabase Admin API for user access
-
-See `docs/email-broadcast-system.md` for detailed setup and usage instructions.
+- **Regulations READ chain is kept**: `GET /api/regulations` and
+  `src/app/data/regulations/` — used by the location
+  components rendered on `/explore`. The `fishing_regulations` and `dfo_fishery_notices`
+  tables still exist in Supabase but are no longer refreshed (data is frozen).
+- `src/lib/dfo-notice-service.ts` (notification emails) still reads `dfo_fishery_notices`.
+- The daily GitHub Action is now `.github/workflows/daily-jobs.yml` (scheduled
+  notifications only — the accuracy pipeline was deleted with the admin pages);
+  `scrape-data.yml` was deleted.
+- The weekly Vercel cron for regulations scraping was removed from `vercel.json`.
 
 ## Automated Notification System
 
@@ -816,9 +634,8 @@ CRON_SECRET=your_cron_secret_key
   - `src/app/components/notifications/species-selector.tsx` - Multi-select species
   - `src/app/components/notifications/weather-threshold-sliders.tsx` - Threshold controls
   - `src/app/components/notifications/regulatory-preferences.tsx` - Regulation settings
-- **Automation**: `.github/workflows/scrape-data.yml` - Runs daily at 2 AM UTC after scraping
+- **Automation**: `.github/workflows/daily-jobs.yml` - Runs daily at 2 AM UTC
 - **Migration Script**: `scripts/migrate-notification-preferences.ts` - One-time data migration
-- **Documentation**: `docs/notification-system.md` - Comprehensive architecture guide
 
 ### How It Works
 
@@ -847,13 +664,12 @@ CRON_SECRET=your_cron_secret_key
 ### Technology
 
 - **Map Library**: Mapbox GL JS (react-map-gl wrapper)
-- **Email Service**: Resend (shared with broadcast system)
+- **Email Service**: Resend
 - **Automation**: GitHub Actions (daily cron job)
 - **Weather Data**: Open Meteo API (7-day forecasts)
 - **Scoring Algorithm**: Species-specific 13-factor calculation
 - **Database**: Supabase PostgreSQL with RLS policies
 
-See `docs/notification-system.md` for detailed architecture and implementation guide.
 
 ## Custom Alert Engine
 
@@ -914,79 +730,139 @@ ReelCaster includes a custom alert engine that allows users to define multi-vari
 - **Email Service**: Resend (shared infrastructure)
 - **Database**: Supabase PostgreSQL with RLS policies
 
-## Catch Logging System (Fish On)
+## Catch Logging System — photo-first wizard with auto analysis (2026-07-11)
 
-ReelCaster includes a mobile-first catch logging system that allows anglers to quickly log catches with minimal friction. The system features offline-first architecture with background sync.
+ReelCaster's catch log is a photo-first wizard: drop a photo → BlueCaster reads
+EXIF + runs vision (species/lure/size) + computes a conditions snapshot → a
+map picker matches (or creates) the nearest saved spot within 400 m → a fully
+editable review screen → save to the private catch log (+ fire-and-forget
+commit into BlueCaster's intelligence pool). The old offline-first "Fish On"
+FAB + IndexedDB stack (dark theme, GPS-only quick-capture) was retired in this
+revamp — deleted: `src/app/components/catch-log/`, `src/app/profile/catch-log/`,
+`src/lib/offline-catch-store.ts`, `src/lib/catch-sync-manager.ts`, the `idb`
+dependency, and the commented `FishOnButtonWrapper` in `layout.tsx`.
 
-### Features
+### Wizard flow (`/log-catch`)
 
-- **Quick Capture**: Large "Fish On" floating action button for instant logging
-- **Auto-Captured Data**: GPS coordinates, accuracy, heading, speed, timestamp
-- **Two Outcome Types**: Bite (lost) or Landed (in the boat)
-- **Offline-First**: IndexedDB storage with Supabase sync when online
-- **Deferred Details**: Species, depth, lure, size, weight can be added later
-- **Retention Tracking**: Released or Kept status
-- **Predefined Lures**: BC fishing lures with custom entry option
+Client-side step machine in `src/app/log-catch/log-catch-shell.tsx` (a `File`
+can't survive navigation): `upload → analyzing → location → review`.
 
-### Database Schema
+1. **Upload** (`steps/upload-step.tsx`) — same dropzone as before (JPG/PNG/
+   WebP/HEIC/HEIF, 25 MB cap).
+2. **Analyzing** (`steps/analyzing-step.tsx`) — animated checklist while
+   `src/lib/photo-prep.ts` runs client-side (EXIF read from the ORIGINAL via
+   `exifr` before any conversion strips it; HEIC→JPEG via `heic2any`; a
+   downscaled ≤3 MB analysis copy via `browser-image-compression`, since
+   Anthropic's vision API rejects large images even though the bucket takes
+   25 MB) and then makes the ONE `fetchCatchPreview` call. The full-quality
+   `uploadFile` uploads to the `catch-photos` bucket in parallel
+   (fire-and-forget) so the storage path is ready by the review step.
+3. **Location** (`steps/location-step.tsx`) — `src/app/components/location/
+   pin-picker-map.tsx` (MapLibre relief style, draggable pin, no Mapbox
+   token). Pin starts at EXIF GPS, else the fallback chain in
+   `src/lib/geo-fallback.ts` (browser geolocation **only if permission is
+   already granted — never auto-prompts** → `/api/geo` [Vercel IP geo
+   headers, free, null on localhost] → last-viewed Explore city
+   [`localStorage["rc:lastCity"]`, written by `explore-shell.tsx`] → Victoria
+   default). When the pin is only approximate (ip/city/default source) the
+   step shows a "Use my precise location" button — the sole place the
+   browser's location permission popup can appear (explicit user tap,
+   `handleUseMyLocation` in the shell). Every pin move (debounced 400 ms) calls
+   `fetchNearestSpots(lat, lng, 400)` → matched spot + score, or an amber
+   "no mapped spot" card with **Create** → `wizard/create-spot-modal.tsx`
+   (name input; coordinates + "DFO n-m" mgmt area auto-filled) →
+   `createCustomSpot` (authed).
+4. **Review** (`steps/review-step.tsx`) — photo + vision badge, species name +
+   confidence chip + "Not right?" (`wizard/species-picker.tsx`, species-at-spot
+   first, full BlueCaster list as fallback; changing species or the catch time
+   refetches the score), editable weight/length/lure/depth
+   (`wizard/stat-row.tsx`, imperial UI ↔ metric storage via `src/lib/units.ts`),
+   an AUTO/EDITED **conditions grid** (`wizard/conditions-grid.tsx`: tide,
+   current, wind, pressure, water temp, sky — each cell click-to-edit), the
+   same map (drag re-matches), and Save-as-draft / Save-catch.
 
-- **`catch_logs`**: Individual catch records with GPS, weather context, and optional details
-- **`lures`**: Predefined BC lures + user-created custom lures
+### Data model (`catch_logs`, extended 2026-07-11)
 
-### Key Files
+Beyond the original GPS/species/weight/length/lure/notes/photos columns
+(`supabase/migrations/20251220_create_catch_logs.sql`), migration
+`20260711_catch_log_revamp.sql` added: `status` (`draft`|`logged`),
+`spot_id`/`spot_slug` (BlueCaster fishing_spots reference — no FK, cross-
+database), `species_bc_id` (BlueCaster species uuid, needed to re-fetch
+species-specific scores; `species_id` stays the frontend text slug),
+`species_confidence`, `score` + `score_status` (`scored`|`pending`|`none`),
+`mgmt_area`, `pool_observation_id`. Conditions stay in `weather_snapshot`
+jsonb, now written as a typed **v2** shape (`{v:2, tide, current, wind,
+pressure, water, sky}` — see `src/lib/catch-log-types.ts`, `readSnapshot()`
+handles both v1 and v2 for list rendering).
 
-- **Floating Button**: `src/app/components/catch-log/fish-on-button.tsx` - Global FAB
-- **Quick Capture Modal**: `src/app/components/catch-log/quick-catch-modal.tsx` - Outcome selection
-- **Button Wrapper**: `src/app/components/catch-log/fish-on-button-wrapper.tsx` - Auth integration
-- **History Page**: `src/app/profile/catch-log/page.tsx` - Catch history and stats
-- **API Endpoints**:
-  - `/api/catches` - CRUD operations
-  - `/api/catches/sync` - Batch offline sync
-  - `/api/lures` - Lure CRUD
-- **Services**:
-  - `src/lib/geolocation-service.ts` - GPS capture helper
-  - `src/lib/offline-catch-store.ts` - IndexedDB wrapper
-  - `src/lib/catch-sync-manager.ts` - Background sync
-- **Migrations**:
-  - `supabase/migrations/20251220_create_catch_logs.sql`
-  - `supabase/migrations/20251220_create_lures.sql`
+### BlueCaster endpoints this depends on
 
-### UX Flow
+- `POST /api/v1/ingest/catch/preview` (extended 2026-07-11: snapshot now
+  carries current/pressure/sky/gusts/air-temp/visibility; accepts client
+  EXIF/`file_lastmod`/`tz_offset_minutes` fields and no longer hard-rejects
+  photos with no EXIF; 400 m match radius). Proxy:
+  `src/app/api/bluecaster/ingest/catch/preview/route.ts`.
+- `GET /api/v1/spots/by-coordinates` (new) — nearest-spot + candidates +
+  today's score + DFO area for a raw lat/lng. Proxy: `.../spots/by-
+  coordinates/route.ts`, fetcher `fetchNearestSpots`.
+- `GET /api/v1/fishing-spots/[id]/snapshot` (new) — historical-capable
+  conditions for a spot at any UTC instant (unlike forecast-only
+  `/api/map/point-conditions`). Proxy + fetcher: `fetchSpotSnapshot`.
+- `GET /api/v1/fishing-spots/[id]/score-hour` (new proxy, existing BlueCaster
+  endpoint's single-hour mode) — score at the exact catch hour; empty
+  `stocks` → render "—". Fetcher: `fetchSpotScoreHour`.
+- `POST /api/v1/fishing-spots/custom` (fixed 2026-07-11 — was creating
+  `is_active=false` spots invisible to matching/scoring, with no
+  `city_fishing_spots` row or `spot_species_presence` seed, so new spots
+  never scored). Proxy requires a signed-in session (mutates shared
+  BlueCaster data): `src/app/api/bluecaster/fishing-spots/custom/route.ts`.
+- `POST /api/v1/ingest/catch` (pool commit — newly wired into this flow;
+  previously unused by reelcaster) — fired after a **logged** (non-draft)
+  save, `contributes_to_pool:true, gps_stays_private:true`,
+  `idempotency-key` = the catch row id. Never blocks the save; on success
+  PUTs `pool_observation_id` back onto the row. Proxy:
+  `src/app/api/bluecaster/ingest/catch/route.ts`.
+- `GET /api/v1/species` — species-picker fallback list, proxy
+  `src/app/api/bluecaster/species/route.ts`, 1h cache.
 
-1. **Quick Capture (2 taps)**:
-   - Tap "Fish On" button → GPS capture starts
-   - Select outcome → "Bite" or "In the Boat"
-   - Done → Catch saved locally, syncs when online
+**Known limitation (by design, not a bug):** `score`/`score_status` reflect a
+snapshot taken at log time only when the catch falls inside BlueCaster's
+current forecast window (`session_scores` has no historical rows) — older
+catches, and any catch logged before its spot's first scoring run, get
+`score_status:"none"`/`"pending"` and render "—". True historical re-scoring
+(the conditions layer IS historical-capable) is future work.
 
-2. **Add Details (optional)**:
-   - Species, Retention status (Released/Kept)
-   - Depth, Size, Weight
-   - Lure selection, Notes, Photos
+### `/catches` — "My catches" list
 
-### Offline Sync Strategy
+`src/app/catches/` (added to `middleware.ts` `ALLOW_PREFIXES`) replaces the
+old `/profile/catch-log`: reads `GET /api/catches` (extended with `status`,
+`q` full-text-ish search via `.or()`, `sort`/`order`) + `GET /api/catches/
+stats` (season aggregates). Season stats row, species chips with counts,
+search + sort + grid/list toggle, month-grouped rows, NEW (<48h) and DRAFT
+badges. Thumbnails via batched `getCatchPhotoSignedUrls()` (one
+`createSignedUrls` call, not N).
 
-- All catches stored locally first (instant response)
-- Background sync every 30 seconds when online
-- `client_id` prevents duplicates during sync
-- Exponential backoff with max 5 retries
-- Conflict detection with manual resolution
+### Also still true from the original design
 
-### Technology
+- **Log a catch (spot-page dialog)** — `src/app/explore/spot/components/
+  log-catch-dialog.tsx` still wraps the original `src/app/log-catch/
+  catch-form.tsx` (unchanged; the wizard rebuild only touched the standalone
+  `/log-catch` page, which stopped importing `CatchForm`). Opened by the spot
+  page's LOG CATCH button, pre-filled with the current spot + live conditions.
+- **Alerts** — `create-alert-dialog.tsx` + `/notifications` still drive the
+  Custom Alert Engine via `/api/alerts`, unrelated to this revamp.
+- **Nav + wall:** any new walled-off route must be added to `src/middleware.ts`
+  `ALLOW_PREFIXES` or it renders `/coming-soon`.
 
-- **Local Storage**: IndexedDB via `idb` library
-- **GPS**: Browser Geolocation API with high accuracy
-- **Sync**: Custom sync manager with queue
-- **UI**: Floating action button with haptic feedback
-- **Database**: Supabase PostgreSQL with RLS
+### Secrets via HashiCorp Vault (runtime OIDC loader, 2026-06-30)
 
-### Light-themed "Log a catch" + "Notifications" surfaces (Explore, 2026-06-29)
+Server secrets can be sourced at runtime from a self-hosted Vault instead of (or alongside) Vercel env vars. Integration is in place; the full rollout across consumers is still pending.
 
-A second, light **rc-*** themed catch + alert UX layered on the existing backends (the legacy dark Fish-On FAB and `/alerts` are left in place):
-
-- **Log a catch** — shared form `src/app/log-catch/catch-form.tsx`, used by (1) `src/app/explore/spot/components/log-catch-dialog.tsx` (opened by the spot page's LOG CATCH button, pre-filled with the current spot + live conditions) and (2) the standalone page `src/app/log-catch/` (photo dropzone). Photos upload to a **private `catch-photos` Supabase Storage bucket** (owner-only RLS under `${uid}/...`, signed-URL reads) via `src/lib/catch-photo-upload.ts`; the catch persists to the app's own `catch_logs` through `POST /api/catches` (extended to store `weather_snapshot`/`tide_snapshot`/`moon_phase`). **AI auto-fill** (species/lure/size + EXIF time/GPS + nearest-spot match + conditions snapshot) reuses **BlueCaster's** `POST /api/v1/ingest/catch/preview` via proxy `src/app/api/bluecaster/ingest/catch/preview/route.ts` → `previewCatchPhoto`/`fetchCatchPreview`. NOT committed to BlueCaster's pool (`/api/v1/ingest/catch`) — deferred.
-- **Alerts** — `create-alert-dialog.tsx` (opened by SET ALERT) + the `/notifications` "Your alerts" page (`src/app/notifications/`, replaced the old mock) both drive the existing **Custom Alert Engine** via `/api/alerts` (`alert_kind:"score"`, `include_history`, PUT/DELETE). Tier gating via `useSubscription()`. No new alert backend.
-- **Nav + wall:** `explore-top-bar.tsx` gained "Log a catch" + "Notifications" (active-count badge), `usePathname`-aware. **Any new walled-off route must be added to `src/middleware.ts` `ALLOW_PREFIXES`** or it renders `/coming-soon`.
-- **Magic-link auth**: `signInWithMagicLink` (`signInWithOtp`) was added to `src/contexts/auth-context.tsx` for the spot-page sign-up gate.
+- **Loader:** `src/lib/secrets.ts` (`getServerSecret(name)` / `loadServerSecrets()` / `resolveSecret()`), built on the pure, unit-testable HTTP client `src/lib/vault-client.ts` (`vaultJwtLogin`, `vaultKvRead` — KV v2). Per-warm-instance in-memory cache (TTL `VAULT_CACHE_TTL_MS`, default 5 min) with inflight dedupe.
+- **Auth:** on Vercel, each request's **OIDC token** (`@vercel/oidc` → `getVercelOidcToken()`) is exchanged for a short-lived Vault token via the JWT auth method. `VAULT_TOKEN` (static) overrides for local/non-Vercel runtimes. Vault JWT role binds on `project_id=prj_WoRjjGtjUopMvMCKJkQbiYHPhuZw` + `environment` (issuer `https://oidc.vercel.com`, aud `https://vercel.com/reelcaster-devs-projects`).
+- **Fallback:** when `VAULT_ADDR` is unset, everything resolves from `process.env` — so local dev, tests, and current Vercel env keep working unchanged. Env vars documented in `.env.example` (VAULT_*).
+- **CONSTRAINT:** `getVercelOidcToken()` cannot run at module level (token is per-request). The ~40 server files that read secrets as module-level constants / client singletons (`const x = process.env.SUPABASE_SERVICE_ROLE_KEY!`, `new Stripe(...)`, etc.) must become **lazy async getters** (`await getSupabaseAdmin()`) to migrate. Not yet done — only the loader + a probe ship so far.
+- **Probe:** `GET /api/secrets/health?name=<KEY>` (auth `Bearer $CRON_SECRET`) reports `resolvedFrom: vault|env` + length, never the value. Remove after migration. Vault client flow verified locally against an API mock; the OIDC leg needs a preview deploy + a reachable Vault.
 
 ### Secrets via HashiCorp Vault (runtime OIDC loader, 2026-06-30)
 

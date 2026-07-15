@@ -2,7 +2,7 @@
 
 import { useState, useEffect, Suspense } from 'react'
 import { useRouter } from 'next/navigation'
-import { ChevronDown, MapPin, Settings, Beaker, Bell } from 'lucide-react'
+import { ChevronDown, MapPin, Beaker, Bell } from 'lucide-react'
 import { type AlgorithmVersion } from './algorithm-version-toggle'
 import { ReportIcon } from '@/app/components/common/report-icon'
 import SetDefaultLocationModal from '@/app/components/location/set-default-location-modal'
@@ -11,7 +11,6 @@ interface DashboardHeaderProps {
   title?: string
   showTimeframe?: boolean
   showSetLocation?: boolean
-  showCustomize?: boolean
   showAlgorithm?: boolean
   showCustomNotifications?: boolean
   onAlgorithmChange?: (version: AlgorithmVersion) => void
@@ -33,7 +32,6 @@ export default function DashboardHeader({
   title = 'Reports',
   showTimeframe = false,
   showSetLocation = true,
-  showCustomize = true,
   showAlgorithm = false,
   showCustomNotifications = true,
   onAlgorithmChange,
@@ -63,10 +61,6 @@ export default function DashboardHeader({
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
-
-  const handleCustomize = () => {
-    router.push('/settings/customize-reports')
-  }
 
   const handleAlgorithmChange = (version: AlgorithmVersion) => {
     setAlgorithmVersion(version)
@@ -202,18 +196,6 @@ export default function DashboardHeader({
           </button>
         )}
 
-        {/* Customize Reports Button - Pill Shape */}
-        {showCustomize && (
-          <button
-            onClick={handleCustomize}
-            className="flex items-center bg-green-600 hover:bg-green-500 rounded-full text-sm font-medium transition-colors"
-          >
-            <span className="flex items-center gap-2 px-4 py-2 text-rc-text">
-              <Settings className="w-4 h-4" />
-              <span className="hidden sm:inline">Customize Reports</span>
-            </span>
-          </button>
-        )}
       </div>
 
       {/* Set Default Location Modal */}

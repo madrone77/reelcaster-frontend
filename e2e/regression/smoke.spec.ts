@@ -3,9 +3,9 @@ import { test, expect } from '@playwright/test';
 /**
  * Regression baseline: every public route loads without server error.
  *
- * Phase 0 established the route-group skeleton; Phase 2 made `/` public
- * (marketing homepage), moved the V2 forecast to `/dashboard`, and added
- * `/species`, `/species/[slug]`, and `/regulations` to the public surface.
+ * 2026-07-15: `/species` + `/regulations` pages were deleted (not in the five
+ * core flows) and the static info/legal pages were unwalled with the light
+ * landing redesign.
  */
 
 const PUBLIC_ROUTES = [
@@ -14,23 +14,16 @@ const PUBLIC_ROUTES = [
   '/signup',
   '/pricing',
   '/explore',
-  '/fishing',
-  '/fishing/bc',
-  '/fishing/bc/victoria',
-  '/species',
-  '/regulations',
+  '/privacy',
+  '/terms',
+  '/contact',
+  '/about',
+  '/faq',
 ];
 
 const AUTH_GATED_ROUTES_REDIRECT_TO_LOGIN = [
   '/profile',
-  '/my-spots',
   '/alerts',
-  '/dashboard',
-];
-
-const LEGACY_REDIRECTS: Array<{ from: string; to: string }> = [
-  { from: '/dfo-notices', to: '/regulations' },
-  { from: '/species-calendar', to: '/species' },
 ];
 
 test.describe('Phase 0 smoke: public routes resolve', () => {
@@ -56,22 +49,7 @@ test.describe('Phase 0 smoke: gated routes redirect signed-out to /login', () =>
   }
 });
 
-test.describe('Phase 5 smoke: legacy paths redirect to their public counterparts', () => {
-  for (const { from, to } of LEGACY_REDIRECTS) {
-    test(`GET ${from} lands on ${to}`, async ({ page }) => {
-      await page.goto(from, { waitUntil: 'domcontentloaded' });
-      expect(new URL(page.url()).pathname).toBe(to);
-    });
-  }
-});
-
 test.describe('Phase 0 smoke: SEO basics on public surfaces', () => {
-  test('/fishing/bc/victoria has a non-empty <title>', async ({ page }) => {
-    await page.goto('/fishing/bc/victoria');
-    const title = await page.title();
-    expect(title.trim().length).toBeGreaterThan(0);
-  });
-
   test('/robots.txt is reachable', async ({ request }) => {
     const r = await request.get('/robots.txt');
     expect(r.status()).toBe(200);

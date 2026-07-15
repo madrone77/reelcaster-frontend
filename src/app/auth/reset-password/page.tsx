@@ -61,7 +61,7 @@ export default function ResetPasswordPage() {
               <div className="p-2 rounded-xl bg-blue-600/20">
                 <Fish className="h-6 w-6 text-blue-400" />
               </div>
-              <h1 className="text-2xl font-logo text-rc-text">ReelCaster</h1>
+              <h1 className="text-2xl font-bold text-rc-text">ReelCaster</h1>
             </div>
           </div>
 
@@ -94,7 +94,7 @@ export default function ResetPasswordPage() {
               <div className="p-2 rounded-xl bg-blue-600/20">
                 <Fish className="h-6 w-6 text-blue-400" />
               </div>
-              <h1 className="text-2xl font-logo text-rc-text">ReelCaster</h1>
+              <h1 className="text-2xl font-bold text-rc-text">ReelCaster</h1>
             </div>
           </div>
 
@@ -126,7 +126,7 @@ export default function ResetPasswordPage() {
             <div className="p-2 rounded-xl bg-blue-600/20">
               <Fish className="h-6 w-6 text-blue-400" />
             </div>
-            <h1 className="text-2xl font-logo text-rc-text">ReelCaster</h1>
+            <h1 className="text-2xl font-bold text-rc-text">ReelCaster</h1>
           </div>
           <p className="text-sm text-rc-text-muted">Set your new password</p>
         </div>

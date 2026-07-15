@@ -27,6 +27,8 @@
   --color-rc-page: var(--rc-bg);
   --color-rc-rule: var(--rc-rule);
   --color-rc-rule-soft: var(--rc-rule-soft);
+  --color-rc-navy: var(--rc-navy);
+  --color-rc-navy-deep: var(--rc-navy-deep);
   --color-rc-good: var(--rc-good);
   --color-rc-good-bg: var(--rc-good-bg);
   --color-rc-good-ink: var(--rc-good-ink);
@@ -41,7 +43,16 @@
   --color-rc-poor-ink: var(--rc-poor-ink);
   --font-rc-sans: var(--rc-font-sans);
   --font-rc-mono: var(--rc-font-mono);
-  --font-logo: var(--font-russo), system-ui, sans-serif;
+  --animate-rc-marquee: rc-marquee 32s linear infinite;
+
+  @keyframes rc-marquee {
+    from {
+      transform: translateX(0);
+    }
+    to {
+      transform: translateX(-50%);
+    }
+  }
   --shadow-rc-panel: var(--rc-shadow-panel);
   --shadow-rc-bar: var(--rc-shadow-bar);
   --shadow-rc-pin: var(--rc-shadow-pin);

@@ -11,8 +11,6 @@ import Map, {
 } from "react-map-gl/maplibre";
 import type {
   ExpressionSpecification,
-  FilterSpecification,
-  GeoJSONSource,
   Map as MlMap,
   StyleSpecification,
 } from "maplibre-gl";
@@ -23,12 +21,10 @@ import { spotsToFeatureCollection, SELECT_HEX } from "../lib/spot-geojson";
 import { useCurrentsFlow } from "../lib/use-currents-flow";
 
 const SOURCE_ID = "bc-spots";
-const CLUSTER = "bc-clusters";
-const CLUSTER_COUNT = "bc-cluster-count";
 const SPOT_CIRCLE = "bc-spot-circle";
 const SPOT_LABEL = "bc-spot-label";
 
-const INTERACTIVE = [CLUSTER, SPOT_CIRCLE, SPOT_LABEL];
+const INTERACTIVE = [SPOT_CIRCLE];
 
 // Layer groups the toggles flip (relief style ids). Bathymetry = depth shading
 // + contours + their labels; labels = place names.
@@ -42,14 +38,11 @@ const WIND_LAYER = "explore-wind";
 // MapLibre's expression/filter unions don't infer from array literals — these
 // keep the layer defs readable while staying typed.
 const expr = (e: unknown) => e as ExpressionSpecification;
-const filt = (f: unknown) => f as FilterSpecification;
-
-const NOT_CLUSTER = ["!", ["has", "point_count"]];
 
 /**
  * Edge-to-edge bathymetric relief base map (self-hosted via /api/map/tiles).
- * Spots render as native GL clustered circle + label layers — no per-spot DOM —
- * so panning/zooming the full covered set stays on the GPU. Empty `origin` so
+ * Spots render as native GL circle + label layers — no per-spot DOM — so
+ * panning/zooming the full covered set stays on the GPU. Empty `origin` so
  * every style URL (tiles, glyphs, places GeoJSON) is root-relative same-origin.
  */
 export default function ExploreMap({
@@ -130,38 +123,11 @@ export default function ExploreMap({
     1.5,
   ];
 
-  // Cluster: solid cobalt, white ring, count-stepped radius (BlueCaster values).
-  const clusterLayer: LayerProps = {
-    id: CLUSTER,
-    type: "circle",
-    filter: filt(["has", "point_count"]),
-    paint: {
-      "circle-color": SELECT_HEX,
-      "circle-stroke-width": 2.5,
-      "circle-stroke-color": "#ffffff",
-      "circle-radius": expr(["step", ["get", "point_count"], 15, 5, 18, 15, 22, 30, 28]),
-    },
-  };
-
-  const clusterCountLayer: LayerProps = {
-    id: CLUSTER_COUNT,
-    type: "symbol",
-    filter: filt(["has", "point_count"]),
-    layout: {
-      "text-field": expr(["get", "point_count_abbreviated"]),
-      "text-font": ["Open Sans Semibold"],
-      "text-size": 13,
-      "text-allow-overlap": true,
-    },
-    paint: { "text-color": "#ffffff" },
-  };
-
   // One circle layer for every spot (scored colors + opacity baked into props;
   // unscored = muted zinc dot at 0.6). Radius zoom-interpolated (11→14→16).
   const spotCircleLayer: LayerProps = {
     id: SPOT_CIRCLE,
     type: "circle",
-    filter: filt(NOT_CLUSTER),
     paint: {
       "circle-radius": expr(["interpolate", ["linear"], ["zoom"], 8, 11, 12, 14, 15, 16]),
       "circle-color": expr(["get", "color"]),
@@ -175,7 +141,6 @@ export default function ExploreMap({
   const spotLabelLayer: LayerProps = {
     id: SPOT_LABEL,
     type: "symbol",
-    filter: filt(NOT_CLUSTER),
     layout: {
       "text-field": expr(["get", "label"]),
       "text-font": ["Open Sans Semibold"],
@@ -188,32 +153,16 @@ export default function ExploreMap({
 
   const handleClick = useCallback(
     (e: MapLayerMouseEvent) => {
-      const f = e.features?.[0];
-      if (!f) return;
-      const props = f.properties ?? {};
-      // Cluster → zoom to its expansion level.
-      if (props.point_count) {
-        const map = mapRef.current?.getMap();
-        const src = map?.getSource(SOURCE_ID) as GeoJSONSource | undefined;
-        const clusterId = props.cluster_id as number;
-        if (!map || !src || clusterId == null) return;
-        const [lng, lat] = (f.geometry as GeoJSON.Point).coordinates as [number, number];
-        src
-          .getClusterExpansionZoom(clusterId)
-          .then((zoom) => map.easeTo({ center: [lng, lat], zoom, duration: 500 }))
-          .catch(() => {});
-        return;
-      }
-      // Individual spot → open it.
-      if (props.slug) onSelect(props.slug as string);
+      const slug = e.features?.[0]?.properties?.slug;
+      if (slug) onSelect(slug as string);
     },
-    [mapRef, onSelect],
+    [onSelect],
   );
 
   // Hover: pointer cursor + track the hovered spot so its stroke thickens.
   const handleMouseMove = useCallback((e: MapLayerMouseEvent) => {
     const f = e.features?.[0];
-    const slug = f && !f.properties?.point_count ? (f.properties?.slug as string) : null;
+    const slug = f ? (f.properties?.slug as string) : null;
     setCursor(f ? "pointer" : "");
     setHoveredSlug((prev) => (prev === slug ? prev : slug));
   }, []);
@@ -263,16 +212,7 @@ export default function ExploreMap({
           </Source>
         )}
 
-        <Source
-          id={SOURCE_ID}
-          type="geojson"
-          data={data}
-          cluster
-          clusterRadius={55}
-          clusterMaxZoom={10}
-        >
-          <Layer {...clusterLayer} />
-          <Layer {...clusterCountLayer} />
+        <Source id={SOURCE_ID} type="geojson" data={data}>
           <Layer {...spotCircleLayer} />
           <Layer {...spotLabelLayer} />
         </Source>

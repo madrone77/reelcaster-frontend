@@ -188,13 +188,6 @@ export default function SpotDetailShell({
     setAlertOpen(true);
   };
 
-  const handleLogCatch = () => {
-    if (!user) {
-      setAuthIntent("catch");
-      return;
-    }
-    setLogCatchOpen(true);
-  };
   const activeIso = selectedIso ?? stripModel?.days[0]?.iso ?? null;
   const activeIndex =
     stripModel?.days.findIndex((d) => d.iso === activeIso) ?? 0;

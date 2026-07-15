@@ -32,7 +32,10 @@ export async function assertCanonicalUrl(page: Page, expected: string | null = n
  * optionally containing a JSON-LD object whose @type matches `type`.
  */
 export async function assertHasJsonLd(page: Page, type?: string) {
-  const blocks = await page.locator('script[type="application/ld+json"]').allTextContents();
+  const locator = page.locator('script[type="application/ld+json"]');
+  // Streaming SSR can attach the block after `load` fires — auto-wait for it.
+  await expect(locator.first(), 'no JSON-LD blocks on page').toBeAttached();
+  const blocks = await locator.allTextContents();
   expect(blocks.length, 'no JSON-LD blocks on page').toBeGreaterThan(0);
   if (type) {
     let found = false;

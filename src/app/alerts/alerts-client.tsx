@@ -199,7 +199,6 @@ export default function AlertsClient({ spots }: Props) {
           title="Alerts"
           showTimeframe={false}
           showSetLocation={false}
-          showCustomize={false}
         />
 
         <div className="max-w-4xl mx-auto space-y-6">

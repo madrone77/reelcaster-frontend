@@ -8,7 +8,17 @@ import type {
   PointConditions,
 } from "./bluecaster/live-spot-types";
 import type { IntelEvidence, PoolIntelligence } from "./bluecaster/intel-types";
-import type { CatchPreviewResponse } from "./bluecaster/catch-ingest-types";
+import type {
+  CatchPreviewResponse,
+  CatchPreviewExtras,
+  NearestSpotsResponse,
+  SpotSnapshotResponse,
+  BlueCasterSpeciesItem,
+  CreateCustomSpotResponse,
+  PoolCommitPayload,
+  PoolCommitResponse,
+  SpotScoreHourResponse,
+} from "./bluecaster/catch-ingest-types";
 
 export type {
   SpotPageInitial,
@@ -21,106 +31,6 @@ export type {
   PoolIntelligence,
 } from "./bluecaster/intel-types";
 export type { CatchPreviewResponse } from "./bluecaster/catch-ingest-types";
-
-export interface BlueCasterCityPage {
-  page: {
-    slug: string;
-    status: string;
-    published_at: string | null;
-    hero: {
-      image_url: string | null;
-      image_alt: string | null;
-      breadcrumb: Array<{ label: string; href: string }>;
-      h1: string;
-      species_chips: Array<{ slug: string; name: string }>;
-    };
-    seo: {
-      title: string;
-      meta_description: string;
-      canonical_url: string | null;
-      og_image_url: string | null;
-    };
-    about_md: string | null;
-    local_intel_md: string | null;
-    techniques: string[];
-    faq: Array<{ q: string; a: string }>;
-    last_edited_at: string | null;
-  };
-  hierarchy: {
-    country: { name: string; code: string };
-    province: { name: string; code: string };
-    region: { name: string | null; slug: string | null };
-    city: { name: string; slug: string; lat: number; lng: number };
-  };
-  conditions_now: {
-    temp_c: number;
-    wind_kn: number;
-    wind_gusts_kn: number;
-    water_temp_c: number;
-    tide_high: { ft: number; time: string };
-    tide_low: { ft: number; time: string };
-    tide_now_ft: number;
-    swell_m: number;
-    fetched_at: string;
-  } | null;
-  rc_score_today: number | null;
-  species_table: Array<{
-    species_id: string;
-    species_name: string;
-    species_slug: string;
-    months: Record<string, string | null>;
-    daily_limit: number | null;
-    size_limit_cm: number | null;
-    status: "open" | "non_retention" | "closed" | null;
-  }>;
-  regulatory_areas: Array<{
-    body: string;
-    area_number: string;
-    name: string;
-  }>;
-  seasonal_guide: Array<{
-    quarter: string;
-    label: string;
-    quality: string | null;
-    peak_species: Array<{ slug: string; name: string }>;
-  }>;
-  access_points: Array<{
-    id: string;
-    name: string;
-    type: string;
-    notes: string | null;
-  }>;
-  charters: Array<{
-    id: string;
-    name: string;
-    photo_url: string | null;
-    photo_alt: string | null;
-    rating: number | null;
-    review_count: number | null;
-    phone: string | null;
-    website: string | null;
-    business_type: string;
-  }>;
-  meta: {
-    generated_at: string;
-  };
-}
-
-export async function fetchCityPage(
-  slug: string
-): Promise<BlueCasterCityPage | null> {
-  const baseUrl = process.env.BLUECASTER_API_URL;
-  const apiKey = process.env.BLUECASTER_API_KEY;
-  if (!baseUrl || !apiKey) throw new Error("BlueCaster env vars not set");
-
-  const res = await fetch(`${baseUrl}/api/v1/cities/${slug}/page`, {
-    headers: { "x-api-key": apiKey },
-    next: { revalidate: 60 },
-  });
-  if (res.status === 404) return null;
-  if (!res.ok) throw new Error(`BlueCaster API error: ${res.status}`);
-  return res.json();
-}
 
 // ── Spot pages ──────────────────────────────────────────────────────
 
@@ -313,34 +223,6 @@ export async function fetchPointConditions(
   return res.json();
 }
 
-export async function fetchPublishedSpots(): Promise<
-  Array<{
-    slug: string;
-    province_code: string;
-    city_slug: string;
-    published_at: string | null;
-  }>
-> {
-  const baseUrl = process.env.BLUECASTER_API_URL;
-  const apiKey = process.env.BLUECASTER_API_KEY;
-  if (!baseUrl || !apiKey) return [];
-
-  try {
-    const res = await fetch(
-      `${baseUrl}/api/v1/admin/spot-pages?status=published`,
-      {
-        headers: { "x-api-key": apiKey },
-        next: { revalidate: 300 },
-      }
-    );
-    if (!res.ok) return [];
-    const data = await res.json();
-    return data.pages ?? [];
-  } catch {
-    return [];
-  }
-}
-
 // ── Bulk map spots (scores + conditions) ───────────────────────────
 // Shapes mirror bluecaster lib/bluecaster/map/spots-scores.ts and
 // spots-conditions.ts. Hour scores are 0..1 — multiply by 100 exactly
@@ -452,23 +334,6 @@ export async function fetchHierarchy(): Promise<BlueCasterHierarchy | null> {
   } catch {
     return null;
   }
-}
-
-/**
- * @deprecated Use `fetchPublicCities()` (Phase 1 public endpoint) instead.
- * Kept for back-compat with callers that still expect the admin shape.
- */
-export async function fetchPublishedCities() {
-  // Reroute to the new public endpoint and adapt shape so old callers keep working.
-  const items = await fetchPublicCities({ status: "published", limit: 100 });
-  return items.map((c) => ({
-    slug: c.slug,
-    city: { name: c.name, slug: c.city_slug },
-    hero_image_url: c.hero_image_url,
-    seo_meta_description: c.seo_meta_description,
-    published_at: c.published_at,
-    province: c.province,
-  }));
 }
 
 // =============================================================================
@@ -623,134 +488,6 @@ async function bcGet<T>(
   }
 }
 
-// ── Public cities list ─────────────────────────────────────────────
-
-export interface BlueCasterPublicCity {
-  slug: string;
-  name: string | null;
-  city_slug: string | null;
-  lat: number | null;
-  lng: number | null;
-  province: string | null;
-  province_name: string | null;
-  region_label: string | null;
-  hero_image_url: string | null;
-  hero_image_alt: string | null;
-  seo_title: string | null;
-  seo_meta_description: string | null;
-  published_at: string | null;
-  featured: boolean;
-}
-
-export interface FetchPublicCitiesOpts {
-  province?: string;
-  status?: "published" | "draft" | "archived";
-  order?: "alpha" | "featured";
-  limit?: number;
-}
-
-export async function fetchPublicCities(
-  opts: FetchPublicCitiesOpts = {},
-): Promise<BlueCasterPublicCity[]> {
-  const data = await bcGet<{ cities: BlueCasterPublicCity[] }>("/api/v1/cities", {
-    province: opts.province,
-    status: opts.status,
-    order: opts.order,
-    limit: opts.limit,
-  });
-  return data?.cities ?? [];
-}
-
-// ── Province → cities ──────────────────────────────────────────────
-
-export interface BlueCasterProvinceCitiesResponse {
-  province: { code: string; name: string; type: string | null };
-  cities: BlueCasterPublicCity[];
-  meta: { total: number; returned: number };
-}
-
-export async function fetchProvinceCities(
-  code: string,
-  opts: { limit?: number } = {},
-): Promise<BlueCasterProvinceCitiesResponse | null> {
-  return bcGet<BlueCasterProvinceCitiesResponse>(
-    `/api/v1/provinces/${encodeURIComponent(code)}/cities`,
-    { limit: opts.limit },
-  );
-}
-
-// ── City → spots ───────────────────────────────────────────────────
-
-export interface BlueCasterCitySpot {
-  id: string;
-  name: string;
-  slug: string;
-  lat: number;
-  lng: number;
-}
-
-export async function fetchCitySpots(
-  citySlug: string,
-): Promise<BlueCasterCitySpot[]> {
-  const data = await bcGet<{ spots: BlueCasterCitySpot[] }>(
-    `/api/v1/cities/${encodeURIComponent(citySlug)}/spots`,
-  );
-  return data?.spots ?? [];
-}
-
-// ── Species ────────────────────────────────────────────────────────
-
-export interface BlueCasterSpeciesSummary {
-  id: string;
-  slug: string;
-  name: string;
-  scientific_name: string | null;
-  family: string | null;
-  seasonal_calendar: unknown;
-}
-
-export async function fetchSpeciesList(
-  opts: { limit?: number; q?: string } = {},
-): Promise<BlueCasterSpeciesSummary[]> {
-  const data = await bcGet<{ species: BlueCasterSpeciesSummary[] }>(
-    "/api/v1/species",
-    { limit: opts.limit, q: opts.q },
-  );
-  return data?.species ?? [];
-}
-
-export interface BlueCasterSpeciesDetail {
-  species: BlueCasterSpeciesSummary & {
-    behavior_profile: unknown;
-  };
-  featured_cities: Array<{
-    page_slug: string;
-    name: string | null;
-    city_slug: string | null;
-    province: string | null;
-    blurb: string | null;
-  }>;
-  top_spots: Array<{
-    id: string;
-    name: string;
-    slug: string;
-    lat: number;
-    lng: number;
-    rank: number | null;
-    confidence: number | null;
-    peak_season_months: number[];
-  }>;
-  meta: { featured_cities_count: number; top_spots_count: number };
-}
-
-export async function fetchSpecies(
-  slug: string,
-): Promise<BlueCasterSpeciesDetail | null> {
-  return bcGet<BlueCasterSpeciesDetail>(
-    `/api/v1/species/${encodeURIComponent(slug)}`,
-  );
-}
-
 // ── Multi-day / multi-species spot forecast ────────────────────────
 
 export interface BlueCasterMultiDayForecast {
@@ -822,6 +559,7 @@ export async function fetchSpotForecast(
  */
 export async function previewCatchPhoto(
   file: File,
+  extras?: CatchPreviewExtras,
 ): Promise<CatchPreviewResponse | null> {
   const baseUrl = process.env.BLUECASTER_API_URL;
   const apiKey = process.env.BLUECASTER_API_KEY;
@@ -829,6 +567,13 @@ export async function previewCatchPhoto(
 
   const form = new FormData();
   form.append("photo", file, file.name || "catch.jpg");
+  if (extras) {
+    for (const [key, value] of Object.entries(extras)) {
+      if (value !== undefined && value !== null && value !== "") {
+        form.append(key, String(value));
+      }
+    }
+  }
 
   const res = await fetch(`${baseUrl}/api/v1/ingest/catch/preview`, {
     method: "POST",
@@ -838,6 +583,154 @@ export async function previewCatchPhoto(
   });
   if (!res.ok) return null;
   return (await res.json()) as CatchPreviewResponse;
+}
+
+// =============================================================================
+// Catch wizard (2026-07) — nearest spot, snapshot, species, custom spot, pool
+// =============================================================================
+
+/**
+ * Nearest saved spot for a raw coordinate (the map picker's 400 m matching)
+ * + up-to-5km candidates with today's peak scores + the DFO subarea at the
+ * query point (auto-fills the create-spot modal's MGMT AREA).
+ */
+export async function fetchNearestSpots(
+  lat: number,
+  lng: number,
+  radiusM = 400,
+  limit = 5,
+): Promise<NearestSpotsResponse | null> {
+  const baseUrl = process.env.BLUECASTER_API_URL;
+  const apiKey = process.env.BLUECASTER_API_KEY;
+  if (!baseUrl || !apiKey) throw new Error("BlueCaster env vars not set");
+
+  const qs = new URLSearchParams({
+    lat: String(lat),
+    lng: String(lng),
+    radius_m: String(radiusM),
+    limit: String(limit),
+  });
+  const res = await fetch(`${baseUrl}/api/v1/spots/by-coordinates?${qs}`, {
+    headers: { "x-api-key": apiKey },
+    cache: "no-store",
+  });
+  if (!res.ok) return null;
+  return (await res.json()) as NearestSpotsResponse;
+}
+
+/**
+ * Conditions snapshot for a spot at an arbitrary UTC instant — historical
+ * capable (unlike point-conditions). Used by the review screen when the
+ * spot or catch time changes.
+ */
+export async function fetchSpotSnapshot(
+  spotId: string,
+  datetimeUtcIso: string,
+): Promise<SpotSnapshotResponse | null> {
+  const baseUrl = process.env.BLUECASTER_API_URL;
+  const apiKey = process.env.BLUECASTER_API_KEY;
+  if (!baseUrl || !apiKey) throw new Error("BlueCaster env vars not set");
+
+  const qs = new URLSearchParams({ datetime: datetimeUtcIso });
+  const res = await fetch(
+    `${baseUrl}/api/v1/fishing-spots/${spotId}/snapshot?${qs}`,
+    { headers: { "x-api-key": apiKey }, cache: "no-store" },
+  );
+  if (!res.ok) return null;
+  return (await res.json()) as SpotSnapshotResponse;
+}
+
+/** Full species list (species-picker fallback when no spot is matched). */
+export async function fetchBlueCasterSpecies(): Promise<
+  BlueCasterSpeciesItem[] | null
+> {
+  const baseUrl = process.env.BLUECASTER_API_URL;
+  const apiKey = process.env.BLUECASTER_API_KEY;
+  if (!baseUrl || !apiKey) throw new Error("BlueCaster env vars not set");
+
+  const res = await fetch(`${baseUrl}/api/v1/species?limit=500`, {
+    headers: { "x-api-key": apiKey },
+    next: { revalidate: 3600 },
+  });
+  if (!res.ok) return null;
+  const data = (await res.json()) as { species: BlueCasterSpeciesItem[] };
+  return data.species ?? null;
+}
+
+/**
+ * Single-hour score for a spot×species at a specific UTC instant — the
+ * "score at catch time" snapshot. Empty `stocks` = hour outside the
+ * current forecast window (render "—").
+ */
+export async function fetchSpotScoreHour(
+  spotId: string,
+  speciesId: string,
+  datetimeUtcIso: string,
+): Promise<SpotScoreHourResponse | null> {
+  const baseUrl = process.env.BLUECASTER_API_URL;
+  const apiKey = process.env.BLUECASTER_API_KEY;
+  if (!baseUrl || !apiKey) throw new Error("BlueCaster env vars not set");
+
+  const qs = new URLSearchParams({
+    species: speciesId,
+    datetime: datetimeUtcIso,
+  });
+  const res = await fetch(
+    `${baseUrl}/api/v1/fishing-spots/${spotId}/score?${qs}`,
+    { headers: { "x-api-key": apiKey }, cache: "no-store" },
+  );
+  if (!res.ok) return null;
+  return (await res.json()) as SpotScoreHourResponse;
+}
+
+/** Create a custom (user) spot — approved+active, score pending until the
+ *  next batch scoring run. */
+export async function createCustomSpot(input: {
+  name: string;
+  lat: number;
+  lng: number;
+}): Promise<CreateCustomSpotResponse | null> {
+  const baseUrl = process.env.BLUECASTER_API_URL;
+  const apiKey = process.env.BLUECASTER_API_KEY;
+  if (!baseUrl || !apiKey) throw new Error("BlueCaster env vars not set");
+
+  const res = await fetch(`${baseUrl}/api/v1/fishing-spots/custom`, {
+    method: "POST",
+    headers: { "x-api-key": apiKey, "Content-Type": "application/json" },
+    body: JSON.stringify(input),
+    cache: "no-store",
+  });
+  if (!res.ok) return null;
+  return (await res.json()) as CreateCustomSpotResponse;
+}
+
+/**
+ * Commit a saved catch into BlueCaster's intelligence pool
+ * (`POST /api/v1/ingest/catch`). Fire-and-forget from the save path —
+ * failures must never block the user's save. `idempotencyKey` should be
+ * the reelcaster catch row id so retries replay instead of duplicating.
+ */
+export async function commitCatchToPool(
+  payload: PoolCommitPayload,
+  photo: File | null,
+  idempotencyKey: string,
+): Promise<PoolCommitResponse | null> {
+  const baseUrl = process.env.BLUECASTER_API_URL;
+  const apiKey = process.env.BLUECASTER_API_KEY;
+  if (!baseUrl || !apiKey) throw new Error("BlueCaster env vars not set");
+
+  const form = new FormData();
+  form.append("payload", JSON.stringify(payload));
+  if (photo) form.append("photo", photo, photo.name || "catch.jpg");
+
+  const res = await fetch(`${baseUrl}/api/v1/ingest/catch`, {
+    method: "POST",
+    headers: { "x-api-key": apiKey, "idempotency-key": idempotencyKey },
+    body: form,
+    cache: "no-store",
+  });
+  if (!res.ok) return null;
+  return (await res.json()) as PoolCommitResponse;
 }
 
 // =============================================================================

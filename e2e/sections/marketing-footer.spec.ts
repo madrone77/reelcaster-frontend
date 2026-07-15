@@ -6,7 +6,9 @@ import { test, expect } from '@playwright/test';
  * Pins their hrefs so a refactor can't quietly drop or rewire them.
  */
 
-const PAGES_WITH_FOOTER = ['/', '/fishing', '/pricing'];
+// `/species` is behind the coming-soon wall (not in middleware
+// ALLOW_PREFIXES), so only the actually-public marketing pages are pinned.
+const PAGES_WITH_FOOTER = ['/', '/pricing'];
 
 const LEGAL_LINKS: Array<{ label: string; href: string }> = [
   { label: 'Privacy', href: '/privacy' },

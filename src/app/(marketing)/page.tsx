@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import Image from 'next/image';
-import { ArrowRight, Compass, Bell, Anchor } from 'lucide-react';
+import { Compass, Bell, Anchor } from 'lucide-react';
 import ScoreHero from '@/app/components/marketing/score-hero';
 import SpotMiniMap from '@/app/explore/spot/components/spot-mini-map';
 import type { LiveSpot } from '@/lib/bluecaster/live-spot-types';

@@ -60,10 +60,10 @@ export default function BillingCancelPage() {
               <ArrowRight className="w-4 h-4" />
             </button>
             <Link
-              href="/dashboard"
+              href="/explore"
               className="inline-flex flex-1 items-center justify-center gap-1 px-4 py-2 bg-rc-bg-light hover:bg-rc-bg-darkest text-rc-text rounded-lg text-sm font-medium border border-rc-bg-light"
             >
-              Back to dashboard
+              Back to Explore
             </Link>
           </div>
         </div>

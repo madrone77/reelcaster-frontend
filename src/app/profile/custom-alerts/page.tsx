@@ -174,7 +174,6 @@ export default function CustomAlertsPage() {
           title="Custom Alerts"
           showTimeframe={false}
           showSetLocation={false}
-          showCustomize={false}
         />
 
         <div className="max-w-4xl mx-auto space-y-6">

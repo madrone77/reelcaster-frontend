@@ -1,11 +1,9 @@
 import type { Metadata } from 'next'
-import { Geist, Geist_Mono, Russo_One } from 'next/font/google'
+import { Geist, Geist_Mono, Inter, IBM_Plex_Mono } from 'next/font/google'
 import './globals.css'
 import { AuthProvider } from '@/contexts/auth-context'
 import { MixpanelProvider } from '@/contexts/mixpanel-context'
 import { UnitPreferencesProvider } from '@/contexts/unit-preferences-context'
-// Fish On button hidden for now
-// import FishOnButtonWrapper from '@/app/components/catch-log/fish-on-button-wrapper'
 import AuthGate from '@/app/components/auth/auth-gate'
 import { GoogleAnalytics } from '@next/third-parties/google'
 
@@ -19,11 +17,14 @@ const geistMono = Geist_Mono({
   subsets: ['latin'],
 })
 
-// Brand logo / wordmark font — used only for the "ReelCaster" wordmark.
-const russoOne = Russo_One({
-  weight: '400',
-  variable: '--font-russo',
+// rc light design system fonts (font-rc-sans / font-rc-mono). Loaded at the
+// root so marketing chrome + landing render correctly everywhere; the
+// explore layout keeps its own (identical) loaders.
+const inter = Inter({ subsets: ['latin'], variable: '--font-inter' })
+const plexMono = IBM_Plex_Mono({
   subsets: ['latin'],
+  weight: ['400', '500', '600', '700'],
+  variable: '--font-plex-mono',
 })
 
 export const metadata: Metadata = {
@@ -41,14 +42,15 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body className={`${geistSans.variable} ${geistMono.variable} ${russoOne.variable} antialiased`}>
+      <body
+        className={`${geistSans.variable} ${geistMono.variable} ${inter.variable} ${plexMono.variable} antialiased`}
+      >
         <AuthProvider>
           <MixpanelProvider>
             <UnitPreferencesProvider>
               <AuthGate>
                 {children}
               </AuthGate>
-              {/* <FishOnButtonWrapper /> */}
             </UnitPreferencesProvider>
           </MixpanelProvider>
         </AuthProvider>

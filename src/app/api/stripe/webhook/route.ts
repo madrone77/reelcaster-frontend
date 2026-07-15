@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import type Stripe from 'stripe';
 import { createClient } from '@supabase/supabase-js';
-import { stripe } from '@/lib/stripe';
+import { getStripe } from '@/lib/stripe';
 import { ANNUAL_PRICE_ID } from '@/lib/pricing';
 
 export const runtime = 'nodejs';
@@ -77,6 +77,7 @@ export async function POST(request: Request) {
 
   const sig = request.headers.get('stripe-signature') ?? '';
   const rawBody = await request.text();
+  const stripe = await getStripe();
 
   let event: Stripe.Event;
   try {

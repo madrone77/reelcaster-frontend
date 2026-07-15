@@ -11,14 +11,14 @@ const PAD_Y = 36;
 
 // Hex values mirror the rc-* tokens used in CSS — SVG can't read CSS vars
 // directly, so we keep them in sync with `globals.css` by hand.
-const COLOR_GRID = '#3F3F3F';
-const COLOR_AXIS_TEXT = '#AAAAAA'; // rc-text-muted
-const COLOR_LINE = '#60A5FA'; // blue-400
-const COLOR_AREA = '#60A5FA';
-const COLOR_DOT = '#FFFFFF';
-const COLOR_DOT_STROKE = '#2B2B2B'; // rc-bg-dark — the card background behind the graph
-const COLOR_DOT_CURRENT = '#10B981'; // emerald-500
-const COLOR_LABEL_CURRENT = '#FFFFFF';
+const COLOR_GRID = '#DEE2EA'; // rc-rule
+const COLOR_AXIS_TEXT = '#8A92A4'; // rc-ink-mute
+const COLOR_LINE = '#1E40E0'; // rc-brand
+const COLOR_AREA = '#1E40E0';
+const COLOR_DOT = '#1E40E0';
+const COLOR_DOT_STROKE = '#FFFFFF'; // rc-panel — the card background behind the graph
+const COLOR_DOT_CURRENT = '#16A34A'; // rc-good
+const COLOR_LABEL_CURRENT = '#0B1220'; // rc-ink
 
 export function SeasonPricingGraph({ currentMonth }: Props) {
   const minPrice = 5;
@@ -74,7 +74,7 @@ export function SeasonPricingGraph({ currentMonth }: Props) {
       ))}
 
       {/* Filled area under curve */}
-      <path d={areaPath} fill={COLOR_AREA} fillOpacity="0.18" />
+      <path d={areaPath} fill={COLOR_AREA} fillOpacity="0.09" />
 
       {/* Line */}
       <path d={linePath} stroke={COLOR_LINE} strokeWidth="2.5" fill="none" />
