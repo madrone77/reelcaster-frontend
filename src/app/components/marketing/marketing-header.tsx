@@ -9,8 +9,10 @@ import { useAuth } from '@/contexts/auth-context';
 // /regulations were removed, and anything not on the middleware allowlist
 // silently rewrites to /coming-soon rather than 404ing, so dead links here
 // look like real pages until you click them.
+// "About" is the landing page — the marketing site is the pitch, so there's
+// no separate about surface to keep in sync with it. /about redirects here.
 const NAV = [
-  { href: '/about', label: 'About' },
+  { href: '/', label: 'About' },
   { href: '/explore', label: 'Explore' },
   { href: '/catches', label: 'Catch Log' },
   { href: '/pricing', label: 'Pricing' },
@@ -19,21 +21,20 @@ const NAV = [
 export default function MarketingHeader() {
   const { user, loading, signOut } = useAuth();
   const pathname = usePathname();
+  // "/" would match every path under startsWith, so the home link compares
+  // exactly and only the sub-path links use the prefix test.
   const isActive = (href: string) =>
-    pathname === href || pathname.startsWith(`${href}/`);
-
-  // About takes the marketing hero's page tint (#F0EFED) so the bar reads as
-  // part of the page instead of a white strip laid over it. Everywhere else
-  // the nav stays translucent white and blurs whatever scrolls beneath it —
-  // an opaque bar has no backdrop to blur, so the blur comes off with it.
-  const tintedNav = pathname === '/about';
+    href === '/'
+      ? pathname === '/'
+      : pathname === href || pathname.startsWith(`${href}/`);
 
   return (
+    // The bar carries the hero's page tint (#F0EFED) on every surface, so the
+    // nav reads as part of the page rather than a white strip laid over it.
+    // No backdrop-blur: an opaque bar has no backdrop to blur.
     <header
       data-testid="marketing-header"
-      className={`border-b border-rc-rule sticky top-0 z-30 ${
-        tintedNav ? 'bg-rc-page' : 'bg-rc-panel/90 backdrop-blur-sm'
-      }`}
+      className="border-b border-rc-rule bg-rc-page sticky top-0 z-30"
     >
       <div className="max-w-6xl mx-auto px-6 h-16 flex items-center gap-8">
         <Link href="/" className="shrink-0 flex items-center" aria-label="ReelCaster home">

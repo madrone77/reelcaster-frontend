@@ -6,8 +6,9 @@ import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { useAuth } from "@/contexts/auth-context";
 
+// "About" is the landing page — see MarketingHeader. /about redirects there.
 const NAV = [
-  { href: "/about", label: "About" },
+  { href: "/", label: "About" },
   { href: "/explore", label: "Explore" },
   { href: "/log-catch", label: "Log a catch" },
   { href: "/catches", label: "My catches" },
@@ -52,11 +53,18 @@ export default function ExploreTopBar() {
     };
   }, [session?.access_token]);
 
+  // "/" would match every path under startsWith, so the home link compares
+  // exactly and only the sub-path links use the prefix test.
   const isActive = (href: string) =>
-    pathname === href || pathname.startsWith(`${href}/`);
+    href === "/"
+      ? pathname === "/"
+      : pathname === href || pathname.startsWith(`${href}/`);
 
   return (
-    <header className="fixed top-0 inset-x-0 h-16 z-40 bg-rc-panel/90 backdrop-blur-sm border-b border-rc-rule">
+    // Same page tint (#F0EFED) as MarketingHeader so the chrome doesn't change
+    // character crossing from the marketing site into the product. Opaque, so
+    // there's no backdrop to blur.
+    <header className="fixed top-0 inset-x-0 h-16 z-40 bg-rc-page border-b border-rc-rule">
       <div className="h-full px-4 sm:px-6 flex items-center gap-8">
         <Link href="/" className="shrink-0 flex items-center" aria-label="ReelCaster home">
           <Image src="/reelcaster-mark.svg" alt="ReelCaster" width={104} height={48} priority />
