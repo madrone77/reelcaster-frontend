@@ -28,14 +28,19 @@ export default function MarketingHeader() {
       ? pathname === '/'
       : pathname === href || pathname.startsWith(`${href}/`);
 
+  // On the landing page the bar shares the hero's tint and drops its rule —
+  // the two are one surface, so a divider would just draw a line through the
+  // middle of it. Every other surface gets a white bar with a rule, since
+  // there's no matching band underneath for it to merge into.
+  const onLanding = pathname === '/';
+
   return (
-    // Same tint as the hero and the signals section (--rc-band), and no rule
-    // beneath it — the bar and the first section are one surface, so a divider
-    // would only draw a line through the middle of it. No backdrop-blur
-    // either: an opaque bar has no backdrop to blur.
+    // No backdrop-blur either way: an opaque bar has no backdrop to blur.
     <header
       data-testid="marketing-header"
-      className="bg-rc-band sticky top-0 z-30"
+      className={`sticky top-0 z-30 ${
+        onLanding ? 'bg-rc-band' : 'bg-rc-panel border-b border-rc-rule'
+      }`}
     >
       <div className="max-w-6xl mx-auto px-6 h-16 flex items-center gap-8">
         <Link href="/" className="shrink-0 flex items-center" aria-label="ReelCaster home">

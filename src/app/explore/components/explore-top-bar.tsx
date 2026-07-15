@@ -61,11 +61,11 @@ export default function ExploreTopBar() {
       : pathname === href || pathname.startsWith(`${href}/`);
 
   return (
-    // Same tint (--rc-band) as MarketingHeader so the chrome doesn't change
-    // character crossing from the marketing site into the product. Opaque, so
-    // there's no backdrop to blur. Keeps its bottom rule, unlike the marketing
-    // nav — this bar floats over the map and needs the edge.
-    <header className="fixed top-0 inset-x-0 h-16 z-40 bg-rc-band border-b border-rc-rule">
+    // White, like MarketingHeader everywhere off the landing page — the tint
+    // only exists there to merge the bar into the hero band, and there's no
+    // such band here. Opaque, so there's no backdrop to blur. Keeps its rule:
+    // this bar floats over the map and needs the edge.
+    <header className="fixed top-0 inset-x-0 h-16 z-40 bg-rc-panel border-b border-rc-rule">
       <div className="h-full px-4 sm:px-6 flex items-center gap-8">
         <Link href="/" className="shrink-0 flex items-center" aria-label="ReelCaster home">
           <Image src="/reelcaster-mark.svg" alt="ReelCaster" width={104} height={48} priority />
