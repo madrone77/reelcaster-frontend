@@ -2,17 +2,15 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { fetchHierarchy, fetchMapSpots } from '@/lib/bluecaster';
 import { buildExploreData } from '@/app/explore/lib/explore-data';
-import MarketingMap, { type MapPin } from './marketing-map';
+import MarketingMap, { type MapSpot } from './marketing-map';
 
-// South Vancouver Island — Sooke through Sidney. Tight enough that the frame
-// holds real coastline and bathymetry instead of open water.
-const BBOX = '-124.30,48.20,-123.00,48.80';
+// Salish Sea — South Vancouver Island through Vancouver. Wider than the
+// opening frame so panning reveals more spots rather than running into an
+// empty basemap; not the full covered extent, which would ship every BC/WA/OR
+// spot in the landing page payload.
+const BBOX = '-125.60,48.00,-122.60,49.60';
 const CENTER = { lat: 48.45, lng: -123.55 };
 const ZOOM = 9.1;
-
-// Cap the pins so the frame reads as a map, not a swarm. Highest scores win —
-// they're the ones worth showing on a landing page.
-const MAX_PINS = 7;
 
 export default async function MapSection() {
   const [hierarchy, payload] = await Promise.all([
@@ -20,28 +18,42 @@ export default async function MapSection() {
     fetchMapSpots({ bbox: BBOX }),
   ]);
 
-  const pins: MapPin[] = buildExploreData(hierarchy, payload)
-    .spots.filter((s) => s.score !== null)
-    .sort((a, b) => (b.score ?? 0) - (a.score ?? 0))
-    .slice(0, MAX_PINS)
-    .map(({ slug, name, lat, lng, score }) => ({ slug, name, lat, lng, score }));
+  const data = buildExploreData(hierarchy, payload);
+
+  // No cap: the map pans and zooms, so every scored spot in the bbox should be
+  // reachable. Unscored spots are dropped — a grey "—" pin sells nothing.
+  const spots: MapSpot[] = data.spots
+    .filter((s) => s.score !== null)
+    .map(({ slug, name, lat, lng, score, scoresBySpecies }) => ({
+      slug,
+      name,
+      lat,
+      lng,
+      score,
+      scoresBySpecies,
+    }));
 
   return (
     <section className="border-t border-rc-rule/60 bg-rc-panel">
       <div className="max-w-6xl mx-auto grid gap-14 px-6 py-16 md:py-24 lg:grid-cols-2 lg:items-center">
         <div className="order-2 lg:order-1">
-          <div className="h-[300px] w-full overflow-hidden rounded border border-rc-rule/60 shadow-rc-bar">
-            {pins.length > 0 ? (
-              <MarketingMap pins={pins} center={CENTER} zoom={ZOOM} />
+          <div className="h-[340px] w-full overflow-hidden rounded border border-rc-rule/60 shadow-rc-bar">
+            {spots.length > 0 ? (
+              <MarketingMap
+                spots={spots}
+                species={data.species}
+                center={CENTER}
+                zoom={ZOOM}
+              />
             ) : (
-              // The API is the one thing here we don't control. If it's down or
-              // returns nothing scored, fall back to the chart illustration
-              // rather than shipping an empty grey box on the landing page.
+              // The API is the one dependency here we don't control. If it's
+              // down or returns nothing scored, fall back to the chart
+              // illustration rather than shipping an empty grey box.
               <Image
                 src="/landing/chart-illustration.svg"
                 alt="Nautical chart with depth contours and scored fishing spots"
                 width={620}
-                height={300}
+                height={340}
                 className="h-full w-full object-cover"
               />
             )}
