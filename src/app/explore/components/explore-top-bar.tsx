@@ -9,9 +9,8 @@ import { useAuth } from "@/contexts/auth-context";
 
 const NAV = [
   { href: "/explore", label: "Explore" },
-  { href: "/species", label: "Species" },
-  { href: "/regulations", label: "Regulations" },
   { href: "/log-catch", label: "Log a catch" },
+  { href: "/catches", label: "My catches" },
   { href: "/notifications", label: "Notifications" },
 ];
 

@@ -27,6 +27,8 @@ const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey, {
 
 type CatchOutcome = 'bite' | 'landed'
 type RetentionStatus = 'released' | 'kept'
+type CatchStatus = 'draft' | 'logged'
+type ScoreStatus = 'scored' | 'pending' | 'none'
 
 interface CreateCatchInput {
   // Required
@@ -56,6 +58,16 @@ interface CreateCatchInput {
   moon_phase?: number
   // Offline sync
   client_id?: string
+  // Catch wizard (2026-07 revamp)
+  status?: CatchStatus
+  spot_id?: string
+  spot_slug?: string
+  species_bc_id?: string
+  species_confidence?: number
+  score?: number
+  score_status?: ScoreStatus
+  mgmt_area?: string
+  pool_observation_id?: string
 }
 
 interface UpdateCatchInput extends Partial<CreateCatchInput> {
@@ -68,6 +80,9 @@ interface UpdateCatchInput extends Partial<CreateCatchInput> {
 
 const VALID_OUTCOMES: CatchOutcome[] = ['bite', 'landed']
 const VALID_RETENTION: RetentionStatus[] = ['released', 'kept']
+const VALID_STATUS: CatchStatus[] = ['draft', 'logged']
+const VALID_SCORE_STATUS: ScoreStatus[] = ['scored', 'pending', 'none']
+const VALID_SORT_COLUMNS = ['caught_at', 'weight_kg', 'length_cm', 'score'] as const
 
 function validateCatchInput(
   input: CreateCatchInput
@@ -119,6 +134,26 @@ function validateCatchInput(
     return { valid: false, error: 'location_heading must be between 0 and 360' }
   }
 
+  if (input.status !== undefined && !VALID_STATUS.includes(input.status)) {
+    return { valid: false, error: 'status must be draft or logged' }
+  }
+
+  if (input.score_status !== undefined && !VALID_SCORE_STATUS.includes(input.score_status)) {
+    return { valid: false, error: 'score_status must be scored, pending, or none' }
+  }
+
+  if (
+    input.species_confidence !== undefined &&
+    input.species_confidence !== null &&
+    (input.species_confidence < 0 || input.species_confidence > 1)
+  ) {
+    return { valid: false, error: 'species_confidence must be between 0 and 1' }
+  }
+
+  if (input.score !== undefined && input.score !== null && (input.score < 0 || input.score > 100)) {
+    return { valid: false, error: 'score must be between 0 and 100' }
+  }
+
   return { valid: true }
 }
 
@@ -166,19 +201,44 @@ export async function GET(request: NextRequest) {
     }
 
     const { searchParams } = new URL(request.url)
+
+    // Single-catch read (detail page): ?id=<uuid>
+    const idParam = searchParams.get('id')
+    if (idParam) {
+      const { data, error } = await supabaseAdmin
+        .from('catch_logs')
+        .select('*')
+        .eq('id', idParam)
+        .single()
+      if (error || !data) {
+        return NextResponse.json({ error: 'Catch not found' }, { status: 404 })
+      }
+      if (data.user_id !== userId) {
+        return NextResponse.json({ error: 'Unauthorized' }, { status: 403 })
+      }
+      return NextResponse.json({ catch: data })
+    }
+
     const limit = Math.min(parseInt(searchParams.get('limit') || '20'), 100)
     const offset = parseInt(searchParams.get('offset') || '0')
     const species = searchParams.get('species')
     const outcome = searchParams.get('outcome') as CatchOutcome | null
     const startDate = searchParams.get('start_date')
     const endDate = searchParams.get('end_date')
+    const status = searchParams.get('status') as CatchStatus | 'all' | null
+    const q = searchParams.get('q')
+    const sortParam = searchParams.get('sort')
+    const sort = (VALID_SORT_COLUMNS as readonly string[]).includes(sortParam || '')
+      ? (sortParam as (typeof VALID_SORT_COLUMNS)[number])
+      : 'caught_at'
+    const ascending = searchParams.get('order') === 'asc'
 
     // Build query
     let query = supabaseAdmin
       .from('catch_logs')
       .select('*', { count: 'exact' })
       .eq('user_id', userId)
-      .order('caught_at', { ascending: false })
+      .order(sort, { ascending, nullsFirst: false })
       .range(offset, offset + limit - 1)
 
     // Apply filters
@@ -188,6 +248,20 @@ export async function GET(request: NextRequest) {
 
     if (outcome && VALID_OUTCOMES.includes(outcome)) {
       query = query.eq('outcome', outcome)
+    }
+
+    if (status && status !== 'all' && VALID_STATUS.includes(status)) {
+      query = query.eq('status', status)
+    }
+
+    if (q) {
+      // Escape PostgREST or() special characters, then search the text fields.
+      const term = q.replace(/[%,()]/g, ' ').trim()
+      if (term) {
+        query = query.or(
+          `species_name.ilike.%${term}%,location_name.ilike.%${term}%,lure_name.ilike.%${term}%,notes.ilike.%${term}%`
+        )
+      }
     }
 
     if (startDate) {
@@ -285,6 +359,15 @@ export async function POST(request: NextRequest) {
         moon_phase: body.moon_phase ?? null,
         client_id: body.client_id || null,
         synced_at: new Date().toISOString(),
+        status: body.status || 'logged',
+        spot_id: body.spot_id || null,
+        spot_slug: body.spot_slug || null,
+        species_bc_id: body.species_bc_id || null,
+        species_confidence: body.species_confidence ?? null,
+        score: body.score ?? null,
+        score_status: body.score_status || 'none',
+        mgmt_area: body.mgmt_area || null,
+        pool_observation_id: body.pool_observation_id || null,
       })
       .select()
       .single()
@@ -397,6 +480,93 @@ export async function PUT(request: NextRequest) {
 
     if (body.location_name !== undefined) {
       updates.location_name = body.location_name
+    }
+
+    if (body.caught_at !== undefined) {
+      updates.caught_at = body.caught_at
+    }
+
+    if (body.location_lat !== undefined) {
+      if (body.location_lat < -90 || body.location_lat > 90) {
+        return NextResponse.json({ error: 'Invalid latitude' }, { status: 400 })
+      }
+      updates.location_lat = body.location_lat
+    }
+
+    if (body.location_lng !== undefined) {
+      if (body.location_lng < -180 || body.location_lng > 180) {
+        return NextResponse.json({ error: 'Invalid longitude' }, { status: 400 })
+      }
+      updates.location_lng = body.location_lng
+    }
+
+    if (body.weather_snapshot !== undefined) {
+      updates.weather_snapshot = body.weather_snapshot
+    }
+
+    if (body.tide_snapshot !== undefined) {
+      updates.tide_snapshot = body.tide_snapshot
+    }
+
+    if (body.moon_phase !== undefined) {
+      updates.moon_phase = body.moon_phase
+    }
+
+    if (body.status !== undefined) {
+      if (!VALID_STATUS.includes(body.status)) {
+        return NextResponse.json({ error: 'status must be draft or logged' }, { status: 400 })
+      }
+      updates.status = body.status
+    }
+
+    if (body.spot_id !== undefined) {
+      updates.spot_id = body.spot_id
+    }
+
+    if (body.spot_slug !== undefined) {
+      updates.spot_slug = body.spot_slug
+    }
+
+    if (body.species_bc_id !== undefined) {
+      updates.species_bc_id = body.species_bc_id
+    }
+
+    if (body.species_confidence !== undefined) {
+      if (
+        body.species_confidence !== null &&
+        (body.species_confidence < 0 || body.species_confidence > 1)
+      ) {
+        return NextResponse.json(
+          { error: 'species_confidence must be between 0 and 1' },
+          { status: 400 }
+        )
+      }
+      updates.species_confidence = body.species_confidence
+    }
+
+    if (body.score !== undefined) {
+      if (body.score !== null && (body.score < 0 || body.score > 100)) {
+        return NextResponse.json({ error: 'score must be between 0 and 100' }, { status: 400 })
+      }
+      updates.score = body.score
+    }
+
+    if (body.score_status !== undefined) {
+      if (!VALID_SCORE_STATUS.includes(body.score_status)) {
+        return NextResponse.json(
+          { error: 'score_status must be scored, pending, or none' },
+          { status: 400 }
+        )
+      }
+      updates.score_status = body.score_status
+    }
+
+    if (body.mgmt_area !== undefined) {
+      updates.mgmt_area = body.mgmt_area
+    }
+
+    if (body.pool_observation_id !== undefined) {
+      updates.pool_observation_id = body.pool_observation_id
     }
 
     // Update catch

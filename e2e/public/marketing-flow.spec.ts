@@ -32,42 +32,6 @@ test.describe('Marketing homepage (/)', () => {
 
 });
 
-test.describe('Species pages', () => {
-  test('/species lists species', async ({ page }) => {
-    const r = await page.goto('/species');
-    expect(r?.status()).toBeLessThan(400);
-    const list = page.getByTestId('species-list');
-    await expect(list).toBeVisible();
-    await assertHasTitle(page);
-    await assertHasJsonLd(page, 'CollectionPage');
-  });
-
-  test('/species/<slug> renders detail page', async ({ page }) => {
-    await page.goto('/species');
-    const firstCard = page.getByTestId('species-card').first();
-    const cardCount = await page.getByTestId('species-card').count();
-    if (cardCount === 0) {
-      test.skip(true, 'no species seeded');
-      return;
-    }
-    const href = await firstCard.getAttribute('href');
-    expect(href).toMatch(/^\/species\/[a-z0-9-]+$/);
-    await page.goto(href!);
-    await assertHasTitle(page);
-    await assertHasJsonLd(page, 'Article');
-  });
-});
-
-test.describe('Public regulations', () => {
-  test('/regulations is reachable + indexed', async ({ page }) => {
-    const r = await page.goto('/regulations');
-    expect(r?.status()).toBeLessThan(400);
-    await assertHasTitle(page);
-    await assertHasMetaDescription(page);
-    await assertHasJsonLd(page, 'GovernmentService');
-  });
-});
-
 test.describe('Public footer pages', () => {
   const PAGES: Array<{ path: string; jsonLd?: string }> = [
     { path: '/privacy', jsonLd: 'WebPage' },
@@ -101,8 +65,8 @@ test.describe('Sitemap + robots', () => {
     const xml = await r.text();
     expect(xml).toContain('<?xml');
     expect(xml).toContain('https://reelcaster.com/');
-    expect(xml).toContain('/regulations');
-    expect(xml).toContain('/species');
+    expect(xml).toContain('/pricing');
+    expect(xml).toContain('/privacy');
   });
 
   test('/robots.txt blocks gated surfaces', async ({ request }) => {

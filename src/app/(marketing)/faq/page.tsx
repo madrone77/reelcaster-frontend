@@ -78,18 +78,18 @@ export default function FaqPage() {
 
       <article data-testid="section-faq">
         <header className="max-w-5xl mx-auto px-6 pt-14 pb-8 md:pt-20 md:pb-10">
-          <p className="text-rc-text-muted text-xs tracking-[0.25em] uppercase font-medium mb-3">
+          <p className="font-rc-mono text-[10px] tracking-[0.14em] uppercase text-rc-ink-mute mb-3">
             Help · FAQ
           </p>
-          <h1 className="text-4xl md:text-5xl font-black uppercase tracking-tight text-rc-text mb-4">
+          <h1 className="text-4xl md:text-5xl font-black tracking-[-0.02em] text-rc-ink mb-4">
             Frequently asked
           </h1>
-          <p className="max-w-2xl text-base md:text-lg leading-relaxed text-rc-text-light">
+          <p className="max-w-2xl text-base md:text-lg leading-relaxed text-rc-ink-soft">
             Quick answers about tiers, regions, accuracy, billing, and data.
             Can&rsquo;t find what you&rsquo;re after?{' '}
             <Link
               href="/contact"
-              className="text-blue-400 hover:text-blue-300 underline underline-offset-2"
+              className="text-rc-brand hover:text-rc-brand-hover underline underline-offset-2"
             >
               Drop us a line
             </Link>
@@ -98,23 +98,23 @@ export default function FaqPage() {
         </header>
 
         <section className="max-w-3xl mx-auto px-6 pb-16">
-          <ul className="bg-rc-bg-dark border border-rc-bg-light rounded-xl overflow-hidden">
+          <ul className="bg-rc-panel border border-rc-rule rounded-xl overflow-hidden">
             {FAQS.map((f, i) => (
               <li
                 key={f.q}
-                className="border-b border-rc-bg-light last:border-b-0"
+                className="border-b border-rc-rule-soft last:border-b-0"
               >
                 <details className="group">
-                  <summary className="flex items-center justify-between gap-4 px-5 py-4 cursor-pointer list-none hover:bg-rc-bg-light/30 transition-colors">
-                    <span className="text-rc-text font-medium text-sm md:text-base">
+                  <summary className="flex items-center justify-between gap-4 px-5 py-4 cursor-pointer list-none hover:bg-rc-surface transition-colors">
+                    <span className="text-rc-ink font-medium text-sm md:text-base">
                       {f.q}
                     </span>
                     <ChevronDown
-                      className="w-4 h-4 text-rc-text-muted flex-shrink-0 transition-transform group-open:rotate-180"
+                      className="w-4 h-4 text-rc-ink-mute flex-shrink-0 transition-transform group-open:rotate-180"
                       aria-hidden
                     />
                   </summary>
-                  <div className="px-5 pb-5 -mt-1 text-sm md:text-base text-rc-text-light leading-relaxed">
+                  <div className="px-5 pb-5 -mt-1 text-sm md:text-base text-rc-ink-soft leading-relaxed">
                     {f.a}
                   </div>
                 </details>
@@ -123,11 +123,11 @@ export default function FaqPage() {
             ))}
           </ul>
 
-          <div className="mt-8 text-sm text-rc-text-muted">
+          <div className="mt-8 text-sm text-rc-ink-mute">
             Still stuck? Reach us at{' '}
             <a
               href="mailto:support@reelcaster.com"
-              className="text-blue-400 hover:text-blue-300 underline underline-offset-2"
+              className="text-rc-brand hover:text-rc-brand-hover underline underline-offset-2"
             >
               support@reelcaster.com
             </a>

@@ -5,7 +5,9 @@ import { NextResponse, type NextRequest } from 'next/server'
 // the coming-soon page itself, the API, and the auth/login flow.
 // `/explore` is publicly live (soft-launched) while the rest stays walled.
 // `/log-catch` + `/notifications` ship with the explore soft-launch.
-const ALLOW_PREFIXES = ['/coming-soon', '/api', '/auth', '/login', '/signup', '/explore', '/pricing', '/log-catch', '/notifications']
+// `/` (exact match only — `startsWith('//')` can't hit a real path) is the
+// public landing page. Info/legal pages are public (linked from the footer).
+const ALLOW_PREFIXES = ['/', '/coming-soon', '/api', '/auth', '/login', '/signup', '/explore', '/pricing', '/log-catch', '/catches', '/notifications', '/privacy', '/terms', '/contact', '/about', '/faq']
 
 export function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl

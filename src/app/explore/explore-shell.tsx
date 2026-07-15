@@ -313,6 +313,20 @@ export default function ExploreShell({
     : { lat: 50.5, lng: -126.5 };
   const initialZoom = selectedCity ? 9 : 4.5;
 
+  // Remember the last viewed city — the catch wizard's location fallback
+  // (geo-fallback.ts) centers its pin here when a photo has no GPS.
+  useEffect(() => {
+    if (!selectedCity) return;
+    try {
+      localStorage.setItem(
+        "rc:lastCity",
+        JSON.stringify({ lat: selectedCity.lat, lng: selectedCity.lng, name: selectedCity.name }),
+      );
+    } catch {
+      /* storage unavailable (private mode) — fallback chain continues */
+    }
+  }, [selectedCity]);
+
   return (
     <div className="relative pt-14 lg:pt-0 min-h-dvh lg:min-h-0 lg:h-full">
       <ExploreTopBar />

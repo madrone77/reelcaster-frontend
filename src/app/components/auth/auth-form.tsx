@@ -115,12 +115,12 @@ export function AuthForm({ defaultMode = 'signin', onSuccess, source = 'auth-for
     return (
       <div className={className}>
         <div className="flex flex-col items-center text-center space-y-3 py-4">
-          <CheckCircle className="h-12 w-12 text-emerald-400" />
-          <h3 className="font-semibold text-rc-text text-lg">Check Your Email!</h3>
-          <p className="text-sm text-rc-text-light">
-            We&apos;ve sent a {mode === 'forgot' ? 'password reset' : 'confirmation'} link to <span className="font-medium text-rc-text">{email}</span>
+          <CheckCircle className="h-12 w-12 text-rc-good" />
+          <h3 className="font-semibold text-rc-ink text-lg">Check Your Email!</h3>
+          <p className="text-sm text-rc-ink-soft">
+            We&apos;ve sent a {mode === 'forgot' ? 'password reset' : 'confirmation'} link to <span className="font-medium text-rc-ink">{email}</span>
           </p>
-          <p className="text-xs text-rc-text-muted">
+          <p className="text-xs text-rc-ink-mute">
             {mode === 'forgot'
               ? 'Click the link in the email to reset your password'
               : 'Click the link in the email to activate your account'}
@@ -132,7 +132,7 @@ export function AuthForm({ defaultMode = 'signin', onSuccess, source = 'auth-for
                 setMode('signin')
                 resetForm()
               }}
-              className="text-sm text-blue-400 hover:text-blue-300 transition-colors mt-2"
+              className="text-sm text-rc-brand hover:text-rc-brand-hover transition-colors mt-2"
             >
               Back to Sign In
             </button>
@@ -146,8 +146,8 @@ export function AuthForm({ defaultMode = 'signin', onSuccess, source = 'auth-for
     <div className={className}>
       <form onSubmit={handleSubmit} className="space-y-4">
         {error && (
-          <Alert variant="destructive" className="border-red-500/50 bg-red-500/10 text-sm">
-            <AlertDescription className="text-red-400">{error}</AlertDescription>
+          <Alert variant="destructive" className="border-rc-poor/30 bg-rc-poor-bg text-sm">
+            <AlertDescription className="text-rc-poor-ink">{error}</AlertDescription>
           </Alert>
         )}
 
@@ -157,10 +157,10 @@ export function AuthForm({ defaultMode = 'signin', onSuccess, source = 'auth-for
               type="button"
               onClick={handleGoogle}
               disabled={loading || googleLoading}
-              className="w-full h-11 rounded-md text-sm font-medium bg-rc-bg-light border border-rc-bg-light text-rc-text hover:bg-rc-bg-dark transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+              className="w-full h-11 rounded-md text-sm font-medium bg-rc-panel border border-rc-rule text-rc-ink hover:bg-rc-surface transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
             >
               {googleLoading ? (
-                <span className="h-4 w-4 animate-spin rounded-full border-2 border-rc-text border-t-transparent" />
+                <span className="h-4 w-4 animate-spin rounded-full border-2 border-rc-ink border-t-transparent" />
               ) : (
                 <GoogleGlyph />
               )}
@@ -169,21 +169,21 @@ export function AuthForm({ defaultMode = 'signin', onSuccess, source = 'auth-for
 
             <div className="relative">
               <div className="absolute inset-0 flex items-center">
-                <div className="w-full border-t border-rc-bg-light" />
+                <div className="w-full border-t border-rc-rule" />
               </div>
               <div className="relative flex justify-center text-xs uppercase">
-                <span className="bg-rc-bg-dark px-2 text-rc-text-muted">or continue with email</span>
+                <span className="bg-rc-panel px-2 text-rc-ink-mute">or continue with email</span>
               </div>
             </div>
           </>
         )}
 
         <div className="space-y-2">
-          <Label htmlFor={`${source}-email`} className="text-sm font-medium text-rc-text">
+          <Label htmlFor={`${source}-email`} className="text-sm font-medium text-rc-ink">
             Email address
           </Label>
           <div className="relative">
-            <Mail className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-rc-text-muted" />
+            <Mail className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-rc-ink-mute" />
             <Input
               id={`${source}-email`}
               type="email"
@@ -192,14 +192,14 @@ export function AuthForm({ defaultMode = 'signin', onSuccess, source = 'auth-for
               placeholder="angler@example.com"
               required
               disabled={loading}
-              className="pl-10"
+              className="pl-10 bg-rc-panel border-rc-rule text-rc-ink placeholder:text-rc-ink-mute focus-visible:border-rc-brand focus-visible:ring-rc-brand/25"
             />
           </div>
         </div>
 
         {mode !== 'forgot' && (
           <div className="space-y-2">
-            <Label htmlFor={`${source}-password`} className="text-sm font-medium text-rc-text">
+            <Label htmlFor={`${source}-password`} className="text-sm font-medium text-rc-ink">
               Password
             </Label>
             <Input
@@ -211,9 +211,10 @@ export function AuthForm({ defaultMode = 'signin', onSuccess, source = 'auth-for
               required
               disabled={loading}
               minLength={6}
+              className="bg-rc-panel border-rc-rule text-rc-ink placeholder:text-rc-ink-mute focus-visible:border-rc-brand focus-visible:ring-rc-brand/25"
             />
             <div className="flex items-center justify-between">
-              {mode === 'signup' && <p className="text-xs text-rc-text-muted">Minimum 6 characters</p>}
+              {mode === 'signup' && <p className="text-xs text-rc-ink-mute">Minimum 6 characters</p>}
               {mode === 'signin' && (
                 <button
                   type="button"
@@ -221,7 +222,7 @@ export function AuthForm({ defaultMode = 'signin', onSuccess, source = 'auth-for
                     setMode('forgot')
                     resetForm()
                   }}
-                  className="ml-auto text-xs text-blue-400 hover:text-blue-300 transition-colors"
+                  className="ml-auto text-xs text-rc-brand hover:text-rc-brand-hover transition-colors"
                 >
                   Forgot password?
                 </button>
@@ -232,12 +233,12 @@ export function AuthForm({ defaultMode = 'signin', onSuccess, source = 'auth-for
 
         <Button
           type="submit"
-          className="w-full h-11 font-medium bg-blue-600 hover:bg-blue-700 text-rc-text"
+          className="w-full h-11 font-bold bg-rc-brand hover:bg-rc-brand-hover text-white"
           disabled={loading}
         >
           {loading ? (
             <span className="flex items-center gap-2">
-              <span className="h-4 w-4 animate-spin rounded-full border-2 border-rc-text border-t-transparent" />
+              <span className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
               Processing...
             </span>
           ) : mode === 'forgot' ? (
@@ -251,10 +252,10 @@ export function AuthForm({ defaultMode = 'signin', onSuccess, source = 'auth-for
 
         <div className="relative">
           <div className="absolute inset-0 flex items-center">
-            <div className="w-full border-t border-rc-bg-light" />
+            <div className="w-full border-t border-rc-rule" />
           </div>
           <div className="relative flex justify-center text-xs uppercase">
-            <span className="bg-rc-bg-dark px-2 text-rc-text-muted">
+            <span className="bg-rc-panel px-2 text-rc-ink-mute">
               {mode === 'forgot' ? 'Remember your password?' : mode === 'signin' ? 'New to ReelCaster?' : 'Already have an account?'}
             </span>
           </div>
@@ -271,7 +272,7 @@ export function AuthForm({ defaultMode = 'signin', onSuccess, source = 'auth-for
             }
           }}
           disabled={loading}
-          className="w-full h-11 rounded-md text-sm font-medium bg-rc-bg-light border border-rc-bg-light text-rc-text hover:bg-rc-bg-dark transition-colors disabled:opacity-50"
+          className="w-full h-11 rounded-md text-sm font-medium bg-rc-panel border border-rc-rule text-rc-ink hover:bg-rc-surface transition-colors disabled:opacity-50"
         >
           {mode === 'forgot' ? 'Back to Sign In' : mode === 'signin' ? 'Create an Account' : 'Sign In Instead'}
         </button>

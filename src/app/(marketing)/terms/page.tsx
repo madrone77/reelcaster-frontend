@@ -43,29 +43,29 @@ export default function TermsPage() {
 
       <article data-testid="section-terms">
         <header className="max-w-5xl mx-auto px-6 pt-14 pb-8 md:pt-20 md:pb-10">
-          <p className="text-rc-text-muted text-xs tracking-[0.25em] uppercase font-medium mb-3">
+          <p className="font-rc-mono text-[10px] tracking-[0.14em] uppercase text-rc-ink-mute mb-3">
             Legal · Terms
           </p>
-          <h1 className="text-4xl md:text-5xl font-black uppercase tracking-tight text-rc-text mb-4">
+          <h1 className="text-4xl md:text-5xl font-black tracking-[-0.02em] text-rc-ink mb-4">
             Terms of Service
           </h1>
-          <p className="max-w-2xl text-base md:text-lg leading-relaxed text-rc-text-light">
+          <p className="max-w-2xl text-base md:text-lg leading-relaxed text-rc-ink-soft">
             The agreement between you and ReelCaster. Please read it before
             you sign up or subscribe.
           </p>
-          <p className="mt-4 text-xs text-rc-text-muted">
+          <p className="mt-4 text-xs text-rc-ink-mute">
             Last updated: {LAST_UPDATED}
           </p>
         </header>
 
-        <section className="max-w-3xl mx-auto px-6 pb-16 space-y-8 text-rc-text-light leading-relaxed">
+        <section className="max-w-3xl mx-auto px-6 pb-16 space-y-8 text-rc-ink-soft leading-relaxed">
           <Block title="1. Acceptance">
             <p>
               By creating an account or using ReelCaster, you agree to these
               Terms and our{' '}
               <Link
                 href="/privacy"
-                className="text-blue-400 hover:text-blue-300 underline underline-offset-2"
+                className="text-rc-brand hover:text-rc-brand-hover underline underline-offset-2"
               >
                 Privacy Policy
               </Link>
@@ -79,7 +79,7 @@ export default function TermsPage() {
               for activity under your account. Notify us immediately at{' '}
               <a
                 href="mailto:support@reelcaster.com"
-                className="text-blue-400 hover:text-blue-300 underline underline-offset-2"
+                className="text-rc-brand hover:text-rc-brand-hover underline underline-offset-2"
               >
                 support@reelcaster.com
               </a>{' '}
@@ -97,7 +97,7 @@ export default function TermsPage() {
               annually via Stripe at the rates shown on{' '}
               <Link
                 href="/pricing"
-                className="text-blue-400 hover:text-blue-300 underline underline-offset-2"
+                className="text-rc-brand hover:text-rc-brand-hover underline underline-offset-2"
               >
                 /pricing
               </Link>
@@ -109,7 +109,7 @@ export default function TermsPage() {
               partial months. Refunds are handled case-by-case; reach out via{' '}
               <Link
                 href="/contact"
-                className="text-blue-400 hover:text-blue-300 underline underline-offset-2"
+                className="text-rc-brand hover:text-rc-brand-hover underline underline-offset-2"
               >
                 /contact
               </Link>
@@ -132,7 +132,7 @@ export default function TermsPage() {
             <p>
               ReelCaster forecasts, fishing scores, solunar tables, and tide
               predictions are derived from public data sources (Open-Meteo,
-              CHS, DFO) and statistical models. They are <strong className="text-rc-text">not</strong> a
+              CHS, DFO) and statistical models. They are <strong className="text-rc-ink">not</strong> a
               guarantee of fish, weather, or safe sea conditions. Always
               verify weather and marine forecasts with Environment and
               Climate Change Canada before heading out.
@@ -143,13 +143,13 @@ export default function TermsPage() {
             <p>
               We aggregate DFO Pacific Region notices, closures, and
               regulations as a reference. They may be incomplete, delayed, or
-              superseded by newer notices. <strong className="text-rc-text">You</strong> are
+              superseded by newer notices. <strong className="text-rc-ink">You</strong> are
               responsible for following the current{' '}
               <a
                 href="https://www.pac.dfo-mpo.gc.ca/fm-gp/rec/index-eng.html"
                 target="_blank"
                 rel="noopener"
-                className="text-blue-400 hover:text-blue-300 underline underline-offset-2"
+                className="text-rc-brand hover:text-rc-brand-hover underline underline-offset-2"
               >
                 DFO Recreational Fishing Regulations
               </a>
@@ -190,7 +190,7 @@ export default function TermsPage() {
               You can close your account at any time via{' '}
               <Link
                 href="/profile"
-                className="text-blue-400 hover:text-blue-300 underline underline-offset-2"
+                className="text-rc-brand hover:text-rc-brand-hover underline underline-offset-2"
               >
                 /profile
               </Link>{' '}
@@ -219,7 +219,7 @@ export default function TermsPage() {
               Questions?{' '}
               <Link
                 href="/contact"
-                className="text-blue-400 hover:text-blue-300 underline underline-offset-2"
+                className="text-rc-brand hover:text-rc-brand-hover underline underline-offset-2"
               >
                 Get in touch
               </Link>
@@ -241,7 +241,7 @@ function Block({
 }) {
   return (
     <section className="space-y-3">
-      <h2 className="text-xl font-bold text-rc-text">{title}</h2>
+      <h2 className="text-xl font-bold text-rc-ink">{title}</h2>
       <div className="space-y-3 text-sm md:text-base">{children}</div>
     </section>
   );

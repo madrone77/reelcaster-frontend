@@ -50,13 +50,13 @@ function CalloutInner() {
       data-testid="pricing-feature-callout"
       data-feature={feature}
     >
-      <div className="flex items-start gap-3 rounded-lg border border-emerald-500/40 bg-emerald-500/15 p-4">
-        <Sparkles className="w-5 h-5 text-emerald-300 mt-0.5 shrink-0" />
+      <div className="flex items-start gap-3 rounded-lg border border-rc-good-border bg-rc-good-soft p-4">
+        <Sparkles className="w-5 h-5 text-rc-good mt-0.5 shrink-0" />
         <div>
-          <p className="text-sm font-semibold text-rc-text">
+          <p className="text-sm font-semibold text-rc-ink">
             What you came for: {copy.title}
           </p>
-          <p className="text-sm text-rc-text-light mt-0.5">{copy.body}</p>
+          <p className="text-sm text-rc-ink-soft mt-0.5">{copy.body}</p>
         </div>
       </div>
     </div>

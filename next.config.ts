@@ -9,13 +9,6 @@ const nextConfig: NextConfig = {
       { protocol: "https", hostname: "images.unsplash.com" },
     ],
   },
-  async redirects() {
-    return [
-      // Sidebar cleanup (2026-05-08): both pages duplicated public surfaces.
-      { source: "/species-calendar", destination: "/species", permanent: true },
-      { source: "/dfo-notices", destination: "/regulations", permanent: true },
-    ];
-  },
   async headers() {
     // Long-cache the static map assets the Explore relief style fetches (glyph
     // fonts + the place-label GeoJSON). The relief/contour/land tiles set their

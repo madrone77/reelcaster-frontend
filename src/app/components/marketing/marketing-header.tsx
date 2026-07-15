@@ -1,14 +1,31 @@
 'use client';
 
 import Link from 'next/link';
-import { Fish, LogOut } from 'lucide-react';
+import { LogOut } from 'lucide-react';
 import { useAuth } from '@/contexts/auth-context';
 
 const NAV = [
-  { href: '/species', label: 'Species' },
-  { href: '/regulations', label: 'Regulations' },
+  { href: '/explore', label: 'Explore' },
+  { href: '/catches', label: 'Catch Log' },
   { href: '/pricing', label: 'Pricing' },
 ];
+
+function Logo() {
+  return (
+    <Link
+      href="/"
+      className="flex flex-col items-center border-2 border-rc-brand bg-rc-panel px-2.5 py-1 leading-none"
+      aria-label="Reelcaster home"
+    >
+      <span className="border-b-2 border-rc-brand pb-0.5 text-lg font-black tracking-tight text-rc-brand">
+        REEL
+      </span>
+      <span className="mt-0.5 font-rc-mono text-[7px] font-semibold tracking-[0.35em] text-rc-brand">
+        CASTER
+      </span>
+    </Link>
+  );
+}
 
 export default function MarketingHeader() {
   const { user, loading, signOut } = useAuth();
@@ -16,73 +33,62 @@ export default function MarketingHeader() {
   return (
     <header
       data-testid="marketing-header"
-      className="border-b border-rc-bg-light bg-rc-bg-darkest/95 backdrop-blur-sm sticky top-0 z-30"
+      className="sticky top-0 z-30 border-b border-rc-rule bg-rc-panel/95 backdrop-blur-sm"
     >
-      <div className="max-w-6xl mx-auto px-6 h-14 flex items-center justify-between">
-        <Link href="/" className="flex items-center gap-2 text-rc-text">
-          <span className="p-1.5 rounded-md bg-blue-600">
-            <Fish className="w-4 h-4 text-white" />
-          </span>
-          <span className="font-bold tracking-tight">ReelCaster</span>
-        </Link>
+      <div className="max-w-6xl mx-auto flex h-16 items-center justify-between px-6">
+        <Logo />
 
-        <nav className="hidden md:flex items-center gap-6 text-sm font-medium text-rc-text-light">
-          {NAV.map((item) => (
-            <Link
-              key={item.href}
-              href={item.href}
-              className="hover:text-rc-text transition-colors"
-            >
-              {item.label}
-            </Link>
-          ))}
-        </nav>
-
-        <div className="flex items-center gap-2 min-h-[34px]">
-          {loading ? null : user ? (
-            <>
+        <div className="flex items-center gap-8">
+          <nav className="hidden md:flex items-center gap-7 text-sm font-medium text-rc-brand">
+            {NAV.map((item) => (
               <Link
-                href="/explore"
-                className="hidden sm:inline-flex text-sm font-medium text-rc-text-light hover:text-rc-text px-3 py-1.5 transition-colors"
+                key={item.label}
+                href={item.href}
+                className="transition-colors hover:text-rc-brand-hover"
               >
-                Explore
+                {item.label}
               </Link>
+            ))}
+          </nav>
+
+          <div className="flex min-h-[34px] items-center gap-5">
+            {loading ? null : user ? (
               <button
                 type="button"
                 onClick={() => signOut()}
-                className="inline-flex items-center gap-1.5 px-3.5 py-1.5 bg-rc-bg-light hover:bg-rc-bg-dark border border-rc-bg-light rounded-md text-sm font-semibold text-rc-text transition-colors"
+                className="inline-flex items-center gap-1.5 rounded-md border border-rc-rule px-3.5 py-1.5 text-sm font-semibold text-rc-ink-soft transition-colors hover:bg-rc-surface"
                 title={user.email ?? 'Sign out'}
               >
-                <LogOut className="w-3.5 h-3.5" />
+                <LogOut className="h-3.5 w-3.5" />
                 <span className="hidden sm:inline">Sign out</span>
               </button>
-            </>
-          ) : (
-            <>
-              <Link
-                href="/login"
-                className="hidden sm:inline-flex text-sm font-medium text-rc-text-light hover:text-rc-text px-3 py-1.5 transition-colors"
-              >
-                Log in
-              </Link>
-              <Link
-                href="/signup"
-                className="inline-flex items-center px-3.5 py-1.5 bg-blue-600 hover:bg-blue-700 rounded-md text-sm font-semibold text-white transition-colors"
-              >
-                Sign up
-              </Link>
-            </>
-          )}
+            ) : (
+              <>
+                <Link
+                  href="/login"
+                  className="text-sm font-bold text-rc-brand transition-colors hover:text-rc-brand-hover"
+                >
+                  Sign in
+                </Link>
+                <Link
+                  href="/signup"
+                  className="text-sm font-bold text-rc-brand transition-colors hover:text-rc-brand-hover"
+                >
+                  Start free trial
+                </Link>
+              </>
+            )}
+          </div>
         </div>
       </div>
 
       {/* Mobile nav strip */}
-      <nav className="md:hidden flex items-center gap-4 px-6 pb-2 -mt-1 text-xs font-medium text-rc-text-muted overflow-x-auto">
+      <nav className="md:hidden -mt-1 flex items-center gap-5 overflow-x-auto px-6 pb-2.5 text-xs font-medium text-rc-brand">
         {NAV.map((item) => (
           <Link
-            key={item.href}
+            key={item.label}
             href={item.href}
-            className="whitespace-nowrap hover:text-rc-text"
+            className="whitespace-nowrap transition-colors hover:text-rc-brand-hover"
           >
             {item.label}
           </Link>
