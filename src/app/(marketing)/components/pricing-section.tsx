@@ -19,7 +19,7 @@ export default function PricingSection() {
 
         <div className="mt-14 grid gap-10 md:gap-6 md:grid-cols-2 md:items-stretch">
           {/* Free plan */}
-          <div className="flex flex-col rounded-md bg-rc-panel p-8 text-center">
+          <div className="flex flex-col rounded bg-rc-panel p-8 text-center">
             <p className="text-base font-bold tracking-wide text-rc-ink">FREE</p>
             <p className="mt-2 text-5xl font-black tracking-[-0.03em] text-rc-ink">
               $0
@@ -31,18 +31,15 @@ export default function PricingSection() {
             <div className="mt-auto pt-8">
               <Link
                 href="/signup"
-                className="block w-full rounded-md bg-rc-brand px-6 py-3 text-sm font-bold tracking-wide text-white transition-colors hover:bg-rc-brand-hover"
+                className="block w-full rounded bg-rc-brand px-6 py-3 text-sm font-bold tracking-wide text-white transition-colors hover:bg-rc-brand-hover"
               >
                 START FREE
               </Link>
-              <p className="mt-3 font-rc-mono text-[10px] tracking-wide text-rc-brand">
-                Free stays free — no card, no trial clock.
-              </p>
             </div>
           </div>
 
           {/* Reelcaster Pro */}
-          <div className="relative flex flex-col rounded-md bg-rc-panel p-8 text-center">
+          <div className="relative flex flex-col rounded bg-rc-panel p-8 text-center">
             <span className="absolute -top-3.5 left-1/2 -translate-x-1/2 whitespace-nowrap rounded bg-rc-good-bg px-3 py-1.5 font-rc-mono text-[10px] font-semibold tracking-[0.14em] text-rc-good-ink">
               MOST POPULAR
             </span>
@@ -65,7 +62,7 @@ export default function PricingSection() {
             <div className="mt-auto pt-8">
               <Link
                 href="/pricing"
-                className="block w-full rounded-md bg-rc-brand px-6 py-3 text-sm font-bold tracking-wide text-white transition-colors hover:bg-rc-brand-hover"
+                className="block w-full rounded bg-rc-brand px-6 py-3 text-sm font-bold tracking-wide text-white transition-colors hover:bg-rc-brand-hover"
               >
                 START REELCASTER PRO
               </Link>

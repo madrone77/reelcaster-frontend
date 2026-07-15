@@ -25,6 +25,7 @@
   --color-rc-panel: var(--rc-panel);
   --color-rc-surface: var(--rc-surface);
   --color-rc-page: var(--rc-bg);
+  --color-rc-band: var(--rc-band);
   --color-rc-rule: var(--rc-rule);
   --color-rc-rule-soft: var(--rc-rule-soft);
   --color-rc-navy: var(--rc-navy);

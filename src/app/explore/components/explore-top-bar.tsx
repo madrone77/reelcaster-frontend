@@ -4,11 +4,11 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
-import { Search } from "lucide-react";
 import { useAuth } from "@/contexts/auth-context";
 
+// "About" is the landing page — see MarketingHeader. /about redirects there.
 const NAV = [
-  { href: "/about", label: "About" },
+  { href: "/", label: "About" },
   { href: "/explore", label: "Explore" },
   { href: "/log-catch", label: "Log a catch" },
   { href: "/catches", label: "My catches" },
@@ -53,11 +53,19 @@ export default function ExploreTopBar() {
     };
   }, [session?.access_token]);
 
+  // "/" would match every path under startsWith, so the home link compares
+  // exactly and only the sub-path links use the prefix test.
   const isActive = (href: string) =>
-    pathname === href || pathname.startsWith(`${href}/`);
+    href === "/"
+      ? pathname === "/"
+      : pathname === href || pathname.startsWith(`${href}/`);
 
   return (
-    <header className="fixed top-0 inset-x-0 h-16 z-40 bg-rc-panel/90 backdrop-blur-sm border-b border-rc-rule">
+    // White, like MarketingHeader everywhere off the landing page — the tint
+    // only exists there to merge the bar into the hero band, and there's no
+    // such band here. Opaque, so there's no backdrop to blur. Keeps its rule:
+    // this bar floats over the map and needs the edge.
+    <header className="fixed top-0 inset-x-0 h-16 z-40 bg-rc-panel border-b border-rc-rule">
       <div className="h-full px-4 sm:px-6 flex items-center gap-8">
         <Link href="/" className="shrink-0 flex items-center" aria-label="ReelCaster home">
           <Image src="/reelcaster-mark.svg" alt="ReelCaster" width={104} height={48} priority />
@@ -91,23 +99,6 @@ export default function ExploreTopBar() {
         </nav>
 
         <div className="flex items-center gap-2 sm:gap-3 ml-auto">
-          <Link
-            href="/pricing"
-            className="hidden sm:flex items-center gap-2 pl-3 pr-3.5 py-1.5 rounded border border-rc-rule bg-rc-panel text-sm hover:border-rc-brand transition-colors"
-          >
-            <span className="w-2 h-2 rounded-full bg-rc-badge" />
-            <span className="text-rc-ink-soft">Free</span>
-            <span className="font-semibold text-rc-brand">Upgrade →</span>
-          </Link>
-
-          <Link
-            href="/explore"
-            aria-label="Search spots"
-            className="flex items-center justify-center w-8 h-8 rounded border border-rc-rule text-rc-ink-soft hover:bg-rc-surface transition-colors"
-          >
-            <Search className="w-4 h-4" />
-          </Link>
-
           {loading ? null : user && initials ? (
             <Link
               href="/profile"

@@ -9,8 +9,10 @@ import { useAuth } from '@/contexts/auth-context';
 // /regulations were removed, and anything not on the middleware allowlist
 // silently rewrites to /coming-soon rather than 404ing, so dead links here
 // look like real pages until you click them.
+// "About" is the landing page — the marketing site is the pitch, so there's
+// no separate about surface to keep in sync with it. /about redirects here.
 const NAV = [
-  { href: '/about', label: 'About' },
+  { href: '/', label: 'About' },
   { href: '/explore', label: 'Explore' },
   { href: '/catches', label: 'Catch Log' },
   { href: '/pricing', label: 'Pricing' },
@@ -19,13 +21,26 @@ const NAV = [
 export default function MarketingHeader() {
   const { user, loading, signOut } = useAuth();
   const pathname = usePathname();
+  // "/" would match every path under startsWith, so the home link compares
+  // exactly and only the sub-path links use the prefix test.
   const isActive = (href: string) =>
-    pathname === href || pathname.startsWith(`${href}/`);
+    href === '/'
+      ? pathname === '/'
+      : pathname === href || pathname.startsWith(`${href}/`);
+
+  // On the landing page the bar shares the hero's tint and drops its rule —
+  // the two are one surface, so a divider would just draw a line through the
+  // middle of it. Every other surface gets a white bar with a rule, since
+  // there's no matching band underneath for it to merge into.
+  const onLanding = pathname === '/';
 
   return (
+    // No backdrop-blur either way: an opaque bar has no backdrop to blur.
     <header
       data-testid="marketing-header"
-      className="border-b border-rc-rule bg-rc-panel/90 backdrop-blur-sm sticky top-0 z-30"
+      className={`sticky top-0 z-30 ${
+        onLanding ? 'bg-rc-band' : 'bg-rc-panel border-b border-rc-rule'
+      }`}
     >
       <div className="max-w-6xl mx-auto px-6 h-16 flex items-center gap-8">
         <Link href="/" className="shrink-0 flex items-center" aria-label="ReelCaster home">

@@ -20,7 +20,7 @@ const AXIS_TICKS = [
 
 export default function HeroScoreCard() {
   return (
-    <div className="rounded-xl border border-rc-rule bg-rc-panel shadow-rc-panel p-6 sm:p-8">
+    <div className="rounded border border-rc-rule bg-rc-panel shadow-rc-panel p-6 sm:p-8">
       <div className="text-center">
         <p className="font-rc-mono text-[10px] tracking-[0.2em] uppercase text-rc-ink-mute/80">
           Updated 5 min ago
