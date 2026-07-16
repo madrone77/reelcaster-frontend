@@ -3,6 +3,7 @@
 import type { RightNowSnapshot } from "@/lib/bluecaster/live-spot-types";
 import type { CurrentSample } from "@/lib/bluecaster-client";
 import { nextSlackHour, niceCurrentScale } from "../../lib/current-series";
+import { monoInterp } from "../../lib/curve";
 
 // ── mini visualizations ─────────────────────────────────────────────────
 
@@ -36,7 +37,9 @@ function CompassArrow({ deg }: { deg: number }) {
   );
 }
 
-/** Compact tide curve over today — filled area, mean line, dot at NOW. */
+/** Compact tide curve over today — smooth line (same monotone cubic as the
+ * 24h chart), soft fill, and a NOW cursor: vertical hairline + dot marking
+ * where the headline number sits on the day's curve. */
 function TideSpark({
   series,
   nowHour,
@@ -49,26 +52,43 @@ function TideSpark({
   const min = Math.min(...vals);
   const max = Math.max(...vals);
   const span = max - min || 1;
-  const mean = vals.reduce((a, b) => a + b, 0) / vals.length;
-  const yFor = (v: number) => 100 - ((v - min) / span) * 100;
-  const pts = series.map((v, i) => ({
-    x: (i / (series.length - 1)) * 100,
-    y: v == null ? null : yFor(v),
-  }));
-  const line = pts
-    .filter((p): p is { x: number; y: number } => p.y != null)
-    .map((p, i) => `${i === 0 ? "M" : "L"}${p.x.toFixed(1)},${p.y.toFixed(1)}`)
-    .join(" ");
-  // The marker anchors the headline number to its place on the day's curve —
-  // "you are here", not the day's high (the next H/L lives in the sub text).
-  const nowPt = pts[Math.max(0, Math.min(series.length - 1, nowHour))];
-  const meanY = yFor(mean);
+  // 12% head/foot padding so crests and the now-dot don't clip the edges.
+  const yFor = (v: number) => 88 - ((v - min) / span) * 76;
+  const xFor = (t: number) => (t / (series.length - 1)) * 100;
+  const N = 72;
+  let line = "";
+  let started = false;
+  for (let k = 0; k <= N; k++) {
+    const t = (k / N) * (series.length - 1);
+    const v = monoInterp(series, t);
+    if (v == null) { started = false; continue; }
+    line += `${started ? "L" : "M"}${xFor(t).toFixed(1)},${yFor(v).toFixed(1)}`;
+    started = true;
+  }
+  if (!line) return null;
+  const nowT = Math.max(0, Math.min(series.length - 1, nowHour));
+  const nowV = monoInterp(series, nowT);
+  const nowX = xFor(nowT);
+  // The viewBox is stretched ~2:1 (w-14 × h-7, preserveAspectRatio none), so a
+  // plain circle renders as a flat smear — counter-stretch with rx : ry = 1 : 2.
   return (
     <svg viewBox="0 0 100 100" preserveAspectRatio="none" className="w-14 h-7 shrink-0" aria-hidden>
-      <line x1="0" y1={meanY} x2="100" y2={meanY} stroke="var(--rc-rule)" strokeWidth={1} strokeDasharray="3 3" />
       <path d={`${line} L100,100 L0,100 Z`} fill="var(--rc-brand-soft)" stroke="none" />
-      <path d={line} fill="none" stroke="var(--rc-brand)" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round" vectorEffect="non-scaling-stroke" />
-      {nowPt?.y != null && <circle cx={nowPt.x} cy={nowPt.y} r={3.2} fill="var(--rc-brand)" />}
+      <path d={line} fill="none" stroke="var(--rc-brand)" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" vectorEffect="non-scaling-stroke" />
+      {nowV != null && (
+        <>
+          <line
+            x1={nowX}
+            y1={0}
+            x2={nowX}
+            y2={100}
+            stroke="var(--rc-ink-mute)"
+            strokeWidth={1.2}
+            vectorEffect="non-scaling-stroke"
+          />
+          <ellipse cx={nowX} cy={yFor(nowV)} rx={3.4} ry={6.8} fill="var(--rc-brand)" stroke="var(--rc-surface)" strokeWidth={1} vectorEffect="non-scaling-stroke" />
+        </>
+      )}
     </svg>
   );
 }
