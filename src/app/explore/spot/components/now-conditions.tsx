@@ -107,19 +107,33 @@ function SeaSpark({ series }: { series: (number | null)[] }) {
   );
 }
 
-/** Pressure tendency as a plain arrow chip — the trend has three-ish states
- * (rising / steady / falling), so it gets a glyph, not a curve faking an
- * hourly series we don't have. */
-function TrendChip({ trend }: { trend: number | null }) {
-  if (trend == null) return null;
-  const rot = trend > 0.2 ? -38 : trend < -0.2 ? 38 : 0;
+/** Cloud-cover strip over the day — darker = more cloud, same encoding as the
+ * 24h chart's SKY row. */
+function CloudStrip({ series }: { series: (number | null)[] }) {
+  const vals = series.filter((v): v is number => v != null);
+  if (vals.length < 2) return null;
+  const N = 8;
+  const cells = Array.from({ length: N }, (_, i) => {
+    const idx = Math.round((i / (N - 1)) * (series.length - 1));
+    return series[idx];
+  });
+  const bw = 100 / N;
   return (
-    <svg viewBox="0 0 32 32" className="w-7 h-7 shrink-0" aria-hidden>
-      <circle cx="16" cy="16" r="14" fill="var(--rc-brand-soft)" />
-      <g transform={`rotate(${rot} 16 16)`} stroke="var(--rc-brand)" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" fill="none">
-        <line x1="8" y1="16" x2="23" y2="16" />
-        <path d="M18,11 L23,16 L18,21" />
-      </g>
+    <svg viewBox="0 0 100 100" preserveAspectRatio="none" className="w-14 h-7 shrink-0" aria-hidden>
+      {cells.map((v, i) =>
+        v == null ? null : (
+          <rect
+            key={i}
+            x={(i * bw + bw * 0.15).toFixed(1)}
+            y="34"
+            width={(bw * 0.7).toFixed(1)}
+            height="32"
+            rx={2}
+            fill="var(--rc-ink-mute)"
+            opacity={(0.12 + (v / 100) * 0.7).toFixed(2)}
+          />
+        ),
+      )}
     </svg>
   );
 }
@@ -163,11 +177,12 @@ function seaState(wav: number | null): string {
   return "Rough";
 }
 
-function waterLabel(t: number | null): string | null {
-  if (t == null) return null;
-  if (t < 9) return "Cold";
-  if (t <= 17) return "Optimal";
-  return "Warm";
+function skyWord(cloud: number | null): string | null {
+  if (cloud == null) return null;
+  if (cloud < 20) return "Clear";
+  if (cloud < 50) return "Partly cloudy";
+  if (cloud < 85) return "Mostly cloudy";
+  return "Overcast";
 }
 
 function airLabel(t: number | null): string | null {
@@ -211,19 +226,18 @@ type Metric = {
 };
 
 /**
- * RIGHT NOW conditions panel. Wind / sea / water / air come from the spot-page
- * `rightNow` snapshot; pressure (+3h trend) comes from point-conditions; the
- * current comes from the real predicted series (the same data behind the 24h
- * chart's CURRENT row), falling back to point-conditions' single now-sample.
- * Rendered flush as a 2 col × 3 row divided grid — CURRENT leads, because
- * current is the score's primary driver.
+ * RIGHT NOW conditions panel. Wind / sea / sky / air come from the spot-page
+ * `rightNow` snapshot; the current comes from the real predicted series (the
+ * same data behind the 24h chart's CURRENT row), falling back to
+ * point-conditions' single now-sample. Rendered flush as a 2 col × 3 row
+ * divided grid, in the 24h chart's row order (tide → current → wind → sea →
+ * sky → air) so the tiles read as the chart's "now" column.
  */
 export default function NowConditions({
   rightNow,
-  pressureMb,
-  pressureTrend,
   tideSeries,
   seaSeries,
+  skySeries,
   currentSigned = null,
   currentSample = null,
   pointCurrent = null,
@@ -231,10 +245,9 @@ export default function NowConditions({
   label = "RIGHT NOW",
 }: {
   rightNow: RightNowSnapshot | null;
-  pressureMb: number | null;
-  pressureTrend: number | null;
   tideSeries: (number | null)[];
   seaSeries: (number | null)[];
+  skySeries: (number | null)[];
   /** Signed hourly current for today (kn, +flood −ebb); null until loaded. */
   currentSigned?: (number | null)[] | null;
   /** Raw now-hour sample (for the flow bearing). */
@@ -291,27 +304,14 @@ export default function NowConditions({
       ? `${rn.tideTrend} ${tideArrow}`.trim()
       : null;
 
-  // ── pressure: the verdict is the signal; millibars are the detail ──────
-  const pVerdict =
-    pressureTrend == null
-      ? null
-      : pressureTrend > 2
-        ? "Rising fast"
-        : pressureTrend > 0.2
-          ? "Rising"
-          : pressureTrend < -2
-            ? "Falling fast"
-            : pressureTrend < -0.2
-              ? "Falling"
-              : "Steady";
-  const pSub =
-    pVerdict == null
-      ? pressureMb != null
-        ? "mb"
-        : null
-      : `${pVerdict} · ${pressureTrend! >= 0 ? "+" : ""}${pressureTrend!.toFixed(1)} mb / 3h`;
-
+  // Same order as the 24h chart's rows, so this panel reads as its NOW column.
   const metrics: Metric[] = [
+    {
+      label: "TIDE",
+      value: rn?.tideM != null ? `${rn.tideM.toFixed(1)} m` : "—",
+      sub: tideSub,
+      viz: <TideSpark series={tideSeries} nowHour={nowHour} />,
+    },
     {
       label: "CURRENT",
       value: curSpeed != null ? `${curSpeed.toFixed(1)} kn` : "—",
@@ -325,13 +325,7 @@ export default function NowConditions({
       viz: rn?.windDirDeg != null ? <CompassArrow deg={rn.windDirDeg} /> : null,
     },
     {
-      label: "TIDE",
-      value: rn?.tideM != null ? `${rn.tideM.toFixed(1)} m` : "—",
-      sub: tideSub,
-      viz: <TideSpark series={tideSeries} nowHour={nowHour} />,
-    },
-    {
-      label: "SEA",
+      label: "SEA STATE",
       value: rn?.waveM != null ? `${rn.waveM.toFixed(1)} m` : "—",
       sub: [
         seaState(rn?.waveM ?? null),
@@ -342,31 +336,25 @@ export default function NowConditions({
       viz: <SeaSpark series={seaSeries} />,
     },
     {
-      label: "PRESSURE",
-      value: pressureMb != null ? `${Math.round(pressureMb)} mb` : "—",
-      sub: pSub,
-      viz: <TrendChip trend={pressureTrend} />,
+      label: "SKY",
+      value: rn?.cloudPct != null ? `${Math.round(rn.cloudPct)}%` : "—",
+      sub: [
+        skyWord(rn?.cloudPct ?? null),
+        rn?.precipMm != null
+          ? rn.precipMm > 0
+            ? `${rn.precipMm.toFixed(1)} mm/h`
+            : "dry"
+          : null,
+      ]
+        .filter(Boolean)
+        .join(" · "),
+      viz: <CloudStrip series={skySeries} />,
     },
     {
-      label: "TEMP",
-      value: rn?.seaTempC != null ? `${rn.seaTempC.toFixed(1)}°` : "—",
-      sub: null,
-      gauge: (
-        <div className="space-y-1">
-          <div className="flex items-baseline justify-between font-rc-mono text-[10px] text-rc-ink-mute">
-            <span className="uppercase tracking-[0.05em]">Water</span>
-            <span>{waterLabel(rn?.seaTempC ?? null) ?? ""}</span>
-          </div>
-          <TempGauge value={rn?.seaTempC ?? null} min={5} max={20} />
-          <div className="flex items-baseline justify-between font-rc-mono text-[10px] text-rc-ink-mute">
-            <span className="uppercase tracking-[0.05em]">
-              Air {rn?.airTempC != null ? `${rn.airTempC.toFixed(1)}°` : "—"}
-            </span>
-            <span>{airLabel(rn?.airTempC ?? null) ?? ""}</span>
-          </div>
-          <TempGauge value={rn?.airTempC ?? null} min={0} max={25} />
-        </div>
-      ),
+      label: "AIR TEMP",
+      value: rn?.airTempC != null ? `${rn.airTempC.toFixed(1)}°` : "—",
+      sub: airLabel(rn?.airTempC ?? null),
+      gauge: <TempGauge value={rn?.airTempC ?? null} min={0} max={25} />,
     },
   ];
 

@@ -146,8 +146,6 @@ export default function SpotDetailShell({
     ? (page.seasonStateBySpecies[selId] ?? null)
     : null;
   const regulation = page.regulations.find((r) => r.speciesId === selId) ?? null;
-  const pressureMb = point?.conditions?.barometric_pressure_hpa ?? null;
-  const pressureTrend = point?.conditions?.pressure_trend_3h ?? null;
 
   const fcSource = fc ?? page;
   const stripModel = useMemo(
@@ -290,6 +288,14 @@ export default function SpotDetailShell({
       Array.from(
         { length: 24 },
         (_, i) => (todayHoursGrid?.[i]?.waveM ?? null) as number | null,
+      ),
+    [todayHoursGrid],
+  );
+  const cloudToday = useMemo(
+    () =>
+      Array.from(
+        { length: 24 },
+        (_, i) => (todayHoursGrid?.[i]?.cloudPct ?? null) as number | null,
       ),
     [todayHoursGrid],
   );
@@ -539,10 +545,9 @@ export default function SpotDetailShell({
               <div className="border-t border-rc-rule pt-5">
                 <NowConditions
                   rightNow={page.rightNow}
-                  pressureMb={pressureMb}
-                  pressureTrend={pressureTrend}
                   tideSeries={tideToday}
                   seaSeries={seaToday}
+                  skySeries={cloudToday}
                   currentSigned={todayCurrent}
                   currentSample={
                     (todayIso ? curByIso[todayIso]?.[nowHour] : null) ?? null
