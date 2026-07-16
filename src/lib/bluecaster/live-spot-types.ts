@@ -326,4 +326,6 @@ export type PointConditions = {
   lng: number;
   hour_utc: string;
   conditions: PointConditionsCell | null;
+  /** Now-current at the point (SalishSeaCast bake); flow-toward bearing. */
+  current?: { speed_kn: number; dir_deg: number } | null;
 };
