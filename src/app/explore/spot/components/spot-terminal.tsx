@@ -191,7 +191,7 @@ function buildSvg(
 
   // TIDE 0-3
   { const r = Y.tide; const line = curve((t) => interp(hours.tide, t), r.y0, r.y1, 0, 3);
-    if (line) { s += `<path d="${line} L${x1.toFixed(1)},${r.y1} L${x0.toFixed(1)},${r.y1} Z" fill="url(#${id}tg)"/><path d="${line}" fill="none" stroke="${C.brand}" stroke-width="2"/>`; }
+    if (line) { s += `<path d="${line} L${x1.toFixed(1)},${r.y1} L${x0.toFixed(1)},${r.y1} Z" fill="url(#${id}tg)"/><path d="${line}" fill="none" stroke="${C.brand}" stroke-width="1.5"/>`; }
     [0, 1.5, 3].forEach((tk) => { s += `<text class="tm-tick" x="${x0 - 5}" y="${yIn(tk, r.y0, r.y1, 0, 3) + 3}" text-anchor="end">${tk}</text>`; });
     extremes(hours.tide).slice(0, 4).forEach((e) => { const px = xAt(e.i), py = yIn(e.v, r.y0, r.y1, 0, 3);
       s += `<circle cx="${px.toFixed(1)}" cy="${py.toFixed(1)}" r="2.6" fill="${C.brand}"/>`;
@@ -208,7 +208,7 @@ function buildSvg(
       i = b;
     }
     s += `<line x1="${x0}" y1="${zy.toFixed(1)}" x2="${x1}" y2="${zy.toFixed(1)}" stroke="${C.faint}" stroke-width="1"/>`;
-    const line = curve((t) => interp(current, t), r.y0, r.y1, -2, 2); if (line) s += `<path d="${line}" fill="none" stroke="${C.ink}" stroke-width="2"/>`;
+    const line = curve((t) => interp(current, t), r.y0, r.y1, -2, 2); if (line) s += `<path d="${line}" fill="none" stroke="${C.ink}" stroke-width="1.5"/>`;
     [2, 0, -2].forEach((tk) => { s += `<text class="tm-tick" x="${x0 - 5}" y="${yIn(tk, r.y0, r.y1, -2, 2) + 3}" text-anchor="end">${tk > 0 ? "+" : ""}${tk}</text>`; });
     if (!mob) extremes(current).filter((e) => Math.abs(e.v) > 0.6).slice(0, 3).forEach((e) => {
       const a = annAt(xAt(e.i + 0.5));
