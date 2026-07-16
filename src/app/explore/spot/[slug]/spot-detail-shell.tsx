@@ -17,7 +17,13 @@ import {
   fetchForecast14d,
   fetchSpotScore,
   fetchPointConditions,
+  fetchCurrentsPoint,
+  type CurrentSample,
 } from "@/lib/bluecaster-client";
+import {
+  localDayStartUtcMs,
+  signCurrentSeries,
+} from "../../lib/current-series";
 import type {
   SpotPageInitial,
   Forecast14dPayload,
@@ -140,8 +146,6 @@ export default function SpotDetailShell({
     ? (page.seasonStateBySpecies[selId] ?? null)
     : null;
   const regulation = page.regulations.find((r) => r.speciesId === selId) ?? null;
-  const pressureMb = point?.conditions?.barometric_pressure_hpa ?? null;
-  const pressureTrend = point?.conditions?.pressure_trend_3h ?? null;
 
   const fcSource = fc ?? page;
   const stripModel = useMemo(
@@ -192,6 +196,36 @@ export default function SpotDetailShell({
   const activeIndex =
     stripModel?.days.findIndex((d) => d.iso === activeIso) ?? 0;
   const dayIndex = activeIndex < 0 ? 0 : activeIndex;
+  const todayIso = stripModel?.days[0]?.iso ?? null;
+
+  // ── real tidal-current series (per local day, keyed by ISO date) ───────
+  // Hourly signed flood/ebb needs today's series for the RIGHT NOW tile and
+  // the selected day's for the terminal chart — fetch each day once.
+  const [curByIso, setCurByIso] = useState<
+    Record<string, (CurrentSample | null)[] | null>
+  >({});
+  // Ref-guarded (not state-guarded): effect re-runs land before setCurByIso
+  // commits, so a state check would re-fetch the same day.
+  const curRequested = useRef<Set<string>>(new Set());
+  useEffect(() => {
+    for (const iso of new Set([todayIso, activeIso])) {
+      if (!iso || curRequested.current.has(iso)) continue;
+      curRequested.current.add(iso);
+      const fromMs = localDayStartUtcMs(iso, TZ);
+      const from = new Date(fromMs).toISOString();
+      const to = new Date(fromMs + 23 * 3_600_000).toISOString();
+      fetchCurrentsPoint(spot.lat, spot.lng, from, to)
+        .then((d) => {
+          const byHour: (CurrentSample | null)[] = new Array(24).fill(null);
+          for (const s of d?.series ?? []) {
+            const h = Math.round((Date.parse(s.t) - fromMs) / 3_600_000);
+            if (h >= 0 && h < 24) byHour[h] = s;
+          }
+          setCurByIso((m) => ({ ...m, [iso]: byHour }));
+        })
+        .catch(() => {});
+    }
+  }, [todayIso, activeIso, spot.lat, spot.lng]);
 
   const hours24 = useMemo(() => {
     const grid = selId ? fcSource.hourlyScoreGrid[selId] : undefined;
@@ -231,6 +265,44 @@ export default function SpotDetailShell({
       air: pick("airTempC"),
     };
   }, [fcSource, dayIndex, hours24]);
+
+  // Signed flood/ebb current — the terminal chart follows the selected day,
+  // the RIGHT NOW tile is pinned to today. Null until the series arrives (the
+  // chart falls back to its tide-derived shape, the tile to point-conditions).
+  const chartCurrent = useMemo(() => {
+    const samples = activeIso ? curByIso[activeIso] : null;
+    return samples ? signCurrentSeries(samples, terminalHours.tide) : null;
+  }, [curByIso, activeIso, terminalHours.tide]);
+
+  const todayHoursGrid = (fc ?? page).hourlyConditionsGrid?.[0];
+  const tideToday = useMemo(
+    () =>
+      Array.from(
+        { length: 24 },
+        (_, i) => (todayHoursGrid?.[i]?.tideM ?? null) as number | null,
+      ),
+    [todayHoursGrid],
+  );
+  const seaToday = useMemo(
+    () =>
+      Array.from(
+        { length: 24 },
+        (_, i) => (todayHoursGrid?.[i]?.waveM ?? null) as number | null,
+      ),
+    [todayHoursGrid],
+  );
+  const cloudToday = useMemo(
+    () =>
+      Array.from(
+        { length: 24 },
+        (_, i) => (todayHoursGrid?.[i]?.cloudPct ?? null) as number | null,
+      ),
+    [todayHoursGrid],
+  );
+  const todayCurrent = useMemo(() => {
+    const samples = todayIso ? curByIso[todayIso] : null;
+    return samples ? signCurrentSeries(samples, tideToday) : null;
+  }, [curByIso, todayIso, tideToday]);
 
   // Merge the two fetched UTC days into one hour list; FactorCharts windows it
   // down to the current local day (fills the local evening that day-0 alone drops).
@@ -473,10 +545,15 @@ export default function SpotDetailShell({
               <div className="border-t border-rc-rule pt-5">
                 <NowConditions
                   rightNow={page.rightNow}
-                  pressureMb={pressureMb}
-                  pressureTrend={pressureTrend}
-                  tideSeries={terminalHours.tide}
-                  seaSeries={terminalHours.sea}
+                  tideSeries={tideToday}
+                  seaSeries={seaToday}
+                  skySeries={cloudToday}
+                  currentSigned={todayCurrent}
+                  currentSample={
+                    (todayIso ? curByIso[todayIso]?.[nowHour] : null) ?? null
+                  }
+                  pointCurrent={point?.current ?? null}
+                  nowHour={nowHour}
                 />
               </div>
 
@@ -563,6 +640,7 @@ export default function SpotDetailShell({
                 </div>
                 <SpotTerminal
                   hours={terminalHours}
+                  realCurrent={chartCurrent}
                   sun={page.sun}
                   nowHour={nowHour}
                   selectedHour={selectedHour}
