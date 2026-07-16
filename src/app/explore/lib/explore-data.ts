@@ -47,6 +47,7 @@ export interface RailConditions {
   wind: string | null; // "12 kn SW"
   sea: string | null; // "Light Chop"
   tide: string | null; // "+2.4m ▲"
+  current: string | null; // "0.4 kn" / "Slack"
 }
 
 export interface RailSpot {
@@ -167,12 +168,19 @@ function fmtTide(c: MapCondCell): string | null {
   return `${h} ·`; // slack
 }
 
+function fmtCurrent(cur: number | null): string | null {
+  if (cur === null) return null;
+  if (cur < 0.15) return "Slack";
+  return `${cur.toFixed(1)} kn`;
+}
+
 export function formatConditions(cell: MapCondCell | null): RailConditions {
-  if (!cell) return { wind: null, sea: null, tide: null };
+  if (!cell) return { wind: null, sea: null, tide: null, current: null };
   return {
     wind: fmtWind(cell),
     sea: seaState(cell.wav),
     tide: fmtTide(cell),
+    current: fmtCurrent(cell.cur),
   };
 }
 
@@ -264,7 +272,7 @@ const EMPTY_SCORING: ScoringFields = {
   bestSpeciesId: null,
   driverSpecies: null,
   peakHour: null,
-  conditions: { wind: null, sea: null, tide: null },
+  conditions: { wind: null, sea: null, tide: null, current: null },
   hours24: new Array(24).fill(null),
   scoresBySpecies: {},
 };

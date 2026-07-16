@@ -116,8 +116,7 @@ export default function SpotCard({
                 [
                   [Wind, "WIND", spot.conditions.wind],
                   [Waves, "SEA", spot.conditions.sea],
-                  // Tidal current isn't in the map-spots payload yet — placeholder.
-                  [Navigation, "CURRENT", null],
+                  [Navigation, "CURRENT", spot.conditions.current],
                 ] as const
               ).map(([Icon, label, value]) => (
                 <div key={label} className="min-w-0">
