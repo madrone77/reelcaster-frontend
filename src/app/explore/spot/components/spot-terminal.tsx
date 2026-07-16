@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import type { SunHours } from "@/lib/bluecaster/live-spot-types";
+import { niceCurrentScale } from "../../lib/current-series";
 
 /** Per-hour arrays (length 24) for the day being shown. */
 export type TerminalHours = {
@@ -93,7 +94,12 @@ function interp(arr: (number | null)[], t: number): number | null {
   );
 }
 
-/** Current (kn) from the tide rate: flood(+) on rising, ebb(−) on falling, slack at turns. */
+/**
+ * Fallback pseudo-current from the tide rate: flood(+) on rising, ebb(−) on
+ * falling, slack at turns. Timing is real; the ±1.6 kn magnitude is invented
+ * (normalized), so this only draws when the real predicted series
+ * (`realCurrent` prop) hasn't loaded or has no coverage at the spot.
+ */
 function deriveCurrent(tide: (number | null)[]): (number | null)[] {
   const n = tide.length;
   const raw = tide.map((_, i) => {
@@ -104,6 +110,21 @@ function deriveCurrent(tide: (number | null)[]): (number | null)[] {
   });
   const max = Math.max(0.001, ...raw.map((r) => (r == null ? 0 : Math.abs(r))));
   return raw.map((r) => (r == null ? null : (r / max) * 1.6));
+}
+
+/** Current-row config: signed series, full-scale (kn), and slack threshold. */
+type CurrentRow = { v: (number | null)[]; scale: number; thr: number };
+
+function currentRow(
+  realCurrent: (number | null)[] | null | undefined,
+  tide: (number | null)[],
+): CurrentRow {
+  const v = realCurrent ?? deriveCurrent(tide);
+  const scale = realCurrent ? niceCurrentScale(realCurrent) : 2;
+  // Slack band: near-zero flow relative to the day's range, clamped so weak-
+  // current spots don't read "slack all day" and strong ones aren't too strict.
+  const thr = Math.min(0.3, Math.max(0.1, 0.2 * scale));
+  return { v, scale, thr };
 }
 
 /** Local extremes (peaks/troughs) with hour + value. */
@@ -122,11 +143,12 @@ type Dims = { w: number; LABEL: number; READ: number; mobile: boolean; id: strin
 
 function buildSvg(
   hours: TerminalHours,
-  current: (number | null)[],
+  cur: CurrentRow,
   sun: SunHours,
   best: [number, number] | null,
   d: Dims,
 ): string {
+  const current = cur.v;
   const { LABEL, READ, w: W, mobile: mob, id } = d;
   const x0 = LABEL, x1 = W - READ, cw = x1 - x0, hw = cw / 24;
   const base = mob ? 0.62 : 1;
@@ -197,10 +219,10 @@ function buildSvg(
       s += `<circle cx="${px.toFixed(1)}" cy="${py.toFixed(1)}" r="2.6" fill="${C.brand}"/>`;
       if (!mob) { const a = annAt(px); s += `<text class="tm-ann" x="${a.x.toFixed(1)}" y="${py + (e.hi ? -6 : 14)}" text-anchor="${a.anchor}">${e.hi ? "H" : "L"} ${e.v.toFixed(1)}m ${hh(e.i)}</text>`; } }); }
 
-  // CURRENT ±2
-  { const r = Y.cur; const zy = yIn(0, r.y0, r.y1, -2, 2);
-    for (let i = 0; i < 24; i++) { const v = num(current[i]); if (v == null || Math.abs(v) >= 0.3) continue;
-      let a = i, b = i; while (a > 0 && Math.abs(num(current[a - 1]) ?? 9) < 0.3) a--; while (b < 23 && Math.abs(num(current[b + 1]) ?? 9) < 0.3) b++;
+  // CURRENT ±scale (adaptive to the day's real peak; ±2 for the fallback)
+  { const r = Y.cur; const sc = cur.scale, thr = cur.thr; const zy = yIn(0, r.y0, r.y1, -sc, sc);
+    for (let i = 0; i < 24; i++) { const v = num(current[i]); if (v == null || Math.abs(v) >= thr) continue;
+      let a = i, b = i; while (a > 0 && Math.abs(num(current[a - 1]) ?? 9) < thr) a--; while (b < 23 && Math.abs(num(current[b + 1]) ?? 9) < thr) b++;
       s += `<rect x="${xAt(a).toFixed(1)}" y="${r.y0}" width="${((b - a + 1) * hw).toFixed(1)}" height="${r.y1 - r.y0}" fill="${C.slack}" opacity=".065"/>`;
       const mid = (a + b) / 2, px = xAt(mid + 0.5);
       s += `<path d="M${px.toFixed(1)},${zy - 4} L${(px + 4).toFixed(1)},${zy} L${px.toFixed(1)},${zy + 4} L${(px - 4).toFixed(1)},${zy} Z" fill="${C.slack}"/>`;
@@ -208,11 +230,11 @@ function buildSvg(
       i = b;
     }
     s += `<line x1="${x0}" y1="${zy.toFixed(1)}" x2="${x1}" y2="${zy.toFixed(1)}" stroke="${C.faint}" stroke-width="1"/>`;
-    const line = curve((t) => interp(current, t), r.y0, r.y1, -2, 2); if (line) s += `<path d="${line}" fill="none" stroke="${C.ink}" stroke-width="1.5"/>`;
-    [2, 0, -2].forEach((tk) => { s += `<text class="tm-tick" x="${x0 - 5}" y="${yIn(tk, r.y0, r.y1, -2, 2) + 3}" text-anchor="end">${tk > 0 ? "+" : ""}${tk}</text>`; });
-    if (!mob) extremes(current).filter((e) => Math.abs(e.v) > 0.6).slice(0, 3).forEach((e) => {
+    const line = curve((t) => interp(current, t), r.y0, r.y1, -sc, sc); if (line) s += `<path d="${line}" fill="none" stroke="${C.ink}" stroke-width="1.5"/>`;
+    [sc, 0, -sc].forEach((tk) => { s += `<text class="tm-tick" x="${x0 - 5}" y="${yIn(tk, r.y0, r.y1, -sc, sc) + 3}" text-anchor="end">${tk > 0 ? "+" : ""}${tk}</text>`; });
+    if (!mob) extremes(current).filter((e) => Math.abs(e.v) > 0.4 * sc).slice(0, 3).forEach((e) => {
       const a = annAt(xAt(e.i + 0.5));
-      s += `<text class="tm-ann" x="${a.x.toFixed(1)}" y="${yIn(e.v, r.y0, r.y1, -2, 2) + (e.hi ? -8 : 14)}" text-anchor="${a.anchor}">${e.hi ? "FLOOD" : "EBB"} ${Math.abs(e.v).toFixed(1)}</text>`; }); }
+      s += `<text class="tm-ann" x="${a.x.toFixed(1)}" y="${yIn(e.v, r.y0, r.y1, -sc, sc) + (e.hi ? -8 : 14)}" text-anchor="${a.anchor}">${e.hi ? "FLOOD" : "EBB"} ${Math.abs(e.v).toFixed(1)}</text>`; }); }
 
   // WIND 0-24 + arrows
   { const r = Y.wind, vmax = 24;
@@ -272,9 +294,11 @@ function buildSvg(
 }
 
 export default function SpotTerminal({
-  hours, sun, nowHour, selectedHour, onSelectHour, bestWindow, speciesName,
+  hours, realCurrent, sun, nowHour, selectedHour, onSelectHour, bestWindow, speciesName,
 }: {
   hours: TerminalHours;
+  /** Signed real current (kn, +flood −ebb) for the day; null → tide-derived fallback. */
+  realCurrent?: (number | null)[] | null;
   sun: SunHours;
   nowHour: number;
   selectedHour: number;
@@ -284,7 +308,8 @@ export default function SpotTerminal({
 }) {
   const deskRef = useRef<HTMLDivElement>(null);
   const mobRef = useRef<HTMLDivElement>(null);
-  const current = deriveCurrent(hours.tide);
+  const cur = currentRow(realCurrent, hours.tide);
+  const current = cur.v;
 
   // Render the desktop terminal 1:1 (viewBox width = pixel width) so font sizes
   // are true CSS px and match the app's type scale — not scaled fractions.
@@ -305,7 +330,7 @@ export default function SpotTerminal({
   const readAt = (h: number) => {
     const hi = Math.max(0, Math.min(23, Math.round(h)));
     const t = interp(hours.tide, h) ?? 0, tR = (interp(hours.tide, h + 0.15) ?? t) >= t;
-    const cv = num(current[hi]) ?? 0, cs = Math.abs(cv) < 0.3 ? "Slack" : cv > 0 ? "Flood" : "Ebb";
+    const cv = num(current[hi]) ?? 0, cs = Math.abs(cv) < cur.thr ? "Slack" : cv > 0 ? "Flood" : "Ebb";
     const sc = num(hours.score[hi]);
     // vs-previous-hour delta — answers "what changed" without a second lookup.
     const prevSc = hi > 0 ? num(hours.score[hi - 1]) : null;
@@ -324,8 +349,8 @@ export default function SpotTerminal({
 
   // Build both SVGs when data changes.
   useEffect(() => {
-    if (deskRef.current && deskW > 400) deskRef.current.innerHTML = buildSvg(hours, current, sun, bestWindow, { w: deskW, LABEL: 132, READ: 72, mobile: false, id: "tmd" });
-    if (mobRef.current) mobRef.current.innerHTML = buildSvg(hours, current, sun, bestWindow, { w: 414, LABEL: 12, READ: 8, mobile: true, id: "tmm" });
+    if (deskRef.current && deskW > 400) deskRef.current.innerHTML = buildSvg(hours, cur, sun, bestWindow, { w: deskW, LABEL: 132, READ: 72, mobile: false, id: "tmd" });
+    if (mobRef.current) mobRef.current.innerHTML = buildSvg(hours, cur, sun, bestWindow, { w: 414, LABEL: 12, READ: 8, mobile: true, id: "tmm" });
     // Scrub only over scored hours: leading/trailing hours with no fishing score
     // (e.g. today's 00:00, which has tide but no weather forecast yet) render as
     // empty cells and must not hold the cursor — clamp the selectable range to
@@ -368,7 +393,7 @@ export default function SpotTerminal({
     wire(deskRef.current, "tmd", false);
     wire(mobRef.current, "tmm", true);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [hours, sun, bestWindow, deskW]);
+  }, [hours, realCurrent, sun, bestWindow, deskW]);
 
   // Move cursor + refresh readouts when the selected hour changes.
   useEffect(() => {
@@ -399,7 +424,7 @@ export default function SpotTerminal({
     apply(deskRef.current, "tmd", false);
     apply(mobRef.current, "tmm", true);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedHour, hours, deskW]);
+  }, [selectedHour, hours, realCurrent, deskW]);
 
   const d = readAt(selectedHour);
   const isNow = selectedHour === nowHour;
