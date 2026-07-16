@@ -441,8 +441,11 @@ export function useCurrentsFlow({
     };
   }, [map, enabled]);
 
-  // Re-fetch the field when the scrubber time changes (no rebuild).
+  // Re-fetch the field when the scrubber time changes (no rebuild). Debounced
+  // so dragging across hours coalesces into one fetch per pause, not 24.
   useEffect(() => {
-    if (enabled) fetchRef.current?.();
+    if (!enabled) return;
+    const t = setTimeout(() => fetchRef.current?.(), 180);
+    return () => clearTimeout(t);
   }, [timeIso, enabled]);
 }

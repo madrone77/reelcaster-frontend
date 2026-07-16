@@ -6,6 +6,7 @@ import type { MapRef } from "react-map-gl/maplibre";
 import type { MapSpotsPayload } from "@/lib/bluecaster";
 import {
   rescoreSpots,
+  zonedHourToUtcIso,
   type CityNode,
   type ExploreData,
   type RailSpot,
@@ -215,6 +216,14 @@ export default function ExploreShell({
 
   const hasHourly = hourlyMax.some((v) => v !== null);
   const scrubberOpen = hasHourly && hourExpanded;
+
+  // The scrubbed hour as a UTC instant for the animated currents field — the
+  // flow layer re-predicts the tidal field for this time, so scrubbing the
+  // 24h track (or picking another day) moves the animation with the pins.
+  const flowTimeIso = useMemo(
+    () => (hasHourly ? zonedHourToUtcIso(selectedIso, hour, MAP_TZ) : null),
+    [hasHourly, selectedIso, hour],
+  );
 
   // Rail spots re-scored to the scrubbed hour (score + tier reflect the hour,
   // list re-ranks). Falls back to the day peak where an hour has no value.
@@ -476,6 +485,7 @@ export default function ExploreShell({
           currents={currents}
           wind={wind}
           hour={hasHourly ? hour : null}
+          flowTimeIso={flowTimeIso}
         />
       </div>
 

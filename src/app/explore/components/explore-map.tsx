@@ -72,6 +72,7 @@ export default function ExploreMap({
   currents,
   wind,
   hour,
+  flowTimeIso,
 }: {
   mapRef: RefObject<MapRef | null>;
   spots: RailSpot[];
@@ -86,6 +87,8 @@ export default function ExploreMap({
   wind?: boolean;
   /** 0–23 hour override — pins recolor to that hour; null = day peak. */
   hour?: number | null;
+  /** UTC instant for the currents flow field; null = model "now". */
+  flowTimeIso?: string | null;
 }) {
   const [cursor, setCursor] = useState<string>("");
   const [hoveredSlug, setHoveredSlug] = useState<string | null>(null);
@@ -93,7 +96,7 @@ export default function ExploreMap({
 
   // Animated tidal-current overlay — bathy-relief WebGL flow (heatmap field +
   // white particle ribbons) as a MapLibre custom layer clipped at the coastline.
-  useCurrentsFlow({ map: mapObj, enabled: currents, timeIso: null });
+  useCurrentsFlow({ map: mapObj, enabled: currents, timeIso: flowTimeIso ?? null });
 
   // Flip layer visibility for the relief/labels toggles once the style is up.
   useEffect(() => {

@@ -11,7 +11,7 @@ import ExploreTopBar from "../../components/explore-top-bar";
 import DayCell from "../../components/day-cell";
 import { bestWindow } from "../../components/hourly-bars";
 import UpgradeDialog from "../../components/upgrade-dialog";
-import { currentLocalHour, fmtPeak } from "../../lib/explore-data";
+import { currentLocalHour, fmtPeak, zonedHourToUtcIso } from "../../lib/explore-data";
 import { buildForecastDays, type ForecastDay } from "../../lib/forecast-strip";
 import {
   fetchForecast14d,
@@ -522,6 +522,11 @@ export default function SpotDetailShell({
                 spot={spot}
                 score={nowScore ?? todayScore}
                 speciesName={selSpecies?.name ?? null}
+                timeIso={
+                  activeIso
+                    ? zonedHourToUtcIso(activeIso, selectedHour, TZ)
+                    : null
+                }
               />
 
               <ScoreCard

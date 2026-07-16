@@ -176,6 +176,40 @@ export function formatConditions(cell: MapCondCell | null): RailConditions {
   };
 }
 
+/**
+ * UTC instant for a wall-clock hour of a calendar day in a timezone —
+ * "2026-07-16 @ 14:00 America/Vancouver" → "2026-07-16T21:00:00.000Z".
+ * Feeds the currents-field `time` param so the animated flow matches the
+ * scrubbed hour. Two correction passes handle DST-transition days.
+ */
+export function zonedHourToUtcIso(dateIso: string, hour: number, tz: string): string {
+  const wallUtc = Date.parse(`${dateIso}T${String(hour).padStart(2, "0")}:00:00Z`);
+  const asWall = (ms: number): number => {
+    const p: Record<string, string> = {};
+    new Intl.DateTimeFormat("en-CA", {
+      timeZone: tz,
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit",
+      second: "2-digit",
+      hour12: false,
+    })
+      .formatToParts(new Date(ms))
+      .forEach((x) => {
+        p[x.type] = x.value;
+      });
+    const hh = p.hour === "24" ? "00" : p.hour;
+    return Date.parse(`${p.year}-${p.month}-${p.day}T${hh}:${p.minute}:${p.second}Z`);
+  };
+  // Fixed-point iteration: adjust the guess until the zone's wall clock at
+  // `utc` reads the requested hour (second pass settles DST-transition days).
+  let utc = wallUtc;
+  for (let i = 0; i < 2; i++) utc += wallUtc - asWall(utc);
+  return new Date(utc).toISOString();
+}
+
 /** Current local hour (0–23) in the payload's timezone. */
 export function currentLocalHour(tz: string): number {
   return Number(
