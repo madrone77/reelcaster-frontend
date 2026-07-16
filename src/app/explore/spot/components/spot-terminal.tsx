@@ -56,17 +56,41 @@ const hh = (t: number) => {
   return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
 };
 
-/** Cosine interpolation between adjacent hourly samples. */
+/**
+ * Monotone cubic (Fritsch–Carlson) interpolation between adjacent hourly
+ * samples. Unlike per-segment cosine easing — whose slope is forced to zero at
+ * every sample, scalloping a steadily rising/falling tide — the tangents come
+ * from neighbouring secants, so the curve is smooth through each hour and only
+ * flattens at true highs/lows. The limiter keeps it from overshooting the
+ * sampled values, so the curve never exceeds an annotated H/L.
+ */
 function interp(arr: (number | null)[], t: number): number | null {
   const n = arr.length;
   const i = Math.max(0, Math.min(n - 1, Math.floor(t)));
   const j = Math.min(n - 1, i + 1);
-  const a = arr[i], b = arr[j];
+  const a = num(arr[i]), b = num(arr[j]);
   if (a == null && b == null) return null;
   if (a == null) return b;
   if (b == null) return a;
-  const f = (1 - Math.cos((t - i) * Math.PI)) / 2;
-  return a + (b - a) * f;
+  const d = b - a;
+  // One-sided secants stand in at array ends and null gaps.
+  const prev = i > 0 ? num(arr[i - 1]) : null;
+  const next = j < n - 1 ? num(arr[j + 1]) : null;
+  const d0 = prev == null ? d : a - prev;
+  const d2 = next == null ? d : next - b;
+  let m0 = d0 * d <= 0 ? 0 : (d0 + d) / 2;
+  let m1 = d * d2 <= 0 ? 0 : (d + d2) / 2;
+  if (d === 0) {
+    m0 = 0; m1 = 0;
+  } else {
+    m0 = Math.sign(d) * Math.min(Math.abs(m0), 3 * Math.abs(d));
+    m1 = Math.sign(d) * Math.min(Math.abs(m1), 3 * Math.abs(d));
+  }
+  const f = t - i, f2 = f * f, f3 = f2 * f;
+  return (
+    (2 * f3 - 3 * f2 + 1) * a + (f3 - 2 * f2 + f) * m0 +
+    (-2 * f3 + 3 * f2) * b + (f3 - f2) * m1
+  );
 }
 
 /** Current (kn) from the tide rate: flood(+) on rising, ebb(−) on falling, slack at turns. */
@@ -167,7 +191,7 @@ function buildSvg(
 
   // TIDE 0-3
   { const r = Y.tide; const line = curve((t) => interp(hours.tide, t), r.y0, r.y1, 0, 3);
-    if (line) { s += `<path d="${line} L${x1.toFixed(1)},${r.y1} L${x0.toFixed(1)},${r.y1} Z" fill="url(#${id}tg)"/><path d="${line}" fill="none" stroke="${C.brand}" stroke-width="2"/>`; }
+    if (line) { s += `<path d="${line} L${x1.toFixed(1)},${r.y1} L${x0.toFixed(1)},${r.y1} Z" fill="url(#${id}tg)"/><path d="${line}" fill="none" stroke="${C.brand}" stroke-width="1.5"/>`; }
     [0, 1.5, 3].forEach((tk) => { s += `<text class="tm-tick" x="${x0 - 5}" y="${yIn(tk, r.y0, r.y1, 0, 3) + 3}" text-anchor="end">${tk}</text>`; });
     extremes(hours.tide).slice(0, 4).forEach((e) => { const px = xAt(e.i), py = yIn(e.v, r.y0, r.y1, 0, 3);
       s += `<circle cx="${px.toFixed(1)}" cy="${py.toFixed(1)}" r="2.6" fill="${C.brand}"/>`;
@@ -184,7 +208,7 @@ function buildSvg(
       i = b;
     }
     s += `<line x1="${x0}" y1="${zy.toFixed(1)}" x2="${x1}" y2="${zy.toFixed(1)}" stroke="${C.faint}" stroke-width="1"/>`;
-    const line = curve((t) => interp(current, t), r.y0, r.y1, -2, 2); if (line) s += `<path d="${line}" fill="none" stroke="${C.ink}" stroke-width="2"/>`;
+    const line = curve((t) => interp(current, t), r.y0, r.y1, -2, 2); if (line) s += `<path d="${line}" fill="none" stroke="${C.ink}" stroke-width="1.5"/>`;
     [2, 0, -2].forEach((tk) => { s += `<text class="tm-tick" x="${x0 - 5}" y="${yIn(tk, r.y0, r.y1, -2, 2) + 3}" text-anchor="end">${tk > 0 ? "+" : ""}${tk}</text>`; });
     if (!mob) extremes(current).filter((e) => Math.abs(e.v) > 0.6).slice(0, 3).forEach((e) => {
       const a = annAt(xAt(e.i + 0.5));
