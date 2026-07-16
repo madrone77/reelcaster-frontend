@@ -8,6 +8,7 @@ import type {
   MapSpotsPayload,
   MapSpotEntry,
   MapCondCell,
+  MapCondStrip,
 } from "@/lib/bluecaster";
 import { COVERED_PROVINCES } from "@/lib/regions";
 
@@ -71,6 +72,8 @@ export interface RailSpot {
   /** Distance from the city center, km (drawer sub line). */
   distanceKm: number | null;
   conditions: RailConditions;
+  /** Raw 24h conditions strip — lets the card re-read at the scrubbed hour. */
+  condStrip: MapCondStrip | null;
   /** Best-species hourly scores 0–100, null = unavailable that hour. */
   hours24: (number | null)[];
   /** Per-species peak score (0–100) keyed by species id — powers the filter. */
@@ -263,6 +266,7 @@ interface ScoringFields {
   driverSpecies: string | null;
   peakHour: number | null;
   conditions: RailConditions;
+  condStrip: MapCondStrip | null;
   hours24: (number | null)[];
   scoresBySpecies: Record<string, number>;
 }
@@ -273,6 +277,7 @@ const EMPTY_SCORING: ScoringFields = {
   driverSpecies: null,
   peakHour: null,
   conditions: { wind: null, sea: null, tide: null, current: null },
+  condStrip: null,
   hours24: new Array(24).fill(null),
   scoresBySpecies: {},
 };
@@ -310,6 +315,7 @@ function deriveScoring(
       : null,
     peakHour: strip?.peak_hour ?? null,
     conditions: formatConditions(cell),
+    condStrip: entry.conditions ?? null,
     hours24: strip
       ? strip.hours.map((h) => (h ? Math.round(h.s * 100) : null))
       : new Array(24).fill(null),
@@ -341,6 +347,7 @@ export function rescoreSpots(
       driverSpecies: s.driverSpecies,
       peakHour: s.peakHour,
       conditions: s.conditions,
+      condStrip: s.condStrip,
       hours24: s.hours24,
       scoresBySpecies: s.scoresBySpecies,
     };
@@ -407,6 +414,7 @@ export function buildExploreData(
                   ? Math.round(haversineKm(city.lat, city.lng, spot.lat, spot.lng))
                   : null,
               conditions: s.conditions,
+              condStrip: s.condStrip,
               hours24: s.hours24,
               scoresBySpecies: s.scoresBySpecies,
             });

@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import type { MapRef } from "react-map-gl/maplibre";
 import type { MapSpotsPayload } from "@/lib/bluecaster";
 import {
+  formatConditions,
   rescoreSpots,
   zonedHourToUtcIso,
   type CityNode,
@@ -225,14 +226,20 @@ export default function ExploreShell({
     [hasHourly, selectedIso, hour],
   );
 
-  // Rail spots re-scored to the scrubbed hour (score + tier reflect the hour,
-  // list re-ranks). Falls back to the day peak where an hour has no value.
+  // Rail spots re-scored to the scrubbed hour (score + tier + conditions
+  // reflect the hour, list re-ranks). Falls back to the day peak / the
+  // default-hour conditions where an hour has no value.
   const railDisplaySpots = useMemo(() => {
     if (!hasHourly) return railSpots;
     return railSpots
       .map((s) => {
         const hv = s.hours24[hour];
-        return hv == null ? s : { ...s, score: hv };
+        const cell = s.condStrip?.[hour];
+        const next = {
+          ...s,
+          conditions: cell ? formatConditions(cell) : s.conditions,
+        };
+        return hv == null ? next : { ...next, score: hv };
       })
       .sort((a, b) => (b.score ?? -1) - (a.score ?? -1));
   }, [railSpots, hour, hasHourly]);
