@@ -12,6 +12,8 @@ import MapFilterChips from "./map-filter-chips";
 import SortControl, { type SortKey, sortSpots } from "./sort-control";
 import SpotCard from "./spot-card";
 import SpotDrawer from "./spot-drawer";
+import StationDrawer from "./station-drawer";
+import type { StationPick } from "./explore-map";
 
 interface MapControlsProps {
   relief: boolean;
@@ -29,23 +31,31 @@ interface MapControlsProps {
   locating: boolean;
 }
 
+/**
+ * The single floating left slot (384px, 24px gutter) per the Figma spec.
+ * Holds the location selector + spot list OR the spot/station drawer —
+ * never both; the swap crossfades in place. Panels never push the map.
+ */
 export default function LeftRail({
   locations,
   selectedCity,
   spots,
   selectedSpot,
+  selectedStation,
   date,
   tz,
   bottomInset,
   onSelectCity,
   onSelectSpot,
   onCloseSpot,
+  onCloseStation,
   mapControls,
 }: {
   locations: ProvinceNode[];
   selectedCity: CityNode | null;
   spots: RailSpot[];
   selectedSpot: RailSpot | null;
+  selectedStation: StationPick | null;
   date: string;
   tz: string;
   /** px gap from the viewport bottom — keeps the rail clear of the docked strip. */
@@ -53,6 +63,7 @@ export default function LeftRail({
   onSelectCity: (city: CityNode) => void;
   onSelectSpot: (slug: string) => void;
   onCloseSpot: () => void;
+  onCloseStation: () => void;
   mapControls: MapControlsProps;
 }) {
   const [sort, setSort] = useState<SortKey>("score");
@@ -71,6 +82,13 @@ export default function LeftRail({
             tz={tz}
             onBack={onCloseSpot}
           />
+        </div>
+      ) : selectedStation ? (
+        <div
+          key={`${selectedStation.source}:${selectedStation.sid}`}
+          className="h-full animate-fade-in"
+        >
+          <StationDrawer pick={selectedStation} tz={tz} onBack={onCloseStation} />
         </div>
       ) : (
         <div className="flex flex-col h-full min-h-0 animate-fade-in">

@@ -23,8 +23,22 @@ import { useCurrentsFlow } from "../lib/use-currents-flow";
 const SOURCE_ID = "bc-spots";
 const SPOT_CIRCLE = "bc-spot-circle";
 const SPOT_LABEL = "bc-spot-label";
+// Relief-style layers (tide donuts + weather buoys). Spot circles are React
+// layers added after the style, so they render on top and win overlap clicks.
+const TIDE_STATION = "tide-station";
+const BUOY_MARKER = "buoy-marker";
 
-const INTERACTIVE = [SPOT_CIRCLE];
+const INTERACTIVE = [SPOT_CIRCLE, TIDE_STATION, BUOY_MARKER];
+
+/** A clicked tide-station donut or weather-buoy marker. */
+export interface StationPick {
+  kind: "tide" | "buoy";
+  source: "chs" | "noaa" | "ndbc";
+  sid: string;
+  name: string;
+  lat: number;
+  lng: number;
+}
 
 // Layer groups the toggles flip (relief style ids). Bathymetry = depth shading
 // + contours + their labels; labels = place names.
@@ -50,6 +64,7 @@ export default function ExploreMap({
   spots,
   selectedSlug,
   onSelect,
+  onSelectStation,
   initialCenter,
   initialZoom,
   relief,
@@ -62,6 +77,7 @@ export default function ExploreMap({
   spots: RailSpot[];
   selectedSlug: string | null;
   onSelect: (slug: string) => void;
+  onSelectStation: (pick: StationPick) => void;
   initialCenter: { lat: number; lng: number };
   initialZoom: number;
   relief: boolean;
@@ -153,10 +169,36 @@ export default function ExploreMap({
 
   const handleClick = useCallback(
     (e: MapLayerMouseEvent) => {
-      const slug = e.features?.[0]?.properties?.slug;
-      if (slug) onSelect(slug as string);
+      const f = e.features?.[0];
+      if (!f) return;
+      if (f.layer.id === SPOT_CIRCLE) {
+        const slug = f.properties?.slug;
+        if (slug) onSelect(slug as string);
+        return;
+      }
+      const [lng, lat] =
+        f.geometry.type === "Point" ? f.geometry.coordinates : [e.lngLat.lng, e.lngLat.lat];
+      if (f.layer.id === TIDE_STATION) {
+        onSelectStation({
+          kind: "tide",
+          source: f.properties?.source as "chs" | "noaa",
+          sid: String(f.properties?.sid ?? ""),
+          name: String(f.properties?.name ?? ""),
+          lat,
+          lng,
+        });
+      } else if (f.layer.id === BUOY_MARKER) {
+        onSelectStation({
+          kind: "buoy",
+          source: "ndbc",
+          sid: String(f.properties?.sid ?? ""),
+          name: String(f.properties?.name ?? ""),
+          lat,
+          lng,
+        });
+      }
     },
-    [onSelect],
+    [onSelect, onSelectStation],
   );
 
   // Hover: pointer cursor + track the hovered spot so its stroke thickens.

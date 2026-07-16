@@ -10,6 +10,15 @@
 // in this codebase). No `NEXT_PUBLIC_BLUECASTER_*` env var needed.
 
 import type {
+  StationConditions,
+  BuoyConditions,
+} from "./bluecaster/station-types";
+export type {
+  StationConditions,
+  BuoyConditions,
+  BuoyObservation,
+} from "./bluecaster/station-types";
+import type {
   Forecast14dPayload,
   SpotPageInitial,
   SpotScorePayload,
@@ -287,4 +296,28 @@ export async function fetchPoolIntelligence(
   });
   if (!res.ok) return null;
   return (await res.json()) as PoolIntelligence;
+}
+
+// ── Map station/buoy click panels ───────────────────────────────────
+
+
+/** Tide curve + next high/low for a clicked tide-station marker. */
+export async function fetchStationConditions(
+  source: "chs" | "noaa",
+  sid: string,
+): Promise<StationConditions | null> {
+  const qs = new URLSearchParams({ source, sid });
+  const res = await fetch(`/api/bluecaster/map/station-conditions?${qs}`);
+  if (!res.ok) return null;
+  return (await res.json()) as StationConditions;
+}
+
+/** Live NDBC observations for a clicked weather-buoy marker. */
+export async function fetchBuoyConditions(
+  sid: string,
+): Promise<BuoyConditions | null> {
+  const qs = new URLSearchParams({ sid });
+  const res = await fetch(`/api/bluecaster/map/buoy-conditions?${qs}`);
+  if (!res.ok) return null;
+  return (await res.json()) as BuoyConditions;
 }

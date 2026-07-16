@@ -1,0 +1,329 @@
+{
+ "type": "FeatureCollection",
+ "features": [
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -124.739,
+     47.352
+    ]
+   },
+   "properties": {
+    "sid": "46041",
+    "name": "Cape Elizabeth",
+    "desc": "45NM NW of Aberdeen, WA",
+    "operator": "NOAA",
+    "station_type": "buoy",
+    "source": "ndbc"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -124.727,
+     48.493
+    ]
+   },
+   "properties": {
+    "sid": "46087",
+    "name": "Neah Bay",
+    "desc": "6 NM North of Cape Flattery, WA (Traffic Separation Lighted Buoy)",
+    "operator": "NOAA",
+    "station_type": "buoy",
+    "source": "ndbc"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -123.179,
+     48.332
+    ]
+   },
+   "properties": {
+    "sid": "46088",
+    "name": "New Dungeness",
+    "desc": "17 NM NE of Port Angeles, WA",
+    "operator": "NOAA",
+    "station_type": "buoy",
+    "source": "ndbc"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -122.576,
+     48.724
+    ]
+   },
+   "properties": {
+    "sid": "46118",
+    "name": "Se'Lhaem Bellingham Bay",
+    "desc": null,
+    "operator": "NANOOS",
+    "station_type": "buoy",
+    "source": "ndbc"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -124.95,
+     47.967
+    ]
+   },
+   "properties": {
+    "sid": "46119",
+    "name": "Cha'Ba La Push",
+    "desc": null,
+    "operator": "NANOOS",
+    "station_type": "buoy",
+    "source": "ndbc"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -122.397,
+     47.761
+    ]
+   },
+   "properties": {
+    "sid": "46120",
+    "name": "Pt Wells, WA (U Of Wash)",
+    "desc": null,
+    "operator": "UW",
+    "station_type": "buoy",
+    "source": "ndbc"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -123.008,
+     47.375
+    ]
+   },
+   "properties": {
+    "sid": "46123",
+    "name": "Twanoh",
+    "desc": "Hood Canal, WA (U of Wash)",
+    "operator": "UW",
+    "station_type": "buoy",
+    "source": "ndbc"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -122.627,
+     47.907
+    ]
+   },
+   "properties": {
+    "sid": "46125",
+    "name": "Hansville",
+    "desc": "Hood Canal, WA",
+    "operator": "UW",
+    "station_type": "buoy",
+    "source": "ndbc"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -124.98,
+     49.91
+    ]
+   },
+   "properties": {
+    "sid": "46131",
+    "name": "Sentry Shoal",
+    "desc": null,
+    "operator": "ECCC",
+    "station_type": "buoy",
+    "source": "ndbc"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -123.73,
+     49.34
+    ]
+   },
+   "properties": {
+    "sid": "46146",
+    "name": "Halibut Bank",
+    "desc": null,
+    "operator": "ECCC",
+    "station_type": "buoy",
+    "source": "ndbc"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -126,
+     48.84
+    ]
+   },
+   "properties": {
+    "sid": "46206",
+    "name": "La Perouse Bank",
+    "desc": null,
+    "operator": "ECCC",
+    "station_type": "buoy",
+    "source": "ndbc"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -123.6,
+     48.171
+    ]
+   },
+   "properties": {
+    "sid": "46267",
+    "name": "Angeles Point, WA (248)",
+    "desc": null,
+    "operator": "Scripps",
+    "station_type": "buoy",
+    "source": "ndbc"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -123.43,
+     49.02
+    ]
+   },
+   "properties": {
+    "sid": "46303",
+    "name": "Southern Georgia Strait",
+    "desc": null,
+    "operator": "ECCC",
+    "station_type": "buoy",
+    "source": "ndbc"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -123.36,
+     49.3
+    ]
+   },
+   "properties": {
+    "sid": "46304",
+    "name": "Entrance To English Bay",
+    "desc": null,
+    "operator": "ECCC",
+    "station_type": "buoy",
+    "source": "ndbc"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -124.43,
+     47.45
+    ]
+   },
+   "properties": {
+    "sid": "46453",
+    "name": "Backyard Buoys",
+    "desc": "Quinault North",
+    "operator": "Quinault Indian",
+    "station_type": "buoy",
+    "source": "ndbc"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -124.485,
+     47.675
+    ]
+   },
+   "properties": {
+    "sid": "DESW1",
+    "name": "Destruction Island, WA",
+    "desc": null,
+    "operator": "NOAA",
+    "station_type": "cman",
+    "source": "ndbc"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -122.831,
+     48.321
+    ]
+   },
+   "properties": {
+    "sid": "SISW1",
+    "name": "Smith Island, WA",
+    "desc": null,
+    "operator": "NOAA",
+    "station_type": "cman",
+    "source": "ndbc"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -122.435,
+     47.662
+    ]
+   },
+   "properties": {
+    "sid": "WPOW1",
+    "name": "West Point, WA",
+    "desc": null,
+    "operator": "NOAA",
+    "station_type": "cman",
+    "source": "ndbc"
+   }
+  }
+ ]
+}

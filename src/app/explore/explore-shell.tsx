@@ -21,7 +21,8 @@ import type { Forecast14dPayload } from "@/lib/bluecaster/live-spot-types";
 import { useSubscription } from "@/hooks/use-subscription";
 import { useExploreState } from "./lib/use-explore-state";
 import ExploreTopBar from "./components/explore-top-bar";
-import ExploreMap from "./components/explore-map";
+import ExploreMap, { type StationPick } from "./components/explore-map";
+import StationDrawer from "./components/station-drawer";
 import LeftRail from "./components/left-rail";
 import LocationSelector from "./components/location-selector";
 import MobileSpotList from "./components/mobile-spot-list";
@@ -71,7 +72,7 @@ export default function ExploreShell({
   const mapRef = useRef<MapRef>(null);
   const router = useRouter();
   const { isPaid } = useSubscription();
-  const { citySlug, spotSlug, day, setQuery } = useExploreState();
+  const { citySlug, spotSlug, day, stn, setQuery } = useExploreState();
 
   // Mobile (<lg) map-filter sheet (species + layer toggles + near-me),
   // opened by the location header's filter button.
@@ -232,6 +233,34 @@ export default function ExploreShell({
     [displaySpots, spotSlug],
   );
 
+  // ── Station/buoy selection (?stn=<chs|noaa|ndbc>:<sid>). The URL only
+  //    carries source:sid; the click handler stashes the richer feature
+  //    (name, coords) so the drawer header paints instantly. On a deep link
+  //    the name arrives with the data fetch instead. ─────────────────────
+  const [lastPick, setLastPick] = useState<StationPick | null>(null);
+
+  const selectedStation = useMemo<StationPick | null>(() => {
+    if (!stn) return null;
+    const idx = stn.indexOf(":");
+    if (idx < 1) return null;
+    const source = stn.slice(0, idx);
+    const sid = stn.slice(idx + 1);
+    if ((source !== "chs" && source !== "noaa" && source !== "ndbc") || !sid) {
+      return null;
+    }
+    if (lastPick && lastPick.source === source && lastPick.sid === sid) {
+      return lastPick;
+    }
+    return {
+      kind: source === "ndbc" ? "buoy" : "tide",
+      source,
+      sid,
+      name: "",
+      lat: 0,
+      lng: 0,
+    };
+  }, [stn, lastPick]);
+
   // ── Forecast strip: 14-day grid for the anchor spot (the selected spot,
   //    or the top-scoring spot in view). Cached per slug. ─────────────────
   const anchorSpot = useMemo(
@@ -325,7 +354,7 @@ export default function ExploreShell({
         router.push(`/explore/spot/${slug}`);
         return;
       }
-      setQuery({ spot: slug });
+      setQuery({ spot: slug, stn: null });
       const spot = displaySpots.find((s) => s.slug === slug);
       if (spot) {
         mapRef.current?.flyTo({
@@ -340,6 +369,23 @@ export default function ExploreShell({
 
   const handleCloseSpot = useCallback(() => {
     setQuery({ spot: null });
+  }, [setQuery]);
+
+  const handleSelectStation = useCallback(
+    (pick: StationPick) => {
+      setLastPick(pick);
+      setQuery({ stn: `${pick.source}:${pick.sid}`, spot: null });
+      mapRef.current?.flyTo({
+        center: [pick.lng, pick.lat],
+        zoom: Math.max(mapRef.current.getZoom() ?? 9, 10),
+        duration: 700,
+      });
+    },
+    [setQuery],
+  );
+
+  const handleCloseStation = useCallback(() => {
+    setQuery({ stn: null });
   }, [setQuery]);
 
   // ── "Near me": geolocate → jump to the nearest covered city (client-side
@@ -422,6 +468,7 @@ export default function ExploreShell({
           spots={railSpots}
           selectedSlug={selectedSpot?.slug ?? null}
           onSelect={handleSelectSpot}
+          onSelectStation={handleSelectStation}
           initialCenter={initialCenter}
           initialZoom={initialZoom}
           relief={relief}
@@ -441,12 +488,14 @@ export default function ExploreShell({
         selectedCity={selectedCity}
         spots={railDisplaySpots}
         selectedSpot={selectedSpot}
+        selectedStation={selectedStation}
         date={selectedIso}
         tz={MAP_TZ}
         bottomInset={stripHidden ? 64 : scrubberOpen ? 208 : 152}
         onSelectCity={handleSelectCity}
         onSelectSpot={handleSelectSpot}
         onCloseSpot={handleCloseSpot}
+        onCloseStation={handleCloseStation}
         mapControls={{
           relief,
           labels,
@@ -463,6 +512,18 @@ export default function ExploreShell({
           locating,
         }}
       />
+
+      {/* Mobile-only station/buoy sheet — the rail (and its drawer slot) is
+          desktop-only, so stations get a bottom sheet on small screens. */}
+      {selectedStation && (
+        <div className="lg:hidden fixed inset-x-0 bottom-0 z-40 h-[60dvh] bg-rc-panel border-t border-rc-rule rounded-t-xl shadow-rc-panel overflow-hidden">
+          <StationDrawer
+            pick={selectedStation}
+            tz={MAP_TZ}
+            onBack={handleCloseStation}
+          />
+        </div>
+      )}
 
       <ForecastStrip
         model={stripModel}
