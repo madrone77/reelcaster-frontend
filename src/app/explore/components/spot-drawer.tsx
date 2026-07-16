@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import Link from "next/link";
 import dynamic from "next/dynamic";
 import {
@@ -8,9 +8,9 @@ import {
   Wind,
   Waves,
   ArrowUpDown,
-  Gauge,
-  Droplet,
-  Moon,
+  Navigation,
+  Cloud,
+  Thermometer,
   type LucideIcon,
 } from "lucide-react";
 import { useFavorite, favoriteCount } from "../lib/use-favorite";
@@ -24,7 +24,6 @@ import {
   type RailSpot,
 } from "../lib/explore-data";
 import HourlyBars from "./hourly-bars";
-import { useSpotIntel } from "../lib/use-spot-intel";
 
 const UpgradeRequiredModal = dynamic(
   () => import("@/app/components/paywall/upgrade-required-modal"),
@@ -34,7 +33,7 @@ const UpgradeRequiredModal = dynamic(
 /** Free tier may favorite this many spots before hitting the upgrade cap. */
 const FREE_FAV_CAP = 1;
 
-function headerStamp(date: string, tz: string): string {
+function headerStamp(date: string, tz: string, hour: number | null): string {
   const parts: string[] = ["SELECTED"];
   if (date) {
     const d = new Date(`${date}T12:00:00`);
@@ -49,26 +48,28 @@ function headerStamp(date: string, tz: string): string {
         .toUpperCase(),
     );
   }
-  parts.push(`${String(currentLocalHour(tz)).padStart(2, "0")}:00`);
+  parts.push(`${String(hour ?? currentLocalHour(tz)).padStart(2, "0")}:00`);
   return parts.join(" · ");
 }
 
 /**
  * Spot drawer per the Figma — fills the same rail slot as the list. Renders
- * instantly from the in-memory RailSpot, then fills the WATER cell from
- * BlueCaster's live spot-page. Kept intentionally lean: identity + score +
- * the six-cell conditions grid + the 24h best-window chart. (PRESSURE / MOON
- * stay placeholders — not in the payload.)
+ * entirely from the in-memory RailSpot: identity + score + the six-cell
+ * conditions grid (tide, current, wind, sea state, sky, air temp — all from
+ * the map-spots strip at the scrubbed hour) + the 24h best-window chart.
  */
 export default function SpotDrawer({
   spot,
   date,
   tz,
+  hour = null,
   onBack,
 }: {
   spot: RailSpot;
   date: string;
   tz: string;
+  /** Scrubbed hour (0–23) the conditions reflect; null = current hour. */
+  hour?: number | null;
   onBack: () => void;
 }) {
   const tier = tierFor(spot.score);
@@ -91,33 +92,20 @@ export default function SpotDrawer({
     toggleFav();
   };
 
-  // Live spot-page (slug only) — used to fill the WATER temp cell.
-  const { page } = useSpotIntel({
-    slug: spot.slug,
-    spotId: null,
-    speciesId: null,
-    evidenceEnabled: false,
-  });
-
-  // WATER temp from the live spot-page's current-hour cell (fills one gap).
-  const waterTemp = useMemo(() => {
-    const cell = page?.hourlyConditionsGrid?.[0]?.[currentLocalHour(tz)];
-    const t = cell?.seaTempC;
-    return t != null ? `${t.toFixed(1)}°C` : null;
-  }, [page, tz]);
-
+  // All six cells read the map-spots conditions strip at the scrubbed hour —
+  // same source (and same hour) as the rail card's KPI columns.
   const conditionCells: Array<{
     label: string;
     value: string;
     sub: string | null;
     icon: LucideIcon;
   }> = [
-    { label: "WIND", value: spot.conditions.wind ?? "—", sub: null, icon: Wind },
     { label: "TIDE", value: spot.conditions.tide ?? "—", sub: null, icon: ArrowUpDown },
-    { label: "SEA", value: spot.conditions.sea ?? "—", sub: null, icon: Waves },
-    { label: "PRESSURE", value: "—", sub: "coming soon", icon: Gauge },
-    { label: "WATER", value: waterTemp ?? "—", sub: waterTemp ? null : "coming soon", icon: Droplet },
-    { label: "MOON", value: "—", sub: "coming soon", icon: Moon },
+    { label: "CURRENT", value: spot.conditions.current ?? "—", sub: null, icon: Navigation },
+    { label: "WIND", value: spot.conditions.wind ?? "—", sub: null, icon: Wind },
+    { label: "SEA STATE", value: spot.conditions.sea ?? "—", sub: null, icon: Waves },
+    { label: "SKY", value: spot.conditions.sky ?? "—", sub: null, icon: Cloud },
+    { label: "AIR TEMP", value: spot.conditions.air ?? "—", sub: null, icon: Thermometer },
   ];
 
   return (
@@ -132,7 +120,7 @@ export default function SpotDrawer({
         >
           <ChevronLeft className="w-4 h-4" />
         </button>
-        <span className="rc-label text-[9px]">{headerStamp(date, tz)}</span>
+        <span className="rc-label text-[9px]">{headerStamp(date, tz, hour)}</span>
       </div>
 
       <div className="flex-1 overflow-y-auto px-4 pb-4">

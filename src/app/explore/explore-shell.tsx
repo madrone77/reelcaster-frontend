@@ -5,7 +5,9 @@ import { useRouter } from "next/navigation";
 import type { MapRef } from "react-map-gl/maplibre";
 import type { MapSpotsPayload } from "@/lib/bluecaster";
 import {
+  formatConditions,
   rescoreSpots,
+  zonedHourToUtcIso,
   type CityNode,
   type ExploreData,
   type RailSpot,
@@ -216,21 +218,40 @@ export default function ExploreShell({
   const hasHourly = hourlyMax.some((v) => v !== null);
   const scrubberOpen = hasHourly && hourExpanded;
 
-  // Rail spots re-scored to the scrubbed hour (score + tier reflect the hour,
-  // list re-ranks). Falls back to the day peak where an hour has no value.
+  // The scrubbed hour as a UTC instant for the animated currents field — the
+  // flow layer re-predicts the tidal field for this time, so scrubbing the
+  // 24h track (or picking another day) moves the animation with the pins.
+  const flowTimeIso = useMemo(
+    () => (hasHourly ? zonedHourToUtcIso(selectedIso, hour, MAP_TZ) : null),
+    [hasHourly, selectedIso, hour],
+  );
+
+  // Rail spots re-scored to the scrubbed hour (score + tier + conditions
+  // reflect the hour, list re-ranks). Falls back to the day peak / the
+  // default-hour conditions where an hour has no value.
   const railDisplaySpots = useMemo(() => {
     if (!hasHourly) return railSpots;
     return railSpots
       .map((s) => {
         const hv = s.hours24[hour];
-        return hv == null ? s : { ...s, score: hv };
+        const cell = s.condStrip?.[hour];
+        const next = {
+          ...s,
+          conditions: cell ? formatConditions(cell) : s.conditions,
+        };
+        return hv == null ? next : { ...next, score: hv };
       })
       .sort((a, b) => (b.score ?? -1) - (a.score ?? -1));
   }, [railSpots, hour, hasHourly]);
 
+  // Prefer the hour-tracked rail instance so the drawer's conditions follow
+  // the scrubber; fall back to the full set for spots outside the rail scope.
   const selectedSpot = useMemo(
-    () => displaySpots.find((s) => s.slug === spotSlug) ?? null,
-    [displaySpots, spotSlug],
+    () =>
+      railDisplaySpots.find((s) => s.slug === spotSlug) ??
+      displaySpots.find((s) => s.slug === spotSlug) ??
+      null,
+    [railDisplaySpots, displaySpots, spotSlug],
   );
 
   // ── Station/buoy selection (?stn=<chs|noaa|ndbc>:<sid>). The URL only
@@ -476,6 +497,7 @@ export default function ExploreShell({
           currents={currents}
           wind={wind}
           hour={hasHourly ? hour : null}
+          flowTimeIso={flowTimeIso}
         />
       </div>
 
@@ -491,6 +513,7 @@ export default function ExploreShell({
         selectedStation={selectedStation}
         date={selectedIso}
         tz={MAP_TZ}
+        hour={hasHourly ? hour : null}
         bottomInset={stripHidden ? 64 : scrubberOpen ? 208 : 152}
         onSelectCity={handleSelectCity}
         onSelectSpot={handleSelectSpot}

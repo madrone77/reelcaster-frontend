@@ -49,17 +49,20 @@ export default function SpotMiniMap({
   spot,
   score,
   speciesName,
+  timeIso,
 }: {
   spot: LiveSpot;
   score: number | null;
   speciesName: string | null;
+  /** UTC instant for the Currents tab's flow field; null = model "now". */
+  timeIso?: string | null;
 }) {
   const mapRef = useRef<MapRef | null>(null);
   const [mapObj, setMapObj] = useState<MlMap | null>(null);
   const [layer, setLayer] = useState<Layer>("bathy");
   const [expanded, setExpanded] = useState(false);
 
-  useCurrentsFlow({ map: mapObj, enabled: layer === "currents", timeIso: null });
+  useCurrentsFlow({ map: mapObj, enabled: layer === "currents", timeIso: timeIso ?? null });
 
   // Resize the map when it toggles to/from fullscreen so it fills the container.
   useEffect(() => {

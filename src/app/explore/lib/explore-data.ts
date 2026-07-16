@@ -8,6 +8,7 @@ import type {
   MapSpotsPayload,
   MapSpotEntry,
   MapCondCell,
+  MapCondStrip,
 } from "@/lib/bluecaster";
 import { COVERED_PROVINCES } from "@/lib/regions";
 
@@ -47,6 +48,9 @@ export interface RailConditions {
   wind: string | null; // "12 kn SW"
   sea: string | null; // "Light Chop"
   tide: string | null; // "+2.4m ▲"
+  current: string | null; // "0.4 kn" / "Slack"
+  sky: string | null; // "Clear" / "Cloudy" / "Rain"
+  air: string | null; // "18°C"
 }
 
 export interface RailSpot {
@@ -70,6 +74,8 @@ export interface RailSpot {
   /** Distance from the city center, km (drawer sub line). */
   distanceKm: number | null;
   conditions: RailConditions;
+  /** Raw 24h conditions strip — lets the card re-read at the scrubbed hour. */
+  condStrip: MapCondStrip | null;
   /** Best-species hourly scores 0–100, null = unavailable that hour. */
   hours24: (number | null)[];
   /** Per-species peak score (0–100) keyed by species id — powers the filter. */
@@ -167,13 +173,69 @@ function fmtTide(c: MapCondCell): string | null {
   return `${h} ·`; // slack
 }
 
+function fmtCurrent(cur: number | null): string | null {
+  if (cur === null) return null;
+  if (cur < 0.15) return "Slack";
+  return `${cur.toFixed(1)} kn`;
+}
+
+function skyWord(cld: number | null, pcp: number | null): string | null {
+  if (pcp !== null && pcp >= 0.2) return "Rain";
+  if (cld === null) return null;
+  if (cld < 25) return "Clear";
+  if (cld < 70) return "Cloudy";
+  return "Overcast";
+}
+
+function fmtAir(air: number | null): string | null {
+  return air === null ? null : `${Math.round(air)}°C`;
+}
+
 export function formatConditions(cell: MapCondCell | null): RailConditions {
-  if (!cell) return { wind: null, sea: null, tide: null };
+  if (!cell)
+    return { wind: null, sea: null, tide: null, current: null, sky: null, air: null };
   return {
     wind: fmtWind(cell),
     sea: seaState(cell.wav),
     tide: fmtTide(cell),
+    current: fmtCurrent(cell.cur),
+    sky: skyWord(cell.cld, cell.pcp),
+    air: fmtAir(cell.air),
   };
+}
+
+/**
+ * UTC instant for a wall-clock hour of a calendar day in a timezone —
+ * "2026-07-16 @ 14:00 America/Vancouver" → "2026-07-16T21:00:00.000Z".
+ * Feeds the currents-field `time` param so the animated flow matches the
+ * scrubbed hour. Two correction passes handle DST-transition days.
+ */
+export function zonedHourToUtcIso(dateIso: string, hour: number, tz: string): string {
+  const wallUtc = Date.parse(`${dateIso}T${String(hour).padStart(2, "0")}:00:00Z`);
+  const asWall = (ms: number): number => {
+    const p: Record<string, string> = {};
+    new Intl.DateTimeFormat("en-CA", {
+      timeZone: tz,
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit",
+      second: "2-digit",
+      hour12: false,
+    })
+      .formatToParts(new Date(ms))
+      .forEach((x) => {
+        p[x.type] = x.value;
+      });
+    const hh = p.hour === "24" ? "00" : p.hour;
+    return Date.parse(`${p.year}-${p.month}-${p.day}T${hh}:${p.minute}:${p.second}Z`);
+  };
+  // Fixed-point iteration: adjust the guess until the zone's wall clock at
+  // `utc` reads the requested hour (second pass settles DST-transition days).
+  let utc = wallUtc;
+  for (let i = 0; i < 2; i++) utc += wallUtc - asWall(utc);
+  return new Date(utc).toISOString();
 }
 
 /** Current local hour (0–23) in the payload's timezone. */
@@ -221,6 +283,7 @@ interface ScoringFields {
   driverSpecies: string | null;
   peakHour: number | null;
   conditions: RailConditions;
+  condStrip: MapCondStrip | null;
   hours24: (number | null)[];
   scoresBySpecies: Record<string, number>;
 }
@@ -230,7 +293,8 @@ const EMPTY_SCORING: ScoringFields = {
   bestSpeciesId: null,
   driverSpecies: null,
   peakHour: null,
-  conditions: { wind: null, sea: null, tide: null },
+  conditions: { wind: null, sea: null, tide: null, current: null, sky: null, air: null },
+  condStrip: null,
   hours24: new Array(24).fill(null),
   scoresBySpecies: {},
 };
@@ -268,6 +332,7 @@ function deriveScoring(
       : null,
     peakHour: strip?.peak_hour ?? null,
     conditions: formatConditions(cell),
+    condStrip: entry.conditions ?? null,
     hours24: strip
       ? strip.hours.map((h) => (h ? Math.round(h.s * 100) : null))
       : new Array(24).fill(null),
@@ -299,6 +364,7 @@ export function rescoreSpots(
       driverSpecies: s.driverSpecies,
       peakHour: s.peakHour,
       conditions: s.conditions,
+      condStrip: s.condStrip,
       hours24: s.hours24,
       scoresBySpecies: s.scoresBySpecies,
     };
@@ -365,6 +431,7 @@ export function buildExploreData(
                   ? Math.round(haversineKm(city.lat, city.lng, spot.lat, spot.lng))
                   : null,
               conditions: s.conditions,
+              condStrip: s.condStrip,
               hours24: s.hours24,
               scoresBySpecies: s.scoresBySpecies,
             });

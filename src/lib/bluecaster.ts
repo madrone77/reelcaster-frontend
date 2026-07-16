@@ -250,6 +250,10 @@ export interface MapCondCell {
   wav: number | null; // sea/wave height (m)
   tide: number | null; // tide height (m)
   tph: string | null; // tide phase (e.g. "flood_late", "slack_high")
+  cur: number | null; // tidal current speed (kn)
+  cld: number | null; // cloud cover (%)
+  pcp: number | null; // precipitation (mm)
+  air: number | null; // air temperature (°C)
 }
 
 export type MapCondStrip = (MapCondCell | null)[]; // length 24
