@@ -450,7 +450,7 @@ export default function CatchDetailShell({ catchId }: { catchId: string }) {
   return (
     <div className="min-h-dvh bg-rc-page">
       <ExploreTopBar />
-      <main className="pt-14">
+      <main className="pt-16">
         <div className="max-w-3xl mx-auto px-4 sm:px-6 py-8">
           <Link
             href="/catches"

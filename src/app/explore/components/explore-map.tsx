@@ -45,8 +45,12 @@ export interface StationPick {
 const RELIEF_LAYERS = ["color-relief", "contour-line", "contour-labels"];
 const LABEL_LAYERS = ["places-t0", "places-t1", "places-t2", "places-t3", "places-t4"];
 
-// MapLibre's expression unions don't infer from array literals — this keeps
-// the layer defs readable while staying typed.
+// OpenWeatherMap wind raster overlay (same tiles as the spot detail map).
+const OWM_KEY = process.env.NEXT_PUBLIC_OPENWEATHERMAP_API_KEY;
+const WIND_LAYER = "explore-wind";
+
+// MapLibre's expression/filter unions don't infer from array literals — these
+// keep the layer defs readable while staying typed.
 const expr = (e: unknown) => e as ExpressionSpecification;
 
 /**
@@ -66,6 +70,8 @@ export default function ExploreMap({
   relief,
   labels,
   currents,
+  wind,
+  hour,
 }: {
   mapRef: RefObject<MapRef | null>;
   spots: RailSpot[];
@@ -77,6 +83,9 @@ export default function ExploreMap({
   relief: boolean;
   labels: boolean;
   currents: boolean;
+  wind?: boolean;
+  /** 0–23 hour override — pins recolor to that hour; null = day peak. */
+  hour?: number | null;
 }) {
   const [cursor, setCursor] = useState<string>("");
   const [hoveredSlug, setHoveredSlug] = useState<string | null>(null);
@@ -112,7 +121,10 @@ export default function ExploreMap({
     [],
   );
 
-  const data = useMemo(() => spotsToFeatureCollection(spots), [spots]);
+  const data = useMemo(
+    () => spotsToFeatureCollection(spots, hour),
+    [spots, hour],
+  );
 
   // Selection + hover drive the stroke (cobalt when selected, heavier when
   // hovered) — never the radius, matching BlueCaster. Re-evaluated whenever
@@ -222,7 +234,25 @@ export default function ExploreMap({
         onMouseLeave={handleMouseLeave}
         style={{ width: "100%", height: "100%" }}
       >
-        <NavigationControl position="bottom-right" showCompass={false} />
+        <NavigationControl position="top-right" showCompass={false} />
+
+        {OWM_KEY && (
+          <Source
+            id={WIND_LAYER}
+            type="raster"
+            tiles={[
+              `https://tile.openweathermap.org/map/wind_new/{z}/{x}/{y}.png?appid=${OWM_KEY}`,
+            ]}
+            tileSize={256}
+          >
+            <Layer
+              id={WIND_LAYER}
+              type="raster"
+              paint={{ "raster-opacity": 0.6 }}
+              layout={{ visibility: wind ? "visible" : "none" }}
+            />
+          </Source>
+        )}
 
         <Source id={SOURCE_ID} type="geojson" data={data}>
           <Layer {...spotCircleLayer} />

@@ -4,7 +4,7 @@ const LEGAL_LINKS: Array<{ href: string; label: string }> = [
   { href: '/privacy', label: 'Privacy' },
   { href: '/terms', label: 'Terms' },
   { href: '/contact', label: 'Contact' },
-  { href: '/about', label: 'About' },
+  { href: '/', label: 'About' },
   { href: '/faq', label: 'FAQ' },
   { href: '/login', label: 'Sign In' },
 ];
@@ -12,23 +12,59 @@ const LEGAL_LINKS: Array<{ href: string; label: string }> = [
 export default function MarketingFooter() {
   const year = new Date().getFullYear();
   return (
-    <footer data-testid="marketing-footer" className="bg-rc-ink">
-      <div className="max-w-6xl mx-auto flex flex-col gap-4 px-6 py-10 md:flex-row md:items-center md:justify-between">
-        <ul
-          data-testid="marketing-footer-legal"
-          className="flex flex-wrap gap-x-5 gap-y-2 text-xs text-white/50"
-        >
-          {LEGAL_LINKS.map((l) => (
-            <li key={l.href}>
-              <Link href={l.href} className="transition-colors hover:text-white">
-                {l.label}
-              </Link>
-            </li>
-          ))}
-        </ul>
-        <p className="text-sm text-white/50 md:text-right">
-          © {year} Reelcaster · Made for the BC coast
-        </p>
+    <footer data-testid="marketing-footer" className="border-t border-rc-rule bg-rc-surface">
+      {/* Only routes that still exist: /fishing, /species and /regulations
+          were removed, and unlisted paths rewrite to /coming-soon instead of
+          404ing — so a stale link here reads as a real page until clicked. */}
+      <div className="max-w-6xl mx-auto px-6 py-12 grid grid-cols-2 md:grid-cols-4 gap-8 text-sm">
+        <div>
+          <h4 className="rc-label text-[10px] mb-3">Product</h4>
+          <ul className="space-y-2 text-rc-ink-soft">
+            <li><Link href="/explore" className="hover:text-rc-ink">Explore the map</Link></li>
+            <li><Link href="/catches" className="hover:text-rc-ink">Catch log</Link></li>
+            <li><Link href="/pricing" className="hover:text-rc-ink">Pro pricing</Link></li>
+          </ul>
+        </div>
+
+        <div>
+          <h4 className="rc-label text-[10px] mb-3">Company</h4>
+          <ul className="space-y-2 text-rc-ink-soft">
+            <li><Link href="/" className="hover:text-rc-ink">About</Link></li>
+            <li><Link href="/faq" className="hover:text-rc-ink">FAQ</Link></li>
+            <li><Link href="/contact" className="hover:text-rc-ink">Contact</Link></li>
+          </ul>
+        </div>
+
+        <div>
+          <h4 className="rc-label text-[10px] mb-3">Account</h4>
+          <ul className="space-y-2 text-rc-ink-soft">
+            <li><Link href="/signup" className="hover:text-rc-ink">Start free</Link></li>
+            <li><Link href="/login" className="hover:text-rc-ink">Sign in</Link></li>
+          </ul>
+        </div>
+
+        <div>
+          <h4 className="font-bold text-rc-ink mb-3">ReelCaster</h4>
+          <p className="text-rc-ink-mute text-xs leading-relaxed">
+            Fishing intelligence for British Columbia and the Pacific
+            Northwest. Forecasts are reference only — always verify
+            regulations with DFO.
+          </p>
+        </div>
+      </div>
+      <div className="border-t border-rc-rule">
+        <div className="max-w-6xl mx-auto px-6 py-5 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+          <ul data-testid="marketing-footer-legal" className="flex flex-wrap gap-x-5 gap-y-2 text-xs text-rc-ink-mute">
+            {LEGAL_LINKS.map((l) => (
+              <li key={l.href}>
+                <Link href={l.href} className="hover:text-rc-ink transition-colors">
+                  {l.label}
+                </Link>
+              </li>
+            ))}
+          </ul>
+          <p className="text-xs text-rc-ink-mute">© {year} ReelCaster · BC fishing forecasts</p>
+        </div>
       </div>
     </footer>
   );

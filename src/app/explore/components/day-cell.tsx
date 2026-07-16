@@ -1,13 +1,38 @@
 "use client";
 
 import { Lock } from "lucide-react";
-import { TIER_TEXT } from "../lib/explore-data";
+import type { Tier } from "../lib/explore-data";
 import type { ForecastDay } from "../lib/forecast-strip";
 
 /**
- * One forecast-strip day cell per the Figma: DOW · date · tier-colored
- * score · peak-time chip. Selected = brand fill; best day gets a "BEST"
- * badge; locked days (11–14, free tier) show a lock + "BOAT PRO".
+ * Score-numeral colors for the big cell number. Uses tier tokens that clear
+ * the large-text contrast floor on a white cell — fair drops to its -ink
+ * variant (#D78711 fails 3:1 at 28px; #92400E passes).
+ */
+const TIER_NUMERAL: Record<Tier, string> = {
+  good: "text-rc-good",
+  fair: "text-rc-fair-ink",
+  poor: "text-rc-poor",
+  none: "text-rc-ink-mute",
+};
+
+/**
+ * Peak-time chip tinted to the day's own tier, so the chip color stays
+ * coherent with the score above it (a green chip under a red score would
+ * contradict state).
+ */
+const TIER_CHIP: Record<Tier, string> = {
+  good: "bg-rc-good-soft text-rc-good-ink",
+  fair: "bg-rc-fair-bg text-rc-fair-ink",
+  poor: "bg-rc-poor-bg text-rc-poor-ink",
+  none: "bg-rc-surface text-rc-ink-soft",
+};
+
+/**
+ * One forecast-strip day cell per the reference: DOW · date (two lines) ·
+ * large tier-colored score · tier-tinted peak-time chip. Selected = brand
+ * fill; best day gets a gold "BEST" badge tab on the top edge; locked days
+ * (beyond the free tier) show a lock + "Boat Pro".
  */
 export default function DayCell({
   day,
@@ -23,14 +48,14 @@ export default function DayCell({
       <button
         type="button"
         onClick={onSelect}
-        className="flex-1 min-w-0 rounded-lg border border-rc-rule bg-rc-surface opacity-60 flex flex-col items-center justify-center gap-1 py-2"
+        className="flex-1 min-w-0 h-full rounded border border-rc-rule bg-rc-surface flex flex-col items-center justify-center gap-1 py-2 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-rc-brand"
       >
-        <div className="rc-label text-[9px] leading-none">{day.dow}</div>
-        <div className="font-rc-mono text-[10px] text-rc-ink-soft">
-          {day.date}
+        <div className="rc-label text-[9px] leading-none text-center">{day.dow}</div>
+        <div className="font-rc-mono text-[10px] text-rc-ink-soft">{day.date}</div>
+        <Lock className="w-5 h-5 text-rc-ink-soft my-0.5" />
+        <div className="font-rc-mono text-[9px] text-rc-ink-soft">
+          Boat Pro
         </div>
-        <Lock className="w-3.5 h-3.5 text-rc-ink-mute mt-1" />
-        <div className="rc-label text-[8px] leading-none">BOAT PRO</div>
       </button>
     );
   }
@@ -39,45 +64,50 @@ export default function DayCell({
     <button
       type="button"
       onClick={onSelect}
-      className={`relative flex-1 min-w-0 rounded-lg border flex flex-col items-center gap-1 py-2 transition-colors ${
+      className={`relative flex-1 min-w-0 h-full rounded border flex flex-col items-center justify-between py-2 transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-rc-brand ${
         selected
           ? "border-rc-brand bg-rc-brand text-white"
-          : "border-rc-rule bg-rc-panel hover:border-rc-ink-mute"
+          : "border-rc-rule bg-rc-panel hover:border-rc-brand hover:bg-rc-brand-soft/40"
       }`}
     >
       {day.isBest && (
-        <span className="absolute -top-2 left-1/2 -translate-x-1/2 px-1.5 py-0.5 rounded text-[8px] font-bold font-rc-mono tracking-wide bg-rc-badge text-rc-ink leading-none">
+        <span className="absolute -top-1.5 left-1/2 -translate-x-1/2 px-1.5 py-0.5 rounded font-rc-mono text-[8px] font-bold tracking-wide bg-rc-badge text-rc-ink leading-none">
           BEST
         </span>
       )}
-      <div
-        className={`rc-label text-[9px] leading-none ${selected ? "text-white/70" : ""}`}
-      >
-        {day.dow}
+
+      <div className="flex flex-col items-center gap-0.5">
+        <div
+          className={`rc-label text-[9px] leading-none ${selected ? "text-white/70" : ""}`}
+        >
+          {day.dow}
+        </div>
+        <div
+          className={`font-rc-mono text-[10px] ${selected ? "text-white/85" : "text-rc-ink-soft"}`}
+        >
+          {day.date}
+        </div>
       </div>
+
       <div
-        className={`font-rc-mono text-[10px] ${selected ? "text-white/85" : "text-rc-ink-soft"}`}
-      >
-        {day.date}
-      </div>
-      <div
-        className={`text-2xl font-bold leading-none tracking-[-0.04em] ${
-          selected ? "text-white" : TIER_TEXT[day.tier]
+        className={`text-[28px] font-bold leading-none tracking-[-0.04em] ${
+          selected ? "text-white" : TIER_NUMERAL[day.tier]
         }`}
       >
         {day.score ?? "—"}
       </div>
-      {day.peakLabel && (
-        <div
-          className={`font-rc-mono text-[9px] mt-0.5 px-1.5 py-0.5 rounded ${
-            selected
-              ? "bg-white/18 text-white"
-              : "bg-rc-good-soft text-rc-good-ink"
-          }`}
-        >
-          {day.peakLabel}
-        </div>
-      )}
+
+      <div
+        className={`h-[18px] flex items-center font-rc-mono text-[9px] px-1.5 rounded ${
+          !day.peakLabel
+            ? "opacity-0"
+            : selected
+              ? "bg-white/20 text-white"
+              : TIER_CHIP[day.tier]
+        }`}
+      >
+        {day.peakLabel ?? "—"}
+      </div>
     </button>
   );
 }

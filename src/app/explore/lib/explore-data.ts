@@ -80,7 +80,17 @@ export interface RailSpot {
 export interface SpeciesOption {
   id: string;
   name: string;
+  /** Best score (0–100) across all visible spots for this species, null = unscored. */
+  bestScore: number | null;
 }
+
+/** Tier text colors safe for use on white/rc-panel backgrounds (ink variants, all pass 4.5:1). */
+export const TIER_SCORE_TEXT: Record<Tier, string> = {
+  good: "text-rc-good-ink",
+  fair: "text-rc-fair-ink",
+  poor: "text-rc-poor-ink",
+  none: "text-rc-ink-mute",
+};
 
 // ── Location selector tree ──────────────────────────────────────────
 
@@ -192,6 +202,15 @@ function haversineKm(
   return 6371 * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 }
 
+// ── Display name overrides (UI label → cleaner than the API name) ───
+const SPECIES_DISPLAY: Record<string, string> = {
+  "Shrimp including prawn": "Shrimp & Prawns",
+};
+
+export function speciesDisplayName(name: string): string {
+  return SPECIES_DISPLAY[name] ?? name;
+}
+
 // ── Scoring derivation (shared by build + day re-scoring) ───────────
 
 type SpeciesDict = Record<string, { id: string; slug: string; name: string }>;
@@ -245,7 +264,7 @@ function deriveScoring(
     score,
     bestSpeciesId: entry.best_species_id,
     driverSpecies: entry.best_species_id
-      ? (speciesDict[entry.best_species_id]?.name ?? null)
+      ? speciesDisplayName(speciesDict[entry.best_species_id]?.name ?? "")
       : null,
     peakHour: strip?.peak_hour ?? null,
     conditions: formatConditions(cell),
@@ -407,14 +426,17 @@ export function buildExploreData(
   }
   const defaultCitySlug = hasPreferred ? PREFERRED_DEFAULT_CITY : bestScoringSlug;
 
-  // Species that actually carry scores somewhere — the filter dropdown options.
-  const speciesSeen = new Set<string>();
+  // Species that actually carry scores — build with best score across all spots,
+  // sorted by score desc so the best-performing species leads the filter list.
+  const speciesBest: Record<string, number> = {};
   for (const spot of spots) {
-    for (const sid of Object.keys(spot.scoresBySpecies)) speciesSeen.add(sid);
+    for (const [sid, score] of Object.entries(spot.scoresBySpecies)) {
+      if (!(sid in speciesBest) || score > speciesBest[sid]) speciesBest[sid] = score;
+    }
   }
-  const species: SpeciesOption[] = [...speciesSeen]
-    .map((id) => ({ id, name: speciesDict[id]?.name ?? id }))
-    .sort((a, b) => a.name.localeCompare(b.name));
+  const species: SpeciesOption[] = Object.keys(speciesBest)
+    .map((id) => ({ id, name: speciesDisplayName(speciesDict[id]?.name ?? id), bestScore: speciesBest[id] ?? null }))
+    .sort((a, b) => (b.bestScore ?? -1) - (a.bestScore ?? -1));
 
   return {
     date: payload?.date ?? "",

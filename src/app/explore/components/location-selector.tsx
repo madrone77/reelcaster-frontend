@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { ChevronDown, ChevronRight, MapPin, SlidersHorizontal } from "lucide-react";
+import { ChevronDown, ChevronRight, Loader2, LocateFixed, MapPin, SlidersHorizontal } from "lucide-react";
 import {
   Collapsible,
   CollapsibleContent,
@@ -12,7 +12,22 @@ import {
   tierFor,
   type CityNode,
   type ProvinceNode,
+  type SpeciesOption,
 } from "../lib/explore-data";
+
+interface MapControlsProps {
+  relief: boolean;
+  labels: boolean;
+  currents: boolean;
+  onToggleRelief: () => void;
+  onToggleLabels: () => void;
+  onToggleCurrents: () => void;
+  species: SpeciesOption[];
+  speciesFilter: string | null;
+  onSpeciesChange: (id: string | null) => void;
+  onNearMe: () => void;
+  locating: boolean;
+}
 
 /**
  * The rail header from the Figma ("Victoria · Vancouver Island South" + ⌄
@@ -25,12 +40,15 @@ export default function LocationSelector({
   selectedCity,
   onSelectCity,
   onFilterClick,
+  mapControls,
 }: {
   locations: ProvinceNode[];
   selectedCity: CityNode | null;
   onSelectCity: (city: CityNode) => void;
   /** Mobile only — opens the map-filter sheet. Omitted on desktop (inert). */
   onFilterClick?: () => void;
+  /** Desktop only — map layer controls shown in filter dropdown. */
+  mapControls?: MapControlsProps;
 }) {
   const [open, setOpen] = useState(false);
   const [expanded, setExpanded] = useState<Set<string>>(() => {
@@ -63,37 +81,58 @@ export default function LocationSelector({
 
   return (
     <div ref={rootRef} className="relative">
-      <div className="flex items-center gap-2 p-2">
+      <div className="flex items-center px-3 py-2">
         <button
           type="button"
           onClick={() => setOpen((v) => !v)}
-          className="flex-1 flex items-center gap-2 px-2 py-2 rounded-lg hover:bg-rc-surface transition-colors min-w-0"
+          className="flex items-center gap-1 shrink min-w-0 py-1 px-1 rounded hover:bg-rc-surface transition-colors"
           aria-expanded={open}
         >
-          <span className="flex items-center justify-center w-7 h-7 rounded-lg bg-rc-brand-soft shrink-0">
-            <MapPin className="w-4 h-4 text-rc-brand" />
-          </span>
+          <MapPin className="w-4 h-4 text-rc-ink-mute shrink-0" />
           <span className="font-semibold text-[15px] text-rc-ink truncate">
             {selectedCity
               ? `${selectedCity.name} · ${selectedCity.regionName}`
               : "All locations"}
           </span>
           <ChevronDown
-            className={`w-4 h-4 text-rc-ink-mute shrink-0 ml-auto transition-transform ${open ? "rotate-180" : ""}`}
+            className={`w-4 h-4 text-rc-ink-mute shrink-0 transition-transform ${open ? "rotate-180" : ""}`}
           />
         </button>
-        <button
-          type="button"
-          aria-label="Filters"
-          onClick={onFilterClick}
-          className="flex items-center justify-center w-9 h-9 rounded-lg border border-rc-rule text-rc-ink-soft hover:bg-rc-surface transition-colors shrink-0"
-        >
-          <SlidersHorizontal className="w-4 h-4" />
-        </button>
+        {onFilterClick && !mapControls && (
+          <>
+            <div className="flex-1" />
+            <button
+              type="button"
+              aria-label="Filters"
+              onClick={onFilterClick}
+              className="flex items-center justify-center w-8 h-8 rounded border border-rc-rule text-rc-ink-soft hover:bg-rc-surface transition-colors shrink-0"
+            >
+              <SlidersHorizontal className="w-4 h-4" />
+            </button>
+          </>
+        )}
       </div>
 
       {open && (
         <div className="absolute left-2 right-2 top-full z-20 mt-1 max-h-[60vh] overflow-y-auto bg-rc-panel border border-rc-rule rounded-xl shadow-rc-panel py-1">
+          {mapControls && (
+            <>
+              <button
+                type="button"
+                onClick={() => { mapControls.onNearMe(); setOpen(false); }}
+                disabled={mapControls.locating}
+                className="flex items-center gap-2.5 w-full px-3 py-2 text-sm font-medium text-rc-ink hover:bg-rc-surface transition-colors disabled:opacity-60"
+              >
+                {mapControls.locating ? (
+                  <Loader2 className="w-4 h-4 animate-spin text-rc-ink-mute shrink-0" />
+                ) : (
+                  <LocateFixed className="w-4 h-4 text-rc-ink-mute shrink-0" />
+                )}
+                Near me
+              </button>
+              <div className="h-px bg-rc-rule mx-2 my-1" />
+            </>
+          )}
           {locations.map((prov) => (
             <div key={prov.code} className="py-1">
               <div className="rc-label px-3 py-1.5">{prov.name}</div>
@@ -142,7 +181,7 @@ export default function LocationSelector({
                             </span>
                             {city.bestScore !== null && (
                               <span
-                                className={`shrink-0 px-1.5 py-0.5 rounded-full text-[10px] font-semibold ${TIER_PILL[tier]}`}
+                                className={`shrink-0 px-1.5 py-0.5 rounded font-rc-mono text-[11px] font-bold ${TIER_PILL[tier]}`}
                               >
                                 {city.bestScore}
                               </span>

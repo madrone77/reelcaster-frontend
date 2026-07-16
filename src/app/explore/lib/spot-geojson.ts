@@ -45,11 +45,18 @@ export type SpotFeatureCollection = {
   }>;
 };
 
-export function spotsToFeatureCollection(spots: RailSpot[]): SpotFeatureCollection {
+export function spotsToFeatureCollection(
+  spots: RailSpot[],
+  /** When set (0–23), pins color/label by that hour's score instead of the
+   *  day peak; spots without an hourly value that hour fall back to the peak. */
+  hour?: number | null,
+): SpotFeatureCollection {
   return {
     type: "FeatureCollection",
     features: spots.map((s, i) => {
-      const has = s.score !== null;
+      const raw =
+        hour != null ? (s.hours24?.[hour] ?? s.score) : s.score;
+      const has = raw !== null;
       return {
         type: "Feature" as const,
         id: i,
@@ -58,8 +65,8 @@ export function spotsToFeatureCollection(spots: RailSpot[]): SpotFeatureCollecti
           spotId: s.id,
           slug: s.slug,
           name: s.name,
-          label: has ? String(s.score) : "·",
-          color: scoreColor(s.score),
+          label: has ? String(raw) : "·",
+          color: scoreColor(raw),
           txtColor: has ? "#ffffff" : "#374151",
           opacity: has ? 1 : 0.6,
         },

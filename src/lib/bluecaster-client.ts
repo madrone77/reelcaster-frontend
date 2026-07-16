@@ -84,6 +84,44 @@ export async function fetchSpotScore(
   return (await res.json()) as SpotScorePayload;
 }
 
+/** One sample of the predicted tidal-current series at a point. */
+export type CurrentSample = {
+  t: string; // ISO UTC
+  speed_kn: number;
+  dir_deg: number; // direction the current flows toward (0 = N)
+  u: number; // eastward (kt)
+  v: number; // northward (kt)
+};
+
+export type CurrentsPointPayload = {
+  region: string;
+  tier: string;
+  source: string;
+  count: number;
+  series: CurrentSample[];
+};
+
+/** Predicted tidal-current series at a point over [from, to] (hourly steps). */
+export async function fetchCurrentsPoint(
+  lat: number,
+  lng: number,
+  fromIso: string,
+  toIso: string,
+): Promise<CurrentsPointPayload | null> {
+  const qs = new URLSearchParams({
+    lat: String(lat),
+    lng: String(lng),
+    from: fromIso,
+    to: toIso,
+    step_min: "60",
+  });
+  const res = await fetch(`/api/bluecaster/currents/point?${qs}`, {
+    cache: "no-store",
+  });
+  if (!res.ok) return null;
+  return (await res.json()) as CurrentsPointPayload;
+}
+
 /** Extended now-conditions (pressure, minutes-to-slack, moon) for a point. */
 export async function fetchPointConditions(
   lat: number,

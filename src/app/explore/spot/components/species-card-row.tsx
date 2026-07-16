@@ -20,7 +20,7 @@ export default function SpeciesCardRow({
   onSelect: (id: string) => void;
 }) {
   return (
-    <div className="flex gap-2 overflow-x-auto scrollbar-hide">
+    <div className="flex gap-3 overflow-x-auto scrollbar-hide">
       {species.map((s) => {
         const score = scores[s.id] ?? null;
         const tier = tierFor(score);
@@ -31,15 +31,15 @@ export default function SpeciesCardRow({
             type="button"
             onClick={() => onSelect(s.id)}
             aria-pressed={sel}
-            className={`flex-1 min-w-[104px] rounded-xl border px-3 py-2.5 text-left transition-colors ${
+            className={`flex-1 min-w-[120px] rounded border px-5 py-4 text-left transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-rc-brand ${
               sel
                 ? "border-rc-brand bg-rc-brand-soft"
                 : "border-rc-rule bg-rc-panel hover:border-rc-ink-mute"
             }`}
           >
-            <div className="rc-label text-[9px] truncate">{s.name}</div>
+            <div className="rc-label text-[10px] truncate">{s.name}</div>
             <div
-              className={`text-3xl font-bold leading-none tracking-[-0.04em] mt-1.5 ${
+              className={`text-4xl font-bold leading-none tracking-[-0.04em] mt-2.5 ${
                 sel ? "text-rc-brand" : TIER_TEXT[tier]
               }`}
             >

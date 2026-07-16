@@ -1,10 +1,10 @@
 import type { Metadata } from 'next';
 import Hero from './components/hero';
 import ScoreTicker from './components/score-ticker';
-import PricingSection from './components/pricing-section';
 import DataSources from './components/data-sources';
 import SignalsSection from './components/signals-section';
 import MapSection from './components/map-section';
+import PricingSection from './components/pricing-section';
 import FeaturesSection from './components/features-section';
 import CtaBand from './components/cta-band';
 
@@ -50,10 +50,12 @@ export default function MarketingHomePage() {
 
       <Hero />
       <ScoreTicker />
-      <PricingSection />
       <DataSources />
       <SignalsSection />
+      {/* Pricing follows the map section: the two plans read as the answer to
+          "Mapped." instead of interrupting the signal story. */}
       <MapSection />
+      <PricingSection />
       <FeaturesSection />
       <CtaBand />
     </>

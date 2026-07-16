@@ -20,8 +20,9 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
-      pull-requests: read
-      issues: read
+      # write: the action replies on the issue/PR it was mentioned from.
+      pull-requests: write
+      issues: write
       id-token: write
       actions: read # Required for Claude to read CI results on PRs
     steps:
@@ -35,14 +36,17 @@ jobs:
         uses: anthropics/claude-code-action@beta
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          # Same as claude-code-review.yml: the Claude GitHub App isn't
+          # installed on this repo, so fall back to the workflow token.
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          # Same as claude-code-review.yml: the action's default model id is
+          # retired and 404s, so pin a current one.
+          model: "claude-sonnet-5"
 
           # This is an optional setting that allows Claude to read CI results on PRs
           additional_permissions: |
             actions: read
-          
-          # Optional: Specify model (defaults to Claude Sonnet 4, uncomment for Claude Opus 4)
-          # model: "claude-opus-4-20250514"
-          
+
           # Optional: Customize the trigger phrase (default: @claude)
           # trigger_phrase: "/claude"
           

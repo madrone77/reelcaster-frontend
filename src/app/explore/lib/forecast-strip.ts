@@ -13,7 +13,8 @@ export const FREE_STRIP_DAYS = 10;
 export interface ForecastDay {
   index: number;
   iso: string; // YYYY-MM-DD
-  dow: string; // "WED"
+  dow: string; // "Wed" — day cells uppercase via CSS (rc-label); the
+  //              best-window callout keeps it title case ("Best window Wed…")
   date: string; // "May 14"
   score: number | null; // 0–100 day peak for the driver species
   peakLabel: string | null; // "11:00"
@@ -64,7 +65,7 @@ export function buildForecastDays(
     return {
       index: i,
       iso: d.iso,
-      dow: d.dow.toUpperCase(),
+      dow: d.dow.charAt(0).toUpperCase() + d.dow.slice(1).toLowerCase(),
       date: d.date,
       score,
       peakLabel: locked ? null : fmtPeak(fromGrid.hour),

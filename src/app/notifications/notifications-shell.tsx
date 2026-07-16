@@ -267,7 +267,7 @@ export default function NotificationsShell() {
   return (
     <div className="min-h-dvh bg-rc-page">
       <ExploreTopBar />
-      <main className="pt-14">
+      <main className="pt-16">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 py-8">
           {/* Header */}
           <div className="flex items-start justify-between gap-4">

@@ -1,12 +1,15 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
-import { ArrowUpCircle, ChevronLeft } from "lucide-react";
+import dynamic from "next/dynamic";
+import { ArrowUpCircle, ChevronLeft, ChevronRight } from "lucide-react";
 import { useAuth } from "@/contexts/auth-context";
+import { useSubscription } from "@/hooks/use-subscription";
+import { favoriteCount } from "../../lib/use-favorite";
 import ExploreTopBar from "../../components/explore-top-bar";
 import DayCell from "../../components/day-cell";
-import HourlyBars, { bestWindow } from "../../components/hourly-bars";
+import { bestWindow } from "../../components/hourly-bars";
 import UpgradeDialog from "../../components/upgrade-dialog";
 import { currentLocalHour, fmtPeak } from "../../lib/explore-data";
 import { buildForecastDays, type ForecastDay } from "../../lib/forecast-strip";
@@ -14,7 +17,13 @@ import {
   fetchForecast14d,
   fetchSpotScore,
   fetchPointConditions,
+  fetchCurrentsPoint,
+  type CurrentSample,
 } from "@/lib/bluecaster-client";
+import {
+  localDayStartUtcMs,
+  signCurrentSeries,
+} from "../../lib/current-series";
 import type {
   SpotPageInitial,
   Forecast14dPayload,
@@ -26,7 +35,9 @@ import SpeciesCardRow from "../components/species-card-row";
 import SpotProfile from "../components/spot-profile";
 import NeighbourSpots from "../components/neighbour-spots";
 import NowConditions from "../components/now-conditions";
-import FactorCharts from "../components/factor-charts";
+import ScoreFactors from "../components/score-factors";
+import { useFavorite } from "../../lib/use-favorite";
+import SpotTerminal from "../components/spot-terminal";
 import SpotMiniMap from "../components/spot-mini-map";
 import ScoreCard from "../components/score-card";
 import CustomAlertCta from "../components/custom-alert-cta";
@@ -34,7 +45,14 @@ import SignupGateDialog, { type AuthIntent } from "../components/signup-gate-dia
 import LogCatchDialog from "../components/log-catch-dialog";
 import CreateAlertDialog from "../components/create-alert-dialog";
 
+const UpgradeRequiredModal = dynamic(
+  () => import("@/app/components/paywall/upgrade-required-modal"),
+  { ssr: false },
+);
+
 const TZ = "America/Vancouver";
+/** Free tier may favorite this many spots before hitting the upgrade cap. */
+const FREE_FAV_CAP = 1;
 
 const REG_PILL: Record<string, string> = {
   Open: "bg-rc-good-bg text-rc-good-ink",
@@ -77,6 +95,23 @@ export default function SpotDetailShell({
   const [fc, setFc] = useState<Forecast14dPayload | null>(null);
   const [score, setScore] = useState<SpotScorePayload | null>(null);
   const [point, setPoint] = useState<PointConditions | null>(null);
+  const [saved, toggleSaved] = useFavorite(spot.slug);
+  const { isPaid } = useSubscription();
+  const [favUpgradeOpen, setFavUpgradeOpen] = useState(false);
+  // One-shot "pop" when favoriting (not on un-favorite or load) — mirrors the
+  // rail SpotCard star interaction exactly, including the free-tier cap.
+  const [savePop, setSavePop] = useState(false);
+  const handleToggleSaved = () => {
+    if (!saved && !isPaid && favoriteCount() >= FREE_FAV_CAP) {
+      setFavUpgradeOpen(true);
+      return;
+    }
+    if (!saved) {
+      setSavePop(true);
+      window.setTimeout(() => setSavePop(false), 600);
+    }
+    toggleSaved();
+  };
 
   useEffect(() => {
     let cancelled = false;
@@ -121,6 +156,27 @@ export default function SpotDetailShell({
   const [selectedIso, setSelectedIso] = useState<string | null>(null);
   const [upgradeOpen, setUpgradeOpen] = useState(false);
 
+  // 14-day strip scroll affordance — overlaid arrows that fade in/out with
+  // scroll position, so it's clear there's more to see in either direction.
+  const dayStripRef = useRef<HTMLDivElement>(null);
+  const [dayStripScrollable, setDayStripScrollable] = useState(false);
+  const [dayStripScrolledLeft, setDayStripScrolledLeft] = useState(false);
+  useEffect(() => {
+    const el = dayStripRef.current;
+    if (!el) return;
+    const check = () => {
+      setDayStripScrollable(el.scrollWidth - el.scrollLeft - el.clientWidth > 4);
+      setDayStripScrolledLeft(el.scrollLeft > 4);
+    };
+    check();
+    el.addEventListener("scroll", check);
+    window.addEventListener("resize", check);
+    return () => {
+      el.removeEventListener("scroll", check);
+      window.removeEventListener("resize", check);
+    };
+  }, [stripModel]);
+
   // Sign-up gate: signed-out anglers who tap "Set alert" / "Log catch" are sent
   // through the sign-up flow; the intent drives the modal copy.
   const { user } = useAuth();
@@ -136,27 +192,117 @@ export default function SpotDetailShell({
     setAlertOpen(true);
   };
 
-  const handleLogCatch = () => {
-    if (!user) {
-      setAuthIntent("catch");
-      return;
-    }
-    setLogCatchOpen(true);
-  };
   const activeIso = selectedIso ?? stripModel?.days[0]?.iso ?? null;
   const activeIndex =
     stripModel?.days.findIndex((d) => d.iso === activeIso) ?? 0;
   const dayIndex = activeIndex < 0 ? 0 : activeIndex;
+  const todayIso = stripModel?.days[0]?.iso ?? null;
+
+  // ── real tidal-current series (per local day, keyed by ISO date) ───────
+  // Hourly signed flood/ebb needs today's series for the RIGHT NOW tile and
+  // the selected day's for the terminal chart — fetch each day once.
+  const [curByIso, setCurByIso] = useState<
+    Record<string, (CurrentSample | null)[] | null>
+  >({});
+  // Ref-guarded (not state-guarded): effect re-runs land before setCurByIso
+  // commits, so a state check would re-fetch the same day.
+  const curRequested = useRef<Set<string>>(new Set());
+  useEffect(() => {
+    for (const iso of new Set([todayIso, activeIso])) {
+      if (!iso || curRequested.current.has(iso)) continue;
+      curRequested.current.add(iso);
+      const fromMs = localDayStartUtcMs(iso, TZ);
+      const from = new Date(fromMs).toISOString();
+      const to = new Date(fromMs + 23 * 3_600_000).toISOString();
+      fetchCurrentsPoint(spot.lat, spot.lng, from, to)
+        .then((d) => {
+          const byHour: (CurrentSample | null)[] = new Array(24).fill(null);
+          for (const s of d?.series ?? []) {
+            const h = Math.round((Date.parse(s.t) - fromMs) / 3_600_000);
+            if (h >= 0 && h < 24) byHour[h] = s;
+          }
+          setCurByIso((m) => ({ ...m, [iso]: byHour }));
+        })
+        .catch(() => {});
+    }
+  }, [todayIso, activeIso, spot.lat, spot.lng]);
 
   const hours24 = useMemo(() => {
     const grid = selId ? fcSource.hourlyScoreGrid[selId] : undefined;
     return grid?.[dayIndex] ?? grid?.[0] ?? new Array(24).fill(null);
   }, [fcSource, selId, dayIndex]);
 
-  const tideSeries = useMemo(
-    () => (page.hourlyConditionsGrid?.[0] ?? []).map((c) => c.tideM),
-    [page.hourlyConditionsGrid],
+  // Per-hour arrays for the terminal, for the day being shown.
+  const terminalHours = useMemo(() => {
+    const g =
+      fcSource.hourlyConditionsGrid?.[dayIndex] ??
+      fcSource.hourlyConditionsGrid?.[0] ??
+      [];
+    const pick = (
+      key:
+        | "tideM"
+        | "windKt"
+        | "windGustKt"
+        | "windDirDeg"
+        | "waveM"
+        | "cloudPct"
+        | "precipMm"
+        | "airTempC",
+    ) =>
+      Array.from(
+        { length: 24 },
+        (_, i) => (g[i]?.[key] ?? null) as number | null,
+      );
+    return {
+      score: hours24,
+      tide: pick("tideM"),
+      wind: pick("windKt"),
+      gust: pick("windGustKt"),
+      windDir: pick("windDirDeg"),
+      sea: pick("waveM"),
+      cloud: pick("cloudPct"),
+      precip: pick("precipMm"),
+      air: pick("airTempC"),
+    };
+  }, [fcSource, dayIndex, hours24]);
+
+  // Signed flood/ebb current — the terminal chart follows the selected day,
+  // the RIGHT NOW tile is pinned to today. Null until the series arrives (the
+  // chart falls back to its tide-derived shape, the tile to point-conditions).
+  const chartCurrent = useMemo(() => {
+    const samples = activeIso ? curByIso[activeIso] : null;
+    return samples ? signCurrentSeries(samples, terminalHours.tide) : null;
+  }, [curByIso, activeIso, terminalHours.tide]);
+
+  const todayHoursGrid = (fc ?? page).hourlyConditionsGrid?.[0];
+  const tideToday = useMemo(
+    () =>
+      Array.from(
+        { length: 24 },
+        (_, i) => (todayHoursGrid?.[i]?.tideM ?? null) as number | null,
+      ),
+    [todayHoursGrid],
   );
+  const seaToday = useMemo(
+    () =>
+      Array.from(
+        { length: 24 },
+        (_, i) => (todayHoursGrid?.[i]?.waveM ?? null) as number | null,
+      ),
+    [todayHoursGrid],
+  );
+  const cloudToday = useMemo(
+    () =>
+      Array.from(
+        { length: 24 },
+        (_, i) => (todayHoursGrid?.[i]?.cloudPct ?? null) as number | null,
+      ),
+    [todayHoursGrid],
+  );
+  const todayCurrent = useMemo(() => {
+    const samples = todayIso ? curByIso[todayIso] : null;
+    return samples ? signCurrentSeries(samples, tideToday) : null;
+  }, [curByIso, todayIso, tideToday]);
 
   // Merge the two fetched UTC days into one hour list; FactorCharts windows it
   // down to the current local day (fills the local evening that day-0 alone drops).
@@ -180,9 +326,6 @@ export default function SpotDetailShell({
     setSelectedIso(day.iso);
   };
 
-  const pressureMb = point?.conditions?.barometric_pressure_hpa ?? null;
-  const pressureTrend = point?.conditions?.pressure_trend_3h ?? null;
-
   // Conditions for the scrubbed hour (falls back to today's grid / now snapshot).
   const condGrid = (fc ?? page).hourlyConditionsGrid;
   const condCell =
@@ -192,15 +335,6 @@ export default function SpotDetailShell({
   const tilesSnapshot: RightNowSnapshot | null = condCell
     ? { ...condCell, hourLocal: "" }
     : page.rightNow;
-  const isNow = dayIndex === 0 && selectedHour === nowHour;
-  const dowLabel = stripModel?.days?.[dayIndex]?.dow;
-  const conditionsLabel = isNow
-    ? "RIGHT NOW"
-    : `AT ${String(selectedHour).padStart(2, "0")}:00${
-        dayIndex > 0 && dowLabel ? ` · ${dowLabel}` : ""
-      }`;
-  const selHourScore = hours24[selectedHour];
-
   // ── headline score card (NOW-based, today index 0) ─────────────────────
   // Now / peak / window all derive from today's hourly grid so they stay
   // internally consistent (and match the 14-day strip's today cell).
@@ -236,9 +370,9 @@ export default function SpotDetailShell({
         .find((p) => p.type === "timeZoneName")?.value ?? "",
     [],
   );
-  const nowLabel = `NOW${
-    selSpecies ? ` · ${selSpecies.name.toUpperCase()}` : ""
-  } · ${String(nowHour).padStart(2, "0")}:00${tzAbbrev ? ` ${tzAbbrev}` : ""}`;
+  // Driver species lives only in the status chip up top — keep it out of the
+  // NOW label to avoid repeating it across the panel.
+  const nowLabel = `NOW · ${String(nowHour).padStart(2, "0")}:00${tzAbbrev ? ` ${tzAbbrev}` : ""}`;
   const subtitle = spot.region ?? spot.city ?? spot.country ?? "";
 
   // ── Log-catch context (current spot + live conditions) ─────────────────
@@ -316,7 +450,7 @@ export default function SpotDetailShell({
     <div className="h-dvh overflow-y-auto bg-rc-panel">
       <ExploreTopBar />
 
-      <div className="pt-14">
+      <div className="pt-16">
         {/* Desktop sub-header: breadcrumb + freshness */}
         <div className="hidden lg:flex flex-wrap items-center justify-between gap-2 px-4 lg:px-6 py-3 border-b border-rc-rule">
           <div className="flex items-center gap-2 font-rc-mono text-[11px] text-rc-ink-mute">
@@ -343,154 +477,200 @@ export default function SpotDetailShell({
         </div>
 
         {/* Body: single stack on mobile, two columns on desktop */}
-        <div className="grid grid-cols-1 lg:grid-cols-[380px_1fr] gap-4 lg:gap-6 px-4 lg:px-6 py-4 lg:py-6 max-w-[1400px] mx-auto">
-          {/* ── Left: summary ─────────────────────────────────────────── */}
-          <div className="space-y-4">
-            <SpotMiniMap
-              spot={spot}
-              score={nowScore ?? todayScore}
-              speciesName={selSpecies?.name ?? null}
-            />
+        <div className="max-w-[1400px] mx-auto px-4 lg:px-6 py-4 lg:py-6">
+          <div className="grid grid-cols-1 lg:grid-cols-[380px_1fr] gap-6 lg:gap-8">
+            {/* ── LEFT PANEL: name · map · score+DFO+actions · RIGHT NOW · profile ── */}
+            <div className="space-y-5 min-w-0">
+              {/* Name reads first — it's the spot's identity, so it leads the
+                  panel above the map. Star to the right marks the saved state. */}
+              <div>
+                {pills}
+                <div className="flex items-center gap-2 mt-3">
+                  <h1 className="rc-title-lg text-3xl lg:text-4xl min-w-0">
+                    {spot.name}
+                  </h1>
+                  <button
+                    type="button"
+                    onClick={handleToggleSaved}
+                    aria-pressed={saved}
+                    aria-label={saved ? "Remove from saved spots" : "Save spot"}
+                    className="group shrink-0 p-1.5 rounded hover:bg-rc-badge/10 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-rc-brand transition-colors"
+                  >
+                    <svg
+                      viewBox="0 0 42 40"
+                      aria-hidden
+                      className={`w-[22px] h-[21px] origin-center transition-[fill] duration-200 ${
+                        saved
+                          ? "fill-rc-badge"
+                          : "fill-rc-ink-mute group-hover:fill-rc-badge"
+                      } ${savePop ? "animate-fav-pop" : ""}`}
+                    >
+                      <path d="M21,34 L10.4346982,39.5545079 C8.47875732,40.5828068 7.19697214,39.6450119 7.56952871,37.4728404 L9.5873218,25.7082039 L1.03981311,17.3764421 C-0.542576313,15.8339937 -0.0467737017,14.3251489 2.13421047,14.0082334 L13.946577,12.2917961 L19.2292279,1.58797623 C20.2071983,-0.393608322 21.7954064,-0.388330682 22.7707721,1.58797623 L28.053423,12.2917961 L39.8657895,14.0082334 C42.0525979,14.3259953 42.5383619,15.8381017 40.9601869,17.3764421 L32.4126782,25.7082039 L34.4304713,37.4728404 C34.8040228,39.6508126 33.5160333,40.5800681 31.5653018,39.5545079 L21,34 Z" />
+                    </svg>
+                  </button>
+                </div>
+                <p className="font-rc-mono text-xs text-rc-ink-mute mt-1.5">
+                  {`${Math.abs(spot.lat).toFixed(2)}°${
+                    spot.lat >= 0 ? "N" : "S"
+                  } · ${Math.abs(spot.lng).toFixed(2)}°${
+                    spot.lng >= 0 ? "E" : "W"
+                  }`}
+                </p>
+              </div>
 
-            <div>
-              {pills}
-              <h1 className="rc-title-lg text-3xl lg:text-4xl mt-3">
-                {spot.name}
-              </h1>
-              <p className="font-rc-mono text-xs text-rc-ink-mute mt-1.5">
-                {`${Math.abs(spot.lat).toFixed(2)}°${
-                  spot.lat >= 0 ? "N" : "S"
-                } · ${Math.abs(spot.lng).toFixed(2)}°${
-                  spot.lng >= 0 ? "E" : "W"
-                }`}
-              </p>
-            </div>
-
-            <ScoreCard
-              nowLabel={nowLabel}
-              score={nowScore}
-              peak={peakScore ?? todayScore}
-              peakTime={fmtPeak(peakHourNum)}
-              windowLabel={win.label}
-              windowPeak={peakScore ?? todayScore}
-              tidePhase={peakTidePhase}
-              onSetAlert={handleSetAlert}
-              onLogCatch={handleLogCatch}
-            />
-
-            <div className="border-t border-rc-rule pt-5">
-              <NowConditions
-                rightNow={tilesSnapshot}
-                pressureMb={pressureMb}
-                pressureTrend={pressureTrend}
-                tideSeries={tideSeries}
-                label={conditionsLabel}
+              <SpotMiniMap
+                spot={spot}
+                score={nowScore ?? todayScore}
+                speciesName={selSpecies?.name ?? null}
               />
+
+              <ScoreCard
+                nowLabel={nowLabel}
+                score={nowScore}
+                peak={peakScore ?? todayScore}
+                peakTime={fmtPeak(peakHourNum)}
+                windowLabel={win.label}
+                windowPeak={peakScore ?? todayScore}
+                tidePhase={peakTidePhase}
+                dfoArea={page.regAreaCode}
+                speciesName={selSpecies?.name ?? null}
+                regOpen={regulation?.status === "Open"}
+                onSetAlert={handleSetAlert}
+              />
+
+              <div className="border-t border-rc-rule pt-5">
+                <ScoreFactors factors={selId ? (page.todayFactorsBySpecies[selId] ?? []) : []} />
+              </div>
+
+              <div className="border-t border-rc-rule pt-5">
+                <NowConditions
+                  rightNow={page.rightNow}
+                  tideSeries={tideToday}
+                  seaSeries={seaToday}
+                  skySeries={cloudToday}
+                  currentSigned={todayCurrent}
+                  currentSample={
+                    (todayIso ? curByIso[todayIso]?.[nowHour] : null) ?? null
+                  }
+                  pointCurrent={point?.current ?? null}
+                  nowHour={nowHour}
+                />
+              </div>
+
+              <div className="border-t border-rc-rule pt-5">
+                <SpotProfile spot={spot} seasonState={seasonState} />
+              </div>
             </div>
 
-            <div className="border-t border-rc-rule pt-5">
-              <SpotProfile spot={spot} seasonState={seasonState} />
+            {/* ── RIGHT COLUMN: species tabs · 14-day · stacked charts ──── */}
+            <div className="space-y-6 min-w-0">
+              {species.length > 1 && (
+                <div>
+                  <div className="flex items-baseline justify-between mb-3">
+                    <div className="rc-label text-[9px]">Species</div>
+                    <div className="font-rc-mono text-[10px] text-rc-ink-mute italic">
+                      tap to switch driver
+                    </div>
+                  </div>
+                  <SpeciesCardRow
+                    species={species}
+                    scores={page.topScoreTodayBySpecies}
+                    selectedId={selId}
+                    onSelect={setSelId}
+                  />
+                </div>
+              )}
+
+              <div>
+                {/* Single-line header: label left, confidence caption right
+                    (the BEST badge on the strip already marks the best day). */}
+                <div className="flex items-baseline justify-between gap-3 mb-3">
+                  <div className="rc-label text-[9px]">14-Day Forecast</div>
+                  <span className="font-rc-mono text-[10px] text-rc-ink-mute italic shrink-0">
+                    confidence fades past day 7 · ECMWF + GFS
+                  </span>
+                </div>
+                <div className="relative">
+                  {/* pt-2: the BEST badge sits at -top-1.5, and overflow-x-auto
+                      clips the y-axis — the top padding keeps it inside the box. */}
+                  <div
+                    ref={dayStripRef}
+                    className="flex gap-1.5 h-[124px] pt-2 overflow-x-auto scrollbar-hide"
+                  >
+                    {(stripModel?.days ?? []).map((day) => (
+                      <div key={day.index} className="flex-1 min-w-[54px] flex">
+                        <DayCell
+                          day={day}
+                          selected={day.iso === activeIso}
+                          onSelect={() => handleDay(day)}
+                        />
+                      </div>
+                    ))}
+                  </div>
+                  <div
+                    aria-hidden
+                    className={`pointer-events-none absolute right-0 top-2 bottom-0 w-10 flex items-center justify-end pr-0.5 bg-gradient-to-l from-rc-panel to-transparent transition-opacity duration-200 ${
+                      dayStripScrollable ? "opacity-100" : "opacity-0"
+                    }`}
+                  >
+                    <ChevronRight className="w-4 h-4 text-rc-ink-mute" />
+                  </div>
+                  <div
+                    aria-hidden
+                    className={`pointer-events-none absolute left-0 top-2 bottom-0 w-10 flex items-center justify-start pl-0.5 bg-gradient-to-r from-rc-panel to-transparent transition-opacity duration-200 ${
+                      dayStripScrolledLeft ? "opacity-100" : "opacity-0"
+                    }`}
+                  >
+                    <ChevronLeft className="w-4 h-4 text-rc-ink-mute" />
+                  </div>
+                </div>
+              </div>
+
+              <div>
+                <div className="flex flex-wrap items-end justify-between gap-x-4 gap-y-1">
+                  <div>
+                    <h3 className="rc-label text-[10px]">24-Hour Conditions</h3>
+                    <p className="font-rc-mono text-[11px] text-rc-ink-soft mt-1">
+                      Fixed scales{tzAbbrev ? ` · ${tzAbbrev}` : ""}
+                    </p>
+                  </div>
+                  <p className="font-rc-mono text-[10px] text-rc-ink-mute italic">
+                    Hover or drag to read any hour
+                  </p>
+                </div>
+                <SpotTerminal
+                  hours={terminalHours}
+                  realCurrent={chartCurrent}
+                  sun={page.sun}
+                  nowHour={nowHour}
+                  selectedHour={selectedHour}
+                  onSelectHour={setSelectedHour}
+                  bestWindow={win.window}
+                  speciesName={selSpecies?.name ?? null}
+                />
+                {scoreEntry && (
+                  <button
+                    type="button"
+                    onClick={() => setUpgradeOpen(true)}
+                    className="mt-4 w-full flex items-center justify-center gap-2 rounded bg-rc-brand-soft text-rc-brand font-rc-mono text-xs font-semibold tracking-[0.04em] py-3 hover:bg-rc-brand-soft/70 transition-colors"
+                  >
+                    <ArrowUpCircle className="w-4 h-4" />
+                    Upgrade to Boat Pro for full weights
+                  </button>
+                )}
+              </div>
+
+              {/* Nearby spots fill the right column's tail, sitting beside the
+                  spot profile — carded so it reads as its own module. */}
+              <div className="rounded border border-rc-rule bg-rc-surface p-5">
+                <NeighbourSpots spots={page.nearbySpots} />
+              </div>
             </div>
           </div>
 
-          {/* ── Right: forecast + score + neighbours ──────────────────── */}
-          <div className="divide-y divide-rc-rule [&>*]:py-6 [&>*:first-child]:pt-0 [&>*:last-child]:pb-0">
-            {/* Species selector */}
-            {species.length > 1 && (
-              <div>
-                <div className="flex items-baseline justify-between mb-3">
-                  <div className="rc-label text-[9px]">Species</div>
-                  <div className="font-rc-mono text-[10px] text-rc-ink-mute italic">
-                    tap to switch driver
-                  </div>
-                </div>
-                <SpeciesCardRow
-                  species={species}
-                  scores={page.topScoreTodayBySpecies}
-                  selectedId={selId}
-                  onSelect={setSelId}
-                />
-              </div>
-            )}
-
-            {/* 14-day strip */}
-            <div>
-              <div className="flex items-start justify-between gap-3 mb-3">
-                <div>
-                  <div className="rc-label text-[9px]">
-                    14-Day Forecast
-                    {selSpecies ? ` · ${selSpecies.name}` : ""}
-                  </div>
-                  <div className="font-rc-mono text-[10px] text-rc-ink-mute italic mt-0.5">
-                    confidence fades past day 7 · ECMWF + GFS
-                  </div>
-                </div>
-                {stripModel?.bestDay && (
-                  <span className="flex items-center gap-1.5 font-rc-mono text-[11px] text-rc-ink-soft">
-                    <span className="w-1.5 h-1.5 rounded-full bg-rc-good" />
-                    Best {stripModel.bestDay.dow} {stripModel.bestDay.date}
-                  </span>
-                )}
-              </div>
-              <div className="flex gap-1.5 overflow-x-auto scrollbar-hide">
-                {(stripModel?.days ?? []).map((day) => (
-                  <div key={day.index} className="flex-1 min-w-[44px]">
-                    <DayCell
-                      day={day}
-                      selected={day.iso === activeIso}
-                      onSelect={() => handleDay(day)}
-                    />
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            {/* 24h chart */}
-            <div>
-              <div className="rc-label text-[9px] mb-3">
-                24-Hour Forecast{selSpecies ? ` · ${selSpecies.name}` : ""}
-                {selHourScore != null
-                  ? ` · ${String(selectedHour).padStart(2, "0")}:00 → ${selHourScore}`
-                  : ""}
-              </div>
-              <HourlyBars
-                hours={hours24}
-                tz={TZ}
-                selectedHour={selectedHour}
-                onSelectHour={setSelectedHour}
-              />
-            </div>
-
-            {/* Score explained + Pro upsell */}
-            {scoreEntry && (
-              <div className="space-y-4">
-                <FactorCharts
-                  entry={scoreEntry}
-                  tz={TZ}
-                  selectedHour={selectedHour}
-                  onSelectHour={setSelectedHour}
-                  speciesName={selSpecies?.name ?? null}
-                  tzAbbrev={tzAbbrev}
-                  nowHour={nowHour}
-                  windowRange={win.window}
-                  windowLabel={win.label}
-                />
-                <button
-                  type="button"
-                  onClick={() => setUpgradeOpen(true)}
-                  className="w-full flex items-center justify-center gap-2 rounded-xl bg-rc-brand-soft text-rc-brand font-rc-mono text-xs font-semibold tracking-[0.04em] py-3 hover:bg-rc-brand-soft/70 transition-colors"
-                >
-                  <ArrowUpCircle className="w-4 h-4" />
-                  Upgrade to Reelcaster Pro for full weights
-                </button>
-              </div>
-            )}
-
-            <NeighbourSpots spots={page.nearbySpots} />
-
+          {/* ── Full-width footer ─────────────────────────────────────── */}
+          <div className="mt-8 space-y-6">
             <CustomAlertCta spotName={spot.name} />
-
-            {/* Description */}
             {spot.seoIntro && (
               <div>
                 <p className="rc-body text-rc-ink-soft leading-relaxed">
@@ -529,6 +709,18 @@ export default function SpotDetailShell({
         speciesOptions={speciesOptions}
         initialSpeciesId={selId}
         dailyScores={dailyScores}
+      />
+
+      <UpgradeRequiredModal
+        open={favUpgradeOpen}
+        onClose={() => setFavUpgradeOpen(false)}
+        feature="favorite-spots"
+        headline="Upgrade to save more spots"
+        bullets={[
+          "Unlimited favorite spots",
+          "Reorder + score sparklines",
+          "Full 14-day outlook & alerts",
+        ]}
       />
     </div>
   );
