@@ -49,6 +49,8 @@ export interface RailConditions {
   sea: string | null; // "Light Chop"
   tide: string | null; // "+2.4m ▲"
   current: string | null; // "0.4 kn" / "Slack"
+  sky: string | null; // "Clear" / "Cloudy" / "Rain"
+  air: string | null; // "18°C"
 }
 
 export interface RailSpot {
@@ -177,13 +179,28 @@ function fmtCurrent(cur: number | null): string | null {
   return `${cur.toFixed(1)} kn`;
 }
 
+function skyWord(cld: number | null, pcp: number | null): string | null {
+  if (pcp !== null && pcp >= 0.2) return "Rain";
+  if (cld === null) return null;
+  if (cld < 25) return "Clear";
+  if (cld < 70) return "Cloudy";
+  return "Overcast";
+}
+
+function fmtAir(air: number | null): string | null {
+  return air === null ? null : `${Math.round(air)}°C`;
+}
+
 export function formatConditions(cell: MapCondCell | null): RailConditions {
-  if (!cell) return { wind: null, sea: null, tide: null, current: null };
+  if (!cell)
+    return { wind: null, sea: null, tide: null, current: null, sky: null, air: null };
   return {
     wind: fmtWind(cell),
     sea: seaState(cell.wav),
     tide: fmtTide(cell),
     current: fmtCurrent(cell.cur),
+    sky: skyWord(cell.cld, cell.pcp),
+    air: fmtAir(cell.air),
   };
 }
 
@@ -276,7 +293,7 @@ const EMPTY_SCORING: ScoringFields = {
   bestSpeciesId: null,
   driverSpecies: null,
   peakHour: null,
-  conditions: { wind: null, sea: null, tide: null, current: null },
+  conditions: { wind: null, sea: null, tide: null, current: null, sky: null, air: null },
   condStrip: null,
   hours24: new Array(24).fill(null),
   scoresBySpecies: {},

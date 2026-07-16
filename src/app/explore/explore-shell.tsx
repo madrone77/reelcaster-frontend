@@ -244,9 +244,14 @@ export default function ExploreShell({
       .sort((a, b) => (b.score ?? -1) - (a.score ?? -1));
   }, [railSpots, hour, hasHourly]);
 
+  // Prefer the hour-tracked rail instance so the drawer's conditions follow
+  // the scrubber; fall back to the full set for spots outside the rail scope.
   const selectedSpot = useMemo(
-    () => displaySpots.find((s) => s.slug === spotSlug) ?? null,
-    [displaySpots, spotSlug],
+    () =>
+      railDisplaySpots.find((s) => s.slug === spotSlug) ??
+      displaySpots.find((s) => s.slug === spotSlug) ??
+      null,
+    [railDisplaySpots, displaySpots, spotSlug],
   );
 
   // ── Station/buoy selection (?stn=<chs|noaa|ndbc>:<sid>). The URL only
@@ -508,6 +513,7 @@ export default function ExploreShell({
         selectedStation={selectedStation}
         date={selectedIso}
         tz={MAP_TZ}
+        hour={hasHourly ? hour : null}
         bottomInset={stripHidden ? 64 : scrubberOpen ? 208 : 152}
         onSelectCity={handleSelectCity}
         onSelectSpot={handleSelectSpot}
