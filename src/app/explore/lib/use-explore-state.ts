@@ -8,6 +8,8 @@ import { useRouter, useSearchParams } from "next/navigation";
  *   ?loc=<citySlug>   selected location (rail scope)
  *   ?spot=<slug>      selected spot → rail shows the drawer
  *   ?day=<YYYY-MM-DD> selected forecast day (Phase 2)
+ *   ?stn=<src>:<sid>  selected tide station / weather buoy → station panel
+ *                     (src = chs | noaa for tide stations, ndbc for buoys)
  */
 export function useExploreState() {
   const router = useRouter();
@@ -16,6 +18,7 @@ export function useExploreState() {
   const citySlug = searchParams.get("loc");
   const spotSlug = searchParams.get("spot");
   const day = searchParams.get("day");
+  const stn = searchParams.get("stn");
 
   const setQuery = useCallback(
     (next: Record<string, string | null>) => {
@@ -30,5 +33,5 @@ export function useExploreState() {
     [router, searchParams],
   );
 
-  return { citySlug, spotSlug, day, setQuery };
+  return { citySlug, spotSlug, day, stn, setQuery };
 }

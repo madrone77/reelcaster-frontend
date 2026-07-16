@@ -92,6 +92,9 @@ export function buildReliefStyle(origin: string): Record<string, unknown> {
       marine: { type: "geojson", data: asset("marine_features_salish.geojson") },
       // Tide-prediction stations (CHS Canada + NOAA US).
       tides: { type: "geojson", data: asset("tide_stations_salish.geojson") },
+      // Weather buoys + C-MAN stations (NOAA NDBC, ECCC/DFO, partner) with
+      // live observations — regenerate via BlueCaster scripts/build-buoy-stations.ts.
+      buoys: { type: "geojson", data: asset("buoy_stations_salish.geojson") },
       places: { type: "geojson", data: asset("region_places.geojson") },
     },
     layers: [
@@ -446,6 +449,36 @@ export function buildReliefStyle(origin: string): Record<string, unknown> {
           "text-padding": 6,
         },
         paint: { "text-color": "#0b5273", "text-halo-color": "rgba(255,255,255,0.9)", "text-halo-width": 1.3 },
+      },
+      // Weather buoys — clickable amber markers (live wind/wave/water-temp).
+      // Visible from further out than tide donuts: only ~18 in the region.
+      {
+        id: "buoy-marker",
+        type: "circle",
+        source: "buoys",
+        minzoom: 7,
+        paint: {
+          "circle-color": "#f59e0b",
+          "circle-stroke-color": "#ffffff",
+          "circle-stroke-width": ["interpolate", ["linear"], ["zoom"], 7, 1.4, 14, 2.5],
+          "circle-radius": ["interpolate", ["linear"], ["zoom"], 7, 4, 14, 8],
+        },
+      },
+      {
+        id: "buoy-label",
+        type: "symbol",
+        source: "buoys",
+        minzoom: 9.5,
+        layout: {
+          "text-field": ["get", "name"],
+          "text-font": ["Open Sans Semibold"],
+          "text-size": 11,
+          "text-offset": [0, 0.9],
+          "text-anchor": "top",
+          "text-optional": true,
+          "text-padding": 6,
+        },
+        paint: { "text-color": "#92400e", "text-halo-color": "rgba(255,255,255,0.9)", "text-halo-width": 1.3 },
       },
     ],
   };

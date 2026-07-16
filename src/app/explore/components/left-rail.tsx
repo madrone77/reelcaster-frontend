@@ -8,32 +8,38 @@ import {
 import LocationSelector from "./location-selector";
 import SpotCard from "./spot-card";
 import SpotDrawer from "./spot-drawer";
+import StationDrawer from "./station-drawer";
+import type { StationPick } from "./explore-map";
 
 /**
  * The single floating left slot (384px, 24px gutter) per the Figma spec.
- * Holds the location selector + spot list OR the spot drawer — never both;
- * the swap crossfades in place. Panels never push the map.
+ * Holds the location selector + spot list OR the spot/station drawer —
+ * never both; the swap crossfades in place. Panels never push the map.
  */
 export default function LeftRail({
   locations,
   selectedCity,
   spots,
   selectedSpot,
+  selectedStation,
   date,
   tz,
   onSelectCity,
   onSelectSpot,
   onCloseSpot,
+  onCloseStation,
 }: {
   locations: ProvinceNode[];
   selectedCity: CityNode | null;
   spots: RailSpot[];
   selectedSpot: RailSpot | null;
+  selectedStation: StationPick | null;
   date: string;
   tz: string;
   onSelectCity: (city: CityNode) => void;
   onSelectSpot: (slug: string) => void;
   onCloseSpot: () => void;
+  onCloseStation: () => void;
 }) {
   return (
     <aside className="hidden lg:flex flex-col fixed left-6 top-20 bottom-6 w-96 z-30 bg-rc-panel rounded-xl border border-rc-rule shadow-rc-panel overflow-hidden">
@@ -45,6 +51,13 @@ export default function LeftRail({
             tz={tz}
             onBack={onCloseSpot}
           />
+        </div>
+      ) : selectedStation ? (
+        <div
+          key={`${selectedStation.source}:${selectedStation.sid}`}
+          className="h-full animate-fade-in"
+        >
+          <StationDrawer pick={selectedStation} tz={tz} onBack={onCloseStation} />
         </div>
       ) : (
         <div className="flex flex-col h-full animate-fade-in">

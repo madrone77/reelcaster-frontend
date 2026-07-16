@@ -2,6 +2,10 @@
 // The API returns a nested response; we normalize it for components
 
 import type {
+  StationConditions,
+  BuoyConditions,
+} from "./bluecaster/station-types";
+import type {
   SpotPageInitial,
   Forecast14dPayload,
   SpotScorePayload,
@@ -281,6 +285,26 @@ export async function fetchMapSpots(opts: {
     city: opts.city,
     date: opts.date,
   });
+}
+
+// ── Map station/buoy click panels ───────────────────────────────────
+
+export async function fetchStationConditions(
+  source: "chs" | "noaa",
+  sid: string,
+): Promise<StationConditions | null> {
+  // First click on a cold station makes BlueCaster backfill predictions
+  // upstream; cache briefly so repeat opens are instant.
+  return bcGet<StationConditions>("/api/v1/map/station-conditions", {
+    source,
+    sid,
+  });
+}
+
+export async function fetchBuoyConditions(
+  sid: string,
+): Promise<BuoyConditions | null> {
+  return bcGet<BuoyConditions>("/api/v1/map/buoy-conditions", { sid });
 }
 
 // ── Hierarchy (regions index) ───────────────────────────────────────
