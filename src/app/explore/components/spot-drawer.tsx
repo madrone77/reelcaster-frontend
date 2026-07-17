@@ -65,14 +65,11 @@ export default function SpotDrawer({
   spot,
   date,
   tz,
-  hour = null,
   onBack,
 }: {
   spot: RailSpot;
   date: string;
   tz: string;
-  /** Fallback hour (0–23) when the spot has no hourly scores; null = current hour. */
-  hour?: number | null;
   onBack: () => void;
 }) {
   // Resting state anchors to the day's PEAK hour — the drawer's headline
@@ -95,7 +92,7 @@ export default function SpotDrawer({
   const [hoverHour, setHoverHour] = useState<number | null>(null);
   const hoverScore = hoverHour !== null ? spot.hours24[hoverHour] : null;
   const score = hoverScore ?? restScore ?? spot.score;
-  const displayHour = hoverHour ?? restHour ?? hour;
+  const displayHour = hoverHour ?? restHour;
   const displayCell =
     displayHour !== null ? spot.condStrip?.[displayHour] : null;
   const conditions = displayCell ? formatConditions(displayCell) : spot.conditions;

@@ -44,7 +44,6 @@ export default function LeftRail({
   selectedStation,
   date,
   tz,
-  hour,
   bottomInset,
   onSelectCity,
   onSelectSpot,
@@ -59,8 +58,6 @@ export default function LeftRail({
   selectedStation: StationPick | null;
   date: string;
   tz: string;
-  /** Scrubbed hour (0–23) the spot conditions reflect; null = current hour. */
-  hour: number | null;
   /** px gap from the viewport bottom — keeps the rail clear of the docked strip. */
   bottomInset: number;
   onSelectCity: (city: CityNode) => void;
@@ -83,7 +80,6 @@ export default function LeftRail({
             spot={selectedSpot}
             date={date}
             tz={tz}
-            hour={hour}
             onBack={onCloseSpot}
           />
         </div>
