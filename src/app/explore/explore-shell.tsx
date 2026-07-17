@@ -326,8 +326,19 @@ export default function ExploreShell({
 
   const stripModel: ForecastStripModel | null = useMemo(() => {
     if (!fcPayload || !anchorSpot) return null;
-    return buildForecastDays(fcPayload, anchorSpot.bestSpeciesId, isPaid);
-  }, [fcPayload, anchorSpot, isPaid]);
+    // Pin the selected day's cell to the anchor spot's map-spots hourly
+    // series — the same data the pins and drawer render — so the strip can
+    // never disagree with them (the two payloads are cached independently
+    // and can straddle a forecast re-bake). Only when that day's map-spots
+    // data is actually loaded, and not under a species filter (hours24
+    // stays best-species there while the strip re-keys to the filter).
+    const hasDayData = selectedIso === today || dayPayload !== null;
+    const override =
+      hasDayData && !speciesFilter
+        ? { iso: selectedIso, hours: anchorSpot.hours24 }
+        : null;
+    return buildForecastDays(fcPayload, anchorSpot.bestSpeciesId, isPaid, override);
+  }, [fcPayload, anchorSpot, isPaid, selectedIso, today, dayPayload, speciesFilter]);
 
   // Keep the map framed on the selected location's spots.
   useEffect(() => {

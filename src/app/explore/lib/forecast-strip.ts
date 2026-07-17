@@ -51,13 +51,24 @@ export function buildForecastDays(
   payload: Forecast14dPayload,
   bestSpeciesId: string | null,
   isPaid: boolean,
+  // The map-spots hourly series for one day (the selected day). The map
+  // pins and spot drawer render from map/spots, the strip from forecast-14d
+  // — two payloads cached independently, so a forecast re-bake between the
+  // fetches can leave the selected day's cell a couple points off the card.
+  // The override pins that day's cell to the exact series the other
+  // surfaces show.
+  override?: { iso: string; hours: (number | null)[] } | null,
 ): ForecastStripModel {
   const grid = bestSpeciesId
     ? payload.hourlyScoreGrid[bestSpeciesId]
     : undefined;
 
   const days: ForecastDay[] = payload.daily14.map((d, i) => {
-    const fromGrid = peakOf(grid?.[i]);
+    let fromGrid = peakOf(grid?.[i]);
+    if (override && d.iso === override.iso) {
+      const fromOverride = peakOf(override.hours);
+      if (fromOverride.score !== null) fromGrid = fromOverride;
+    }
     // Prefer the species-specific daily peak; fall back to the overall
     // daily score the engine already computed.
     const score = fromGrid.score ?? d.score ?? null;
