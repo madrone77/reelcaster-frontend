@@ -57,7 +57,9 @@ function headerStamp(date: string, tz: string, hour: number | null): string {
  * Spot drawer per the Figma — fills the same rail slot as the list. Renders
  * entirely from the in-memory RailSpot: identity + score + the six-cell
  * conditions grid (tide, current, wind, sea state, sky, air temp — all from
- * the map-spots strip at the scrubbed hour) + the 24h best-window chart.
+ * the map-spots strip at the day-peak hour, hover-scrubbable) + the 24h
+ * best-window chart. The headline score is the day's PEAK, not the shell's
+ * scrubbed hour — the card answers "how good does this day get here".
  */
 export default function SpotDrawer({
   spot,
@@ -69,18 +71,34 @@ export default function SpotDrawer({
   spot: RailSpot;
   date: string;
   tz: string;
-  /** Scrubbed hour (0–23) the conditions reflect; null = current hour. */
+  /** Fallback hour (0–23) when the spot has no hourly scores; null = current hour. */
   hour?: number | null;
   onBack: () => void;
 }) {
+  // Resting state anchors to the day's PEAK hour — the drawer's headline
+  // promise is "the best this day gets", not the score at whatever hour the
+  // shell's scrubber happens to sit on. Derived from hours24 directly (not
+  // spot.score, which the shell overrides to the scrubbed hour).
+  let restScore: number | null = null;
+  let restHour: number | null = null;
+  for (let h = 0; h < spot.hours24.length; h++) {
+    const v = spot.hours24[h];
+    if (typeof v === "number" && (restScore === null || v > restScore)) {
+      restScore = v;
+      restHour = h;
+    }
+  }
+
   // Hover-scrub over the 24h chart: while the mouse is on a bar the score,
   // pill, header stamp, and conditions grid preview that hour; leaving the
-  // chart reverts to the scrubbed hour the shell passed in.
+  // chart reverts to the day-peak resting state.
   const [hoverHour, setHoverHour] = useState<number | null>(null);
   const hoverScore = hoverHour !== null ? spot.hours24[hoverHour] : null;
-  const score = hoverScore ?? spot.score;
-  const hoverCell = hoverHour !== null ? spot.condStrip?.[hoverHour] : null;
-  const conditions = hoverCell ? formatConditions(hoverCell) : spot.conditions;
+  const score = hoverScore ?? restScore ?? spot.score;
+  const displayHour = hoverHour ?? restHour ?? hour;
+  const displayCell =
+    displayHour !== null ? spot.condStrip?.[displayHour] : null;
+  const conditions = displayCell ? formatConditions(displayCell) : spot.conditions;
 
   const tier = tierFor(score);
   const peak = fmtPeak(spot.peakHour);
@@ -102,8 +120,9 @@ export default function SpotDrawer({
     toggleFav();
   };
 
-  // All six cells read the map-spots conditions strip at the scrubbed hour
-  // (or the hover-previewed hour) — same source as the rail card's KPI columns.
+  // All six cells read the map-spots conditions strip at the displayed hour
+  // (day peak, or the hover-previewed hour) — same source as the rail
+  // card's KPI columns.
   const conditionCells: Array<{
     label: string;
     value: string;
@@ -130,7 +149,7 @@ export default function SpotDrawer({
         >
           <ChevronLeft className="w-4 h-4" />
         </button>
-        <span className="rc-label text-[9px]">{headerStamp(date, tz, hoverHour ?? hour)}</span>
+        <span className="rc-label text-[9px]">{headerStamp(date, tz, displayHour)}</span>
       </div>
 
       <div className="flex-1 overflow-y-auto px-4 pb-4">
@@ -203,12 +222,12 @@ export default function SpotDrawer({
         </div>
 
         {/* 24h chart — hover-scrubbable; the marker tracks the hovered hour,
-            falling back to the shell's scrubbed hour (null = now). */}
+            resting on the day's peak hour. */}
         <div className="mt-5">
           <HourlyBars
             hours={spot.hours24}
             tz={tz}
-            selectedHour={hoverHour ?? hour}
+            selectedHour={displayHour}
             onHoverHour={setHoverHour}
           />
         </div>
