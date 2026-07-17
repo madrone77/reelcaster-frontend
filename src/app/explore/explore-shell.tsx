@@ -5,7 +5,6 @@ import { useRouter } from "next/navigation";
 import type { MapRef } from "react-map-gl/maplibre";
 import type { MapSpotsPayload } from "@/lib/bluecaster";
 import {
-  formatConditions,
   rescoreSpots,
   zonedHourToUtcIso,
   type CityNode,
@@ -174,84 +173,44 @@ export default function ExploreShell({
     [displaySpots, selectedCity],
   );
 
-  // ── Hour scrubber ───────────────────────────────────────────────────
-  // Regional best score per hour across the mapped spots — the envelope the
-  // scrubber's ticks + readout report. The hour drives pin recolor only
-  // (the rail stays ranked by day peak).
-  const hourlyMax = useMemo(() => {
-    const arr: (number | null)[] = new Array(24).fill(null);
-    for (const s of railSpots) {
-      for (let h = 0; h < 24; h++) {
-        const v = s.hours24[h];
-        if (typeof v === "number" && (arr[h] === null || v > (arr[h] as number))) {
-          arr[h] = v;
-        }
-      }
-    }
-    return arr;
-  }, [railSpots]);
-
-  const peakHour = useMemo(() => {
-    let best = -1;
-    let hr = 12;
-    hourlyMax.forEach((v, h) => {
-      if (v !== null && v > best) {
-        best = v;
-        hr = h;
-      }
-    });
-    return hr;
-  }, [hourlyMax]);
-
-  const [hour, setHour] = useState(peakHour);
-  // Snap the handle to the peak whenever the day/city changes the curve.
-  useEffect(() => {
-    setHour(peakHour);
-  }, [peakHour]);
-
-  // Hourly scrubber shows by default; the strip's "Hours" control collapses it
-  // to a compact day-cells-only state.
-  const [hourExpanded, setHourExpanded] = useState(true);
   // Whole 14-day strip hide/show (collapses to a "Show" chip).
   const [stripHidden, setStripHidden] = useState(false);
 
-  const hasHourly = hourlyMax.some((v) => v !== null);
-  const scrubberOpen = hasHourly && hourExpanded;
+  // Regional peak hour across the mapped spots — with no hour scrubber, every
+  // surface rests at day-peak scores; this hour only anchors the animated
+  // currents field to a representative time for the selected day.
+  const peakHour = useMemo(() => {
+    let best = -1;
+    let hr = 12;
+    for (const s of railSpots) {
+      for (let h = 0; h < 24; h++) {
+        const v = s.hours24[h];
+        if (typeof v === "number" && v > best) {
+          best = v;
+          hr = h;
+        }
+      }
+    }
+    return best >= 0 ? hr : null;
+  }, [railSpots]);
 
-  // The scrubbed hour as a UTC instant for the animated currents field — the
-  // flow layer re-predicts the tidal field for this time, so scrubbing the
-  // 24h track (or picking another day) moves the animation with the pins.
+  // A UTC instant for the animated currents field — the flow layer
+  // re-predicts the tidal field for this time, so picking another day moves
+  // the animation with the pins.
   const flowTimeIso = useMemo(
-    () => (hasHourly ? zonedHourToUtcIso(selectedIso, hour, MAP_TZ) : null),
-    [hasHourly, selectedIso, hour],
+    () =>
+      peakHour !== null
+        ? zonedHourToUtcIso(selectedIso, peakHour, MAP_TZ)
+        : null,
+    [peakHour, selectedIso],
   );
 
-  // Rail spots re-scored to the scrubbed hour (score + tier + conditions
-  // reflect the hour, list re-ranks). Falls back to the day peak / the
-  // default-hour conditions where an hour has no value.
-  const railDisplaySpots = useMemo(() => {
-    if (!hasHourly) return railSpots;
-    return railSpots
-      .map((s) => {
-        const hv = s.hours24[hour];
-        const cell = s.condStrip?.[hour];
-        const next = {
-          ...s,
-          conditions: cell ? formatConditions(cell) : s.conditions,
-        };
-        return hv == null ? next : { ...next, score: hv };
-      })
-      .sort((a, b) => (b.score ?? -1) - (a.score ?? -1));
-  }, [railSpots, hour, hasHourly]);
-
-  // Prefer the hour-tracked rail instance so the drawer's conditions follow
-  // the scrubber; fall back to the full set for spots outside the rail scope.
   const selectedSpot = useMemo(
     () =>
-      railDisplaySpots.find((s) => s.slug === spotSlug) ??
+      railSpots.find((s) => s.slug === spotSlug) ??
       displaySpots.find((s) => s.slug === spotSlug) ??
       null,
-    [railDisplaySpots, displaySpots, spotSlug],
+    [railSpots, displaySpots, spotSlug],
   );
 
   // ── Station/buoy selection (?stn=<chs|noaa|ndbc>:<sid>). The URL only
@@ -453,7 +412,6 @@ export default function ExploreShell({
   const handleSelectDay = useCallback(
     (d: ForecastDay) => {
       setQuery({ day: d.iso === today ? null : d.iso });
-      setHourExpanded(true); // tapping a day reveals the hourly scrubber
     },
     [setQuery, today],
   );
@@ -507,25 +465,24 @@ export default function ExploreShell({
           labels={labels}
           currents={currents}
           wind={wind}
-          hour={hasHourly ? hour : null}
+          hour={null}
           flowTimeIso={flowTimeIso}
         />
       </div>
 
       {/* Mobile-only document flow: spot list + footer (in-flow). */}
-      <MobileSpotList spots={railDisplaySpots} tz={MAP_TZ} onSelectSpot={handleSelectSpot} />
+      <MobileSpotList spots={railSpots} tz={MAP_TZ} onSelectSpot={handleSelectSpot} />
       <ExploreFooter />
 
       <LeftRail
         locations={data.locations}
         selectedCity={selectedCity}
-        spots={railDisplaySpots}
+        spots={railSpots}
         selectedSpot={selectedSpot}
         selectedStation={selectedStation}
         date={selectedIso}
         tz={MAP_TZ}
-        hour={hasHourly ? hour : null}
-        bottomInset={stripHidden ? 64 : scrubberOpen ? 208 : 152}
+        bottomInset={stripHidden ? 64 : 152}
         onSelectCity={handleSelectCity}
         onSelectSpot={handleSelectSpot}
         onCloseSpot={handleCloseSpot}
@@ -565,10 +522,6 @@ export default function ExploreShell({
         selectedIso={selectedIso}
         loading={fcLoading}
         onSelectDay={handleSelectDay}
-        scrub={scrubberOpen ? { hours: hourlyMax, hour, onScrub: setHour } : null}
-        hourlyAvailable={hasHourly}
-        hourExpanded={hourExpanded}
-        onToggleHours={() => setHourExpanded((v) => !v)}
         hidden={stripHidden}
         onHide={() => setStripHidden(true)}
         onShow={() => setStripHidden(false)}

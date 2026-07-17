@@ -1,10 +1,9 @@
 "use client";
 
 import { useState } from "react";
-import { ChevronDown, CloudSun } from "lucide-react";
+import { CloudSun } from "lucide-react";
 import type { ForecastStripModel, ForecastDay } from "../lib/forecast-strip";
 import DayCell from "./day-cell";
-import HourScrubber from "./hour-scrubber";
 import UpgradeDialog from "./upgrade-dialog";
 
 const CONFIDENCE_NOTE = "confidence fades past day 7 · ECMWF + GFS";
@@ -12,8 +11,8 @@ const CONFIDENCE_NOTE = "confidence fades past day 7 · ECMWF + GFS";
 /**
  * Docked 14-day forecast strip (desktop) — a full-bleed instrument panel
  * pinned to the bottom edge (square, no card chrome), the map sitting above
- * it. Day cells pick the day (drives the map); tapping a day reveals the
- * hourly scrubber (progressive disclosure — collapsed to cells by default).
+ * it. Day cells pick the day (drives the map); every cell shows the day's
+ * peak score. Per-hour exploration lives on the spot drawer's 24h chart.
  */
 export default function ForecastStrip({
   model,
@@ -21,10 +20,6 @@ export default function ForecastStrip({
   selectedIso,
   loading,
   onSelectDay,
-  scrub,
-  hourlyAvailable,
-  hourExpanded,
-  onToggleHours,
   hidden,
   onHide,
   onShow,
@@ -34,17 +29,6 @@ export default function ForecastStrip({
   selectedIso: string;
   loading: boolean;
   onSelectDay: (day: ForecastDay) => void;
-  /** Hour scrubber — present only when expanded. Null = cells only. */
-  scrub?: {
-    hours: (number | null)[];
-    hour: number;
-    onScrub: (h: number) => void;
-  } | null;
-  /** Whether hourly data exists (controls the show/hide-hours toggle). */
-  hourlyAvailable?: boolean;
-  hourExpanded?: boolean;
-  /** Toggle the hourly scrubber open/closed. */
-  onToggleHours?: () => void;
   /** Whole-strip hide/show. */
   hidden?: boolean;
   onHide?: () => void;
@@ -77,7 +61,7 @@ export default function ForecastStrip({
 
   return (
     <>
-      <div className={`hidden lg:flex flex-col ${scrub ? "h-[184px]" : "h-[128px]"} fixed inset-x-0 bottom-0 z-30 bg-rc-panel/88 backdrop-blur-md border-t border-rc-rule shadow-rc-bar px-6 py-2.5`}>
+      <div className="hidden lg:flex flex-col h-[128px] fixed inset-x-0 bottom-0 z-30 bg-rc-panel/88 backdrop-blur-md border-t border-rc-rule shadow-rc-bar px-6 py-2.5">
         {/* Header — single compact row */}
         <div className="flex items-center justify-between gap-4 mb-2 shrink-0">
           <div className="flex items-center gap-3 min-w-0">
@@ -100,19 +84,6 @@ export default function ForecastStrip({
                 )}
               </div>
             )}
-            {hourlyAvailable && onToggleHours && (
-              <button
-                type="button"
-                onClick={onToggleHours}
-                aria-label={hourExpanded ? "Hide hours" : "Show hours"}
-                className="flex items-center gap-1 shrink-0 px-2 py-0.5 rounded border border-rc-rule text-[11px] font-medium text-rc-ink-soft hover:bg-rc-surface transition-colors"
-              >
-                {hourExpanded ? "Hide hours" : "Show hours"}
-                <ChevronDown
-                  className={`w-3 h-3 transition-transform ${hourExpanded ? "" : "rotate-180"}`}
-                />
-              </button>
-            )}
           </div>
           <div className="flex items-center gap-4 shrink-0">
             <span className="font-rc-mono text-[10px] text-rc-ink-mute italic hidden xl:inline">
@@ -129,17 +100,6 @@ export default function ForecastStrip({
             )}
           </div>
         </div>
-
-        {/* Hour scrubber — progressive: shown only when a day is expanded */}
-        {!loading && model && scrub && (
-          <div className="mb-2.5 pb-2.5 border-b border-rc-rule-soft shrink-0">
-            <HourScrubber
-              hours={scrub.hours}
-              hour={scrub.hour}
-              onScrub={scrub.onScrub}
-            />
-          </div>
-        )}
 
         {/* Cells */}
         {loading || !model ? (
