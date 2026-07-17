@@ -44,6 +44,10 @@ const ratingBg = (s: number | null) =>
   s == null ? "#F1F5F9" : s >= 75 ? "#DCFCE7" : s >= 55 ? "#FEF3C7" : "#FEE2E2";
 const ratingInk = (s: number | null) =>
   s == null ? "#8A92A4" : s >= 75 ? "#166534" : s >= 55 ? "#92400E" : "#991B1B";
+// Mobile score tiles are solid muted-tier blocks (no room for a number in each
+// cell at phone width, so the colour itself carries the rating).
+const ratingSolid = (s: number | null) =>
+  s == null ? "#E2E8F0" : s >= 75 ? "#5CA150" : s >= 55 ? "#C99B2E" : "#C4524D";
 const verdict = (s: number | null) =>
   s == null ? "—" : ["Good", "Good", "Fair", "Slow", "Poor"][ratingIdx(s)];
 const WNAMES = ["N","NNE","NE","ENE","E","ESE","SE","SSE","S","SSW","SW","WSW","W","WNW","NW","NNW"];
@@ -105,6 +109,10 @@ function extremes(arr: (number | null)[]): { i: number; v: number; hi: boolean }
 
 type Dims = { w: number; LABEL: number; READ: number; mobile: boolean; id: string };
 
+// Gutter widths shared by the renderer and the pointer→hour math below.
+// Mobile keeps a slim left gutter for axis ticks (desktop's also holds labels).
+const PAD = { desk: { LABEL: 132, READ: 72 }, mob: { LABEL: 44, READ: 8 } };
+
 function buildSvg(
   hours: TerminalHours,
   cur: CurrentRow,
@@ -115,22 +123,27 @@ function buildSvg(
   const current = cur.v;
   const { LABEL, READ, w: W, mobile: mob, id } = d;
   const x0 = LABEL, x1 = W - READ, cw = x1 - x0, hw = cw / 24;
-  const base = mob ? 0.62 : 1;
+  // Mobile keeps the full desktop treatment (annotations, unit captions) at
+  // phone width — rows are only slightly shorter, not stripped down.
   const rows = [
-    { k: "score", l: "Score", n: "colour = rating", h: mob ? 20 : 34 },
-    { k: "tide", l: "Tide", n: "m · 0–3 fixed", h: 116 * base },
-    { k: "cur", l: "Current", n: "kn · +flood −ebb", h: 128 * base },
-    { k: "wind", l: "Wind", n: "kn · bar+gust", h: mob ? 84 : 122 },
+    { k: "score", l: "Score", n: "colour = rating", h: mob ? 26 : 34 },
+    { k: "tide", l: "Tide", n: "m · 0–3 fixed", h: mob ? 94 : 116 },
+    { k: "cur", l: "Current", n: "kn · +flood −ebb", h: mob ? 104 : 128 },
+    { k: "wind", l: "Wind", n: "kn · bar + gust tick", h: mob ? 92 : 122 },
     { k: "arrow", l: "", n: "", h: mob ? 22 : 32 },
-    { k: "sea", l: "Sea State", n: "wave m · 0–1", h: 70 * base },
-    { k: "sky", l: "Sky", n: "cloud + mm · 0–4", h: mob ? 42 : 58 },
-    { k: "air", l: "Air Temp", n: "°C · 5–25 fixed", h: mob ? 42 : 56 },
+    { k: "sea", l: "Sea State", n: "wave m · 0–1", h: mob ? 58 : 70 },
+    { k: "sky", l: "Sky", n: "cloud + mm · 0–4", h: mob ? 46 : 58 },
+    { k: "air", l: "Air Temp", n: "°C · 5–25 fixed", h: mob ? 56 : 56 },
   ] as { k: string; l: string; n: string; h: number; y0?: number; y1?: number }[];
-  const gap = mob ? 10 : 15, top = 21;
+  // Mobile rows carry a label/caption line above the plot, so the gap is wider.
+  const gap = mob ? 26 : 15, top = 21;
   const Y: Record<string, { y0: number; y1: number }> = {};
   let cy = top;
-  rows.forEach((r) => { r.y0 = cy; r.y1 = cy + r.h; Y[r.k] = { y0: r.y0, y1: r.y1 }; cy += r.h + (r.k === "arrow" ? 4 : gap); });
-  const axisY = cy + 2, H = axisY + (mob ? 16 : 22);
+  // The arrow strip hugs the wind row above it, but on mobile the next row's
+  // label line sits right below it, so it still needs the full gap after.
+  rows.forEach((r) => { r.y0 = cy; r.y1 = cy + r.h; Y[r.k] = { y0: r.y0, y1: r.y1 }; cy += r.h + (r.k === "arrow" && !mob ? 4 : gap); });
+  // Mobile reserves a second axis line for the sunrise/sunset times.
+  const axisY = cy + 2, H = axisY + (mob ? 32 : 22);
   const cTop = Y.score.y0, cBot = Y.air.y1;
 
   // twilight bands
@@ -144,7 +157,7 @@ function buildSvg(
   // near the edges, switch from centered to edge-anchored instead of letting
   // the label bleed past x0/x1.
   const annAt = (px: number) => {
-    const margin = 46;
+    const margin = mob ? 34 : 46;
     if (px < x0 + margin) return { x: x0, anchor: "start" as const };
     if (px > x1 - margin) return { x: x1, anchor: "end" as const };
     return { x: px, anchor: "middle" as const };
@@ -168,20 +181,23 @@ function buildSvg(
   if (best) s += `<rect x="${xAt(best[0]).toFixed(1)}" y="${cTop}" width="${((best[1] - best[0] + 1) * hw).toFixed(1)}" height="${cBot - cTop}" fill="${C.brand}" opacity=".045"/>`;
   for (let g = 0; g <= 24; g += mob ? 6 : 3) s += `<line x1="${xAt(g).toFixed(1)}" y1="${cTop}" x2="${xAt(g).toFixed(1)}" y2="${cBot}" stroke="${C.ruleSoft}" stroke-width="1"/>`;
 
-  // SCORE — cells carry only their tier tint; the selected hour is outlined by
-  // the movable cursor group (below), so no static range highlight here.
+  // SCORE — desktop cells carry a soft tier tint + number; mobile cells are
+  // solid tier blocks (colour = rating, no room for numbers). The selected hour
+  // is outlined by the movable cursor group (below).
   { const r = Y.score; for (let i = 0; i < 24; i++) { const cx = xAt(i); const sc = num(hours.score[i]);
-    s += `<rect x="${(cx + 0.8).toFixed(1)}" y="${r.y0}" width="${(hw - 1.6).toFixed(1)}" height="${r.y1 - r.y0}" rx="1.5" fill="${ratingBg(sc)}"/>`;
+    s += `<rect x="${(cx + (mob ? 1 : 0.8)).toFixed(1)}" y="${r.y0}" width="${(hw - (mob ? 2 : 1.6)).toFixed(1)}" height="${r.y1 - r.y0}" rx="${mob ? 2.5 : 1.5}" fill="${mob ? ratingSolid(sc) : ratingBg(sc)}"/>`;
     if (!mob && sc != null) s += `<text class="tm-cell" fill="${ratingInk(sc)}" x="${(cx + hw / 2).toFixed(1)}" y="${(r.y0 + (r.y1 - r.y0) / 2 + 4)}" text-anchor="middle">${sc}</text>`;
   } }
 
   // TIDE 0-3
   { const r = Y.tide; const line = curve((t) => interp(hours.tide, t), r.y0, r.y1, 0, 3);
+    const midY = yIn(1.5, r.y0, r.y1, 0, 3);
+    s += `<line x1="${x0}" y1="${midY.toFixed(1)}" x2="${x1}" y2="${midY.toFixed(1)}" stroke="${C.ruleSoft}" stroke-width="1" stroke-dasharray="3 3"/>`;
     if (line) { s += `<path d="${line} L${x1.toFixed(1)},${r.y1} L${x0.toFixed(1)},${r.y1} Z" fill="url(#${id}tg)"/><path d="${line}" fill="none" stroke="${C.brand}" stroke-width="1.5"/>`; }
     [0, 1.5, 3].forEach((tk) => { s += `<text class="tm-tick" x="${x0 - 5}" y="${yIn(tk, r.y0, r.y1, 0, 3) + 3}" text-anchor="end">${tk}</text>`; });
     extremes(hours.tide).slice(0, 4).forEach((e) => { const px = xAt(e.i), py = yIn(e.v, r.y0, r.y1, 0, 3);
       s += `<circle cx="${px.toFixed(1)}" cy="${py.toFixed(1)}" r="2.6" fill="${C.brand}"/>`;
-      if (!mob) { const a = annAt(px); s += `<text class="tm-ann" x="${a.x.toFixed(1)}" y="${py + (e.hi ? -6 : 14)}" text-anchor="${a.anchor}">${e.hi ? "H" : "L"} ${e.v.toFixed(1)}m ${hh(e.i)}</text>`; } }); }
+      const a = annAt(px); s += `<text class="tm-ann" x="${a.x.toFixed(1)}" y="${py + (e.hi ? -6 : 14)}" text-anchor="${a.anchor}">${e.hi ? "H" : "L"} ${e.v.toFixed(1)}${mob ? "" : "m"} ${hh(e.i)}</text>`; }); }
 
   // CURRENT ±scale (adaptive to the day's real peak; ±2 for the fallback)
   { const r = Y.cur; const sc = cur.scale, thr = cur.thr; const zy = yIn(0, r.y0, r.y1, -sc, sc);
@@ -190,13 +206,13 @@ function buildSvg(
       s += `<rect x="${xAt(a).toFixed(1)}" y="${r.y0}" width="${((b - a + 1) * hw).toFixed(1)}" height="${r.y1 - r.y0}" fill="${C.slack}" opacity=".065"/>`;
       const mid = (a + b) / 2, px = xAt(mid + 0.5);
       s += `<path d="M${px.toFixed(1)},${zy - 4} L${(px + 4).toFixed(1)},${zy} L${px.toFixed(1)},${zy + 4} L${(px - 4).toFixed(1)},${zy} Z" fill="${C.slack}"/>`;
-      if (!mob) { const a = annAt(px); s += `<text class="tm-ann tm-slack" x="${a.x.toFixed(1)}" y="${r.y1 - 4}" text-anchor="${a.anchor}">SLACK ${hh(mid + 0.5)}</text>`; }
+      { const a = annAt(px); s += `<text class="tm-ann tm-slack" x="${a.x.toFixed(1)}" y="${r.y1 - 4}" text-anchor="${a.anchor}">${mob ? hh(mid + 0.5) : `SLACK ${hh(mid + 0.5)}`}</text>`; }
       i = b;
     }
     s += `<line x1="${x0}" y1="${zy.toFixed(1)}" x2="${x1}" y2="${zy.toFixed(1)}" stroke="${C.faint}" stroke-width="1"/>`;
     const line = curve((t) => interp(current, t), r.y0, r.y1, -sc, sc); if (line) s += `<path d="${line}" fill="none" stroke="${C.ink}" stroke-width="1.5"/>`;
     [sc, 0, -sc].forEach((tk) => { s += `<text class="tm-tick" x="${x0 - 5}" y="${yIn(tk, r.y0, r.y1, -sc, sc) + 3}" text-anchor="end">${tk > 0 ? "+" : ""}${tk}</text>`; });
-    if (!mob) extremes(current).filter((e) => Math.abs(e.v) > 0.4 * sc).slice(0, 3).forEach((e) => {
+    extremes(current).filter((e) => Math.abs(e.v) > 0.4 * sc).slice(0, 3).forEach((e) => {
       const a = annAt(xAt(e.i + 0.5));
       s += `<text class="tm-ann" x="${a.x.toFixed(1)}" y="${yIn(e.v, r.y0, r.y1, -sc, sc) + (e.hi ? -8 : 14)}" text-anchor="${a.anchor}">${e.hi ? "FLOOD" : "EBB"} ${Math.abs(e.v).toFixed(1)}</text>`; }); }
 
@@ -204,7 +220,7 @@ function buildSvg(
   { const r = Y.wind, vmax = 24;
     [10, 20].forEach((tk) => { const yy = yIn(tk, r.y0, r.y1, 0, vmax); s += `<line x1="${x0}" y1="${yy.toFixed(1)}" x2="${x1}" y2="${yy.toFixed(1)}" stroke="${C.ruleSoft}" stroke-width="1" stroke-dasharray="3 3"/><text class="tm-tick" x="${x0 - 5}" y="${yy + 3}" text-anchor="end">${tk}</text>`; });
     const scy = yIn(15, r.y0, r.y1, 0, vmax); s += `<line x1="${x0}" y1="${scy.toFixed(1)}" x2="${x1}" y2="${scy.toFixed(1)}" stroke="${C.r[4]}" stroke-width="1" stroke-dasharray="4 3" opacity=".8"/>`;
-    if (!mob) s += `<text class="tm-note" x="${x0 + 3}" y="${scy - 4}" style="fill:${C.r[4]}">15 KN SMALL CRAFT</text>`;
+    s += `<text class="tm-note" x="${x0 + 3}" y="${scy - 4}" style="fill:${C.r[4]}">15 KN SMALL CRAFT</text>`;
     for (let i = 0; i < 24; i++) { const cx = xAt(i), bw = hw * 0.56, v = num(hours.wind[i]); if (v == null) continue; const by = yIn(v, r.y0, r.y1, 0, vmax);
       s += `<rect x="${(cx + hw / 2 - bw / 2).toFixed(1)}" y="${by.toFixed(1)}" width="${bw.toFixed(1)}" height="${(r.y1 - by).toFixed(1)}" rx="1.5" fill="${C.wind}"/>`;
       const gv = num(hours.gust[i]); if (gv != null) { const gy = yIn(gv, r.y0, r.y1, 0, vmax); s += `<line x1="${(cx + hw / 2 - bw / 2 - 1).toFixed(1)}" y1="${gy.toFixed(1)}" x2="${(cx + hw / 2 + bw / 2 + 1).toFixed(1)}" y2="${gy.toFixed(1)}" stroke="${C.soft}" stroke-width="1.4"/>`; } }
@@ -222,24 +238,31 @@ function buildSvg(
   // SKY cloud strip + precip 0-4
   { const r = Y.sky, stripH = 6, vmax = 4;
     for (let i = 0; i < 24; i++) { const cx = xAt(i), cl = num(hours.cloud[i]) ?? 0; s += `<rect x="${(cx + 0.6).toFixed(1)}" y="${r.y0}" width="${(hw - 1.2).toFixed(1)}" height="${stripH}" fill="${C.muted}" opacity="${(0.1 + (cl / 100) * 0.7).toFixed(2)}"/>`; }
-    let anyRain = false;
-    for (let i = 0; i < 24; i++) { const p = num(hours.precip[i]); if (p == null || p <= 0) continue; anyRain = true; const cx = xAt(i), bw = hw * 0.56, bh = (Math.min(p, vmax) / vmax) * (r.y1 - (r.y0 + stripH + 4)); s += `<rect x="${(cx + hw / 2 - bw / 2).toFixed(1)}" y="${(r.y1 - bh).toFixed(1)}" width="${bw.toFixed(1)}" height="${bh.toFixed(1)}" rx="1" fill="${C.brand}" opacity=".7"/>`; }
-    if (!mob && !anyRain) s += `<text class="tm-note" x="${(x0 + cw * 0.28).toFixed(1)}" y="${((r.y0 + r.y1) / 2 + 3)}" text-anchor="middle" style="fill:${C.faint};letter-spacing:.1em">DRY ALL DAY</text>`; }
+    let firstRain = -1;
+    for (let i = 0; i < 24; i++) { const p = num(hours.precip[i]); if (p == null || p <= 0) continue; if (firstRain < 0) firstRain = i; const cx = xAt(i), bw = hw * 0.56, bh = (Math.min(p, vmax) / vmax) * (r.y1 - (r.y0 + stripH + 4)); s += `<rect x="${(cx + hw / 2 - bw / 2).toFixed(1)}" y="${(r.y1 - bh).toFixed(1)}" width="${bw.toFixed(1)}" height="${bh.toFixed(1)}" rx="1" fill="${C.brand}" opacity=".7"/>`; }
+    // Dry callout: all-day when no rain, else "dry through" when the first
+    // shower holds off long enough for the label to sit in the dry stretch.
+    if (firstRain < 0) s += `<text class="tm-note" x="${(x0 + cw * 0.28).toFixed(1)}" y="${((r.y0 + r.y1) / 2 + 3)}" text-anchor="middle" style="fill:${C.faint};letter-spacing:.1em">DRY ALL DAY</text>`;
+    else if (firstRain >= 8) s += `<text class="tm-note" x="${xAt(firstRain / 2).toFixed(1)}" y="${((r.y0 + r.y1) / 2 + 3)}" text-anchor="middle" style="fill:${C.faint};letter-spacing:.1em">DRY THROUGH ${String(firstRain).padStart(2, "0")}:00</text>`; }
 
   // AIR 5-25
   { const r = Y.air; const line = curve((t) => interp(hours.air, t), r.y0, r.y1, 5, 25); if (line) s += `<path d="${line}" fill="none" stroke="${C.r[3]}" stroke-width="1.6"/>`;
     [25, 15, 5].forEach((tk) => { s += `<text class="tm-tick" x="${x0 - 5}" y="${yIn(tk, r.y0, r.y1, 5, 25) + 3}" text-anchor="end">${tk}</text>`; });
-    if (!mob) { const ex = extremes(hours.air); const hiE = ex.filter((e) => e.hi)[0], loE = ex.filter((e) => !e.hi)[0];
-      [loE, hiE].forEach((e) => { if (!e) return; const px = xAt(e.i), py = yIn(e.v, r.y0, r.y1, 5, 25), a = annAt(px); s += `<circle cx="${px.toFixed(1)}" cy="${py.toFixed(1)}" r="2.2" fill="${C.r[3]}"/><text class="tm-ann tm-sub" x="${a.x.toFixed(1)}" y="${py + (e.hi ? -7 : 14)}" text-anchor="${a.anchor}">${e.hi ? "H" : "L"} ${e.v.toFixed(1)}° ${hh(e.i)}</text>`; }); } }
+    { const ex = extremes(hours.air); const hiE = ex.filter((e) => e.hi)[0], loE = ex.filter((e) => !e.hi)[0];
+      [loE, hiE].forEach((e) => { if (!e) return; const px = xAt(e.i), py = yIn(e.v, r.y0, r.y1, 5, 25), a = annAt(px); s += `<circle cx="${px.toFixed(1)}" cy="${py.toFixed(1)}" r="2.2" fill="${C.r[3]}"/><text class="tm-ann tm-sub" x="${a.x.toFixed(1)}" y="${py + (e.hi ? -7 : 14)}" text-anchor="${a.anchor}">${e.hi ? "H" : "L"} ${mob ? Math.round(e.v) : e.v.toFixed(1)}° ${hh(e.i)}</text>`; }); } }
 
-  // labels
+  // labels — mobile: label left + unit caption right on the line above each
+  // row; desktop: label + caption stacked in the left gutter.
   rows.forEach((r) => { if (r.k === "arrow") return;
-    if (mob) s += `<text class="tm-lbl" x="${x0}" y="${(r.y0 ?? 0) - 4}">${r.l.toUpperCase()}</text>`;
+    if (mob) { s += `<text class="tm-lbl" x="12" y="${(r.y0 ?? 0) - 6}">${r.l.toUpperCase()}</text>`; if (r.n) s += `<text class="tm-note" x="${x1}" y="${(r.y0 ?? 0) - 6}" text-anchor="end">${r.n}</text>`; }
     else { s += `<text class="tm-lbl" x="12" y="${(r.y0 ?? 0) + 14}">${r.l.toUpperCase()}</text>`; if (r.n) s += `<text class="tm-note" x="12" y="${(r.y0 ?? 0) + 30}">${r.n}</text>`; } });
 
-  // hour axis + sun ticks
+  // hour axis + sun ticks (mobile gets sunrise/sunset times on a second line)
   for (let a = 0; a <= 24; a += mob ? 6 : 3) s += `<text class="tm-ax" x="${xAt(a).toFixed(1)}" y="${axisY + 12}" text-anchor="middle">${String(a).padStart(2, "0")}</text>`;
-  [sun.sunrise, sun.sunset].forEach((t) => { s += `<text x="${xAt(t).toFixed(1)}" y="${axisY + 12}" text-anchor="middle" style="font-size:${mob ? 8 : 9}px;fill:${C.r[2]}">☀</text>`; });
+  [sun.sunrise, sun.sunset].forEach((t) => {
+    if (mob) { const a = annAt(xAt(t)); s += `<text x="${a.x.toFixed(1)}" y="${axisY + 27}" text-anchor="${a.anchor}" style="font-family:var(--rc-font-mono);font-size:9px;fill:${C.r[2]}">☀ ${hh(t)}</text>`; }
+    else s += `<text x="${xAt(t).toFixed(1)}" y="${axisY + 12}" text-anchor="middle" style="font-size:9px;fill:${C.r[2]}">☀</text>`;
+  });
 
   // right-gutter readouts (desktop)
   if (!mob) { const rx = x1 + 14;
@@ -307,14 +330,16 @@ export default function SpotTerminal({
       curSigned: (cv >= 0 ? "+" : "") + cv.toFixed(1) + "kn", curS: cs,
       wind: (num(hours.wind[hi]) ?? 0).toFixed(0) + "kn", windS: windName(hours.windDir[hi]) + " G" + (num(hours.gust[hi]) ?? 0).toFixed(0),
       sea: (num(hours.sea[hi]) ?? 0).toFixed(1) + "m", seaS: seaWord(num(hours.sea[hi])),
+      rain: (num(hours.precip[hi]) ?? 0) > 0 ? `${(num(hours.precip[hi]) ?? 0).toFixed(1)}mm` : "Dry",
+      rainS: hours.cloud[hi] == null ? "—" : `Cld ${Math.round(num(hours.cloud[hi]) ?? 0)}%`,
       air: (num(hours.air[hi]) ?? 0).toFixed(1) + "°", airS: airWord(num(hours.air[hi])),
     };
   };
 
   // Build both SVGs when data changes.
   useEffect(() => {
-    if (deskRef.current && deskW > 400) deskRef.current.innerHTML = buildSvg(hours, cur, sun, bestWindow, { w: deskW, LABEL: 132, READ: 72, mobile: false, id: "tmd" });
-    if (mobRef.current) mobRef.current.innerHTML = buildSvg(hours, cur, sun, bestWindow, { w: 414, LABEL: 12, READ: 8, mobile: true, id: "tmm" });
+    if (deskRef.current && deskW > 400) deskRef.current.innerHTML = buildSvg(hours, cur, sun, bestWindow, { w: deskW, ...PAD.desk, mobile: false, id: "tmd" });
+    if (mobRef.current) mobRef.current.innerHTML = buildSvg(hours, cur, sun, bestWindow, { w: 414, ...PAD.mob, mobile: true, id: "tmm" });
     // Scrub only over scored hours: leading/trailing hours with no fishing score
     // (e.g. today's 00:00, which has tide but no weather forecast yet) render as
     // empty cells and must not hold the cursor — clamp the selectable range to
@@ -327,7 +352,8 @@ export default function SpotTerminal({
       const svg = host?.querySelector("svg") as SVGSVGElement | null; if (!svg) return;
       const hFromEvt = (e: PointerEvent) => {
         const r = svg.getBoundingClientRect(); const scale = svg.viewBox.baseVal.width / r.width;
-        const vx = (e.clientX - r.left) * scale; const x0 = mob ? 12 : 132, hw = (svg.viewBox.baseVal.width - x0 - (mob ? 8 : 72)) / 24;
+        const pad = mob ? PAD.mob : PAD.desk;
+        const vx = (e.clientX - r.left) * scale; const x0 = pad.LABEL, hw = (svg.viewBox.baseVal.width - x0 - pad.READ) / 24;
         return (vx - x0) / hw - 0.5;
       };
       const move = (e: PointerEvent) => onSelectHour(clampH(Math.round(hFromEvt(e))));
@@ -363,7 +389,8 @@ export default function SpotTerminal({
   useEffect(() => {
     const apply = (host: HTMLDivElement | null, id: string, mob: boolean) => {
       const svg = host?.querySelector("svg") as SVGSVGElement | null; if (!svg) return;
-      const x0 = mob ? 12 : 132, hw = (svg.viewBox.baseVal.width - x0 - (mob ? 8 : 72)) / 24;
+      const pad = mob ? PAD.mob : PAD.desk;
+      const x0 = pad.LABEL, hw = (svg.viewBox.baseVal.width - x0 - pad.READ) / 24;
       const g = svg.querySelector(`#${id}-cur`) as SVGGElement | null; if (!g) return;
       const cx = x0 + selectedHour * hw + hw / 2;
       g.setAttribute("transform", `translate(${cx.toFixed(1)},0)`);
@@ -387,8 +414,10 @@ export default function SpotTerminal({
     };
     apply(deskRef.current, "tmd", false);
     apply(mobRef.current, "tmm", true);
+    // sun/bestWindow must match the build effect's deps: whenever the SVG is
+    // rebuilt (cursor back at origin) this effect must re-run to reposition it.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedHour, hours, realCurrent, deskW]);
+  }, [selectedHour, hours, realCurrent, sun, bestWindow, deskW]);
 
   const d = readAt(selectedHour);
   const isNow = selectedHour === nowHour;
@@ -417,27 +446,34 @@ export default function SpotTerminal({
         .tm-scope #tmd-score-v,.tm-scope #tmm-score-v{font-family:var(--rc-font-sans)}
         .tm-scope svg:focus{outline:none}
         .tm-scope svg:focus-visible{outline:2px solid #1E40E0;outline-offset:2px;border-radius:3px}
+        .tm-scope .tm-mob .tm-lbl{font-size:10px}
+        .tm-scope .tm-mob .tm-note{font-size:8px;letter-spacing:.06em}
+        .tm-scope .tm-mob .tm-tick{font-size:8px}
+        .tm-scope .tm-mob .tm-ann{font-size:8.5px}
+        .tm-scope .tm-mob .tm-ax{font-size:9px}
+        .tm-scope .tm-mob .tm-ctag{font-size:11px}
       `}</style>
 
       {/* Screen-reader live readout of the scrubbed hour. */}
       <div aria-live="polite" className="sr-only">
-        {`Hour ${d.hour}. Score ${d.score} ${d.verd}. Tide ${d.tide} ${d.tideS}. Current ${d.curSigned} ${d.curS}. Wind ${d.wind} ${d.windS}. Sea ${d.sea} ${d.seaS}. Air ${d.air}.`}
+        {`Hour ${d.hour}. ${speciesName ? `Species ${speciesName}. ` : ""}Score ${d.score} ${d.verd}. Tide ${d.tide} ${d.tideS}. Current ${d.curSigned} ${d.curS}. Wind ${d.wind} ${d.windS}. Sea ${d.sea} ${d.seaS}. Rain ${d.rain}. Air ${d.air}.`}
       </div>
 
-      {/* Mobile readout bar */}
-      <div className="lg:hidden grid grid-cols-4 gap-x-3 gap-y-2 px-1 pb-3">
+      {/* Mobile readout bar — sticky under the fixed top bar so the numbers
+          stay in view while the thumb drags across the tall grid below. */}
+      <div className="lg:hidden sticky top-16 z-30 mb-3 grid grid-cols-4 gap-x-3 gap-y-2 rounded border border-rc-rule bg-rc-panel/95 px-3 py-2.5 backdrop-blur">
         {cell("Cursor", d.hour, isNow ? "Now" : selectedHour < nowHour ? "Past" : "Ahead", "#1E40E0")}
         {cell("Score", d.score, `${d.verd}${d.scoreDeltaTxt}`, d.col)}
         {cell("Tide", d.tide, d.tideS)}
         {cell("Current", d.curSigned, d.curS, undefined, d.curS === "Slack" ? "#059669" : undefined)}
         {cell("Wind", d.wind, d.windS)}
         {cell("Sea", d.sea, d.seaS)}
+        {cell("Rain", d.rain, d.rainS)}
         {cell("Air", d.air, d.airS, undefined)}
-        {cell("Species", speciesName ?? "—", "Driver")}
       </div>
 
       <div ref={deskRef} className="hidden lg:block" />
-      <div ref={mobRef} className="lg:hidden" />
+      <div ref={mobRef} className="lg:hidden tm-mob" />
     </div>
   );
 }
