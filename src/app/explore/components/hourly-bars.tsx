@@ -6,17 +6,21 @@ import { currentLocalHour } from "../lib/explore-data";
 /**
  * Drawer 24h mini chart per the Figma: tier-tinted bars, the best
  * contiguous window highlighted in solid green, a marker line, and an hour
- * axis (06 · 12 · 18 · 24). Plain divs — no chart lib.
+ * axis (00 · 06 · 12 · 18 · 24). Plain divs — no chart lib.
  *
  * When `onSelectHour` is supplied the bars become a scrubber: each hour is a
  * full-height click target, the marker tracks `selectedHour`, and the picked
- * bar is ringed. Otherwise the marker sits on "now" (drawer behaviour).
+ * bar is ringed. `onHoverHour` makes the chart hover-scrubbable instead —
+ * rolling the mouse across the bars previews each hour and leaving the chart
+ * reports null so the caller can revert. Otherwise the marker sits on "now"
+ * (drawer behaviour).
  */
 export default function HourlyBars({
   hours,
   tz,
   selectedHour = null,
   onSelectHour,
+  onHoverHour,
   dense = false,
   hideLabel = false,
 }: {
@@ -25,6 +29,8 @@ export default function HourlyBars({
   tz: string;
   selectedHour?: number | null;
   onSelectHour?: (hour: number) => void;
+  /** Hover-scrub: fires per hovered hour, null when the pointer leaves. */
+  onHoverHour?: (hour: number | null) => void;
   /** Compact variant for the narrow rail card — shorter label + bars. */
   dense?: boolean;
   /** Omit the "24H · BEST WINDOW" header row (the card carries that in its conclusion line). */
@@ -47,9 +53,17 @@ export default function HourlyBars({
               tap a bar to scrub
             </div>
           )}
+          {!onSelectHour && onHoverHour && (
+            <div className="font-rc-mono text-[9px] text-rc-ink-mute italic shrink-0">
+              hover to scrub
+            </div>
+          )}
         </div>
       )}
-      <div className={`relative flex items-end gap-[2px] ${dense ? "h-10" : "h-16"}`}>
+      <div
+        className={`relative flex items-end gap-[2px] ${dense ? "h-10" : "h-16"}`}
+        onMouseLeave={onHoverHour ? () => onHoverHour(null) : undefined}
+      >
         {hours.map((score, i) => {
           const inWindow = window !== null && i >= window[0] && i <= window[1];
           const maxH = dense ? 40 : 64;
@@ -63,12 +77,13 @@ export default function HourlyBars({
           const ring = i === marker ? "ring-1 ring-rc-ink" : "";
 
           const hhmm = `${String(i).padStart(2, "0")}:00`;
-          if (onSelectHour) {
+          if (onSelectHour || onHoverHour) {
             return (
               <button
                 key={i}
                 type="button"
-                onClick={() => onSelectHour(i)}
+                onClick={onSelectHour ? () => onSelectHour(i) : () => onHoverHour?.(i)}
+                onMouseEnter={onHoverHour ? () => onHoverHour(i) : undefined}
                 title={`${hhmm}${score !== null ? ` · ${score}` : ""}`}
                 aria-label={`${hhmm}${score !== null ? ` · ${score}` : ""}`}
                 aria-pressed={i === marker}
@@ -97,6 +112,7 @@ export default function HourlyBars({
         />
       </div>
       <div className="flex justify-between font-rc-mono text-[9px] text-rc-ink-mute mt-1.5">
+        <span>00</span>
         <span>06</span>
         <span>12</span>
         <span>18</span>

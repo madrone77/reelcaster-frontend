@@ -20,6 +20,7 @@ import {
   TIER_TEXT,
   currentLocalHour,
   fmtPeak,
+  formatConditions,
   tierFor,
   type RailSpot,
 } from "../lib/explore-data";
@@ -72,7 +73,16 @@ export default function SpotDrawer({
   hour?: number | null;
   onBack: () => void;
 }) {
-  const tier = tierFor(spot.score);
+  // Hover-scrub over the 24h chart: while the mouse is on a bar the score,
+  // pill, header stamp, and conditions grid preview that hour; leaving the
+  // chart reverts to the scrubbed hour the shell passed in.
+  const [hoverHour, setHoverHour] = useState<number | null>(null);
+  const hoverScore = hoverHour !== null ? spot.hours24[hoverHour] : null;
+  const score = hoverScore ?? spot.score;
+  const hoverCell = hoverHour !== null ? spot.condStrip?.[hoverHour] : null;
+  const conditions = hoverCell ? formatConditions(hoverCell) : spot.conditions;
+
+  const tier = tierFor(score);
   const peak = fmtPeak(spot.peakHour);
   const spotHref = `/explore/spot/${spot.slug}`;
   const [fav, toggleFav] = useFavorite(spot.slug);
@@ -92,20 +102,20 @@ export default function SpotDrawer({
     toggleFav();
   };
 
-  // All six cells read the map-spots conditions strip at the scrubbed hour —
-  // same source (and same hour) as the rail card's KPI columns.
+  // All six cells read the map-spots conditions strip at the scrubbed hour
+  // (or the hover-previewed hour) — same source as the rail card's KPI columns.
   const conditionCells: Array<{
     label: string;
     value: string;
     sub: string | null;
     icon: LucideIcon;
   }> = [
-    { label: "TIDE", value: spot.conditions.tide ?? "—", sub: null, icon: ArrowUpDown },
-    { label: "CURRENT", value: spot.conditions.current ?? "—", sub: null, icon: Navigation },
-    { label: "WIND", value: spot.conditions.wind ?? "—", sub: null, icon: Wind },
-    { label: "SEA STATE", value: spot.conditions.sea ?? "—", sub: null, icon: Waves },
-    { label: "SKY", value: spot.conditions.sky ?? "—", sub: null, icon: Cloud },
-    { label: "AIR TEMP", value: spot.conditions.air ?? "—", sub: null, icon: Thermometer },
+    { label: "TIDE", value: conditions.tide ?? "—", sub: null, icon: ArrowUpDown },
+    { label: "CURRENT", value: conditions.current ?? "—", sub: null, icon: Navigation },
+    { label: "WIND", value: conditions.wind ?? "—", sub: null, icon: Wind },
+    { label: "SEA STATE", value: conditions.sea ?? "—", sub: null, icon: Waves },
+    { label: "SKY", value: conditions.sky ?? "—", sub: null, icon: Cloud },
+    { label: "AIR TEMP", value: conditions.air ?? "—", sub: null, icon: Thermometer },
   ];
 
   return (
@@ -120,7 +130,7 @@ export default function SpotDrawer({
         >
           <ChevronLeft className="w-4 h-4" />
         </button>
-        <span className="rc-label text-[9px]">{headerStamp(date, tz, hour)}</span>
+        <span className="rc-label text-[9px]">{headerStamp(date, tz, hoverHour ?? hour)}</span>
       </div>
 
       <div className="flex-1 overflow-y-auto px-4 pb-4">
@@ -156,13 +166,13 @@ export default function SpotDrawer({
           <span
             className={`text-[60px] leading-none font-bold tracking-[-0.04em] ${TIER_TEXT[tier]}`}
           >
-            {spot.score ?? "—"}
+            {score ?? "—"}
           </span>
           <div className="space-y-1.5">
             <span
               className={`inline-block px-2 py-0.5 rounded font-rc-mono text-[11px] font-bold ${TIER_PILL[tier]}`}
             >
-              {spot.score !== null ? tier.toUpperCase() : "NO SCORE"}
+              {score !== null ? tier.toUpperCase() : "NO SCORE"}
             </span>
             {spot.driverSpecies && (
               <p className="font-rc-mono text-xs text-rc-ink-soft">
@@ -192,9 +202,15 @@ export default function SpotDrawer({
           ))}
         </div>
 
-        {/* 24h chart */}
+        {/* 24h chart — hover-scrubbable; the marker tracks the hovered hour,
+            falling back to the shell's scrubbed hour (null = now). */}
         <div className="mt-5">
-          <HourlyBars hours={spot.hours24} tz={tz} />
+          <HourlyBars
+            hours={spot.hours24}
+            tz={tz}
+            selectedHour={hoverHour ?? hour}
+            onHoverHour={setHoverHour}
+          />
         </div>
       </div>
 
