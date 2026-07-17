@@ -62,6 +62,14 @@ function placeLayers() {
  */
 export function buildReliefStyle(origin: string): Record<string, unknown> {
   const asset = (f: string) => `${origin}/${f}`;
+  // Per-source acknowledgements, surfaced by MapLibre's attribution control.
+  // Licence terms: bathymetry (CHS NONNA / NRCan) and DFO layers are OGL-Canada
+  // and must carry the "Contains information licensed…" statement; OSM-derived
+  // layers are ODbL and must credit OpenStreetMap contributors. Identical
+  // strings are deduped by the control, so all plain-OSM sources share one.
+  const ATTR_BATHY =
+    "Bathymetry: CHS NONNA-10 & NRCan — Contains information licensed under the Open Government Licence – Canada";
+  const ATTR_OSM = "© OpenStreetMap contributors (ODbL)";
   return {
     version: 8,
     glyphs: `${origin}/fonts/{fontstack}/{range}.pbf`,
@@ -72,29 +80,51 @@ export function buildReliefStyle(origin: string): Record<string, unknown> {
         tileSize: 256,
         minzoom: RELIEF_MINZOOM,
         maxzoom: RELIEF_MAXZOOM,
+        attribution: ATTR_BATHY,
       },
       contours: {
         type: "vector",
         tiles: [tileUrlTemplate(origin, "contours-z14-2026-06")],
         minzoom: CONTOUR_MINZOOM,
         maxzoom: CONTOUR_MAXZOOM,
+        attribution: ATTR_BATHY,
       },
       // Explicit tiles + zoom range (the archive header's z4–14).
-      land: { type: "vector", tiles: [tileUrlTemplate(origin, "land-2026-05")], minzoom: 4, maxzoom: 14 },
-      subareas: { type: "geojson", data: asset("dfo_subareas_salish.geojson") },
-      rca: { type: "geojson", data: asset("rca_salish.geojson") },
+      land: { type: "vector", tiles: [tileUrlTemplate(origin, "land-2026-05")], minzoom: 4, maxzoom: 14, attribution: ATTR_OSM },
+      subareas: {
+        type: "geojson",
+        data: asset("dfo_subareas_salish.geojson"),
+        attribution: "DFO Pacific Fishery Management Areas — Open Government Licence – Canada",
+      },
+      rca: {
+        type: "geojson",
+        data: asset("rca_salish.geojson"),
+        attribution: "Rockfish Conservation Areas — Fisheries and Oceans Canada, Pacific Region",
+      },
       // WA-side counterparts (WDFW): marine-area grid (analog of DFO subareas),
       // MPAs (analog of RCAs). Source: WDFW ArcGIS services.
-      wdfwma: { type: "geojson", data: asset("wdfw_marine_areas_salish.geojson") },
-      wdfwmpa: { type: "geojson", data: asset("wdfw_mpa_salish.geojson") },
-      border: { type: "geojson", data: asset("usca_border_salish.geojson") },
+      wdfwma: {
+        type: "geojson",
+        data: asset("wdfw_marine_areas_salish.geojson"),
+        attribution: "Washington Department of Fish & Wildlife",
+      },
+      wdfwmpa: { type: "geojson", data: asset("wdfw_mpa_salish.geojson"), attribution: "Washington Department of Fish & Wildlife" },
+      border: { type: "geojson", data: asset("usca_border_salish.geojson"), attribution: ATTR_OSM },
       // Man-made marine features (OSM): breakwaters/jetties, marinas, slips, ramps.
-      marine: { type: "geojson", data: asset("marine_features_salish.geojson") },
+      marine: { type: "geojson", data: asset("marine_features_salish.geojson"), attribution: ATTR_OSM },
       // Tide-prediction stations (CHS Canada + NOAA US).
-      tides: { type: "geojson", data: asset("tide_stations_salish.geojson") },
+      tides: {
+        type: "geojson",
+        data: asset("tide_stations_salish.geojson"),
+        attribution: "Tide stations: Canadian Hydrographic Service (DFO) & NOAA CO-OPS",
+      },
       // Weather buoys + C-MAN stations (NOAA NDBC, ECCC/DFO, partner) with
       // live observations — regenerate via BlueCaster scripts/build-buoy-stations.ts.
-      buoys: { type: "geojson", data: asset("buoy_stations_salish.geojson") },
+      buoys: {
+        type: "geojson",
+        data: asset("buoy_stations_salish.geojson"),
+        attribution: "Buoy observations: NOAA NDBC & Environment and Climate Change Canada",
+      },
       places: { type: "geojson", data: asset("region_places.geojson") },
     },
     layers: [

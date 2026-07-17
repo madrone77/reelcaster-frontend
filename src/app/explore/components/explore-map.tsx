@@ -1,10 +1,11 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState, type RefObject } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type RefObject } from "react";
 import Map, {
   Source,
   Layer,
   NavigationControl,
+  AttributionControl,
   type MapRef,
   type LayerProps,
   type MapLayerMouseEvent,
@@ -17,6 +18,7 @@ import type {
 import "maplibre-gl/dist/maplibre-gl.css";
 import type { RailSpot } from "../lib/explore-data";
 import { buildReliefStyle } from "@/lib/map/relief-style";
+import { MAP_CUSTOM_ATTRIBUTION, MapBrandLogo } from "@/lib/map/map-brand";
 import { spotsToFeatureCollection, SELECT_HEX } from "../lib/spot-geojson";
 import { useCurrentsFlow } from "../lib/use-currents-flow";
 
@@ -73,6 +75,7 @@ export default function ExploreMap({
   wind,
   hour,
   flowTimeIso,
+  stripVisible = false,
 }: {
   mapRef: RefObject<MapRef | null>;
   spots: RailSpot[];
@@ -89,6 +92,8 @@ export default function ExploreMap({
   hour?: number | null;
   /** UTC instant for the currents flow field; null = model "now". */
   flowTimeIso?: string | null;
+  /** Desktop forecast strip visible → raise attribution/watermark above it. */
+  stripVisible?: boolean;
 }) {
   const [cursor, setCursor] = useState<string>("");
   const [hoveredSlug, setHoveredSlug] = useState<string | null>(null);
@@ -97,6 +102,39 @@ export default function ExploreMap({
   // Animated tidal-current overlay — bathy-relief WebGL flow (heatmap field +
   // white particle ribbons) as a MapLibre custom layer clipped at the coastline.
   useCurrentsFlow({ map: mapObj, enabled: currents, timeIso: flowTimeIso ?? null });
+
+  // The compact attribution renders expanded on load, spilling a wall of source
+  // text over the map. Collapse it back to the ⓘ. This runs off the DOM from
+  // mount — NOT off the map 'load' event, which waits on the relief-tile CDN
+  // and can take 20s+, leaving the wall up the whole time. Keep re-collapsing
+  // briefly (late attribution updates re-open it) until the user taps the ⓘ,
+  // after which their choice wins.
+  const wrapRef = useRef<HTMLDivElement | null>(null);
+  useEffect(() => {
+    const root = wrapRef.current;
+    if (!root) return;
+    let userToggled = false;
+    const collapse = () => {
+      if (userToggled) return;
+      const el = root.querySelector(".maplibregl-ctrl-attrib");
+      if (el) {
+        el.classList.remove("maplibregl-compact-show");
+        el.removeAttribute("open");
+      }
+    };
+    const onClickCapture = (e: Event) => {
+      if ((e.target as HTMLElement).closest?.(".maplibregl-ctrl-attrib")) userToggled = true;
+    };
+    root.addEventListener("click", onClickCapture, true);
+    collapse();
+    const iv = setInterval(collapse, 500);
+    const stop = setTimeout(() => clearInterval(iv), 30_000);
+    return () => {
+      clearInterval(iv);
+      clearTimeout(stop);
+      root.removeEventListener("click", onClickCapture, true);
+    };
+  }, []);
 
   // Flip layer visibility for the relief/labels toggles once the style is up.
   useEffect(() => {
@@ -218,7 +256,11 @@ export default function ExploreMap({
   }, []);
 
   return (
-    <div className="absolute inset-0">
+    <div
+      ref={wrapRef}
+      className="rc-explore-map absolute inset-0"
+      style={{ "--rc-map-inset": stripVisible ? "128px" : "0px" } as CSSProperties}
+    >
       <Map
         ref={mapRef}
         initialViewState={{
@@ -236,8 +278,10 @@ export default function ExploreMap({
         onMouseMove={handleMouseMove}
         onMouseLeave={handleMouseLeave}
         style={{ width: "100%", height: "100%" }}
+        attributionControl={false}
       >
         <NavigationControl position="top-right" showCompass={false} />
+        <AttributionControl compact position="bottom-right" customAttribution={MAP_CUSTOM_ATTRIBUTION} />
 
         {OWM_KEY && (
           <Source
@@ -247,6 +291,7 @@ export default function ExploreMap({
               `https://tile.openweathermap.org/map/wind_new/{z}/{x}/{y}.png?appid=${OWM_KEY}`,
             ]}
             tileSize={256}
+            attribution="Wind tiles © OpenWeatherMap"
           >
             <Layer
               id={WIND_LAYER}
@@ -262,6 +307,19 @@ export default function ExploreMap({
           <Layer {...spotLabelLayer} />
         </Source>
       </Map>
+
+      {/* Brand watermark. Mobile: bottom-left of the in-flow map block.
+          Desktop: bottom-right, raised above the forecast strip + the ⓘ
+          (the bottom-left corner belongs to the floating rail). */}
+      <div className="lg:hidden pointer-events-none absolute bottom-2.5 left-2.5 z-10">
+        <MapBrandLogo width={72} />
+      </div>
+      <div
+        className="hidden lg:block pointer-events-none absolute right-2.5 z-10"
+        style={{ bottom: "calc(var(--rc-map-inset, 0px) + 40px)" }}
+      >
+        <MapBrandLogo width={88} />
+      </div>
     </div>
   );
 }

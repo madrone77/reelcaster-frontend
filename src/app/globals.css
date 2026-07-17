@@ -325,3 +325,11 @@
 .scrollbar-hide::-webkit-scrollbar {
   display: none;
 }
+/* Explore map: on desktop the forecast strip (128px, fixed bottom) covers the
+   map's bottom edge — lift the attribution ⓘ above it. --rc-map-inset is set
+   by ExploreMap from the strip's visibility. */
+@media (min-width: 1024px) {
+  .rc-explore-map .maplibregl-ctrl-bottom-right {
+    bottom: var(--rc-map-inset, 0px);
+  }
+}
