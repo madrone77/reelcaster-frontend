@@ -15,8 +15,8 @@ export const MAP_CUSTOM_ATTRIBUTION = [
 
 /**
  * The official ReelCaster lockup (public/reelcaster-logo.svg — the brand asset,
- * never re-typeset) as a non-interactive map watermark. A soft white halo keeps
- * the brand-blue mark legible over both land and water.
+ * never re-typeset) as a non-interactive map watermark: recolored all-white via
+ * filter (brightness 0 → invert), 65% opacity, no glow.
  */
 export function MapBrandLogo({ width = 88, className = "" }: { width?: number; className?: string }) {
   return (
@@ -27,7 +27,7 @@ export function MapBrandLogo({ width = 88, className = "" }: { width?: number; c
       height={Math.round(width * (49 / 109))}
       draggable={false}
       className={`pointer-events-none select-none ${className}`}
-      style={{ filter: "drop-shadow(0 0 2px rgba(255,255,255,0.9)) drop-shadow(0 0 6px rgba(255,255,255,0.7))" }}
+      style={{ filter: "brightness(0) invert(1)", opacity: 0.65 }}
     />
   );
 }

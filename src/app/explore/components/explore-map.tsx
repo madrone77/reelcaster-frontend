@@ -308,15 +308,15 @@ export default function ExploreMap({
         </Source>
       </Map>
 
-      {/* Brand watermark. Mobile: bottom-left of the in-flow map block.
-          Desktop: bottom-right, raised above the forecast strip + the ⓘ
-          (the bottom-left corner belongs to the floating rail). */}
-      <div className="lg:hidden pointer-events-none absolute bottom-2.5 left-2.5 z-10">
+      {/* Brand watermark — bottom-right corner, with the ⓘ acknowledgments
+          stacked above it (the ctrl container is lifted via globals.css).
+          Desktop additionally rides above the forecast strip via the inset. */}
+      <div className="lg:hidden pointer-events-none absolute bottom-2.5 right-2.5 z-10">
         <MapBrandLogo width={72} />
       </div>
       <div
         className="hidden lg:block pointer-events-none absolute right-2.5 z-10"
-        style={{ bottom: "calc(var(--rc-map-inset, 0px) + 40px)" }}
+        style={{ bottom: "calc(var(--rc-map-inset, 0px) + 10px)" }}
       >
         <MapBrandLogo width={88} />
       </div>
