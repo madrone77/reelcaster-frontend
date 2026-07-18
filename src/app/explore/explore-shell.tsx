@@ -467,6 +467,7 @@ export default function ExploreShell({
           wind={wind}
           hour={null}
           flowTimeIso={flowTimeIso}
+          stripVisible={!stripHidden}
         />
       </div>
 
