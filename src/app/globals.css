@@ -325,11 +325,15 @@
 .scrollbar-hide::-webkit-scrollbar {
   display: none;
 }
-/* Explore map: on desktop the forecast strip (128px, fixed bottom) covers the
-   map's bottom edge — lift the attribution ⓘ above it. --rc-map-inset is set
-   by ExploreMap from the strip's visibility. */
+/* Explore map: the brand watermark owns the bottom-right corner, so the
+   attribution ⓘ stacks above it (36px ≈ logo height + margin). On desktop the
+   forecast strip (128px, fixed bottom) also covers the map's bottom edge —
+   --rc-map-inset (set by ExploreMap from the strip's visibility) lifts both. */
+.rc-explore-map .maplibregl-ctrl-bottom-right {
+  bottom: 36px;
+}
 @media (min-width: 1024px) {
   .rc-explore-map .maplibregl-ctrl-bottom-right {
-    bottom: var(--rc-map-inset, 0px);
+    bottom: calc(var(--rc-map-inset, 0px) + 44px);
   }
 }
