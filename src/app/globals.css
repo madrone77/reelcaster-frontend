@@ -325,15 +325,30 @@
 .scrollbar-hide::-webkit-scrollbar {
   display: none;
 }
-/* Explore map: the brand watermark owns the bottom-right corner, so the
-   attribution ⓘ stacks above it (36px ≈ logo height + margin). On desktop the
-   forecast strip (128px, fixed bottom) also covers the map's bottom edge —
-   --rc-map-inset (set by ExploreMap from the strip's visibility) lifts both. */
+/* Explore map: the brand watermark owns the bottom-right corner and the
+   attribution ⓘ sits inline just left of the R, centered on the logo's
+   vertical midline. Offsets are keyed to the MapBrandLogo widths in
+   explore-map.tsx (52px mobile → 23px tall, 60px desktop → 27px tall; the
+   24px ⓘ button carries a 10px margin). On desktop the forecast strip (128px,
+   fixed bottom) also covers the map's bottom edge — --rc-map-inset (set by
+   ExploreMap from the strip's visibility) lifts everything above it. */
 .rc-explore-map .maplibregl-ctrl-bottom-right {
-  bottom: 36px;
+  bottom: 0px;
+  right: 58px;
 }
 @media (min-width: 1024px) {
   .rc-explore-map .maplibregl-ctrl-bottom-right {
-    bottom: calc(var(--rc-map-inset, 0px) + 44px);
+    bottom: calc(var(--rc-map-inset, 0px) + 2px);
+    right: 66px;
   }
+}
+
+/* Collapsed ⓘ matches the watermark's 65% opacity; full opacity when the
+   acknowledgments panel is expanded so the text stays readable. */
+.rc-explore-map .maplibregl-ctrl-attrib {
+  opacity: 0.65;
+}
+.rc-explore-map .maplibregl-ctrl-attrib[open],
+.rc-explore-map .maplibregl-ctrl-attrib.maplibregl-compact-show {
+  opacity: 1;
 }

@@ -309,16 +309,17 @@ export default function ExploreMap({
       </Map>
 
       {/* Brand watermark — bottom-right corner, with the ⓘ acknowledgments
-          stacked above it (the ctrl container is lifted via globals.css).
+          inline to its left on the same vertical midline (the ctrl container
+          is positioned via globals.css, keyed to these logo sizes).
           Desktop additionally rides above the forecast strip via the inset. */}
       <div className="lg:hidden pointer-events-none absolute bottom-2.5 right-2.5 z-10">
-        <MapBrandLogo width={72} />
+        <MapBrandLogo width={52} />
       </div>
       <div
         className="hidden lg:block pointer-events-none absolute right-2.5 z-10"
         style={{ bottom: "calc(var(--rc-map-inset, 0px) + 10px)" }}
       >
-        <MapBrandLogo width={88} />
+        <MapBrandLogo width={60} />
       </div>
     </div>
   );
