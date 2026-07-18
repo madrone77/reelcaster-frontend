@@ -14,14 +14,16 @@ export const MAP_CUSTOM_ATTRIBUTION = [
 ];
 
 /**
- * The official ReelCaster lockup (public/reelcaster-logo.svg — the brand asset,
- * never re-typeset) as a non-interactive map watermark: recolored all-white via
- * filter (brightness 0 → invert), 65% opacity, no glow.
+ * The official ReelCaster lockup as a non-interactive map watermark: recolored
+ * all-white via filter (brightness 0 → invert), 65% opacity, no glow.
+ * reelcaster-logo-map.svg is the brand asset with the CASTER row translated
+ * -3.64 units so it centers under REEL (bbox centers 56.95 vs 53.31 in the
+ * original) — paths untouched, never re-typeset.
  */
 export function MapBrandLogo({ width = 88, className = "" }: { width?: number; className?: string }) {
   return (
     <img
-      src="/reelcaster-logo.svg"
+      src="/reelcaster-logo-map.svg"
       alt="ReelCaster"
       width={width}
       height={Math.round(width * (49 / 109))}
