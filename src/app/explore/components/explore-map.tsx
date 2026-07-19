@@ -46,6 +46,16 @@ export interface StationPick {
 // + contours + their labels; labels = place names.
 const RELIEF_LAYERS = ["color-relief", "contour-line", "contour-labels"];
 const LABEL_LAYERS = ["places-t0", "places-t1", "places-t2", "places-t3", "places-t4"];
+// WDFW regulatory layers (WA marine-area grid + MPAs). The relief style ships
+// them hidden (Canada-first); they flip on when the active city is in Washington.
+const WDFW_LAYERS = [
+  "wdfw-ma-casing",
+  "wdfw-ma-lines",
+  "wdfw-ma-labels",
+  "wdfw-mpa-fill",
+  "wdfw-mpa-outline",
+  "wdfw-mpa-labels",
+];
 
 // OpenWeatherMap wind raster overlay (same tiles as the spot detail map).
 const OWM_KEY = process.env.NEXT_PUBLIC_OPENWEATHERMAP_API_KEY;
@@ -76,6 +86,7 @@ export default function ExploreMap({
   hour,
   flowTimeIso,
   stripVisible = false,
+  wdfwRegs,
 }: {
   mapRef: RefObject<MapRef | null>;
   spots: RailSpot[];
@@ -94,6 +105,8 @@ export default function ExploreMap({
   flowTimeIso?: string | null;
   /** Desktop forecast strip visible → raise attribution/watermark above it. */
   stripVisible?: boolean;
+  /** Show the WDFW marine-area grid + MPAs (active city is in Washington). */
+  wdfwRegs?: boolean;
 }) {
   const [cursor, setCursor] = useState<string>("");
   const [hoveredSlug, setHoveredSlug] = useState<string | null>(null);
@@ -147,7 +160,8 @@ export default function ExploreMap({
       });
     set(RELIEF_LAYERS, relief);
     set(LABEL_LAYERS, labels);
-  }, [mapObj, relief, labels]);
+    set(WDFW_LAYERS, wdfwRegs ?? false);
+  }, [mapObj, relief, labels, wdfwRegs]);
 
   // Absolute origin is REQUIRED: MapLibre builds vector-tile URLs inside a Web
   // Worker that can't resolve root-relative paths ("/api/map/tiles/…" → "Failed

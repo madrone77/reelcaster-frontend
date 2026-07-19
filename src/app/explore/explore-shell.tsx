@@ -173,6 +173,12 @@ export default function ExploreShell({
     [displaySpots, selectedCity],
   );
 
+  // Jurisdiction auto-switch: the WDFW marine-area grid + MPAs (shipped hidden
+  // in the relief style, Canada-first) turn on when the active city is in
+  // Washington. DFO layers stay on — each grid only covers its own waters.
+  const wdfwRegs =
+    (selectedCity?.provinceCode ?? railSpots[0]?.provinceCode) === "WA";
+
   // Whole 14-day strip hide/show (collapses to a "Show" chip).
   const [stripHidden, setStripHidden] = useState(false);
 
@@ -468,6 +474,7 @@ export default function ExploreShell({
           hour={null}
           flowTimeIso={flowTimeIso}
           stripVisible={!stripHidden}
+          wdfwRegs={wdfwRegs}
         />
       </div>
 
