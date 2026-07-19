@@ -200,15 +200,21 @@ export default function ExploreShell({
     return best >= 0 ? hr : null;
   }, [railSpots]);
 
+  // Hour the user is hover-scrubbing on the spot drawer's 24h chart (null when
+  // not hovering) — while set, the currents animation follows it live.
+  const [scrubHour, setScrubHour] = useState<number | null>(null);
+
   // A UTC instant for the animated currents field — the flow layer
   // re-predicts the tidal field for this time, so picking another day moves
-  // the animation with the pins.
+  // the animation with the pins, and hover-scrubbing the drawer's 24h chart
+  // plays the flow at the hovered hour (reverting to day-peak on leave).
+  const flowHour = scrubHour ?? peakHour;
   const flowTimeIso = useMemo(
     () =>
-      peakHour !== null
-        ? zonedHourToUtcIso(selectedIso, peakHour, MAP_TZ)
+      flowHour !== null
+        ? zonedHourToUtcIso(selectedIso, flowHour, MAP_TZ)
         : null,
-    [peakHour, selectedIso],
+    [flowHour, selectedIso],
   );
 
   const selectedSpot = useMemo(
@@ -495,6 +501,7 @@ export default function ExploreShell({
         onSelectSpot={handleSelectSpot}
         onCloseSpot={handleCloseSpot}
         onCloseStation={handleCloseStation}
+        onSpotHourHover={setScrubHour}
         mapControls={{
           relief,
           labels,
