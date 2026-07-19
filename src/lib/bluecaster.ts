@@ -333,6 +333,8 @@ export interface BlueCasterHierarchy {
           slug: string;
           lat: number;
           lng: number;
+          /** cities.lifecycle — building | staging | published. */
+          lifecycle: string;
           spots: Array<{
             id: string;
             name: string;
@@ -345,6 +347,41 @@ export interface BlueCasterHierarchy {
       }>;
     }>;
   }>;
+}
+
+// ── City page (editorial content for /fishing/[province]/[city]) ────
+// Trimmed view of GET /api/v1/cities/[slug]/page — only the fields the
+// city landing page renders. 404 (no published city_page yet) → null;
+// the page falls back to generated copy.
+
+export interface BlueCasterCityPage {
+  page: {
+    slug: string;
+    hero: { image_url: string | null; image_alt: string | null };
+    seo: {
+      title: string;
+      meta_description: string;
+      canonical_url: string | null;
+      og_image_url: string | null;
+    };
+    about_md: string | null;
+    local_intel_md: string | null;
+    faq: Array<{ q: string; a: string }>;
+  };
+  hierarchy: {
+    province: { name: string; code: string };
+    city: { name: string; slug: string; lat: number; lng: number };
+  };
+}
+
+export async function fetchCityPage(
+  slug: string,
+): Promise<BlueCasterCityPage | null> {
+  return bcGet<BlueCasterCityPage>(
+    `/api/v1/cities/${encodeURIComponent(slug)}/page`,
+    {},
+    3600,
+  );
 }
 
 export async function fetchHierarchy(): Promise<BlueCasterHierarchy | null> {
