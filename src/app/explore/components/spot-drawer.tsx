@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import dynamic from "next/dynamic";
 import {
@@ -66,11 +66,15 @@ export default function SpotDrawer({
   date,
   tz,
   onBack,
+  onHourHover,
 }: {
   spot: RailSpot;
   date: string;
   tz: string;
   onBack: () => void;
+  /** Reports the hover-scrubbed hour (null on leave) so the shell can retune
+      time-anchored map layers — the animated currents field — to that hour. */
+  onHourHover?: (hour: number | null) => void;
 }) {
   // Resting state anchors to the day's PEAK hour — the drawer's headline
   // promise is "the best this day gets", not the score at whatever hour the
@@ -90,6 +94,15 @@ export default function SpotDrawer({
   // pill, header stamp, and conditions grid preview that hour; leaving the
   // chart reverts to the day-peak resting state.
   const [hoverHour, setHoverHour] = useState<number | null>(null);
+  const handleHourHover = (h: number | null) => {
+    setHoverHour(h);
+    onHourHover?.(h);
+  };
+  // Closing the drawer (or switching spots) mid-hover skips the chart's
+  // mouseleave — make sure the shell doesn't stay pinned to a dead hour.
+  const onHourHoverRef = useRef(onHourHover);
+  onHourHoverRef.current = onHourHover;
+  useEffect(() => () => onHourHoverRef.current?.(null), []);
   const hoverScore = hoverHour !== null ? spot.hours24[hoverHour] : null;
   const score = hoverScore ?? restScore ?? spot.score;
   const displayHour = hoverHour ?? restHour;
@@ -225,7 +238,7 @@ export default function SpotDrawer({
             hours={spot.hours24}
             tz={tz}
             selectedHour={displayHour}
-            onHoverHour={setHoverHour}
+            onHoverHour={handleHourHover}
           />
         </div>
       </div>

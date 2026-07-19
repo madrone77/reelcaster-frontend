@@ -49,6 +49,7 @@ export default function LeftRail({
   onSelectSpot,
   onCloseSpot,
   onCloseStation,
+  onSpotHourHover,
   mapControls,
 }: {
   locations: ProvinceNode[];
@@ -64,6 +65,8 @@ export default function LeftRail({
   onSelectSpot: (slug: string) => void;
   onCloseSpot: () => void;
   onCloseStation: () => void;
+  /** Drawer 24h-chart hover hour (null on leave) — retunes the currents flow. */
+  onSpotHourHover?: (hour: number | null) => void;
   mapControls: MapControlsProps;
 }) {
   const [sort, setSort] = useState<SortKey>("score");
@@ -81,6 +84,7 @@ export default function LeftRail({
             date={date}
             tz={tz}
             onBack={onCloseSpot}
+            onHourHover={onSpotHourHover}
           />
         </div>
       ) : selectedStation ? (
