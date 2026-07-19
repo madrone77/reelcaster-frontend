@@ -652,11 +652,12 @@ export default function SpotDetailShell({
                   <div>
                     <h3 className="rc-label text-[10px]">24-Hour Conditions</h3>
                     <p className="font-rc-mono text-[11px] text-rc-ink-soft mt-1">
-                      Fixed scales{tzAbbrev ? ` · ${tzAbbrev}` : ""}
+                      {tzAbbrev ? `All times ${tzAbbrev}` : "Local time"}
                     </p>
                   </div>
                   <p className="font-rc-mono text-[10px] text-rc-ink-mute italic">
-                    Hover or drag to read any hour
+                    <span className="lg:hidden">Tap or drag to read any hour</span>
+                    <span className="hidden lg:inline">Hover or drag to read any hour</span>
                   </p>
                 </div>
                 <SpotTerminal
