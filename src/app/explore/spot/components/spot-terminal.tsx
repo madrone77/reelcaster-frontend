@@ -126,6 +126,11 @@ function extremes(arr: (number | null)[]): { i: number; v: number; hi: boolean }
 
 type Dims = { w: number; LABEL: number; READ: number; mobile: boolean; id: string };
 
+// Gutter widths shared by buildSvg, the pointer math, and the cursor mover —
+// mobile needs a real left gutter or the y-axis ticks clip off the canvas.
+const gutters = (mob: boolean) =>
+  mob ? { LABEL: 36, READ: 10 } : { LABEL: 132, READ: 72 };
+
 function buildSvg(
   hours: TerminalHours,
   cur: CurrentRow,
@@ -137,6 +142,9 @@ function buildSvg(
   const current = cur.v;
   const { LABEL, READ, w: W, mobile: mob, id } = d;
   const x0 = LABEL, x1 = W - READ, cw = x1 - x0, hw = cw / 24;
+  // Annotations (H/L, SLACK, wind names…) need roomy hour cells — that's all
+  // desktop widths, plus the mobile variant when it renders at tablet width.
+  const wide = !mob || hw > 22;
   const base = mob ? 0.62 : 1;
   const rows = [
     { k: "score", l: "Score", n: "colour = rating", h: mob ? 20 : 34 },
@@ -148,10 +156,12 @@ function buildSvg(
     { k: "sky", l: "Sky", n: "cloud + mm · 0–4", h: mob ? 42 : 58 },
     { k: "air", l: "Air Temp", n: "°C · 5–25 fixed", h: mob ? 42 : 56 },
   ] as { k: string; l: string; n: string; h: number; y0?: number; y1?: number }[];
-  const gap = mob ? 10 : 15, top = 21;
+  // Mobile row labels live in the inter-row gaps, so the gaps must clear a
+  // 12px label — including after the arrow row, which precedes "Sea State".
+  const gap = mob ? 17 : 15, top = mob ? 18 : 21;
   const Y: Record<string, { y0: number; y1: number }> = {};
   let cy = top;
-  rows.forEach((r) => { r.y0 = cy; r.y1 = cy + r.h; Y[r.k] = { y0: r.y0, y1: r.y1 }; cy += r.h + (r.k === "arrow" ? 4 : gap); });
+  rows.forEach((r) => { r.y0 = cy; r.y1 = cy + r.h; Y[r.k] = { y0: r.y0, y1: r.y1 }; cy += r.h + (r.k === "arrow" ? (mob ? gap : 4) : gap); });
   const axisY = cy + 2, H = axisY + (mob ? 16 : 22);
   const cTop = Y.score.y0, cBot = Y.air.y1;
 
@@ -194,7 +204,7 @@ function buildSvg(
   // the movable cursor group (below), so no static range highlight here.
   { const r = Y.score; for (let i = 0; i < 24; i++) { const cx = xAt(i); const sc = num(hours.score[i]);
     s += `<rect x="${(cx + 0.8).toFixed(1)}" y="${r.y0}" width="${(hw - 1.6).toFixed(1)}" height="${r.y1 - r.y0}" rx="1.5" fill="${ratingBg(sc)}"/>`;
-    if (!mob && sc != null) s += `<text class="tm-cell" fill="${ratingInk(sc)}" x="${(cx + hw / 2).toFixed(1)}" y="${(r.y0 + (r.y1 - r.y0) / 2 + 4)}" text-anchor="middle">${sc}</text>`;
+    if (wide && sc != null) s += `<text class="tm-cell" fill="${ratingInk(sc)}" x="${(cx + hw / 2).toFixed(1)}" y="${(r.y0 + (r.y1 - r.y0) / 2 + 4)}" text-anchor="middle">${sc}</text>`;
   } }
 
   // TIDE (scale adapts to the spot's range — see tideScale)
@@ -206,7 +216,7 @@ function buildSvg(
       // Annotation flips to the other side of the dot when the extreme sits
       // close enough to the row edge that the text would bleed out of the row.
       const above = e.hi ? py - r.y0 >= 14 : r.y1 - py < 16;
-      if (!mob) { const a = annAt(px); s += `<text class="tm-ann" x="${a.x.toFixed(1)}" y="${py + (above ? -6 : 14)}" text-anchor="${a.anchor}">${e.hi ? "H" : "L"} ${e.v.toFixed(1)}m ${hh(e.i)}</text>`; } }); }
+      if (wide) { const a = annAt(px); s += `<text class="tm-ann" x="${a.x.toFixed(1)}" y="${py + (above ? -6 : 14)}" text-anchor="${a.anchor}">${e.hi ? "H" : "L"} ${e.v.toFixed(1)}m ${hh(e.i)}</text>`; } }); }
 
   // CURRENT ±scale (adaptive to the day's real peak; ±2 for the fallback)
   { const r = Y.cur; const sc = cur.scale, thr = cur.thr; const zy = yIn(0, r.y0, r.y1, -sc, sc);
@@ -215,13 +225,13 @@ function buildSvg(
       s += `<rect x="${xAt(a).toFixed(1)}" y="${r.y0}" width="${((b - a + 1) * hw).toFixed(1)}" height="${r.y1 - r.y0}" fill="${C.slack}" opacity=".065"/>`;
       const mid = (a + b) / 2, px = xAt(mid + 0.5);
       s += `<path d="M${px.toFixed(1)},${zy - 4} L${(px + 4).toFixed(1)},${zy} L${px.toFixed(1)},${zy + 4} L${(px - 4).toFixed(1)},${zy} Z" fill="${C.slack}"/>`;
-      if (!mob) { const a = annAt(px); s += `<text class="tm-ann tm-slack" x="${a.x.toFixed(1)}" y="${r.y1 - 4}" text-anchor="${a.anchor}">SLACK ${hh(mid + 0.5)}</text>`; }
+      if (wide) { const a = annAt(px); s += `<text class="tm-ann tm-slack" x="${a.x.toFixed(1)}" y="${r.y1 - 4}" text-anchor="${a.anchor}">SLACK ${hh(mid + 0.5)}</text>`; }
       i = b;
     }
     s += `<line x1="${x0}" y1="${zy.toFixed(1)}" x2="${x1}" y2="${zy.toFixed(1)}" stroke="${C.faint}" stroke-width="1"/>`;
     const line = curve((t) => interp(current, t), r.y0, r.y1, -sc, sc); if (line) s += `<path d="${line}" fill="none" stroke="${C.ink}" stroke-width="1.5"/>`;
     [sc, 0, -sc].forEach((tk) => { s += `<text class="tm-tick" x="${x0 - 5}" y="${yIn(tk, r.y0, r.y1, -sc, sc) + 3}" text-anchor="end">${tk > 0 ? "+" : ""}${tk}</text>`; });
-    if (!mob) extremes(current).filter((e) => Math.abs(e.v) > 0.4 * sc).slice(0, 3).forEach((e) => {
+    if (wide) extremes(current).filter((e) => Math.abs(e.v) > 0.4 * sc).slice(0, 3).forEach((e) => {
       const a = annAt(xAt(e.i + 0.5));
       s += `<text class="tm-ann" x="${a.x.toFixed(1)}" y="${yIn(e.v, r.y0, r.y1, -sc, sc) + (e.hi ? -8 : 14)}" text-anchor="${a.anchor}">${e.hi ? "FLOOD" : "EBB"} ${Math.abs(e.v).toFixed(1)}</text>`; }); }
 
@@ -229,14 +239,14 @@ function buildSvg(
   { const r = Y.wind, vmax = 24;
     [10, 20].forEach((tk) => { const yy = yIn(tk, r.y0, r.y1, 0, vmax); s += `<line x1="${x0}" y1="${yy.toFixed(1)}" x2="${x1}" y2="${yy.toFixed(1)}" stroke="${C.ruleSoft}" stroke-width="1" stroke-dasharray="3 3"/><text class="tm-tick" x="${x0 - 5}" y="${yy + 3}" text-anchor="end">${tk}</text>`; });
     const scy = yIn(15, r.y0, r.y1, 0, vmax); s += `<line x1="${x0}" y1="${scy.toFixed(1)}" x2="${x1}" y2="${scy.toFixed(1)}" stroke="${C.r[4]}" stroke-width="1" stroke-dasharray="4 3" opacity=".8"/>`;
-    if (!mob) s += `<text class="tm-note" x="${x0 + 3}" y="${scy - 4}" style="fill:${C.r[4]}">15 KN SMALL CRAFT</text>`;
+    if (wide) s += `<text class="tm-note" x="${x0 + 3}" y="${scy - 4}" style="fill:${C.r[4]}">15 KN SMALL CRAFT</text>`;
     for (let i = 0; i < 24; i++) { const cx = xAt(i), bw = hw * 0.56, v = num(hours.wind[i]); if (v == null) continue; const by = yIn(v, r.y0, r.y1, 0, vmax);
       s += `<rect x="${(cx + hw / 2 - bw / 2).toFixed(1)}" y="${by.toFixed(1)}" width="${bw.toFixed(1)}" height="${(r.y1 - by).toFixed(1)}" rx="1.5" fill="${C.wind}"/>`;
       const gv = num(hours.gust[i]); if (gv != null) { const gy = yIn(gv, r.y0, r.y1, 0, vmax); s += `<line x1="${(cx + hw / 2 - bw / 2 - 1).toFixed(1)}" y1="${gy.toFixed(1)}" x2="${(cx + hw / 2 + bw / 2 + 1).toFixed(1)}" y2="${gy.toFixed(1)}" stroke="${C.soft}" stroke-width="1.4"/>`; } }
     const ar = Y.arrow, ay = (ar.y0 + ar.y1) / 2, step = mob ? 2 : 1;
     for (let k = 0; k < 24; k += step) { const dv = num(hours.windDir[k]); if (dv == null) continue; const ax = xAt(k) + hw / 2, dir = (dv + 180) % 360;
       s += `<g transform="translate(${ax.toFixed(1)},${ay.toFixed(1)}) rotate(${dir})"><path d="M0,-6 L0,6 M0,6 L-3,2 M0,6 L3,2" stroke="${C.soft}" stroke-width="1.3" fill="none" stroke-linecap="round"/></g>`;
-      if (!mob && k % 3 === 0) s += `<text class="tm-tick" x="${ax.toFixed(1)}" y="${ar.y1 + 2}" text-anchor="middle">${windName(dv)}</text>`; } }
+      if (wide && k % 3 === 0) s += `<text class="tm-tick" x="${ax.toFixed(1)}" y="${ar.y1 + 2}" text-anchor="middle">${windName(dv)}</text>`; } }
 
   // SEA 0-1
   { const r = Y.sea; s += `<line x1="${x0}" y1="${yIn(0.5, r.y0, r.y1, 0, 1).toFixed(1)}" x2="${x1}" y2="${yIn(0.5, r.y0, r.y1, 0, 1).toFixed(1)}" stroke="${C.ruleSoft}" stroke-width="1" stroke-dasharray="3 3"/>`;
@@ -249,21 +259,24 @@ function buildSvg(
     for (let i = 0; i < 24; i++) { const cx = xAt(i), cl = num(hours.cloud[i]) ?? 0; s += `<rect x="${(cx + 0.6).toFixed(1)}" y="${r.y0}" width="${(hw - 1.2).toFixed(1)}" height="${stripH}" fill="${C.muted}" opacity="${(0.1 + (cl / 100) * 0.7).toFixed(2)}"/>`; }
     let anyRain = false;
     for (let i = 0; i < 24; i++) { const p = num(hours.precip[i]); if (p == null || p <= 0) continue; anyRain = true; const cx = xAt(i), bw = hw * 0.56, bh = (Math.min(p, vmax) / vmax) * (r.y1 - (r.y0 + stripH + 4)); s += `<rect x="${(cx + hw / 2 - bw / 2).toFixed(1)}" y="${(r.y1 - bh).toFixed(1)}" width="${bw.toFixed(1)}" height="${bh.toFixed(1)}" rx="1" fill="${C.brand}" opacity=".7"/>`; }
-    if (!mob && !anyRain) s += `<text class="tm-note" x="${(x0 + cw * 0.28).toFixed(1)}" y="${((r.y0 + r.y1) / 2 + 3)}" text-anchor="middle" style="fill:${C.faint};letter-spacing:.1em">DRY ALL DAY</text>`; }
+    if (wide && !anyRain) s += `<text class="tm-note" x="${(x0 + cw * 0.28).toFixed(1)}" y="${((r.y0 + r.y1) / 2 + 3)}" text-anchor="middle" style="fill:${C.faint};letter-spacing:.1em">DRY ALL DAY</text>`; }
 
   // AIR 5-25
   { const r = Y.air; const line = curve((t) => interp(hours.air, t), r.y0, r.y1, 5, 25); if (line) s += `<path d="${line}" fill="none" stroke="${C.r[3]}" stroke-width="1.6"/>`;
     [25, 15, 5].forEach((tk) => { s += `<text class="tm-tick" x="${x0 - 5}" y="${yIn(tk, r.y0, r.y1, 5, 25) + 3}" text-anchor="end">${tk}</text>`; });
-    if (!mob) { const ex = extremes(hours.air); const hiE = ex.filter((e) => e.hi)[0], loE = ex.filter((e) => !e.hi)[0];
+    if (wide) { const ex = extremes(hours.air); const hiE = ex.filter((e) => e.hi)[0], loE = ex.filter((e) => !e.hi)[0];
       [loE, hiE].forEach((e) => { if (!e) return; const px = xAt(e.i), py = yIn(e.v, r.y0, r.y1, 5, 25), a = annAt(px); s += `<circle cx="${px.toFixed(1)}" cy="${py.toFixed(1)}" r="2.2" fill="${C.r[3]}"/><text class="tm-ann tm-sub" x="${a.x.toFixed(1)}" y="${py + (e.hi ? -7 : 14)}" text-anchor="${a.anchor}">${e.hi ? "H" : "L"} ${e.v.toFixed(1)}° ${hh(e.i)}</text>`; }); } }
 
   // labels
   rows.forEach((r) => { if (r.k === "arrow") return;
-    if (mob) s += `<text class="tm-lbl" x="${x0}" y="${(r.y0 ?? 0) - 4}">${r.l.toUpperCase()}</text>`;
+    if (mob) s += `<text class="tm-lbl" x="${x0}" y="${(r.y0 ?? 0) - 5}">${r.l.toUpperCase()}</text>`;
     else { s += `<text class="tm-lbl" x="12" y="${(r.y0 ?? 0) + 14}">${r.l.toUpperCase()}</text>`; if (r.n) s += `<text class="tm-note" x="12" y="${(r.y0 ?? 0) + 30}">${r.n}</text>`; } });
 
-  // hour axis + sun ticks
-  for (let a = 0; a <= 24; a += mob ? 6 : 3) s += `<text class="tm-ax" x="${xAt(a).toFixed(1)}" y="${axisY + 12}" text-anchor="middle">${String(a).padStart(2, "0")}</text>`;
+  // hour axis + sun ticks — drop any hour label the sun glyph would overlap
+  for (let a = 0; a <= 24; a += mob ? 6 : 3) {
+    if ([sun.sunrise, sun.sunset].some((t) => Math.abs(t - a) < 0.7)) continue;
+    s += `<text class="tm-ax" x="${xAt(a).toFixed(1)}" y="${axisY + 12}" text-anchor="middle">${String(a).padStart(2, "0")}</text>`;
+  }
   [sun.sunrise, sun.sunset].forEach((t) => { s += `<text x="${xAt(t).toFixed(1)}" y="${axisY + 12}" text-anchor="middle" style="font-size:${mob ? 8 : 9}px;fill:${C.r[2]}">☀</text>`; });
 
   // right-gutter readouts (desktop)
@@ -277,7 +290,11 @@ function buildSvg(
   // score-cell outline highlights only the selected cell (relative to origin
   // 0, the cell spans 0.8-hw/2 wide by hw-1.6).
   const selX = (0.8 - hw / 2).toFixed(1), selW = (hw - 1.6).toFixed(1);
-  s += `<g id="${id}-cur"><rect x="${selX}" y="${(Y.score.y0 - 1).toFixed(1)}" width="${selW}" height="${(Y.score.y1 - Y.score.y0 + 2).toFixed(1)}" rx="2" fill="none" stroke="${C.brand}" stroke-width="2"/><line x1="0" y1="${cTop}" x2="0" y2="${mob ? cBot : axisY + 2}" stroke="${C.brand}" stroke-width="1.5"/><rect x="-24" y="${cTop - 21}" width="48" height="18" rx="2" fill="${C.brand}"/><text class="tm-ctag" x="0" y="${cTop - 7}" text-anchor="middle">00:00</text></g>`;
+  s += `<g id="${id}-cur"><rect x="${selX}" y="${(Y.score.y0 - 1).toFixed(1)}" width="${selW}" height="${(Y.score.y1 - Y.score.y0 + 2).toFixed(1)}" rx="2" fill="none" stroke="${C.brand}" stroke-width="2"/><line x1="0" y1="${cTop}" x2="0" y2="${mob ? cBot : axisY + 2}" stroke="${C.brand}" stroke-width="1.5"/>`;
+  // Time tag is desktop-only (the readout bar already shows it on mobile) and
+  // lives in its own sub-group so the mover can clamp it inside the plot.
+  if (!mob) s += `<g id="${id}-tagg"><rect x="-24" y="${cTop - 21}" width="48" height="18" rx="2" fill="${C.brand}"/><text class="tm-ctag" x="0" y="${cTop - 7}" text-anchor="middle">00:00</text></g>`;
+  s += `</g>`;
   s += "</svg>";
   return s;
 }
@@ -303,20 +320,26 @@ export default function SpotTerminal({
   const current = cur.v;
   const ts = tideScale(hours.tide, tideRange);
 
-  // Render the desktop terminal 1:1 (viewBox width = pixel width) so font sizes
-  // are true CSS px and match the app's type scale — not scaled fractions.
+  // Render both terminals 1:1 (viewBox width = pixel width) so font sizes are
+  // true CSS px and match the app's type scale — not scaled fractions. The
+  // mobile variant spans phone through tablet widths, so it's measured too.
   const [deskW, setDeskW] = useState(1120);
+  const [mobW, setMobW] = useState(414);
   useEffect(() => {
-    const el = deskRef.current;
-    if (!el) return;
-    const measure = () => {
-      const w = el.clientWidth;
-      if (w > 400) setDeskW(w);
+    const watch = (el: HTMLDivElement | null, min: number, set: (w: number) => void) => {
+      if (!el) return null;
+      const measure = () => {
+        const w = el.clientWidth;
+        if (w > min) set(w);
+      };
+      measure();
+      const ro = new ResizeObserver(measure);
+      ro.observe(el);
+      return ro;
     };
-    measure();
-    const ro = new ResizeObserver(measure);
-    ro.observe(el);
-    return () => ro.disconnect();
+    const a = watch(deskRef.current, 400, setDeskW);
+    const b = watch(mobRef.current, 300, setMobW);
+    return () => { a?.disconnect(); b?.disconnect(); };
   }, []);
 
   const readAt = (h: number) => {
@@ -341,8 +364,8 @@ export default function SpotTerminal({
 
   // Build both SVGs when data changes.
   useEffect(() => {
-    if (deskRef.current && deskW > 400) deskRef.current.innerHTML = buildSvg(hours, cur, ts, sun, bestWindow, { w: deskW, LABEL: 132, READ: 72, mobile: false, id: "tmd" });
-    if (mobRef.current) mobRef.current.innerHTML = buildSvg(hours, cur, ts, sun, bestWindow, { w: 414, LABEL: 12, READ: 8, mobile: true, id: "tmm" });
+    if (deskRef.current && deskW > 400) deskRef.current.innerHTML = buildSvg(hours, cur, ts, sun, bestWindow, { w: deskW, ...gutters(false), mobile: false, id: "tmd" });
+    if (mobRef.current) mobRef.current.innerHTML = buildSvg(hours, cur, ts, sun, bestWindow, { w: mobW, ...gutters(true), mobile: true, id: "tmm" });
     // Scrub only over scored hours: leading/trailing hours with no fishing score
     // (e.g. today's 00:00, which has tide but no weather forecast yet) render as
     // empty cells and must not hold the cursor — clamp the selectable range to
@@ -355,7 +378,7 @@ export default function SpotTerminal({
       const svg = host?.querySelector("svg") as SVGSVGElement | null; if (!svg) return;
       const hFromEvt = (e: PointerEvent) => {
         const r = svg.getBoundingClientRect(); const scale = svg.viewBox.baseVal.width / r.width;
-        const vx = (e.clientX - r.left) * scale; const x0 = mob ? 12 : 132, hw = (svg.viewBox.baseVal.width - x0 - (mob ? 8 : 72)) / 24;
+        const vx = (e.clientX - r.left) * scale; const { LABEL: x0, READ } = gutters(mob), hw = (svg.viewBox.baseVal.width - x0 - READ) / 24;
         return (vx - x0) / hw - 0.5;
       };
       const move = (e: PointerEvent) => onSelectHour(clampH(Math.round(hFromEvt(e))));
@@ -385,17 +408,24 @@ export default function SpotTerminal({
     wire(deskRef.current, "tmd", false);
     wire(mobRef.current, "tmm", true);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [hours, realCurrent, tideRange, sun, bestWindow, deskW]);
+  }, [hours, realCurrent, tideRange, sun, bestWindow, deskW, mobW]);
 
   // Move cursor + refresh readouts when the selected hour changes.
   useEffect(() => {
     const apply = (host: HTMLDivElement | null, id: string, mob: boolean) => {
       const svg = host?.querySelector("svg") as SVGSVGElement | null; if (!svg) return;
-      const x0 = mob ? 12 : 132, hw = (svg.viewBox.baseVal.width - x0 - (mob ? 8 : 72)) / 24;
+      const { LABEL: x0, READ } = gutters(mob), hw = (svg.viewBox.baseVal.width - x0 - READ) / 24;
       const g = svg.querySelector(`#${id}-cur`) as SVGGElement | null; if (!g) return;
       const cx = x0 + selectedHour * hw + hw / 2;
       g.setAttribute("transform", `translate(${cx.toFixed(1)},0)`);
-      const tag = g.querySelector("text"); if (tag) tag.textContent = hh(selectedHour);
+      // Clamp the time tag inside the plot so it never clips at hour 0 / 23.
+      const tagg = g.querySelector(`#${id}-tagg`) as SVGGElement | null;
+      if (tagg) {
+        const x1 = svg.viewBox.baseVal.width - READ;
+        const shift = Math.max(x0 + 25, Math.min(x1 - 25, cx)) - cx;
+        tagg.setAttribute("transform", `translate(${shift.toFixed(1)},0)`);
+        const tag = tagg.querySelector("text"); if (tag) tag.textContent = hh(selectedHour);
+      }
       const rd = readAt(selectedHour);
       svg.setAttribute("aria-valuenow", String(selectedHour));
       svg.setAttribute(
@@ -416,7 +446,7 @@ export default function SpotTerminal({
     apply(deskRef.current, "tmd", false);
     apply(mobRef.current, "tmm", true);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedHour, hours, realCurrent, deskW]);
+  }, [selectedHour, hours, realCurrent, deskW, mobW]);
 
   const d = readAt(selectedHour);
   const isNow = selectedHour === nowHour;
@@ -454,7 +484,12 @@ export default function SpotTerminal({
 
       {/* Mobile readout bar */}
       <div className="lg:hidden grid grid-cols-4 gap-x-3 gap-y-2 px-1 pb-3">
-        {cell("Cursor", d.hour, isNow ? "Now" : selectedHour < nowHour ? "Past" : "Ahead", "#1E40E0")}
+        {cell(
+          "Time",
+          d.hour,
+          isNow ? "Now" : selectedHour > nowHour ? `in ${selectedHour - nowHour}h` : `${nowHour - selectedHour}h ago`,
+          "#1E40E0",
+        )}
         {cell("Score", d.score, `${d.verd}${d.scoreDeltaTxt}`, d.col)}
         {cell("Tide", d.tide, d.tideS)}
         {cell("Current", d.curSigned, d.curS, undefined, d.curS === "Slack" ? "#059669" : undefined)}
