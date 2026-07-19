@@ -228,8 +228,23 @@ export default function ExploreShell({
       for (const region of prov.regions)
         for (const city of region.cities) cityBySlug.set(city.slug, city);
 
+    // Vote over EVERY (city, spot) membership of the in-view spots — the
+    // deduped rail keeps one arbitrary copy per spot, and shared spots would
+    // skew the vote toward whichever member city's copy happened to survive
+    // (Victoria's frame labelling itself "Cowichan").
     const counts = new Map<string, number>();
-    for (const s of railSpots) counts.set(s.citySlug, (counts.get(s.citySlug) ?? 0) + 1);
+    if (viewBounds) {
+      for (const s of displaySpots) {
+        if (
+          s.lng >= viewBounds.w &&
+          s.lng <= viewBounds.e &&
+          s.lat >= viewBounds.s &&
+          s.lat <= viewBounds.n
+        ) {
+          counts.set(s.citySlug, (counts.get(s.citySlug) ?? 0) + 1);
+        }
+      }
+    }
     let topSlug: string | null = null;
     let topCount = 0;
     for (const [slug, n] of counts) {
@@ -250,7 +265,7 @@ export default function ExploreShell({
       }
     }
     return best;
-  }, [data.locations, viewCenter, railSpots]);
+  }, [data.locations, viewCenter, viewBounds, displaySpots]);
 
   const labelCity = nearestCity ?? selectedCity;
 
