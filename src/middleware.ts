@@ -7,7 +7,10 @@ import { NextResponse, type NextRequest } from 'next/server'
 // `/log-catch` + `/notifications` ship with the explore soft-launch.
 // `/` (exact match only — `startsWith('//')` can't hit a real path) is the
 // public landing page. Info/legal pages are public (linked from the footer).
-const ALLOW_PREFIXES = ['/', '/coming-soon', '/api', '/auth', '/login', '/signup', '/explore', '/fishing', '/pricing', '/log-catch', '/catches', '/notifications', '/privacy', '/terms', '/contact', '/about', '/faq']
+// `/billing` (Stripe checkout success/cancel + portal return), `/profile`,
+// and `/alerts` are account surfaces the paid funnel + nav depend on.
+// `/fishing` is the public province/city SEO directory.
+const ALLOW_PREFIXES = ['/', '/coming-soon', '/api', '/auth', '/login', '/signup', '/explore', '/fishing', '/pricing', '/log-catch', '/catches', '/notifications', '/privacy', '/terms', '/contact', '/about', '/faq', '/billing', '/profile', '/alerts']
 
 export function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl
