@@ -79,6 +79,27 @@ function deriveCurrent(tide: (number | null)[]): (number | null)[] {
 /** Current-row config: signed series, full-scale (kn), and slack threshold. */
 type CurrentRow = { v: (number | null)[]; scale: number; thr: number };
 
+/** Tide-row scale (m). Whole-metre bounds so ticks stay clean. */
+type TideScale = { mn: number; mx: number };
+
+/**
+ * Tide scale from the observed range — 0–3 m covers a typical Victoria day,
+ * but Salish Sea tides run past 4 m (and below datum), so grow the bounds to
+ * whole metres around whatever range the spot actually sees. `range` is the
+ * multi-day min/max so the scale holds steady while flipping days.
+ */
+function tideScale(
+  tide: (number | null)[],
+  range: { min: number; max: number } | null | undefined,
+): TideScale {
+  const vals = tide.filter((v): v is number => num(v) != null);
+  const lo = Math.min(range?.min ?? 0, ...(vals.length ? [Math.min(...vals)] : []));
+  const hi = Math.max(range?.max ?? 3, ...(vals.length ? [Math.max(...vals)] : []));
+  return { mn: Math.min(0, Math.floor(lo)), mx: Math.max(3, Math.ceil(hi)) };
+}
+
+const tickFmt = (v: number) => (Number.isInteger(v) ? String(v) : v.toFixed(1));
+
 function currentRow(
   realCurrent: (number | null)[] | null | undefined,
   tide: (number | null)[],
@@ -108,6 +129,7 @@ type Dims = { w: number; LABEL: number; READ: number; mobile: boolean; id: strin
 function buildSvg(
   hours: TerminalHours,
   cur: CurrentRow,
+  ts: TideScale,
   sun: SunHours,
   best: [number, number] | null,
   d: Dims,
@@ -118,7 +140,7 @@ function buildSvg(
   const base = mob ? 0.62 : 1;
   const rows = [
     { k: "score", l: "Score", n: "colour = rating", h: mob ? 20 : 34 },
-    { k: "tide", l: "Tide", n: "m · 0–3 fixed", h: 116 * base },
+    { k: "tide", l: "Tide", n: `m · ${tickFmt(ts.mn)}–${tickFmt(ts.mx)} fixed`, h: 116 * base },
     { k: "cur", l: "Current", n: "kn · +flood −ebb", h: 128 * base },
     { k: "wind", l: "Wind", n: "kn · bar+gust", h: mob ? 84 : 122 },
     { k: "arrow", l: "", n: "", h: mob ? 22 : 32 },
@@ -175,13 +197,16 @@ function buildSvg(
     if (!mob && sc != null) s += `<text class="tm-cell" fill="${ratingInk(sc)}" x="${(cx + hw / 2).toFixed(1)}" y="${(r.y0 + (r.y1 - r.y0) / 2 + 4)}" text-anchor="middle">${sc}</text>`;
   } }
 
-  // TIDE 0-3
-  { const r = Y.tide; const line = curve((t) => interp(hours.tide, t), r.y0, r.y1, 0, 3);
+  // TIDE (scale adapts to the spot's range — see tideScale)
+  { const r = Y.tide; const { mn, mx } = ts; const line = curve((t) => interp(hours.tide, t), r.y0, r.y1, mn, mx);
     if (line) { s += `<path d="${line} L${x1.toFixed(1)},${r.y1} L${x0.toFixed(1)},${r.y1} Z" fill="url(#${id}tg)"/><path d="${line}" fill="none" stroke="${C.brand}" stroke-width="1.5"/>`; }
-    [0, 1.5, 3].forEach((tk) => { s += `<text class="tm-tick" x="${x0 - 5}" y="${yIn(tk, r.y0, r.y1, 0, 3) + 3}" text-anchor="end">${tk}</text>`; });
-    extremes(hours.tide).slice(0, 4).forEach((e) => { const px = xAt(e.i), py = yIn(e.v, r.y0, r.y1, 0, 3);
+    [mn, (mn + mx) / 2, mx].forEach((tk) => { s += `<text class="tm-tick" x="${x0 - 5}" y="${yIn(tk, r.y0, r.y1, mn, mx) + 3}" text-anchor="end">${tickFmt(tk)}</text>`; });
+    extremes(hours.tide).slice(0, 4).forEach((e) => { const px = xAt(e.i), py = yIn(e.v, r.y0, r.y1, mn, mx);
       s += `<circle cx="${px.toFixed(1)}" cy="${py.toFixed(1)}" r="2.6" fill="${C.brand}"/>`;
-      if (!mob) { const a = annAt(px); s += `<text class="tm-ann" x="${a.x.toFixed(1)}" y="${py + (e.hi ? -6 : 14)}" text-anchor="${a.anchor}">${e.hi ? "H" : "L"} ${e.v.toFixed(1)}m ${hh(e.i)}</text>`; } }); }
+      // Annotation flips to the other side of the dot when the extreme sits
+      // close enough to the row edge that the text would bleed out of the row.
+      const above = e.hi ? py - r.y0 >= 14 : r.y1 - py < 16;
+      if (!mob) { const a = annAt(px); s += `<text class="tm-ann" x="${a.x.toFixed(1)}" y="${py + (above ? -6 : 14)}" text-anchor="${a.anchor}">${e.hi ? "H" : "L"} ${e.v.toFixed(1)}m ${hh(e.i)}</text>`; } }); }
 
   // CURRENT ±scale (adaptive to the day's real peak; ±2 for the fallback)
   { const r = Y.cur; const sc = cur.scale, thr = cur.thr; const zy = yIn(0, r.y0, r.y1, -sc, sc);
@@ -258,11 +283,13 @@ function buildSvg(
 }
 
 export default function SpotTerminal({
-  hours, realCurrent, sun, nowHour, selectedHour, onSelectHour, bestWindow, speciesName,
+  hours, realCurrent, tideRange, sun, nowHour, selectedHour, onSelectHour, bestWindow, speciesName,
 }: {
   hours: TerminalHours;
   /** Signed real current (kn, +flood −ebb) for the day; null → tide-derived fallback. */
   realCurrent?: (number | null)[] | null;
+  /** Multi-day tide min/max (m) so the row scale holds steady across day flips. */
+  tideRange?: { min: number; max: number } | null;
   sun: SunHours;
   nowHour: number;
   selectedHour: number;
@@ -274,6 +301,7 @@ export default function SpotTerminal({
   const mobRef = useRef<HTMLDivElement>(null);
   const cur = currentRow(realCurrent, hours.tide);
   const current = cur.v;
+  const ts = tideScale(hours.tide, tideRange);
 
   // Render the desktop terminal 1:1 (viewBox width = pixel width) so font sizes
   // are true CSS px and match the app's type scale — not scaled fractions.
@@ -313,8 +341,8 @@ export default function SpotTerminal({
 
   // Build both SVGs when data changes.
   useEffect(() => {
-    if (deskRef.current && deskW > 400) deskRef.current.innerHTML = buildSvg(hours, cur, sun, bestWindow, { w: deskW, LABEL: 132, READ: 72, mobile: false, id: "tmd" });
-    if (mobRef.current) mobRef.current.innerHTML = buildSvg(hours, cur, sun, bestWindow, { w: 414, LABEL: 12, READ: 8, mobile: true, id: "tmm" });
+    if (deskRef.current && deskW > 400) deskRef.current.innerHTML = buildSvg(hours, cur, ts, sun, bestWindow, { w: deskW, LABEL: 132, READ: 72, mobile: false, id: "tmd" });
+    if (mobRef.current) mobRef.current.innerHTML = buildSvg(hours, cur, ts, sun, bestWindow, { w: 414, LABEL: 12, READ: 8, mobile: true, id: "tmm" });
     // Scrub only over scored hours: leading/trailing hours with no fishing score
     // (e.g. today's 00:00, which has tide but no weather forecast yet) render as
     // empty cells and must not hold the cursor — clamp the selectable range to
@@ -357,7 +385,7 @@ export default function SpotTerminal({
     wire(deskRef.current, "tmd", false);
     wire(mobRef.current, "tmm", true);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [hours, realCurrent, sun, bestWindow, deskW]);
+  }, [hours, realCurrent, tideRange, sun, bestWindow, deskW]);
 
   // Move cursor + refresh readouts when the selected hour changes.
   useEffect(() => {

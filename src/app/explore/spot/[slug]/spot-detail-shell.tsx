@@ -266,6 +266,22 @@ export default function SpotDetailShell({
     };
   }, [fcSource, dayIndex, hours24]);
 
+  // Tide min/max across every forecast day, so the terminal's tide scale stays
+  // put while flipping days instead of re-fitting to each day's range.
+  const tideRange = useMemo(() => {
+    let min = Infinity, max = -Infinity;
+    for (const day of fcSource.hourlyConditionsGrid ?? []) {
+      for (const h of day ?? []) {
+        const t = h?.tideM;
+        if (typeof t === "number" && Number.isFinite(t)) {
+          if (t < min) min = t;
+          if (t > max) max = t;
+        }
+      }
+    }
+    return min <= max ? { min, max } : null;
+  }, [fcSource]);
+
   // Signed flood/ebb current — the terminal chart follows the selected day,
   // the RIGHT NOW tile is pinned to today. Null until the series arrives (the
   // chart falls back to its tide-derived shape, the tile to point-conditions).
@@ -646,6 +662,7 @@ export default function SpotDetailShell({
                 <SpotTerminal
                   hours={terminalHours}
                   realCurrent={chartCurrent}
+                  tideRange={tideRange}
                   sun={page.sun}
                   nowHour={nowHour}
                   selectedHour={selectedHour}
