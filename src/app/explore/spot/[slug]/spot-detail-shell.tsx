@@ -42,6 +42,7 @@ import SpotMiniMap from "../components/spot-mini-map";
 import ScoreCard from "../components/score-card";
 import CustomAlertCta from "../components/custom-alert-cta";
 import SignupGateDialog, { type AuthIntent } from "../components/signup-gate-dialog";
+import MarketingFooter from "@/app/components/marketing/marketing-footer";
 import LogCatchDialog from "../components/log-catch-dialog";
 import CreateAlertDialog from "../components/create-alert-dialog";
 
@@ -704,8 +705,18 @@ export default function SpotDetailShell({
               </div>
             )}
           </div>
+
+          <p className="mt-12 text-sm text-rc-ink-soft">
+            Looking for the full interactive map?{" "}
+            <Link href="/explore" className="text-rc-brand font-medium hover:underline">
+              Open Explore
+            </Link>
+            .
+          </p>
         </div>
       </div>
+
+      <MarketingFooter />
 
       <UpgradeDialog open={upgradeOpen} onOpenChange={setUpgradeOpen} />
 
