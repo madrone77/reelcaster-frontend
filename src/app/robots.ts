@@ -9,6 +9,7 @@ export default function robots() {
           "/login",
           "/signup",
           "/explore",
+          "/fishing",
           "/privacy",
           "/terms",
           "/contact",

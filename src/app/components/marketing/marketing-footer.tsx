@@ -13,16 +13,24 @@ export default function MarketingFooter() {
   const year = new Date().getFullYear();
   return (
     <footer data-testid="marketing-footer" className="border-t border-rc-rule bg-rc-surface">
-      {/* Only routes that still exist: /fishing, /species and /regulations
-          were removed, and unlisted paths rewrite to /coming-soon instead of
-          404ing — so a stale link here reads as a real page until clicked. */}
-      <div className="max-w-6xl mx-auto px-6 py-12 grid grid-cols-2 md:grid-cols-4 gap-8 text-sm">
+      {/* Only routes that still exist: unlisted paths rewrite to /coming-soon
+          instead of 404ing — so a stale link here reads as a real page until
+          clicked. Locations lists the /fishing province directories; add
+          Washington/Oregon here once they have lifecycle-published cities. */}
+      <div className="max-w-6xl mx-auto px-6 py-12 grid grid-cols-2 md:grid-cols-5 gap-8 text-sm">
         <div>
           <h4 className="rc-label text-[10px] mb-3">Product</h4>
           <ul className="space-y-2 text-rc-ink-soft">
             <li><Link href="/explore" className="hover:text-rc-ink">Explore the map</Link></li>
             <li><Link href="/catches" className="hover:text-rc-ink">Catch log</Link></li>
             <li><Link href="/pricing" className="hover:text-rc-ink">Pro pricing</Link></li>
+          </ul>
+        </div>
+
+        <div>
+          <h4 className="rc-label text-[10px] mb-3">Locations</h4>
+          <ul className="space-y-2 text-rc-ink-soft">
+            <li><Link href="/fishing/bc" className="hover:text-rc-ink">British Columbia</Link></li>
           </ul>
         </div>
 

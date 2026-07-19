@@ -1,4 +1,6 @@
-import { fetchMapSpots } from "@/lib/bluecaster";
+import { fetchHierarchy, fetchMapSpots } from "@/lib/bluecaster";
+import { COVERED_PROVINCES } from "@/lib/regions";
+import { getFishingProvince } from "./fishing/lib/fishing-data";
 
 const SITE = "https://reelcaster.com";
 
@@ -24,6 +26,28 @@ const STATIC_ENTRIES: SitemapEntry[] = [
 
 export default async function sitemap(): Promise<SitemapEntry[]> {
   const entries = [...STATIC_ENTRIES];
+
+  // /fishing directory — province indexes + city explorers, derived from
+  // the same lifecycle-gated hierarchy those pages render, so the sitemap
+  // can't drift from what actually resolves.
+  try {
+    const hierarchy = await fetchHierarchy();
+    for (const code of COVERED_PROVINCES) {
+      const province = getFishingProvince(hierarchy, code);
+      if (!province || province.cities.length === 0) continue;
+      const provPath = `${SITE}/fishing/${code.toLowerCase()}`;
+      entries.push({ url: provPath, changeFrequency: "weekly", priority: 0.8 });
+      for (const city of province.cities) {
+        entries.push({
+          url: `${provPath}/${city.slug}`,
+          changeFrequency: "daily",
+          priority: 0.8,
+        });
+      }
+    }
+  } catch {
+    // Directory entries are additive — static + spot entries still serve.
+  }
 
   // Spot pages are the content-rich indexable surface (/explore/spot/[slug]
   // sets robots index:true + a canonical). Sourced from the same map-spots
