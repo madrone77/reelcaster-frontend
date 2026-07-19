@@ -12,10 +12,12 @@ import {
 export interface MapFilterChipsProps {
   relief: boolean;
   currents: boolean;
-  wind: boolean;
+  /** Accepted for call-site compat; the Wind chip was dropped from the row
+   *  to keep it compact (the OWM overlay stays reachable elsewhere). */
+  wind?: boolean;
   onToggleRelief: () => void;
   onToggleCurrents: () => void;
-  onToggleWind: () => void;
+  onToggleWind?: () => void;
   species: SpeciesOption[];
   speciesFilter: string | null;
   onSpeciesChange: (id: string | null) => void;
@@ -34,10 +36,8 @@ const PANEL_W = 192; // w-48
 export default function MapFilterChips({
   relief,
   currents,
-  wind,
   onToggleRelief,
   onToggleCurrents,
-  onToggleWind,
   species,
   speciesFilter,
   onSpeciesChange,
@@ -84,7 +84,6 @@ export default function MapFilterChips({
   const toggles: Array<[string, boolean, () => void]> = [
     ["Bathymetry", relief, onToggleRelief],
     ["Currents", currents, onToggleCurrents],
-    ["Wind", wind, onToggleWind],
   ];
 
   const selected = species.find((s) => s.id === speciesFilter);
