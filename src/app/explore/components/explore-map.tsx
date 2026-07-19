@@ -19,7 +19,7 @@ import "maplibre-gl/dist/maplibre-gl.css";
 import type { RailSpot } from "../lib/explore-data";
 import { buildReliefStyle } from "@/lib/map/relief-style";
 import { MAP_CUSTOM_ATTRIBUTION, MapBrandLogo } from "@/lib/map/map-brand";
-import { spotsToFeatureCollection, SELECT_HEX } from "../lib/spot-geojson";
+import { spotsToFeatureCollection, declutterHiddenSlugs, SELECT_HEX } from "../lib/spot-geojson";
 import { useCurrentsFlow } from "../lib/use-currents-flow";
 
 const SOURCE_ID = "bc-spots";
@@ -118,6 +118,10 @@ export default function ExploreMap({
   const [cursor, setCursor] = useState<string>("");
   const [hoveredSlug, setHoveredSlug] = useState<string | null>(null);
   const [mapObj, setMapObj] = useState<MlMap | null>(null);
+  // Zoom snapshot for pin decluttering, quantised to quarter-steps so the
+  // hidden set only recomputes a few times per pinch — pixel overlap depends
+  // on zoom alone (no rotation on this map), never on pan.
+  const [declutterZoom, setDeclutterZoom] = useState(() => Math.round(initialZoom * 4) / 4);
 
   const reportViewport = (m: MlMap) => {
     if (!onViewportChange) return;
@@ -198,6 +202,20 @@ export default function ExploreMap({
     [spots, hour],
   );
 
+  // Overlapping pins: hide the lower-scored one at this zoom (it reappears on
+  // zoom-in). The selected spot is immune. Applied as a layer filter so the
+  // GeoJSON source (and the strip/rail fed from `spots`) is untouched.
+  const hiddenSlugs = useMemo(
+    () => declutterHiddenSlugs(spots, hour, declutterZoom, selectedSlug),
+    [spots, hour, declutterZoom, selectedSlug],
+  );
+  // Always a filter (empty list = keep all) so react-map-gl diffs a filter
+  // change rather than toggling the property on and off.
+  const declutterFilter = expr([
+    "!",
+    ["in", ["get", "slug"], ["literal", hiddenSlugs]],
+  ]);
+
   // Selection + hover drive the stroke (cobalt when selected, heavier when
   // hovered) — never the radius, matching BlueCaster. Re-evaluated whenever
   // selectedSlug/hoveredSlug change so the declarative paint updates.
@@ -216,6 +234,7 @@ export default function ExploreMap({
   const spotCircleLayer: LayerProps = {
     id: SPOT_CIRCLE,
     type: "circle",
+    filter: declutterFilter,
     paint: {
       "circle-radius": expr(["interpolate", ["linear"], ["zoom"], 8, 11, 12, 14, 15, 16]),
       "circle-color": expr(["get", "color"]),
@@ -229,6 +248,7 @@ export default function ExploreMap({
   const spotLabelLayer: LayerProps = {
     id: SPOT_LABEL,
     type: "symbol",
+    filter: declutterFilter,
     layout: {
       "text-field": expr(["get", "label"]),
       "text-font": ["Open Sans Semibold"],
@@ -309,6 +329,9 @@ export default function ExploreMap({
           setMapObj(e.target);
           reportViewport(e.target);
         }}
+        onZoom={(e) =>
+          setDeclutterZoom(Math.round(e.viewState.zoom * 4) / 4)
+        }
         onMoveEnd={(e) => reportViewport(e.target)}
         onResize={(e) => reportViewport(e.target)}
         onMouseMove={handleMouseMove}
