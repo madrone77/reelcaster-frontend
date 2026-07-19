@@ -426,10 +426,12 @@ export default function SpotDetailShell({
 
   const pills = (
     <div className="flex flex-wrap items-center gap-2">
+      {/* Neutral area label — no open/closed claim. Area-level status isn't
+          in the payload, and DFO areas carry in-season closures we can't see
+          here; only the per-species pill below is data-driven. */}
       {page.regAreaCode && (
-        <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-rc-good-bg text-rc-good-ink font-rc-mono text-[10px] font-semibold uppercase tracking-[0.06em]">
-          <span className="w-1.5 h-1.5 rounded-full bg-rc-good" />
-          PFMA {page.regAreaCode} · Open
+        <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-rc-surface text-rc-ink-mute font-rc-mono text-[10px] font-semibold uppercase tracking-[0.06em]">
+          PFMA {page.regAreaCode}
         </span>
       )}
       {regulation && (
