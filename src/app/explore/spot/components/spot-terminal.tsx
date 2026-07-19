@@ -288,9 +288,11 @@ function buildSvg(
 
   // cursor — the group translates to the selected hour's cell centre, so its
   // score-cell outline highlights only the selected cell (relative to origin
-  // 0, the cell spans 0.8-hw/2 wide by hw-1.6).
+  // 0, the cell spans 0.8-hw/2 wide by hw-1.6). The vertical line starts
+  // below the score row so the outlined cell stays clean — no line through
+  // the score number.
   const selX = (0.8 - hw / 2).toFixed(1), selW = (hw - 1.6).toFixed(1);
-  s += `<g id="${id}-cur"><rect x="${selX}" y="${(Y.score.y0 - 1).toFixed(1)}" width="${selW}" height="${(Y.score.y1 - Y.score.y0 + 2).toFixed(1)}" rx="2" fill="none" stroke="${C.brand}" stroke-width="2"/><line x1="0" y1="${cTop}" x2="0" y2="${mob ? cBot : axisY + 2}" stroke="${C.brand}" stroke-width="1.5"/>`;
+  s += `<g id="${id}-cur"><rect x="${selX}" y="${(Y.score.y0 - 1).toFixed(1)}" width="${selW}" height="${(Y.score.y1 - Y.score.y0 + 2).toFixed(1)}" rx="2" fill="none" stroke="${C.brand}" stroke-width="2"/><line x1="0" y1="${(Y.score.y1 + 1).toFixed(1)}" x2="0" y2="${mob ? cBot : axisY + 2}" stroke="${C.brand}" stroke-width="1.5"/>`;
   // Time tag is desktop-only (the readout bar already shows it on mobile) and
   // lives in its own sub-group so the mover can clamp it inside the plot.
   if (!mob) s += `<g id="${id}-tagg"><rect x="-24" y="${cTop - 21}" width="48" height="18" rx="2" fill="${C.brand}"/><text class="tm-ctag" x="0" y="${cTop - 7}" text-anchor="middle">00:00</text></g>`;
