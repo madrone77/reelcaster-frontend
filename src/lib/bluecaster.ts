@@ -291,6 +291,36 @@ export async function fetchMapSpots(opts: {
   });
 }
 
+// ── Viewport 14-day forecast (map/forecast-14d) ─────────────────────
+
+export interface MapForecastDayPeak {
+  score: number; // 0–100 — best hourly score that local day across in-scope spots
+  peak_hour: number; // local hour 0–23 of the peak
+}
+
+export interface MapForecastBestDay extends MapForecastDayPeak {
+  species_id: string;
+}
+
+export interface MapForecast14dPayload {
+  start: string; // day 0 (today, local)
+  tz: string;
+  forecast_version: number;
+  days: Array<{ iso: string; dow: string; date: string }>; // length 14
+  species: Record<string, { id: string; slug: string; name: string }>;
+  by_species: Record<string, (MapForecastDayPeak | null)[]>;
+  best: (MapForecastBestDay | null)[]; // max across species per day
+  meta?: { spots: number };
+}
+
+/** Per-day best scores across every published spot in a bbox — the
+ *  viewport-driven forecast strip re-fetches this as the map moves. */
+export async function fetchMapForecast14d(
+  bbox: string,
+): Promise<MapForecast14dPayload | null> {
+  return bcGet<MapForecast14dPayload>("/api/v1/map/forecast-14d", { bbox }, 120);
+}
+
 // ── Map station/buoy click panels ───────────────────────────────────
 
 export async function fetchStationConditions(

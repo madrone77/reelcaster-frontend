@@ -13,12 +13,12 @@ import {
   type SpeciesOption,
 } from "./lib/explore-data";
 import {
-  buildForecastDays,
+  buildViewportForecastDays,
   type ForecastDay,
   type ForecastStripModel,
 } from "./lib/forecast-strip";
-import { fetchForecast14d } from "@/lib/bluecaster-client";
-import type { Forecast14dPayload } from "@/lib/bluecaster/live-spot-types";
+import { fetchMapForecast14d } from "@/lib/bluecaster-client";
+import type { MapForecast14dPayload } from "@/lib/bluecaster";
 import { useSubscription } from "@/hooks/use-subscription";
 import { useExploreState } from "./lib/use-explore-state";
 import ExploreTopBar from "./components/explore-top-bar";
@@ -86,6 +86,32 @@ export default function ExploreShell({
   const [wind, setWind] = useState(false);
   const [speciesFilter, setSpeciesFilter] = useState<string | null>(null);
 
+  // ── Viewport tracking: the map viewport is the source of truth for which
+  //    spots the rail/list/strip reflect. `viewBounds` updates on every
+  //    moveend (client-side spot filter); `vpBbox` is the same box padded
+  //    20% and rounded, debounced, and drives the strip's forecast fetch. ──
+  const [viewBounds, setViewBounds] = useState<{ w: number; s: number; e: number; n: number } | null>(null);
+  const [viewCenter, setViewCenter] = useState<{ lat: number; lng: number } | null>(null);
+  const [vpBbox, setVpBbox] = useState<string | null>(null);
+  const vpTimerRef = useRef<number | null>(null);
+
+  const handleViewportChange = useCallback(
+    (b: { w: number; s: number; e: number; n: number }, c: { lat: number; lng: number }) => {
+      setViewBounds(b);
+      setViewCenter(c);
+      if (vpTimerRef.current) window.clearTimeout(vpTimerRef.current);
+      vpTimerRef.current = window.setTimeout(() => {
+        const padLng = (b.e - b.w) * 0.2;
+        const padLat = (b.n - b.s) * 0.2;
+        const r = (v: number) => Math.round(v * 1000) / 1000;
+        setVpBbox(
+          `${r(b.w - padLng)},${r(b.s - padLat)},${r(b.e + padLng)},${r(b.n + padLat)}`,
+        );
+      }, 300);
+    },
+    [],
+  );
+
   const today = data.date;
   const selectedIso = day ?? today;
 
@@ -138,19 +164,19 @@ export default function ExploreShell({
       .sort((a, b) => (b.score ?? -1) - (a.score ?? -1));
   }, [effectiveSpots, speciesFilter, data.species]);
 
-  // Re-derive per-species best scores from the current day's spots so the
-  // filter chips reflect whichever date the user is viewing, not just today.
-  const speciesWithScores = useMemo<SpeciesOption[]>(() => {
-    const best: Record<string, number> = {};
-    for (const spot of effectiveSpots) {
-      for (const [sid, score] of Object.entries(spot.scoresBySpecies)) {
-        if (!(sid in best) || score > best[sid]) best[sid] = score;
-      }
-    }
-    return data.species
-      .map((s) => ({ ...s, bestScore: best[s.id] ?? null }))
-      .sort((a, b) => (b.bestScore ?? -1) - (a.bestScore ?? -1));
-  }, [effectiveSpots, data.species]);
+  // The hierarchy walk in buildExploreData emits one RailSpot per (city,
+  // spot) membership — a shared spot (Race Rocks ∈ Victoria + Sooke) appears
+  // once per member city. The old city-scoped rail hid that; the viewport
+  // rail/map must dedupe by slug (spots are score-sorted, so the first copy
+  // wins).
+  const uniqueSpots = useMemo(() => {
+    const seen = new Set<string>();
+    return displaySpots.filter((s) => {
+      if (seen.has(s.slug)) return false;
+      seen.add(s.slug);
+      return true;
+    });
+  }, [displaySpots]);
 
   const activeCitySlug = citySlug ?? data.defaultCitySlug;
 
@@ -165,19 +191,88 @@ export default function ExploreShell({
     return null;
   }, [data.locations, activeCitySlug]);
 
-  const railSpots = useMemo(
-    () =>
-      selectedCity
-        ? displaySpots.filter((s) => s.citySlug === selectedCity.slug)
-        : displaySpots,
-    [displaySpots, selectedCity],
-  );
+  // The rail (and mobile list) show what the map shows: spots inside the
+  // current viewport. Until the map reports its first viewport (SSR, map
+  // still booting) fall back to the selected city's spots so the first paint
+  // isn't empty.
+  const railSpots = useMemo(() => {
+    if (viewBounds) {
+      return uniqueSpots.filter(
+        (s) =>
+          s.lng >= viewBounds.w &&
+          s.lng <= viewBounds.e &&
+          s.lat >= viewBounds.s &&
+          s.lat <= viewBounds.n,
+      );
+    }
+    if (!selectedCity) return uniqueSpots;
+    // Pre-viewport fallback (first paint): the city's spots, deduped — the
+    // hierarchy can list a shared spot under several cities.
+    const seen = new Set<string>();
+    return displaySpots.filter((s) => {
+      if (s.citySlug !== selectedCity.slug || seen.has(s.slug)) return false;
+      seen.add(s.slug);
+      return true;
+    });
+  }, [displaySpots, uniqueSpots, viewBounds, selectedCity]);
+
+  // City the viewport "is" — labels the location pill ("Victoria · South
+  // Vancouver Island" → pan → "Vancouver · Lower Mainland") and anchors
+  // city-derived toggles while the user roams. Prefer the city owning the
+  // most spots in view (a wide frame's centre can sit over open water nearer
+  // some other town); fall back to nearest-to-centre when nothing's in view.
+  const nearestCity = useMemo<CityNode | null>(() => {
+    if (!viewCenter) return null;
+    const cityBySlug = new Map<string, CityNode>();
+    for (const prov of data.locations)
+      for (const region of prov.regions)
+        for (const city of region.cities) cityBySlug.set(city.slug, city);
+
+    const counts = new Map<string, number>();
+    for (const s of railSpots) counts.set(s.citySlug, (counts.get(s.citySlug) ?? 0) + 1);
+    let topSlug: string | null = null;
+    let topCount = 0;
+    for (const [slug, n] of counts) {
+      if (n > topCount && cityBySlug.has(slug)) {
+        topCount = n;
+        topSlug = slug;
+      }
+    }
+    if (topSlug) return cityBySlug.get(topSlug) ?? null;
+
+    let best: CityNode | null = null;
+    let bestKm = Infinity;
+    for (const city of cityBySlug.values()) {
+      const km = haversineKm(viewCenter.lat, viewCenter.lng, city.lat, city.lng);
+      if (km < bestKm) {
+        bestKm = km;
+        best = city;
+      }
+    }
+    return best;
+  }, [data.locations, viewCenter, railSpots]);
+
+  const labelCity = nearestCity ?? selectedCity;
+
+  // Per-species best scores across the spots in view (and for the viewed
+  // date) so the filter chips reflect the water the user is looking at.
+  const speciesWithScores = useMemo<SpeciesOption[]>(() => {
+    const best: Record<string, number> = {};
+    for (const spot of railSpots) {
+      for (const [sid, score] of Object.entries(spot.scoresBySpecies)) {
+        if (!(sid in best) || score > best[sid]) best[sid] = score;
+      }
+    }
+    return data.species
+      .map((s) => ({ ...s, bestScore: best[s.id] ?? null }))
+      .sort((a, b) => (b.bestScore ?? -1) - (a.bestScore ?? -1));
+  }, [railSpots, data.species]);
 
   // Jurisdiction auto-switch: the WDFW marine-area grid + MPAs (shipped hidden
-  // in the relief style, Canada-first) turn on when the active city is in
+  // in the relief style, Canada-first) turn on when the viewport sits in
   // Washington. DFO layers stay on — each grid only covers its own waters.
   const wdfwRegs =
-    (selectedCity?.provinceCode ?? railSpots[0]?.provinceCode) === "WA";
+    (labelCity?.provinceCode ?? railSpots[0]?.provinceCode) === "WA";
 
   // Whole 14-day strip hide/show (collapses to a "Show" chip).
   const [stripHidden, setStripHidden] = useState(false);
@@ -247,67 +342,57 @@ export default function ExploreShell({
     };
   }, [stn, lastPick]);
 
-  // ── Forecast strip: 14-day grid for the anchor spot (the selected spot,
-  //    or the top-scoring spot in view). Cached per slug. ─────────────────
-  const anchorSpot = useMemo(
-    () => selectedSpot ?? railSpots.find((s) => s.score !== null) ?? railSpots[0] ?? null,
-    [selectedSpot, railSpots],
-  );
-
-  const fcCacheRef = useRef<Map<string, Forecast14dPayload>>(new Map());
-  const [fcPayload, setFcPayload] = useState<Forecast14dPayload | null>(null);
+  // ── Forecast strip: per-day best across the spots in the current viewport
+  //    (the new map/forecast-14d endpoint). Cached per bbox — panning back
+  //    over familiar water doesn't refetch. ────────────────────────────────
+  const fcCacheRef = useRef<Map<string, MapForecast14dPayload>>(new Map());
+  const [fcPayload, setFcPayload] = useState<MapForecast14dPayload | null>(null);
   const [fcLoading, setFcLoading] = useState(false);
 
   useEffect(() => {
-    const slug = anchorSpot?.slug;
-    if (!slug) {
-      setFcPayload(null);
-      return;
-    }
-    const cached = fcCacheRef.current.get(slug);
+    if (!vpBbox) return;
+    const cached = fcCacheRef.current.get(vpBbox);
     if (cached) {
       setFcPayload(cached);
       setFcLoading(false);
       return;
     }
     let cancelled = false;
-    setFcLoading(true);
-    fetchForecast14d(slug)
+    setFcLoading(fcCacheRef.current.size === 0);
+    fetchMapForecast14d(vpBbox)
       .then((p) => {
-        if (cancelled) return;
-        fcCacheRef.current.set(slug, p);
+        if (cancelled || !p?.days) return;
+        if (fcCacheRef.current.size > 50) fcCacheRef.current.clear();
+        fcCacheRef.current.set(vpBbox, p);
         setFcPayload(p);
       })
-      .catch(() => {
-        if (!cancelled) setFcPayload(null);
-      })
+      .catch(() => {})
       .finally(() => {
         if (!cancelled) setFcLoading(false);
       });
     return () => {
       cancelled = true;
     };
-  }, [anchorSpot?.slug]);
+  }, [vpBbox]);
 
   const stripModel: ForecastStripModel | null = useMemo(() => {
-    if (!fcPayload || !anchorSpot) return null;
-    // Pin the selected day's cell to the anchor spot's map-spots hourly
-    // series — the same data the pins and drawer render — so the strip can
-    // never disagree with them (the two payloads are cached independently
-    // and can straddle a forecast re-bake). Only when that day's map-spots
-    // data is actually loaded, and not under a species filter (hours24
-    // stays best-species there while the strip re-keys to the filter).
-    const hasDayData = selectedIso === today || dayPayload !== null;
-    const override =
-      hasDayData && !speciesFilter
-        ? { iso: selectedIso, hours: anchorSpot.hours24 }
-        : null;
-    return buildForecastDays(fcPayload, anchorSpot.bestSpeciesId, isPaid, override);
-  }, [fcPayload, anchorSpot, isPaid, selectedIso, today, dayPayload, speciesFilter]);
+    if (!fcPayload) return null;
+    return buildViewportForecastDays(fcPayload, speciesFilter, isPaid);
+  }, [fcPayload, speciesFilter, isPaid]);
 
-  // Keep the map framed on the selected location's spots.
+  // Strip header label: the pinned species, else the cross-species best fold.
+  const stripSpeciesName = speciesFilter
+    ? data.species.find((s) => s.id === speciesFilter)?.name ?? null
+    : "Best species";
+
+  // Frame the picked city's spots when the selection changes (search pick,
+  // Near me, ?loc deep link). Panning afterwards never re-triggers this —
+  // the viewport stays wherever the user takes it.
   useEffect(() => {
-    const bounds = boundsOf(railSpots);
+    const citySpots = selectedCity
+      ? displaySpots.filter((s) => s.citySlug === selectedCity.slug)
+      : displaySpots;
+    const bounds = boundsOf(citySpots);
     if (!bounds) return;
     const desktop = typeof window !== "undefined" && window.innerWidth >= 1024;
     mapRef.current?.fitBounds(bounds, {
@@ -427,19 +512,20 @@ export default function ExploreShell({
     : { lat: 50.5, lng: -126.5 };
   const initialZoom = selectedCity ? 9 : 4.5;
 
-  // Remember the last viewed city — the catch wizard's location fallback
-  // (geo-fallback.ts) centers its pin here when a photo has no GPS.
+  // Remember the last viewed city (nearest to the viewport) — the catch
+  // wizard's location fallback (geo-fallback.ts) centers its pin here when a
+  // photo has no GPS.
   useEffect(() => {
-    if (!selectedCity) return;
+    if (!labelCity) return;
     try {
       localStorage.setItem(
         "rc:lastCity",
-        JSON.stringify({ lat: selectedCity.lat, lng: selectedCity.lng, name: selectedCity.name }),
+        JSON.stringify({ lat: labelCity.lat, lng: labelCity.lng, name: labelCity.name }),
       );
     } catch {
       /* storage unavailable (private mode) — fallback chain continues */
     }
-  }, [selectedCity]);
+  }, [labelCity]);
 
   return (
     <div className="relative pt-16 lg:pt-0 min-h-dvh lg:min-h-0 lg:h-full">
@@ -450,7 +536,7 @@ export default function ExploreShell({
       <div className="lg:hidden bg-rc-panel border-b border-rc-rule relative z-10">
         <LocationSelector
           locations={data.locations}
-          selectedCity={selectedCity}
+          selectedCity={labelCity}
           onSelectCity={handleSelectCity}
           onFilterClick={() => setFilterOpen(true)}
         />
@@ -461,7 +547,7 @@ export default function ExploreShell({
       <div className="relative h-[45dvh] min-h-[280px] w-full lg:absolute lg:inset-x-0 lg:top-16 lg:bottom-0 lg:h-auto lg:min-h-0 lg:w-auto">
         <ExploreMap
           mapRef={mapRef}
-          spots={railSpots}
+          spots={uniqueSpots}
           selectedSlug={selectedSpot?.slug ?? null}
           onSelect={handleSelectSpot}
           onSelectStation={handleSelectStation}
@@ -475,6 +561,7 @@ export default function ExploreShell({
           flowTimeIso={flowTimeIso}
           stripVisible={!stripHidden}
           wdfwRegs={wdfwRegs}
+          onViewportChange={handleViewportChange}
         />
       </div>
 
@@ -484,7 +571,7 @@ export default function ExploreShell({
 
       <LeftRail
         locations={data.locations}
-        selectedCity={selectedCity}
+        selectedCity={labelCity}
         spots={railSpots}
         selectedSpot={selectedSpot}
         selectedStation={selectedStation}
@@ -526,7 +613,7 @@ export default function ExploreShell({
 
       <ForecastStrip
         model={stripModel}
-        speciesName={anchorSpot?.driverSpecies ?? null}
+        speciesName={stripSpeciesName}
         selectedIso={selectedIso}
         loading={fcLoading}
         onSelectDay={handleSelectDay}

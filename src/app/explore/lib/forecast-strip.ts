@@ -5,6 +5,7 @@
 // horizon are locked for non-paying users (Boat Pro).
 
 import type { Forecast14dPayload } from "@/lib/bluecaster/live-spot-types";
+import type { MapForecast14dPayload } from "@/lib/bluecaster";
 import { tierFor, fmtPeak, type Tier } from "./explore-data";
 
 /** Free users see the first 10 days; days 11–14 are Boat Pro. */
@@ -86,7 +87,45 @@ export function buildForecastDays(
     };
   });
 
-  // "Best" = highest-scoring unlocked day (the BEST ★ badge + best-window line).
+  return finishModel(days);
+}
+
+/**
+ * Viewport variant: builds the strip from the map/forecast-14d payload —
+ * each day's cell is the best score across every spot in the current map
+ * viewport (honouring the species filter), so panning the map re-answers
+ * "when should I fish the area I'm looking at".
+ */
+export function buildViewportForecastDays(
+  payload: MapForecast14dPayload,
+  speciesFilter: string | null,
+  isPaid: boolean,
+): ForecastStripModel {
+  const series = speciesFilter
+    ? payload.by_species[speciesFilter] ?? []
+    : payload.best;
+
+  const days: ForecastDay[] = payload.days.map((d, i) => {
+    const cell = series[i] ?? null;
+    const locked = !isPaid && i >= FREE_STRIP_DAYS;
+    return {
+      index: i,
+      iso: d.iso,
+      dow: d.dow.charAt(0).toUpperCase() + d.dow.slice(1).toLowerCase(),
+      date: d.date,
+      score: cell?.score ?? null,
+      peakLabel: locked ? null : fmtPeak(cell?.peak_hour ?? null),
+      tier: tierFor(cell?.score ?? null),
+      locked,
+      isBest: false,
+    };
+  });
+
+  return finishModel(days);
+}
+
+// "Best" = highest-scoring unlocked day (the BEST ★ badge + best-window line).
+function finishModel(days: ForecastDay[]): ForecastStripModel {
   let bestDay: ForecastDay | null = null;
   for (const day of days) {
     if (day.locked || day.score === null) continue;
