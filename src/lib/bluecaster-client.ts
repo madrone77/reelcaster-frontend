@@ -14,6 +14,7 @@ import type {
   StationConditions,
   BuoyConditions,
 } from "./bluecaster/station-types";
+import type { MapForecast14dPayload } from "./bluecaster";
 export type {
   StationConditions,
   BuoyConditions,
@@ -328,4 +329,18 @@ export async function fetchBuoyConditions(
   const res = await fetch(`/api/bluecaster/map/buoy-conditions?${qs}`);
   if (!res.ok) return null;
   return (await res.json()) as BuoyConditions;
+}
+
+/** Viewport 14-day forecast — per-day best across the spots in a bbox. */
+export async function fetchMapForecast14d(
+  bbox: string
+): Promise<MapForecast14dPayload> {
+  const res = await fetch(
+    `/api/bluecaster/map/forecast-14d?bbox=${encodeURIComponent(bbox)}`,
+    { cache: "no-store" }
+  );
+  if (!res.ok) {
+    throw new Error(`map/forecast-14d API returned ${res.status}`);
+  }
+  return (await res.json()) as MapForecast14dPayload;
 }

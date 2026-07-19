@@ -87,12 +87,19 @@ export default function ExploreMap({
   flowTimeIso,
   stripVisible = false,
   wdfwRegs,
+  onViewportChange,
 }: {
   mapRef: RefObject<MapRef | null>;
   spots: RailSpot[];
   selectedSlug: string | null;
   onSelect: (slug: string) => void;
   onSelectStation: (pick: StationPick) => void;
+  /** Fired on load + every moveend with the visible bounds and centre —
+   *  drives the viewport-scoped rail, strip and pill label. */
+  onViewportChange?: (
+    bounds: { w: number; s: number; e: number; n: number },
+    center: { lat: number; lng: number },
+  ) => void;
   initialCenter: { lat: number; lng: number };
   initialZoom: number;
   relief: boolean;
@@ -111,6 +118,16 @@ export default function ExploreMap({
   const [cursor, setCursor] = useState<string>("");
   const [hoveredSlug, setHoveredSlug] = useState<string | null>(null);
   const [mapObj, setMapObj] = useState<MlMap | null>(null);
+
+  const reportViewport = (m: MlMap) => {
+    if (!onViewportChange) return;
+    const b = m.getBounds();
+    const c = m.getCenter();
+    onViewportChange(
+      { w: b.getWest(), s: b.getSouth(), e: b.getEast(), n: b.getNorth() },
+      { lat: c.lat, lng: c.lng },
+    );
+  };
 
   // Animated tidal-current overlay — bathy-relief WebGL flow (heatmap field +
   // white particle ribbons) as a MapLibre custom layer clipped at the coastline.
@@ -288,7 +305,12 @@ export default function ExploreMap({
         interactiveLayerIds={INTERACTIVE}
         cursor={cursor}
         onClick={handleClick}
-        onLoad={(e) => setMapObj(e.target)}
+        onLoad={(e) => {
+          setMapObj(e.target);
+          reportViewport(e.target);
+        }}
+        onMoveEnd={(e) => reportViewport(e.target)}
+        onResize={(e) => reportViewport(e.target)}
         onMouseMove={handleMouseMove}
         onMouseLeave={handleMouseLeave}
         style={{ width: "100%", height: "100%" }}
