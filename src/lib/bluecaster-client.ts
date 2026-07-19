@@ -9,6 +9,7 @@
 // so the BlueCaster API key stays server-only (matches every other BC call
 // in this codebase). No `NEXT_PUBLIC_BLUECASTER_*` env var needed.
 
+import { supabase } from "./supabase";
 import type {
   StationConditions,
   BuoyConditions,
@@ -42,9 +43,16 @@ export type { CatchPreviewResponse } from "./bluecaster/catch-ingest-types";
 export async function fetchForecast14d(
   spotSlug: string
 ): Promise<Forecast14dPayload> {
+  // The proxy gates days past the free horizon server-side — attach the
+  // session token (when signed in) so Boat Pro callers get the full grid.
+  const { data } = await supabase.auth.getSession();
+  const token = data.session?.access_token;
   const res = await fetch(
     `/api/bluecaster/spots/${encodeURIComponent(spotSlug)}/forecast-14d`,
-    { cache: "no-store" }
+    {
+      cache: "no-store",
+      headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+    }
   );
   if (!res.ok) {
     const body = await res.text().catch(() => "");
