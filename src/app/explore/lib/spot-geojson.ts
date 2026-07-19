@@ -45,17 +45,26 @@ export type SpotFeatureCollection = {
   }>;
 };
 
+/** Hour-aware effective score — the same fallback the pin color/label uses. */
+function effectiveScore(s: RailSpot, hour?: number | null): number | null {
+  return hour != null ? (s.hours24?.[hour] ?? s.score) : s.score;
+}
+
 export function spotsToFeatureCollection(
   spots: RailSpot[],
   /** When set (0–23), pins color/label by that hour's score instead of the
    *  day peak; spots without an hourly value that hour fall back to the peak. */
   hour?: number | null,
 ): SpotFeatureCollection {
+  // Ascending score so the best pin paints LAST — when two pins still touch
+  // after decluttering, the higher score sits on top and wins the click.
+  const ordered = [...spots].sort(
+    (a, b) => (effectiveScore(a, hour) ?? -1) - (effectiveScore(b, hour) ?? -1),
+  );
   return {
     type: "FeatureCollection",
-    features: spots.map((s, i) => {
-      const raw =
-        hour != null ? (s.hours24?.[hour] ?? s.score) : s.score;
+    features: ordered.map((s, i) => {
+      const raw = effectiveScore(s, hour);
       const has = raw !== null;
       return {
         type: "Feature" as const,
@@ -73,4 +82,66 @@ export function spotsToFeatureCollection(
       };
     }),
   };
+}
+
+// ── Screen-space pin decluttering ─────────────────────────────────────────
+//
+// The Explore map is deliberately unclustered, so co-located spots (e.g.
+// Brotchie Ledge on the Victoria waterfront) would stack their pins at any
+// zoom where their pixel distance is under a pin diameter. Rather than
+// cluster, hide the lower-scored pin of any overlapping pair; it reappears
+// as the user zooms in and the pair separates. Overlap depends only on zoom
+// (Web Mercator, no rotation), so this recomputes per zoom step — not on pan.
+
+/** Pin radius at a zoom level — mirror of the circle layer's interpolate stops. */
+export function pinRadius(zoom: number): number {
+  if (zoom <= 8) return 11;
+  if (zoom <= 12) return 11 + ((zoom - 8) / 4) * 3;
+  if (zoom <= 15) return 14 + ((zoom - 12) / 3) * 2;
+  return 16;
+}
+
+/** World-pixel position at a zoom (512px tiles, standard Web Mercator). */
+function worldPx(lat: number, lng: number, zoom: number): [number, number] {
+  const scale = 512 * 2 ** zoom;
+  const x = ((lng + 180) / 360) * scale;
+  const sin = Math.sin((lat * Math.PI) / 180);
+  const y = (0.5 - Math.log((1 + sin) / (1 - sin)) / (4 * Math.PI)) * scale;
+  return [x, y];
+}
+
+// Pins hide at the first pixel of contact (2 radii) plus a small allowance
+// for the white stroke ring, so kept pins always read fully separated.
+const STROKE_PAD = 4;
+
+/**
+ * Greedy screen-space declutter: slugs whose pins should HIDE at this zoom.
+ * Spots are kept best-score-first, so the winner of an overlapping pair is
+ * always the pin an angler would want. `keepSlug` (the selected spot) is
+ * immune — selecting a spot from the rail must never leave it invisible.
+ */
+export function declutterHiddenSlugs(
+  spots: RailSpot[],
+  hour: number | null | undefined,
+  zoom: number,
+  keepSlug: string | null,
+): string[] {
+  if (spots.length < 2) return [];
+  const minDist = pinRadius(zoom) * 2 + STROKE_PAD;
+  const ranked = [...spots].sort((a, b) => {
+    if (a.slug === keepSlug) return -1;
+    if (b.slug === keepSlug) return 1;
+    return (effectiveScore(b, hour) ?? -1) - (effectiveScore(a, hour) ?? -1);
+  });
+  const kept: Array<[number, number]> = [];
+  const hidden: string[] = [];
+  for (const s of ranked) {
+    const p = worldPx(s.lat, s.lng, zoom);
+    const collides = kept.some(
+      (k) => Math.hypot(k[0] - p[0], k[1] - p[1]) < minDist,
+    );
+    if (collides && s.slug !== keepSlug) hidden.push(s.slug);
+    else kept.push(p);
+  }
+  return hidden;
 }
