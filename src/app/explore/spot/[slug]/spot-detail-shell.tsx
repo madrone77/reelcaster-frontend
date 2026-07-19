@@ -366,7 +366,10 @@ export default function SpotDetailShell({
       peakHourNum = i;
     }
   });
-  const win = bestWindow(todayHours ?? []);
+  // Memoized so win.window keeps its identity across renders — it feeds the
+  // terminal's rebuild effect, and an unstable array would tear the SVG down
+  // on every scrub tick (killing an in-flight touch drag).
+  const win = useMemo(() => bestWindow(todayHours ?? []), [todayHours]);
   const peakTideTrend =
     peakHourNum != null
       ? (condGrid?.[0]?.[peakHourNum]?.tideTrend ?? null)

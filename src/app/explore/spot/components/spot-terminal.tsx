@@ -318,6 +318,10 @@ export default function SpotTerminal({
 }) {
   const deskRef = useRef<HTMLDivElement>(null);
   const mobRef = useRef<HTMLDivElement>(null);
+  // Drag state lives in refs (not wire()-locals) so an SVG rebuild mid-gesture
+  // — e.g. a data refresh landing during a touch drag — doesn't drop the scrub.
+  const downRef = useRef(false);
+  const lastHRef = useRef<number | null>(null);
   const cur = currentRow(realCurrent, hours.tide);
   const current = cur.v;
   const ts = tideScale(hours.tide, tideRange);
@@ -383,15 +387,36 @@ export default function SpotTerminal({
         const vx = (e.clientX - r.left) * scale; const { LABEL: x0, READ } = gutters(mob), hw = (svg.viewBox.baseVal.width - x0 - READ) / 24;
         return (vx - x0) / hw - 0.5;
       };
-      const move = (e: PointerEvent) => onSelectHour(clampH(Math.round(hFromEvt(e))));
-      let down = false;
-      svg.addEventListener("pointerdown", (e) => { down = true; move(e); });
-      svg.addEventListener("pointermove", (e) => { if (down || e.pointerType === "mouse") move(e); });
+      // Light haptic tick while touch-scrubbing; no-op where the vibration
+      // API is missing (iOS Safari).
+      const haptic = () => { try { navigator.vibrate?.(8); } catch {} };
+      const move = (e: PointerEvent) => {
+        const h = clampH(Math.round(hFromEvt(e)));
+        if (lastHRef.current != null && h !== lastHRef.current && e.pointerType !== "mouse") haptic();
+        lastHRef.current = h;
+        onSelectHour(h);
+      };
+      svg.addEventListener("pointerdown", (e) => {
+        downRef.current = true;
+        // Capture the pointer so a finger slide keeps scrubbing even when it
+        // drifts off the short chart — otherwise pointerleave cuts the drag
+        // and mobile degrades to hour-by-hour taps.
+        try { svg.setPointerCapture(e.pointerId); } catch {}
+        if (e.pointerType !== "mouse") haptic();
+        lastHRef.current = null;
+        move(e);
+      });
+      svg.addEventListener("pointermove", (e) => { if (downRef.current || e.pointerType === "mouse") move(e); });
       // Keep the scrubbed hour after release (touch can park); only mouse-hover snaps back to now.
-      svg.addEventListener("pointerup", () => { down = false; });
+      svg.addEventListener("pointerup", () => { downRef.current = false; });
+      svg.addEventListener("pointercancel", () => { downRef.current = false; });
       svg.addEventListener("pointerleave", (e) => {
-        down = false;
-        if (e.pointerType === "mouse") onSelectHour(clampH(nowHour));
+        // Touch fires leave when a captured drag's element is rebuilt or the
+        // finger drifts — never mid-gesture reset; up/cancel end the drag.
+        if (e.pointerType === "mouse") {
+          downRef.current = false;
+          onSelectHour(clampH(nowHour));
+        }
       });
       // Keyboard: arrow keys move the hour; Home/End jump to the ends.
       svg.addEventListener("keydown", (e) => {
@@ -409,8 +434,11 @@ export default function SpotTerminal({
     };
     wire(deskRef.current, "tmd", false);
     wire(mobRef.current, "tmm", true);
+    // Depend on the window's endpoints, not the array identity — a parent
+    // passing a fresh [start, end] each render must not rebuild the SVG (and
+    // tear down an in-flight scrub gesture).
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [hours, realCurrent, tideRange, sun, bestWindow, deskW, mobW]);
+  }, [hours, realCurrent, tideRange, sun, bestWindow?.[0], bestWindow?.[1], deskW, mobW]);
 
   // Move cursor + refresh readouts when the selected hour changes.
   useEffect(() => {
