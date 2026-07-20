@@ -150,13 +150,13 @@ export function fmtPeak(hour: number | null): string | null {
 }
 
 function fmtWind(c: MapCondCell): string | null {
-  if (c.wkt === null) return null;
-  const dir = c.wdir !== null ? ` ${compass(c.wdir)}` : "";
+  if (c.wkt == null) return null;
+  const dir = c.wdir != null ? ` ${compass(c.wdir)}` : "";
   return `${Math.round(c.wkt)} kn${dir}`;
 }
 
 function seaState(wav: number | null): string | null {
-  if (wav === null) return null;
+  if (wav == null) return null;
   if (wav < 0.2) return "Calm";
   if (wav < 0.5) return "Light";
   if (wav < 1.0) return "Light Chop";
@@ -165,7 +165,7 @@ function seaState(wav: number | null): string | null {
 }
 
 function fmtTide(c: MapCondCell): string | null {
-  if (c.tide === null) return null;
+  if (c.tide == null) return null;
   const h = `${c.tide >= 0 ? "+" : ""}${c.tide.toFixed(1)}m`;
   if (!c.tph) return h;
   if (c.tph.startsWith("flood")) return `${h} ▲`;
@@ -174,21 +174,21 @@ function fmtTide(c: MapCondCell): string | null {
 }
 
 function fmtCurrent(cur: number | null): string | null {
-  if (cur === null) return null;
+  if (cur == null) return null;
   if (cur < 0.15) return "Slack";
   return `${cur.toFixed(1)} kn`;
 }
 
 function skyWord(cld: number | null, pcp: number | null): string | null {
-  if (pcp !== null && pcp >= 0.2) return "Rain";
-  if (cld === null) return null;
+  if (pcp != null && pcp >= 0.2) return "Rain";
+  if (cld == null) return null;
   if (cld < 25) return "Clear";
   if (cld < 70) return "Cloudy";
   return "Overcast";
 }
 
 function fmtAir(air: number | null): string | null {
-  return air === null ? null : `${Math.round(air)}°C`;
+  return air == null ? null : `${Math.round(air)}°C`;
 }
 
 export function formatConditions(cell: MapCondCell | null): RailConditions {
