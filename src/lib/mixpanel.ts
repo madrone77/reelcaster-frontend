@@ -29,7 +29,10 @@ export function initMixpanel(): Mixpanel | null {
   // }
 
   if (!token) {
-    console.error('[Mixpanel] Token not found - analytics disabled')
+    // A missing token is expected in local dev (no analytics key) — it's not
+    // an error. console.error would trip Next.js's dev error overlay on every
+    // page load; warn logs it without the intrusive panel.
+    console.warn('[Mixpanel] Token not found - analytics disabled')
     isInitialized = true
     return null
   }
