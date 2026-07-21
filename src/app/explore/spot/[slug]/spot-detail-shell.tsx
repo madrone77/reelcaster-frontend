@@ -34,6 +34,7 @@ import type {
 import SpeciesCardRow from "../components/species-card-row";
 import SpotProfile from "../components/spot-profile";
 import NeighbourSpots from "../components/neighbour-spots";
+import SeasonalityStrip from "../components/seasonality-strip";
 import NowConditions from "../components/now-conditions";
 import ScoreFactors from "../components/score-factors";
 import { useFavorite } from "../../lib/use-favorite";
@@ -146,6 +147,7 @@ export default function SpotDetailShell({
   const seasonState = selId
     ? (page.seasonStateBySpecies[selId] ?? null)
     : null;
+  const seasonWeeks = selId ? (page.seasonWeeksBySpecies[selId] ?? []) : [];
   const regulation = page.regulations.find((r) => r.speciesId === selId) ?? null;
 
   const fcSource = fc ?? page;
@@ -689,11 +691,23 @@ export default function SpotDetailShell({
                 )}
               </div>
 
-              {/* Nearby spots fill the right column's tail, sitting beside the
-                  spot profile — carded so it reads as its own module. */}
-              <div className="rounded border border-rc-rule bg-rc-surface p-5">
-                <NeighbourSpots spots={page.nearbySpots} />
+            </div>
+          </div>
+
+          {/* ── Full-width sections: seasonality + nearby spots ────────── */}
+          <div className="mt-10 space-y-10">
+            {selSpecies && seasonWeeks.length > 0 && (
+              <div className="border-t border-rc-rule pt-8">
+                <SeasonalityStrip
+                  speciesName={selSpecies.name}
+                  weeks={seasonWeeks}
+                  state={seasonState ?? seasonWeeks[page.todayWeek] ?? "nodata"}
+                  todayWeek={page.todayWeek}
+                />
               </div>
+            )}
+            <div className="border-t border-rc-rule pt-8">
+              <NeighbourSpots spots={page.nearbySpots} />
             </div>
           </div>
 
