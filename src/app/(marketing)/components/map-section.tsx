@@ -1,7 +1,7 @@
 import Image from 'next/image';
 import Link from 'next/link';
 import { fetchHierarchy, fetchMapSpots } from '@/lib/bluecaster';
-import { buildExploreData } from '@/app/explore/lib/explore-data';
+import { buildExploreData, type SpeciesOption } from '@/app/explore/lib/explore-data';
 import MarketingMap, { type MapSpot } from './marketing-map';
 
 // Salish Sea — South Vancouver Island through Vancouver. Wider than the
@@ -13,25 +13,35 @@ const CENTER = { lat: 48.45, lng: -123.55 };
 const ZOOM = 9.1;
 
 export default async function MapSection() {
-  const [hierarchy, payload] = await Promise.all([
-    fetchHierarchy(),
-    fetchMapSpots({ bbox: BBOX }),
-  ]);
+  // The map is a nice-to-have on the landing page, not load-bearing — a bad
+  // response from the API (or a spot the data build chokes on) must never 500
+  // the whole homepage. Anything thrown here degrades to the illustration.
+  let spots: MapSpot[] = [];
+  let species: SpeciesOption[] = [];
+  try {
+    const [hierarchy, payload] = await Promise.all([
+      fetchHierarchy(),
+      fetchMapSpots({ bbox: BBOX }),
+    ]);
 
-  const data = buildExploreData(hierarchy, payload);
+    const data = buildExploreData(hierarchy, payload);
+    species = data.species;
 
-  // No cap: the map pans and zooms, so every scored spot in the bbox should be
-  // reachable. Unscored spots are dropped — a grey "—" pin sells nothing.
-  const spots: MapSpot[] = data.spots
-    .filter((s) => s.score !== null)
-    .map(({ slug, name, lat, lng, score, scoresBySpecies }) => ({
-      slug,
-      name,
-      lat,
-      lng,
-      score,
-      scoresBySpecies,
-    }));
+    // No cap: the map pans and zooms, so every scored spot in the bbox should
+    // be reachable. Unscored spots are dropped — a grey "—" pin sells nothing.
+    spots = data.spots
+      .filter((s) => s.score !== null)
+      .map(({ slug, name, lat, lng, score, scoresBySpecies }) => ({
+        slug,
+        name,
+        lat,
+        lng,
+        score,
+        scoresBySpecies,
+      }));
+  } catch (err) {
+    console.error('[MapSection] falling back to the chart illustration:', err);
+  }
 
   return (
     <section className="border-t border-rc-rule/60 bg-rc-panel">
@@ -41,7 +51,7 @@ export default async function MapSection() {
             {spots.length > 0 ? (
               <MarketingMap
                 spots={spots}
-                species={data.species}
+                species={species}
                 center={CENTER}
                 zoom={ZOOM}
               />
