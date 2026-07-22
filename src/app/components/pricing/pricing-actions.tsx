@@ -128,7 +128,7 @@ export default function PricingActions({ defaultRegion, monthlyDollarsNow }: Pro
           disabled={loading}
           className="flex-1 inline-flex items-center justify-center px-5 py-3 bg-rc-brand text-white text-sm font-bold rounded-md hover:bg-rc-brand-hover transition-colors disabled:opacity-60"
         >
-          Get Season Pass — $79/yr
+          Get annual — $33/yr
         </button>
         <button
           type="button"
@@ -136,7 +136,7 @@ export default function PricingActions({ defaultRegion, monthlyDollarsNow }: Pro
           disabled={loading}
           className="flex-1 inline-flex items-center justify-center px-5 py-3 border border-rc-brand bg-rc-panel text-rc-brand text-sm font-bold rounded-md hover:bg-rc-brand-soft transition-colors disabled:opacity-60"
         >
-          Go Monthly — ${monthlyDollarsNow}/mo this month
+          Go monthly — ${monthlyDollarsNow}/mo
         </button>
       </div>
 
@@ -150,7 +150,7 @@ export default function PricingActions({ defaultRegion, monthlyDollarsNow }: Pro
             onClick={(e) => e.stopPropagation()}
           >
             <h2 className="text-xl font-bold text-rc-ink mb-1">
-              {open === 'annual' ? 'Season Pass — $79/yr' : `Monthly — $${monthlyDollarsNow}/mo`}
+              {open === 'annual' ? 'Annual — $33/yr' : `Monthly — $${monthlyDollarsNow}/mo`}
             </h2>
             <p className="text-sm text-rc-ink-mute mb-5">
               Where do you mostly fish? We&apos;re live in BC, WA, and OR.

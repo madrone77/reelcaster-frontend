@@ -49,11 +49,11 @@ export default function PricingSection() {
             <p className="mt-2 text-5xl font-black tracking-[-0.03em] text-rc-ink">
               ${monthlyDollars}
               <span className="ml-1 align-baseline font-rc-mono text-xs font-medium tracking-wide text-rc-ink-mute">
-                /mo this month
+                /mo
               </span>
             </p>
             <p className="mt-1.5 font-rc-mono text-[11px] text-rc-ink-mute">
-              Seasonal pricing · or $79/yr Season Pass — best value
+              or $33/yr — best value
             </p>
             <p className="mt-4 text-sm leading-relaxed text-rc-ink-soft">
               Plan ahead with 14 day forecasts, custom spots, smart alerts, and

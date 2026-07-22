@@ -1,49 +1,41 @@
 /**
- * ReelCaster Pro pricing — Stripe Price IDs and seasonal price map.
+ * ReelCaster Pro pricing — flat and simple: $5/month or $33/year.
  *
- * Monthly subscriptions are utility-priced by calendar month: peak fishing season
- * costs more, off-season costs less. Annual is a flat $79 (cheaper than 12×$15).
+ * Previously this was a per-calendar-month seasonal table plus a $79 "Season
+ * Pass". That was more complexity than it earned, so pricing is now two flat
+ * plans. The `resolveMonthly*` helpers are kept (returning the flat values) so
+ * the Stripe routes and marketing copy don't need to change shape.
  *
- * To resolve the *current* monthly Price at checkout, call resolveMonthlyPriceId()
- * which uses the user's local month at the moment of upgrade.
+ * ⚠ Stripe: monthly reuses the existing $5 Price. There is NO $33/yr Price yet —
+ * create one in Stripe and set STRIPE_ANNUAL_PRICE_ID. Until then ANNUAL_PRICE_ID
+ * is empty and annual checkout fails cleanly (Stripe rejects it) rather than
+ * charging the wrong amount.
  */
 
 export type PricingPlan = 'monthly' | 'annual';
 
-export const ANNUAL_PRICE_ID = 'price_1TQpJW2a2BXhmPNuF9igUK0H'; // $79/yr
+export const MONTHLY_PRICE_CENTS = 500; // $5 / month
+export const ANNUAL_PRICE_CENTS = 3300; // $33 / year
 
-// Index 0 = January, index 11 = December.
-// Prices in USD cents matching the spec: $5 off-season, $10 shoulder, $15 peak.
-export const MONTHLY_PRICE_TABLE: Array<{
-  month: number; // 1-12
-  label: string;
-  amountCents: number;
-  priceId: string;
-}> = [
-  { month: 1, label: 'Jan', amountCents: 500, priceId: 'price_1TQpJa2a2BXhmPNuiKaaurSJ' },
-  { month: 2, label: 'Feb', amountCents: 500, priceId: 'price_1TQpJe2a2BXhmPNuYRTewOoU' },
-  { month: 3, label: 'Mar', amountCents: 1000, priceId: 'price_1TQpJi2a2BXhmPNuNGLc4ZTM' },
-  { month: 4, label: 'Apr', amountCents: 1500, priceId: 'price_1TQpJm2a2BXhmPNuTO1dtDX8' },
-  { month: 5, label: 'May', amountCents: 1500, priceId: 'price_1TQpJq2a2BXhmPNuVgSKvMi5' },
-  { month: 6, label: 'Jun', amountCents: 1500, priceId: 'price_1TQpJu2a2BXhmPNuF6z69gnV' },
-  { month: 7, label: 'Jul', amountCents: 1500, priceId: 'price_1TQpJy2a2BXhmPNurqECaPFB' },
-  { month: 8, label: 'Aug', amountCents: 1500, priceId: 'price_1TQpK22a2BXhmPNuBUMU0PSB' },
-  { month: 9, label: 'Sep', amountCents: 1500, priceId: 'price_1TQpK62a2BXhmPNukXAY6OBH' },
-  { month: 10, label: 'Oct', amountCents: 1000, priceId: 'price_1TQpKA2a2BXhmPNu9Umbapyn' },
-  { month: 11, label: 'Nov', amountCents: 500, priceId: 'price_1TQpKE2a2BXhmPNuKUCfKFFp' },
-  { month: 12, label: 'Dec', amountCents: 500, priceId: 'price_1TQpKI2a2BXhmPNu0tm9rngU' },
-];
+// Monthly reuses the existing $5 Stripe Price; overridable via env.
+export const MONTHLY_PRICE_ID =
+  process.env.STRIPE_MONTHLY_PRICE_ID ?? 'price_1TQpJa2a2BXhmPNuiKaaurSJ';
+// Annual ($33) has no Stripe Price yet — set STRIPE_ANNUAL_PRICE_ID once created.
+// Empty until then so annual checkout errors instead of mischarging.
+export const ANNUAL_PRICE_ID = process.env.STRIPE_ANNUAL_PRICE_ID ?? '';
 
-export function resolveMonthlyPriceId(date: Date = new Date()): string {
-  const monthIndex = date.getMonth(); // 0-11
-  return MONTHLY_PRICE_TABLE[monthIndex].priceId;
+export function resolveMonthlyPriceId(): string {
+  return MONTHLY_PRICE_ID;
 }
 
-export function resolveMonthlyPriceCents(date: Date = new Date()): number {
-  const monthIndex = date.getMonth();
-  return MONTHLY_PRICE_TABLE[monthIndex].amountCents;
+export function resolveMonthlyPriceCents(): number {
+  return MONTHLY_PRICE_CENTS;
+}
+
+export function priceCentsFor(plan: PricingPlan): number {
+  return plan === 'annual' ? ANNUAL_PRICE_CENTS : MONTHLY_PRICE_CENTS;
 }
 
 export function priceIdFor(plan: PricingPlan): string {
-  return plan === 'annual' ? ANNUAL_PRICE_ID : resolveMonthlyPriceId();
+  return plan === 'annual' ? ANNUAL_PRICE_ID : MONTHLY_PRICE_ID;
 }
