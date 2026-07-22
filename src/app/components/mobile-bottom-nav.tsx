@@ -12,12 +12,13 @@ const TABS = [
 ] as const;
 
 /**
- * Mobile bottom tab bar (Zillow-style) — fixed to the bottom edge on phones and
- * tablets, hidden on desktop (the rail + top bar own that layout). Four tabs:
- * Explore, Catches, Favorites, Account. Active tab reads brand; the rest are
- * muted. Renders a matching-height spacer in flow so page content can scroll
- * clear of the fixed bar. Shows on every page (like Zillow) — marketing, auth,
- * and the coming-soon wall included.
+ * Mobile bottom tab bar (Zillow-style, floating) — a rounded pill detached from
+ * the screen edges, hovering above the content with a soft shadow, on phones
+ * and tablets; hidden on desktop (the rail + top bar own that layout). Four
+ * tabs: Explore, Catches, Favorites, Account. Active tab reads brand; the rest
+ * are muted. Renders a matching-height spacer in flow so page content can
+ * scroll clear of the floating bar. Shows on every page — marketing, auth, and
+ * the coming-soon wall included.
  */
 export default function MobileBottomNav() {
   const pathname = usePathname();
@@ -27,13 +28,15 @@ export default function MobileBottomNav() {
 
   return (
     <>
-      {/* Keeps scrollable content from ending under the fixed bar. */}
-      <div className="lg:hidden h-[calc(3.5rem+env(safe-area-inset-bottom))]" />
+      {/* Reserve scroll space so content clears the floating bar. */}
+      <div className="lg:hidden h-[calc(5.5rem+env(safe-area-inset-bottom))]" />
+      {/* Outer strip is click-through (pointer-events-none) so the transparent
+          margins beside the pill don't swallow taps on the content behind. */}
       <nav
         aria-label="Primary"
-        className="lg:hidden fixed inset-x-0 bottom-0 z-50 bg-rc-panel/95 backdrop-blur-md border-t border-rc-rule pb-[env(safe-area-inset-bottom)]"
+        className="lg:hidden pointer-events-none fixed inset-x-0 bottom-0 z-50 px-4 pb-[calc(0.75rem+env(safe-area-inset-bottom))]"
       >
-        <div className="grid grid-cols-4 h-14">
+        <div className="pointer-events-auto mx-auto grid h-16 max-w-md grid-cols-4 rounded-2xl border border-rc-rule bg-rc-panel/95 shadow-[0_6px_24px_rgba(15,23,42,0.18)] backdrop-blur-md">
           {TABS.map(({ href, label, Icon }) => {
             const active = isActive(href);
             return (

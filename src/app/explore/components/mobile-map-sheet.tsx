@@ -100,8 +100,8 @@ export default function MobileMapSheet({
     <div
       className="lg:hidden fixed inset-x-0 z-30 flex flex-col rounded-t-2xl border-t border-rc-rule bg-rc-panel shadow-[0_-8px_30px_rgba(15,23,42,0.12)]"
       style={{
-        // Sit above the fixed bottom tab bar (h-14 + safe area).
-        bottom: "calc(3.5rem + env(safe-area-inset-bottom))",
+        // Sit above the floating bottom tab bar (pill h-16 + its 0.75rem gap).
+        bottom: "calc(5.25rem + env(safe-area-inset-bottom))",
         height,
         transition:
           dragHeight == null ? "height 0.3s cubic-bezier(0.32,0.72,0,1)" : "none",
