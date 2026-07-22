@@ -1,6 +1,8 @@
 'use client'
 
 import { useState } from 'react'
+import Link from 'next/link'
+import Image from 'next/image'
 import { useRouter } from 'next/navigation'
 import { useAuth } from '@/contexts/auth-context'
 import { useAnalytics } from '@/hooks/use-analytics'
@@ -8,7 +10,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Alert, AlertDescription } from '@/components/ui/alert'
-import { Fish, CheckCircle, Lock } from 'lucide-react'
+import { CheckCircle, Lock } from 'lucide-react'
 
 export default function ResetPasswordPage() {
   const [newPassword, setNewPassword] = useState('')
@@ -57,12 +59,9 @@ export default function ResetPasswordPage() {
       <div className="fixed inset-0 bg-rc-bg-darkest flex items-center justify-center overflow-y-auto">
         <div className="w-full max-w-md mx-auto px-4 py-8 sm:py-12">
           <div className="text-center mb-8">
-            <div className="inline-flex items-center gap-2 mb-3">
-              <div className="p-2 rounded-xl bg-blue-600/20">
-                <Fish className="h-6 w-6 text-blue-400" />
-              </div>
-              <h1 className="text-2xl font-bold text-rc-text">ReelCaster</h1>
-            </div>
+            <Link href="/" aria-label="ReelCaster home" className="inline-flex mb-3">
+            <Image src="/reelcaster-mark.svg" alt="ReelCaster" width={130} height={60} priority />
+          </Link>
           </div>
 
           <div className="bg-rc-bg-dark border border-rc-bg-light rounded-2xl p-6">
@@ -90,12 +89,9 @@ export default function ResetPasswordPage() {
       <div className="fixed inset-0 bg-rc-bg-darkest flex items-center justify-center overflow-y-auto">
         <div className="w-full max-w-md mx-auto px-4 py-8 sm:py-12">
           <div className="text-center mb-8">
-            <div className="inline-flex items-center gap-2 mb-3">
-              <div className="p-2 rounded-xl bg-blue-600/20">
-                <Fish className="h-6 w-6 text-blue-400" />
-              </div>
-              <h1 className="text-2xl font-bold text-rc-text">ReelCaster</h1>
-            </div>
+            <Link href="/" aria-label="ReelCaster home" className="inline-flex mb-3">
+            <Image src="/reelcaster-mark.svg" alt="ReelCaster" width={130} height={60} priority />
+          </Link>
           </div>
 
           <div className="bg-rc-bg-dark border border-rc-bg-light rounded-2xl p-6">
@@ -122,12 +118,9 @@ export default function ResetPasswordPage() {
     <div className="fixed inset-0 bg-rc-bg-darkest flex items-center justify-center overflow-y-auto">
       <div className="w-full max-w-md mx-auto px-4 py-8 sm:py-12">
         <div className="text-center mb-8">
-          <div className="inline-flex items-center gap-2 mb-3">
-            <div className="p-2 rounded-xl bg-blue-600/20">
-              <Fish className="h-6 w-6 text-blue-400" />
-            </div>
-            <h1 className="text-2xl font-bold text-rc-text">ReelCaster</h1>
-          </div>
+          <Link href="/" aria-label="ReelCaster home" className="inline-flex mb-3">
+            <Image src="/reelcaster-mark.svg" alt="ReelCaster" width={130} height={60} priority />
+          </Link>
           <p className="text-sm text-rc-text-muted">Set your new password</p>
         </div>
 
