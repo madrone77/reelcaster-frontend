@@ -4,6 +4,7 @@ import { useState } from "react";
 import { CloudSun } from "lucide-react";
 import type { ForecastStripModel, ForecastDay } from "../lib/forecast-strip";
 import DayCell from "./day-cell";
+import DayScrubCell from "./day-scrub-cell";
 import UpgradeDialog from "./upgrade-dialog";
 
 const CONFIDENCE_NOTE = "confidence fades past day 7 · ECMWF + GFS";
@@ -20,6 +21,9 @@ export default function ForecastStrip({
   selectedIso,
   loading,
   onSelectDay,
+  selectedDayHours,
+  scrubHour,
+  onScrubHour,
   hidden,
   onHide,
   onShow,
@@ -29,12 +33,19 @@ export default function ForecastStrip({
   selectedIso: string;
   loading: boolean;
   onSelectDay: (day: ForecastDay) => void;
+  /** Regional best score per hour for the selected day (length 24) — the
+   *  selected cell expands into a scrub lane over these. */
+  selectedDayHours: (number | null)[];
+  /** 0–23 scrubbed hour, or null = day peak (no scrub yet). */
+  scrubHour: number | null;
+  onScrubHour: (h: number) => void;
   /** Whole-strip hide/show. */
   hidden?: boolean;
   onHide?: () => void;
   onShow?: () => void;
 }) {
   const [upgradeOpen, setUpgradeOpen] = useState(false);
+  const hasHours = selectedDayHours.some((v) => typeof v === "number");
 
   const handleDay = (day: ForecastDay) => {
     if (day.locked) {
@@ -113,14 +124,31 @@ export default function ForecastStrip({
           </div>
         ) : (
           <div className="flex gap-1.5 flex-1 min-h-0">
-            {model.days.map((day) => (
-              <DayCell
-                key={day.index}
-                day={day}
-                selected={day.iso === selectedIso}
-                onSelect={() => handleDay(day)}
-              />
-            ))}
+            {model.days.map((day) => {
+              const isSel = day.iso === selectedIso;
+              // The selected, unlocked day expands into the 24h scrub lane;
+              // every other day stays a compact peak cell (flex ratios let the
+              // row compress the rest automatically).
+              if (isSel && !day.locked && hasHours) {
+                return (
+                  <DayScrubCell
+                    key={day.index}
+                    day={day}
+                    hours={selectedDayHours}
+                    scrubHour={scrubHour}
+                    onScrubHour={onScrubHour}
+                  />
+                );
+              }
+              return (
+                <DayCell
+                  key={day.index}
+                  day={day}
+                  selected={isSel}
+                  onSelect={() => handleDay(day)}
+                />
+              );
+            })}
           </div>
         )}
       </div>

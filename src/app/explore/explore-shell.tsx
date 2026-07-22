@@ -310,9 +310,46 @@ export default function ExploreShell({
     return best >= 0 ? hr : null;
   }, [railSpots]);
 
-  // Hour the user is hover-scrubbing on the spot drawer's 24h chart (null when
-  // not hovering) — while set, the currents animation follows it live.
+  // The hour scrubbed on the 14-day strip's selected day (or hover-scrubbed on
+  // a rail card's mini-chart). null = rest at day-peak. Drives the map-pin
+  // recolor, the rail re-rank, and the currents animation.
   const [scrubHour, setScrubHour] = useState<number | null>(null);
+
+  // Reset the scrub to day-peak whenever the selected day changes — a fresh day
+  // opens at its peak, not the previous day's hour.
+  useEffect(() => {
+    setScrubHour(null);
+  }, [selectedIso]);
+
+  // Regional best score per hour for the SELECTED day (max across mapped
+  // spots). The strip's selected cell expands into a scrub lane over this
+  // series; its argmax is the day peak the collapsed cell already shows.
+  const selectedDayHours = useMemo(() => {
+    const out: (number | null)[] = new Array(24).fill(null);
+    for (const s of railSpots) {
+      for (let h = 0; h < 24; h++) {
+        const v = s.hours24[h];
+        if (typeof v === "number" && (out[h] == null || v > (out[h] as number)))
+          out[h] = v;
+      }
+    }
+    return out;
+  }, [railSpots]);
+
+  // The rail re-scored + re-ranked to the scrubbed hour — each card shows its
+  // own hours24[hour] and the list re-sorts by it. At rest (null) it stays the
+  // day-peak ranking. The strip's hour detents mean this recomputes once per
+  // hour-step, not per pointer frame.
+  const railDisplaySpots = useMemo(() => {
+    if (scrubHour == null) return railSpots;
+    const h = scrubHour;
+    return railSpots
+      .map((s) => ({
+        ...s,
+        score: typeof s.hours24[h] === "number" ? (s.hours24[h] as number) : null,
+      }))
+      .sort((a, b) => (b.score ?? -1) - (a.score ?? -1));
+  }, [railSpots, scrubHour]);
 
   // A UTC instant for the animated currents field — the flow layer
   // re-predicts the tidal field for this time, so picking another day moves
@@ -578,7 +615,7 @@ export default function ExploreShell({
           labels={labels}
           currents={currents}
           wind={wind}
-          hour={null}
+          hour={scrubHour}
           flowTimeIso={flowTimeIso}
           stripVisible={!stripHidden}
           wdfwRegs={wdfwRegs}
@@ -593,7 +630,7 @@ export default function ExploreShell({
       <LeftRail
         locations={data.locations}
         selectedCity={labelCity}
-        spots={railSpots}
+        spots={railDisplaySpots}
         selectedSpot={selectedSpot}
         selectedStation={selectedStation}
         date={selectedIso}
@@ -639,6 +676,9 @@ export default function ExploreShell({
         selectedIso={selectedIso}
         loading={fcLoading}
         onSelectDay={handleSelectDay}
+        selectedDayHours={selectedDayHours}
+        scrubHour={scrubHour}
+        onScrubHour={setScrubHour}
         hidden={stripHidden}
         onHide={() => setStripHidden(true)}
         onShow={() => setStripHidden(false)}
