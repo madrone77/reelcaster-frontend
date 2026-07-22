@@ -38,7 +38,7 @@ export function UnlockWithProCard({
   headline = 'Unlock with Pro',
   bullets = DEFAULT_BULLETS,
   ctaHref,
-  ctaLabel = 'Upgrade to Pro · $79/yr',
+  ctaLabel = 'Upgrade to Pro · $33/yr',
   feature,
   compact = false,
   theme = 'auto',
