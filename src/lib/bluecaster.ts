@@ -778,13 +778,19 @@ export async function fetchSpotScoreHour(
   return (await res.json()) as SpotScoreHourResponse;
 }
 
+export type CreateCustomSpotResult =
+  | { ok: true; data: CreateCustomSpotResponse }
+  | { ok: false; status: number; error: string; message?: string };
+
 /** Create a custom (user) spot — approved+active, score pending until the
- *  next batch scoring run. */
+ *  next batch scoring run. Upstream errors (e.g. 422 `outside_coverage`
+ *  when the coordinates fall outside covered waters) are surfaced, not
+ *  swallowed, so the UI can explain why the create was refused. */
 export async function createCustomSpot(input: {
   name: string;
   lat: number;
   lng: number;
-}): Promise<CreateCustomSpotResponse | null> {
+}): Promise<CreateCustomSpotResult> {
   const baseUrl = process.env.BLUECASTER_API_URL;
   const apiKey = process.env.BLUECASTER_API_KEY;
   if (!baseUrl || !apiKey) throw new Error("BlueCaster env vars not set");
@@ -795,8 +801,19 @@ export async function createCustomSpot(input: {
     body: JSON.stringify(input),
     cache: "no-store",
   });
-  if (!res.ok) return null;
-  return (await res.json()) as CreateCustomSpotResponse;
+  if (!res.ok) {
+    const body = (await res.json().catch(() => null)) as {
+      error?: string;
+      message?: string;
+    } | null;
+    return {
+      ok: false,
+      status: res.status,
+      error: body?.error ?? "create_failed",
+      message: body?.message,
+    };
+  }
+  return { ok: true, data: (await res.json()) as CreateCustomSpotResponse };
 }
 
 /**

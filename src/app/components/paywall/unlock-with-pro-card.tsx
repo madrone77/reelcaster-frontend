@@ -9,7 +9,7 @@ const DEFAULT_BULLETS = [
   '14-day forecast',
   '5 species scoring',
   'Bathymetry layer',
-  'Unlimited alerts',
+  'Up to 10 alerts',
   'Unlimited favorites',
 ];
 

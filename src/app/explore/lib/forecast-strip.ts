@@ -1,15 +1,34 @@
 // Builds the 14-day forecast strip from a spot's forecast-14d payload.
 // Day scores come from the spot's best-species hourly grid (0–100, same
 // scale the engine emits) so the strip stays species-consistent with its
-// "· CHINOOK" header; dow/date come from daily14. Days past the free
-// horizon are locked for non-paying users (Boat Pro).
+// "· CHINOOK" header; dow/date come from daily14. Days past the caller's
+// horizon are locked: signed-out visitors see 2 days, free accounts 7,
+// Pro all 14.
 
 import type { Forecast14dPayload } from "@/lib/bluecaster/live-spot-types";
 import type { MapForecast14dPayload } from "@/lib/bluecaster";
 import { tierFor, fmtPeak, type Tier } from "./explore-data";
 
-/** Free users see the first 10 days; days 11–14 are Boat Pro. */
-export const FREE_STRIP_DAYS = 10;
+/** Signed-out visitors see the first 2 days. */
+export const ANON_STRIP_DAYS = 2;
+/** Free accounts see the first 7 days; days 8–14 are Pro. */
+export const FREE_STRIP_DAYS = 7;
+
+/** The caller's access level — decides how many strip days are unlocked. */
+export type ForecastTier = "anonymous" | "free" | "pro";
+
+/** Which plan a locked day belongs to — drives the tile label + tap action. */
+export type LockTier = "free" | "pro";
+
+export function stripDaysFor(tier: ForecastTier): number {
+  if (tier === "pro") return 14;
+  return tier === "free" ? FREE_STRIP_DAYS : ANON_STRIP_DAYS;
+}
+
+function lockTierAt(index: number, visible: number): LockTier | null {
+  if (index < visible) return null;
+  return index < FREE_STRIP_DAYS ? "free" : "pro";
+}
 
 export interface ForecastDay {
   index: number;
@@ -21,6 +40,8 @@ export interface ForecastDay {
   peakLabel: string | null; // "11:00"
   tier: Tier;
   locked: boolean;
+  /** null when unlocked; otherwise the plan that unlocks this day. */
+  lockTier: LockTier | null;
   isBest: boolean;
 }
 
@@ -51,7 +72,7 @@ function peakOf(series: (number | null)[] | undefined): {
 export function buildForecastDays(
   payload: Forecast14dPayload,
   bestSpeciesId: string | null,
-  isPaid: boolean,
+  accessTier: ForecastTier,
   // The map-spots hourly series for one day (the selected day). The map
   // pins and spot drawer render from map/spots, the strip from forecast-14d
   // — two payloads cached independently, so a forecast re-bake between the
@@ -63,6 +84,7 @@ export function buildForecastDays(
   const grid = bestSpeciesId
     ? payload.hourlyScoreGrid[bestSpeciesId]
     : undefined;
+  const visible = stripDaysFor(accessTier);
 
   const days: ForecastDay[] = payload.daily14.map((d, i) => {
     let fromGrid = peakOf(grid?.[i]);
@@ -73,7 +95,8 @@ export function buildForecastDays(
     // Prefer the species-specific daily peak; fall back to the overall
     // daily score the engine already computed.
     const score = fromGrid.score ?? d.score ?? null;
-    const locked = !isPaid && i >= FREE_STRIP_DAYS;
+    const lockTier = lockTierAt(i, visible);
+    const locked = lockTier !== null;
     return {
       index: i,
       iso: d.iso,
@@ -83,6 +106,7 @@ export function buildForecastDays(
       peakLabel: locked ? null : fmtPeak(fromGrid.hour),
       tier: tierFor(score),
       locked,
+      lockTier,
       isBest: false,
     };
   });
@@ -99,15 +123,17 @@ export function buildForecastDays(
 export function buildViewportForecastDays(
   payload: MapForecast14dPayload,
   speciesFilter: string | null,
-  isPaid: boolean,
+  accessTier: ForecastTier,
 ): ForecastStripModel {
   const series = speciesFilter
     ? payload.by_species[speciesFilter] ?? []
     : payload.best;
+  const visible = stripDaysFor(accessTier);
 
   const days: ForecastDay[] = payload.days.map((d, i) => {
     const cell = series[i] ?? null;
-    const locked = !isPaid && i >= FREE_STRIP_DAYS;
+    const lockTier = lockTierAt(i, visible);
+    const locked = lockTier !== null;
     return {
       index: i,
       iso: d.iso,
@@ -117,6 +143,7 @@ export function buildViewportForecastDays(
       peakLabel: locked ? null : fmtPeak(cell?.peak_hour ?? null),
       tier: tierFor(cell?.score ?? null),
       locked,
+      lockTier,
       isBest: false,
     };
   });

@@ -9,14 +9,14 @@ import { MONTHLY_PRICE_TABLE, resolveMonthlyPriceCents } from "@/lib/pricing";
 const SITE_URL = "https://reelcaster.com";
 
 export const metadata: Metadata = {
-  title: "Pro Intel Pricing | ReelCaster",
+  title: "Pro Pricing | ReelCaster",
   description:
-    "Unlock 14-day forecasts, unlimited alerts, and custom spot profiles. Monthly seasonal pricing from $5/mo or annual Season Pass.",
+    "Unlock 14-day forecasts, up to 10 custom alerts, and custom spot profiles. Monthly seasonal pricing from $5/mo or annual Season Pass.",
   alternates: { canonical: `${SITE_URL}/pricing` },
   openGraph: {
-    title: "Pro Intel Pricing | ReelCaster",
+    title: "Pro Pricing | ReelCaster",
     description:
-      "Unlock 14-day forecasts, unlimited alerts, and custom spot profiles.",
+      "Unlock 14-day forecasts, up to 10 custom alerts, and custom spot profiles.",
     url: `${SITE_URL}/pricing`,
     siteName: "ReelCaster",
     type: "website",
@@ -27,7 +27,7 @@ export const metadata: Metadata = {
 
 const PLAN_FEATURES = [
   "14-day hourly forecasts",
-  "Unlimited custom alerts (email + SMS)",
+  "Up to 10 custom alerts (email + SMS)",
   "Custom spot profiles with full enrichment",
   "Priority during emerging hot bites",
   "Cancel anytime",
@@ -57,13 +57,13 @@ export default async function PricingPage() {
       {/* Hero */}
       <section className="max-w-6xl mx-auto px-6 pt-14 pb-10 md:pt-20 md:pb-14">
         <p className="font-rc-mono text-[10px] tracking-[0.14em] uppercase text-rc-ink-mute mb-3">
-          ReelCaster Pro Intel
+          ReelCaster Pro
         </p>
         <h1 className="text-4xl md:text-6xl font-black tracking-[-0.02em] text-rc-ink mb-5">
           Pricing
         </h1>
         <p className="max-w-2xl text-base md:text-lg leading-relaxed text-rc-ink-soft">
-          Pro Intel unlocks the full 14-day forecast, unlimited alerts, and
+          Pro unlocks the full 14-day forecast, up to 10 custom alerts, and
           custom spot profiles. Monthly pricing is utility-based — peak fishing
           months cost more, off-season is steeply discounted. The Season Pass
           beats peak monthly by ${annualSavingsVsPeak}+.
@@ -156,7 +156,7 @@ export default async function PricingPage() {
       {/* Coverage note */}
       <section className="max-w-6xl mx-auto px-6 py-8">
         <div className="bg-rc-surface border border-rc-rule rounded-lg p-5 text-sm text-rc-ink-soft">
-          Pro Intel is sold only in covered regions: <strong className="text-rc-ink">British
+          Pro is sold only in covered regions: <strong className="text-rc-ink">British
           Columbia</strong>, <strong className="text-rc-ink">Washington</strong>, and{" "}
           <strong className="text-rc-ink">Oregon</strong>. If you fish elsewhere,{" "}
           <Link
