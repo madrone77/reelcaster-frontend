@@ -20,9 +20,8 @@ const REGIONS = [
 
 const FEATURES = [
   '14-day hourly forecasts',
-  'Up to 10 custom alerts (email + SMS)',
+  'Custom alerts (email + SMS)',
   'Custom spot profiles with full enrichment',
-  'Priority during emerging hot bites',
   'Cancel anytime',
 ];
 
