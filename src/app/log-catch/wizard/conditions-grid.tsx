@@ -4,6 +4,17 @@ import { useState } from "react";
 import { Loader2 } from "lucide-react";
 import type { CatchSnapshot } from "@/lib/bluecaster/catch-ingest-types";
 import type { SnapshotOverrides } from "./types";
+import { useUnitPreferences } from "@/contexts/unit-preferences-context";
+import {
+  convertHeight,
+  convertPressure,
+  convertTemp,
+  convertWind,
+  formatHeight,
+  formatPressure,
+  formatWind,
+  WIND_LABELS,
+} from "@/app/utils/unit-conversions";
 
 type CellKey = keyof SnapshotOverrides;
 
@@ -27,6 +38,8 @@ export default function ConditionsGrid({
   speciesName: string | null;
   loading: boolean;
 }) {
+  const { windUnit, tempUnit, heightUnit, pressureUnit } = useUnitPreferences();
+
   if (!snapshot && !loading) {
     return (
       <div className="rounded-xl border border-rc-rule bg-rc-surface px-4 py-6 text-center text-[13px] text-rc-ink-mute">
@@ -78,6 +91,8 @@ export default function ConditionsGrid({
 
   const tempNote = waterTempNote(s.water_temp_c, speciesName);
 
+  const speedLabel = WIND_LABELS[windUnit];
+
   const cells: Array<{
     key: CellKey;
     label: string;
@@ -93,9 +108,9 @@ export default function ConditionsGrid({
       value: s.tide_height_m,
       display:
         s.tide_height_m !== null
-          ? `${s.tide_height_m >= 0 ? "+" : ""}${s.tide_height_m.toFixed(1)} m ${rising ? "↑" : "↓"}`
+          ? `${s.tide_height_m >= 0 ? "+" : ""}${formatHeight(convertHeight(s.tide_height_m, "m", heightUnit), heightUnit)} ${rising ? "↑" : "↓"}`
           : "—",
-      unit: "m",
+      unit: heightUnit,
       sub: tideWord ? `${rising ? "Rising" : "Falling"} · ${tideWord}` : "—",
       step: 0.1,
     },
@@ -107,10 +122,10 @@ export default function ConditionsGrid({
         s.current_speed_kt !== null && s.current_dir
           ? `${tideWord === "ebb" ? "Ebb" : "Flood"} ${s.current_dir}`
           : "—",
-      unit: "kn",
+      unit: speedLabel,
       sub:
         s.current_speed_kt !== null
-          ? `${s.current_speed_kt.toFixed(1)} kn${currentTrend ? ` · ${currentTrend}` : ""}`
+          ? `${formatWind(convertWind(s.current_speed_kt, "knots", windUnit), windUnit, 1)}${currentTrend ? ` · ${currentTrend}` : ""}`
           : "No current data here",
       step: 0.1,
     },
@@ -119,11 +134,13 @@ export default function ConditionsGrid({
       label: "WIND",
       value: s.wind_kn,
       display:
-        s.wind_kn !== null ? `${Math.round(s.wind_kn)} kn ${s.wind_dir ?? ""}` : "—",
-      unit: "kn",
+        s.wind_kn !== null
+          ? `${formatWind(convertWind(s.wind_kn, "knots", windUnit), windUnit)} ${s.wind_dir ?? ""}`
+          : "—",
+      unit: speedLabel,
       sub:
         s.wind_gust_kt !== null
-          ? `Steady · gusts ${Math.round(s.wind_gust_kt)}`
+          ? `Steady · gusts ${Math.round(convertWind(s.wind_gust_kt, "knots", windUnit))}`
           : "—",
       step: 1,
     },
@@ -133,12 +150,12 @@ export default function ConditionsGrid({
       value: s.barometric_pressure_hpa,
       display:
         s.barometric_pressure_hpa !== null
-          ? `${Math.round(s.barometric_pressure_hpa)} mb ${pressureRising ? "▲" : "▼"}`
+          ? `${formatPressure(convertPressure(s.barometric_pressure_hpa, "mb", pressureUnit), pressureUnit)} ${pressureRising ? "▲" : "▼"}`
           : "—",
-      unit: "mb",
+      unit: pressureUnit,
       sub:
         s.pressure_trend_3h !== null
-          ? `${pressureRising ? "Rising" : "Falling"} ${s.pressure_trend_3h >= 0 ? "+" : ""}${s.pressure_trend_3h.toFixed(1)}/3hr`
+          ? `${pressureRising ? "Rising" : "Falling"} ${s.pressure_trend_3h >= 0 ? "+" : ""}${convertPressure(s.pressure_trend_3h, "mb", pressureUnit).toFixed(pressureUnit === "inHg" ? 2 : 1)}/3hr`
           : "—",
       step: 1,
     },
@@ -146,8 +163,11 @@ export default function ConditionsGrid({
       key: "water_temp_c",
       label: "WATER TEMP",
       value: s.water_temp_c,
-      display: s.water_temp_c !== null ? `${s.water_temp_c.toFixed(1)} °C` : "—",
-      unit: "°C",
+      display:
+        s.water_temp_c !== null
+          ? `${convertTemp(s.water_temp_c, "C", tempUnit).toFixed(1)} °${tempUnit}`
+          : "—",
+      unit: `°${tempUnit}`,
       sub: tempNote,
       step: 0.1,
     },

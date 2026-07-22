@@ -18,6 +18,7 @@ const STATIC_ENTRIES: SitemapEntry[] = [
   { url: `${SITE}/`, changeFrequency: "weekly", priority: 1.0 },
   { url: `${SITE}/explore`, changeFrequency: "daily", priority: 0.9 },
   { url: `${SITE}/pricing`, changeFrequency: "monthly", priority: 0.5 },
+  { url: `${SITE}/about`, changeFrequency: "monthly", priority: 0.5 },
   { url: `${SITE}/faq`, changeFrequency: "monthly", priority: 0.5 },
   { url: `${SITE}/contact`, changeFrequency: "monthly", priority: 0.4 },
   { url: `${SITE}/privacy`, changeFrequency: "yearly", priority: 0.3 },

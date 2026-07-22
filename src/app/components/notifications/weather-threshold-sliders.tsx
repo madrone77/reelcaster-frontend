@@ -64,14 +64,14 @@ const WeatherThresholdSliders: React.FC<WeatherThresholdSlidersProps> = ({
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h3 className="text-sm font-medium text-white">Weather Thresholds</h3>
-          <p className="text-xs text-slate-400 mt-0.5">
+          <h3 className="text-sm font-medium text-rc-ink">Weather Thresholds</h3>
+          <p className="text-xs text-rc-ink-mute mt-0.5">
             Set your preferred conditions for notifications
           </p>
         </div>
         <button
           onClick={handleReset}
-          className="flex items-center gap-1 text-xs px-2.5 py-1.5 rounded-md border border-slate-600 text-slate-300 hover:bg-slate-700 transition-colors"
+          className="flex items-center gap-1 text-xs px-2.5 py-1.5 rounded-md border border-rc-rule text-rc-ink-soft hover:bg-rc-surface transition-colors"
         >
           <RotateCcw className="w-3 h-3" />
           Reset
@@ -79,13 +79,13 @@ const WeatherThresholdSliders: React.FC<WeatherThresholdSlidersProps> = ({
       </div>
 
       {/* Fishing Score Threshold - Featured */}
-      <div className="p-3 bg-gradient-to-r from-blue-600/20 to-indigo-600/20 border border-blue-500/30 rounded-lg">
+      <div className="p-3 bg-rc-surface border border-rc-rule rounded-lg">
         <div className="flex items-center justify-between mb-2">
           <div className="flex items-center gap-2">
-            <Fish className="w-4 h-4 text-blue-400" />
-            <label className="text-sm font-medium text-white">Fishing Score</label>
+            <Fish className="w-4 h-4 text-rc-brand" />
+            <label className="text-sm font-medium text-rc-ink">Fishing Score</label>
           </div>
-          <span className="text-base font-bold text-blue-400">
+          <span className="text-base font-bold text-rc-brand">
             {thresholds.fishing_score_threshold}
           </span>
         </div>
@@ -96,9 +96,9 @@ const WeatherThresholdSliders: React.FC<WeatherThresholdSlidersProps> = ({
           step={5}
           value={thresholds.fishing_score_threshold}
           onChange={(e) => handleChange('fishing_score_threshold', Number(e.target.value))}
-          className="w-full h-1.5 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-blue-500"
+          className="w-full h-1.5 bg-rc-rule rounded-lg appearance-none cursor-pointer accent-rc-brand"
         />
-        <div className="flex justify-between text-[10px] text-slate-400 mt-1">
+        <div className="flex justify-between text-[10px] text-rc-ink-mute mt-1">
           <span>Poor</span>
           <span>Fair</span>
           <span>Excellent</span>
@@ -108,13 +108,13 @@ const WeatherThresholdSliders: React.FC<WeatherThresholdSlidersProps> = ({
       {/* Weather Metrics Grid */}
       <div className="grid grid-cols-2 gap-3">
         {/* Wind Speed */}
-        <div className="p-2.5 bg-slate-700/50 border border-slate-600 rounded-lg">
+        <div className="p-2.5 bg-rc-surface border border-rc-rule rounded-lg">
           <div className="flex items-center justify-between mb-1.5">
             <div className="flex items-center gap-1.5">
-              <Wind className="w-3.5 h-3.5 text-slate-400" />
-              <label className="text-xs font-medium text-white">Wind</label>
+              <Wind className="w-3.5 h-3.5 text-rc-ink-mute" />
+              <label className="text-xs font-medium text-rc-ink">Wind</label>
             </div>
-            <span className="text-xs font-semibold text-slate-200">
+            <span className="text-xs font-semibold text-rc-ink-soft">
               {thresholds.wind_speed_threshold_kph}
             </span>
           </div>
@@ -125,22 +125,22 @@ const WeatherThresholdSliders: React.FC<WeatherThresholdSlidersProps> = ({
             step={5}
             value={thresholds.wind_speed_threshold_kph}
             onChange={(e) => handleChange('wind_speed_threshold_kph', Number(e.target.value))}
-            className="w-full h-1 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-blue-500"
+            className="w-full h-1 bg-rc-rule rounded-lg appearance-none cursor-pointer accent-rc-brand"
           />
-          <div className="flex justify-between text-[10px] text-slate-500 mt-1">
+          <div className="flex justify-between text-[10px] text-rc-ink-mute mt-1">
             <span>0</span>
             <span>60 km/h</span>
           </div>
         </div>
 
         {/* Wave Height */}
-        <div className="p-2.5 bg-slate-700/50 border border-slate-600 rounded-lg">
+        <div className="p-2.5 bg-rc-surface border border-rc-rule rounded-lg">
           <div className="flex items-center justify-between mb-1.5">
             <div className="flex items-center gap-1.5">
-              <Waves className="w-3.5 h-3.5 text-slate-400" />
-              <label className="text-xs font-medium text-white">Waves</label>
+              <Waves className="w-3.5 h-3.5 text-rc-ink-mute" />
+              <label className="text-xs font-medium text-rc-ink">Waves</label>
             </div>
-            <span className="text-xs font-semibold text-slate-200">
+            <span className="text-xs font-semibold text-rc-ink-soft">
               {thresholds.wave_height_threshold_m.toFixed(1)}
             </span>
           </div>
@@ -151,22 +151,22 @@ const WeatherThresholdSliders: React.FC<WeatherThresholdSlidersProps> = ({
             step={0.5}
             value={thresholds.wave_height_threshold_m}
             onChange={(e) => handleChange('wave_height_threshold_m', Number(e.target.value))}
-            className="w-full h-1 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-blue-500"
+            className="w-full h-1 bg-rc-rule rounded-lg appearance-none cursor-pointer accent-rc-brand"
           />
-          <div className="flex justify-between text-[10px] text-slate-500 mt-1">
+          <div className="flex justify-between text-[10px] text-rc-ink-mute mt-1">
             <span>0</span>
             <span>5 m</span>
           </div>
         </div>
 
         {/* Precipitation */}
-        <div className="p-2.5 bg-slate-700/50 border border-slate-600 rounded-lg">
+        <div className="p-2.5 bg-rc-surface border border-rc-rule rounded-lg">
           <div className="flex items-center justify-between mb-1.5">
             <div className="flex items-center gap-1.5">
-              <CloudRain className="w-3.5 h-3.5 text-slate-400" />
-              <label className="text-xs font-medium text-white">Rain</label>
+              <CloudRain className="w-3.5 h-3.5 text-rc-ink-mute" />
+              <label className="text-xs font-medium text-rc-ink">Rain</label>
             </div>
-            <span className="text-xs font-semibold text-slate-200">
+            <span className="text-xs font-semibold text-rc-ink-soft">
               {thresholds.precipitation_threshold_mm.toFixed(1)}
             </span>
           </div>
@@ -177,22 +177,22 @@ const WeatherThresholdSliders: React.FC<WeatherThresholdSlidersProps> = ({
             step={1}
             value={thresholds.precipitation_threshold_mm}
             onChange={(e) => handleChange('precipitation_threshold_mm', Number(e.target.value))}
-            className="w-full h-1 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-blue-500"
+            className="w-full h-1 bg-rc-rule rounded-lg appearance-none cursor-pointer accent-rc-brand"
           />
-          <div className="flex justify-between text-[10px] text-slate-500 mt-1">
+          <div className="flex justify-between text-[10px] text-rc-ink-mute mt-1">
             <span>0</span>
             <span>20 mm</span>
           </div>
         </div>
 
         {/* UV Index */}
-        <div className="p-2.5 bg-slate-700/50 border border-slate-600 rounded-lg">
+        <div className="p-2.5 bg-rc-surface border border-rc-rule rounded-lg">
           <div className="flex items-center justify-between mb-1.5">
             <div className="flex items-center gap-1.5">
-              <Sun className="w-3.5 h-3.5 text-slate-400" />
-              <label className="text-xs font-medium text-white">UV Index</label>
+              <Sun className="w-3.5 h-3.5 text-rc-ink-mute" />
+              <label className="text-xs font-medium text-rc-ink">UV Index</label>
             </div>
-            <span className="text-xs font-semibold text-slate-200">
+            <span className="text-xs font-semibold text-rc-ink-soft">
               {thresholds.uv_index_threshold}
             </span>
           </div>
@@ -203,9 +203,9 @@ const WeatherThresholdSliders: React.FC<WeatherThresholdSlidersProps> = ({
             step={1}
             value={thresholds.uv_index_threshold}
             onChange={(e) => handleChange('uv_index_threshold', Number(e.target.value))}
-            className="w-full h-1 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-blue-500"
+            className="w-full h-1 bg-rc-rule rounded-lg appearance-none cursor-pointer accent-rc-brand"
           />
-          <div className="flex justify-between text-[10px] text-slate-500 mt-1">
+          <div className="flex justify-between text-[10px] text-rc-ink-mute mt-1">
             <span>0</span>
             <span>11+</span>
           </div>
@@ -213,13 +213,13 @@ const WeatherThresholdSliders: React.FC<WeatherThresholdSlidersProps> = ({
       </div>
 
       {/* Temperature Range - Full Width */}
-      <div className="p-3 bg-slate-700/50 border border-slate-600 rounded-lg">
+      <div className="p-3 bg-rc-surface border border-rc-rule rounded-lg">
         <div className="flex items-center justify-between mb-2">
           <div className="flex items-center gap-1.5">
-            <Thermometer className="w-4 h-4 text-slate-400" />
-            <label className="text-sm font-medium text-white">Temperature Range</label>
+            <Thermometer className="w-4 h-4 text-rc-ink-mute" />
+            <label className="text-sm font-medium text-rc-ink">Temperature Range</label>
           </div>
-          <span className="text-xs font-semibold text-slate-200">
+          <span className="text-xs font-semibold text-rc-ink-soft">
             {thresholds.temperature_min_c}°C to {thresholds.temperature_max_c}°C
           </span>
         </div>
@@ -227,7 +227,7 @@ const WeatherThresholdSliders: React.FC<WeatherThresholdSlidersProps> = ({
         <div className="grid grid-cols-2 gap-3">
           {/* Min Temperature */}
           <div>
-            <label className="text-[10px] font-medium text-slate-400 mb-1 block">Min</label>
+            <label className="text-[10px] font-medium text-rc-ink-mute mb-1 block">Min</label>
             <input
               type="range"
               min={-5}
@@ -235,13 +235,13 @@ const WeatherThresholdSliders: React.FC<WeatherThresholdSlidersProps> = ({
               step={1}
               value={thresholds.temperature_min_c}
               onChange={(e) => handleChange('temperature_min_c', Number(e.target.value))}
-              className="w-full h-1 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-blue-500"
+              className="w-full h-1 bg-rc-rule rounded-lg appearance-none cursor-pointer accent-rc-brand"
             />
           </div>
 
           {/* Max Temperature */}
           <div>
-            <label className="text-[10px] font-medium text-slate-400 mb-1 block">Max</label>
+            <label className="text-[10px] font-medium text-rc-ink-mute mb-1 block">Max</label>
             <input
               type="range"
               min={-5}
@@ -249,58 +249,58 @@ const WeatherThresholdSliders: React.FC<WeatherThresholdSlidersProps> = ({
               step={1}
               value={thresholds.temperature_max_c}
               onChange={(e) => handleChange('temperature_max_c', Number(e.target.value))}
-              className="w-full h-1 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-blue-500"
+              className="w-full h-1 bg-rc-rule rounded-lg appearance-none cursor-pointer accent-rc-brand"
             />
           </div>
         </div>
       </div>
 
       {/* Safety Alert Toggles - Compact */}
-      <div className="p-3 bg-slate-700/50 border border-slate-600 rounded-lg">
-        <h4 className="text-xs font-medium text-white mb-2">Safety Alerts</h4>
+      <div className="p-3 bg-rc-surface border border-rc-rule rounded-lg">
+        <h4 className="text-xs font-medium text-rc-ink mb-2">Safety Alerts</h4>
         <div className="grid grid-cols-3 gap-2">
           {/* Thunderstorm Alert */}
-          <label className="flex items-center gap-1.5 p-2 bg-slate-800/50 rounded cursor-pointer hover:bg-slate-800 transition-colors border border-slate-600">
+          <label className="flex items-center gap-1.5 p-2 bg-rc-panel rounded cursor-pointer hover:bg-rc-brand-soft transition-colors border border-rc-rule">
             <input
               type="checkbox"
               checked={thresholds.alert_on_thunderstorm}
               onChange={(e) => handleChange('alert_on_thunderstorm', e.target.checked)}
-              className="w-3.5 h-3.5 rounded text-blue-600"
+              className="w-3.5 h-3.5 rounded text-rc-brand border-rc-rule"
             />
-            <CloudLightning className="w-3.5 h-3.5 text-yellow-500 flex-shrink-0" />
-            <span className="text-[11px] font-medium text-slate-200">Storm</span>
+            <CloudLightning className="w-3.5 h-3.5 text-rc-fair flex-shrink-0" />
+            <span className="text-[11px] font-medium text-rc-ink-soft">Storm</span>
           </label>
 
           {/* Gale Warning Alert */}
-          <label className="flex items-center gap-1.5 p-2 bg-slate-800/50 rounded cursor-pointer hover:bg-slate-800 transition-colors border border-slate-600">
+          <label className="flex items-center gap-1.5 p-2 bg-rc-panel rounded cursor-pointer hover:bg-rc-brand-soft transition-colors border border-rc-rule">
             <input
               type="checkbox"
               checked={thresholds.alert_on_gale_warning}
               onChange={(e) => handleChange('alert_on_gale_warning', e.target.checked)}
-              className="w-3.5 h-3.5 rounded text-blue-600"
+              className="w-3.5 h-3.5 rounded text-rc-brand border-rc-rule"
             />
-            <AlertTriangle className="w-3.5 h-3.5 text-orange-500 flex-shrink-0" />
-            <span className="text-[11px] font-medium text-slate-200">Gale</span>
+            <AlertTriangle className="w-3.5 h-3.5 text-rc-fair flex-shrink-0" />
+            <span className="text-[11px] font-medium text-rc-ink-soft">Gale</span>
           </label>
 
           {/* Pressure Drop Alert */}
-          <label className="flex items-center gap-1.5 p-2 bg-slate-800/50 rounded cursor-pointer hover:bg-slate-800 transition-colors border border-slate-600">
+          <label className="flex items-center gap-1.5 p-2 bg-rc-panel rounded cursor-pointer hover:bg-rc-brand-soft transition-colors border border-rc-rule">
             <input
               type="checkbox"
               checked={thresholds.alert_on_pressure_drop}
               onChange={(e) => handleChange('alert_on_pressure_drop', e.target.checked)}
-              className="w-3.5 h-3.5 rounded text-blue-600"
+              className="w-3.5 h-3.5 rounded text-rc-brand border-rc-rule"
             />
-            <Gauge className="w-3.5 h-3.5 text-red-500 flex-shrink-0" />
-            <span className="text-[11px] font-medium text-slate-200">Pressure</span>
+            <Gauge className="w-3.5 h-3.5 text-rc-poor flex-shrink-0" />
+            <span className="text-[11px] font-medium text-rc-ink-soft">Pressure</span>
           </label>
         </div>
       </div>
 
       {/* Info box - Compact */}
-      <div className="p-2.5 bg-blue-500/10 border border-blue-500/20 rounded-lg">
-        <p className="text-[11px] text-blue-400">
-          <strong className="text-blue-300">Tip:</strong> Lower thresholds = more notifications. Higher = only ideal conditions.
+      <div className="p-2.5 bg-rc-brand-soft border border-rc-brand-soft2 rounded-lg">
+        <p className="text-[11px] text-rc-ink-soft">
+          <strong className="text-rc-brand">Tip:</strong> Lower thresholds = more notifications. Higher = only ideal conditions.
         </p>
       </div>
     </div>

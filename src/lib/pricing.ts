@@ -1,5 +1,5 @@
 /**
- * ReelCaster Pro Intel pricing — Stripe Price IDs and seasonal price map.
+ * ReelCaster Pro pricing — Stripe Price IDs and seasonal price map.
  *
  * Monthly subscriptions are utility-priced by calendar month: peak fishing season
  * costs more, off-season costs less. Annual is a flat $79 (cheaper than 12×$15).

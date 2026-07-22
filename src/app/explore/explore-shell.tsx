@@ -16,10 +16,12 @@ import {
   buildViewportForecastDays,
   type ForecastDay,
   type ForecastStripModel,
+  type ForecastTier,
 } from "./lib/forecast-strip";
 import { fetchMapForecast14d } from "@/lib/bluecaster-client";
 import type { MapForecast14dPayload } from "@/lib/bluecaster";
 import { useSubscription } from "@/hooks/use-subscription";
+import { useAuth } from "@/contexts/auth-context";
 import { useExploreState } from "./lib/use-explore-state";
 import ExploreTopBar from "./components/explore-top-bar";
 import ExploreMap, { type StationPick } from "./components/explore-map";
@@ -73,6 +75,8 @@ export default function ExploreShell({
   const mapRef = useRef<MapRef>(null);
   const router = useRouter();
   const { isPaid } = useSubscription();
+  const { user } = useAuth();
+  const accessTier: ForecastTier = isPaid ? "pro" : user ? "free" : "anonymous";
   const { citySlug, spotSlug, day, stn, setQuery } = useExploreState();
 
   // Mobile (<lg) map-filter sheet (species + layer toggles + near-me),
@@ -398,8 +402,8 @@ export default function ExploreShell({
 
   const stripModel: ForecastStripModel | null = useMemo(() => {
     if (!fcPayload) return null;
-    return buildViewportForecastDays(fcPayload, speciesFilter, isPaid);
-  }, [fcPayload, speciesFilter, isPaid]);
+    return buildViewportForecastDays(fcPayload, speciesFilter, accessTier);
+  }, [fcPayload, speciesFilter, accessTier]);
 
   // Strip header label: the pinned species, else the cross-species best fold.
   const stripSpeciesName = speciesFilter
@@ -639,6 +643,7 @@ export default function ExploreShell({
         selectedIso={selectedIso}
         loading={fcLoading}
         onSelectDay={handleSelectDay}
+        signedIn={!!user}
         hidden={stripHidden}
         onHide={() => setStripHidden(true)}
         onShow={() => setStripHidden(false)}

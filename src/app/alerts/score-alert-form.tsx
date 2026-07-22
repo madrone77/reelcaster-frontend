@@ -103,21 +103,21 @@ export default function ScoreAlertForm({ spots, onSubmit, onCancel }: Props) {
   }
 
   return (
-    <Card className="bg-rc-bg-dark border-rc-bg-light">
+    <Card className="border-rc-rule shadow-none">
       <CardHeader>
-        <CardTitle className="text-rc-text text-lg">New Score Alert</CardTitle>
+        <CardTitle className="text-rc-ink text-lg">New Score Alert</CardTitle>
       </CardHeader>
       <CardContent>
         <form onSubmit={handleSubmit} className="space-y-5">
           {/* Spot */}
           <div className="space-y-2">
-            <Label htmlFor="spot" className="text-rc-text">Spot</Label>
+            <Label htmlFor="spot" className="text-rc-ink">Spot</Label>
             <select
               id="spot"
               value={spotSlug}
               onChange={(e) => setSpotSlug(e.target.value)}
               required
-              className="w-full bg-rc-bg-light border border-rc-bg-light rounded-lg px-3 py-2 text-rc-text text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full bg-white border border-rc-rule rounded-lg px-3 py-2 text-rc-ink text-sm focus:outline-none focus:ring-2 focus:ring-rc-brand"
             >
               {grouped.map(([group, gSpots]) => (
                 <optgroup key={group} label={group}>
@@ -130,7 +130,7 @@ export default function ScoreAlertForm({ spots, onSubmit, onCancel }: Props) {
               ))}
             </select>
             {spots.length === 0 && (
-              <p className="text-xs text-amber-400">
+              <p className="text-xs text-rc-fair-ink">
                 No published spots available yet.
               </p>
             )}
@@ -138,9 +138,9 @@ export default function ScoreAlertForm({ spots, onSubmit, onCancel }: Props) {
 
           {/* Species */}
           <div className="space-y-2">
-            <Label htmlFor="species" className="text-rc-text">
+            <Label htmlFor="species" className="text-rc-ink">
               Species{' '}
-              <span className="text-rc-text-muted text-xs font-normal">
+              <span className="text-rc-ink-mute text-xs font-normal">
                 (optional — leave blank for overall score)
               </span>
             </Label>
@@ -149,7 +149,7 @@ export default function ScoreAlertForm({ spots, onSubmit, onCancel }: Props) {
               value={speciesSlug}
               onChange={(e) => setSpeciesSlug(e.target.value)}
               disabled={speciesLoading}
-              className="w-full bg-rc-bg-light border border-rc-bg-light rounded-lg px-3 py-2 text-rc-text text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
+              className="w-full bg-white border border-rc-rule rounded-lg px-3 py-2 text-rc-ink text-sm focus:outline-none focus:ring-2 focus:ring-rc-brand disabled:opacity-50"
             >
               <option value="">Any species (overall score)</option>
               {species.map((s) => (
@@ -159,15 +159,15 @@ export default function ScoreAlertForm({ spots, onSubmit, onCancel }: Props) {
               ))}
             </select>
             {speciesLoading && (
-              <p className="text-xs text-rc-text-muted">Loading species…</p>
+              <p className="text-xs text-rc-ink-mute">Loading species…</p>
             )}
           </div>
 
           {/* Threshold */}
           <div className="space-y-2">
             <div className="flex items-center justify-between">
-              <Label className="text-rc-text">Score threshold</Label>
-              <span className="text-blue-400 font-mono font-bold">{threshold}</span>
+              <Label className="text-rc-ink">Score threshold</Label>
+              <span className="text-rc-brand font-mono font-bold">{threshold}</span>
             </div>
             <Slider
               value={[threshold]}
@@ -176,47 +176,47 @@ export default function ScoreAlertForm({ spots, onSubmit, onCancel }: Props) {
               max={95}
               step={5}
             />
-            <p className="text-xs text-rc-text-muted">
+            <p className="text-xs text-rc-ink-mute">
               We&apos;ll email you when the RC score reaches at least {threshold}/100.
             </p>
           </div>
 
           {/* Cooldown */}
           <div className="space-y-2">
-            <Label htmlFor="cooldown" className="text-rc-text">Cooldown</Label>
+            <Label htmlFor="cooldown" className="text-rc-ink">Cooldown</Label>
             <select
               id="cooldown"
               value={cooldownHours}
               onChange={(e) => setCooldownHours(Number(e.target.value))}
-              className="w-full bg-rc-bg-light border border-rc-bg-light rounded-lg px-3 py-2 text-rc-text text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full bg-white border border-rc-rule rounded-lg px-3 py-2 text-rc-ink text-sm focus:outline-none focus:ring-2 focus:ring-rc-brand"
             >
               <option value={6}>6 hours (most frequent)</option>
               <option value={12}>12 hours</option>
               <option value={24}>24 hours (once per day)</option>
               <option value={48}>48 hours</option>
             </select>
-            <p className="text-xs text-rc-text-muted">
+            <p className="text-xs text-rc-ink-mute">
               Minimum time between notifications.
             </p>
           </div>
 
           {/* Delivery */}
           <div className="space-y-2">
-            <Label className="text-rc-text">Delivery</Label>
+            <Label className="text-rc-ink">Delivery</Label>
             <div className="flex flex-col gap-2">
-              <div className="flex items-center gap-2 text-sm text-rc-text">
-                <span className="w-4 h-4 rounded bg-blue-600 inline-flex items-center justify-center text-[10px] text-white">✓</span>
+              <div className="flex items-center gap-2 text-sm text-rc-ink">
+                <span className="w-4 h-4 rounded bg-rc-brand inline-flex items-center justify-center text-[10px] text-white">✓</span>
                 Email
               </div>
-              <div className="flex items-center gap-2 text-sm text-rc-text-muted">
-                <span className="w-4 h-4 rounded border border-rc-bg-light inline-block" />
-                SMS — coming soon (Pro Intel + verified phone)
+              <div className="flex items-center gap-2 text-sm text-rc-ink-mute">
+                <span className="w-4 h-4 rounded border border-rc-rule inline-block" />
+                SMS — coming soon (Pro + verified phone)
               </div>
             </div>
           </div>
 
           {error && (
-            <div className="bg-red-500/10 border border-red-500/40 rounded-md p-3 text-sm text-red-400">
+            <div className="bg-rc-poor-bg border border-rc-poor/40 rounded-md p-3 text-sm text-rc-poor-ink">
               {error}
             </div>
           )}
@@ -227,14 +227,14 @@ export default function ScoreAlertForm({ spots, onSubmit, onCancel }: Props) {
               variant="outline"
               onClick={onCancel}
               disabled={submitting}
-              className="flex-1 border-rc-bg-light text-rc-text-muted hover:bg-rc-bg-light"
+              className="flex-1 border-rc-rule text-rc-ink-soft hover:bg-rc-surface"
             >
               Cancel
             </Button>
             <Button
               type="submit"
               disabled={submitting || !spotSlug}
-              className="flex-1 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800"
+              className="flex-1 bg-rc-brand hover:bg-rc-brand-hover text-white"
             >
               {submitting ? 'Creating…' : 'Create alert'}
             </Button>

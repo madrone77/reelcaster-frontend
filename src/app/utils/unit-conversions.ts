@@ -3,16 +3,25 @@ export type WindUnit = 'kph' | 'mph' | 'knots'
 export type TempUnit = 'C' | 'F'
 export type PrecipUnit = 'mm' | 'inches'
 export type HeightUnit = 'ft' | 'm'
-export type MetricType = 'wind' | 'temp' | 'precip' | 'height'
+export type DistanceUnit = 'km' | 'miles'
+export type PressureUnit = 'mb' | 'inHg'
+export type MetricType = 'wind' | 'temp' | 'precip' | 'height' | 'distance' | 'pressure'
+export type AnyUnit = WindUnit | TempUnit | PrecipUnit | HeightUnit | DistanceUnit | PressureUnit
 
 // Unit cycle orders
 export const WIND_UNITS: WindUnit[] = ['kph', 'mph', 'knots']
 export const TEMP_UNITS: TempUnit[] = ['C', 'F']
 export const PRECIP_UNITS: PrecipUnit[] = ['mm', 'inches']
 export const HEIGHT_UNITS: HeightUnit[] = ['m', 'ft']
+export const DISTANCE_UNITS: DistanceUnit[] = ['km', 'miles']
+export const PRESSURE_UNITS: PressureUnit[] = ['mb', 'inHg']
+
+// Display labels where they differ from the unit key
+export const WIND_LABELS: Record<WindUnit, string> = { kph: 'km/h', mph: 'mph', knots: 'kn' }
+export const DISTANCE_LABELS: Record<DistanceUnit, string> = { km: 'km', miles: 'mi' }
 
 // Get next unit in cycle
-export function getNextUnit(currentUnit: WindUnit | TempUnit | PrecipUnit | HeightUnit, type: MetricType): string {
+export function getNextUnit(currentUnit: AnyUnit, type: MetricType): string {
   let units: string[]
   switch (type) {
     case 'wind':
@@ -26,6 +35,12 @@ export function getNextUnit(currentUnit: WindUnit | TempUnit | PrecipUnit | Heig
       break
     case 'height':
       units = HEIGHT_UNITS
+      break
+    case 'distance':
+      units = DISTANCE_UNITS
+      break
+    case 'pressure':
+      units = PRESSURE_UNITS
       break
     default:
       return currentUnit
@@ -104,9 +119,21 @@ export function convertHeight(value: number, from: HeightUnit, to: HeightUnit): 
   return value
 }
 
+// Distance conversion functions
+export function convertDistance(value: number, from: DistanceUnit, to: DistanceUnit): number {
+  if (from === to) return value
+  return from === 'km' ? value * 0.621371 : value / 0.621371
+}
+
+// Pressure conversion functions (mb ≡ hPa)
+export function convertPressure(value: number, from: PressureUnit, to: PressureUnit): number {
+  if (from === to) return value
+  return from === 'mb' ? value * 0.02953 : value / 0.02953
+}
+
 // Format functions with unit labels
 export function formatWind(value: number, unit: WindUnit, precision: number = 0): string {
-  return `${value.toFixed(precision)} ${unit}`
+  return `${value.toFixed(precision)} ${WIND_LABELS[unit]}`
 }
 
 export function formatTemp(value: number, unit: TempUnit, precision: number = 0): string {
@@ -122,12 +149,22 @@ export function formatHeight(value: number, unit: HeightUnit, precision: number 
   return `${value.toFixed(precision)} ${unit}`
 }
 
+export function formatDistance(value: number, unit: DistanceUnit, precision: number = 1): string {
+  return `${value.toFixed(precision)} ${DISTANCE_LABELS[unit]}`
+}
+
+export function formatPressure(value: number, unit: PressureUnit, precision: number = 0): string {
+  // inHg needs decimals to be meaningful (29.92), mb reads as an integer
+  const p = unit === 'inHg' ? Math.max(precision, 2) : precision
+  return `${value.toFixed(p)} ${unit}`
+}
+
 // Main conversion and format function
 export function convertAndFormat(
   value: number,
   type: MetricType,
-  sourceUnit: WindUnit | TempUnit | PrecipUnit | HeightUnit,
-  targetUnit: WindUnit | TempUnit | PrecipUnit | HeightUnit,
+  sourceUnit: AnyUnit,
+  targetUnit: AnyUnit,
   precision?: number
 ): string {
   let convertedValue: number
@@ -145,6 +182,12 @@ export function convertAndFormat(
     case 'height':
       convertedValue = convertHeight(value, sourceUnit as HeightUnit, targetUnit as HeightUnit)
       return formatHeight(convertedValue, targetUnit as HeightUnit, precision ?? 1)
+    case 'distance':
+      convertedValue = convertDistance(value, sourceUnit as DistanceUnit, targetUnit as DistanceUnit)
+      return formatDistance(convertedValue, targetUnit as DistanceUnit, precision ?? 1)
+    case 'pressure':
+      convertedValue = convertPressure(value, sourceUnit as PressureUnit, targetUnit as PressureUnit)
+      return formatPressure(convertedValue, targetUnit as PressureUnit, precision ?? 0)
     default:
       return `${value}`
   }

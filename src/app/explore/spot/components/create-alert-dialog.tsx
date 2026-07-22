@@ -302,7 +302,7 @@ export default function CreateAlertDialog({
             <div className="min-w-0 flex-1">
               <div className="font-bold text-rc-ink">SMS</div>
               <div className="font-rc-mono text-[11px] text-rc-ink-mute">
-                {smsAvailable ? "Instant texts" : "Available with Pro Intel"}
+                {smsAvailable ? "Instant texts" : "Available with Pro"}
               </div>
             </div>
             {smsAvailable ? (

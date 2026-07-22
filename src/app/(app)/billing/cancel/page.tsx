@@ -40,7 +40,7 @@ export default function BillingCancelPage() {
             <li>· 14-day forecast with hourly detail</li>
             <li>· Multi-species comparative scoring (up to 5 species)</li>
             <li>· Bathymetry layer (NOAA + CHS)</li>
-            <li>· Unlimited alerts and favorite spots</li>
+            <li>· Up to 10 alerts and unlimited favorite spots</li>
             <li>· Forecast emails tuned to your home water</li>
           </ul>
 

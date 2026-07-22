@@ -11,8 +11,8 @@ import { supabase } from '@/lib/supabase'
 
 const TIER_LABELS: Record<string, string> = {
   free: 'Free',
-  pro_monthly: 'Pro Intel · Monthly',
-  pro_annual: 'Pro Intel · Annual',
+  pro_monthly: 'Pro · Monthly',
+  pro_annual: 'Pro · Annual',
 }
 
 const STATUS_LABELS: Record<string, string> = {
@@ -51,15 +51,15 @@ export default function SubscriptionCard() {
   }
 
   return (
-    <Card className="bg-rc-bg-dark border-rc-bg-light">
+    <Card className="border-rc-rule shadow-none">
       <CardHeader className="pb-6">
         <div className="flex items-center gap-4">
-          <div className="w-12 h-12 bg-gradient-to-br from-amber-500 to-amber-600 rounded-full flex items-center justify-center">
-            <Crown className="h-6 w-6 text-rc-text" />
+          <div className="w-10 h-10 bg-rc-brand-soft rounded-full flex items-center justify-center">
+            <Crown className="h-5 w-5 text-rc-brand" />
           </div>
           <div className="flex-1">
-            <CardTitle className="text-rc-text text-xl">Subscription</CardTitle>
-            <CardDescription className="text-rc-text-muted mt-1">
+            <CardTitle className="text-rc-ink text-xl">Subscription</CardTitle>
+            <CardDescription className="text-rc-ink-mute mt-1">
               Manage your ReelCaster plan and billing
             </CardDescription>
           </div>
@@ -67,8 +67,8 @@ export default function SubscriptionCard() {
             variant="secondary"
             className={
               isPaid
-                ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30'
-                : 'bg-rc-bg-light text-rc-text-muted border-rc-bg-light'
+                ? 'bg-rc-good-bg text-rc-good-ink border-rc-good-border'
+                : 'bg-rc-surface text-rc-ink-mute border-rc-rule'
             }
           >
             {loading ? '…' : TIER_LABELS[tier] ?? tier}
@@ -77,17 +77,17 @@ export default function SubscriptionCard() {
       </CardHeader>
       <CardContent className="space-y-4">
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          <div className="bg-rc-bg-light/30 rounded-lg p-3">
-            <p className="text-xs text-rc-text-muted">Status</p>
-            <p className="text-rc-text font-semibold mt-1">
+          <div className="bg-rc-surface rounded-lg p-3">
+            <p className="text-xs text-rc-ink-mute">Status</p>
+            <p className="text-rc-ink font-semibold mt-1">
               {loading ? '—' : STATUS_LABELS[status] ?? status}
             </p>
           </div>
-          <div className="bg-rc-bg-light/30 rounded-lg p-3">
-            <p className="text-xs text-rc-text-muted">
+          <div className="bg-rc-surface rounded-lg p-3">
+            <p className="text-xs text-rc-ink-mute">
               {status === 'canceled' ? 'Access until' : 'Next renewal'}
             </p>
-            <p className="text-rc-text font-semibold mt-1">
+            <p className="text-rc-ink font-semibold mt-1">
               {periodEnd
                 ? new Date(periodEnd).toLocaleDateString(undefined, {
                     year: 'numeric',
@@ -100,7 +100,7 @@ export default function SubscriptionCard() {
         </div>
 
         {error && (
-          <div className="bg-red-500/10 border border-red-500/40 rounded-md p-3 text-sm text-red-400">
+          <div className="bg-rc-poor-bg border border-rc-poor/40 rounded-md p-3 text-sm text-rc-poor-ink">
             {error}
           </div>
         )}
@@ -110,7 +110,7 @@ export default function SubscriptionCard() {
             onClick={handleManage}
             disabled={opening || !stripeCustomerId}
             variant="outline"
-            className="w-full bg-rc-bg-light/30 border-rc-bg-light text-rc-text hover:bg-rc-bg-light"
+            className="w-full border-rc-rule text-rc-ink hover:bg-rc-surface"
           >
             {opening ? (
               <>
@@ -125,18 +125,18 @@ export default function SubscriptionCard() {
         ) : (
           <Button
             asChild
-            className="w-full bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800"
+            className="w-full bg-rc-brand hover:bg-rc-brand-hover text-white"
           >
             <Link href="/pricing?from=profile">
-              Upgrade to Pro Intel
+              Upgrade to Pro
             </Link>
           </Button>
         )}
 
-        <p className="text-xs text-rc-text-muted">
+        <p className="text-xs text-rc-ink-mute">
           {isPaid
             ? 'Use the Stripe portal to update your card, change plan, or cancel anytime.'
-            : 'Pro Intel unlocks 14-day forecasts, unlimited custom spots, unlimited alerts, and SMS delivery (coming soon).'}
+            : 'Pro unlocks the full 14-day forecast, custom spots in covered waters, up to 10 alerts, and SMS delivery (coming soon).'}
         </p>
       </CardContent>
     </Card>

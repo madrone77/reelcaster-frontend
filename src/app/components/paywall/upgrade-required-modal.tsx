@@ -45,7 +45,7 @@ export default function UpgradeRequiredModal({
         <button
           type="button"
           onClick={onClose}
-          className="absolute -top-3 -right-3 z-10 p-1.5 rounded-full bg-rc-bg-dark border border-rc-bg-light text-rc-text-muted hover:text-rc-text"
+          className="absolute -top-3 -right-3 z-10 p-1.5 rounded-full bg-white border border-rc-rule text-rc-ink-mute hover:text-rc-ink"
           aria-label="Close"
         >
           <X className="w-4 h-4" />
@@ -54,7 +54,7 @@ export default function UpgradeRequiredModal({
           headline={headline}
           bullets={bullets}
           ctaHref={ctaHref ?? `/pricing?from=paywall&feature=${encodeURIComponent(feature)}`}
-          theme="dark"
+          theme="light"
         />
       </div>
     </div>

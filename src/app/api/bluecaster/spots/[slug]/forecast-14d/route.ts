@@ -13,15 +13,17 @@ import type { Forecast14dPayload } from "@/lib/bluecaster/live-spot-types";
  * the rest of this app's BC integration: server-only key, single env
  * var (BLUECASTER_API_KEY).
  *
- * Days past the free horizon are Boat Pro: for anonymous / free callers
- * the locked days' data is stripped server-side (scores, conditions,
- * daily summary) while the day entries themselves stay in place so the
- * client strip still renders its locked tiles. Pro subscribers (Bearer
- * token, same pattern as /api/spot-page) get the full payload.
+ * Days past the caller's horizon are stripped server-side (scores,
+ * conditions, daily summary) while the day entries themselves stay in
+ * place so the client strip still renders its locked tiles. Horizon:
+ * anonymous 2 days, free account 7, Pro 14 (Bearer token, same pattern
+ * as /api/spot-page).
  */
 
-/** Server-side mirror of FREE_STRIP_DAYS in src/app/explore/lib/forecast-strip.ts. */
-const FREE_FORECAST_DAYS = 10;
+/** Server-side mirrors of ANON_STRIP_DAYS / FREE_STRIP_DAYS in
+ *  src/app/explore/lib/forecast-strip.ts. */
+const ANON_FORECAST_DAYS = 2;
+const FREE_FORECAST_DAYS = 7;
 
 const supabaseAdmin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -29,9 +31,10 @@ const supabaseAdmin = createClient(
   { auth: { autoRefreshToken: false, persistSession: false } },
 );
 
-async function callerIsPaid(request: NextRequest): Promise<boolean> {
+/** How many forecast days this caller may see: anon 2, free 7, Pro 14. */
+async function callerVisibleDays(request: NextRequest): Promise<number> {
   const userId = await getUserIdFromRequest(request);
-  if (!userId) return false;
+  if (!userId) return ANON_FORECAST_DAYS;
 
   const { data: settings } = await supabaseAdmin
     .from("user_settings")
@@ -41,9 +44,9 @@ async function callerIsPaid(request: NextRequest): Promise<boolean> {
 
   const tier: string = settings?.subscription_tier ?? "free";
   const status: string = settings?.subscription_status ?? "none";
-  return (
-    tier.startsWith("pro") && (status === "active" || status === "trialing")
-  );
+  const isPaid =
+    tier.startsWith("pro") && (status === "active" || status === "trialing");
+  return isPaid ? 14 : FREE_FORECAST_DAYS;
 }
 
 /**
@@ -53,8 +56,11 @@ async function callerIsPaid(request: NextRequest): Promise<boolean> {
  * `peakOf` on an emptied hour array yields a null score, which the locked
  * `DayCell` never displays anyway.
  */
-function stripLockedDays(data: Forecast14dPayload): Forecast14dPayload {
-  const locked = (i: number) => i >= FREE_FORECAST_DAYS;
+function stripLockedDays(
+  data: Forecast14dPayload,
+  visibleDays: number,
+): Forecast14dPayload {
+  const locked = (i: number) => i >= visibleDays;
   return {
     ...data,
     daily14: data.daily14.map((d, i) =>
@@ -78,16 +84,17 @@ export async function GET(
 ) {
   const { slug } = await params;
   try {
-    const [data, isPaid] = await Promise.all([
+    const [data, visibleDays] = await Promise.all([
       fetchSpotForecast14d(slug),
-      callerIsPaid(request),
+      callerVisibleDays(request),
     ]);
     if (!data) {
       return NextResponse.json({ error: "not_found" }, { status: 404 });
     }
-    return NextResponse.json(isPaid ? data : stripLockedDays(data), {
-      headers: { "Cache-Control": "no-store, max-age=0" },
-    });
+    return NextResponse.json(
+      visibleDays >= 14 ? data : stripLockedDays(data, visibleDays),
+      { headers: { "Cache-Control": "no-store, max-age=0" } },
+    );
   } catch (err) {
     const message = err instanceof Error ? err.message : "unknown error";
     return NextResponse.json({ error: message }, { status: 500 });

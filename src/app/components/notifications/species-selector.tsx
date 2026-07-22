@@ -38,8 +38,8 @@ const SpeciesSelector: React.FC<SpeciesSelectorProps> = ({ selectedSpecies, onCh
       {/* Header with action buttons */}
       <div className="flex items-center justify-between">
         <div>
-          <h3 className="text-sm font-medium text-white">Favorite Species</h3>
-          <p className="text-xs text-slate-400 mt-1">
+          <h3 className="text-sm font-medium text-rc-ink">Favorite Species</h3>
+          <p className="text-xs text-rc-ink-mute mt-1">
             Select species you want to track for notifications
           </p>
         </div>
@@ -47,14 +47,14 @@ const SpeciesSelector: React.FC<SpeciesSelectorProps> = ({ selectedSpecies, onCh
           <button
             onClick={handleSelectAll}
             disabled={isAllSelected}
-            className="text-xs px-3 py-1 rounded-md border border-slate-600 text-slate-300 hover:bg-slate-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            className="text-xs px-3 py-1 rounded-md border border-rc-rule text-rc-ink-soft hover:bg-rc-surface disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
           >
             Select All
           </button>
           <button
             onClick={handleClearAll}
             disabled={selectedSpecies.length === 0}
-            className="text-xs px-3 py-1 rounded-md border border-slate-600 text-slate-300 hover:bg-slate-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            className="text-xs px-3 py-1 rounded-md border border-rc-rule text-rc-ink-soft hover:bg-rc-surface disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
           >
             Clear All
           </button>
@@ -62,7 +62,7 @@ const SpeciesSelector: React.FC<SpeciesSelectorProps> = ({ selectedSpecies, onCh
       </div>
 
       {/* Species selection counter */}
-      <div className="text-xs text-blue-400 bg-blue-500/10 px-3 py-2 rounded-md border border-blue-500/20">
+      <div className="text-xs text-rc-brand bg-rc-brand-soft px-3 py-2 rounded-md border border-rc-brand-soft2">
         {selectedSpecies.length} of {SPECIES_OPTIONS.length} species selected
       </div>
 
@@ -79,8 +79,8 @@ const SpeciesSelector: React.FC<SpeciesSelectorProps> = ({ selectedSpecies, onCh
                 relative p-4 rounded-lg border-2 transition-all text-left
                 ${
                   isSelected
-                    ? 'border-blue-500/50 bg-blue-600/20'
-                    : 'border-slate-600 bg-slate-700/30 hover:border-slate-500 hover:bg-slate-700/50'
+                    ? 'border-rc-brand bg-rc-brand-soft'
+                    : 'border-rc-rule bg-rc-surface hover:border-rc-ink-mute hover:bg-rc-panel'
                 }
               `}
             >
@@ -88,7 +88,7 @@ const SpeciesSelector: React.FC<SpeciesSelectorProps> = ({ selectedSpecies, onCh
               <div
                 className={`
                 absolute top-3 right-3 w-5 h-5 rounded-full border-2 flex items-center justify-center
-                ${isSelected ? 'border-blue-500 bg-blue-500' : 'border-slate-600 bg-slate-700'}
+                ${isSelected ? 'border-rc-brand bg-rc-brand' : 'border-rc-rule bg-rc-panel'}
               `}
               >
                 {isSelected && <Check className="w-3 h-3 text-white" />}
@@ -99,22 +99,22 @@ const SpeciesSelector: React.FC<SpeciesSelectorProps> = ({ selectedSpecies, onCh
                 <div
                   className={`
                   p-2 rounded-lg
-                  ${isSelected ? 'bg-blue-500/20' : 'bg-slate-600/50'}
+                  ${isSelected ? 'bg-rc-brand-soft2' : 'bg-rc-panel'}
                 `}
                 >
-                  <Fish className={`w-5 h-5 ${isSelected ? 'text-blue-400' : 'text-slate-400'}`} />
+                  <Fish className={`w-5 h-5 ${isSelected ? 'text-rc-brand' : 'text-rc-ink-mute'}`} />
                 </div>
 
                 <div className="flex-1 pr-6">
                   <h4
                     className={`text-sm font-semibold ${
-                      isSelected ? 'text-blue-300' : 'text-white'
+                      isSelected ? 'text-rc-brand' : 'text-rc-ink'
                     }`}
                   >
                     {species.name}
                   </h4>
-                  <p className="text-xs text-slate-400 italic mt-0.5">{species.scientificName}</p>
-                  <p className="text-xs text-slate-500 mt-1">{species.description}</p>
+                  <p className="text-xs text-rc-ink-mute italic mt-0.5">{species.scientificName}</p>
+                  <p className="text-xs text-rc-ink-mute mt-1">{species.description}</p>
                 </div>
               </div>
             </button>
@@ -124,8 +124,8 @@ const SpeciesSelector: React.FC<SpeciesSelectorProps> = ({ selectedSpecies, onCh
 
       {/* Help text */}
       {selectedSpecies.length === 0 && (
-        <div className="text-center p-4 bg-yellow-500/10 border border-yellow-500/30 rounded-lg">
-          <p className="text-sm text-yellow-400">
+        <div className="text-center p-4 bg-rc-fair-bg border border-rc-fair-border rounded-lg">
+          <p className="text-sm text-rc-fair-ink">
             Select at least one species to receive personalized fishing notifications
           </p>
         </div>
