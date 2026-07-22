@@ -28,9 +28,8 @@ import ExploreMap, { type StationPick } from "./components/explore-map";
 import StationDrawer from "./components/station-drawer";
 import LeftRail from "./components/left-rail";
 import LocationSelector from "./components/location-selector";
-import MobileSpotList from "./components/mobile-spot-list";
+import MobileMapSheet from "./components/mobile-map-sheet";
 import MobileFilterSheet from "./components/mobile-filter-sheet";
-import ExploreFooter from "./components/explore-footer";
 import ForecastStrip from "./components/forecast-strip";
 
 const MAP_TZ = "America/Vancouver";
@@ -590,12 +589,13 @@ export default function ExploreShell({
   }, [labelCity]);
 
   return (
-    <div className="relative pt-16 lg:pt-0 min-h-dvh lg:min-h-0 lg:h-full">
+    <div className="relative h-[calc(100dvh-3.5rem)] overflow-hidden lg:h-full lg:min-h-0 lg:overflow-visible">
       <ExploreTopBar />
 
-      {/* Mobile-only location header (in-flow) — the screenshot's pill +
-          filter button. Desktop shows the same selector inside the rail. */}
-      <div className="lg:hidden bg-rc-panel border-b border-rc-rule relative z-10">
+      {/* Mobile-only location header — floats over the top of the full-screen
+          map (Zillow-style), just under the fixed top bar. Desktop shows the
+          same selector inside the rail. */}
+      <div className="lg:hidden absolute top-16 inset-x-0 z-20 bg-rc-panel border-b border-rc-rule">
         <LocationSelector
           locations={data.locations}
           selectedCity={labelCity}
@@ -604,9 +604,10 @@ export default function ExploreShell({
         />
       </div>
 
-      {/* The single map instance. Mobile: a contained in-flow block.
-          Desktop: the full-screen absolute pane, exactly as before. */}
-      <div className="relative h-[45dvh] min-h-[280px] w-full lg:absolute lg:inset-x-0 lg:top-16 lg:bottom-0 lg:h-auto lg:min-h-0 lg:w-auto">
+      {/* The single map instance — full-screen on every breakpoint. Mobile
+          floats the location header + a pull-up spot sheet over it; desktop
+          keeps the rail + docked forecast strip. */}
+      <div className="absolute inset-x-0 top-16 bottom-0">
         <ExploreMap
           mapRef={mapRef}
           spots={uniqueSpots}
@@ -627,9 +628,8 @@ export default function ExploreShell({
         />
       </div>
 
-      {/* Mobile-only document flow: spot list + footer (in-flow). */}
-      <MobileSpotList spots={railSpots} tz={MAP_TZ} onSelectSpot={handleSelectSpot} />
-      <ExploreFooter />
+      {/* Mobile-only pull-up spot sheet over the map (Zillow-style). */}
+      <MobileMapSheet spots={railSpots} tz={MAP_TZ} onSelectSpot={handleSelectSpot} />
 
       <LeftRail
         locations={data.locations}
