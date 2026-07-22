@@ -5,6 +5,7 @@ import { AuthProvider } from '@/contexts/auth-context'
 import { MixpanelProvider } from '@/contexts/mixpanel-context'
 import { UnitPreferencesProvider } from '@/contexts/unit-preferences-context'
 import AuthGate from '@/app/components/auth/auth-gate'
+import MobileBottomNav from '@/app/components/mobile-bottom-nav'
 import { GoogleAnalytics } from '@next/third-parties/google'
 
 const geistSans = Geist({
@@ -50,6 +51,7 @@ export default function RootLayout({
             <UnitPreferencesProvider>
               <AuthGate>
                 {children}
+                <MobileBottomNav />
               </AuthGate>
             </UnitPreferencesProvider>
           </MixpanelProvider>
