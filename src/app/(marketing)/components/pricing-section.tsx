@@ -1,10 +1,11 @@
 import Link from 'next/link';
-import { resolveMonthlyPriceCents } from '@/lib/pricing';
+import { ANNUAL_PRICE_CENTS, MONTHLY_PRICE_CENTS } from '@/lib/pricing';
 
-// Two-plan pricing per the landing design, wired to the real seasonal
-// prices in src/lib/pricing.ts (no fake price points).
+// Two-plan pricing per the landing design, wired to the real prices in
+// src/lib/pricing.ts (no fake price points).
 export default function PricingSection() {
-  const monthlyDollars = resolveMonthlyPriceCents() / 100;
+  const monthlyDollars = MONTHLY_PRICE_CENTS / 100;
+  const annualDollars = ANNUAL_PRICE_CENTS / 100;
 
   return (
     <section id="pricing" data-testid="homepage-pricing" className="bg-rc-navy scroll-mt-16">
@@ -49,11 +50,11 @@ export default function PricingSection() {
             <p className="mt-2 text-5xl font-black tracking-[-0.03em] text-rc-ink">
               ${monthlyDollars}
               <span className="ml-1 align-baseline font-rc-mono text-xs font-medium tracking-wide text-rc-ink-mute">
-                /mo this month
+                /mo
               </span>
             </p>
             <p className="mt-1.5 font-rc-mono text-[11px] text-rc-ink-mute">
-              Seasonal pricing · or $79/yr Season Pass — best value
+              Or ${annualDollars}/yr Season Pass — best value
             </p>
             <p className="mt-4 text-sm leading-relaxed text-rc-ink-soft">
               Plan ahead with 14 day forecasts, custom spots, smart alerts, and

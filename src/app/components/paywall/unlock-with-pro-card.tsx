@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { Sparkles } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAnalytics } from '@/hooks/use-analytics';
+import { ANNUAL_PRICE_CENTS } from '@/lib/pricing';
 
 const DEFAULT_BULLETS = [
   '14-day forecast',
@@ -38,7 +39,7 @@ export function UnlockWithProCard({
   headline = 'Unlock with Pro',
   bullets = DEFAULT_BULLETS,
   ctaHref,
-  ctaLabel = 'Upgrade to Pro · $79/yr',
+  ctaLabel = `Upgrade to Pro · $${ANNUAL_PRICE_CENTS / 100}/yr`,
   feature,
   compact = false,
   theme = 'auto',

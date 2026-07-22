@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { getStripe, appOrigin } from '@/lib/stripe';
-import { ANNUAL_PRICE_ID, resolveMonthlyPriceId, type PricingPlan } from '@/lib/pricing';
+import { priceIdFor, type PricingPlan } from '@/lib/pricing';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -59,7 +59,13 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  const priceId = plan === 'annual' ? ANNUAL_PRICE_ID : resolveMonthlyPriceId();
+  let priceId: string;
+  try {
+    priceId = priceIdFor(plan);
+  } catch (err) {
+    console.error('[stripe checkout]', err);
+    return NextResponse.json({ error: 'price_not_configured' }, { status: 500 });
+  }
 
   // Look up an existing stripe_customer_id, or create the customer + row.
   const { data: existingSettings } = await admin

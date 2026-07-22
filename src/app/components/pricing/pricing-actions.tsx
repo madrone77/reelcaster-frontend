@@ -4,10 +4,13 @@ import { useEffect, useMemo, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/contexts/auth-context';
 import { supabase } from '@/lib/supabase';
+import { ANNUAL_PRICE_CENTS, MONTHLY_PRICE_CENTS } from '@/lib/pricing';
+
+const MONTHLY_DOLLARS = MONTHLY_PRICE_CENTS / 100;
+const ANNUAL_DOLLARS = ANNUAL_PRICE_CENTS / 100;
 
 interface Props {
   defaultRegion: string | null; // pre-filled from server-side IP geo
-  monthlyDollarsNow: number;
 }
 
 const REGIONS = [
@@ -17,7 +20,7 @@ const REGIONS = [
   { value: 'Other', label: 'Somewhere else' },
 ];
 
-export default function PricingActions({ defaultRegion, monthlyDollarsNow }: Props) {
+export default function PricingActions({ defaultRegion }: Props) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { user, loading } = useAuth();
@@ -128,7 +131,7 @@ export default function PricingActions({ defaultRegion, monthlyDollarsNow }: Pro
           disabled={loading}
           className="flex-1 inline-flex items-center justify-center px-5 py-3 bg-rc-brand text-white text-sm font-bold rounded-md hover:bg-rc-brand-hover transition-colors disabled:opacity-60"
         >
-          Get Season Pass — $79/yr
+          Get Season Pass — ${ANNUAL_DOLLARS}/yr
         </button>
         <button
           type="button"
@@ -136,7 +139,7 @@ export default function PricingActions({ defaultRegion, monthlyDollarsNow }: Pro
           disabled={loading}
           className="flex-1 inline-flex items-center justify-center px-5 py-3 border border-rc-brand bg-rc-panel text-rc-brand text-sm font-bold rounded-md hover:bg-rc-brand-soft transition-colors disabled:opacity-60"
         >
-          Go Monthly — ${monthlyDollarsNow}/mo this month
+          Go Monthly — ${MONTHLY_DOLLARS}/mo
         </button>
       </div>
 
@@ -150,7 +153,7 @@ export default function PricingActions({ defaultRegion, monthlyDollarsNow }: Pro
             onClick={(e) => e.stopPropagation()}
           >
             <h2 className="text-xl font-bold text-rc-ink mb-1">
-              {open === 'annual' ? 'Season Pass — $79/yr' : `Monthly — $${monthlyDollarsNow}/mo`}
+              {open === 'annual' ? `Season Pass — $${ANNUAL_DOLLARS}/yr` : `Monthly — $${MONTHLY_DOLLARS}/mo`}
             </h2>
             <p className="text-sm text-rc-ink-mute mb-5">
               Where do you mostly fish? We&apos;re live in BC, WA, and OR.

@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import type Stripe from 'stripe';
 import { createClient } from '@supabase/supabase-js';
 import { getStripe } from '@/lib/stripe';
-import { ANNUAL_PRICE_ID } from '@/lib/pricing';
+import { isAnnualPriceId } from '@/lib/pricing';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -16,7 +16,7 @@ const admin = createClient(supabaseUrl, supabaseServiceKey, {
 });
 
 function tierFromPriceId(priceId: string | null | undefined): 'pro_annual' | 'pro_monthly' {
-  return priceId === ANNUAL_PRICE_ID ? 'pro_annual' : 'pro_monthly';
+  return isAnnualPriceId(priceId) ? 'pro_annual' : 'pro_monthly';
 }
 
 async function applySubscriptionToUser(subscription: Stripe.Subscription) {
