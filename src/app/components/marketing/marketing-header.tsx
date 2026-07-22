@@ -10,7 +10,6 @@ import { useAuth } from '@/contexts/auth-context';
 // silently rewrites to /coming-soon rather than 404ing, so dead links here
 // look like real pages until you click them.
 const NAV = [
-  { href: '/about', label: 'About' },
   { href: '/explore', label: 'Explore' },
   { href: '/catches', label: 'Catch Log' },
   { href: '/pricing', label: 'Pricing' },
