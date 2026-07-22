@@ -51,10 +51,14 @@ export default function SortControl({
         aria-expanded={open}
         aria-label="Sort spots"
         title="Sort"
-        className={`flex items-center justify-center w-8 h-8 rounded-lg transition-colors ${
+        className={`flex items-center justify-center w-8 h-8 rounded-lg border transition-colors ${
           open
-            ? "bg-rc-brand text-white"
-            : "bg-rc-brand-soft text-rc-brand hover:bg-rc-brand-soft/70"
+            ? "bg-rc-brand border-rc-brand text-white"
+            : sort !== "score"
+              ? // A non-default sort is active — a soft brand tint marks it.
+                "bg-rc-brand-soft border-rc-brand-soft text-rc-brand hover:bg-rc-brand-soft/70"
+              : // Resting state (default sort, closed) — neutral until used.
+                "border-rc-rule text-rc-ink-soft hover:bg-rc-surface hover:border-rc-brand"
         }`}
       >
         <ArrowUpDown className="w-4 h-4" />
