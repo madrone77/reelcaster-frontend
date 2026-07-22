@@ -175,10 +175,14 @@ export default function DayScrubCell({
             <span className="absolute -top-1 -left-[3px] w-2 h-1.5 rounded-[2px] bg-rc-brand" />
           </div>
         </div>
+        {/* Full 24h scale — evenly spaced marks land on hours 0·6·12·18·24
+            (midnight → midnight), matching the calendar-day lane. */}
         <div className="flex justify-between font-rc-mono text-[8px] text-rc-ink-mute mt-1 px-px">
+          <span>12a</span>
           <span>6a</span>
           <span>12p</span>
           <span>6p</span>
+          <span>12a</span>
         </div>
       </div>
     </div>
