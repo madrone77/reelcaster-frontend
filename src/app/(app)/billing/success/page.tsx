@@ -78,7 +78,7 @@ function BillingSuccessInner() {
             Welcome to ReelCaster Pro
           </h1>
           <p className="mt-2 text-sm text-rc-text-muted">
-            Your 14-day forecast, multi-species scoring, bathymetry layer, and unlimited alerts are
+            Your 14-day forecast, multi-species scoring, bathymetry layer, and expanded alerts are
             unlocking now.
           </p>
 

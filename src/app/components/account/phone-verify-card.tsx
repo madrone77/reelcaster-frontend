@@ -138,7 +138,7 @@ export default function PhoneVerifyCard() {
       <CardContent className="space-y-4">
         {smsAvailable === false && (
           <div className="bg-rc-fair-bg border border-rc-fair-border rounded-md p-3 text-sm text-rc-fair-ink">
-            SMS delivery launches with Pro Intel. You can save your phone now and we&apos;ll
+            SMS delivery launches with Pro. You can save your phone now and we&apos;ll
             switch it on the moment it&apos;s ready.
           </div>
         )}

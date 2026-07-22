@@ -11,8 +11,8 @@ import { supabase } from '@/lib/supabase'
 
 const TIER_LABELS: Record<string, string> = {
   free: 'Free',
-  pro_monthly: 'Pro Intel · Monthly',
-  pro_annual: 'Pro Intel · Annual',
+  pro_monthly: 'Pro · Monthly',
+  pro_annual: 'Pro · Annual',
 }
 
 const STATUS_LABELS: Record<string, string> = {
@@ -128,7 +128,7 @@ export default function SubscriptionCard() {
             className="w-full bg-rc-brand hover:bg-rc-brand-hover text-white"
           >
             <Link href="/pricing?from=profile">
-              Upgrade to Pro Intel
+              Upgrade to Pro
             </Link>
           </Button>
         )}
@@ -136,7 +136,7 @@ export default function SubscriptionCard() {
         <p className="text-xs text-rc-ink-mute">
           {isPaid
             ? 'Use the Stripe portal to update your card, change plan, or cancel anytime.'
-            : 'Pro Intel unlocks 14-day forecasts, unlimited custom spots, unlimited alerts, and SMS delivery (coming soon).'}
+            : 'Pro unlocks the full 14-day forecast, custom spots in covered waters, up to 10 alerts, and SMS delivery (coming soon).'}
         </p>
       </CardContent>
     </Card>

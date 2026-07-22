@@ -247,13 +247,13 @@ export default function AlertsClient({ spots }: Props) {
                     Free tier: 1 alert active
                   </p>
                   <p className="text-sm text-rc-ink-mute mb-3">
-                    Upgrade to Pro Intel for unlimited alerts plus SMS delivery.
+                    Upgrade to Pro for up to 10 alerts plus SMS delivery.
                   </p>
                   <Link
                     href="/pricing?from=alerts"
                     className="inline-flex items-center px-4 py-2 bg-rc-brand hover:bg-rc-brand-hover rounded-md text-sm font-semibold text-white transition-colors"
                   >
-                    See Pro Intel pricing →
+                    See Pro pricing →
                   </Link>
                 </div>
               </CardContent>

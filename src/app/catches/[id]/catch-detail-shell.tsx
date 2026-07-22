@@ -275,13 +275,15 @@ export default function CatchDetailShell({ catchId }: { catchId: string }) {
         { name, lat: pin.lat, lng: pin.lng },
         session.access_token,
       );
-      if (!res) return "Couldn't create the spot — try again.";
+      if (!res.ok) {
+        return res.message ?? "Couldn't create the spot — try again.";
+      }
       const hit: NearestSpotHit = {
-        id: res.spot.id,
-        name: res.spot.name,
-        slug: res.spot.slug,
-        lat: res.spot.lat,
-        lng: res.spot.lng,
+        id: res.data.spot.id,
+        name: res.data.spot.name,
+        slug: res.data.spot.slug,
+        lat: res.data.spot.lat,
+        lng: res.data.spot.lng,
         distance_m: 0,
         status: "approved",
         is_published: false,
@@ -292,7 +294,7 @@ export default function CatchDetailShell({ catchId }: { catchId: string }) {
       pinDirtyRef.current = true;
       setMatch(hit);
       setCandidates((c) => [hit, ...c]);
-      adoptSpot(hit, res.mgmt_area?.subarea_label ?? dfoArea);
+      adoptSpot(hit, res.data.mgmt_area?.subarea_label ?? dfoArea);
       return null;
     },
     [pin, session, adoptSpot, dfoArea],

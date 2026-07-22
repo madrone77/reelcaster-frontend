@@ -210,7 +210,7 @@ export default function ScoreAlertForm({ spots, onSubmit, onCancel }: Props) {
               </div>
               <div className="flex items-center gap-2 text-sm text-rc-ink-mute">
                 <span className="w-4 h-4 rounded border border-rc-rule inline-block" />
-                SMS — coming soon (Pro Intel + verified phone)
+                SMS — coming soon (Pro + verified phone)
               </div>
             </div>
           </div>

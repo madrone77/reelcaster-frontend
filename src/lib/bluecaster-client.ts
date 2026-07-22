@@ -44,8 +44,9 @@ export type { CatchPreviewResponse } from "./bluecaster/catch-ingest-types";
 export async function fetchForecast14d(
   spotSlug: string
 ): Promise<Forecast14dPayload> {
-  // The proxy gates days past the free horizon server-side — attach the
-  // session token (when signed in) so Boat Pro callers get the full grid.
+  // The proxy gates days past the caller's horizon server-side (anon 2,
+  // free 7, Pro 14) — attach the session token so signed-in callers get
+  // their full horizon.
   const { data } = await supabase.auth.getSession();
   const token = data.session?.access_token;
   const res = await fetch(
@@ -229,11 +230,17 @@ export async function fetchSpotScoreHour(
   return (await res.json()) as SpotScoreHourResponse;
 }
 
-/** Create a custom spot (requires a signed-in session). */
+export type CreateCustomSpotClientResult =
+  | { ok: true; data: CreateCustomSpotResponse }
+  | { ok: false; error: string; message?: string };
+
+/** Create a custom spot (requires a signed-in session; Pro-only — free
+ *  accounts get `pro_required`, coordinates outside covered waters get
+ *  `outside_coverage`, both with a user-facing `message`). */
 export async function createCustomSpot(
   input: { name: string; lat: number; lng: number },
   accessToken: string,
-): Promise<CreateCustomSpotResponse | null> {
+): Promise<CreateCustomSpotClientResult> {
   const res = await fetch("/api/bluecaster/fishing-spots/custom", {
     method: "POST",
     headers: {
@@ -243,8 +250,18 @@ export async function createCustomSpot(
     body: JSON.stringify(input),
     cache: "no-store",
   });
-  if (!res.ok) return null;
-  return (await res.json()) as CreateCustomSpotResponse;
+  if (!res.ok) {
+    const body = (await res.json().catch(() => null)) as {
+      error?: string;
+      message?: string;
+    } | null;
+    return {
+      ok: false,
+      error: body?.error ?? "create_failed",
+      message: body?.message,
+    };
+  }
+  return { ok: true, data: (await res.json()) as CreateCustomSpotResponse };
 }
 
 /**
@@ -335,9 +352,17 @@ export async function fetchBuoyConditions(
 export async function fetchMapForecast14d(
   bbox: string
 ): Promise<MapForecast14dPayload> {
+  // The proxy gates days past the caller's horizon server-side (anon 2,
+  // free 7, Pro 14) — attach the session token so signed-in callers get
+  // their full horizon.
+  const { data } = await supabase.auth.getSession();
+  const token = data.session?.access_token;
   const res = await fetch(
     `/api/bluecaster/map/forecast-14d?bbox=${encodeURIComponent(bbox)}`,
-    { cache: "no-store" }
+    {
+      cache: "no-store",
+      headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+    }
   );
   if (!res.ok) {
     throw new Error(`map/forecast-14d API returned ${res.status}`);
