@@ -443,7 +443,7 @@ export default function ProfilePage() {
                       Height / Depth
                     </Label>
                     <Select
-                      value={preferences.heightUnit || 'm'}
+                      value={preferences.heightUnit || 'ft'}
                       onValueChange={value =>
                         setPreferences(prev => ({ ...prev, heightUnit: value as 'ft' | 'm' }))
                       }

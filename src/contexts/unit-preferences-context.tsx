@@ -33,15 +33,15 @@ interface UnitPreferencesContextType extends UnitPrefs {
   loading: boolean
 }
 
-// Defaults match what the product surfaces render when no preference is set
-// (marine convention: wind/current in knots, tides/waves metric like the DFO
-// tables, pressure in mb). Keep in step with DEFAULT_PREFERENCES in
-// lib/user-preferences.ts.
+// Defaults: marine convention (wind/current in knots, pressure mb), and
+// heights/depths in FEET — BC anglers think in feet, so imperial depth is the
+// out-of-the-box experience and metres is the toggle. Keep in step with
+// DEFAULT_PREFERENCES in lib/user-preferences.ts.
 const DEFAULT_UNITS: UnitPrefs = {
   windUnit: 'knots',
   tempUnit: 'C',
   precipUnit: 'mm',
-  heightUnit: 'm',
+  heightUnit: 'ft',
   distanceUnit: 'km',
   pressureUnit: 'mb',
 }

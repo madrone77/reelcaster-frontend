@@ -94,7 +94,7 @@ const DEFAULT_PREFERENCES: UserPreferences = {
   windUnit: 'knots',
   tempUnit: 'C',
   precipUnit: 'mm',
-  heightUnit: 'm',
+  heightUnit: 'ft',
   distanceUnit: 'km',
   pressureUnit: 'mb',
 }

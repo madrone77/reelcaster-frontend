@@ -136,7 +136,14 @@ export type TodayFactor = {
   label: string;
   status: FactorVerdict;
   contribution: number;
+  /** Server-composed fragment — fallback when we can't compose from key+raw. */
   valueLine: string | null;
+  /** Engine factor key (e.g. "tidal_current_speed_kt"); optional until the
+   * structured-factor API change is deployed everywhere. */
+  key?: string;
+  /** Raw engine value at the peak hour — number for metric factors
+   * (kn / m / °C / hPa / km per the key), string for enums. */
+  raw?: number | string | null;
 };
 
 // ─── Regulations ──────────────────────────────────────────────────────
