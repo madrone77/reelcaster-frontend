@@ -3,8 +3,7 @@
 import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/auth-context';
-import { AppShell } from '@/app/components/layout';
-import DashboardHeader from '@/app/components/forecast/dashboard-header';
+import ExploreTopBar from '@/app/explore/components/explore-top-bar';
 import NotificationPreferencesForm from '@/app/components/notifications/notification-preferences-form';
 
 export default function NotificationSettingsPage() {
@@ -20,14 +19,17 @@ export default function NotificationSettingsPage() {
 
   if (authLoading) {
     return (
-      <AppShell showLocationPanel={false}>
-        <div className="flex-1 min-h-screen flex items-center justify-center">
-          <div className="text-center">
-            <div className="w-16 h-16 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-            <p className="text-lg text-rc-text">Loading settings...</p>
+      <div className="min-h-dvh bg-rc-page">
+        <ExploreTopBar />
+        <main className="pt-16">
+          <div className="min-h-[60vh] flex items-center justify-center">
+            <div className="text-center">
+              <div className="w-12 h-12 border-4 border-rc-brand border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+              <p className="text-sm text-rc-ink-mute">Loading settings…</p>
+            </div>
           </div>
-        </div>
-      </AppShell>
+        </main>
+      </div>
     );
   }
 
@@ -36,28 +38,31 @@ export default function NotificationSettingsPage() {
   }
 
   return (
-    <AppShell showLocationPanel={false}>
-      <div className="flex-1 min-h-screen p-4 sm:p-6 space-y-4 sm:space-y-6">
-        <DashboardHeader
-          title="Forecast Emails"
-          showTimeframe={false}
-          showSetLocation={false}
-        />
+    <div className="min-h-dvh bg-rc-page">
+      <ExploreTopBar />
+      <main className="pt-16">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 py-8 space-y-6">
+          {/* Header */}
+          <div>
+            <h1 className="text-4xl font-bold tracking-[-0.02em] text-rc-ink">Forecast Emails</h1>
+            <div className="mt-1.5 font-rc-mono text-[12px] text-rc-ink-mute">
+              Scheduled daily / weekly forecast digests
+            </div>
+          </div>
 
-        <div className="max-w-6xl mx-auto space-y-6">
           {/* Cross-link to real-time Alerts (Phase 6 disambiguation). */}
           <div
-            className="bg-amber-500/10 border border-amber-500/30 rounded-lg p-4 flex items-start gap-3"
+            className="bg-rc-fair-bg border border-rc-fair-border rounded-lg p-4 flex items-start gap-3"
             data-testid="forecast-emails-alerts-callout"
           >
             <div className="flex-1">
-              <p className="text-sm text-rc-text font-medium">
+              <p className="text-sm text-rc-fair-ink font-medium">
                 Looking for real-time alerts?
               </p>
-              <p className="text-sm text-rc-text-muted mt-1">
+              <p className="text-sm text-rc-ink-soft mt-1">
                 These are scheduled forecast digests (daily / weekly). Bite-condition triggers,
                 pressure-drop pings, and SMS notifications live in{' '}
-                <a href="/alerts" className="text-blue-400 hover:text-blue-300 underline">
+                <a href="/alerts" className="text-rc-brand hover:underline">
                   Alerts
                 </a>
                 .
@@ -66,37 +71,37 @@ export default function NotificationSettingsPage() {
           </div>
 
           {/* Form */}
-          <div className="bg-rc-bg-dark rounded-lg border border-rc-bg-light p-6">
+          <div className="bg-rc-panel rounded-xl border border-rc-rule p-6">
             <NotificationPreferencesForm />
           </div>
 
           {/* Help Section */}
-          <div className="mt-6 p-4 bg-blue-500/10 border border-blue-500/20 rounded-lg">
-            <h3 className="text-sm font-semibold text-blue-400 mb-2">
+          <div className="mt-6 p-4 bg-rc-surface border border-rc-rule rounded-lg">
+            <h3 className="text-sm font-semibold text-rc-ink mb-2">
               How Fishing Notifications Work
             </h3>
-            <ul className="text-xs text-rc-text-muted space-y-1.5 list-disc list-inside">
+            <ul className="text-xs text-rc-ink-mute space-y-1.5 list-disc list-inside">
               <li>
-                <strong className="text-rc-text">Scheduled Notifications:</strong> Receive daily or weekly emails based on
+                <strong className="text-rc-ink">Scheduled Notifications:</strong> Receive daily or weekly emails based on
                 your preferred time
               </li>
               <li>
-                <strong className="text-rc-text">Threshold Filtering:</strong> Only get notified when conditions meet your
+                <strong className="text-rc-ink">Threshold Filtering:</strong> Only get notified when conditions meet your
                 preferences
               </li>
               <li>
-                <strong className="text-rc-text">Species-Specific:</strong> Forecasts tailored to your favorite species
+                <strong className="text-rc-ink">Species-Specific:</strong> Forecasts tailored to your favorite species
               </li>
               <li>
-                <strong className="text-rc-text">Location-Based:</strong> Forecasts for your selected area and radius
+                <strong className="text-rc-ink">Location-Based:</strong> Forecasts for your selected area and radius
               </li>
               <li>
-                <strong className="text-rc-text">Regulation Updates:</strong> Stay informed about rule changes in your area
+                <strong className="text-rc-ink">Regulation Updates:</strong> Stay informed about rule changes in your area
               </li>
             </ul>
           </div>
         </div>
-      </div>
-    </AppShell>
+      </main>
+    </div>
   );
 }
