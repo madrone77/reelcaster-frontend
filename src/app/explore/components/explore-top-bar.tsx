@@ -6,9 +6,8 @@ import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { useAuth } from "@/contexts/auth-context";
 
-// "About" is the landing page — see MarketingHeader. /about redirects there.
 const NAV = [
-  { href: "/", label: "About" },
+  { href: "/about", label: "About" },
   { href: "/explore", label: "Explore" },
   { href: "/log-catch", label: "Log a catch" },
   { href: "/catches", label: "My catches" },

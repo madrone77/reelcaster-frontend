@@ -12,7 +12,11 @@ import DayCell from "../../components/day-cell";
 import { bestWindow } from "../../components/hourly-bars";
 import UpgradeDialog from "../../components/upgrade-dialog";
 import { currentLocalHour, fmtPeak, zonedHourToUtcIso } from "../../lib/explore-data";
-import { buildForecastDays, type ForecastDay } from "../../lib/forecast-strip";
+import {
+  buildForecastDays,
+  type ForecastDay,
+  type ForecastTier,
+} from "../../lib/forecast-strip";
 import {
   fetchForecast14d,
   fetchSpotScore,
@@ -99,6 +103,8 @@ export default function SpotDetailShell({
   const [point, setPoint] = useState<PointConditions | null>(null);
   const [saved, toggleSaved] = useFavorite(spot.slug);
   const { isPaid } = useSubscription();
+  const { user } = useAuth();
+  const accessTier: ForecastTier = isPaid ? "pro" : user ? "free" : "anonymous";
   const [favUpgradeOpen, setFavUpgradeOpen] = useState(false);
   // One-shot "pop" when favoriting (not on un-favorite or load) — mirrors the
   // rail SpotCard star interaction exactly, including the free-tier cap.
@@ -152,8 +158,8 @@ export default function SpotDetailShell({
 
   const fcSource = fc ?? page;
   const stripModel = useMemo(
-    () => (selId ? buildForecastDays(fcSource, selId, false) : null),
-    [fcSource, selId],
+    () => (selId ? buildForecastDays(fcSource, selId, accessTier) : null),
+    [fcSource, selId, accessTier],
   );
 
   const [selectedIso, setSelectedIso] = useState<string | null>(null);
@@ -180,9 +186,9 @@ export default function SpotDetailShell({
     };
   }, [stripModel]);
 
-  // Sign-up gate: signed-out anglers who tap "Set alert" / "Log catch" are sent
-  // through the sign-up flow; the intent drives the modal copy.
-  const { user } = useAuth();
+  // Sign-up gate: signed-out anglers who tap "Set alert" / "Log catch" (or a
+  // locked forecast day) are sent through the sign-up flow; the intent drives
+  // the modal copy.
   const [authIntent, setAuthIntent] = useState<AuthIntent | null>(null);
   const [logCatchOpen, setLogCatchOpen] = useState(false);
   const [alertOpen, setAlertOpen] = useState(false);
@@ -339,7 +345,10 @@ export default function SpotDetailShell({
 
   const handleDay = (day: ForecastDay) => {
     if (day.locked) {
-      setUpgradeOpen(true);
+      // Signed-out → sign-up gate (an account unlocks days 3–7 and is the
+      // first step toward Pro); signed-in free → the Pro upgrade dialog.
+      if (!user) setAuthIntent("forecast");
+      else setUpgradeOpen(true);
       return;
     }
     setSelectedIso(day.iso);
@@ -686,7 +695,7 @@ export default function SpotDetailShell({
                     className="mt-4 w-full flex items-center justify-center gap-2 rounded bg-rc-brand-soft text-rc-brand font-rc-mono text-xs font-semibold tracking-[0.04em] py-3 hover:bg-rc-brand-soft/70 transition-colors"
                   >
                     <ArrowUpCircle className="w-4 h-4" />
-                    Upgrade to Boat Pro for full weights
+                    Upgrade to Pro for full weights
                   </button>
                 )}
               </div>

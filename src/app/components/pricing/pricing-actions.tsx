@@ -109,7 +109,7 @@ export default function PricingActions({ defaultRegion, monthlyDollarsNow }: Pro
       {successFlag && (
         <div className="mt-6">
           <div className="bg-rc-good-bg border border-rc-good-border rounded-lg p-4 text-sm text-rc-good-ink">
-            Welcome to Pro Intel — your account is unlocked. It may take a few seconds for the badge to appear.
+            Welcome to Pro — your account is unlocked. It may take a few seconds for the badge to appear.
           </div>
         </div>
       )}
@@ -174,7 +174,7 @@ export default function PricingActions({ defaultRegion, monthlyDollarsNow }: Pro
 
             {region === 'Other' && (
               <p className="text-xs text-rc-fair-ink bg-rc-fair-bg border border-rc-fair-border rounded-md p-3 mb-4">
-                Pro Intel isn&apos;t live in your region yet. We&apos;ll redirect you to drop a waitlist pin.
+                Pro isn&apos;t live in your region yet. We&apos;ll redirect you to drop a waitlist pin.
               </p>
             )}
 

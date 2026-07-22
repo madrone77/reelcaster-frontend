@@ -6,6 +6,7 @@ import { useAuth } from '@/contexts/auth-context'
 import { AuthForm } from '../components/auth/auth-form'
 import { Fish, BarChart3, Bell, MapPin } from 'lucide-react'
 import Link from 'next/link'
+import Image from 'next/image'
 
 const features = [
   { icon: BarChart3, label: '14-Day Fishing Forecasts' },
@@ -59,14 +60,11 @@ export default function LoginPage() {
       <div className="w-full max-w-md mx-auto px-4 py-8 sm:py-12">
         {/* Branding */}
         <div className="text-center mb-8">
-          <div className="inline-flex items-center gap-2 mb-3">
-            <div className="p-2 rounded-xl bg-rc-brand-soft">
-              <Fish className="h-6 w-6 text-rc-brand" />
-            </div>
-            <h1 className="text-2xl font-bold text-rc-ink">ReelCaster</h1>
-          </div>
+          <Link href="/" aria-label="ReelCaster home" className="inline-flex mb-3">
+            <Image src="/reelcaster-mark.svg" alt="ReelCaster" width={130} height={60} priority />
+          </Link>
           <p className="text-sm text-rc-ink-mute">
-            BC&apos;s most accurate fishing forecast platform
+            The fishing intelligence platform
           </p>
         </div>
 

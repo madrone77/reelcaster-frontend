@@ -9,8 +9,17 @@ import {
   type BuoyConditions,
   type StationConditions,
 } from "@/lib/bluecaster-client";
-
-const M_TO_FT = 3.28084;
+import { useUnitPreferences } from "@/contexts/unit-preferences-context";
+import {
+  convertHeight,
+  convertPressure,
+  convertTemp,
+  convertWind,
+  formatHeight,
+  formatPressure,
+  formatTemp,
+  formatWind,
+} from "@/app/utils/unit-conversions";
 
 function degToCompass(deg: number): string {
   const dirs = ["N", "NNE", "NE", "ENE", "E", "ESE", "SE", "SSE", "S", "SSW", "SW", "WSW", "W", "WNW", "NW", "NNW"];
@@ -42,6 +51,7 @@ function TideCurve({
   extremes: StationConditions["extremes"];
   tz: string;
 }) {
+  const { heightUnit } = useUnitPreferences();
   const model = useMemo(() => {
     if (series.length < 2) return null;
     const W = 336;
@@ -80,14 +90,14 @@ function TideCurve({
           labelX,
           crowded,
           kind: e.kind,
-          label: `${e.height_m.toFixed(1)}m`,
+          label: `${convertHeight(e.height_m, "m", heightUnit).toFixed(1)}${heightUnit}`,
           time: fmtLocalTime(e.time_utc, tz),
         };
       });
     const nowMs = Date.now();
     const nowX = nowMs >= t0 && nowMs <= t1 ? PAD_X + ((nowMs - t0) / (t1 - t0)) * (W - 2 * PAD_X) : null;
     return { W, H, path, dots, nowX };
-  }, [series, extremes, tz]);
+  }, [series, extremes, tz, heightUnit]);
 
   if (!model) return null;
   return (
@@ -147,6 +157,7 @@ export default function StationDrawer({
   tz: string;
   onBack: () => void;
 }) {
+  const { windUnit, tempUnit, heightUnit, pressureUnit } = useUnitPreferences();
   const [tide, setTide] = useState<StationConditions | null>(null);
   const [buoy, setBuoy] = useState<BuoyConditions | null>(null);
   const [loading, setLoading] = useState(true);
@@ -217,8 +228,8 @@ export default function StationDrawer({
           ? "High slack"
           : "Low slack";
     if (!next) return dir;
-    return `${dir} · ${next.kind} ${next.height_m.toFixed(1)} m at ${fmtLocalTime(next.time_utc, tz)}`;
-  }, [tide, upcoming, tz]);
+    return `${dir} · ${next.kind} ${formatHeight(convertHeight(next.height_m, "m", heightUnit), heightUnit)} at ${fmtLocalTime(next.time_utc, tz)}`;
+  }, [tide, upcoming, tz, heightUnit]);
 
   const obs = buoy?.latest ?? null;
   const buoyCells: Array<{ label: string; value: string; sub: string | null }> = obs
@@ -227,18 +238,18 @@ export default function StationDrawer({
           label: "WIND",
           value:
             obs.wind_speed_kn != null
-              ? `${Math.round(obs.wind_speed_kn)} kn${obs.wind_dir_deg != null ? ` ${degToCompass(obs.wind_dir_deg)}` : ""}`
+              ? `${formatWind(convertWind(obs.wind_speed_kn, "knots", windUnit), windUnit)}${obs.wind_dir_deg != null ? ` ${degToCompass(obs.wind_dir_deg)}` : ""}`
               : "—",
           sub: null,
         },
         {
           label: "GUST",
-          value: obs.gust_kn != null ? `${Math.round(obs.gust_kn)} kn` : "—",
+          value: obs.gust_kn != null ? formatWind(convertWind(obs.gust_kn, "knots", windUnit), windUnit) : "—",
           sub: null,
         },
         {
           label: "WAVES",
-          value: obs.wave_height_m != null ? `${obs.wave_height_m.toFixed(1)} m` : "—",
+          value: obs.wave_height_m != null ? formatHeight(convertHeight(obs.wave_height_m, "m", heightUnit), heightUnit) : "—",
           sub:
             obs.dominant_period_s != null
               ? `${Math.round(obs.dominant_period_s)}s period`
@@ -248,17 +259,22 @@ export default function StationDrawer({
         },
         {
           label: "WATER",
-          value: obs.water_temp_c != null ? `${obs.water_temp_c.toFixed(1)}°C` : "—",
+          value: obs.water_temp_c != null ? formatTemp(convertTemp(obs.water_temp_c, "C", tempUnit), tempUnit, 1) : "—",
           sub: obs.water_temp_c == null ? "not measured" : null,
         },
         {
           label: "AIR",
-          value: obs.air_temp_c != null ? `${obs.air_temp_c.toFixed(1)}°C` : "—",
+          value: obs.air_temp_c != null ? formatTemp(convertTemp(obs.air_temp_c, "C", tempUnit), tempUnit, 1) : "—",
           sub: null,
         },
         {
           label: "PRESSURE",
-          value: obs.pressure_hpa != null ? `${obs.pressure_hpa.toFixed(1)} hPa` : "—",
+          value:
+            obs.pressure_hpa != null
+              ? pressureUnit === "mb"
+                ? `${obs.pressure_hpa.toFixed(1)} hPa`
+                : formatPressure(convertPressure(obs.pressure_hpa, "mb", pressureUnit), pressureUnit)
+              : "—",
           sub: null,
         },
       ]
@@ -317,11 +333,14 @@ export default function StationDrawer({
           <>
             <div className="flex items-baseline gap-3 mt-6 pb-4 border-b border-rc-rule-soft">
               <span className="text-[44px] leading-none font-bold tracking-[-0.04em] text-rc-ink">
-                {tide.now ? `${tide.now.height_m.toFixed(1)} m` : "—"}
+                {tide.now ? formatHeight(convertHeight(tide.now.height_m, "m", heightUnit), heightUnit) : "—"}
               </span>
               {tide.now && (
                 <span className="font-rc-mono text-xs text-rc-ink-soft">
-                  {(tide.now.height_m * M_TO_FT).toFixed(1)} ft
+                  {formatHeight(
+                    convertHeight(tide.now.height_m, "m", heightUnit === "m" ? "ft" : "m"),
+                    heightUnit === "m" ? "ft" : "m",
+                  )}
                 </span>
               )}
             </div>
@@ -351,7 +370,7 @@ export default function StationDrawer({
                         {e.kind === "high" ? "High" : "Low"}
                       </span>
                       <span className="text-rc-ink-soft">
-                        {e.height_m.toFixed(1)} m
+                        {formatHeight(convertHeight(e.height_m, "m", heightUnit), heightUnit)}
                       </span>
                       <span className="text-rc-ink">
                         {fmtLocalTime(e.time_utc, tz)}

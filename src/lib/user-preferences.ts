@@ -88,11 +88,13 @@ const DEFAULT_PREFERENCES: UserPreferences = {
   emailForecasts: false,
   notificationTime: '06:00',
   timezone: 'America/Vancouver',
-  // Default to metric units
-  windUnit: 'kph',
+  // Marine-convention defaults — match what the product surfaces render when
+  // no preference is set (keep in step with DEFAULT_UNITS in
+  // contexts/unit-preferences-context.tsx).
+  windUnit: 'knots',
   tempUnit: 'C',
   precipUnit: 'mm',
-  heightUnit: 'm',
+  heightUnit: 'ft',
   distanceUnit: 'km',
   pressureUnit: 'mb',
 }

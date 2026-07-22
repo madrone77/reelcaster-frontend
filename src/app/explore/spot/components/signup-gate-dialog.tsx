@@ -12,11 +12,12 @@ import { useAnalytics } from "@/hooks/use-analytics";
 import { CheckCircle2 } from "lucide-react";
 
 /** Which CTA opened the gate — drives the headline copy. */
-export type AuthIntent = "catch" | "alert";
+export type AuthIntent = "catch" | "alert" | "forecast";
 
 const INTENT_COPY: Record<AuthIntent, { label: string; lead: string; verb: string }> = {
   catch: { label: "SAVE YOUR CATCH", lead: "Sign up to log catches at", verb: "logging your catch" },
   alert: { label: "GET ALERTS", lead: "Sign up to set alerts for", verb: "setting your alert" },
+  forecast: { label: "SEE THE WEEK AHEAD", lead: "Sign up free for 7 days at", verb: "unlocking the 7-day forecast" },
 };
 
 /**

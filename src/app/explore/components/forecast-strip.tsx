@@ -24,6 +24,7 @@ export default function ForecastStrip({
   selectedDayHours,
   scrubHour,
   onScrubHour,
+  signedIn,
   hidden,
   onHide,
   onShow,
@@ -39,6 +40,8 @@ export default function ForecastStrip({
   /** 0–23 scrubbed hour, or null = day peak (no scrub yet). */
   scrubHour: number | null;
   onScrubHour: (h: number) => void;
+  /** Signed-out visitors get the sign-up dialog on locked days instead of pricing. */
+  signedIn: boolean;
   /** Whole-strip hide/show. */
   hidden?: boolean;
   onHide?: () => void;
@@ -153,7 +156,11 @@ export default function ForecastStrip({
         )}
       </div>
 
-      <UpgradeDialog open={upgradeOpen} onOpenChange={setUpgradeOpen} />
+      <UpgradeDialog
+        open={upgradeOpen}
+        onOpenChange={setUpgradeOpen}
+        variant={signedIn ? "pro" : "signup"}
+      />
     </>
   );
 }
@@ -166,10 +173,13 @@ export function MobileForecastStrip({
   model,
   selectedIso,
   onSelectDay,
+  signedIn,
 }: {
   model: ForecastStripModel | null;
   selectedIso: string;
   onSelectDay: (day: ForecastDay) => void;
+  /** Signed-out visitors get the sign-up dialog on locked days instead of pricing. */
+  signedIn: boolean;
 }) {
   const [upgradeOpen, setUpgradeOpen] = useState(false);
   if (!model) return null;
@@ -195,7 +205,11 @@ export function MobileForecastStrip({
           </div>
         ))}
       </div>
-      <UpgradeDialog open={upgradeOpen} onOpenChange={setUpgradeOpen} />
+      <UpgradeDialog
+        open={upgradeOpen}
+        onOpenChange={setUpgradeOpen}
+        variant={signedIn ? "pro" : "signup"}
+      />
     </>
   );
 }

@@ -6,8 +6,7 @@ import { useRouter } from 'next/navigation';
 import { Bell, Plus, Lock } from 'lucide-react';
 import { useAuth } from '@/contexts/auth-context';
 import { useSubscription } from '@/hooks/use-subscription';
-import { AppShell } from '@/app/components/layout';
-import DashboardHeader from '@/app/components/forecast/dashboard-header';
+import ExploreTopBar from '@/app/explore/components/explore-top-bar';
 import { CustomAlertsList } from '@/app/components/alerts/custom-alerts-list';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -193,22 +192,27 @@ export default function AlertsClient({ spots }: Props) {
   const showLimitNotice = atLimit && !showForm;
 
   return (
-    <AppShell showLocationPanel={false}>
-      <div className="flex-1 min-h-screen p-4 sm:p-6 space-y-4 sm:space-y-6">
-        <DashboardHeader
-          title="Alerts"
-          showTimeframe={false}
-          showSetLocation={false}
-        />
+    <div className="min-h-dvh bg-rc-page">
+      <ExploreTopBar />
+      <main className="pt-16">
+        <div className="max-w-4xl mx-auto px-4 sm:px-6 py-8 space-y-6">
+          {/* Header */}
+          <div>
+            <h1 className="text-4xl font-bold tracking-[-0.02em] text-rc-ink">
+              Alerts
+            </h1>
+            <div className="mt-1.5 font-rc-mono text-[12px] text-rc-ink-mute">
+              Email alerts when the score peaks at your spots
+            </div>
+          </div>
 
-        <div className="max-w-4xl mx-auto space-y-6">
           {/* Action bar */}
           <div className="flex items-center justify-between gap-3">
-            <p className="text-sm text-rc-text-muted">
+            <p className="text-sm text-rc-ink-mute">
               Get notified when the RC score peaks at your spot.{' '}
               <Link
                 href="/profile/custom-alerts"
-                className="text-blue-400 hover:text-blue-300"
+                className="text-rc-brand hover:text-rc-brand-hover"
               >
                 Advanced custom alerts →
               </Link>
@@ -217,7 +221,7 @@ export default function AlertsClient({ spots }: Props) {
               <Button
                 onClick={() => (atLimit ? setUpgradeOpen(true) : setShowForm(true))}
                 disabled={subLoading}
-                className="gap-2 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800"
+                className="gap-2 bg-rc-brand hover:bg-rc-brand-hover text-white"
                 data-testid="alerts-new-button"
               >
                 <Plus className="h-4 w-4" />
@@ -227,29 +231,29 @@ export default function AlertsClient({ spots }: Props) {
           </div>
 
           {error && (
-            <Card className="border-red-500 bg-red-500/10">
+            <Card className="border-rc-poor/40 bg-rc-poor-bg shadow-none">
               <CardContent className="py-4">
-                <p className="text-red-400 text-sm">{error}</p>
+                <p className="text-rc-poor-ink text-sm">{error}</p>
               </CardContent>
             </Card>
           )}
 
           {showLimitNotice && (
-            <Card className="bg-rc-bg-dark border-blue-500/30">
+            <Card className="bg-rc-brand-soft border-rc-brand-soft2 shadow-none">
               <CardContent className="py-5 flex items-start gap-3">
-                <Lock className="h-5 w-5 text-blue-400 flex-shrink-0 mt-0.5" />
+                <Lock className="h-5 w-5 text-rc-brand flex-shrink-0 mt-0.5" />
                 <div className="flex-1">
-                  <p className="text-rc-text font-semibold mb-1">
+                  <p className="text-rc-ink font-semibold mb-1">
                     Free tier: 1 alert active
                   </p>
-                  <p className="text-sm text-rc-text-muted mb-3">
-                    Upgrade to Pro Intel for unlimited alerts plus SMS delivery.
+                  <p className="text-sm text-rc-ink-mute mb-3">
+                    Upgrade to Pro for up to 10 alerts plus SMS delivery.
                   </p>
                   <Link
                     href="/pricing?from=alerts"
-                    className="inline-flex items-center px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded-md text-sm font-semibold text-white transition-colors"
+                    className="inline-flex items-center px-4 py-2 bg-rc-brand hover:bg-rc-brand-hover rounded-md text-sm font-semibold text-white transition-colors"
                   >
-                    See Pro Intel pricing →
+                    See Pro pricing →
                   </Link>
                 </div>
               </CardContent>
@@ -266,29 +270,29 @@ export default function AlertsClient({ spots }: Props) {
               }}
             />
           ) : loading ? (
-            <Card className="bg-rc-bg-dark border-rc-bg-light">
-              <CardContent className="py-12 flex flex-col items-center text-rc-text-muted">
-                <div className="animate-spin h-8 w-8 border-2 border-blue-500 border-t-transparent rounded-full mb-4" />
+            <Card className="border-rc-rule shadow-none">
+              <CardContent className="py-12 flex flex-col items-center text-rc-ink-mute">
+                <div className="animate-spin h-8 w-8 border-2 border-rc-brand border-t-transparent rounded-full mb-4" />
                 Loading alerts…
               </CardContent>
             </Card>
           ) : profiles.length === 0 ? (
-            <Card className="bg-rc-bg-dark border-rc-bg-light">
+            <Card className="border-rc-rule shadow-none">
               <CardContent className="py-12 flex flex-col items-center text-center">
-                <div className="w-16 h-16 bg-rc-bg-light rounded-full flex items-center justify-center mb-4">
-                  <Bell className="h-8 w-8 text-rc-text-muted" />
+                <div className="w-16 h-16 bg-rc-surface rounded-full flex items-center justify-center mb-4">
+                  <Bell className="h-8 w-8 text-rc-ink-mute" />
                 </div>
-                <h3 className="text-lg font-semibold text-rc-text mb-2">
+                <h3 className="text-lg font-semibold text-rc-ink mb-2">
                   No alerts yet
                 </h3>
-                <p className="text-rc-text-muted mb-6 max-w-md">
+                <p className="text-rc-ink-mute mb-6 max-w-md">
                   Create a Score Alert and we&apos;ll email you the moment a peak
                   window opens at your spot.
                 </p>
                 <Button
                   onClick={() => setShowForm(true)}
                   disabled={atLimit}
-                  className="gap-2 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800"
+                  className="gap-2 bg-rc-brand hover:bg-rc-brand-hover text-white"
                 >
                   <Plus className="h-4 w-4" />
                   Create your first alert
@@ -306,24 +310,24 @@ export default function AlertsClient({ spots }: Props) {
           )}
 
           {/* Footer info */}
-          <Card className="bg-rc-bg-dark border-rc-bg-light">
-            <CardContent className="py-5 text-sm text-rc-text-muted space-y-2">
+          <Card className="border-rc-rule shadow-none">
+            <CardContent className="py-5 text-sm text-rc-ink-mute space-y-2">
               <p>
-                <strong className="text-rc-text">How it works:</strong> we check
+                <strong className="text-rc-ink">How it works:</strong> we check
                 conditions every 30 minutes and email you when the score crosses
                 your threshold (subject to cooldown).
               </p>
               <p>
-                <strong className="text-rc-text">SMS:</strong> coming soon — Pro
+                <strong className="text-rc-ink">SMS:</strong> coming soon — Pro
                 Intel users will be able to verify a phone for instant texts.
               </p>
               <p>
-                Current tier: <strong className="text-rc-text">{tier}</strong>
+                Current tier: <strong className="text-rc-ink">{tier}</strong>
               </p>
             </CardContent>
           </Card>
         </div>
-      </div>
+      </main>
 
       <UpgradeRequiredModal
         open={upgradeOpen}
@@ -337,6 +341,6 @@ export default function AlertsClient({ spots }: Props) {
           'Pause / duplicate / history per alert',
         ]}
       />
-    </AppShell>
+    </div>
   );
 }

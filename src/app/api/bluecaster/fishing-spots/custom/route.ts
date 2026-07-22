@@ -1,8 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
+import { createClient } from "@supabase/supabase-js";
 import { createCustomSpot } from "@/lib/bluecaster";
 import { getUserIdFromRequest } from "@/lib/server-auth";
 
 export const maxDuration = 60;
+
+const supabaseAdmin = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.SUPABASE_SERVICE_ROLE_KEY!,
+  { auth: { autoRefreshToken: false, persistSession: false } },
+);
 
 /**
  * POST /api/bluecaster/fishing-spots/custom
@@ -10,12 +17,34 @@ export const maxDuration = 60;
  * Authenticated same-origin proxy to BlueCaster's custom-spot creation.
  * Requires a Supabase session (Bearer token) — this MUTATES shared
  * BlueCaster data (creates a global spot), so anonymous calls are refused.
+ * Custom spots are a Pro feature: free accounts get 403 `pro_required`.
+ * BlueCaster additionally fences coordinates to covered waters and
+ * answers 422 `outside_coverage`, which is passed through.
  * Body: { name, lat, lng }.
  */
 export async function POST(request: NextRequest) {
   const userId = await getUserIdFromRequest(request);
   if (!userId) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  const { data: settings } = await supabaseAdmin
+    .from("user_settings")
+    .select("subscription_tier, subscription_status")
+    .eq("user_id", userId)
+    .maybeSingle();
+  const tier: string = settings?.subscription_tier ?? "free";
+  const status: string = settings?.subscription_status ?? "none";
+  const isPaid =
+    tier.startsWith("pro") && (status === "active" || status === "trialing");
+  if (!isPaid) {
+    return NextResponse.json(
+      {
+        error: "pro_required",
+        message: "Custom spots are a Pro feature — upgrade to add your own.",
+      },
+      { status: 403 },
+    );
   }
 
   const body = await request.json().catch(() => null);
@@ -30,9 +59,14 @@ export async function POST(request: NextRequest) {
   }
 
   try {
-    const data = await createCustomSpot({ name, lat, lng });
-    if (!data) return NextResponse.json({ error: "create_failed" }, { status: 502 });
-    return NextResponse.json(data, {
+    const result = await createCustomSpot({ name, lat, lng });
+    if (!result.ok) {
+      return NextResponse.json(
+        { error: result.error, message: result.message },
+        { status: result.status },
+      );
+    }
+    return NextResponse.json(result.data, {
       headers: { "Cache-Control": "no-store" },
     });
   } catch (err) {

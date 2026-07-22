@@ -32,7 +32,8 @@ const TIER_CHIP: Record<Tier, string> = {
  * One forecast-strip day cell per the reference: DOW · date (two lines) ·
  * large tier-colored score · tier-tinted peak-time chip. Selected = brand
  * fill; best day gets a gold "BEST" badge tab on the top edge; locked days
- * (beyond the free tier) show a lock + "Boat Pro".
+ * show a lock + "Upgrade to Pro" ("Sign up free" for signed-out visitors
+ * on days the free plan unlocks).
  */
 export default function DayCell({
   day,
@@ -53,8 +54,8 @@ export default function DayCell({
         <div className="rc-label text-[9px] leading-none text-center">{day.dow}</div>
         <div className="font-rc-mono text-[10px] text-rc-ink-soft">{day.date}</div>
         <Lock className="w-5 h-5 text-rc-ink-soft my-0.5" />
-        <div className="font-rc-mono text-[9px] text-rc-ink-soft">
-          Boat Pro
+        <div className="font-rc-mono text-[9px] text-rc-ink-soft text-center leading-tight px-0.5">
+          {day.lockTier === "free" ? "Sign up free" : "Upgrade to Pro"}
         </div>
       </button>
     );

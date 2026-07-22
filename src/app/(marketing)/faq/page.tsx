@@ -23,7 +23,7 @@ export const metadata: Metadata = {
 const FAQS: Array<{ q: string; a: string }> = [
   {
     q: 'What does Pro give me that Free doesn’t?',
-    a: 'Pro unlocks the 14-day forecast map, multi-spot custom alerts, full per-spot breakdown panel (wind, swell, tide, pressure, solunar) for every published spot, and unlimited catch-log history. Free is great for browsing the public city/spot pages and a starter dashboard.',
+    a: 'Pro unlocks the full 14-day forecast (a free account sees 7 days; browsing without an account shows the next 2), up to 10 custom alerts with SMS delivery, custom spots anywhere in our covered waters, and the full per-spot breakdown panel (wind, swell, tide, pressure, solunar). Free covers the live map and city/spot pages, the 7-day forecast, 1 email alert, favorites, and catch logging.',
   },
   {
     q: 'Which regions are covered?',
