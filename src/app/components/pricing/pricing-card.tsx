@@ -223,7 +223,14 @@ export default function PricingCard({
               : 'border-rc-rule bg-rc-surface'
           }`}
         >
-          <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1 text-sm">
+          <span
+            className={`inline-block rounded px-2 py-0.5 font-rc-mono text-[11px] font-bold tracking-tight ${
+              yearly ? 'bg-rc-good text-white' : 'bg-rc-good-bg text-rc-good-ink'
+            }`}
+          >
+            SAVE {dollars(saveCents)} · {pct}% OFF
+          </span>
+          <div className="mt-2 flex flex-wrap items-baseline gap-x-2 gap-y-1 text-sm">
             <span className="text-rc-ink-mute line-through">
               {dollars(fullCents)}/yr
             </span>
@@ -232,15 +239,6 @@ export default function PricingCard({
             </span>
             <span className="font-bold text-rc-ink">
               {dollars(ANNUAL_PRICE_CENTS)}/yr
-            </span>
-            <span
-              className={`ml-auto rounded px-2 py-0.5 font-rc-mono text-[11px] font-bold tracking-tight ${
-                yearly
-                  ? 'bg-rc-good text-white'
-                  : 'bg-rc-good-bg text-rc-good-ink'
-              }`}
-            >
-              SAVE {dollars(saveCents)} · {pct}% OFF
             </span>
           </div>
           <p className="mt-1.5 font-rc-mono text-[11px] text-rc-ink-mute">
