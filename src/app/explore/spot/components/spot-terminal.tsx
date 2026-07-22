@@ -220,7 +220,7 @@ function buildSvg(
     return p;
   };
 
-  let s = `<svg id="${id}" viewBox="0 0 ${W} ${H}" width="100%" tabindex="0" role="slider" aria-label="24-hour conditions — arrow keys to scrub by hour" aria-valuemin="0" aria-valuemax="23" aria-valuenow="0" style="touch-action:none;cursor:crosshair">`;
+  let s = `<svg id="${id}" viewBox="0 0 ${W} ${H}" width="100%" tabindex="0" role="slider" aria-label="24-hour conditions — arrow keys to scrub by hour" aria-valuemin="0" aria-valuemax="23" aria-valuenow="0" data-ty0="${Y.tide.y0}" data-ty1="${Y.tide.y1}" style="touch-action:none;cursor:crosshair">`;
   s += `<defs><linearGradient id="${id}tg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${C.brand}" stop-opacity=".13"/><stop offset="1" stop-color="${C.brand}" stop-opacity="0"/></linearGradient></defs>`;
 
   TW.forEach((t) => { if (t[1] <= t[0]) return; s += `<rect x="${xAt(t[0]).toFixed(1)}" y="${cTop}" width="${((t[1] - t[0]) * hw).toFixed(1)}" height="${cBot - cTop}" fill="#334155" opacity="${t[2]}"/>`; });
@@ -299,12 +299,27 @@ function buildSvg(
     if (mob) s += `<text class="tm-lbl" x="${x0}" y="${(r.y0 ?? 0) - 5}">${r.l.toUpperCase()}</text>`;
     else { s += `<text class="tm-lbl" x="12" y="${(r.y0 ?? 0) + 14}">${r.l.toUpperCase()}</text>`; if (r.n) s += `<text class="tm-note" x="12" y="${(r.y0 ?? 0) + 30}">${r.n}</text>`; } });
 
-  // hour axis + sun ticks — drop any hour label the sun glyph would overlap
+  // hour axis + sun context. Desktop: sunrise/sunset carry a glyph + time, and
+  // first light / last light (nautical twilight) get a faint tick at the top of
+  // the plot — the daylight envelope Surfline shows. The plain hour label under
+  // any sun marker is dropped so they don't collide.
+  const sunTimes = mob ? [sun.sunrise, sun.sunset] : [sun.nauticalRise, sun.sunrise, sun.sunset, sun.nauticalSet];
   for (let a = 0; a <= 24; a += mob ? 6 : 3) {
-    if ([sun.sunrise, sun.sunset].some((t) => Math.abs(t - a) < 0.7)) continue;
+    if (sunTimes.some((t) => Math.abs(t - a) < 0.8)) continue;
     s += `<text class="tm-ax" x="${xAt(a).toFixed(1)}" y="${axisY + 12}" text-anchor="middle">${String(a).padStart(2, "0")}</text>`;
   }
-  [sun.sunrise, sun.sunset].forEach((t) => { s += `<text x="${xAt(t).toFixed(1)}" y="${axisY + 12}" text-anchor="middle" style="font-size:${mob ? 8 : 9}px;fill:${C.r[2]}">☀</text>`; });
+  if (mob) {
+    [sun.sunrise, sun.sunset].forEach((t) => { s += `<text x="${xAt(t).toFixed(1)}" y="${axisY + 12}" text-anchor="middle" style="font-size:8px;fill:${C.r[2]}">☀</text>`; });
+  } else {
+    // first / last light — faint short ticks just under the axis
+    [sun.nauticalRise, sun.nauticalSet].forEach((t) => {
+      s += `<text class="tm-ax" x="${xAt(t).toFixed(1)}" y="${axisY + 12}" text-anchor="middle" style="fill:${C.faint}">${hh(t)}</text>`;
+    });
+    // sunrise / sunset — glyph + time
+    [sun.sunrise, sun.sunset].forEach((t) => {
+      s += `<text x="${xAt(t).toFixed(1)}" y="${axisY + 12}" text-anchor="middle" style="font-size:11px;fill:${C.r[2]};font-family:var(--rc-font-mono)">☀${hh(t)}</text>`;
+    });
+  }
 
   // right-gutter readouts (desktop)
   if (!mob) { const rx = x1 + 14;
@@ -318,11 +333,17 @@ function buildSvg(
   // 0, the cell spans 0.8-hw/2 wide by hw-1.6). The vertical line starts
   // below the score row so the outlined cell stays clean — no line through
   // the score number.
-  const selX = (0.8 - hw / 2).toFixed(1), selW = (hw - 1.6).toFixed(1);
-  s += `<g id="${id}-cur"><rect x="${selX}" y="${(Y.score.y0 - 1).toFixed(1)}" width="${selW}" height="${(Y.score.y1 - Y.score.y0 + 2).toFixed(1)}" rx="2" fill="none" stroke="${C.brand}" stroke-width="2"/><line x1="0" y1="${(Y.score.y1 + 1).toFixed(1)}" x2="0" y2="${mob ? cBot : axisY + 2}" stroke="${C.brand}" stroke-width="1.5"/>`;
-  // Time tag is desktop-only (the readout bar already shows it on mobile) and
-  // lives in its own sub-group so the mover can clamp it inside the plot.
-  if (!mob) s += `<g id="${id}-tagg"><rect x="-24" y="${cTop - 21}" width="48" height="18" rx="2" fill="${C.brand}"/><text class="tm-ctag" x="0" y="${cTop - 7}" text-anchor="middle">00:00</text></g>`;
+  // Snapping score-cell outline — highlights the whole hour cell under the
+  // cursor (floor of the fractional position), positioned absolutely so it
+  // stays grid-aligned even while the line below scrubs continuously.
+  const selW = (hw - 1.6).toFixed(1);
+  s += `<rect id="${id}-cell" x="${(x0 + 0.8).toFixed(1)}" y="${(Y.score.y0 - 1).toFixed(1)}" width="${selW}" height="${(Y.score.y1 - Y.score.y0 + 2).toFixed(1)}" rx="2" fill="none" stroke="${C.brand}" stroke-width="2"/>`;
+  // Smooth cursor group — translated to the exact pointer time (fractional on
+  // desktop): a vertical line, a dot riding the tide curve, and a hover pill
+  // reading time + score at that point (Surfline-style, follows the cursor).
+  s += `<g id="${id}-cur"><line x1="0" y1="${(Y.score.y1 + 1).toFixed(1)}" x2="0" y2="${mob ? cBot : axisY + 2}" stroke="${C.brand}" stroke-width="1.5"/>`;
+  s += `<circle id="${id}-tdot" cx="0" cy="${Y.tide.y0.toFixed(1)}" r="3.2" fill="${C.brand}" stroke="#fff" stroke-width="1.5" display="none"/>`;
+  if (!mob) s += `<g id="${id}-tagg"><rect x="-52" y="${cTop - 23}" width="104" height="19" rx="3" fill="${C.brand}"/><text class="tm-ctag" id="${id}-tagt" x="0" y="${cTop - 9}" text-anchor="middle">—</text></g>`;
   s += `</g>`;
   s += "</svg>";
   return s;
@@ -401,33 +422,89 @@ export default function SpotTerminal({
     };
   };
 
+  // Scrub only over scored hours: leading/trailing hours with no fishing score
+  // (e.g. today's 00:00, which has tide but no weather forecast yet) render as
+  // empty cells and must not hold the cursor — clamp the selectable range to
+  // the first…last scored hour so the readout never lands on an empty cell.
+  const loH = Math.max(0, hours.score.findIndex((v) => num(v) != null));
+  let hiH = 23; while (hiH > loH && num(hours.score[hiH]) == null) hiH--;
+  const clampH = (h: number) => Math.max(loH, Math.min(hiH, h));
+  // Fractional time (curve space 0–24) clamped to the scored cells.
+  const clampTf = (t: number) => Math.max(loH, Math.min(hiH + 1 - 1e-3, t));
+
+  // Desktop scrubs continuously (a fractional hover time per host); mobile stays
+  // on integer hours and reads out in the bar above. null = not hovering.
+  const hoverTfRef = useRef<Record<string, number | null>>({ tmd: null, tmm: null });
+
+  // Single painter for both the smooth pointer path and the keyboard/prop path:
+  // positions the snapping cell outline, the smooth line, the tide-riding dot,
+  // the hover pill, the gutter readouts and the aria state for a fractional `tf`.
+  const paint = (host: HTMLDivElement | null, id: string, mob: boolean, tf: number) => {
+    const svg = host?.querySelector("svg") as SVGSVGElement | null; if (!svg) return;
+    const { LABEL: x0, READ } = gutters(mob);
+    const vw = svg.viewBox.baseVal.width, hw = (vw - x0 - READ) / 24, x1 = vw - READ;
+    const cursorX = x0 + tf * hw;
+    const idx = Math.max(0, Math.min(23, Math.floor(tf)));
+    const cell = svg.querySelector(`#${id}-cell`); if (cell) cell.setAttribute("x", (x0 + idx * hw + 0.8).toFixed(1));
+    const g = svg.querySelector(`#${id}-cur`); if (g) g.setAttribute("transform", `translate(${cursorX.toFixed(1)},0)`);
+    const tdot = svg.querySelector(`#${id}-tdot`);
+    const ty0 = Number(svg.dataset.ty0), ty1 = Number(svg.dataset.ty1);
+    if (tdot && Number.isFinite(ty0)) {
+      const tv = interp(hours.tide, tf);
+      if (tv == null) tdot.setAttribute("display", "none");
+      else { const yy = ty1 - ((tv - ts.mn) / (ts.mx - ts.mn)) * (ty1 - ty0); tdot.setAttribute("cy", yy.toFixed(1)); tdot.setAttribute("display", ""); }
+    }
+    const d = readAt(idx);
+    if (!mob && g) {
+      const tagg = g.querySelector(`#${id}-tagg`);
+      if (tagg) {
+        const shift = Math.max(x0 + 54, Math.min(x1 - 54, cursorX)) - cursorX;
+        tagg.setAttribute("transform", `translate(${shift.toFixed(1)},0)`);
+        const t = svg.querySelector(`#${id}-tagt`); if (t) t.textContent = `${hh(tf)} · ${d.score === "—" ? "—" : d.score + " " + d.verd}`;
+      }
+      const set = (k: string, v: string, fill?: string) => { const e = svg.querySelector(`#${id}-${k}-v`); if (e) { e.textContent = v; if (fill) e.setAttribute("fill", fill); } };
+      const sub = (k: string, v: string) => { const e = svg.querySelector(`#${id}-${k}-s`); if (e) e.textContent = v; };
+      set("score", d.score, d.col); sub("score", `${d.verd}${d.scoreDeltaTxt}`);
+      set("tide", d.tide); sub("tide", d.tideS);
+      set("cur", d.curSigned); sub("cur", d.curS);
+      set("wind", d.wind); sub("wind", d.windS);
+      set("sea", d.sea); sub("sea", d.seaS);
+      set("air", d.air); sub("air", d.airS);
+    }
+    svg.setAttribute("aria-valuenow", String(idx));
+    svg.setAttribute("aria-valuetext", `${hh(tf)}, score ${d.score} ${d.verd}, tide ${d.tide}, wind ${d.wind}, sea ${d.seaS}, air ${d.air}`);
+  };
+
   // Build both SVGs when data changes.
   useEffect(() => {
     if (deskRef.current && deskW > 400) deskRef.current.innerHTML = buildSvg(hours, cur, ts, sun, bestWindow, { w: deskW, ...gutters(false), mobile: false, id: "tmd" }, units);
     if (mobRef.current) mobRef.current.innerHTML = buildSvg(hours, cur, ts, sun, bestWindow, { w: mobW, ...gutters(true), mobile: true, id: "tmm" }, units);
-    // Scrub only over scored hours: leading/trailing hours with no fishing score
-    // (e.g. today's 00:00, which has tide but no weather forecast yet) render as
-    // empty cells and must not hold the cursor — clamp the selectable range to
-    // the first…last scored hour so the readout never lands on an empty cell.
-    let loH = hours.score.findIndex((v) => num(v) != null);
-    if (loH < 0) loH = 0;
-    let hiH = 23; while (hiH > loH && num(hours.score[hiH]) == null) hiH--;
-    const clampH = (h: number) => Math.max(loH, Math.min(hiH, h));
     const wire = (host: HTMLDivElement | null, id: string, mob: boolean) => {
       const svg = host?.querySelector("svg") as SVGSVGElement | null; if (!svg) return;
-      const hFromEvt = (e: PointerEvent) => {
+      // Fractional curve-time under the pointer (0–24), clamped to scored cells.
+      const tfFromEvt = (e: PointerEvent) => {
         const r = svg.getBoundingClientRect(); const scale = svg.viewBox.baseVal.width / r.width;
         const vx = (e.clientX - r.left) * scale; const { LABEL: x0, READ } = gutters(mob), hw = (svg.viewBox.baseVal.width - x0 - READ) / 24;
-        return (vx - x0) / hw - 0.5;
+        return clampTf((vx - x0) / hw);
       };
       // Light haptic tick while touch-scrubbing; no-op where the vibration
       // API is missing (iOS Safari).
       const haptic = () => { try { navigator.vibrate?.(8); } catch {} };
       const move = (e: PointerEvent) => {
-        const h = clampH(Math.round(hFromEvt(e)));
-        if (lastHRef.current != null && h !== lastHRef.current && e.pointerType !== "mouse") haptic();
-        lastHRef.current = h;
-        onSelectHour(h);
+        const tf = tfFromEvt(e);
+        // A zero-width svg (hidden across a breakpoint, mid-resize) yields a
+        // non-finite time — bail rather than propagate NaN into selectedHour,
+        // which would crash the day/hour → ISO conversion downstream.
+        if (!Number.isFinite(tf)) return;
+        const idx = clampH(Math.floor(tf));
+        if (lastHRef.current != null && idx !== lastHRef.current && e.pointerType !== "mouse") haptic();
+        lastHRef.current = idx;
+        // Desktop tracks the exact fractional time (smooth); mobile snaps to the
+        // hour cell and reads out in the bar above.
+        const pt = mob ? idx + 0.5 : tf;
+        hoverTfRef.current[id] = mob ? null : tf;
+        paint(host, id, mob, pt);
+        onSelectHour(idx);
       };
       svg.addEventListener("pointerdown", (e) => {
         downRef.current = true;
@@ -448,7 +525,10 @@ export default function SpotTerminal({
         // finger drifts — never mid-gesture reset; up/cancel end the drag.
         if (e.pointerType === "mouse") {
           downRef.current = false;
-          onSelectHour(clampH(nowHour));
+          hoverTfRef.current[id] = null;
+          const nh = clampH(nowHour);
+          paint(host, id, mob, nh + 0.5);
+          onSelectHour(nh);
         }
       });
       // Keyboard: arrow keys move the hour; Home/End jump to the ends.
@@ -460,6 +540,7 @@ export default function SpotTerminal({
         else if (e.key === "Home") next = 0;
         else if (e.key === "End") next = 23;
         if (next != null) {
+          hoverTfRef.current[id] = null;
           onSelectHour(clampH(next));
           e.preventDefault();
         }
@@ -473,41 +554,13 @@ export default function SpotTerminal({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [hours, realCurrent, tideRange, sun, bestWindow?.[0], bestWindow?.[1], deskW, mobW, windUnit, tempUnit, precipUnit, heightUnit]);
 
-  // Move cursor + refresh readouts when the selected hour changes.
+  // Move cursor + refresh readouts when the selected hour changes (keyboard,
+  // parent, or a data refresh). During an active desktop hover the pointer path
+  // already owns the position (hoverTfRef), so paint at that fractional time;
+  // otherwise centre on the selected hour's cell.
   useEffect(() => {
-    const apply = (host: HTMLDivElement | null, id: string, mob: boolean) => {
-      const svg = host?.querySelector("svg") as SVGSVGElement | null; if (!svg) return;
-      const { LABEL: x0, READ } = gutters(mob), hw = (svg.viewBox.baseVal.width - x0 - READ) / 24;
-      const g = svg.querySelector(`#${id}-cur`) as SVGGElement | null; if (!g) return;
-      const cx = x0 + selectedHour * hw + hw / 2;
-      g.setAttribute("transform", `translate(${cx.toFixed(1)},0)`);
-      // Clamp the time tag inside the plot so it never clips at hour 0 / 23.
-      const tagg = g.querySelector(`#${id}-tagg`) as SVGGElement | null;
-      if (tagg) {
-        const x1 = svg.viewBox.baseVal.width - READ;
-        const shift = Math.max(x0 + 25, Math.min(x1 - 25, cx)) - cx;
-        tagg.setAttribute("transform", `translate(${shift.toFixed(1)},0)`);
-        const tag = tagg.querySelector("text"); if (tag) tag.textContent = hh(selectedHour);
-      }
-      const rd = readAt(selectedHour);
-      svg.setAttribute("aria-valuenow", String(selectedHour));
-      svg.setAttribute(
-        "aria-valuetext",
-        `${rd.hour}, score ${rd.score} ${rd.verd}, tide ${rd.tide}, wind ${rd.wind}, sea ${rd.seaS}, air ${rd.air}`,
-      );
-      if (!mob) { const d = readAt(selectedHour);
-        const set = (k: string, v: string, fill?: string) => { const e = svg.querySelector(`#${id}-${k}-v`); if (e) { e.textContent = v; if (fill) e.setAttribute("fill", fill); } };
-        const sub = (k: string, v: string) => { const e = svg.querySelector(`#${id}-${k}-s`); if (e) e.textContent = v; };
-        set("score", d.score, d.col); sub("score", `${d.verd}${d.scoreDeltaTxt}`);
-        set("tide", d.tide); sub("tide", d.tideS);
-        set("cur", d.curSigned); sub("cur", d.curS);
-        set("wind", d.wind); sub("wind", d.windS);
-        set("sea", d.sea); sub("sea", d.seaS);
-        set("air", d.air); sub("air", d.airS);
-      }
-    };
-    apply(deskRef.current, "tmd", false);
-    apply(mobRef.current, "tmm", true);
+    paint(deskRef.current, "tmd", false, hoverTfRef.current.tmd ?? selectedHour + 0.5);
+    paint(mobRef.current, "tmm", true, selectedHour + 0.5);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedHour, hours, realCurrent, deskW, mobW, windUnit, tempUnit, heightUnit]);
 
