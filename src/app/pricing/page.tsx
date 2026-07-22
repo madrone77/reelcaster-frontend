@@ -14,7 +14,7 @@ const SITE_URL = "https://reelcaster.com";
 export const metadata: Metadata = {
   title: "Pro Pricing | ReelCaster",
   description:
-    "ReelCaster Pro is $5/month or $33/year (45% off). Unlock 14-day forecasts, up to 10 custom alerts, and custom spot profiles.",
+    "ReelCaster Pro is $5/month or $33/year (45% off). Unlock 14-day forecasts, custom alerts, and custom spot profiles.",
   alternates: { canonical: `${SITE_URL}/pricing` },
   openGraph: {
     title: "Pro Pricing | ReelCaster",
@@ -60,8 +60,8 @@ export default async function PricingPage() {
           One plan. {dollars(MONTHLY_PRICE_CENTS)} a month.
         </h1>
         <p className="max-w-2xl text-base md:text-lg leading-relaxed text-rc-ink-soft">
-          Everything in Pro — the full 14-day forecast, up to 10 custom alerts,
-          and custom spot profiles — for {dollars(MONTHLY_PRICE_CENTS)} a month,
+          Everything in Pro — the full 14-day forecast, custom alerts, and
+          custom spot profiles — for {dollars(MONTHLY_PRICE_CENTS)} a month,
           or {dollars(ANNUAL_PRICE_CENTS)} a year and save {pct}%.
         </p>
 
