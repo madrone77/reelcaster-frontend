@@ -5,6 +5,22 @@ import type {
   FactorContributions,
   ScoreSpeciesEntry,
 } from "@/lib/bluecaster/live-spot-types";
+import { useUnitPreferences } from "@/contexts/unit-preferences-context";
+import {
+  WIND_LABELS,
+  convertWind,
+  convertTemp,
+  convertHeight,
+  convertPressure,
+  convertPrecip,
+  formatPressure,
+  formatPrecip,
+  type WindUnit,
+  type TempUnit,
+  type PrecipUnit,
+  type HeightUnit,
+  type PressureUnit,
+} from "@/app/utils/unit-conversions";
 
 // Human labels for the engine's factor keys (mirrors bluecaster/lib/factor-format).
 const FACTOR_LABEL: Record<string, string> = {
@@ -39,25 +55,43 @@ const pad = (n: number): string => String(n).padStart(2, "0");
 
 // ── value sub-line formatting ─────────────────────────────────────────────
 
-const VALUE_UNIT: Record<string, (v: number) => string> = {
-  barometric_pressure_hpa: (v) => `${Math.round(v)} mb`,
+type ValueUnits = {
+  windUnit: WindUnit;
+  tempUnit: TempUnit;
+  precipUnit: PrecipUnit;
+  heightUnit: HeightUnit;
+  pressureUnit: PressureUnit;
+};
+
+// Source units in the payload: speeds kn, heights m, temps °C, pressure mb,
+// rain mm. Only the displayed string converts — chart geometry stays in
+// source units.
+const buildValueUnit = (u: ValueUnits): Record<string, (v: number) => string> => ({
+  barometric_pressure_hpa: (v) =>
+    formatPressure(convertPressure(v, "mb", u.pressureUnit), u.pressureUnit),
   minutes_to_next_slack: (v) => `${Math.round(v)} min to slack`,
-  sea_surface_temp_c: (v) => `${v.toFixed(1)}° water`,
-  air_temp: (v) => `${v.toFixed(1)}° air`,
-  wind: (v) => `${Math.round(v)} kn wind`,
-  tidal_current_speed_kt: (v) => `${v.toFixed(1)} kn current`,
-  tidal_current_rate_of_change_kt_per_hr: (v) => `${v.toFixed(1)} kn/hr`,
-  swell_height_m: (v) => `${v.toFixed(1)} m swell`,
+  sea_surface_temp_c: (v) => `${convertTemp(v, "C", u.tempUnit).toFixed(1)}° water`,
+  air_temp: (v) => `${convertTemp(v, "C", u.tempUnit).toFixed(1)}° air`,
+  wind: (v) =>
+    `${Math.round(convertWind(v, "knots", u.windUnit))} ${WIND_LABELS[u.windUnit]} wind`,
+  tidal_current_speed_kt: (v) =>
+    `${convertWind(v, "knots", u.windUnit).toFixed(1)} ${WIND_LABELS[u.windUnit]} current`,
+  tidal_current_rate_of_change_kt_per_hr: (v) =>
+    `${convertWind(v, "knots", u.windUnit).toFixed(1)} ${WIND_LABELS[u.windUnit]}/hr`,
+  swell_height_m: (v) =>
+    `${convertHeight(v, "m", u.heightUnit).toFixed(1)} ${u.heightUnit} swell`,
   swell_period_s: (v) => `${Math.round(v)} s period`,
-  wave_height_m: (v) => `${v.toFixed(1)} m`,
-  tide_range_24h_m: (v) => `${v.toFixed(1)} m swing`,
+  wave_height_m: (v) => `${convertHeight(v, "m", u.heightUnit).toFixed(1)} ${u.heightUnit}`,
+  tide_range_24h_m: (v) =>
+    `${convertHeight(v, "m", u.heightUnit).toFixed(1)} ${u.heightUnit} swing`,
   solar_elevation_deg: (v) => `${Math.round(v)}° sun`,
   daylight_hours: (v) => `${v.toFixed(1)} h light`,
   moon_illumination_pct: (v) => `${Math.round(v)}% moon`,
   visibility: (v) => `${Math.round(v)} km vis`,
   visibility_km: (v) => `${Math.round(v)} km vis`,
-  precipitation: (v) => (v > 0 ? `${v.toFixed(1)} mm rain` : "Dry"),
-};
+  precipitation: (v) =>
+    v > 0 ? `${formatPrecip(convertPrecip(v, "mm", u.precipUnit), u.precipUnit)} rain` : "Dry",
+});
 
 function titleCase(v: string): string {
   return v
@@ -72,13 +106,14 @@ function formatFactorValue(
   key: string,
   raw: number | string | null,
   fit: number | null,
+  valueUnit: Record<string, (v: number) => string>,
 ): string {
   if (key === "pressure_trend_3h" && typeof raw === "number") {
     const word = raw > 0.2 ? "Rising" : raw < -0.2 ? "Falling" : "Steady";
     return `${word} · ${raw >= 0 ? "+" : ""}${raw.toFixed(1)}/3hr`;
   }
   if (typeof raw === "number" && Number.isFinite(raw)) {
-    const fmt = VALUE_UNIT[key];
+    const fmt = valueUnit[key];
     return fmt ? fmt(raw) : `${Math.round(raw * 10) / 10}`;
   }
   if (typeof raw === "string" && raw.trim()) return titleCase(raw);
@@ -357,6 +392,7 @@ function FactorRow({
   windowRange,
   windowLabel,
   showAnnotations,
+  valueUnit,
 }: {
   f: FactorSeries;
   marker: number;
@@ -365,12 +401,13 @@ function FactorRow({
   windowRange: Range;
   windowLabel?: string | null;
   showAnnotations: boolean;
+  valueUnit: Record<string, (v: number) => string>;
 }) {
   // Contribution shown for the selected hour; fall back to the day's peak.
   const atMarker = f.contribs[marker];
   const peak = f.contribs.reduce<number>((m, v) => (v != null && v > m ? v : m), 0);
   const contribution = Math.round((atMarker ?? peak) * 100);
-  const valueLine = formatFactorValue(f.key, f.raws[marker], f.fits[marker]);
+  const valueLine = formatFactorValue(f.key, f.raws[marker], f.fits[marker], valueUnit);
   const slotPct = (i: number) =>
     f.kind === "bars" ? ((i + 0.5) / 24) * 100 : curveX(i);
   const nowPct = slotPct(nowHour);
@@ -471,6 +508,11 @@ export default function FactorCharts({
   windowLabel?: string | null;
 }) {
   const series = useMemo(() => buildSeries(entry, tz), [entry, tz]);
+  const { windUnit, tempUnit, precipUnit, heightUnit, pressureUnit } = useUnitPreferences();
+  const valueUnit = useMemo(
+    () => buildValueUnit({ windUnit, tempUnit, precipUnit, heightUnit, pressureUnit }),
+    [windUnit, tempUnit, precipUnit, heightUnit, pressureUnit],
+  );
 
   if (series.length === 0) return null;
 
@@ -496,6 +538,7 @@ export default function FactorCharts({
             windowRange={windowRange}
             windowLabel={windowLabel}
             showAnnotations={i === 0}
+            valueUnit={valueUnit}
           />
         ))}
       </div>

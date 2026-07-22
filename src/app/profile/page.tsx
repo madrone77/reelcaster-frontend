@@ -11,6 +11,7 @@ import { Input } from '@/components/ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { useAuth } from '@/contexts/auth-context'
 import { useAnalytics } from '@/hooks/use-analytics'
+import { useUnitPreferences } from '@/contexts/unit-preferences-context'
 import { UserPreferences, UserPreferencesService } from '@/lib/user-preferences'
 import ExploreTopBar from '@/app/explore/components/explore-top-bar'
 import SubscriptionCard from '../components/account/subscription-card'
@@ -28,6 +29,7 @@ const fishSpecies = SPECIES_OPTIONS
 export default function ProfilePage() {
   const { user, signOut } = useAuth()
   const { trackEvent } = useAnalytics()
+  const { refresh: refreshUnits } = useUnitPreferences()
   const router = useRouter()
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
@@ -74,6 +76,10 @@ export default function ProfilePage() {
 
       if (result.success) {
         setMessage({ type: 'success', text: 'Preferences saved successfully!' })
+
+        // Push the new units into the app-wide provider so open surfaces
+        // (Explore, spot pages) reflect them without a reload.
+        refreshUnits()
 
         // Track which fields changed
         const changedFields: string[] = []
@@ -370,7 +376,7 @@ export default function ProfilePage() {
                       Wind Speed
                     </Label>
                     <Select
-                      value={preferences.windUnit || 'kph'}
+                      value={preferences.windUnit || 'knots'}
                       onValueChange={value =>
                         setPreferences(prev => ({ ...prev, windUnit: value as 'kph' | 'mph' | 'knots' }))
                       }

@@ -4,6 +4,14 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { Check, ImagePlus, Loader2, Sparkles } from "lucide-react";
 import { useAuth } from "@/contexts/auth-context";
+import { useUnitPreferences } from "@/contexts/unit-preferences-context";
+import {
+  convertDistance,
+  convertTemp,
+  formatDistance,
+  formatTemp,
+  type TempUnit,
+} from "@/app/utils/unit-conversions";
 import { uploadCatchPhoto, getCatchPhotoSignedUrl } from "@/lib/catch-photo-upload";
 import { fetchCatchPreview } from "@/lib/bluecaster-client";
 
@@ -75,6 +83,7 @@ export default function CatchForm({
   onClose,
 }: CatchFormProps) {
   const { user, session } = useAuth();
+  const { tempUnit, distanceUnit } = useUnitPreferences();
 
   const [speciesId, setSpeciesId] = useState<string | null>(initialSpeciesId);
   const [sizeText, setSizeText] = useState(initialSizeText);
@@ -291,7 +300,7 @@ export default function CatchForm({
   }
 
   // ── Form ──────────────────────────────────────────────────────────
-  const conditionLine = conditions ? buildConditionLine(conditions) : null;
+  const conditionLine = conditions ? buildConditionLine(conditions, tempUnit) : null;
 
   return (
     <div>
@@ -312,7 +321,15 @@ export default function CatchForm({
           </div>
           <div className="font-rc-mono text-[11px] text-rc-ink-soft mt-0.5">
             {(conditionLine ??
-              [spot.region, spot.distanceKm != null ? `${spot.distanceKm.toFixed(1)} km` : null]
+              [
+                spot.region,
+                spot.distanceKm != null
+                  ? formatDistance(
+                      convertDistance(spot.distanceKm, "km", distanceUnit),
+                      distanceUnit,
+                    )
+                  : null,
+              ]
                 .filter(Boolean)
                 .join(" · ")) ||
               "Conditions captured"}
@@ -474,14 +491,15 @@ function parseSize(text: string): {
   return { weightKg: clamp(weightKg), lengthCm: clamp(lengthCm) };
 }
 
-function buildConditionLine(c: CatchConditions): string | null {
+function buildConditionLine(c: CatchConditions, tempUnit: TempUnit): string | null {
   const parts: string[] = [];
   if (c.score != null) parts.push(`Score ${Math.round(c.score)}`);
   const tide = [c.tidePhase, c.windDir].filter(Boolean).join(" ");
   if (tide) parts.push(tide);
   if (c.windKt != null)
     parts.push(`${Math.round(c.windKt)} kt${c.windDir ? ` ${c.windDir}` : ""}`);
-  if (c.waterTempC != null) parts.push(`${c.waterTempC.toFixed(1)}°C`);
+  if (c.waterTempC != null)
+    parts.push(formatTemp(convertTemp(c.waterTempC, "C", tempUnit), tempUnit, 1));
   return parts.length ? parts.join(" · ") : null;
 }
 

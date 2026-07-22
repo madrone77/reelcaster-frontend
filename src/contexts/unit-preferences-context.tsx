@@ -2,17 +2,78 @@
 
 import { createContext, useContext, useEffect, useState, useCallback } from 'react'
 import { UserPreferencesService } from '@/lib/user-preferences'
-import { WindUnit, TempUnit, PrecipUnit, HeightUnit, MetricType, getNextUnit } from '@/app/utils/unit-conversions'
+import {
+  WindUnit,
+  TempUnit,
+  PrecipUnit,
+  HeightUnit,
+  DistanceUnit,
+  PressureUnit,
+  AnyUnit,
+  MetricType,
+  getNextUnit,
+} from '@/app/utils/unit-conversions'
 import { useAuth } from './auth-context'
 import { useMixpanel } from './mixpanel-context'
 
-interface UnitPreferencesContextType {
+export interface UnitPrefs {
   windUnit: WindUnit
   tempUnit: TempUnit
   precipUnit: PrecipUnit
   heightUnit: HeightUnit
+  distanceUnit: DistanceUnit
+  pressureUnit: PressureUnit
+}
+
+interface UnitPreferencesContextType extends UnitPrefs {
+  setUnit: (type: MetricType, unit: AnyUnit) => Promise<void>
   cycleUnit: (type: MetricType) => Promise<void>
+  /** Re-pull saved prefs (e.g. after the profile page bulk-saves). */
+  refresh: () => Promise<void>
   loading: boolean
+}
+
+// Defaults match what the product surfaces render when no preference is set
+// (marine convention: wind/current in knots, tides/waves metric like the DFO
+// tables, pressure in mb). Keep in step with DEFAULT_PREFERENCES in
+// lib/user-preferences.ts.
+const DEFAULT_UNITS: UnitPrefs = {
+  windUnit: 'knots',
+  tempUnit: 'C',
+  precipUnit: 'mm',
+  heightUnit: 'm',
+  distanceUnit: 'km',
+  pressureUnit: 'mb',
+}
+
+const UNIT_KEY: Record<MetricType, keyof UnitPrefs> = {
+  wind: 'windUnit',
+  temp: 'tempUnit',
+  precip: 'precipUnit',
+  height: 'heightUnit',
+  distance: 'distanceUnit',
+  pressure: 'pressureUnit',
+}
+
+// Anonymous visitors keep their units in localStorage; signed-in users get
+// the same fast local read first, then the server copy wins when it loads.
+const STORAGE_KEY = 'rc-unit-prefs'
+
+function readLocal(): Partial<UnitPrefs> {
+  if (typeof window === 'undefined') return {}
+  try {
+    return JSON.parse(window.localStorage.getItem(STORAGE_KEY) ?? '{}')
+  } catch {
+    return {}
+  }
+}
+
+function writeLocal(prefs: UnitPrefs) {
+  try {
+    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(prefs))
+  } catch {
+    // Private-mode/quota failures just mean no persistence.
+  }
 }
 
 const UnitPreferencesContext = createContext<UnitPreferencesContextType | undefined>(undefined)
@@ -20,81 +81,72 @@ const UnitPreferencesContext = createContext<UnitPreferencesContextType | undefi
 export function UnitPreferencesProvider({ children }: { children: React.ReactNode }) {
   const { user } = useAuth()
   const { trackEvent } = useMixpanel()
-  const [windUnit, setWindUnit] = useState<WindUnit>('kph')
-  const [tempUnit, setTempUnit] = useState<TempUnit>('C')
-  const [precipUnit, setPrecipUnit] = useState<PrecipUnit>('mm')
-  const [heightUnit, setHeightUnit] = useState<HeightUnit>('m')
+  const [units, setUnits] = useState<UnitPrefs>(DEFAULT_UNITS)
   const [loading, setLoading] = useState(true)
 
-  // Load preferences from UserPreferencesService
-  useEffect(() => {
-    const loadPreferences = async () => {
-      setLoading(true)
-      const preferences = await UserPreferencesService.getUserPreferences()
+  const loadSaved = useCallback(async () => {
+    // Local copy first so anonymous visitors (and the first paint for
+    // signed-in users) don't flash defaults.
+    const local = readLocal()
+    setUnits((prev) => ({ ...prev, ...local }))
 
-      setWindUnit(preferences.windUnit || 'kph')
-      setTempUnit(preferences.tempUnit || 'C')
-      setPrecipUnit(preferences.precipUnit || 'mm')
-      setHeightUnit(preferences.heightUnit || 'm')
-
-      setLoading(false)
+    if (user) {
+      const p = await UserPreferencesService.getUserPreferences()
+      const server: UnitPrefs = {
+        windUnit: p.windUnit || DEFAULT_UNITS.windUnit,
+        tempUnit: p.tempUnit || DEFAULT_UNITS.tempUnit,
+        precipUnit: p.precipUnit || DEFAULT_UNITS.precipUnit,
+        heightUnit: p.heightUnit || DEFAULT_UNITS.heightUnit,
+        distanceUnit: p.distanceUnit || DEFAULT_UNITS.distanceUnit,
+        pressureUnit: p.pressureUnit || DEFAULT_UNITS.pressureUnit,
+      }
+      setUnits(server)
+      writeLocal(server)
     }
-
-    loadPreferences()
+    setLoading(false)
   }, [user])
 
-  // Cycle to next unit for a given metric type
-  const cycleUnit = useCallback(async (type: MetricType) => {
-    let currentUnit: WindUnit | TempUnit | PrecipUnit | HeightUnit
-    let setUnit: (unit: any) => void
+  useEffect(() => {
+    loadSaved()
+  }, [loadSaved])
 
-    switch (type) {
-      case 'wind':
-        currentUnit = windUnit
-        setUnit = setWindUnit
-        break
-      case 'temp':
-        currentUnit = tempUnit
-        setUnit = setTempUnit
-        break
-      case 'precip':
-        currentUnit = precipUnit
-        setUnit = setPrecipUnit
-        break
-      case 'height':
-        currentUnit = heightUnit
-        setUnit = setHeightUnit
-        break
-      default:
-        return
-    }
+  const setUnit = useCallback(
+    async (type: MetricType, unit: AnyUnit) => {
+      const key = UNIT_KEY[type]
+      setUnits((prev) => {
+        const next = { ...prev, [key]: unit }
+        writeLocal(next)
+        return next
+      })
+      if (user) {
+        await UserPreferencesService.updateUserPreferences({ [key]: unit })
+      }
+    },
+    [user],
+  )
 
-    const nextUnit = getNextUnit(currentUnit as any, type)
+  const cycleUnit = useCallback(
+    async (type: MetricType) => {
+      const current = units[UNIT_KEY[type]]
+      const next = getNextUnit(current, type) as AnyUnit
 
-    // Track unit cycled event
-    trackEvent('Unit Cycled', {
-      metricType: type,
-      oldUnit: currentUnit,
-      newUnit: nextUnit,
-      timestamp: new Date().toISOString(),
-    })
+      trackEvent('Unit Cycled', {
+        metricType: type,
+        oldUnit: current,
+        newUnit: next,
+        timestamp: new Date().toISOString(),
+      })
 
-    // Update local state immediately for responsiveness
-    setUnit(nextUnit)
+      await setUnit(type, next)
+    },
+    [units, setUnit, trackEvent],
+  )
 
-    // Update in database
-    const updatePayload: Record<string, string> = {}
-    updatePayload[`${type === 'wind' ? 'wind' : type === 'temp' ? 'temp' : type === 'precip' ? 'precip' : 'height'}Unit`] = nextUnit
-
-    await UserPreferencesService.updateUserPreferences(updatePayload)
-  }, [windUnit, tempUnit, precipUnit, heightUnit, trackEvent])
-
-  const value = {
-    windUnit,
-    tempUnit,
-    precipUnit,
-    heightUnit,
+  const value: UnitPreferencesContextType = {
+    ...units,
+    setUnit,
     cycleUnit,
+    refresh: loadSaved,
     loading,
   }
 
