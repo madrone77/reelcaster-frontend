@@ -1,49 +1,54 @@
 /**
- * ReelCaster Pro pricing — Stripe Price IDs and seasonal price map.
+ * ReelCaster Pro pricing — one flat plan, billed monthly or yearly.
  *
- * Monthly subscriptions are utility-priced by calendar month: peak fishing season
- * costs more, off-season costs less. Annual is a flat $79 (cheaper than 12×$15).
+ *   $5 / month   ·   $33 / year
  *
- * To resolve the *current* monthly Price at checkout, call resolveMonthlyPriceId()
- * which uses the user's local month at the moment of upgrade.
+ * Yearly is a 45% discount: twelve monthly payments would be $60, so the
+ * annual plan saves $27 (45% off). See annualDiscount() for the derived math
+ * the pricing UI renders.
+ *
+ * Price IDs come from Stripe. The monthly $5 price already exists; the annual
+ * $33 price must be created in Stripe and supplied via STRIPE_ANNUAL_PRICE_ID
+ * (until then, annual checkout is disabled and only monthly can be purchased).
  */
 
 export type PricingPlan = 'monthly' | 'annual';
 
-export const ANNUAL_PRICE_ID = 'price_1TQpJW2a2BXhmPNuF9igUK0H'; // $79/yr
+export const MONTHLY_PRICE_CENTS = 500; // $5 / month
+export const ANNUAL_PRICE_CENTS = 3300; // $33 / year
 
-// Index 0 = January, index 11 = December.
-// Prices in USD cents matching the spec: $5 off-season, $10 shoulder, $15 peak.
-export const MONTHLY_PRICE_TABLE: Array<{
-  month: number; // 1-12
-  label: string;
-  amountCents: number;
-  priceId: string;
-}> = [
-  { month: 1, label: 'Jan', amountCents: 500, priceId: 'price_1TQpJa2a2BXhmPNuiKaaurSJ' },
-  { month: 2, label: 'Feb', amountCents: 500, priceId: 'price_1TQpJe2a2BXhmPNuYRTewOoU' },
-  { month: 3, label: 'Mar', amountCents: 1000, priceId: 'price_1TQpJi2a2BXhmPNuNGLc4ZTM' },
-  { month: 4, label: 'Apr', amountCents: 1500, priceId: 'price_1TQpJm2a2BXhmPNuTO1dtDX8' },
-  { month: 5, label: 'May', amountCents: 1500, priceId: 'price_1TQpJq2a2BXhmPNuVgSKvMi5' },
-  { month: 6, label: 'Jun', amountCents: 1500, priceId: 'price_1TQpJu2a2BXhmPNuF6z69gnV' },
-  { month: 7, label: 'Jul', amountCents: 1500, priceId: 'price_1TQpJy2a2BXhmPNurqECaPFB' },
-  { month: 8, label: 'Aug', amountCents: 1500, priceId: 'price_1TQpK22a2BXhmPNuBUMU0PSB' },
-  { month: 9, label: 'Sep', amountCents: 1500, priceId: 'price_1TQpK62a2BXhmPNukXAY6OBH' },
-  { month: 10, label: 'Oct', amountCents: 1000, priceId: 'price_1TQpKA2a2BXhmPNu9Umbapyn' },
-  { month: 11, label: 'Nov', amountCents: 500, priceId: 'price_1TQpKE2a2BXhmPNuKUCfKFFp' },
-  { month: 12, label: 'Dec', amountCents: 500, priceId: 'price_1TQpKI2a2BXhmPNu0tm9rngU' },
-];
+// Stripe Price IDs. Monthly is the existing $5 price; annual needs a new $33
+// price wired through the env (see the file header).
+export const MONTHLY_PRICE_ID =
+  process.env.STRIPE_MONTHLY_PRICE_ID ?? 'price_1TQpJa2a2BXhmPNuiKaaurSJ';
+export const ANNUAL_PRICE_ID = process.env.STRIPE_ANNUAL_PRICE_ID ?? '';
 
-export function resolveMonthlyPriceId(date: Date = new Date()): string {
-  const monthIndex = date.getMonth(); // 0-11
-  return MONTHLY_PRICE_TABLE[monthIndex].priceId;
+/**
+ * The savings story for the yearly plan, derived from the two prices above so
+ * the copy can never drift from what a customer is actually charged.
+ */
+export function annualDiscount() {
+  const fullCents = MONTHLY_PRICE_CENTS * 12; // $60 — twelve months at monthly
+  const saveCents = fullCents - ANNUAL_PRICE_CENTS; // $27 saved
+  const pct = Math.round((saveCents / fullCents) * 100); // 45% off
+  const perMonthCents = Math.round(ANNUAL_PRICE_CENTS / 12); // ~$2.75 / month
+  return { fullCents, saveCents, pct, perMonthCents };
 }
 
-export function resolveMonthlyPriceCents(date: Date = new Date()): number {
-  const monthIndex = date.getMonth();
-  return MONTHLY_PRICE_TABLE[monthIndex].amountCents;
+export function priceCentsFor(plan: PricingPlan): number {
+  return plan === 'annual' ? ANNUAL_PRICE_CENTS : MONTHLY_PRICE_CENTS;
 }
 
 export function priceIdFor(plan: PricingPlan): string {
-  return plan === 'annual' ? ANNUAL_PRICE_ID : resolveMonthlyPriceId();
+  return plan === 'annual' ? ANNUAL_PRICE_ID : MONTHLY_PRICE_ID;
+}
+
+// Back-compat shims for the checkout + webhook routes, which resolve the
+// monthly price without knowing the model is now flat.
+export function resolveMonthlyPriceId(): string {
+  return MONTHLY_PRICE_ID;
+}
+
+export function resolveMonthlyPriceCents(): number {
+  return MONTHLY_PRICE_CENTS;
 }
