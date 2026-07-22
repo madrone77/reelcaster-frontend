@@ -141,32 +141,33 @@ export default function PricingCard({
       )}
 
       <div className="relative rounded-xl border border-rc-rule bg-rc-panel p-6 shadow-rc-panel md:p-8">
-        {/* Cadence toggle */}
+        {/* Cadence toggle — a two-state segmented control (group + aria-pressed),
+            not a tablist: there is no tabpanel and no arrow-key nav to honor. */}
         <div
-          role="tablist"
+          role="group"
           aria-label="Billing cadence"
           className="inline-flex rounded-full border border-rc-rule bg-rc-surface p-1"
         >
           <button
-            role="tab"
-            aria-selected={!yearly}
+            type="button"
+            aria-pressed={!yearly}
             onClick={() => setPlan('monthly')}
-            className={`rounded-full px-4 py-1.5 text-sm font-semibold transition-colors ${
+            className={`rounded-full px-4 py-1.5 text-sm font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rc-brand focus-visible:ring-offset-2 ${
               !yearly
                 ? 'bg-rc-brand text-white shadow-sm'
-                : 'text-rc-ink-mute hover:text-rc-ink'
+                : 'text-rc-ink-soft hover:text-rc-ink'
             }`}
           >
             Monthly
           </button>
           <button
-            role="tab"
-            aria-selected={yearly}
+            type="button"
+            aria-pressed={yearly}
             onClick={() => setPlan('annual')}
-            className={`flex items-center gap-1.5 rounded-full px-4 py-1.5 text-sm font-semibold transition-colors ${
+            className={`flex items-center gap-1.5 rounded-full px-4 py-1.5 text-sm font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rc-brand focus-visible:ring-offset-2 ${
               yearly
                 ? 'bg-rc-brand text-white shadow-sm'
-                : 'text-rc-ink-mute hover:text-rc-ink'
+                : 'text-rc-ink-soft hover:text-rc-ink'
             }`}
           >
             Yearly
@@ -182,8 +183,10 @@ export default function PricingCard({
           </button>
         </div>
 
-        {/* Price */}
-        <div className="mt-6">
+        {/* Price — aria-live so toggling announces the new cadence + price.
+            Scoped to price + subline only; the celebration box below is left
+            out, keeping Monthly math-free for assistive tech too. */}
+        <div className="mt-6" aria-live="polite" aria-atomic="true">
           <div className="flex items-baseline gap-1.5">
             <span className="text-5xl font-black tracking-[-0.03em] text-rc-ink">
               {dollars(yearly ? ANNUAL_PRICE_CENTS : MONTHLY_PRICE_CENTS)}
@@ -205,7 +208,10 @@ export default function PricingCard({
                 <button
                   type="button"
                   onClick={() => setPlan('annual')}
-                  className="font-semibold text-rc-brand underline underline-offset-2 hover:text-rc-brand-hover"
+                  aria-label={`Switch to yearly billing — ${dollars(
+                    ANNUAL_PRICE_CENTS,
+                  )} per year`}
+                  className="rounded-sm font-semibold text-rc-brand underline underline-offset-2 hover:text-rc-brand-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rc-brand focus-visible:ring-offset-2"
                 >
                   {dollars(ANNUAL_PRICE_CENTS)}/year
                 </button>{' '}
@@ -215,36 +221,43 @@ export default function PricingCard({
           </p>
         </div>
 
-        {/* The math — 12 months would be $60; you pay $33; save $27 (45%). */}
+        {/* Savings celebration — YEARLY only. It collapses (not unmounts) on
+            toggle so the CTA never snaps; on Monthly it's zero-height +
+            aria-hidden, so the discount math is neither seen nor announced and
+            the card rests calm on $5/mo. The only monthly nudge is the
+            "$33/year" subline above and the toggle's −45% pill. */}
         <div
-          className={`mt-5 rounded-lg border p-3.5 transition-colors ${
+          aria-hidden={!yearly}
+          className={`grid transition-all duration-300 ease-out motion-reduce:transition-none ${
             yearly
-              ? 'border-rc-good-border bg-rc-good-bg'
-              : 'border-rc-rule bg-rc-surface'
+              ? 'mt-5 grid-rows-[1fr] opacity-100'
+              : 'mt-0 grid-rows-[0fr] opacity-0'
           }`}
         >
-          <span
-            className={`inline-block rounded px-2 py-0.5 font-rc-mono text-[11px] font-bold tracking-tight ${
-              yearly ? 'bg-rc-good text-white' : 'bg-rc-good-bg text-rc-good-ink'
-            }`}
-          >
-            SAVE {dollars(saveCents)} · {pct}% OFF
-          </span>
-          <div className="mt-2 flex flex-wrap items-baseline gap-x-2 gap-y-1 text-sm">
-            <span className="text-rc-ink-mute line-through">
-              {dollars(fullCents)}/yr
-            </span>
-            <span aria-hidden className="text-rc-ink-mute">
-              →
-            </span>
-            <span className="font-bold text-rc-ink">
-              {dollars(ANNUAL_PRICE_CENTS)}/yr
-            </span>
+          <div className="overflow-hidden">
+            <div className="rounded-lg border border-rc-good-border bg-rc-good-bg p-3.5">
+              {/* Payoff — the single loudest mark; rc-good-ink for 7:1 contrast */}
+              <span className="inline-block rounded bg-rc-good-ink px-2 py-0.5 font-rc-mono text-[11px] font-bold tracking-tight text-white">
+                SAVE {dollars(saveCents)} · {pct}% OFF
+              </span>
+              {/* Before → now: hierarchy on weight + strikethrough, not color */}
+              <div className="mt-2 flex flex-wrap items-baseline gap-x-2 gap-y-1 text-sm">
+                <span className="text-rc-good-ink line-through">
+                  {dollars(fullCents)}/yr
+                </span>
+                <span aria-hidden className="text-rc-good-ink/70">
+                  →
+                </span>
+                <span className="font-bold text-rc-ink">
+                  {dollars(ANNUAL_PRICE_CENTS)}/yr
+                </span>
+              </div>
+              <p className="mt-1.5 font-rc-mono text-[11px] text-rc-good-ink">
+                Twelve months at {dollars(MONTHLY_PRICE_CENTS)} would be{' '}
+                {dollars(fullCents)} — the yearly plan is {pct}% off.
+              </p>
+            </div>
           </div>
-          <p className="mt-1.5 font-rc-mono text-[11px] text-rc-ink-mute">
-            Twelve months at {dollars(MONTHLY_PRICE_CENTS)} would be{' '}
-            {dollars(fullCents)} — the yearly plan is {pct}% off.
-          </p>
         </div>
 
         {/* CTA */}
@@ -252,7 +265,7 @@ export default function PricingCard({
           type="button"
           onClick={() => setModalOpen(true)}
           disabled={loading}
-          className="mt-6 flex w-full items-center justify-center rounded-md bg-rc-brand px-5 py-3 text-sm font-bold text-white transition-colors hover:bg-rc-brand-hover disabled:opacity-60"
+          className="mt-6 flex w-full items-center justify-center rounded-md bg-rc-brand px-5 py-3 text-sm font-bold text-white transition-colors hover:bg-rc-brand-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rc-brand focus-visible:ring-offset-2 disabled:opacity-60"
         >
           {yearly
             ? `Get Pro yearly — ${dollars(ANNUAL_PRICE_CENTS)}/yr`
@@ -296,7 +309,7 @@ export default function PricingCard({
               value={region}
               onChange={(e) => setRegion(e.target.value)}
               disabled={submitting}
-              className="mb-4 w-full rounded-lg border border-rc-rule bg-rc-surface px-3 py-2.5 text-sm text-rc-ink focus:outline-none focus:ring-2 focus:ring-rc-brand"
+              className="mb-4 w-full rounded-lg border border-rc-rule bg-rc-surface px-3 py-2.5 text-sm text-rc-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rc-brand focus-visible:ring-offset-2"
             >
               {REGIONS.map((r) => (
                 <option key={r.value} value={r.value}>
@@ -323,7 +336,7 @@ export default function PricingCard({
                 type="button"
                 onClick={() => setModalOpen(false)}
                 disabled={submitting}
-                className="flex-1 rounded-lg border border-rc-rule bg-rc-panel px-4 py-2.5 text-sm font-medium text-rc-ink transition-colors hover:border-rc-brand/40 disabled:opacity-60"
+                className="flex-1 rounded-lg border border-rc-rule bg-rc-panel px-4 py-2.5 text-sm font-medium text-rc-ink transition-colors hover:border-rc-brand/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rc-brand focus-visible:ring-offset-2 disabled:opacity-60"
               >
                 Cancel
               </button>
@@ -331,7 +344,7 @@ export default function PricingCard({
                 type="button"
                 onClick={startCheckout}
                 disabled={submitting}
-                className="flex-1 rounded-lg bg-rc-brand px-4 py-2.5 text-sm font-bold text-white transition-colors hover:bg-rc-brand-hover disabled:opacity-60"
+                className="flex-1 rounded-lg bg-rc-brand px-4 py-2.5 text-sm font-bold text-white transition-colors hover:bg-rc-brand-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rc-brand focus-visible:ring-offset-2 disabled:opacity-60"
               >
                 {submitting
                   ? 'Starting…'
