@@ -34,7 +34,7 @@ function Wordmark() {
 export default function ComingSoonPage() {
   return (
     <main
-      className="fixed inset-0 z-[9999] flex flex-col items-center justify-center gap-8 px-6 text-center"
+      className="fixed inset-0 z-30 flex flex-col items-center justify-center gap-8 px-6 pb-20 text-center lg:pb-0"
       style={{ backgroundColor: '#1F40E0' }}
     >
       <Wordmark />

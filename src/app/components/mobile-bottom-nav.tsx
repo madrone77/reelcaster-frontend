@@ -11,24 +11,16 @@ const TABS = [
   { href: "/profile", label: "Account", Icon: User },
 ] as const;
 
-// App chrome only — hidden on the marketing site, auth, and the coming-soon
-// wall, where a product tab bar would be out of place.
-const HIDE_PREFIXES = ["/pricing", "/about", "/login", "/signup", "/coming-soon"];
-
 /**
  * Mobile bottom tab bar (Zillow-style) — fixed to the bottom edge on phones and
  * tablets, hidden on desktop (the rail + top bar own that layout). Four tabs:
  * Explore, Catches, Favorites, Account. Active tab reads brand; the rest are
  * muted. Renders a matching-height spacer in flow so page content can scroll
- * clear of the fixed bar.
+ * clear of the fixed bar. Shows on every page (like Zillow) — marketing, auth,
+ * and the coming-soon wall included.
  */
 export default function MobileBottomNav() {
   const pathname = usePathname();
-
-  // Home ("/") is the marketing landing — no tab bar there either.
-  const hidden =
-    pathname === "/" || HIDE_PREFIXES.some((p) => pathname.startsWith(p));
-  if (hidden) return null;
 
   const isActive = (href: string) =>
     pathname === href || pathname.startsWith(`${href}/`);
