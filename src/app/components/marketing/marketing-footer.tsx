@@ -4,7 +4,7 @@ const LEGAL_LINKS: Array<{ href: string; label: string }> = [
   { href: '/privacy', label: 'Privacy' },
   { href: '/terms', label: 'Terms' },
   { href: '/contact', label: 'Contact' },
-  { href: '/', label: 'About' },
+  { href: '/about', label: 'About' },
   { href: '/faq', label: 'FAQ' },
   { href: '/login', label: 'Sign In' },
 ];
@@ -37,7 +37,7 @@ export default function MarketingFooter() {
         <div>
           <h4 className="rc-label text-[10px] mb-3">Company</h4>
           <ul className="space-y-2 text-rc-ink-soft">
-            <li><Link href="/" className="hover:text-rc-ink">About</Link></li>
+            <li><Link href="/about" className="hover:text-rc-ink">About</Link></li>
             <li><Link href="/faq" className="hover:text-rc-ink">FAQ</Link></li>
             <li><Link href="/contact" className="hover:text-rc-ink">Contact</Link></li>
           </ul>

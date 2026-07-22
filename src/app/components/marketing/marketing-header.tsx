@@ -9,10 +9,8 @@ import { useAuth } from '@/contexts/auth-context';
 // /regulations were removed, and anything not on the middleware allowlist
 // silently rewrites to /coming-soon rather than 404ing, so dead links here
 // look like real pages until you click them.
-// "About" is the landing page — the marketing site is the pitch, so there's
-// no separate about surface to keep in sync with it. /about redirects here.
 const NAV = [
-  { href: '/', label: 'About' },
+  { href: '/about', label: 'About' },
   { href: '/explore', label: 'Explore' },
   { href: '/catches', label: 'Catch Log' },
   { href: '/pricing', label: 'Pricing' },
@@ -65,11 +63,15 @@ export default function MarketingHeader() {
         <div className="flex items-center gap-2 min-h-[36px] ml-auto">
           {loading ? null : user ? (
             <>
+              {/* Same signed-in affordance as ExploreTopBar (initials → /profile);
+                  the old "Dashboard" link pointed at a route the middleware
+                  rewrites to /coming-soon. */}
               <Link
-                href="/dashboard"
-                className="hidden sm:inline-flex text-sm font-medium text-rc-ink-soft hover:text-rc-ink px-3 py-1.5 transition-colors"
+                href="/profile"
+                aria-label="Profile"
+                className="flex items-center justify-center w-8 h-8 rounded-full bg-rc-ink text-white font-rc-mono font-bold text-[11px]"
               >
-                Dashboard
+                {user.email ? user.email.slice(0, 2).toUpperCase() : '··'}
               </Link>
               <button
                 type="button"

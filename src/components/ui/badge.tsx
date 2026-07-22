@@ -10,17 +10,17 @@ const badgeVariants = cva(
     variants: {
       variant: {
         default:
-          "border-transparent bg-blue-600 text-white",
+          "border-transparent bg-rc-brand text-white",
         secondary:
-          "border-transparent bg-rc-bg-light text-rc-text-light",
+          "border-transparent bg-rc-surface text-rc-ink-soft",
         destructive:
-          "border-transparent bg-red-500/20 text-red-400",
+          "border-transparent bg-rc-poor-bg text-rc-poor-ink",
         outline:
-          "border-rc-bg-light bg-transparent text-rc-text-muted",
+          "border-rc-rule bg-transparent text-rc-ink-mute",
         success:
-          "border-transparent bg-emerald-500/20 text-emerald-400",
+          "border-transparent bg-rc-good-bg text-rc-good-ink",
         warning:
-          "border-transparent bg-amber-500/20 text-amber-400",
+          "border-transparent bg-rc-fair-bg text-rc-fair-ink",
       },
     },
     defaultVariants: {

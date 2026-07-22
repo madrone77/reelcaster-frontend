@@ -116,20 +116,20 @@ export default function PhoneVerifyCard() {
   }
 
   return (
-    <Card className="bg-rc-bg-dark border-rc-bg-light">
+    <Card className="border-rc-rule shadow-none">
       <CardHeader className="pb-6">
         <div className="flex items-center gap-4">
-          <div className="w-12 h-12 bg-gradient-to-br from-purple-500 to-purple-600 rounded-full flex items-center justify-center">
-            <Phone className="h-6 w-6 text-rc-text" />
+          <div className="w-10 h-10 bg-rc-brand-soft rounded-full flex items-center justify-center">
+            <Phone className="h-5 w-5 text-rc-brand" />
           </div>
           <div className="flex-1">
-            <CardTitle className="text-rc-text text-xl">SMS Alerts</CardTitle>
-            <CardDescription className="text-rc-text-muted mt-1">
+            <CardTitle className="text-rc-ink text-xl">SMS Alerts</CardTitle>
+            <CardDescription className="text-rc-ink-mute mt-1">
               Verify your phone to receive Score Alerts via text
             </CardDescription>
           </div>
           {!loading && phoneVerified && (
-            <Badge variant="secondary" className="bg-emerald-500/20 text-emerald-300 border-emerald-500/30">
+            <Badge variant="secondary" className="bg-rc-good-bg text-rc-good-ink border-rc-good-border">
               <CheckCircle2 className="h-3 w-3 mr-1" /> Verified
             </Badge>
           )}
@@ -137,14 +137,14 @@ export default function PhoneVerifyCard() {
       </CardHeader>
       <CardContent className="space-y-4">
         {smsAvailable === false && (
-          <div className="bg-amber-500/10 border border-amber-500/30 rounded-md p-3 text-sm text-amber-300">
+          <div className="bg-rc-fair-bg border border-rc-fair-border rounded-md p-3 text-sm text-rc-fair-ink">
             SMS delivery launches with Pro Intel. You can save your phone now and we&apos;ll
             switch it on the moment it&apos;s ready.
           </div>
         )}
 
         <div className="space-y-2">
-          <Label htmlFor="phone-input" className="text-rc-text">
+          <Label htmlFor="phone-input" className="text-rc-ink">
             Phone number
           </Label>
           <Input
@@ -155,14 +155,14 @@ export default function PhoneVerifyCard() {
             placeholder="+15551234567"
             disabled={busy || step === 'enter-code'}
           />
-          <p className="text-xs text-rc-text-muted">
+          <p className="text-xs text-rc-ink-mute">
             E.164 format with country code (e.g. <code>+15551234567</code>).
           </p>
         </div>
 
         {step === 'enter-code' && (
           <div className="space-y-2">
-            <Label htmlFor="phone-code" className="text-rc-text">
+            <Label htmlFor="phone-code" className="text-rc-ink">
               Verification code
             </Label>
             <Input
@@ -177,12 +177,12 @@ export default function PhoneVerifyCard() {
         )}
 
         {error && (
-          <div className="bg-red-500/10 border border-red-500/40 rounded-md p-3 text-sm text-red-400">
+          <div className="bg-rc-poor-bg border border-rc-poor/40 rounded-md p-3 text-sm text-rc-poor-ink">
             {error}
           </div>
         )}
         {info && (
-          <div className="bg-blue-500/10 border border-blue-500/30 rounded-md p-3 text-sm text-blue-300">
+          <div className="bg-rc-brand-soft border border-rc-brand-soft2 rounded-md p-3 text-sm text-rc-brand">
             {info}
           </div>
         )}
@@ -192,7 +192,7 @@ export default function PhoneVerifyCard() {
             <Button
               onClick={handleSendCode}
               disabled={busy || !phone || smsAvailable === false}
-              className="flex-1 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800"
+              className="flex-1 bg-rc-brand hover:bg-rc-brand-hover text-white"
             >
               {busy ? (
                 <>
@@ -214,14 +214,14 @@ export default function PhoneVerifyCard() {
                   setError(null)
                 }}
                 disabled={busy}
-                className="border-rc-bg-light text-rc-text-muted hover:bg-rc-bg-light"
+                className="border-rc-rule text-rc-ink-soft hover:bg-rc-surface"
               >
                 Back
               </Button>
               <Button
                 onClick={handleConfirmCode}
                 disabled={busy || code.length < 4}
-                className="flex-1 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800"
+                className="flex-1 bg-rc-brand hover:bg-rc-brand-hover text-white"
               >
                 {busy ? (
                   <>
