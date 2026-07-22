@@ -7,7 +7,6 @@ import { usePathname } from "next/navigation";
 import { useAuth } from "@/contexts/auth-context";
 
 const NAV = [
-  { href: "/about", label: "About" },
   { href: "/explore", label: "Explore" },
   { href: "/log-catch", label: "Log a catch" },
   { href: "/catches", label: "My catches" },
