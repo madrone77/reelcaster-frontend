@@ -68,15 +68,15 @@ const NotificationPreferencesForm: React.FC = () => {
   if (loading) {
     return (
       <div className="flex items-center justify-center py-12">
-        <Loader2 className="w-8 h-8 animate-spin text-blue-500" />
+        <Loader2 className="w-8 h-8 animate-spin text-rc-brand" />
       </div>
     );
   }
 
   if (!preferences) {
     return (
-      <div className="p-4 bg-red-900/20 border border-red-500/30 rounded-lg">
-        <p className="text-red-400 text-sm">Failed to load notification preferences.</p>
+      <div className="p-4 bg-rc-poor-bg border border-rc-poor/40 rounded-lg">
+        <p className="text-rc-poor-ink text-sm">Failed to load notification preferences.</p>
       </div>
     );
   }
@@ -84,21 +84,21 @@ const NotificationPreferencesForm: React.FC = () => {
   return (
     <div className="space-y-8">
       {/* Master Toggle */}
-      <div className="bg-gradient-to-r from-blue-600/20 to-indigo-600/20 border border-blue-500/30 rounded-lg p-6">
+      <div className="bg-rc-surface border border-rc-rule rounded-lg p-6">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-4">
             {preferences.notification_enabled ? (
-              <div className="p-3 bg-blue-600 rounded-full">
-                <Bell className="w-6 h-6 text-white" />
+              <div className="p-3 bg-rc-brand-soft rounded-full">
+                <Bell className="w-6 h-6 text-rc-brand" />
               </div>
             ) : (
-              <div className="p-3 bg-slate-600 rounded-full">
-                <BellOff className="w-6 h-6 text-slate-300" />
+              <div className="p-3 bg-rc-surface rounded-full">
+                <BellOff className="w-6 h-6 text-rc-ink-mute" />
               </div>
             )}
             <div>
-              <h2 className="text-lg font-semibold text-white">Fishing Notifications</h2>
-              <p className="text-sm text-slate-300 mt-1">
+              <h2 className="text-lg font-semibold text-rc-ink">Fishing Notifications</h2>
+              <p className="text-sm text-rc-ink-soft mt-1">
                 {preferences.notification_enabled
                   ? 'Notifications are enabled'
                   : 'Turn on notifications to receive fishing alerts'}
@@ -112,7 +112,7 @@ const NotificationPreferencesForm: React.FC = () => {
               onChange={(e) => updatePreference('notification_enabled', e.target.checked)}
               className="sr-only peer"
             />
-            <div className="w-14 h-7 bg-slate-600 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-500/30 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-0.5 after:left-[4px] after:bg-white after:border-slate-500 after:border after:rounded-full after:h-6 after:w-6 after:transition-all peer-checked:bg-blue-600"></div>
+            <div className="w-14 h-7 bg-rc-rule peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-rc-brand/30 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-0.5 after:left-[4px] after:bg-white after:border-rc-rule after:border after:rounded-full after:h-6 after:w-6 after:transition-all peer-checked:bg-rc-brand"></div>
           </label>
         </div>
       </div>
@@ -122,39 +122,39 @@ const NotificationPreferencesForm: React.FC = () => {
         <>
           {/* Notification Types */}
           <div className="space-y-4">
-            <h3 className="text-base font-semibold text-white">Notification Types</h3>
+            <h3 className="text-base font-semibold text-rc-ink">Notification Types</h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {/* Email */}
-              <label className="flex items-center justify-between p-4 bg-slate-700/50 rounded-lg cursor-pointer border-2 border-blue-500/50">
+              <label className="flex items-center justify-between p-4 bg-rc-surface rounded-lg cursor-pointer border-2 border-rc-rule">
                 <div className="flex items-center gap-3">
-                  <Mail className="w-5 h-5 text-blue-400" />
+                  <Mail className="w-5 h-5 text-rc-brand" />
                   <div>
-                    <div className="text-sm font-medium text-white">Email</div>
-                    <div className="text-xs text-slate-400">Receive emails</div>
+                    <div className="text-sm font-medium text-rc-ink">Email</div>
+                    <div className="text-xs text-rc-ink-mute">Receive emails</div>
                   </div>
                 </div>
                 <input
                   type="checkbox"
                   checked={preferences.email_enabled}
                   onChange={(e) => updatePreference('email_enabled', e.target.checked)}
-                  className="w-5 h-5 rounded text-blue-600 bg-slate-700 border-slate-600"
+                  className="w-5 h-5 rounded text-rc-brand border-rc-rule"
                 />
               </label>
 
               {/* Push (disabled) */}
-              <div className="flex items-center justify-between p-4 bg-slate-700/30 rounded-lg border-2 border-slate-600/50 opacity-50 cursor-not-allowed">
+              <div className="flex items-center justify-between p-4 bg-rc-surface rounded-lg border-2 border-rc-rule opacity-50 cursor-not-allowed">
                 <div className="flex items-center gap-3">
-                  <Smartphone className="w-5 h-5 text-slate-500" />
+                  <Smartphone className="w-5 h-5 text-rc-ink-mute" />
                   <div>
-                    <div className="text-sm font-medium text-slate-400">Push Notifications</div>
-                    <div className="text-xs text-slate-500">Coming soon</div>
+                    <div className="text-sm font-medium text-rc-ink-mute">Push Notifications</div>
+                    <div className="text-xs text-rc-ink-mute">Coming soon</div>
                   </div>
                 </div>
                 <input
                   type="checkbox"
                   checked={false}
                   disabled
-                  className="w-5 h-5 rounded text-slate-400"
+                  className="w-5 h-5 rounded text-rc-ink-mute"
                 />
               </div>
             </div>
@@ -162,11 +162,11 @@ const NotificationPreferencesForm: React.FC = () => {
 
           {/* Schedule */}
           <div className="space-y-4">
-            <h3 className="text-base font-semibold text-white">Schedule</h3>
+            <h3 className="text-base font-semibold text-rc-ink">Schedule</h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {/* Frequency */}
               <div>
-                <label className="block text-sm font-medium text-slate-300 mb-2">Frequency</label>
+                <label className="block text-sm font-medium text-rc-ink-soft mb-2">Frequency</label>
                 <select
                   value={preferences.notification_frequency}
                   onChange={(e) =>
@@ -175,7 +175,7 @@ const NotificationPreferencesForm: React.FC = () => {
                       e.target.value as 'daily' | 'weekly'
                     )
                   }
-                  className="w-full px-4 py-2 bg-slate-700 border border-slate-600 text-white rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  className="w-full px-4 py-2 bg-rc-panel border border-rc-rule text-rc-ink rounded-lg focus:ring-2 focus:ring-rc-brand/30 focus:border-rc-brand"
                 >
                   <option value="daily">Daily</option>
                   <option value="weekly">Weekly</option>
@@ -184,16 +184,16 @@ const NotificationPreferencesForm: React.FC = () => {
 
               {/* Time */}
               <div>
-                <label className="block text-sm font-medium text-slate-300 mb-2">
+                <label className="block text-sm font-medium text-rc-ink-soft mb-2">
                   Notification Time
                 </label>
                 <div className="relative">
-                  <Clock className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-slate-400" />
+                  <Clock className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-rc-ink-mute" />
                   <input
                     type="time"
                     value={preferences.notification_time}
                     onChange={(e) => updatePreference('notification_time', e.target.value)}
-                    className="w-full pl-10 pr-4 py-2 bg-slate-700 border border-slate-600 text-white rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    className="w-full pl-10 pr-4 py-2 bg-rc-panel border border-rc-rule text-rc-ink rounded-lg focus:ring-2 focus:ring-rc-brand/30 focus:border-rc-brand"
                   />
                 </div>
               </div>
@@ -201,11 +201,11 @@ const NotificationPreferencesForm: React.FC = () => {
 
             {/* Timezone */}
             <div>
-              <label className="block text-sm font-medium text-slate-300 mb-2">Timezone</label>
+              <label className="block text-sm font-medium text-rc-ink-soft mb-2">Timezone</label>
               <select
                 value={preferences.timezone}
                 onChange={(e) => updatePreference('timezone', e.target.value)}
-                className="w-full px-4 py-2 bg-slate-700 border border-slate-600 text-white rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                className="w-full px-4 py-2 bg-rc-panel border border-rc-rule text-rc-ink rounded-lg focus:ring-2 focus:ring-rc-brand/30 focus:border-rc-brand"
               >
                 <option value="America/Vancouver">Pacific Time (Vancouver)</option>
                 <option value="America/Edmonton">Mountain Time (Edmonton)</option>
@@ -218,7 +218,7 @@ const NotificationPreferencesForm: React.FC = () => {
 
           {/* Location Section */}
           <div className="space-y-4">
-            <h3 className="text-base font-semibold text-white">Notification Location</h3>
+            <h3 className="text-base font-semibold text-rc-ink">Notification Location</h3>
             <NotificationLocationSelector
               initialLat={preferences.location_lat || undefined}
               initialLng={preferences.location_lng || undefined}
@@ -272,17 +272,17 @@ const NotificationPreferencesForm: React.FC = () => {
       )}
 
       {/* Save Button */}
-      <div className="sticky bottom-0 bg-slate-800 border-t border-slate-700 pt-4 pb-2 -mx-4 px-4 sm:-mx-6 sm:px-6">
+      <div className="sticky bottom-0 bg-rc-panel border-t border-rc-rule pt-4 pb-2 -mx-4 px-4 sm:-mx-6 sm:px-6">
         {error && (
-          <div className="mb-4 p-3 bg-red-900/20 border border-red-500/30 rounded-lg">
-            <p className="text-sm text-red-400">{error}</p>
+          <div className="mb-4 p-3 bg-rc-poor-bg border border-rc-poor/40 rounded-lg">
+            <p className="text-sm text-rc-poor-ink">{error}</p>
           </div>
         )}
 
         <button
           onClick={handleSave}
           disabled={saving}
-          className="w-full flex items-center justify-center gap-2 px-6 py-3 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white rounded-lg disabled:from-slate-600 disabled:to-slate-600 disabled:cursor-not-allowed transition-all shadow-lg hover:shadow-blue-500/20 font-medium"
+          className="w-full flex items-center justify-center gap-2 px-6 py-3 bg-rc-brand hover:bg-rc-brand-hover text-white rounded-lg disabled:bg-rc-rule disabled:text-rc-ink-mute disabled:cursor-not-allowed transition-all font-medium"
         >
           {saving ? (
             <>

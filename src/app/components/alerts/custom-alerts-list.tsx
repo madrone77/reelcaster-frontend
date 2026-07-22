@@ -123,19 +123,19 @@ export function CustomAlertsList({
         return (
           <Card
             key={profile.id}
-            className={`bg-rc-bg-dark border-rc-bg-light transition-opacity ${!profile.is_active ? 'opacity-60' : ''}`}
+            className={`border-rc-rule shadow-none transition-opacity ${!profile.is_active ? 'opacity-60' : ''}`}
           >
             <CardContent className="p-4">
               {/* Header */}
               <div className="flex items-start justify-between mb-3">
                 <div className="flex-1">
                   <div className="flex items-center gap-2 mb-1">
-                    <h3 className="font-semibold text-lg text-rc-text">{profile.name}</h3>
-                    <Badge variant={profile.logic_mode === 'AND' ? 'default' : 'secondary'} className="bg-blue-600 text-white">
+                    <h3 className="font-semibold text-lg text-rc-ink">{profile.name}</h3>
+                    <Badge variant={profile.logic_mode === 'AND' ? 'default' : 'secondary'} className="bg-rc-brand text-white">
                       {profile.logic_mode}
                     </Badge>
                   </div>
-                  <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-rc-text-muted">
+                  <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-rc-ink-mute">
                     <span className="flex items-center gap-1">
                       <MapPin className="h-3.5 w-3.5 flex-shrink-0" />
                       <span className="truncate">{profile.location_name || `${profile.location_lat.toFixed(4)}, ${profile.location_lng.toFixed(4)}`}</span>
@@ -163,11 +163,11 @@ export function CustomAlertsList({
                   <Badge
                     key={trigger}
                     variant="outline"
-                    className="flex items-center gap-1.5 py-1 px-2 border-rc-bg-light bg-rc-bg-light/50 text-rc-text-muted"
+                    className="flex items-center gap-1.5 py-1 px-2 border-rc-rule bg-rc-surface text-rc-ink-soft"
                   >
                     {TRIGGER_ICONS[trigger]}
                     <span className="font-medium">{TRIGGER_LABELS[trigger]}</span>
-                    <span className="text-rc-text-muted">
+                    <span className="text-rc-ink-mute">
                       {formatTriggerSummary(trigger, profile.triggers)}
                     </span>
                   </Badge>
@@ -175,8 +175,8 @@ export function CustomAlertsList({
               </div>
 
               {/* Footer */}
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pt-3 border-t border-rc-bg-light">
-                <div className="text-xs text-rc-text-muted flex flex-wrap items-center gap-1">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pt-3 border-t border-rc-rule">
+                <div className="text-xs text-rc-ink-mute flex flex-wrap items-center gap-1">
                   {profile.last_triggered_at ? (
                     <span className="flex items-center gap-1">
                       <History className="h-3.5 w-3.5 flex-shrink-0" />
@@ -215,7 +215,7 @@ export function CustomAlertsList({
                     variant="ghost"
                     size="sm"
                     onClick={() => setDeleteConfirm(profile.id)}
-                    className="h-8 px-2 text-destructive hover:text-destructive"
+                    className="h-8 px-2 text-rc-poor hover:text-rc-poor hover:bg-rc-poor-bg"
                     aria-label="Delete alert"
                   >
                     <Trash2 className="h-4 w-4" />
@@ -229,16 +229,16 @@ export function CustomAlertsList({
 
       {/* Delete Confirmation Dialog */}
       <AlertDialog open={!!deleteConfirm} onOpenChange={() => setDeleteConfirm(null)}>
-        <AlertDialogContent className="bg-rc-bg-dark border-rc-bg-light">
+        <AlertDialogContent className="border-rc-rule">
           <AlertDialogHeader>
-            <AlertDialogTitle className="text-rc-text">Delete Alert Profile?</AlertDialogTitle>
-            <AlertDialogDescription className="text-rc-text-muted">
+            <AlertDialogTitle className="text-rc-ink">Delete Alert Profile?</AlertDialogTitle>
+            <AlertDialogDescription className="text-rc-ink-mute">
               This will permanently delete this alert profile and all its history.
               This action cannot be undone.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel className="border-rc-bg-light text-rc-text-muted hover:bg-rc-bg-light">Cancel</AlertDialogCancel>
+            <AlertDialogCancel className="border-rc-rule text-rc-ink-mute hover:bg-rc-surface">Cancel</AlertDialogCancel>
             <AlertDialogAction
               onClick={() => {
                 if (deleteConfirm) {
@@ -246,7 +246,7 @@ export function CustomAlertsList({
                   setDeleteConfirm(null)
                 }
               }}
-              className="bg-red-600 text-white hover:bg-red-700"
+              className="bg-rc-poor text-white hover:bg-rc-poor/90"
             >
               Delete
             </AlertDialogAction>

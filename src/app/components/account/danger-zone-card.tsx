@@ -32,15 +32,15 @@ export default function DangerZoneCard() {
   }
 
   return (
-    <Card className="bg-rc-bg-dark border-red-500/30">
+    <Card className="border-rc-poor/30 shadow-none">
       <CardHeader className="pb-6">
         <div className="flex items-center gap-4">
-          <div className="w-12 h-12 bg-red-500/20 border border-red-500/30 rounded-full flex items-center justify-center">
-            <AlertTriangle className="h-6 w-6 text-red-400" />
+          <div className="w-10 h-10 bg-rc-poor-bg rounded-full flex items-center justify-center">
+            <AlertTriangle className="h-5 w-5 text-rc-poor" />
           </div>
           <div>
-            <CardTitle className="text-rc-text text-xl">Danger zone</CardTitle>
-            <CardDescription className="text-rc-text-muted mt-1">
+            <CardTitle className="text-rc-ink text-xl">Danger zone</CardTitle>
+            <CardDescription className="text-rc-ink-mute mt-1">
               Cancellation and account deletion
             </CardDescription>
           </div>
@@ -48,15 +48,15 @@ export default function DangerZoneCard() {
       </CardHeader>
       <CardContent className="space-y-4">
         {error && (
-          <div className="bg-red-500/10 border border-red-500/40 rounded-md p-3 text-sm text-red-400">
+          <div className="bg-rc-poor-bg border border-rc-poor/40 rounded-md p-3 text-sm text-rc-poor-ink">
             {error}
           </div>
         )}
 
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 p-4 rounded-lg border border-rc-bg-light bg-rc-bg-darkest">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 p-4 rounded-lg border border-rc-rule bg-rc-surface">
           <div>
-            <p className="text-rc-text font-medium">Cancel subscription</p>
-            <p className="text-sm text-rc-text-muted mt-1">
+            <p className="text-rc-ink font-medium">Cancel subscription</p>
+            <p className="text-sm text-rc-ink-mute mt-1">
               {isPaid
                 ? 'Cancel anytime via Stripe — you keep access until the end of your billing period.'
                 : 'You don’t have an active paid subscription.'}
@@ -66,7 +66,7 @@ export default function DangerZoneCard() {
             onClick={handleCancel}
             disabled={!isPaid || opening || !stripeCustomerId}
             variant="outline"
-            className="border-red-500/40 text-red-400 hover:bg-red-500/10 disabled:opacity-50"
+            className="border-rc-poor/40 text-rc-poor hover:bg-rc-poor-bg disabled:opacity-50"
           >
             {opening ? (
               <>
@@ -80,19 +80,19 @@ export default function DangerZoneCard() {
           </Button>
         </div>
 
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 p-4 rounded-lg border border-rc-bg-light bg-rc-bg-darkest opacity-60">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 p-4 rounded-lg border border-rc-rule bg-rc-surface opacity-70">
           <div>
-            <p className="text-rc-text font-medium">Delete account</p>
-            <p className="text-sm text-rc-text-muted mt-1">
+            <p className="text-rc-ink font-medium">Delete account</p>
+            <p className="text-sm text-rc-ink-mute mt-1">
               Permanently remove your account and personal data. Coming soon — for now,
               email{' '}
-              <a href="mailto:support@reelcaster.com" className="text-blue-400 hover:text-blue-300">
+              <a href="mailto:support@reelcaster.com" className="text-rc-brand hover:underline">
                 support@reelcaster.com
               </a>
               .
             </p>
           </div>
-          <Button disabled variant="outline" className="border-rc-bg-light text-rc-text-muted">
+          <Button disabled variant="outline" className="border-rc-rule text-rc-ink-mute">
             Coming soon
           </Button>
         </div>

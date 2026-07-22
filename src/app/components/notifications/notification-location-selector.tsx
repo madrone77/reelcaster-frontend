@@ -106,7 +106,7 @@ const NotificationLocationSelector: React.FC<NotificationLocationSelectorProps> 
     id: 'radius-fill',
     type: 'fill' as const,
     paint: {
-      'fill-color': '#3b82f6',
+      'fill-color': '#1E40E0',
       'fill-opacity': 0.1,
     },
   }
@@ -115,7 +115,7 @@ const NotificationLocationSelector: React.FC<NotificationLocationSelectorProps> 
     id: 'radius-outline',
     type: 'line' as const,
     paint: {
-      'line-color': '#3b82f6',
+      'line-color': '#1E40E0',
       'line-width': 2,
       'line-opacity': 0.8,
     },
@@ -124,8 +124,8 @@ const NotificationLocationSelector: React.FC<NotificationLocationSelectorProps> 
   // Check for Mapbox token
   if (!mapboxToken) {
     return (
-      <div className="p-4 bg-red-900/20 border border-red-500/30 rounded-lg">
-        <p className="text-red-400 text-sm">
+      <div className="p-4 bg-rc-poor-bg border border-rc-poor/40 rounded-lg">
+        <p className="text-rc-poor-ink text-sm">
           Mapbox token not configured. Please add NEXT_PUBLIC_MAPBOX_TOKEN to your environment variables.
         </p>
       </div>
@@ -135,14 +135,14 @@ const NotificationLocationSelector: React.FC<NotificationLocationSelectorProps> 
   return (
     <div className="space-y-4">
       {/* Map Container */}
-      <div className="relative w-full h-[300px] sm:h-[500px] rounded-lg overflow-hidden border border-slate-600">
+      <div className="relative w-full h-[300px] sm:h-[500px] rounded-lg overflow-hidden border border-rc-rule">
         <Map
           ref={mapRef}
           {...viewport}
           onMove={evt => setViewport(evt.viewState)}
           onClick={handleMapClick}
           mapboxAccessToken={mapboxToken}
-          mapStyle="mapbox://styles/mapbox/dark-v11"
+          mapStyle="mapbox://styles/mapbox/light-v11"
           style={{ width: '100%', height: '100%' }}
         >
           {/* Radius Circle */}
@@ -166,24 +166,24 @@ const NotificationLocationSelector: React.FC<NotificationLocationSelectorProps> 
             }}
           >
             <div className="cursor-move">
-              <MapPin className="w-8 h-8 text-blue-500 drop-shadow-lg" fill="currentColor" />
+              <MapPin className="w-8 h-8 text-rc-brand drop-shadow-lg" fill="currentColor" />
             </div>
           </Marker>
         </Map>
 
         {/* Helper Text Overlay */}
-        <div className="absolute top-4 left-4 bg-slate-800/90 backdrop-blur-sm px-3 py-2 rounded-lg shadow-md border border-slate-600">
-          <p className="text-xs font-medium text-slate-200">Click or drag marker to set location</p>
+        <div className="absolute top-4 left-4 bg-rc-panel/90 backdrop-blur-sm px-3 py-2 rounded-lg shadow-md border border-rc-rule">
+          <p className="text-xs font-medium text-rc-ink">Click or drag marker to set location</p>
         </div>
       </div>
 
       {/* Radius Slider */}
       <div className="space-y-2">
         <div className="flex items-center justify-between">
-          <label htmlFor="radius-slider" className="text-sm font-medium text-slate-300">
+          <label htmlFor="radius-slider" className="text-sm font-medium text-rc-ink-soft">
             Notification Radius
           </label>
-          <span className="text-sm font-semibold text-blue-400">{radius} km</span>
+          <span className="text-sm font-semibold text-rc-brand">{radius} km</span>
         </div>
         <input
           id="radius-slider"
@@ -193,27 +193,27 @@ const NotificationLocationSelector: React.FC<NotificationLocationSelectorProps> 
           step={1}
           value={radius}
           onChange={e => handleRadiusChange(Number(e.target.value))}
-          className="w-full h-2 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-blue-500"
+          className="w-full h-2 bg-rc-rule rounded-lg appearance-none cursor-pointer accent-rc-brand"
         />
-        <div className="flex justify-between text-xs text-slate-500">
+        <div className="flex justify-between text-xs text-rc-ink-mute">
           <span>{MIN_RADIUS} km</span>
           <span>{MAX_RADIUS} km</span>
         </div>
       </div>
 
       {/* Location Info */}
-      <div className="p-3 bg-slate-700/50 rounded-lg border border-slate-600">
+      <div className="p-3 bg-rc-surface rounded-lg border border-rc-rule">
         <div className="grid grid-cols-2 gap-2 text-sm">
           <div>
-            <span className="text-slate-400">Latitude:</span>
-            <span className="ml-2 font-mono text-white">{markerPosition.latitude.toFixed(6)}</span>
+            <span className="text-rc-ink-mute">Latitude:</span>
+            <span className="ml-2 font-mono text-rc-ink">{markerPosition.latitude.toFixed(6)}</span>
           </div>
           <div>
-            <span className="text-slate-400">Longitude:</span>
-            <span className="ml-2 font-mono text-white">{markerPosition.longitude.toFixed(6)}</span>
+            <span className="text-rc-ink-mute">Longitude:</span>
+            <span className="ml-2 font-mono text-rc-ink">{markerPosition.longitude.toFixed(6)}</span>
           </div>
         </div>
-        <p className="mt-2 text-xs text-slate-400">
+        <p className="mt-2 text-xs text-rc-ink-mute">
           You&apos;ll receive notifications for fishing conditions within {radius} km of this location.
         </p>
       </div>
