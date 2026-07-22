@@ -2,6 +2,12 @@
 
 import { Plus } from "lucide-react";
 import type { NearestSpotHit } from "@/lib/bluecaster/catch-ingest-types";
+import { useUnitPreferences } from "@/contexts/unit-preferences-context";
+import {
+  convertDistance,
+  formatDistance,
+  type DistanceUnit,
+} from "@/app/utils/unit-conversions";
 
 function scoreTone(score: number | null): string {
   if (score === null) return "text-rc-ink-mute";
@@ -10,8 +16,12 @@ function scoreTone(score: number | null): string {
   return "text-rc-poor-ink";
 }
 
-function distanceLabel(m: number): string {
-  return m >= 1000 ? `${(m / 1000).toFixed(1)} km` : `${Math.round(m)} m`;
+// Under 1 km this stays a metres proximity hint regardless of preference;
+// only the km branch converts to the preferred distance unit.
+function distanceLabel(m: number, unit: DistanceUnit): string {
+  return m >= 1000
+    ? formatDistance(convertDistance(m / 1000, "km", unit), unit)
+    : `${Math.round(m)} m`;
 }
 
 /** Blue "matched spot" card below the picker map (mock: Constance Bank · 82). */
@@ -22,6 +32,7 @@ export function SpotMatchCard({
   match: NearestSpotHit;
   searching: boolean;
 }) {
+  const { distanceUnit } = useUnitPreferences();
   return (
     <div
       className={`flex items-center gap-4 rounded-xl border-2 border-rc-brand bg-rc-brand-soft/50 px-4 py-3 transition-opacity ${
@@ -32,7 +43,7 @@ export function SpotMatchCard({
       <div className="min-w-0 flex-1">
         <div className="text-lg font-bold text-rc-ink truncate">{match.name}</div>
         <div className="font-rc-mono text-[12px] text-rc-ink-soft">
-          Matched · {distanceLabel(match.distance_m)} from pin
+          Matched · {distanceLabel(match.distance_m, distanceUnit)} from pin
         </div>
       </div>
       <div className={`text-4xl font-bold tabular-nums ${scoreTone(match.score)}`}>

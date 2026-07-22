@@ -1,5 +1,8 @@
 "use client";
 
+import { useUnitPreferences } from "@/contexts/unit-preferences-context";
+import { convertHeight, formatHeight } from "@/app/utils/unit-conversions";
+
 /**
  * Full-width tide curve for the spot page — sized to match the 24h score chart
  * beneath it. A smooth line with a soft fill and the same 06·12·18·24 hour axis,
@@ -13,6 +16,7 @@ export default function TideChart({
   series: (number | null)[];
   selectedHour?: number | null;
 }) {
+  const { heightUnit } = useUnitPreferences();
   const vals = series.filter((v): v is number => v != null);
   if (vals.length < 2) return null;
 
@@ -39,7 +43,7 @@ export default function TideChart({
           preserveAspectRatio="none"
           className="w-full h-full"
           role="img"
-          aria-label={`24-hour tide, ${min.toFixed(1)} m to ${max.toFixed(1)} m`}
+          aria-label={`24-hour tide, ${formatHeight(convertHeight(min, "m", heightUnit), heightUnit)} to ${formatHeight(convertHeight(max, "m", heightUnit), heightUnit)}`}
         >
           <polygon points={area} fill="var(--rc-brand)" opacity={0.08} />
           <polyline

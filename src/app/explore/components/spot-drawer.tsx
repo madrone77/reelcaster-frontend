@@ -25,6 +25,8 @@ import {
   type RailSpot,
 } from "../lib/explore-data";
 import HourlyBars from "./hourly-bars";
+import { useUnitPreferences } from "@/contexts/unit-preferences-context";
+import { convertDistance, formatDistance } from "@/app/utils/unit-conversions";
 
 const UpgradeRequiredModal = dynamic(
   () => import("@/app/components/paywall/upgrade-required-modal"),
@@ -93,6 +95,7 @@ export default function SpotDrawer({
   // Hover-scrub over the 24h chart: while the mouse is on a bar the score,
   // pill, header stamp, and conditions grid preview that hour; leaving the
   // chart reverts to the day-peak resting state.
+  const { distanceUnit } = useUnitPreferences();
   const [hoverHour, setHoverHour] = useState<number | null>(null);
   const handleHourHover = (h: number | null) => {
     setHoverHour(h);
@@ -187,7 +190,13 @@ export default function SpotDrawer({
         </div>
         <p className="font-rc-mono text-xs text-rc-ink-soft mt-1">
           {spot.regionName}
-          {spot.distanceKm !== null ? ` · ${spot.distanceKm} km` : ""}
+          {spot.distanceKm !== null
+            ? ` · ${
+                distanceUnit === "km"
+                  ? `${spot.distanceKm} km`
+                  : formatDistance(convertDistance(spot.distanceKm, "km", distanceUnit), distanceUnit)
+              }`
+            : ""}
         </p>
 
         {/* Score block */}

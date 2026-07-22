@@ -4,6 +4,15 @@ import type { RightNowSnapshot } from "@/lib/bluecaster/live-spot-types";
 import type { CurrentSample } from "@/lib/bluecaster-client";
 import { nextSlackHour, niceCurrentScale } from "../../lib/current-series";
 import { monoInterp } from "../../lib/curve";
+import { useUnitPreferences } from "@/contexts/unit-preferences-context";
+import {
+  convertHeight,
+  convertPrecip,
+  convertTemp,
+  convertWind,
+  formatHeight,
+  formatWind,
+} from "@/app/utils/unit-conversions";
 
 // ── mini visualizations ─────────────────────────────────────────────────
 
@@ -168,6 +177,7 @@ function TempGauge({
   min: number;
   max: number;
 }) {
+  const { tempUnit } = useUnitPreferences();
   if (value == null) return null;
   const pct = Math.max(0, Math.min(100, ((value - min) / (max - min)) * 100));
   return (
@@ -179,8 +189,8 @@ function TempGauge({
         />
       </div>
       <div className="flex justify-between font-rc-mono text-[8px] text-rc-ink-mute mt-1">
-        <span>{min}°</span>
-        <span>{max}°</span>
+        <span>{Math.round(convertTemp(min, "C", tempUnit))}°</span>
+        <span>{Math.round(convertTemp(max, "C", tempUnit))}°</span>
       </div>
     </div>
   );
@@ -277,6 +287,7 @@ export default function NowConditions({
   nowHour?: number;
   label?: string;
 }) {
+  const { windUnit, tempUnit, heightUnit, precipUnit } = useUnitPreferences();
   const rn = rightNow;
   const gusty =
     rn?.windKt != null && rn?.windGustKt != null && rn.windGustKt - rn.windKt > 8;
@@ -319,7 +330,7 @@ export default function NowConditions({
   const tideArrow =
     rn?.tideTrend === "rising" ? "▲" : rn?.tideTrend === "falling" ? "▼" : "";
   const tideSub = tideEvt
-    ? `${tideArrow} ${tideEvt.hi ? "high" : "low"} ${tideEvt.v.toFixed(1)} m · ${hh(tideEvt.hour)}`.trim()
+    ? `${tideArrow} ${tideEvt.hi ? "high" : "low"} ${formatHeight(convertHeight(tideEvt.v, "m", heightUnit), heightUnit)} · ${hh(tideEvt.hour)}`.trim()
     : rn?.tideTrend
       ? `${rn.tideTrend} ${tideArrow}`.trim()
       : null;
@@ -328,28 +339,28 @@ export default function NowConditions({
   const metrics: Metric[] = [
     {
       label: "TIDE",
-      value: rn?.tideM != null ? `${rn.tideM.toFixed(1)} m` : "—",
+      value: rn?.tideM != null ? formatHeight(convertHeight(rn.tideM, "m", heightUnit), heightUnit) : "—",
       sub: tideSub,
       viz: <TideSpark series={tideSeries} nowHour={nowHour} />,
     },
     {
       label: "CURRENT",
-      value: curSpeed != null ? `${curSpeed.toFixed(1)} kn` : "—",
+      value: curSpeed != null ? formatWind(convertWind(curSpeed, "knots", windUnit), windUnit, 1) : "—",
       sub: curSub,
       viz: curDir != null ? <CompassArrow deg={curDir} /> : null,
     },
     {
       label: "WIND",
-      value: rn?.windKt != null ? `${Math.round(rn.windKt)} kn` : "—",
+      value: rn?.windKt != null ? formatWind(convertWind(rn.windKt, "knots", windUnit), windUnit) : "—",
       sub: rn?.windDir ? `${rn.windDir} · ${gusty ? "gusty" : "steady"}` : null,
       viz: rn?.windDirDeg != null ? <CompassArrow deg={rn.windDirDeg} /> : null,
     },
     {
       label: "SEA STATE",
-      value: rn?.waveM != null ? `${rn.waveM.toFixed(1)} m` : "—",
+      value: rn?.waveM != null ? formatHeight(convertHeight(rn.waveM, "m", heightUnit), heightUnit) : "—",
       sub: [
         seaState(rn?.waveM ?? null),
-        rn?.swellM != null ? `swell ${rn.swellM.toFixed(1)} m` : null,
+        rn?.swellM != null ? `swell ${formatHeight(convertHeight(rn.swellM, "m", heightUnit), heightUnit)}` : null,
       ]
         .filter(Boolean)
         .join(" · "),
@@ -362,7 +373,9 @@ export default function NowConditions({
         skyWord(rn?.cloudPct ?? null),
         rn?.precipMm != null
           ? rn.precipMm > 0
-            ? `${rn.precipMm.toFixed(1)} mm/h`
+            ? precipUnit === "mm"
+              ? `${rn.precipMm.toFixed(1)} mm/h`
+              : `${convertPrecip(rn.precipMm, "mm", precipUnit).toFixed(2)} in/h`
             : "dry"
           : null,
       ]
@@ -372,7 +385,7 @@ export default function NowConditions({
     },
     {
       label: "AIR TEMP",
-      value: rn?.airTempC != null ? `${rn.airTempC.toFixed(1)}°` : "—",
+      value: rn?.airTempC != null ? `${convertTemp(rn.airTempC, "C", tempUnit).toFixed(1)}°` : "—",
       sub: airLabel(rn?.airTempC ?? null),
       gauge: <TempGauge value={rn?.airTempC ?? null} min={0} max={25} />,
     },
