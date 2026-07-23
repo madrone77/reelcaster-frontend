@@ -18,13 +18,15 @@ import {
   type ForecastStripModel,
   type ForecastTier,
 } from "./lib/forecast-strip";
-import { fetchMapForecast14d } from "@/lib/bluecaster-client";
+import { fetchMapForecast14d, fetchMyCustomSpots } from "@/lib/bluecaster-client";
 import type { MapForecast14dPayload } from "@/lib/bluecaster";
 import { useSubscription } from "@/hooks/use-subscription";
 import { useAuth } from "@/contexts/auth-context";
 import { useExploreState } from "./lib/use-explore-state";
 import ExploreTopBar from "./components/explore-top-bar";
-import ExploreMap, { type StationPick } from "./components/explore-map";
+import ExploreMap, { type StationPick, type CustomSpotPin } from "./components/explore-map";
+import CreateCustomSpotDialog from "./components/create-custom-spot-dialog";
+import { Plus, X } from "lucide-react";
 import StationDrawer from "./components/station-drawer";
 import LeftRail from "./components/left-rail";
 import LocationSelector from "./components/location-selector";
@@ -81,6 +83,46 @@ export default function ExploreShell({
   const { user } = useAuth();
   const accessTier: ForecastTier = isPaid ? "pro" : user ? "free" : "anonymous";
   const { citySlug, spotSlug, day, stn, setQuery } = useExploreState();
+
+  // ── Custom spots (Pro): a "Create custom spot" button arms pin-drop mode;
+  //    the next map click opens a modal to name it + pick species. The user's
+  //    own custom spots render as distinct markers (fetched on sign-in, plus
+  //    an optimistic add on create so a new pin shows immediately). ──────────
+  const [customMode, setCustomMode] = useState(false);
+  const [pinCoords, setPinCoords] = useState<{ lat: number; lng: number } | null>(null);
+  const [customModalOpen, setCustomModalOpen] = useState(false);
+  const [customSpots, setCustomSpots] = useState<CustomSpotPin[]>([]);
+
+  useEffect(() => {
+    if (!user) {
+      setCustomSpots([]);
+      return;
+    }
+    let cancelled = false;
+    fetchMyCustomSpots()
+      .then((rows) => {
+        if (cancelled) return;
+        setCustomSpots(
+          rows.map((r) => ({
+            id: r.id,
+            name: r.name,
+            lat: r.lat,
+            lng: r.lng,
+            visibility: r.visibility,
+          })),
+        );
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [user]);
+
+  const handleMapPick = useCallback((c: { lat: number; lng: number }) => {
+    setPinCoords(c);
+    setCustomMode(false);
+    setCustomModalOpen(true);
+  }, []);
 
   // Mobile (<lg) map-filter sheet (species + layer toggles + near-me),
   // opened by the location header's filter button.
@@ -657,8 +699,58 @@ export default function ExploreShell({
           stripVisible={!stripHidden}
           wdfwRegs={wdfwRegs}
           onViewportChange={handleViewportChange}
+          pinDropMode={customMode}
+          onMapPick={handleMapPick}
+          customSpots={customSpots}
+          onSelectCustomSpot={(pin) => setPinCoords({ lat: pin.lat, lng: pin.lng })}
         />
+
+        {/* Pro-only "Create custom spot" action (top-right of the map). */}
+        {isPaid && !customMode && (
+          <button
+            type="button"
+            onClick={() => setCustomMode(true)}
+            className="absolute z-20 top-3 right-3 flex items-center gap-1.5 rounded-full bg-rc-brand hover:bg-rc-brand-hover text-white text-sm font-semibold px-4 py-2 shadow-md transition-colors"
+          >
+            <Plus className="w-4 h-4" />
+            Create custom spot
+          </button>
+        )}
+
+        {/* Placement banner while pin-drop mode is armed. */}
+        {customMode && (
+          <div className="absolute z-20 top-3 left-1/2 -translate-x-1/2 flex items-center gap-3 rounded-full bg-rc-ink text-white text-sm font-semibold px-4 py-2 shadow-md">
+            <span>Tap the map to place your spot</span>
+            <button
+              type="button"
+              onClick={() => setCustomMode(false)}
+              className="flex items-center gap-1 text-white/80 hover:text-white"
+            >
+              <X className="w-3.5 h-3.5" />
+              Cancel
+            </button>
+          </div>
+        )}
       </div>
+
+      <CreateCustomSpotDialog
+        open={customModalOpen}
+        onOpenChange={setCustomModalOpen}
+        coords={pinCoords}
+        speciesOptions={data.species}
+        onCreated={(spot) =>
+          setCustomSpots((prev) => [
+            {
+              id: spot.id,
+              name: spot.name,
+              lat: spot.lat,
+              lng: spot.lng,
+              visibility: spot.visibility ?? "private",
+            },
+            ...prev.filter((p) => p.id !== spot.id),
+          ])
+        }
+      />
 
       {/* Mobile-only pull-up spot sheet over the map (Zillow-style). */}
       <MobileMapSheet

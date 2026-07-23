@@ -20,13 +20,18 @@ const supabaseAdmin = createClient(
  * Custom spots are a Pro feature: free accounts get 403 `pro_required`.
  * BlueCaster additionally fences coordinates to covered waters and
  * answers 422 `outside_coverage`, which is passed through.
- * Body: { name, lat, lng }.
+ * Body: { name, lat, lng, visibility?, species_ids? }. The owner (user_id)
+ * comes from the verified session, never the body.
  */
 export async function POST(request: NextRequest) {
   const userId = await getUserIdFromRequest(request);
   if (!userId) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
+  // Forward the caller's own token to BlueCaster so its user-scope binding can
+  // verify ownership. getUserIdFromRequest already validated it above.
+  const accessToken =
+    request.headers.get("authorization")?.replace(/^Bearer\s+/i, "") ?? undefined;
 
   const { data: settings } = await supabaseAdmin
     .from("user_settings")
@@ -57,9 +62,17 @@ export async function POST(request: NextRequest) {
       { status: 400 },
     );
   }
+  const visibility: "private" | "public" =
+    body?.visibility === "public" ? "public" : "private";
+  const species_ids: string[] = Array.isArray(body?.species_ids)
+    ? body.species_ids.filter((s: unknown): s is string => typeof s === "string")
+    : [];
 
   try {
-    const result = await createCustomSpot({ name, lat, lng });
+    const result = await createCustomSpot(
+      { name, lat, lng, user_id: userId, visibility, species_ids },
+      accessToken,
+    );
     if (!result.ok) {
       return NextResponse.json(
         { error: result.error, message: result.message },
