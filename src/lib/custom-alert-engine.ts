@@ -11,6 +11,7 @@ import { fetchCHSTideDataByCoordinates, type CHSWaterData } from '@/app/utils/ch
 import { calculateOpenMeteoFishingScore } from '@/app/utils/fishingCalculations';
 import { getMoonPhase } from '@/app/utils/astronomicalCalculations';
 import type { OpenMeteo15MinData } from '@/app/utils/openMeteoApi';
+import { fetchTodaySpotSpeciesScore } from '@/lib/bluecaster-score';
 
 // =============================================================================
 // Types
@@ -32,6 +33,13 @@ export interface AlertProfile {
   state_flags: StateFlags;
   created_at: string;
   updated_at: string;
+  // Score alerts (created from a spot's score modal) evaluate against the real
+  // ReelCaster/bluecaster spot score, not the Open-Meteo trigger. These columns
+  // exist on user_alert_profiles but were absent from this interface.
+  alert_kind?: 'composite' | 'score' | null;
+  target_bluecaster_spot_slug?: string | null;
+  target_species?: string | null;
+  score_threshold?: number | null;
 }
 
 export interface AlertTriggers {
@@ -612,6 +620,84 @@ export function isWithinActiveHours(
 /**
  * Evaluate all triggers for an alert profile
  */
+// Daytime window (spot-local) in which a "today's peak" score alert may fire —
+// keeps us from texting "today looks great" at 1am when the day rolls over.
+const SCORE_ALERT_HOUR_START = 6;
+const SCORE_ALERT_HOUR_END = 21;
+
+function currentHourInZone(timezone = 'America/Vancouver'): number {
+  const hh = new Intl.DateTimeFormat('en-US', {
+    timeZone: timezone,
+    hour: '2-digit',
+    hour12: false,
+  }).format(new Date());
+  // '24' can appear for midnight in some environments; normalize to 0.
+  return Number(hh) % 24;
+}
+
+/**
+ * Evaluate a spot-anchored score alert against the real ReelCaster spot score.
+ *
+ * Fires when today's PEAK score for the target spot + species is at or above the
+ * user's threshold, but only during daytime hours so alerts don't arrive
+ * overnight. Reuses the `fishing_score` trigger name so the existing
+ * cooldown/hysteresis/history/notification path in processAlerts applies.
+ */
+async function evaluateBluecasterScoreProfile(
+  profile: AlertProfile,
+): Promise<EvaluationResult> {
+  const timestamp = new Date().toISOString();
+  const threshold =
+    profile.score_threshold ?? profile.triggers.fishing_score?.min_score ?? 75;
+
+  const result = await fetchTodaySpotSpeciesScore(
+    profile.target_bluecaster_spot_slug!,
+    profile.target_species ?? null,
+  );
+
+  if (!result) {
+    return {
+      matches: false,
+      matchedTriggers: [],
+      triggerResults: {},
+      reason: 'Spot score unavailable',
+      conditionSnapshot: { timestamp },
+    };
+  }
+
+  const score = result.score;
+  const withinDaytime =
+    currentHourInZone() >= SCORE_ALERT_HOUR_START &&
+    currentHourInZone() < SCORE_ALERT_HOUR_END;
+  const matched = score >= threshold && withinDaytime;
+
+  const triggerResult: TriggerResult = {
+    triggered: matched,
+    currentValue: score,
+    threshold: `≥${threshold}`,
+    details: `Today's peak ${score.toFixed(0)}/100${
+      result.speciesMatched ? '' : ' (best species)'
+    }`,
+  };
+
+  let reason: string;
+  if (score < threshold) {
+    reason = `Today's peak ${score.toFixed(0)} below threshold ${threshold}`;
+  } else if (!withinDaytime) {
+    reason = `Score met (${score.toFixed(0)}) but outside daytime window`;
+  } else {
+    reason = `Today's peak ${score.toFixed(0)} at or above ${threshold}`;
+  }
+
+  return {
+    matches: matched,
+    matchedTriggers: matched ? ['fishing_score'] : [],
+    triggerResults: { fishing_score: triggerResult },
+    reason,
+    conditionSnapshot: { timestamp, fishing_score: score },
+  };
+}
+
 export async function evaluateAlertProfile(
   profile: AlertProfile,
   weatherData: OpenMeteo15MinData[],
@@ -619,6 +705,12 @@ export async function evaluateAlertProfile(
   sunrise: number,
   sunset: number,
 ): Promise<EvaluationResult> {
+  // Score alerts anchored to a real ReelCaster spot evaluate against the
+  // bluecaster spot score, not the Open-Meteo trigger machinery below.
+  if (profile.alert_kind === 'score' && profile.target_bluecaster_spot_slug) {
+    return evaluateBluecasterScoreProfile(profile);
+  }
+
   const now = new Date();
   const triggers = profile.triggers;
   const triggerResults: Record<string, TriggerResult> = {};
