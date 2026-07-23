@@ -2,7 +2,8 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { Clock, Loader2, Mail, Smartphone } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { Clock, Loader2, Mail, Smartphone, SlidersHorizontal } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -53,6 +54,7 @@ export default function CreateAlertDialog({
 }) {
   const { user, session } = useAuth();
   const { isPaid, phoneVerified } = useSubscription();
+  const router = useRouter();
 
   const [threshold, setThreshold] = useState(75);
   const [speciesId, setSpeciesId] = useState<string | null>(
@@ -94,6 +96,23 @@ export default function CreateAlertDialog({
   }, [dailyScores, threshold]);
 
   const species = speciesOptions.find((s) => s.id === speciesId) ?? null;
+
+  // Escape hatch to the full condition-set builder, carrying this spot's
+  // context so the advanced page skips location entry (it's anchored here).
+  const goAdvanced = () => {
+    const params = new URLSearchParams({
+      slug: spot.slug,
+      name: spot.name,
+      lat: String(spot.lat),
+      lng: String(spot.lng),
+      threshold: String(threshold),
+    });
+    if (spot.city) params.set("city", spot.city);
+    if (spot.regAreaCode) params.set("area", spot.regAreaCode);
+    if (species?.slug) params.set("species", species.slug);
+    onOpenChange(false);
+    router.push(`/profile/custom-alerts?${params.toString()}`);
+  };
 
   const handleCreate = async () => {
     if (!session?.access_token || !species) {
@@ -326,8 +345,18 @@ export default function CreateAlertDialog({
           </div>
         )}
 
+        {/* Advanced escape hatch — condition-set builder for power users. */}
+        <button
+          type="button"
+          onClick={goAdvanced}
+          className="mt-5 inline-flex items-center gap-1.5 font-rc-mono text-[11px] font-semibold text-rc-ink-mute hover:text-rc-brand transition-colors"
+        >
+          <SlidersHorizontal className="w-3.5 h-3.5" />
+          Need specific conditions? Advanced setup →
+        </button>
+
         {/* Footer */}
-        <div className="mt-6 flex items-center justify-between gap-3 pt-4 border-t border-rc-rule-soft">
+        <div className="mt-4 flex items-center justify-between gap-3 pt-4 border-t border-rc-rule-soft">
           <div className="font-rc-mono text-[11px] text-rc-ink-mute uppercase tracking-[0.04em]">
             {isPaid ? "PRO" : "FREE TIER"} ·{" "}
             {usedCount != null ? usedCount : "—"} of {limit}{" "}

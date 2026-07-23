@@ -7,13 +7,19 @@ import { Bell } from "lucide-react";
  * Custom-alert CTA banner (per the mockup) — a brand-soft panel inviting the
  * angler to set a score threshold alert for this spot, plus a separate
  * "Got questions?" panel. The threshold mirrors the "good" tier cutoff (75).
+ *
+ * "Create alert" opens the score-alert modal in place (the same surface the
+ * ScoreCard button uses); it no longer routes to the legacy builder page.
  */
 export default function CustomAlertCta({
   spotName,
   threshold = 75,
+  onCreateAlert,
 }: {
   spotName: string;
   threshold?: number;
+  /** Opens the create-alert modal (shell gates signed-out anglers into sign-up). */
+  onCreateAlert: () => void;
 }) {
   return (
     <div className="grid grid-cols-1 lg:grid-cols-[1fr_auto] gap-3">
@@ -30,12 +36,13 @@ export default function CustomAlertCta({
             Email free · SMS available with Reelcaster Pro
           </div>
         </div>
-        <Link
-          href="/profile/custom-alerts"
+        <button
+          type="button"
+          onClick={onCreateAlert}
           className="shrink-0 inline-flex items-center justify-center px-5 py-3 rounded bg-rc-brand hover:bg-rc-brand-hover text-white font-rc-mono text-sm font-semibold tracking-[0.04em] transition-colors"
         >
           Create alert →
-        </Link>
+        </button>
       </div>
 
       <div className="rounded bg-rc-brand-soft p-5 flex items-center justify-center">

@@ -103,7 +103,7 @@ export default function SpotDetailShell({
   const [point, setPoint] = useState<PointConditions | null>(null);
   const [saved, toggleSaved] = useFavorite(spot.slug);
   const { isPaid } = useSubscription();
-  const { user } = useAuth();
+  const { user, loading: authLoading } = useAuth();
   const accessTier: ForecastTier = isPaid ? "pro" : user ? "free" : "anonymous";
   const [favUpgradeOpen, setFavUpgradeOpen] = useState(false);
   // One-shot "pop" when favoriting (not on un-favorite or load) — mirrors the
@@ -200,6 +200,20 @@ export default function SpotDetailShell({
     }
     setAlertOpen(true);
   };
+
+  // Deep-link: `?alert=1` (e.g. the Explore drawer's "Set alert") auto-opens the
+  // create-alert modal once auth resolves — signed-out anglers hit the sign-up
+  // gate, same as tapping the button. Reads the query client-side (no
+  // useSearchParams, so the shell needs no Suspense boundary). Runs once.
+  const alertAutoOpened = useRef(false);
+  useEffect(() => {
+    if (authLoading || alertAutoOpened.current) return;
+    if (new URLSearchParams(window.location.search).has("alert")) {
+      alertAutoOpened.current = true;
+      handleSetAlert();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [authLoading]);
 
   const activeIso = selectedIso ?? stripModel?.days[0]?.iso ?? null;
   const activeIndex =
@@ -722,7 +736,7 @@ export default function SpotDetailShell({
 
           {/* ── Full-width footer ─────────────────────────────────────── */}
           <div className="mt-8 space-y-6">
-            <CustomAlertCta spotName={spot.name} />
+            <CustomAlertCta spotName={spot.name} onCreateAlert={handleSetAlert} />
             {spot.seoIntro && (
               <div>
                 <p className="rc-body text-rc-ink-soft leading-relaxed">
