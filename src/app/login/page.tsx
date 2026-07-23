@@ -29,7 +29,7 @@ export default function LoginPage() {
     // (e.g. navigated to /login while logged in). If they just signed in
     // via the form, the onSuccess callback handles navigation.
     if (!loading && user && wasAlreadyAuthed.current) {
-      router.replace('/explore')
+      router.replace('/dashboard')
     }
   }, [user, loading, router])
 
@@ -76,7 +76,7 @@ export default function LoginPage() {
             <AuthForm
               defaultMode="signin"
               source="login-page"
-              onSuccess={() => router.push('/explore')}
+              onSuccess={() => router.push('/dashboard')}
             />
           </div>
 
