@@ -18,6 +18,7 @@ import type {
 import "maplibre-gl/dist/maplibre-gl.css";
 import type { RailSpot } from "../lib/explore-data";
 import { buildReliefStyle } from "@/lib/map/relief-style";
+import { attachRcaHatch } from "@/lib/map/rca-hatch";
 import { MAP_CUSTOM_ATTRIBUTION, MapBrandLogo } from "@/lib/map/map-brand";
 import { spotsToFeatureCollection, declutterHiddenSlugs, SELECT_HEX } from "../lib/spot-geojson";
 import { useCurrentsFlow } from "../lib/use-currents-flow";
@@ -326,6 +327,7 @@ export default function ExploreMap({
         cursor={cursor}
         onClick={handleClick}
         onLoad={(e) => {
+          attachRcaHatch(e.target); // register RCA fill-pattern image (hatch)
           setMapObj(e.target);
           reportViewport(e.target);
         }}
