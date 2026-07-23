@@ -19,10 +19,12 @@ type Detent = "peek" | "half" | "full";
 export default function MobileMapSheet({
   spots,
   tz,
+  locationName,
   onSelectSpot,
 }: {
   spots: RailSpot[];
   tz: string;
+  locationName?: string | null;
   onSelectSpot: (slug: string) => void;
 }) {
   const [sort, setSort] = useState<SortKey>("score");
@@ -97,18 +99,28 @@ export default function MobileMapSheet({
   }, [dragHeight, detent, detents]);
 
   return (
-    <div
-      className="lg:hidden fixed inset-x-0 z-30 flex flex-col rounded-t-2xl border-t border-rc-rule bg-rc-panel shadow-[0_-8px_30px_rgba(15,23,42,0.12)]"
-      style={{
-        // Sit above the floating bottom tab bar (pill h-16 + its 0.75rem gap).
-        bottom: "calc(5.25rem + env(safe-area-inset-bottom))",
-        height,
-        transition:
-          dragHeight == null ? "height 0.3s cubic-bezier(0.32,0.72,0,1)" : "none",
-      }}
-      role="dialog"
-      aria-label="Spots in view"
-    >
+    <>
+      {/* White base filling the strip the floating nav pill floats over, so the
+          map doesn't peek through below/around the sheet — the sheet's white
+          reads as continuous all the way to the screen bottom. Its top meets the
+          sheet's bottom exactly (same offset). */}
+      <div
+        aria-hidden
+        className="lg:hidden pointer-events-none fixed inset-x-0 bottom-0 z-20 bg-rc-panel"
+        style={{ height: "calc(5.25rem + env(safe-area-inset-bottom))" }}
+      />
+      <div
+        className="lg:hidden fixed inset-x-0 z-30 flex flex-col rounded-t-2xl border-t border-rc-rule bg-rc-panel shadow-[0_-8px_30px_rgba(15,23,42,0.12)]"
+        style={{
+          // Sit above the floating bottom tab bar (pill h-16 + its 0.75rem gap).
+          bottom: "calc(5.25rem + env(safe-area-inset-bottom))",
+          height,
+          transition:
+            dragHeight == null ? "height 0.3s cubic-bezier(0.32,0.72,0,1)" : "none",
+        }}
+        role="dialog"
+        aria-label="Spots in view"
+      >
       {/* Drag handle + count — owns the drag gesture. */}
       <div
         className="shrink-0 cursor-grab touch-none select-none px-4 pt-2.5 pb-2"
@@ -120,8 +132,11 @@ export default function MobileMapSheet({
         <div className="mx-auto mb-2.5 h-1 w-9 rounded-full bg-rc-rule" />
         <div className="flex items-end justify-between gap-3">
           <div className="min-w-0">
-            <div className="rc-label text-[9px]">Viewing all spots</div>
-            <div className="mt-0.5 text-[15px] font-semibold text-rc-ink">
+            {/* Lead with the location so scope + count read as one unit —
+                "Victoria · 24 spots" (per gelb-verify: the count belongs with
+                the place that produced it). */}
+            <div className="truncate text-[15px] font-semibold text-rc-ink">
+              {locationName ? `${locationName} · ` : ""}
               {spots.length} spot{spots.length === 1 ? "" : "s"}
             </div>
           </div>
@@ -160,7 +175,8 @@ export default function MobileMapSheet({
         </div>
 
         <ExploreFooter />
+        </div>
       </div>
-    </div>
+    </>
   );
 }
