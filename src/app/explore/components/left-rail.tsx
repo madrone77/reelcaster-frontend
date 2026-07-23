@@ -51,6 +51,7 @@ export default function LeftRail({
   onCloseSpot,
   onCloseStation,
   onSpotHourHover,
+  onSetAlert,
   mapControls,
 }: {
   locations: ProvinceNode[];
@@ -71,6 +72,8 @@ export default function LeftRail({
   onCloseStation: () => void;
   /** Drawer 24h-chart hover hour (null on leave) — retunes the currents flow. */
   onSpotHourHover?: (hour: number | null) => void;
+  /** Opens the create-alert modal in place for the drawer's spot. */
+  onSetAlert?: (spot: RailSpot) => void;
   mapControls: MapControlsProps;
 }) {
   const [sort, setSort] = useState<SortKey>("score");
@@ -90,6 +93,7 @@ export default function LeftRail({
             scrubHour={scrubHour}
             onBack={onCloseSpot}
             onHourHover={onSpotHourHover}
+            onSetAlert={onSetAlert}
           />
         </div>
       ) : selectedStation ? (

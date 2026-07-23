@@ -86,6 +86,8 @@ export interface RailSpot {
 export interface SpeciesOption {
   id: string;
   name: string;
+  /** Canonical species slug (e.g. "chinook") — used to target alerts. */
+  slug: string;
   /** Best score (0–100) across all visible spots for this species, null = unscored. */
   bestScore: number | null;
 }
@@ -502,7 +504,12 @@ export function buildExploreData(
     }
   }
   const species: SpeciesOption[] = Object.keys(speciesBest)
-    .map((id) => ({ id, name: speciesDisplayName(speciesDict[id]?.name ?? id), bestScore: speciesBest[id] ?? null }))
+    .map((id) => ({
+      id,
+      name: speciesDisplayName(speciesDict[id]?.name ?? id),
+      slug: speciesDict[id]?.slug ?? id,
+      bestScore: speciesBest[id] ?? null,
+    }))
     .sort((a, b) => (b.bestScore ?? -1) - (a.bestScore ?? -1));
 
   return {

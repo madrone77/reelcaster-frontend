@@ -71,6 +71,7 @@ export default function SpotDrawer({
   scrubHour = null,
   onBack,
   onHourHover,
+  onSetAlert,
 }: {
   spot: RailSpot;
   date: string;
@@ -83,6 +84,9 @@ export default function SpotDrawer({
   /** Reports the hover-scrubbed hour (null on leave) so the shell can retune
       time-anchored map layers — the animated currents field — to that hour. */
   onHourHover?: (hour: number | null) => void;
+  /** Opens the create-alert modal in place for this spot. When omitted, the
+      "Set alert" button falls back to the spot page (which opens the modal). */
+  onSetAlert?: (spot: RailSpot) => void;
 }) {
   // Resting state anchors to the day's PEAK hour — the drawer's headline
   // promise is "the best this day gets", not the score at whatever hour the
@@ -271,12 +275,22 @@ export default function SpotDrawer({
         >
           VIEW SPOT DETAILS
         </Link>
-        <Link
-          href="/profile/custom-alerts"
-          className="px-4 py-2.5 rounded-lg border border-rc-brand text-rc-brand font-rc-mono text-xs font-semibold tracking-[0.08em] hover:bg-rc-brand-soft transition-colors text-center"
-        >
-          SET ALERT
-        </Link>
+        {onSetAlert ? (
+          <button
+            type="button"
+            onClick={() => onSetAlert(spot)}
+            className="px-4 py-2.5 rounded-lg border border-rc-brand text-rc-brand font-rc-mono text-xs font-semibold tracking-[0.08em] hover:bg-rc-brand-soft transition-colors text-center"
+          >
+            SET ALERT
+          </button>
+        ) : (
+          <Link
+            href={`${spotHref}?alert=1`}
+            className="px-4 py-2.5 rounded-lg border border-rc-brand text-rc-brand font-rc-mono text-xs font-semibold tracking-[0.08em] hover:bg-rc-brand-soft transition-colors text-center"
+          >
+            SET ALERT
+          </Link>
+        )}
       </div>
 
       <UpgradeRequiredModal

@@ -28,6 +28,7 @@ import {
   Moon,
   Fish,
   ChevronDown,
+  MapPin,
   Save,
   X,
   Loader2,
@@ -35,9 +36,39 @@ import {
 import type { AlertProfile, AlertTriggers } from '@/lib/custom-alert-engine'
 import { AlertLocationMap } from './alert-location-map'
 
+/**
+ * A spot this alert is anchored to. When present, the form drops the map
+ * pin-drop + free-text location (location comes from the spot) and links the
+ * alert back to the spot so it shows a live score on /notifications.
+ */
+export interface AlertSpotContext {
+  slug: string
+  name: string
+  lat: number
+  lng: number
+  city?: string
+  areaCode?: string
+  /** Canonical species slug to target (from the spot's species list). */
+  speciesSlug?: string
+  /** Score threshold to seed the fishing-score trigger with. */
+  threshold?: number
+}
+
+/** Superset of the profile fields plus the spot-linking columns the API accepts. */
+export type AlertSubmitPayload = Partial<AlertProfile> & {
+  id?: string
+  target_bluecaster_spot_slug?: string | null
+  target_species?: string | null
+  score_threshold?: number | null
+  alert_kind?: 'composite' | 'score'
+  delivery_channels?: ('email' | 'sms')[]
+}
+
 interface CustomAlertFormProps {
   profile?: AlertProfile | null
-  onSubmit: (data: Partial<AlertProfile> & { id?: string }) => Promise<void>
+  /** When set, anchors the alert to a spot and hides the pin-drop location UI. */
+  spotContext?: AlertSpotContext | null
+  onSubmit: (data: AlertSubmitPayload) => Promise<void>
   onCancel: () => void
 }
 
@@ -79,16 +110,34 @@ const DEFAULT_TRIGGERS: AlertTriggers = {
   fishing_score: { enabled: false, min_score: 70 },
 }
 
-export function CustomAlertForm({ profile, onSubmit, onCancel }: CustomAlertFormProps) {
+export function CustomAlertForm({ profile, spotContext, onSubmit, onCancel }: CustomAlertFormProps) {
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
   // Form state
-  const [name, setName] = useState(profile?.name || '')
-  const [locationLat, setLocationLat] = useState(profile?.location_lat || 48.4284)
-  const [locationLng, setLocationLng] = useState(profile?.location_lng || -123.3656)
-  const [locationName, setLocationName] = useState(profile?.location_name || 'Victoria, BC')
-  const [triggers, setTriggers] = useState<AlertTriggers>(profile?.triggers || DEFAULT_TRIGGERS)
+  const [name, setName] = useState(profile?.name || spotContext?.name || '')
+  const [locationLat, setLocationLat] = useState(
+    profile?.location_lat ?? spotContext?.lat ?? 48.4284,
+  )
+  const [locationLng, setLocationLng] = useState(
+    profile?.location_lng ?? spotContext?.lng ?? -123.3656,
+  )
+  const [locationName, setLocationName] = useState(
+    profile?.location_name || spotContext?.name || 'Victoria, BC',
+  )
+  const [triggers, setTriggers] = useState<AlertTriggers>(
+    profile?.triggers ||
+      (spotContext
+        ? {
+            ...DEFAULT_TRIGGERS,
+            fishing_score: {
+              enabled: true,
+              min_score: spotContext.threshold ?? 70,
+              species: spotContext.speciesSlug,
+            },
+          }
+        : DEFAULT_TRIGGERS),
+  )
   const [logicMode, setLogicMode] = useState<'AND' | 'OR'>(profile?.logic_mode || 'AND')
   const [cooldownHours, setCooldownHours] = useState(profile?.cooldown_hours || 12)
   const [activeHoursEnabled, setActiveHoursEnabled] = useState(!!profile?.active_hours)
@@ -125,7 +174,7 @@ export function CustomAlertForm({ profile, onSubmit, onCancel }: CustomAlertForm
     setSaving(true)
 
     try {
-      const data: Partial<AlertProfile> & { id?: string } = {
+      const data: AlertSubmitPayload = {
         name,
         location_lat: locationLat,
         location_lng: locationLng,
@@ -140,6 +189,24 @@ export function CustomAlertForm({ profile, onSubmit, onCancel }: CustomAlertForm
 
       if (profile) {
         data.id = profile.id
+      }
+
+      // Anchor the alert to its spot so /notifications can resolve a live score.
+      if (spotContext) {
+        const enabledKeys = Object.entries(triggers)
+          .filter(([, v]) => v?.enabled)
+          .map(([k]) => k)
+        data.target_bluecaster_spot_slug = spotContext.slug
+        data.target_species =
+          spotContext.speciesSlug ?? triggers.fishing_score?.species ?? null
+        data.score_threshold = triggers.fishing_score?.enabled
+          ? (triggers.fishing_score.min_score ?? null)
+          : null
+        data.alert_kind =
+          enabledKeys.length === 1 && enabledKeys[0] === 'fishing_score'
+            ? 'score'
+            : 'composite'
+        data.delivery_channels = ['email']
       }
 
       await onSubmit(data)
@@ -177,28 +244,45 @@ export function CustomAlertForm({ profile, onSubmit, onCancel }: CustomAlertForm
               />
             </div>
 
-            {/* Pin drop map selector */}
-            <div>
-              <Label className="text-rc-ink mb-2 block">Drop Pin on Map</Label>
-              <AlertLocationMap
-                latitude={locationLat}
-                longitude={locationLng}
-                onLocationChange={(lat, lng) => {
-                  setLocationLat(lat)
-                  setLocationLng(lng)
-                }}
-              />
-            </div>
+            {spotContext ? (
+              /* Spot-anchored: location comes from the spot, no pin-drop. */
+              <div className="rounded-lg bg-rc-brand-soft px-4 py-3 flex items-center gap-3">
+                <MapPin className="h-5 w-5 text-rc-brand shrink-0" />
+                <div className="min-w-0">
+                  <div className="rc-label text-[9px] text-rc-brand">SPOT</div>
+                  <div className="font-bold text-rc-ink mt-0.5">
+                    {[spotContext.name, spotContext.city, spotContext.areaCode ? `PFMA ${spotContext.areaCode}` : null]
+                      .filter(Boolean)
+                      .join(' · ')}
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <>
+                {/* Pin drop map selector */}
+                <div>
+                  <Label className="text-rc-ink mb-2 block">Drop Pin on Map</Label>
+                  <AlertLocationMap
+                    latitude={locationLat}
+                    longitude={locationLng}
+                    onLocationChange={(lat, lng) => {
+                      setLocationLat(lat)
+                      setLocationLng(lng)
+                    }}
+                  />
+                </div>
 
-            <div>
-              <Label htmlFor="locationName" className="text-rc-ink">Location Name</Label>
-              <Input
-                id="locationName"
-                value={locationName}
-                onChange={(e) => setLocationName(e.target.value)}
-                placeholder="e.g., Victoria, BC"
-              />
-            </div>
+                <div>
+                  <Label htmlFor="locationName" className="text-rc-ink">Location Name</Label>
+                  <Input
+                    id="locationName"
+                    value={locationName}
+                    onChange={(e) => setLocationName(e.target.value)}
+                    placeholder="e.g., Victoria, BC"
+                  />
+                </div>
+              </>
+            )}
           </div>
 
           {/* Triggers */}

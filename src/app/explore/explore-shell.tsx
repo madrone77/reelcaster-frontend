@@ -31,6 +31,10 @@ import LocationSelector from "./components/location-selector";
 import MobileMapSheet from "./components/mobile-map-sheet";
 import MobileFilterSheet from "./components/mobile-filter-sheet";
 import ForecastStrip from "./components/forecast-strip";
+import CreateAlertDialog from "./spot/components/create-alert-dialog";
+import SignupGateDialog, {
+  type AuthIntent,
+} from "./spot/components/signup-gate-dialog";
 
 const MAP_TZ = "America/Vancouver";
 
@@ -375,6 +379,34 @@ export default function ExploreShell({
     [railSpots, displaySpots, spotSlug],
   );
 
+  // ── Create-alert modal — opened in place from the drawer's "Set alert",
+  //    the same score-slider modal the spot page uses. Signed-out anglers hit
+  //    the sign-up gate first (parity with the spot page). ────────────────
+  const [alertSpot, setAlertSpot] = useState<RailSpot | null>(null);
+  const [alertOpen, setAlertOpen] = useState(false);
+  const [authIntent, setAuthIntent] = useState<AuthIntent | null>(null);
+
+  const handleSetAlert = useCallback(
+    (spot: RailSpot) => {
+      setAlertSpot(spot);
+      if (!user) {
+        setAuthIntent("alert");
+        return;
+      }
+      setAlertOpen(true);
+    },
+    [user],
+  );
+
+  // The drawer spot's scored species → modal pills (id + name + slug).
+  const alertSpeciesOptions = useMemo(() => {
+    if (!alertSpot) return [];
+    const scored = new Set(Object.keys(alertSpot.scoresBySpecies));
+    return data.species
+      .filter((s) => scored.has(s.id))
+      .map((s) => ({ id: s.id, name: s.name, slug: s.slug }));
+  }, [alertSpot, data.species]);
+
   // ── Station/buoy selection (?stn=<chs|noaa|ndbc>:<sid>). The URL only
   //    carries source:sid; the click handler stashes the richer feature
   //    (name, coords) so the drawer header paints instantly. On a deep link
@@ -651,6 +683,7 @@ export default function ExploreShell({
         onCloseSpot={handleCloseSpot}
         onCloseStation={handleCloseStation}
         onSpotHourHover={setScrubHour}
+        onSetAlert={handleSetAlert}
         mapControls={{
           relief,
           labels,
@@ -710,6 +743,32 @@ export default function ExploreShell({
         onSpeciesChange={setSpeciesFilter}
         onNearMe={handleNearMe}
         locating={locating}
+      />
+
+      {/* Create-alert modal + sign-up gate, opened from the drawer's "Set alert". */}
+      {alertSpot && (
+        <CreateAlertDialog
+          open={alertOpen}
+          onOpenChange={setAlertOpen}
+          spot={{
+            name: alertSpot.name,
+            slug: alertSpot.slug,
+            lat: alertSpot.lat,
+            lng: alertSpot.lng,
+            city: alertSpot.cityName,
+          }}
+          speciesOptions={alertSpeciesOptions}
+          initialSpeciesId={alertSpot.bestSpeciesId}
+        />
+      )}
+
+      <SignupGateDialog
+        open={authIntent !== null}
+        onOpenChange={(o) => {
+          if (!o) setAuthIntent(null);
+        }}
+        intent={authIntent ?? "alert"}
+        spotName={alertSpot?.name ?? ""}
       />
     </div>
   );
