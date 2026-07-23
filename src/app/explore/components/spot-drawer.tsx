@@ -60,19 +60,25 @@ function headerStamp(date: string, tz: string, hour: number | null): string {
  * entirely from the in-memory RailSpot: identity + score + the six-cell
  * conditions grid (tide, current, wind, sea state, sky, air temp — all from
  * the map-spots strip at the day-peak hour, hover-scrubbable) + the 24h
- * best-window chart. The headline score is the day's PEAK, not the shell's
- * scrubbed hour — the card answers "how good does this day get here".
+ * best-window chart. At rest the headline is the day's PEAK ("how good does
+ * this day get here"); the shell's strip scrubber (`scrubHour`) and the
+ * chart's own hover both pull it off peak onto a specific hour.
  */
 export default function SpotDrawer({
   spot,
   date,
   tz,
+  scrubHour = null,
   onBack,
   onHourHover,
 }: {
   spot: RailSpot;
   date: string;
   tz: string;
+  /** The hour scrubbed on the 14-day strip's lane (0–23), or null = day peak.
+      Articulates this drawer — score, pill, conditions grid, chart marker —
+      in lockstep with the strip. A local chart-hover overrides it. */
+  scrubHour?: number | null;
   onBack: () => void;
   /** Reports the hover-scrubbed hour (null on leave) so the shell can retune
       time-anchored map layers — the animated currents field — to that hour. */
@@ -106,9 +112,14 @@ export default function SpotDrawer({
   const onHourHoverRef = useRef(onHourHover);
   onHourHoverRef.current = onHourHover;
   useEffect(() => () => onHourHoverRef.current?.(null), []);
-  const hoverScore = hoverHour !== null ? spot.hours24[hoverHour] : null;
-  const score = hoverScore ?? restScore ?? spot.score;
-  const displayHour = hoverHour ?? restHour;
+  // Active hour = local chart-hover (highest priority) → strip scrub → day
+  // peak. Whichever wins drives the score, pill, header stamp, conditions
+  // grid, and the 24h chart marker together.
+  const activeHour = hoverHour ?? scrubHour ?? restHour;
+  const activeScore =
+    activeHour !== null ? spot.hours24[activeHour] : null;
+  const score = activeScore ?? restScore ?? spot.score;
+  const displayHour = activeHour;
   const displayCell =
     displayHour !== null ? spot.condStrip?.[displayHour] : null;
   const conditions = displayCell ? formatConditions(displayCell) : spot.conditions;

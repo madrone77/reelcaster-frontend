@@ -44,6 +44,7 @@ export default function LeftRail({
   selectedStation,
   date,
   tz,
+  scrubHour,
   bottomInset,
   onSelectCity,
   onSelectSpot,
@@ -59,6 +60,9 @@ export default function LeftRail({
   selectedStation: StationPick | null;
   date: string;
   tz: string;
+  /** Hour scrubbed on the 14-day strip (0–23) or null = day peak — forwarded
+      to the spot drawer so scrubbing articulates the selected spot's card. */
+  scrubHour: number | null;
   /** px gap from the viewport bottom — keeps the rail clear of the docked strip. */
   bottomInset: number;
   onSelectCity: (city: CityNode) => void;
@@ -83,6 +87,7 @@ export default function LeftRail({
             spot={selectedSpot}
             date={date}
             tz={tz}
+            scrubHour={scrubHour}
             onBack={onCloseSpot}
             onHourHover={onSpotHourHover}
           />
