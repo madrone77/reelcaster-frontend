@@ -639,6 +639,7 @@ export default function ExploreShell({
         selectedStation={selectedStation}
         date={selectedIso}
         tz={MAP_TZ}
+        scrubHour={scrubHour}
         bottomInset={stripHidden ? 64 : 152}
         onSelectCity={handleSelectCity}
         onSelectSpot={handleSelectSpot}
