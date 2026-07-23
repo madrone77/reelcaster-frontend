@@ -2,11 +2,14 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { RailSpot } from "../lib/explore-data";
+import type { ForecastStripModel, ForecastDay } from "../lib/forecast-strip";
 import SpotCard from "./spot-card";
 import SortControl, { type SortKey, sortSpots } from "./sort-control";
+import SheetForecast from "./sheet-forecast";
 import ExploreFooter from "./explore-footer";
 
 type Detent = "peek" | "half" | "full";
+type SheetView = "spots" | "forecast";
 
 /**
  * Zillow-style mobile bottom sheet over the full-screen Explore map. Three
@@ -21,12 +24,27 @@ export default function MobileMapSheet({
   tz,
   locationName,
   onSelectSpot,
+  forecastModel,
+  selectedIso,
+  selectedDayHours,
+  scrubHour,
+  onScrubHour,
+  onSelectDay,
+  signedIn,
 }: {
   spots: RailSpot[];
   tz: string;
   locationName?: string | null;
   onSelectSpot: (slug: string) => void;
+  forecastModel: ForecastStripModel | null;
+  selectedIso: string;
+  selectedDayHours: (number | null)[];
+  scrubHour: number | null;
+  onScrubHour: (h: number) => void;
+  onSelectDay: (day: ForecastDay) => void;
+  signedIn: boolean;
 }) {
+  const [view, setView] = useState<SheetView>("spots");
   const [sort, setSort] = useState<SortKey>("score");
   const sorted = useMemo(() => sortSpots(spots, sort), [spots, sort]);
 
@@ -140,42 +158,94 @@ export default function MobileMapSheet({
               {spots.length} spot{spots.length === 1 ? "" : "s"}
             </div>
           </div>
-          {spots.length > 1 && (
+          {view === "spots" && spots.length > 1 && (
             // Keep taps on the sort control from starting a sheet drag.
             <div onPointerDown={(e) => e.stopPropagation()}>
               <SortControl sort={sort} onSort={setSort} />
             </div>
           )}
         </div>
+
+        {/* All spots ⇄ 14-day — the two lenses on the same water. Tap-only
+            (a swipe toggle was UX-vetoed for colliding with day-scroll). */}
+        <div
+          className="mt-2.5"
+          onPointerDown={(e) => e.stopPropagation()}
+        >
+          <div
+            role="group"
+            aria-label="Sheet view"
+            className="inline-flex rounded-full border border-rc-rule bg-rc-surface p-0.5"
+          >
+            <button
+              type="button"
+              aria-pressed={view === "spots"}
+              onClick={() => setView("spots")}
+              className={`rounded-full px-3.5 py-1.5 text-[13px] font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rc-brand ${
+                view === "spots"
+                  ? "bg-rc-brand text-white shadow-sm"
+                  : "text-rc-ink-soft hover:text-rc-ink"
+              }`}
+            >
+              All spots
+            </button>
+            <button
+              type="button"
+              aria-pressed={view === "forecast"}
+              onClick={() => setView("forecast")}
+              className={`rounded-full px-3.5 py-1.5 text-[13px] font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rc-brand ${
+                view === "forecast"
+                  ? "bg-rc-brand text-white shadow-sm"
+                  : "text-rc-ink-soft hover:text-rc-ink"
+              }`}
+            >
+              14-day
+            </button>
+          </div>
+        </div>
       </div>
 
-      {/* Scrollable spot list — independent of the sheet drag. */}
-      <div className="flex-1 overflow-y-auto overscroll-contain px-4 pb-4">
-        <div className="mx-auto max-w-[392px] space-y-3 pt-1">
-          {sorted.map((spot) => (
-            <SpotCard
-              key={spot.id}
-              spot={spot}
-              tz={tz}
-              onSelect={() => onSelectSpot(spot.slug)}
-            />
-          ))}
+      {/* Body — swaps between the spot list and the 14-day forecast. */}
+      <div className="flex-1 overflow-y-auto overscroll-contain">
+        {view === "forecast" ? (
+          <SheetForecast
+            model={forecastModel}
+            selectedIso={selectedIso}
+            hours={selectedDayHours}
+            scrubHour={scrubHour}
+            onScrubHour={onScrubHour}
+            onSelectDay={onSelectDay}
+            signedIn={signedIn}
+          />
+        ) : (
+          <div className="px-4 pb-4">
+            <div className="mx-auto max-w-[392px] space-y-3 pt-1">
+              {sorted.map((spot) => (
+                <SpotCard
+                  key={spot.id}
+                  spot={spot}
+                  tz={tz}
+                  onSelect={() => onSelectSpot(spot.slug)}
+                />
+              ))}
 
-          {spots.length === 0 && (
-            <div className="px-4 py-10 text-center">
-              <p className="mb-1 text-sm font-semibold text-rc-ink">
-                No published spots here yet
-              </p>
-              <p className="text-xs text-rc-ink-mute">
-                Pan or zoom the map to find spots — coverage is rolling out
-                across BC, WA, and OR.
-              </p>
+              {spots.length === 0 && (
+                <div className="px-4 py-10 text-center">
+                  <p className="mb-1 text-sm font-semibold text-rc-ink">
+                    No published spots here yet
+                  </p>
+                  <p className="text-xs text-rc-ink-mute">
+                    Pan or zoom the map to find spots — coverage is rolling out
+                    across BC, WA, and OR.
+                  </p>
+                </div>
+              )}
             </div>
-          )}
-        </div>
 
-        <ExploreFooter />
-        </div>
+            <ExploreFooter />
+          </div>
+        )}
+      </div>
       </div>
     </>
   );

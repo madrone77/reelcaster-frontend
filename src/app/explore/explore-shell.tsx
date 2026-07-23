@@ -634,6 +634,13 @@ export default function ExploreShell({
         tz={MAP_TZ}
         locationName={labelCity?.name ?? null}
         onSelectSpot={handleSelectSpot}
+        forecastModel={stripModel}
+        selectedIso={selectedIso}
+        selectedDayHours={selectedDayHours}
+        scrubHour={scrubHour}
+        onScrubHour={setScrubHour}
+        onSelectDay={handleSelectDay}
+        signedIn={!!user}
       />
 
       <LeftRail

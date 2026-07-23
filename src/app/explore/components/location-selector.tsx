@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { ChevronDown, Loader2, LocateFixed, MapPin, Search, SlidersHorizontal } from "lucide-react";
 import {
   TIER_PILL,
@@ -52,10 +53,22 @@ export default function LocationSelector({
   const rootRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  // Close on outside click / Escape.
+  // On mobile the panel is a portaled bottom sheet (outside rootRef), so the
+  // scrim + Escape own dismissal there; the outside-click close is desktop-only.
+  const [isMobile, setIsMobile] = useState(false);
+  useEffect(() => {
+    const mq = window.matchMedia("(max-width: 1023px)");
+    const on = () => setIsMobile(mq.matches);
+    on();
+    mq.addEventListener("change", on);
+    return () => mq.removeEventListener("change", on);
+  }, []);
+
+  // Close on outside click (desktop) / Escape (both).
   useEffect(() => {
     if (!open) return;
     const onDown = (e: MouseEvent) => {
+      if (isMobile) return;
       if (!rootRef.current?.contains(e.target as Node)) setOpen(false);
     };
     const onKey = (e: KeyboardEvent) => {
@@ -67,7 +80,7 @@ export default function LocationSelector({
       document.removeEventListener("mousedown", onDown);
       document.removeEventListener("keydown", onKey);
     };
-  }, [open]);
+  }, [open, isMobile]);
 
   useEffect(() => {
     if (open) {
@@ -94,6 +107,87 @@ export default function LocationSelector({
     setOpen(false);
     onSelectCity(city);
   };
+
+  // Shared panel content (search + near-me + city list) rendered into either the
+  // desktop anchored dropdown or the mobile portaled bottom sheet.
+  const panelBody = (
+    <>
+      {/* City search */}
+      <div className="flex items-center gap-2 px-3 py-2 border-b border-rc-rule">
+        <Search className="w-4 h-4 text-rc-ink-mute shrink-0" />
+        <input
+          ref={inputRef}
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" && cities.length > 0) pick(cities[0]);
+          }}
+          placeholder="Search city…"
+          className="w-full bg-transparent text-sm text-rc-ink outline-none placeholder:text-rc-ink-mute"
+        />
+      </div>
+
+      {mapControls && (
+        <>
+          <button
+            type="button"
+            onClick={() => {
+              mapControls.onNearMe();
+              setOpen(false);
+            }}
+            disabled={mapControls.locating}
+            className="flex items-center gap-2.5 w-full px-3 py-2 text-sm font-medium text-rc-ink hover:bg-rc-surface transition-colors disabled:opacity-60"
+          >
+            {mapControls.locating ? (
+              <Loader2 className="w-4 h-4 animate-spin text-rc-ink-mute shrink-0" />
+            ) : (
+              <LocateFixed className="w-4 h-4 text-rc-ink-mute shrink-0" />
+            )}
+            Near me
+          </button>
+          <div className="h-px bg-rc-rule mx-2 my-1" />
+        </>
+      )}
+
+      {cities.length === 0 ? (
+        <div className="px-3 py-3 text-sm text-rc-ink-mute">
+          No cities match “{query}”
+        </div>
+      ) : (
+        cities.map((city) => {
+          const tier = tierFor(city.bestScore);
+          const isSelected = selectedCity?.slug === city.slug;
+          return (
+            <button
+              key={city.slug}
+              type="button"
+              onClick={() => pick(city)}
+              className={`w-full flex items-center gap-2 px-3 py-2 text-left transition-colors ${
+                isSelected
+                  ? "bg-rc-brand-soft text-rc-brand"
+                  : "hover:bg-rc-surface text-rc-ink"
+              }`}
+            >
+              <span className="text-sm truncate">{city.name}</span>
+              <span className="rc-label text-[9px] truncate shrink min-w-0">
+                {city.regionName}
+              </span>
+              <span className="font-rc-mono text-[10px] text-rc-ink-mute ml-auto shrink-0">
+                {city.spotCount} spot{city.spotCount === 1 ? "" : "s"}
+              </span>
+              {city.bestScore !== null && (
+                <span
+                  className={`shrink-0 px-1.5 py-0.5 rounded font-rc-mono text-[11px] font-bold ${TIER_PILL[tier]}`}
+                >
+                  {city.bestScore}
+                </span>
+              )}
+            </button>
+          );
+        })
+      )}
+    </>
+  );
 
   return (
     <div ref={rootRef} className="relative">
@@ -129,81 +223,33 @@ export default function LocationSelector({
         )}
       </div>
 
-      {open && (
+      {/* Desktop — anchored dropdown below the pill. */}
+      {open && !isMobile && (
         <div className="absolute left-2 right-2 top-full z-20 mt-1 max-h-[60vh] overflow-y-auto bg-rc-panel border border-rc-rule rounded-xl shadow-rc-panel py-1">
-          {/* City search */}
-          <div className="flex items-center gap-2 px-3 py-2 border-b border-rc-rule">
-            <Search className="w-4 h-4 text-rc-ink-mute shrink-0" />
-            <input
-              ref={inputRef}
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter" && cities.length > 0) pick(cities[0]);
-              }}
-              placeholder="Search city…"
-              className="w-full bg-transparent text-sm text-rc-ink outline-none placeholder:text-rc-ink-mute"
-            />
-          </div>
-
-          {mapControls && (
-            <>
-              <button
-                type="button"
-                onClick={() => { mapControls.onNearMe(); setOpen(false); }}
-                disabled={mapControls.locating}
-                className="flex items-center gap-2.5 w-full px-3 py-2 text-sm font-medium text-rc-ink hover:bg-rc-surface transition-colors disabled:opacity-60"
-              >
-                {mapControls.locating ? (
-                  <Loader2 className="w-4 h-4 animate-spin text-rc-ink-mute shrink-0" />
-                ) : (
-                  <LocateFixed className="w-4 h-4 text-rc-ink-mute shrink-0" />
-                )}
-                Near me
-              </button>
-              <div className="h-px bg-rc-rule mx-2 my-1" />
-            </>
-          )}
-
-          {cities.length === 0 ? (
-            <div className="px-3 py-3 text-sm text-rc-ink-mute">
-              No cities match “{query}”
-            </div>
-          ) : (
-            cities.map((city) => {
-              const tier = tierFor(city.bestScore);
-              const isSelected = selectedCity?.slug === city.slug;
-              return (
-                <button
-                  key={city.slug}
-                  type="button"
-                  onClick={() => pick(city)}
-                  className={`w-full flex items-center gap-2 px-3 py-2 text-left transition-colors ${
-                    isSelected
-                      ? "bg-rc-brand-soft text-rc-brand"
-                      : "hover:bg-rc-surface text-rc-ink"
-                  }`}
-                >
-                  <span className="text-sm truncate">{city.name}</span>
-                  <span className="rc-label text-[9px] truncate shrink min-w-0">
-                    {city.regionName}
-                  </span>
-                  <span className="font-rc-mono text-[10px] text-rc-ink-mute ml-auto shrink-0">
-                    {city.spotCount} spot{city.spotCount === 1 ? "" : "s"}
-                  </span>
-                  {city.bestScore !== null && (
-                    <span
-                      className={`shrink-0 px-1.5 py-0.5 rounded font-rc-mono text-[11px] font-bold ${TIER_PILL[tier]}`}
-                    >
-                      {city.bestScore}
-                    </span>
-                  )}
-                </button>
-              );
-            })
-          )}
+          {panelBody}
         </div>
       )}
+
+      {/* Mobile — a bottom sheet (matching the filter sheet, so location +
+          filter open the same way). Portaled to <body> so it escapes the
+          header's stacking context and layers above the map + spot sheet. */}
+      {open &&
+        isMobile &&
+        createPortal(
+          <>
+            <div
+              className="fixed inset-0 z-[60] bg-black/30"
+              onClick={() => setOpen(false)}
+            />
+            <div className="fixed inset-x-0 bottom-0 z-[61] max-h-[75vh] overflow-y-auto bg-rc-panel rounded-t-2xl shadow-rc-panel animate-slide-up pb-[calc(0.5rem+env(safe-area-inset-bottom))]">
+              <div className="flex justify-center pt-2.5 pb-1">
+                <div className="h-1 w-9 rounded-full bg-rc-rule" />
+              </div>
+              {panelBody}
+            </div>
+          </>,
+          document.body,
+        )}
     </div>
   );
 }
