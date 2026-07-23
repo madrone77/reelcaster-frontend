@@ -629,7 +629,12 @@ export default function ExploreShell({
       </div>
 
       {/* Mobile-only pull-up spot sheet over the map (Zillow-style). */}
-      <MobileMapSheet spots={railSpots} tz={MAP_TZ} onSelectSpot={handleSelectSpot} />
+      <MobileMapSheet
+        spots={railSpots}
+        tz={MAP_TZ}
+        locationName={labelCity?.name ?? null}
+        onSelectSpot={handleSelectSpot}
+      />
 
       <LeftRail
         locations={data.locations}

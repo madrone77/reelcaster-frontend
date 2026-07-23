@@ -19,10 +19,12 @@ type Detent = "peek" | "half" | "full";
 export default function MobileMapSheet({
   spots,
   tz,
+  locationName,
   onSelectSpot,
 }: {
   spots: RailSpot[];
   tz: string;
+  locationName?: string | null;
   onSelectSpot: (slug: string) => void;
 }) {
   const [sort, setSort] = useState<SortKey>("score");
@@ -120,8 +122,11 @@ export default function MobileMapSheet({
         <div className="mx-auto mb-2.5 h-1 w-9 rounded-full bg-rc-rule" />
         <div className="flex items-end justify-between gap-3">
           <div className="min-w-0">
-            <div className="rc-label text-[9px]">Viewing all spots</div>
-            <div className="mt-0.5 text-[15px] font-semibold text-rc-ink">
+            {/* Lead with the location so scope + count read as one unit —
+                "Victoria · 24 spots" (per gelb-verify: the count belongs with
+                the place that produced it). */}
+            <div className="truncate text-[15px] font-semibold text-rc-ink">
+              {locationName ? `${locationName} · ` : ""}
               {spots.length} spot{spots.length === 1 ? "" : "s"}
             </div>
           </div>
