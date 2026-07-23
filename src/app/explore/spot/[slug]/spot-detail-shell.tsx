@@ -627,6 +627,7 @@ export default function SpotDetailShell({
                   <SpeciesCardRow
                     species={species}
                     scores={page.topScoreTodayBySpecies}
+                    regulations={page.regulations}
                     selectedId={selId}
                     onSelect={setSelId}
                   />

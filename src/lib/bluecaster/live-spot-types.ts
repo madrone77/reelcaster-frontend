@@ -163,6 +163,11 @@ export type LiveRegulation = {
   detail: string;
   seasonOpenDate: string | null;
   seasonCloseDate: string | null;
+  // Next date (YYYY-MM-DD) this species reopens to retention, per the DFO
+  // opening calendar (bluecaster spot-page BFF). Null when open now / no
+  // calendar. Lets non-retention species show "Non-retention · opens Aug 1".
+  nextOpenDate: string | null;
+  nextOpenSummary: string | null;
 };
 
 // ─── Catch signals ────────────────────────────────────────────────────
