@@ -205,6 +205,17 @@
   }
 }
 
+/* Mobile only: the location header floats over the map's top edge, so the
+   top-right zoom control (its default 8px inset) hides the "+" behind the
+   header — only "−" pokes out. Drop it below the header. Desktop has no header
+   over the map, so it keeps the 8px inset above. */
+@media (max-width: 1023px) {
+  .rc-explore-map .maplibregl-ctrl-top-right .maplibregl-ctrl {
+    margin-top: 3.75rem;
+    margin-right: 0.75rem;
+  }
+}
+
 /* Mobile safe area utilities */
 .safe-area-bottom {
   padding-bottom: env(safe-area-inset-bottom, 0);
