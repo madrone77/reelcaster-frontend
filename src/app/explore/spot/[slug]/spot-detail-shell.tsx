@@ -709,7 +709,7 @@ export default function SpotDetailShell({
                     className="mt-4 w-full flex items-center justify-center gap-2 rounded bg-rc-brand-soft text-rc-brand font-rc-mono text-xs font-semibold tracking-[0.04em] py-3 hover:bg-rc-brand-soft/70 transition-colors"
                   >
                     <ArrowUpCircle className="w-4 h-4" />
-                    Upgrade to Pro for full weights
+                    Upgrade to Pro for the full 14-day outlook
                   </button>
                 )}
               </div>
