@@ -2,7 +2,6 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import {
   CheckCircle2,
   Clock,
@@ -38,32 +37,58 @@ export interface AlertSpeciesOption {
   slug?: string | null;
 }
 
+/** Deep link to the condition-set builder, carrying this spot + current picks
+ *  so the advanced page skips location entry (it's anchored here). */
+function advancedHrefFor(
+  spot: AlertSpot,
+  species: AlertSpeciesOption | null,
+  threshold: number,
+): string {
+  const params = new URLSearchParams({
+    slug: spot.slug,
+    name: spot.name,
+    lat: String(spot.lat),
+    lng: String(spot.lng),
+    threshold: String(threshold),
+  });
+  if (spot.city) params.set("city", spot.city);
+  if (spot.regAreaCode) params.set("area", spot.regAreaCode);
+  if (species?.slug) params.set("species", species.slug);
+  return `/profile/custom-alerts/advanced?${params.toString()}`;
+}
+
 /**
- * Create-alert modal (light rc-*) over the existing `/api/alerts` engine. Builds
- * a score-threshold alert (`alert_kind:"score"`) for the given spot + species,
- * with email delivery (SMS gated to Pro). Matches the Pedder Bay mockup.
+ * Shared score-alert form body over the `/api/alerts` engine — builds a
+ * score-threshold alert (`alert_kind:"score"`) for the given spot + species,
+ * email delivery (SMS gated to Pro, with inline phone verify). Rendered both
+ * inside the create-alert modal and as the standalone /profile/custom-alerts
+ * page, so it owns no panel chrome — the caller supplies that.
  */
-export default function CreateAlertDialog({
-  open,
-  onOpenChange,
+export function CreateAlertContent({
   spot,
   speciesOptions,
   initialSpeciesId,
   dailyScores = [],
+  active,
   onCreated,
+  onCancel,
+  variant = "modal",
 }: {
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
   spot: AlertSpot;
   speciesOptions: AlertSpeciesOption[];
   initialSpeciesId?: string | null;
   /** Spot's 14-day daily scores (0–100), for the "~N days/week" estimate. */
   dailyScores?: (number | null)[];
+  /** True while the surface is visible — re-arms the form on each activation. */
+  active: boolean;
+  /** Fired after a successful create (caller closes the modal / navigates). */
   onCreated?: () => void;
+  /** Cancel/dismiss — closes the modal or navigates back from the page. */
+  onCancel: () => void;
+  variant?: "modal" | "page";
 }) {
   const { user, session } = useAuth();
   const { isPaid, phoneVerified, phoneE164, refresh } = useSubscription();
-  const router = useRouter();
 
   const [threshold, setThreshold] = useState(75);
   const [speciesId, setSpeciesId] = useState<string | null>(
@@ -89,9 +114,9 @@ export default function CreateAlertDialog({
 
   const limit = isPaid ? 10 : 1;
 
-  // Reset + fetch the user's current alert count whenever the modal opens.
+  // Reset + fetch the user's current alert count whenever the surface activates.
   useEffect(() => {
-    if (!open) return;
+    if (!active) return;
     setThreshold(75);
     setSpeciesId(initialSpeciesId ?? speciesOptions[0]?.id ?? null);
     setEmailOn(true);
@@ -112,7 +137,7 @@ export default function CreateAlertDialog({
         .catch(() => setUsedCount(null));
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open]);
+  }, [active]);
 
   const tier = tierFor(threshold);
   const daysPerWeek = useMemo(() => {
@@ -123,23 +148,7 @@ export default function CreateAlertDialog({
   }, [dailyScores, threshold]);
 
   const species = speciesOptions.find((s) => s.id === speciesId) ?? null;
-
-  // Escape hatch to the full condition-set builder, carrying this spot's
-  // context so the advanced page skips location entry (it's anchored here).
-  const goAdvanced = () => {
-    const params = new URLSearchParams({
-      slug: spot.slug,
-      name: spot.name,
-      lat: String(spot.lat),
-      lng: String(spot.lng),
-      threshold: String(threshold),
-    });
-    if (spot.city) params.set("city", spot.city);
-    if (spot.regAreaCode) params.set("area", spot.regAreaCode);
-    if (species?.slug) params.set("species", species.slug);
-    onOpenChange(false);
-    router.push(`/profile/custom-alerts?${params.toString()}`);
-  };
+  const advancedHref = advancedHrefFor(spot, species, threshold);
 
   const handleCreate = async () => {
     if (!session?.access_token || !species) {
@@ -194,7 +203,6 @@ export default function CreateAlertDialog({
         return;
       }
       onCreated?.();
-      onOpenChange(false);
     } catch {
       setError("Couldn't create the alert.");
     } finally {
@@ -280,6 +288,331 @@ export default function CreateAlertDialog({
   const smsAvailable = isPaid && phoneVerified;
 
   return (
+    <>
+      <div className="rc-label text-[10px] text-rc-brand">
+        CREATE ALERT · {spot.name.toUpperCase()}
+      </div>
+      <h2 className="mt-1.5 text-2xl font-bold tracking-[-0.02em] text-rc-ink">
+        Get notified when conditions hit
+      </h2>
+      <p className="mt-1 text-sm text-rc-ink-soft">
+        We&apos;ll watch the forecast and ping you when your threshold is met.
+      </p>
+
+      {/* Spot */}
+      <div className="mt-5 rounded-xl bg-rc-brand-soft px-4 py-3">
+        <div className="rc-label text-[9px] text-rc-brand">SPOT</div>
+        <div className="font-bold text-rc-ink mt-0.5">
+          {[spot.name, spot.city, spot.regAreaCode ? `PFMA ${spot.regAreaCode}` : null]
+            .filter(Boolean)
+            .join(" · ")}
+        </div>
+      </div>
+
+      {/* Threshold */}
+      <div className="mt-6">
+        <div className="rc-label text-[9px] text-rc-ink-mute">SCORE THRESHOLD</div>
+        <div className="text-rc-ink-soft mt-1">
+          Notify me when the score is at or above
+        </div>
+        <div className="flex items-center gap-3 mt-3">
+          <span
+            className={`text-6xl font-bold leading-none tracking-[-0.04em] ${TIER_TEXT[tier]}`}
+          >
+            {threshold}
+          </span>
+          <span
+            className={`px-2 py-0.5 rounded font-rc-mono text-[11px] font-bold uppercase tracking-[0.06em] ${TIER_PILL[tier]}`}
+          >
+            {tier}
+          </span>
+        </div>
+        {daysPerWeek != null && (
+          <div className="font-rc-mono text-[12px] text-rc-ink-mute mt-1">
+            ~ {daysPerWeek} {daysPerWeek === 1 ? "day" : "days"} a week match this
+          </div>
+        )}
+
+        <div className="relative mt-4 h-5">
+          <div
+            className="absolute inset-x-0 top-1/2 -translate-y-1/2 h-2 rounded-full"
+            style={{
+              background:
+                "linear-gradient(to right, var(--rc-poor-bg) 0%, var(--rc-poor-bg) 55%, var(--rc-fair-bg) 55%, var(--rc-fair-bg) 75%, var(--rc-good-bg) 75%, var(--rc-good-bg) 100%)",
+            }}
+          />
+          <div
+            className="absolute top-1/2 -translate-y-1/2 -translate-x-1/2 w-5 h-5 rounded-full bg-rc-panel shadow ring-2"
+            style={{
+              left: `${threshold}%`,
+              color:
+                tier === "good"
+                  ? "var(--rc-good)"
+                  : tier === "fair"
+                    ? "var(--rc-fair)"
+                    : "var(--rc-poor)",
+              // ring-2 uses currentColor via ring; emulate with border
+              borderColor: "currentColor",
+              borderWidth: 3,
+            }}
+          />
+          <input
+            type="range"
+            min={0}
+            max={100}
+            value={threshold}
+            onChange={(e) => setThreshold(Number(e.target.value))}
+            aria-label="Score threshold"
+            className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+          />
+        </div>
+        <div className="flex justify-between font-rc-mono text-[10px] text-rc-ink-mute mt-1.5">
+          <span>0</span>
+          <span className="text-rc-poor">POOR</span>
+          <span className="text-rc-fair">FAIR</span>
+          <span className="text-rc-good">GOOD</span>
+          <span>100</span>
+        </div>
+      </div>
+
+      {/* Species */}
+      <div className="mt-6">
+        <div className="rc-label text-[9px] text-rc-ink-mute">SPECIES</div>
+        <div className="text-rc-ink-soft mt-1">Which species should drive the alert</div>
+        <div className="mt-2 flex flex-wrap gap-2">
+          {speciesOptions.map((s) => {
+            const sel = s.id === speciesId;
+            return (
+              <button
+                key={s.id}
+                type="button"
+                onClick={() => setSpeciesId(s.id)}
+                className={`px-4 py-2.5 rounded-xl border text-sm font-semibold transition-colors ${
+                  sel
+                    ? "border-rc-brand bg-rc-brand text-white"
+                    : "border-rc-rule bg-rc-panel text-rc-ink hover:border-rc-ink-mute"
+                }`}
+              >
+                {shortName(s.name)}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Delivery */}
+      <div className="mt-6">
+        <div className="rc-label text-[9px] text-rc-ink-mute">DELIVERY</div>
+        <button
+          type="button"
+          onClick={() => setEmailOn((v) => !v)}
+          className="mt-2 w-full rounded-xl border border-rc-rule bg-rc-panel px-4 py-3 flex items-center gap-3 text-left"
+        >
+          <Mail className="w-5 h-5 text-rc-brand shrink-0" />
+          <div className="min-w-0 flex-1">
+            <div className="font-bold text-rc-ink">Email</div>
+            <div className="font-rc-mono text-[11px] text-rc-ink-mute truncate">
+              {user?.email ?? "your email"}
+            </div>
+          </div>
+          <Toggle on={emailOn} />
+        </button>
+
+        <div className="mt-2 w-full rounded-xl border border-rc-rule bg-rc-surface px-4 py-3">
+          <div className="flex items-center gap-3">
+            <Smartphone
+              className={`w-5 h-5 shrink-0 ${smsAvailable ? "text-rc-brand" : "text-rc-ink-mute"}`}
+            />
+            <div className="min-w-0 flex-1">
+              <div className="font-bold text-rc-ink flex items-center gap-1.5">
+                SMS
+                {smsAvailable && (
+                  <CheckCircle2 className="w-3.5 h-3.5 text-rc-good" />
+                )}
+              </div>
+              <div className="font-rc-mono text-[11px] text-rc-ink-mute">
+                {smsAvailable
+                  ? "Instant texts"
+                  : isPaid
+                    ? "Verify your phone to enable SMS"
+                    : "Available with Pro"}
+              </div>
+            </div>
+            {smsAvailable ? (
+              <button type="button" onClick={() => setSmsOn((v) => !v)}>
+                <Toggle on={smsOn} />
+              </button>
+            ) : isPaid ? (
+              <button
+                type="button"
+                onClick={() => {
+                  setVerifyOpen((v) => !v);
+                  setVerifyError(null);
+                  setVerifyInfo(null);
+                }}
+                className="shrink-0 px-3 py-1.5 rounded-lg bg-rc-brand hover:bg-rc-brand-hover text-white text-xs font-semibold transition-colors"
+              >
+                {verifyOpen ? "CANCEL" : "VERIFY"}
+              </button>
+            ) : (
+              <Link
+                href="/pricing?from=alerts"
+                className="shrink-0 px-3 py-1.5 rounded-lg bg-rc-brand hover:bg-rc-brand-hover text-white text-xs font-semibold transition-colors"
+              >
+                UPGRADE
+              </Link>
+            )}
+          </div>
+
+          {isPaid && !phoneVerified && verifyOpen && (
+            <div className="mt-3 space-y-2 border-t border-rc-rule-soft pt-3">
+              {verifyStep === "enter-phone" ? (
+                <>
+                  <input
+                    type="tel"
+                    inputMode="tel"
+                    autoComplete="tel"
+                    value={phoneInput}
+                    onChange={(e) => setPhoneInput(e.target.value)}
+                    placeholder="+15551234567"
+                    className="w-full rounded-lg border border-rc-rule bg-rc-panel px-3 py-2 text-sm text-rc-ink placeholder:text-rc-ink-mute focus:border-rc-brand focus:outline-none"
+                  />
+                  <button
+                    type="button"
+                    onClick={handleSendCode}
+                    disabled={verifyBusy || !phoneInput}
+                    className="flex w-full items-center justify-center gap-2 rounded-lg bg-rc-brand py-2 text-sm font-semibold text-white transition-colors hover:bg-rc-brand-hover disabled:opacity-60"
+                  >
+                    {verifyBusy && <Loader2 className="h-4 w-4 animate-spin" />}
+                    Send code
+                  </button>
+                </>
+              ) : (
+                <>
+                  <input
+                    inputMode="numeric"
+                    autoComplete="one-time-code"
+                    value={codeInput}
+                    onChange={(e) =>
+                      setCodeInput(e.target.value.replace(/[^0-9]/g, ""))
+                    }
+                    placeholder="123456"
+                    className="w-full rounded-lg border border-rc-rule bg-rc-panel px-3 py-2 text-center text-sm tracking-[0.3em] text-rc-ink placeholder:tracking-normal placeholder:text-rc-ink-mute focus:border-rc-brand focus:outline-none"
+                  />
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setVerifyStep("enter-phone");
+                        setCodeInput("");
+                        setVerifyError(null);
+                        setVerifyInfo(null);
+                      }}
+                      disabled={verifyBusy}
+                      className="rounded-lg border border-rc-rule px-3 py-2 text-sm font-semibold text-rc-ink transition-colors hover:bg-rc-panel disabled:opacity-60"
+                    >
+                      Back
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleConfirmCode}
+                      disabled={verifyBusy || codeInput.length < 4}
+                      className="flex flex-1 items-center justify-center gap-2 rounded-lg bg-rc-brand py-2 text-sm font-semibold text-white transition-colors hover:bg-rc-brand-hover disabled:opacity-60"
+                    >
+                      {verifyBusy && <Loader2 className="h-4 w-4 animate-spin" />}
+                      Confirm
+                    </button>
+                  </div>
+                </>
+              )}
+              {verifyError && (
+                <div className="rounded-lg bg-rc-poor-bg px-3 py-2 text-[12px] text-rc-poor-ink">
+                  {verifyError}
+                </div>
+              )}
+              {verifyInfo && (
+                <div className="rounded-lg bg-rc-brand-soft px-3 py-2 text-[12px] text-rc-brand">
+                  {verifyInfo}
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      </div>
+
+      {error && (
+        <div className="mt-4 rounded-lg bg-rc-poor-bg text-rc-poor-ink text-sm px-3 py-2">
+          {error}
+        </div>
+      )}
+
+      {/* Advanced escape hatch — condition-set builder for power users. */}
+      <Link
+        href={advancedHref}
+        className="mt-5 inline-flex items-center gap-1.5 font-rc-mono text-[11px] font-semibold text-rc-ink-mute hover:text-rc-brand transition-colors"
+      >
+        <SlidersHorizontal className="w-3.5 h-3.5" />
+        Need specific conditions? Advanced setup →
+      </Link>
+
+      {/* Footer */}
+      <div className="mt-4 flex items-center justify-between gap-3 pt-4 border-t border-rc-rule-soft">
+        <div className="font-rc-mono text-[11px] text-rc-ink-mute uppercase tracking-[0.04em]">
+          {isPaid ? "PRO" : "FREE TIER"} ·{" "}
+          {usedCount != null ? usedCount : "—"} of {limit}{" "}
+          {limit === 1 ? "alert" : "alerts"}
+        </div>
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={onCancel}
+            className="px-4 py-2.5 rounded-xl border border-rc-rule text-rc-ink text-sm font-semibold hover:bg-rc-surface transition-colors"
+          >
+            {variant === "page" ? "Back" : "Cancel"}
+          </button>
+          <button
+            type="button"
+            onClick={handleCreate}
+            disabled={saving}
+            className="px-5 py-2.5 rounded-xl bg-rc-brand hover:bg-rc-brand-hover text-white text-sm font-semibold transition-colors disabled:opacity-60 flex items-center gap-2"
+          >
+            {saving ? (
+              <Loader2 className="w-4 h-4 animate-spin" />
+            ) : (
+              <Clock className="w-4 h-4" />
+            )}
+            Create alert →
+          </button>
+        </div>
+      </div>
+    </>
+  );
+}
+
+/**
+ * Create-alert modal (light rc-*) — the in-context surface on the spot page and
+ * Explore drawer. Wraps {@link CreateAlertContent} in a dialog; the standalone
+ * /profile/custom-alerts page renders the same content full-width.
+ */
+export default function CreateAlertDialog({
+  open,
+  onOpenChange,
+  spot,
+  speciesOptions,
+  initialSpeciesId,
+  dailyScores = [],
+  onCreated,
+}: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  spot: AlertSpot;
+  speciesOptions: AlertSpeciesOption[];
+  initialSpeciesId?: string | null;
+  /** Spot's 14-day daily scores (0–100), for the "~N days/week" estimate. */
+  dailyScores?: (number | null)[];
+  onCreated?: () => void;
+}) {
+  return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="bg-rc-panel border-rc-rule text-rc-ink sm:max-w-lg p-6 max-h-[90vh] overflow-y-auto">
         <DialogTitle className="sr-only">
@@ -288,304 +621,19 @@ export default function CreateAlertDialog({
         <DialogDescription className="sr-only">
           We watch the forecast and notify you when your score threshold is met.
         </DialogDescription>
-
-        <div className="rc-label text-[10px] text-rc-brand">
-          CREATE ALERT · {spot.name.toUpperCase()}
-        </div>
-        <h2 className="mt-1.5 text-2xl font-bold tracking-[-0.02em] text-rc-ink">
-          Get notified when conditions hit
-        </h2>
-        <p className="mt-1 text-sm text-rc-ink-soft">
-          We&apos;ll watch the forecast and ping you when your threshold is met.
-        </p>
-
-        {/* Spot */}
-        <div className="mt-5 rounded-xl bg-rc-brand-soft px-4 py-3">
-          <div className="rc-label text-[9px] text-rc-brand">SPOT</div>
-          <div className="font-bold text-rc-ink mt-0.5">
-            {[spot.name, spot.city, spot.regAreaCode ? `PFMA ${spot.regAreaCode}` : null]
-              .filter(Boolean)
-              .join(" · ")}
-          </div>
-        </div>
-
-        {/* Threshold */}
-        <div className="mt-6">
-          <div className="rc-label text-[9px] text-rc-ink-mute">SCORE THRESHOLD</div>
-          <div className="text-rc-ink-soft mt-1">
-            Notify me when the score is at or above
-          </div>
-          <div className="flex items-center gap-3 mt-3">
-            <span
-              className={`text-6xl font-bold leading-none tracking-[-0.04em] ${TIER_TEXT[tier]}`}
-            >
-              {threshold}
-            </span>
-            <span
-              className={`px-2 py-0.5 rounded font-rc-mono text-[11px] font-bold uppercase tracking-[0.06em] ${TIER_PILL[tier]}`}
-            >
-              {tier}
-            </span>
-          </div>
-          {daysPerWeek != null && (
-            <div className="font-rc-mono text-[12px] text-rc-ink-mute mt-1">
-              ~ {daysPerWeek} {daysPerWeek === 1 ? "day" : "days"} a week match this
-            </div>
-          )}
-
-          <div className="relative mt-4 h-5">
-            <div
-              className="absolute inset-x-0 top-1/2 -translate-y-1/2 h-2 rounded-full"
-              style={{
-                background:
-                  "linear-gradient(to right, var(--rc-poor-bg) 0%, var(--rc-poor-bg) 55%, var(--rc-fair-bg) 55%, var(--rc-fair-bg) 75%, var(--rc-good-bg) 75%, var(--rc-good-bg) 100%)",
-              }}
-            />
-            <div
-              className="absolute top-1/2 -translate-y-1/2 -translate-x-1/2 w-5 h-5 rounded-full bg-rc-panel shadow ring-2"
-              style={{
-                left: `${threshold}%`,
-                color:
-                  tier === "good"
-                    ? "var(--rc-good)"
-                    : tier === "fair"
-                      ? "var(--rc-fair)"
-                      : "var(--rc-poor)",
-                // ring-2 uses currentColor via ring; emulate with border
-                borderColor: "currentColor",
-                borderWidth: 3,
-              }}
-            />
-            <input
-              type="range"
-              min={0}
-              max={100}
-              value={threshold}
-              onChange={(e) => setThreshold(Number(e.target.value))}
-              aria-label="Score threshold"
-              className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-            />
-          </div>
-          <div className="flex justify-between font-rc-mono text-[10px] text-rc-ink-mute mt-1.5">
-            <span>0</span>
-            <span className="text-rc-poor">POOR</span>
-            <span className="text-rc-fair">FAIR</span>
-            <span className="text-rc-good">GOOD</span>
-            <span>100</span>
-          </div>
-        </div>
-
-        {/* Species */}
-        <div className="mt-6">
-          <div className="rc-label text-[9px] text-rc-ink-mute">SPECIES</div>
-          <div className="text-rc-ink-soft mt-1">Which species should drive the alert</div>
-          <div className="mt-2 flex flex-wrap gap-2">
-            {speciesOptions.map((s) => {
-              const sel = s.id === speciesId;
-              return (
-                <button
-                  key={s.id}
-                  type="button"
-                  onClick={() => setSpeciesId(s.id)}
-                  className={`px-4 py-2.5 rounded-xl border text-sm font-semibold transition-colors ${
-                    sel
-                      ? "border-rc-brand bg-rc-brand text-white"
-                      : "border-rc-rule bg-rc-panel text-rc-ink hover:border-rc-ink-mute"
-                  }`}
-                >
-                  {shortName(s.name)}
-                </button>
-              );
-            })}
-          </div>
-        </div>
-
-        {/* Delivery */}
-        <div className="mt-6">
-          <div className="rc-label text-[9px] text-rc-ink-mute">DELIVERY</div>
-          <button
-            type="button"
-            onClick={() => setEmailOn((v) => !v)}
-            className="mt-2 w-full rounded-xl border border-rc-rule bg-rc-panel px-4 py-3 flex items-center gap-3 text-left"
-          >
-            <Mail className="w-5 h-5 text-rc-brand shrink-0" />
-            <div className="min-w-0 flex-1">
-              <div className="font-bold text-rc-ink">Email</div>
-              <div className="font-rc-mono text-[11px] text-rc-ink-mute truncate">
-                {user?.email ?? "your email"}
-              </div>
-            </div>
-            <Toggle on={emailOn} />
-          </button>
-
-          <div className="mt-2 w-full rounded-xl border border-rc-rule bg-rc-surface px-4 py-3">
-            <div className="flex items-center gap-3">
-              <Smartphone
-                className={`w-5 h-5 shrink-0 ${smsAvailable ? "text-rc-brand" : "text-rc-ink-mute"}`}
-              />
-              <div className="min-w-0 flex-1">
-                <div className="font-bold text-rc-ink flex items-center gap-1.5">
-                  SMS
-                  {smsAvailable && (
-                    <CheckCircle2 className="w-3.5 h-3.5 text-rc-good" />
-                  )}
-                </div>
-                <div className="font-rc-mono text-[11px] text-rc-ink-mute">
-                  {smsAvailable
-                    ? "Instant texts"
-                    : isPaid
-                      ? "Verify your phone to enable SMS"
-                      : "Available with Pro"}
-                </div>
-              </div>
-              {smsAvailable ? (
-                <button type="button" onClick={() => setSmsOn((v) => !v)}>
-                  <Toggle on={smsOn} />
-                </button>
-              ) : isPaid ? (
-                <button
-                  type="button"
-                  onClick={() => {
-                    setVerifyOpen((v) => !v);
-                    setVerifyError(null);
-                    setVerifyInfo(null);
-                  }}
-                  className="shrink-0 px-3 py-1.5 rounded-lg bg-rc-brand hover:bg-rc-brand-hover text-white text-xs font-semibold transition-colors"
-                >
-                  {verifyOpen ? "CANCEL" : "VERIFY"}
-                </button>
-              ) : (
-                <Link
-                  href="/pricing?from=alerts"
-                  className="shrink-0 px-3 py-1.5 rounded-lg bg-rc-brand hover:bg-rc-brand-hover text-white text-xs font-semibold transition-colors"
-                >
-                  UPGRADE
-                </Link>
-              )}
-            </div>
-
-            {isPaid && !phoneVerified && verifyOpen && (
-              <div className="mt-3 space-y-2 border-t border-rc-rule-soft pt-3">
-                {verifyStep === "enter-phone" ? (
-                  <>
-                    <input
-                      type="tel"
-                      inputMode="tel"
-                      autoComplete="tel"
-                      value={phoneInput}
-                      onChange={(e) => setPhoneInput(e.target.value)}
-                      placeholder="+15551234567"
-                      className="w-full rounded-lg border border-rc-rule bg-rc-panel px-3 py-2 text-sm text-rc-ink placeholder:text-rc-ink-mute focus:border-rc-brand focus:outline-none"
-                    />
-                    <button
-                      type="button"
-                      onClick={handleSendCode}
-                      disabled={verifyBusy || !phoneInput}
-                      className="flex w-full items-center justify-center gap-2 rounded-lg bg-rc-brand py-2 text-sm font-semibold text-white transition-colors hover:bg-rc-brand-hover disabled:opacity-60"
-                    >
-                      {verifyBusy && <Loader2 className="h-4 w-4 animate-spin" />}
-                      Send code
-                    </button>
-                  </>
-                ) : (
-                  <>
-                    <input
-                      inputMode="numeric"
-                      autoComplete="one-time-code"
-                      value={codeInput}
-                      onChange={(e) =>
-                        setCodeInput(e.target.value.replace(/[^0-9]/g, ""))
-                      }
-                      placeholder="123456"
-                      className="w-full rounded-lg border border-rc-rule bg-rc-panel px-3 py-2 text-center text-sm tracking-[0.3em] text-rc-ink placeholder:tracking-normal placeholder:text-rc-ink-mute focus:border-rc-brand focus:outline-none"
-                    />
-                    <div className="flex gap-2">
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setVerifyStep("enter-phone");
-                          setCodeInput("");
-                          setVerifyError(null);
-                          setVerifyInfo(null);
-                        }}
-                        disabled={verifyBusy}
-                        className="rounded-lg border border-rc-rule px-3 py-2 text-sm font-semibold text-rc-ink transition-colors hover:bg-rc-panel disabled:opacity-60"
-                      >
-                        Back
-                      </button>
-                      <button
-                        type="button"
-                        onClick={handleConfirmCode}
-                        disabled={verifyBusy || codeInput.length < 4}
-                        className="flex flex-1 items-center justify-center gap-2 rounded-lg bg-rc-brand py-2 text-sm font-semibold text-white transition-colors hover:bg-rc-brand-hover disabled:opacity-60"
-                      >
-                        {verifyBusy && <Loader2 className="h-4 w-4 animate-spin" />}
-                        Confirm
-                      </button>
-                    </div>
-                  </>
-                )}
-                {verifyError && (
-                  <div className="rounded-lg bg-rc-poor-bg px-3 py-2 text-[12px] text-rc-poor-ink">
-                    {verifyError}
-                  </div>
-                )}
-                {verifyInfo && (
-                  <div className="rounded-lg bg-rc-brand-soft px-3 py-2 text-[12px] text-rc-brand">
-                    {verifyInfo}
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
-        </div>
-
-        {error && (
-          <div className="mt-4 rounded-lg bg-rc-poor-bg text-rc-poor-ink text-sm px-3 py-2">
-            {error}
-          </div>
-        )}
-
-        {/* Advanced escape hatch — condition-set builder for power users. */}
-        <button
-          type="button"
-          onClick={goAdvanced}
-          className="mt-5 inline-flex items-center gap-1.5 font-rc-mono text-[11px] font-semibold text-rc-ink-mute hover:text-rc-brand transition-colors"
-        >
-          <SlidersHorizontal className="w-3.5 h-3.5" />
-          Need specific conditions? Advanced setup →
-        </button>
-
-        {/* Footer */}
-        <div className="mt-4 flex items-center justify-between gap-3 pt-4 border-t border-rc-rule-soft">
-          <div className="font-rc-mono text-[11px] text-rc-ink-mute uppercase tracking-[0.04em]">
-            {isPaid ? "PRO" : "FREE TIER"} ·{" "}
-            {usedCount != null ? usedCount : "—"} of {limit}{" "}
-            {limit === 1 ? "alert" : "alerts"}
-          </div>
-          <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={() => onOpenChange(false)}
-              className="px-4 py-2.5 rounded-xl border border-rc-rule text-rc-ink text-sm font-semibold hover:bg-rc-surface transition-colors"
-            >
-              Cancel
-            </button>
-            <button
-              type="button"
-              onClick={handleCreate}
-              disabled={saving}
-              className="px-5 py-2.5 rounded-xl bg-rc-brand hover:bg-rc-brand-hover text-white text-sm font-semibold transition-colors disabled:opacity-60 flex items-center gap-2"
-            >
-              {saving ? (
-                <Loader2 className="w-4 h-4 animate-spin" />
-              ) : (
-                <Clock className="w-4 h-4" />
-              )}
-              Create alert →
-            </button>
-          </div>
-        </div>
+        <CreateAlertContent
+          active={open}
+          variant="modal"
+          spot={spot}
+          speciesOptions={speciesOptions}
+          initialSpeciesId={initialSpeciesId}
+          dailyScores={dailyScores}
+          onCreated={() => {
+            onCreated?.();
+            onOpenChange(false);
+          }}
+          onCancel={() => onOpenChange(false)}
+        />
       </DialogContent>
     </Dialog>
   );
