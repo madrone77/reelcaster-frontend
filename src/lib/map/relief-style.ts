@@ -208,16 +208,18 @@ export function buildReliefStyle(origin: string): Record<string, unknown> {
           "line-width": ["interpolate", ["linear"], ["zoom"], 9, 0.5, 14, 1.1],
         },
       },
-      // Rockfish Conservation Areas.
-      { id: "rca-fill", type: "fill", source: "rca", paint: { "fill-color": "#c83b2d", "fill-opacity": 0.14 } },
+      // Rockfish Conservation Areas. Diagonal hatch + bold bright edge (chart
+      // convention) so the zone stays legible over both deep-navy and pale
+      // shallow water — a translucent solid fill washes out on the deeps. The
+      // "rca-hatch" pattern is registered at runtime by attachRcaHatch().
+      { id: "rca-fill", type: "fill", source: "rca", paint: { "fill-pattern": "rca-hatch" } },
       {
         id: "rca-outline",
         type: "line",
         source: "rca",
         paint: {
-          "line-color": "rgba(176,38,28,0.85)",
-          "line-width": ["interpolate", ["linear"], ["zoom"], 9, 0.8, 14, 1.6],
-          "line-dasharray": [3, 2],
+          "line-color": "#FF3B30",
+          "line-width": ["interpolate", ["linear"], ["zoom"], 9, 1.4, 14, 2.6],
         },
       },
       // WDFW Marine Protected Areas (WA analog of RCAs) — teal-green, hidden by default.
