@@ -158,8 +158,8 @@ export default function SpotDetailShell({
 
   const fcSource = fc ?? page;
   const stripModel = useMemo(
-    () => (selId ? buildForecastDays(fcSource, selId, accessTier) : null),
-    [fcSource, selId, accessTier],
+    () => (selId ? buildForecastDays(fcSource, selId, accessTier, null, regulation) : null),
+    [fcSource, selId, accessTier, regulation],
   );
 
   const [selectedIso, setSelectedIso] = useState<string | null>(null);

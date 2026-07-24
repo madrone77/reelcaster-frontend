@@ -43,6 +43,25 @@ export interface ForecastDay {
   /** null when unlocked; otherwise the plan that unlocks this day. */
   lockTier: LockTier | null;
   isBest: boolean;
+  /** True when the selected species can't be retained on this day (a score
+   *  would read as bad fishing when the fish are there but non-retention).
+   *  Set for days before the species' reopen date; the cell shows a label. */
+  nonRetention: boolean;
+}
+
+/** The selected species' effective regulation, enough to decide per-day
+ *  non-retention: status "today" + the next retention-open date. */
+export interface StripRegulation {
+  status: string; // "Open" | "Release" | "Closed"
+  nextOpenDate: string | null; // YYYY-MM-DD, or null when no reopening
+}
+
+/** Whether the selected species is non-retention on `iso` (YYYY-MM-DD):
+ *  currently release-only/closed AND before its reopen date (or no reopen). */
+function isNonRetentionOn(reg: StripRegulation | null | undefined, iso: string): boolean {
+  if (!reg) return false;
+  if (reg.status !== "Release" && reg.status !== "Closed") return false;
+  return reg.nextOpenDate == null || iso < reg.nextOpenDate;
 }
 
 export interface ForecastStripModel {
@@ -80,6 +99,9 @@ export function buildForecastDays(
   // The override pins that day's cell to the exact series the other
   // surfaces show.
   override?: { iso: string; hours: (number | null)[] } | null,
+  // The selected species' regulation — when it's non-retention, days before
+  // its reopen date show a "Non-retention" label instead of a (misleading) score.
+  reg?: StripRegulation | null,
 ): ForecastStripModel {
   const grid = bestSpeciesId
     ? payload.hourlyScoreGrid[bestSpeciesId]
@@ -95,7 +117,10 @@ export function buildForecastDays(
     // Prefer the species-specific daily peak; fall back to the overall
     // daily score the engine already computed.
     const score = fromGrid.score ?? d.score ?? null;
-    const lockTier = lockTierAt(i, visible);
+    const nonRetention = isNonRetentionOn(reg, d.iso);
+    // A non-retention day has no retention score to gate — show the label
+    // ungated rather than a lock/paywall.
+    const lockTier = nonRetention ? null : lockTierAt(i, visible);
     const locked = lockTier !== null;
     return {
       index: i,
@@ -103,11 +128,12 @@ export function buildForecastDays(
       dow: d.dow.charAt(0).toUpperCase() + d.dow.slice(1).toLowerCase(),
       date: d.date,
       score,
-      peakLabel: locked ? null : fmtPeak(fromGrid.hour),
+      peakLabel: locked || nonRetention ? null : fmtPeak(fromGrid.hour),
       tier: tierFor(score),
       locked,
       lockTier,
       isBest: false,
+      nonRetention,
     };
   });
 
@@ -145,17 +171,21 @@ export function buildViewportForecastDays(
       locked,
       lockTier,
       isBest: false,
+      // Viewport strip is the best-across-spots score, not a single species'
+      // legality — no per-day non-retention concept here.
+      nonRetention: false,
     };
   });
 
   return finishModel(days);
 }
 
-// "Best" = highest-scoring unlocked day (the BEST ★ badge + best-window line).
+// "Best" = highest-scoring unlocked, retainable day (the BEST ★ badge +
+// best-window line). Non-retention days never win it.
 function finishModel(days: ForecastDay[]): ForecastStripModel {
   let bestDay: ForecastDay | null = null;
   for (const day of days) {
-    if (day.locked || day.score === null) continue;
+    if (day.locked || day.nonRetention || day.score === null) continue;
     if (!bestDay || day.score > (bestDay.score ?? -1)) bestDay = day;
   }
   if (bestDay) bestDay.isBest = true;
