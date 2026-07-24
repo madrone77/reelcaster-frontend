@@ -44,6 +44,25 @@ export default function DayCell({
   selected: boolean;
   onSelect: () => void;
 }) {
+  // Non-retention day: the selected species can't be kept on this date, so a
+  // score would mislead. Show the regulatory label instead (takes precedence
+  // over the lock — there's no retention score to gate).
+  if (day.nonRetention) {
+    return (
+      <button
+        type="button"
+        onClick={onSelect}
+        className="flex-1 min-w-0 h-full rounded border border-rc-rule bg-rc-surface flex flex-col items-center justify-center gap-1 py-2 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-rc-brand"
+      >
+        <div className="rc-label text-[9px] leading-none text-center">{day.dow}</div>
+        <div className="font-rc-mono text-[10px] text-rc-ink-soft">{day.date}</div>
+        <div className="font-rc-mono text-[9px] text-rc-ink-soft text-center leading-tight px-0.5 my-1">
+          Non-retention
+        </div>
+      </button>
+    );
+  }
+
   if (day.locked) {
     return (
       <button
