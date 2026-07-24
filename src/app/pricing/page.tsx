@@ -17,7 +17,7 @@ export const metadata: Metadata = {
     "ReelCaster Pro is $5/month or $33/year (45% off). Unlock 14-day forecasts, custom alerts, and custom spot profiles.",
   alternates: { canonical: `${SITE_URL}/pricing` },
   openGraph: {
-    title: "Pro Pricing | ReelCaster",
+    title: "Pricing | ReelCaster",
     description:
       "$5/month or $33/year (45% off) — 14-day forecasts, custom alerts, and spot profiles.",
     url: `${SITE_URL}/pricing`,

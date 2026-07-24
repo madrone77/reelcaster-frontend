@@ -1,6 +1,12 @@
+'use client';
+
 // Static demo of the product's spot score card (mirrors the real
 // src/app/explore/spot/components/score-card.tsx + hourly-bars.tsx styling,
-// but hard-coded — the landing page makes no API calls).
+// but hard-coded — the landing page makes no API calls). The bars cascade up
+// once the card scrolls into view, and lift on hover — a whisper of life that
+// hints the real thing is interactive, without making the hero a toy.
+
+import { useEffect, useRef, useState } from 'react';
 
 const DEMO_HOURS = [
   28, 25, 22, 20, 24, 30, 38, 42, 40, 36, 34, 38, 45, 44, 40, 52, 66, 82, 78,
@@ -19,6 +25,25 @@ const AXIS_TICKS = [
 ];
 
 export default function HeroScoreCard() {
+  const chartRef = useRef<HTMLDivElement>(null);
+  const [shown, setShown] = useState(false);
+
+  useEffect(() => {
+    const el = chartRef.current;
+    if (!el) return;
+    const io = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting) {
+          setShown(true);
+          io.disconnect();
+        }
+      },
+      { threshold: 0.35 },
+    );
+    io.observe(el);
+    return () => io.disconnect();
+  }, []);
+
   return (
     <div className="rounded border border-rc-rule bg-rc-panel shadow-rc-panel p-6 sm:p-8">
       <div className="text-center">
@@ -58,17 +83,22 @@ export default function HeroScoreCard() {
       </div>
 
       <div className="mt-7">
-        <div className="flex h-14 items-end gap-[3px]">
+        <div ref={chartRef} className="group flex h-14 items-end gap-[3px]">
           {DEMO_HOURS.map((score, i) => {
             const inWindow = i >= WINDOW_START && i <= WINDOW_END;
             const h = Math.max(5, (score / 100) * 56);
             return (
               <div
                 key={i}
-                className={`flex-1 rounded-[2px] ${
-                  inWindow ? 'bg-rc-good' : 'bg-rc-rule-soft'
+                className={`flex-1 rounded-[2px] transition-[height,background-color] duration-500 ease-out motion-reduce:transition-none ${
+                  inWindow
+                    ? 'bg-rc-good'
+                    : 'bg-rc-rule-soft group-hover:bg-rc-rule'
                 }`}
-                style={{ height: `${h}px` }}
+                style={{
+                  height: shown ? `${h}px` : '4px',
+                  transitionDelay: `${i * 18}ms`,
+                }}
               />
             );
           })}
