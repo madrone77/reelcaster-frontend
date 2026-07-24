@@ -37,9 +37,9 @@ export default function PricingSection() {
             <div className="mt-auto pt-8">
               <Link
                 href="/signup"
-                className="block w-full rounded bg-rc-brand px-6 py-3 text-sm font-bold tracking-wide text-white transition-colors hover:bg-rc-brand-hover"
+                className="flex min-h-11 w-full items-center justify-center rounded bg-rc-brand px-5 py-3 text-sm font-bold uppercase tracking-wide text-white transition-colors hover:bg-rc-brand-hover"
               >
-                START FREE
+                Start Free
               </Link>
             </div>
           </div>
@@ -68,9 +68,9 @@ export default function PricingSection() {
             <div className="mt-auto pt-8">
               <Link
                 href="/pricing"
-                className="block w-full rounded bg-rc-brand px-6 py-3 text-sm font-bold tracking-wide text-white transition-colors hover:bg-rc-brand-hover"
+                className="flex min-h-11 w-full items-center justify-center rounded bg-rc-brand px-5 py-3 text-sm font-bold uppercase tracking-wide text-white transition-colors hover:bg-rc-brand-hover"
               >
-                START REELCASTER PRO
+                Start ReelCaster Pro
               </Link>
             </div>
           </div>

@@ -85,7 +85,7 @@ export default async function MapSection() {
           </p>
           <Link
             href="/explore"
-            className="mt-9 inline-flex items-center justify-center rounded bg-rc-brand px-8 py-3 text-sm font-bold text-white transition-colors hover:bg-rc-brand-hover"
+            className="mt-9 inline-flex min-h-11 min-w-20 items-center justify-center rounded bg-rc-brand px-5 py-3 text-sm font-bold uppercase tracking-wide text-white transition-colors hover:bg-rc-brand-hover"
           >
             Explore the map
           </Link>

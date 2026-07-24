@@ -58,7 +58,7 @@ export default function MarketingHeader() {
               </Link>
               <Link
                 href="/signup"
-                className="inline-flex items-center px-4 py-2 rounded bg-rc-brand hover:bg-rc-brand-hover text-sm font-semibold text-white transition-colors"
+                className="inline-flex min-h-11 items-center rounded bg-rc-brand px-4 py-2 text-sm font-semibold uppercase tracking-wide text-white transition-colors hover:bg-rc-brand-hover"
               >
                 Start free trial
               </Link>

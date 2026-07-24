@@ -18,7 +18,7 @@ export default function CtaBand() {
             inverts rather than stacking a second blue on top of it. */}
         <Link
           href="/signup"
-          className="shrink-0 self-start md:self-auto inline-flex items-center justify-center rounded bg-white px-8 py-3 text-sm font-bold text-rc-brand transition-colors hover:bg-white/90"
+          className="shrink-0 self-start md:self-auto inline-flex min-h-11 min-w-20 items-center justify-center rounded bg-white px-5 py-3 text-sm font-bold uppercase tracking-wide text-rc-brand transition-colors hover:bg-white/90"
         >
           Start free trial
         </Link>

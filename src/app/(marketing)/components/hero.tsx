@@ -18,19 +18,21 @@ export default function Hero() {
             regulations into one simple score, so you know exactly when and
             where to fish.
           </p>
-          <div className="mt-9 flex flex-wrap gap-3">
+          {/* compact: two full-width fills stacked, primary on top; medium+
+              they hug (per the button system). */}
+          <div className="mt-9 flex flex-col gap-3 sm:flex-row">
             <Link
               href="/signup"
               data-testid="marketing-primary-cta"
-              className="inline-flex items-center justify-center rounded bg-rc-brand px-8 py-3 text-sm font-bold tracking-wide text-white transition-colors hover:bg-rc-brand-hover"
+              className="inline-flex min-h-11 w-full min-w-20 items-center justify-center rounded bg-rc-brand px-5 py-3 text-sm font-bold uppercase tracking-wide text-white transition-colors hover:bg-rc-brand-hover sm:w-auto"
             >
-              START FREE
+              Start Free
             </Link>
             <Link
               href="#how-it-works"
-              className="inline-flex items-center justify-center rounded border border-rc-brand bg-rc-panel px-8 py-3 text-sm font-bold tracking-wide text-rc-brand transition-colors hover:bg-rc-brand-soft"
+              className="inline-flex min-h-11 w-full min-w-20 items-center justify-center rounded border border-rc-brand bg-rc-panel px-5 py-3 text-sm font-bold uppercase tracking-wide text-rc-brand transition-colors hover:bg-rc-brand-soft sm:w-auto"
             >
-              HOW IT WORKS
+              How It Works
             </Link>
           </div>
         </div>
