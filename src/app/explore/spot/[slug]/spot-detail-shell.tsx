@@ -154,6 +154,7 @@ export default function SpotDetailShell({
     ? (page.seasonStateBySpecies[selId] ?? null)
     : null;
   const seasonWeeks = selId ? (page.seasonWeeksBySpecies[selId] ?? []) : [];
+  const seasonRegWeeks = selId ? (page.regWeeksBySpecies[selId] ?? undefined) : undefined;
   const regulation = page.regulations.find((r) => r.speciesId === selId) ?? null;
 
   const fcSource = fc ?? page;
@@ -725,8 +726,11 @@ export default function SpotDetailShell({
                 <SeasonalityStrip
                   speciesName={selSpecies.name}
                   weeks={seasonWeeks}
+                  regWeeks={seasonRegWeeks}
                   state={seasonState ?? seasonWeeks[page.todayWeek] ?? "nodata"}
                   todayWeek={page.todayWeek}
+                  nextOpenDate={regulation?.nextOpenDate ?? null}
+                  nextOpenSummary={regulation?.nextOpenSummary ?? null}
                 />
               </div>
             )}
