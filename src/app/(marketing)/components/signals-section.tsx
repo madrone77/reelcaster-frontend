@@ -1,5 +1,6 @@
 import Image from 'next/image';
 import Link from 'next/link';
+import { btn } from '@/app/components/ui/button';
 
 export default function SignalsSection() {
   return (
@@ -10,22 +11,19 @@ export default function SignalsSection() {
     >
       <div className="max-w-6xl mx-auto grid gap-14 px-6 py-16 sm:grid-cols-2 sm:items-center sm:gap-8 lg:gap-14 lg:py-24">
         <div>
-          <h2 className="text-3xl md:text-4xl font-black tracking-[-0.02em] leading-[1.15]">
+          <h2 className="text-balance text-3xl md:text-4xl font-black tracking-[-0.02em] leading-[1.15]">
             <span className="block text-rc-ink">One number.</span>
             <span className="block text-rc-brand">Hundreds of signals.</span>
           </h2>
-          <p className="mt-5 max-w-lg text-sm md:text-base leading-relaxed text-rc-ink-soft">
+          <p className="mt-5 max-w-lg text-pretty text-sm md:text-base leading-relaxed text-rc-ink-soft">
             Reelcaster analyzes tides, current, weather, pressure, water
             conditions, and seasonal regulations to generate a daily score from
             0 to 100.
           </p>
-          <p className="mt-3 max-w-lg text-sm md:text-base leading-relaxed text-rc-ink-soft">
+          <p className="mt-3 max-w-lg text-pretty text-sm md:text-base leading-relaxed text-rc-ink-soft">
             The higher the score, the better your opportunity.
           </p>
-          <Link
-            href="/signup"
-            className="mt-9 inline-flex min-h-11 w-full min-w-20 items-center justify-center rounded bg-rc-brand px-5 py-3 text-sm font-bold uppercase tracking-wide text-white transition-colors hover:bg-rc-brand-hover sm:w-auto"
-          >
+          <Link href="/signup" className={`mt-9 ${btn.primary}`}>
             Start Free
           </Link>
         </div>

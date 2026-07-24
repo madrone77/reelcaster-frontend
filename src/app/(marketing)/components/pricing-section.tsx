@@ -4,6 +4,7 @@ import {
   MONTHLY_PRICE_CENTS,
   annualDiscount,
 } from '@/lib/pricing';
+import { btn } from '@/app/components/ui/button';
 
 // Free vs Pro. Pro is one flat plan — $5/mo or $33/yr (45% off) — wired to the
 // real prices in src/lib/pricing.ts (no fake price points).
@@ -15,10 +16,10 @@ export default function PricingSection() {
   return (
     <section id="pricing" data-testid="homepage-pricing" className="bg-rc-navy scroll-mt-16">
       <div className="max-w-5xl mx-auto px-6 py-16 md:py-20">
-        <h2 className="text-center text-3xl md:text-4xl font-black tracking-[-0.02em] text-white">
+        <h2 className="text-balance text-center text-3xl md:text-4xl font-black tracking-[-0.02em] text-white">
           Two plans. One goal. Better days on the water.
         </h2>
-        <p className="mt-3 text-center text-sm md:text-base text-white/60">
+        <p className="mt-3 text-pretty text-center text-sm md:text-base text-white/60">
           Start free and get today&apos;s score. Upgrade when you&apos;re ready
           for the full forecast, alerts, and advanced planning tools.
         </p>
@@ -30,14 +31,14 @@ export default function PricingSection() {
             <p className="mt-2 text-5xl font-black tracking-[-0.03em] text-rc-ink">
               $0
             </p>
-            <p className="mt-5 text-sm leading-relaxed text-rc-ink-soft">
+            <p className="mt-5 text-pretty text-sm leading-relaxed text-rc-ink-soft">
               See today&apos;s Reelcaster Score for one location and experience
               how the platform works.
             </p>
             <div className="mt-auto pt-8">
               <Link
                 href="/signup"
-                className="flex min-h-11 w-full items-center justify-center rounded bg-rc-brand px-5 py-3 text-sm font-bold uppercase tracking-wide text-white transition-colors hover:bg-rc-brand-hover"
+                className={btn.cardPrimary}
               >
                 Start Free
               </Link>
@@ -61,14 +62,14 @@ export default function PricingSection() {
             <p className="mt-1.5 font-rc-mono text-[11px] text-rc-ink-mute">
               or ${annualDollars}/yr — save {pct}%
             </p>
-            <p className="mt-4 text-sm leading-relaxed text-rc-ink-soft">
+            <p className="mt-4 text-pretty text-sm leading-relaxed text-rc-ink-soft">
               Plan ahead with 14-day hourly forecasts, custom spot profiles, and
               custom alerts by email + SMS.
             </p>
             <div className="mt-auto pt-8">
               <Link
                 href="/pricing"
-                className="flex min-h-11 w-full items-center justify-center rounded bg-rc-brand px-5 py-3 text-sm font-bold uppercase tracking-wide text-white transition-colors hover:bg-rc-brand-hover"
+                className={btn.cardPrimary}
               >
                 Start ReelCaster Pro
               </Link>

@@ -4,6 +4,7 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { usePathname } from 'next/navigation';
 import { useAuth } from '@/contexts/auth-context';
+import { btn } from '@/app/components/ui/button';
 
 export default function MarketingHeader() {
   const { user, loading, signOut } = useAuth();
@@ -52,14 +53,11 @@ export default function MarketingHeader() {
             <>
               <Link
                 href="/login"
-                className="hidden sm:inline-flex text-sm font-medium text-rc-ink-soft hover:text-rc-ink px-3 py-1.5 transition-colors"
+                className="hidden sm:inline-flex text-sm font-semibold uppercase tracking-wide text-rc-ink-soft hover:text-rc-ink px-3 py-1.5 transition-colors"
               >
                 Sign in
               </Link>
-              <Link
-                href="/signup"
-                className="inline-flex min-h-11 items-center rounded bg-rc-brand px-4 py-2 text-sm font-semibold uppercase tracking-wide text-white transition-colors hover:bg-rc-brand-hover"
-              >
+              <Link href="/signup" className={btn.nav}>
                 Start free trial
               </Link>
             </>

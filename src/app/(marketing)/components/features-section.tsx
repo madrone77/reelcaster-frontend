@@ -22,7 +22,7 @@ export default function FeaturesSection() {
   return (
     <section id="features" data-testid="homepage-features" className="bg-rc-panel">
       <div className="max-w-6xl mx-auto px-6 py-16 md:py-20">
-        <h2 className="text-2xl md:text-3xl font-black tracking-[-0.02em] text-rc-ink">
+        <h2 className="text-balance text-2xl md:text-3xl font-black tracking-[-0.02em] text-rc-ink">
           Everything you need in one place.
         </h2>
         <div className="mt-10 grid gap-5 md:grid-cols-3">
@@ -35,7 +35,7 @@ export default function FeaturesSection() {
                 <Icon className="h-5 w-5" />
               </span>
               <h3 className="mt-5 text-base font-bold text-rc-ink">{title}</h3>
-              <p className="mt-2 text-xs leading-relaxed text-rc-ink-mute">
+              <p className="mt-2 text-pretty text-xs leading-relaxed text-rc-ink-mute">
                 {body}
               </p>
             </div>
