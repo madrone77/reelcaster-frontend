@@ -62,8 +62,8 @@ export default function PricingSection() {
               or ${annualDollars}/yr — save {pct}%
             </p>
             <p className="mt-4 text-sm leading-relaxed text-rc-ink-soft">
-              Plan ahead with 14 day forecasts, custom spots, smart alerts, and
-              full species coverage.
+              Plan ahead with 14-day hourly forecasts, custom spot profiles, and
+              custom alerts by email + SMS.
             </p>
             <div className="mt-auto pt-8">
               <Link

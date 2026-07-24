@@ -8,8 +8,8 @@ const FEATURES = [
   },
   {
     icon: Clock,
-    title: 'Smart alerts',
-    body: 'Get notified when conditions cross your personal thresholds so you never miss a prime window.',
+    title: 'Custom alerts',
+    body: 'Get notified by email + SMS when conditions cross your thresholds, so you never miss a prime window.',
   },
   {
     icon: Fish,
