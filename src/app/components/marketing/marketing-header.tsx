@@ -5,33 +5,18 @@ import Image from 'next/image';
 import { usePathname } from 'next/navigation';
 import { useAuth } from '@/contexts/auth-context';
 
-// Keep in step with the routes that actually exist — /fishing, /species and
-// /regulations were removed, and anything not on the middleware allowlist
-// silently rewrites to /coming-soon rather than 404ing, so dead links here
-// look like real pages until you click them.
-const NAV = [
-  { href: '/explore', label: 'Explore' },
-  { href: '/catches', label: 'Catch Log' },
-  { href: '/pricing', label: 'Pricing' },
-];
-
 export default function MarketingHeader() {
   const { user, loading, signOut } = useAuth();
   const pathname = usePathname();
-  // "/" would match every path under startsWith, so the home link compares
-  // exactly and only the sub-path links use the prefix test.
-  const isActive = (href: string) =>
-    href === '/'
-      ? pathname === '/'
-      : pathname === href || pathname.startsWith(`${href}/`);
 
   // On the landing page the bar shares the hero's tint and drops its rule —
   // the two are one surface, so a divider would just draw a line through the
-  // middle of it. Every other surface gets a white bar with a rule, since
-  // there's no matching band underneath for it to merge into.
+  // middle of it. Every other surface gets a white bar with a rule.
   const onLanding = pathname === '/';
 
   return (
+    // Stripped to a pure conversion funnel: logo + a single Start-free CTA, no
+    // nav links — the marketing chrome shouldn't offer exits from the pitch.
     // No backdrop-blur either way: an opaque bar has no backdrop to blur.
     <header
       data-testid="marketing-header"
@@ -39,32 +24,15 @@ export default function MarketingHeader() {
         onLanding ? 'bg-rc-band' : 'bg-rc-panel border-b border-rc-rule'
       }`}
     >
-      <div className="max-w-6xl mx-auto px-6 h-16 flex items-center gap-8">
+      <div className="max-w-6xl mx-auto px-6 h-16 flex items-center">
         <Link href="/" className="shrink-0 flex items-center" aria-label="ReelCaster home">
           <Image src="/reelcaster-mark.svg" alt="ReelCaster" width={104} height={48} priority />
         </Link>
 
-        <nav className="hidden md:flex items-center gap-7 text-sm font-medium text-rc-ink-soft">
-          {NAV.map((item) => (
-            <Link
-              key={item.href}
-              href={item.href}
-              aria-current={isActive(item.href) ? 'page' : undefined}
-              className={`transition-colors ${
-                isActive(item.href) ? 'text-rc-brand font-semibold' : 'hover:text-rc-ink'
-              }`}
-            >
-              {item.label}
-            </Link>
-          ))}
-        </nav>
-
         <div className="flex items-center gap-2 min-h-[36px] ml-auto">
           {loading ? null : user ? (
             <>
-              {/* Same signed-in affordance as ExploreTopBar (initials → /profile);
-                  the old "Dashboard" link pointed at a route the middleware
-                  rewrites to /coming-soon. */}
+              {/* Signed-in affordance (initials → /profile). */}
               <Link
                 href="/profile"
                 aria-label="Profile"
@@ -98,21 +66,6 @@ export default function MarketingHeader() {
           )}
         </div>
       </div>
-
-      <nav className="md:hidden flex items-center gap-4 px-6 pb-3 -mt-1 text-xs font-medium text-rc-ink-mute overflow-x-auto">
-        {NAV.map((item) => (
-          <Link
-            key={item.href}
-            href={item.href}
-            aria-current={isActive(item.href) ? 'page' : undefined}
-            className={`whitespace-nowrap ${
-              isActive(item.href) ? 'text-rc-brand font-semibold' : 'hover:text-rc-ink'
-            }`}
-          >
-            {item.label}
-          </Link>
-        ))}
-      </nav>
     </header>
   );
 }
