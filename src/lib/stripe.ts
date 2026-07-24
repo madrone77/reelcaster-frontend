@@ -11,7 +11,7 @@ export async function getStripe(): Promise<Stripe> {
   if (!cached) {
     const secret = await getServerSecret('STRIPE_SECRET_KEY');
     cached = new Stripe(secret, {
-      apiVersion: '2026-06-24.dahlia',
+      apiVersion: '2026-04-22.dahlia',
       typescript: true,
     });
   }
