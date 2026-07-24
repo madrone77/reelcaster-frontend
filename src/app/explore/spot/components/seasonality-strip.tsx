@@ -1,10 +1,11 @@
 "use client";
 
-import type { SeasonState } from "@/lib/bluecaster/live-spot-types";
+import type { RegWeekState, SeasonState } from "@/lib/bluecaster/live-spot-types";
 
-// Cell fill per state. Off/no-data reads as a muted rail; peak/shoulder/closed
-// borrow the app's tier language (good / fair / poor) so the strip speaks the
-// same colour vocabulary as every score on the page.
+// Cell FILL per abundance state — pure biology. Closure is no longer a fill;
+// it's a hatch overlay (see REG_HATCH). Off/no-data reads as a muted rail;
+// peak/shoulder borrow the app's tier language (good / fair) so the strip
+// speaks the same colour vocabulary as every score on the page.
 const CELL: Record<SeasonState, string> = {
   peak: "bg-rc-good",
   shoulder: "bg-rc-fair",
@@ -21,26 +22,32 @@ const STATE_LABEL: Record<SeasonState, string> = {
   nodata: "No data",
 };
 
-// Header pill styling for the current state — tinted, matching the soft-tint
-// callouts elsewhere on the page.
-const STATE_PILL: Record<SeasonState, string> = {
-  peak: "bg-rc-good-bg text-rc-good-ink",
-  shoulder: "bg-rc-fair-bg text-rc-fair-ink",
-  off: "bg-rc-surface text-rc-ink-mute",
-  closed: "bg-rc-poor-bg text-rc-poor-ink",
-  nodata: "bg-rc-surface text-rc-ink-mute",
+// Regulatory OVERLAY — a diagonal hatch drawn on top of the abundance fill so
+// a week can read "peak abundance, but you can't keep one." Two weights:
+// release-only = slate hatch (fish it, release it); closed = red hatch + edge
+// (hard stop). retention_open / nodata draw nothing (the fill speaks).
+const REG_HATCH: Partial<Record<RegWeekState, React.CSSProperties>> = {
+  release_only: {
+    backgroundImage:
+      "repeating-linear-gradient(45deg, transparent 0 3px, rgba(42,51,68,0.5) 3px 5px)",
+  },
+  closed: {
+    backgroundImage:
+      "repeating-linear-gradient(45deg, transparent 0 2px, var(--rc-poor) 2px 4.5px)",
+    boxShadow: "inset 0 0 0 1.5px var(--rc-poor)",
+  },
+};
+
+const REG_LABEL: Record<RegWeekState, string> = {
+  retention_open: "Retention open",
+  release_only: "Release only",
+  closed: "Closed",
+  nodata: "",
 };
 
 const MONTHS = [
   "Jan", "Feb", "Mar", "Apr", "May", "Jun",
   "Jul", "Aug", "Sep", "Oct", "Nov", "Dec",
-];
-
-const LEGEND: [SeasonState, string][] = [
-  ["peak", "Peak season"],
-  ["shoulder", "Shoulder season"],
-  ["off", "Off season"],
-  ["closed", "Closed"],
 ];
 
 /** Weeks remaining in the current run, counting forward from `todayWeek`. */
@@ -58,35 +65,121 @@ function runHeadline(state: SeasonState, left: number): string | null {
   return null;
 }
 
+/** "2026-08-01" → "Aug 1". Null-safe. */
+function fmtOpenDate(iso: string | null): string | null {
+  if (!iso) return null;
+  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(iso);
+  if (!m) return null;
+  const month = MONTHS[Number(m[2]) - 1];
+  if (!month) return null;
+  return `${month} ${Number(m[3])}`;
+}
+
+type Status = {
+  pillLabel: string;
+  pillClass: string;
+  sentence: string;
+  /** Right-aligned mono line — run headline, or the retention-opens hint. */
+  mono: string | null;
+};
+
+// The current-status header. Regulation reality leads: if you can't keep a
+// fish right now, the strip says so instead of cheerfully announcing "peak."
+// Abundance still colours the sentence so a peak run under a release-only
+// window reads as the (genuinely useful) "peak, but release-only" story.
+function buildStatus(
+  abundance: SeasonState,
+  reg: RegWeekState,
+  speciesName: string,
+  nextOpenDate: string | null,
+  nextOpenSummary: string | null,
+  runMono: string | null,
+): Status {
+  const abundanceWord =
+    abundance === "peak" ? "Peak run" : abundance === "shoulder" ? "Shoulder season" : null;
+  const openWhen = fmtOpenDate(nextOpenDate);
+  const opensHint = openWhen
+    ? `Retention opens ${openWhen}${nextOpenSummary ? ` · ${nextOpenSummary}` : ""}`
+    : null;
+
+  if (reg === "closed") {
+    return {
+      pillLabel: "Closed",
+      pillClass: "bg-rc-poor-bg text-rc-poor-ink",
+      sentence: `${speciesName} is closed here right now`,
+      mono: openWhen ? `Reopens ${openWhen}` : null,
+    };
+  }
+  if (reg === "release_only") {
+    return {
+      pillLabel: "Release only",
+      pillClass: "bg-rc-surface text-rc-ink-soft",
+      sentence: abundanceWord
+        ? `${abundanceWord} for ${speciesName} — but catch-and-release only`
+        : `Catch-and-release only for ${speciesName} right now`,
+      mono: opensHint,
+    };
+  }
+  // Retention open (or unknown) — abundance leads, as before.
+  return {
+    pillLabel: STATE_LABEL[abundance],
+    pillClass:
+      abundance === "peak"
+        ? "bg-rc-good-bg text-rc-good-ink"
+        : abundance === "shoulder"
+          ? "bg-rc-fair-bg text-rc-fair-ink"
+          : "bg-rc-surface text-rc-ink-mute",
+    sentence:
+      abundance === "peak"
+        ? `Currently in peak season for ${speciesName}`
+        : abundance === "shoulder"
+          ? `Shoulder season for ${speciesName}`
+          : `Off season for ${speciesName}`,
+    mono: runMono,
+  };
+}
+
 /**
  * 52-week seasonality heatmap for the active species at this spot. One rounded
- * cell per ISO week, coloured by season state, with today's week ringed and
- * flagged. Real data from the spot payload (`seasonWeeksBySpecies` +
- * `seasonStateBySpecies` + `todayWeek`) — no synthetic calendar.
+ * cell per ISO week: the fill is biological abundance, and a diagonal hatch
+ * overlays weeks where retention is restricted (release-only) or shut
+ * (closed) — so a peak week under a closure reads honestly instead of green.
+ * Real data from the spot payload (`seasonWeeksBySpecies` +
+ * `regWeeksBySpecies` + `seasonStateBySpecies` + `todayWeek`).
  */
 export default function SeasonalityStrip({
   speciesName,
   weeks,
+  regWeeks,
   state,
   todayWeek,
+  nextOpenDate = null,
+  nextOpenSummary = null,
 }: {
   speciesName: string;
   weeks: SeasonState[];
+  regWeeks?: RegWeekState[];
   state: SeasonState;
   todayWeek: number;
+  nextOpenDate?: string | null;
+  nextOpenSummary?: string | null;
 }) {
   if (!weeks || weeks.length === 0) return null;
 
-  const left = weeksLeftInRun(weeks, todayWeek);
-  const headline = runHeadline(state, left);
-  const inSeasonVerb =
-    state === "peak"
-      ? `Currently in peak season for ${speciesName}`
-      : state === "shoulder"
-        ? `Shoulder season for ${speciesName}`
-        : state === "closed"
-          ? `${speciesName} is closed here right now`
-          : `Off season for ${speciesName}`;
+  const regNow: RegWeekState = regWeeks?.[todayWeek] ?? "nodata";
+  const runMono = runHeadline(state, weeksLeftInRun(weeks, todayWeek));
+  const status = buildStatus(
+    state,
+    regNow,
+    speciesName,
+    nextOpenDate,
+    nextOpenSummary,
+    runMono,
+  );
+
+  // Only surface a hatch legend entry for states that actually appear.
+  const hasRelease = regWeeks?.some((r) => r === "release_only") ?? false;
+  const hasClosed = regWeeks?.some((r) => r === "closed") ?? false;
 
   return (
     <div>
@@ -104,22 +197,22 @@ export default function SeasonalityStrip({
         <div className="flex items-center justify-between gap-3 flex-wrap">
           <div className="flex items-center gap-3 min-w-0">
             <span
-              className={`shrink-0 px-2.5 py-1 rounded font-rc-mono text-[10px] font-bold uppercase tracking-[0.08em] ${STATE_PILL[state]}`}
+              className={`shrink-0 px-2.5 py-1 rounded font-rc-mono text-[10px] font-bold uppercase tracking-[0.08em] ${status.pillClass}`}
             >
-              {STATE_LABEL[state]}
+              {status.pillLabel}
             </span>
             <span className="text-sm font-semibold text-rc-ink truncate">
-              {inSeasonVerb}
+              {status.sentence}
             </span>
           </div>
-          {headline && (
+          {status.mono && (
             <span className="font-rc-mono text-[11px] text-rc-ink-mute shrink-0">
-              {headline}
+              {status.mono}
             </span>
           )}
         </div>
 
-        {/* Week cells + today marker */}
+        {/* Week cells — abundance fill + regulatory hatch overlay + today marker */}
         <div className="mt-5">
           <div
             className="grid gap-[3px]"
@@ -127,6 +220,9 @@ export default function SeasonalityStrip({
           >
             {weeks.map((w, i) => {
               const isToday = i === todayWeek;
+              const reg = regWeeks?.[i];
+              const overlay = reg ? REG_HATCH[reg] : undefined;
+              const regNote = reg && REG_LABEL[reg] ? ` · ${REG_LABEL[reg]}` : "";
               return (
                 <div key={i} className="relative">
                   <div
@@ -135,8 +231,15 @@ export default function SeasonalityStrip({
                         ? "ring-2 ring-rc-brand ring-offset-1 ring-offset-rc-panel"
                         : ""
                     }`}
-                    title={`Week ${i + 1} · ${STATE_LABEL[w] ?? STATE_LABEL.off}`}
+                    title={`Week ${i + 1} · ${STATE_LABEL[w] ?? STATE_LABEL.off}${regNote}`}
                   />
+                  {overlay && (
+                    <div
+                      className="absolute inset-0 rounded pointer-events-none"
+                      style={overlay}
+                      aria-hidden
+                    />
+                  )}
                 </div>
               );
             })}
@@ -170,18 +273,50 @@ export default function SeasonalityStrip({
           </div>
         </div>
 
-        {/* Legend */}
+        {/* Legend — abundance (fill) on the left, regulatory (hatch) on the right */}
         <div className="flex flex-wrap items-center gap-x-5 gap-y-2 mt-5">
-          {LEGEND.map(([s, label]) => (
-            <span key={s} className="flex items-center gap-1.5">
-              <span className={`w-2.5 h-2.5 rounded-full ${CELL[s]}`} />
-              <span className="font-rc-mono text-[11px] text-rc-ink-soft">
-                {label}
-              </span>
-            </span>
-          ))}
+          <LegendDot className="bg-rc-good" label="Peak season" />
+          <LegendDot className="bg-rc-fair" label="Shoulder season" />
+          <LegendDot className="bg-rc-rule" label="Off season" />
+          {(hasRelease || hasClosed) && (
+            <span className="w-px h-3.5 bg-rc-rule" aria-hidden />
+          )}
+          {hasRelease && (
+            <LegendSwatch style={REG_HATCH.release_only!} label="Release only" />
+          )}
+          {hasClosed && (
+            <LegendSwatch style={REG_HATCH.closed!} label="Closed" />
+          )}
         </div>
       </div>
     </div>
+  );
+}
+
+function LegendDot({ className, label }: { className: string; label: string }) {
+  return (
+    <span className="flex items-center gap-1.5">
+      <span className={`w-2.5 h-2.5 rounded-full ${className}`} />
+      <span className="font-rc-mono text-[11px] text-rc-ink-soft">{label}</span>
+    </span>
+  );
+}
+
+function LegendSwatch({
+  style,
+  label,
+}: {
+  style: React.CSSProperties;
+  label: string;
+}) {
+  return (
+    <span className="flex items-center gap-1.5">
+      <span
+        className="w-3.5 h-3.5 rounded-[3px] bg-rc-rule"
+        style={style}
+        aria-hidden
+      />
+      <span className="font-rc-mono text-[11px] text-rc-ink-soft">{label}</span>
+    </span>
   );
 }

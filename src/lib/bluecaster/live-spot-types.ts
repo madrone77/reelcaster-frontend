@@ -129,6 +129,12 @@ export type DailyEntry = {
 
 export type SeasonState = "peak" | "shoulder" | "off" | "closed" | "nodata";
 
+// Effective regulatory state per week — a SEPARATE axis from SeasonState
+// (biological abundance). A week can be abundance "peak" and regulatory
+// "release_only" at the same time. Drives the SeasonalityStrip's hatch
+// overlay. "nodata" = no regulation resolved for that week (no overlay).
+export type RegWeekState = "retention_open" | "release_only" | "closed" | "nodata";
+
 // ─── Aligning factors ─────────────────────────────────────────────────
 
 export type FactorVerdict = "Prime" | "Fair" | "Poor";
@@ -252,6 +258,10 @@ export type LiveSpotDetail = {
   tideStationName: string | null;
   seasonStateBySpecies: Record<string, SeasonState>;
   seasonWeeksBySpecies: Record<string, SeasonState[]>;
+  // 52-week effective regulatory vector per species, aligned week-for-week to
+  // seasonWeeksBySpecies. Drives the strip's release-only / closed hatch
+  // overlay. Species with no resolvable regulation row are omitted.
+  regWeeksBySpecies: Record<string, RegWeekState[]>;
   todayWeek: number;
   sun: SunHours;
   guideNotes: GuideNote[];
