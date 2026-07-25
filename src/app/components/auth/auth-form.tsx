@@ -23,9 +23,10 @@ export function AuthForm({ defaultMode = 'signin', onSuccess, source = 'auth-for
   const [error, setError] = useState('')
   const [success, setSuccess] = useState(false)
   const [loading, setLoading] = useState(false)
-  const { signIn, signUp, signInWithGoogle, resetPasswordForEmail } = useAuth()
+  const { signIn, signUp, signInWithGoogle, signInWithFacebook, resetPasswordForEmail } = useAuth()
   const { trackEvent } = useAnalytics()
   const [googleLoading, setGoogleLoading] = useState(false)
+  const [facebookLoading, setFacebookLoading] = useState(false)
 
   const handleGoogle = async () => {
     setError('')
@@ -49,6 +50,28 @@ export function AuthForm({ defaultMode = 'signin', onSuccess, source = 'auth-for
     }
   }
 
+  const handleFacebook = async () => {
+    setError('')
+    setFacebookLoading(true)
+    try {
+      const { error } = await signInWithFacebook()
+      if (error) {
+        setError(error.message)
+        setFacebookLoading(false)
+        return
+      }
+      trackEvent('Sign In', {
+        method: 'facebook',
+        source,
+        timestamp: new Date().toISOString(),
+      })
+      // Browser is redirecting to Facebook — keep button in loading state.
+    } catch {
+      setError('Could not start Facebook sign-in')
+      setFacebookLoading(false)
+    }
+  }
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setError('')
@@ -67,29 +90,43 @@ export function AuthForm({ defaultMode = 'signin', onSuccess, source = 'auth-for
             timestamp: new Date().toISOString(),
           })
         }
-      } else {
-        const { error } = mode === 'signin' ? await signIn(email, password) : await signUp(email, password)
+      } else if (mode === 'signup') {
+        const { error, session } = await signUp(email, password)
 
         if (error) {
           setError(error.message)
         } else {
-          if (mode === 'signup') {
-            setSuccess(true)
-            trackEvent('Sign Up', {
-              method: 'email',
-              source,
-              timestamp: new Date().toISOString(),
-            })
-          } else {
-            trackEvent('Sign In', {
-              method: 'email',
-              source,
-              timestamp: new Date().toISOString(),
-            })
+          trackEvent('Sign Up', {
+            method: 'email',
+            source,
+            timestamp: new Date().toISOString(),
+          })
+          if (session) {
+            // Email confirmation is off — the account is live and logged in,
+            // so drop the user straight into the app instead of the
+            // (misleading) check-your-email screen.
             onSuccess?.()
             setEmail('')
             setPassword('')
+          } else {
+            // Confirmation required — a link was emailed.
+            setSuccess(true)
           }
+        }
+      } else {
+        const { error } = await signIn(email, password)
+
+        if (error) {
+          setError(error.message)
+        } else {
+          trackEvent('Sign In', {
+            method: 'email',
+            source,
+            timestamp: new Date().toISOString(),
+          })
+          onSuccess?.()
+          setEmail('')
+          setPassword('')
         }
       }
     } catch {
@@ -104,11 +141,6 @@ export function AuthForm({ defaultMode = 'signin', onSuccess, source = 'auth-for
     setPassword('')
     setError('')
     setSuccess(false)
-  }
-
-  const switchMode = () => {
-    setMode(mode === 'signin' ? 'signup' : 'signin')
-    resetForm()
   }
 
   if (success) {
@@ -156,7 +188,7 @@ export function AuthForm({ defaultMode = 'signin', onSuccess, source = 'auth-for
             <button
               type="button"
               onClick={handleGoogle}
-              disabled={loading || googleLoading}
+              disabled={loading || googleLoading || facebookLoading}
               className="w-full h-11 rounded-md text-sm font-medium bg-rc-panel border border-rc-rule text-rc-ink hover:bg-rc-surface transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
             >
               {googleLoading ? (
@@ -165,6 +197,20 @@ export function AuthForm({ defaultMode = 'signin', onSuccess, source = 'auth-for
                 <GoogleGlyph />
               )}
               <span>{mode === 'signin' ? 'Sign in with Google' : 'Sign up with Google'}</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={handleFacebook}
+              disabled={loading || googleLoading || facebookLoading}
+              className="w-full h-11 rounded-md text-sm font-medium bg-rc-panel border border-rc-rule text-rc-ink hover:bg-rc-surface transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+            >
+              {facebookLoading ? (
+                <span className="h-4 w-4 animate-spin rounded-full border-2 border-rc-ink border-t-transparent" />
+              ) : (
+                <FacebookGlyph />
+              )}
+              <span>{mode === 'signin' ? 'Sign in with Facebook' : 'Sign up with Facebook'}</span>
             </button>
 
             <div className="relative">
@@ -250,32 +296,33 @@ export function AuthForm({ defaultMode = 'signin', onSuccess, source = 'auth-for
           )}
         </Button>
 
-        <div className="relative">
-          <div className="absolute inset-0 flex items-center">
-            <div className="w-full border-t border-rc-rule" />
-          </div>
-          <div className="relative flex justify-center text-xs uppercase">
-            <span className="bg-rc-panel px-2 text-rc-ink-mute">
-              {mode === 'forgot' ? 'Remember your password?' : mode === 'signin' ? 'New to ReelCaster?' : 'Already have an account?'}
-            </span>
-          </div>
-        </div>
+        {/* Mode switching for sign-in ⇄ sign-up is handled by the page-level
+            "Already have an account? / Create an account" link, so no switch
+            button here. Forgot-password still needs a way back, so keep it. */}
+        {mode === 'forgot' && (
+          <>
+            <div className="relative">
+              <div className="absolute inset-0 flex items-center">
+                <div className="w-full border-t border-rc-rule" />
+              </div>
+              <div className="relative flex justify-center text-xs uppercase">
+                <span className="bg-rc-panel px-2 text-rc-ink-mute">Remember your password?</span>
+              </div>
+            </div>
 
-        <button
-          type="button"
-          onClick={() => {
-            if (mode === 'forgot') {
-              setMode('signin')
-              resetForm()
-            } else {
-              switchMode()
-            }
-          }}
-          disabled={loading}
-          className="w-full h-11 rounded-md text-sm font-medium bg-rc-panel border border-rc-rule text-rc-ink hover:bg-rc-surface transition-colors disabled:opacity-50"
-        >
-          {mode === 'forgot' ? 'Back to Sign In' : mode === 'signin' ? 'Create an Account' : 'Sign In Instead'}
-        </button>
+            <button
+              type="button"
+              onClick={() => {
+                setMode('signin')
+                resetForm()
+              }}
+              disabled={loading}
+              className="w-full h-11 rounded-md text-sm font-medium bg-rc-panel border border-rc-rule text-rc-ink hover:bg-rc-surface transition-colors disabled:opacity-50"
+            >
+              Back to Sign In
+            </button>
+          </>
+        )}
       </form>
     </div>
   )
@@ -299,6 +346,17 @@ function GoogleGlyph() {
       <path
         fill="#34A853"
         d="M9 18c2.43 0 4.47-.8 5.96-2.18l-2.84-2.2c-.76.53-1.78.9-3.12.9-2.38 0-4.4-1.57-5.12-3.74L.97 13.04C2.45 15.98 5.48 18 9 18z"
+      />
+    </svg>
+  )
+}
+
+function FacebookGlyph() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 18 18" aria-hidden="true">
+      <path
+        fill="#1877F2"
+        d="M18 9a9 9 0 1 0-10.41 8.89v-6.29H5.31V9h2.28V7.02c0-2.25 1.34-3.5 3.4-3.5.98 0 2.01.18 2.01.18v2.22h-1.13c-1.12 0-1.47.69-1.47 1.4V9h2.5l-.4 2.6h-2.1v6.29A9 9 0 0 0 18 9z"
       />
     </svg>
   )

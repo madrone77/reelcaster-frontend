@@ -1,7 +1,9 @@
 /**
  * Custom Alert Email Template
  *
- * Generates HTML email for custom fishing condition alerts.
+ * Generates HTML email for custom fishing condition alerts — styled to match
+ * the ReelCaster app's explore spot card (light, mono labels, tier score,
+ * conditions KPI grid).
  */
 
 import type { ConditionSnapshot } from '@/lib/custom-alert-engine';
@@ -25,86 +27,24 @@ interface EmailContent {
   html: string;
 }
 
-// Trigger display names
-const TRIGGER_LABELS: Record<string, string> = {
-  wind: 'Wind Conditions',
-  tide: 'Tide Phase',
-  pressure: 'Barometric Pressure',
-  water_temp: 'Water Temperature',
-  solunar: 'Solunar Period',
-  fishing_score: 'Fishing Score',
-};
-
-// Trigger icons (emoji for email compatibility)
-const TRIGGER_ICONS: Record<string, string> = {
-  wind: '💨',
-  tide: '🌊',
-  pressure: '📊',
-  water_temp: '🌡️',
-  solunar: '🌙',
-  fishing_score: '🎣',
-};
-
-function formatTriggerValue(trigger: string, snapshot: ConditionSnapshot): string {
-  switch (trigger) {
-    case 'wind':
-      const direction = snapshot.wind_direction !== undefined
-        ? ` from ${getWindDirection(snapshot.wind_direction)}`
-        : '';
-      return `${snapshot.wind_speed_mph?.toFixed(1) || 'N/A'} mph${direction}`;
-
-    case 'tide':
-      const phase = snapshot.tide_phase || 'Unknown';
-      const height = snapshot.tide_height_m !== undefined
-        ? ` (${snapshot.tide_height_m.toFixed(2)}m)`
-        : '';
-      return `${formatTidePhase(phase)}${height}`;
-
-    case 'pressure':
-      const trend = snapshot.pressure_trend || 'steady';
-      const change = snapshot.pressure_change_3h !== undefined
-        ? ` (${snapshot.pressure_change_3h >= 0 ? '+' : ''}${snapshot.pressure_change_3h.toFixed(1)} mb/3h)`
-        : '';
-      return `${snapshot.pressure_hpa?.toFixed(1) || 'N/A'} hPa - ${trend}${change}`;
-
-    case 'water_temp':
-      return `${snapshot.water_temp_c?.toFixed(1) || 'N/A'}°C`;
-
-    case 'solunar':
-      return formatSolunarPhase(snapshot.solunar_phase || 'none');
-
-    case 'fishing_score':
-      return `${snapshot.fishing_score?.toFixed(0) || 'N/A'}/100`;
-
-    default:
-      return 'Matched';
-  }
-}
-
-function getWindDirection(degrees: number): string {
+/** Compass point only (no degrees) — for the compact KPI grid. */
+function windDirShort(degrees: number): string {
   const directions = ['N', 'NNE', 'NE', 'ENE', 'E', 'ESE', 'SE', 'SSE', 'S', 'SSW', 'SW', 'WSW', 'W', 'WNW', 'NW', 'NNW'];
-  const index = Math.round(degrees / 22.5) % 16;
-  return `${directions[index]} (${degrees}°)`;
+  return directions[Math.round(degrees / 22.5) % 16];
 }
 
-function formatTidePhase(phase: string): string {
-  const labels: Record<string, string> = {
-    incoming: 'Incoming (Rising)',
-    outgoing: 'Outgoing (Falling)',
-    high_slack: 'High Slack',
-    low_slack: 'Low Slack',
-  };
-  return labels[phase] || phase;
-}
+const TIDE_SHORT: Record<string, string> = {
+  incoming: 'Incoming',
+  outgoing: 'Outgoing',
+  high_slack: 'High slack',
+  low_slack: 'Low slack',
+};
 
-function formatSolunarPhase(phase: string): string {
-  const labels: Record<string, string> = {
-    major: 'Major Period (Peak Activity)',
-    minor: 'Minor Period',
-    none: 'No Active Period',
-  };
-  return labels[phase] || phase;
-}
+const SOLUNAR_SHORT: Record<string, string> = {
+  major: 'Major',
+  minor: 'Minor',
+  none: 'None',
+};
 
 function formatTimestamp(timestamp: string): string {
   const date = new Date(timestamp);
@@ -128,6 +68,7 @@ export function generateCustomAlertEmail(params: CustomAlertEmailParams): EmailC
     forecastUrl,
     manageAlertsUrl,
     alertKind,
+    scoreThreshold,
     speciesName,
   } = params;
 
@@ -154,28 +95,102 @@ export function generateCustomAlertEmail(params: CustomAlertEmailParams): EmailC
     subject = `Alert: ${alertName} — ${triggerCount} ${triggerText} matched at ${locationName}`;
   }
 
-  // Generate trigger rows
-  const triggerRows = matchedTriggers
-    .map((trigger) => {
-      const icon = TRIGGER_ICONS[trigger] || '✓';
-      const label = TRIGGER_LABELS[trigger] || trigger;
-      const value = formatTriggerValue(trigger, conditionSnapshot);
+  // ── ReelCaster brand palette (literal hex — email can't use CSS vars) ──
+  const MONO =
+    "'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace";
+  const SANS =
+    "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif";
+  const BRAND = '#1E40E0';
+  const BRAND_SOFT = '#E8EDFF';
+  const INK = '#0F172A';
+  const INK_SOFT = '#334155';
+  const INK_MUTE = '#64748B';
+  const RULE = '#E2E8F0';
+  const BAND = '#F1F5F9';
+  const SURFACE = '#F8FAFC';
 
-      return `
-        <tr>
-          <td style="padding: 12px 16px; border-bottom: 1px solid #e5e7eb;">
-            <span style="font-size: 20px; margin-right: 8px;">${icon}</span>
-            <span style="font-weight: 500; color: #374151;">${label}</span>
-          </td>
-          <td style="padding: 12px 16px; border-bottom: 1px solid #e5e7eb; text-align: right; color: #059669; font-weight: 600;">
-            ${value}
-          </td>
-        </tr>
-      `;
-    })
+  // Hosted logo — email clients don't render SVG, so we ship a rasterized PNG
+  // at an absolute URL.
+  const BASE = process.env.NEXT_PUBLIC_APP_URL || 'https://reelcaster.com';
+  const LOGO = `${BASE}/reelcaster-mark-email.png`;
+
+  // Score → tier, using the same thresholds as the app (Good ≥75 / Fair ≥55).
+  const scoreRaw = conditionSnapshot.fishing_score;
+  const hasScore =
+    matchedTriggers.includes('fishing_score') &&
+    scoreRaw !== undefined &&
+    scoreRaw !== null;
+  const scoreVal = hasScore ? Math.round(scoreRaw as number) : null;
+  const tier =
+    scoreVal === null
+      ? null
+      : scoreVal >= 75
+        ? { label: 'Good', num: '#16A34A', bg: '#DCFCE7', ink: '#166534' }
+        : scoreVal >= 55
+          ? { label: 'Fair', num: '#D97706', bg: '#FEF3C7', ink: '#92400E' }
+          : { label: 'Poor', num: '#DC2626', bg: '#FEE2E2', ink: '#991B1B' };
+
+  // Compact conditions KPIs — like the explore spot card's WIND/SEA/CURRENT
+  // row. Only include the fields the snapshot actually carries (max 4).
+  const s = conditionSnapshot;
+  const kpis: { label: string; value: string }[] = [];
+  if (s.wind_speed_mph !== undefined && s.wind_speed_mph !== null) {
+    const dir =
+      s.wind_direction !== undefined && s.wind_direction !== null
+        ? ` ${windDirShort(s.wind_direction)}`
+        : '';
+    kpis.push({ label: 'Wind', value: `${Math.round(s.wind_speed_mph)} mph${dir}` });
+  }
+  if (s.tide_phase) {
+    kpis.push({ label: 'Tide', value: TIDE_SHORT[s.tide_phase] || s.tide_phase });
+  }
+  if (s.pressure_hpa !== undefined && s.pressure_hpa !== null) {
+    kpis.push({ label: 'Pressure', value: `${Math.round(s.pressure_hpa)} hPa` });
+  }
+  if (s.water_temp_c !== undefined && s.water_temp_c !== null) {
+    kpis.push({ label: 'Water', value: `${s.water_temp_c.toFixed(1)}°C` });
+  }
+  if (kpis.length < 4 && s.solunar_phase && s.solunar_phase !== 'none') {
+    kpis.push({ label: 'Solunar', value: SOLUNAR_SHORT[s.solunar_phase] || s.solunar_phase });
+  }
+  const kpiCells = kpis
+    .slice(0, 4)
+    .map(
+      (k) => `
+                        <td style="padding: 14px 0 0; vertical-align: top;">
+                          <div style="font-family: ${MONO}; font-size: 9px; letter-spacing: 0.08em; text-transform: uppercase; color: ${INK_MUTE};">${k.label}</div>
+                          <div style="font-family: ${MONO}; font-size: 13px; font-weight: 600; color: ${INK}; margin-top: 3px;">${k.value}</div>
+                        </td>`,
+    )
     .join('');
+  const kpiGridHtml = kpis.length
+    ? `
+                <tr>
+                  <td colspan="2" style="padding: 0 22px 20px;">
+                    <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="border-top: 1px solid ${RULE};">
+                      <tr>${kpiCells}</tr>
+                    </table>
+                  </td>
+                </tr>`
+    : '';
 
-  // Generate HTML
+  // Chip (species), the left conclusion line, and the right-hand score/badge.
+  const speciesChipHtml = speciesName
+    ? `<span style="display: inline-block; background-color: ${BRAND_SOFT}; color: ${BRAND}; font-family: ${MONO}; font-size: 10px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; padding: 3px 8px; border-radius: 4px;">${speciesName}</span>`
+    : '';
+
+  const conclusionLine = hasScore
+    ? scoreThreshold !== undefined && scoreThreshold !== null
+      ? `Above your ${scoreThreshold} threshold`
+      : 'ReelCaster Score'
+    : `${triggerCount} ${triggerText} ${logicMode === 'AND' ? '(all required)' : '(any match)'} matched`;
+
+  const rightHtml =
+    hasScore && tier
+      ? `<div style="font-size: 56px; line-height: 0.85; font-weight: 800; letter-spacing: -0.04em; color: ${tier.num};">${scoreVal}</div>
+                    <span style="display: inline-block; margin-top: 12px; background-color: ${tier.bg}; color: ${tier.ink}; font-family: ${MONO}; font-size: 11px; font-weight: 700; letter-spacing: 0.14em; padding: 3px 12px; border-radius: 4px;">${tier.label.toUpperCase()}</span>`
+      : `<span style="display: inline-block; background-color: ${BRAND_SOFT}; color: ${BRAND}; font-family: ${MONO}; font-size: 12px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; padding: 6px 12px; border-radius: 4px;">Matched</span>`;
+
   const html = `
 <!DOCTYPE html>
 <html lang="en">
@@ -184,113 +199,84 @@ export function generateCustomAlertEmail(params: CustomAlertEmailParams): EmailC
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>${subject}</title>
 </head>
-<body style="margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; background-color: #f3f4f6;">
-  <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="background-color: #f3f4f6;">
+<body style="margin: 0; padding: 0; font-family: ${SANS}; background-color: ${BAND};">
+  <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="background-color: ${BAND};">
     <tr>
       <td style="padding: 24px;">
-        <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="max-width: 600px; margin: 0 auto; background-color: #ffffff; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);">
+        <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="max-width: 600px; margin: 0 auto; background-color: #ffffff; border: 1px solid ${RULE}; border-top: 3px solid ${BRAND}; border-radius: 10px; overflow: hidden;">
 
-          <!-- Header -->
+          <!-- App-style toolbar header: logo + live-alert pill -->
           <tr>
-            <td style="background: linear-gradient(135deg, #0ea5e9 0%, #0284c7 100%); padding: 32px 24px; text-align: center;">
-              <h1 style="margin: 0; color: #ffffff; font-size: 24px; font-weight: 700;">
-                🎣 Perfect Conditions Alert!
-              </h1>
-              <p style="margin: 8px 0 0; color: rgba(255, 255, 255, 0.9); font-size: 16px;">
-                ${alertName}
+            <td style="padding: 16px 28px; border-bottom: 1px solid ${RULE};">
+              <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%">
+                <tr>
+                  <td style="vertical-align: middle;">
+                    <img src="${LOGO}" alt="ReelCaster" width="100" height="46" style="display: block; border: 0; outline: none; text-decoration: none;">
+                  </td>
+                  <td style="vertical-align: middle; text-align: right;">
+                    <span style="display: inline-block; background-color: #DCFCE7; color: #166534; font-family: ${MONO}; font-size: 10px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; padding: 4px 9px; border-radius: 4px;">● Live alert</span>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+
+          <!-- Context + spot card -->
+          <tr>
+            <td style="padding: 26px 28px 0;">
+              <p style="margin: 0 0 16px; font-family: ${MONO}; font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase; color: ${INK_MUTE};">
+                Detected · ${timestamp}
               </p>
+
+              <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="border: 1px solid ${RULE}; border-radius: 8px;">
+                <tr>
+                  <td style="padding: 20px 22px; vertical-align: top;">
+                    ${speciesChipHtml}
+                    <h2 style="margin: ${speciesName ? '12px' : '0'} 0 0; font-size: 21px; font-weight: 700; letter-spacing: -0.02em; color: ${INK}; line-height: 1.2;">${locationName}</h2>
+                    <p style="margin: 10px 0 0; font-family: ${MONO}; font-size: 12px; color: ${INK_SOFT};">${conclusionLine}</p>
+                  </td>
+                  <td style="padding: 20px 22px; vertical-align: top; text-align: right; white-space: nowrap;">
+                    ${rightHtml}
+                  </td>
+                </tr>${kpiGridHtml}
+              </table>
             </td>
           </tr>
 
-          <!-- Location & Time -->
+          <!-- CTA -->
           <tr>
-            <td style="padding: 24px; background-color: #f0f9ff; border-bottom: 1px solid #e0f2fe;">
-              <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%">
+            <td style="padding: 24px 28px; text-align: center;">
+              <a href="${forecastUrl}" style="display: inline-block; background-color: ${BRAND}; color: #ffffff; text-decoration: none; padding: 14px 28px; border-radius: 6px; font-weight: 700; font-size: 15px; letter-spacing: 0.02em;">View full forecast →</a>
+            </td>
+          </tr>
+
+          <!-- Good to know -->
+          <tr>
+            <td style="padding: 0 28px 26px;">
+              <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="background-color: ${SURFACE}; border: 1px solid ${RULE}; border-radius: 8px;">
                 <tr>
-                  <td>
-                    <p style="margin: 0 0 4px; font-size: 14px; color: #64748b;">Location</p>
-                    <p style="margin: 0; font-size: 18px; font-weight: 600; color: #0369a1;">
-                      📍 ${locationName}
-                    </p>
-                  </td>
-                  <td style="text-align: right;">
-                    <p style="margin: 0 0 4px; font-size: 14px; color: #64748b;">Detected</p>
-                    <p style="margin: 0; font-size: 14px; color: #475569;">
-                      ${timestamp}
-                    </p>
+                  <td style="padding: 16px 18px;">
+                    <p style="margin: 0 0 8px; font-family: ${MONO}; font-size: 10px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: ${INK_MUTE};">Good to know</p>
+                    <ul style="margin: 0; padding: 0 0 0 18px; color: ${INK_SOFT}; font-size: 13px; line-height: 1.7;">
+                      <li>Conditions can change — check the forecast before heading out.</li>
+                      <li>Always prioritize safety and check local regulations.</li>
+                      <li>This alert won&rsquo;t fire again for ${getApproxCooldown()} hours (cooldown).</li>
+                    </ul>
                   </td>
                 </tr>
               </table>
-            </td>
-          </tr>
-
-          <!-- Alert Summary -->
-          <tr>
-            <td style="padding: 24px;">
-              <div style="background-color: #ecfdf5; border: 1px solid #a7f3d0; border-radius: 8px; padding: 16px; margin-bottom: 24px;">
-                <p style="margin: 0; color: #065f46; font-size: 15px;">
-                  <strong>${triggerCount} ${triggerText}</strong> ${logicMode === 'AND' ? '(all required)' : '(any match)'} detected at your fishing spot!
-                </p>
-              </div>
-
-              <!-- Matched Conditions Table -->
-              <h2 style="margin: 0 0 16px; font-size: 18px; font-weight: 600; color: #1f2937;">
-                Matched Conditions
-              </h2>
-              <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="border: 1px solid #e5e7eb; border-radius: 8px; overflow: hidden;">
-                <thead>
-                  <tr style="background-color: #f9fafb;">
-                    <th style="padding: 12px 16px; text-align: left; font-weight: 600; color: #374151; border-bottom: 1px solid #e5e7eb;">Condition</th>
-                    <th style="padding: 12px 16px; text-align: right; font-weight: 600; color: #374151; border-bottom: 1px solid #e5e7eb;">Current Value</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  ${triggerRows}
-                </tbody>
-              </table>
-            </td>
-          </tr>
-
-          <!-- CTA Button -->
-          <tr>
-            <td style="padding: 0 24px 24px;">
-              <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%">
-                <tr>
-                  <td style="text-align: center;">
-                    <a href="${forecastUrl}" style="display: inline-block; background: linear-gradient(135deg, #0ea5e9 0%, #0284c7 100%); color: #ffffff; text-decoration: none; padding: 14px 32px; border-radius: 8px; font-weight: 600; font-size: 16px;">
-                      View Full Forecast →
-                    </a>
-                  </td>
-                </tr>
-              </table>
-            </td>
-          </tr>
-
-          <!-- Tips Section -->
-          <tr>
-            <td style="padding: 24px; background-color: #fffbeb; border-top: 1px solid #fef3c7;">
-              <h3 style="margin: 0 0 12px; font-size: 14px; font-weight: 600; color: #92400e;">
-                💡 Tips for This Alert
-              </h3>
-              <ul style="margin: 0; padding: 0 0 0 20px; color: #78350f; font-size: 14px; line-height: 1.6;">
-                <li>These conditions may change - check the forecast before heading out</li>
-                <li>Always prioritize safety and check local regulations</li>
-                <li>This alert won't fire again for ${getApproxCooldown()} hours (cooldown period)</li>
-              </ul>
             </td>
           </tr>
 
           <!-- Footer -->
           <tr>
-            <td style="padding: 24px; background-color: #f9fafb; border-top: 1px solid #e5e7eb; text-align: center;">
-              <p style="margin: 0 0 12px; font-size: 14px; color: #6b7280;">
-                <a href="${manageAlertsUrl}" style="color: #0284c7; text-decoration: none;">Manage Your Alerts</a>
-                &nbsp;|&nbsp;
-                <a href="${manageAlertsUrl}" style="color: #0284c7; text-decoration: none;">Disable This Alert</a>
+            <td style="padding: 22px 28px; background-color: ${BAND}; border-top: 1px solid ${RULE}; text-align: center;">
+              <p style="margin: 0 0 10px; font-size: 13px;">
+                <a href="${manageAlertsUrl}" style="color: ${BRAND}; text-decoration: none; font-weight: 600;">Manage your alerts</a>
+                <span style="color: #CBD5E1;">&nbsp;·&nbsp;</span>
+                <a href="${manageAlertsUrl}" style="color: ${BRAND}; text-decoration: none; font-weight: 600;">Disable this alert</a>
               </p>
-              <p style="margin: 0; font-size: 12px; color: #9ca3af;">
-                ReelCaster • Your Personal Fishing Forecast
-              </p>
+              <p style="margin: 0; font-family: ${MONO}; font-size: 11px; letter-spacing: 0.04em; color: #94A3B8;">ReelCaster · Your personal fishing forecast</p>
             </td>
           </tr>
 

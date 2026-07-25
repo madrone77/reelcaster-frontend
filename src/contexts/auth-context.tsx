@@ -9,9 +9,10 @@ interface AuthContextType {
   session: Session | null
   loading: boolean
   isPasswordRecovery: boolean
-  signUp: (email: string, password: string) => Promise<{ error: any }>
+  signUp: (email: string, password: string) => Promise<{ error: any; session: Session | null }>
   signIn: (email: string, password: string) => Promise<{ error: any }>
   signInWithGoogle: () => Promise<{ error: any }>
+  signInWithFacebook: () => Promise<{ error: any }>
   signInWithMagicLink: (email: string) => Promise<{ error: any }>
   signOut: () => Promise<void>
   resetPasswordForEmail: (email: string) => Promise<{ error: any }>
@@ -54,14 +55,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       ? `${process.env.NEXT_PUBLIC_APP_URL}/auth/callback`
       : `${window.location.origin}/auth/callback`
       
-    const { error } = await supabase.auth.signUp({
+    const { data, error } = await supabase.auth.signUp({
       email,
       password,
       options: {
         emailRedirectTo: redirectUrl
       }
     })
-    return { error }
+    // `session` is non-null only when email confirmation is disabled — the
+    // user is already logged in and can be sent straight into the app. When
+    // it's null, a confirmation email was sent and we show the check-email
+    // screen instead.
+    return { error, session: data.session }
   }
 
   const signIn = async (email: string, password: string) => {
@@ -85,6 +90,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           access_type: 'offline',
           prompt: 'consent',
         },
+      },
+    })
+    return { error }
+  }
+
+  const signInWithFacebook = async () => {
+    // Same origin-honoring redirect as Google. Requires the Facebook provider
+    // to be enabled in the Supabase dashboard (app ID + secret) — without that
+    // config this returns a provider error at click time.
+    const redirectUrl = `${window.location.origin}/auth/callback`
+
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: 'facebook',
+      options: {
+        redirectTo: redirectUrl,
       },
     })
     return { error }
@@ -136,6 +156,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     signUp,
     signIn,
     signInWithGoogle,
+    signInWithFacebook,
     signInWithMagicLink,
     signOut,
     resetPasswordForEmail,

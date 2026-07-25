@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import dynamic from 'next/dynamic';
-import { Search, MapPin, Building2, Fish, Loader2, X } from 'lucide-react';
+import { Search, MapPin, Building2, Target, Loader2, X } from 'lucide-react';
 import type { BlueCasterSearchResult } from '@/lib/bluecaster';
 
 const WaitlistPinModal = dynamic(
@@ -19,7 +19,7 @@ interface Props {
 const TYPE_ICON = {
   spot: MapPin,
   city: Building2,
-  species: Fish,
+  species: Target,
 } as const;
 
 export default function GlobalSearch({ open, onClose }: Props) {

@@ -6,7 +6,7 @@ import {
   Waves,
   CloudRain,
   Thermometer,
-  Fish,
+  Target,
   Sun,
   CloudLightning,
   AlertTriangle,
@@ -82,7 +82,7 @@ const WeatherThresholdSliders: React.FC<WeatherThresholdSlidersProps> = ({
       <div className="p-3 bg-rc-surface border border-rc-rule rounded-lg">
         <div className="flex items-center justify-between mb-2">
           <div className="flex items-center gap-2">
-            <Fish className="w-4 h-4 text-rc-brand" />
+            <Target className="w-4 h-4 text-rc-brand" />
             <label className="text-sm font-medium text-rc-ink">Fishing Score</label>
           </div>
           <span className="text-base font-bold text-rc-brand">

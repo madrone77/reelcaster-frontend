@@ -39,9 +39,9 @@ export default function DangerZoneCard() {
             <AlertTriangle className="h-5 w-5 text-rc-poor" />
           </div>
           <div>
-            <CardTitle className="text-rc-ink text-xl">Danger zone</CardTitle>
+            <CardTitle className="text-rc-ink text-xl">Leaving ReelCaster</CardTitle>
             <CardDescription className="text-rc-ink-mute mt-1">
-              Cancellation and account deletion
+              Cancel your subscription or delete your account
             </CardDescription>
           </div>
         </div>

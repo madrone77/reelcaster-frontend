@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { Fish, Check } from 'lucide-react';
+import { Target, Check } from 'lucide-react';
 
 // Centralized species config
 import { FISH_SPECIES } from '@/app/config/species';
@@ -102,7 +102,7 @@ const SpeciesSelector: React.FC<SpeciesSelectorProps> = ({ selectedSpecies, onCh
                   ${isSelected ? 'bg-rc-brand-soft2' : 'bg-rc-panel'}
                 `}
                 >
-                  <Fish className={`w-5 h-5 ${isSelected ? 'text-rc-brand' : 'text-rc-ink-mute'}`} />
+                  <Target className={`w-5 h-5 ${isSelected ? 'text-rc-brand' : 'text-rc-ink-mute'}`} />
                 </div>
 
                 <div className="flex-1 pr-6">

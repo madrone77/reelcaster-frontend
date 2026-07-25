@@ -17,13 +17,13 @@ export default function SignalsSection() {
           </h2>
           <p className="mt-5 max-w-lg text-pretty text-sm md:text-base leading-relaxed text-rc-ink-soft">
             Reelcaster analyzes tides, current, weather, pressure, water
-            conditions, and seasonal regulations to generate a daily score from
-            0 to 100.
+            conditions, and seasonal regulations to generate a daily score{' '}
+            <span className="whitespace-nowrap">from 0 to 100</span>.
           </p>
           <p className="mt-3 max-w-lg text-pretty text-sm md:text-base leading-relaxed text-rc-ink-soft">
             The higher the score, the better your opportunity.
           </p>
-          <Link href="/signup" className={`mt-9 ${btn.primary}`}>
+          <Link href="/signup" className={`mt-9 ${btn.primaryLarge}`}>
             Start Free
           </Link>
         </div>

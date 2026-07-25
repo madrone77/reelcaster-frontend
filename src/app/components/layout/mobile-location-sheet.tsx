@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useMemo } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { X, MapPin, Fish, ChevronRight } from 'lucide-react'
+import { X, MapPin, Target, ChevronRight } from 'lucide-react'
 import { getRegulationsByLocation } from '@/app/data/regulations'
 import {
   FISHING_LOCATIONS,
@@ -209,7 +209,7 @@ export default function MobileLocationSheet({ isOpen, onClose }: MobileLocationS
                     className="w-full text-left p-4 rounded-xl bg-rc-bg-light active:bg-rc-bg-darkest transition-all"
                   >
                     <div className="flex items-center gap-3">
-                      <Fish className="w-5 h-5 text-blue-400" />
+                      <Target className="w-5 h-5 text-blue-400" />
                       <div className="font-medium text-rc-text">All Species</div>
                     </div>
                   </button>
@@ -221,7 +221,7 @@ export default function MobileLocationSheet({ isOpen, onClose }: MobileLocationS
                       className="w-full text-left p-4 rounded-xl bg-rc-bg-light active:bg-rc-bg-darkest transition-all"
                     >
                       <div className="flex items-center gap-3">
-                        <Fish className={`w-5 h-5 ${getStatusColor(s.status)}`} />
+                        <Target className={`w-5 h-5 ${getStatusColor(s.status)}`} />
                         <div>
                           <div className="font-medium text-rc-text">{s.name}</div>
                           <div className={`text-sm ${getStatusColor(s.status)}`}>
