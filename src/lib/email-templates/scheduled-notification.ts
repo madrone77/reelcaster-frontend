@@ -1,7 +1,9 @@
 /**
  * Scheduled Notification Email Template
  *
- * Personalized fishing notification emails based on user preferences and forecasts
+ * Personalized fishing forecast digest — styled to match the ReelCaster app's
+ * explore spot card (light, mono labels, tiered score, conditions KPI grid),
+ * the same language as the real-time custom-alert email.
  */
 
 import type {
@@ -28,18 +30,29 @@ export interface ScheduledNotificationEmailData {
   };
 }
 
-function getScoreColor(score: number): string {
-  if (score >= 75) return '#10b981'; // green
-  if (score >= 60) return '#3b82f6'; // blue
-  if (score >= 40) return '#f59e0b'; // amber
-  return '#ef4444'; // red
+// ── ReelCaster brand palette (literal hex — email can't use CSS vars) ──
+const MONO =
+  "'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace";
+const SANS =
+  "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif";
+const BRAND = '#1E40E0';
+const BRAND_SOFT = '#E8EDFF';
+const INK = '#0F172A';
+const INK_SOFT = '#334155';
+const INK_MUTE = '#64748B';
+const RULE = '#E2E8F0';
+const BAND = '#F1F5F9';
+const SURFACE = '#F8FAFC';
+
+// Tiering matches the app (Good ≥75 / Fair ≥55 / Poor).
+function scoreTier(score: number): { label: string; num: string; bg: string; ink: string } {
+  if (score >= 75) return { label: 'Good', num: '#16A34A', bg: '#DCFCE7', ink: '#166534' };
+  if (score >= 55) return { label: 'Fair', num: '#D97706', bg: '#FEF3C7', ink: '#92400E' };
+  return { label: 'Poor', num: '#DC2626', bg: '#FEE2E2', ink: '#991B1B' };
 }
 
 function getScoreLabel(score: number): string {
-  if (score >= 75) return 'Excellent';
-  if (score >= 60) return 'Good';
-  if (score >= 40) return 'Fair';
-  return 'Poor';
+  return scoreTier(score).label;
 }
 
 function formatDate(dateStr: string): string {
@@ -52,14 +65,181 @@ function formatDate(dateStr: string): string {
 }
 
 function getSeverityColor(severity: 'warning' | 'danger'): string {
-  return severity === 'danger' ? '#ef4444' : '#f59e0b';
+  return severity === 'danger' ? '#DC2626' : '#D97706';
 }
 
 export function generateScheduledNotificationEmail(
   data: ScheduledNotificationEmailData
 ): string {
-  const { bestDay, forecastDays, weatherAlerts, regulationChanges, dfoNotices, locationName, speciesNames } =
-    data;
+  const {
+    bestDay,
+    forecastDays,
+    weatherAlerts,
+    regulationChanges,
+    dfoNotices,
+    locationName,
+    speciesNames,
+  } = data;
+
+  const BASE = process.env.NEXT_PUBLIC_APP_URL || 'https://reelcaster.com';
+  const LOGO = `${BASE}/reelcaster-mark-email.png`;
+
+  const bestTier = scoreTier(bestDay.score);
+
+  // Best-day conditions KPI grid, like the explore card's WIND/SEA/CURRENT row.
+  const kpis = [
+    { label: 'Temp', value: `${bestDay.avgTemp}°C` },
+    { label: 'Wind', value: `${bestDay.avgWind} km/h` },
+    { label: 'Rain', value: `${bestDay.precipitation} mm` },
+  ];
+  const kpiCells = kpis
+    .map(
+      (k) => `
+                        <td style="padding: 14px 0 0; vertical-align: top;">
+                          <div style="font-family: ${MONO}; font-size: 9px; letter-spacing: 0.08em; text-transform: uppercase; color: ${INK_MUTE};">${k.label}</div>
+                          <div style="font-family: ${MONO}; font-size: 13px; font-weight: 600; color: ${INK}; margin-top: 3px;">${k.value}</div>
+                        </td>`,
+    )
+    .join('');
+
+  const speciesHtml =
+    speciesNames && speciesNames.length > 0
+      ? `
+          <tr>
+            <td style="padding: 24px 28px 0;">
+              <p style="margin: 0 0 10px; font-family: ${MONO}; font-size: 10px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: ${INK_MUTE};">Optimized for</p>
+              ${speciesNames
+                .map(
+                  (name) =>
+                    `<span style="display: inline-block; margin: 0 6px 6px 0; background-color: ${BRAND_SOFT}; color: ${BRAND}; font-family: ${MONO}; font-size: 11px; font-weight: 700; letter-spacing: 0.06em; padding: 4px 10px; border-radius: 4px;">${name}</span>`,
+                )
+                .join('')}
+            </td>
+          </tr>`
+      : '';
+
+  const weatherHtml =
+    weatherAlerts && weatherAlerts.length > 0
+      ? `
+          <tr>
+            <td style="padding: 24px 28px 0;">
+              <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="background-color: #FFFBEB; border: 1px solid #FDE68A; border-radius: 8px;">
+                <tr>
+                  <td style="padding: 16px 18px;">
+                    <p style="margin: 0 0 10px; font-family: ${MONO}; font-size: 10px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: #92400E;">Weather alerts</p>
+                    ${weatherAlerts
+                      .map(
+                        (alert) => `
+                    <p style="margin: 0 0 6px; font-size: 13px; line-height: 1.5; color: #78350F;">
+                      <span style="color: ${getSeverityColor(alert.severity)}; font-weight: 700;">${alert.type.replace('_', ' ').toUpperCase()}:</span>
+                      ${alert.message}
+                    </p>`,
+                      )
+                      .join('')}
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>`
+      : '';
+
+  const forecastRows = forecastDays
+    .map((day) => {
+      const t = scoreTier(day.score);
+      return `
+                <tr>
+                  <td style="padding: 12px 16px; border-bottom: 1px solid ${RULE}; font-size: 14px; color: ${INK};">${formatDate(day.date)}</td>
+                  <td style="padding: 12px 16px; border-bottom: 1px solid ${RULE}; font-family: ${MONO}; font-size: 12px; color: ${INK_SOFT};">${day.conditions}</td>
+                  <td style="padding: 12px 16px; border-bottom: 1px solid ${RULE}; text-align: right;">
+                    <span style="display: inline-block; background-color: ${t.bg}; color: ${t.ink}; font-family: ${MONO}; font-size: 11px; font-weight: 700; letter-spacing: 0.06em; padding: 3px 9px; border-radius: 4px;">${day.score} ${t.label.toUpperCase()}</span>
+                  </td>
+                </tr>`;
+    })
+    .join('');
+
+  const regulationHtml =
+    regulationChanges && regulationChanges.length > 0
+      ? `
+          <tr>
+            <td style="padding: 24px 28px 0;">
+              <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="background-color: ${BRAND_SOFT}; border: 1px solid #C7D2FE; border-radius: 8px;">
+                <tr>
+                  <td style="padding: 16px 18px;">
+                    <p style="margin: 0 0 12px; font-family: ${MONO}; font-size: 10px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: ${BRAND};">Regulation updates</p>
+                    ${regulationChanges
+                      .map(
+                        (change) => `
+                    <div style="margin-bottom: 10px; padding: 12px; background-color: #ffffff; border: 1px solid ${RULE}; border-radius: 6px;">
+                      <div style="color: ${INK}; font-weight: 700; font-size: 14px; margin-bottom: 4px;">${change.species_name}</div>
+                      <div style="color: ${INK_SOFT}; font-size: 13px; margin-bottom: 4px;">${change.change_type}: ${change.old_value} → ${change.new_value}</div>
+                      <div style="font-family: ${MONO}; color: ${INK_MUTE}; font-size: 11px;">Effective ${change.effective_date}</div>
+                    </div>`,
+                      )
+                      .join('')}
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>`
+      : '';
+
+  const dfoHtml =
+    dfoNotices && dfoNotices.length > 0
+      ? `
+          <tr>
+            <td style="padding: 24px 28px 0;">
+              <p style="margin: 0 0 12px; font-family: ${MONO}; font-size: 10px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: ${INK_MUTE};">DFO fishery notices</p>
+              ${dfoNotices
+                .slice(0, 5)
+                .map((notice) => {
+                  const priorityColors: Record<string, { bg: string; border: string; text: string }> = {
+                    critical: { bg: '#FEE2E2', border: '#DC2626', text: '#991B1B' },
+                    high: { bg: '#FEF3C7', border: '#D97706', text: '#92400E' },
+                    medium: { bg: BRAND_SOFT, border: BRAND, text: BRAND },
+                    low: { bg: SURFACE, border: '#CBD5E1', text: INK_SOFT },
+                  };
+                  const colors = priorityColors[notice.priority_level] || priorityColors.medium;
+                  const noticeType = notice.is_biotoxin_alert
+                    ? 'Biotoxin alert'
+                    : notice.is_sanitary_closure
+                      ? 'Sanitary closure'
+                      : notice.is_closure
+                        ? 'Closure'
+                        : notice.is_opening
+                          ? 'Opening'
+                          : 'Information';
+
+                  return `
+              <div style="margin-bottom: 10px; padding: 12px 14px; background-color: ${colors.bg}; border-left: 3px solid ${colors.border}; border-radius: 6px;">
+                <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="margin-bottom: 6px;">
+                  <tr>
+                    <td style="font-family: ${MONO}; color: ${colors.text}; font-weight: 700; font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase;">${noticeType}</td>
+                    <td style="text-align: right; font-family: ${MONO}; color: ${colors.text}; font-size: 10px;">${notice.notice_number}</td>
+                  </tr>
+                </table>
+                <div style="color: ${INK}; font-weight: 700; font-size: 14px; margin-bottom: 4px;">${notice.title}</div>
+                ${
+                  notice.areas && notice.areas.length > 0
+                    ? `<div style="color: ${INK_SOFT}; font-size: 12px; margin-bottom: 4px;">Areas: ${notice.areas.join(', ')}${notice.subareas && notice.subareas.length > 0 ? ` (${notice.subareas.slice(0, 3).join(', ')}${notice.subareas.length > 3 ? '…' : ''})` : ''}</div>`
+                    : ''
+                }
+                ${
+                  notice.species && notice.species.length > 0
+                    ? `<div style="color: ${INK_SOFT}; font-size: 12px; margin-bottom: 6px;">Species: ${notice.species.slice(0, 3).join(', ')}${notice.species.length > 3 ? '…' : ''}</div>`
+                    : ''
+                }
+                <a href="${notice.notice_url}" style="color: ${BRAND}; text-decoration: none; font-size: 12px; font-weight: 600;">View full notice →</a>
+              </div>`;
+                })
+                .join('')}
+              ${
+                dfoNotices.length > 5
+                  ? `<p style="margin: 0; text-align: center; font-family: ${MONO}; font-size: 11px; color: ${INK_MUTE};">+ ${dfoNotices.length - 5} more notices online</p>`
+                  : ''
+              }
+            </td>
+          </tr>`
+      : '';
 
   return `
 <!DOCTYPE html>
@@ -67,258 +247,90 @@ export function generateScheduledNotificationEmail(
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Your Fishing Forecast - ReelCaster</title>
+  <title>Your fishing forecast · ReelCaster</title>
 </head>
-<body style="margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; background-color: #f3f4f6;">
-  <table role="presentation" style="width: 100%; border-collapse: collapse;">
+<body style="margin: 0; padding: 0; font-family: ${SANS}; background-color: ${BAND};">
+  <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="background-color: ${BAND};">
     <tr>
-      <td align="center" style="padding: 40px 0;">
-        <table role="presentation" style="width: 600px; max-width: 100%; background-color: #ffffff; border-radius: 8px; box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);">
+      <td style="padding: 24px;">
+        <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="max-width: 600px; margin: 0 auto; background-color: #ffffff; border: 1px solid ${RULE}; border-top: 3px solid ${BRAND}; border-radius: 10px; overflow: hidden;">
 
-          <!-- Header -->
+          <!-- App-style toolbar header: logo + digest pill -->
           <tr>
-            <td style="background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%); padding: 32px; text-align: center; border-radius: 8px 8px 0 0;">
-              <h1 style="margin: 0; color: #ffffff; font-size: 28px; font-weight: 700;">
-                🎣 Great Fishing Ahead!
-              </h1>
-              <p style="margin: 12px 0 0; color: #dbeafe; font-size: 16px;">
-                Your personalized fishing forecast for ${locationName || 'your location'}
-              </p>
-            </td>
-          </tr>
-
-          <!-- Best Day Alert -->
-          <tr>
-            <td style="padding: 24px;">
-              <div style="background: linear-gradient(135deg, ${getScoreColor(bestDay.score)}15 0%, ${getScoreColor(bestDay.score)}05 100%); border-left: 4px solid ${getScoreColor(bestDay.score)}; border-radius: 8px; padding: 20px;">
-                <h2 style="margin: 0 0 8px; color: #1f2937; font-size: 20px; font-weight: 600;">
-                  Best Day: ${formatDate(bestDay.date)}
-                </h2>
-                <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 12px;">
-                  <div style="background-color: ${getScoreColor(bestDay.score)}; color: #ffffff; padding: 8px 16px; border-radius: 20px; font-size: 18px; font-weight: 700;">
-                    ${bestDay.score}
-                  </div>
-                  <span style="color: #4b5563; font-size: 16px; font-weight: 500;">
-                    ${getScoreLabel(bestDay.score)} Conditions
-                  </span>
-                </div>
-                <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; margin-top: 16px;">
-                  <div>
-                    <div style="color: #6b7280; font-size: 12px; margin-bottom: 4px;">Temperature</div>
-                    <div style="color: #1f2937; font-size: 16px; font-weight: 600;">${bestDay.avgTemp}°C</div>
-                  </div>
-                  <div>
-                    <div style="color: #6b7280; font-size: 12px; margin-bottom: 4px;">Wind</div>
-                    <div style="color: #1f2937; font-size: 16px; font-weight: 600;">${bestDay.avgWind} km/h</div>
-                  </div>
-                  <div>
-                    <div style="color: #6b7280; font-size: 12px; margin-bottom: 4px;">Rain</div>
-                    <div style="color: #1f2937; font-size: 16px; font-weight: 600;">${bestDay.precipitation} mm</div>
-                  </div>
-                </div>
-              </div>
-            </td>
-          </tr>
-
-          ${speciesNames && speciesNames.length > 0 ? `
-          <!-- Species Info -->
-          <tr>
-            <td style="padding: 0 24px 24px;">
-              <div style="background-color: #f9fafb; border-radius: 8px; padding: 16px;">
-                <h3 style="margin: 0 0 8px; color: #1f2937; font-size: 14px; font-weight: 600;">
-                  Forecast optimized for:
-                </h3>
-                <div style="display: flex; flex-wrap: wrap; gap: 8px;">
-                  ${speciesNames.map(name => `
-                    <span style="background-color: #3b82f6; color: #ffffff; padding: 4px 12px; border-radius: 12px; font-size: 12px;">
-                      ${name}
-                    </span>
-                  `).join('')}
-                </div>
-              </div>
-            </td>
-          </tr>
-          ` : ''}
-
-          <!-- Weather Alerts -->
-          ${weatherAlerts && weatherAlerts.length > 0 ? `
-          <tr>
-            <td style="padding: 0 24px 24px;">
-              <div style="background-color: #fef3c7; border-left: 4px solid #f59e0b; border-radius: 8px; padding: 16px;">
-                <h3 style="margin: 0 0 12px; color: #92400e; font-size: 16px; font-weight: 600;">
-                  ⚠️ Weather Alerts
-                </h3>
-                ${weatherAlerts.map(alert => `
-                  <div style="margin-bottom: 8px; padding-bottom: 8px; border-bottom: 1px solid #fde68a;">
-                    <span style="color: ${getSeverityColor(alert.severity)}; font-weight: 600;">
-                      ${alert.type.replace('_', ' ').toUpperCase()}:
-                    </span>
-                    <span style="color: #78350f;">
-                      ${alert.message}
-                    </span>
-                  </div>
-                `).join('')}
-              </div>
-            </td>
-          </tr>
-          ` : ''}
-
-          <!-- 7-Day Forecast -->
-          <tr>
-            <td style="padding: 0 24px 24px;">
-              <h3 style="margin: 0 0 16px; color: #1f2937; font-size: 18px; font-weight: 600;">
-                7-Day Forecast
-              </h3>
-              <table style="width: 100%; border-collapse: collapse;">
-                <thead>
-                  <tr style="background-color: #f9fafb;">
-                    <th style="padding: 12px; text-align: left; color: #6b7280; font-size: 12px; font-weight: 600; text-transform: uppercase;">Date</th>
-                    <th style="padding: 12px; text-align: center; color: #6b7280; font-size: 12px; font-weight: 600; text-transform: uppercase;">Score</th>
-                    <th style="padding: 12px; text-align: center; color: #6b7280; font-size: 12px; font-weight: 600; text-transform: uppercase;">Conditions</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  ${forecastDays.map((day, index) => `
-                    <tr style="border-bottom: 1px solid #e5e7eb; ${index % 2 === 0 ? 'background-color: #f9fafb;' : ''}">
-                      <td style="padding: 12px; color: #1f2937; font-size: 14px;">
-                        ${formatDate(day.date)}
-                      </td>
-                      <td style="padding: 12px; text-align: center;">
-                        <span style="background-color: ${getScoreColor(day.score)}; color: #ffffff; padding: 4px 12px; border-radius: 12px; font-size: 14px; font-weight: 600;">
-                          ${day.score}
-                        </span>
-                      </td>
-                      <td style="padding: 12px; text-align: center; color: #4b5563; font-size: 14px;">
-                        ${day.conditions}
-                      </td>
-                    </tr>
-                  `).join('')}
-                </tbody>
+            <td style="padding: 16px 28px; border-bottom: 1px solid ${RULE};">
+              <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%">
+                <tr>
+                  <td style="vertical-align: middle;">
+                    <img src="${LOGO}" alt="ReelCaster" width="100" height="46" style="display: block; border: 0; outline: none; text-decoration: none;">
+                  </td>
+                  <td style="vertical-align: middle; text-align: right;">
+                    <span style="display: inline-block; background-color: ${BRAND_SOFT}; color: ${BRAND}; font-family: ${MONO}; font-size: 10px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; padding: 4px 9px; border-radius: 4px;">Forecast digest</span>
+                  </td>
+                </tr>
               </table>
             </td>
           </tr>
 
-          <!-- Regulation Changes -->
-          ${regulationChanges && regulationChanges.length > 0 ? `
+          <!-- Best day, as a spot-style score card -->
           <tr>
-            <td style="padding: 0 24px 24px;">
-              <div style="background-color: #dbeafe; border-left: 4px solid #3b82f6; border-radius: 8px; padding: 16px;">
-                <h3 style="margin: 0 0 12px; color: #1e40af; font-size: 16px; font-weight: 600;">
-                  📋 Regulation Updates
-                </h3>
-                ${regulationChanges.map(change => `
-                  <div style="margin-bottom: 12px; padding: 12px; background-color: #ffffff; border-radius: 6px;">
-                    <div style="color: #1f2937; font-weight: 600; margin-bottom: 4px;">
-                      ${change.species_name}
-                    </div>
-                    <div style="color: #4b5563; font-size: 14px; margin-bottom: 4px;">
-                      ${change.change_type}: ${change.old_value} → ${change.new_value}
-                    </div>
-                    <div style="color: #6b7280; font-size: 12px;">
-                      Effective: ${change.effective_date}
-                    </div>
-                  </div>
-                `).join('')}
-              </div>
+            <td style="padding: 26px 28px 0;">
+              <p style="margin: 0 0 16px; font-family: ${MONO}; font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase; color: ${INK_MUTE};">
+                Your forecast${locationName ? ` · ${locationName}` : ''}
+              </p>
+
+              <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="border: 1px solid ${RULE}; border-radius: 8px;">
+                <tr>
+                  <td style="padding: 20px 22px; vertical-align: top;">
+                    <span style="display: inline-block; background-color: ${BRAND_SOFT}; color: ${BRAND}; font-family: ${MONO}; font-size: 10px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; padding: 3px 8px; border-radius: 4px;">Best day</span>
+                    <h2 style="margin: 12px 0 0; font-size: 21px; font-weight: 700; letter-spacing: -0.02em; color: ${INK}; line-height: 1.2;">${formatDate(bestDay.date)}</h2>
+                    <p style="margin: 10px 0 0; font-family: ${MONO}; font-size: 12px; color: ${INK_SOFT};">${bestTier.label} conditions</p>
+                  </td>
+                  <td style="padding: 20px 22px; vertical-align: top; text-align: right; white-space: nowrap;">
+                    <div style="font-size: 56px; line-height: 0.85; font-weight: 800; letter-spacing: -0.04em; color: ${bestTier.num};">${bestDay.score}</div>
+                    <span style="display: inline-block; margin-top: 12px; background-color: ${bestTier.bg}; color: ${bestTier.ink}; font-family: ${MONO}; font-size: 11px; font-weight: 700; letter-spacing: 0.14em; padding: 3px 12px; border-radius: 4px;">${bestTier.label.toUpperCase()}</span>
+                  </td>
+                </tr>
+                <tr>
+                  <td colspan="2" style="padding: 0 22px 20px;">
+                    <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="border-top: 1px solid ${RULE};">
+                      <tr>${kpiCells}</tr>
+                    </table>
+                  </td>
+                </tr>
+              </table>
             </td>
           </tr>
-          ` : ''}
+${speciesHtml}
+${weatherHtml}
 
-          <!-- DFO Fishery Notices -->
-          ${dfoNotices && dfoNotices.length > 0 ? `
+          <!-- 7-day forecast -->
           <tr>
-            <td style="padding: 0 24px 24px;">
-              <div style="background-color: #fef3c7; border-left: 4px solid #f59e0b; border-radius: 8px; padding: 16px;">
-                <h3 style="margin: 0 0 12px; color: #92400e; font-size: 16px; font-weight: 600;">
-                  ⚠️ DFO Fishery Notices
-                </h3>
-                <p style="margin: 0 0 12px; color: #78350f; font-size: 13px;">
-                  Recent fishing regulations and safety alerts for your area
-                </p>
-                ${dfoNotices.slice(0, 5).map(notice => {
-                  const priorityColors = {
-                    critical: { bg: '#fee2e2', border: '#ef4444', text: '#991b1b' },
-                    high: { bg: '#fed7aa', border: '#f59e0b', text: '#92400e' },
-                    medium: { bg: '#dbeafe', border: '#3b82f6', text: '#1e40af' },
-                    low: { bg: '#f3f4f6', border: '#9ca3af', text: '#4b5563' }
-                  };
-                  const colors = priorityColors[notice.priority_level] || priorityColors.medium;
-                  const noticeType = notice.is_biotoxin_alert ? '⚠️ Biotoxin Alert' :
-                                   notice.is_sanitary_closure ? '⚠️ Sanitary Closure' :
-                                   notice.is_closure ? '🚫 Closure' :
-                                   notice.is_opening ? '✅ Opening' : '📋 Information';
-
-                  return `
-                  <div style="margin-bottom: 12px; padding: 12px; background-color: ${colors.bg}; border-left: 3px solid ${colors.border}; border-radius: 6px;">
-                    <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 6px;">
-                      <div style="color: ${colors.text}; font-weight: 600; font-size: 13px;">
-                        ${noticeType}
-                      </div>
-                      <div style="color: ${colors.text}; font-size: 11px; opacity: 0.8;">
-                        ${notice.notice_number}
-                      </div>
-                    </div>
-                    <div style="color: #1f2937; font-weight: 600; font-size: 14px; margin-bottom: 4px;">
-                      ${notice.title}
-                    </div>
-                    ${notice.areas && notice.areas.length > 0 ? `
-                      <div style="color: #4b5563; font-size: 12px; margin-bottom: 4px;">
-                        📍 Areas: ${notice.areas.join(', ')}
-                        ${notice.subareas && notice.subareas.length > 0 ? ` (${notice.subareas.slice(0, 3).join(', ')}${notice.subareas.length > 3 ? '...' : ''})` : ''}
-                      </div>
-                    ` : ''}
-                    ${notice.species && notice.species.length > 0 ? `
-                      <div style="color: #4b5563; font-size: 12px; margin-bottom: 6px;">
-                        🐟 Species: ${notice.species.slice(0, 3).join(', ')}${notice.species.length > 3 ? '...' : ''}
-                      </div>
-                    ` : ''}
-                    <div style="margin-top: 8px;">
-                      <a href="${notice.notice_url}" style="color: #3b82f6; text-decoration: none; font-size: 12px; font-weight: 500;">
-                        View Full Notice →
-                      </a>
-                    </div>
-                  </div>
-                  `;
-                }).join('')}
-                ${dfoNotices.length > 5 ? `
-                  <div style="margin-top: 12px; padding: 8px; background-color: #ffffff; border-radius: 6px; text-align: center;">
-                    <span style="color: #6b7280; font-size: 12px;">
-                      + ${dfoNotices.length - 5} more notices available online
-                    </span>
-                  </div>
-                ` : ''}
-              </div>
+            <td style="padding: 24px 28px 0;">
+              <p style="margin: 0 0 12px; font-family: ${MONO}; font-size: 10px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: ${INK_MUTE};">7-day forecast</p>
+              <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="border: 1px solid ${RULE}; border-radius: 8px; overflow: hidden;">
+                ${forecastRows}
+              </table>
             </td>
           </tr>
-          ` : ''}
+${regulationHtml}
+${dfoHtml}
 
           <!-- CTA -->
           <tr>
-            <td style="padding: 0 24px 32px; text-align: center;">
-              <a href="${process.env.NEXT_PUBLIC_APP_URL || 'https://reelcaster.com'}" style="display: inline-block; background-color: #3b82f6; color: #ffffff; text-decoration: none; padding: 14px 32px; border-radius: 8px; font-size: 16px; font-weight: 600; box-shadow: 0 2px 4px rgba(59, 130, 246, 0.3);">
-                View Full Forecast
-              </a>
+            <td style="padding: 26px 28px; text-align: center;">
+              <a href="${BASE}" style="display: inline-block; background-color: ${BRAND}; color: #ffffff; text-decoration: none; padding: 14px 28px; border-radius: 6px; font-weight: 700; font-size: 15px; letter-spacing: 0.02em;">View full forecast →</a>
             </td>
           </tr>
 
           <!-- Footer -->
           <tr>
-            <td style="background-color: #f9fafb; padding: 24px; text-align: center; border-radius: 0 0 8px 8px;">
-              <p style="margin: 0 0 12px; color: #6b7280; font-size: 14px;">
-                You're receiving this because you enabled fishing notifications in your preferences.
+            <td style="padding: 22px 28px; background-color: ${BAND}; border-top: 1px solid ${RULE}; text-align: center;">
+              <p style="margin: 0 0 10px; font-size: 13px;">
+                <a href="${BASE}/profile/forecast-emails" style="color: ${BRAND}; text-decoration: none; font-weight: 600;">Manage preferences</a>
+                <span style="color: #CBD5E1;">&nbsp;·&nbsp;</span>
+                <a href="${BASE}/profile" style="color: ${BRAND}; text-decoration: none; font-weight: 600;">Unsubscribe</a>
               </p>
-              <p style="margin: 0; color: #9ca3af; font-size: 12px;">
-                <a href="${process.env.NEXT_PUBLIC_APP_URL || 'https://reelcaster.com'}/profile/forecast-emails" style="color: #3b82f6; text-decoration: none;">
-                  Manage Preferences
-                </a>
-                &nbsp;|&nbsp;
-                <a href="${process.env.NEXT_PUBLIC_APP_URL || 'https://reelcaster.com'}/profile" style="color: #3b82f6; text-decoration: none;">
-                  Unsubscribe
-                </a>
-              </p>
-              <p style="margin: 16px 0 0; color: #9ca3af; font-size: 12px;">
-                © ${new Date().getFullYear()} ReelCaster. All rights reserved.
-              </p>
+              <p style="margin: 0; font-family: ${MONO}; font-size: 11px; letter-spacing: 0.04em; color: #94A3B8;">ReelCaster · Your personal fishing forecast</p>
             </td>
           </tr>
 
