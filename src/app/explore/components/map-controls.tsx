@@ -1,6 +1,6 @@
 "use client";
 
-import { Mountain, Tag, Waves, Fish, LocateFixed, Loader2 } from "lucide-react";
+import { Mountain, Tag, Waves, Target, LocateFixed, Loader2 } from "lucide-react";
 import type { SpeciesOption } from "../lib/explore-data";
 
 interface MapControlsProps {
@@ -88,7 +88,7 @@ export default function MapControls({
         <>
           <span className="w-px h-5 bg-rc-rule mx-0.5" aria-hidden />
           <label className="flex items-center gap-1.5 pl-1 pr-1">
-            <Fish className="w-3.5 h-3.5 text-rc-ink-mute" />
+            <Target className="w-3.5 h-3.5 text-rc-ink-mute" />
             <select
               value={speciesFilter ?? ""}
               onChange={(e) => onSpeciesChange(e.target.value || null)}

@@ -19,9 +19,15 @@ const SECONDARY =
   'border border-rc-brand bg-rc-panel text-rc-brand hover:bg-rc-brand-soft';
 const ON_BRAND = 'bg-white text-rc-brand hover:bg-white/90';
 
+// Stays large at every range (no desktop step-down) — for the marketing
+// moments that want a big CTA.
+const LARGE = 'min-h-12 px-6 text-base';
+
 export const btn = {
   // Standalone prominent CTA: fills on compact, hugs from medium (640) up.
   primary: `${BASE} ${PROMINENT} w-full min-w-20 ${PRIMARY} sm:w-auto`,
+  // Always-large primary (fills on compact, hugs from medium up).
+  primaryLarge: `${BASE} ${LARGE} w-full min-w-20 ${PRIMARY} sm:w-auto`,
   secondary: `${BASE} ${PROMINENT} w-full min-w-20 ${SECONDARY} sm:w-auto`,
   // Prominent CTA on a brand-colored band (white button).
   onBrand: `${BASE} ${PROMINENT} min-w-20 ${ON_BRAND} sm:w-auto w-full`,

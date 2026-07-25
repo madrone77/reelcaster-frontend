@@ -21,7 +21,7 @@ import {
   Gauge,
   Thermometer,
   Moon,
-  Fish,
+  Target,
   MapPin,
   Clock,
   Edit,
@@ -46,7 +46,7 @@ const TRIGGER_ICONS: Record<string, React.ReactNode> = {
   pressure: <Gauge className="h-4 w-4" />,
   water_temp: <Thermometer className="h-4 w-4" />,
   solunar: <Moon className="h-4 w-4" />,
-  fishing_score: <Fish className="h-4 w-4" />,
+  fishing_score: <Target className="h-4 w-4" />,
 }
 
 const TRIGGER_LABELS: Record<string, string> = {

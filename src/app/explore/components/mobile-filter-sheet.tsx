@@ -4,7 +4,7 @@ import {
   Mountain,
   Tag,
   Waves,
-  Fish,
+  Target,
   LocateFixed,
   Loader2,
   X,
@@ -101,7 +101,7 @@ export default function MobileFilterSheet({
             <div>
               <div className="rc-label text-[9px] mb-1.5">Species</div>
               <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-rc-surface">
-                <Fish className="w-4 h-4 text-rc-ink-mute shrink-0" />
+                <Target className="w-4 h-4 text-rc-ink-mute shrink-0" />
                 <select
                   value={speciesFilter ?? ""}
                   onChange={(e) => onSpeciesChange(e.target.value || null)}

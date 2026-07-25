@@ -4,16 +4,9 @@ import { useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { useAuth } from '@/contexts/auth-context'
 import { AuthForm } from '../components/auth/auth-form'
-import { Fish, BarChart3, Bell, MapPin } from 'lucide-react'
+import LoginStandings from './login-standings'
 import Link from 'next/link'
 import Image from 'next/image'
-
-const features = [
-  { icon: BarChart3, label: '14-Day Fishing Forecasts' },
-  { icon: MapPin, label: 'Tide & Marine Conditions' },
-  { icon: Bell, label: 'Custom Alerts' },
-  { icon: Fish, label: 'Catch Logging' },
-]
 
 export default function LoginPage() {
   const { user, loading } = useAuth()
@@ -56,47 +49,76 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="fixed inset-0 bg-rc-page flex items-center justify-center overflow-y-auto">
-      <div className="w-full max-w-md mx-auto px-4 py-8 sm:py-12">
-        {/* Branding */}
-        <div className="text-center mb-8">
-          <Link href="/" aria-label="ReelCaster home" className="inline-flex mb-3">
-            <Image src="/reelcaster-mark.svg" alt="ReelCaster" width={130} height={60} priority />
-          </Link>
-          <p className="text-sm text-rc-ink-mute">
-            The fishing intelligence platform
+    <div className="fixed inset-0 flex bg-rc-panel">
+      {/* LEFT — the sign-in form. Same AuthForm, no floating card / shadow. */}
+      <div className="flex w-full flex-col justify-center overflow-y-auto px-6 py-10 sm:px-10 lg:w-1/2 xl:px-20">
+        <div className="mx-auto w-full max-w-md">
+          <div className="text-center">
+            <Link href="/" aria-label="ReelCaster home" className="mx-auto flex w-fit">
+              <Image
+                src="/reelcaster-mark.svg"
+                alt="ReelCaster"
+                width={120}
+                height={56}
+                priority
+              />
+            </Link>
+
+            <h1 className="mt-10 text-balance text-3xl font-black tracking-[-0.02em] text-rc-ink">
+              Welcome back
+            </h1>
+            <p className="mt-2 text-pretty text-sm text-rc-ink-mute">
+              Sign in to pick up right where you left off.
+            </p>
+          </div>
+
+          <div className="mt-8">
+            <AuthForm
+              defaultMode="signin"
+              source="login-page"
+              onSuccess={() => router.push('/explore')}
+            />
+          </div>
+
+          <p className="mt-6 text-center text-sm text-rc-ink-mute">
+            New to ReelCaster?{' '}
+            <Link
+              href="/signup"
+              className="font-semibold text-rc-brand hover:text-rc-brand-hover transition-colors"
+            >
+              Create an account
+            </Link>
           </p>
         </div>
+      </div>
 
-        {/* Auth form card */}
-        <div className="bg-rc-panel border border-rc-rule rounded-2xl shadow-rc-panel p-6">
-          <AuthForm
-            defaultMode="signin"
-            source="login-page"
-            onSuccess={() => router.push('/explore')}
-          />
+      {/* RIGHT — "The Standings" (wide only). A sibling to the signup panel
+          (same light rc-band ground, same hairline vocabulary, 4px corners) but
+          deliberately left-aligned, not centered: a ranked ledger of the
+          returning angler's saved spots. Rank 1 is "live now" (full card +
+          window chart); the pack (rows 2–5) is compact and "waiting". The wide
+          seam after rank 1 is the authored composition move. */}
+      <div className="hidden w-1/2 flex-col justify-center border-l border-rc-rule bg-rc-band px-12 py-20 lg:flex xl:px-16">
+        <div className="mx-auto w-full max-w-md">
+          {/* Quiet header — subordinate to the standings below. */}
+          <div className="text-center">
+            <p className="font-rc-mono text-[11px] uppercase tracking-wider text-rc-ink-soft">
+              Your spots, ranked
+            </p>
+            <h2 className="mt-3 text-2xl font-black tracking-[-0.02em] text-rc-ink">
+              The water&apos;s waiting.
+            </h2>
+            <p className="mx-auto mt-2 max-w-sm text-pretty text-sm leading-relaxed text-rc-ink-soft">
+              Your spots, live scores, and the next great window are right where
+              you left them.
+            </p>
+          </div>
+
+          <div className="mt-6 border-t border-rc-rule" />
+
+          {/* THE STANDINGS — live top-scored spots (graceful sample fallback). */}
+          <LoginStandings />
         </div>
-
-        {/* Feature highlights */}
-        <div className="mt-8 grid grid-cols-2 gap-3">
-          {features.map(({ icon: Icon, label }) => (
-            <div
-              key={label}
-              className="flex items-center gap-2 px-3 py-2 rounded-lg bg-rc-panel border border-rc-rule"
-            >
-              <Icon className="w-4 h-4 text-rc-brand flex-shrink-0" />
-              <span className="text-xs text-rc-ink-mute">{label}</span>
-            </div>
-          ))}
-        </div>
-
-        {/* Link to signup */}
-        <p className="text-center mt-6 text-sm text-rc-ink-mute">
-          Don&apos;t have an account?{' '}
-          <Link href="/signup" className="text-rc-brand hover:text-rc-brand-hover transition-colors">
-            Sign up
-          </Link>
-        </p>
       </div>
     </div>
   )

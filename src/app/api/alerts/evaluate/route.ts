@@ -95,14 +95,22 @@ export async function POST(request: NextRequest) {
               .join(' ')
           : null;
 
+        const appBase =
+          process.env.NEXT_PUBLIC_APP_URL || 'https://reelcaster.com';
+        // Deep-link the CTA straight to the spot's forecast page when the alert
+        // is tied to a spot; otherwise fall back to a coordinate map lookup.
+        const forecastUrl = profile.target_bluecaster_spot_slug
+          ? `${appBase}/explore/spot/${profile.target_bluecaster_spot_slug}`
+          : `${appBase}?lat=${profile.location_lat}&lng=${profile.location_lng}`;
+
         const emailContent = generateCustomAlertEmail({
           alertName: profile.name,
           locationName: profile.location_name || `${profile.location_lat.toFixed(4)}, ${profile.location_lng.toFixed(4)}`,
           matchedTriggers: historyEntry?.matched_triggers || [],
           conditionSnapshot: historyEntry?.condition_snapshot || {},
           logicMode: profile.logic_mode,
-          forecastUrl: `${process.env.NEXT_PUBLIC_APP_URL || 'https://reelcaster.com'}?lat=${profile.location_lat}&lng=${profile.location_lng}`,
-          manageAlertsUrl: `${process.env.NEXT_PUBLIC_APP_URL || 'https://reelcaster.com'}/alerts`,
+          forecastUrl,
+          manageAlertsUrl: `${appBase}/alerts`,
           alertKind: profile.alert_kind ?? 'composite',
           scoreThreshold: profile.score_threshold ?? null,
           speciesName,

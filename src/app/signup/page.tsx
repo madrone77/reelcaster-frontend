@@ -1,10 +1,10 @@
 'use client'
 
-import { useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { useAuth } from '@/contexts/auth-context'
 import { AuthForm } from '../components/auth/auth-form'
-import { Fish, BarChart3, Bell, MapPin } from 'lucide-react'
+import HeroScoreCard from '@/app/(marketing)/components/hero-score-card'
+import { NotebookPen, BarChart3, Bell, MapPin } from 'lucide-react'
 import Link from 'next/link'
 import Image from 'next/image'
 
@@ -12,20 +12,18 @@ const features = [
   { icon: BarChart3, label: '14-Day Fishing Forecasts' },
   { icon: MapPin, label: 'Tide & Marine Conditions' },
   { icon: Bell, label: 'Custom Alerts' },
-  { icon: Fish, label: 'Catch Logging' },
+  { icon: NotebookPen, label: 'Catch Logging' },
 ]
 
 export default function SignupPage() {
-  const { user, loading } = useAuth()
+  const { loading } = useAuth()
   const router = useRouter()
 
-  useEffect(() => {
-    if (!loading && user) {
-      router.replace('/explore')
-    }
-  }, [user, loading, router])
-
-  if (loading || user) {
+  // Note: we intentionally do NOT auto-redirect signed-in visitors away from
+  // this page — the signup screen always renders so it can be viewed/shared
+  // directly. After a successful signup, AuthForm's onSuccess handles the
+  // hand-off to /explore.
+  if (loading) {
     return (
       <div className="fixed inset-0 bg-rc-page flex items-center justify-center">
         <div className="flex flex-col items-center gap-3">
@@ -41,43 +39,77 @@ export default function SignupPage() {
   }
 
   return (
-    <div className="fixed inset-0 bg-rc-page flex items-center justify-center overflow-y-auto">
-      <div className="w-full max-w-md mx-auto px-4 py-8 sm:py-12">
-        {/* Branding */}
-        <div className="text-center mb-8">
-          <Link href="/" aria-label="ReelCaster home" className="inline-flex mb-3">
-            <Image src="/reelcaster-mark.svg" alt="ReelCaster" width={130} height={60} priority />
-          </Link>
-          <p className="text-sm text-rc-ink-mute">
-            The fishing intelligence platform
+    <div className="fixed inset-0 flex bg-rc-panel">
+      {/* LEFT — the form. Every input + button is the existing AuthForm,
+          unchanged; only the page around it is redesigned. Full-width below
+          the wide breakpoint; left half at wide. */}
+      <div className="flex w-full flex-col justify-center overflow-y-auto px-6 py-10 sm:px-10 lg:w-1/2 xl:px-20">
+        <div className="mx-auto w-full max-w-md">
+          <div className="text-center">
+            <Link href="/" aria-label="ReelCaster home" className="mx-auto flex w-fit">
+              <Image
+                src="/reelcaster-mark.svg"
+                alt="ReelCaster"
+                width={120}
+                height={56}
+                priority
+              />
+            </Link>
+
+            <h1 className="mt-10 text-balance text-3xl font-black tracking-[-0.02em] text-rc-ink">
+              Create an account
+            </h1>
+            <p className="mt-2 text-pretty text-sm text-rc-ink-mute">
+              Start free — today&apos;s Reelcaster Score in under a minute.
+            </p>
+          </div>
+
+          <div className="mt-8">
+            <AuthForm
+              defaultMode="signup"
+              source="signup-page"
+              onSuccess={() => router.replace('/explore')}
+            />
+          </div>
+
+          <p className="mt-6 text-center text-sm text-rc-ink-mute">
+            Already have an account?{' '}
+            <Link
+              href="/login"
+              className="font-semibold text-rc-brand hover:text-rc-brand-hover transition-colors"
+            >
+              Sign in
+            </Link>
           </p>
         </div>
+      </div>
 
-        {/* Auth form card */}
-        <div className="bg-rc-panel border border-rc-rule rounded-2xl shadow-rc-panel p-6">
-          <AuthForm defaultMode="signup" source="signup-page" />
+      {/* RIGHT — brand panel (wide only): the product itself on navy, plus the
+          pitch and feature highlights. */}
+      <div className="relative hidden w-1/2 flex-col justify-center overflow-hidden border-l border-rc-rule bg-rc-band px-12 lg:flex xl:px-16">
+        <div className="relative z-10 mx-auto w-full max-w-md">
+          <HeroScoreCard />
+
+          <h2 className="mt-10 text-balance text-center text-2xl font-black tracking-[-0.02em] text-rc-ink">
+            Know the bite. Before you go.
+          </h2>
+          <p className="mt-3 text-pretty text-center text-sm leading-relaxed text-rc-ink-soft">
+            Reelcaster folds tides, weather, water, and regulations into one
+            score — so you plan the day before you leave the dock.
+          </p>
+
+          <div className="mt-8 grid grid-cols-2 gap-3">
+            {features.map(({ icon: Icon, label }) => (
+              <div
+                key={label}
+                className="flex items-center gap-2 rounded-lg border border-rc-rule bg-rc-panel px-3 py-2"
+              >
+                <Icon className="h-4 w-4 shrink-0 text-rc-brand" />
+                <span className="text-xs text-rc-ink-soft">{label}</span>
+              </div>
+            ))}
+          </div>
         </div>
-
-        {/* Feature highlights */}
-        <div className="mt-8 grid grid-cols-2 gap-3">
-          {features.map(({ icon: Icon, label }) => (
-            <div
-              key={label}
-              className="flex items-center gap-2 px-3 py-2 rounded-lg bg-rc-panel border border-rc-rule"
-            >
-              <Icon className="w-4 h-4 text-rc-brand flex-shrink-0" />
-              <span className="text-xs text-rc-ink-mute">{label}</span>
-            </div>
-          ))}
-        </div>
-
-        {/* Link to login */}
-        <p className="text-center mt-6 text-sm text-rc-ink-mute">
-          Already have an account?{' '}
-          <Link href="/login" className="text-rc-brand hover:text-rc-brand-hover transition-colors">
-            Sign in
-          </Link>
-        </p>
       </div>
     </div>
   )

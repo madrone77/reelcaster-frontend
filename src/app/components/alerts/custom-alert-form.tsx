@@ -26,7 +26,7 @@ import {
   Gauge,
   Thermometer,
   Moon,
-  Fish,
+  Target,
   ChevronDown,
   MapPin,
   Save,
@@ -599,7 +599,7 @@ export function CustomAlertForm({ profile, spotContext, onSubmit, onCancel }: Cu
                         if (checked) setOpenSections((prev) => ({ ...prev, fishing_score: true }))
                       }}
                     />
-                    <Fish className="h-4 w-4 text-rc-ink-mute" />
+                    <Target className="h-4 w-4 text-rc-ink-mute" />
                     <span className="font-medium text-rc-ink">Fishing Score</span>
                   </div>
                   <CollapsibleTrigger asChild>

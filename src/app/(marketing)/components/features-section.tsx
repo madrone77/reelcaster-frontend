@@ -1,4 +1,4 @@
-import { Target, Clock, Fish } from 'lucide-react';
+import { Target, Clock, NotebookPen } from 'lucide-react';
 
 const FEATURES = [
   {
@@ -12,7 +12,7 @@ const FEATURES = [
     body: 'Get notified by email + SMS when conditions cross your thresholds, so you never miss a prime window.',
   },
   {
-    icon: Fish,
+    icon: NotebookPen,
     title: 'Catch log',
     body: 'Record catches, locations, species, and conditions to learn what works best over time.',
   },
