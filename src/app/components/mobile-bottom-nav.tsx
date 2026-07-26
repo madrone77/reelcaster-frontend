@@ -18,7 +18,6 @@ const MORE_LINKS = [
   { href: "/pricing", label: "Pricing" },
   { href: "/about", label: "About" },
   { href: "/faq", label: "FAQ" },
-  { href: "/contact", label: "Contact" },
   { href: "/terms", label: "Terms" },
   { href: "/privacy", label: "Privacy" },
 ] as const;
