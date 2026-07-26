@@ -104,7 +104,7 @@ const FAQ: { q: string; a: React.ReactNode }[] = [
         Yes — {dollars(MONTHLY_PRICE_CENTS)} a month, cancel whenever. The trial
         is on the yearly plan only.{' '}
         <Link
-          href="/pricing?plan=monthly"
+          href="/plans/checkout?plan=monthly"
           className="text-rc-brand underline underline-offset-2 hover:text-rc-brand-hover"
         >
           Go monthly

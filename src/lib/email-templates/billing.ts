@@ -115,7 +115,7 @@ export function trialUnavailableEmail(params: {
           You're welcome to subscribe at ${params.amountLabel} a year whenever you like — and if you think
           this is a mistake (a shared card will do it), just reply to this email and we'll sort it out.
         </p>
-        <p style="margin:0 0 8px;">${button('https://www.reelcaster.com/pricing', 'See Pro pricing')}</p>
+        <p style="margin:0 0 8px;">${button('https://www.reelcaster.com/plans', 'See Pro pricing')}</p>
       </td></tr>`,
       'No charge was made.',
     ),

@@ -456,7 +456,7 @@ export default function CreateAlertDialog({
                 </button>
               ) : (
                 <Link
-                  href="/pricing?from=alerts"
+                  href="/plans?from=alerts"
                   className="shrink-0 px-3 py-1.5 rounded-lg bg-rc-brand hover:bg-rc-brand-hover text-white text-xs font-semibold transition-colors"
                 >
                   UPGRADE

@@ -6,7 +6,7 @@ import UnlockWithProCard from './unlock-with-pro-card'
 interface Props {
   open: boolean
   onClose: () => void
-  /** Feature id used for analytics + ?feature= query on /pricing. */
+  /** Feature id used for analytics + ?feature= query on /plans. */
   feature: string
   headline?: string
   bullets?: string[]
@@ -53,7 +53,7 @@ export default function UpgradeRequiredModal({
         <UnlockWithProCard
           headline={headline}
           bullets={bullets}
-          ctaHref={ctaHref ?? `/pricing?from=paywall&feature=${encodeURIComponent(feature)}`}
+          ctaHref={ctaHref ?? `/plans?from=paywall&feature=${encodeURIComponent(feature)}`}
           theme="light"
         />
       </div>

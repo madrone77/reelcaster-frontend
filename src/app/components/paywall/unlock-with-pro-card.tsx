@@ -18,7 +18,7 @@ export interface UnlockWithProCardProps {
   headline?: string;
   /** Bullet list of unlocked features. */
   bullets?: string[];
-  /** CTA destination. Defaults to /pricing with paywall context query. */
+  /** CTA destination. Defaults to /plans with paywall context query. */
   ctaHref?: string;
   /** CTA label override. */
   ctaLabel?: string;
@@ -47,7 +47,7 @@ export function UnlockWithProCard({
   const { trackEvent } = useAnalytics();
   const href =
     ctaHref ??
-    `/pricing?from=paywall${feature ? `&feature=${encodeURIComponent(feature)}` : ''}`;
+    `/plans?from=paywall${feature ? `&feature=${encodeURIComponent(feature)}` : ''}`;
 
   const themeClasses =
     theme === 'light'

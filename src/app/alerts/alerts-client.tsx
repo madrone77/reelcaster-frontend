@@ -250,7 +250,7 @@ export default function AlertsClient({ spots }: Props) {
                     Upgrade to Pro for up to 10 alerts plus SMS delivery.
                   </p>
                   <Link
-                    href="/pricing?from=alerts"
+                    href="/plans?from=alerts"
                     className="inline-flex items-center px-4 py-2 bg-rc-brand hover:bg-rc-brand-hover rounded-md text-sm font-semibold text-white transition-colors"
                   >
                     See Pro pricing →

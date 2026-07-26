@@ -40,7 +40,7 @@ export default function UpgradeDialog({
           description:
             "The free forecast runs 7 days out. Upgrade to Pro for the full 14-day outlook, per-day best windows, and more alerts.",
           cta: "Upgrade to Pro",
-          href: "/pricing",
+          href: "/plans",
         };
 
   return (

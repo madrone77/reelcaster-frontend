@@ -20,7 +20,12 @@ import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/contexts/auth-context';
 import { supabase } from '@/lib/supabase';
-import { ANNUAL_PRICE_CENTS, MONTHLY_PRICE_CENTS, annualDiscount } from '@/lib/pricing';
+import {
+  ANNUAL_PRICE_CENTS,
+  MONTHLY_PRICE_CENTS,
+  annualDiscount,
+  type PricingPlan,
+} from '@/lib/pricing';
 
 const REGIONS = [
   { value: 'BC', label: 'British Columbia' },
@@ -114,6 +119,13 @@ export default function CheckoutPanel({
 
   const fromQuery = searchParams.get('from') ?? 'plans-checkout';
 
+  // Yearly is the default and the one the trial rides on. `?plan=monthly` is
+  // the deep link the old /pricing page used to own — monthly is instant-charge
+  // with no trial, and this page is the only place it can be bought now.
+  const plan: PricingPlan =
+    searchParams.get('plan') === 'monthly' ? 'monthly' : 'annual';
+  const yearly = plan === 'annual';
+
   // Resolve trial eligibility + current subscription before drawing terms.
   useEffect(() => {
     if (authLoading) return;
@@ -167,14 +179,14 @@ export default function CheckoutPanel({
           'Content-Type': 'application/json',
           Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify({ plan: 'annual', region, from: fromQuery }),
+        body: JSON.stringify({ plan, region, from: fromQuery }),
       });
       const body = await res.json();
 
       if (!res.ok) {
         throw new Error(
           body.error === 'plan_unavailable'
-            ? 'The yearly plan isn’t available right now. Please try again shortly.'
+            ? `The ${yearly ? 'yearly' : 'monthly'} plan isn’t available right now. Please try again shortly.`
             : (body.message ?? body.error ?? 'Could not start checkout'),
         );
       }
@@ -192,10 +204,13 @@ export default function CheckoutPanel({
       setError(err instanceof Error ? err.message : 'Could not start checkout');
       setSubmitting(false);
     }
-  }, [region, fromQuery, router]);
+  }, [plan, yearly, region, fromQuery, router]);
 
-  const trialOn = Boolean(status?.trial_available);
+  // Monthly is instant-charge: the trial exists only on the yearly plan.
+  const trialOn = yearly && Boolean(status?.trial_available);
   const trialDays = status?.trial_days ?? 7;
+  const priceCents = yearly ? ANNUAL_PRICE_CENTS : MONTHLY_PRICE_CENTS;
+  const periodWord = yearly ? 'year' : 'month';
   const chargeDate = useMemo(
     () => longDate(trialOn ? addDays(trialDays) : new Date()),
     [trialOn, trialDays],
@@ -269,7 +284,9 @@ export default function CheckoutPanel({
     );
   }
 
-  const annualDown = status ? !status.annual_available : false;
+  // Only the yearly plan depends on STRIPE_ANNUAL_PRICE_ID — a missing
+  // annual price must not disable monthly checkout.
+  const annualDown = yearly && status ? !status.annual_available : false;
 
   // ── Main order summary ─────────────────────────────────────────────
 
@@ -289,7 +306,10 @@ export default function CheckoutPanel({
               for {trialDays} days.
             </>
           ) : (
-            <>Every Pro feature, billed yearly at {dollars(ANNUAL_PRICE_CENTS)}.</>
+            <>
+              Every Pro feature, billed {yearly ? 'yearly' : 'monthly'} at{' '}
+              {dollars(priceCents)}.
+            </>
           )}
         </p>
 
@@ -346,18 +366,26 @@ export default function CheckoutPanel({
           </h3>
 
           <div className="mt-4 flex items-baseline justify-between gap-3">
-            <span className="text-sm text-rc-ink-soft">ReelCaster Pro, yearly</span>
+            <span className="text-sm text-rc-ink-soft">
+              ReelCaster Pro, {yearly ? 'yearly' : 'monthly'}
+            </span>
             <span className="text-sm font-semibold text-rc-ink">
-              {dollars(ANNUAL_PRICE_CENTS)}/yr
+              {dollars(priceCents)}/{yearly ? 'yr' : 'mo'}
             </span>
           </div>
 
-          <div className="mt-2 flex items-baseline justify-between gap-3 text-sm text-rc-ink-mute">
-            <span>Versus {dollars(MONTHLY_PRICE_CENTS)}/mo billed monthly</span>
-            <span className="font-rc-mono text-[11px] font-bold text-rc-good-ink">
-              −{pct}%
-            </span>
-          </div>
+          {yearly ? (
+            <div className="mt-2 flex items-baseline justify-between gap-3 text-sm text-rc-ink-mute">
+              <span>Versus {dollars(MONTHLY_PRICE_CENTS)}/mo billed monthly</span>
+              <span className="font-rc-mono text-[11px] font-bold text-rc-good-ink">
+                −{pct}%
+              </span>
+            </div>
+          ) : (
+            <div className="mt-2 text-sm text-rc-ink-mute">
+              Renews monthly until you cancel.
+            </div>
+          )}
 
           <div className="mt-5 flex items-baseline justify-between gap-3 border-t border-rc-rule pt-5">
             <span className="text-base font-bold text-rc-ink">Billed today</span>
@@ -365,7 +393,7 @@ export default function CheckoutPanel({
               className="text-2xl font-black tracking-[-0.02em] text-rc-ink"
               aria-live="polite"
             >
-              {trialOn ? '$0' : dollars(ANNUAL_PRICE_CENTS)}
+              {trialOn ? '$0' : dollars(priceCents)}
             </span>
           </div>
 
@@ -433,7 +461,7 @@ export default function CheckoutPanel({
                 ? 'Drop a waitlist pin'
                 : trialOn
                   ? `Start ${trialDays}-day free trial`
-                  : `Subscribe — ${dollars(ANNUAL_PRICE_CENTS)}/yr`}
+                  : `Subscribe — ${dollars(priceCents)}/${yearly ? 'yr' : 'mo'}`}
           </button>
 
           <p className="mt-3 flex items-center justify-center gap-1.5 text-xs text-rc-ink-mute">
@@ -471,10 +499,11 @@ export default function CheckoutPanel({
                 <>
                   Your card is charged{' '}
                   <strong className="text-rc-ink-soft">
-                    {dollars(ANNUAL_PRICE_CENTS)}
+                    {dollars(priceCents)}
                   </strong>{' '}
-                  today for one year of Pro, and renews yearly at that price
-                  until you cancel. Cancel anytime from your account.
+                  today for one {periodWord} of Pro, and renews{' '}
+                  {yearly ? 'yearly' : 'monthly'} at that price until you
+                  cancel. Cancel anytime from your account.
                 </>
               )}{' '}
               <Link
@@ -495,13 +524,27 @@ export default function CheckoutPanel({
         </div>
 
         <p className="mt-4 text-center text-xs text-rc-ink-mute">
-          Prefer to pay monthly?{' '}
-          <Link
-            href="/pricing?plan=monthly"
-            className="font-semibold text-rc-brand underline underline-offset-2 hover:text-rc-brand-hover"
-          >
-            {dollars(MONTHLY_PRICE_CENTS)}/mo, no trial
-          </Link>
+          {yearly ? (
+            <>
+              Prefer to pay monthly?{' '}
+              <Link
+                href="/plans/checkout?plan=monthly"
+                className="font-semibold text-rc-brand underline underline-offset-2 hover:text-rc-brand-hover"
+              >
+                {dollars(MONTHLY_PRICE_CENTS)}/mo, no trial
+              </Link>
+            </>
+          ) : (
+            <>
+              Pay yearly instead and save {pct}%?{' '}
+              <Link
+                href="/plans/checkout"
+                className="font-semibold text-rc-brand underline underline-offset-2 hover:text-rc-brand-hover"
+              >
+                {dollars(ANNUAL_PRICE_CENTS)}/yr
+              </Link>
+            </>
+          )}
         </p>
       </div>
     </div>

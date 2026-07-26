@@ -68,7 +68,7 @@ export default function PricingSection() {
             </p>
             <div className="mt-auto pt-8">
               <Link
-                href="/pricing"
+                href="/plans"
                 className={btn.cardPrimary}
               >
                 Start ReelCaster Pro
