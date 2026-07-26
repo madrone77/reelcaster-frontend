@@ -113,19 +113,18 @@ Two follow-ups that are decisions, not bugs:
   redirect `/pricing → /plans`, keeping `/pricing?plan=monthly` working since
   the monthly checkout flow and the billing emails point there.
 
+Two implementation notes:
 
+- `/plans/checkout` reads trial eligibility from `GET /api/stripe/checkout`
+  **before** drawing the button, so the terms it shows are the terms the
+  customer gets. Eligibility fails closed, so an unapplied migration shows paid
+  terms rather than promising a trial the checkout would then break.
+- Two routing gates had to be opened: `src/middleware.ts` (the coming-soon wall)
+  and `src/app/components/auth/auth-gate.tsx` (which bounced signed-out visitors
+  to a bare `/login`, dropping the return path). Any new route under `/plans` is
+  already covered by both.
 
-`/plans/checkout` specifics:
-It's built and committed. Two things to know:
-
-- It reads trial eligibility from `GET /api/stripe/checkout` **before** drawing
-  the button, so the terms it shows are the terms the customer gets. With the
-  migration unapplied, eligibility fails closed and the page shows paid terms
-  ("$33 billed today"). It will start showing trial terms on its own once
-  Tasks 1–3 are done — no code change needed.
-- Two routing gates had to be opened for it: `src/middleware.ts` (coming-soon
-  wall) and `src/app/components/auth/auth-gate.tsx` (signed-out redirect).
-  If you add more routes under `/plans`, they're already covered by both.
+---
 
 ## Task 5 — Test-mode dry run before going live
 
