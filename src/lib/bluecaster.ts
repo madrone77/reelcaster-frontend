@@ -300,7 +300,17 @@ export async function fetchMapSpots(opts: {
 }): Promise<MapSpotsPayload | null> {
   return bcGet<MapSpotsPayload>(
     "/api/v1/map/spots",
-    { bbox: opts.bbox, city: opts.city, date: opts.date },
+    {
+      bbox: opts.bbox,
+      city: opts.city,
+      date: opts.date,
+      // Distinct edge cache key for personalized reads. Vercel's CDN keys on
+      // the URL and ignores custom headers, so without this the signed-in
+      // caller is served whatever anonymous response is already cached for the
+      // same bbox — the origin never runs. Identity stays in the header; this
+      // is just a flag, so no user id ever lands in a URL or an access log.
+      viewer: opts.viewerId ? "1" : undefined,
+    },
     300,
     opts.viewerId,
   );
