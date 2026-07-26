@@ -181,16 +181,27 @@ export async function fetchSpotLivePage(
   return res.json();
 }
 
+/**
+ * @param ownerUserId  A server-verified user id, forwarded so the owner of a
+ *   PRIVATE custom spot can read their own 14-day grid (BlueCaster 404s it to
+ *   everyone else). Verify the session first — never pass client input.
+ */
 export async function fetchSpotForecast14d(
-  slug: string
+  slug: string,
+  ownerUserId?: string
 ): Promise<Forecast14dPayload | null> {
   const baseUrl = process.env.BLUECASTER_API_URL;
   const apiKey = process.env.BLUECASTER_API_KEY;
   if (!baseUrl || !apiKey) throw new Error("BlueCaster env vars not set");
 
   const res = await fetch(`${baseUrl}/api/v1/spots/${slug}/forecast-14d`, {
-    headers: { "x-api-key": apiKey },
-    next: { revalidate: 60 },
+    headers: {
+      "x-api-key": apiKey,
+      ...(ownerUserId ? { "x-reelcaster-user-id": ownerUserId } : {}),
+    },
+    // An owner-scoped read is private to one user — keep it out of the shared
+    // Data Cache, or the next anonymous visitor can be served it.
+    ...(ownerUserId ? { cache: "no-store" as const } : { next: { revalidate: 60 } }),
   });
   if (res.status === 404) return null;
   if (!res.ok) throw new Error(`BlueCaster API error: ${res.status}`);
@@ -200,10 +211,12 @@ export async function fetchSpotForecast14d(
 // Per-hour factor breakdown for a spot×species over `days` (default 1).
 // Multi-day mode of the score endpoint — each hour carries the full
 // factor_contributions used by the spot-detail "Score explained" charts.
+/** @param ownerUserId Server-verified viewer — unlocks their own private spot. */
 export async function fetchSpotScore(
   spotId: string,
   speciesId: string,
-  days = 1
+  days = 1,
+  ownerUserId?: string
 ): Promise<SpotScorePayload | null> {
   const baseUrl = process.env.BLUECASTER_API_URL;
   const apiKey = process.env.BLUECASTER_API_KEY;
@@ -212,7 +225,13 @@ export async function fetchSpotScore(
   const qs = new URLSearchParams({ species: speciesId, days: String(days) });
   const res = await fetch(
     `${baseUrl}/api/v1/fishing-spots/${spotId}/score?${qs}`,
-    { headers: { "x-api-key": apiKey }, cache: "no-store" }
+    {
+      headers: {
+        "x-api-key": apiKey,
+        ...(ownerUserId ? { "x-reelcaster-user-id": ownerUserId } : {}),
+      },
+      cache: "no-store",
+    }
   );
   if (res.status === 404) return null;
   if (!res.ok) throw new Error(`BlueCaster API error: ${res.status}`);
@@ -754,9 +773,11 @@ export async function fetchNearestSpots(
  * capable (unlike point-conditions). Used by the review screen when the
  * spot or catch time changes.
  */
+/** @param ownerUserId Server-verified viewer — unlocks their own private spot. */
 export async function fetchSpotSnapshot(
   spotId: string,
   datetimeUtcIso: string,
+  ownerUserId?: string,
 ): Promise<SpotSnapshotResponse | null> {
   const baseUrl = process.env.BLUECASTER_API_URL;
   const apiKey = process.env.BLUECASTER_API_KEY;
@@ -765,7 +786,13 @@ export async function fetchSpotSnapshot(
   const qs = new URLSearchParams({ datetime: datetimeUtcIso });
   const res = await fetch(
     `${baseUrl}/api/v1/fishing-spots/${spotId}/snapshot?${qs}`,
-    { headers: { "x-api-key": apiKey }, cache: "no-store" },
+    {
+      headers: {
+        "x-api-key": apiKey,
+        ...(ownerUserId ? { "x-reelcaster-user-id": ownerUserId } : {}),
+      },
+      cache: "no-store",
+    },
   );
   if (!res.ok) return null;
   return (await res.json()) as SpotSnapshotResponse;
