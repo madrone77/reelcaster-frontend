@@ -61,7 +61,7 @@ export default function MobileBottomNav() {
             className="lg:hidden fixed inset-0 z-40 bg-rc-ink/25"
           />
           <div className="lg:hidden fixed inset-x-0 z-50 px-4 bottom-[calc(5.75rem+env(safe-area-inset-bottom))]">
-            <div className="mx-auto max-w-md overflow-hidden rounded-2xl border border-rc-rule bg-rc-panel shadow-[0_6px_24px_rgba(15,23,42,0.18)]">
+            <div className="mx-auto max-w-md overflow-hidden rounded-2xl border border-rc-rule bg-rc-panel/95 shadow-[0_6px_24px_rgba(15,23,42,0.18)] backdrop-blur-md">
               {MORE_LINKS.map(({ href, label }) => (
                 <Link
                   key={href}
