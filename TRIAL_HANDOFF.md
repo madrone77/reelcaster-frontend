@@ -95,6 +95,20 @@ Existing subscribed events stay as they are.
 
 ---
 
+## Task 4b — The checkout page
+
+`/plans/checkout` is the pre-checkout order summary that hands off to Stripe.
+It's built and committed. Two things to know:
+
+- It reads trial eligibility from `GET /api/stripe/checkout` **before** drawing
+  the button, so the terms it shows are the terms the customer gets. With the
+  migration unapplied, eligibility fails closed and the page shows paid terms
+  ("$33 billed today"). It will start showing trial terms on its own once
+  Tasks 1–3 are done — no code change needed.
+- Two routing gates had to be opened for it: `src/middleware.ts` (coming-soon
+  wall) and `src/app/components/auth/auth-gate.tsx` (signed-out redirect).
+  If you add more routes under `/plans`, they're already covered by both.
+
 ## Task 5 — Test-mode dry run before going live
 
 With test-mode keys and a test annual Price:
