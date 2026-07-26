@@ -214,10 +214,12 @@ export default function SpotDrawer({
             : ""}
         </p>
 
-        {/* Score block */}
+        {/* Score block — the number lives in a fixed three-digit gutter with
+            tabular figures, so scrubbing the 24h chart from 83 to 5 can't drag
+            the tier pill and species line sideways with it. */}
         <div className="flex items-center gap-4 mt-4 pb-5 border-b border-rc-rule-soft">
           <span
-            className={`text-[60px] leading-none font-bold tracking-[-0.04em] ${TIER_TEXT[tier]}`}
+            className={`w-[3ch] shrink-0 tabular-nums text-[60px] leading-none font-bold tracking-[-0.04em] ${TIER_TEXT[tier]}`}
           >
             {score ?? "—"}
           </span>
