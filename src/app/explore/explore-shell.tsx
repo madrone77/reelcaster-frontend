@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import type { MapRef } from "react-map-gl/maplibre";
 import type { MapSpotsPayload } from "@/lib/bluecaster";
 import {
+  extraRailSpotsFromPayload,
   rescoreSpots,
   zonedHourToUtcIso,
   type CityNode,
@@ -18,7 +19,11 @@ import {
   type ForecastStripModel,
   type ForecastTier,
 } from "./lib/forecast-strip";
-import { fetchMapForecast14d, fetchMyCustomSpots } from "@/lib/bluecaster-client";
+import {
+  fetchMapForecast14d,
+  fetchMapSpotsAsViewer,
+  fetchMyCustomSpots,
+} from "@/lib/bluecaster-client";
 import type { MapForecast14dPayload } from "@/lib/bluecaster";
 import { useSubscription } from "@/hooks/use-subscription";
 import { useAuth } from "@/contexts/auth-context";
@@ -26,6 +31,7 @@ import { useExploreState } from "./lib/use-explore-state";
 import ExploreTopBar from "./components/explore-top-bar";
 import ExploreMap, { type StationPick, type CustomSpotPin } from "./components/explore-map";
 import CreateCustomSpotDialog from "./components/create-custom-spot-dialog";
+import { setFavorite } from "./lib/use-favorite";
 import { Plus, X } from "lucide-react";
 import StationDrawer from "./components/station-drawer";
 import LeftRail from "./components/left-rail";
@@ -109,6 +115,7 @@ export default function ExploreShell({
             lat: r.lat,
             lng: r.lng,
             visibility: r.visibility,
+            slug: r.slug,
           })),
         );
       })
@@ -195,10 +202,49 @@ export default function ExploreShell({
     };
   }, [selectedIso, today, bbox]);
 
+  // ── The viewer's own custom spots, as rail spots ────────────────────────
+  //
+  // data.spots comes from the server render, which is anonymous and therefore
+  // published-only. Refetch the same payload WITH the session token — BlueCaster
+  // adds this angler's own spots — and keep the extras. Everything downstream
+  // (ranking, species filter, pin colour, the drawer) then treats them as
+  // ordinary spots, which is what makes the pin clickable at all: selection is
+  // slug-keyed off this list.
+  const [ownRailSpots, setOwnRailSpots] = useState<RailSpot[]>([]);
+
+  useEffect(() => {
+    if (!user) {
+      setOwnRailSpots([]);
+      return;
+    }
+    let cancelled = false;
+    fetchMapSpotsAsViewer(bbox, selectedIso)
+      .then((payload) => {
+        if (cancelled || !payload) return;
+        setOwnRailSpots(
+          extraRailSpotsFromPayload(
+            data.spots,
+            payload,
+            selectedIso === today,
+            new Map(customSpots.map((c) => [c.slug ?? "", c.visibility])),
+          ),
+        );
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [user, bbox, selectedIso, today, data.spots, customSpots]);
+
   const effectiveSpots = useMemo(() => {
-    if (selectedIso === today || !dayPayload) return data.spots;
-    return rescoreSpots(data.spots, dayPayload, false);
-  }, [selectedIso, today, dayPayload, data.spots]);
+    const base =
+      selectedIso === today || !dayPayload
+        ? data.spots
+        : rescoreSpots(data.spots, dayPayload, false);
+    if (ownRailSpots.length === 0) return base;
+    // Sorted with the rest — a custom spot earns its rail position by score.
+    return [...base, ...ownRailSpots].sort((a, b) => (b.score ?? -1) - (a.score ?? -1));
+  }, [selectedIso, today, dayPayload, data.spots, ownRailSpots]);
 
   // Species filter: re-score each spot to the chosen species (pins recolor,
   // rail re-ranks, forecast strip keys off it). "Best bet" (null) = unchanged.
@@ -702,7 +748,12 @@ export default function ExploreShell({
           pinDropMode={customMode}
           onMapPick={handleMapPick}
           customSpots={customSpots}
-          onSelectCustomSpot={(pin) => setPinCoords({ lat: pin.lat, lng: pin.lng })}
+          onSelectCustomSpot={(pin) => {
+            // Same path as a curated pin: select by slug so the rail scrolls to
+            // the card and the drawer opens. (This used to setPinCoords, which
+            // only feeds the create-spot dialog — so the click did nothing.)
+            if (pin.slug) handleSelectSpot(pin.slug);
+          }}
         />
 
         {/* Pro-only "Create custom spot" action (top-right of the map). */}
@@ -738,18 +789,22 @@ export default function ExploreShell({
         onOpenChange={setCustomModalOpen}
         coords={pinCoords}
         speciesOptions={data.species}
-        onCreated={(spot) =>
+        onCreated={(spot) => {
+          // A spot you placed and named starts favorited — it appears starred
+          // in the rail and in Saved spots without a second click.
+          if (spot.slug) setFavorite(spot.slug);
           setCustomSpots((prev) => [
             {
               id: spot.id,
               name: spot.name,
+              slug: spot.slug,
               lat: spot.lat,
               lng: spot.lng,
               visibility: spot.visibility ?? "private",
             },
             ...prev.filter((p) => p.id !== spot.id),
-          ])
-        }
+          ]);
+        }}
       />
 
       {/* Mobile-only pull-up spot sheet over the map (Zillow-style). */}

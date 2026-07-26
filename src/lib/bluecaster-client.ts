@@ -14,7 +14,7 @@ import type {
   StationConditions,
   BuoyConditions,
 } from "./bluecaster/station-types";
-import type { MapForecast14dPayload, OwnedCustomSpot } from "./bluecaster";
+import type { MapForecast14dPayload, MapSpotsPayload, OwnedCustomSpot } from "./bluecaster";
 export type {
   StationConditions,
   BuoyConditions,
@@ -271,6 +271,27 @@ export async function createCustomSpot(
 }
 
 export type { OwnedCustomSpot } from "./bluecaster";
+
+/**
+ * map/spots for the SIGNED-IN viewer — same payload as the anonymous server
+ * render plus this angler's own custom spots, so they can be ranked in the rail
+ * rather than floating on the map. Returns null signed out or on any error
+ * (callers fall back to the anonymous set).
+ */
+export async function fetchMapSpotsAsViewer(
+  bbox: string,
+  date: string,
+): Promise<MapSpotsPayload | null> {
+  const { data } = await supabase.auth.getSession();
+  const token = data.session?.access_token;
+  if (!token) return null;
+  const res = await fetch(
+    `/api/bluecaster/map/spots?bbox=${encodeURIComponent(bbox)}&date=${encodeURIComponent(date)}`,
+    { headers: { Authorization: `Bearer ${token}` }, cache: "no-store" },
+  );
+  if (!res.ok) return null;
+  return (await res.json().catch(() => null)) as MapSpotsPayload | null;
+}
 
 /** The signed-in user's own custom spots (private + public), for the "your
  *  spots" pins on the map. Owner-scoped — forwards the Supabase token. Returns

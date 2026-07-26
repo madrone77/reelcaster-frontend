@@ -50,6 +50,8 @@ export interface CustomSpotPin {
   lat: number;
   lng: number;
   visibility: "private" | "public";
+  /** Selecting a spot is slug-keyed (`?spot=`), so the marker needs one. */
+  slug?: string;
 }
 
 // Layer groups the toggles flip (relief style ids). Bathymetry = depth shading
@@ -218,8 +220,11 @@ export default function ExploreMap({
     [],
   );
 
+  // Custom spots are in `spots` so they rank in the rail, but they're drawn as
+  // their own lock/globe markers below — keep them out of the GL pin source or
+  // each one renders twice, a score bubble underneath its own marker.
   const data = useMemo(
-    () => spotsToFeatureCollection(spots, hour),
+    () => spotsToFeatureCollection(spots.filter((s) => !s.isCustom), hour),
     [spots, hour],
   );
 

@@ -295,12 +295,15 @@ export async function fetchMapSpots(opts: {
   bbox?: string; // "w,s,e,n"
   city?: string;
   date?: string; // YYYY-MM-DD
+  /** Verified viewer — adds that angler's own custom spots to the payload. */
+  viewerId?: string;
 }): Promise<MapSpotsPayload | null> {
-  return bcGet<MapSpotsPayload>("/api/v1/map/spots", {
-    bbox: opts.bbox,
-    city: opts.city,
-    date: opts.date,
-  });
+  return bcGet<MapSpotsPayload>(
+    "/api/v1/map/spots",
+    { bbox: opts.bbox, city: opts.city, date: opts.date },
+    300,
+    opts.viewerId,
+  );
 }
 
 // ── Viewport 14-day forecast (map/forecast-14d) ─────────────────────
@@ -575,6 +578,14 @@ async function bcGet<T>(
   path: string,
   query: Record<string, string | number | undefined> = {},
   revalidate = 300,
+  /**
+   * Server-verified viewer id. Widens the response to include that user's own
+   * private data (currently: their custom spots). MUST come from a verified
+   * session — never from client input. A viewer-scoped response bypasses the
+   * Data Cache; caching it would serve one angler's private spots to the next
+   * anonymous request for the same URL.
+   */
+  viewerId?: string,
 ): Promise<T | null> {
   const env = bcEnv();
   if (!env) return null;
@@ -584,8 +595,11 @@ async function bcGet<T>(
   }
   try {
     const res = await fetch(url.toString(), {
-      headers: { "x-api-key": env.apiKey },
-      next: { revalidate },
+      headers: {
+        "x-api-key": env.apiKey,
+        ...(viewerId ? { "x-reelcaster-user-id": viewerId } : {}),
+      },
+      ...(viewerId ? { cache: "no-store" as const } : { next: { revalidate } }),
     });
     if (res.status === 404) return null;
     if (!res.ok) return null;

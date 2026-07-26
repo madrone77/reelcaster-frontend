@@ -24,6 +24,17 @@ export function useFavorite(slug: string) {
   return [fav, toggle] as const;
 }
 
+/**
+ * Favorite a spot outright (no toggle). Used when creating a custom spot: you
+ * went to the trouble of dropping a pin and naming it, so it starts starred and
+ * shows up in Saved spots without a second click.
+ */
+export function setFavorite(slug: string, fav = true): void {
+  try {
+    localStorage.setItem(`rc-fav:${slug}`, fav ? "1" : "0");
+  } catch {}
+}
+
 /** How many spots are currently favorited (localStorage `rc-fav:*` === "1"). */
 export function favoriteCount(): number {
   try {
