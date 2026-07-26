@@ -62,103 +62,106 @@ export async function POST(request: NextRequest) {
   }
 
   const priceId = plan === 'annual' ? ANNUAL_PRICE_ID : resolveMonthlyPriceId();
-
-  // STRIPE_ANNUAL_PRICE_ID is unset until the $33/yr Price exists in Stripe.
-  // Fail loudly here rather than handing Stripe an empty price and getting an
-  // opaque 400 back — the annual plan carries the trial, so this is the one
-  // config gap that takes the whole trial flow down.
   if (!priceId) {
-    console.error('[stripe checkout] no price id for plan', plan);
-    return NextResponse.json(
-      { error: 'plan_unavailable', message: 'That plan is not available yet.' },
-      { status: 503 },
-    );
+    // Annual has no Stripe price until STRIPE_ANNUAL_PRICE_ID is configured
+    // (see src/lib/pricing.ts). Fail with JSON rather than crashing on an
+    // empty line_items price, which surfaces as an unparseable 500 client-side.
+    // The annual plan carries the trial, so this gap takes the trial down too.
+    console.error(`[stripe checkout] no price ID configured for plan "${plan}"`);
+    return NextResponse.json({ error: 'plan_unavailable', plan }, { status: 503 });
   }
 
   // Look up an existing stripe_customer_id, or create the customer + row.
-  const { data: existingSettings } = await admin
-    .from('user_settings')
-    .select('stripe_customer_id')
-    .eq('user_id', user.id)
-    .maybeSingle();
-
-  let stripeCustomerId = existingSettings?.stripe_customer_id ?? null;
-  if (!stripeCustomerId) {
-    const customer = await stripe.customers.create({
-      email: user.email ?? undefined,
-      metadata: { supabase_user_id: user.id },
-    });
-    stripeCustomerId = customer.id;
-    await admin
+  try {
+    const { data: existingSettings } = await admin
       .from('user_settings')
-      .upsert(
-        {
-          user_id: user.id,
-          stripe_customer_id: stripeCustomerId,
-          primary_region_slug: region || null,
-        },
-        { onConflict: 'user_id' },
-      );
-  } else if (region) {
-    await admin
-      .from('user_settings')
-      .update({ primary_region_slug: region })
-      .eq('user_id', user.id);
-  }
+      .select('stripe_customer_id')
+      .eq('user_id', user.id)
+      .maybeSingle();
 
-  // The 7-day trial rides on the annual plan only. Monthly is instant-charge,
-  // which keeps "start your trial" and "buy the yearly plan" one decision.
-  // Ineligible customers aren't told why — they just go through paid checkout.
-  const eligibility =
-    plan === 'annual'
-      ? await checkTrialEligibility(admin, user.id, user.email)
-      : { eligible: false as const, reason: undefined };
+    let stripeCustomerId = existingSettings?.stripe_customer_id ?? null;
+    if (!stripeCustomerId) {
+      const customer = await stripe.customers.create({
+        email: user.email ?? undefined,
+        metadata: { supabase_user_id: user.id },
+      });
+      stripeCustomerId = customer.id;
+      await admin
+        .from('user_settings')
+        .upsert(
+          {
+            user_id: user.id,
+            stripe_customer_id: stripeCustomerId,
+            primary_region_slug: region || null,
+          },
+          { onConflict: 'user_id' },
+        );
+    } else if (region) {
+      await admin
+        .from('user_settings')
+        .update({ primary_region_slug: region })
+        .eq('user_id', user.id);
+    }
 
-  if (plan === 'annual' && !eligibility.eligible) {
-    console.info('[stripe checkout] trial withheld', user.id, eligibility.reason);
-  }
+    // The 7-day trial rides on the annual plan only. Monthly is instant-charge,
+    // which keeps "start your trial" and "buy the yearly plan" one decision.
+    // Ineligible customers aren't told why — they just go through paid checkout.
+    const eligibility =
+      plan === 'annual'
+        ? await checkTrialEligibility(admin, user.id, user.email)
+        : { eligible: false as const, reason: undefined };
 
-  const origin = appOrigin(request);
-  const session = await stripe.checkout.sessions.create({
-    mode: 'subscription',
-    customer: stripeCustomerId,
-    line_items: [{ price: priceId, quantity: 1 }],
-    allow_promotion_codes: true,
-    // Explicit even though it's the default for subscription mode: the whole
-    // trial design assumes a card is on file when the trial ends.
-    payment_method_collection: 'always',
-    success_url: `${origin}/billing/success?session_id={CHECKOUT_SESSION_ID}`,
-    cancel_url: `${origin}/billing/cancel`,
-    metadata: {
-      supabase_user_id: user.id,
-      plan,
-      region: region || '',
-      from: body.from ?? '',
-      trial: eligibility.eligible ? 'yes' : 'no',
-    },
-    subscription_data: {
+    if (plan === 'annual' && !eligibility.eligible) {
+      console.info('[stripe checkout] trial withheld', user.id, eligibility.reason);
+    }
+
+    const origin = appOrigin(request);
+    const session = await stripe.checkout.sessions.create({
+      mode: 'subscription',
+      customer: stripeCustomerId,
+      line_items: [{ price: priceId, quantity: 1 }],
+      allow_promotion_codes: true,
+      // Explicit even though it's the default for subscription mode: the whole
+      // trial design assumes a card is on file when the trial ends.
+      payment_method_collection: 'always',
+      success_url: `${origin}/billing/success?session_id={CHECKOUT_SESSION_ID}`,
+      cancel_url: `${origin}/billing/cancel`,
       metadata: {
         supabase_user_id: user.id,
         plan,
+        region: region || '',
+        from: body.from ?? '',
+        trial: eligibility.eligible ? 'yes' : 'no',
       },
-      ...(eligibility.eligible
-        ? {
-            trial_period_days: TRIAL_DAYS,
-            trial_settings: {
-              // No card at trial end = cancel, never leave a subscription
-              // hanging in an unpayable state.
-              end_behavior: { missing_payment_method: 'cancel' as const },
-            },
-          }
-        : {}),
-    },
-  });
+      subscription_data: {
+        metadata: {
+          supabase_user_id: user.id,
+          plan,
+        },
+        ...(eligibility.eligible
+          ? {
+              trial_period_days: TRIAL_DAYS,
+              trial_settings: {
+                // No card at trial end = cancel, never leave a subscription
+                // hanging in an unpayable state.
+                end_behavior: { missing_payment_method: 'cancel' as const },
+              },
+            }
+          : {}),
+      },
+    });
 
-  return NextResponse.json({
-    url: session.url,
-    id: session.id,
-    trial_days: eligibility.eligible ? TRIAL_DAYS : 0,
-  });
+    return NextResponse.json({
+      url: session.url,
+      id: session.id,
+      trial_days: eligibility.eligible ? TRIAL_DAYS : 0,
+    });
+  } catch (err) {
+    // A Stripe/database failure here otherwise escapes as a bodyless 500 the
+    // client can't JSON-parse. Log the real cause, return a stable shape.
+    console.error('[stripe checkout] failed to create session', err);
+    return NextResponse.json({ error: 'checkout_failed' }, { status: 502 });
+  }
 }
 
 /**
