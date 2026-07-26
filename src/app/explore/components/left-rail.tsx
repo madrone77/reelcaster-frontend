@@ -79,13 +79,24 @@ export default function LeftRail({
   const [sort, setSort] = useState<SortKey>("score");
   const sortedSpots = useMemo(() => sortSpots(spots, sort), [spots, sort]);
 
+  // The spot list wants the full column (it scrolls); a drawer does not — it
+  // has a fixed amount to say, and pinning it to the viewport floor stranded
+  // ~400px of empty panel between the 24h chart and the action buttons. Cap
+  // the drawer instead of anchoring it, so it ends where its content ends and
+  // still scrolls if the viewport is too short to hold it.
+  const drawerOpen = Boolean(selectedSpot || selectedStation);
+
   return (
     <aside
-      style={{ bottom: `${bottomInset}px` }}
+      style={
+        drawerOpen
+          ? { maxHeight: `calc(100vh - 72px - ${bottomInset}px)` }
+          : { bottom: `${bottomInset}px` }
+      }
       className="hidden lg:flex flex-col fixed left-6 top-[72px] w-96 z-30 bg-rc-panel/88 backdrop-blur-md rounded-xl border border-rc-rule shadow-rc-panel overflow-hidden transition-[bottom] duration-200"
     >
       {selectedSpot ? (
-        <div key={selectedSpot.id} className="animate-fade-in h-full overflow-y-auto">
+        <div key={selectedSpot.id} className="animate-fade-in flex flex-col min-h-0">
           <SpotDrawer
             spot={selectedSpot}
             date={date}
@@ -99,7 +110,7 @@ export default function LeftRail({
       ) : selectedStation ? (
         <div
           key={`${selectedStation.source}:${selectedStation.sid}`}
-          className="h-full animate-fade-in"
+          className="animate-fade-in flex flex-col min-h-0"
         >
           <StationDrawer pick={selectedStation} tz={tz} onBack={onCloseStation} />
         </div>
