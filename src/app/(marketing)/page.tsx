@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import { DEFAULT_OG, SITE_NAME, SITE_URL, siteUrl } from '@/lib/site';
 import Hero from './components/hero';
 import ScoreTicker from './components/score-ticker';
 import DataSources from './components/data-sources';
@@ -8,25 +9,30 @@ import PricingSection from './components/pricing-section';
 import FeaturesSection from './components/features-section';
 import CtaBand from './components/cta-band';
 
-const SITE_URL = 'https://reelcaster.com';
-
 // Hourly revalidation keeps the seasonal Pro price current across month
 // boundaries (see src/lib/pricing.ts).
 export const revalidate = 3600;
 
+// The tagline is the H1's job. The <title> has to carry the query people
+// actually type ("bc fishing forecast"), so it leads with that and keeps the
+// tagline out of the 60 characters search results will show.
+//
+// `title.absolute` opts out of the root layout's "%s | ReelCaster" template —
+// the brand is already in the string.
 export const metadata: Metadata = {
-  title: 'Reelcaster — Know the bite. Before you go.',
+  title: {
+    absolute: 'BC Fishing Forecast & Tide Conditions | ReelCaster',
+  },
   description:
-    'Reelcaster combines tides, weather, water conditions, and regulations into one simple fishing score, so you know exactly when and where to fish on the BC coast.',
-  alternates: { canonical: `${SITE_URL}/` },
+    'ReelCaster combines tides, weather, water conditions, and regulations into one simple fishing score, so you know exactly when and where to fish on the BC coast.',
+  alternates: { canonical: siteUrl('/') },
   openGraph: {
-    title: 'Reelcaster — Know the bite. Before you go.',
+    title: 'ReelCaster — Know the bite. Before you go.',
     description:
       'Tides, weather, water conditions, and regulations in one simple fishing score for the BC coast.',
-    url: SITE_URL,
-    siteName: 'Reelcaster',
+    url: siteUrl('/'),
     type: 'website',
-    locale: 'en_CA',
+    ...DEFAULT_OG,
   },
   robots: { index: true, follow: true },
 };
@@ -34,8 +40,10 @@ export const metadata: Metadata = {
 const HOMEPAGE_JSONLD = {
   '@context': 'https://schema.org',
   '@type': 'WebSite',
-  name: 'Reelcaster',
+  '@id': `${SITE_URL}/#website`,
+  name: SITE_NAME,
   url: SITE_URL,
+  publisher: { '@id': `${SITE_URL}/#organization` },
   description:
     'Fishing forecasts for the BC coast — tides, weather, water conditions, and regulations combined into one simple score.',
 };

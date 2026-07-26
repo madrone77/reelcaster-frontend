@@ -8,25 +8,81 @@ import {
   MONTHLY_PRICE_CENTS,
   annualDiscount,
 } from "@/lib/pricing";
-
-const SITE_URL = "https://reelcaster.com";
+import { breadcrumbJsonLd, DEFAULT_OG, SITE_NAME, SITE_URL, siteUrl } from "@/lib/site";
 
 export const metadata: Metadata = {
-  title: "Pro Pricing | ReelCaster",
+  title: "Pro Pricing",
   description:
     "ReelCaster Pro is $5/month or $33/year (45% off). Unlock 14-day forecasts, custom alerts, and custom spot profiles.",
-  alternates: { canonical: `${SITE_URL}/pricing` },
+  alternates: { canonical: siteUrl("/pricing") },
   openGraph: {
     title: "Pricing | ReelCaster",
     description:
       "$5/month or $33/year (45% off) — 14-day forecasts, custom alerts, and spot profiles.",
-    url: `${SITE_URL}/pricing`,
-    siteName: "ReelCaster",
+    url: siteUrl("/pricing"),
     type: "website",
-    locale: "en_CA",
+    ...DEFAULT_OG,
   },
   robots: { index: true, follow: true },
 };
+
+function dollars(cents: number): string {
+  const v = cents / 100;
+  return Number.isInteger(v) ? `$${v}` : `$${v.toFixed(2)}`;
+}
+
+// Product + Offer. The page states two real prices, so this is the markup that
+// lets a result carry them. Both offers are `InStock` and priced in CAD;
+// `eligibleRegion` mirrors the coverage note further down the page, so the
+// structured data can't promise availability the checkout will refuse.
+//
+// Prices come from the same `@/lib/pricing` constants the visible cards render
+// — the markup and the page can never disagree.
+const PRICING_JSONLD = {
+  "@context": "https://schema.org",
+  "@type": "Product",
+  name: "ReelCaster Pro",
+  description:
+    "Full 14-day fishing forecasts, custom score alerts, and custom spot profiles for the BC, Washington, and Oregon coasts.",
+  brand: { "@type": "Brand", name: SITE_NAME },
+  url: siteUrl("/pricing"),
+  category: "Fishing forecast subscription",
+  offers: [
+    {
+      "@type": "Offer",
+      name: "ReelCaster Pro — Monthly",
+      price: (MONTHLY_PRICE_CENTS / 100).toFixed(2),
+      priceCurrency: "CAD",
+      availability: "https://schema.org/InStock",
+      url: siteUrl("/pricing"),
+      seller: { "@id": `${SITE_URL}/#organization` },
+      eligibleRegion: [
+        { "@type": "AdministrativeArea", name: "British Columbia" },
+        { "@type": "AdministrativeArea", name: "Washington" },
+        { "@type": "AdministrativeArea", name: "Oregon" },
+      ],
+    },
+    {
+      "@type": "Offer",
+      name: "ReelCaster Pro — Annual",
+      price: (ANNUAL_PRICE_CENTS / 100).toFixed(2),
+      priceCurrency: "CAD",
+      availability: "https://schema.org/InStock",
+      url: siteUrl("/pricing"),
+      seller: { "@id": `${SITE_URL}/#organization` },
+      eligibleRegion: [
+        { "@type": "AdministrativeArea", name: "British Columbia" },
+        { "@type": "AdministrativeArea", name: "Washington" },
+        { "@type": "AdministrativeArea", name: "Oregon" },
+      ],
+    },
+  ],
+};
+
+const PRICING_BREADCRUMBS = breadcrumbJsonLd([
+  { name: "Home", path: "/" },
+  { name: "Pricing", path: "/pricing" },
+]);
 
 // Vercel sets x-vercel-ip-country-region (e.g. "BC", "WA", "OR"). Best-effort —
 // the user can always override in the checkout modal.
@@ -40,17 +96,23 @@ async function detectRegion(): Promise<string | null> {
   return null;
 }
 
-function dollars(cents: number): string {
-  const v = cents / 100;
-  return Number.isInteger(v) ? `$${v}` : `$${v.toFixed(2)}`;
-}
-
 export default async function PricingPage() {
   const defaultRegion = await detectRegion();
   const { pct } = annualDiscount();
 
   return (
     <article>
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(PRICING_JSONLD) }}
+      />
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{
+          __html: JSON.stringify(PRICING_BREADCRUMBS),
+        }}
+      />
+
       {/* Hero */}
       <section className="max-w-6xl mx-auto px-6 pt-14 pb-10 md:pt-20 md:pb-14">
         <p className="font-rc-mono text-[10px] tracking-[0.14em] uppercase text-rc-ink-mute mb-3">

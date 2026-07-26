@@ -79,12 +79,23 @@ function bestSpeciesId(page: SpotPageInitial): string | null {
   return best ?? page.species[0]?.id ?? null;
 }
 
+/** Where this spot sits in the public /fishing directory; null for custom
+ *  spots and spots in cities that aren't published. */
+export type SpotCityLink = {
+  cityName: string;
+  cityPath: string;
+  provinceName: string;
+  provincePath: string;
+};
+
 export default function SpotDetailShell({
   page,
   slug,
+  cityLink,
 }: {
   page: SpotPageInitial;
   slug: string;
+  cityLink: SpotCityLink | null;
 }) {
   const { spot } = page;
   const nowHour = currentLocalHour(TZ);
@@ -510,13 +521,40 @@ export default function SpotDetailShell({
               Back to map
             </Link>
             <span className="text-rc-rule">·</span>
-            <span className="truncate">
-              {[spot.country, spot.region, spot.city]
-                .filter(Boolean)
-                .join(" › ")}
-              {" › "}
-              <span className="text-rc-ink-soft">{spot.name}</span>
-            </span>
+            {/* Real anchors up the hierarchy, not prose. This used to render
+                the country › region › city trail as plain text, which left
+                every spot page linking only sideways to /explore — nothing
+                pointed back at the city page that should rank for it. */}
+            <nav aria-label="Breadcrumb" className="min-w-0 truncate">
+              {cityLink ? (
+                <>
+                  <Link
+                    href={cityLink.provincePath}
+                    className="hover:text-rc-ink transition-colors"
+                  >
+                    {cityLink.provinceName}
+                  </Link>
+                  {" › "}
+                  <Link
+                    href={cityLink.cityPath}
+                    className="hover:text-rc-ink transition-colors"
+                  >
+                    {cityLink.cityName}
+                  </Link>
+                  {" › "}
+                </>
+              ) : (
+                <>
+                  {[spot.country, spot.region, spot.city]
+                    .filter(Boolean)
+                    .join(" › ")}
+                  {" › "}
+                </>
+              )}
+              <span className="text-rc-ink-soft" aria-current="page">
+                {spot.name}
+              </span>
+            </nav>
           </div>
           <div className="flex items-center gap-1.5 font-rc-mono text-[10px] text-rc-ink-mute uppercase tracking-[0.08em]">
             <span className="w-1.5 h-1.5 rounded-full bg-rc-good" />
@@ -751,7 +789,31 @@ export default function SpotDetailShell({
             )}
           </div>
 
-          <p className="mt-12 text-sm text-rc-ink-soft">
+          {/* The desktop sub-header breadcrumb is `hidden lg:flex`, so on
+              mobile it contributes no link at all. This runs in the document
+              flow at every width, keeping the spot → city → province edges
+              present for both readers and crawlers. */}
+          {cityLink && (
+            <p className="mt-12 text-sm text-rc-ink-soft">
+              {spot.name} is one of the spots we track around{" "}
+              <Link
+                href={cityLink.cityPath}
+                className="text-rc-brand font-medium hover:underline"
+              >
+                {cityLink.cityName}
+              </Link>
+              . See every scored spot in{" "}
+              <Link
+                href={cityLink.provincePath}
+                className="text-rc-brand font-medium hover:underline"
+              >
+                {cityLink.provinceName}
+              </Link>
+              .
+            </p>
+          )}
+
+          <p className="mt-4 text-sm text-rc-ink-soft">
             Looking for the full interactive map?{" "}
             <Link href="/explore" className="text-rc-brand font-medium hover:underline">
               Open Explore

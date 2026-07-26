@@ -52,7 +52,9 @@ export default function OwnerSpotFallback({ slug }: { slug: string }) {
     };
   }, [slug, session, authLoading]);
 
-  if (page) return <SpotDetailShell page={page} slug={slug} />;
+  // A spot that only its owner can read is by definition not in the public
+  // /fishing directory, so there is no city page to breadcrumb up to.
+  if (page) return <SpotDetailShell page={page} slug={slug} cityLink={null} />;
 
   if (state === "denied") {
     return (
