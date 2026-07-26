@@ -1,25 +1,31 @@
 import { NextResponse, type NextRequest } from 'next/server'
 
-// Coming-soon wall. Every public-facing route is rewritten to /coming-soon.
-// These prefixes stay reachable so the team can still operate the system:
-// the coming-soon page itself, the API, and the auth/login flow.
-// `/explore` is publicly live (soft-launched) while the rest stays walled.
-// `/log-catch` + `/notifications` ship with the explore soft-launch.
-// `/` (exact match only — `startsWith('//')` can't hit a real path) is the
-// public landing page. Info/legal pages are public (linked from the footer).
-// `/billing` (Stripe checkout success/cancel + portal return), `/profile`,
-// and `/alerts` are account surfaces the paid funnel + nav depend on.
-// `/fishing` is the public province/city SEO directory.
-// `/dashboard` is the logged-in landing (post-login redirect target).
-// `/plans` is the Pro checkout funnel — walling it would kill the paid flow.
-const ALLOW_PREFIXES = ['/', '/coming-soon', '/api', '/auth', '/login', '/signup', '/explore', '/fishing', '/plans', '/log-catch', '/catches', '/notifications', '/privacy', '/terms', '/contact', '/about', '/faq', '/billing', '/profile', '/alerts', '/favorites', '/dashboard']
+// Legacy coming-soon wall, now scoped to nothing.
+//
+// This used to rewrite every non-allow-listed path to /coming-soon. As surfaces
+// launched, the allow list grew to cover EVERY route the app actually has
+// (`/`, /explore, /fishing, /pricing, /login, /signup, /auth, /billing,
+// /profile, /alerts, /favorites, /dashboard, /catches, /log-catch,
+// /notifications, and the marketing + legal pages). The wall therefore stopped
+// gating anything real — its only surviving effect was to answer nonexistent
+// URLs with a rewritten /coming-soon body at HTTP **200**.
+//
+// That is a soft 404: every typo, stale inbound link, and scraped bad URL told
+// crawlers "this page exists and is fine" while showing them a holding page.
+// Unmatched paths now fall through to Next's own routing, which pairs
+// src/app/not-found.tsx with a real 404 status.
+//
+// To wall a future surface, add its prefix to WALLED_PREFIXES — an explicit
+// opt-in list, so it can never silently swallow 404s again.
+const WALLED_PREFIXES: string[] = []
 
 export function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl
-  const allowed = ALLOW_PREFIXES.some(
+
+  const walled = WALLED_PREFIXES.some(
     (p) => pathname === p || pathname.startsWith(p + '/'),
   )
-  if (allowed) return NextResponse.next()
+  if (!walled) return NextResponse.next()
 
   const url = req.nextUrl.clone()
   url.pathname = '/coming-soon'

@@ -90,3 +90,36 @@ export function getFishingCity(
 ): FishingCity | null {
   return province?.cities.find((c) => c.slug === citySlug) ?? null;
 }
+
+/**
+ * Reverse lookup: spot slug → the published city that owns it, plus the URL
+ * path of that city's directory page.
+ *
+ * Spot pages live at /explore/spot/[slug], which carries no hierarchy in the
+ * URL, and the spot-page payload only names its city in prose. This walks the
+ * same lifecycle-gated tree the directory renders so a spot page can link
+ * *up* to its city and province — otherwise the link graph only ever points
+ * downward and spot pages sit orphaned.
+ *
+ * Returns null for a spot whose city isn't published (a custom spot, or one in
+ * a building/staging city) — those get no upward breadcrumb.
+ */
+export function findCityForSpot(
+  hierarchy: BlueCasterHierarchy | null,
+  spotSlug: string,
+): { city: FishingCity; cityPath: string; provincePath: string } | null {
+  for (const code of COVERED_PROVINCES) {
+    const province = getFishingProvince(hierarchy, code);
+    if (!province) continue;
+    for (const city of province.cities) {
+      if (!city.spots.some((s) => s.slug === spotSlug)) continue;
+      const provincePath = `/fishing/${province.code.toLowerCase()}`;
+      return {
+        city,
+        cityPath: `${provincePath}/${city.slug}`,
+        provincePath,
+      };
+    }
+  }
+  return null;
+}

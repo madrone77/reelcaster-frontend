@@ -76,8 +76,14 @@ export async function GET(
 ) {
   const { slug } = await params;
   try {
+    // Forward the verified viewer so an owner can read their OWN private
+    // custom spot. Without it BlueCaster's visibility gate 404s the whole
+    // payload, the client never receives days 1..13, and the chart silently
+    // keeps showing today — which reads as "the tide doesn't change when I
+    // switch days", on custom spots only.
+    const viewerId = await getUserIdFromRequest(request);
     const [data, visibleDays] = await Promise.all([
-      fetchSpotForecast14d(slug),
+      fetchSpotForecast14d(slug, viewerId ?? undefined),
       callerVisibleDays(request),
     ]);
     if (!data) {

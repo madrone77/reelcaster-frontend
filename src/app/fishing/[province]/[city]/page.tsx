@@ -5,15 +5,37 @@ import {
   fetchHierarchy,
   fetchMapSpots,
 } from "@/lib/bluecaster";
+import { COVERED_PROVINCES } from "@/lib/regions";
+import { breadcrumbJsonLd, DEFAULT_OG, siteUrl } from "@/lib/site";
 import { buildExploreData } from "../../../explore/lib/explore-data";
 import { getFishingCity, getFishingProvince } from "../../lib/fishing-data";
 import CityShell from "./city-shell";
 
-const SITE_URL = "https://reelcaster.com";
-
 // Scores refresh through the day — keep the page fresh-ish without going
 // fully dynamic (the hierarchy behind it is cached 1h regardless).
 export const revalidate = 900;
+
+// Prerender every published city. On-demand renders make Next stream metadata,
+// which puts <title> and the canonical at the END of the body rather than in
+// <head>; prerendering resolves them before the first byte. Cities added after
+// a deploy still render on demand and then cache (the default
+// `dynamicParams: true`), so this is a head start, not an allow list.
+export async function generateStaticParams() {
+  try {
+    const hierarchy = await fetchHierarchy();
+    return COVERED_PROVINCES.flatMap((code) => {
+      const province = getFishingProvince(hierarchy, code);
+      return (province?.cities ?? []).map((city) => ({
+        province: code.toLowerCase(),
+        city: city.slug,
+      }));
+    });
+  } catch {
+    // Upstream down at build time — fall back to pure on-demand rendering
+    // rather than failing the build.
+    return [];
+  }
+}
 
 export async function generateMetadata({
   params,
@@ -28,26 +50,34 @@ export async function generateMetadata({
   if (!province || !city) notFound();
 
   const cityPage = await fetchCityPage(citySlug);
-  const title =
-    cityPage?.page.seo.title ??
-    `Fishing in ${city.name}, ${city.provinceCode} — ${city.spots.length} Spots with Live Scores | ReelCaster`;
+  // A CMS-authored title already carries its own brand suffix, so it opts out
+  // of the layout template via `absolute`; the generated fallback is bare and
+  // lets the template append.
+  const cmsTitle = cityPage?.page.seo.title;
+  const fallbackTitle = `Fishing in ${city.name}, ${city.provinceCode} — ${city.spots.length} Spots with Live Scores`;
   const description =
     cityPage?.page.seo.meta_description ??
     `Explore ${city.spots.length} saltwater fishing spots around ${city.name}, ${province.name} on a live map — RC scores, wind, sea, and tide conditions for every spot.`;
-  const canonical = `${SITE_URL}/fishing/${provinceParam.toLowerCase()}/${citySlug}`;
+  const canonical = siteUrl(
+    `/fishing/${provinceParam.toLowerCase()}/${citySlug}`,
+  );
   const ogImage = cityPage?.page.seo.og_image_url ?? undefined;
   return {
-    title,
+    title: cmsTitle ? { absolute: cmsTitle } : fallbackTitle,
     description,
     alternates: { canonical },
     openGraph: {
-      title,
+      title: cmsTitle ?? `${fallbackTitle} | ReelCaster`,
       description,
       url: canonical,
-      siteName: "ReelCaster",
       type: "website",
-      locale: "en_CA",
-      ...(ogImage ? { images: [{ url: ogImage }] } : {}),
+      // The CMS hero when the city has one, otherwise the site-wide generated
+      // card (src/app/opengraph-image.tsx). A page-level `openGraph` block
+      // REPLACES the inherited one, so the fallback has to be named here —
+      // omitting it left these pages with no og:image at all.
+      ...(ogImage
+        ? { images: [{ url: ogImage, width: 1200, height: 630 }] }
+        : DEFAULT_OG),
     },
     robots: { index: true, follow: true },
   };
@@ -75,14 +105,56 @@ export default async function CityPage({
   const data = buildExploreData(hierarchy, payload);
   const spots = data.spots.filter((s) => s.citySlug === citySlug);
 
+  const provincePath = `/fishing/${provinceParam.toLowerCase()}`;
+
+  // Mirrors the visible breadcrumb CityShell renders.
+  const breadcrumbs = breadcrumbJsonLd([
+    { name: "Home", path: "/" },
+    { name: `Fishing in ${city.provinceName}`, path: provincePath },
+    { name: city.name, path: `${provincePath}/${citySlug}` },
+  ]);
+
+  // The spot roster as an ItemList of Places, ranked as the rail ranks them.
+  // Coordinates come from the same payload the map pins render from.
+  const spotList = {
+    "@context": "https://schema.org",
+    "@type": "ItemList",
+    name: `Fishing spots near ${city.name}, ${city.provinceCode}`,
+    numberOfItems: spots.length,
+    itemListElement: spots.map((spot, i) => ({
+      "@type": "ListItem",
+      position: i + 1,
+      item: {
+        "@type": "Place",
+        name: spot.name,
+        url: siteUrl(`/explore/spot/${spot.slug}`),
+        geo: {
+          "@type": "GeoCoordinates",
+          latitude: spot.lat,
+          longitude: spot.lng,
+        },
+      },
+    })),
+  };
+
   return (
-    <CityShell
-      city={city}
-      provincePath={`/fishing/${provinceParam.toLowerCase()}`}
-      spots={spots}
-      species={data.species}
-      date={data.date}
-      intro={cityPage?.page.seo.meta_description ?? null}
-    />
+    <>
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbs) }}
+      />
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(spotList) }}
+      />
+      <CityShell
+        city={city}
+        provincePath={provincePath}
+        spots={spots}
+        species={data.species}
+        date={data.date}
+        intro={cityPage?.page.seo.meta_description ?? null}
+      />
+    </>
   );
 }

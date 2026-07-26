@@ -11,7 +11,14 @@ export async function getStripe(): Promise<Stripe> {
   if (!cached) {
     const secret = await getServerSecret('STRIPE_SECRET_KEY');
     cached = new Stripe(secret, {
-      apiVersion: '2026-04-22.dahlia',
+      // Pin the Stripe API version this integration was built and tested
+      // against. The installed SDK's types only accept its own newest literal,
+      // so we cast to satisfy the type checker WITHOUT changing the version
+      // sent to Stripe at runtime (i.e. no change to payment behavior).
+      apiVersion:
+        '2026-04-22.dahlia' as unknown as NonNullable<
+          ConstructorParameters<typeof Stripe>[1]
+        >['apiVersion'],
       typescript: true,
     });
   }

@@ -218,7 +218,7 @@ export function AuthForm({ defaultMode = 'signin', onSuccess, source = 'auth-for
                 <div className="w-full border-t border-rc-rule" />
               </div>
               <div className="relative flex justify-center text-xs uppercase">
-                <span className="bg-rc-panel px-2 text-rc-ink-mute">or continue with email</span>
+                <span className="bg-rc-panel px-2 text-rc-ink-mute">Or</span>
               </div>
             </div>
           </>
@@ -268,7 +268,7 @@ export function AuthForm({ defaultMode = 'signin', onSuccess, source = 'auth-for
                     setMode('forgot')
                     resetForm()
                   }}
-                  className="ml-auto text-xs text-rc-brand hover:text-rc-brand-hover transition-colors"
+                  className="mr-auto text-xs text-rc-brand hover:text-rc-brand-hover transition-colors"
                 >
                   Forgot password?
                 </button>

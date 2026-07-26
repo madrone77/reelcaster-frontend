@@ -3,13 +3,22 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { MapPin } from "lucide-react";
 import { fetchHierarchy } from "@/lib/bluecaster";
+import { COVERED_PROVINCES } from "@/lib/regions";
+import { breadcrumbJsonLd, DEFAULT_OG, siteUrl } from "@/lib/site";
 import { getFishingProvince } from "../lib/fishing-data";
-
-const SITE_URL = "https://reelcaster.com";
 
 // Hierarchy is cached 1h upstream (bcGet revalidate) — match it here so the
 // page regenerates on the same cadence.
 export const revalidate = 3600;
+
+// Prerender every covered province at build time. Without this the route is
+// rendered on demand, and Next STREAMS metadata for on-demand renders — the
+// <title> and <link rel="canonical"> land at the end of the body instead of in
+// <head>. Prerendering resolves metadata ahead of the response, so the head is
+// complete in the first byte.
+export function generateStaticParams() {
+  return COVERED_PROVINCES.map((code) => ({ province: code.toLowerCase() }));
+}
 
 export async function generateMetadata({
   params,
@@ -23,22 +32,22 @@ export async function generateMetadata({
   if (!province || province.cities.length === 0) notFound();
 
   const spotCount = province.cities.reduce((n, c) => n + c.spots.length, 0);
-  const title = `Fishing in ${province.name} — ${spotCount} Spots with Live Scores | ReelCaster`;
+  const title = `Fishing in ${province.name} — ${spotCount} Spots with Live Scores`;
   const description = `Browse ${spotCount} saltwater fishing spots across ${province.cities
     .map((c) => c.name)
     .join(", ")} with live RC scores, conditions, and 14-day forecasts.`;
-  const canonical = `${SITE_URL}/fishing/${provinceParam.toLowerCase()}`;
+  const canonical = siteUrl(`/fishing/${provinceParam.toLowerCase()}`);
   return {
+    // Bare title — the root layout's "%s | ReelCaster" template adds the brand.
     title,
     description,
     alternates: { canonical },
     openGraph: {
-      title,
+      title: `${title} | ReelCaster`,
       description,
       url: canonical,
-      siteName: "ReelCaster",
       type: "website",
-      locale: "en_CA",
+      ...DEFAULT_OG,
     },
     robots: { index: true, follow: true },
   };
@@ -56,8 +65,37 @@ export default async function ProvincePage({
   const provPath = `/fishing/${provinceParam.toLowerCase()}`;
   const spotCount = province.cities.reduce((n, c) => n + c.spots.length, 0);
 
+  // Mirrors the visible breadcrumb below.
+  const breadcrumbs = breadcrumbJsonLd([
+    { name: "Home", path: "/" },
+    { name: `Fishing in ${province.name}`, path: provPath },
+  ]);
+
+  // The city roster as an ItemList, in the order it renders.
+  const cityList = {
+    "@context": "https://schema.org",
+    "@type": "ItemList",
+    name: `Fishing cities in ${province.name}`,
+    numberOfItems: province.cities.length,
+    itemListElement: province.cities.map((city, i) => ({
+      "@type": "ListItem",
+      position: i + 1,
+      name: `${city.name}, ${city.provinceCode}`,
+      url: siteUrl(`${provPath}/${city.slug}`),
+    })),
+  };
+
   return (
     <div className="max-w-6xl mx-auto px-6 py-10">
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbs) }}
+      />
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(cityList) }}
+      />
+
       {/* Breadcrumb */}
       <nav aria-label="Breadcrumb" className="font-rc-mono text-[11px] text-rc-ink-mute">
         <ol className="flex items-center gap-1.5">

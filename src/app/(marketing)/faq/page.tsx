@@ -1,8 +1,8 @@
 import type { Metadata } from 'next';
+import { DEFAULT_OG, SITE_URL } from '@/lib/site';
 import Link from 'next/link';
 import { ChevronDown } from 'lucide-react';
 
-const SITE_URL = 'https://reelcaster.com';
 
 export const metadata: Metadata = {
   title: 'FAQ & Support | ReelCaster',
@@ -15,6 +15,7 @@ export const metadata: Metadata = {
     url: `${SITE_URL}/faq`,
     siteName: 'ReelCaster',
     type: 'website',
+    ...DEFAULT_OG,
     locale: 'en_CA',
   },
   robots: { index: true, follow: true },

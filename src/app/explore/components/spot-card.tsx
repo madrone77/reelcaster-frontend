@@ -76,18 +76,26 @@ export default function SpotCard({
     <div className="bg-rc-panel border-2 border-rc-rule rounded overflow-hidden">
       {/* Body — the primary target; clicking it opens the location report.
           Hover/focus feedback lives here (a surface shift), not on the whole
-          card, so the footer controls read as separate. */}
-      <div
-        role="button"
-        tabIndex={0}
-        onClick={onSelect}
-        onKeyDown={(e) => {
-          if (e.key === "Enter" || e.key === " ") {
-            e.preventDefault();
-            onSelect();
+          card, so the footer controls read as separate.
+
+          This is a real <a href>, not a role="button" div. As a div it was
+          invisible to crawlers: the city page carried 30+ of these cards and
+          emitted zero links to the spot pages beneath it, so nothing followed
+          city → spot and no ranking signal flowed down. `onSelect` still runs
+          — preventDefault keeps the in-page drawer behaviour on desktop — but
+          middle-click, ⌘-click, and "open in new tab" now work too, and the
+          destination is in the markup either way. */}
+      <Link
+        href={reportHref}
+        onClick={(e) => {
+          // Let the browser handle modified clicks (new tab/window) natively.
+          if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button !== 0) {
+            return;
           }
+          e.preventDefault();
+          onSelect();
         }}
-        className="w-full text-left cursor-pointer transition-colors hover:bg-rc-surface focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-rc-brand"
+        className="block w-full text-left cursor-pointer transition-colors hover:bg-rc-surface focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-rc-brand"
       >
         <div className="px-3 pt-3 pb-2.5">
           {/* 1 · header */}
@@ -135,7 +143,7 @@ export default function SpotCard({
             </div>
           </div>
         </div>
-      </div>
+      </Link>
 
       {/* 5 · persistent footer (one step below the card surface) */}
       <div className="flex items-stretch border-t border-rc-rule bg-rc-surface">

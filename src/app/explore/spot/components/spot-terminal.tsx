@@ -132,16 +132,77 @@ function currentRow(
   return { v, scale, thr };
 }
 
-/** Local extremes (peaks/troughs) with hour + value. */
-function extremes(arr: (number | null)[]): { i: number; v: number; hi: boolean }[] {
-  const out: { i: number; v: number; hi: boolean }[] = [];
+/**
+ * An extreme must rise/fall at least this fraction of the series' own range to
+ * count as a real turn. 8% of a 7.5ft tide day ≈ 0.6ft — well under any true
+ * high/low, well over hourly-prediction wobble.
+ */
+const MIN_PROMINENCE = 0.08;
+
+type Extreme = { i: number; v: number; hi: boolean };
+
+/**
+ * Local extremes (peaks/troughs) with hour + value.
+ *
+ * Raw local-max/min detection is not enough. A broad tide peak wobbles at the
+ * top — 9.24 → 9.15 → 9.10 → 9.14 on real hourly data — and each ~0.1ft jitter
+ * registers as a genuine low then high, so one evening high drew three stacked
+ * "H 9.2ft / L / H" annotations. Note they ALTERNATE, so collapsing
+ * same-kind neighbours doesn't help; the filter has to be prominence.
+ *
+ * Least-prominent-pair-first removal: repeatedly drop the adjacent pair whose
+ * values differ by less than MIN_PROMINENCE of the range (both members — an
+ * adjacent low/high that barely differ are the same wobble), then merge any
+ * same-kind neighbours left behind, keeping the true extreme. Whether the
+ * wobble appears at all depends on the station's curve, which is why one spot
+ * showed it and its neighbour didn't.
+ */
+function extremes(arr: (number | null)[]): Extreme[] {
+  const raw: Extreme[] = [];
   for (let i = 1; i < arr.length - 1; i++) {
     const p = num(arr[i - 1]), c = num(arr[i]), nx = num(arr[i + 1]);
     if (p == null || c == null || nx == null) continue;
-    if (c > p && c >= nx) out.push({ i, v: c, hi: true });
-    else if (c < p && c <= nx) out.push({ i, v: c, hi: false });
+    if (c > p && c >= nx) raw.push({ i, v: c, hi: true });
+    else if (c < p && c <= nx) raw.push({ i, v: c, hi: false });
   }
-  return out;
+  if (raw.length < 2) return raw;
+
+  const vals = arr.map(num).filter((v): v is number => v != null);
+  const range = Math.max(...vals) - Math.min(...vals);
+  if (!(range > 0)) return raw;
+  const minDelta = range * MIN_PROMINENCE;
+
+  let ex = raw;
+  while (ex.length >= 2) {
+    // Prominence of each turn = the smaller of its rise and its fall. Drop the
+    // weakest one at a time, NOT both sides of a weak pair: when the wobble sits
+    // at the end of the day, the pair is (real high, jitter low) and removing
+    // both throws away the day's actual high tide.
+    let worst = -1;
+    let worstProm = Infinity;
+    for (let i = 0; i < ex.length; i++) {
+      const dPrev = i > 0 ? Math.abs(ex[i].v - ex[i - 1].v) : Infinity;
+      const dNext = i < ex.length - 1 ? Math.abs(ex[i].v - ex[i + 1].v) : Infinity;
+      const prom = Math.min(dPrev, dNext);
+      // `<=` so ties resolve to the LATER extreme — a trailing wobble is the
+      // artefact; the earlier turn is the one anglers are reading.
+      if (prom <= worstProm) { worstProm = prom; worst = i; }
+    }
+    if (worst < 0 || worstProm >= minDelta) break;
+    ex = ex.filter((_, i) => i !== worst);
+    // Removing one can leave two same-kind extremes adjacent; keep the real one.
+    const merged: Extreme[] = [];
+    for (const e of ex) {
+      const last = merged[merged.length - 1];
+      if (last && last.hi === e.hi) {
+        if (e.hi ? e.v > last.v : e.v < last.v) merged[merged.length - 1] = e;
+        continue;
+      }
+      merged.push(e);
+    }
+    ex = merged;
+  }
+  return ex;
 }
 
 type Dims = { w: number; LABEL: number; READ: number; mobile: boolean; id: string };

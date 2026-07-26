@@ -1,8 +1,8 @@
 import type { Metadata } from 'next';
+import { DEFAULT_OG, SITE_URL } from '@/lib/site';
 import Link from 'next/link';
 import AboutTabs from './about-tabs';
 
-const SITE_URL = 'https://reelcaster.com';
 
 export const metadata: Metadata = {
   title: 'About ReelCaster | BC Fishing Forecasts',
@@ -16,6 +16,7 @@ export const metadata: Metadata = {
     url: `${SITE_URL}/about`,
     siteName: 'ReelCaster',
     type: 'website',
+    ...DEFAULT_OG,
     locale: 'en_CA',
   },
   robots: { index: true, follow: true },

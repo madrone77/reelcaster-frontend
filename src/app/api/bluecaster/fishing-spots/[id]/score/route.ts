@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { fetchSpotScore } from "@/lib/bluecaster";
+import { getUserIdFromRequest } from "@/lib/server-auth";
 
 /**
  * GET /api/bluecaster/fishing-spots/[id]/score?species=<id>&days=<N>
@@ -23,7 +24,10 @@ export async function GET(
   }
   const days = Math.max(1, Math.min(14, Number(sp.get("days")) || 1));
   try {
-    const data = await fetchSpotScore(id, species, days);
+    // Owner of a private custom spot must be able to read their own factors;
+    // BlueCaster's visibility gate 404s this otherwise.
+    const viewerId = await getUserIdFromRequest(request);
+    const data = await fetchSpotScore(id, species, days, viewerId ?? undefined);
     if (!data) return NextResponse.json({ error: "not_found" }, { status: 404 });
     return NextResponse.json(data, {
       headers: { "Cache-Control": "no-store, max-age=0" },

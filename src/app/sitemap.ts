@@ -1,8 +1,7 @@
 import { fetchHierarchy, fetchMapSpots } from "@/lib/bluecaster";
 import { COVERED_PROVINCES } from "@/lib/regions";
+import { siteUrl } from "@/lib/site";
 import { getFishingProvince } from "./fishing/lib/fishing-data";
-
-const SITE = "https://reelcaster.com";
 
 // Same extent /explore fetches (BC + WA + OR) — keeps the sitemap's spot
 // list identical to what the explore surface actually renders.
@@ -10,25 +9,39 @@ const COVERED_BBOX_ALL = "-139.06,41.99,-114.03,60";
 
 type SitemapEntry = {
   url: string;
+  lastModified: Date;
   changeFrequency: "daily" | "weekly" | "monthly" | "yearly";
   priority: number;
 };
 
-const STATIC_ENTRIES: SitemapEntry[] = [
-  { url: `${SITE}/`, changeFrequency: "weekly", priority: 1.0 },
-  { url: `${SITE}/explore`, changeFrequency: "daily", priority: 0.9 },
+// `lastModified` is the only one of the three optional fields Google actually
+// consumes — it drives recrawl scheduling. `changeFrequency`/`priority` are
+// ignored by Google but still read by Bing, so they stay.
+//
+// Scored surfaces genuinely change on every scoring run, so "now" is honest for
+// them. Static pages get the build time, which is the last moment their copy
+// could have changed.
+const BUILD_TIME = new Date();
+
+const STATIC_ENTRIES: Omit<SitemapEntry, "lastModified">[] = [
+  { url: siteUrl("/"), changeFrequency: "weekly", priority: 1.0 },
+  { url: siteUrl("/explore"), changeFrequency: "daily", priority: 0.9 },
   // /pricing 308s to /plans (see next.config.ts) — a sitemap must list the
   // destination, never the redirect.
-  { url: `${SITE}/plans`, changeFrequency: "monthly", priority: 0.6 },
-  { url: `${SITE}/about`, changeFrequency: "monthly", priority: 0.5 },
-  { url: `${SITE}/faq`, changeFrequency: "monthly", priority: 0.5 },
-  { url: `${SITE}/contact`, changeFrequency: "monthly", priority: 0.4 },
-  { url: `${SITE}/privacy`, changeFrequency: "yearly", priority: 0.3 },
-  { url: `${SITE}/terms`, changeFrequency: "yearly", priority: 0.3 },
+  { url: siteUrl("/plans"), changeFrequency: "monthly", priority: 0.6 },
+  { url: siteUrl("/about"), changeFrequency: "monthly", priority: 0.5 },
+  { url: siteUrl("/faq"), changeFrequency: "monthly", priority: 0.5 },
+  { url: siteUrl("/contact"), changeFrequency: "monthly", priority: 0.4 },
+  { url: siteUrl("/privacy"), changeFrequency: "yearly", priority: 0.3 },
+  { url: siteUrl("/terms"), changeFrequency: "yearly", priority: 0.3 },
 ];
 
 export default async function sitemap(): Promise<SitemapEntry[]> {
-  const entries = [...STATIC_ENTRIES];
+  const now = new Date();
+  const entries: SitemapEntry[] = STATIC_ENTRIES.map((e) => ({
+    ...e,
+    lastModified: BUILD_TIME,
+  }));
 
   // /fishing directory — province indexes + city explorers, derived from
   // the same lifecycle-gated hierarchy those pages render, so the sitemap
@@ -38,11 +51,17 @@ export default async function sitemap(): Promise<SitemapEntry[]> {
     for (const code of COVERED_PROVINCES) {
       const province = getFishingProvince(hierarchy, code);
       if (!province || province.cities.length === 0) continue;
-      const provPath = `${SITE}/fishing/${code.toLowerCase()}`;
-      entries.push({ url: provPath, changeFrequency: "weekly", priority: 0.8 });
+      const provPath = `/fishing/${code.toLowerCase()}`;
+      entries.push({
+        url: siteUrl(provPath),
+        lastModified: now,
+        changeFrequency: "weekly",
+        priority: 0.8,
+      });
       for (const city of province.cities) {
         entries.push({
-          url: `${provPath}/${city.slug}`,
+          url: siteUrl(`${provPath}/${city.slug}`),
+          lastModified: now,
           changeFrequency: "daily",
           priority: 0.8,
         });
@@ -61,7 +80,8 @@ export default async function sitemap(): Promise<SitemapEntry[]> {
     for (const spot of payload?.spots ?? []) {
       if (!spot.slug) continue;
       entries.push({
-        url: `${SITE}/explore/spot/${spot.slug}`,
+        url: siteUrl(`/explore/spot/${spot.slug}`),
+        lastModified: now,
         changeFrequency: "daily",
         priority: 0.7,
       });

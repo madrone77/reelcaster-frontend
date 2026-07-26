@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { fetchSpotSnapshot } from "@/lib/bluecaster";
+import { getUserIdFromRequest } from "@/lib/server-auth";
 
 export const maxDuration = 30;
 
@@ -23,7 +24,10 @@ export async function GET(
     );
   }
   try {
-    const data = await fetchSpotSnapshot(id, datetime);
+    // Logging a catch AT a private custom spot needs the owner forwarded, or
+    // BlueCaster's visibility gate 404s the snapshot.
+    const viewerId = await getUserIdFromRequest(request);
+    const data = await fetchSpotSnapshot(id, datetime, viewerId ?? undefined);
     if (!data) return NextResponse.json({ error: "snapshot_failed" }, { status: 502 });
     return NextResponse.json(data, {
       headers: { "Cache-Control": "no-store" },
