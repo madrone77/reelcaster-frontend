@@ -4,7 +4,6 @@ import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, 
 import Map, {
   Source,
   Layer,
-  Marker,
   NavigationControl,
   AttributionControl,
   type MapRef,
@@ -27,6 +26,9 @@ import { useCurrentsFlow } from "../lib/use-currents-flow";
 const SOURCE_ID = "bc-spots";
 const SPOT_CIRCLE = "bc-spot-circle";
 const SPOT_LABEL = "bc-spot-label";
+// Brand-blue ring under a spot the viewer created — same cobalt as selection.
+const SPOT_CUSTOM_RING = "bc-spot-custom-ring";
+const BRAND_HEX = SELECT_HEX;
 // Relief-style layers (tide donuts + weather buoys). Spot circles are React
 // layers added after the style, so they render on top and win overlap clicks.
 const TIDE_STATION = "tide-station";
@@ -102,8 +104,6 @@ export default function ExploreMap({
   onViewportChange,
   pinDropMode = false,
   onMapPick,
-  customSpots = [],
-  onSelectCustomSpot,
 }: {
   mapRef: RefObject<MapRef | null>;
   spots: RailSpot[];
@@ -114,9 +114,6 @@ export default function ExploreMap({
    *  selecting features — the "create custom spot" placement mode. */
   pinDropMode?: boolean;
   onMapPick?: (coords: { lat: number; lng: number }) => void;
-  /** The signed-in user's own custom spots, drawn as distinct DOM markers. */
-  customSpots?: CustomSpotPin[];
-  onSelectCustomSpot?: (pin: CustomSpotPin) => void;
   /** Fired on load + every moveend with the visible bounds and centre —
    *  drives the viewport-scoped rail, strip and pill label. */
   onViewportChange?: (
@@ -220,11 +217,8 @@ export default function ExploreMap({
     [],
   );
 
-  // Custom spots are in `spots` so they rank in the rail, but they're drawn as
-  // their own lock/globe markers below — keep them out of the GL pin source or
-  // each one renders twice, a score bubble underneath its own marker.
   const data = useMemo(
-    () => spotsToFeatureCollection(spots.filter((s) => !s.isCustom), hour),
+    () => spotsToFeatureCollection(spots, hour),
     [spots, hour],
   );
 
@@ -267,6 +261,25 @@ export default function ExploreMap({
       "circle-opacity": expr(["get", "opacity"]),
       "circle-stroke-width": expr(strokeWidth),
       "circle-stroke-color": expr(strokeColor),
+    },
+  };
+
+  // Your own spots read as a normal scored puck — same score colour, same white
+  // stroke — with a brand-blue ring outside it. Drawn as a separate circle
+  // UNDER the puck (a circle can only carry one stroke), sized so the blue sits
+  // just beyond the white: radius+3 against the puck's own +1.5/3 stroke.
+  const customRingLayer: LayerProps = {
+    id: SPOT_CUSTOM_RING,
+    type: "circle",
+    filter: expr(["all", declutterFilter, ["==", ["get", "isCustom"], 1]]),
+    paint: {
+      // The puck's stops (11 / 14 / 16) each +3. Written out rather than
+      // computed with ["+", …]: MapLibre requires `zoom` to be the top-level
+      // input of an interpolate, and rejects the whole layer otherwise —
+      // silently, leaving the puck ringless.
+      "circle-radius": expr(["interpolate", ["linear"], ["zoom"], 8, 14, 12, 17, 15, 19]),
+      "circle-color": BRAND_HEX,
+      "circle-opacity": expr(["get", "opacity"]),
     },
   };
 
@@ -394,52 +407,12 @@ export default function ExploreMap({
         )}
 
         <Source id={SOURCE_ID} type="geojson" data={data}>
+          {/* Ring first — it must sit UNDER the puck it outlines. */}
+          <Layer {...customRingLayer} />
           <Layer {...spotCircleLayer} />
           <Layer {...spotLabelLayer} />
         </Source>
 
-        {/* The signed-in user's own custom spots — distinct DOM markers so
-            they read as "yours", separate from the curated GL pins. */}
-        {customSpots.map((pin) => (
-          <Marker
-            key={pin.id}
-            latitude={pin.lat}
-            longitude={pin.lng}
-            anchor="bottom"
-            onClick={(ev) => {
-              ev.originalEvent.stopPropagation();
-              onSelectCustomSpot?.(pin);
-            }}
-          >
-            <div
-              title={pin.name}
-              className="flex flex-col items-center"
-              style={{ cursor: "pointer" }}
-            >
-              <div
-                className="flex items-center justify-center rounded-full text-white shadow-md"
-                style={{
-                  width: 20,
-                  height: 20,
-                  background: "#1F40E0",
-                  border: "2px solid white",
-                }}
-              >
-                {pin.visibility === "private" ? (
-                  <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3">
-                    <rect x="5" y="11" width="14" height="10" rx="2" />
-                    <path d="M8 11V7a4 4 0 0 1 8 0v4" />
-                  </svg>
-                ) : (
-                  <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3">
-                    <circle cx="12" cy="12" r="9" />
-                    <path d="M3 12h18M12 3a15 15 0 0 1 0 18M12 3a15 15 0 0 0 0 18" />
-                  </svg>
-                )}
-              </div>
-            </div>
-          </Marker>
-        ))}
       </Map>
 
       {/* Brand watermark — bottom-right corner, with the ⓘ acknowledgments
