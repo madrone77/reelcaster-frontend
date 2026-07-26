@@ -2,34 +2,87 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Map, NotebookPen, Heart, User } from "lucide-react";
+import { useEffect, useState } from "react";
+import { Map, NotebookPen, Heart, MoreHorizontal, ChevronRight } from "lucide-react";
 
 const TABS = [
   { href: "/explore", label: "Explore", Icon: Map },
-  { href: "/catches", label: "Catches", Icon: NotebookPen },
-  { href: "/favorites", label: "Favorites", Icon: Heart },
-  { href: "/profile", label: "Account", Icon: User },
+  { href: "/catches", label: "Log", Icon: NotebookPen },
+  { href: "/favorites", label: "Favs", Icon: Heart },
+] as const;
+
+// The "More" tab opens a sheet with the secondary destinations instead of
+// linking somewhere directly.
+const MORE_LINKS = [
+  { href: "/profile", label: "Profile" },
+  { href: "/pricing", label: "Pricing" },
+  { href: "/about", label: "About" },
+  { href: "/faq", label: "FAQ" },
+  { href: "/contact", label: "Contact" },
+  { href: "/terms", label: "Terms" },
+  { href: "/privacy", label: "Privacy" },
 ] as const;
 
 /**
  * Mobile bottom tab bar (Zillow-style, floating) — a rounded pill detached from
  * the screen edges, hovering above the content with a soft shadow, on phones
  * and tablets; hidden on desktop (the rail + top bar own that layout). Four
- * tabs: Explore, Catches, Favorites, Account. Active tab reads brand; the rest
- * are muted. Renders a matching-height spacer in flow so page content can
- * scroll clear of the floating bar. Shows on every page — marketing, auth, and
- * the coming-soon wall included.
+ * tabs: Explore, Log, Favs, and More (which opens a sheet of secondary links).
+ * Active tab reads brand; the rest are muted. Renders a matching-height spacer
+ * in flow so page content can scroll clear of the floating bar. Shows on every
+ * page — marketing, auth, and the coming-soon wall included.
  */
 export default function MobileBottomNav() {
   const pathname = usePathname();
+  const [moreOpen, setMoreOpen] = useState(false);
 
   const isActive = (href: string) =>
     pathname === href || pathname.startsWith(`${href}/`);
+
+  // Close the More sheet whenever the route changes.
+  useEffect(() => {
+    setMoreOpen(false);
+  }, [pathname]);
+
+  const moreActive =
+    moreOpen || MORE_LINKS.some((l) => isActive(l.href));
 
   return (
     <>
       {/* Reserve scroll space so content clears the floating bar. */}
       <div className="lg:hidden h-[calc(5.5rem+env(safe-area-inset-bottom))]" />
+
+      {/* More sheet + backdrop. */}
+      {moreOpen && (
+        <>
+          <button
+            type="button"
+            aria-label="Close menu"
+            onClick={() => setMoreOpen(false)}
+            className="lg:hidden fixed inset-0 z-40 bg-rc-ink/25"
+          />
+          <div className="lg:hidden fixed inset-x-0 z-50 px-4 bottom-[calc(5.75rem+env(safe-area-inset-bottom))]">
+            <div className="mx-auto max-w-md overflow-hidden rounded-2xl border border-rc-rule bg-rc-panel shadow-[0_6px_24px_rgba(15,23,42,0.18)]">
+              {MORE_LINKS.map(({ href, label }) => (
+                <Link
+                  key={href}
+                  href={href}
+                  onClick={() => setMoreOpen(false)}
+                  className={`flex items-center justify-between border-b border-rc-rule px-4 py-3 text-sm transition-colors last:border-0 hover:bg-rc-surface ${
+                    isActive(href)
+                      ? "font-semibold text-rc-brand"
+                      : "text-rc-ink"
+                  }`}
+                >
+                  {label}
+                  <ChevronRight className="h-4 w-4 text-rc-ink-mute" />
+                </Link>
+              ))}
+            </div>
+          </div>
+        </>
+      )}
+
       {/* Outer strip is click-through (pointer-events-none) so the transparent
           margins beside the pill don't swallow taps on the content behind. */}
       <nav
@@ -50,7 +103,7 @@ export default function MobileBottomNav() {
               >
                 <Icon
                   className="w-5 h-5"
-                  fill={active && label === "Favorites" ? "currentColor" : "none"}
+                  fill={active && href === "/favorites" ? "currentColor" : "none"}
                   strokeWidth={active ? 2.4 : 2}
                 />
                 <span className="text-[10px] font-medium tracking-[0.01em]">
@@ -59,6 +112,23 @@ export default function MobileBottomNav() {
               </Link>
             );
           })}
+
+          {/* More — opens the sheet rather than navigating. */}
+          <button
+            type="button"
+            onClick={() => setMoreOpen((v) => !v)}
+            aria-haspopup="menu"
+            aria-expanded={moreOpen}
+            className={`flex flex-col items-center justify-center gap-0.5 transition-colors ${
+              moreActive ? "text-rc-brand" : "text-rc-ink-mute hover:text-rc-ink"
+            }`}
+          >
+            <MoreHorizontal
+              className="w-5 h-5"
+              strokeWidth={moreActive ? 2.4 : 2}
+            />
+            <span className="text-[10px] font-medium tracking-[0.01em]">More</span>
+          </button>
         </div>
       </nav>
     </>
