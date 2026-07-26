@@ -19,6 +19,11 @@ import "maplibre-gl/dist/maplibre-gl.css";
 import type { RailSpot } from "../lib/explore-data";
 import { buildReliefStyle } from "@/lib/map/relief-style";
 import { attachRcaHatch } from "@/lib/map/rca-hatch";
+import {
+  attachSquarePuck,
+  SQUARE_PUCK_IMAGE_ID,
+  SQUARE_PUCK_SIZE,
+} from "@/lib/map/square-puck";
 import { MAP_CUSTOM_ATTRIBUTION, MapBrandLogo } from "@/lib/map/map-brand";
 import { spotsToFeatureCollection, declutterHiddenSlugs, SELECT_HEX } from "../lib/spot-geojson";
 import { useCurrentsFlow } from "../lib/use-currents-flow";
@@ -26,15 +31,16 @@ import { useCurrentsFlow } from "../lib/use-currents-flow";
 const SOURCE_ID = "bc-spots";
 const SPOT_CIRCLE = "bc-spot-circle";
 const SPOT_LABEL = "bc-spot-label";
-// Brand-blue ring under a spot the viewer created — same cobalt as selection.
-const SPOT_CUSTOM_RING = "bc-spot-custom-ring";
-const BRAND_HEX = SELECT_HEX;
+// Square puck for a spot the viewer created — same size/colour as the circles,
+// differing only in shape.
+const SPOT_CUSTOM_SQUARE = "bc-spot-custom-square";
 // Relief-style layers (tide donuts + weather buoys). Spot circles are React
 // layers added after the style, so they render on top and win overlap clicks.
 const TIDE_STATION = "tide-station";
 const BUOY_MARKER = "buoy-marker";
 
-const INTERACTIVE = [SPOT_CIRCLE, TIDE_STATION, BUOY_MARKER];
+// Both spot shapes must be interactive — the square is a spot, not decoration.
+const INTERACTIVE = [SPOT_CIRCLE, SPOT_CUSTOM_SQUARE, TIDE_STATION, BUOY_MARKER];
 
 /** A clicked tide-station donut or weather-buoy marker. */
 export interface StationPick {
@@ -249,12 +255,14 @@ export default function ExploreMap({
     1.5,
   ];
 
-  // One circle layer for every spot (scored colors + opacity baked into props;
-  // unscored = muted zinc dot at 0.6). Radius zoom-interpolated (11→14→16).
+  // One circle layer for every CURATED spot (scored colors + opacity baked into
+  // props; unscored = muted zinc dot at 0.6). Radius zoom-interpolated
+  // (11→14→16). The viewer's own spots are excluded here and drawn as squares
+  // by the layer below — without the exclusion each would render as both.
   const spotCircleLayer: LayerProps = {
     id: SPOT_CIRCLE,
     type: "circle",
-    filter: declutterFilter,
+    filter: expr(["all", declutterFilter, ["==", ["get", "isCustom"], 0]]),
     paint: {
       "circle-radius": expr(["interpolate", ["linear"], ["zoom"], 8, 11, 12, 14, 15, 16]),
       "circle-color": expr(["get", "color"]),
@@ -264,22 +272,39 @@ export default function ExploreMap({
     },
   };
 
-  // Your own spots read as a normal scored puck — same score colour, same white
-  // stroke — with a brand-blue ring outside it. Drawn as a separate circle
-  // UNDER the puck (a circle can only carry one stroke), sized so the blue sits
-  // just beyond the white: radius+3 against the puck's own +1.5/3 stroke.
-  const customRingLayer: LayerProps = {
-    id: SPOT_CUSTOM_RING,
-    type: "circle",
+  // The viewer's OWN spots: identical puck — score colour, white stroke, score
+  // numeral — but SQUARE. Shape is the only difference because colour is
+  // already carrying score, and cobalt already means "selected" here.
+  //
+  // MapLibre has no square primitive, so this is an SDF symbol (see
+  // lib/map/square-puck.ts): `icon-color` applies the same score ramp the
+  // circles use and `icon-halo-*` gives it the same white/selected stroke.
+  //
+  // icon-size is a ratio of the drawn image, so the stops are
+  // circle-diameter ÷ image size — matching the circles' 11/14/16 radii
+  // exactly, which is what "same size as the circles" requires.
+  const customSquareLayer: LayerProps = {
+    id: SPOT_CUSTOM_SQUARE,
+    type: "symbol",
     filter: expr(["all", declutterFilter, ["==", ["get", "isCustom"], 1]]),
+    layout: {
+      "icon-image": SQUARE_PUCK_IMAGE_ID,
+      "icon-size": expr([
+        "interpolate",
+        ["linear"],
+        ["zoom"],
+        8, (11 * 2) / SQUARE_PUCK_SIZE,
+        12, (14 * 2) / SQUARE_PUCK_SIZE,
+        15, (16 * 2) / SQUARE_PUCK_SIZE,
+      ]),
+      "icon-allow-overlap": true,
+      "icon-ignore-placement": true,
+    },
     paint: {
-      // The puck's stops (11 / 14 / 16) each +3. Written out rather than
-      // computed with ["+", …]: MapLibre requires `zoom` to be the top-level
-      // input of an interpolate, and rejects the whole layer otherwise —
-      // silently, leaving the puck ringless.
-      "circle-radius": expr(["interpolate", ["linear"], ["zoom"], 8, 14, 12, 17, 15, 19]),
-      "circle-color": BRAND_HEX,
-      "circle-opacity": expr(["get", "opacity"]),
+      "icon-color": expr(["get", "color"]),
+      "icon-opacity": expr(["get", "opacity"]),
+      "icon-halo-color": expr(strokeColor),
+      "icon-halo-width": expr(strokeWidth),
     },
   };
 
@@ -307,7 +332,7 @@ export default function ExploreMap({
       }
       const f = e.features?.[0];
       if (!f) return;
-      if (f.layer.id === SPOT_CIRCLE) {
+      if (f.layer.id === SPOT_CIRCLE || f.layer.id === SPOT_CUSTOM_SQUARE) {
         const slug = f.properties?.slug;
         if (slug) onSelect(slug as string);
         return;
@@ -371,6 +396,7 @@ export default function ExploreMap({
         onClick={handleClick}
         onLoad={(e) => {
           attachRcaHatch(e.target); // register RCA fill-pattern image (hatch)
+          attachSquarePuck(e.target); // register the custom-spot square (SDF icon)
           setMapObj(e.target);
           reportViewport(e.target);
         }}
@@ -407,9 +433,8 @@ export default function ExploreMap({
         )}
 
         <Source id={SOURCE_ID} type="geojson" data={data}>
-          {/* Ring first — it must sit UNDER the puck it outlines. */}
-          <Layer {...customRingLayer} />
           <Layer {...spotCircleLayer} />
+          <Layer {...customSquareLayer} />
           <Layer {...spotLabelLayer} />
         </Source>
 
