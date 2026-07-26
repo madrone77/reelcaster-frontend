@@ -27,7 +27,7 @@ function shell(bodyHtml: string, preheader: string): string {
         ${bodyHtml}
         <tr><td style="padding-top:28px;border-top:1px solid ${RULE};color:${INK_MUTE};font-size:12px;line-height:18px;">
           ReelCaster · Manage or cancel your subscription anytime from
-          <a href="https://www.reelcaster.com/account" style="color:${BRAND};">your account</a>.
+          <a href="https://www.reelcaster.com/profile" style="color:${BRAND};">your account</a>.
         </td></tr>
       </table>
     </td></tr>
@@ -66,7 +66,7 @@ export function trialEndingEmail(params: {
           If Pro isn't for you, cancel before then and you won't be charged. Your account stays —
           you keep your spots, your catch log, and your 7-day forecast for free.
         </p>
-        <p style="margin:0 0 8px;">${button('https://www.reelcaster.com/account', 'Manage subscription')}</p>
+        <p style="margin:0 0 8px;">${button('https://www.reelcaster.com/profile', 'Manage subscription')}</p>
       </td></tr>`,
       `We'll charge ${params.amountLabel} on ${date} unless you cancel.`,
     ),
@@ -91,7 +91,7 @@ export function paymentFailedEmail(params: {
         <p style="margin:0 0 24px;font-size:15px;line-height:24px;color:${INK_SOFT};">
           Update your card and we'll retry automatically.
         </p>
-        <p style="margin:0 0 8px;">${button('https://www.reelcaster.com/account', 'Update payment method')}</p>
+        <p style="margin:0 0 8px;">${button('https://www.reelcaster.com/profile', 'Update payment method')}</p>
       </td></tr>`,
       `Pro stays on until ${date} — update your card to keep it.`,
     ),

@@ -3,6 +3,7 @@ import { createClient } from '@supabase/supabase-js';
 import { getStripe, appOrigin } from '@/lib/stripe';
 import { ANNUAL_PRICE_ID, resolveMonthlyPriceId, type PricingPlan } from '@/lib/pricing';
 import { TRIAL_DAYS, checkTrialEligibility } from '@/lib/trial';
+import { resolveEntitlement } from '@/lib/entitlement';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -178,23 +179,24 @@ export async function GET(request: NextRequest) {
   const url = new URL(request.url);
   const sessionId = url.searchParams.get('session_id');
 
-  const { data: settings } = await admin
-    .from('user_settings')
-    .select('subscription_tier, subscription_status, subscription_period_end')
-    .eq('user_id', user.id)
-    .maybeSingle();
+  const entitlement = await resolveEntitlement(admin, user.id);
 
-  const tier = settings?.subscription_tier ?? 'free';
-  const status = settings?.subscription_status ?? 'none';
-  const isActive =
-    (tier === 'pro_annual' || tier === 'pro_monthly') &&
-    (status === 'active' || status === 'trialing');
+  // /plans/checkout needs this BEFORE the customer clicks: a page that
+  // promises "7 days free" and then charges immediately is the exact thing
+  // the FTC negative-option rule is about. Repeat customers see plain paid
+  // terms instead — never an explanation of why.
+  const trialEligibility = await checkTrialEligibility(admin, user.id, user.email);
+  const annualAvailable = Boolean(ANNUAL_PRICE_ID);
 
   return NextResponse.json({
     session_id: sessionId,
-    tier,
-    status,
-    is_active: isActive,
-    period_end: settings?.subscription_period_end ?? null,
+    tier: entitlement.tier,
+    status: entitlement.status,
+    is_active: entitlement.isPro,
+    in_grace: entitlement.inGrace,
+    period_end: entitlement.periodEnd,
+    trial_available: annualAvailable && trialEligibility.eligible,
+    trial_days: TRIAL_DAYS,
+    annual_available: annualAvailable,
   });
 }

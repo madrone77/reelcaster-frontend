@@ -70,7 +70,7 @@ export function emailIdentityHash(email: string): string {
 export interface TrialEligibility {
   eligible: boolean;
   /** Why not — for logging and analytics, never shown to the customer. */
-  reason?: 'account_used_trial' | 'identity_used_trial';
+  reason?: 'account_used_trial' | 'identity_used_trial' | 'lookup_failed';
 }
 
 /**
@@ -84,23 +84,37 @@ export async function checkTrialEligibility(
   userId: string,
   email: string | null | undefined,
 ): Promise<TrialEligibility> {
-  const { data: settings } = await admin
+  // Fail CLOSED on lookup errors. An abuse guard that hands out a free week
+  // whenever its own query breaks is worse than no guard — a missing migration
+  // or a bad service key would silently open the gate for everyone. Withholding
+  // a trial costs one customer a discount; failing open costs the trial.
+  const { data: settings, error: settingsError } = await admin
     .from('user_settings')
     .select('has_used_trial')
     .eq('user_id', userId)
     .maybeSingle();
+
+  if (settingsError) {
+    console.error('[trial] eligibility lookup failed (user_settings)', settingsError);
+    return { eligible: false, reason: 'lookup_failed' };
+  }
 
   if (settings?.has_used_trial) {
     return { eligible: false, reason: 'account_used_trial' };
   }
 
   if (email) {
-    const { data: priorGrant } = await admin
+    const { data: priorGrant, error: grantError } = await admin
       .from('trial_grants')
       .select('id')
       .eq('email_hash', emailIdentityHash(email))
       .eq('outcome', 'granted')
       .maybeSingle();
+
+    if (grantError) {
+      console.error('[trial] eligibility lookup failed (trial_grants)', grantError);
+      return { eligible: false, reason: 'lookup_failed' };
+    }
 
     if (priorGrant) {
       return { eligible: false, reason: 'identity_used_trial' };

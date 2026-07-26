@@ -14,6 +14,10 @@ const PUBLIC_PREFIXES = [
   '/signup',
   '/auth/',
   '/pricing',
+  // The checkout funnel renders its own signed-out state with a sign-in link
+  // that preserves next=/plans/checkout. Bouncing to a bare /login here would
+  // drop the return path and lose the sale.
+  '/plans',
   '/explore',
   '/favorites',
   '/fishing',
