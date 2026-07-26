@@ -280,8 +280,9 @@ export default function StationDrawer({
       ]
     : [];
 
+  // Content-sized like the spot drawer — the rail caps it with max-height.
   return (
-    <div className="flex flex-col h-full">
+    <div className="flex flex-col min-h-0">
       {/* Header */}
       <div className="flex items-center gap-2 px-4 pt-4">
         <button
@@ -305,7 +306,7 @@ export default function StationDrawer({
         </button>
       </div>
 
-      <div className="flex-1 overflow-y-auto px-4 pb-4">
+      <div className="min-h-0 overflow-y-auto px-4 pb-4">
         <h2 className="rc-title-lg truncate mt-2">{name}</h2>
         <p className="font-rc-mono text-xs text-rc-ink-soft mt-1">
           {isTide
