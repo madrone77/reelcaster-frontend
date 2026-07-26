@@ -104,8 +104,21 @@ export default function PricingCard({
         },
         body: JSON.stringify({ plan, region, from: fromQuery }),
       });
-      const body = await res.json();
-      if (!res.ok) throw new Error(body.error ?? 'Checkout failed');
+      // Guard the parse — a crashed function can return an empty body, and
+      // "Unexpected end of JSON input" is not a message to show a customer.
+      let body: { url?: string; redirect?: string; error?: string } = {};
+      try {
+        body = await res.json();
+      } catch {
+        /* non-JSON error body */
+      }
+      if (!res.ok) {
+        throw new Error(
+          body.error === 'plan_unavailable'
+            ? `${plan === 'annual' ? 'Yearly' : 'Monthly'} billing isn't available right now — please try the ${plan === 'annual' ? 'monthly' : 'yearly'} plan or check back soon.`
+            : 'We couldn’t start checkout. Please try again in a moment.',
+        );
+      }
 
       if (body.redirect) {
         router.push(body.redirect);

@@ -60,61 +60,75 @@ export async function POST(request: NextRequest) {
   }
 
   const priceId = plan === 'annual' ? ANNUAL_PRICE_ID : resolveMonthlyPriceId();
-
-  // Look up an existing stripe_customer_id, or create the customer + row.
-  const { data: existingSettings } = await admin
-    .from('user_settings')
-    .select('stripe_customer_id')
-    .eq('user_id', user.id)
-    .maybeSingle();
-
-  let stripeCustomerId = existingSettings?.stripe_customer_id ?? null;
-  if (!stripeCustomerId) {
-    const customer = await stripe.customers.create({
-      email: user.email ?? undefined,
-      metadata: { supabase_user_id: user.id },
-    });
-    stripeCustomerId = customer.id;
-    await admin
-      .from('user_settings')
-      .upsert(
-        {
-          user_id: user.id,
-          stripe_customer_id: stripeCustomerId,
-          primary_region_slug: region || null,
-        },
-        { onConflict: 'user_id' },
-      );
-  } else if (region) {
-    await admin
-      .from('user_settings')
-      .update({ primary_region_slug: region })
-      .eq('user_id', user.id);
+  if (!priceId) {
+    // Annual has no Stripe price until STRIPE_ANNUAL_PRICE_ID is configured
+    // (see src/lib/pricing.ts). Fail with JSON rather than crashing on an
+    // empty line_items price, which surfaces as an unparseable 500 client-side.
+    console.error(`[stripe checkout] no price ID configured for plan "${plan}"`);
+    return NextResponse.json({ error: 'plan_unavailable', plan }, { status: 503 });
   }
 
-  const origin = appOrigin(request);
-  const session = await stripe.checkout.sessions.create({
-    mode: 'subscription',
-    customer: stripeCustomerId,
-    line_items: [{ price: priceId, quantity: 1 }],
-    allow_promotion_codes: true,
-    success_url: `${origin}/billing/success?session_id={CHECKOUT_SESSION_ID}`,
-    cancel_url: `${origin}/billing/cancel`,
-    metadata: {
-      supabase_user_id: user.id,
-      plan,
-      region: region || '',
-      from: body.from ?? '',
-    },
-    subscription_data: {
+  // Look up an existing stripe_customer_id, or create the customer + row.
+  try {
+    const { data: existingSettings } = await admin
+      .from('user_settings')
+      .select('stripe_customer_id')
+      .eq('user_id', user.id)
+      .maybeSingle();
+
+    let stripeCustomerId = existingSettings?.stripe_customer_id ?? null;
+    if (!stripeCustomerId) {
+      const customer = await stripe.customers.create({
+        email: user.email ?? undefined,
+        metadata: { supabase_user_id: user.id },
+      });
+      stripeCustomerId = customer.id;
+      await admin
+        .from('user_settings')
+        .upsert(
+          {
+            user_id: user.id,
+            stripe_customer_id: stripeCustomerId,
+            primary_region_slug: region || null,
+          },
+          { onConflict: 'user_id' },
+        );
+    } else if (region) {
+      await admin
+        .from('user_settings')
+        .update({ primary_region_slug: region })
+        .eq('user_id', user.id);
+    }
+
+    const origin = appOrigin(request);
+    const session = await stripe.checkout.sessions.create({
+      mode: 'subscription',
+      customer: stripeCustomerId,
+      line_items: [{ price: priceId, quantity: 1 }],
+      allow_promotion_codes: true,
+      success_url: `${origin}/billing/success?session_id={CHECKOUT_SESSION_ID}`,
+      cancel_url: `${origin}/billing/cancel`,
       metadata: {
         supabase_user_id: user.id,
         plan,
+        region: region || '',
+        from: body.from ?? '',
       },
-    },
-  });
+      subscription_data: {
+        metadata: {
+          supabase_user_id: user.id,
+          plan,
+        },
+      },
+    });
 
-  return NextResponse.json({ url: session.url, id: session.id });
+    return NextResponse.json({ url: session.url, id: session.id });
+  } catch (err) {
+    // A Stripe/database failure here otherwise escapes as a bodyless 500 the
+    // client can't JSON-parse. Log the real cause, return a stable shape.
+    console.error('[stripe checkout] failed to create session', err);
+    return NextResponse.json({ error: 'checkout_failed' }, { status: 502 });
+  }
 }
 
 /**
