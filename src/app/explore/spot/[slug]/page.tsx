@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
-import { notFound } from "next/navigation";
 import { fetchSpotLivePage } from "@/lib/bluecaster";
 import SpotDetailShell from "./spot-detail-shell";
+import OwnerSpotFallback from "./owner-spot-fallback";
 
 const SITE_URL = "https://reelcaster.com";
 
@@ -40,7 +40,12 @@ export async function generateMetadata({
 export default async function SpotDetailPage({ params }: PageProps) {
   const { slug } = await params;
   const page = await fetchSpotLivePage(slug);
-  if (!page) notFound();
+
+  // No server-side read doesn't mean "gone". A PRIVATE custom spot is 404 to
+  // the anonymous server render even for its owner, whose session lives in the
+  // browser as a Bearer token. Hand off to the client, which can prove who it
+  // is; a genuine miss renders "not found" there.
+  if (!page) return <OwnerSpotFallback slug={slug} />;
 
   return <SpotDetailShell page={page} slug={slug} />;
 }
