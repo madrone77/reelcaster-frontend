@@ -1,8 +1,8 @@
 import type { Metadata } from 'next';
+import { DEFAULT_OG, SITE_URL } from '@/lib/site';
 import Link from 'next/link';
 import { Mail, MessageCircle, AlertCircle, Newspaper } from 'lucide-react';
 
-const SITE_URL = 'https://reelcaster.com';
 const SUPPORT_EMAIL = 'support@reelcaster.com';
 
 export const metadata: Metadata = {
@@ -16,6 +16,7 @@ export const metadata: Metadata = {
     url: `${SITE_URL}/contact`,
     siteName: 'ReelCaster',
     type: 'website',
+    ...DEFAULT_OG,
     locale: 'en_CA',
   },
   robots: { index: true, follow: true },

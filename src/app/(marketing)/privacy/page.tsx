@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
+import { DEFAULT_OG, SITE_URL } from '@/lib/site';
 import Link from 'next/link';
 
-const SITE_URL = 'https://reelcaster.com';
 const LAST_UPDATED = 'May 1, 2026';
 
 export const metadata: Metadata = {
@@ -15,6 +15,7 @@ export const metadata: Metadata = {
     url: `${SITE_URL}/privacy`,
     siteName: 'ReelCaster',
     type: 'website',
+    ...DEFAULT_OG,
     locale: 'en_CA',
   },
   robots: { index: true, follow: true },
