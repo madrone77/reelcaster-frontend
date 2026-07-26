@@ -153,16 +153,28 @@ export async function fetchSpotPage(
 // returns the full 14-day extended grid (~65 KB) and is lazy-fetched from
 // the client component after first paint. Shape: see lib/bluecaster/live-spot-types.
 
+/**
+ * @param ownerUserId  A server-verified user id. BlueCaster 404s a PRIVATE
+ *   custom spot to everyone but its owner, so the owner's own page only
+ *   renders when we vouch for who is asking. Pass this ONLY after verifying
+ *   the session server-side (getUserIdFromRequest) — never from client input.
+ */
 export async function fetchSpotLivePage(
-  slug: string
+  slug: string,
+  ownerUserId?: string
 ): Promise<SpotPageInitial | null> {
   const baseUrl = process.env.BLUECASTER_API_URL;
   const apiKey = process.env.BLUECASTER_API_KEY;
   if (!baseUrl || !apiKey) throw new Error("BlueCaster env vars not set");
 
   const res = await fetch(`${baseUrl}/api/v1/spots/${slug}/spot-page`, {
-    headers: { "x-api-key": apiKey },
-    next: { revalidate: 60 },
+    headers: {
+      "x-api-key": apiKey,
+      ...(ownerUserId ? { "x-reelcaster-user-id": ownerUserId } : {}),
+    },
+    // An owner-scoped read is private to one user — never put it in the
+    // shared Data Cache, or the next anonymous visitor gets served it.
+    ...(ownerUserId ? { cache: "no-store" as const } : { next: { revalidate: 60 } }),
   });
   if (res.status === 404) return null;
   if (!res.ok) throw new Error(`BlueCaster API error: ${res.status}`);
