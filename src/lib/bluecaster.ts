@@ -153,16 +153,28 @@ export async function fetchSpotPage(
 // returns the full 14-day extended grid (~65 KB) and is lazy-fetched from
 // the client component after first paint. Shape: see lib/bluecaster/live-spot-types.
 
+/**
+ * @param ownerUserId  A server-verified user id. BlueCaster 404s a PRIVATE
+ *   custom spot to everyone but its owner, so the owner's own page only
+ *   renders when we vouch for who is asking. Pass this ONLY after verifying
+ *   the session server-side (getUserIdFromRequest) — never from client input.
+ */
 export async function fetchSpotLivePage(
-  slug: string
+  slug: string,
+  ownerUserId?: string
 ): Promise<SpotPageInitial | null> {
   const baseUrl = process.env.BLUECASTER_API_URL;
   const apiKey = process.env.BLUECASTER_API_KEY;
   if (!baseUrl || !apiKey) throw new Error("BlueCaster env vars not set");
 
   const res = await fetch(`${baseUrl}/api/v1/spots/${slug}/spot-page`, {
-    headers: { "x-api-key": apiKey },
-    next: { revalidate: 60 },
+    headers: {
+      "x-api-key": apiKey,
+      ...(ownerUserId ? { "x-reelcaster-user-id": ownerUserId } : {}),
+    },
+    // An owner-scoped read is private to one user — never put it in the
+    // shared Data Cache, or the next anonymous visitor gets served it.
+    ...(ownerUserId ? { cache: "no-store" as const } : { next: { revalidate: 60 } }),
   });
   if (res.status === 404) return null;
   if (!res.ok) throw new Error(`BlueCaster API error: ${res.status}`);
@@ -283,12 +295,25 @@ export async function fetchMapSpots(opts: {
   bbox?: string; // "w,s,e,n"
   city?: string;
   date?: string; // YYYY-MM-DD
+  /** Verified viewer — adds that angler's own custom spots to the payload. */
+  viewerId?: string;
 }): Promise<MapSpotsPayload | null> {
-  return bcGet<MapSpotsPayload>("/api/v1/map/spots", {
-    bbox: opts.bbox,
-    city: opts.city,
-    date: opts.date,
-  });
+  return bcGet<MapSpotsPayload>(
+    "/api/v1/map/spots",
+    {
+      bbox: opts.bbox,
+      city: opts.city,
+      date: opts.date,
+      // Distinct edge cache key for personalized reads. Vercel's CDN keys on
+      // the URL and ignores custom headers, so without this the signed-in
+      // caller is served whatever anonymous response is already cached for the
+      // same bbox — the origin never runs. Identity stays in the header; this
+      // is just a flag, so no user id ever lands in a URL or an access log.
+      viewer: opts.viewerId ? "1" : undefined,
+    },
+    300,
+    opts.viewerId,
+  );
 }
 
 // ── Viewport 14-day forecast (map/forecast-14d) ─────────────────────
@@ -563,6 +588,14 @@ async function bcGet<T>(
   path: string,
   query: Record<string, string | number | undefined> = {},
   revalidate = 300,
+  /**
+   * Server-verified viewer id. Widens the response to include that user's own
+   * private data (currently: their custom spots). MUST come from a verified
+   * session — never from client input. A viewer-scoped response bypasses the
+   * Data Cache; caching it would serve one angler's private spots to the next
+   * anonymous request for the same URL.
+   */
+  viewerId?: string,
 ): Promise<T | null> {
   const env = bcEnv();
   if (!env) return null;
@@ -572,8 +605,11 @@ async function bcGet<T>(
   }
   try {
     const res = await fetch(url.toString(), {
-      headers: { "x-api-key": env.apiKey },
-      next: { revalidate },
+      headers: {
+        "x-api-key": env.apiKey,
+        ...(viewerId ? { "x-reelcaster-user-id": viewerId } : {}),
+      },
+      ...(viewerId ? { cache: "no-store" as const } : { next: { revalidate } }),
     });
     if (res.status === 404) return null;
     if (!res.ok) return null;
@@ -782,22 +818,37 @@ export type CreateCustomSpotResult =
   | { ok: true; data: CreateCustomSpotResponse }
   | { ok: false; status: number; error: string; message?: string };
 
-/** Create a custom (user) spot — approved+active, score pending until the
- *  next batch scoring run. Upstream errors (e.g. 422 `outside_coverage`
- *  when the coordinates fall outside covered waters) are surfaced, not
- *  swallowed, so the UI can explain why the create was refused. */
-export async function createCustomSpot(input: {
-  name: string;
-  lat: number;
-  lng: number;
-}): Promise<CreateCustomSpotResult> {
+/** Create a custom (user) spot — owned by `user_id`, private by default,
+ *  approved+active with score pending until the next batch scoring run.
+ *  `species_ids` are the species the owner wants scored there. Upstream errors
+ *  (e.g. 422 `outside_coverage`, 403 `pro_required`) are surfaced, not
+ *  swallowed, so the UI can explain why the create was refused.
+ *
+ *  `accessToken` is the owner's Supabase JWT; forwarded to BlueCaster so its
+ *  user-scope binding can verify ownership once REELCASTER_REQUIRE_USER_JWT is
+ *  enforced (harmless while staged). */
+export async function createCustomSpot(
+  input: {
+    name: string;
+    lat: number;
+    lng: number;
+    user_id: string;
+    visibility?: "private" | "public";
+    species_ids?: string[];
+  },
+  accessToken?: string,
+): Promise<CreateCustomSpotResult> {
   const baseUrl = process.env.BLUECASTER_API_URL;
   const apiKey = process.env.BLUECASTER_API_KEY;
   if (!baseUrl || !apiKey) throw new Error("BlueCaster env vars not set");
 
   const res = await fetch(`${baseUrl}/api/v1/fishing-spots/custom`, {
     method: "POST",
-    headers: { "x-api-key": apiKey, "Content-Type": "application/json" },
+    headers: {
+      "x-api-key": apiKey,
+      "Content-Type": "application/json",
+      ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
+    },
     body: JSON.stringify(input),
     cache: "no-store",
   });
@@ -814,6 +865,48 @@ export async function createCustomSpot(input: {
     };
   }
   return { ok: true, data: (await res.json()) as CreateCustomSpotResponse };
+}
+
+export interface OwnedCustomSpot {
+  id: string;
+  name: string;
+  slug: string;
+  lat: number;
+  lng: number;
+  visibility: "private" | "public";
+  created_at: string;
+  best_species_id: string | null;
+  best_species_name: string | null;
+  score: number | null;
+  score_status: "scored" | "pending";
+}
+
+/** The user's own custom spots (both private and public) — powers the "your
+ *  spots" pins on the map + the dashboard. Owner-scoped: forwards the user's
+ *  Supabase JWT so BlueCaster returns only this user's rows. */
+export async function fetchMyCustomSpots(
+  userId: string,
+  accessToken: string,
+): Promise<OwnedCustomSpot[]> {
+  const baseUrl = process.env.BLUECASTER_API_URL;
+  const apiKey = process.env.BLUECASTER_API_KEY;
+  if (!baseUrl || !apiKey) throw new Error("BlueCaster env vars not set");
+
+  const res = await fetch(
+    `${baseUrl}/api/v1/anglers/${encodeURIComponent(userId)}/spots`,
+    {
+      headers: {
+        "x-api-key": apiKey,
+        Authorization: `Bearer ${accessToken}`,
+      },
+      cache: "no-store",
+    },
+  );
+  if (!res.ok) return [];
+  const body = (await res.json().catch(() => null)) as
+    | { spots?: OwnedCustomSpot[] }
+    | null;
+  return body?.spots ?? [];
 }
 
 /**

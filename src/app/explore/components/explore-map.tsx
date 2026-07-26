@@ -26,6 +26,9 @@ import { useCurrentsFlow } from "../lib/use-currents-flow";
 const SOURCE_ID = "bc-spots";
 const SPOT_CIRCLE = "bc-spot-circle";
 const SPOT_LABEL = "bc-spot-label";
+// Brand-blue ring under a spot the viewer created — same cobalt as selection.
+const SPOT_CUSTOM_RING = "bc-spot-custom-ring";
+const BRAND_HEX = SELECT_HEX;
 // Relief-style layers (tide donuts + weather buoys). Spot circles are React
 // layers added after the style, so they render on top and win overlap clicks.
 const TIDE_STATION = "tide-station";
@@ -41,6 +44,16 @@ export interface StationPick {
   name: string;
   lat: number;
   lng: number;
+}
+
+export interface CustomSpotPin {
+  id: string;
+  name: string;
+  lat: number;
+  lng: number;
+  visibility: "private" | "public";
+  /** Selecting a spot is slug-keyed (`?spot=`), so the marker needs one. */
+  slug?: string;
 }
 
 // Layer groups the toggles flip (relief style ids). Bathymetry = depth shading
@@ -89,12 +102,18 @@ export default function ExploreMap({
   stripVisible = false,
   wdfwRegs,
   onViewportChange,
+  pinDropMode = false,
+  onMapPick,
 }: {
   mapRef: RefObject<MapRef | null>;
   spots: RailSpot[];
   selectedSlug: string | null;
   onSelect: (slug: string) => void;
   onSelectStation: (pick: StationPick) => void;
+  /** When true, a bare map click drops a pin (returns lng/lat) instead of
+   *  selecting features — the "create custom spot" placement mode. */
+  pinDropMode?: boolean;
+  onMapPick?: (coords: { lat: number; lng: number }) => void;
   /** Fired on load + every moveend with the visible bounds and centre —
    *  drives the viewport-scoped rail, strip and pill label. */
   onViewportChange?: (
@@ -245,6 +264,25 @@ export default function ExploreMap({
     },
   };
 
+  // Your own spots read as a normal scored puck — same score colour, same white
+  // stroke — with a brand-blue ring outside it. Drawn as a separate circle
+  // UNDER the puck (a circle can only carry one stroke), sized so the blue sits
+  // just beyond the white: radius+3 against the puck's own +1.5/3 stroke.
+  const customRingLayer: LayerProps = {
+    id: SPOT_CUSTOM_RING,
+    type: "circle",
+    filter: expr(["all", declutterFilter, ["==", ["get", "isCustom"], 1]]),
+    paint: {
+      // The puck's stops (11 / 14 / 16) each +3. Written out rather than
+      // computed with ["+", …]: MapLibre requires `zoom` to be the top-level
+      // input of an interpolate, and rejects the whole layer otherwise —
+      // silently, leaving the puck ringless.
+      "circle-radius": expr(["interpolate", ["linear"], ["zoom"], 8, 14, 12, 17, 15, 19]),
+      "circle-color": BRAND_HEX,
+      "circle-opacity": expr(["get", "opacity"]),
+    },
+  };
+
   // Score numeral (or "·" for unscored), color from the feature (white / grey).
   const spotLabelLayer: LayerProps = {
     id: SPOT_LABEL,
@@ -262,6 +300,11 @@ export default function ExploreMap({
 
   const handleClick = useCallback(
     (e: MapLayerMouseEvent) => {
+      // Placement mode: any click drops the pin at the clicked coordinate.
+      if (pinDropMode) {
+        onMapPick?.({ lat: e.lngLat.lat, lng: e.lngLat.lng });
+        return;
+      }
       const f = e.features?.[0];
       if (!f) return;
       if (f.layer.id === SPOT_CIRCLE) {
@@ -291,7 +334,7 @@ export default function ExploreMap({
         });
       }
     },
-    [onSelect, onSelectStation],
+    [onSelect, onSelectStation, pinDropMode, onMapPick],
   );
 
   // Hover: pointer cursor + track the hovered spot so its stroke thickens.
@@ -324,7 +367,7 @@ export default function ExploreMap({
         minZoom={3.5}
         maxZoom={15}
         interactiveLayerIds={INTERACTIVE}
-        cursor={cursor}
+        cursor={pinDropMode ? "crosshair" : cursor}
         onClick={handleClick}
         onLoad={(e) => {
           attachRcaHatch(e.target); // register RCA fill-pattern image (hatch)
@@ -341,7 +384,7 @@ export default function ExploreMap({
         style={{ width: "100%", height: "100%" }}
         attributionControl={false}
       >
-        <NavigationControl position="top-right" showCompass={false} />
+        <NavigationControl position="bottom-right" showCompass={false} />
         <AttributionControl compact position="bottom-right" customAttribution={MAP_CUSTOM_ATTRIBUTION} />
 
         {OWM_KEY && (
@@ -364,9 +407,12 @@ export default function ExploreMap({
         )}
 
         <Source id={SOURCE_ID} type="geojson" data={data}>
+          {/* Ring first — it must sit UNDER the puck it outlines. */}
+          <Layer {...customRingLayer} />
           <Layer {...spotCircleLayer} />
           <Layer {...spotLabelLayer} />
         </Source>
+
       </Map>
 
       {/* Brand watermark — bottom-right corner, with the ⓘ acknowledgments

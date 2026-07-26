@@ -80,6 +80,13 @@ export interface RailSpot {
   hours24: (number | null)[];
   /** Per-species peak score (0–100) keyed by species id — powers the filter. */
   scoresBySpecies: Record<string, number>;
+  /**
+   * A spot this angler created. Ranks in the rail like any other spot, but is
+   * drawn on the map as its own lock/globe marker rather than a GL pin, so
+   * "mine" reads differently from "curated".
+   */
+  isCustom?: boolean;
+  visibility?: "private" | "public";
 }
 
 /** A species present in the loaded scores — populates the map filter dropdown. */
@@ -348,6 +355,51 @@ function deriveScoring(
  * preserved; only the score-bearing fields change. Spots absent from the
  * new payload go unscored.
  */
+/**
+ * Build rail spots for payload entries the base set doesn't have.
+ *
+ * The base set comes from the server render, which is anonymous — it can't
+ * include the viewer's own custom spots. When the client refetches map/spots
+ * with the session token, BlueCaster adds those spots to the payload; this
+ * turns them into RailSpots so they rank, filter, and open a card exactly like
+ * curated ones. Location metadata is borrowed from a known spot in the same
+ * city (the payload carries only `city_slug`).
+ */
+export function extraRailSpotsFromPayload(
+  base: RailSpot[],
+  payload: MapSpotsPayload,
+  isToday: boolean,
+  visibilityBySlug: Map<string, "private" | "public">,
+): RailSpot[] {
+  const known = new Set(base.map((s) => s.slug));
+  const cityMeta = new Map(base.map((s) => [s.citySlug, s]));
+  const nowHour = currentLocalHour(payload.tz);
+
+  return payload.spots
+    .filter((entry) => !known.has(entry.slug))
+    .map((entry) => {
+      const citySlug = entry.city_slug ?? "";
+      const near = cityMeta.get(citySlug);
+      const s = deriveScoring(entry, payload.species, isToday ? nowHour : -1);
+      return {
+        id: entry.id,
+        slug: entry.slug,
+        name: entry.name,
+        lat: entry.lat,
+        lng: entry.lng,
+        citySlug,
+        cityName: near?.cityName ?? "",
+        regionSlug: near?.regionSlug ?? "",
+        regionName: near?.regionName ?? "",
+        provinceCode: near?.provinceCode ?? "",
+        distanceKm: null,
+        isCustom: true,
+        visibility: visibilityBySlug.get(entry.slug) ?? "private",
+        ...s,
+      } satisfies RailSpot;
+    });
+}
+
 export function rescoreSpots(
   base: RailSpot[],
   payload: MapSpotsPayload,
