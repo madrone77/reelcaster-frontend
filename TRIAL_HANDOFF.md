@@ -95,9 +95,27 @@ Existing subscribed events stay as they are.
 
 ---
 
-## Task 4b — The checkout page
+## Task 4b — The sales + checkout pages
 
-`/plans/checkout` is the pre-checkout order summary that hands off to Stripe.
+`/plans` is the sales page and `/plans/checkout` is the order summary. Both are
+built and committed, and both **degrade honestly while the annual Price is
+missing**: `/plans` drops all trial language and sells the monthly plan,
+`/plans/checkout` shows paid terms. Once Tasks 1–3 are done they start selling
+the trial on their own — no code change needed.
+
+Two follow-ups that are decisions, not bugs:
+
+- **Nothing links to `/plans` yet.** The header's "Start free trial" button
+  goes to `/signup` and the footer's "Pro pricing" goes to `/pricing`. Pointing
+  one or both at `/plans` is a funnel call worth making deliberately.
+- **`/pricing` and `/plans` are both indexable** and sell the same thing, which
+  splits SEO signal. `/plans` is the stronger page; the tidy fix is a permanent
+  redirect `/pricing → /plans`, keeping `/pricing?plan=monthly` working since
+  the monthly checkout flow and the billing emails point there.
+
+
+
+`/plans/checkout` specifics:
 It's built and committed. Two things to know:
 
 - It reads trial eligibility from `GET /api/stripe/checkout` **before** drawing
