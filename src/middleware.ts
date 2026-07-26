@@ -10,7 +10,8 @@ import { NextResponse, type NextRequest } from 'next/server'
 // `/billing` (Stripe checkout success/cancel + portal return), `/profile`,
 // and `/alerts` are account surfaces the paid funnel + nav depend on.
 // `/fishing` is the public province/city SEO directory.
-const ALLOW_PREFIXES = ['/', '/coming-soon', '/api', '/auth', '/login', '/signup', '/explore', '/fishing', '/pricing', '/log-catch', '/catches', '/notifications', '/privacy', '/terms', '/contact', '/about', '/faq', '/billing', '/profile', '/alerts', '/favorites']
+// `/dashboard` is the logged-in landing (post-login redirect target).
+const ALLOW_PREFIXES = ['/', '/coming-soon', '/api', '/auth', '/login', '/signup', '/explore', '/fishing', '/pricing', '/log-catch', '/catches', '/notifications', '/privacy', '/terms', '/contact', '/about', '/faq', '/billing', '/profile', '/alerts', '/favorites', '/dashboard']
 
 export function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl

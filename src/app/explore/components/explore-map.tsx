@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, 
 import Map, {
   Source,
   Layer,
+  Marker,
   NavigationControl,
   AttributionControl,
   type MapRef,
@@ -41,6 +42,14 @@ export interface StationPick {
   name: string;
   lat: number;
   lng: number;
+}
+
+export interface CustomSpotPin {
+  id: string;
+  name: string;
+  lat: number;
+  lng: number;
+  visibility: "private" | "public";
 }
 
 // Layer groups the toggles flip (relief style ids). Bathymetry = depth shading
@@ -89,12 +98,23 @@ export default function ExploreMap({
   stripVisible = false,
   wdfwRegs,
   onViewportChange,
+  pinDropMode = false,
+  onMapPick,
+  customSpots = [],
+  onSelectCustomSpot,
 }: {
   mapRef: RefObject<MapRef | null>;
   spots: RailSpot[];
   selectedSlug: string | null;
   onSelect: (slug: string) => void;
   onSelectStation: (pick: StationPick) => void;
+  /** When true, a bare map click drops a pin (returns lng/lat) instead of
+   *  selecting features — the "create custom spot" placement mode. */
+  pinDropMode?: boolean;
+  onMapPick?: (coords: { lat: number; lng: number }) => void;
+  /** The signed-in user's own custom spots, drawn as distinct DOM markers. */
+  customSpots?: CustomSpotPin[];
+  onSelectCustomSpot?: (pin: CustomSpotPin) => void;
   /** Fired on load + every moveend with the visible bounds and centre —
    *  drives the viewport-scoped rail, strip and pill label. */
   onViewportChange?: (
@@ -262,6 +282,11 @@ export default function ExploreMap({
 
   const handleClick = useCallback(
     (e: MapLayerMouseEvent) => {
+      // Placement mode: any click drops the pin at the clicked coordinate.
+      if (pinDropMode) {
+        onMapPick?.({ lat: e.lngLat.lat, lng: e.lngLat.lng });
+        return;
+      }
       const f = e.features?.[0];
       if (!f) return;
       if (f.layer.id === SPOT_CIRCLE) {
@@ -291,7 +316,7 @@ export default function ExploreMap({
         });
       }
     },
-    [onSelect, onSelectStation],
+    [onSelect, onSelectStation, pinDropMode, onMapPick],
   );
 
   // Hover: pointer cursor + track the hovered spot so its stroke thickens.
@@ -324,7 +349,7 @@ export default function ExploreMap({
         minZoom={3.5}
         maxZoom={15}
         interactiveLayerIds={INTERACTIVE}
-        cursor={cursor}
+        cursor={pinDropMode ? "crosshair" : cursor}
         onClick={handleClick}
         onLoad={(e) => {
           attachRcaHatch(e.target); // register RCA fill-pattern image (hatch)
@@ -341,7 +366,7 @@ export default function ExploreMap({
         style={{ width: "100%", height: "100%" }}
         attributionControl={false}
       >
-        <NavigationControl position="top-right" showCompass={false} />
+        <NavigationControl position="bottom-right" showCompass={false} />
         <AttributionControl compact position="bottom-right" customAttribution={MAP_CUSTOM_ATTRIBUTION} />
 
         {OWM_KEY && (
@@ -367,6 +392,49 @@ export default function ExploreMap({
           <Layer {...spotCircleLayer} />
           <Layer {...spotLabelLayer} />
         </Source>
+
+        {/* The signed-in user's own custom spots — distinct DOM markers so
+            they read as "yours", separate from the curated GL pins. */}
+        {customSpots.map((pin) => (
+          <Marker
+            key={pin.id}
+            latitude={pin.lat}
+            longitude={pin.lng}
+            anchor="bottom"
+            onClick={(ev) => {
+              ev.originalEvent.stopPropagation();
+              onSelectCustomSpot?.(pin);
+            }}
+          >
+            <div
+              title={pin.name}
+              className="flex flex-col items-center"
+              style={{ cursor: "pointer" }}
+            >
+              <div
+                className="flex items-center justify-center rounded-full text-white shadow-md"
+                style={{
+                  width: 20,
+                  height: 20,
+                  background: "#1F40E0",
+                  border: "2px solid white",
+                }}
+              >
+                {pin.visibility === "private" ? (
+                  <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3">
+                    <rect x="5" y="11" width="14" height="10" rx="2" />
+                    <path d="M8 11V7a4 4 0 0 1 8 0v4" />
+                  </svg>
+                ) : (
+                  <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3">
+                    <circle cx="12" cy="12" r="9" />
+                    <path d="M3 12h18M12 3a15 15 0 0 1 0 18M12 3a15 15 0 0 0 0 18" />
+                  </svg>
+                )}
+              </div>
+            </div>
+          </Marker>
+        ))}
       </Map>
 
       {/* Brand watermark — bottom-right corner, with the ⓘ acknowledgments

@@ -146,6 +146,8 @@ export interface BlueCasterSpeciesItem {
 
 // ── POST /api/v1/fishing-spots/custom ─────────────────────────────────
 
+export type CustomSpotVisibility = "private" | "public";
+
 export interface CreateCustomSpotResponse {
   spot: {
     id: string;
@@ -155,13 +157,22 @@ export interface CreateCustomSpotResponse {
     lng: number;
     city?: string;
     region?: string;
+    owner_user_id?: string;
+    visibility?: CustomSpotVisibility;
     tidal_station: { id: string; name: string } | null;
   };
-  mgmt_area: { subarea_label: string; official_name: string | null } | null;
-  score_status: "pending";
-  species_presence_seeded: number;
+  /** One entry per owner-picked species: "scored" once its fingerprint is
+   *  seeded, "pending" until the home city has one. */
+  scored_species?: { species_id: string; scoring: "scored" | "pending" }[];
+  seeded_from?: unknown;
+  similar_spots?: unknown[];
   confidence: number;
   confidence_label: string;
+  /** Legacy/optional — the DFO management subarea at the point. BlueCaster
+   *  does not currently emit this from the create endpoint (always undefined
+   *  at runtime); kept optional so existing catch-logging callers that read
+   *  `mgmt_area?.subarea_label ?? fallback` still type-check. */
+  mgmt_area?: { subarea_label: string; official_name: string | null } | null;
 }
 
 // ── POST /api/v1/ingest/catch (intelligence-pool commit) ──────────────

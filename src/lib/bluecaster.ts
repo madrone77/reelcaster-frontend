@@ -782,22 +782,37 @@ export type CreateCustomSpotResult =
   | { ok: true; data: CreateCustomSpotResponse }
   | { ok: false; status: number; error: string; message?: string };
 
-/** Create a custom (user) spot — approved+active, score pending until the
- *  next batch scoring run. Upstream errors (e.g. 422 `outside_coverage`
- *  when the coordinates fall outside covered waters) are surfaced, not
- *  swallowed, so the UI can explain why the create was refused. */
-export async function createCustomSpot(input: {
-  name: string;
-  lat: number;
-  lng: number;
-}): Promise<CreateCustomSpotResult> {
+/** Create a custom (user) spot — owned by `user_id`, private by default,
+ *  approved+active with score pending until the next batch scoring run.
+ *  `species_ids` are the species the owner wants scored there. Upstream errors
+ *  (e.g. 422 `outside_coverage`, 403 `pro_required`) are surfaced, not
+ *  swallowed, so the UI can explain why the create was refused.
+ *
+ *  `accessToken` is the owner's Supabase JWT; forwarded to BlueCaster so its
+ *  user-scope binding can verify ownership once REELCASTER_REQUIRE_USER_JWT is
+ *  enforced (harmless while staged). */
+export async function createCustomSpot(
+  input: {
+    name: string;
+    lat: number;
+    lng: number;
+    user_id: string;
+    visibility?: "private" | "public";
+    species_ids?: string[];
+  },
+  accessToken?: string,
+): Promise<CreateCustomSpotResult> {
   const baseUrl = process.env.BLUECASTER_API_URL;
   const apiKey = process.env.BLUECASTER_API_KEY;
   if (!baseUrl || !apiKey) throw new Error("BlueCaster env vars not set");
 
   const res = await fetch(`${baseUrl}/api/v1/fishing-spots/custom`, {
     method: "POST",
-    headers: { "x-api-key": apiKey, "Content-Type": "application/json" },
+    headers: {
+      "x-api-key": apiKey,
+      "Content-Type": "application/json",
+      ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
+    },
     body: JSON.stringify(input),
     cache: "no-store",
   });
@@ -814,6 +829,48 @@ export async function createCustomSpot(input: {
     };
   }
   return { ok: true, data: (await res.json()) as CreateCustomSpotResponse };
+}
+
+export interface OwnedCustomSpot {
+  id: string;
+  name: string;
+  slug: string;
+  lat: number;
+  lng: number;
+  visibility: "private" | "public";
+  created_at: string;
+  best_species_id: string | null;
+  best_species_name: string | null;
+  score: number | null;
+  score_status: "scored" | "pending";
+}
+
+/** The user's own custom spots (both private and public) — powers the "your
+ *  spots" pins on the map + the dashboard. Owner-scoped: forwards the user's
+ *  Supabase JWT so BlueCaster returns only this user's rows. */
+export async function fetchMyCustomSpots(
+  userId: string,
+  accessToken: string,
+): Promise<OwnedCustomSpot[]> {
+  const baseUrl = process.env.BLUECASTER_API_URL;
+  const apiKey = process.env.BLUECASTER_API_KEY;
+  if (!baseUrl || !apiKey) throw new Error("BlueCaster env vars not set");
+
+  const res = await fetch(
+    `${baseUrl}/api/v1/anglers/${encodeURIComponent(userId)}/spots`,
+    {
+      headers: {
+        "x-api-key": apiKey,
+        Authorization: `Bearer ${accessToken}`,
+      },
+      cache: "no-store",
+    },
+  );
+  if (!res.ok) return [];
+  const body = (await res.json().catch(() => null)) as
+    | { spots?: OwnedCustomSpot[] }
+    | null;
+  return body?.spots ?? [];
 }
 
 /**
