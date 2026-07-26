@@ -20,14 +20,24 @@
 export const SQUARE_PUCK_IMAGE_ID = "rc-square-puck";
 
 /**
- * Logical size of the drawn square, in px. The layer scales this to match the
- * circle pins' diameter, so it only needs to be big enough to stay crisp —
- * SDF encodes distance, not pixels.
+ * Side of the drawn SQUARE, in px — the number `icon-size` is a ratio of, so
+ * rendered side = SQUARE_PUCK_SIZE × icon-size. Big enough to stay crisp; SDF
+ * encodes distance, not pixels.
  */
 export const SQUARE_PUCK_SIZE = 32;
 
+/**
+ * Transparent margin around the square inside the image.
+ *
+ * Required, not cosmetic: `icon-halo-width` draws the stroke OUTWARD into the
+ * image's own bounds. A square that fills the canvas edge-to-edge has nowhere
+ * to put a halo, so it renders with no white outline at all while the circle
+ * pins beside it have one — which is exactly what happened the first time.
+ */
+const PAD = 5;
+
 /** Corner rounding — soft enough to sit beside round pins, square enough to read as a square. */
-const RADIUS = 6;
+const RADIUS = 5;
 const RATIO = 2; // retina crispness
 
 type MapLike = {
@@ -42,34 +52,39 @@ type MapLike = {
 
 function drawSquare(): { width: number; height: number; data: Uint8ClampedArray } | null {
   if (typeof document === "undefined") return null; // SSR — no canvas
-  const size = SQUARE_PUCK_SIZE * RATIO;
+  const logical = SQUARE_PUCK_SIZE + PAD * 2;
+  const px = logical * RATIO;
   const canvas = document.createElement("canvas");
-  canvas.width = size;
-  canvas.height = size;
+  canvas.width = px;
+  canvas.height = px;
   const ctx = canvas.getContext("2d");
   if (!ctx) return null;
   ctx.scale(RATIO, RATIO);
 
-  // Solid white shape. For an SDF icon the colour here is irrelevant — MapLibre
-  // reads coverage from the alpha channel — but a fully opaque fill keeps the
-  // distance field clean at the corners.
+  // Solid white shape inset by PAD. For an SDF icon the colour is irrelevant —
+  // MapLibre reads coverage from the alpha channel — but an opaque fill keeps
+  // the distance field clean at the corners.
   ctx.fillStyle = "#ffffff";
   const s = SQUARE_PUCK_SIZE;
   const r = RADIUS;
+  const x0 = PAD;
+  const y0 = PAD;
+  const x1 = PAD + s;
+  const y1 = PAD + s;
   ctx.beginPath();
-  ctx.moveTo(r, 0);
-  ctx.lineTo(s - r, 0);
-  ctx.quadraticCurveTo(s, 0, s, r);
-  ctx.lineTo(s, s - r);
-  ctx.quadraticCurveTo(s, s, s - r, s);
-  ctx.lineTo(r, s);
-  ctx.quadraticCurveTo(0, s, 0, s - r);
-  ctx.lineTo(0, r);
-  ctx.quadraticCurveTo(0, 0, r, 0);
+  ctx.moveTo(x0 + r, y0);
+  ctx.lineTo(x1 - r, y0);
+  ctx.quadraticCurveTo(x1, y0, x1, y0 + r);
+  ctx.lineTo(x1, y1 - r);
+  ctx.quadraticCurveTo(x1, y1, x1 - r, y1);
+  ctx.lineTo(x0 + r, y1);
+  ctx.quadraticCurveTo(x0, y1, x0, y1 - r);
+  ctx.lineTo(x0, y0 + r);
+  ctx.quadraticCurveTo(x0, y0, x0 + r, y0);
   ctx.closePath();
   ctx.fill();
 
-  const img = ctx.getImageData(0, 0, size, size);
+  const img = ctx.getImageData(0, 0, px, px);
   return { width: img.width, height: img.height, data: img.data };
 }
 
