@@ -7,8 +7,8 @@ import { Map, NotebookPen, Heart, MoreHorizontal, ChevronRight } from "lucide-re
 
 const TABS = [
   { href: "/explore", label: "Explore", Icon: Map },
-  { href: "/catches", label: "Log", Icon: NotebookPen },
-  { href: "/favorites", label: "Favs", Icon: Heart },
+  { href: "/catches", label: "Catch Log", Icon: NotebookPen },
+  { href: "/favorites", label: "Favorites", Icon: Heart },
 ] as const;
 
 // The "More" tab opens a sheet with the secondary destinations instead of
@@ -106,7 +106,7 @@ export default function MobileBottomNav() {
                   fill={active && href === "/favorites" ? "currentColor" : "none"}
                   strokeWidth={active ? 2.4 : 2}
                 />
-                <span className="text-[10px] font-medium tracking-[0.01em]">
+                <span className="whitespace-nowrap text-[10px] font-medium tracking-[0.01em]">
                   {label}
                 </span>
               </Link>
