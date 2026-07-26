@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { createCustomSpot } from "@/lib/bluecaster";
 import { getUserIdFromRequest } from "@/lib/server-auth";
+import { resolveEntitlement } from "@/lib/entitlement";
 
 export const maxDuration = 60;
 
@@ -33,15 +34,7 @@ export async function POST(request: NextRequest) {
   const accessToken =
     request.headers.get("authorization")?.replace(/^Bearer\s+/i, "") ?? undefined;
 
-  const { data: settings } = await supabaseAdmin
-    .from("user_settings")
-    .select("subscription_tier, subscription_status")
-    .eq("user_id", userId)
-    .maybeSingle();
-  const tier: string = settings?.subscription_tier ?? "free";
-  const status: string = settings?.subscription_status ?? "none";
-  const isPaid =
-    tier.startsWith("pro") && (status === "active" || status === "trialing");
+  const { isPro: isPaid } = await resolveEntitlement(supabaseAdmin, userId);
   if (!isPaid) {
     return NextResponse.json(
       {

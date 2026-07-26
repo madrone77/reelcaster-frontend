@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { getStripe, appOrigin } from '@/lib/stripe';
 import { ANNUAL_PRICE_ID, resolveMonthlyPriceId, type PricingPlan } from '@/lib/pricing';
+import { TRIAL_DAYS, checkTrialEligibility } from '@/lib/trial';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -61,6 +62,18 @@ export async function POST(request: NextRequest) {
 
   const priceId = plan === 'annual' ? ANNUAL_PRICE_ID : resolveMonthlyPriceId();
 
+  // STRIPE_ANNUAL_PRICE_ID is unset until the $33/yr Price exists in Stripe.
+  // Fail loudly here rather than handing Stripe an empty price and getting an
+  // opaque 400 back — the annual plan carries the trial, so this is the one
+  // config gap that takes the whole trial flow down.
+  if (!priceId) {
+    console.error('[stripe checkout] no price id for plan', plan);
+    return NextResponse.json(
+      { error: 'plan_unavailable', message: 'That plan is not available yet.' },
+      { status: 503 },
+    );
+  }
+
   // Look up an existing stripe_customer_id, or create the customer + row.
   const { data: existingSettings } = await admin
     .from('user_settings')
@@ -92,12 +105,27 @@ export async function POST(request: NextRequest) {
       .eq('user_id', user.id);
   }
 
+  // The 7-day trial rides on the annual plan only. Monthly is instant-charge,
+  // which keeps "start your trial" and "buy the yearly plan" one decision.
+  // Ineligible customers aren't told why — they just go through paid checkout.
+  const eligibility =
+    plan === 'annual'
+      ? await checkTrialEligibility(admin, user.id, user.email)
+      : { eligible: false as const, reason: undefined };
+
+  if (plan === 'annual' && !eligibility.eligible) {
+    console.info('[stripe checkout] trial withheld', user.id, eligibility.reason);
+  }
+
   const origin = appOrigin(request);
   const session = await stripe.checkout.sessions.create({
     mode: 'subscription',
     customer: stripeCustomerId,
     line_items: [{ price: priceId, quantity: 1 }],
     allow_promotion_codes: true,
+    // Explicit even though it's the default for subscription mode: the whole
+    // trial design assumes a card is on file when the trial ends.
+    payment_method_collection: 'always',
     success_url: `${origin}/billing/success?session_id={CHECKOUT_SESSION_ID}`,
     cancel_url: `${origin}/billing/cancel`,
     metadata: {
@@ -105,16 +133,31 @@ export async function POST(request: NextRequest) {
       plan,
       region: region || '',
       from: body.from ?? '',
+      trial: eligibility.eligible ? 'yes' : 'no',
     },
     subscription_data: {
       metadata: {
         supabase_user_id: user.id,
         plan,
       },
+      ...(eligibility.eligible
+        ? {
+            trial_period_days: TRIAL_DAYS,
+            trial_settings: {
+              // No card at trial end = cancel, never leave a subscription
+              // hanging in an unpayable state.
+              end_behavior: { missing_payment_method: 'cancel' as const },
+            },
+          }
+        : {}),
     },
   });
 
-  return NextResponse.json({ url: session.url, id: session.id });
+  return NextResponse.json({
+    url: session.url,
+    id: session.id,
+    trial_days: eligibility.eligible ? TRIAL_DAYS : 0,
+  });
 }
 
 /**
