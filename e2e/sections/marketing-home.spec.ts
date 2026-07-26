@@ -43,7 +43,7 @@ test.describe('/ (marketing homepage)', () => {
     ).toHaveAttribute('href', '/signup');
     await expect(
       pricing.getByRole('link', { name: 'START REELCASTER PRO', exact: true }),
-    ).toHaveAttribute('href', '/pricing');
+    ).toHaveAttribute('href', '/plans');
   });
 
   test('how-it-works (signals) section renders', async ({ page }) => {

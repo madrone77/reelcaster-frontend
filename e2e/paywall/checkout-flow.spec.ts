@@ -63,7 +63,7 @@ test.describe('Stripe success / cancel pages', () => {
 
 test.describe('Pricing feature callout', () => {
   test('?feature=alerts highlights the matching callout', async ({ page }) => {
-    await page.goto('/pricing?feature=alerts');
+    await page.goto('/plans?feature=alerts');
     const callout = page.getByTestId('pricing-feature-callout');
     await expect(callout).toBeVisible();
     await expect(callout).toHaveAttribute('data-feature', 'alerts');
@@ -71,14 +71,14 @@ test.describe('Pricing feature callout', () => {
   });
 
   test('?feature=14-day-forecast highlights forecast callout', async ({ page }) => {
-    await page.goto('/pricing?feature=14-day-forecast');
+    await page.goto('/plans?feature=14-day-forecast');
     const callout = page.getByTestId('pricing-feature-callout');
     await expect(callout).toBeVisible();
     await expect(callout).toContainText(/14-day forecast/i);
   });
 
   test('no ?feature → no callout rendered', async ({ page }) => {
-    await page.goto('/pricing');
+    await page.goto('/plans');
     await expect(page.getByTestId('pricing-feature-callout')).toHaveCount(0);
   });
 });

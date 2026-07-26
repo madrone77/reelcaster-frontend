@@ -8,7 +8,7 @@ import { test, expect } from '@playwright/test';
 
 // `/species` is behind the coming-soon wall (not in middleware
 // ALLOW_PREFIXES), so only the actually-public marketing pages are pinned.
-const PAGES_WITH_FOOTER = ['/', '/pricing'];
+const PAGES_WITH_FOOTER = ['/', '/plans'];
 
 const LEGAL_LINKS: Array<{ label: string; href: string }> = [
   { label: 'Privacy', href: '/privacy' },

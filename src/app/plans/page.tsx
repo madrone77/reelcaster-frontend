@@ -7,6 +7,7 @@ import {
   annualDiscount,
 } from '@/lib/pricing';
 import { TRIAL_DAYS } from '@/lib/trial';
+import PlansFeatureCallout from '@/app/components/plans/plans-feature-callout';
 
 const SITE_URL = 'https://reelcaster.com';
 
@@ -142,8 +143,14 @@ export default function PlansPage() {
 
   return (
     <article>
+      {/* Paywall deep links (?feature=alerts) open on what the customer just
+          got blocked from, rather than a generic pitch. */}
+      <div className="pt-8 md:pt-10">
+        <PlansFeatureCallout />
+      </div>
+
       {/* ── Hero ─────────────────────────────────────────────── */}
-      <section className="mx-auto max-w-6xl px-6 pt-14 pb-10 md:pt-20 md:pb-14">
+      <section className="mx-auto max-w-6xl px-6 pt-6 pb-10 md:pt-8 md:pb-14">
         <div className="grid gap-10 md:grid-cols-[1fr_minmax(320px,420px)] md:gap-14">
           <div>
             <p className="font-rc-mono text-[10px] uppercase tracking-[0.14em] text-rc-ink-mute">
