@@ -34,6 +34,9 @@ const SPOT_LABEL = "bc-spot-label";
 // Square puck for a spot the viewer created — same size/colour as the circles,
 // differing only in shape.
 const SPOT_CUSTOM_SQUARE = "bc-spot-custom-square";
+const SPOT_CUSTOM_SQUARE_STROKE = "bc-spot-custom-square-stroke";
+/** Stroke copy scale — 1.12 of a 32px square ≈ the circles' 1.5px ring. */
+const SQUARE_STROKE_SCALE = 1.12;
 // Relief-style layers (tide donuts + weather buoys). Spot circles are React
 // layers added after the style, so they render on top and win overlap clicks.
 const TIDE_STATION = "tide-station";
@@ -283,6 +286,41 @@ export default function ExploreMap({
   // icon-size is a ratio of the drawn image, so the stops are
   // circle-diameter ÷ image size — matching the circles' 11/14/16 radii
   // exactly, which is what "same size as the circles" requires.
+  // The stroke is a SECOND, slightly larger copy of the same square drawn
+  // underneath — not `icon-halo-width`. An SDF halo renders far too faintly
+  // here to match the circles' crisp 1.5px ring (verified against a real pin
+  // side by side: at halo 3 it was still barely there). A scaled sibling gives
+  // an exact, uniform border.
+  //
+  // SQUARE_STROKE_SCALE is baked into the stops rather than written as
+  // ["*", interpolate, k] — `zoom` must be the top-level input of an
+  // interpolate or MapLibre rejects the whole layer, silently.
+  const customSquareStrokeLayer: LayerProps = {
+    id: SPOT_CUSTOM_SQUARE_STROKE,
+    type: "symbol",
+    filter: expr(["all", declutterFilter, ["==", ["get", "isCustom"], 1]]),
+    layout: {
+      "icon-image": SQUARE_PUCK_IMAGE_ID,
+      "icon-size": expr([
+        "interpolate",
+        ["linear"],
+        ["zoom"],
+        8, ((11 * 2) / SQUARE_PUCK_SIZE) * SQUARE_STROKE_SCALE,
+        12, ((14 * 2) / SQUARE_PUCK_SIZE) * SQUARE_STROKE_SCALE,
+        15, ((16 * 2) / SQUARE_PUCK_SIZE) * SQUARE_STROKE_SCALE,
+      ]),
+      "icon-allow-overlap": true,
+      "icon-ignore-placement": true,
+    },
+    paint: {
+      // Same white / cobalt-when-selected as the circles' stroke. Selection
+      // reads through colour alone here; the circles also widen their stroke,
+      // but a zoom interpolate can't be nested inside a selection `case`.
+      "icon-color": expr(strokeColor),
+      "icon-opacity": expr(["get", "opacity"]),
+    },
+  };
+
   const customSquareLayer: LayerProps = {
     id: SPOT_CUSTOM_SQUARE,
     type: "symbol",
@@ -303,8 +341,6 @@ export default function ExploreMap({
     paint: {
       "icon-color": expr(["get", "color"]),
       "icon-opacity": expr(["get", "opacity"]),
-      "icon-halo-color": expr(strokeColor),
-      "icon-halo-width": expr(strokeWidth),
     },
   };
 
@@ -434,6 +470,8 @@ export default function ExploreMap({
 
         <Source id={SOURCE_ID} type="geojson" data={data}>
           <Layer {...spotCircleLayer} />
+          {/* Stroke copy first — it must sit UNDER the square it outlines. */}
+          <Layer {...customSquareStrokeLayer} />
           <Layer {...customSquareLayer} />
           <Layer {...spotLabelLayer} />
         </Source>
