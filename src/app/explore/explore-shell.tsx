@@ -31,7 +31,7 @@ import { useExploreState } from "./lib/use-explore-state";
 import ExploreTopBar from "./components/explore-top-bar";
 import ExploreMap, { type StationPick, type CustomSpotPin } from "./components/explore-map";
 import CreateCustomSpotDialog from "./components/create-custom-spot-dialog";
-import { setFavorite } from "./lib/use-favorite";
+import { favoriteIfUnset, setFavorite } from "./lib/use-favorite";
 import { Plus, X } from "lucide-react";
 import StationDrawer from "./components/station-drawer";
 import LeftRail from "./components/left-rail";
@@ -211,6 +211,9 @@ export default function ExploreShell({
   // ordinary spots, which is what makes the pin clickable at all: selection is
   // slug-keyed off this list.
   const [ownRailSpots, setOwnRailSpots] = useState<RailSpot[]>([]);
+  // Bumped on create so a brand-new spot appears without a reload — it can't be
+  // in a payload fetched before it existed.
+  const [ownSpotsRefresh, setOwnSpotsRefresh] = useState(0);
 
   useEffect(() => {
     if (!user) {
@@ -221,20 +224,22 @@ export default function ExploreShell({
     fetchMapSpotsAsViewer(bbox, selectedIso)
       .then((payload) => {
         if (cancelled || !payload) return;
-        setOwnRailSpots(
-          extraRailSpotsFromPayload(
-            data.spots,
-            payload,
-            selectedIso === today,
-            new Map(customSpots.map((c) => [c.slug ?? "", c.visibility])),
-          ),
+        const extras = extraRailSpotsFromPayload(
+          data.spots,
+          payload,
+          selectedIso === today,
+          new Map(customSpots.map((c) => [c.slug ?? "", c.visibility])),
         );
+        // Your own spots come back starred unless you've un-starred them —
+        // covers spots made on another device, or before auto-favoriting.
+        for (const spot of extras) favoriteIfUnset(spot.slug);
+        setOwnRailSpots(extras);
       })
       .catch(() => {});
     return () => {
       cancelled = true;
     };
-  }, [user, bbox, selectedIso, today, data.spots, customSpots]);
+  }, [user, bbox, selectedIso, today, data.spots, customSpots, ownSpotsRefresh]);
 
   const effectiveSpots = useMemo(() => {
     const base =
@@ -747,13 +752,6 @@ export default function ExploreShell({
           onViewportChange={handleViewportChange}
           pinDropMode={customMode}
           onMapPick={handleMapPick}
-          customSpots={customSpots}
-          onSelectCustomSpot={(pin) => {
-            // Same path as a curated pin: select by slug so the rail scrolls to
-            // the card and the drawer opens. (This used to setPinCoords, which
-            // only feeds the create-spot dialog — so the click did nothing.)
-            if (pin.slug) handleSelectSpot(pin.slug);
-          }}
         />
 
         {/* Pro-only "Create custom spot" action (top-right of the map). */}
@@ -793,6 +791,7 @@ export default function ExploreShell({
           // A spot you placed and named starts favorited — it appears starred
           // in the rail and in Saved spots without a second click.
           if (spot.slug) setFavorite(spot.slug);
+          setOwnSpotsRefresh((n) => n + 1);
           setCustomSpots((prev) => [
             {
               id: spot.id,

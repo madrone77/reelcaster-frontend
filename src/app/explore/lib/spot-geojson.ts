@@ -33,6 +33,8 @@ export interface SpotFeatureProps {
   color: string;
   txtColor: string;
   opacity: number;
+  /** 1 when the viewer created this spot — drives the brand-blue ring layer. */
+  isCustom: number;
 }
 
 export type SpotFeatureCollection = {
@@ -78,6 +80,9 @@ export function spotsToFeatureCollection(
           color: scoreColor(raw),
           txtColor: has ? "#ffffff" : "#374151",
           opacity: has ? 1 : 0.6,
+          // Drives the brand-blue ring that marks a spot as yours. 1/0 rather
+          // than a boolean: MapLibre filter expressions compare numbers.
+          isCustom: s.isCustom ? 1 : 0,
         },
       };
     }),
