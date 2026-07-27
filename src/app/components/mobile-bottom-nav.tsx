@@ -3,18 +3,20 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
-import { Map, NotebookPen, Heart, MoreHorizontal, ChevronRight } from "lucide-react";
+import { Home, Map, NotebookPen, MoreHorizontal, ChevronRight } from "lucide-react";
 
+// Home is the dashboard (the angler's saved/favorite spots) and sits far left.
 const TABS = [
+  { href: "/dashboard", label: "Home", Icon: Home },
   { href: "/explore", label: "Explore", Icon: Map },
   { href: "/catches", label: "Catch Log", Icon: NotebookPen },
-  { href: "/favorites", label: "Favorites", Icon: Heart },
 ] as const;
 
 // The "More" tab opens a sheet with the secondary destinations instead of
 // linking somewhere directly.
 const MORE_LINKS = [
   { href: "/profile", label: "Profile" },
+  { href: "/alerts", label: "Alerts" },
   { href: "/pricing", label: "Pricing" },
   { href: "/about", label: "About" },
   { href: "/faq", label: "FAQ" },
@@ -26,7 +28,7 @@ const MORE_LINKS = [
  * Mobile bottom tab bar (Zillow-style, floating) — a rounded pill detached from
  * the screen edges, hovering above the content with a soft shadow, on phones
  * and tablets; hidden on desktop (the rail + top bar own that layout). Four
- * tabs: Explore, Log, Favs, and More (which opens a sheet of secondary links).
+ * tabs: Home, Explore, Catch Log, and More (which opens a sheet of secondary links).
  * Active tab reads brand; the rest are muted. Renders a matching-height spacer
  * in flow so page content can scroll clear of the floating bar. Shows on every
  * page — marketing, auth, and the coming-soon wall included.
@@ -102,7 +104,7 @@ export default function MobileBottomNav() {
               >
                 <Icon
                   className="w-5 h-5"
-                  fill={active && href === "/favorites" ? "currentColor" : "none"}
+                  fill="none"
                   strokeWidth={active ? 2.4 : 2}
                 />
                 <span className="whitespace-nowrap text-[10px] font-medium tracking-[0.01em]">
