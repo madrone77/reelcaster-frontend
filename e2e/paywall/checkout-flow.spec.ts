@@ -61,25 +61,27 @@ test.describe('Stripe success / cancel pages', () => {
   });
 });
 
-test.describe('Pricing feature callout', () => {
+test.describe('Plans feature callout', () => {
   test('?feature=alerts highlights the matching callout', async ({ page }) => {
     await page.goto('/plans?feature=alerts');
-    const callout = page.getByTestId('pricing-feature-callout');
+    const callout = page.getByTestId('plans-feature-callout');
     await expect(callout).toBeVisible();
     await expect(callout).toHaveAttribute('data-feature', 'alerts');
-    await expect(callout).toContainText(/SMS/i);
+    // Intent: the alerts callout mentions texting. Not pinned to one
+    // marketing word — the page says "text messages", older copy said "SMS".
+    await expect(callout).toContainText(/text message|SMS/i);
   });
 
   test('?feature=14-day-forecast highlights forecast callout', async ({ page }) => {
     await page.goto('/plans?feature=14-day-forecast');
-    const callout = page.getByTestId('pricing-feature-callout');
+    const callout = page.getByTestId('plans-feature-callout');
     await expect(callout).toBeVisible();
-    await expect(callout).toContainText(/14-day forecast/i);
+    await expect(callout).toContainText(/fourteen days|14.day/i);
   });
 
   test('no ?feature → no callout rendered', async ({ page }) => {
     await page.goto('/plans');
-    await expect(page.getByTestId('pricing-feature-callout')).toHaveCount(0);
+    await expect(page.getByTestId('plans-feature-callout')).toHaveCount(0);
   });
 });
 

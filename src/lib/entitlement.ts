@@ -96,6 +96,18 @@ export const ENTITLEMENT_COLUMNS =
   'subscription_tier, subscription_status, subscription_period_end, grace_until, trial_ends_at';
 
 /**
+ * The subset that existed before migration 20260726_pro_trial_and_grace.
+ *
+ * PostgREST errors the whole select if ANY named column is missing, so asking
+ * for `grace_until` against an unmigrated database doesn't just drop that
+ * field — it returns no row at all, and every Pro customer resolves as free.
+ * That turns "deploy before migrating" into a silent downgrade of the entire
+ * paying base, which is not a failure mode worth leaving to release ordering.
+ */
+const LEGACY_ENTITLEMENT_COLUMNS =
+  'subscription_tier, subscription_status, subscription_period_end';
+
+/**
  * Fetch and resolve in one call. Most routes want this.
  *
  * Note the webhook keeps `subscription_tier` at the paid value while a payment
@@ -107,11 +119,25 @@ export async function resolveEntitlement(
 ): Promise<Entitlement> {
   if (!userId) return FREE_ENTITLEMENT;
 
-  const { data } = await admin
+  const { data, error } = await admin
     .from('user_settings')
     .select(ENTITLEMENT_COLUMNS)
     .eq('user_id', userId)
     .maybeSingle();
 
-  return entitlementFromSettings(data as SettingsRow | null);
+  if (!error) return entitlementFromSettings(data as SettingsRow | null);
+
+  // Unmigrated database: fall back to the columns that have always existed.
+  // Entitlement then behaves exactly as it did before this feature — active
+  // and trialing count, grace simply never applies — instead of collapsing
+  // every paid account to free. See LEGACY_ENTITLEMENT_COLUMNS.
+  console.error('[entitlement] full select failed, falling back to legacy columns', error);
+
+  const { data: legacy } = await admin
+    .from('user_settings')
+    .select(LEGACY_ENTITLEMENT_COLUMNS)
+    .eq('user_id', userId)
+    .maybeSingle();
+
+  return entitlementFromSettings(legacy as SettingsRow | null);
 }
