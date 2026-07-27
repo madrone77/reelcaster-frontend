@@ -126,6 +126,33 @@ Two implementation notes:
 
 ---
 
+## Running the e2e suite
+
+`.env.test` is gitignored and not in the repo. To recreate it:
+
+```bash
+npx vercel env pull /tmp/live.env --environment=production --yes
+```
+
+Then fill `.env.test` from `.env.test.example` using those values, plus
+**Stripe TEST-mode keys only** (`sk_test_…`). The live project's Stripe secret
+is marked sensitive in Vercel and is live-mode — never put it in `.env.test`.
+
+Two purpose-made accounts exist for this, created 2026-07-26 with random
+passwords: `playwright-free@reelcaster.test` and `playwright-pro@reelcaster.test`.
+
+Also note the worktree needs real `node_modules` (`pnpm install`) — a symlinked
+`node_modules` makes Turbopack fail with "Next.js package not found", and
+`npx playwright install chromium` must match the Playwright version pnpm
+resolves.
+
+> ⚠️ **There is no separate test Supabase project.** `.env.test` points at
+> production (`pehcvwiwtubzfgahuzuz`), and `e2e/fixtures/users.ts` DELETES alert
+> profiles and favourites and overwrites subscription tier for whatever accounts
+> `TEST_*_USER_EMAIL` names. Keep those on the two `playwright-*` accounts. A
+> dedicated test project is the real fix — the repo's own
+> `.env.test.example` says test users should not live in prod.
+
 ## Task 5 — Test-mode dry run before going live
 
 With test-mode keys and a test annual Price:
