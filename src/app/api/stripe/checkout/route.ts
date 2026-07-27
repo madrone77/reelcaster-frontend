@@ -1,7 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { getStripe, appOrigin } from '@/lib/stripe';
-import { ANNUAL_PRICE_ID, resolveMonthlyPriceId, type PricingPlan } from '@/lib/pricing';
+import {
+  currencyForRegion,
+  priceIdFor,
+  type BillingCurrency,
+  type PricingPlan,
+} from '@/lib/pricing';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -59,14 +64,21 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  const priceId = plan === 'annual' ? ANNUAL_PRICE_ID : resolveMonthlyPriceId();
+  const priceId = priceIdFor(plan);
   if (!priceId) {
-    // Annual has no Stripe price until STRIPE_ANNUAL_PRICE_ID is configured
-    // (see src/lib/pricing.ts). Fail with JSON rather than crashing on an
-    // empty line_items price, which surfaces as an unparseable 500 client-side.
+    // The plan's STRIPE_*_PRICE_ID env var is unset (see src/lib/pricing.ts).
+    // Fail with JSON rather than crashing on an empty line_items price, which
+    // surfaces as an unparseable 500 client-side.
     console.error(`[stripe checkout] no price ID configured for plan "${plan}"`);
     return NextResponse.json({ error: 'plan_unavailable', plan }, { status: 503 });
   }
+
+  // BC bills in CAD, WA/OR in USD; paywall CTAs send no region, so fall back
+  // to the request's IP country. Both currencies live on the same price.
+  let currency: BillingCurrency = currencyForRegion(
+    region,
+    request.headers.get('x-vercel-ip-country'),
+  );
 
   // Look up an existing stripe_customer_id, or create the customer + row.
   try {
@@ -100,10 +112,24 @@ export async function POST(request: NextRequest) {
         .eq('user_id', user.id);
     }
 
+    if (existingSettings?.stripe_customer_id) {
+      // Stripe locks a customer to their first billing currency forever; a
+      // session in any other currency is refused. Prefer the locked currency —
+      // both cad and usd exist on the price, so the session always succeeds.
+      const customer = await stripe.customers.retrieve(stripeCustomerId);
+      if (!customer.deleted && customer.currency && customer.currency !== currency) {
+        console.warn(
+          `[stripe checkout] customer ${stripeCustomerId} locked to ${customer.currency}, overriding ${currency}`,
+        );
+        currency = customer.currency as BillingCurrency;
+      }
+    }
+
     const origin = appOrigin(request);
     const session = await stripe.checkout.sessions.create({
       mode: 'subscription',
       customer: stripeCustomerId,
+      currency,
       line_items: [{ price: priceId, quantity: 1 }],
       allow_promotion_codes: true,
       success_url: `${origin}/billing/success?session_id={CHECKOUT_SESSION_ID}`,
@@ -111,6 +137,7 @@ export async function POST(request: NextRequest) {
       metadata: {
         supabase_user_id: user.id,
         plan,
+        currency,
         region: region || '',
         from: body.from ?? '',
       },
@@ -118,6 +145,7 @@ export async function POST(request: NextRequest) {
         metadata: {
           supabase_user_id: user.id,
           plan,
+          currency,
         },
       },
     });

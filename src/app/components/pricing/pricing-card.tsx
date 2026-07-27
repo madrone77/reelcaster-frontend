@@ -8,6 +8,7 @@ import {
   ANNUAL_PRICE_CENTS,
   MONTHLY_PRICE_CENTS,
   annualDiscount,
+  currencyLabelForRegion,
   type PricingPlan,
 } from '@/lib/pricing';
 
@@ -330,10 +331,18 @@ export default function PricingCard({
               ))}
             </select>
 
-            {region === 'Other' && (
+            {region === 'Other' ? (
               <p className="mb-4 rounded-md border border-rc-fair-border bg-rc-fair-bg p-3 text-xs text-rc-fair-ink">
                 Pro isn&apos;t live in your region yet. We&apos;ll redirect you
                 to drop a waitlist pin.
+              </p>
+            ) : (
+              <p className="mb-4 font-rc-mono text-[11px] text-rc-ink-mute" aria-live="polite">
+                Billed in {currencyLabelForRegion(region)} —{' '}
+                {yearly
+                  ? `${dollars(ANNUAL_PRICE_CENTS)} ${currencyLabelForRegion(region)}/year`
+                  : `${dollars(MONTHLY_PRICE_CENTS)} ${currencyLabelForRegion(region)}/month`}
+                .
               </p>
             )}
 
