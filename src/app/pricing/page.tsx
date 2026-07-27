@@ -76,8 +76,8 @@ export default async function PricingPage() {
           Pro is sold only in covered regions:{" "}
           <strong className="text-rc-ink">British Columbia</strong>,{" "}
           <strong className="text-rc-ink">Washington</strong>, and{" "}
-          <strong className="text-rc-ink">Oregon</strong>. If you fish
-          elsewhere,{" "}
+          <strong className="text-rc-ink">Oregon</strong>. Prices are in CAD
+          for Canada and USD for the US. If you fish elsewhere,{" "}
           <Link
             href="/explore"
             className="text-rc-brand hover:text-rc-brand-hover underline underline-offset-2"
