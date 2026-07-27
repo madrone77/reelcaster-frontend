@@ -36,23 +36,20 @@ const UpgradeRequiredModal = dynamic(
 /** Free tier may favorite this many spots before hitting the upgrade cap. */
 const FREE_FAV_CAP = 1;
 
-function headerStamp(date: string, tz: string, hour: number | null): string {
-  const parts: string[] = ["SELECTED"];
-  if (date) {
-    const d = new Date(`${date}T12:00:00`);
-    parts.push(
-      d
-        .toLocaleDateString("en-US", {
-          weekday: "short",
-          month: "short",
-          day: "numeric",
-        })
-        .replace(/,/g, "")
-        .toUpperCase(),
-    );
-  }
-  parts.push(`${String(hour ?? currentLocalHour(tz)).padStart(2, "0")}:00`);
-  return parts.join(" · ");
+function dateStamp(date: string): string {
+  if (!date) return "";
+  return new Date(`${date}T12:00:00`)
+    .toLocaleDateString("en-US", {
+      weekday: "short",
+      month: "short",
+      day: "numeric",
+    })
+    .replace(/,/g, "")
+    .toUpperCase();
+}
+
+function hourStamp(tz: string, hour: number | null): string {
+  return `${String(hour ?? currentLocalHour(tz)).padStart(2, "0")}:00`;
 }
 
 /**
@@ -63,6 +60,12 @@ function headerStamp(date: string, tz: string, hour: number | null): string {
  * best-window chart. At rest the headline is the day's PEAK ("how good does
  * this day get here"); the shell's strip scrubber (`scrubHour`) and the
  * chart's own hover both pull it off peak onto a specific hour.
+ *
+ * The active hour is stated three times along the eye's path — headline in the
+ * header, caption over the conditions grid, readout pill under the cursor on
+ * the chart — because scrubbing changes the score and all six condition cells
+ * at once, and one 9px stamp at the top was too far from them to read as cause
+ * and effect. All three read the same `displayHour`.
  */
 export default function SpotDrawer({
   spot,
@@ -165,9 +168,19 @@ export default function SpotDrawer({
     { label: "AIR TEMP", value: conditions.air ?? "—", sub: null, icon: Thermometer },
   ];
 
+  // "Is this the day's best, or a moment I went looking for?" — the header
+  // chip answers it, and it's the only cue that scrubbing has moved the whole
+  // drawer off its resting state.
+  const scrubbing = hoverHour !== null || scrubHour !== null;
+
+  // The panel is sized by its content (the rail caps it with max-height), so
+  // `min-h-0` — not `flex-1` — is what lets the body scroll on short viewports
+  // while leaving no dead space under the chart on tall ones.
   return (
-    <div className="flex flex-col h-full">
-      {/* Header */}
+    <div className="flex flex-col min-h-0">
+      {/* Header — the hour is the headline here, not a footnote: it is what
+          the score, the conditions grid, and the chart marker are all keyed to,
+          and it moves under the cursor while scrubbing. */}
       <div className="flex items-center gap-2 px-4 pt-4">
         <button
           type="button"
@@ -177,10 +190,24 @@ export default function SpotDrawer({
         >
           <ChevronLeft className="w-4 h-4" />
         </button>
-        <span className="rc-label text-[9px]">{headerStamp(date, tz, displayHour)}</span>
+        <div className="flex items-baseline gap-2 min-w-0">
+          <span className="rc-label text-[9px]">{dateStamp(date)}</span>
+          <span className="font-rc-mono text-[15px] font-semibold leading-none text-rc-ink tabular-nums">
+            {hourStamp(tz, displayHour)}
+          </span>
+        </div>
+        <span
+          className={`ml-auto shrink-0 rounded px-1.5 py-0.5 font-rc-mono text-[9px] font-bold tracking-[0.1em] ${
+            scrubbing
+              ? "bg-rc-brand/10 text-rc-brand"
+              : "bg-rc-surface text-rc-ink-mute"
+          }`}
+        >
+          {scrubbing ? "SCRUBBING" : "PEAK"}
+        </span>
       </div>
 
-      <div className="flex-1 overflow-y-auto px-4 pb-4">
+      <div className="min-h-0 overflow-y-auto px-4 pb-4">
         {/* Name — star sits directly beside it, same interaction as the rail
             SpotCard's favorite (custom star path, gold hover/fill, pop on save). */}
         <div className="flex items-center gap-2 mt-1">
@@ -214,10 +241,12 @@ export default function SpotDrawer({
             : ""}
         </p>
 
-        {/* Score block */}
+        {/* Score block — the number lives in a fixed three-digit gutter with
+            tabular figures, so scrubbing the 24h chart from 83 to 5 can't drag
+            the tier pill and species line sideways with it. */}
         <div className="flex items-center gap-4 mt-4 pb-5 border-b border-rc-rule-soft">
           <span
-            className={`text-[60px] leading-none font-bold tracking-[-0.04em] ${TIER_TEXT[tier]}`}
+            className={`w-[3ch] shrink-0 tabular-nums text-[60px] leading-none font-bold tracking-[-0.04em] ${TIER_TEXT[tier]}`}
           >
             {score ?? "—"}
           </span>
@@ -235,8 +264,16 @@ export default function SpotDrawer({
           </div>
         </div>
 
-        {/* Conditions grid */}
-        <div className="grid grid-cols-3 gap-y-4 mt-5 pb-5 border-b border-rc-rule-soft">
+        {/* Conditions grid — captioned with the hour it is read at, so the
+            values and the time they belong to change together in one glance
+            instead of the time living alone up in the header. */}
+        <div className="rc-label text-[9px] mt-5 mb-2">
+          CONDITIONS AT{" "}
+          <span className="font-semibold text-rc-ink tabular-nums">
+            {hourStamp(tz, displayHour)}
+          </span>
+        </div>
+        <div className="grid grid-cols-3 gap-y-4 pb-5 border-b border-rc-rule-soft">
           {conditionCells.map((cell) => (
             <div key={cell.label}>
               <div className="rc-label text-[9px] flex items-center gap-1">

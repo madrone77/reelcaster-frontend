@@ -29,6 +29,21 @@ function isPublicPath(pathname: string): boolean {
   return PUBLIC_PREFIXES.some(p => pathname.startsWith(p))
 }
 
+function FullScreenSpinner({ label }: { label: string }) {
+  return (
+    <div className="fixed inset-0 bg-rc-bg-darkest flex items-center justify-center z-[9998]">
+      <div className="flex flex-col items-center gap-3">
+        <div className="flex gap-1">
+          <span className="w-2 h-2 rounded-full bg-blue-500 animate-pulse" />
+          <span className="w-2 h-2 rounded-full bg-blue-400 animate-pulse [animation-delay:150ms]" />
+          <span className="w-2 h-2 rounded-full bg-blue-300 animate-pulse [animation-delay:300ms]" />
+        </div>
+        <p className="text-sm text-rc-text-muted">{label}</p>
+      </div>
+    </div>
+  )
+}
+
 export default function AuthGate({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth()
   const router = useRouter()
@@ -42,39 +57,30 @@ export default function AuthGate({ children }: { children: React.ReactNode }) {
     }
   }, [loading, user, isPublicRoute, router])
 
-  if (loading) {
-    return (
-      <div className="fixed inset-0 bg-rc-bg-darkest flex items-center justify-center z-[9998]">
-        <div className="flex flex-col items-center gap-3">
-          <div className="flex gap-1">
-            <span className="w-2 h-2 rounded-full bg-blue-500 animate-pulse" />
-            <span className="w-2 h-2 rounded-full bg-blue-400 animate-pulse [animation-delay:150ms]" />
-            <span className="w-2 h-2 rounded-full bg-blue-300 animate-pulse [animation-delay:300ms]" />
-          </div>
-          <p className="text-sm text-rc-text-muted">Loading...</p>
-        </div>
-      </div>
-    )
-  }
-
+  // Public routes render their children immediately — BEFORE the `loading`
+  // check. `loading` starts `true` and only settles once the browser has read
+  // the Supabase session, which the server never can; gating on it here meant
+  // every server render of every public page emitted this spinner instead of
+  // the page. Crawlers (and the LCP measurement) saw ~50 characters of
+  // "Loading..." and no headings, links, or copy on the marketing pages, the
+  // /fishing directory, and every spot page.
+  //
+  // Public pages have nothing to protect, so there is nothing to wait for.
+  // Auth-dependent chrome inside them (nav avatar, favourite stars) reads
+  // `useAuth()` itself and can show its own pending state.
   if (isPublicRoute) {
     return <>{children}</>
   }
 
+  // Private routes still wait: rendering account content before the session
+  // resolves would flash it to a signed-out visitor.
+  if (loading) {
+    return <FullScreenSpinner label="Loading..." />
+  }
+
   if (!user) {
     // Redirecting to /login — show spinner
-    return (
-      <div className="fixed inset-0 bg-rc-bg-darkest flex items-center justify-center z-[9998]">
-        <div className="flex flex-col items-center gap-3">
-          <div className="flex gap-1">
-            <span className="w-2 h-2 rounded-full bg-blue-500 animate-pulse" />
-            <span className="w-2 h-2 rounded-full bg-blue-400 animate-pulse [animation-delay:150ms]" />
-            <span className="w-2 h-2 rounded-full bg-blue-300 animate-pulse [animation-delay:300ms]" />
-          </div>
-          <p className="text-sm text-rc-text-muted">Redirecting...</p>
-        </div>
-      </div>
-    )
+    return <FullScreenSpinner label="Redirecting..." />
   }
 
   return <>{children}</>
