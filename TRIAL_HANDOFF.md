@@ -51,10 +51,24 @@ together or not at all.
 Project: **reelcaster-frontend**, scope `casey-1425s-projects`. Production +
 Preview.
 
-| Var | Value |
-|---|---|
-| `STRIPE_ANNUAL_PRICE_ID` | the `price_...` from Task 1 |
-| `STRIPE_MONTHLY_PRICE_ID` | the existing live monthly price id (currently falling through to a hardcoded default — pin it explicitly) |
+Verified against `vercel env ls production` on 2026-07-26:
+
+| Var | State | Action |
+|---|---|---|
+| `STRIPE_SECRET_KEY` | ✅ present (sensitive) | none |
+| `STRIPE_WEBHOOK_SECRET` | ✅ present (sensitive) | none |
+| `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY` | ✅ present — **`pk_live_`** | none |
+| `STRIPE_ANNUAL_PRICE_ID` | ❌ **absent** | set to the `price_...` from Task 1 |
+| `STRIPE_MONTHLY_PRICE_ID` | ❌ absent | optional — code falls back to the hardcoded `price_1TQpJa2a2BXhmPNuiKaaurSJ` |
+
+Note that sensitive variables do **not** appear in `vercel env pull` output. Use
+`vercel env ls` to check presence, or you'll conclude a variable is missing when
+it isn't.
+
+⚠️ Production Stripe is **live mode**. The `$33/yr` price on the decoy
+`reelcaster-frontend-web` project (`price_1TxXWJ2a2BXhmPNuDTgruits`) is
+**test-mode** and must not be copied here — a live key rejects a test price, which
+would turn a clean `503 plan_unavailable` into a hard Stripe error.
 
 Env changes don't take effect until a redeploy. This project deploys via CLI,
 not git:
