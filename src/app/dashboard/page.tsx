@@ -1,12 +1,10 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   MapPin,
   ChevronRight,
-  Lock,
-  Globe,
   Bell,
   ScrollText,
   Star,
@@ -18,20 +16,78 @@ import {
   fetchMapSpotsAsViewer,
   type OwnedCustomSpot,
 } from "@/lib/bluecaster-client";
-import { tierFor, TIER_PILL } from "@/app/explore/lib/explore-data";
+import type { MapSpotsPayload } from "@/lib/bluecaster";
+import {
+  tierFor,
+  TIER_PILL,
+  railSpotFromEntry,
+  type RailSpot,
+} from "@/app/explore/lib/explore-data";
 import { readHomeSpot } from "@/app/explore/lib/use-home-spot";
+import SpotCard from "@/app/explore/components/spot-card";
 
 // The whole covered extent — favourites can live anywhere in it.
 const COVERED_BBOX_ALL = "-139.06,41.99,-114.03,60";
 
-// "victoria-waterfront-ad3f9b" → "Victoria Waterfront" (strip id suffix, title-case).
+/**
+ * "victoria-waterfront-ad3f9b" → "Victoria Waterfront" — last-resort label for
+ * a favourited slug the API didn't return (unscored, or outside the payload).
+ *
+ * The trailing id is stripped by shape, not by charset: custom-spot slugs end
+ * in a base36 millisecond stamp ("lingcod-honey-hole-ms20jgs9"), which a
+ * hex-only rule missed and title-cased into the name. Any short trailing token
+ * carrying a digit is an id — real words don't have digits in them.
+ */
 function prettify(slug: string): string {
   return slug
-    .replace(/-[0-9a-f]{5,}$/i, "")
+    .replace(/-(?=[a-z0-9]*\d)[a-z0-9]{5,10}$/i, "")
     .split("-")
     .filter(Boolean)
     .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
     .join(" ");
+}
+
+const NO_CONDITIONS = {
+  wind: null,
+  sea: null,
+  tide: null,
+  current: null,
+  sky: null,
+  air: null,
+};
+
+/**
+ * A card for a spot the map payload didn't carry — a custom spot still waiting
+ * on its first score, or a favourite that has since gone unpublished. Renders
+ * as the same card, just with "NO SCORE" and empty KPIs.
+ */
+function unscoredRailSpot(
+  slug: string,
+  name: string,
+  extra: Partial<RailSpot> = {},
+): RailSpot {
+  return {
+    id: slug,
+    slug,
+    name,
+    lat: 0,
+    lng: 0,
+    citySlug: "",
+    cityName: "",
+    regionSlug: "",
+    regionName: "",
+    provinceCode: "",
+    score: null,
+    bestSpeciesId: null,
+    driverSpecies: null,
+    peakHour: null,
+    distanceKm: null,
+    conditions: NO_CONDITIONS,
+    condStrip: null,
+    hours24: new Array(24).fill(null),
+    scoresBySpecies: {},
+    ...extra,
+  };
 }
 
 function firstName(email: string | null | undefined): string | null {
@@ -46,8 +102,6 @@ function todayVancouver(): string {
   return new Date().toLocaleDateString("en-CA", { timeZone: "America/Vancouver" });
 }
 
-type Scored = { score: number; species: string | null };
-type Fav = { slug: string; name: string; score: number | null; species: string | null };
 type TopSpot = { slug: string; name: string; score: number; species: string | null };
 
 /**
@@ -59,8 +113,8 @@ export default function DashboardPage() {
   const { user } = useAuth();
   const [custom, setCustom] = useState<OwnedCustomSpot[] | null>(null);
   const [favSlugs, setFavSlugs] = useState<string[] | null>(null);
-  // slug → today's best score, for enriching favourites + finding the top spot.
-  const [scoreBySlug, setScoreBySlug] = useState<Record<string, Scored>>({});
+  // Today's map payload — the same numbers Explore builds its cards from.
+  const [payload, setPayload] = useState<MapSpotsPayload | null>(null);
 
   // Custom spots (owner-scoped backend fetch).
   useEffect(() => {
@@ -88,41 +142,20 @@ export default function DashboardPage() {
           out.push(k.slice("rc-fav:".length));
         }
       }
-      out.sort((a, b) => prettify(a).localeCompare(prettify(b)));
       setFavSlugs(out);
     } catch {
       setFavSlugs([]);
     }
   }, []);
 
-  // Today's scores across the covered extent — used to put a live score on each
-  // favourite and to pick the top spot. Degrades silently if unavailable.
+  // Today's scores + conditions across the covered extent — the viewer's own
+  // custom spots ride along. Degrades silently if unavailable.
   useEffect(() => {
     if (!user) return;
     let cancelled = false;
     fetchMapSpotsAsViewer(COVERED_BBOX_ALL, todayVancouver())
-      .then((payload) => {
-        if (cancelled || !payload?.spots) return;
-        const species = payload.species ?? {};
-        const map: Record<string, Scored> = {};
-        for (const s of payload.spots) {
-          let best = 0;
-          let bestId: string | null = null;
-          for (const [id, strip] of Object.entries(s.scores ?? {})) {
-            const peak = (strip as { peak?: number })?.peak;
-            if (typeof peak === "number" && peak > best) {
-              best = peak;
-              bestId = id;
-            }
-          }
-          if (best > 0) {
-            map[s.slug] = {
-              score: Math.round(best * 100),
-              species: (bestId && species[bestId]?.name) || null,
-            };
-          }
-        }
-        setScoreBySlug(map);
+      .then((p) => {
+        if (!cancelled && p?.spots) setPayload(p);
       })
       .catch(() => {});
     return () => {
@@ -144,33 +177,65 @@ export default function DashboardPage() {
 
   const name = firstName(user?.email);
 
-  // Favourites enriched with today's score.
-  const favs: Fav[] | null =
-    favSlugs === null
-      ? null
-      : favSlugs.map((slug) => ({
-          slug,
-          name: prettify(slug),
-          score: scoreBySlug[slug]?.score ?? null,
-          species: scoreBySlug[slug]?.species ?? null,
-        }));
+  // Every spot in today's payload as an Explore rail spot, keyed by slug.
+  // Names come from here, never from the slug: a custom spot's slug carries a
+  // generated id suffix that has no business showing up in a card title.
+  const railBySlug = useMemo(() => {
+    const out = new Map<string, RailSpot>();
+    if (!payload) return out;
+    for (const entry of payload.spots) {
+      out.set(entry.slug, railSpotFromEntry(entry, payload, true));
+    }
+    return out;
+  }, [payload]);
+
+  // CREATED — spots this angler built. Ownership metadata (name, visibility)
+  // is authoritative from the owner-scoped fetch; scores and conditions come
+  // from the payload once the spot has been scored.
+  const created: RailSpot[] | null = useMemo(() => {
+    if (custom === null) return null;
+    return custom.map((c) => {
+      const rail =
+        railBySlug.get(c.slug) ??
+        unscoredRailSpot(c.slug, c.name, {
+          id: c.id,
+          lat: c.lat,
+          lng: c.lng,
+          score: c.score_status === "scored" ? c.score : null,
+          driverSpecies: c.best_species_name,
+        });
+      return { ...rail, name: c.name, isCustom: true, visibility: c.visibility };
+    });
+  }, [custom, railBySlug]);
+
+  // SAVED — spots hearted from the map. Custom spots are auto-favourited on
+  // create, so anything already in CREATED is dropped here rather than listed
+  // twice under two different headings.
+  const saved: RailSpot[] | null = useMemo(() => {
+    if (favSlugs === null) return null;
+    const createdSlugs = new Set((created ?? []).map((s) => s.slug));
+    return favSlugs
+      .filter((slug) => !createdSlugs.has(slug))
+      .map((slug) => railBySlug.get(slug) ?? unscoredRailSpot(slug, prettify(slug)))
+      .sort((a, b) => a.name.localeCompare(b.name));
+  }, [favSlugs, created, railBySlug]);
 
   // Top spot = highest live score across custom + favourites.
-  const topSpot: TopSpot | null = (() => {
+  const topSpot: TopSpot | null = useMemo(() => {
     const pool: TopSpot[] = [];
-    for (const c of custom ?? []) {
-      if (c.score_status === "scored" && typeof c.score === "number") {
-        pool.push({ slug: c.slug, name: c.name, score: c.score, species: c.best_species_name ?? null });
-      }
-    }
-    for (const f of favs ?? []) {
-      if (typeof f.score === "number") {
-        pool.push({ slug: f.slug, name: f.name, score: f.score, species: f.species });
+    for (const s of [...(created ?? []), ...(saved ?? [])]) {
+      if (typeof s.score === "number") {
+        pool.push({
+          slug: s.slug,
+          name: s.name,
+          score: s.score,
+          species: s.driverSpecies,
+        });
       }
     }
     if (pool.length === 0) return null;
     return pool.sort((a, b) => b.score - a.score)[0];
-  })();
+  }, [created, saved]);
 
   // The hero: the designated home spot if the angler pinned one, else today's
   // top scorer.
@@ -183,26 +248,23 @@ export default function DashboardPage() {
   };
   const heroSpot: Hero | null = (() => {
     if (homeSlug) {
-      const c = (custom ?? []).find((x) => x.slug === homeSlug);
-      const f = (favs ?? []).find((x) => x.slug === homeSlug);
-      const sc = scoreBySlug[homeSlug];
-      const score =
-        (c && typeof c.score === "number" ? c.score : null) ??
-        (f && typeof f.score === "number" ? f.score : null) ??
-        (sc ? sc.score : null);
+      const home =
+        (created ?? []).find((x) => x.slug === homeSlug) ??
+        (saved ?? []).find((x) => x.slug === homeSlug) ??
+        railBySlug.get(homeSlug);
       return {
         slug: homeSlug,
-        name: c?.name ?? f?.name ?? prettify(homeSlug),
-        score,
-        species: c?.best_species_name ?? f?.species ?? sc?.species ?? null,
+        name: home?.name ?? prettify(homeSlug),
+        score: home?.score ?? null,
+        species: home?.driverSpecies ?? null,
         isHome: true,
       };
     }
     return topSpot ? { ...topSpot, isHome: false } : null;
   })();
 
-  const customCount = custom?.length ?? 0;
-  const favCount = favSlugs?.length ?? 0;
+  const customCount = created?.length ?? 0;
+  const favCount = saved?.length ?? 0;
 
   return (
     <div className="min-h-dvh bg-rc-page">
@@ -305,7 +367,7 @@ export default function DashboardPage() {
         <section>
           <h2 className="mb-3 text-lg font-bold text-rc-ink">Your Spots</h2>
 
-          {custom === null && favs === null ? (
+          {created === null && saved === null ? (
             <SkeletonRows />
           ) : customCount === 0 && favCount === 0 ? (
             <EmptyCard
@@ -319,48 +381,28 @@ export default function DashboardPage() {
             <div className="space-y-6">
               {/* CREATED — spots the angler built (edit/delete). Leads because
                   ownership outranks a bookmark. */}
-              {custom && custom.length > 0 && (
+              {created && created.length > 0 && (
                 <div>
                   <p className="mb-2.5 font-rc-mono text-[11px] uppercase tracking-[0.12em] text-rc-ink-mute">
-                    Created · {custom.length}
+                    Created · {created.length}
                   </p>
-                  <ul className="space-y-2.5">
-                    {custom.map((spot) => (
+                  <ul className="grid gap-2.5 sm:grid-cols-2">
+                    {created.map((spot) => (
                       <li key={spot.id}>
-                        <Link
-                          href={`/explore/spot/${spot.slug}`}
-                          className="flex items-center gap-3 rounded-xl border border-rc-rule bg-rc-panel px-4 py-3.5 transition-colors hover:border-rc-brand/40"
-                        >
-                          <ScoreChip score={spot.score} status={spot.score_status} />
-                          <span className="min-w-0 flex-1">
-                            <span className="flex items-center gap-1.5">
-                              <span className="truncate text-sm font-semibold text-rc-ink">
-                                {spot.name}
-                              </span>
-                              <VisibilityTag visibility={spot.visibility} />
-                            </span>
-                            <span className="mt-0.5 block font-rc-mono text-[11px] text-rc-ink-mute">
-                              {spot.score_status === "pending"
-                                ? "Scoring soon — new spot"
-                                : spot.best_species_name
-                                  ? `Best: ${spot.best_species_name}`
-                                  : "Your custom spot"}
-                            </span>
-                          </span>
-                          <ChevronRight className="w-4 h-4 shrink-0 text-rc-ink-mute" />
-                        </Link>
+                        <SpotCard spot={spot} showVisibility />
                       </li>
                     ))}
                   </ul>
                 </div>
               )}
 
-              {/* SAVED — spots the angler hearted from the map. */}
-              {favs && favs.length > 0 && (
+              {/* SAVED — spots the angler hearted from the map. Un-starring a
+                  card here drops it from the list on the spot. */}
+              {saved && saved.length > 0 && (
                 <div>
                   <div className="mb-2.5 flex items-center justify-between">
                     <p className="font-rc-mono text-[11px] uppercase tracking-[0.12em] text-rc-ink-mute">
-                      Saved · {favs.length}
+                      Saved · {saved.length}
                     </p>
                     <Link
                       href="/favorites"
@@ -369,24 +411,19 @@ export default function DashboardPage() {
                       View all
                     </Link>
                   </div>
-                  <ul className="space-y-2.5">
-                    {favs.map((fav) => (
-                      <li key={fav.slug}>
-                        <Link
-                          href={`/explore/spot/${fav.slug}`}
-                          className="flex items-center gap-3 rounded-xl border border-rc-rule bg-rc-panel px-4 py-3.5 transition-colors hover:border-rc-brand/40"
-                        >
-                          <ScoreChip score={fav.score} status={fav.score === null ? "pending" : "scored"} />
-                          <span className="min-w-0 flex-1">
-                            <span className="block truncate text-sm font-semibold text-rc-ink">
-                              {fav.name}
-                            </span>
-                            <span className="mt-0.5 block font-rc-mono text-[11px] text-rc-ink-mute">
-                              {fav.species ? `Best: ${fav.species}` : "Saved spot"}
-                            </span>
-                          </span>
-                          <ChevronRight className="w-4 h-4 shrink-0 text-rc-ink-mute" />
-                        </Link>
+                  <ul className="grid gap-2.5 sm:grid-cols-2">
+                    {saved.map((spot) => (
+                      <li key={spot.slug}>
+                        <SpotCard
+                          spot={spot}
+                          onFavoriteChange={(fav) => {
+                            if (!fav) {
+                              setFavSlugs((prev) =>
+                                (prev ?? []).filter((s) => s !== spot.slug),
+                              );
+                            }
+                          }}
+                        />
                       </li>
                     ))}
                   </ul>
@@ -421,43 +458,6 @@ export default function DashboardPage() {
 
 // ── bits ────────────────────────────────────────────────────────────────────
 
-function ScoreChip({
-  score,
-  status,
-}: {
-  score: number | null;
-  status: "scored" | "pending";
-}) {
-  if (status === "pending" || score === null) {
-    return (
-      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-rc-surface text-rc-ink-mute">
-        <MapPin className="w-4 h-4" />
-      </span>
-    );
-  }
-  const tier = tierFor(score);
-  return (
-    <span
-      className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full font-rc-mono text-[13px] font-bold ${TIER_PILL[tier]}`}
-    >
-      {score}
-    </span>
-  );
-}
-
-function VisibilityTag({ visibility }: { visibility: "private" | "public" }) {
-  return (
-    <span className="inline-flex items-center gap-1 rounded bg-rc-surface px-1.5 py-0.5 font-rc-mono text-[9px] uppercase tracking-[0.06em] text-rc-ink-mute">
-      {visibility === "private" ? (
-        <Lock className="w-2.5 h-2.5" />
-      ) : (
-        <Globe className="w-2.5 h-2.5" />
-      )}
-      {visibility}
-    </span>
-  );
-}
-
 function LinkCard({
   href,
   icon,
@@ -490,11 +490,11 @@ function LinkCard({
 
 function SkeletonRows() {
   return (
-    <div className="space-y-2.5">
-      {[0, 1, 2].map((i) => (
+    <div className="grid gap-2.5 sm:grid-cols-2">
+      {[0, 1, 2, 3].map((i) => (
         <div
           key={i}
-          className="h-16 rounded-xl border border-rc-rule bg-rc-surface animate-pulse"
+          className="h-[132px] rounded border-2 border-rc-rule bg-rc-surface animate-pulse"
         />
       ))}
     </div>
