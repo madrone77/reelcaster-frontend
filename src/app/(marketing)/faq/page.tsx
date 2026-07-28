@@ -5,7 +5,8 @@ import { ChevronDown } from 'lucide-react';
 
 
 export const metadata: Metadata = {
-  title: 'FAQ & Support | ReelCaster',
+  // Bare title — the root layout's "%s | ReelCaster" template adds the brand.
+  title: 'FAQ & Support',
   description:
     'Common questions about ReelCaster: tiers, region coverage, forecast accuracy, billing, catch logs, and data privacy.',
   alternates: { canonical: `${SITE_URL}/faq` },

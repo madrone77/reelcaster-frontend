@@ -24,6 +24,12 @@ export default function OwnerSpotFallback({ slug }: { slug: string }) {
 
   useEffect(() => {
     if (authLoading) return;
+    // Reached from not-found.tsx, where the slug is parsed off the pathname —
+    // an empty one would fetch a spot-page URL with a missing path segment.
+    if (!slug) {
+      setState("denied");
+      return;
+    }
     const token = session?.access_token;
     if (!token) {
       setState("denied");

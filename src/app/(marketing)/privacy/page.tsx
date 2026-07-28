@@ -5,7 +5,8 @@ import Link from 'next/link';
 const LAST_UPDATED = 'May 1, 2026';
 
 export const metadata: Metadata = {
-  title: 'Privacy Policy | ReelCaster',
+  // Bare title — the root layout's "%s | ReelCaster" template adds the brand.
+  title: 'Privacy Policy',
   description:
     'How ReelCaster collects, uses, and protects your data — accounts, fishing logs, location signals, billing, and analytics.',
   alternates: { canonical: `${SITE_URL}/privacy` },
