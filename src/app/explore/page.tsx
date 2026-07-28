@@ -10,12 +10,14 @@ import ExploreShell from "./explore-shell";
 const COVERED_BBOX_ALL = "-139.06,41.99,-114.03,60";
 
 export const metadata: Metadata = {
-  title: "Explore | ReelCaster",
+  // Bare title — the root layout's "%s | ReelCaster" template adds the brand.
+  // Spelling it out here rendered "Explore | ReelCaster | ReelCaster".
+  title: "Explore the Fishing Map",
   description:
     "Interactive fishing map — browse covered spots in BC, WA, and OR with live scores, conditions, and the day's best windows.",
   alternates: { canonical: `${SITE_URL}/explore` },
   openGraph: {
-    title: "Explore | ReelCaster",
+    title: "Explore the Fishing Map | ReelCaster",
     description:
       "Interactive fishing map — browse covered spots and see live RC scores.",
     url: `${SITE_URL}/explore`,
@@ -24,7 +26,15 @@ export const metadata: Metadata = {
     ...DEFAULT_OG,
     locale: "en_CA",
   },
-  robots: { index: true, follow: true },
+  // The map is a client app: `useSearchParams()` forces a client-render
+  // bailout, so all a crawler ever receives is the "Loading map…" fallback —
+  // about 70 characters of text, and no <h1>. Asking to be indexed on that
+  // earns a thin-content / soft-404 flag and spends crawl budget that should
+  // go to the city and spot pages, which prerender in full.
+  //
+  // `follow` stays on: this page links out to every spot, so it still passes
+  // discovery and link equity down to the surfaces that do have content.
+  robots: { index: false, follow: true },
 };
 
 export default async function ExplorePage() {

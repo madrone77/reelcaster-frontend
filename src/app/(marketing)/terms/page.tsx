@@ -5,7 +5,8 @@ import Link from 'next/link';
 const LAST_UPDATED = 'May 1, 2026';
 
 export const metadata: Metadata = {
-  title: 'Terms of Service | ReelCaster',
+  // Bare title — the root layout's "%s | ReelCaster" template adds the brand.
+  title: 'Terms of Service',
   description:
     'The terms governing use of ReelCaster — accounts, subscriptions, acceptable use, disclaimers around forecasts and DFO regulations.',
   alternates: { canonical: `${SITE_URL}/terms` },

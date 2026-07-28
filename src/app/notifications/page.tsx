@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import NotificationsShell from "./notifications-shell";
 
 export const metadata: Metadata = {
-  title: "Notifications | ReelCaster",
+  title: "Notifications",
   description: "Manage your fishing-condition alerts and see recent triggers.",
 };
 

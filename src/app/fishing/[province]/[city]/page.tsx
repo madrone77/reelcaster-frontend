@@ -54,7 +54,12 @@ export async function generateMetadata({
   // of the layout template via `absolute`; the generated fallback is bare and
   // lets the template append.
   const cmsTitle = cityPage?.page.seo.title;
-  const fallbackTitle = `Fishing in ${city.name}, ${city.provinceCode} — ${city.spots.length} Spots with Live Scores`;
+  // "Victoria, BC Fishing — 17 Spots". Leading with the place puts the words
+  // someone actually searched at the front of the result, and dropping the old
+  // "with Live Scores" tail brings every city inside the ~60 characters Google
+  // renders before truncating. The scores are the description's job — nobody
+  // searches for them by name.
+  const fallbackTitle = `${city.name}, ${city.provinceCode} Fishing — ${city.spots.length} Spots`;
   const description =
     cityPage?.page.seo.meta_description ??
     `Explore ${city.spots.length} saltwater fishing spots around ${city.name}, ${province.name} on a live map — RC scores, wind, sea, and tide conditions for every spot.`;

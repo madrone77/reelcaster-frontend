@@ -4,7 +4,7 @@ import { COVERED_PROVINCES } from '@/lib/regions';
 import AlertsClient, { type AlertsSpot } from './alerts-client';
 
 export const metadata: Metadata = {
-  title: 'Alerts | ReelCaster',
+  title: 'Alerts',
   description: 'Get notified when fishing scores peak at your favorite spots.',
   robots: { index: false, follow: false },
 };

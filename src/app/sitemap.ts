@@ -18,14 +18,36 @@ type SitemapEntry = {
 // consumes — it drives recrawl scheduling. `changeFrequency`/`priority` are
 // ignored by Google but still read by Bing, so they stay.
 //
-// Scored surfaces genuinely change on every scoring run, so "now" is honest for
-// them. Static pages get the build time, which is the last moment their copy
-// could have changed.
+// Static pages get the build time, which is the last moment their copy could
+// have changed.
 const BUILD_TIME = new Date();
 
+/**
+ * The scoring day the current map payload describes, as the `lastModified` for
+ * every scored surface.
+ *
+ * This used to be `new Date()` evaluated per request, which told Google that
+ * all 87 scored URLs changed in the same instant it asked — on every single
+ * fetch. Google detects a `lastmod` that always says "just now" and then
+ * discounts the whole file, so the pages that genuinely did change lost the
+ * recrawl signal along with the ones that didn't.
+ *
+ * `payload.date` is the local scoring day (YYYY-MM-DD, America/Vancouver). It
+ * is stable within a day and advances exactly when the scores behind these
+ * pages do, which is the claim the field is supposed to make.
+ */
+function scoredLastModified(date: string | undefined): Date {
+  if (!date) return BUILD_TIME;
+  const parsed = new Date(`${date}T00:00:00Z`);
+  return Number.isNaN(parsed.getTime()) ? BUILD_TIME : parsed;
+}
+
+// `/explore` is deliberately absent: it renders as a client-side map, so a
+// crawler only ever sees "Loading map…". It is noindex for the same reason
+// (see src/app/explore/page.tsx) and a noindex URL has no business in a
+// sitemap — the file is a list of pages we want indexed.
 const STATIC_ENTRIES: Omit<SitemapEntry, "lastModified">[] = [
   { url: siteUrl("/"), changeFrequency: "weekly", priority: 1.0 },
-  { url: siteUrl("/explore"), changeFrequency: "daily", priority: 0.9 },
   { url: siteUrl("/pricing"), changeFrequency: "monthly", priority: 0.5 },
   { url: siteUrl("/about"), changeFrequency: "monthly", priority: 0.5 },
   { url: siteUrl("/faq"), changeFrequency: "monthly", priority: 0.5 },
@@ -35,58 +57,75 @@ const STATIC_ENTRIES: Omit<SitemapEntry, "lastModified">[] = [
 ];
 
 export default async function sitemap(): Promise<SitemapEntry[]> {
-  const now = new Date();
   const entries: SitemapEntry[] = STATIC_ENTRIES.map((e) => ({
     ...e,
     lastModified: BUILD_TIME,
   }));
 
-  // /fishing directory — province indexes + city explorers, derived from
-  // the same lifecycle-gated hierarchy those pages render, so the sitemap
-  // can't drift from what actually resolves.
-  try {
-    const hierarchy = await fetchHierarchy();
+  // A sitemap must never 500, so both reads degrade to null rather than throw.
+  const [hierarchy, payload] = await Promise.all([
+    fetchHierarchy().catch(() => null),
+    fetchMapSpots({ bbox: COVERED_BBOX_ALL }).catch(() => null),
+  ]);
+
+  const scoredAt = scoredLastModified(payload?.date);
+
+  // Every spot slug reachable from a published city page. The hierarchy is the
+  // lifecycle gate — it carries only published cities, each with the exact
+  // spot links its page renders — so this set is precisely the internal link
+  // graph a crawler can walk.
+  const linkedSpotSlugs = new Set<string>();
+
+  // /fishing directory — province indexes + city explorers, derived from the
+  // same lifecycle-gated hierarchy those pages render, so the sitemap can't
+  // drift from what actually resolves.
+  if (hierarchy) {
     for (const code of COVERED_PROVINCES) {
       const province = getFishingProvince(hierarchy, code);
       if (!province || province.cities.length === 0) continue;
       const provPath = `/fishing/${code.toLowerCase()}`;
       entries.push({
         url: siteUrl(provPath),
-        lastModified: now,
+        lastModified: scoredAt,
         changeFrequency: "weekly",
         priority: 0.8,
       });
       for (const city of province.cities) {
         entries.push({
           url: siteUrl(`${provPath}/${city.slug}`),
-          lastModified: now,
+          lastModified: scoredAt,
           changeFrequency: "daily",
           priority: 0.8,
         });
+        for (const spot of city.spots) {
+          if (spot.slug) linkedSpotSlugs.add(spot.slug);
+        }
       }
     }
-  } catch {
-    // Directory entries are additive — static + spot entries still serve.
   }
 
   // Spot pages are the content-rich indexable surface (/explore/spot/[slug]
-  // sets robots index:true + a canonical). Sourced from the same map-spots
-  // payload /explore renders from; on any failure fall back to the static
-  // list — a sitemap must never 500.
-  try {
-    const payload = await fetchMapSpots({ bbox: COVERED_BBOX_ALL });
-    for (const spot of payload?.spots ?? []) {
-      if (!spot.slug) continue;
-      entries.push({
-        url: siteUrl(`/explore/spot/${spot.slug}`),
-        lastModified: now,
-        changeFrequency: "daily",
-        priority: 0.7,
-      });
-    }
-  } catch {
-    // fetchMapSpots already swallows most failures (returns null); this
-    // guard keeps the sitemap serving the static set no matter what.
+  // sets robots index:true + a canonical).
+  //
+  // The map payload is bbox-scoped, not lifecycle-gated, so on its own it also
+  // returns spots in cities that aren't published yet. Those pages render, but
+  // no city page links them and findCityForSpot() gives them no breadcrumb —
+  // they were seven orphans in the sitemap, which is exactly the "indexable,
+  // linked from nowhere" shape that reads as low value. Intersecting with the
+  // link graph keeps the sitemap to spots a crawler could also reach by
+  // walking the site.
+  //
+  // If the hierarchy read failed we have no link graph to intersect with, so
+  // fall back to the full payload: stale orphans beat an empty sitemap.
+  for (const spot of payload?.spots ?? []) {
+    if (!spot.slug) continue;
+    if (hierarchy && !linkedSpotSlugs.has(spot.slug)) continue;
+    entries.push({
+      url: siteUrl(`/explore/spot/${spot.slug}`),
+      lastModified: scoredAt,
+      changeFrequency: "daily",
+      priority: 0.7,
+    });
   }
 
   return entries;
