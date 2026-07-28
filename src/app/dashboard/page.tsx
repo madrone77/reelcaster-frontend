@@ -10,6 +10,7 @@ import {
   Bell,
   ScrollText,
   Star,
+  Home,
 } from "lucide-react";
 import { useAuth } from "@/contexts/auth-context";
 import {
@@ -18,6 +19,7 @@ import {
   type OwnedCustomSpot,
 } from "@/lib/bluecaster-client";
 import { tierFor, TIER_PILL } from "@/app/explore/lib/explore-data";
+import { readHomeSpot } from "@/app/explore/lib/use-home-spot";
 
 // The whole covered extent — favourites can live anywhere in it.
 const COVERED_BBOX_ALL = "-139.06,41.99,-114.03,60";
@@ -128,6 +130,18 @@ export default function DashboardPage() {
     };
   }, [user]);
 
+  // The designated home spot (localStorage), if the angler has pinned one.
+  const [homeSlug, setHomeSlug] = useState<string | null>(null);
+  useEffect(() => {
+    const sync = () => setHomeSlug(readHomeSpot());
+    sync();
+    const onStorage = (e: StorageEvent) => {
+      if (e.key === "rc-home-spot" || e.key === null) sync();
+    };
+    window.addEventListener("storage", onStorage);
+    return () => window.removeEventListener("storage", onStorage);
+  }, []);
+
   const name = firstName(user?.email);
 
   // Favourites enriched with today's score.
@@ -156,6 +170,35 @@ export default function DashboardPage() {
     }
     if (pool.length === 0) return null;
     return pool.sort((a, b) => b.score - a.score)[0];
+  })();
+
+  // The hero: the designated home spot if the angler pinned one, else today's
+  // top scorer.
+  type Hero = {
+    slug: string;
+    name: string;
+    score: number | null;
+    species: string | null;
+    isHome: boolean;
+  };
+  const heroSpot: Hero | null = (() => {
+    if (homeSlug) {
+      const c = (custom ?? []).find((x) => x.slug === homeSlug);
+      const f = (favs ?? []).find((x) => x.slug === homeSlug);
+      const sc = scoreBySlug[homeSlug];
+      const score =
+        (c && typeof c.score === "number" ? c.score : null) ??
+        (f && typeof f.score === "number" ? f.score : null) ??
+        (sc ? sc.score : null);
+      return {
+        slug: homeSlug,
+        name: c?.name ?? f?.name ?? prettify(homeSlug),
+        score,
+        species: c?.best_species_name ?? f?.species ?? sc?.species ?? null,
+        isHome: true,
+      };
+    }
+    return topSpot ? { ...topSpot, isHome: false } : null;
   })();
 
   const customCount = custom?.length ?? 0;
@@ -194,50 +237,64 @@ export default function DashboardPage() {
       </header>
 
       <main className="max-w-2xl mx-auto px-5 py-6 space-y-8">
-        {/* ── Top spot (home spot) ─────────────────────────────────────── */}
-        {topSpot && (
+        {/* ── Hero: home spot (if pinned) or today's top scorer ────────── */}
+        {heroSpot && (
           <section>
             <div className="mb-3 flex items-center gap-1.5">
-              <Star className="h-4 w-4 text-rc-brand" />
+              {heroSpot.isHome ? (
+                <Home className="h-4 w-4 text-rc-brand" />
+              ) : (
+                <Star className="h-4 w-4 text-rc-brand" />
+              )}
               <h2 className="font-rc-mono text-[11px] uppercase tracking-[0.12em] text-rc-ink-mute">
-                Your top spot right now
+                {heroSpot.isHome ? "Home spot" : "Your top spot right now"}
               </h2>
             </div>
             <Link
-              href={`/explore/spot/${topSpot.slug}`}
+              href={`/explore/spot/${heroSpot.slug}`}
               className="block rounded-2xl border border-rc-rule bg-rc-panel p-5 shadow-rc-panel transition-colors hover:border-rc-brand/40"
             >
               <div className="flex items-start justify-between gap-4">
                 <div className="min-w-0">
-                  {topSpot.species && (
+                  {heroSpot.species && (
                     <span className="inline-block rounded bg-rc-brand-soft px-2 py-0.5 font-rc-mono text-[10px] font-bold uppercase tracking-[0.1em] text-rc-brand">
-                      {topSpot.species}
+                      {heroSpot.species}
                     </span>
                   )}
                   <h3 className="mt-2 truncate text-xl font-black tracking-[-0.01em] text-rc-ink">
-                    {topSpot.name}
+                    {heroSpot.name}
                   </h3>
                   <p className="mt-1 font-rc-mono text-[11px] text-rc-ink-mute">
-                    Best score across your spots today
+                    {heroSpot.isHome
+                      ? "Your pinned home spot"
+                      : "Best score across your spots today"}
                   </p>
                 </div>
                 <div className="shrink-0 text-center">
-                  <div
-                    className={`text-4xl font-black leading-none tabular-nums ${
-                      tierFor(topSpot.score) === "good"
-                        ? "text-rc-good"
-                        : tierFor(topSpot.score) === "fair"
-                          ? "text-rc-fair"
-                          : "text-rc-poor"
-                    }`}
-                  >
-                    {topSpot.score}
-                  </div>
-                  <span
-                    className={`mt-2 inline-block rounded px-2 py-0.5 font-rc-mono text-[10px] font-bold uppercase ${TIER_PILL[tierFor(topSpot.score)]}`}
-                  >
-                    {tierFor(topSpot.score)}
-                  </span>
+                  {typeof heroSpot.score === "number" ? (
+                    <>
+                      <div
+                        className={`text-4xl font-black leading-none tabular-nums ${
+                          tierFor(heroSpot.score) === "good"
+                            ? "text-rc-good"
+                            : tierFor(heroSpot.score) === "fair"
+                              ? "text-rc-fair"
+                              : "text-rc-poor"
+                        }`}
+                      >
+                        {heroSpot.score}
+                      </div>
+                      <span
+                        className={`mt-2 inline-block rounded px-2 py-0.5 font-rc-mono text-[10px] font-bold uppercase ${TIER_PILL[tierFor(heroSpot.score)]}`}
+                      >
+                        {tierFor(heroSpot.score)}
+                      </span>
+                    </>
+                  ) : (
+                    <span className="font-rc-mono text-[11px] text-rc-ink-mute">
+                      No score yet
+                    </span>
+                  )}
                 </div>
               </div>
             </Link>
