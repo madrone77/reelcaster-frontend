@@ -194,7 +194,7 @@ export function MobileForecastStrip({
 
   return (
     <>
-      <div className="lg:hidden fixed top-16 inset-x-2 z-20 flex gap-1.5 overflow-x-auto scrollbar-hide bg-rc-panel/95 backdrop-blur border border-rc-rule rounded-xl shadow-rc-bar p-1.5">
+      <div className="lg:hidden fixed top-16 inset-x-2 z-20 flex gap-1.5 overflow-x-auto scrollbar-hide bg-rc-panel/95 backdrop-blur border border-rc-rule rounded-xl shadow-rc-bar px-1.5 pb-1.5 pt-3">
         {model.days.map((day) => (
           <div key={day.index} className="w-14 shrink-0">
             <DayCell
