@@ -32,12 +32,35 @@ function dollars(cents: number): string {
 }
 
 // Product + Offer. The page states two real prices, so this is the markup that
-// lets a result carry them. Both offers are `InStock` and priced in CAD;
-// `eligibleRegion` mirrors the coverage note further down the page, so the
-// structured data can't promise availability the checkout will refuse.
+// lets a result carry them. Billing is dual-currency — BC pays CAD, WA/OR pay
+// USD (same numbers) — so each plan carries one offer per currency, and each
+// offer's `eligibleRegion` names only the regions that currency is sold in.
+// The markup can't promise a price/region pairing the checkout would refuse.
 //
 // Prices come from the same `@/lib/pricing` constants the visible cards render
 // — the markup and the page can never disagree.
+const CAD_REGIONS = [
+  { "@type": "AdministrativeArea", name: "British Columbia" },
+];
+const USD_REGIONS = [
+  { "@type": "AdministrativeArea", name: "Washington" },
+  { "@type": "AdministrativeArea", name: "Oregon" },
+];
+
+function proOffer(plan: "Monthly" | "Annual", currency: "CAD" | "USD") {
+  const cents = plan === "Monthly" ? MONTHLY_PRICE_CENTS : ANNUAL_PRICE_CENTS;
+  return {
+    "@type": "Offer",
+    name: `ReelCaster Pro — ${plan} (${currency})`,
+    price: (cents / 100).toFixed(2),
+    priceCurrency: currency,
+    availability: "https://schema.org/InStock",
+    url: siteUrl("/pricing"),
+    seller: { "@id": `${SITE_URL}/#organization` },
+    eligibleRegion: currency === "CAD" ? CAD_REGIONS : USD_REGIONS,
+  };
+}
+
 const PRICING_JSONLD = {
   "@context": "https://schema.org",
   "@type": "Product",
@@ -48,34 +71,10 @@ const PRICING_JSONLD = {
   url: siteUrl("/pricing"),
   category: "Fishing forecast subscription",
   offers: [
-    {
-      "@type": "Offer",
-      name: "ReelCaster Pro — Monthly",
-      price: (MONTHLY_PRICE_CENTS / 100).toFixed(2),
-      priceCurrency: "CAD",
-      availability: "https://schema.org/InStock",
-      url: siteUrl("/pricing"),
-      seller: { "@id": `${SITE_URL}/#organization` },
-      eligibleRegion: [
-        { "@type": "AdministrativeArea", name: "British Columbia" },
-        { "@type": "AdministrativeArea", name: "Washington" },
-        { "@type": "AdministrativeArea", name: "Oregon" },
-      ],
-    },
-    {
-      "@type": "Offer",
-      name: "ReelCaster Pro — Annual",
-      price: (ANNUAL_PRICE_CENTS / 100).toFixed(2),
-      priceCurrency: "CAD",
-      availability: "https://schema.org/InStock",
-      url: siteUrl("/pricing"),
-      seller: { "@id": `${SITE_URL}/#organization` },
-      eligibleRegion: [
-        { "@type": "AdministrativeArea", name: "British Columbia" },
-        { "@type": "AdministrativeArea", name: "Washington" },
-        { "@type": "AdministrativeArea", name: "Oregon" },
-      ],
-    },
+    proOffer("Monthly", "CAD"),
+    proOffer("Monthly", "USD"),
+    proOffer("Annual", "CAD"),
+    proOffer("Annual", "USD"),
   ],
 };
 
@@ -138,8 +137,8 @@ export default async function PricingPage() {
           Pro is sold only in covered regions:{" "}
           <strong className="text-rc-ink">British Columbia</strong>,{" "}
           <strong className="text-rc-ink">Washington</strong>, and{" "}
-          <strong className="text-rc-ink">Oregon</strong>. If you fish
-          elsewhere,{" "}
+          <strong className="text-rc-ink">Oregon</strong>. Prices are in CAD
+          for Canada and USD for the US. If you fish elsewhere,{" "}
           <Link
             href="/explore"
             className="text-rc-brand hover:text-rc-brand-hover underline underline-offset-2"
