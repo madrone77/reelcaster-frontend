@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import dynamic from "next/dynamic";
-import { ArrowUpCircle, ChevronLeft, ChevronRight } from "lucide-react";
+import { ArrowUpCircle, ChevronLeft, ChevronRight, Home } from "lucide-react";
 import { useAuth } from "@/contexts/auth-context";
 import { useSubscription } from "@/hooks/use-subscription";
 import { favoriteCount } from "../../lib/use-favorite";
@@ -42,6 +42,7 @@ import SeasonalityStrip from "../components/seasonality-strip";
 import NowConditions from "../components/now-conditions";
 import ScoreFactors from "../components/score-factors";
 import { useFavorite } from "../../lib/use-favorite";
+import { useHomeSpot } from "../../lib/use-home-spot";
 import SpotTerminal from "../components/spot-terminal";
 import SpotMiniMap from "../components/spot-mini-map";
 import ScoreCard from "../components/score-card";
@@ -113,6 +114,7 @@ export default function SpotDetailShell({
   const [score, setScore] = useState<SpotScorePayload | null>(null);
   const [point, setPoint] = useState<PointConditions | null>(null);
   const [saved, toggleSaved] = useFavorite(spot.slug);
+  const [isHome, toggleHome] = useHomeSpot(spot.slug);
   const { isPaid } = useSubscription();
   const { user, loading: authLoading } = useAuth();
   const accessTier: ForecastTier = isPaid ? "pro" : user ? "free" : "anonymous";
@@ -593,6 +595,23 @@ export default function SpotDetailShell({
                     >
                       <path d="M21,34 L10.4346982,39.5545079 C8.47875732,40.5828068 7.19697214,39.6450119 7.56952871,37.4728404 L9.5873218,25.7082039 L1.03981311,17.3764421 C-0.542576313,15.8339937 -0.0467737017,14.3251489 2.13421047,14.0082334 L13.946577,12.2917961 L19.2292279,1.58797623 C20.2071983,-0.393608322 21.7954064,-0.388330682 22.7707721,1.58797623 L28.053423,12.2917961 L39.8657895,14.0082334 C42.0525979,14.3259953 42.5383619,15.8381017 40.9601869,17.3764421 L32.4126782,25.7082039 L34.4304713,37.4728404 C34.8040228,39.6508126 33.5160333,40.5800681 31.5653018,39.5545079 L21,34 Z" />
                     </svg>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={toggleHome}
+                    aria-pressed={isHome}
+                    aria-label={isHome ? "Remove as home spot" : "Set as home spot"}
+                    title={isHome ? "Your home spot" : "Set as home spot"}
+                    className="group shrink-0 p-1.5 rounded hover:bg-rc-brand-soft focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-rc-brand transition-colors"
+                  >
+                    <Home
+                      className={`w-5 h-5 transition-colors ${
+                        isHome
+                          ? "text-rc-brand fill-rc-brand/15"
+                          : "text-rc-ink-mute group-hover:text-rc-brand"
+                      }`}
+                      strokeWidth={isHome ? 2.4 : 2}
+                    />
                   </button>
                 </div>
                 <p className="font-rc-mono text-xs text-rc-ink-mute mt-1.5">
