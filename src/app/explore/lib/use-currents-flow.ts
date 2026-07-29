@@ -32,7 +32,15 @@ const CFG = {
   cols: 64,
   rows: 48,
   pad: 0.2,
-  particles: 3800,
+  // Particle count follows the map's on-screen AREA rather than being fixed, so
+  // every map renders at the same streak density. A fixed 3800 spread over the
+  // full-screen Explore map is a sparse drift of hairlines; the same 3800 packed
+  // into the spot page's ~378x286 mini-map is 11x denser — a bold white mat that
+  // reads as a different animation. `density` is calibrated so a full-viewport
+  // Explore map (~1440x840) still gets ~3800, i.e. Explore is unchanged.
+  density: 3800 / (1440 * 840),
+  minParticles: 250,
+  maxParticles: 6000,
   maxAge: 180,
   trailFade: 0.96,
   pxPerKt: 0.175,
@@ -99,6 +107,10 @@ function startFlow(map: MlMap, getTime: () => string | null): FlowController {
   const dpr = Math.min(2, window.devicePixelRatio || 1);
   let W = 0;
   let H = 0;
+  // How many of P's slots are live this frame — recomputed on every resize so a
+  // map that changes size (the spot mini-map expanding to fullscreen) keeps the
+  // same streak density instead of thinning out or clotting.
+  let nParticles = 0;
   const resize = () => {
     W = container.clientWidth;
     H = container.clientHeight;
@@ -108,6 +120,10 @@ function startFlow(map: MlMap, getTime: () => string | null): FlowController {
     }
     fctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    nParticles = Math.min(
+      CFG.maxParticles,
+      Math.max(CFG.minParticles, Math.round(W * H * CFG.density)),
+    );
   };
   resize();
 
@@ -115,8 +131,11 @@ function startFlow(map: MlMap, getTime: () => string | null): FlowController {
   let fieldImg: HTMLCanvasElement | null = null;
   let retries = 0;
   let stopped = false;
-  const P = new Float64Array(CFG.particles * 3);
-  let seeded = false;
+  // Allocated once at the cap; only the first `nParticles` slots are simulated.
+  const P = new Float64Array(CFG.maxParticles * 3);
+  // High-water mark of initialised slots. Growing the count seeds the new slots;
+  // shrinking drops the mark so they get fresh positions if the map grows again.
+  let seededUpTo = 0;
 
   const spawn = (i: number) => {
     const b = map.getBounds();
@@ -127,6 +146,14 @@ function startFlow(map: MlMap, getTime: () => string | null): FlowController {
     P[i * 3] = w + Math.random() * (e - w);
     P[i * 3 + 1] = s + Math.random() * (n - s);
     P[i * 3 + 2] = Math.random() * CFG.maxAge;
+  };
+
+  // Bring the live slot count in line with `nParticles` after a resize (or the
+  // very first field). Ages start scattered so the extra streaks fade in over a
+  // cycle instead of all appearing and dying together.
+  const seedParticles = () => {
+    if (seededUpTo > nParticles) seededUpTo = nParticles;
+    while (seededUpTo < nParticles) spawn(seededUpTo++);
   };
 
   const sampleUV = (lng: number, lat: number): [number, number] | null => {
@@ -224,10 +251,6 @@ function startFlow(map: MlMap, getTime: () => string | null): FlowController {
         max: g.max_speed_kn || CFG.defaultMax,
       };
       buildFieldImg();
-      if (!seeded) {
-        for (let i = 0; i < CFG.particles; i++) spawn(i);
-        seeded = true;
-      }
       retries = 0;
     } catch {
       // Self-heal with a bounded backoff if we have NOTHING to show yet.
@@ -256,6 +279,7 @@ function startFlow(map: MlMap, getTime: () => string | null): FlowController {
   // streaks onto the offscreen 2D canvases.
   const step = () => {
     if (moving || !field) return;
+    seedParticles();
     drawField(); // colour heatmap (own canvas)
     // particle canvas: fade old trails, then draw fresh WHITE streaks
     ctx.globalCompositeOperation = "destination-in";
@@ -265,7 +289,7 @@ function startFlow(map: MlMap, getTime: () => string | null): FlowController {
     ctx.lineCap = "round";
     const pxPerDeg = (256 * Math.pow(2, map.getZoom())) / 360;
     const scale = CFG.pxPerKt / pxPerDeg;
-    for (let i = 0; i < CFG.particles; i++) {
+    for (let i = 0; i < nParticles; i++) {
       const lng = P[i * 3];
       const lat = P[i * 3 + 1];
       const age = P[i * 3 + 2];
