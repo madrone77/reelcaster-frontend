@@ -207,6 +207,11 @@ function extremes(arr: (number | null)[]): Extreme[] {
 
 type Dims = { w: number; LABEL: number; READ: number; mobile: boolean; id: string };
 
+// Hover-pill geometry (desktop). TAG_PAD is the horizontal breathing room on
+// each side of the label — the pill used to be a fixed 104px box that the
+// longest readouts ("11:00 · 100 Good") overflowed on both sides.
+const TAG_H = 20, TAG_GAP = 5, TAG_PAD = 10, TAG_MIN_W = 64;
+
 // Gutter widths shared by buildSvg, the pointer math, and the cursor mover —
 // mobile needs a real left gutter or the y-axis ticks clip off the canvas.
 const gutters = (mob: boolean) =>
@@ -246,7 +251,9 @@ function buildSvg(
   ] as { k: string; l: string; n: string; h: number; y0?: number; y1?: number }[];
   // Mobile row labels live in the inter-row gaps, so the gaps must clear a
   // 12px label — including after the arrow row, which precedes "Sea State".
-  const gap = mob ? 17 : 15, top = mob ? 18 : 21;
+  // Desktop `top` also reserves headroom for the hover pill, which floats above
+  // the score row — at the old 21 the pill's rounded top clipped off the viewBox.
+  const gap = mob ? 17 : 15, top = mob ? 18 : 28;
   const Y: Record<string, { y0: number; y1: number }> = {};
   let cy = top;
   rows.forEach((r) => { r.y0 = cy; r.y1 = cy + r.h; Y[r.k] = { y0: r.y0, y1: r.y1 }; cy += r.h + (r.k === "arrow" ? (mob ? gap : 4) : gap); });
@@ -389,22 +396,17 @@ function buildSvg(
       s += `<text class="tm-rv" id="${id}-${k}-v" x="${rx}" y="${midy}">—</text><text class="tm-rs" id="${id}-${k}-s" x="${rx}" y="${midy + 13}">—</text>`; });
   }
 
-  // cursor — the group translates to the selected hour's cell centre, so its
-  // score-cell outline highlights only the selected cell (relative to origin
-  // 0, the cell spans 0.8-hw/2 wide by hw-1.6). The vertical line starts
-  // below the score row so the outlined cell stays clean — no line through
-  // the score number.
-  // Snapping score-cell outline — highlights the whole hour cell under the
-  // cursor (floor of the fractional position), positioned absolutely so it
-  // stays grid-aligned even while the line below scrubs continuously.
+  // Score-cell outline — highlights the whole hour cell under the cursor.
+  // Positioned absolutely (not inside the translated cursor group) so it stays
+  // grid-aligned; the cursor line below is what moves.
   const selW = (hw - 1.6).toFixed(1);
   s += `<rect id="${id}-cell" x="${(x0 + 0.8).toFixed(1)}" y="${(Y.score.y0 - 1).toFixed(1)}" width="${selW}" height="${(Y.score.y1 - Y.score.y0 + 2).toFixed(1)}" rx="2" fill="none" stroke="${C.brand}" stroke-width="2"/>`;
-  // Smooth cursor group — translated to the exact pointer time (fractional on
-  // desktop): a vertical line, a dot riding the tide curve, and a hover pill
-  // reading time + score at that point (Surfline-style, follows the cursor).
+  // Cursor group — translated to the centre of the hour cell under the pointer:
+  // a vertical line, a dot riding the tide curve, and a hover pill reading the
+  // hour + score there. The pill's width is re-fitted to its text in paint().
   s += `<g id="${id}-cur"><line x1="0" y1="${(Y.score.y1 + 1).toFixed(1)}" x2="0" y2="${mob ? cBot : axisY + 2}" stroke="${C.brand}" stroke-width="1.5"/>`;
   s += `<circle id="${id}-tdot" cx="0" cy="${Y.tide.y0.toFixed(1)}" r="3.2" fill="${C.brand}" stroke="#fff" stroke-width="1.5" display="none"/>`;
-  if (!mob) s += `<g id="${id}-tagg"><rect x="-52" y="${cTop - 23}" width="104" height="19" rx="3" fill="${C.brand}"/><text class="tm-ctag" id="${id}-tagt" x="0" y="${cTop - 9}" text-anchor="middle">—</text></g>`;
+  if (!mob) s += `<g id="${id}-tagg"><rect id="${id}-tagr" x="-52" y="${(cTop - TAG_H - TAG_GAP).toFixed(1)}" width="104" height="${TAG_H}" rx="3" fill="${C.brand}"/><text class="tm-ctag" id="${id}-tagt" x="0" y="${(cTop - TAG_GAP - TAG_H / 2 + 4.3).toFixed(1)}" text-anchor="middle">—</text></g>`;
   s += `</g>`;
   s += "</svg>";
   return s;
@@ -493,13 +495,9 @@ export default function SpotTerminal({
   // Fractional time (curve space 0–24) clamped to the scored cells.
   const clampTf = (t: number) => Math.max(loH, Math.min(hiH + 1 - 1e-3, t));
 
-  // Desktop scrubs continuously (a fractional hover time per host); mobile stays
-  // on integer hours and reads out in the bar above. null = not hovering.
-  const hoverTfRef = useRef<Record<string, number | null>>({ tmd: null, tmm: null });
-
-  // Single painter for both the smooth pointer path and the keyboard/prop path:
-  // positions the snapping cell outline, the smooth line, the tide-riding dot,
-  // the hover pill, the gutter readouts and the aria state for a fractional `tf`.
+  // Single painter for the pointer, keyboard and prop paths: positions the cell
+  // outline, the cursor line, the tide-riding dot, the hover pill, the gutter
+  // readouts and the aria state. `tf` is always an hour centre (idx + 0.5).
   const paint = (host: HTMLDivElement | null, id: string, mob: boolean, tf: number) => {
     const svg = host?.querySelector("svg") as SVGSVGElement | null; if (!svg) return;
     const { LABEL: x0, READ } = gutters(mob);
@@ -519,9 +517,23 @@ export default function SpotTerminal({
     if (!mob && g) {
       const tagg = g.querySelector(`#${id}-tagg`);
       if (tagg) {
-        const shift = Math.max(x0 + 54, Math.min(x1 - 54, cursorX)) - cursorX;
+        // Label the whole hour, not the sub-hour position the pointer happens
+        // to sit at — the cursor snaps to hour centres, so "11:30" was a lie.
+        const t = svg.querySelector(`#${id}-tagt`) as SVGTextContentElement | null;
+        const label = `${hh(idx)} · ${d.score === "—" ? "—" : d.score + " " + d.verd}`;
+        let half = TAG_MIN_W / 2;
+        if (t) {
+          t.textContent = label;
+          // Measure the rendered glyphs (mono, but "1" vs "Good" still differ in
+          // count) and re-fit the pill so the fill always clears the text.
+          const tw = t.getComputedTextLength?.() || label.length * 7.3;
+          const w = Math.max(TAG_MIN_W, Math.round(tw + TAG_PAD * 2));
+          half = w / 2;
+          const rect = svg.querySelector(`#${id}-tagr`);
+          if (rect) { rect.setAttribute("width", String(w)); rect.setAttribute("x", (-half).toFixed(1)); }
+        }
+        const shift = Math.max(x0 + half, Math.min(x1 - half, cursorX)) - cursorX;
         tagg.setAttribute("transform", `translate(${shift.toFixed(1)},0)`);
-        const t = svg.querySelector(`#${id}-tagt`); if (t) t.textContent = `${hh(tf)} · ${d.score === "—" ? "—" : d.score + " " + d.verd}`;
       }
       const set = (k: string, v: string, fill?: string) => { const e = svg.querySelector(`#${id}-${k}-v`); if (e) { e.textContent = v; if (fill) e.setAttribute("fill", fill); } };
       const sub = (k: string, v: string) => { const e = svg.querySelector(`#${id}-${k}-s`); if (e) e.textContent = v; };
@@ -533,7 +545,7 @@ export default function SpotTerminal({
       set("air", d.air); sub("air", d.airS);
     }
     svg.setAttribute("aria-valuenow", String(idx));
-    svg.setAttribute("aria-valuetext", `${hh(tf)}, score ${d.score} ${d.verd}, tide ${d.tide}, wind ${d.wind}, sea ${d.seaS}, air ${d.air}`);
+    svg.setAttribute("aria-valuetext", `${hh(idx)}, score ${d.score} ${d.verd}, tide ${d.tide}, wind ${d.wind}, sea ${d.seaS}, air ${d.air}`);
   };
 
   // Build both SVGs when data changes.
@@ -560,11 +572,10 @@ export default function SpotTerminal({
         const idx = clampH(Math.floor(tf));
         if (lastHRef.current != null && idx !== lastHRef.current && e.pointerType !== "mouse") haptic();
         lastHRef.current = idx;
-        // Desktop tracks the exact fractional time (smooth); mobile snaps to the
-        // hour cell and reads out in the bar above.
-        const pt = mob ? idx + 0.5 : tf;
-        hoverTfRef.current[id] = mob ? null : tf;
-        paint(host, id, mob, pt);
+        // Magnetic to the hour: the cursor parks at the centre of whichever hour
+        // cell the pointer is over rather than tracking the exact pixel, so the
+        // line, the outlined score cell and the readouts always agree.
+        paint(host, id, mob, idx + 0.5);
         onSelectHour(idx);
       };
       svg.addEventListener("pointerdown", (e) => {
@@ -586,7 +597,6 @@ export default function SpotTerminal({
         // finger drifts — never mid-gesture reset; up/cancel end the drag.
         if (e.pointerType === "mouse") {
           downRef.current = false;
-          hoverTfRef.current[id] = null;
           const nh = clampH(nowHour);
           paint(host, id, mob, nh + 0.5);
           onSelectHour(nh);
@@ -601,7 +611,6 @@ export default function SpotTerminal({
         else if (e.key === "Home") next = 0;
         else if (e.key === "End") next = 23;
         if (next != null) {
-          hoverTfRef.current[id] = null;
           onSelectHour(clampH(next));
           e.preventDefault();
         }
@@ -615,12 +624,10 @@ export default function SpotTerminal({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [hours, realCurrent, tideRange, sun, bestWindow?.[0], bestWindow?.[1], deskW, mobW, windUnit, tempUnit, precipUnit, heightUnit]);
 
-  // Move cursor + refresh readouts when the selected hour changes (keyboard,
-  // parent, or a data refresh). During an active desktop hover the pointer path
-  // already owns the position (hoverTfRef), so paint at that fractional time;
-  // otherwise centre on the selected hour's cell.
+  // Move cursor + refresh readouts when the selected hour changes (pointer,
+  // keyboard, parent, or a data refresh) — always the selected hour's centre.
   useEffect(() => {
-    paint(deskRef.current, "tmd", false, hoverTfRef.current.tmd ?? selectedHour + 0.5);
+    paint(deskRef.current, "tmd", false, selectedHour + 0.5);
     paint(mobRef.current, "tmm", true, selectedHour + 0.5);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedHour, hours, realCurrent, deskW, mobW, windUnit, tempUnit, heightUnit]);

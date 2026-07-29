@@ -200,6 +200,8 @@ export type AnalyticsEventName =
   | 'Paywall Shown'
   | 'Paywall CTA Clicked'
   | 'Manage Subscription Clicked'
+  | 'Pro Welcome Shown'
+  | 'Pro Welcome Dismissed'
   // Performance
   | 'Page Load Time'
   | 'API Call'

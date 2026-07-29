@@ -87,9 +87,9 @@ export default function DayScrubCell({
   };
 
   return (
-    <div className="relative flex-[5] min-w-0 h-full rounded border border-rc-brand bg-rc-panel flex overflow-hidden">
+    <div className="relative flex-[5] min-w-0 h-full rounded border border-rc-brand bg-rc-panel flex">
       {day.isBest && (
-        <span className="absolute -top-1.5 left-3 px-1.5 py-0.5 rounded font-rc-mono text-[8px] font-bold tracking-wide bg-rc-badge text-rc-ink leading-none z-10">
+        <span className="absolute -top-2 left-3 px-1.5 py-0.5 rounded font-rc-mono text-[8px] font-bold tracking-wide bg-rc-badge text-rc-ink leading-none z-10">
           BEST
         </span>
       )}

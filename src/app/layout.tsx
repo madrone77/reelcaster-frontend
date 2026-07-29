@@ -6,6 +6,7 @@ import { MixpanelProvider } from '@/contexts/mixpanel-context'
 import { UnitPreferencesProvider } from '@/contexts/unit-preferences-context'
 import AuthGate from '@/app/components/auth/auth-gate'
 import MobileBottomNav from '@/app/components/mobile-bottom-nav'
+import ProWelcomeModal from '@/app/components/pro/pro-welcome-modal'
 import { GoogleAnalytics } from '@next/third-parties/google'
 import { ORGANIZATION_JSONLD, SITE_NAME, SITE_URL } from '@/lib/site'
 
@@ -79,6 +80,10 @@ export default function RootLayout({
               <AuthGate>
                 {children}
                 <MobileBottomNav />
+                {/* Mounted at the root because there is no single post-login
+                    landing page — a new Pro user can arrive on any route.
+                    Renders null for everyone who isn't owed the welcome. */}
+                <ProWelcomeModal />
               </AuthGate>
             </UnitPreferencesProvider>
           </MixpanelProvider>
