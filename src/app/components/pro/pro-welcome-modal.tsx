@@ -13,8 +13,9 @@
  * reappears on every new device stops reading as a welcome.
  */
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
+import { usePathname } from 'next/navigation';
 import {
   CalendarRange,
   Crown,
@@ -74,11 +75,21 @@ function formatDate(iso: string): string {
 export default function ProWelcomeModal() {
   const { user, loading: authLoading } = useAuth();
   const { trackEvent } = useAnalytics();
+  const pathname = usePathname();
   const [state, setState] = useState<WelcomeState>({ show: false });
   const [dismissing, setDismissing] = useState(false);
+  const tracked = useRef(false);
+
+  // Never interrupt the purchase flow: popping "Welcome to Pro" on the pricing
+  // page reads as premature (mid-checkout, or to someone whose tier flipped
+  // elsewhere), and /billing/success celebrates on its own. The modal instead
+  // catches the buyer on the page they land on next (/explore after the
+  // success redirect) — and comped users anywhere else, as before.
+  const suppressed =
+    pathname === '/pricing' || (pathname?.startsWith('/billing') ?? false);
 
   useEffect(() => {
-    if (authLoading || !user) return;
+    if (authLoading || !user || suppressed) return;
     let cancelled = false;
 
     (async () => {
@@ -97,7 +108,10 @@ export default function ProWelcomeModal() {
         if (!body.show || cancelled) return;
 
         setState(body);
-        trackEvent('Pro Welcome Shown', { comped: !!body.comped, tier: body.tier });
+        if (!tracked.current) {
+          tracked.current = true;
+          trackEvent('Pro Welcome Shown', { comped: !!body.comped, tier: body.tier });
+        }
       } catch {
         // A welcome modal is never worth surfacing an error for.
       }
@@ -109,7 +123,7 @@ export default function ProWelcomeModal() {
     // trackEvent is stable for the life of the provider; re-running on it would
     // re-fire the impression event.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user, authLoading]);
+  }, [user, authLoading, suppressed]);
 
   const dismiss = useCallback(async () => {
     setDismissing(true);
@@ -141,7 +155,7 @@ export default function ProWelcomeModal() {
     return () => window.removeEventListener('keydown', onKey);
   }, [state.show, dismiss]);
 
-  if (!state.show) return null;
+  if (!state.show || suppressed) return null;
 
   const { comped, until } = state;
   const untilLabel = until ? formatDate(until) : null;
