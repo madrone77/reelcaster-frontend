@@ -89,6 +89,34 @@ export async function POST(request: NextRequest) {
       .maybeSingle();
 
     let stripeCustomerId = existingSettings?.stripe_customer_id ?? null;
+
+    if (stripeCustomerId) {
+      // The dev site (test mode) and production (live mode) share this
+      // database row, so the stored customer can belong to the other Stripe
+      // mode — retrieving it here then fails. Treat that as "no customer yet"
+      // instead of failing the checkout.
+      try {
+        const customer = await stripe.customers.retrieve(stripeCustomerId);
+        if (customer.deleted) {
+          stripeCustomerId = null;
+        } else if (customer.currency && customer.currency !== currency) {
+          // Stripe locks a customer to their first billing currency forever; a
+          // session in any other currency is refused. Prefer the locked
+          // currency — both cad and usd exist on the price, so the session
+          // always succeeds.
+          console.warn(
+            `[stripe checkout] customer ${stripeCustomerId} locked to ${customer.currency}, overriding ${currency}`,
+          );
+          currency = customer.currency as BillingCurrency;
+        }
+      } catch {
+        console.warn(
+          `[stripe checkout] stored customer ${stripeCustomerId} not found in this Stripe mode; creating a new one`,
+        );
+        stripeCustomerId = null;
+      }
+    }
+
     if (!stripeCustomerId) {
       const customer = await stripe.customers.create({
         email: user.email ?? undefined,
@@ -110,19 +138,6 @@ export async function POST(request: NextRequest) {
         .from('user_settings')
         .update({ primary_region_slug: region })
         .eq('user_id', user.id);
-    }
-
-    if (existingSettings?.stripe_customer_id) {
-      // Stripe locks a customer to their first billing currency forever; a
-      // session in any other currency is refused. Prefer the locked currency —
-      // both cad and usd exist on the price, so the session always succeeds.
-      const customer = await stripe.customers.retrieve(stripeCustomerId);
-      if (!customer.deleted && customer.currency && customer.currency !== currency) {
-        console.warn(
-          `[stripe checkout] customer ${stripeCustomerId} locked to ${customer.currency}, overriding ${currency}`,
-        );
-        currency = customer.currency as BillingCurrency;
-      }
     }
 
     const origin = appOrigin(request);
