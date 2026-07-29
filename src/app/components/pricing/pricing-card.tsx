@@ -7,6 +7,7 @@ import { supabase } from '@/lib/supabase';
 import {
   ANNUAL_PRICE_CENTS,
   MONTHLY_PRICE_CENTS,
+  TRIAL_DAYS,
   annualDiscount,
   currencyLabelForRegion,
   type PricingPlan,
@@ -209,6 +210,14 @@ export default function PricingCard({
             </span>
           </div>
           <p className="mt-1.5 text-sm text-rc-ink-soft">
+            <strong className="text-rc-ink">
+              First {TRIAL_DAYS} days free
+            </strong>{' '}
+            — then{' '}
+            {dollars(yearly ? ANNUAL_PRICE_CENTS : MONTHLY_PRICE_CENTS)}/
+            {yearly ? 'year' : 'month'}. Cancel anytime.
+          </p>
+          <p className="mt-1.5 text-sm text-rc-ink-soft">
             {yearly ? (
               <>
                 That&apos;s just{' '}
@@ -280,9 +289,7 @@ export default function PricingCard({
           disabled={loading}
           className="mt-6 flex w-full items-center justify-center rounded-md bg-rc-brand px-5 py-3 text-sm font-bold text-white transition-colors hover:bg-rc-brand-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rc-brand focus-visible:ring-offset-2 disabled:opacity-60"
         >
-          {yearly
-            ? `Get Pro yearly — ${dollars(ANNUAL_PRICE_CENTS)}/yr`
-            : `Get Pro monthly — ${dollars(MONTHLY_PRICE_CENTS)}/mo`}
+          Start {TRIAL_DAYS}-day free trial
         </button>
 
         {/* Features */}
@@ -338,11 +345,11 @@ export default function PricingCard({
               </p>
             ) : (
               <p className="mb-4 font-rc-mono text-[11px] text-rc-ink-mute" aria-live="polite">
-                Billed in {currencyLabelForRegion(region)} —{' '}
+                {TRIAL_DAYS} days free, then{' '}
                 {yearly
                   ? `${dollars(ANNUAL_PRICE_CENTS)} ${currencyLabelForRegion(region)}/year`
                   : `${dollars(MONTHLY_PRICE_CENTS)} ${currencyLabelForRegion(region)}/month`}
-                .
+                . Cancel during the trial and you won&apos;t be charged.
               </p>
             )}
 

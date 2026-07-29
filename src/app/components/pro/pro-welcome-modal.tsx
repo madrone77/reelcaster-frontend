@@ -33,6 +33,7 @@ interface WelcomeState {
   show: boolean;
   comped?: boolean;
   tier?: string;
+  trialing?: boolean;
   until?: string | null;
 }
 
@@ -110,7 +111,11 @@ export default function ProWelcomeModal() {
         setState(body);
         if (!tracked.current) {
           tracked.current = true;
-          trackEvent('Pro Welcome Shown', { comped: !!body.comped, tier: body.tier });
+          trackEvent('Pro Welcome Shown', {
+            comped: !!body.comped,
+            trialing: !!body.trialing,
+            tier: body.tier,
+          });
         }
       } catch {
         // A welcome modal is never worth surfacing an error for.
@@ -157,7 +162,7 @@ export default function ProWelcomeModal() {
 
   if (!state.show || suppressed) return null;
 
-  const { comped, until } = state;
+  const { comped, trialing, until } = state;
   const untilLabel = until ? formatDate(until) : null;
 
   return (
@@ -210,6 +215,15 @@ export default function ProWelcomeModal() {
                 A full year of ReelCaster Pro is on us
                 {untilLabel ? <> — yours through {untilLabel}</> : null}. Nothing
                 to pay, no card on file. Here&rsquo;s what just opened up.
+              </>
+            ) : trialing ? (
+              <>
+                Your free trial is on
+                {untilLabel ? (
+                  <> — nothing is charged before {untilLabel}</>
+                ) : null}
+                , and you can cancel anytime before then. Here&rsquo;s what just
+                opened up.
               </>
             ) : (
               <>

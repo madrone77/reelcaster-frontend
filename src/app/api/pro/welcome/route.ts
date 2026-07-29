@@ -85,6 +85,8 @@ export async function GET(request: NextRequest) {
     show: true,
     comped,
     tier,
+    // During a Stripe trial, `until` is the trial end — i.e. the first charge.
+    trialing: !comped && status === 'trialing',
     // For a comp this is the day the grant lapses; otherwise the next renewal.
     until: comped ? compExpiresAt : (data.subscription_period_end ?? null),
   });

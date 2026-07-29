@@ -6,6 +6,7 @@ import PricingFeatureCallout from "@/app/components/pricing/pricing-feature-call
 import {
   ANNUAL_PRICE_CENTS,
   MONTHLY_PRICE_CENTS,
+  TRIAL_DAYS,
   annualDiscount,
 } from "@/lib/pricing";
 import { breadcrumbJsonLd, DEFAULT_OG, SITE_NAME, SITE_URL, siteUrl } from "@/lib/site";
@@ -13,12 +14,12 @@ import { breadcrumbJsonLd, DEFAULT_OG, SITE_NAME, SITE_URL, siteUrl } from "@/li
 export const metadata: Metadata = {
   title: "Pro Pricing",
   description:
-    "ReelCaster Pro is $5/month or $33/year (45% off). Unlock 14-day forecasts, custom alerts, and custom spot profiles.",
+    "ReelCaster Pro is $5/month or $33/year (45% off), starting with a 7-day free trial. Unlock 14-day forecasts, custom alerts, and custom spot profiles.",
   alternates: { canonical: siteUrl("/pricing") },
   openGraph: {
     title: "Pricing | ReelCaster",
     description:
-      "$5/month or $33/year (45% off) — 14-day forecasts, custom alerts, and spot profiles.",
+      "7 days free, then $5/month or $33/year (45% off) — 14-day forecasts, custom alerts, and spot profiles.",
     url: siteUrl("/pricing"),
     type: "website",
     ...DEFAULT_OG,
@@ -123,7 +124,9 @@ export default async function PricingPage() {
         <p className="max-w-2xl text-base md:text-lg leading-relaxed text-rc-ink-soft">
           Everything in Pro — the full 14-day forecast, custom alerts, and
           custom spot profiles — for {dollars(MONTHLY_PRICE_CENTS)} a month,
-          or {dollars(ANNUAL_PRICE_CENTS)} a year and save {pct}%.
+          or {dollars(ANNUAL_PRICE_CENTS)} a year and save {pct}%. Start with{" "}
+          {TRIAL_DAYS} days free: nothing is charged until the trial ends, and
+          you can cancel anytime before then.
         </p>
 
         <PricingCard defaultRegion={defaultRegion} />

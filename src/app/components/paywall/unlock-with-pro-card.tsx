@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { Sparkles } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { TRIAL_DAYS } from '@/lib/pricing';
 import { useAnalytics } from '@/hooks/use-analytics';
 
 const DEFAULT_BULLETS = [
@@ -38,7 +39,7 @@ export function UnlockWithProCard({
   headline = 'Unlock with Pro',
   bullets = DEFAULT_BULLETS,
   ctaHref,
-  ctaLabel = 'Upgrade to Pro · $33/yr',
+  ctaLabel = `Try Pro free for ${TRIAL_DAYS} days`,
   feature,
   compact = false,
   theme = 'auto',

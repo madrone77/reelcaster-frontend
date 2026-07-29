@@ -4,6 +4,7 @@ import { getStripe, appOrigin } from '@/lib/stripe';
 import {
   currencyForRegion,
   priceIdFor,
+  TRIAL_DAYS,
   type BillingCurrency,
   type PricingPlan,
 } from '@/lib/pricing';
@@ -84,11 +85,16 @@ export async function POST(request: NextRequest) {
   try {
     const { data: existingSettings } = await admin
       .from('user_settings')
-      .select('stripe_customer_id')
+      .select('stripe_customer_id, stripe_subscription_id')
       .eq('user_id', user.id)
       .maybeSingle();
 
     let stripeCustomerId = existingSettings?.stripe_customer_id ?? null;
+
+    // The free trial is for first-time subscribers only. The DB flag catches
+    // history from either Stripe mode (dev/test and prod/live share this row);
+    // the per-customer check below catches anything the row missed.
+    let hadSubscription = Boolean(existingSettings?.stripe_subscription_id);
 
     if (stripeCustomerId) {
       // The dev site (test mode) and production (live mode) share this
@@ -117,7 +123,9 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    let createdCustomer = false;
     if (!stripeCustomerId) {
+      createdCustomer = true;
       const customer = await stripe.customers.create({
         email: user.email ?? undefined,
         metadata: { supabase_user_id: user.id },
@@ -140,6 +148,25 @@ export async function POST(request: NextRequest) {
         .eq('user_id', user.id);
     }
 
+    // A just-created customer can't have prior subscriptions; anyone else gets
+    // one cheap history check. On a transient Stripe failure here, err toward
+    // granting the trial rather than failing the whole checkout.
+    if (!hadSubscription && !createdCustomer) {
+      try {
+        const prior = await stripe.subscriptions.list({
+          customer: stripeCustomerId,
+          status: 'all',
+          limit: 1,
+        });
+        hadSubscription = prior.data.length > 0;
+      } catch {
+        console.warn(
+          `[stripe checkout] subscription-history check failed for ${stripeCustomerId}; allowing trial`,
+        );
+      }
+    }
+    const trialEligible = !hadSubscription;
+
     const origin = appOrigin(request);
     const session = await stripe.checkout.sessions.create({
       mode: 'subscription',
@@ -155,12 +182,15 @@ export async function POST(request: NextRequest) {
         currency,
         region: region || '',
         from: body.from ?? '',
+        trial: String(trialEligible),
       },
       subscription_data: {
+        ...(trialEligible ? { trial_period_days: TRIAL_DAYS } : {}),
         metadata: {
           supabase_user_id: user.id,
           plan,
           currency,
+          trial: String(trialEligible),
         },
       },
     });
