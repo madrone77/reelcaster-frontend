@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import type { MapRef } from "react-map-gl/maplibre";
 import type { MapSpotsPayload } from "@/lib/bluecaster";
 import {
@@ -95,6 +95,17 @@ export default function ExploreShell({
   //    own custom spots render as distinct markers (fetched on sign-in, plus
   //    an optimistic add on create so a new pin shows immediately). ──────────
   const [customMode, setCustomMode] = useState(false);
+  // Deep-link into create mode from the dashboard's "New spot" button
+  // (/explore?create=1). Arms once, only for Pro (the create action is Pro-only).
+  const searchParams = useSearchParams();
+  const armedFromUrl = useRef(false);
+  useEffect(() => {
+    if (armedFromUrl.current) return;
+    if (searchParams.get("create") === "1" && isPaid) {
+      armedFromUrl.current = true;
+      setCustomMode(true);
+    }
+  }, [searchParams, isPaid]);
   const [pinCoords, setPinCoords] = useState<{ lat: number; lng: number } | null>(null);
   const [customModalOpen, setCustomModalOpen] = useState(false);
   const [customSpots, setCustomSpots] = useState<CustomSpotPin[]>([]);

@@ -46,10 +46,10 @@ export default function FavoritesPage() {
         <div className="max-w-2xl mx-auto px-5 pt-10 pb-6">
           <div className="flex items-center gap-2 text-rc-brand mb-2">
             <Heart className="w-5 h-5 fill-current" />
-            <span className="rc-label text-[10px]">Saved spots</span>
+            <span className="rc-label text-[10px]">Your spots</span>
           </div>
           <h1 className="text-3xl font-bold tracking-[-0.02em] text-rc-ink">
-            Favorites
+            Saved spots
           </h1>
         </div>
       </header>

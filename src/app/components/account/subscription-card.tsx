@@ -85,7 +85,9 @@ export default function SubscriptionCard() {
           </div>
           <div className="bg-rc-surface rounded-lg p-3">
             <p className="text-xs text-rc-ink-mute">
-              {status === 'canceled' ? 'Access until' : 'Next renewal'}
+              {status === 'canceled' || (isPaid && !stripeCustomerId)
+                ? 'Access until'
+                : 'Next renewal'}
             </p>
             <p className="text-rc-ink font-semibold mt-1">
               {periodEnd
@@ -105,10 +107,18 @@ export default function SubscriptionCard() {
           </div>
         )}
 
-        {isPaid ? (
+        {isPaid && !stripeCustomerId ? (
+          // Pro with no Stripe customer means the account was comped. The
+          // portal button would be permanently disabled with no explanation,
+          // so say what's actually going on instead.
+          <div className="bg-rc-good-bg border border-rc-good-border rounded-md p-3 text-sm text-rc-good-ink">
+            Pro is complimentary on this account — there&rsquo;s no billing to
+            manage and no card on file.
+          </div>
+        ) : isPaid ? (
           <Button
             onClick={handleManage}
-            disabled={opening || !stripeCustomerId}
+            disabled={opening}
             variant="outline"
             className="w-full border-rc-rule text-rc-ink hover:bg-rc-surface"
           >
@@ -134,7 +144,9 @@ export default function SubscriptionCard() {
         )}
 
         <p className="text-xs text-rc-ink-mute">
-          {isPaid
+          {isPaid && !stripeCustomerId
+            ? 'You keep full Pro access until the date above. Nothing renews and nothing is charged.'
+            : isPaid
             ? 'Use the Stripe portal to update your card, change plan, or cancel anytime.'
             : 'Pro unlocks the full 14-day forecast, custom spots in covered waters, up to 10 alerts, and SMS delivery (coming soon).'}
         </p>

@@ -373,31 +373,49 @@ export function extraRailSpotsFromPayload(
 ): RailSpot[] {
   const known = new Set(base.map((s) => s.slug));
   const cityMeta = new Map(base.map((s) => [s.citySlug, s]));
-  const nowHour = currentLocalHour(payload.tz);
 
   return payload.spots
     .filter((entry) => !known.has(entry.slug))
     .map((entry) => {
-      const citySlug = entry.city_slug ?? "";
-      const near = cityMeta.get(citySlug);
-      const s = deriveScoring(entry, payload.species, isToday ? nowHour : -1);
+      const near = cityMeta.get(entry.city_slug ?? "");
       return {
-        id: entry.id,
-        slug: entry.slug,
-        name: entry.name,
-        lat: entry.lat,
-        lng: entry.lng,
-        citySlug,
+        ...railSpotFromEntry(entry, payload, isToday),
         cityName: near?.cityName ?? "",
         regionSlug: near?.regionSlug ?? "",
         regionName: near?.regionName ?? "",
         provinceCode: near?.provinceCode ?? "",
-        distanceKm: null,
         isCustom: true,
         visibility: visibilityBySlug.get(entry.slug) ?? "private",
-        ...s,
       } satisfies RailSpot;
     });
+}
+
+/**
+ * One map/spots entry → a RailSpot, scores and conditions derived the same way
+ * the rail does it. The payload carries only `city_slug`, so region/province
+ * come back blank — callers that need them fill them in. Lets surfaces outside
+ * Explore (the dashboard) render the same card from the same numbers.
+ */
+export function railSpotFromEntry(
+  entry: MapSpotEntry,
+  payload: MapSpotsPayload,
+  isToday: boolean,
+): RailSpot {
+  const atHour = isToday ? currentLocalHour(payload.tz) : -1;
+  return {
+    id: entry.id,
+    slug: entry.slug,
+    name: entry.name,
+    lat: entry.lat,
+    lng: entry.lng,
+    citySlug: entry.city_slug ?? "",
+    cityName: "",
+    regionSlug: "",
+    regionName: "",
+    provinceCode: "",
+    distanceKm: null,
+    ...deriveScoring(entry, payload.species, atHour),
+  };
 }
 
 export function rescoreSpots(

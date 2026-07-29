@@ -8,20 +8,76 @@ import {
 } from '@/lib/pricing';
 import { TRIAL_DAYS } from '@/lib/trial';
 import PlansFeatureCallout from '@/app/components/plans/plans-feature-callout';
+import {
+  breadcrumbJsonLd,
+  SITE_NAME,
+  SITE_URL,
+  siteUrl,
+} from '@/lib/site';
 
-const SITE_URL = 'https://reelcaster.com';
+/**
+ * Product + Offer markup, ported from the retired /pricing page (#c4d8706).
+ *
+ * Four offers, not two: one product with multi-currency Prices means the same
+ * plan is sold in CAD and USD, and Google wants the eligible region stated per
+ * currency. Amounts come from the same constants the visible table renders, so
+ * the markup can't advertise a price the page doesn't show.
+ */
+const CAD_REGIONS = [
+  { '@type': 'AdministrativeArea', name: 'British Columbia' },
+];
+const USD_REGIONS = [
+  { '@type': 'AdministrativeArea', name: 'Washington' },
+  { '@type': 'AdministrativeArea', name: 'Oregon' },
+];
+
+function proOffer(plan: 'Monthly' | 'Annual', currency: 'CAD' | 'USD') {
+  const cents = plan === 'Monthly' ? MONTHLY_PRICE_CENTS : ANNUAL_PRICE_CENTS;
+  return {
+    '@type': 'Offer',
+    name: `ReelCaster Pro — ${plan} (${currency})`,
+    price: (cents / 100).toFixed(2),
+    priceCurrency: currency,
+    availability: 'https://schema.org/InStock',
+    url: siteUrl('/plans'),
+    seller: { '@id': `${SITE_URL}/#organization` },
+    eligibleRegion: currency === 'CAD' ? CAD_REGIONS : USD_REGIONS,
+  };
+}
+
+const PLANS_JSONLD = {
+  '@context': 'https://schema.org',
+  '@type': 'Product',
+  name: 'ReelCaster Pro',
+  description:
+    'Full 14-day fishing forecasts, custom score alerts, and custom spot profiles for the BC, Washington, and Oregon coasts.',
+  brand: { '@type': 'Brand', name: SITE_NAME },
+  url: siteUrl('/plans'),
+  category: 'Fishing forecast subscription',
+  offers: [
+    proOffer('Monthly', 'CAD'),
+    proOffer('Monthly', 'USD'),
+    proOffer('Annual', 'CAD'),
+    proOffer('Annual', 'USD'),
+  ],
+};
+
+const PLANS_BREADCRUMBS = breadcrumbJsonLd([
+  { name: 'Home', path: '/' },
+  { name: 'Plans', path: '/plans' },
+]);
 
 export const metadata: Metadata = {
   title: 'ReelCaster Pro — Plans',
   description:
     'ReelCaster Pro: 14-day forecasts, your own private spots, and alerts when conditions line up. $33 a year after a 7-day free trial.',
-  alternates: { canonical: `${SITE_URL}/plans` },
+  alternates: { canonical: siteUrl('/plans') },
   openGraph: {
     title: 'ReelCaster Pro — Plans',
     description:
       '14-day forecasts, private spots, and condition alerts. $33 a year after a 7-day free trial.',
-    url: `${SITE_URL}/plans`,
-    siteName: 'ReelCaster',
+    url: siteUrl('/plans'),
+    siteName: SITE_NAME,
     type: 'website',
     locale: 'en_CA',
   },
@@ -143,6 +199,15 @@ export default function PlansPage() {
 
   return (
     <article>
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(PLANS_JSONLD) }}
+      />
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(PLANS_BREADCRUMBS) }}
+      />
+
       {/* Paywall deep links (?feature=alerts) open on what the customer just
           got blocked from, rather than a generic pitch. */}
       <div className="pt-8 md:pt-10">
@@ -320,7 +385,8 @@ export default function PlansPage() {
           Pro is sold only where we forecast:{' '}
           <strong className="text-rc-ink">British Columbia</strong>,{' '}
           <strong className="text-rc-ink">Washington</strong>, and{' '}
-          <strong className="text-rc-ink">Oregon</strong>. Fish somewhere else?{' '}
+          <strong className="text-rc-ink">Oregon</strong>. Prices are in CAD for
+          Canada and USD for the US. Fish somewhere else?{' '}
           <Link
             href="/explore"
             className="text-rc-brand underline underline-offset-2 hover:text-rc-brand-hover"

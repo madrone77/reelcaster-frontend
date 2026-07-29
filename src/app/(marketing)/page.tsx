@@ -8,6 +8,7 @@ import MapSection from './components/map-section';
 import PricingSection from './components/pricing-section';
 import FeaturesSection from './components/features-section';
 import CtaBand from './components/cta-band';
+import SignedInRedirect from './components/signed-in-redirect';
 
 // Hourly revalidation keeps the seasonal Pro price current across month
 // boundaries (see src/lib/pricing.ts).
@@ -55,6 +56,11 @@ export default function MarketingHomePage() {
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(HOMEPAGE_JSONLD) }}
       />
+
+      {/* Signed-in visitors never land here — straight to /dashboard. Renders
+          nothing for signed-out visitors and crawlers, so the static HTML below
+          is untouched. */}
+      <SignedInRedirect />
 
       <Hero />
       <ScoreTicker />

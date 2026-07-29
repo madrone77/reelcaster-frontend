@@ -6,7 +6,9 @@ import { Mail, MessageCircle, AlertCircle, Newspaper } from 'lucide-react';
 const SUPPORT_EMAIL = 'support@reelcaster.com';
 
 export const metadata: Metadata = {
-  title: 'Contact ReelCaster | Support, Billing, Press',
+  // Bare title — the root layout's "%s | ReelCaster" template adds the brand,
+  // so naming it here too rendered "Contact ReelCaster | … | ReelCaster".
+  title: 'Contact — Support, Billing & Press',
   description:
     'Get in touch with ReelCaster for support, billing questions, spot data corrections, or press inquiries. We respond within two business days.',
   alternates: { canonical: `${SITE_URL}/contact` },

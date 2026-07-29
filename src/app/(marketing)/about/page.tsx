@@ -5,7 +5,9 @@ import AboutTabs from './about-tabs';
 
 
 export const metadata: Metadata = {
-  title: 'About ReelCaster | BC Fishing Forecasts',
+  // Bare title — the root layout's "%s | ReelCaster" template adds the brand,
+  // so naming it here too rendered "About ReelCaster | … | ReelCaster".
+  title: 'About — BC Fishing Forecasts',
   description:
     'ReelCaster turns tides, weather, water conditions, and DFO regulations into one simple fishing score for the BC coast. Built by anglers in Victoria, BC.',
   alternates: { canonical: `${SITE_URL}/about` },

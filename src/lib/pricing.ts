@@ -1,27 +1,56 @@
 /**
- * ReelCaster Pro pricing — one flat plan, billed monthly or yearly.
+ * ReelCaster Pro pricing — one flat plan, billed monthly or yearly, in the
+ * buyer's currency:
  *
- *   $5 / month   ·   $33 / year
+ *   CAD: $5 / month · $33 / year        USD: $5 / month · $33 / year
  *
  * Yearly is a 45% discount: twelve monthly payments would be $60, so the
  * annual plan saves $27 (45% off). See annualDiscount() for the derived math
  * the pricing UI renders.
  *
- * Price IDs come from Stripe. The monthly $5 price already exists; the annual
- * $33 price must be created in Stripe and supplied via STRIPE_ANNUAL_PRICE_ID
- * (until then, annual checkout is disabled and only monthly can be purchased).
+ * Stripe-side model: ONE product with TWO multi-currency Prices (CAD base +
+ * a USD currency_option at the same amounts), so each price ID covers both
+ * currencies. Checkout picks the presentment currency via the session-level
+ * `currency` param. Price IDs come from STRIPE_MONTHLY_PRICE_ID /
+ * STRIPE_ANNUAL_PRICE_ID; a plan whose ID is unset is refused by the
+ * checkout route (503 plan_unavailable) rather than sent to Stripe.
  */
 
 export type PricingPlan = 'monthly' | 'annual';
+export type BillingCurrency = 'cad' | 'usd';
 
-export const MONTHLY_PRICE_CENTS = 500; // $5 / month
-export const ANNUAL_PRICE_CENTS = 3300; // $33 / year
+export const MONTHLY_PRICE_CENTS = 500; // $5 / month (CAD and USD alike)
+export const ANNUAL_PRICE_CENTS = 3300; // $33 / year (CAD and USD alike)
 
-// Stripe Price IDs. Monthly is the existing $5 price; annual needs a new $33
-// price wired through the env (see the file header).
-export const MONTHLY_PRICE_ID =
-  process.env.STRIPE_MONTHLY_PRICE_ID ?? 'price_1TQpJa2a2BXhmPNuiKaaurSJ';
+export const MONTHLY_PRICE_ID = process.env.STRIPE_MONTHLY_PRICE_ID ?? '';
 export const ANNUAL_PRICE_ID = process.env.STRIPE_ANNUAL_PRICE_ID ?? '';
+
+/**
+ * Region → billing currency. BC buys in CAD; WA/OR in USD. When no region is
+ * known (paywall CTAs post region '') the caller may pass the request's
+ * x-vercel-ip-country header; a Canadian IP gets CAD, any other known country
+ * USD, and with no signal at all we default to CAD (the account's home
+ * currency).
+ */
+export function currencyForRegion(
+  region: string | null | undefined,
+  ipCountry?: string | null,
+): BillingCurrency {
+  const r = (region ?? '').trim().toUpperCase();
+  if (r === 'BC') return 'cad';
+  if (r === 'WA' || r === 'OR') return 'usd';
+  const c = (ipCountry ?? '').trim().toUpperCase();
+  if (c === 'CA') return 'cad';
+  if (c) return 'usd';
+  return 'cad';
+}
+
+/** Uppercase label for UI copy ("Billed in CAD"). */
+export function currencyLabelForRegion(
+  region: string | null | undefined,
+): 'CAD' | 'USD' {
+  return currencyForRegion(region) === 'cad' ? 'CAD' : 'USD';
+}
 
 /**
  * The savings story for the yearly plan, derived from the two prices above so
@@ -35,20 +64,6 @@ export function annualDiscount() {
   return { fullCents, saveCents, pct, perMonthCents };
 }
 
-export function priceCentsFor(plan: PricingPlan): number {
-  return plan === 'annual' ? ANNUAL_PRICE_CENTS : MONTHLY_PRICE_CENTS;
-}
-
 export function priceIdFor(plan: PricingPlan): string {
   return plan === 'annual' ? ANNUAL_PRICE_ID : MONTHLY_PRICE_ID;
-}
-
-// Back-compat shims for the checkout + webhook routes, which resolve the
-// monthly price without knowing the model is now flat.
-export function resolveMonthlyPriceId(): string {
-  return MONTHLY_PRICE_ID;
-}
-
-export function resolveMonthlyPriceCents(): number {
-  return MONTHLY_PRICE_CENTS;
 }

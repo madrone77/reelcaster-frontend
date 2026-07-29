@@ -3,7 +3,7 @@
 import Link from "next/link";
 import dynamic from "next/dynamic";
 import { useState } from "react";
-import { Wind, Waves, Navigation } from "lucide-react";
+import { Wind, Waves, Navigation, Lock, Globe } from "lucide-react";
 import { TIER_PILL, type RailSpot, type Tier } from "../lib/explore-data";
 import { useFavorite, favoriteCount } from "../lib/use-favorite";
 import { useSubscription } from "@/hooks/use-subscription";
@@ -27,11 +27,21 @@ const FREE_FAV_CAP = 1;
 export default function SpotCard({
   spot,
   onSelect,
+  showVisibility = false,
+  onFavoriteChange,
 }: {
   spot: RailSpot;
   /** Accepted for call-site compatibility; the compact trend needs no tz. */
   tz?: string;
-  onSelect: () => void;
+  /** Opens the in-page drawer. Omit outside Explore — the body link then
+   *  navigates to the spot report on its own. */
+  onSelect?: () => void;
+  /** Mark the spot private/public in the header. Explore says that with the
+   *  map pin; surfaces without a map (the dashboard) say it on the card. */
+  showVisibility?: boolean;
+  /** Fires after the star toggles, so a list keyed on favourites can drop or
+   *  add the card without a reload. */
+  onFavoriteChange?: (fav: boolean) => void;
 }) {
   const [fav, toggleFav] = useFavorite(spot.slug);
   const { isPaid } = useSubscription();
@@ -70,6 +80,7 @@ export default function SpotCard({
       window.setTimeout(() => setPopping(false), 600);
     }
     toggleFav();
+    onFavoriteChange?.(!fav);
   };
 
   return (
@@ -88,8 +99,16 @@ export default function SpotCard({
       <Link
         href={reportHref}
         onClick={(e) => {
-          // Let the browser handle modified clicks (new tab/window) natively.
-          if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button !== 0) {
+          // Let the browser handle modified clicks (new tab/window) natively,
+          // and plain clicks too when there's no drawer to open.
+          if (
+            !onSelect ||
+            e.metaKey ||
+            e.ctrlKey ||
+            e.shiftKey ||
+            e.altKey ||
+            e.button !== 0
+          ) {
             return;
           }
           e.preventDefault();
@@ -100,8 +119,27 @@ export default function SpotCard({
         <div className="px-3 pt-3 pb-2.5">
           {/* 1 · header */}
           <div className="flex items-start justify-between gap-2">
-            <span className="text-[15px] font-medium text-rc-ink truncate">
-              {spot.name}
+            <span className="flex min-w-0 items-center gap-1.5">
+              <span className="text-[15px] font-medium text-rc-ink truncate">
+                {spot.name}
+              </span>
+              {showVisibility && spot.isCustom && (
+                <span
+                  title={
+                    spot.visibility === "public"
+                      ? "Public — visible to other anglers"
+                      : "Private — only you can see this spot"
+                  }
+                  className="inline-flex shrink-0 items-center gap-1 rounded bg-rc-surface px-1.5 py-0.5 font-rc-mono text-[9px] uppercase tracking-[0.06em] text-rc-ink-mute"
+                >
+                  {spot.visibility === "public" ? (
+                    <Globe className="h-2.5 w-2.5" />
+                  ) : (
+                    <Lock className="h-2.5 w-2.5" />
+                  )}
+                  {spot.visibility === "public" ? "Public" : "Private"}
+                </span>
+              )}
             </span>
             <span
               className={`shrink-0 px-2 py-0.5 rounded font-rc-mono text-[11px] font-bold ${TIER_PILL[bt]}`}

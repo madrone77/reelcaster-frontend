@@ -2,15 +2,14 @@ import type { Metadata } from 'next';
 import { Suspense } from 'react';
 import { headers } from 'next/headers';
 import CheckoutPanel from '@/app/components/plans/checkout-panel';
-
-const SITE_URL = 'https://reelcaster.com';
+import { siteUrl } from '@/lib/site';
 
 export const metadata: Metadata = {
   title: 'Checkout | ReelCaster Pro',
   description:
     'Start your 7-day free trial of ReelCaster Pro — 14-day forecasts, private spots, and condition alerts. $33 a year after the trial.',
-  alternates: { canonical: `${SITE_URL}/plans/checkout` },
-  // A checkout page has nothing to offer search. /pricing is the indexable one.
+  alternates: { canonical: siteUrl('/plans/checkout') },
+  // A checkout page has nothing to offer search. /plans is the indexable one.
   robots: { index: false, follow: true },
 };
 
