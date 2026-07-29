@@ -37,49 +37,6 @@ function prettify(slug: string): string {
     .join(" ");
 }
 
-const NO_CONDITIONS = {
-  wind: null,
-  sea: null,
-  tide: null,
-  current: null,
-  sky: null,
-  air: null,
-};
-
-/**
- * A card for a spot the map payload didn't carry — a custom spot still waiting
- * on its first score, or a favourite that has since gone unpublished. Renders
- * as the same card, just with "NO SCORE" and empty KPIs.
- */
-function unscoredRailSpot(
-  slug: string,
-  name: string,
-  extra: Partial<RailSpot> = {},
-): RailSpot {
-  return {
-    id: slug,
-    slug,
-    name,
-    lat: 0,
-    lng: 0,
-    citySlug: "",
-    cityName: "",
-    regionSlug: "",
-    regionName: "",
-    provinceCode: "",
-    score: null,
-    bestSpeciesId: null,
-    driverSpecies: null,
-    peakHour: null,
-    distanceKm: null,
-    conditions: NO_CONDITIONS,
-    condStrip: null,
-    hours24: new Array(24).fill(null),
-    scoresBySpecies: {},
-    ...extra,
-  };
-}
-
 function firstName(email: string | null | undefined): string | null {
   if (!email) return null;
   const local = email.split("@")[0]?.replace(/[._-]+/g, " ").trim();
@@ -189,8 +146,28 @@ export default function DashboardPage() {
     if (!user) return;
     let cancelled = false;
     fetchMapSpotsAsViewer(COVERED_BBOX_ALL, todayVancouver())
-      .then((p) => {
-        if (!cancelled && p?.spots) setPayload(p);
+      .then((payload) => {
+        if (cancelled || !payload?.spots) return;
+        const species = payload.species ?? {};
+        const map: Record<string, Scored> = {};
+        for (const s of payload.spots) {
+          let best = 0;
+          let bestId: string | null = null;
+          for (const [id, strip] of Object.entries(s.scores ?? {})) {
+            const peak = (strip as { peak?: number })?.peak;
+            if (typeof peak === "number" && peak > best) {
+              best = peak;
+              bestId = id;
+            }
+          }
+          if (best > 0) {
+            map[s.slug] = {
+              score: Math.round(best * 100),
+              species: (bestId && species[bestId]?.name) || null,
+            };
+          }
+        }
+        setScoreBySlug(map);
       })
       .catch(() => {});
     return () => {
