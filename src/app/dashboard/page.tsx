@@ -30,11 +30,54 @@ const tierOf = (s: number): Tier => (s >= 75 ? "good" : s >= 55 ? "fair" : "poor
 // "victoria-waterfront-ad3f9b" → "Victoria Waterfront" (strip id suffix, title-case).
 function prettify(slug: string): string {
   return slug
-    .replace(/-[0-9a-f]{5,}$/i, "")
+    .replace(/-(?=[a-z0-9]*\d)[a-z0-9]{5,10}$/i, "")
     .split("-")
     .filter(Boolean)
     .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
     .join(" ");
+}
+
+const NO_CONDITIONS = {
+  wind: null,
+  sea: null,
+  tide: null,
+  current: null,
+  sky: null,
+  air: null,
+};
+
+/**
+ * A card for a spot the map payload didn't carry — a custom spot still waiting
+ * on its first score, or a favourite that has since gone unpublished. Renders
+ * as the same card, just with "NO SCORE" and empty KPIs.
+ */
+function unscoredRailSpot(
+  slug: string,
+  name: string,
+  extra: Partial<RailSpot> = {},
+): RailSpot {
+  return {
+    id: slug,
+    slug,
+    name,
+    lat: 0,
+    lng: 0,
+    citySlug: "",
+    cityName: "",
+    regionSlug: "",
+    regionName: "",
+    provinceCode: "",
+    score: null,
+    bestSpeciesId: null,
+    driverSpecies: null,
+    peakHour: null,
+    distanceKm: null,
+    conditions: NO_CONDITIONS,
+    condStrip: null,
+    hours24: new Array(24).fill(null),
+    scoresBySpecies: {},
+    ...extra,
+  };
 }
 
 function firstName(email: string | null | undefined): string | null {
@@ -135,7 +178,6 @@ export default function DashboardPage() {
           out.push(k.slice("rc-fav:".length));
         }
       }
-      out.sort((a, b) => prettify(a).localeCompare(prettify(b)));
       setFavSlugs(out);
     } catch {
       setFavSlugs([]);
@@ -147,28 +189,8 @@ export default function DashboardPage() {
     if (!user) return;
     let cancelled = false;
     fetchMapSpotsAsViewer(COVERED_BBOX_ALL, todayVancouver())
-      .then((payload) => {
-        if (cancelled || !payload?.spots) return;
-        const species = payload.species ?? {};
-        const map: Record<string, Scored> = {};
-        for (const s of payload.spots) {
-          let best = 0;
-          let bestId: string | null = null;
-          for (const [id, strip] of Object.entries(s.scores ?? {})) {
-            const peak = (strip as { peak?: number })?.peak;
-            if (typeof peak === "number" && peak > best) {
-              best = peak;
-              bestId = id;
-            }
-          }
-          if (best > 0) {
-            map[s.slug] = {
-              score: Math.round(best * 100),
-              species: (bestId && species[bestId]?.name) || null,
-            };
-          }
-        }
-        setScoreBySlug(map);
+      .then((p) => {
+        if (!cancelled && p?.spots) setPayload(p);
       })
       .catch(() => {});
     return () => {

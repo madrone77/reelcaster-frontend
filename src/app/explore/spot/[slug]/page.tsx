@@ -1,14 +1,21 @@
 import type { Metadata } from "next";
+import { notFound } from "next/navigation";
 import { fetchHierarchy, fetchMapSpots, fetchSpotLivePage } from "@/lib/bluecaster";
 import { breadcrumbJsonLd, DEFAULT_OG, SITE_URL, siteUrl } from "@/lib/site";
 import { findCityForSpot } from "@/app/fishing/lib/fishing-data";
+import { provinceCodeFromName } from "@/lib/regions";
 import SpotDetailShell from "./spot-detail-shell";
-import OwnerSpotFallback from "./owner-spot-fallback";
 
 type PageProps = { params: Promise<{ slug: string }> };
 
 // Same extent /explore and the sitemap use (BC + WA + OR).
 const COVERED_BBOX_ALL = "-139.06,41.99,-114.03,60";
+
+// Google renders roughly 60 characters of a <title> before truncating with an
+// ellipsis. The root layout appends " | ReelCaster", so a page's own title has
+// that much less to work with.
+const TITLE_BUDGET = 60;
+const BRAND_SUFFIX_LENGTH = " | ReelCaster".length;
 
 // Prerender the published spots. On-demand rendering makes Next stream
 // metadata, which lands <title> and the canonical at the end of the body
@@ -33,17 +40,35 @@ export async function generateMetadata({
   const { slug } = await params;
   const page = await fetchSpotLivePage(slug).catch(() => null);
 
-  // No server-side read means either "private custom spot" or "gone" — the
-  // anonymous render can't tell which. Either way this response is the
-  // OwnerSpotFallback shell, which has no public content, so keep it out of
-  // the index rather than letting a generic title get crawled.
-  if (!page) {
-    return { title: "Spot", robots: { index: false, follow: false } };
-  }
+  // No server-side read means either "private custom spot" or "gone", and the
+  // anonymous render can't tell which — see the page body for why both now
+  // resolve to a real 404 instead of a 200 shell.
+  //
+  // Bail here rather than only in the body: metadata resolves before the body
+  // streams, so bailing late can flush a 200 with 404 UI underneath it — the
+  // exact soft-404 this change exists to remove. Same reason the province page
+  // 404s from its generateMetadata.
+  if (!page) notFound();
 
   const name = page.spot.name;
-  const where = [page.spot.city, page.spot.region].filter(Boolean).join(", ");
-  const title = `${name}${where ? ` · ${where}` : ""}`;
+  // "Constance Bank Fishing · Victoria, BC" — the postal code keeps the common
+  // case inside the ~60 characters Google renders before truncating, which the
+  // old "· Victoria, British Columbia" form blew past on a third of these.
+  const region = page.spot.region ? provinceCodeFromName(page.spot.region) : null;
+  const where = [page.spot.city, region].filter(Boolean).join(", ");
+  const compose = (spotName: string) =>
+    `${spotName} Fishing${where ? ` · ${where}` : ""}`;
+
+  // A handful of spots carry a parenthetical disambiguator — "Howe Sound (Pam
+  // Rock / Worlcombe Island Area)" — long enough to push the title past the
+  // budget on its own. Drop it only when the full form doesn't fit, so precise
+  // names keep their qualifier and only the overlong ones get trimmed. The <h1>
+  // and OG title always keep the full name.
+  const full = compose(name);
+  const title =
+    full.length + BRAND_SUFFIX_LENGTH <= TITLE_BUDGET
+      ? full
+      : compose(name.replace(/\s*\([^)]*\)/g, ""));
   const description =
     page.spot.seoIntro ??
     `Live fishing forecast, conditions, and 14-day outlook for ${name}.`;
@@ -72,9 +97,16 @@ export default async function SpotDetailPage({ params }: PageProps) {
 
   // No server-side read doesn't mean "gone". A PRIVATE custom spot is 404 to
   // the anonymous server render even for its owner, whose session lives in the
-  // browser as a Bearer token. Hand off to the client, which can prove who it
-  // is; a genuine miss renders "not found" there.
-  if (!page) return <OwnerSpotFallback slug={slug} />;
+  // browser as a Bearer token.
+  //
+  // Serving that case as a 200 made every unknown slug a soft 404: an
+  // unpublished or deleted spot kept answering 200 forever, so Search Console
+  // reported the whole route as soft-404 and stale URLs never left the index.
+  // notFound() sends a real 404 and renders this segment's not-found.tsx —
+  // which still hands off to OwnerSpotFallback, so an owner recovers their
+  // private spot client-side. The status is honest for crawlers either way,
+  // because no crawler carries the token that would turn it into a hit.
+  if (!page) notFound();
 
   // Where this spot sits in the public directory, so the page can link back up
   // to its city and province. Null for custom spots and unpublished cities.
