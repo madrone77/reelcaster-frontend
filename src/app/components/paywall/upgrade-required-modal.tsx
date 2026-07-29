@@ -31,7 +31,7 @@ export default function UpgradeRequiredModal({
 
   return (
     <div
-      className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-rc-ink/60 p-4 backdrop-blur-sm"
       role="dialog"
       aria-modal="true"
       data-testid="upgrade-required-modal"
@@ -45,7 +45,7 @@ export default function UpgradeRequiredModal({
         <button
           type="button"
           onClick={onClose}
-          className="absolute -top-3 -right-3 z-10 p-1.5 rounded-full bg-white border border-rc-rule text-rc-ink-mute hover:text-rc-ink"
+          className="absolute -top-3 -right-3 z-10 rounded-full border border-rc-rule bg-rc-panel p-1.5 text-rc-ink-mute transition-colors hover:text-rc-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rc-brand focus-visible:ring-offset-2"
           aria-label="Close"
         >
           <X className="w-4 h-4" />
