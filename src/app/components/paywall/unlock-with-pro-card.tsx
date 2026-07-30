@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import { cn } from '@/lib/utils';
+import { TRIAL_DAYS } from '@/lib/pricing';
 import { useAnalytics } from '@/hooks/use-analytics';
 import { ANNUAL_PRICE_CENTS } from '@/lib/pricing';
 
@@ -80,7 +81,7 @@ export function UnlockWithProCard({
   headline = 'Unlock with Pro',
   bullets = DEFAULT_BULLETS,
   ctaHref,
-  ctaLabel,
+  ctaLabel = `Try Pro free for ${TRIAL_DAYS} days`,
   feature,
   compact = false,
   theme = 'auto',

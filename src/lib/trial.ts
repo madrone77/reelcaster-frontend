@@ -19,7 +19,10 @@
 import { createHash } from 'crypto';
 import type { SupabaseClient } from '@supabase/supabase-js';
 
-export const TRIAL_DAYS = 7;
+// Single definition lives in pricing.ts, which the support content and the
+// marketing sections already import from. Re-exported here so the trial module
+// stays the natural import for trial code.
+export { TRIAL_DAYS } from './pricing';
 
 /** Domains where dots in the local part are not significant. */
 const DOT_INSENSITIVE_DOMAINS = new Set([

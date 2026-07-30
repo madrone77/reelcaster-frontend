@@ -119,9 +119,9 @@ export default function CheckoutPanel({
 
   const fromQuery = searchParams.get('from') ?? 'plans-checkout';
 
-  // Yearly is the default and the one the trial rides on. `?plan=monthly` is
-  // the deep link the old /pricing page used to own — monthly is instant-charge
-  // with no trial, and this page is the only place it can be bought now.
+  // Yearly is the default. `?plan=monthly` is the deep link the old /pricing
+  // page used to own — this page is the only place monthly can be bought now.
+  // Both cadences carry the trial.
   const plan: PricingPlan =
     searchParams.get('plan') === 'monthly' ? 'monthly' : 'annual';
   const yearly = plan === 'annual';
@@ -206,8 +206,10 @@ export default function CheckoutPanel({
     }
   }, [plan, yearly, region, fromQuery, router]);
 
-  // Monthly is instant-charge: the trial exists only on the yearly plan.
-  const trialOn = yearly && Boolean(status?.trial_available);
+  // The trial applies to BOTH plans — main shipped it per-subscription and
+  // /support documents it that way. It is granted per checkout session by the
+  // checkout route, not baked into the Stripe Price.
+  const trialOn = Boolean(status?.trial_available);
   const trialDays = status?.trial_days ?? 7;
   const priceCents = yearly ? ANNUAL_PRICE_CENTS : MONTHLY_PRICE_CENTS;
   const periodWord = yearly ? 'year' : 'month';
@@ -531,7 +533,7 @@ export default function CheckoutPanel({
                 href="/plans/checkout?plan=monthly"
                 className="font-semibold text-rc-brand underline underline-offset-2 hover:text-rc-brand-hover"
               >
-                {dollars(MONTHLY_PRICE_CENTS)}/mo, no trial
+                {dollars(MONTHLY_PRICE_CENTS)}/mo
               </Link>
             </>
           ) : (

@@ -29,6 +29,12 @@ const nextConfig: NextConfig = {
         destination: "/plans",
         permanent: true,
       },
+      // The support portal shipped briefly at /theport before moving to the
+      // plainer /support. "The Port" is still its name in the UI — only the
+      // URL changed. Permanent, because ticket acknowledgement emails already
+      // went out carrying /theport links and those must keep working.
+      { source: "/theport", destination: "/support", permanent: true },
+      { source: "/theport/:path*", destination: "/support/:path*", permanent: true },
     ];
   },
   async headers() {

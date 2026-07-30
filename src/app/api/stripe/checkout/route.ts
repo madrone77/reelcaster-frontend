@@ -5,10 +5,11 @@ import {
   ANNUAL_PRICE_ID,
   currencyForRegion,
   priceIdFor,
+  TRIAL_DAYS,
   type BillingCurrency,
   type PricingPlan,
 } from '@/lib/pricing';
-import { TRIAL_DAYS, checkTrialEligibility } from '@/lib/trial';
+import { checkTrialEligibility } from '@/lib/trial';
 import { resolveEntitlement } from '@/lib/entitlement';
 
 export const runtime = 'nodejs';
@@ -88,11 +89,16 @@ export async function POST(request: NextRequest) {
   try {
     const { data: existingSettings } = await admin
       .from('user_settings')
-      .select('stripe_customer_id')
+      .select('stripe_customer_id, stripe_subscription_id')
       .eq('user_id', user.id)
       .maybeSingle();
 
     let stripeCustomerId = existingSettings?.stripe_customer_id ?? null;
+
+    // The free trial is for first-time subscribers only. The DB flag catches
+    // history from either Stripe mode (dev/test and prod/live share this row);
+    // the per-customer check below catches anything the row missed.
+    let hadSubscription = Boolean(existingSettings?.stripe_subscription_id);
 
     if (stripeCustomerId) {
       // The dev site (test mode) and production (live mode) share this
@@ -121,7 +127,9 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    let createdCustomer = false;
     if (!stripeCustomerId) {
+      createdCustomer = true;
       const customer = await stripe.customers.create({
         email: user.email ?? undefined,
         metadata: { supabase_user_id: user.id },
@@ -144,16 +152,41 @@ export async function POST(request: NextRequest) {
         .eq('user_id', user.id);
     }
 
-    // The 7-day trial rides on the annual plan only. Monthly is instant-charge,
-    // which keeps "start your trial" and "buy the yearly plan" one decision.
-    // Ineligible customers aren't told why — they just go through paid checkout.
-    const eligibility =
-      plan === 'annual'
-        ? await checkTrialEligibility(admin, user.id, user.email)
-        : { eligible: false as const, reason: undefined };
+    // Four independent gates, all of which must pass. The first three are the
+    // abuse guards in src/lib/trial.ts (per-account flag, normalized-email
+    // hash, and — later, in the webhook — the card fingerprint). The fourth is
+    // Stripe's own subscription history, which catches something the others
+    // don't: a customer who subscribed WITHOUT ever taking a trial, cancelled,
+    // and came back. Ineligible customers are never told why; they simply go
+    // through normal paid checkout.
+    const eligibility = await checkTrialEligibility(admin, user.id, user.email);
 
-    if (plan === 'annual' && !eligibility.eligible) {
-      console.info('[stripe checkout] trial withheld', user.id, eligibility.reason);
+    // A just-created customer can't have prior subscriptions; anyone else gets
+    // one cheap history check. On a transient Stripe failure here, err toward
+    // granting the trial rather than failing the whole checkout.
+    if (!hadSubscription && !createdCustomer) {
+      try {
+        const prior = await stripe.subscriptions.list({
+          customer: stripeCustomerId,
+          status: 'all',
+          limit: 1,
+        });
+        hadSubscription = prior.data.length > 0;
+      } catch {
+        console.warn(
+          `[stripe checkout] subscription-history check failed for ${stripeCustomerId}; allowing trial`,
+        );
+      }
+    }
+
+    const trialEligible = eligibility.eligible && !hadSubscription;
+
+    if (!trialEligible) {
+      console.info(
+        '[stripe checkout] trial withheld',
+        user.id,
+        eligibility.reason ?? (hadSubscription ? 'prior_subscription' : 'unknown'),
+      );
     }
 
     const origin = appOrigin(request);
@@ -174,15 +207,16 @@ export async function POST(request: NextRequest) {
         currency,
         region: region || '',
         from: body.from ?? '',
-        trial: eligibility.eligible ? 'yes' : 'no',
+        trial: String(trialEligible),
       },
       subscription_data: {
         metadata: {
           supabase_user_id: user.id,
           plan,
           currency,
+          trial: String(trialEligible),
         },
-        ...(eligibility.eligible
+        ...(trialEligible
           ? {
               trial_period_days: TRIAL_DAYS,
               trial_settings: {
@@ -198,7 +232,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({
       url: session.url,
       id: session.id,
-      trial_days: eligibility.eligible ? TRIAL_DAYS : 0,
+      trial_days: trialEligible ? TRIAL_DAYS : 0,
     });
   } catch (err) {
     // A Stripe/database failure here otherwise escapes as a bodyless 500 the

@@ -176,8 +176,8 @@ const FAQ: { q: string; a: React.ReactNode }[] = [
     q: 'Can I pay monthly instead?',
     a: (
       <>
-        Yes — {dollars(MONTHLY_PRICE_CENTS)} a month, cancel whenever. The trial
-        is on the yearly plan only.{' '}
+        Yes — {dollars(MONTHLY_PRICE_CENTS)} a month, cancel whenever. Both
+        plans start with the same free trial.{' '}
         <Link
           href="/plans/checkout?plan=monthly"
           className="text-rc-brand underline underline-offset-2 hover:text-rc-brand-hover"

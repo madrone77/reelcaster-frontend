@@ -1,5 +1,5 @@
 import type { Metadata } from 'next';
-import { DEFAULT_OG, SITE_URL } from '@/lib/site';
+import { DEFAULT_OG, SITE_URL, SUPPORT_EMAIL } from '@/lib/site';
 import Link from 'next/link';
 import { ChevronDown } from 'lucide-react';
 
@@ -125,13 +125,32 @@ export default function FaqPage() {
             ))}
           </ul>
 
-          <div className="mt-8 text-sm text-rc-ink-mute">
+          {/* Static page, so this cannot check the visitor's tier — it names
+              the benefit rather than pretending to know who is reading. */}
+          <div className="mt-8 bg-rc-panel border border-rc-rule rounded-xl p-5">
+            <p className="font-rc-mono text-[10px] tracking-[0.14em] uppercase text-rc-ink-mute">
+              Pro members
+            </p>
+            <p className="mt-2 text-sm text-rc-ink-soft leading-relaxed">
+              <Link
+                href="/support"
+                className="text-rc-brand hover:text-rc-brand-hover font-semibold underline underline-offset-2"
+              >
+                The Port
+              </Link>{' '}
+              is the full support portal — in-depth guides, a searchable
+              knowledge base, live service status, and priority tickets with a
+              one business day reply target.
+            </p>
+          </div>
+
+          <div className="mt-6 text-sm text-rc-ink-mute">
             Still stuck? Reach us at{' '}
             <a
-              href="mailto:support@reelcaster.com"
+              href={`mailto:${SUPPORT_EMAIL}`}
               className="text-rc-brand hover:text-rc-brand-hover underline underline-offset-2"
             >
-              support@reelcaster.com
+              {SUPPORT_EMAIL}
             </a>
             .
           </div>

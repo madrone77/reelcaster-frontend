@@ -61,6 +61,7 @@ src/app/
 - `/` - Marketing landing page (public since 2026-07-15; light rc-* design, sections in `src/app/(marketing)/components/`, static demo hero data, real seasonal prices from `src/lib/pricing.ts`, illustrations in `public/landing/`)
 - `/pricing`, `/billing/*` - purchase flow; `/login`, `/signup`, `/auth/*` - auth flow
 - `/about`, `/contact`, `/faq`, `/privacy`, `/terms` - info/legal pages (unwalled + restyled light 2026-07-15)
+- `/support` - **The Port**, the Pro-only support portal (guides, knowledge base, billing, status, ticketing) — added 2026-07-30, see its own section below
 - `/profile` (+ `catch-log`, `custom-alerts`, `forecast-emails`, `notification-settings`)
 - `/alerts`, `/notifications`, `/log-catch` - kept alongside the explore soft-launch
 
@@ -834,7 +835,8 @@ catches, and any catch logged before its spot's first scoring run, get
 
 ### `/catches` — "My catches" list
 
-`src/app/catches/` (added to `middleware.ts` `ALLOW_PREFIXES`) replaces the
+`src/app/catches/` (historically added to `middleware.ts` `ALLOW_PREFIXES` —
+that list no longer exists, see "Route gating" below) replaces the
 old `/profile/catch-log`: reads `GET /api/catches` (extended with `status`,
 `q` full-text-ish search via `.or()`, `sort`/`order`) + `GET /api/catches/
 stats` (season aggregates). Season stats row, species chips with counts,
@@ -851,8 +853,91 @@ badges. Thumbnails via batched `getCatchPhotoSignedUrls()` (one
   page's LOG CATCH button, pre-filled with the current spot + live conditions.
 - **Alerts** — `create-alert-dialog.tsx` + `/notifications` still drive the
   Custom Alert Engine via `/api/alerts`, unrelated to this revamp.
-- **Nav + wall:** any new walled-off route must be added to `src/middleware.ts`
-  `ALLOW_PREFIXES` or it renders `/coming-soon`.
+- **Nav + wall:** ~~any new walled-off route must be added to `ALLOW_PREFIXES`~~
+  — **no longer true.** See "Route gating" below: `middleware.ts` now walls
+  nothing, and a new route needs no middleware change at all.
+
+## Route gating — how a new route becomes reachable (corrected 2026-07-30)
+
+The `ALLOW_PREFIXES` allow-list described above and in the catch-log section is
+**gone**. `src/middleware.ts` inverted it into an opt-in deny-list,
+`WALLED_PREFIXES`, which is currently **empty** — the old list had grown to
+cover every real route, so its only surviving effect was answering nonexistent
+URLs with a `/coming-soon` body at HTTP 200 (a soft 404). Unmatched paths now
+fall through to `src/app/not-found.tsx` with a real 404.
+
+What actually gates routes today:
+
+- **`src/middleware.ts`** — add a prefix to `WALLED_PREFIXES` only if you
+  deliberately want a surface behind the holding page. New routes need nothing.
+- **`src/app/components/auth/auth-gate.tsx`** — this is the list that behaves
+  the way `ALLOW_PREFIXES` used to. Anything **not** in `PUBLIC_EXACT` /
+  `PUBLIC_PREFIXES` is private: AuthGate blocks render and redirects to
+  `/login`. So a **private route needs no change**, and a **public route MUST**
+  be added to `PUBLIC_PREFIXES` or signed-out visitors and crawlers get a
+  spinner. Note AuthGate returns a spinner instead of children for signed-out
+  users, so a page's own `router.replace('/login?next=…')` never actually runs
+  — the `next` param is lost and you land on bare `/login`. Pages still carry
+  that redirect as belt-and-braces (`/alerts`, `/support`).
+- **`src/app/robots.ts`** — add private paths to `disallow`, and set
+  `robots: { index: false, follow: false }` in the page metadata.
+- **`src/app/sitemap.ts`** — `STATIC_ENTRIES`, public routes only.
+
+## The Port — Pro-only support portal (`/support`, 2026-07-30)
+
+Before this, "customer support" was a `mailto:` on `/contact` plus 8 static
+FAQs: no form, no endpoint, no table, no third-party widget, and nothing at all
+inside the signed-in product. The Port is the real thing, gated to Pro.
+
+- **Route:** `src/app/support/page.tsx` (server, `robots: noindex`) →
+  `support-client.tsx`. **Hard Pro gate**, three states: signed-out redirects
+  to `/login`; free tier gets a paywall (`UnlockWithProCard`, `feature="support"`)
+  that **explicitly routes to `/faq` + `/contact`** so a hard gate is not a dead
+  end; Pro gets the portal. `useSubscription().isPaid` is the client gate — the
+  API re-checks server-side, so the client gate is cosmetic.
+- **Six sections**, switched in-page (no sub-routes), under
+  `src/app/support/components/`: `port-nav` (sticky rail desktop / scrolling
+  chips mobile), `port-search`, `port-section` (shared heading frame),
+  `start-section`, `guides-section`, `answers-section`, `billing-section`,
+  `status-section`, `tickets-section` + `ticket-form`.
+- **Content is a typed module, not a CMS** — `src/app/support/content.ts` holds
+  `GUIDES`, `ARTICLES`, `CHANGELOG`, `KNOWN_ISSUES` and a module-scope search
+  index. Deliberate: this content describes what ships, so it changes in the
+  same PR as the code it describes. **If you make a fact here untrue, fix it in
+  that PR.** `searchContent()` is AND-matching across all four sources with
+  title hits weighted 2× — one search box, no request, no debounce.
+- **Ticketing:** `supabase/migrations/20260730_create_support_tickets.sql` —
+  `support_tickets` with a human `ticket_ref` (`RC-XXXXXX`, derived from
+  `gen_random_uuid()` so it carries no pgcrypto dependency), category/status/
+  priority CHECKs, a frozen `context` jsonb snapshot (tier at filing time —
+  today's tier can't answer "what were they paying when this happened"), and
+  `resolution_note` surfaced back to the member. RLS grants select-own and
+  insert-own and **deliberately no update/delete** (a user who could set their
+  own ticket to `urgent`, or delete a billing dispute, makes the queue
+  meaningless).
+- **API:** `src/app/api/support/tickets/route.ts` — GET own + POST, both
+  Bearer-authed via `getUserIdFromRequest` **and** re-checking Pro server-side
+  (tier `startsWith('pro')` && status active|trialing, mirroring
+  `forecast-14d`). **Persist-then-notify is load-bearing:** `sendEmail()`
+  silently returns `success: true` when `RESEND_API_KEY` is unset, so the row is
+  written first and the response carries `emailed` — the UI says "saved but
+  confirmation didn't send" rather than implying both legs worked. `context` is
+  key-allowlisted (`page`/`spotSlug`/`appBuild`); `userAgent` is read from the
+  request header, not the body.
+- **Emails:** `src/lib/email-templates/support-ticket.ts` — triage email to the
+  inbox + ack to the member. Ticket bodies are user-authored and land in HTML,
+  so both templates escape before interpolation.
+- **Shared types:** `src/lib/support-types.ts` (unions must track the table's
+  CHECK constraints — drift shows up as a 500 on insert, not a type error).
+- **Wiring:** `/support` added to `robots.ts` `disallow`; linked from
+  `explore-top-bar.tsx` (beside the avatar, signed-in only — that bar renders
+  for signed-out visitors and a top-level link to a paywall is worse than no
+  link), the `mobile-bottom-nav.tsx` More sheet, and a card under
+  `SubscriptionCard` on `/profile`, and a **Support** link in both
+  `marketing-footer.tsx` rows. `/contact` and `/faq` gained static "Pro
+  members" pointers (they're server components and can't read tier).
+- **`SUPPORT_EMAIL` now lives in `src/lib/site.ts`** — it had been hardcoded in
+  8 places. New code must import it; the legal pages still hold copies.
 
 ### Secrets via HashiCorp Vault (runtime OIDC loader, 2026-06-30)
 
@@ -913,3 +998,10 @@ The journey suite is layered on top of:
 - `e2e/api/journeys.spec.ts` — post-seed assertions (Phase C.5).
 
 See `e2e/journeys/README.md` for prereqs, env-var checklist, and the resolved 6h-vs-0d signed-out-clip note.
+### Route note: `/support`, not `/theport`
+
+The portal briefly shipped at `/theport` and moved to `/support` on the same
+day. "The Port" remains its name in the UI — only the URL changed. Two
+permanent redirects in `next.config.ts` (`/theport` and `/theport/:path*`)
+keep the old path working, which matters because ticket acknowledgement
+emails had already gone out carrying `/theport` links.

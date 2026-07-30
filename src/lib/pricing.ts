@@ -4,6 +4,12 @@
  *
  *   CAD: $5 / month · $33 / year        USD: $5 / month · $33 / year
  *
+ * Every subscription starts with a free trial (TRIAL_DAYS): the card is
+ * collected at checkout, $0 is charged today, and the first invoice lands when
+ * the trial ends. The trial is granted per-session by the checkout route
+ * (subscription_data.trial_period_days) and only to first-time subscribers —
+ * it is not baked into the Stripe Price objects.
+ *
  * Yearly is a 45% discount: twelve monthly payments would be $60, so the
  * annual plan saves $27 (45% off). See annualDiscount() for the derived math
  * the pricing UI renders.
@@ -21,6 +27,9 @@ export type BillingCurrency = 'cad' | 'usd';
 
 export const MONTHLY_PRICE_CENTS = 500; // $5 / month (CAD and USD alike)
 export const ANNUAL_PRICE_CENTS = 3300; // $33 / year (CAD and USD alike)
+
+/** Free-trial length, in days. Shared by checkout and every piece of UI copy. */
+export const TRIAL_DAYS = 7;
 
 export const MONTHLY_PRICE_ID = process.env.STRIPE_MONTHLY_PRICE_ID ?? '';
 export const ANNUAL_PRICE_ID = process.env.STRIPE_ANNUAL_PRICE_ID ?? '';
