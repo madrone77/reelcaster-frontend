@@ -47,7 +47,10 @@ test.describe('/ (marketing homepage)', () => {
       pricing.getByRole('link', { name: /^start free$/i }),
     ).toHaveAttribute('href', '/signup');
     await expect(
-      pricing.getByRole('link', { name: /^start reelcaster pro$/i }),
+      // Label is trial-flavoured now and interpolates TRIAL_DAYS, so match the
+      // shape rather than the exact words — the assertion that matters is
+      // where it points.
+      pricing.getByRole('link', { name: /start .*free trial/i }),
     ).toHaveAttribute('href', '/plans');
   });
 
