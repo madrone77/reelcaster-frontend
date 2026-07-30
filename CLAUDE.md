@@ -6,6 +6,32 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ReelCaster Frontend is a Next.js 15 application that provides fishing forecasts and historical data analysis for British Columbia, Canada. It integrates multiple APIs to deliver weather, marine conditions, tide data, and fishing statistics to help anglers make informed decisions.
 
+## Deployment — READ BEFORE SHIPPING
+
+**Merging to GitHub `main` deploys nothing.** There is no Vercel git integration
+on this repo. Shipping is always an explicit CLI deploy (see `.claude/commands/deploy.md`).
+
+| Scope | Vercel project | Serves |
+|---|---|---|
+| `casey-1425s-projects` | `reelcaster-frontend` (`prj_Qv3yU2f5mm26lPYiKOgHlKr6HIGU`) | **www.reelcaster.com** |
+| `reelcaster-devs-projects` | `reelcaster-frontend-web` (`prj_WoRjjGtjUopMvMCKJkQbiYHPhuZw`) | `*.vercel.app` only — **decoy** |
+
+The decoy has old production deploys and `-git-main-` aliases, and its project id
+is the one quoted in the Vault section below — deploying there succeeds and
+changes nothing on the live domain. Verify with `npx vercel ls`, which must print
+`casey-1425s-projects/reelcaster-frontend`; `--scope` alone does not override an
+existing wrong link.
+
+Ship: clone `main` fresh → `pnpm install --frozen-lockfile` →
+`npx vercel@latest link --yes --scope casey-1425s-projects --project reelcaster-frontend`
+→ `npx vercel@latest deploy --prod --yes --scope casey-1425s-projects`. Fall back to
+`vercel promote <url>` if the domain doesn't follow. Then verify with a real curl
+against `www.reelcaster.com` — never claim it is live off a green build.
+
+Repos: `madrone77/reelcaster-frontend` is canonical.
+`reelcasterdev/reelcaster-frontend` is a stale mirror; this machine has no
+credential for it and pushing there is not possible.
+
 ## Development Commands
 
 ```bash
