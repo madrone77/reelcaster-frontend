@@ -20,7 +20,7 @@ const TABS = [
 const MORE_LINKS = [
   { href: "/profile", label: "Profile" },
   { href: "/alerts", label: "Alerts" },
-  { href: "/theport", label: "The Port · Pro support" },
+  { href: "/support", label: "Support" },
   { href: "/pricing", label: "Pricing" },
   { href: "/about", label: "About" },
   { href: "/faq", label: "FAQ" },

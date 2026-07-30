@@ -61,7 +61,7 @@ src/app/
 - `/` - Marketing landing page (public since 2026-07-15; light rc-* design, sections in `src/app/(marketing)/components/`, static demo hero data, real seasonal prices from `src/lib/pricing.ts`, illustrations in `public/landing/`)
 - `/pricing`, `/billing/*` - purchase flow; `/login`, `/signup`, `/auth/*` - auth flow
 - `/about`, `/contact`, `/faq`, `/privacy`, `/terms` - info/legal pages (unwalled + restyled light 2026-07-15)
-- `/theport` - **The Port**, the Pro-only support portal (guides, knowledge base, billing, status, ticketing) — added 2026-07-30, see its own section below
+- `/support` - **The Port**, the Pro-only support portal (guides, knowledge base, billing, status, ticketing) — added 2026-07-30, see its own section below
 - `/profile` (+ `catch-log`, `custom-alerts`, `forecast-emails`, `notification-settings`)
 - `/alerts`, `/notifications`, `/log-catch` - kept alongside the explore soft-launch
 
@@ -878,29 +878,29 @@ What actually gates routes today:
   spinner. Note AuthGate returns a spinner instead of children for signed-out
   users, so a page's own `router.replace('/login?next=…')` never actually runs
   — the `next` param is lost and you land on bare `/login`. Pages still carry
-  that redirect as belt-and-braces (`/alerts`, `/theport`).
+  that redirect as belt-and-braces (`/alerts`, `/support`).
 - **`src/app/robots.ts`** — add private paths to `disallow`, and set
   `robots: { index: false, follow: false }` in the page metadata.
 - **`src/app/sitemap.ts`** — `STATIC_ENTRIES`, public routes only.
 
-## The Port — Pro-only support portal (`/theport`, 2026-07-30)
+## The Port — Pro-only support portal (`/support`, 2026-07-30)
 
 Before this, "customer support" was a `mailto:` on `/contact` plus 8 static
 FAQs: no form, no endpoint, no table, no third-party widget, and nothing at all
 inside the signed-in product. The Port is the real thing, gated to Pro.
 
-- **Route:** `src/app/theport/page.tsx` (server, `robots: noindex`) →
-  `the-port-client.tsx`. **Hard Pro gate**, three states: signed-out redirects
-  to `/login`; free tier gets a paywall (`UnlockWithProCard`, `feature="theport"`)
+- **Route:** `src/app/support/page.tsx` (server, `robots: noindex`) →
+  `support-client.tsx`. **Hard Pro gate**, three states: signed-out redirects
+  to `/login`; free tier gets a paywall (`UnlockWithProCard`, `feature="support"`)
   that **explicitly routes to `/faq` + `/contact`** so a hard gate is not a dead
   end; Pro gets the portal. `useSubscription().isPaid` is the client gate — the
   API re-checks server-side, so the client gate is cosmetic.
 - **Six sections**, switched in-page (no sub-routes), under
-  `src/app/theport/components/`: `port-nav` (sticky rail desktop / scrolling
+  `src/app/support/components/`: `port-nav` (sticky rail desktop / scrolling
   chips mobile), `port-search`, `port-section` (shared heading frame),
   `start-section`, `guides-section`, `answers-section`, `billing-section`,
   `status-section`, `tickets-section` + `ticket-form`.
-- **Content is a typed module, not a CMS** — `src/app/theport/content.ts` holds
+- **Content is a typed module, not a CMS** — `src/app/support/content.ts` holds
   `GUIDES`, `ARTICLES`, `CHANGELOG`, `KNOWN_ISSUES` and a module-scope search
   index. Deliberate: this content describes what ships, so it changes in the
   same PR as the code it describes. **If you make a fact here untrue, fix it in
@@ -929,11 +929,12 @@ inside the signed-in product. The Port is the real thing, gated to Pro.
   so both templates escape before interpolation.
 - **Shared types:** `src/lib/support-types.ts` (unions must track the table's
   CHECK constraints — drift shows up as a 500 on insert, not a type error).
-- **Wiring:** `/theport` added to `robots.ts` `disallow`; linked from
+- **Wiring:** `/support` added to `robots.ts` `disallow`; linked from
   `explore-top-bar.tsx` (beside the avatar, signed-in only — that bar renders
   for signed-out visitors and a top-level link to a paywall is worse than no
   link), the `mobile-bottom-nav.tsx` More sheet, and a card under
-  `SubscriptionCard` on `/profile`. `/contact` and `/faq` gained static "Pro
+  `SubscriptionCard` on `/profile`, and a **Support** link in both
+  `marketing-footer.tsx` rows. `/contact` and `/faq` gained static "Pro
   members" pointers (they're server components and can't read tier).
 - **`SUPPORT_EMAIL` now lives in `src/lib/site.ts`** — it had been hardcoded in
   8 places. New code must import it; the legal pages still hold copies.
@@ -997,3 +998,10 @@ The journey suite is layered on top of:
 - `e2e/api/journeys.spec.ts` — post-seed assertions (Phase C.5).
 
 See `e2e/journeys/README.md` for prereqs, env-var checklist, and the resolved 6h-vs-0d signed-out-clip note.
+### Route note: `/support`, not `/theport`
+
+The portal briefly shipped at `/theport` and moved to `/support` on the same
+day. "The Port" remains its name in the UI — only the URL changed. Two
+permanent redirects in `next.config.ts` (`/theport` and `/theport/:path*`)
+keep the old path working, which matters because ticket acknowledgement
+emails had already gone out carrying `/theport` links.

@@ -135,7 +135,7 @@ export default function ContactPage() {
               </h2>
               <p className="mt-1.5 text-sm text-rc-ink-soft leading-relaxed">
                 <Link
-                  href="/theport"
+                  href="/support"
                   className="text-rc-brand hover:text-rc-brand-hover font-semibold underline underline-offset-2"
                 >
                   The Port

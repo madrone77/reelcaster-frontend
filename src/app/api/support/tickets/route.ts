@@ -1,5 +1,5 @@
 /**
- * Support tickets — the backend for The Port (/theport).
+ * Support tickets — the backend for The Port (/support).
  *
  *   GET  /api/support/tickets  → the caller's own tickets, newest first
  *   POST /api/support/tickets  → file a ticket

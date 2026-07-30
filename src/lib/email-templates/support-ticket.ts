@@ -181,7 +181,7 @@ export function buildSupportAckEmail(
       </div>
 
       <div style="margin-top:24px;">
-        <a href="${SITE_URL}/theport"
+        <a href="${SITE_URL}/support"
            style="display:inline-block;background:#1E40E0;color:#FFFFFF;text-decoration:none;font-size:14px;font-weight:600;padding:10px 18px;border-radius:6px;">
           View in The Port
         </a>

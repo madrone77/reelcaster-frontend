@@ -369,7 +369,7 @@ export default function ProfilePage() {
                   </p>
                   <Button
                     variant="outline"
-                    onClick={() => router.push('/theport')}
+                    onClick={() => router.push('/support')}
                     className="w-full mt-4 border-rc-rule text-rc-brand hover:bg-rc-brand-soft hover:text-rc-brand transition-colors"
                   >
                     Open The Port

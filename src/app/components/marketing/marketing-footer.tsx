@@ -4,7 +4,7 @@ const LEGAL_LINKS: Array<{ href: string; label: string }> = [
   { href: '/privacy', label: 'Privacy' },
   { href: '/terms', label: 'Terms' },
   { href: '/contact', label: 'Contact' },
-  { href: '/theport', label: 'Support' },
+  { href: '/support', label: 'Support' },
   { href: '/about', label: 'About' },
   { href: '/faq', label: 'FAQ' },
   { href: '/login', label: 'Sign In' },
@@ -18,7 +18,7 @@ export default function MarketingFooter() {
           (the /coming-soon wall was retired), so a stale link here is a dead
           link. Locations lists the /fishing province directories; add
           Washington/Oregon here once they have lifecycle-published cities.
-          "Support" points at /theport, which paywalls non-Pro visitors — FAQ
+          "Support" points at /support, which paywalls non-Pro visitors — FAQ
           and Contact directly above it are the open routes. */}
       <div className="max-w-6xl mx-auto px-6 py-12 grid grid-cols-2 md:grid-cols-5 gap-8 text-sm">
         <div>
@@ -43,7 +43,7 @@ export default function MarketingFooter() {
             <li><Link href="/about" className="hover:text-rc-ink">About</Link></li>
             <li><Link href="/faq" className="hover:text-rc-ink">FAQ</Link></li>
             <li><Link href="/contact" className="hover:text-rc-ink">Contact</Link></li>
-            <li><Link href="/theport" className="hover:text-rc-ink">Support</Link></li>
+            <li><Link href="/support" className="hover:text-rc-ink">Support</Link></li>
           </ul>
         </div>
 
