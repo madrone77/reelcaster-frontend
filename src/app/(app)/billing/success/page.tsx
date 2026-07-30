@@ -7,6 +7,7 @@ import { CheckCircle2, Loader2 } from 'lucide-react'
 import { AppShell } from '@/app/components/layout'
 import { apiFetch } from '@/lib/api-client'
 import { useSubscription } from '@/hooks/use-subscription'
+import { useAuth } from '@/contexts/auth-context'
 
 interface CheckoutStatus {
   tier: string
@@ -20,13 +21,67 @@ function BillingSuccessInner() {
   const searchParams = useSearchParams()
   const sessionId = searchParams.get('session_id')
   const subscription = useSubscription()
+  const { user, loading: authLoading } = useAuth()
   const [status, setStatus] = useState<CheckoutStatus | null>(null)
   const [polling, setPolling] = useState(true)
+  const [claimFailed, setClaimFailed] = useState(false)
+
+  // Anonymous checkout: the buyer arrives here with no session at all. Trade
+  // the Stripe session_id for a one-time sign-in link so they land inside the
+  // product rather than being asked to go and find an email.
+  //
+  // The webhook may not have created the account yet, so a 202 means "not
+  // ready" and we retry. Every other failure falls through to the signed-out
+  // message below — the purchase is safe either way, it's only the convenience
+  // of auto-sign-in that's lost.
+  useEffect(() => {
+    if (authLoading || user || !sessionId) return
+
+    let cancelled = false
+    let attempts = 0
+
+    const claim = async () => {
+      try {
+        const res = await fetch('/api/auth/claim-checkout', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ session_id: sessionId }),
+        })
+        if (cancelled) return
+
+        if (res.ok) {
+          const { url } = await res.json()
+          if (url) {
+            window.location.href = url
+            return
+          }
+        }
+
+        // 202 = the webhook hasn't created the account yet. Anything else is
+        // terminal and retrying won't help.
+        if (res.status === 202 && attempts < 10) {
+          attempts += 1
+          setTimeout(claim, 1500)
+          return
+        }
+        setClaimFailed(true)
+      } catch {
+        if (!cancelled) setClaimFailed(true)
+      }
+    }
+
+    claim()
+    return () => {
+      cancelled = true
+    }
+  }, [authLoading, user, sessionId])
 
   // Poll the checkout status endpoint until the webhook flips
   // user_settings.subscription_status to active. Bail out after ~30s.
   useEffect(() => {
-    if (!sessionId) {
+    // Signed-out visitors have no account to poll for yet — the claim effect
+    // above signs them in first, which remounts this with a session.
+    if (!sessionId || authLoading || !user) {
       setPolling(false)
       return
     }
@@ -62,7 +117,7 @@ function BillingSuccessInner() {
     }
     // subscription.refresh / router are stable refs; we want this to fire once.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [sessionId])
+  }, [sessionId, user, authLoading])
 
   return (
     <AppShell showLocationPanel={false}>
@@ -78,9 +133,21 @@ function BillingSuccessInner() {
             Welcome to ReelCaster Pro
           </h1>
           <p className="mt-2 text-sm text-rc-text-muted">
-            Your 14-day forecast, multi-species scoring, bathymetry layer, and expanded alerts are
-            unlocking now.
+            {!user && !claimFailed
+              ? 'Setting your account up — this takes a few seconds.'
+              : 'Your full two-week forecast, saved spots, and alerts are unlocking now.'}
           </p>
+
+          {claimFailed && !user && (
+            <p className="mt-4 rounded-lg border border-rc-bg-light bg-rc-bg-darkest p-3 text-sm text-rc-text-muted">
+              Your payment went through and your account is ready. Sign in with
+              the email you used at checkout to get started —{' '}
+              <Link href="/login" className="text-rc-brand underline underline-offset-2">
+                sign in
+              </Link>
+              .
+            </p>
+          )}
 
           {polling ? (
             <div className="mt-6 inline-flex items-center gap-2 text-sm text-rc-text-muted">

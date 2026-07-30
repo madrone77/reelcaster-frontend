@@ -81,26 +81,34 @@ export interface TrialEligibility {
  */
 export async function checkTrialEligibility(
   admin: SupabaseClient,
-  userId: string,
+  /**
+   * Null for an anonymous checkout — the account doesn't exist yet, so the
+   * per-account layer has nothing to check and the email-hash layer carries
+   * the weight. That's not a hole: a returning customer's normalized email is
+   * already in trial_grants from their first trial.
+   */
+  userId: string | null,
   email: string | null | undefined,
 ): Promise<TrialEligibility> {
   // Fail CLOSED on lookup errors. An abuse guard that hands out a free week
   // whenever its own query breaks is worse than no guard — a missing migration
   // or a bad service key would silently open the gate for everyone. Withholding
   // a trial costs one customer a discount; failing open costs the trial.
-  const { data: settings, error: settingsError } = await admin
-    .from('user_settings')
-    .select('has_used_trial')
-    .eq('user_id', userId)
-    .maybeSingle();
+  if (userId) {
+    const { data: settings, error: settingsError } = await admin
+      .from('user_settings')
+      .select('has_used_trial')
+      .eq('user_id', userId)
+      .maybeSingle();
 
-  if (settingsError) {
-    console.error('[trial] eligibility lookup failed (user_settings)', settingsError);
-    return { eligible: false, reason: 'lookup_failed' };
-  }
+    if (settingsError) {
+      console.error('[trial] eligibility lookup failed (user_settings)', settingsError);
+      return { eligible: false, reason: 'lookup_failed' };
+    }
 
-  if (settings?.has_used_trial) {
-    return { eligible: false, reason: 'account_used_trial' };
+    if (settings?.has_used_trial) {
+      return { eligible: false, reason: 'account_used_trial' };
+    }
   }
 
   if (email) {

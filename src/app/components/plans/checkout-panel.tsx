@@ -40,13 +40,12 @@ const REGIONS = [
  */
 const HEADLINE_FEATURES = [
   'Plan the full two weeks',
-  'Add your own private spots',
-  'Get alerted when it’s on',
-  'Get that alert by text',
+  'Save every spot you fish',
+  'Score a spot we don’t cover — your pin, our full model',
+  'Alerts when it’s on — by text or email',
 ];
 
 const MORE_FEATURES = [
-  'Save every spot you fish',
   'Every covered city, one price',
   'Cancel anytime — your free account stays',
 ];
@@ -116,6 +115,10 @@ export default function CheckoutPanel({
   );
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Anonymous checkout: one field instead of a signup form. The account is
+  // created by the Stripe webhook once payment confirms.
+  const [email, setEmail] = useState('');
+  const [needsSignin, setNeedsSignin] = useState(false);
 
   const fromQuery = searchParams.get('from') ?? 'plans-checkout';
 
@@ -129,10 +132,6 @@ export default function CheckoutPanel({
   // Resolve trial eligibility + current subscription before drawing terms.
   useEffect(() => {
     if (authLoading) return;
-    if (!user) {
-      setStatusLoading(false);
-      return;
-    }
 
     let cancelled = false;
     (async () => {
@@ -141,10 +140,11 @@ export default function CheckoutPanel({
           data: { session },
         } = await supabase.auth.getSession();
         const token = session?.access_token;
-        if (!token) throw new Error('no session');
 
+        // Anonymous callers get the public shape (does the offer exist), which
+        // is what lets a signed-out visitor see the trial terms at all.
         const res = await fetch('/api/stripe/checkout', {
-          headers: { Authorization: `Bearer ${token}` },
+          headers: token ? { Authorization: `Bearer ${token}` } : {},
         });
         if (!res.ok) throw new Error('status fetch failed');
         const body = (await res.json()) as CheckoutStatus;
@@ -171,23 +171,44 @@ export default function CheckoutPanel({
         data: { session },
       } = await supabase.auth.getSession();
       const token = session?.access_token;
-      if (!token) throw new Error('Your session expired. Please sign in again.');
+
+      // No token is a valid state now: anonymous buyers pay first and the
+      // webhook creates the account. Only a signed-in user with a dead
+      // session is an error, and the server would 401 that anyway.
+      const headers: Record<string, string> = {
+        'Content-Type': 'application/json',
+      };
+      if (token) headers.Authorization = `Bearer ${token}`;
 
       const res = await fetch('/api/stripe/checkout', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({ plan, region, from: fromQuery }),
+        headers,
+        body: JSON.stringify({
+          plan,
+          region,
+          from: fromQuery,
+          ...(token ? {} : { email: email.trim() }),
+        }),
       });
       const body = await res.json();
 
       if (!res.ok) {
+        // The address already has an account. Send them to sign in rather than
+        // quietly creating a second one or attaching a subscription to an
+        // account the payer can't manage.
+        if (body.error === 'account_exists') {
+          setNeedsSignin(true);
+          setSubmitting(false);
+          return;
+        }
         throw new Error(
           body.error === 'plan_unavailable'
             ? `The ${yearly ? 'yearly' : 'monthly'} plan isn’t available right now. Please try again shortly.`
-            : (body.message ?? body.error ?? 'Could not start checkout'),
+            : body.error === 'invalid_email'
+              ? 'That email doesn’t look right — check it and try again.'
+              : body.error === 'email_required'
+                ? 'Enter your email to continue.'
+                : (body.message ?? body.error ?? 'Could not start checkout'),
         );
       }
 
@@ -204,7 +225,7 @@ export default function CheckoutPanel({
       setError(err instanceof Error ? err.message : 'Could not start checkout');
       setSubmitting(false);
     }
-  }, [plan, yearly, region, fromQuery, router]);
+  }, [plan, yearly, region, fromQuery, router, email]);
 
   // Monthly is instant-charge: the trial exists only on the yearly plan.
   const trialOn = yearly && Boolean(status?.trial_available);
@@ -218,41 +239,13 @@ export default function CheckoutPanel({
 
   // ── Gate states ────────────────────────────────────────────────────
 
-  if (authLoading || (user && statusLoading)) {
+  if (authLoading || statusLoading) {
     return (
       <div className="animate-pulse space-y-4" aria-busy="true">
         <div className="h-8 w-2/3 rounded bg-rc-surface" />
         <div className="h-4 w-full rounded bg-rc-surface" />
         <div className="h-4 w-5/6 rounded bg-rc-surface" />
         <div className="h-32 w-full rounded-xl bg-rc-surface" />
-      </div>
-    );
-  }
-
-  if (!user) {
-    return (
-      <div className="rounded-xl border border-rc-rule bg-rc-panel p-6 shadow-rc-panel md:p-8">
-        <h2 className="text-xl font-bold text-rc-ink">Sign in to continue</h2>
-        <p className="mt-2 text-sm leading-relaxed text-rc-ink-soft">
-          Your trial and subscription are tied to your ReelCaster account, so
-          we need you signed in before checkout.
-        </p>
-        <Link
-          href={`/login?next=${encodeURIComponent('/plans/checkout')}`}
-          className="mt-5 inline-flex items-center justify-center rounded-md bg-rc-brand px-5 py-3 text-sm font-bold text-white transition-colors hover:bg-rc-brand-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rc-brand focus-visible:ring-offset-2"
-        >
-          Sign in
-        </Link>
-        <p className="mt-3 text-sm text-rc-ink-mute">
-          No account?{' '}
-          <Link
-            href={`/signup?next=${encodeURIComponent('/plans/checkout')}`}
-            className="font-semibold text-rc-brand underline underline-offset-2 hover:text-rc-brand-hover"
-          >
-            Create one free
-          </Link>
-          .
-        </p>
       </div>
     );
   }
@@ -404,6 +397,56 @@ export default function CheckoutPanel({
             </p>
           )}
 
+          {/* Anonymous buyers: one field, not a signup form. The account is
+              created after Stripe confirms — see src/lib/checkout-identity.ts.
+              The email is collected HERE rather than on Stripe's page so the
+              trial abuse guards can still run before the session is created. */}
+          {!user && (
+            <>
+              <label
+                htmlFor="rc-email"
+                className="mt-6 block font-rc-mono text-[10px] uppercase tracking-[0.14em] text-rc-ink-mute"
+              >
+                Your email
+              </label>
+              <input
+                id="rc-email"
+                type="email"
+                inputMode="email"
+                autoComplete="email"
+                required
+                value={email}
+                onChange={(e) => {
+                  setEmail(e.target.value);
+                  if (needsSignin) setNeedsSignin(false);
+                }}
+                disabled={submitting}
+                placeholder="you@example.com"
+                className="mt-1.5 w-full rounded-lg border border-rc-rule bg-rc-surface px-3 py-2.5 text-sm text-rc-ink placeholder:text-rc-ink-mute focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rc-brand focus-visible:ring-offset-2"
+              />
+              <p className="mt-1.5 text-xs leading-relaxed text-rc-ink-mute">
+                We’ll set your account up with this address once payment goes
+                through — no password to pick right now.
+              </p>
+
+              {needsSignin && (
+                <p
+                  role="alert"
+                  className="mt-3 rounded-md border border-rc-fair-border bg-rc-fair-bg p-3 text-xs leading-relaxed text-rc-fair-ink"
+                >
+                  You already have a ReelCaster account with that email.{' '}
+                  <Link
+                    href={`/login?next=${encodeURIComponent('/plans/checkout')}`}
+                    className="font-semibold underline underline-offset-2"
+                  >
+                    Sign in
+                  </Link>{' '}
+                  and we’ll add Pro to it.
+                </p>
+              )}
+            </>
+          )}
+
           {/* Region — the API refuses uncovered regions rather than taking
               money for water we can't forecast. */}
           <label
@@ -452,7 +495,7 @@ export default function CheckoutPanel({
           <button
             type="button"
             onClick={startCheckout}
-            disabled={submitting || annualDown}
+            disabled={submitting || annualDown || (!user && !email.trim())}
             className="mt-5 flex w-full items-center justify-center rounded-md bg-rc-brand px-5 py-3.5 text-sm font-bold text-white transition-colors hover:bg-rc-brand-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rc-brand focus-visible:ring-offset-2 disabled:opacity-60"
           >
             {submitting
@@ -461,7 +504,7 @@ export default function CheckoutPanel({
                 ? 'Drop a waitlist pin'
                 : trialOn
                   ? `Start ${trialDays}-day free trial`
-                  : `Subscribe — ${dollars(priceCents)}/${yearly ? 'yr' : 'mo'}`}
+                  : `Continue to payment — ${dollars(priceCents)}/${yearly ? 'yr' : 'mo'}`}
           </button>
 
           <p className="mt-3 flex items-center justify-center gap-1.5 text-xs text-rc-ink-mute">

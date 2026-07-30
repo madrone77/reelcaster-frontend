@@ -165,11 +165,33 @@ test.describe('Phase 0 contract: auth required on protected endpoints', () => {
     expect([401, 403]).toContain(r.status());
   });
 
-  test('POST /api/stripe/checkout without auth → 401', async ({ request }) => {
+  // Checkout is deliberately NOT auth-gated any more: an anonymous visitor
+  // pays first and the webhook creates their account. What it still refuses is
+  // a session with no identity attached at all.
+  test('POST /api/stripe/checkout with no auth and no email → 400', async ({ request }) => {
     const r = await request.post('/api/stripe/checkout', {
       data: { plan: 'annual', region: 'BC' },
     });
-    expect(r.status()).toBe(401);
+    expect(r.status()).toBe(400);
+    expect((await r.json()).error).toBe('email_required');
+  });
+
+  test('POST /api/stripe/checkout with no auth and a junk email → 400', async ({ request }) => {
+    const r = await request.post('/api/stripe/checkout', {
+      data: { plan: 'annual', region: 'BC', email: 'not-an-email' },
+    });
+    expect(r.status()).toBe(400);
+    expect((await r.json()).error).toBe('invalid_email');
+  });
+
+  // An address that already has an account can't be bought for anonymously —
+  // that would attach a subscription to an account the payer can't manage.
+  test('POST /api/stripe/checkout with an existing account email → 409', async ({ request }) => {
+    const r = await request.post('/api/stripe/checkout', {
+      data: { plan: 'annual', region: 'BC', email: freeUser.email },
+    });
+    expect(r.status()).toBe(409);
+    expect((await r.json()).error).toBe('account_exists');
   });
 
   test('POST /api/stripe/portal without auth → 401', async ({ request }) => {
@@ -181,9 +203,16 @@ test.describe('Phase 0 contract: auth required on protected endpoints', () => {
 test.describe('Phase 4 contract: stripe status endpoint', () => {
   test.skip(!hasAdmin, 'admin credentials missing; skipping contract spec');
 
-  test('GET /api/stripe/checkout?session_id=X requires auth', async ({ request }) => {
+  // Public shape for anonymous callers — it must say whether the OFFER exists
+  // without leaking anything about an account.
+  test('GET /api/stripe/checkout without auth returns the public shape only', async ({ request }) => {
     const r = await request.get('/api/stripe/checkout?session_id=cs_test_dummy');
-    expect(r.status()).toBe(401);
+    expect(r.status()).toBe(200);
+    const body = await r.json();
+    expect(body.is_active).toBe(false);
+    expect(body.tier).toBe('free');
+    expect(body.period_end).toBeNull();
+    expect(typeof body.annual_available).toBe('boolean');
   });
 
   test('GET /api/stripe/checkout returns tier metadata for free user', async ({ request }) => {

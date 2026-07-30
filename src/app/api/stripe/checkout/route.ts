@@ -10,6 +10,7 @@ import {
 } from '@/lib/pricing';
 import { TRIAL_DAYS, checkTrialEligibility } from '@/lib/trial';
 import { resolveEntitlement } from '@/lib/entitlement';
+import { isPlausibleEmail, findUserIdByEmail } from '@/lib/checkout-identity';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -38,14 +39,11 @@ interface CheckoutBody {
   plan?: PricingPlan;
   region?: string; // 'BC' | 'WA' | 'OR' | 'Other' | other slug
   from?: string;   // analytics: 'spot' | 'pricing' | etc.
+  /** Anonymous checkout: the address the account will be created under. */
+  email?: string;
 }
 
 export async function POST(request: NextRequest) {
-  const user = await getUserFromRequest(request);
-  if (!user) {
-    return NextResponse.json({ error: 'unauthorized' }, { status: 401 });
-  }
-
   const stripe = await getStripe();
 
   let body: CheckoutBody;
@@ -54,6 +52,41 @@ export async function POST(request: NextRequest) {
   } catch {
     return NextResponse.json({ error: 'invalid_body' }, { status: 400 });
   }
+
+  // Two ways in. Signed in: we know who you are. Signed out: you give us an
+  // email and the account is created by the webhook once Stripe confirms —
+  // paying shouldn't require an account you don't have yet.
+  const user = await getUserFromRequest(request);
+  const anonEmail = (body.email ?? '').toString().trim().toLowerCase();
+
+  if (!user) {
+    if (!anonEmail) {
+      return NextResponse.json({ error: 'email_required' }, { status: 400 });
+    }
+    if (!isPlausibleEmail(anonEmail)) {
+      return NextResponse.json({ error: 'invalid_email' }, { status: 400 });
+    }
+
+    // If that address already has an account, send them to sign in instead of
+    // creating a second one. Letting an anonymous payer attach a subscription
+    // to somebody else's account is not a flow worth having: the payer can't
+    // manage what they bought, and the account holder gets a subscription they
+    // never agreed to.
+    try {
+      const existing = await findUserIdByEmail(admin, anonEmail);
+      if (existing) {
+        return NextResponse.json(
+          { error: 'account_exists', requires_signin: true },
+          { status: 409 },
+        );
+      }
+    } catch (err) {
+      console.error('[stripe checkout] could not check for an existing account', err);
+      return NextResponse.json({ error: 'checkout_failed' }, { status: 502 });
+    }
+  }
+
+  const buyerEmail = user?.email ?? anonEmail;
 
   const plan: PricingPlan = body.plan === 'annual' ? 'annual' : 'monthly';
   const region = (body.region ?? '').toString().trim();
@@ -85,12 +118,16 @@ export async function POST(request: NextRequest) {
   );
 
   // Look up an existing stripe_customer_id, or create the customer + row.
+  // An anonymous buyer has no row yet — their customer is created fresh and
+  // linked by the webhook once Stripe confirms.
   try {
-    const { data: existingSettings } = await admin
-      .from('user_settings')
-      .select('stripe_customer_id')
-      .eq('user_id', user.id)
-      .maybeSingle();
+    const { data: existingSettings } = user
+      ? await admin
+          .from('user_settings')
+          .select('stripe_customer_id')
+          .eq('user_id', user.id)
+          .maybeSingle()
+      : { data: null };
 
     let stripeCustomerId = existingSettings?.stripe_customer_id ?? null;
 
@@ -123,21 +160,29 @@ export async function POST(request: NextRequest) {
 
     if (!stripeCustomerId) {
       const customer = await stripe.customers.create({
-        email: user.email ?? undefined,
-        metadata: { supabase_user_id: user.id },
+        email: buyerEmail || undefined,
+        // supabase_user_id is absent for an anonymous buyer. pending_email is
+        // what the webhook resolves the account from instead — see
+        // resolveUserId() in the webhook.
+        metadata: user
+          ? { supabase_user_id: user.id }
+          : { pending_email: buyerEmail },
       });
       stripeCustomerId = customer.id;
-      await admin
-        .from('user_settings')
-        .upsert(
-          {
-            user_id: user.id,
-            stripe_customer_id: stripeCustomerId,
-            primary_region_slug: region || null,
-          },
-          { onConflict: 'user_id' },
-        );
-    } else if (region) {
+
+      if (user) {
+        await admin
+          .from('user_settings')
+          .upsert(
+            {
+              user_id: user.id,
+              stripe_customer_id: stripeCustomerId,
+              primary_region_slug: region || null,
+            },
+            { onConflict: 'user_id' },
+          );
+      }
+    } else if (region && user) {
       await admin
         .from('user_settings')
         .update({ primary_region_slug: region })
@@ -147,13 +192,20 @@ export async function POST(request: NextRequest) {
     // The 7-day trial rides on the annual plan only. Monthly is instant-charge,
     // which keeps "start your trial" and "buy the yearly plan" one decision.
     // Ineligible customers aren't told why — they just go through paid checkout.
+    // Runs for anonymous buyers too — that's the whole reason the email is
+    // collected on our page instead of Stripe's. userId is null for them, so
+    // the has_used_trial layer no-ops and the email-hash layer carries it.
     const eligibility =
       plan === 'annual'
-        ? await checkTrialEligibility(admin, user.id, user.email)
+        ? await checkTrialEligibility(admin, user?.id ?? null, buyerEmail)
         : { eligible: false as const, reason: undefined };
 
     if (plan === 'annual' && !eligibility.eligible) {
-      console.info('[stripe checkout] trial withheld', user.id, eligibility.reason);
+      console.info(
+        '[stripe checkout] trial withheld',
+        user?.id ?? `anon:${buyerEmail}`,
+        eligibility.reason,
+      );
     }
 
     const origin = appOrigin(request);
@@ -169,7 +221,8 @@ export async function POST(request: NextRequest) {
       success_url: `${origin}/billing/success?session_id={CHECKOUT_SESSION_ID}`,
       cancel_url: `${origin}/billing/cancel`,
       metadata: {
-        supabase_user_id: user.id,
+        supabase_user_id: user?.id ?? '',
+        pending_email: user ? '' : buyerEmail,
         plan,
         currency,
         region: region || '',
@@ -178,7 +231,8 @@ export async function POST(request: NextRequest) {
       },
       subscription_data: {
         metadata: {
-          supabase_user_id: user.id,
+          supabase_user_id: user?.id ?? '',
+          pending_email: user ? '' : buyerEmail,
           plan,
           currency,
         },
@@ -219,8 +273,29 @@ export async function POST(request: NextRequest) {
  */
 export async function GET(request: NextRequest) {
   const user = await getUserFromRequest(request);
+
+  // Anonymous callers get the public shape: whether the offer exists at all,
+  // and nothing about anybody's account.
+  //
+  // We can't resolve trial ELIGIBILITY without knowing who they are, so this
+  // reports the offer as available whenever the annual price is configured. A
+  // returning customer who is no longer eligible therefore sees trial terms
+  // here — and then sees the real amount on Stripe's own checkout page before
+  // any card is charged, which is where it counts. Checking eligibility by
+  // email at this point would be worse: it would turn the endpoint into an
+  // oracle for whether a given address has an account.
   if (!user) {
-    return NextResponse.json({ error: 'unauthorized' }, { status: 401 });
+    const annualAvailable = Boolean(ANNUAL_PRICE_ID);
+    return NextResponse.json({
+      tier: 'free',
+      status: 'none',
+      is_active: false,
+      in_grace: false,
+      period_end: null,
+      trial_available: annualAvailable,
+      trial_days: TRIAL_DAYS,
+      annual_available: annualAvailable,
+    });
   }
 
   const url = new URL(request.url);
