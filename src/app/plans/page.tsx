@@ -122,10 +122,15 @@ const FEATURES: { label: string; free: boolean }[] = [
   { label: 'Plan a week ahead', free: true },
   // ── everything below is what paying adds ──
   { label: 'Plan the full two weeks', free: false },
-  { label: 'Add your own private spots', free: false },
-  { label: 'Get alerted when it’s on', free: false },
-  { label: 'Get that alert by text', free: false },
-  { label: 'Save the spots you fish', free: false },
+  { label: 'Save every spot you fish', free: false },
+  // Deliberately NOT "add your own spots" — that reads as another way of
+  // saying "save", which is what it looked like before. The value is that a
+  // spot we don't publish gets the full model run on it, not that you can
+  // drop a pin.
+  { label: 'Score a spot we don’t cover — your pin, our full model', free: false },
+  // One row, not two. "Get alerted" and "get it by text" is one feature and
+  // its delivery channel; splitting them padded the list and read as filler.
+  { label: 'Alerts when it’s on — by text or email', free: false },
   { label: 'Every covered city, one price', free: false },
 ];
 
