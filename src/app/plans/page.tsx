@@ -119,14 +119,13 @@ const FEATURES: { label: string; free: boolean }[] = [
   { label: 'Watch the tide push through, hour by hour', free: true },
   { label: 'Check the regs before you go', free: true },
   { label: 'Log a catch straight from the photo', free: true },
-  { label: 'Save spots and build lists', free: true },
   { label: 'Plan a week ahead', free: true },
   // ── everything below is what paying adds ──
   { label: 'Plan the full two weeks', free: false },
   { label: 'Add your own private spots', free: false },
   { label: 'Get alerted when it’s on', free: false },
   { label: 'Get that alert by text', free: false },
-  { label: 'Save every spot you fish', free: false },
+  { label: 'Save the spots you fish', free: false },
   { label: 'Every covered city, one price', free: false },
 ];
 
@@ -332,8 +331,9 @@ export default function PlansPage() {
             </div>
 
             <p className="mt-3 px-1 text-xs leading-relaxed text-rc-ink-mute">
-              Alerts are capped at 10 per account. Private spots work anywhere
-              inside a city we cover.
+              Free accounts can save one spot. Pro is unlimited, and alerts are
+              capped at 10 per account. Private spots work anywhere inside a
+              city we cover.
             </p>
           </div>
         </div>
