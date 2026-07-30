@@ -92,22 +92,36 @@ function dollars(cents: number): string {
 /**
  * The comparison table.
  *
- * LIVE FEATURES ONLY. Depth/structure maps, live currents, and
- * regulation-change alerts are built or near-built but not gated yet — they
- * don't belong here until they are, because everything on this table is a
- * promise attached to a charge.
+ * LIVE FEATURES ONLY — everything here is a promise attached to a charge, so
+ * nothing lands on this table before it actually works.
  *
- * The rows checked in BOTH columns are deliberate: they advertise the free
- * tier to people who won't pay today, and they make Pro read as additive
- * rather than as a wall. Row 4 is the important one — "plan a week ahead"
- * being free is what makes an account worth creating, and it sets up "plan
- * the full two weeks" as the obvious next step.
+ * Note that "live" is not the same as "gated". Depth, hourly currents,
+ * photo-analysed catch logging, and guide-reviewed spots all ship today and
+ * are free to everyone, so they sit in BOTH columns. Listing them is what
+ * makes the product look as deep as it is; hiding them because they aren't
+ * paywalled would undersell the free tier and make Pro read as a wall rather
+ * than an addition.
+ *
+ * Ordering is the argument: eight rows of "this is a serious tool, and it's
+ * free", then six rows of what paying adds. The hinge is the adjacency of
+ * "Plan a week ahead" (free) and "Plan the full two weeks" (Pro) — the first
+ * is what makes an account worth creating, the second is the obvious next
+ * step from it. Keep them next to each other.
+ *
+ * Regulation-change alerts are still deliberately absent: built, not gated,
+ * and not yet a thing a customer can switch on.
  */
 const FEATURES: { label: string; free: boolean }[] = [
-  { label: 'Save spots and build lists', free: true },
+  // Trust first: every published spot has been through local-guide review.
+  { label: 'Spots checked by a local guide before they go live', free: true },
   { label: 'See today’s bite score', free: true },
+  { label: 'Read the bottom — depth and structure', free: true },
+  { label: 'Watch the tide push through, hour by hour', free: true },
   { label: 'Check the regs before you go', free: true },
+  { label: 'Log a catch straight from the photo', free: true },
+  { label: 'Save spots and build lists', free: true },
   { label: 'Plan a week ahead', free: true },
+  // ── everything below is what paying adds ──
   { label: 'Plan the full two weeks', free: false },
   { label: 'Add your own private spots', free: false },
   { label: 'Get alerted when it’s on', free: false },
