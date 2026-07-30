@@ -40,7 +40,7 @@ interface Banner {
 }
 
 export default function TicketsSection() {
-  const { session } = useAuth();
+  const { session, loading: authLoading } = useAuth();
   const token = session?.access_token;
 
   const [tickets, setTickets] = useState<SupportTicket[]>([]);
@@ -49,7 +49,6 @@ export default function TicketsSection() {
   const [banner, setBanner] = useState<Banner | null>(null);
 
   const load = useCallback(async () => {
-    if (!token) return;
     try {
       const res = await fetch('/api/support/tickets', {
         headers: { Authorization: `Bearer ${token}` },
@@ -67,8 +66,17 @@ export default function TicketsSection() {
   }, [token]);
 
   useEffect(() => {
+    // Keep the spinner only while auth is genuinely still hydrating. Bailing
+    // out on a missing token WITHOUT clearing `loading` strands the list on
+    // "Loading…" forever — which is what happens for any session that never
+    // resolves, since nothing else ever sets it false.
+    if (authLoading) return;
+    if (!token) {
+      setLoading(false);
+      return;
+    }
     void load();
-  }, [load]);
+  }, [authLoading, token, load]);
 
   const submit = async (input: CreateTicketInput): Promise<boolean> => {
     if (!token) {
