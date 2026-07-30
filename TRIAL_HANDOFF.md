@@ -79,7 +79,21 @@ vercel --prod --scope casey-1425s-projects
 
 ---
 
-## Task 3 — Apply the migration
+## Task 3 — Apply the migration ✅ DONE (2026-07-30)
+
+Both migrations are live on `pehcvwiwtubzfgahuzuz`: `20260726_pro_trial_and_grace`
+and `20260730_checkout_claims` (the latter belongs to the stacked anonymous-checkout
+PR, applied at the same time since it is additive and inert until that ships).
+
+Verified: all five new `user_settings` columns present; `trial_grants` (5 indexes)
+and `checkout_claims` created; RLS on with zero policies on both; 5 existing Pro
+rows untouched; no rows written. An authenticated annual checkout now returns
+`trial_days: 7` where it returned `0` beforehand — the fail-closed guard releasing
+because its tables exist.
+
+Original instructions retained below for reference.
+
+## Task 3 (reference) — Apply the migration
 
 `supabase/migrations/20260726_pro_trial_and_grace.sql` — run it against the
 ReelCaster Supabase project (`pehcvwiwtubzfgahuzuz`).
