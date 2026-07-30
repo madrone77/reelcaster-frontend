@@ -25,7 +25,7 @@ import TicketsSection from './components/tickets-section';
  * The Port — the Pro-only support portal.
  *
  * Hard gate, three states:
- *   signed out  → redirect to /login?next=/theport
+ *   signed out  → redirect to /login?next=/support
  *   free tier   → paywall panel, with the public /faq + /contact routes offered
  *                 so nobody hits a dead end
  *   Pro         → the portal
@@ -33,7 +33,7 @@ import TicketsSection from './components/tickets-section';
  * The gate here is UX only. Every read and write goes through
  * /api/support/tickets, which re-checks entitlement server-side.
  */
-export default function ThePortClient() {
+export default function SupportClient() {
   const router = useRouter();
   const { user, loading: authLoading } = useAuth();
   const { isPaid, loading: subLoading } = useSubscription();
@@ -47,7 +47,7 @@ export default function ThePortClient() {
   const [focusId, setFocusId] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!authLoading && !user) router.replace('/login?next=/theport');
+    if (!authLoading && !user) router.replace('/login?next=/support');
   }, [authLoading, user, router]);
 
   const go = useCallback((next: SectionId, id?: string) => {
@@ -159,7 +159,7 @@ function ProGate() {
         <div className="mt-6">
           <UnlockWithProCard
             theme="light"
-            feature="theport"
+            feature="support"
             headline="Open The Port"
             bullets={[
               'Priority support — one business day reply target',

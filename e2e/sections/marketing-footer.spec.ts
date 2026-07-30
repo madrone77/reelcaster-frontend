@@ -4,7 +4,7 @@ import { test, expect } from '@playwright/test';
  * Marketing footer legal row — locks the seven "always reachable" links
  * (Privacy · Terms · Contact · Support · About · FAQ · Sign In) on every
  * public page. Pins their hrefs so a refactor can't quietly drop or rewire
- * them. Support points at /theport, which paywalls non-Pro visitors — the
+ * them. Support points at /support, which paywalls non-Pro visitors — the
  * link must still render for everyone, which is what this pins.
  */
 
@@ -16,7 +16,7 @@ const LEGAL_LINKS: Array<{ label: string; href: string }> = [
   { label: 'Privacy', href: '/privacy' },
   { label: 'Terms', href: '/terms' },
   { label: 'Contact', href: '/contact' },
-  { label: 'Support', href: '/theport' },
+  { label: 'Support', href: '/support' },
   { label: 'About', href: '/about' },
   { label: 'FAQ', href: '/faq' },
   { label: 'Sign In', href: '/login' },

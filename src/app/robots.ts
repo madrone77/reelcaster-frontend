@@ -20,7 +20,7 @@ export default function robots(): MetadataRoute.Robots {
           "/alerts",
           "/billing/",
           "/notifications",
-          "/theport",
+          "/support",
           "/dashboard",
           "/favorites",
           "/log-catch",

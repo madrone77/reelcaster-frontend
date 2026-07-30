@@ -18,7 +18,7 @@ const NAV = [
 // renders for signed-out visitors too, and a top-level link that greets most of
 // them with a paywall is worse than no link. Signed-in members see it; the page
 // itself handles the free-tier case.
-const PORT_HREF = "/theport";
+const SUPPORT_HREF = "/support";
 
 /**
  * Fixed 64px top bar. Deliberately mirrors MarketingHeader's styling (same
@@ -107,18 +107,18 @@ export default function ExploreTopBar() {
           {loading ? null : user && initials ? (
             <>
               <Link
-                href={PORT_HREF}
-                aria-label="The Port — support"
-                aria-current={isActive(PORT_HREF) ? "page" : undefined}
-                title="The Port — Pro support"
+                href={SUPPORT_HREF}
+                aria-label="Support"
+                aria-current={isActive(SUPPORT_HREF) ? "page" : undefined}
+                title="Support — The Port"
                 className={`hidden sm:inline-flex items-center gap-1.5 text-sm font-medium px-3 py-1.5 transition-colors ${
-                  isActive(PORT_HREF)
+                  isActive(SUPPORT_HREF)
                     ? "text-rc-brand font-semibold"
                     : "text-rc-ink-soft hover:text-rc-ink"
                 }`}
               >
                 <LifeBuoy className="w-4 h-4" aria-hidden />
-                The Port
+                Support
               </Link>
               <Link
                 href="/profile"

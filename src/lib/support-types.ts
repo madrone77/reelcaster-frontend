@@ -1,5 +1,5 @@
 /**
- * Shared types for The Port's support ticketing (/theport).
+ * Shared types for The Port's support ticketing (/support).
  *
  * Mirrors the `support_tickets` table in
  * supabase/migrations/20260730_create_support_tickets.sql. The category and
