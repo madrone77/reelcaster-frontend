@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
+import { LifeBuoy } from "lucide-react";
 import { useAuth } from "@/contexts/auth-context";
 
 const NAV = [
@@ -12,6 +13,12 @@ const NAV = [
   { href: "/catches", label: "My catches" },
   { href: "/notifications", label: "Notifications" },
 ];
+
+// The Port is Pro-only and lives beside the avatar rather than in NAV: this bar
+// renders for signed-out visitors too, and a top-level link that greets most of
+// them with a paywall is worse than no link. Signed-in members see it; the page
+// itself handles the free-tier case.
+const PORT_HREF = "/theport";
 
 /**
  * Fixed 64px top bar. Deliberately mirrors MarketingHeader's styling (same
@@ -98,13 +105,29 @@ export default function ExploreTopBar() {
 
         <div className="flex items-center gap-2 sm:gap-3 ml-auto">
           {loading ? null : user && initials ? (
-            <Link
-              href="/profile"
-              aria-label="Profile"
-              className="flex items-center justify-center w-8 h-8 rounded-full bg-rc-ink text-white font-rc-mono font-bold text-[11px]"
-            >
-              {initials}
-            </Link>
+            <>
+              <Link
+                href={PORT_HREF}
+                aria-label="The Port — support"
+                aria-current={isActive(PORT_HREF) ? "page" : undefined}
+                title="The Port — Pro support"
+                className={`hidden sm:inline-flex items-center gap-1.5 text-sm font-medium px-3 py-1.5 transition-colors ${
+                  isActive(PORT_HREF)
+                    ? "text-rc-brand font-semibold"
+                    : "text-rc-ink-soft hover:text-rc-ink"
+                }`}
+              >
+                <LifeBuoy className="w-4 h-4" aria-hidden />
+                The Port
+              </Link>
+              <Link
+                href="/profile"
+                aria-label="Profile"
+                className="flex items-center justify-center w-8 h-8 rounded-full bg-rc-ink text-white font-rc-mono font-bold text-[11px]"
+              >
+                {initials}
+              </Link>
+            </>
           ) : (
             // Same signed-out pairing as MarketingHeader (About, the
             // homepage, etc.) — "Sign in" text link + a filled sign-up CTA —
