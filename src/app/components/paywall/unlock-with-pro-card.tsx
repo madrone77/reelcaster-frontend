@@ -28,10 +28,9 @@ import { ANNUAL_PRICE_CENTS } from '@/lib/pricing';
  */
 const DEFAULT_BULLETS = [
   'Plan the full two weeks',
-  'Add your own private spots',
-  'Get alerted when it’s on',
-  'Get that alert by text',
   'Save every spot you fish',
+  'Score a spot we don’t cover — your pin, our full model',
+  'Alerts when it’s on — by text or email',
 ];
 
 function dollars(cents: number): string {
