@@ -242,10 +242,14 @@ export default function PlansPage() {
             <h1 className="mt-3 text-4xl font-black tracking-[-0.02em] text-rc-ink md:text-6xl">
               Know before you go.
             </h1>
+            {/* Deliberately not a feature list — the table right beside it is
+                the feature list, and this used to recite three of its rows
+                back at the reader. The subhead's job is why any of it works:
+                name the inputs (credibility) and the payoff (pick the day). */}
             <p className="mt-5 max-w-xl text-base leading-relaxed text-rc-ink-soft md:text-lg">
-              Two weeks of forecasts instead of two days, your own private spots
-              scored like ours, and a text when conditions finally line up. One
-              plan, every city we cover.
+              We score every spot against what actually moves fish — tide,
+              light, water temperature, and what’s running right now. So you
+              pick the day instead of hoping for one.
             </p>
 
             <div className="mt-8 flex flex-wrap items-center gap-3">
