@@ -4,6 +4,7 @@ import { createClient } from '@supabase/supabase-js';
 import { getStripe } from '@/lib/stripe';
 import { ANNUAL_PRICE_ID, ANNUAL_PRICE_CENTS, MONTHLY_PRICE_CENTS } from '@/lib/pricing';
 import { recordTrialGrant, recordTrialCardFingerprint } from '@/lib/trial';
+import { ensureUserForCheckout } from '@/lib/checkout-identity';
 import { sendEmail } from '@/lib/email-service';
 import {
   trialEndingEmail,
@@ -46,23 +47,81 @@ function customerIdOf(subscription: Stripe.Subscription): string {
   return typeof c === 'string' ? c : c.id;
 }
 
+/**
+ * Find the account this subscription belongs to, creating it if the purchase
+ * came from an anonymous checkout.
+ *
+ * Resolution order, cheapest and most certain first:
+ *   1. supabase_user_id on the subscription or customer metadata (signed-in)
+ *   2. an existing user_settings row for this Stripe customer
+ *   3. pending_email — anonymous checkout, so create the account now
+ *
+ * Step 3 is the buy-first flow: the visitor paid without an account and this
+ * is the moment it comes into existence. ensureUserForCheckout is idempotent
+ * because Stripe retries, and checkout.session.completed and
+ * customer.subscription.created routinely arrive together for one purchase.
+ */
 async function resolveUserId(subscription: Stripe.Subscription): Promise<string | null> {
   const customer = subscription.customer;
-  const customerMetaUserId =
-    typeof customer === 'string' || customer.deleted
-      ? null
-      : customer.metadata?.supabase_user_id ?? null;
+  const customerExpanded =
+    typeof customer === 'string' || customer.deleted ? null : customer;
 
-  const fromMeta = subscription.metadata?.supabase_user_id ?? customerMetaUserId;
+  const fromMeta =
+    subscription.metadata?.supabase_user_id ||
+    customerExpanded?.metadata?.supabase_user_id ||
+    null;
   if (fromMeta) return fromMeta;
+
+  const customerId = customerIdOf(subscription);
 
   const { data } = await admin
     .from('user_settings')
     .select('user_id')
-    .eq('stripe_customer_id', customerIdOf(subscription))
+    .eq('stripe_customer_id', customerId)
     .maybeSingle();
 
-  return data?.user_id ?? null;
+  if (data?.user_id) return data.user_id;
+
+  // Anonymous checkout. The email came from our own form (see
+  // src/lib/checkout-identity.ts), and Stripe's customer email is the
+  // fallback if the metadata didn't survive.
+  let pendingEmail =
+    subscription.metadata?.pending_email ||
+    customerExpanded?.metadata?.pending_email ||
+    customerExpanded?.email ||
+    null;
+
+  if (!pendingEmail) {
+    try {
+      const fresh = await (await getStripe()).customers.retrieve(customerId);
+      if (!fresh.deleted) {
+        pendingEmail = fresh.metadata?.pending_email || fresh.email || null;
+      }
+    } catch (err) {
+      console.error('[stripe webhook] could not retrieve customer for pending email', err);
+    }
+  }
+
+  if (!pendingEmail) return null;
+
+  try {
+    const { userId, created } = await ensureUserForCheckout(admin, pendingEmail);
+    if (created) {
+      console.info('[stripe webhook] created account from anonymous checkout', userId);
+    }
+    // Bind the Stripe customer to the account so every later event resolves at
+    // step 2 without touching auth again.
+    await admin
+      .from('user_settings')
+      .upsert(
+        { user_id: userId, stripe_customer_id: customerId },
+        { onConflict: 'user_id' },
+      );
+    return userId;
+  } catch (err) {
+    console.error('[stripe webhook] could not create account for anonymous checkout', err);
+    return null;
+  }
 }
 
 async function emailForUser(userId: string): Promise<string | null> {
