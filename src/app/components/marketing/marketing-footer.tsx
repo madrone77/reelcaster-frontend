@@ -4,6 +4,7 @@ const LEGAL_LINKS: Array<{ href: string; label: string }> = [
   { href: '/privacy', label: 'Privacy' },
   { href: '/terms', label: 'Terms' },
   { href: '/contact', label: 'Contact' },
+  { href: '/theport', label: 'Support' },
   { href: '/about', label: 'About' },
   { href: '/faq', label: 'FAQ' },
   { href: '/login', label: 'Sign In' },
@@ -13,10 +14,12 @@ export default function MarketingFooter() {
   const year = new Date().getFullYear();
   return (
     <footer data-testid="marketing-footer" className="border-t border-rc-rule bg-rc-surface">
-      {/* Only routes that still exist: unlisted paths rewrite to /coming-soon
-          instead of 404ing — so a stale link here reads as a real page until
-          clicked. Locations lists the /fishing province directories; add
-          Washington/Oregon here once they have lifecycle-published cities. */}
+      {/* Only routes that still exist — unlisted paths now return a real 404
+          (the /coming-soon wall was retired), so a stale link here is a dead
+          link. Locations lists the /fishing province directories; add
+          Washington/Oregon here once they have lifecycle-published cities.
+          "Support" points at /theport, which paywalls non-Pro visitors — FAQ
+          and Contact directly above it are the open routes. */}
       <div className="max-w-6xl mx-auto px-6 py-12 grid grid-cols-2 md:grid-cols-5 gap-8 text-sm">
         <div>
           <h4 className="rc-label text-[10px] mb-3">Product</h4>
@@ -40,6 +43,7 @@ export default function MarketingFooter() {
             <li><Link href="/about" className="hover:text-rc-ink">About</Link></li>
             <li><Link href="/faq" className="hover:text-rc-ink">FAQ</Link></li>
             <li><Link href="/contact" className="hover:text-rc-ink">Contact</Link></li>
+            <li><Link href="/theport" className="hover:text-rc-ink">Support</Link></li>
           </ul>
         </div>
 
