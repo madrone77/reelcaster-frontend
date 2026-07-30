@@ -12,6 +12,8 @@ interface Props {
   bullets?: string[]
   /** Optional override for the CTA target. */
   ctaHref?: string
+  /** Optional override for the CTA label. */
+  ctaLabel?: string
 }
 
 /**
@@ -26,6 +28,7 @@ export default function UpgradeRequiredModal({
   headline,
   bullets,
   ctaHref,
+  ctaLabel,
 }: Props) {
   if (!open) return null
 
@@ -53,6 +56,7 @@ export default function UpgradeRequiredModal({
         <UnlockWithProCard
           headline={headline}
           bullets={bullets}
+          ctaLabel={ctaLabel}
           ctaHref={ctaHref ?? `/plans?from=paywall&feature=${encodeURIComponent(feature)}`}
           theme="light"
         />
