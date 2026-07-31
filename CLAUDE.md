@@ -1036,6 +1036,58 @@ Server secrets can be sourced at runtime from a self-hosted Vault instead of (or
 - **CONSTRAINT:** `getVercelOidcToken()` cannot run at module level (token is per-request). The ~40 server files that read secrets as module-level constants / client singletons (`const x = process.env.SUPABASE_SERVICE_ROLE_KEY!`, `new Stripe(...)`, etc.) must become **lazy async getters** (`await getSupabaseAdmin()`) to migrate. Not yet done — only the loader + a probe ship so far.
 - **Probe:** `GET /api/secrets/health?name=<KEY>` (auth `Bearer $CRON_SECRET`) reports `resolvedFrom: vault|env` + length, never the value. Remove after migration. Vault client flow verified locally against an API mock; the OIDC leg needs a preview deploy + a reachable Vault.
 
+## Copy rule: no em dashes in user-facing strings (2026-07-31)
+
+**Never ship an em dash (`—`) in copy a user can read.** The whole public
+surface was swept clean on 2026-07-31 (~185 removed across two passes); em
+dashes read as machine-written, and reintroducing them undoes that.
+
+"User-facing" is broader than JSX text. It covers page copy, `metadata`
+titles/descriptions and OG strings, button and placeholder text, error and
+toast strings, `aria-label`/`title` attributes, email templates in
+`src/lib/email-templates/`, and the knowledge-base content in
+`src/app/support/content.ts`. **Code comments are exempt** — they are not copy,
+and the sweep deliberately left them alone.
+
+Rewrite in context rather than swapping in one universal substitute:
+
+| Situation | Use | Example |
+|---|---|---|
+| Two independent clauses welded together | period | `Please report it — file a ticket` → `Please report it. File a ticket` |
+| A list or definition follows | colon | `the launch region — Salish Sea, …` → `the launch region: Salish Sea, …` |
+| Appositive or short aside | comma | `No — they're a reference` → `No, they're a reference` |
+| The dash is carrying a causal link | `so` / `because` | `city list — no request is sent` → `city list, so no request is sent` |
+| Paired parenthetical (dash on both sides) | parentheses | `current-driven — crab, halibut — this is faster` → `current-driven (crab, halibut) this is faster` |
+| Separator in UI chrome / labels | `·` | `JPG · PNG · WebP — EXIF read` → `… WebP · EXIF read` |
+
+**Three uses are deliberately kept.** Do not "fix" them:
+
+1. The lone `—` standing in for a missing value (billing stats, catch
+   weight/length, the hourly-bars readout). It is typography for "no data"; a
+   hyphen or `n/a` reads worse.
+2. The decorative `—01` / `—02` / `—03` step prefixes on `/about`.
+3. The map attribution strings in `src/lib/map/relief-style.ts`. That file is a
+   verbatim port of BlueCaster's and has to stay at parity — see the Explore
+   relief map section above.
+
+**JSX gotcha.** When the dash sat after a `{' '}`, that explicit space usually
+has to go with it, or you render `Explore . Pro features`. Four such fixes were
+needed in the sweep. Check the rendered string, not just the diff.
+
+Audit before shipping copy changes. This drops comment lines and lone-dash
+placeholders, so it reports real copy:
+
+```bash
+grep -rn "—" src/ --include="*.tsx" --include="*.ts" | perl -ne '($c)=/^[^:]+:\d+:(.*)$/s; next if $c=~m{^\s*(//|\*|/\*|\{/\*)}; next if $c=~m{//[^—]*—}; $s=$c; $s=~s{(["\x27`])\s*—\s*\1}{}g; next unless $s=~/—/; print'
+```
+
+As of 2026-07-31 that returns **21 lines, all of them expected**: block-comment
+continuations, the `>—<` "no data" glyphs in `spot-terminal.tsx` and
+`catch-grid-card.tsx`, the `/about` step prefixes, and the three `relief-style.ts`
+attributions. A plain `grep -rn "—" src/` returns ~130 and is mostly trailing
+`//` comments — not worth reading. **Anything new in the filtered output is a
+regression.**
+
 ## Development Guidelines
 
 When implementing a large new feature always create a detailed step by step plan as a task list. Ask me any clarifying question and then start implementation.
