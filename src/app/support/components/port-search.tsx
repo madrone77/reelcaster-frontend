@@ -118,7 +118,7 @@ export default function PortSearch({ onSelect }: Props) {
               <span className="text-rc-ink font-medium">
                 &ldquo;{query.trim()}&rdquo;
               </span>
-              . Try fewer words — or file a ticket and ask us directly.
+              . Try fewer words, or file a ticket and ask us directly.
             </div>
           ) : (
             <ul className="max-h-80 overflow-y-auto divide-y divide-rc-rule-soft">

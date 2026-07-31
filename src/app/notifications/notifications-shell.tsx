@@ -305,8 +305,8 @@ export default function NotificationsShell() {
                   is live at{" "}
                   <span className="font-bold text-rc-good">
                     {banner.info.score}
-                  </span>{" "}
-                  — {banner.delta} above your {banner.th} line.
+                  </span>
+                  , {banner.delta} above your {banner.th} line.
                   {banner.info.windowLabel
                     ? ` Best window ${banner.info.windowLabel} today.`
                     : ""}

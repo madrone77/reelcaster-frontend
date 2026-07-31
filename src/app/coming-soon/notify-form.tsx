@@ -60,7 +60,7 @@ export default function NotifyForm() {
         </button>
       </form>
       {status === 'error' && (
-        <p className="text-sm text-white/90">Something went wrong — try again.</p>
+        <p className="text-sm text-white/90">Something went wrong. Try again.</p>
       )}
     </div>
   )

@@ -35,7 +35,7 @@ function composeValueLine(factor: TodayFactor, units: UnitPrefs): string | null 
     case "tidal_current_speed_kt": {
       if (v < 0.2) return "Slack";
       const s = `${convertWind(v, "knots", units.windUnit).toFixed(1)} ${WIND_LABELS[units.windUnit]}`;
-      return v < 0.7 ? `${s} — light` : s;
+      return v < 0.7 ? `${s} light` : s;
     }
     case "tide_range_24h_m":
       return `${convertHeight(v, "m", units.heightUnit).toFixed(1)} ${units.heightUnit} range today`;
@@ -54,7 +54,7 @@ function composeValueLine(factor: TodayFactor, units: UnitPrefs): string | null 
         : `${Math.round(v)} hPa`;
     case "visibility_km": {
       const s = `${Math.round(convertDistance(v, "km", units.distanceUnit))}${DISTANCE_LABELS[units.distanceUnit]}`;
-      return v < 5 ? `${s} — hazy` : `${s} clear`;
+      return v < 5 ? `${s} hazy` : `${s} clear`;
     }
     default:
       return null;

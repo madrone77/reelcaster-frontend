@@ -19,7 +19,7 @@ export const metadata: Metadata = {
   openGraph: {
     title: "Pricing | ReelCaster",
     description:
-      "7 days free, then $5/month or $33/year (45% off) — 14-day forecasts, custom alerts, and spot profiles.",
+      "7 days free, then $5/month or $33/year (45% off). 14-day forecasts, custom alerts, and spot profiles.",
     url: siteUrl("/pricing"),
     type: "website",
     ...DEFAULT_OG,
@@ -52,7 +52,7 @@ function proOffer(plan: "Monthly" | "Annual", currency: "CAD" | "USD") {
   const cents = plan === "Monthly" ? MONTHLY_PRICE_CENTS : ANNUAL_PRICE_CENTS;
   return {
     "@type": "Offer",
-    name: `ReelCaster Pro — ${plan} (${currency})`,
+    name: `ReelCaster Pro ${plan} (${currency})`,
     price: (cents / 100).toFixed(2),
     priceCurrency: currency,
     availability: "https://schema.org/InStock",
@@ -122,8 +122,8 @@ export default async function PricingPage() {
           One plan. {dollars(MONTHLY_PRICE_CENTS)} a month.
         </h1>
         <p className="max-w-2xl text-base md:text-lg leading-relaxed text-rc-ink-soft">
-          Everything in Pro — the full 14-day forecast, custom alerts, and
-          custom spot profiles — for {dollars(MONTHLY_PRICE_CENTS)} a month,
+          Everything in Pro, including the full 14-day forecast, custom alerts,
+          and custom spot profiles, for {dollars(MONTHLY_PRICE_CENTS)} a month,
           or {dollars(ANNUAL_PRICE_CENTS)} a year and save {pct}%. Start with{" "}
           {TRIAL_DAYS} days free: nothing is charged until the trial ends, and
           you can cancel anytime before then.

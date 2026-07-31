@@ -8,7 +8,7 @@ export const metadata: Metadata = {
   // Bare title — the root layout's "%s | ReelCaster" template adds the brand.
   title: 'Terms of Service',
   description:
-    'The terms governing use of ReelCaster — accounts, subscriptions, acceptable use, disclaimers around forecasts and DFO regulations.',
+    'The terms governing use of ReelCaster: accounts, subscriptions, acceptable use, disclaimers around forecasts and DFO regulations.',
   alternates: { canonical: `${SITE_URL}/terms` },
   openGraph: {
     title: 'Terms of Service | ReelCaster',
@@ -106,7 +106,7 @@ export default function TermsPage() {
               . Subscriptions auto-renew until cancelled.
             </p>
             <p>
-              You can cancel anytime from the customer portal — access keeps
+              You can cancel anytime from the customer portal. Access keeps
               running until the end of the paid period; we don&rsquo;t prorate
               partial months. Refunds are handled case-by-case; reach out via{' '}
               <Link

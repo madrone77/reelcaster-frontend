@@ -33,7 +33,7 @@ export default function BillingCancelPage() {
             Checkout canceled
           </h1>
           <p className="mt-2 text-sm text-rc-text-muted text-center">
-            No worries — nothing was charged. Here&rsquo;s what Pro unlocks when you&rsquo;re ready.
+            No worries, nothing was charged. Here&rsquo;s what Pro unlocks when you&rsquo;re ready.
           </p>
 
           <ul className="mt-5 space-y-2 text-sm text-rc-text">

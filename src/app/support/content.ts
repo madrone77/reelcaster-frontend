@@ -57,7 +57,7 @@ export const GUIDES: Guide[] = [
       {
         title: 'Find the best window',
         detail:
-          'Every spot page shows 24 hourly bars with a BEST WINDOW callout. A spot averaging 60 with a 2-hour spike to 85 is usually a better trip than a flat 70 — the score is per-hour, so fish the peak.',
+          'Every spot page shows 24 hourly bars with a BEST WINDOW callout. A spot averaging 60 with a 2-hour spike to 85 is usually a better trip than a flat 70, because the score is per-hour, so fish the peak.',
         href: '/explore',
         hrefLabel: 'Open the map',
       },
@@ -74,7 +74,7 @@ export const GUIDES: Guide[] = [
       {
         title: 'Check the confidence bar',
         detail:
-          'The evidence panel shows how much real data sits behind a score — source tallies and the top algorithm variables. A high score with thin evidence is a hypothesis. A high score with a deep catch history behind it is a plan.',
+          'The evidence panel shows how much real data sits behind a score: source tallies and the top algorithm variables. A high score with thin evidence is a hypothesis. A high score with a deep catch history behind it is a plan.',
       },
     ],
   },
@@ -95,12 +95,12 @@ export const GUIDES: Guide[] = [
       {
         title: 'Pin colour is the score, the numeral is the value',
         detail:
-          'Pins run a continuous five-stop scale from green through amber to red, with the score printed inside. A grey pin with a dot means the spot has not been scored yet — usually a new or custom spot awaiting its first scoring run.',
+          'Pins run a continuous five-stop scale from green through amber to red, with the score printed inside. A grey pin with a dot means the spot has not been scored yet, usually a new or custom spot awaiting its first scoring run.',
       },
       {
         title: 'Turn on Currents before planning a slack-tide trip',
         detail:
-          'The Currents toggle overlays a live flow field: a colour heatmap for speed plus white particle ribbons showing direction. It clips at the coastline. For anything current-driven — crab, halibut on a slack, or a tide-line troll — this is faster than reading numbers.',
+          'The Currents toggle overlays a live flow field: a colour heatmap for speed plus white particle ribbons showing direction. It clips at the coastline. For anything current-driven (crab, halibut on a slack, or a tide-line troll) this is faster than reading numbers.',
       },
       {
         title: 'Filter by species',
@@ -110,7 +110,7 @@ export const GUIDES: Guide[] = [
       {
         title: 'Use Near me to jump regions',
         detail:
-          'The Near me button matches your position to the nearest covered city and refits the map. It runs entirely in the browser against the already-loaded city list — no request is sent anywhere.',
+          'The Near me button matches your position to the nearest covered city and refits the map. It runs entirely in the browser against the already-loaded city list, so no request is sent anywhere.',
       },
     ],
   },
@@ -162,7 +162,7 @@ export const GUIDES: Guide[] = [
       {
         title: 'Drop the photo first',
         detail:
-          'JPG, PNG, WebP, HEIC or HEIF up to 25 MB. Read the EXIF from the original file — if you screenshot the photo or send it through a messaging app first, the GPS and timestamp are stripped and you will be placing the pin by hand.',
+          'JPG, PNG, WebP, HEIC or HEIF up to 25 MB. Read the EXIF from the original file. If you screenshot the photo or send it through a messaging app first, the GPS and timestamp are stripped and you will be placing the pin by hand.',
         href: '/log-catch',
         hrefLabel: 'Log a catch',
       },
@@ -184,7 +184,7 @@ export const GUIDES: Guide[] = [
       {
         title: 'Save as draft if you are on the water',
         detail:
-          'Drafts keep the photo and everything read so far without committing. Finish them later from My catches — drafts are badged in the list.',
+          'Drafts keep the photo and everything read so far without committing. Finish them later from My catches; drafts are badged in the list.',
         href: '/catches',
         hrefLabel: 'My catches',
       },
@@ -272,22 +272,22 @@ export const ARTICLES: Article[] = [
     topic: 'Account & billing',
     tags: ['stripe', 'portal', 'cancel', 'refund', 'invoice', 'receipt'],
     answer:
-      'Everything billing-related lives in the Stripe customer portal — open it from the Billing section of The Port or from your profile. You can swap between monthly and annual, update your card, download invoices, and cancel. Cancelling keeps your Pro access until the end of the period you already paid for; nothing is clawed back.',
+      'Everything billing-related lives in the Stripe customer portal. Open it from the Billing section of The Port or from your profile. You can swap between monthly and annual, update your card, download invoices, and cancel. Cancelling keeps your Pro access until the end of the period you already paid for; nothing is clawed back.',
   },
   {
     id: 'trial',
     question: 'How does the free trial work?',
     topic: 'Account & billing',
     tags: ['trial', 'card', 'charge'],
-    answer: `Both Pro plans start with a ${TRIAL_DAYS}-day free trial. Your card is collected up front but not charged until the trial ends, and cancelling any time before then means you are never billed. During the trial your account is fully Pro — including The Port.`,
+    answer: `Both Pro plans start with a ${TRIAL_DAYS}-day free trial. Your card is collected up front but not charged until the trial ends, and cancelling any time before then means you are never billed. During the trial your account is fully Pro, including The Port.`,
   },
   {
     id: 'complimentary-pro',
-    question: 'My account says Pro is complimentary — what does that mean?',
+    question: 'My account says Pro is complimentary. What does that mean?',
     topic: 'Account & billing',
     tags: ['comp', 'free', 'granted', 'founding'],
     answer:
-      'It means Pro was granted rather than purchased, so there is no card on file and no Stripe portal to open. You keep full Pro access — including The Port — until the date shown on your subscription card, and nothing renews or charges. If you want to continue past that date, you can subscribe normally at any point.',
+      'It means Pro was granted rather than purchased, so there is no card on file and no Stripe portal to open. You keep full Pro access, including The Port, until the date shown on your subscription card, and nothing renews or charges. If you want to continue past that date, you can subscribe normally at any point.',
   },
   {
     id: 'change-email',
@@ -295,7 +295,7 @@ export const ARTICLES: Article[] = [
     topic: 'Account & billing',
     tags: ['email', 'address', 'login'],
     answer:
-      'Not from the app yet. File a ticket under "Account & login" from the Contact section below with the address you want to move to, and we will migrate the account — your catch log, spots and alerts all come with it.',
+      'Not from the app yet. File a ticket under "Account & login" from the Contact section below with the address you want to move to, and we will migrate the account; your catch log, spots and alerts all come with it.',
   },
   {
     id: 'delete-account',
@@ -303,7 +303,7 @@ export const ARTICLES: Article[] = [
     topic: 'Account & billing',
     tags: ['delete', 'remove', 'gdpr', 'erase', 'close'],
     answer:
-      'Self-serve deletion is not built yet — the button in your profile is deliberately disabled rather than pretending to work. File a ticket under "Account & login" and we will delete the account and everything attached to it (catch logs, photos, spots, alerts, preferences) and confirm in writing when it is done.',
+      'Self-serve deletion is not built yet. The button in your profile is deliberately disabled rather than pretending to work. File a ticket under "Account & login" and we will delete the account and everything attached to it (catch logs, photos, spots, alerts, preferences) and confirm in writing when it is done.',
   },
 
   // ---- Forecasts & scores
@@ -313,7 +313,7 @@ export const ARTICLES: Article[] = [
     topic: 'Forecasts & scores',
     tags: ['accurate', 'trust', 'reliable', 'wrong'],
     answer:
-      'Weather and marine inputs come from Open-Meteo and the Canadian Hydrographic Service — the same sources marine professionals use. Our scores combine those signals with species behaviour models. Treat them as advisory: a high-score window is a strong starting point, not a guarantee. Always cross-check Environment and Climate Change Canada before you launch.',
+      'Weather and marine inputs come from Open-Meteo and the Canadian Hydrographic Service, the same sources marine professionals use. Our scores combine those signals with species behaviour models. Treat them as advisory: a high-score window is a strong starting point, not a guarantee. Always cross-check Environment and Climate Change Canada before you launch.',
   },
   {
     id: 'score-meaning',
@@ -347,7 +347,7 @@ export const ARTICLES: Article[] = [
     topic: 'Map & spots',
     tags: ['region', 'area', 'bc', 'washington', 'coverage', 'where'],
     answer:
-      'British Columbia is the launch region — the Salish Sea, the west coast of Vancouver Island, and parts of the north coast and inlets. Other provinces and Pacific Northwest US waters are on the roadmap. If you want a specific area prioritised, file a feature request; we rank by demand.',
+      'British Columbia is the launch region: the Salish Sea, the west coast of Vancouver Island, and parts of the north coast and inlets. Other provinces and Pacific Northwest US waters are on the roadmap. If you want a specific area prioritised, file a feature request; we rank by demand.',
   },
   {
     id: 'wrong-spot',
@@ -355,7 +355,7 @@ export const ARTICLES: Article[] = [
     topic: 'Map & spots',
     tags: ['incorrect', 'report', 'fix', 'move', 'add spot'],
     answer:
-      'Please report it — file a ticket under "Spot data correction" with the spot URL or coordinates and what should change. We review corrections by hand before publishing so the public map stays trustworthy, which usually means a day or two rather than instantly.',
+      'Please report it. File a ticket under "Spot data correction" with the spot URL or coordinates and what should change. We review corrections by hand before publishing so the public map stays trustworthy, which usually means a day or two rather than instantly.',
   },
   {
     id: 'custom-spot',
@@ -371,7 +371,7 @@ export const ARTICLES: Article[] = [
     topic: 'Map & spots',
     tags: ['satellite', 'imagery', 'blank', 'broken', 'tab'],
     answer:
-      'Known issue — see Status below. The satellite tiles download correctly but do not composite over our bespoke relief chart, so the tab renders empty. The Bathymetry and Currents tabs are unaffected. A fix is in progress; no need to report it.',
+      'Known issue; see Status below. The satellite tiles download correctly but do not composite over our bespoke relief chart, so the tab renders empty. The Bathymetry and Currents tabs are unaffected. A fix is in progress; no need to report it.',
   },
 
   // ---- Alerts
@@ -389,7 +389,7 @@ export const ARTICLES: Article[] = [
     topic: 'Alerts',
     tags: ['not working', 'never', 'missing email', 'spam'],
     answer:
-      'Three usual causes, in order of likelihood. One: the threshold is higher than the spot has actually reached — check the 14-day view for that spot and see whether it has crossed your number at all. Two: active-hours filtering is excluding the window when the score peaks. Three: the email is in spam — add noreply@reelcaster.com to your contacts. If none of those fit, file a ticket and include the alert name.',
+      'Three usual causes, in order of likelihood. One: the threshold is higher than the spot has actually reached. Check the 14-day view for that spot and see whether it has crossed your number at all. Two: active-hours filtering is excluding the window when the score peaks. Three: the email is in spam, so add noreply@reelcaster.com to your contacts. If none of those fit, file a ticket and include the alert name.',
   },
   {
     id: 'sms-alerts',
@@ -407,7 +407,7 @@ export const ARTICLES: Article[] = [
     topic: 'Catch log',
     tags: ['export', 'csv', 'download', 'backup'],
     answer:
-      'Yes — request an export from your profile and we email you a CSV of every catch you have logged. If you need a specific third-party log format, file a feature request naming it; we are working through the common ones.',
+      'Yes. Request an export from your profile and we email you a CSV of every catch you have logged. If you need a specific third-party log format, file a feature request naming it; we are working through the common ones.',
   },
   {
     id: 'catch-score-dash',
@@ -415,7 +415,7 @@ export const ARTICLES: Article[] = [
     topic: 'Catch log',
     tags: ['score', 'historical', 'dash', 'pending', 'old catch'],
     answer:
-      'A catch only gets a score when it falls inside the forecast window at the time you logged it. Catches from before that window — or logged before their spot’s first scoring run — are marked pending or none and render a dash. The underlying conditions data is historical-capable, so proper back-scoring is planned; the score field simply is not filled in retroactively yet.',
+      'A catch only gets a score when it falls inside the forecast window at the time you logged it. Catches from before that window, or logged before their spot’s first scoring run, are marked pending or none and render a dash. The underlying conditions data is historical-capable, so proper back-scoring is planned; the score field simply is not filled in retroactively yet.',
   },
   {
     id: 'photo-no-gps',
@@ -423,7 +423,7 @@ export const ARTICLES: Article[] = [
     topic: 'Catch log',
     tags: ['exif', 'gps', 'location', 'wrong place', 'pin'],
     answer:
-      'EXIF GPS is read from the original file. Screenshots, and photos sent through most messaging apps, have that data stripped before you ever get them — so use the original from your camera roll. Without GPS we fall back to your last-viewed area and you can drag the pin. There is a "Use my precise location" button on the location step; that is the only place we ever ask for the location permission, and only on an explicit tap.',
+      'EXIF GPS is read from the original file. Screenshots, and photos sent through most messaging apps, have that data stripped before you ever get them, so use the original from your camera roll. Without GPS we fall back to your last-viewed area and you can drag the pin. There is a "Use my precise location" button on the location step; that is the only place we ever ask for the location permission, and only on an explicit tap.',
   },
   {
     id: 'species-wrong',
@@ -431,7 +431,7 @@ export const ARTICLES: Article[] = [
     topic: 'Catch log',
     tags: ['vision', 'ai', 'species', 'incorrect', 'identify'],
     answer:
-      'Tap the confidence chip next to the species name and pick the right one — species known at that spot are listed first, with the full list underneath. Correcting it refetches the score for that species. The correction is used; low-confidence guesses are shown as suggestions precisely so they can be overridden.',
+      'Tap the confidence chip next to the species name and pick the right one. Species known at that spot are listed first, with the full list underneath. Correcting it refetches the score for that species. The correction is used; low-confidence guesses are shown as suggestions precisely so they can be overridden.',
   },
 
   // ---- Data & privacy
@@ -449,7 +449,7 @@ export const ARTICLES: Article[] = [
     topic: 'Data & privacy',
     tags: ['private', 'pool', 'share', 'community', 'anonymous'],
     answer:
-      'Your catch log is private. Logged catches contribute to an anonymised community intelligence pool — the aggregate that powers "anglers here catch most on…" — with exact GPS kept private and never attributed to you. Drafts contribute nothing.',
+      'Your catch log is private. Logged catches contribute to an anonymised community intelligence pool, the aggregate that powers "anglers here catch most on…", with exact GPS kept private and never attributed to you. Drafts contribute nothing.',
   },
   {
     id: 'regulations-authority',
@@ -457,7 +457,7 @@ export const ARTICLES: Article[] = [
     topic: 'Data & privacy',
     tags: ['dfo', 'regulations', 'legal', 'closure', 'rules'],
     answer:
-      'No — they are a reference and nothing more. We aggregate DFO Pacific Region notices to surface them faster, and we link the official source on every notice. You are always responsible for following live DFO regulations. Note the regulations dataset is currently frozen (see Status) — check the official DFO source before every trip.',
+      'No, they are a reference and nothing more. We aggregate DFO Pacific Region notices to surface them faster, and we link the official source on every notice. You are always responsible for following live DFO regulations. Note the regulations dataset is currently frozen (see Status), so check the official DFO source before every trip.',
   },
 ];
 
@@ -515,7 +515,7 @@ export const CHANGELOG: ChangelogEntry[] = [
     tag: 'Improved',
     title: 'Explore is a proper mobile page',
     detail:
-      'Below the desktop breakpoint Explore is now a scrolling document — location header, contained map, sortable spot list — instead of a floating-panel map squeezed onto a phone. Tapping a pin opens the full spot page.',
+      'Below the desktop breakpoint Explore is now a scrolling document (location header, contained map, sortable spot list) instead of a floating-panel map squeezed onto a phone. Tapping a pin opens the full spot page.',
   },
   {
     date: '2026-07-01',
@@ -564,7 +564,7 @@ export const KNOWN_ISSUES: KnownIssue[] = [
     detail:
       'Scores are captured at log time from the live forecast window. Catches outside that window, or logged before their spot was first scored, show a dash permanently rather than being back-filled.',
     workaround:
-      'The conditions snapshot on those catches is complete and historical — only the single score number is missing.',
+      'The conditions snapshot on those catches is complete and historical; only the single score number is missing.',
   },
   {
     id: 'sms-not-live',

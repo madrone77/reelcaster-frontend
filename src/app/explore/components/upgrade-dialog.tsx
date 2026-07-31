@@ -29,9 +29,9 @@ export default function UpgradeDialog({
   const copy =
     variant === "signup"
       ? {
-          title: "See the week ahead — free",
+          title: "See the week ahead, free",
           description:
-            "Browsing shows the next 2 days. Create a free account for the 7-day forecast — takes about 30 seconds, no card needed.",
+            "Browsing shows the next 2 days. Create a free account for the 7-day forecast. It takes about 30 seconds, no card needed.",
           cta: "Sign up free",
           href: "/signup",
         }

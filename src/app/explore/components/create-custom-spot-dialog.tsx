@@ -68,7 +68,7 @@ export default function CreateCustomSpotDialog({
 
   const handleCreate = async () => {
     if (!session?.access_token || !coords) {
-      setError("Something went wrong — try dropping the pin again.");
+      setError("Something went wrong. Try dropping the pin again.");
       return;
     }
     const trimmed = name.trim();

@@ -35,7 +35,7 @@ export default function StartSection({ onNavigate }: Props) {
       icon: BookOpen,
       title: 'Guides',
       blurb:
-        'Walkthroughs for the parts of the app that reward knowing them properly — scores, the map, alerts, catch logging.',
+        'Walkthroughs for the parts of the app that reward knowing them properly: scores, the map, alerts, catch logging.',
       count: `${GUIDES.length} guides`,
     },
     {
@@ -70,7 +70,7 @@ export default function StartSection({ onNavigate }: Props) {
     <PortSection
       eyebrow="Start here"
       title="Welcome to The Port"
-      intro="Four places to look, and one place to ask. If you are in a hurry, search at the top — it covers everything below at once."
+      intro="Four places to look, and one place to ask. If you are in a hurry, search at the top; it covers everything below at once."
     >
       {/* Priority-support promise. The single most useful thing to state up
           front, because it is the reason this page is Pro-only. */}
@@ -82,7 +82,7 @@ export default function StartSection({ onNavigate }: Props) {
           </p>
           <p className="mt-1 text-sm text-rc-ink-soft leading-relaxed">
             Usually much sooner. We are a small team in Victoria, BC, so
-            weekends and BC statutory holidays do not count toward that — but a
+            weekends and BC statutory holidays do not count toward that. But a
             real person reads every ticket, and you can always point back at
             your history.
           </p>

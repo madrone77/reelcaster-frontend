@@ -227,7 +227,7 @@ export default function CreateAlertDialog({
       if (!res.ok) {
         throw new Error(
           res.status === 503
-            ? "SMS verification isn't switched on yet — hang tight, it's coming soon."
+            ? "SMS verification isn't switched on yet. Hang tight, it's coming soon."
             : (body.error ?? "Couldn't send the code."),
         );
       }

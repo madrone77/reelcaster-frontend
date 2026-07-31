@@ -8,7 +8,7 @@ const FEATURE_COPY: Record<string, { title: string; body: string }> = {
   'alerts': {
     title: 'More alerts, including SMS',
     body:
-      'Pro lets you run up to 10 alert profiles and get notified by SMS in addition to email — so you don’t miss the peak when you’re not at your desk.',
+      'Pro lets you run up to 10 alert profiles and get notified by SMS in addition to email, so you don’t miss the peak when you’re not at your desk.',
   },
   'favorites': {
     title: 'Save unlimited spots',
@@ -18,7 +18,7 @@ const FEATURE_COPY: Record<string, { title: string; body: string }> = {
   '14-day-forecast': {
     title: '14-day forecast',
     body:
-      'See the full hourly outlook two weeks out — plan trips, time tides, and chase the right species across the season.',
+      'See the full hourly outlook two weeks out. Plan trips, time tides, and chase the right species across the season.',
   },
   'spot-horizon': {
     title: 'Unlock the full forecast on this spot',
@@ -28,12 +28,12 @@ const FEATURE_COPY: Record<string, { title: string; body: string }> = {
   'bathymetry': {
     title: 'Bathymetry layer (NOAA + CHS)',
     body:
-      'Read the bottom — drop-offs, ledges, and channel structure overlaid on the live forecast map.',
+      'Read the bottom: drop-offs, ledges, and channel structure overlaid on the live forecast map.',
   },
   'multi-species': {
     title: 'Multi-species scoring',
     body:
-      'Compare the bite score for up to 5 species at once on a spot — find the best target without flipping tabs.',
+      'Compare the bite score for up to 5 species at once on a spot, and find the best target without flipping tabs.',
   },
 }
 

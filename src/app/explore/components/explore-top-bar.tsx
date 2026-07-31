@@ -110,7 +110,7 @@ export default function ExploreTopBar() {
                 href={SUPPORT_HREF}
                 aria-label="Support"
                 aria-current={isActive(SUPPORT_HREF) ? "page" : undefined}
-                title="Support — The Port"
+                title="Support: The Port"
                 className={`hidden sm:inline-flex items-center gap-1.5 text-sm font-medium px-3 py-1.5 transition-colors ${
                   isActive(SUPPORT_HREF)
                     ? "text-rc-brand font-semibold"

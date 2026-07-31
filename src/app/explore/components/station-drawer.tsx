@@ -324,7 +324,7 @@ export default function StationDrawer({
 
         {failed && !loading && (
           <p className="text-xs text-rc-ink-mute mt-8">
-            Live data for this station is unavailable right now — try again in
+            Live data for this station is unavailable right now. Try again in
             a few minutes.
           </p>
         )}

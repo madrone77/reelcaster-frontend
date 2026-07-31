@@ -46,7 +46,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json(
       {
         error: "pro_required",
-        message: "Custom spots are a Pro feature — upgrade to add your own.",
+        message: "Custom spots are a Pro feature. Upgrade to add your own.",
       },
       { status: 403 },
     );

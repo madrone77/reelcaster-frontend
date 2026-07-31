@@ -108,7 +108,7 @@ export default function CatchForm({
     async (file: File) => {
       setError(null);
       if (file.size > MAX_BYTES) {
-        setError("Photo is over 25 MB — pick a smaller one.");
+        setError("Photo is over 25 MB. Pick a smaller one.");
         return;
       }
       if (!user?.id) {
@@ -138,7 +138,7 @@ export default function CatchForm({
           if (lb) setSizeText((cur) => cur || `${Math.round(lb)} lb`);
         }
       } catch {
-        setError("Couldn't upload that photo — try again.");
+        setError("Couldn't upload that photo. Try again.");
         setPhotoFile(null);
       } finally {
         setUploading(false);
@@ -156,7 +156,7 @@ export default function CatchForm({
     setUploading(true);
     uploadCatchPhoto(initialPhotoFile, user.id)
       .then((path) => setPhotoPath(path))
-      .catch(() => setError("Couldn't upload that photo — try again."))
+      .catch(() => setError("Couldn't upload that photo. Try again."))
       .finally(() => setUploading(false));
   }, [initialPhotoFile, user?.id]);
 

@@ -318,7 +318,7 @@ export default function AlertsClient({ spots }: Props) {
                 your threshold (subject to cooldown).
               </p>
               <p>
-                <strong className="text-rc-ink">SMS:</strong> coming soon — Pro
+                <strong className="text-rc-ink">SMS:</strong> coming soon. Pro
                 Intel users will be able to verify a phone for instant texts.
               </p>
               <p>

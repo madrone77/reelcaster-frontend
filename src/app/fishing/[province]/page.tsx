@@ -34,7 +34,7 @@ export async function generateMetadata({
   const spotCount = province.cities.reduce((n, c) => n + c.spots.length, 0);
   // Place first and no "with Live Scores" tail, matching the city pages —
   // "British Columbia Fishing — 76 Spots" fits the ~60-char render budget.
-  const title = `${province.name} Fishing — ${spotCount} Spots`;
+  const title = `${province.name} Fishing: ${spotCount} Spots`;
   const description = `Browse ${spotCount} saltwater fishing spots across ${province.cities
     .map((c) => c.name)
     .join(", ")} with live RC scores, conditions, and 14-day forecasts.`;

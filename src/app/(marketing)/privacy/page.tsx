@@ -8,7 +8,7 @@ export const metadata: Metadata = {
   // Bare title — the root layout's "%s | ReelCaster" template adds the brand.
   title: 'Privacy Policy',
   description:
-    'How ReelCaster collects, uses, and protects your data — accounts, fishing logs, location signals, billing, and analytics.',
+    'How ReelCaster collects, uses, and protects your data: accounts, fishing logs, location signals, billing, and analytics.',
   alternates: { canonical: `${SITE_URL}/privacy` },
   openGraph: {
     title: 'Privacy Policy | ReelCaster',
@@ -81,7 +81,7 @@ export default function PrivacyPage() {
             <p>
               <strong className="text-rc-ink">Billing.</strong> Subscription
               status, plan tier, and Stripe customer/subscription identifiers.
-              Payment card details are handled by Stripe — we never see or
+              Payment card details are handled by Stripe. We never see or
               store them.
             </p>
             <p>

@@ -112,7 +112,7 @@ export default function SubscriptionCard() {
           // portal button would be permanently disabled with no explanation,
           // so say what's actually going on instead.
           <div className="bg-rc-good-bg border border-rc-good-border rounded-md p-3 text-sm text-rc-good-ink">
-            Pro is complimentary on this account — there&rsquo;s no billing to
+            Pro is complimentary on this account, so there&rsquo;s no billing to
             manage and no card on file.
           </div>
         ) : isPaid ? (

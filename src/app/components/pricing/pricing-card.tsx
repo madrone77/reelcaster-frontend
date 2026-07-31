@@ -117,7 +117,7 @@ export default function PricingCard({
       if (!res.ok) {
         throw new Error(
           body.error === 'plan_unavailable'
-            ? `${plan === 'annual' ? 'Yearly' : 'Monthly'} billing isn't available right now — please try the ${plan === 'annual' ? 'monthly' : 'yearly'} plan or check back soon.`
+            ? `${plan === 'annual' ? 'Yearly' : 'Monthly'} billing isn't available right now. Please try the ${plan === 'annual' ? 'monthly' : 'yearly'} plan or check back soon.`
             : 'We couldn’t start checkout. Please try again in a moment.',
         );
       }
@@ -144,7 +144,7 @@ export default function PricingCard({
     <div className="mt-8 max-w-md">
       {successFlag && (
         <div className="mb-5 rounded-lg border border-rc-good-border bg-rc-good-bg p-4 text-sm text-rc-good-ink">
-          Welcome to Pro — your account is unlocked. It may take a few seconds
+          Welcome to Pro. Your account is unlocked. It may take a few seconds
           for the badge to appear.
         </div>
       )}
@@ -212,8 +212,8 @@ export default function PricingCard({
           <p className="mt-1.5 text-sm text-rc-ink-soft">
             <strong className="text-rc-ink">
               First {TRIAL_DAYS} days free
-            </strong>{' '}
-            — then{' '}
+            </strong>
+            , then{' '}
             {dollars(yearly ? ANNUAL_PRICE_CENTS : MONTHLY_PRICE_CENTS)}/
             {yearly ? 'year' : 'month'}. Cancel anytime.
           </p>
@@ -226,11 +226,11 @@ export default function PricingCard({
               </>
             ) : (
               <>
-                Or pay yearly —{' '}
+                Or pay yearly:{' '}
                 <button
                   type="button"
                   onClick={() => setPlan('annual')}
-                  aria-label={`Switch to yearly billing — ${dollars(
+                  aria-label={`Switch to yearly billing at ${dollars(
                     ANNUAL_PRICE_CENTS,
                   )} per year`}
                   className="rounded-sm font-semibold text-rc-brand underline underline-offset-2 hover:text-rc-brand-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rc-brand focus-visible:ring-offset-2"
@@ -276,7 +276,7 @@ export default function PricingCard({
               </div>
               <p className="mt-1.5 font-rc-mono text-[11px] text-rc-good-ink">
                 Twelve months at {dollars(MONTHLY_PRICE_CENTS)} would be{' '}
-                {dollars(fullCents)} — the yearly plan is {pct}% off.
+                {dollars(fullCents)}, so the yearly plan is {pct}% off.
               </p>
             </div>
           </div>
@@ -315,8 +315,8 @@ export default function PricingCard({
           >
             <h2 className="mb-1 text-xl font-bold text-rc-ink">
               {yearly
-                ? `ReelCaster Pro — ${dollars(ANNUAL_PRICE_CENTS)}/yr`
-                : `ReelCaster Pro — ${dollars(MONTHLY_PRICE_CENTS)}/mo`}
+                ? `ReelCaster Pro · ${dollars(ANNUAL_PRICE_CENTS)}/yr`
+                : `ReelCaster Pro · ${dollars(MONTHLY_PRICE_CENTS)}/mo`}
             </h2>
             <p className="mb-5 text-sm text-rc-ink-mute">
               Where do you mostly fish? We&apos;re live in BC, WA, and OR.

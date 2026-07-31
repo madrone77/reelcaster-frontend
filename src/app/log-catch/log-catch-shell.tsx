@@ -117,7 +117,7 @@ export default function LogCatchShell() {
     async (f: File) => {
       setError(null);
       if (f.size > 25 * 1024 * 1024) {
-        setError("Photo is over 25 MB — pick a smaller one.");
+        setError("Photo is over 25 MB. Pick a smaller one.");
         return;
       }
       setStep("analyzing");
@@ -208,7 +208,7 @@ export default function LogCatchShell() {
         }
         setPreviewDone(true);
       } catch {
-        setError("Couldn't analyze that photo — try again.");
+        setError("Couldn't analyze that photo. Try again.");
         setStep("upload");
       }
     },
@@ -265,7 +265,7 @@ export default function LogCatchShell() {
     } catch (err) {
       return (err as GeoLocationError).code === "PERMISSION_DENIED"
         ? "Location is blocked in your browser settings."
-        : "Couldn't get your location — drag the pin instead.";
+        : "Couldn't get your location. Drag the pin instead.";
     }
   }, [runMatch]);
 
@@ -361,7 +361,7 @@ export default function LogCatchShell() {
         session.access_token,
       );
       if (!res.ok) {
-        return res.message ?? "Couldn't create the spot — try again.";
+        return res.message ?? "Couldn't create the spot. Try again.";
       }
       const hit: NearestSpotHit = {
         id: res.data.spot.id,
@@ -547,7 +547,7 @@ export default function LogCatchShell() {
         setSaved(true);
         setTimeout(() => router.push("/catches"), 900);
       } catch {
-        setError("Couldn't save your catch — try again.");
+        setError("Couldn't save your catch. Try again.");
         setSaving(null);
       }
     },
@@ -698,7 +698,7 @@ function Rejected({ message, onRetry }: { message: string; onRetry: () => void }
   return (
     <div className="rounded-2xl border border-rc-rule bg-rc-panel p-8 text-center">
       <div className="text-lg font-bold text-rc-ink">
-        Hmm — couldn&apos;t use that one
+        Hmm, couldn&apos;t use that one
       </div>
       <p className="mt-2 text-sm text-rc-ink-soft">{message}</p>
       <button

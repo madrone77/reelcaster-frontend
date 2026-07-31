@@ -28,7 +28,7 @@ export const metadata: Metadata = {
     'ReelCaster combines tides, weather, water conditions, and regulations into one simple fishing score, so you know exactly when and where to fish on the BC coast.',
   alternates: { canonical: siteUrl('/') },
   openGraph: {
-    title: 'ReelCaster — Know the bite. Before you go.',
+    title: 'ReelCaster: Know the bite. Before you go.',
     description:
       'Tides, weather, water conditions, and regulations in one simple fishing score for the BC coast.',
     url: siteUrl('/'),
@@ -46,7 +46,7 @@ const HOMEPAGE_JSONLD = {
   url: SITE_URL,
   publisher: { '@id': `${SITE_URL}/#organization` },
   description:
-    'Fishing forecasts for the BC coast — tides, weather, water conditions, and regulations combined into one simple score.',
+    'Fishing forecasts for the BC coast: tides, weather, water conditions, and regulations combined into one simple score.',
 };
 
 export default function MarketingHomePage() {

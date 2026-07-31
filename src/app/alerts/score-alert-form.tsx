@@ -141,7 +141,7 @@ export default function ScoreAlertForm({ spots, onSubmit, onCancel }: Props) {
             <Label htmlFor="species" className="text-rc-ink">
               Species{' '}
               <span className="text-rc-ink-mute text-xs font-normal">
-                (optional — leave blank for overall score)
+                (optional, leave blank for overall score)
               </span>
             </Label>
             <select
@@ -210,7 +210,7 @@ export default function ScoreAlertForm({ spots, onSubmit, onCancel }: Props) {
               </div>
               <div className="flex items-center gap-2 text-sm text-rc-ink-mute">
                 <span className="w-4 h-4 rounded border border-rc-rule inline-block" />
-                SMS — coming soon (Pro + verified phone)
+                SMS: coming soon (Pro + verified phone)
               </div>
             </div>
           </div>
