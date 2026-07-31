@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { fetchSpotForecast14d } from "@/lib/bluecaster";
 import { getUserIdFromRequest } from "@/lib/server-auth";
+import { resolveEntitlement } from "@/lib/entitlement";
 import type { Forecast14dPayload } from "@/lib/bluecaster/live-spot-types";
 
 /**
@@ -36,17 +37,8 @@ async function callerVisibleDays(request: NextRequest): Promise<number> {
   const userId = await getUserIdFromRequest(request);
   if (!userId) return ANON_FORECAST_DAYS;
 
-  const { data: settings } = await supabaseAdmin
-    .from("user_settings")
-    .select("subscription_tier, subscription_status")
-    .eq("user_id", userId)
-    .maybeSingle();
-
-  const tier: string = settings?.subscription_tier ?? "free";
-  const status: string = settings?.subscription_status ?? "none";
-  const isPaid =
-    tier.startsWith("pro") && (status === "active" || status === "trialing");
-  return isPaid ? 14 : FREE_FORECAST_DAYS;
+  const { isPro } = await resolveEntitlement(supabaseAdmin, userId);
+  return isPro ? 14 : FREE_FORECAST_DAYS;
 }
 
 /**

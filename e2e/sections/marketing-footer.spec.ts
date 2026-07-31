@@ -10,7 +10,8 @@ import { test, expect } from '@playwright/test';
 
 // Only the actually-public marketing pages are pinned. (The old
 // coming-soon wall referenced here is gone; middleware walls nothing now.)
-const PAGES_WITH_FOOTER = ['/', '/pricing'];
+// /pricing is retired — it 308s to /plans, so the sales page is pinned here.
+const PAGES_WITH_FOOTER = ['/', '/plans'];
 
 const LEGAL_LINKS: Array<{ label: string; href: string }> = [
   { label: 'Privacy', href: '/privacy' },

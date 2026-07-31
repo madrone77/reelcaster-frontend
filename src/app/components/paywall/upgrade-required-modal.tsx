@@ -6,12 +6,14 @@ import UnlockWithProCard from './unlock-with-pro-card'
 interface Props {
   open: boolean
   onClose: () => void
-  /** Feature id used for analytics + ?feature= query on /pricing. */
+  /** Feature id used for analytics + ?feature= query on /plans. */
   feature: string
   headline?: string
   bullets?: string[]
   /** Optional override for the CTA target. */
   ctaHref?: string
+  /** Optional override for the CTA label. */
+  ctaLabel?: string
 }
 
 /**
@@ -26,12 +28,13 @@ export default function UpgradeRequiredModal({
   headline,
   bullets,
   ctaHref,
+  ctaLabel,
 }: Props) {
   if (!open) return null
 
   return (
     <div
-      className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-rc-ink/60 p-4 backdrop-blur-sm"
       role="dialog"
       aria-modal="true"
       data-testid="upgrade-required-modal"
@@ -45,7 +48,7 @@ export default function UpgradeRequiredModal({
         <button
           type="button"
           onClick={onClose}
-          className="absolute -top-3 -right-3 z-10 p-1.5 rounded-full bg-white border border-rc-rule text-rc-ink-mute hover:text-rc-ink"
+          className="absolute -top-3 -right-3 z-10 rounded-full border border-rc-rule bg-rc-panel p-1.5 text-rc-ink-mute transition-colors hover:text-rc-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rc-brand focus-visible:ring-offset-2"
           aria-label="Close"
         >
           <X className="w-4 h-4" />
@@ -53,7 +56,8 @@ export default function UpgradeRequiredModal({
         <UnlockWithProCard
           headline={headline}
           bullets={bullets}
-          ctaHref={ctaHref ?? `/pricing?from=paywall&feature=${encodeURIComponent(feature)}`}
+          ctaLabel={ctaLabel}
+          ctaHref={ctaHref ?? `/plans?from=paywall&feature=${encodeURIComponent(feature)}`}
           theme="light"
         />
       </div>

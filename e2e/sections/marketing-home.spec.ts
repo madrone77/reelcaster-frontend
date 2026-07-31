@@ -35,15 +35,23 @@ test.describe('/ (marketing homepage)', () => {
     await expect(page.getByTestId('homepage-ticker')).toBeVisible();
   });
 
+  // The CTAs read "START FREE" on screen but the markup says "Start Free" —
+  // the caps come from `text-transform: uppercase`. Chromium used to fold that
+  // into the accessible name and no longer does, so an exact all-caps name
+  // silently stopped matching. Match case-insensitively: it passes under either
+  // behaviour and doesn't couple the test to a CSS decision.
   test('pricing section renders with free + pro CTAs', async ({ page }) => {
     const pricing = page.getByTestId('homepage-pricing');
     await expect(pricing).toBeVisible();
     await expect(
-      pricing.getByRole('link', { name: 'START FREE', exact: true }),
+      pricing.getByRole('link', { name: /^start free$/i }),
     ).toHaveAttribute('href', '/signup');
     await expect(
-      pricing.getByRole('link', { name: 'START REELCASTER PRO', exact: true }),
-    ).toHaveAttribute('href', '/pricing');
+      // Label is trial-flavoured now and interpolates TRIAL_DAYS, so match the
+      // shape rather than the exact words — the assertion that matters is
+      // where it points.
+      pricing.getByRole('link', { name: /start .*free trial/i }),
+    ).toHaveAttribute('href', '/plans');
   });
 
   test('how-it-works (signals) section renders', async ({ page }) => {

@@ -10,6 +10,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { fetchSpotsByCoordinates } from '@/lib/bluecaster'
+import { resolveEntitlement } from '@/lib/entitlement'
 import { COVERED_PROVINCES } from '@/lib/regions'
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
@@ -120,22 +121,13 @@ export async function POST(request: NextRequest) {
     }
 
     // Tier gate: free tier capped at FREE_TIER_LIMIT spots; paid is unlimited.
-    const [{ data: settings }, { count: existingCount }] = await Promise.all([
-      supabaseAdmin
-        .from('user_settings')
-        .select('subscription_tier, subscription_status')
-        .eq('user_id', userId)
-        .maybeSingle(),
+    const [{ isPro: isPaid }, { count: existingCount }] = await Promise.all([
+      resolveEntitlement(supabaseAdmin, userId),
       supabaseAdmin
         .from('favorite_spots')
         .select('id', { count: 'exact', head: true })
         .eq('user_id', userId),
     ])
-
-    const tier = settings?.subscription_tier ?? 'free'
-    const status = settings?.subscription_status ?? 'none'
-    const isPaid = (tier === 'pro_annual' || tier === 'pro_monthly') &&
-      (status === 'active' || status === 'trialing')
 
     if (!isPaid && (existingCount ?? 0) >= FREE_TIER_LIMIT) {
       return NextResponse.json(

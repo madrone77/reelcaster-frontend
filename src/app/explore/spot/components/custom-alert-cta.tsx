@@ -47,7 +47,7 @@ export default function CustomAlertCta({
 
       <div className="rounded bg-rc-brand-soft p-5 flex items-center justify-center">
         <Link
-          href="/pricing"
+          href="/plans"
           className="inline-flex items-center justify-center px-5 py-3 rounded bg-rc-brand hover:bg-rc-brand-hover text-white font-rc-mono text-sm font-semibold tracking-[0.04em] transition-colors"
         >
           Got questions?
