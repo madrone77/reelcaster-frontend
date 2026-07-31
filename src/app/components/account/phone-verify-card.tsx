@@ -67,7 +67,9 @@ export default function PhoneVerifyCard() {
       if (!res.ok) {
         if (res.status === 503) {
           setSmsAvailable(false)
-          throw new Error('SMS verification is not yet enabled.')
+          throw new Error(
+            "We can't send verification texts at the moment. Try again shortly.",
+          )
         }
         throw new Error(body.error ?? 'Failed to send code')
       }

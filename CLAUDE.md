@@ -909,6 +909,57 @@ What actually gates routes today:
   `robots: { index: false, follow: false }` in the page metadata.
 - **`src/app/sitemap.ts`** — `STATIC_ENTRIES`, public routes only.
 
+## Plan matrix + upgrade modal (2026-07-31)
+
+**`src/lib/plan-features.ts` is the single source of truth for what each tier
+gets.** It holds the /plans comparison table's rows *and their order* — the
+rationale for what may go on the table (live features only; the free block
+first; keep "Plan a week ahead" adjacent to "Plan the full two weeks") lives in
+that file's header. `/plans` renders the `free`/`pro` columns from it; the
+in-app upgrade modal renders the same rows plus an `anon` column, so the sales
+page and every paywall prompt cannot drift apart. Before this, the answer lived
+in the plans table, the paywall card's `DEFAULT_BULLETS`, the FAQ,
+`support/content.ts` and a dozen server limit constants. **Change a limit here
+in the same PR you change its enforcement.**
+
+`src/app/components/paywall/pro-trial-modal.tsx` renders it: a headline naming
+what the angler just tried to do ("Start your 7-day Pro trial to create an
+alert"), then the matrix with the viewer's column marked and the blocking row
+highlighted. A signed-out visitor blocked by something a *free* account unlocks
+is sent to `/signup`, not `/plans`. `NAG_FEATURES` maps each wall to its
+headline, its row, and the `?feature=` slug — which must match a key in
+`components/plans/plans-feature-callout.tsx` or the callout renders nothing.
+
+Wired on /explore at: the favourites cap (rail card, drawer, spot page),
+locked forecast days (via `explore/components/upgrade-dialog.tsx`, which is now
+a thin wrapper), and alert creation — `create-alert-dialog.tsx` takes an
+`onUpgradeRequired` callback and hands off *before* rendering a form the API
+would refuse. `upgrade-required-modal.tsx` + `unlock-with-pro-card.tsx` still
+serve `/alerts` and `/support`.
+
+The custom-spots nag (`feature="custom-spots"`) is wired but unreachable: the
+"Create custom spot" map button is `isPaid &&` gated, so a free user never sees
+the wall.
+
+**Known drift:** the free favourites cap reads 1 in the explore UI
+(`FREE_FAV_CAP`) and on the /plans footnote, but 5 in `api/favorite-spots`
+(`FREE_TIER_LIMIT`) and in the plans callout copy. The matrix follows the UI.
+
+### Alert delivery channels
+
+`src/app/components/alerts/delivery-channel-picker.tsx` owns the email + SMS
+toggles **and** the inline phone-verification flow (`POST /api/alerts/verify-
+phone` sends a code, `PUT` confirms). Both alert forms use it — the spot-page
+`create-alert-dialog.tsx` and the `/alerts` `score-alert-form.tsx`, which until
+2026-07-31 hardcoded `delivery_channels: ['email']` and could not text anyone
+regardless of tier. Add a channel here, not in either form.
+
+SMS is live for Pro with a verified phone. A 503 from the verify route means
+Twilio is unreachable *right now* (`isVerifyConfigured()`), not that the feature
+is unbuilt — keep that copy phrased as a transient failure. `POST /api/alerts`
+re-reads `phone_verified` and silently strips `sms` from a payload it can't
+stand behind, so the picker is convenience, not the gate.
+
 ## The Port — Pro-only support portal (`/support`, 2026-07-30)
 
 Before this, "customer support" was a `mailto:` on `/contact` plus 8 static

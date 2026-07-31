@@ -28,8 +28,8 @@ import HourlyBars from "./hourly-bars";
 import { useUnitPreferences } from "@/contexts/unit-preferences-context";
 import { convertDistance, formatDistance } from "@/app/utils/unit-conversions";
 
-const UpgradeRequiredModal = dynamic(
-  () => import("@/app/components/paywall/upgrade-required-modal"),
+const ProTrialModal = dynamic(
+  () => import("@/app/components/paywall/pro-trial-modal"),
   { ssr: false },
 );
 
@@ -330,16 +330,11 @@ export default function SpotDrawer({
         )}
       </div>
 
-      <UpgradeRequiredModal
+      <ProTrialModal
         open={upgradeOpen}
-        onClose={() => setUpgradeOpen(false)}
+        onOpenChange={setUpgradeOpen}
         feature="favorite-spots"
-        headline="Upgrade to save more spots"
-        bullets={[
-          "Unlimited favorite spots",
-          "Reorder + score sparklines",
-          "Full 14-day outlook & alerts",
-        ]}
+        from="explore-drawer"
       />
     </div>
   );

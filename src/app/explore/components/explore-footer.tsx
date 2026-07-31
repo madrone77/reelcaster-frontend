@@ -13,8 +13,8 @@ export default function ExploreFooter() {
         <div className="flex items-center gap-1.5">
           <span>© {new Date().getFullYear()}</span>
           <span aria-hidden>·</span>
-          <Link href="/pricing" className="hover:text-rc-ink-soft transition-colors">
-            Pricing
+          <Link href="/plans" className="hover:text-rc-ink-soft transition-colors">
+            Plans
           </Link>
         </div>
       </div>

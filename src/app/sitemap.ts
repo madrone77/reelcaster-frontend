@@ -48,7 +48,9 @@ function scoredLastModified(date: string | undefined): Date {
 // sitemap — the file is a list of pages we want indexed.
 const STATIC_ENTRIES: Omit<SitemapEntry, "lastModified">[] = [
   { url: siteUrl("/"), changeFrequency: "weekly", priority: 1.0 },
-  { url: siteUrl("/pricing"), changeFrequency: "monthly", priority: 0.5 },
+  // /pricing 308s to /plans (see next.config.ts) — a sitemap must list the
+  // destination, never the redirect.
+  { url: siteUrl("/plans"), changeFrequency: "monthly", priority: 0.6 },
   { url: siteUrl("/about"), changeFrequency: "monthly", priority: 0.5 },
   { url: siteUrl("/faq"), changeFrequency: "monthly", priority: 0.5 },
   { url: siteUrl("/contact"), changeFrequency: "monthly", priority: 0.4 },

@@ -21,7 +21,7 @@ const MORE_LINKS = [
   { href: "/profile", label: "Profile" },
   { href: "/alerts", label: "Alerts" },
   { href: "/support", label: "Support" },
-  { href: "/pricing", label: "Pricing" },
+  { href: "/plans", label: "Plans" },
   { href: "/about", label: "About" },
   { href: "/faq", label: "FAQ" },
   { href: "/terms", label: "Terms" },

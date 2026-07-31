@@ -1,7 +1,7 @@
 import MarketingHeader from '@/app/components/marketing/marketing-header'
 import MarketingFooter from '@/app/components/marketing/marketing-footer'
 
-export default function PricingLayout({
+export default function PlansLayout({
   children,
 }: {
   children: React.ReactNode;

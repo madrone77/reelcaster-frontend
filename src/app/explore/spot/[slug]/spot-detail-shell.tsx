@@ -52,8 +52,8 @@ import MarketingFooter from "@/app/components/marketing/marketing-footer";
 import LogCatchDialog from "../components/log-catch-dialog";
 import CreateAlertDialog from "../components/create-alert-dialog";
 
-const UpgradeRequiredModal = dynamic(
-  () => import("@/app/components/paywall/upgrade-required-modal"),
+const ProTrialModal = dynamic(
+  () => import("@/app/components/paywall/pro-trial-modal"),
   { ssr: false },
 );
 
@@ -178,6 +178,7 @@ export default function SpotDetailShell({
 
   const [selectedIso, setSelectedIso] = useState<string | null>(null);
   const [upgradeOpen, setUpgradeOpen] = useState(false);
+  const [alertUpgradeOpen, setAlertUpgradeOpen] = useState(false);
 
   // 14-day strip scroll affordance — overlaid arrows that fade in/out with
   // scroll position, so it's clear there's more to see in either direction.
@@ -871,18 +872,21 @@ export default function SpotDetailShell({
         speciesOptions={speciesOptions}
         initialSpeciesId={selId}
         dailyScores={dailyScores}
+        onUpgradeRequired={() => setAlertUpgradeOpen(true)}
       />
 
-      <UpgradeRequiredModal
+      <ProTrialModal
+        open={alertUpgradeOpen}
+        onOpenChange={setAlertUpgradeOpen}
+        feature="alerts"
+        from="spot-page"
+      />
+
+      <ProTrialModal
         open={favUpgradeOpen}
-        onClose={() => setFavUpgradeOpen(false)}
+        onOpenChange={setFavUpgradeOpen}
         feature="favorite-spots"
-        headline="Upgrade to save more spots"
-        bullets={[
-          "Unlimited favorite spots",
-          "Reorder + score sparklines",
-          "Full 14-day outlook & alerts",
-        ]}
+        from="spot-page"
       />
     </div>
   );

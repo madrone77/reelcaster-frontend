@@ -9,6 +9,34 @@ const nextConfig: NextConfig = {
       { protocol: "https", hostname: "images.unsplash.com" },
     ],
   },
+  async redirects() {
+    // /plans replaced /pricing as the sales page. Two indexable pages selling
+    // the same thing split the SEO signal, so /pricing is retired with a 308
+    // that passes its link equity to /plans.
+    //
+    // The ?plan=monthly deep link has to keep working — /pricing used to own
+    // the only monthly purchase path, and it's linked from the billing emails
+    // and the yearly/monthly switch. It lands on the checkout page directly.
+    return [
+      {
+        source: "/pricing",
+        has: [{ type: "query", key: "plan", value: "monthly" }],
+        destination: "/plans/checkout?plan=monthly",
+        permanent: true,
+      },
+      {
+        source: "/pricing",
+        destination: "/plans",
+        permanent: true,
+      },
+      // The support portal shipped briefly at /theport before moving to the
+      // plainer /support. "The Port" is still its name in the UI — only the
+      // URL changed. Permanent, because ticket acknowledgement emails already
+      // went out carrying /theport links and those must keep working.
+      { source: "/theport", destination: "/support", permanent: true },
+      { source: "/theport/:path*", destination: "/support/:path*", permanent: true },
+    ];
+  },
   async headers() {
     // Long-cache the static map assets the Explore relief style fetches (glyph
     // fonts + the place-label GeoJSON). The relief/contour/land tiles set their
@@ -19,16 +47,6 @@ const nextConfig: NextConfig = {
     return [
       { source: "/fonts/:path*", headers: ASSET_CACHE },
       { source: "/:file.geojson", headers: ASSET_CACHE },
-    ];
-  },
-  async redirects() {
-    return [
-      // The support portal shipped briefly at /theport before moving to the
-      // plainer /support. "The Port" is still its name in the UI — only the
-      // URL changed. Permanent, because ticket acknowledgement emails already
-      // went out carrying /theport links and those must keep working.
-      { source: "/theport", destination: "/support", permanent: true },
-      { source: "/theport/:path*", destination: "/support/:path*", permanent: true },
     ];
   },
 };

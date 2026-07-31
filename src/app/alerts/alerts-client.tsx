@@ -88,7 +88,9 @@ export default function AlertsClient({ spots }: Props) {
       target_bluecaster_spot_slug: spot.slug,
       target_species: form.speciesSlug ?? null,
       score_threshold: form.threshold,
-      delivery_channels: ['email' as const],
+      // The API re-checks phone_verified and strips 'sms' if it can't stand
+      // behind it, so an over-optimistic payload degrades to email.
+      delivery_channels: form.channels,
     };
 
     const res = await fetch('/api/alerts', {
@@ -250,7 +252,7 @@ export default function AlertsClient({ spots }: Props) {
                     Upgrade to Pro for up to 10 alerts plus SMS delivery.
                   </p>
                   <Link
-                    href="/pricing?from=alerts"
+                    href="/plans?from=alerts"
                     className="inline-flex items-center px-4 py-2 bg-rc-brand hover:bg-rc-brand-hover rounded-md text-sm font-semibold text-white transition-colors"
                   >
                     See Pro pricing →
@@ -314,12 +316,13 @@ export default function AlertsClient({ spots }: Props) {
             <CardContent className="py-5 text-sm text-rc-ink-mute space-y-2">
               <p>
                 <strong className="text-rc-ink">How it works:</strong> we check
-                conditions every 30 minutes and email you when the score crosses
-                your threshold (subject to cooldown).
+                conditions every 30 minutes and notify you when the score
+                crosses your threshold (subject to cooldown).
               </p>
               <p>
-                <strong className="text-rc-ink">SMS:</strong> coming soon. Pro
-                Intel users will be able to verify a phone for instant texts.
+                <strong className="text-rc-ink">SMS:</strong> Pro members can
+                verify a phone and get the same alerts as a text. Carrier rates
+                apply; reply STOP to unsubscribe.
               </p>
               <p>
                 Current tier: <strong className="text-rc-ink">{tier}</strong>

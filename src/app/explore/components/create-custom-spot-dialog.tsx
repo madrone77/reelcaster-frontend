@@ -143,7 +143,7 @@ export default function CreateCustomSpotDialog({
               </p>
               <div className="flex gap-2 mt-3">
                 <Link
-                  href="/pricing?from=custom-spot"
+                  href="/plans?from=custom-spot"
                   className="flex-1 text-center px-4 py-2.5 rounded-lg bg-rc-brand hover:bg-rc-brand-hover text-white text-sm font-semibold transition-colors"
                 >
                   Upgrade to Pro

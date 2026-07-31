@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { fetchSpotPage, type BlueCasterSpotPage } from "@/lib/bluecaster";
+import { resolveEntitlement } from "@/lib/entitlement";
 
 export const dynamic = "force-dynamic";
 
@@ -37,17 +38,7 @@ async function resolveTier(request: Request): Promise<ResolvedTier> {
   } = await supabase.auth.getUser(token);
   if (!user) return { authed: false, isPaid: false, horizonDays: 0 };
 
-  const { data: settings } = await supabaseAdmin
-    .from("user_settings")
-    .select("subscription_tier, subscription_status")
-    .eq("user_id", user.id)
-    .maybeSingle();
-
-  const tier = settings?.subscription_tier ?? "free";
-  const status = settings?.subscription_status ?? "none";
-  const isPaid =
-    (tier === "pro_annual" || tier === "pro_monthly") &&
-    (status === "active" || status === "trialing");
+  const { isPro: isPaid } = await resolveEntitlement(supabaseAdmin, user.id);
 
   return {
     authed: true,

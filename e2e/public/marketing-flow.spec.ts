@@ -65,7 +65,7 @@ test.describe('Sitemap + robots', () => {
     const xml = await r.text();
     expect(xml).toContain('<?xml');
     expect(xml).toContain('https://reelcaster.com/');
-    expect(xml).toContain('/pricing');
+    expect(xml).toContain('/plans');
     expect(xml).toContain('/privacy');
   });
 
