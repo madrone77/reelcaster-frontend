@@ -148,7 +148,7 @@ export default function SubscriptionCard() {
             ? 'You keep full Pro access until the date above. Nothing renews and nothing is charged.'
             : isPaid
             ? 'Use the Stripe portal to update your card, change plan, or cancel anytime.'
-            : 'Pro unlocks the full 14-day forecast, custom spots in covered waters, up to 10 alerts, and SMS delivery (coming soon).'}
+            : 'Pro unlocks the full 14-day forecast, custom spots in covered waters, up to 10 alerts, and SMS delivery.'}
         </p>
       </CardContent>
     </Card>

@@ -5,6 +5,8 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Slider } from '@/components/ui/slider';
+import DeliveryChannelPicker from '@/app/components/alerts/delivery-channel-picker';
+import ProTrialModal from '@/app/components/paywall/pro-trial-modal';
 import type { AlertsSpot } from './alerts-client';
 
 export interface ScoreAlertFormValue {
@@ -13,6 +15,8 @@ export interface ScoreAlertFormValue {
   speciesName: string | null;
   threshold: number;
   cooldownHours: number;
+  /** Never empty — the form refuses to submit with no channel selected. */
+  channels: ('email' | 'sms')[];
 }
 
 interface Props {
@@ -34,6 +38,9 @@ export default function ScoreAlertForm({ spots, onSubmit, onCancel }: Props) {
   const [speciesLoading, setSpeciesLoading] = useState(false);
   const [threshold, setThreshold] = useState(70);
   const [cooldownHours, setCooldownHours] = useState(12);
+  const [emailOn, setEmailOn] = useState(true);
+  const [smsOn, setSmsOn] = useState(false);
+  const [smsUpgradeOpen, setSmsUpgradeOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -86,6 +93,14 @@ export default function ScoreAlertForm({ spots, onSubmit, onCancel }: Props) {
       setError('Pick a spot');
       return;
     }
+    const channels: ('email' | 'sms')[] = [
+      ...(emailOn ? (['email'] as const) : []),
+      ...(smsOn ? (['sms'] as const) : []),
+    ];
+    if (channels.length === 0) {
+      setError('Pick at least one way to be notified');
+      return;
+    }
     setSubmitting(true);
     try {
       await onSubmit({
@@ -94,6 +109,7 @@ export default function ScoreAlertForm({ spots, onSubmit, onCancel }: Props) {
         speciesName: selectedSpecies?.name ?? null,
         threshold,
         cooldownHours,
+        channels,
       });
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to create alert');
@@ -177,7 +193,7 @@ export default function ScoreAlertForm({ spots, onSubmit, onCancel }: Props) {
               step={5}
             />
             <p className="text-xs text-rc-ink-mute">
-              We&apos;ll email you when the RC score reaches at least {threshold}/100.
+              We&apos;ll notify you when the RC score reaches at least {threshold}/100.
             </p>
           </div>
 
@@ -200,20 +216,15 @@ export default function ScoreAlertForm({ spots, onSubmit, onCancel }: Props) {
             </p>
           </div>
 
-          {/* Delivery */}
-          <div className="space-y-2">
-            <Label className="text-rc-ink">Delivery</Label>
-            <div className="flex flex-col gap-2">
-              <div className="flex items-center gap-2 text-sm text-rc-ink">
-                <span className="w-4 h-4 rounded bg-rc-brand inline-flex items-center justify-center text-[10px] text-white">✓</span>
-                Email
-              </div>
-              <div className="flex items-center gap-2 text-sm text-rc-ink-mute">
-                <span className="w-4 h-4 rounded border border-rc-rule inline-block" />
-                SMS — coming soon (Pro + verified phone)
-              </div>
-            </div>
-          </div>
+          {/* Delivery — same picker (and same inline phone verification) the
+              spot-page alert dialog uses. */}
+          <DeliveryChannelPicker
+            emailOn={emailOn}
+            onEmailChange={setEmailOn}
+            smsOn={smsOn}
+            onSmsChange={setSmsOn}
+            onUpgradeRequired={() => setSmsUpgradeOpen(true)}
+          />
 
           {error && (
             <div className="bg-rc-poor-bg border border-rc-poor/40 rounded-md p-3 text-sm text-rc-poor-ink">
@@ -241,6 +252,13 @@ export default function ScoreAlertForm({ spots, onSubmit, onCancel }: Props) {
           </div>
         </form>
       </CardContent>
+
+      <ProTrialModal
+        open={smsUpgradeOpen}
+        onOpenChange={setSmsUpgradeOpen}
+        feature="sms-alerts"
+        from="alerts"
+      />
     </Card>
   );
 }

@@ -909,6 +909,51 @@ What actually gates routes today:
   `robots: { index: false, follow: false }` in the page metadata.
 - **`src/app/sitemap.ts`** — `STATIC_ENTRIES`, public routes only.
 
+## Plan matrix + upgrade modal (2026-07-31)
+
+**`src/lib/plan-features.ts` is the single source of truth for what each tier
+gets.** Before it, the answer lived in the pricing card's `FEATURES`, the
+paywall card's `DEFAULT_BULLETS`, the FAQ, `support/content.ts`, and a dozen
+server limit constants — and they had already drifted (the favourites cap still
+reads 1 in the explore UI, 5 in `api/favorite-spots`). The module carries
+`PLAN_TIERS` (anon / free / pro), `PLAN_FEATURES` (grouped rows, one cell per
+tier) and `NAG_FEATURES` (the action that hit the wall → headline copy, the row
+to highlight, and the `?feature=` key). **Change a limit here in the same PR you
+change its enforcement**, and keep the enforcement pointers in the file header
+current.
+
+`src/app/components/paywall/pro-trial-modal.tsx` renders it: a headline naming
+what the angler just tried to do ("Start your 7-day Pro trial to create an
+alert"), then the full three-column matrix with the viewer's column marked and
+the blocking row highlighted. A signed-out visitor blocked by something a *free*
+account unlocks is sent to `/signup`, not `/pricing`.
+
+Wired on /explore at: the favourites cap (rail card, drawer, spot page),
+locked forecast days (via `explore/components/upgrade-dialog.tsx`, which is now
+a thin wrapper), and alert creation — `create-alert-dialog.tsx` takes an
+`onUpgradeRequired` callback and hands off *before* rendering a form the API
+would refuse. `upgrade-required-modal.tsx` + `unlock-with-pro-card.tsx` still
+serve `/alerts` and `/support`.
+
+The custom-spots nag (`feature="custom-spots"`) is wired but unreachable: the
+"Create custom spot" map button is `isPaid &&` gated, so a free user never sees
+the wall.
+
+### Alert delivery channels
+
+`src/app/components/alerts/delivery-channel-picker.tsx` owns the email + SMS
+toggles **and** the inline phone-verification flow (`POST /api/alerts/verify-
+phone` sends a code, `PUT` confirms). Both alert forms use it — the spot-page
+`create-alert-dialog.tsx` and the `/alerts` `score-alert-form.tsx`, which until
+2026-07-31 hardcoded `delivery_channels: ['email']` and could not text anyone
+regardless of tier. Add a channel here, not in either form.
+
+SMS is live for Pro with a verified phone. A 503 from the verify route means
+Twilio is unreachable *right now* (`isVerifyConfigured()`), not that the feature
+is unbuilt — keep that copy phrased as a transient failure. `POST /api/alerts`
+re-reads `phone_verified` and silently strips `sms` from a payload it can't
+stand behind, so the picker is convenience, not the gate.
+
 ## The Port — Pro-only support portal (`/support`, 2026-07-30)
 
 Before this, "customer support" was a `mailto:` on `/contact` plus 8 static

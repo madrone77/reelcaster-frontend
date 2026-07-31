@@ -30,6 +30,16 @@ const FEATURE_COPY: Record<string, { title: string; body: string }> = {
     body:
       'Read the bottom — drop-offs, ledges, and channel structure overlaid on the live forecast map.',
   },
+  'custom-spots': {
+    title: 'Your own spots on the map',
+    body:
+      'Pro lets you drop a pin anywhere in covered waters, name it, and pick the species we score there — your private spots, scored like ours.',
+  },
+  'support': {
+    title: 'The Port — priority support',
+    body:
+      'Pro opens the support portal: guides, the knowledge base, billing self-serve, and a ticket queue with a one-business-day reply target.',
+  },
   'multi-species': {
     title: 'Multi-species scoring',
     body:
