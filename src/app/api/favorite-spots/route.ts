@@ -12,12 +12,12 @@ import { createClient } from '@supabase/supabase-js'
 import { fetchSpotsByCoordinates } from '@/lib/bluecaster'
 import { resolveEntitlement } from '@/lib/entitlement'
 import { COVERED_PROVINCES } from '@/lib/regions'
+import { FREE_FAVORITE_SPOTS } from '@/lib/plan-features'
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 
-const FREE_TIER_LIMIT = 5
 
 function slugify(name: string): string {
   return name
@@ -120,7 +120,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Valid lon is required' }, { status: 400 })
     }
 
-    // Tier gate: free tier capped at FREE_TIER_LIMIT spots; paid is unlimited.
+    // Tier gate: free tier capped at FREE_FAVORITE_SPOTS; paid is unlimited.
     const [{ isPro: isPaid }, { count: existingCount }] = await Promise.all([
       resolveEntitlement(supabaseAdmin, userId),
       supabaseAdmin
@@ -129,10 +129,12 @@ export async function POST(request: NextRequest) {
         .eq('user_id', userId),
     ])
 
-    if (!isPaid && (existingCount ?? 0) >= FREE_TIER_LIMIT) {
+    if (!isPaid && (existingCount ?? 0) >= FREE_FAVORITE_SPOTS) {
       return NextResponse.json(
         {
-          error: `Free tier is limited to ${FREE_TIER_LIMIT} spots`,
+          error: `Free tier is limited to ${FREE_FAVORITE_SPOTS} ${
+            FREE_FAVORITE_SPOTS === 1 ? 'spot' : 'spots'
+          }`,
           upgrade_required: true,
         },
         { status: 402 },

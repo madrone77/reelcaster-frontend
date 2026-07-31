@@ -56,7 +56,7 @@ const FEATURES = [
   {
     icon: MapPin,
     title: 'Your own spots',
-    body: 'Drop a pin anywhere in covered water and get it scored like a published spot. No 5-spot cap on favourites.',
+    body: 'Drop a pin anywhere in covered water and get it scored like a published spot. No one-spot cap on favourites.',
   },
   {
     icon: Layers,

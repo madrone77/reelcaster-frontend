@@ -15,6 +15,7 @@ import {
 } from "lucide-react";
 import { useFavorite, favoriteCount } from "../lib/use-favorite";
 import { useSubscription } from "@/hooks/use-subscription";
+import { FREE_FAVORITE_SPOTS } from "@/lib/plan-features";
 import {
   TIER_PILL,
   TIER_TEXT,
@@ -33,8 +34,6 @@ const ProTrialModal = dynamic(
   { ssr: false },
 );
 
-/** Free tier may favorite this many spots before hitting the upgrade cap. */
-const FREE_FAV_CAP = 1;
 
 function dateStamp(date: string): string {
   if (!date) return "";
@@ -140,7 +139,7 @@ export default function SpotDrawer({
   // Drives the one-shot "pop" animation when a spot is favorited (not on load).
   const [popping, setPopping] = useState(false);
   const onStar = () => {
-    if (!fav && !isPaid && favoriteCount() >= FREE_FAV_CAP) {
+    if (!fav && !isPaid && favoriteCount() >= FREE_FAVORITE_SPOTS) {
       setUpgradeOpen(true);
       return;
     }

@@ -941,9 +941,13 @@ The custom-spots nag (`feature="custom-spots"`) is wired but unreachable: the
 "Create custom spot" map button is `isPaid &&` gated, so a free user never sees
 the wall.
 
-**Known drift:** the free favourites cap reads 1 in the explore UI
-(`FREE_FAV_CAP`) and on the /plans footnote, but 5 in `api/favorite-spots`
-(`FREE_TIER_LIMIT`) and in the plans callout copy. The matrix follows the UI.
+**The free favourites cap is `FREE_FAVORITE_SPOTS` (1), exported from
+`plan-features.ts` and imported by both sides of the wall** — the three
+/explore star buttons and `POST /api/favorite-spots`. It used to be a local
+`FREE_FAV_CAP = 1` in each of the three components and a separate
+`FREE_TIER_LIMIT = 5` in the route, so the UI nagged at one spot while the API
+happily stored five, and the sales copy claimed both. Don't reintroduce a local
+copy.
 
 ### Alert delivery channels
 

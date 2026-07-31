@@ -5,9 +5,11 @@
  *   - free@reelcaster.test  → tier=free, status=canceled, onboarding completed
  *   - pro@reelcaster.test   → tier=pro_annual, status=active, 5 favorite_spots seeded
  *
- * The pro user is pre-seeded with 5 favorites so the favorites-cap journey can
- * stack the 6th from a known baseline. Both users have onboarding_completed_at
- * set so the modal doesn't pop on dashboard load.
+ * The pro user is pre-seeded with 5 favorites — more than a free account may
+ * hold (FREE_FAVORITE_SPOTS is 1), so the Pro specs start from a state that
+ * only Pro can reach. The free user is seeded with none; its cap journey adds
+ * one and expects the second to be refused. Both users have
+ * onboarding_completed_at set so the modal doesn't pop on dashboard load.
  *
  * Run:
  *   NEXT_PUBLIC_SUPABASE_URL=... SUPABASE_SERVICE_ROLE_KEY=... \
