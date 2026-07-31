@@ -23,6 +23,15 @@ import {
  * currency. Amounts come from the same constants the visible table renders, so
  * the markup can't advertise a price the page doesn't show.
  */
+/**
+ * No annual Price in Stripe means the annual plan — and the trial that rides on
+ * it — cannot be bought. The page body already falls back to monthly, but the
+ * metadata and the Offer markup are module-scope constants and used to advertise
+ * annual regardless, so search results and link previews promised a $33/yr trial
+ * that the page itself didn't offer. Everything customer-facing gates on this.
+ */
+const ANNUAL_SELLABLE = Boolean(ANNUAL_PRICE_ID);
+
 const CAD_REGIONS = [
   { '@type': 'AdministrativeArea', name: 'British Columbia' },
 ];
@@ -57,8 +66,9 @@ const PLANS_JSONLD = {
   offers: [
     proOffer('Monthly', 'CAD'),
     proOffer('Monthly', 'USD'),
-    proOffer('Annual', 'CAD'),
-    proOffer('Annual', 'USD'),
+    ...(ANNUAL_SELLABLE
+      ? [proOffer('Annual', 'CAD'), proOffer('Annual', 'USD')]
+      : []),
   ],
 };
 
@@ -67,15 +77,20 @@ const PLANS_BREADCRUMBS = breadcrumbJsonLd([
   { name: 'Plans', path: '/plans' },
 ]);
 
+// Prices come from the same constants the visible table renders, for the same
+// reason the Offer markup does: the description can't promise a number the page
+// doesn't show.
+const PRICE_SENTENCE = ANNUAL_SELLABLE
+  ? `${dollars(ANNUAL_PRICE_CENTS)} a year after a ${TRIAL_DAYS}-day free trial.`
+  : `${dollars(MONTHLY_PRICE_CENTS)} a month, cancel anytime.`;
+
 export const metadata: Metadata = {
   title: 'ReelCaster Pro — Plans',
-  description:
-    'ReelCaster Pro: 14-day forecasts, your own private spots, and alerts when conditions line up. $33 a year after a 7-day free trial.',
+  description: `ReelCaster Pro: 14-day forecasts, your own private spots, and alerts when conditions line up. ${PRICE_SENTENCE}`,
   alternates: { canonical: siteUrl('/plans') },
   openGraph: {
     title: 'ReelCaster Pro — Plans',
-    description:
-      '14-day forecasts, private spots, and condition alerts. $33 a year after a 7-day free trial.',
+    description: `14-day forecasts, private spots, and condition alerts. ${PRICE_SENTENCE}`,
     url: siteUrl('/plans'),
     siteName: SITE_NAME,
     type: 'website',
@@ -213,7 +228,7 @@ export default function PlansPage() {
 
   // No annual Price in Stripe means no trial to sell. Rather than advertise a
   // free week that 503s at checkout, the page falls back to the monthly plan.
-  const trialSellable = Boolean(ANNUAL_PRICE_ID);
+  const trialSellable = ANNUAL_SELLABLE;
 
   return (
     <article>
