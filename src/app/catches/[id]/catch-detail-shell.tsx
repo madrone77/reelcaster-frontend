@@ -276,7 +276,7 @@ export default function CatchDetailShell({ catchId }: { catchId: string }) {
         session.access_token,
       );
       if (!res.ok) {
-        return res.message ?? "Couldn't create the spot — try again.";
+        return res.message ?? "Couldn't create the spot. Try again.";
       }
       const hit: NearestSpotHit = {
         id: res.data.spot.id,
@@ -424,7 +424,7 @@ export default function CatchDetailShell({ catchId }: { catchId: string }) {
         setSaved(true);
         setTimeout(() => router.push("/catches"), 800);
       } catch {
-        setLoadError("Couldn't save your changes — try again.");
+        setLoadError("Couldn't save your changes. Try again.");
         setSaving(null);
       }
     },

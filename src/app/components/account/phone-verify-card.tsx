@@ -68,7 +68,7 @@ export default function PhoneVerifyCard() {
         if (res.status === 503) {
           setSmsAvailable(false)
           throw new Error(
-            "We can't send verification texts at the moment — try again shortly.",
+            "We can't send verification texts at the moment. Try again shortly.",
           )
         }
         throw new Error(body.error ?? 'Failed to send code')
@@ -106,7 +106,7 @@ export default function PhoneVerifyCard() {
       if (!res.ok || !body.approved) {
         throw new Error(body.error ?? 'Invalid or expired code')
       }
-      setInfo('Phone number verified — SMS alerts are ready when delivery launches.')
+      setInfo('Phone number verified. SMS alerts are ready when delivery launches.')
       setCode('')
       setStep('enter-phone')
       refresh()

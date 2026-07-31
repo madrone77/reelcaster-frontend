@@ -6,7 +6,7 @@ import { Mail, MessageCircle, AlertCircle, Newspaper, LifeBuoy } from 'lucide-re
 export const metadata: Metadata = {
   // Bare title — the root layout's "%s | ReelCaster" template adds the brand,
   // so naming it here too rendered "Contact ReelCaster | … | ReelCaster".
-  title: 'Contact — Support, Billing & Press',
+  title: 'Contact: Support, Billing & Press',
   description:
     'Get in touch with ReelCaster for support, billing questions, spot data corrections, or press inquiries. We respond within two business days.',
   alternates: { canonical: `${SITE_URL}/contact` },
@@ -94,7 +94,7 @@ export default function ContactPage() {
                 </a>
                 <p className="text-sm text-rc-ink-mute mt-2">
                   Include your account email and any relevant screenshots or
-                  spot URLs — it speeds things up.
+                  spot URLs. It speeds things up.
                 </p>
               </div>
             </div>
@@ -140,7 +140,7 @@ export default function ContactPage() {
                 >
                   The Port
                 </Link>{' '}
-                is the Pro support portal — file a ticket with a one business
+                is the Pro support portal. File a ticket with a one business
                 day reply target, track it afterwards, and read the guides,
                 knowledge base and live service status while you wait.
               </p>

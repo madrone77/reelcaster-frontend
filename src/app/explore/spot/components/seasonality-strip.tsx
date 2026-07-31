@@ -115,7 +115,7 @@ function buildStatus(
       pillLabel: "Release only",
       pillClass: "bg-rc-surface text-rc-ink-soft",
       sentence: abundanceWord
-        ? `${abundanceWord} for ${speciesName} — but catch-and-release only`
+        ? `${abundanceWord} for ${speciesName}, but catch-and-release only`
         : `Catch-and-release only for ${speciesName} right now`,
       mono: opensHint,
     };

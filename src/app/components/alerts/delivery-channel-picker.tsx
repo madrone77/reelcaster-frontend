@@ -96,7 +96,7 @@ export default function DeliveryChannelPicker({
           // 503 = the texting service is unreachable right now, not a feature
           // we haven't shipped. Say so, and point at the channel that works.
           res.status === 503
-            ? "We can't send texts at the moment — try again shortly, or use email delivery in the meantime."
+            ? "We can't send texts at the moment. Try again shortly, or use email delivery in the meantime."
             : (body.error ?? "Couldn't send the code."),
         );
       }

@@ -235,7 +235,7 @@ export default function MobileMapSheet({
                     No published spots here yet
                   </p>
                   <p className="text-xs text-rc-ink-mute">
-                    Pan or zoom the map to find spots — coverage is rolling out
+                    Pan or zoom the map to find spots. Coverage is rolling out
                     across BC, WA, and OR.
                   </p>
                 </div>

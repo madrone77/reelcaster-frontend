@@ -288,7 +288,7 @@ function buildSvg(
     return p;
   };
 
-  let s = `<svg id="${id}" viewBox="0 0 ${W} ${H}" width="100%" tabindex="0" role="slider" aria-label="24-hour conditions — arrow keys to scrub by hour" aria-valuemin="0" aria-valuemax="23" aria-valuenow="0" data-ty0="${Y.tide.y0}" data-ty1="${Y.tide.y1}" style="touch-action:none;cursor:crosshair">`;
+  let s = `<svg id="${id}" viewBox="0 0 ${W} ${H}" width="100%" tabindex="0" role="slider" aria-label="24-hour conditions, arrow keys to scrub by hour" aria-valuemin="0" aria-valuemax="23" aria-valuenow="0" data-ty0="${Y.tide.y0}" data-ty1="${Y.tide.y1}" style="touch-action:none;cursor:crosshair">`;
   s += `<defs><linearGradient id="${id}tg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${C.brand}" stop-opacity=".13"/><stop offset="1" stop-color="${C.brand}" stop-opacity="0"/></linearGradient></defs>`;
 
   TW.forEach((t) => { if (t[1] <= t[0]) return; s += `<rect x="${xAt(t[0]).toFixed(1)}" y="${cTop}" width="${((t[1] - t[0]) * hw).toFixed(1)}" height="${cBot - cTop}" fill="#334155" opacity="${t[2]}"/>`; });

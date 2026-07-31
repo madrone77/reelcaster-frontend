@@ -123,7 +123,7 @@ export default function TicketForm({ submitting, onSubmit }: Props) {
             value={subject}
             maxLength={SUBJECT_MAX}
             onChange={(e) => setSubject(e.target.value)}
-            placeholder="One line — what would you title this?"
+            placeholder="One line. What would you title this?"
             className="mt-2 w-full bg-rc-page border border-rc-rule rounded-lg px-3.5 py-2.5 text-sm text-rc-ink placeholder:text-rc-ink-mute focus:outline-none focus:border-rc-brand focus:ring-[3px] focus:ring-rc-brand-soft2 transition-colors"
           />
           {touched && !subjectOk && (
@@ -157,7 +157,7 @@ export default function TicketForm({ submitting, onSubmit }: Props) {
             rows={7}
             maxLength={BODY_MAX}
             onChange={(e) => setBody(e.target.value)}
-            placeholder="What happened, what you expected, and anything we can use to reproduce it — spot name or URL, species, time of day, device. The more specific, the faster this gets solved."
+            placeholder="What happened, what you expected, and anything we can use to reproduce it: spot name or URL, species, time of day, device. The more specific, the faster this gets solved."
             className="mt-2 w-full bg-rc-page border border-rc-rule rounded-lg px-3.5 py-2.5 text-sm text-rc-ink placeholder:text-rc-ink-mute leading-relaxed focus:outline-none focus:border-rc-brand focus:ring-[3px] focus:ring-rc-brand-soft2 transition-colors resize-y"
           />
           {touched && !bodyOk && (
@@ -169,7 +169,7 @@ export default function TicketForm({ submitting, onSubmit }: Props) {
 
         <div className="flex items-center justify-between gap-4 flex-wrap">
           <p className="text-xs text-rc-ink-mute max-w-sm leading-relaxed">
-            We attach your plan and browser automatically — no need to include
+            We attach your plan and browser automatically, so there is no need to include
             them.
           </p>
           <button

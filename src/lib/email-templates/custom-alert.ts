@@ -90,9 +90,9 @@ export function generateCustomAlertEmail(params: CustomAlertEmailParams): EmailC
       hour: 'numeric',
       hour12: true,
     }).toLowerCase().replace(' ', '');
-    subject = `Alert: ${speciesLabel} peak today at ${locationName} — ${score} at ${hourLabel}`;
+    subject = `Alert: ${speciesLabel} peak today at ${locationName}, ${score} at ${hourLabel}`;
   } else {
-    subject = `Alert: ${alertName} — ${triggerCount} ${triggerText} matched at ${locationName}`;
+    subject = `Alert: ${alertName}, ${triggerCount} ${triggerText} matched at ${locationName}`;
   }
 
   // ── ReelCaster brand palette (literal hex — email can't use CSS vars) ──
@@ -258,7 +258,7 @@ export function generateCustomAlertEmail(params: CustomAlertEmailParams): EmailC
                   <td style="padding: 16px 18px;">
                     <p style="margin: 0 0 8px; font-family: ${MONO}; font-size: 10px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: ${INK_MUTE};">Good to know</p>
                     <ul style="margin: 0; padding: 0 0 0 18px; color: ${INK_SOFT}; font-size: 13px; line-height: 1.7;">
-                      <li>Conditions can change — check the forecast before heading out.</li>
+                      <li>Conditions can change, so check the forecast before heading out.</li>
                       <li>Always prioritize safety and check local regulations.</li>
                       <li>This alert won&rsquo;t fire again for ${getApproxCooldown()} hours (cooldown).</li>
                     </ul>

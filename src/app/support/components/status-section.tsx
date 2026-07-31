@@ -61,7 +61,7 @@ export default function StatusSection({ focusId }: Props) {
     <PortSection
       eyebrow="Status"
       title="Known issues & recent updates"
-      intro="What is currently broken, stated plainly. Check here before filing a bug — if it is listed, we already know, and there is nothing you need to send us."
+      intro="What is currently broken, stated plainly. Check here before filing a bug; if it is listed, we already know, and there is nothing you need to send us."
     >
       <h3 className="font-rc-mono text-[10px] tracking-[0.14em] uppercase text-rc-ink-mute">
         Known issues

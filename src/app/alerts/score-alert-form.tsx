@@ -157,7 +157,7 @@ export default function ScoreAlertForm({ spots, onSubmit, onCancel }: Props) {
             <Label htmlFor="species" className="text-rc-ink">
               Species{' '}
               <span className="text-rc-ink-mute text-xs font-normal">
-                (optional — leave blank for overall score)
+                (optional, leave blank for overall score)
               </span>
             </Label>
             <select

@@ -45,7 +45,7 @@ function proOffer(plan: 'Monthly' | 'Annual', currency: 'CAD' | 'USD') {
   const cents = plan === 'Monthly' ? MONTHLY_PRICE_CENTS : ANNUAL_PRICE_CENTS;
   return {
     '@type': 'Offer',
-    name: `ReelCaster Pro — ${plan} (${currency})`,
+    name: `ReelCaster Pro ${plan} (${currency})`,
     price: (cents / 100).toFixed(2),
     priceCurrency: currency,
     availability: 'https://schema.org/InStock',
@@ -86,11 +86,11 @@ const PRICE_SENTENCE = ANNUAL_SELLABLE
   : `${dollars(MONTHLY_PRICE_CENTS)} a month, cancel anytime.`;
 
 export const metadata: Metadata = {
-  title: 'ReelCaster Pro — Plans',
+  title: 'ReelCaster Pro: Plans',
   description: `ReelCaster Pro: 14-day forecasts, your own private spots, and alerts when conditions line up. ${PRICE_SENTENCE}`,
   alternates: { canonical: siteUrl('/plans') },
   openGraph: {
-    title: 'ReelCaster Pro — Plans',
+    title: 'ReelCaster Pro: Plans',
     description: `14-day forecasts, private spots, and condition alerts. ${PRICE_SENTENCE}`,
     url: siteUrl('/plans'),
     siteName: SITE_NAME,
@@ -127,7 +127,7 @@ const FAQ: { q: string; a: React.ReactNode }[] = [
     a: (
       <>
         The Pro extras, and nothing else. Your account, your saved spots, your
-        catch log, and your 7-day forecast stay free — we don’t take back what
+        catch log, and your 7-day forecast stay free. We don’t take back what
         you’ve already put in.
       </>
     ),
@@ -143,8 +143,8 @@ const FAQ: { q: string; a: React.ReactNode }[] = [
           className="text-rc-brand underline underline-offset-2 hover:text-rc-brand-hover"
         >
           drop a waitlist pin
-        </Link>{' '}
-        — that’s how we pick what to build next. We won’t sell you Pro for water
+        </Link>
+        . That’s how we pick what to build next. We won’t sell you Pro for water
         we can’t forecast.
       </>
     ),
@@ -153,7 +153,7 @@ const FAQ: { q: string; a: React.ReactNode }[] = [
     q: 'Can I pay monthly instead?',
     a: (
       <>
-        Yes — {dollars(MONTHLY_PRICE_CENTS)} a month, cancel whenever. Both
+        Yes, {dollars(MONTHLY_PRICE_CENTS)} a month, cancel whenever. Both
         plans start with the same free trial.{' '}
         <Link
           href="/plans/checkout?plan=monthly"
@@ -224,7 +224,7 @@ export default function PlansPage() {
                 back at the reader. The subhead's job is why any of it works:
                 name the inputs (credibility) and the payoff (pick the day). */}
             <p className="mt-5 max-w-xl text-base leading-relaxed text-rc-ink-soft md:text-lg">
-              We score every spot against what actually moves fish — tide,
+              We score every spot against what actually moves fish: tide,
               light, water temperature, and what’s running right now. So you
               pick the day instead of hoping for one.
             </p>
@@ -236,7 +236,7 @@ export default function PlansPage() {
               >
                 {trialSellable
                   ? `Start ${TRIAL_DAYS}-day free trial`
-                  : `Get Pro — ${dollars(MONTHLY_PRICE_CENTS)}/mo`}
+                  : `Get Pro · ${dollars(MONTHLY_PRICE_CENTS)}/mo`}
               </Link>
               <Link
                 href="/explore"
@@ -250,7 +250,7 @@ export default function PlansPage() {
               {trialSellable ? (
                 <>
                   Free for {TRIAL_DAYS} days, then{' '}
-                  {dollars(ANNUAL_PRICE_CENTS)} a year. Cancel anytime — you
+                  {dollars(ANNUAL_PRICE_CENTS)} a year. Cancel anytime, and you
                   keep your free account.
                 </>
               ) : (
@@ -343,7 +343,7 @@ export default function PlansPage() {
               </div>
               <p className="mt-1.5 text-sm text-rc-ink-soft">
                 That’s {dollars(perMonthCents)} a month, billed yearly. Or{' '}
-                {dollars(MONTHLY_PRICE_CENTS)} a month if you’d rather —{' '}
+                {dollars(MONTHLY_PRICE_CENTS)} a month if you’d rather:{' '}
                 twelve of those is {dollars(fullCents)}, so the year saves you{' '}
                 {dollars(saveCents)}.
               </p>
@@ -372,7 +372,7 @@ export default function PlansPage() {
           </h2>
           <p className="mt-3 max-w-2xl text-sm leading-relaxed text-rc-ink-soft md:text-base">
             Your spots, your catch log, and your 7-day forecast stay free
-            forever. Cancelling drops the Pro extras — it doesn’t lock you out
+            forever. Cancelling drops the Pro extras; it doesn’t lock you out
             of your own fishing history. We’re not going to hold your season
             hostage.
           </p>
@@ -443,7 +443,7 @@ export default function PlansPage() {
           >
             {trialSellable
               ? `Start ${TRIAL_DAYS}-day free trial`
-              : `Get Pro — ${dollars(MONTHLY_PRICE_CENTS)}/mo`}
+              : `Get Pro · ${dollars(MONTHLY_PRICE_CENTS)}/mo`}
           </Link>
           {trialSellable && (
             <p className="mt-4 text-xs text-rc-ink-mute">

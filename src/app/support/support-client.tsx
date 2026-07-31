@@ -162,7 +162,7 @@ function ProGate() {
             feature="support"
             headline="Open The Port"
             bullets={[
-              'Priority support — one business day reply target',
+              'Priority support with a one business day reply target',
               'Ticket history you can reference later',
               'Full guide library and searchable knowledge base',
               'Everything else Pro unlocks: 14-day forecast, 10 alerts, custom spots',
@@ -192,7 +192,7 @@ function ProGate() {
           >
             Contact
           </Link>{' '}
-          reaches the same people who answer Pro tickets — we just get to them
+          reaches the same people who answer Pro tickets; we just get to them
           in the order they arrive. Or email{' '}
           <a
             href={`mailto:${SUPPORT_EMAIL}`}

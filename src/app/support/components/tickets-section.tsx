@@ -80,7 +80,7 @@ export default function TicketsSection() {
 
   const submit = async (input: CreateTicketInput): Promise<boolean> => {
     if (!token) {
-      setBanner({ tone: 'error', message: 'Your session expired — sign in again.' });
+      setBanner({ tone: 'error', message: 'Your session expired. Sign in again.' });
       return false;
     }
     setSubmitting(true);
@@ -109,20 +109,20 @@ export default function TicketsSection() {
         data.emailed
           ? {
               tone: 'success',
-              message: `Ticket ${data.ticket.ticket_ref} is with us. Check your inbox for the confirmation — we reply within one business day.`,
+              message: `Ticket ${data.ticket.ticket_ref} is with us. Check your inbox for the confirmation; we reply within one business day.`,
             }
           : {
               // The row is saved either way; say exactly which half failed
               // rather than implying the whole thing did.
               tone: 'warn',
-              message: `Ticket ${data.ticket.ticket_ref} is saved and in our queue, but the confirmation email did not send. Nothing is lost — we can still see it.`,
+              message: `Ticket ${data.ticket.ticket_ref} is saved and in our queue, but the confirmation email did not send. Nothing is lost; we can still see it.`,
             },
       );
       return true;
     } catch {
       setBanner({
         tone: 'error',
-        message: 'Network error — your ticket was not sent. Please try again.',
+        message: 'Network error. Your ticket was not sent, so please try again.',
       });
       return false;
     } finally {
@@ -134,7 +134,7 @@ export default function TicketsSection() {
     <PortSection
       eyebrow="Contact us"
       title="File a ticket"
-      intro="A real person reads every one. Check Status first if something looks broken — if it is already listed, we know."
+      intro="A real person reads every one. Check Status first if something looks broken; if it is already listed, we know."
     >
       {banner && <BannerCard banner={banner} />}
 

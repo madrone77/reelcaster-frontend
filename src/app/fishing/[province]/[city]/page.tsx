@@ -59,10 +59,10 @@ export async function generateMetadata({
   // "with Live Scores" tail brings every city inside the ~60 characters Google
   // renders before truncating. The scores are the description's job — nobody
   // searches for them by name.
-  const fallbackTitle = `${city.name}, ${city.provinceCode} Fishing — ${city.spots.length} Spots`;
+  const fallbackTitle = `${city.name}, ${city.provinceCode} Fishing: ${city.spots.length} Spots`;
   const description =
     cityPage?.page.seo.meta_description ??
-    `Explore ${city.spots.length} saltwater fishing spots around ${city.name}, ${province.name} on a live map — RC scores, wind, sea, and tide conditions for every spot.`;
+    `Explore ${city.spots.length} saltwater fishing spots around ${city.name}, ${province.name} on a live map: RC scores, wind, sea, and tide conditions for every spot.`;
   const canonical = siteUrl(
     `/fishing/${provinceParam.toLowerCase()}/${citySlug}`,
   );

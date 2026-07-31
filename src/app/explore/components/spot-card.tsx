@@ -127,8 +127,8 @@ export default function SpotCard({
                 <span
                   title={
                     spot.visibility === "public"
-                      ? "Public — visible to other anglers"
-                      : "Private — only you can see this spot"
+                      ? "Public: visible to other anglers"
+                      : "Private: only you can see this spot"
                   }
                   className="inline-flex shrink-0 items-center gap-1 rounded bg-rc-surface px-1.5 py-0.5 font-rc-mono text-[9px] uppercase tracking-[0.06em] text-rc-ink-mute"
                 >

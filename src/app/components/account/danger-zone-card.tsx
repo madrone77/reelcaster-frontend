@@ -58,7 +58,7 @@ export default function DangerZoneCard() {
             <p className="text-rc-ink font-medium">Cancel subscription</p>
             <p className="text-sm text-rc-ink-mute mt-1">
               {isPaid
-                ? 'Cancel anytime via Stripe — you keep access until the end of your billing period.'
+                ? 'Cancel anytime via Stripe. You keep access until the end of your billing period.'
                 : 'You don’t have an active paid subscription.'}
             </p>
           </div>
@@ -84,7 +84,7 @@ export default function DangerZoneCard() {
           <div>
             <p className="text-rc-ink font-medium">Delete account</p>
             <p className="text-sm text-rc-ink-mute mt-1">
-              Permanently remove your account and personal data. Coming soon — for now,
+              Permanently remove your account and personal data. Coming soon. For now,
               email{' '}
               <a href="mailto:support@reelcaster.com" className="text-rc-brand hover:underline">
                 support@reelcaster.com

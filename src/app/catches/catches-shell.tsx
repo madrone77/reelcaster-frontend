@@ -286,7 +286,7 @@ function EmptyState({ searched }: { searched: boolean }) {
       <p className="mt-1 text-sm text-rc-ink-soft">
         {searched
           ? "Try a different search or species filter."
-          : "Log your first catch — drop a photo and we'll do the rest."}
+          : "Log your first catch. Drop a photo and we'll do the rest."}
       </p>
       {!searched && (
         <Link

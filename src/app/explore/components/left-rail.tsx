@@ -174,7 +174,7 @@ export default function LeftRail({
                     No published spots here yet
                   </p>
                   <p className="text-xs text-rc-ink-mute">
-                    Coverage is rolling out across BC, WA, and OR — new spots are
+                    Coverage is rolling out across BC, WA, and OR, and new spots are
                     added every week.
                   </p>
                 </div>

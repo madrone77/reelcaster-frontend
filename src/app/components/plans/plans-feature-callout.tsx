@@ -23,7 +23,7 @@ import { Sparkles } from 'lucide-react';
 const FEATURE_COPY: Record<string, { title: string; body: string }> = {
   alerts: {
     title: 'More alerts, including text messages',
-    body: 'Pro runs up to 10 alert profiles and can text you as well as email — so you don’t miss the window while you’re away from your desk.',
+    body: 'Pro runs up to 10 alert profiles and can text you as well as email, so you don’t miss the window while you’re away from your desk.',
   },
   // Both slugs: the paywall sends `favorite-spots`, older links send `favorites`.
   favorites: {
@@ -36,11 +36,11 @@ const FEATURE_COPY: Record<string, { title: string; body: string }> = {
   },
   '14-day-forecast': {
     title: 'The full two weeks',
-    body: 'See the whole hourly outlook fourteen days out — plan trips, time the tide, and follow the season instead of guessing at it.',
+    body: 'See the whole hourly outlook fourteen days out. Plan trips, time the tide, and follow the season instead of guessing at it.',
   },
   'custom-spots': {
     title: 'Your pin, our full model',
-    body: 'Pro scores a spot we don’t publish — drop it anywhere inside a city we cover and it gets the same model run as everything else on the map.',
+    body: 'Pro scores a spot we don’t publish. Drop it anywhere inside a city we cover and it gets the same model run as everything else on the map.',
   },
   'spot-horizon': {
     title: 'The full forecast on this spot',

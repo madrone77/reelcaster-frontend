@@ -9,7 +9,7 @@ const montserrat = Montserrat({
 })
 
 export const metadata: Metadata = {
-  title: 'ReelCaster — Coming Soon',
+  title: 'ReelCaster: Coming Soon',
   description: 'Fishing intelligence for British Columbia. Coming soon.',
   robots: { index: false, follow: false },
 }

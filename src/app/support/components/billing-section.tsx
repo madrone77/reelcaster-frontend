@@ -111,7 +111,7 @@ export default function BillingSection() {
         <div className="mt-5">
           {isComped ? (
             <div className="bg-rc-good-bg border border-rc-good-border rounded-md p-4 text-sm text-rc-good-ink leading-relaxed">
-              Pro is complimentary on this account — there is no card on file
+              Pro is complimentary on this account, so there is no card on file
               and nothing to manage. You keep full access, including The Port,
               until the date above. Nothing renews and nothing is charged.
             </div>
@@ -147,7 +147,7 @@ export default function BillingSection() {
       <div className="mt-4 grid gap-4 sm:grid-cols-2">
         <HelpCard
           title="Charged unexpectedly?"
-          body="Send us the date and amount from your statement and we will trace it to the invoice. If it is our mistake we refund it — we do not make you argue for that."
+          body="Send us the date and amount from your statement and we will trace it to the invoice. If it is our mistake we refund it, and we do not make you argue for that."
         />
         <HelpCard
           title="Need an invoice for expenses?"

@@ -26,7 +26,7 @@ export default function UploadStep({
       </h1>
       <p className="mt-3 text-rc-ink-soft max-w-lg mx-auto">
         Drop one photo. We read EXIF and run vision to pull species, lure, size,
-        location and time — then attach the tide / wind / temp snapshot. You
+        location and time, then attach the tide / wind / temp snapshot. You
         just confirm.
       </p>
 
@@ -67,7 +67,7 @@ export default function UploadStep({
           Drop a fishing photo
         </div>
         <div className="mt-1 font-rc-mono text-[12px] text-rc-ink-mute">
-          JPG · PNG · HEIC · WebP — EXIF read for time &amp; location
+          JPG · PNG · HEIC · WebP · EXIF read for time &amp; location
         </div>
         <button
           type="button"

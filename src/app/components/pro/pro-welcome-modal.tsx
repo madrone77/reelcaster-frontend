@@ -41,7 +41,7 @@ const FEATURES = [
   {
     icon: CalendarRange,
     title: '14-day forecast',
-    body: 'The full two-week outlook, hour by hour — plan the trip, not just the morning.',
+    body: 'The full two-week outlook, hour by hour. Plan the trip, not just the morning.',
   },
   {
     icon: Fish,
@@ -213,14 +213,14 @@ export default function ProWelcomeModal() {
             {comped ? (
               <>
                 A full year of ReelCaster Pro is on us
-                {untilLabel ? <> — yours through {untilLabel}</> : null}. Nothing
+                {untilLabel ? <>, yours through {untilLabel}</> : null}. Nothing
                 to pay, no card on file. Here&rsquo;s what just opened up.
               </>
             ) : trialing ? (
               <>
                 Your free trial is on
                 {untilLabel ? (
-                  <> — nothing is charged before {untilLabel}</>
+                  <>, with nothing charged before {untilLabel}</>
                 ) : null}
                 , and you can cancel anytime before then. Here&rsquo;s what just
                 opened up.

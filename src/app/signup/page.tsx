@@ -60,7 +60,7 @@ export default function SignupPage() {
               Create an account
             </h1>
             <p className="mt-2 text-pretty text-sm text-rc-ink-mute">
-              Start free — today&apos;s Reelcaster Score in under a minute.
+              Start free. Today&apos;s Reelcaster Score in under a minute.
             </p>
           </div>
 
@@ -95,7 +95,7 @@ export default function SignupPage() {
           </h2>
           <p className="mt-3 text-pretty text-center text-sm leading-relaxed text-rc-ink-soft">
             Reelcaster folds tides, weather, water, and regulations into one
-            score — so you plan the day before you leave the dock.
+            score, so you plan the day before you leave the dock.
           </p>
 
           <div className="mt-8 grid grid-cols-2 gap-3">

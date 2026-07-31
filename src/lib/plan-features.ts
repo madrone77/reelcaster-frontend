@@ -80,7 +80,7 @@ export const PLAN_FEATURES: PlanFeatureRow[] = [
   { id: "today-score", label: "See today’s bite score", anon: true, free: true, pro: true },
   {
     id: "bathymetry",
-    label: "Read the bottom — depth and structure",
+    label: "Read the bottom: depth and structure",
     anon: true,
     free: true,
     pro: true,
@@ -110,7 +110,7 @@ export const PLAN_FEATURES: PlanFeatureRow[] = [
   // it, not that you can drop a pin.
   {
     id: "custom-spots",
-    label: "Score a spot we don’t cover — your pin, our full model",
+    label: "Score a spot we don’t cover: your pin, our full model",
     anon: false,
     free: false,
     pro: true,
@@ -119,7 +119,7 @@ export const PLAN_FEATURES: PlanFeatureRow[] = [
   // delivery channel; splitting them padded the list and read as filler.
   {
     id: "alerts",
-    label: "Alerts when it’s on — by text or email",
+    label: "Alerts when it’s on, by text or email",
     anon: false,
     free: false,
     pro: true,

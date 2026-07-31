@@ -61,7 +61,7 @@ export default function PricingSection() {
               </span>
             </p>
             <p className="mt-1.5 font-rc-mono text-[11px] text-rc-ink-mute">
-              or ${annualDollars}/yr — save {pct}%
+              or ${annualDollars}/yr, save {pct}%
             </p>
             <p className="mt-1.5 font-rc-mono text-[11px] font-semibold text-rc-good-ink">
               first {TRIAL_DAYS} days free

@@ -350,5 +350,5 @@ export function generateNotificationSubject(data: ScheduledNotificationEmailData
 
   // Phase 6: prefix scheduled digests with "Forecast:" so they don't get
   // confused with real-time "Alert:" emails in the inbox.
-  return `Forecast: ${scoreLabel} fishing ${dayName} — ${bestDay.score}/100${locationName ? ` in ${locationName}` : ''}`;
+  return `Forecast: ${scoreLabel} fishing ${dayName}, ${bestDay.score}/100${locationName ? ` in ${locationName}` : ''}`;
 }

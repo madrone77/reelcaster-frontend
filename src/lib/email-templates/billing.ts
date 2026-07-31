@@ -63,7 +63,7 @@ export function trialEndingEmail(params: {
           and your 14-day forecasts, private spots, and alerts keep running.
         </p>
         <p style="margin:0 0 24px;font-size:15px;line-height:24px;color:${INK_SOFT};">
-          If Pro isn't for you, cancel before then and you won't be charged. Your account stays —
+          If Pro isn't for you, cancel before then and you won't be charged. Your account stays:
           you keep your spots, your catch log, and your 7-day forecast for free.
         </p>
         <p style="margin:0 0 8px;">${button('https://www.reelcaster.com/profile', 'Manage subscription')}</p>
@@ -86,14 +86,14 @@ export function paymentFailedEmail(params: {
         <h1 style="margin:0 0 16px;font-size:22px;line-height:30px;color:${INK};">Your payment didn't go through</h1>
         <p style="margin:0 0 16px;font-size:15px;line-height:24px;color:${INK_SOFT};">
           We tried to charge ${params.amountLabel} for ReelCaster Pro and the card was declined.
-          Nothing has changed yet — <strong>your Pro features stay on until ${date}</strong> while you sort it out.
+          Nothing has changed yet. <strong>Your Pro features stay on until ${date}</strong> while you sort it out.
         </p>
         <p style="margin:0 0 24px;font-size:15px;line-height:24px;color:${INK_SOFT};">
           Update your card and we'll retry automatically.
         </p>
         <p style="margin:0 0 8px;">${button('https://www.reelcaster.com/profile', 'Update payment method')}</p>
       </td></tr>`,
-      `Pro stays on until ${date} — update your card to keep it.`,
+      `Pro stays on until ${date}. Update your card to keep it.`,
     ),
   };
 }
@@ -112,7 +112,7 @@ export function trialUnavailableEmail(params: {
           this one and <strong>you have not been charged</strong>.
         </p>
         <p style="margin:0 0 24px;font-size:15px;line-height:24px;color:${INK_SOFT};">
-          You're welcome to subscribe at ${params.amountLabel} a year whenever you like — and if you think
+          You're welcome to subscribe at ${params.amountLabel} a year whenever you like, and if you think
           this is a mistake (a shared card will do it), just reply to this email and we'll sort it out.
         </p>
         <p style="margin:0 0 8px;">${button('https://www.reelcaster.com/plans', 'See Pro pricing')}</p>

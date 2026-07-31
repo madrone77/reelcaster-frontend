@@ -88,14 +88,14 @@ function BillingSuccessInner() {
               Activating your account…
             </div>
           ) : status?.is_active ? (
-            <div className="mt-6 text-sm text-green-400">All set — taking you to Explore.</div>
+            <div className="mt-6 text-sm text-green-400">All set. Taking you to Explore.</div>
           ) : (
             <div className="mt-6 text-sm text-rc-text-muted">
               Stripe is still finalizing your subscription. You can{' '}
               <Link href="/explore" className="text-blue-400 hover:text-blue-300 underline">
                 head to Explore
-              </Link>{' '}
-              — Pro features unlock as soon as the webhook lands.
+              </Link>
+              . Pro features unlock as soon as the webhook lands.
             </div>
           )}
         </div>

@@ -7,7 +7,7 @@ import { siteUrl } from '@/lib/site';
 export const metadata: Metadata = {
   title: 'Checkout | ReelCaster Pro',
   description:
-    'Start your 7-day free trial of ReelCaster Pro — 14-day forecasts, private spots, and condition alerts. $33 a year after the trial.',
+    'Start your 7-day free trial of ReelCaster Pro: 14-day forecasts, private spots, and condition alerts. $33 a year after the trial.',
   alternates: { canonical: siteUrl('/plans/checkout') },
   // A checkout page has nothing to offer search. /plans is the indexable one.
   robots: { index: false, follow: true },
@@ -46,7 +46,7 @@ export default async function PlansCheckoutPage() {
       <footer className="mt-14 border-t border-rc-rule pt-8 text-center">
         <p className="text-xs leading-relaxed text-rc-ink-mute">
           Billing handled by Stripe. Regulations shown in ReelCaster are
-          reference only — always verify with DFO before you fish.
+          reference only; always verify with DFO before you fish.
         </p>
       </footer>
     </article>

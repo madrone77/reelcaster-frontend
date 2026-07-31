@@ -48,7 +48,7 @@ const HEADLINE_FEATURES = [
 const MORE_FEATURES = [
   'Save every spot you fish',
   'Every covered city, one price',
-  'Cancel anytime — your free account stays',
+  'Cancel anytime, your free account stays',
 ];
 
 interface CheckoutStatus {
@@ -265,7 +265,7 @@ export default function CheckoutPanel({
         <h2 className="text-xl font-bold text-rc-ink">You’re already on Pro</h2>
         <p className="mt-2 text-sm leading-relaxed text-rc-good-ink">
           {status.status === 'trialing'
-            ? 'Your trial is running — nothing more to do right now.'
+            ? 'Your trial is running, nothing more to do right now.'
             : 'Your subscription is active. Nothing to buy here.'}
         </p>
         <div className="mt-5 flex flex-wrap gap-2">
@@ -304,7 +304,7 @@ export default function CheckoutPanel({
         <p className="mt-3 max-w-prose text-sm leading-relaxed text-rc-ink-soft md:text-base">
           {trialOn ? (
             <>
-              Full Pro from the moment you finish — every feature, no limits
+              Full Pro from the moment you finish: every feature, no limits
               for {trialDays} days.
             </>
           ) : (
@@ -355,8 +355,8 @@ export default function CheckoutPanel({
         {/* The differentiator worth stating at the point of payment. */}
         <div className="mt-8 rounded-lg border border-rc-rule bg-rc-surface p-4 text-sm leading-relaxed text-rc-ink-soft">
           <strong className="text-rc-ink">Cancel and nothing disappears.</strong>{' '}
-          Your spots, your catch log, and your 7-day forecast stay free forever
-          — you just lose the Pro extras.
+          Your spots, your catch log, and your 7-day forecast stay free forever;
+          you just lose the Pro extras.
         </div>
       </div>
 
@@ -463,7 +463,7 @@ export default function CheckoutPanel({
                 ? 'Drop a waitlist pin'
                 : trialOn
                   ? `Start ${trialDays}-day free trial`
-                  : `Subscribe — ${dollars(priceCents)}/${yearly ? 'yr' : 'mo'}`}
+                  : `Subscribe · ${dollars(priceCents)}/${yearly ? 'yr' : 'mo'}`}
           </button>
 
           <p className="mt-3 flex items-center justify-center gap-1.5 text-xs text-rc-ink-mute">
@@ -478,7 +478,7 @@ export default function CheckoutPanel({
               <rect x="3" y="7" width="10" height="7" rx="1.5" />
               <path d="M5.5 7V5a2.5 2.5 0 015 0v2" />
             </svg>
-            Card entered securely on Stripe — we never see it
+            Card entered securely on Stripe, and we never see it
           </p>
 
           {/* Auto-renewal disclosure. Required, and deliberately not buried. */}
