@@ -38,6 +38,10 @@ const FEATURE_COPY: Record<string, { title: string; body: string }> = {
     title: 'The full two weeks',
     body: 'See the whole hourly outlook fourteen days out — plan trips, time the tide, and follow the season instead of guessing at it.',
   },
+  'custom-spots': {
+    title: 'Your pin, our full model',
+    body: 'Pro scores a spot we don’t publish — drop it anywhere inside a city we cover and it gets the same model run as everything else on the map.',
+  },
   'spot-horizon': {
     title: 'The full forecast on this spot',
     body: 'Pro opens the complete 14-day window with hourly detail and 5-species comparison on every spot page.',

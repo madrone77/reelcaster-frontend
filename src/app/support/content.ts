@@ -397,7 +397,7 @@ export const ARTICLES: Article[] = [
     topic: 'Alerts',
     tags: ['sms', 'text', 'phone', 'push'],
     answer:
-      'Not yet. Phone verification exists in your profile and SMS delivery is built for Pro, but it is not switched on. Email is the only live channel today. It is on the roadmap rather than in the product, and we would rather say so than list it as shipped.',
+      'Yes, on Pro. Verify your phone in your profile, then turn on SMS delivery per alert — you can run email and SMS on the same alert, or either on its own. Free accounts get email only. Standard message rates from your carrier apply, and replying STOP unsubscribes you from all of them.',
   },
 
   // ---- Catch log
@@ -565,15 +565,6 @@ export const KNOWN_ISSUES: KnownIssue[] = [
       'Scores are captured at log time from the live forecast window. Catches outside that window, or logged before their spot was first scored, show a dash permanently rather than being back-filled.',
     workaround:
       'The conditions snapshot on those catches is complete and historical — only the single score number is missing.',
-  },
-  {
-    id: 'sms-not-live',
-    title: 'SMS alert delivery is not switched on',
-    state: 'in_progress',
-    detail:
-      'Phone verification appears in your profile and SMS is built for Pro, but delivery is not live. Email is the only channel currently sending.',
-    workaround:
-      'Email alerts are unaffected. Add noreply@reelcaster.com to your contacts so they do not land in spam.',
   },
 ];
 

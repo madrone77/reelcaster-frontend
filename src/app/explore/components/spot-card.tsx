@@ -10,8 +10,8 @@ import { useSubscription } from "@/hooks/use-subscription";
 import { bestWindow } from "./hourly-bars";
 import SpotTrend from "./spot-trend";
 
-const UpgradeRequiredModal = dynamic(
-  () => import("@/app/components/paywall/upgrade-required-modal"),
+const ProTrialModal = dynamic(
+  () => import("@/app/components/paywall/pro-trial-modal"),
   { ssr: false },
 );
 
@@ -214,16 +214,11 @@ export default function SpotCard({
         </button>
       </div>
 
-      <UpgradeRequiredModal
+      <ProTrialModal
         open={upgradeOpen}
-        onClose={() => setUpgradeOpen(false)}
+        onOpenChange={setUpgradeOpen}
         feature="favorite-spots"
-        headline="Upgrade to save more spots"
-        bullets={[
-          "Unlimited favorite spots",
-          "Reorder + score sparklines",
-          "Full 14-day outlook & alerts",
-        ]}
+        from="explore-rail"
       />
     </div>
   );

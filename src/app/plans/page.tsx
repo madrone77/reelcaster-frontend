@@ -7,6 +7,7 @@ import {
   annualDiscount,
 } from '@/lib/pricing';
 import { TRIAL_DAYS } from '@/lib/trial';
+import { PLAN_FEATURES } from '@/lib/plan-features';
 import PlansFeatureCallout from '@/app/components/plans/plans-feature-callout';
 import {
   breadcrumbJsonLd,
@@ -104,50 +105,11 @@ function dollars(cents: number): string {
   return Number.isInteger(v) ? `$${v}` : `$${v.toFixed(2)}`;
 }
 
-/**
- * The comparison table.
- *
- * LIVE FEATURES ONLY — everything here is a promise attached to a charge, so
- * nothing lands on this table before it actually works.
- *
- * Note that "live" is not the same as "gated". Depth, hourly currents,
- * photo-analysed catch logging, and guide-reviewed spots all ship today and
- * are free to everyone, so they sit in BOTH columns. Listing them is what
- * makes the product look as deep as it is; hiding them because they aren't
- * paywalled would undersell the free tier and make Pro read as a wall rather
- * than an addition.
- *
- * Ordering is the argument: eight rows of "this is a serious tool, and it's
- * free", then six rows of what paying adds. The hinge is the adjacency of
- * "Plan a week ahead" (free) and "Plan the full two weeks" (Pro) — the first
- * is what makes an account worth creating, the second is the obvious next
- * step from it. Keep them next to each other.
- *
- * Regulation-change alerts are still deliberately absent: built, not gated,
- * and not yet a thing a customer can switch on.
- */
-const FEATURES: { label: string; free: boolean }[] = [
-  // Trust first: every published spot has been through local-guide review.
-  { label: 'Spots checked by a local guide before they go live', free: true },
-  { label: 'See today’s bite score', free: true },
-  { label: 'Read the bottom — depth and structure', free: true },
-  { label: 'Watch the tide push through, hour by hour', free: true },
-  { label: 'Check the regs before you go', free: true },
-  { label: 'Log a catch straight from the photo', free: true },
-  { label: 'Plan a week ahead', free: true },
-  // ── everything below is what paying adds ──
-  { label: 'Plan the full two weeks', free: false },
-  { label: 'Save every spot you fish', free: false },
-  // Deliberately NOT "add your own spots" — that reads as another way of
-  // saying "save", which is what it looked like before. The value is that a
-  // spot we don't publish gets the full model run on it, not that you can
-  // drop a pin.
-  { label: 'Score a spot we don’t cover — your pin, our full model', free: false },
-  // One row, not two. "Get alerted" and "get it by text" is one feature and
-  // its delivery channel; splitting them padded the list and read as filler.
-  { label: 'Alerts when it’s on — by text or email', free: false },
-  { label: 'Every covered city, one price', free: false },
-];
+// The comparison table's rows, their order, and the free/pro split now live in
+// `@/lib/plan-features` — the same list the in-app upgrade modal renders, so
+// this page and every paywall prompt can't drift apart. The rationale for what
+// belongs on it (live features only; free rows first; keep "Plan a week ahead"
+// adjacent to "Plan the full two weeks") is documented there.
 
 const FAQ: { q: string; a: React.ReactNode }[] = [
   {
@@ -331,7 +293,7 @@ export default function PlansPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {FEATURES.map((f, i) => (
+                  {PLAN_FEATURES.map((f, i) => (
                     <tr
                       key={f.label}
                       className={i % 2 === 0 ? 'bg-rc-surface' : undefined}

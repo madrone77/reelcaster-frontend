@@ -40,6 +40,7 @@ import MobileMapSheet from "./components/mobile-map-sheet";
 import MobileFilterSheet from "./components/mobile-filter-sheet";
 import ForecastStrip from "./components/forecast-strip";
 import CreateAlertDialog from "./spot/components/create-alert-dialog";
+import ProTrialModal from "@/app/components/paywall/pro-trial-modal";
 import SignupGateDialog, {
   type AuthIntent,
 } from "./spot/components/signup-gate-dialog";
@@ -488,6 +489,7 @@ export default function ExploreShell({
   //    the sign-up gate first (parity with the spot page). ────────────────
   const [alertSpot, setAlertSpot] = useState<RailSpot | null>(null);
   const [alertOpen, setAlertOpen] = useState(false);
+  const [alertUpgradeOpen, setAlertUpgradeOpen] = useState(false);
   const [authIntent, setAuthIntent] = useState<AuthIntent | null>(null);
 
   const handleSetAlert = useCallback(
@@ -923,8 +925,16 @@ export default function ExploreShell({
           }}
           speciesOptions={alertSpeciesOptions}
           initialSpeciesId={alertSpot.bestSpeciesId}
+          onUpgradeRequired={() => setAlertUpgradeOpen(true)}
         />
       )}
+
+      <ProTrialModal
+        open={alertUpgradeOpen}
+        onOpenChange={setAlertUpgradeOpen}
+        feature="alerts"
+        from="explore"
+      />
 
       <SignupGateDialog
         open={authIntent !== null}
