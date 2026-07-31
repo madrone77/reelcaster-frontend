@@ -7,6 +7,7 @@ import { Wind, Waves, Navigation, Lock, Globe } from "lucide-react";
 import { TIER_PILL, type RailSpot, type Tier } from "../lib/explore-data";
 import { useFavorite, favoriteCount } from "../lib/use-favorite";
 import { useSubscription } from "@/hooks/use-subscription";
+import { FREE_FAVORITE_SPOTS } from "@/lib/plan-features";
 import { bestWindow } from "./hourly-bars";
 import SpotTrend from "./spot-trend";
 
@@ -15,8 +16,6 @@ const ProTrialModal = dynamic(
   { ssr: false },
 );
 
-/** Free tier may favorite this many spots before hitting the upgrade cap. */
-const FREE_FAV_CAP = 1;
 
 /**
  * Rail spot card. No hover-only actions: header + score badge, a plain-English
@@ -70,7 +69,7 @@ export default function SpotCard({
   const onStar = (e: React.MouseEvent) => {
     e.stopPropagation();
     // Turning a favorite ON while at the free cap → upgrade modal (never a silent no-op).
-    if (!fav && !isPaid && favoriteCount() >= FREE_FAV_CAP) {
+    if (!fav && !isPaid && favoriteCount() >= FREE_FAVORITE_SPOTS) {
       setUpgradeOpen(true);
       return;
     }

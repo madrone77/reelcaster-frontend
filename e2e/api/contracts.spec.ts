@@ -5,7 +5,7 @@ import { getAccessToken, authedFetch } from '../fixtures/auth-helpers';
 
 /**
  * Phase 0 contract baseline: documents the existing tier-gating behavior
- * (alerts: 1 free / 10 paid; favorites: 5 free / unlimited paid) so later
+ * (alerts: 1 free / 10 paid; favorites: 1 free / unlimited paid) so later
  * phases can refactor the API without silently breaking the contract.
  *
  * These specs require a populated .env.test. They skip themselves if the
@@ -65,24 +65,23 @@ test.describe('Phase 0 contract: favorites tier limits', () => {
     await resetUserState(freeUser.email);
   });
 
-  test('6th favorite returns upgrade_required for free user', async ({ request }) => {
+  test('2nd favorite returns upgrade_required for free user', async ({ request }) => {
     const token = await getAccessToken(freeUser);
-    for (let i = 0; i < 5; i++) {
-      const r = await authedFetch(request, token, '/api/favorite-spots', {
-        method: 'POST',
-        body: minimalFavoriteBody(`Smoke spot ${i + 1}`, 48.4 + i * 0.01, -123.36),
-      });
-      expect
-        .soft(r.status(), `seeding failed at i=${i}: ${await r.text().catch(() => '')}`)
-        .toBeLessThan(400);
-    }
-    const sixth = await authedFetch(request, token, '/api/favorite-spots', {
+    const first = await authedFetch(request, token, '/api/favorite-spots', {
       method: 'POST',
-      body: minimalFavoriteBody('Smoke spot 6', 48.5, -123.4),
+      body: minimalFavoriteBody('Smoke spot 1', 48.4, -123.36),
+    });
+    expect
+      .soft(first.status(), `seeding failed: ${await first.text().catch(() => '')}`)
+      .toBeLessThan(400);
+
+    const second = await authedFetch(request, token, '/api/favorite-spots', {
+      method: 'POST',
+      body: minimalFavoriteBody('Smoke spot 2', 48.5, -123.4),
     });
     // /api/favorite-spots returns 402 (Payment Required); /api/alerts returns 400.
-    expect([400, 402]).toContain(sixth.status());
-    const body = await sixth.json();
+    expect([400, 402]).toContain(second.status());
+    const body = await second.json();
     expect(body.upgrade_required).toBe(true);
   });
 });

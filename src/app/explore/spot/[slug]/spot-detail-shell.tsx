@@ -6,6 +6,7 @@ import dynamic from "next/dynamic";
 import { ArrowUpCircle, ChevronLeft, ChevronRight, Home } from "lucide-react";
 import { useAuth } from "@/contexts/auth-context";
 import { useSubscription } from "@/hooks/use-subscription";
+import { FREE_FAVORITE_SPOTS } from "@/lib/plan-features";
 import { favoriteCount } from "../../lib/use-favorite";
 import ExploreTopBar from "../../components/explore-top-bar";
 import DayCell from "../../components/day-cell";
@@ -58,8 +59,6 @@ const ProTrialModal = dynamic(
 );
 
 const TZ = "America/Vancouver";
-/** Free tier may favorite this many spots before hitting the upgrade cap. */
-const FREE_FAV_CAP = 1;
 
 const REG_PILL: Record<string, string> = {
   Open: "bg-rc-good-bg text-rc-good-ink",
@@ -123,7 +122,7 @@ export default function SpotDetailShell({
   // rail SpotCard star interaction exactly, including the free-tier cap.
   const [savePop, setSavePop] = useState(false);
   const handleToggleSaved = () => {
-    if (!saved && !isPaid && favoriteCount() >= FREE_FAV_CAP) {
+    if (!saved && !isPaid && favoriteCount() >= FREE_FAVORITE_SPOTS) {
       setFavUpgradeOpen(true);
       return;
     }

@@ -28,11 +28,26 @@
  *   forecast horizon  src/app/explore/lib/forecast-strip.ts (+ the two
  *                     forecast-14d route mirrors)
  *   alerts            src/app/api/alerts/route.ts
- *   favourites        src/app/explore/**  (FREE_FAV_CAP)
+ *   favourites        FREE_FAVORITE_SPOTS below — imported by both the
+ *                     /explore star buttons and /api/favorite-spots
  *   custom spots      src/app/api/bluecaster/fishing-spots/custom/route.ts
  */
 
 import { ANNUAL_PRICE_CENTS, MONTHLY_PRICE_CENTS, TRIAL_DAYS } from "./pricing";
+
+/**
+ * How many spots a free account may save. Pro is unlimited, so there is no
+ * matching PRO constant to keep in step.
+ *
+ * Two *separate* stores enforce this and they used to disagree: the /explore
+ * star buttons keep favourites in localStorage (`rc-fav:<slug>`, see
+ * `explore/lib/use-favorite.ts`) and capped at 1, while the DB-backed
+ * `POST /api/favorite-spots` capped at 5 — and the sales copy claimed both
+ * numbers. They read one constant now. Note the star does NOT write to that
+ * table; the route's only callers today are the e2e specs, so the two counts
+ * still can't see each other. Unifying them is separate work.
+ */
+export const FREE_FAVORITE_SPOTS = 1;
 
 export type PlanTierId = "anon" | "free" | "pro";
 

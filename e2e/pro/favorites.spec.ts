@@ -5,8 +5,9 @@ import { getAccessToken, authedFetch } from '../fixtures/auth-helpers';
 /**
  * Phase 5 — Favorites Pro upgrade.
  *
- * Pro users can save more than 5 spots. (The /my-spots UI spec was removed
- * with the page; this is now an API-level contract.)
+ * Pro users are uncapped. A free account stops at FREE_FAVORITE_SPOTS (1),
+ * so saving several in a row is the thing only Pro can do. (The /my-spots UI
+ * spec was removed with the page; this is now an API-level contract.)
  */
 
 test.describe.configure({ mode: 'serial' });
@@ -16,7 +17,7 @@ test.beforeEach(async () => {
   await resetUserState(proUser.email);
 });
 
-test('Pro user can save more than the free 5-spot cap', async ({ request }) => {
+test('Pro user can save well past the free one-spot cap', async ({ request }) => {
   const token = await getAccessToken(proUser);
   for (let i = 0; i < 7; i++) {
     const r = await authedFetch(request, token, '/api/favorite-spots', {
