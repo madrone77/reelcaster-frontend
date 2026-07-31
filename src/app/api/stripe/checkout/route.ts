@@ -2,12 +2,15 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { getStripe, appOrigin } from '@/lib/stripe';
 import {
+  ANNUAL_PRICE_ID,
   currencyForRegion,
   priceIdFor,
   TRIAL_DAYS,
   type BillingCurrency,
   type PricingPlan,
 } from '@/lib/pricing';
+import { checkTrialEligibility } from '@/lib/trial';
+import { resolveEntitlement } from '@/lib/entitlement';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -69,7 +72,8 @@ export async function POST(request: NextRequest) {
   if (!priceId) {
     // The plan's STRIPE_*_PRICE_ID env var is unset (see src/lib/pricing.ts).
     // Fail with JSON rather than crashing on an empty line_items price, which
-    // surfaces as an unparseable 500 client-side.
+    // surfaces as an unparseable 500 client-side. The annual plan carries the
+    // trial, so this gap takes the trial down with it.
     console.error(`[stripe checkout] no price ID configured for plan "${plan}"`);
     return NextResponse.json({ error: 'plan_unavailable', plan }, { status: 503 });
   }
@@ -148,6 +152,15 @@ export async function POST(request: NextRequest) {
         .eq('user_id', user.id);
     }
 
+    // Four independent gates, all of which must pass. The first three are the
+    // abuse guards in src/lib/trial.ts (per-account flag, normalized-email
+    // hash, and — later, in the webhook — the card fingerprint). The fourth is
+    // Stripe's own subscription history, which catches something the others
+    // don't: a customer who subscribed WITHOUT ever taking a trial, cancelled,
+    // and came back. Ineligible customers are never told why; they simply go
+    // through normal paid checkout.
+    const eligibility = await checkTrialEligibility(admin, user.id, user.email);
+
     // A just-created customer can't have prior subscriptions; anyone else gets
     // one cheap history check. On a transient Stripe failure here, err toward
     // granting the trial rather than failing the whole checkout.
@@ -165,7 +178,16 @@ export async function POST(request: NextRequest) {
         );
       }
     }
-    const trialEligible = !hadSubscription;
+
+    const trialEligible = eligibility.eligible && !hadSubscription;
+
+    if (!trialEligible) {
+      console.info(
+        '[stripe checkout] trial withheld',
+        user.id,
+        eligibility.reason ?? (hadSubscription ? 'prior_subscription' : 'unknown'),
+      );
+    }
 
     const origin = appOrigin(request);
     const session = await stripe.checkout.sessions.create({
@@ -174,6 +196,9 @@ export async function POST(request: NextRequest) {
       currency,
       line_items: [{ price: priceId, quantity: 1 }],
       allow_promotion_codes: true,
+      // Explicit even though it's the default for subscription mode: the whole
+      // trial design assumes a card is on file when the trial ends.
+      payment_method_collection: 'always',
       success_url: `${origin}/billing/success?session_id={CHECKOUT_SESSION_ID}`,
       cancel_url: `${origin}/billing/cancel`,
       metadata: {
@@ -185,17 +210,30 @@ export async function POST(request: NextRequest) {
         trial: String(trialEligible),
       },
       subscription_data: {
-        ...(trialEligible ? { trial_period_days: TRIAL_DAYS } : {}),
         metadata: {
           supabase_user_id: user.id,
           plan,
           currency,
           trial: String(trialEligible),
         },
+        ...(trialEligible
+          ? {
+              trial_period_days: TRIAL_DAYS,
+              trial_settings: {
+                // No card at trial end = cancel, never leave a subscription
+                // hanging in an unpayable state.
+                end_behavior: { missing_payment_method: 'cancel' as const },
+              },
+            }
+          : {}),
       },
     });
 
-    return NextResponse.json({ url: session.url, id: session.id });
+    return NextResponse.json({
+      url: session.url,
+      id: session.id,
+      trial_days: trialEligible ? TRIAL_DAYS : 0,
+    });
   } catch (err) {
     // A Stripe/database failure here otherwise escapes as a bodyless 500 the
     // client can't JSON-parse. Log the real cause, return a stable shape.
@@ -222,23 +260,24 @@ export async function GET(request: NextRequest) {
   const url = new URL(request.url);
   const sessionId = url.searchParams.get('session_id');
 
-  const { data: settings } = await admin
-    .from('user_settings')
-    .select('subscription_tier, subscription_status, subscription_period_end')
-    .eq('user_id', user.id)
-    .maybeSingle();
+  const entitlement = await resolveEntitlement(admin, user.id);
 
-  const tier = settings?.subscription_tier ?? 'free';
-  const status = settings?.subscription_status ?? 'none';
-  const isActive =
-    (tier === 'pro_annual' || tier === 'pro_monthly') &&
-    (status === 'active' || status === 'trialing');
+  // /plans/checkout needs this BEFORE the customer clicks: a page that
+  // promises "7 days free" and then charges immediately is the exact thing
+  // the FTC negative-option rule is about. Repeat customers see plain paid
+  // terms instead — never an explanation of why.
+  const trialEligibility = await checkTrialEligibility(admin, user.id, user.email);
+  const annualAvailable = Boolean(ANNUAL_PRICE_ID);
 
   return NextResponse.json({
     session_id: sessionId,
-    tier,
-    status,
-    is_active: isActive,
-    period_end: settings?.subscription_period_end ?? null,
+    tier: entitlement.tier,
+    status: entitlement.status,
+    is_active: entitlement.isPro,
+    in_grace: entitlement.inGrace,
+    period_end: entitlement.periodEnd,
+    trial_available: annualAvailable && trialEligibility.eligible,
+    trial_days: TRIAL_DAYS,
+    annual_available: annualAvailable,
   });
 }

@@ -137,7 +137,7 @@ export default function SubscriptionCard() {
             asChild
             className="w-full bg-rc-brand hover:bg-rc-brand-hover text-white"
           >
-            <Link href="/pricing?from=profile">
+            <Link href="/plans?from=profile">
               Upgrade to Pro
             </Link>
           </Button>

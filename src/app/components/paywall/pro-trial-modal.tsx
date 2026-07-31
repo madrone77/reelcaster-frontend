@@ -18,6 +18,7 @@ import {
   NAG_FEATURES,
   PLAN_FEATURES,
   PLAN_TIERS,
+  PRO_ROW_START,
   nagHeadline,
   nagSubhead,
   type NagFeatureId,
@@ -32,7 +33,7 @@ import {
  *      trial to create an alert". The headline names the action, so the modal
  *      never reads as a generic interruption.
  *   2. Show the whole plan matrix underneath, so the decision is made here
- *      instead of on a round trip to /pricing.
+ *      instead of on a round trip to /plans.
  *
  * The viewer's current tier column is marked, and the row that blocked them is
  * highlighted, so "what I have" and "what I'd get" are both one glance.
@@ -45,7 +46,7 @@ export default function ProTrialModal({
   feature,
   /** Overrides the auto-detected tier. Only for surfaces that already know. */
   viewerTier: viewerTierProp,
-  /** Where the CTA lands. Defaults to /pricing carrying the feature context. */
+  /** Where the CTA lands. Defaults to /plans carrying the feature context. */
   ctaHref,
   /** Analytics + deep-link context for where the nag fired. */
   from = "explore",
@@ -72,7 +73,7 @@ export default function ProTrialModal({
     ctaHref ??
     (sellsAccount
       ? `/signup?next=${encodeURIComponent("/explore")}`
-      : `/pricing?from=${encodeURIComponent(from)}&feature=${encodeURIComponent(
+      : `/plans?from=${encodeURIComponent(from)}&feature=${encodeURIComponent(
           nag.pricingFeature,
         )}`);
   const ctaLabel = sellsAccount
@@ -189,41 +190,32 @@ function PlanMatrix({
         })}
       </div>
 
-      {PLAN_FEATURES.map((group) => (
-        <div key={group.id}>
-          <div className="px-4 sm:px-6 pt-4 pb-1.5 rc-label text-rc-ink-mute">
-            {group.label}
+      {PLAN_FEATURES.map((row, i) => {
+        const hit = row.id === highlightRowId;
+        return (
+          <div
+            key={row.id}
+            data-row={row.id}
+            data-highlighted={hit || undefined}
+            className={`${COL} items-center px-4 sm:px-6 py-2 border-t ${
+              // The seam between "free and serious" and "what paying adds" —
+              // the one place the table makes an argument rather than a list.
+              i === PRO_ROW_START ? "border-rc-rule" : "border-rc-rule/60"
+            } ${hit ? "bg-rc-brand-soft" : ""}`}
+          >
+            <div
+              className={`pr-3 text-[13px] leading-snug ${
+                hit ? "font-semibold text-rc-ink" : "text-rc-ink-soft"
+              }`}
+            >
+              {row.label}
+            </div>
+            {PLAN_TIERS.map((t) => (
+              <Cell key={t.id} value={row[t.id]} emphasis={t.id === "pro"} />
+            ))}
           </div>
-          {group.rows.map((row) => {
-            const hit = row.id === highlightRowId;
-            return (
-              <div
-                key={row.id}
-                data-row={row.id}
-                data-highlighted={hit || undefined}
-                className={`${COL} items-center px-4 sm:px-6 py-2 border-t border-rc-rule/60 ${
-                  hit ? "bg-rc-brand-soft" : ""
-                }`}
-              >
-                <div
-                  className={`pr-3 text-[13px] leading-snug ${
-                    hit ? "font-semibold text-rc-ink" : "text-rc-ink-soft"
-                  }`}
-                >
-                  {row.label}
-                </div>
-                {PLAN_TIERS.map((t) => (
-                  <Cell
-                    key={t.id}
-                    value={row[t.id]}
-                    emphasis={t.id === "pro"}
-                  />
-                ))}
-              </div>
-            );
-          })}
-        </div>
-      ))}
+        );
+      })}
 
       <p className="px-4 sm:px-6 py-4 text-[11px] leading-relaxed text-rc-ink-mute border-t border-rc-rule">
         Pro is sold in British Columbia, Washington, and Oregon. Billed in CAD

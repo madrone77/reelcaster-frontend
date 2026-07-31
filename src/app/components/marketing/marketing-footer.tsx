@@ -26,7 +26,7 @@ export default function MarketingFooter() {
           <ul className="space-y-2 text-rc-ink-soft">
             <li><Link href="/explore" className="hover:text-rc-ink">Explore the map</Link></li>
             <li><Link href="/catches" className="hover:text-rc-ink">Catch log</Link></li>
-            <li><Link href="/pricing" className="hover:text-rc-ink">Pro pricing</Link></li>
+            <li><Link href="/plans" className="hover:text-rc-ink">Pro plans</Link></li>
           </ul>
         </div>
 

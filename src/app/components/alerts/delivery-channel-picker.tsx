@@ -35,7 +35,7 @@ export default function DeliveryChannelPicker({
   /**
    * Fires when a non-Pro user taps the SMS upgrade button — the host opens
    * `<ProTrialModal feature="sms-alerts">`. Without it the row links to
-   * /pricing, for hosts that can't own a modal.
+   * /plans, for hosts that can't own a modal.
    */
   onUpgradeRequired?: () => void;
   /** Change this to collapse the verify UI — e.g. pass a dialog's `open`. */
@@ -217,7 +217,7 @@ export default function DeliveryChannelPicker({
             </button>
           ) : (
             <Link
-              href="/pricing?from=alerts&feature=alerts"
+              href="/plans?from=alerts&feature=alerts"
               className="shrink-0 px-3 py-1.5 rounded-lg bg-rc-brand hover:bg-rc-brand-hover text-white text-xs font-semibold transition-colors"
             >
               UPGRADE

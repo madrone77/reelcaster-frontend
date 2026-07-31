@@ -912,21 +912,23 @@ What actually gates routes today:
 ## Plan matrix + upgrade modal (2026-07-31)
 
 **`src/lib/plan-features.ts` is the single source of truth for what each tier
-gets.** Before it, the answer lived in the pricing card's `FEATURES`, the
-paywall card's `DEFAULT_BULLETS`, the FAQ, `support/content.ts`, and a dozen
-server limit constants — and they had already drifted (the favourites cap still
-reads 1 in the explore UI, 5 in `api/favorite-spots`). The module carries
-`PLAN_TIERS` (anon / free / pro), `PLAN_FEATURES` (grouped rows, one cell per
-tier) and `NAG_FEATURES` (the action that hit the wall → headline copy, the row
-to highlight, and the `?feature=` key). **Change a limit here in the same PR you
-change its enforcement**, and keep the enforcement pointers in the file header
-current.
+gets.** It holds the /plans comparison table's rows *and their order* — the
+rationale for what may go on the table (live features only; the free block
+first; keep "Plan a week ahead" adjacent to "Plan the full two weeks") lives in
+that file's header. `/plans` renders the `free`/`pro` columns from it; the
+in-app upgrade modal renders the same rows plus an `anon` column, so the sales
+page and every paywall prompt cannot drift apart. Before this, the answer lived
+in the plans table, the paywall card's `DEFAULT_BULLETS`, the FAQ,
+`support/content.ts` and a dozen server limit constants. **Change a limit here
+in the same PR you change its enforcement.**
 
 `src/app/components/paywall/pro-trial-modal.tsx` renders it: a headline naming
 what the angler just tried to do ("Start your 7-day Pro trial to create an
-alert"), then the full three-column matrix with the viewer's column marked and
-the blocking row highlighted. A signed-out visitor blocked by something a *free*
-account unlocks is sent to `/signup`, not `/pricing`.
+alert"), then the matrix with the viewer's column marked and the blocking row
+highlighted. A signed-out visitor blocked by something a *free* account unlocks
+is sent to `/signup`, not `/plans`. `NAG_FEATURES` maps each wall to its
+headline, its row, and the `?feature=` slug — which must match a key in
+`components/plans/plans-feature-callout.tsx` or the callout renders nothing.
 
 Wired on /explore at: the favourites cap (rail card, drawer, spot page),
 locked forecast days (via `explore/components/upgrade-dialog.tsx`, which is now
@@ -938,6 +940,10 @@ serve `/alerts` and `/support`.
 The custom-spots nag (`feature="custom-spots"`) is wired but unreachable: the
 "Create custom spot" map button is `isPaid &&` gated, so a free user never sees
 the wall.
+
+**Known drift:** the free favourites cap reads 1 in the explore UI
+(`FREE_FAV_CAP`) and on the /plans footnote, but 5 in `api/favorite-spots`
+(`FREE_TIER_LIMIT`) and in the plans callout copy. The matrix follows the UI.
 
 ### Alert delivery channels
 
