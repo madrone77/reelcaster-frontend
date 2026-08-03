@@ -5,6 +5,7 @@ import Image from 'next/image';
 import { usePathname } from 'next/navigation';
 import { useAuth } from '@/contexts/auth-context';
 import { btn } from '@/app/components/ui/button';
+import TrialModalButton from '@/app/components/paywall/trial-modal-button';
 
 export default function MarketingHeader() {
   const { user, loading, signOut } = useAuth();
@@ -57,13 +58,14 @@ export default function MarketingHeader() {
               >
                 Sign in
               </Link>
-              {/* Goes to the sales page, not /signup — the button says "free
-                  trial", and the trial is a Pro thing. /plans/checkout still
-                  routes to signup with next= preserved, so registration
-                  happens either way, just one step further down. */}
-              <Link href="/plans" className={btn.nav}>
+              {/* Opens the same trial modal as every other entry point —
+                  plan matrix, cadence, pay-first checkout, and the free-tier
+                  link at its foot. /plans is still there for anyone who wants
+                  to read the sales page first; it just isn't where a CTA
+                  labelled "start" dumps you. */}
+              <TrialModalButton from="marketing-header" className={btn.nav}>
                 Start free trial
-              </Link>
+              </TrialModalButton>
             </>
           )}
         </div>

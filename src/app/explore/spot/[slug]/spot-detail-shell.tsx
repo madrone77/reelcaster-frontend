@@ -208,8 +208,11 @@ export default function SpotDetailShell({
   const [alertOpen, setAlertOpen] = useState(false);
 
   const handleSetAlert = () => {
+    // Alerts are Pro-only, so a signed-out tap gets the full trial modal —
+    // matrix, cadence, pay-first checkout, free-tier link at its foot — not
+    // the slimmer sign-up gate, which exists for the FREE-tier walls.
     if (!user) {
-      setAuthIntent("alert");
+      setAlertUpgradeOpen(true);
       return;
     }
     setAlertOpen(true);

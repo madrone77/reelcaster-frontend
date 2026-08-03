@@ -1,6 +1,6 @@
 import Image from 'next/image';
-import Link from 'next/link';
 import { btn } from '@/app/components/ui/button';
+import TrialModalButton from '@/app/components/paywall/trial-modal-button';
 
 export default function SignalsSection() {
   return (
@@ -23,9 +23,12 @@ export default function SignalsSection() {
           <p className="mt-3 max-w-lg text-pretty text-sm md:text-base leading-relaxed text-rc-ink-soft">
             The higher the score, the better your opportunity.
           </p>
-          <Link href="/signup" className={`mt-9 ${btn.primaryLarge}`}>
+          <TrialModalButton
+            from="marketing-signals"
+            className={`mt-9 ${btn.primaryLarge}`}
+          >
             Start Free
-          </Link>
+          </TrialModalButton>
         </div>
 
         <div className="flex justify-center">

@@ -41,9 +41,6 @@ import MobileFilterSheet from "./components/mobile-filter-sheet";
 import ForecastStrip from "./components/forecast-strip";
 import CreateAlertDialog from "./spot/components/create-alert-dialog";
 import ProTrialModal from "@/app/components/paywall/pro-trial-modal";
-import SignupGateDialog, {
-  type AuthIntent,
-} from "./spot/components/signup-gate-dialog";
 
 const MAP_TZ = "America/Vancouver";
 
@@ -490,13 +487,13 @@ export default function ExploreShell({
   const [alertSpot, setAlertSpot] = useState<RailSpot | null>(null);
   const [alertOpen, setAlertOpen] = useState(false);
   const [alertUpgradeOpen, setAlertUpgradeOpen] = useState(false);
-  const [authIntent, setAuthIntent] = useState<AuthIntent | null>(null);
 
   const handleSetAlert = useCallback(
     (spot: RailSpot) => {
       setAlertSpot(spot);
+      // Pro-only feature → the full trial modal, not the sign-up gate.
       if (!user) {
-        setAuthIntent("alert");
+        setAlertUpgradeOpen(true);
         return;
       }
       setAlertOpen(true);
@@ -935,15 +932,6 @@ export default function ExploreShell({
         feature="alerts"
         from="explore"
         spotName={alertSpot?.name}
-      />
-
-      <SignupGateDialog
-        open={authIntent !== null}
-        onOpenChange={(o) => {
-          if (!o) setAuthIntent(null);
-        }}
-        intent={authIntent ?? "alert"}
-        spotName={alertSpot?.name ?? ""}
       />
     </div>
   );

@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import TrialModalButton from '@/app/components/paywall/trial-modal-button';
 
 const LEGAL_LINKS: Array<{ href: string; label: string }> = [
   { href: '/privacy', label: 'Privacy' },
@@ -50,7 +51,11 @@ export default function MarketingFooter() {
         <div>
           <h4 className="rc-label text-[10px] mb-3">Account</h4>
           <ul className="space-y-2 text-rc-ink-soft">
-            <li><Link href="/signup" className="hover:text-rc-ink">Start free</Link></li>
+            <li>
+              <TrialModalButton from="marketing-footer" className="hover:text-rc-ink">
+                Start free
+              </TrialModalButton>
+            </li>
             <li><Link href="/login" className="hover:text-rc-ink">Sign in</Link></li>
           </ul>
         </div>
