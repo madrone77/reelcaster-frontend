@@ -2,7 +2,11 @@
 
 import { useEffect, useRef, useState } from "react";
 import { CloudSun } from "lucide-react";
-import type { ForecastStripModel, ForecastDay } from "../lib/forecast-strip";
+import type {
+  ForecastStripModel,
+  ForecastDay,
+  LockTier,
+} from "../lib/forecast-strip";
 import DayRow from "./day-row";
 import DayScrubCell from "./day-scrub-cell";
 import UpgradeDialog from "./upgrade-dialog";
@@ -35,6 +39,10 @@ export default function SheetForecast({
   signedIn: boolean;
 }) {
   const [upgradeOpen, setUpgradeOpen] = useState(false);
+  // Which plan the tapped day needs. A "Sign up free" day (3-7) sells the
+  // account; an "Upgrade to Pro" day (8-14) sells Pro even to a signed-out
+  // visitor, who would otherwise get a sign-up form after a Pro promise.
+  const [lockTier, setLockTier] = useState<LockTier>("pro");
   const rowRefs = useRef<Record<string, HTMLDivElement | null>>({});
 
   // Bring the freshly-expanded day into view so its scrub lane isn't below the
@@ -56,6 +64,7 @@ export default function SheetForecast({
 
   const handleDay = (day: ForecastDay) => {
     if (day.locked) {
+      setLockTier(day.lockTier ?? "pro");
       setUpgradeOpen(true);
       return;
     }
@@ -128,7 +137,7 @@ export default function SheetForecast({
       <UpgradeDialog
         open={upgradeOpen}
         onOpenChange={setUpgradeOpen}
-        variant={signedIn ? "pro" : "signup"}
+        variant={!signedIn && lockTier === "free" ? "signup" : "pro"}
       />
     </div>
   );

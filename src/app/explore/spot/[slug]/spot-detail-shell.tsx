@@ -373,9 +373,11 @@ export default function SpotDetailShell({
 
   const handleDay = (day: ForecastDay) => {
     if (day.locked) {
-      // Signed-out → sign-up gate (an account unlocks days 3–7 and is the
-      // first step toward Pro); signed-in free → the Pro upgrade dialog.
-      if (!user) setAuthIntent("forecast");
+      // Follow the tile's own label. A "Sign up free" day (3–7) is unlocked by
+      // an account, so it opens the sign-up gate; an "Upgrade to Pro" day
+      // (8–14) opens the Pro modal even when signed out — sending those to a
+      // sign-up form promised Pro and delivered an email field.
+      if (day.lockTier === "free" && !user) setAuthIntent("forecast");
       else setUpgradeOpen(true);
       return;
     }
