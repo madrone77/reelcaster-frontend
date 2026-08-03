@@ -29,10 +29,11 @@ const SUPPORT_HREF = "/support";
  * because Explore owns its own scroll containers.
  */
 export default function ExploreTopBar({
-  variant = "default",
+  variant = "brand",
   preview,
 }: {
-  /** "brand" inverts the bar to a blue background with a white mark/links. */
+  /** "brand" (the default) is a blue bar with a white mark/links; "default"
+   *  is the light bar, kept available for any surface that needs it. */
   variant?: "default" | "brand";
   /** Force the signed-in affordance for a static preview (dashboard mock). */
   preview?: boolean;
