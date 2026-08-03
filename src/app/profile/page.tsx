@@ -10,6 +10,8 @@ import { Alert } from '@/components/ui/alert'
 import { Input } from '@/components/ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { useAuth } from '@/contexts/auth-context'
+import { supabase } from '@/lib/supabase'
+import { storedFirstName } from '@/lib/display-name'
 import { useAnalytics } from '@/hooks/use-analytics'
 import { useUnitPreferences } from '@/contexts/unit-preferences-context'
 import { UserPreferences, UserPreferencesService } from '@/lib/user-preferences'
@@ -35,8 +37,31 @@ export default function ProfilePage() {
   const [saving, setSaving] = useState(false)
   const [preferences, setPreferences] = useState<UserPreferences>({})
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
+  const [firstNameInput, setFirstNameInput] = useState('')
+  const [savingName, setSavingName] = useState(false)
   const originalPreferences = useRef<UserPreferences>({})
   const hasTrackedView = useRef(false)
+
+  // Seed the first-name field from the auth user.
+  useEffect(() => {
+    setFirstNameInput(storedFirstName(user) ?? '')
+  }, [user])
+
+  const handleSaveName = async () => {
+    setSavingName(true)
+    setMessage(null)
+    try {
+      const { error } = await supabase.auth.updateUser({
+        data: { first_name: firstNameInput.trim() },
+      })
+      if (error) throw error
+      setMessage({ type: 'success', text: 'Name saved.' })
+    } catch {
+      setMessage({ type: 'error', text: 'Could not save your name.' })
+    } finally {
+      setSavingName(false)
+    }
+  }
 
   // Load user preferences on mount
   useEffect(() => {
@@ -218,6 +243,33 @@ export default function ProfilePage() {
                 </CardHeader>
                 <CardContent className="space-y-4">
                   <div className="space-y-3">
+                    <div className="space-y-2">
+                      <Label htmlFor="profile-first-name" className="text-sm font-medium text-rc-ink">
+                        First name
+                      </Label>
+                      <div className="flex items-center gap-2">
+                        <div className="relative flex-1">
+                          <User className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-rc-ink-mute" />
+                          <Input
+                            id="profile-first-name"
+                            value={firstNameInput}
+                            onChange={(e) => setFirstNameInput(e.target.value)}
+                            placeholder="Your first name"
+                            autoComplete="given-name"
+                            className="pl-10 bg-rc-panel border-rc-rule text-rc-ink placeholder:text-rc-ink-mute focus-visible:border-rc-brand focus-visible:ring-rc-brand/25"
+                          />
+                        </div>
+                        <Button
+                          onClick={handleSaveName}
+                          disabled={savingName}
+                          variant="outline"
+                          className="border-rc-rule text-rc-ink-soft hover:bg-rc-surface hover:text-rc-ink"
+                        >
+                          {savingName ? 'Saving…' : 'Save'}
+                        </Button>
+                      </div>
+                    </div>
+
                     <div className="flex items-center gap-3 p-3 bg-rc-surface rounded-lg">
                       <Mail className="h-5 w-5 text-rc-ink-mute" />
                       <div className="min-w-0">

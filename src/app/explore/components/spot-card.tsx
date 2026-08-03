@@ -4,7 +4,7 @@ import Link from "next/link";
 import dynamic from "next/dynamic";
 import { useState } from "react";
 import { Wind, Waves, Navigation, Lock, Globe } from "lucide-react";
-import { TIER_PILL, type RailSpot, type Tier } from "../lib/explore-data";
+import { TIER_PILL, tierFor, type RailSpot } from "../lib/explore-data";
 import { useFavorite, favoriteCount } from "../lib/use-favorite";
 import { useSubscription } from "@/hooks/use-subscription";
 import { FREE_FAVORITE_SPOTS } from "@/lib/plan-features";
@@ -27,6 +27,7 @@ export default function SpotCard({
   spot,
   onSelect,
   showVisibility = false,
+  homeBadge = false,
   onFavoriteChange,
 }: {
   spot: RailSpot;
@@ -38,6 +39,8 @@ export default function SpotCard({
   /** Mark the spot private/public in the header. Explore says that with the
    *  map pin; surfaces without a map (the dashboard) say it on the card. */
   showVisibility?: boolean;
+  /** Mark this as the angler's pinned home spot (dashboard only). */
+  homeBadge?: boolean;
   /** Fires after the star toggles, so a list keyed on favourites can drop or
    *  add the card without a reload. */
   onFavoriteChange?: (fav: boolean) => void;
@@ -48,15 +51,9 @@ export default function SpotCard({
   // Drives the one-shot "pop" animation when a spot is favorited (not on load).
   const [popping, setPopping] = useState(false);
 
-  // Badge tier per spec: green ≥75 · amber 50–74 · red <50.
-  const bt: Tier =
-    spot.score == null
-      ? "none"
-      : spot.score >= 75
-        ? "good"
-        : spot.score >= 50
-          ? "fair"
-          : "poor";
+  // One tier function across both surfaces (Explore + dashboard) so a spot
+  // scores identically wherever the card renders.
+  const bt = tierFor(spot.score);
 
   const species = spot.driverSpecies?.replace(/^Pacific\s+/i, "");
   const { label: windowLabel } = bestWindow(spot.hours24);
@@ -83,7 +80,7 @@ export default function SpotCard({
   };
 
   return (
-    <div className="bg-rc-panel border-2 border-rc-rule rounded overflow-hidden">
+    <div className="bg-rc-panel border border-rc-rule rounded overflow-hidden">
       {/* Body — the primary target; clicking it opens the location report.
           Hover/focus feedback lives here (a surface shift), not on the whole
           card, so the footer controls read as separate.
@@ -122,6 +119,11 @@ export default function SpotCard({
               <span className="text-[15px] font-medium text-rc-ink truncate">
                 {spot.name}
               </span>
+              {homeBadge && (
+                <span className="inline-flex shrink-0 items-center rounded bg-rc-brand-soft px-1.5 py-0.5 font-rc-mono text-[9px] uppercase tracking-[0.06em] text-rc-brand">
+                  Home
+                </span>
+              )}
               {showVisibility && spot.isCustom && (
                 <span
                   title={

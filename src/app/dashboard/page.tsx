@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
-import { ChevronRight, Lock, Home, Plus } from "lucide-react";
+import { ChevronRight, Home, Plus, Pencil } from "lucide-react";
 import { useAuth } from "@/contexts/auth-context";
 import {
   fetchMyCustomSpots,
@@ -10,8 +10,21 @@ import {
   fetchSpotLive,
   type OwnedCustomSpot,
 } from "@/lib/bluecaster-client";
-import { TIER_PILL, tierFor } from "@/app/explore/lib/explore-data";
+import {
+  TIER_PILL,
+  tierFor,
+  railSpotFromEntry,
+  type RailSpot,
+} from "@/app/explore/lib/explore-data";
+import SpotCard from "@/app/explore/components/spot-card";
+import ExploreTopBar from "@/app/explore/components/explore-top-bar";
+import DashboardSavedMap from "./dashboard-saved-map";
+import MarketingFooter from "@/app/components/marketing/marketing-footer";
+import type { MapSpotsPayload } from "@/lib/bluecaster";
 import { readHomeSpot } from "@/app/explore/lib/use-home-spot";
+import { setFavorite } from "@/app/explore/lib/use-favorite";
+import { storedFirstName, NAME_FALLBACK } from "@/lib/display-name";
+import { supabase } from "@/lib/supabase";
 import type { AlertProfile } from "@/lib/custom-alert-engine";
 import type { SpotPageInitial } from "@/lib/bluecaster/live-spot-types";
 
@@ -37,12 +50,40 @@ function prettify(slug: string): string {
     .join(" ");
 }
 
-function firstName(email: string | null | undefined): string | null {
-  if (!email) return null;
-  const local = email.split("@")[0]?.replace(/[._-]+/g, " ").trim();
-  if (!local) return null;
-  return local.charAt(0).toUpperCase() + local.slice(1);
+/**
+ * A RailSpot for a saved/custom spot the map payload didn't carry (a custom
+ * spot awaiting its first score, or a favourite gone unpublished). Renders as
+ * the same shared card, just "NO SCORE" with empty KPIs.
+ */
+function unscoredRailSpot(
+  slug: string,
+  name: string,
+  extra: Partial<RailSpot> = {},
+): RailSpot {
+  return {
+    id: slug,
+    slug,
+    name,
+    lat: 0,
+    lng: 0,
+    citySlug: "",
+    cityName: "",
+    regionSlug: "",
+    regionName: "",
+    provinceCode: "",
+    score: null,
+    bestSpeciesId: null,
+    driverSpecies: null,
+    peakHour: null,
+    distanceKm: null,
+    conditions: { wind: null, sea: null, tide: null, current: null, sky: null, air: null },
+    condStrip: null,
+    hours24: new Array(24).fill(null),
+    scoresBySpecies: {},
+    ...extra,
+  };
 }
+
 
 function todayVancouver(): string {
   return new Date().toLocaleDateString("en-CA", { timeZone: "America/Vancouver" });
@@ -83,7 +124,7 @@ function seaState(waveM: number | null | undefined): string | null {
 }
 
 type Scored = { score: number; species: string | null };
-type SpotCard = {
+type GridSpot = {
   slug: string;
   name: string;
   score: number | null;
@@ -107,11 +148,58 @@ export default function DashboardPage() {
   const [custom, setCustom] = useState<OwnedCustomSpot[] | null>(null);
   const [favSlugs, setFavSlugs] = useState<string[] | null>(null);
   const [scoreBySlug, setScoreBySlug] = useState<Record<string, Scored>>({});
+  // Raw map payload kept so the grid can render the shared Explore card from
+  // the same numbers (railSpotFromEntry), not a forked card.
+  const [payload, setPayload] = useState<MapSpotsPayload | null>(null);
+  // Undo snackbar for an un-starred spot.
+  const [undo, setUndo] = useState<{ slug: string; name: string } | null>(null);
   const [homeSlug, setHomeSlug] = useState<string | null>(null);
   const [homeLive, setHomeLive] = useState<SpotPageInitial | null>(null);
   const [alerts, setAlerts] = useState<AlertProfile[] | null>(null);
   const [catches, setCatches] = useState<CatchRow[] | null>(null);
   const [catchTotal, setCatchTotal] = useState<number | null>(null);
+  // Server fallback name (Stripe name → "Angler") when no first_name is stored.
+  const [serverName, setServerName] = useState<string | null>(null);
+  // Inline name edit (triggered by the pencil).
+  const [localName, setLocalName] = useState<string | null>(null);
+  const [editingName, setEditingName] = useState(false);
+  const [nameDraft, setNameDraft] = useState("");
+  const [savingName, setSavingName] = useState(false);
+
+  // When the angler has no stored first name, resolve the fallback server-side
+  // (Stripe customer name for paid users, else "Angler"). Skipped entirely once
+  // a name exists on the auth user.
+  useEffect(() => {
+    if (!user || storedFirstName(user)) {
+      setServerName(null);
+      return;
+    }
+    const token = session?.access_token;
+    let cancelled = false;
+    fetch(
+      "/api/profile/display-name",
+      token ? { headers: { Authorization: `Bearer ${token}` } } : undefined,
+    )
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => {
+        if (!cancelled) {
+          setServerName(
+            typeof d?.firstName === "string" && d.firstName ? d.firstName : NAME_FALLBACK,
+          );
+        }
+      })
+      .catch(() => !cancelled && setServerName(NAME_FALLBACK));
+    return () => {
+      cancelled = true;
+    };
+  }, [user, session]);
+
+  // Auto-dismiss the un-star undo snackbar.
+  useEffect(() => {
+    if (!undo) return;
+    const t = setTimeout(() => setUndo(null), 6000);
+    return () => clearTimeout(t);
+  }, [undo]);
 
   // Custom spots (owner-scoped).
   useEffect(() => {
@@ -148,6 +236,7 @@ export default function DashboardPage() {
     fetchMapSpotsAsViewer(COVERED_BBOX_ALL, todayVancouver())
       .then((payload) => {
         if (cancelled || !payload?.spots) return;
+        setPayload(payload);
         const species = payload.species ?? {};
         const map: Record<string, Scored> = {};
         for (const s of payload.spots) {
@@ -250,9 +339,9 @@ export default function DashboardPage() {
 
   // The spots shown in the grid — custom (private) + favourites, deduped,
   // scored, tagged, ranked by score. Home spot floats via its tag, not order.
-  const spotCards: SpotCard[] | null = useMemo(() => {
+  const spotCards: GridSpot[] | null = useMemo(() => {
     if (custom === null || favSlugs === null) return null;
-    const bySlug = new Map<string, SpotCard>();
+    const bySlug = new Map<string, GridSpot>();
     for (const c of custom) {
       const score = scoreBySlug[c.slug]?.score ?? (typeof c.score === "number" ? c.score : null);
       bySlug.set(c.slug, {
@@ -276,19 +365,61 @@ export default function DashboardPage() {
     return [...bySlug.values()].sort((a, b) => (b.score ?? -1) - (a.score ?? -1));
   }, [custom, favSlugs, scoreBySlug, homeSlug]);
 
+  // The same spots as RailSpots, so the grid renders the shared Explore card
+  // (24h bars + WIND/SEA/CURRENT + star) instead of a forked card. Built from
+  // the raw payload the score effect already fetched — no extra request.
+  const railSpots: RailSpot[] | null = useMemo(() => {
+    if (custom === null || favSlugs === null) return null;
+    const railBySlug = new Map<string, RailSpot>();
+    if (payload) {
+      for (const e of payload.spots) {
+        railBySlug.set(e.slug, railSpotFromEntry(e, payload, true));
+      }
+    }
+    const bySlug = new Map<string, RailSpot>();
+    for (const c of custom) {
+      const base =
+        railBySlug.get(c.slug) ??
+        unscoredRailSpot(c.slug, c.name, {
+          id: c.id,
+          score: c.score_status === "scored" ? c.score : null,
+          driverSpecies: c.best_species_name ?? null,
+        });
+      bySlug.set(c.slug, {
+        ...base,
+        name: c.name,
+        isCustom: true,
+        visibility: c.visibility,
+      });
+    }
+    for (const slug of favSlugs) {
+      if (bySlug.has(slug)) continue;
+      bySlug.set(slug, railBySlug.get(slug) ?? unscoredRailSpot(slug, prettify(slug)));
+    }
+    return [...bySlug.values()].sort((a, b) => (b.score ?? -1) - (a.score ?? -1));
+  }, [custom, favSlugs, payload]);
+
   // ── derived ────────────────────────────────────────────────────────────────
   const activeAlertCount = (alerts ?? []).filter((a) => a.is_active).length;
   const trackedCount = spotCards?.length ?? 0;
 
-  const name = (() => {
-    const m = (user?.user_metadata ?? {}) as Record<string, unknown>;
-    const raw = m.given_name ?? m.first_name ?? m.name ?? m.full_name;
-    if (typeof raw === "string" && raw.trim()) return raw.trim().split(/\s+/)[0];
-    return firstName(user?.email);
-  })();
+  // Never derive a name from the email; fall back to the Stripe / "Angler" name.
+  const greetName = localName ?? storedFirstName(user) ?? serverName ?? NAME_FALLBACK;
+  const saveName = async () => {
+    const v = nameDraft.trim();
+    if (!v) return;
+    setSavingName(true);
+    try {
+      await supabase.auth.updateUser({ data: { first_name: v } });
+      setLocalName(v);
+      setEditingName(false);
+    } finally {
+      setSavingName(false);
+    }
+  };
 
   const scored = (spotCards ?? []).filter(
-    (s): s is SpotCard & { score: number } => typeof s.score === "number"
+    (s): s is GridSpot & { score: number } => typeof s.score === "number"
   );
   const spotsHot = scored.filter((s) => s.score >= 80).length;
   const topScore = scored.length ? Math.max(...scored.map((s) => s.score)) : null;
@@ -325,7 +456,8 @@ export default function DashboardPage() {
   const favCount = favSlugs?.length ?? 0;
 
   return (
-    <div className="min-h-dvh bg-rc-page">
+    <div className="min-h-dvh bg-rc-panel pt-16">
+      <ExploreTopBar variant="brand" />
       <div className="mx-auto max-w-[1400px] px-5 py-8 lg:px-10 lg:py-10">
         {/* ── Header ─────────────────────────────────────────────────────── */}
         <header className="mb-8 flex flex-col gap-6 lg:flex-row lg:items-start lg:justify-between">
@@ -334,7 +466,55 @@ export default function DashboardPage() {
               Your dashboard
             </p>
             <h1 className="mt-1.5 text-3xl font-black tracking-[-0.02em] text-rc-ink">
-              {name ? `Welcome back, ${name}` : "Welcome back"}
+              {editingName ? (
+                <span className="inline-flex flex-wrap items-center gap-2">
+                  Welcome back,
+                  <input
+                    autoFocus
+                    value={nameDraft}
+                    onChange={(e) => setNameDraft(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        e.preventDefault();
+                        void saveName();
+                      }
+                      if (e.key === "Escape") setEditingName(false);
+                    }}
+                    placeholder="Your first name"
+                    className="w-56 border-0 border-b-2 border-rc-rule bg-transparent px-0.5 text-3xl font-black tracking-[-0.02em] text-rc-ink focus:border-rc-brand focus:outline-none"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => void saveName()}
+                    disabled={savingName || !nameDraft.trim()}
+                    className="text-sm font-semibold text-rc-brand disabled:opacity-50"
+                  >
+                    {savingName ? "Saving…" : "Save"}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setEditingName(false)}
+                    className="text-sm font-medium text-rc-ink-mute hover:text-rc-ink"
+                  >
+                    Cancel
+                  </button>
+                </span>
+              ) : (
+                <span className="inline-flex items-center gap-2.5">
+                  Welcome back, {greetName}
+                  <button
+                    type="button"
+                    aria-label="Edit your name"
+                    onClick={() => {
+                      setNameDraft(localName ?? storedFirstName(user) ?? "");
+                      setEditingName(true);
+                    }}
+                    className="text-rc-brand transition-transform hover:scale-110"
+                  >
+                    <Pencil className="h-5 w-5" />
+                  </button>
+                </span>
+              )}
             </h1>
             <p className="mt-1.5 font-rc-mono text-[12px] text-rc-ink-mute">
               {longDate()} · {trackedCount} spot{trackedCount === 1 ? "" : "s"}{" "}
@@ -342,16 +522,11 @@ export default function DashboardPage() {
               {activeAlertCount === 1 ? "" : "s"} armed
             </p>
           </div>
-          <div className="flex items-start gap-5 divide-x divide-rc-rule sm:gap-6">
+          <div className="flex items-start divide-x divide-rc-rule">
             <Stat n={spotsHot != null ? String(spotsHot) : "—"} label="Spots ≥ 80" tone="good" />
-            <Stat n={topScore != null ? String(topScore) : "—"} label="Top score" tone="good" pad />
-            <Stat
-              n={catchTotal != null ? String(catchTotal) : "—"}
-              label="Fresh catches"
-              tone="good"
-              pad
-            />
-            <Stat n={avgScore != null ? String(avgScore) : "—"} label="Avg score" pad />
+            <Stat n={topScore != null ? String(topScore) : "—"} label="Top score" tone="good" />
+            <Stat n={catchTotal != null ? String(catchTotal) : "—"} label="Fresh catches" tone="good" />
+            <Stat n={avgScore != null ? String(avgScore) : "—"} label="Avg score" />
           </div>
         </header>
 
@@ -441,7 +616,7 @@ export default function DashboardPage() {
             ) : (
               <Link
                 href="/explore"
-                className="flex items-center justify-between rounded border-2 border-dashed border-rc-rule bg-rc-panel px-6 py-8 text-rc-ink-soft transition-colors hover:border-rc-brand/40"
+                className="flex items-center justify-between rounded border border-dashed border-rc-rule bg-rc-panel px-6 py-8 text-rc-ink-soft transition-colors hover:border-rc-brand/40"
               >
                 <span className="flex items-center gap-3">
                   <Home className="h-5 w-5 text-rc-ink-mute" />
@@ -453,6 +628,11 @@ export default function DashboardPage() {
               </Link>
             )}
 
+            {/* Saved-spots summary map — sits right under the hero. */}
+            <div className="mt-6">
+              <DashboardSavedMap spots={railSpots ?? []} />
+            </div>
+
             {/* Your spots */}
             <div className="mb-3 mt-8 flex items-center justify-between">
               <div className="flex items-baseline gap-3">
@@ -463,7 +643,7 @@ export default function DashboardPage() {
               </div>
               <Link
                 href="/explore?create=1"
-                className="inline-flex h-8 items-center gap-1.5 rounded bg-rc-brand px-3 text-sm font-normal text-white transition-colors hover:bg-rc-brand-hover"
+                className="inline-flex h-8 items-center gap-1.5 rounded border border-rc-rule px-3 text-sm font-normal text-rc-ink-soft transition-colors hover:bg-rc-surface hover:text-rc-ink"
               >
                 <Plus className="h-4 w-4" />
                 New spot
@@ -475,51 +655,33 @@ export default function DashboardPage() {
                 {[0, 1, 2, 3, 4, 5].map((i) => (
                   <div
                     key={i}
-                    className="h-40 animate-pulse rounded border-2 border-rc-rule bg-rc-surface"
+                    className="h-40 animate-pulse rounded border border-rc-rule bg-rc-surface"
                   />
                 ))}
               </div>
-            ) : spotCards && spotCards.length > 0 ? (
+            ) : railSpots && railSpots.length > 0 ? (
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
-                {spotCards.map((s) => {
-                  const key = s.score != null ? tierFor(s.score) : "none";
-                  return (
-                    <Link
-                      key={s.slug}
-                      href={`/explore/spot/${s.slug}`}
-                      className="block rounded border-2 border-rc-rule bg-rc-panel px-4 py-3.5 transition-colors hover:bg-rc-surface"
-                    >
-                      <div className="flex items-start justify-between gap-2">
-                        <span className="truncate text-[15px] font-medium text-rc-ink">
-                          {s.name}
-                        </span>
-                        <Pill className={TIER_PILL[key]}>
-                          {s.score != null
-                            ? `${s.score} ${key.toUpperCase()}`
-                            : "NO SCORE"}
-                        </Pill>
-                      </div>
-                      <div className="mt-1 flex items-center gap-1.5">
-                        {s.tag === "home" ? (
-                          <span className="rc-label text-[9px] shrink-0 rounded bg-rc-brand-soft px-1.5 py-0.5 text-rc-brand">
-                            Home
-                          </span>
-                        ) : s.tag === "private" ? (
-                          <span className="rc-label text-[9px] inline-flex shrink-0 items-center gap-1 rounded bg-rc-surface px-1.5 py-0.5 text-rc-ink-mute">
-                            <Lock className="h-2.5 w-2.5" />
-                            Private
-                          </span>
-                        ) : null}
-                        <span className="truncate font-rc-mono text-[12px] text-rc-ink-soft">
-                          {s.species ? `Best ${s.species}` : "No live score yet"}
-                        </span>
-                      </div>
-                    </Link>
-                  );
-                })}
+                {railSpots.map((rs) => (
+                  <SpotCard
+                    key={rs.slug}
+                    spot={rs}
+                    showVisibility
+                    homeBadge={rs.slug === homeSlug}
+                    onFavoriteChange={(fav) => {
+                      // Un-starring a saved (non-custom) spot drops it from the
+                      // grid immediately, with an undo. Custom spots persist.
+                      if (!fav && !rs.isCustom) {
+                        setFavSlugs((prev) =>
+                          (prev ?? []).filter((s) => s !== rs.slug),
+                        );
+                        setUndo({ slug: rs.slug, name: rs.name });
+                      }
+                    }}
+                  />
+                ))}
               </div>
             ) : (
-              <div className="rounded border-2 border-dashed border-rc-rule bg-rc-panel p-8 text-center">
+              <div className="rounded border border-dashed border-rc-rule bg-rc-panel p-8 text-center">
                 <p className="text-sm font-semibold text-rc-ink">No spots yet</p>
                 <p className="mt-1 text-sm text-rc-ink-soft">
                   Save a spot or drop your own to see it here.
@@ -532,6 +694,7 @@ export default function DashboardPage() {
                 </Link>
               </div>
             )}
+
           </div>
 
           {/* RIGHT — rail. Cards share the Explore spot-card language: a 2px
@@ -680,6 +843,31 @@ export default function DashboardPage() {
           </div>
         </div>
       </div>
+
+      <MarketingFooter />
+
+      {undo && (
+        <div className="fixed inset-x-0 bottom-6 z-50 flex justify-center px-4">
+          <div className="flex items-center gap-3 rounded-lg bg-rc-navy px-4 py-2.5 text-sm text-white shadow-rc-panel">
+            <span className="truncate">Removed {undo.name} from saved</span>
+            <button
+              type="button"
+              onClick={() => {
+                if (!undo) return;
+                const slug = undo.slug;
+                setFavorite(slug, true);
+                setFavSlugs((prev) =>
+                  (prev ?? []).includes(slug) ? (prev ?? []) : [...(prev ?? []), slug],
+                );
+                setUndo(null);
+              }}
+              className="font-rc-mono text-[12px] font-bold uppercase tracking-wide text-rc-brand-soft hover:text-white"
+            >
+              Undo
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -720,7 +908,7 @@ function RailCard({
   children: React.ReactNode;
 }) {
   return (
-    <div className="overflow-hidden rounded border-2 border-rc-rule bg-rc-panel">
+    <div className="overflow-hidden rounded border border-rc-rule bg-rc-panel">
       <div className="px-4 pb-3.5 pt-3.5">
         <div className="flex items-start justify-between gap-2">
           <span className="text-[15px] font-medium text-rc-ink">{title}</span>
@@ -762,15 +950,14 @@ function Stat({
   n,
   label,
   tone,
-  pad,
 }: {
   n: string;
   label: string;
   tone?: "good";
-  pad?: boolean;
 }) {
   return (
-    <div className={pad ? "pl-5 sm:pl-6" : ""}>
+    // Symmetric padding so the divider rule sits evenly between columns.
+    <div className="px-4 first:pl-0 last:pr-0">
       <div
         className={`text-2xl font-black tabular-nums leading-none ${
           tone === "good" ? "text-rc-good" : "text-rc-ink"
@@ -778,7 +965,7 @@ function Stat({
       >
         {n}
       </div>
-      <div className="mt-1.5 font-rc-mono text-[9px] uppercase tracking-[0.1em] text-rc-ink-mute">
+      <div className="mt-2 font-rc-mono text-[9px] uppercase tracking-[0.1em] text-rc-ink-mute">
         {label}
       </div>
     </div>
