@@ -881,6 +881,7 @@ export default function SpotDetailShell({
         onOpenChange={setAlertUpgradeOpen}
         feature="alerts"
         from="spot-page"
+        spotName={spot.name}
       />
 
       <ProTrialModal
@@ -888,6 +889,7 @@ export default function SpotDetailShell({
         onOpenChange={setFavUpgradeOpen}
         feature="favorite-spots"
         from="spot-page"
+        spotName={spot.name}
       />
     </div>
   );

@@ -165,6 +165,15 @@ export type NagFeatureId =
 export interface NagFeature {
   /** Completes "Start your 7-day Pro trial to ___". Lower case, no period. */
   action: string;
+  /**
+   * Names the thing that was just blocked, as the modal's headline subject:
+   * "View the full 14-day forecast", "Set an alert". Sentence case, no period
+   * — `nagHeadline` appends " with a free trial", and " for <spot>" first when
+   * `takesSpot` and a spot name is available.
+   */
+  headline: string;
+  /** Does naming the spot make the headline read better ("Set an alert for X")? */
+  takesSpot?: boolean;
   /** Lowest tier that unlocks it — decides whether we sell Pro or an account. */
   unlocksAt: "free" | "pro";
   /** Row in the matrix to highlight. */
@@ -176,57 +185,83 @@ export interface NagFeature {
 export const NAG_FEATURES: Record<NagFeatureId, NagFeature> = {
   alerts: {
     action: "create an alert",
+    headline: "Set an alert",
+    takesSpot: true,
     unlocksAt: "pro",
     rowId: "alerts",
     pricingFeature: "alerts",
   },
   "sms-alerts": {
     action: "get alerts by text",
+    headline: "Get alerts by text",
+    takesSpot: true,
     unlocksAt: "pro",
     rowId: "alerts",
     pricingFeature: "alerts",
   },
   "favorite-spots": {
     action: "save more spots",
+    headline: "Save every spot you fish",
     unlocksAt: "pro",
     rowId: "save-spots",
     pricingFeature: "favorite-spots",
   },
   "custom-spots": {
     action: "score a spot we don’t cover",
+    headline: "Create custom spots",
     unlocksAt: "pro",
     rowId: "custom-spots",
     pricingFeature: "custom-spots",
   },
   "forecast-week": {
     action: "plan a week ahead",
+    headline: "See the week ahead",
+    takesSpot: true,
     unlocksAt: "free",
     rowId: "week-ahead",
     pricingFeature: "14-day-forecast",
   },
   "forecast-14d": {
     action: "plan the full two weeks",
+    headline: "View the full 14-day forecast",
+    takesSpot: true,
     unlocksAt: "pro",
     rowId: "two-weeks",
     pricingFeature: "14-day-forecast",
   },
   "catch-log": {
     action: "log a catch",
+    headline: "Log your catch",
+    takesSpot: true,
     unlocksAt: "free",
     rowId: "catch-log",
     pricingFeature: "favorite-spots",
   },
 };
 
-/** "Start your 7-day Pro trial to create an alert" — the modal's headline. */
-export function nagHeadline(feature: NagFeature, viewerTier: PlanTierId): string {
+/**
+ * The modal's headline: "Set an alert for Oak Bay Flats with a free trial".
+ *
+ * Leads with the thing the angler just tried to do, not with the product —
+ * a nag that opens by naming the plan reads as an interruption, one that
+ * opens by naming their own action reads as an answer.
+ */
+export function nagHeadline(
+  feature: NagFeature,
+  viewerTier: PlanTierId,
+  spotName?: string,
+): string {
   // A signed-out visitor blocked by something a free account already gives
   // gets sold the account, not the subscription — asking for a card to see
   // day 5 of a forecast a free login unlocks is a way to lose the signup.
   if (feature.unlocksAt === "free" && viewerTier === "anon") {
     return `Create a free account to ${feature.action}`;
   }
-  return `Start your ${TRIAL_DAYS}-day Pro trial to ${feature.action}`;
+  const subject =
+    feature.takesSpot && spotName
+      ? `${feature.headline} for ${spotName}`
+      : feature.headline;
+  return `${subject} with a free trial`;
 }
 
 /** The reassurance line under the headline. */

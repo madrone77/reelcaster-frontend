@@ -14,7 +14,12 @@ import {
 import { useAuth } from "@/contexts/auth-context";
 import { useSubscription } from "@/hooks/use-subscription";
 import { useAnalytics } from "@/hooks/use-analytics";
-import TrialCta from "./trial-cta";
+import {
+  TrialBuy,
+  TrialCadence,
+  TrialCtaProvider,
+  TrialTerms,
+} from "./trial-cta";
 import { TRIAL_DAYS } from "@/lib/pricing";
 import {
   FREE_FAVORITE_SPOTS,
@@ -53,6 +58,8 @@ export default function ProTrialModal({
   ctaHref,
   /** Analytics + deep-link context for where the nag fired. */
   from = "explore",
+  /** Names the spot in the headline ("Set an alert for Oak Bay Flats"). */
+  spotName,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -60,6 +67,7 @@ export default function ProTrialModal({
   viewerTier?: PlanTierId;
   ctaHref?: string;
   from?: string;
+  spotName?: string;
 }) {
   const { user } = useAuth();
   const { isPaid } = useSubscription();
@@ -94,103 +102,110 @@ export default function ProTrialModal({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
+      {/* Column layout, not a single scrolling box: the headline and the buy
+          button stay put while the plan table scrolls under them, so the CTA
+          is never pushed off a short screen. */}
       <DialogContent
         data-testid="pro-trial-modal"
         data-feature={feature}
-        className="bg-rc-panel border-rc-rule text-rc-ink p-0 gap-0 sm:max-w-lg max-h-[88dvh] overflow-y-auto"
+        className="bg-rc-panel border-rc-rule text-rc-ink p-0 gap-0 sm:max-w-lg max-h-[88dvh] flex flex-col overflow-hidden"
       >
-        {/* pr-10 clears the dialog's own close button. */}
-        <DialogHeader className="px-4 pr-10 pt-6 pb-5 sm:px-6 sm:pr-12 text-left">
-          <p className="font-rc-mono text-[10px] font-semibold tracking-[0.14em] uppercase text-rc-brand">
-            ReelCaster Pro
-          </p>
-          <DialogTitle className="mt-2 text-xl sm:text-2xl font-black tracking-[-0.02em] text-rc-ink text-balance">
-            {nagHeadline(nag, viewerTier)}
-          </DialogTitle>
-          <DialogDescription className="mt-2 text-sm leading-relaxed text-rc-ink-soft">
-            {nagSubhead(nag, viewerTier)}
-          </DialogDescription>
-        </DialogHeader>
-
-        {/* CTA sits above the matrix — someone already sold shouldn't have to
-            scroll a comparison table to find the button. Cadence is chosen
-            here and the modal goes straight to Stripe; `ctaHref` still routes
-            through /plans for any caller that wants the old two-step. */}
-        <div className="px-4 sm:px-6">
-          {ctaHref ? (
-            <Link
-              href={ctaHref}
-              data-testid="pro-trial-cta"
-              onClick={() =>
-                trackEvent("Paywall CTA Clicked", {
-                  feature,
-                  viewerTier,
-                  from,
-                  href: ctaHref,
-                })
-              }
-              className="block text-center px-4 py-2.5 rounded-lg bg-rc-brand hover:bg-rc-brand-hover text-white text-sm font-bold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rc-brand focus-visible:ring-offset-2"
-            >
-              {ctaLabel}
-            </Link>
-          ) : (
-            <TrialCta
-              from={from}
-              signupHref={signupHref}
-              signupLabel={ctaLabel}
-              theme="light"
-              onActivate={(plan) =>
-                trackEvent("Paywall CTA Clicked", {
-                  feature,
-                  viewerTier,
-                  from,
-                  plan: plan ?? "signup",
-                  destination: plan ? "checkout" : signupHref,
-                })
-              }
-            />
-          )}
-          <button
-            type="button"
-            onClick={() => onOpenChange(false)}
-            className="mt-2 w-full px-4 py-2.5 rounded-lg border border-rc-rule text-rc-ink text-sm font-medium hover:bg-rc-surface transition-colors"
-          >
-            Not now
-          </button>
-        </div>
-
-        <PlanMatrix viewerTier={viewerTier} highlightRowId={nag.rowId} />
-
-        {/* The free tier, offered last and on purpose: after the matrix has
-            shown what an account gets you without paying. Only for visitors
-            who don't have one — a signed-in free member is already here. */}
-        {viewerTier === "anon" && (
-          <div className="border-t border-rc-rule px-4 sm:px-6 py-4 text-center">
-            <Link
-              href={`/signup?next=${encodeURIComponent(returnTo)}`}
-              data-testid="free-signup-cta"
-              onClick={() =>
-                trackEvent("Paywall CTA Clicked", {
-                  feature,
-                  viewerTier,
-                  from,
-                  plan: "free",
-                  destination: "signup",
-                })
-              }
-              className="text-sm font-semibold text-rc-brand hover:text-rc-brand-hover underline underline-offset-2"
-            >
-              Sign up today as a free user
-            </Link>
-            <p className="mt-1.5 text-[11px] leading-relaxed text-rc-ink-mute">
-              No card. Keeps today&apos;s score, a week of forecast, and{" "}
-              {FREE_FAVORITE_SPOTS === 1
-                ? "one saved spot"
-                : `${FREE_FAVORITE_SPOTS} saved spots`}
-              .
+        {/* One provider around all three pieces: the cadence sits by the plan
+            table, the button up top, the terms at the foot — and they still
+            share the selected plan. */}
+        <TrialCtaProvider
+          from={from}
+          theme="light"
+          onActivate={(plan) =>
+            trackEvent("Paywall CTA Clicked", {
+              feature,
+              viewerTier,
+              from,
+              plan: plan ?? "signup",
+              destination: plan ? "checkout" : signupHref,
+            })
+          }
+        >
+          {/* pr-10 clears the dialog's own close button — which is also why
+              there's no "Not now": two dismissals for one modal. */}
+          <DialogHeader className="shrink-0 px-4 pr-10 pt-6 pb-5 sm:px-6 sm:pr-12 text-left">
+            <p className="font-rc-mono text-[10px] font-semibold tracking-[0.14em] uppercase text-rc-brand">
+              ReelCaster Pro
             </p>
+            <DialogTitle className="mt-2 text-xl sm:text-2xl font-black tracking-[-0.02em] text-rc-ink text-balance">
+              {nagHeadline(nag, viewerTier, spotName)}
+            </DialogTitle>
+            <DialogDescription className="mt-2 text-sm leading-relaxed text-rc-ink-soft">
+              {nagSubhead(nag, viewerTier)}
+            </DialogDescription>
+          </DialogHeader>
+
+          {/* Buy, then cadence — the toggle sits against the plan table it
+              re-prices, rather than above the button it feeds. */}
+          <div className="shrink-0 px-4 sm:px-6 pb-4">
+            {ctaHref ? (
+              <Link
+                href={ctaHref}
+                data-testid="pro-trial-cta"
+                onClick={() =>
+                  trackEvent("Paywall CTA Clicked", {
+                    feature,
+                    viewerTier,
+                    from,
+                    href: ctaHref,
+                  })
+                }
+                className="block text-center px-4 py-2.5 rounded-lg bg-rc-brand hover:bg-rc-brand-hover text-white text-sm font-bold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rc-brand focus-visible:ring-offset-2"
+              >
+                {ctaLabel}
+              </Link>
+            ) : (
+              <TrialBuy signupHref={signupHref} signupLabel={ctaLabel} />
+            )}
+            {!ctaHref && !sellsAccount && <TrialCadence className="mt-3" />}
           </div>
-        )}
+
+          <div className="min-h-0 flex-1 overflow-y-auto">
+            <PlanMatrix viewerTier={viewerTier} highlightRowId={nag.rowId} />
+          </div>
+
+          {/* Terms sit down here rather than under the button: short, and the
+              last thing read before the free-tier alternative. */}
+          <div className="shrink-0 border-t border-rc-rule px-4 sm:px-6 py-4">
+            {!ctaHref && !sellsAccount && <TrialTerms className="text-center" />}
+
+            {/* The free tier, offered last and on purpose: after the matrix
+                has shown what an account gets you without paying. Only for
+                visitors who don't have one. */}
+            {viewerTier === "anon" && (
+              <div className="mt-3 text-center">
+                <Link
+                  href={`/signup?next=${encodeURIComponent(returnTo)}`}
+                  data-testid="free-signup-cta"
+                  onClick={() =>
+                    trackEvent("Paywall CTA Clicked", {
+                      feature,
+                      viewerTier,
+                      from,
+                      plan: "free",
+                      destination: "signup",
+                    })
+                  }
+                  className="text-sm font-semibold text-rc-brand hover:text-rc-brand-hover underline underline-offset-2"
+                >
+                  Sign up today as a free user
+                </Link>
+                <p className="mt-1.5 text-[11px] leading-relaxed text-rc-ink-mute">
+                  No card. Keeps today&apos;s score, a week of forecast, and{" "}
+                  {FREE_FAVORITE_SPOTS === 1
+                    ? "one saved spot"
+                    : `${FREE_FAVORITE_SPOTS} saved spots`}
+                  .
+                </p>
+              </div>
+            )}
+          </div>
+        </TrialCtaProvider>
       </DialogContent>
     </Dialog>
   );
@@ -211,7 +226,7 @@ function PlanMatrix({
   highlightRowId: string;
 }) {
   return (
-    <div className="mt-6 border-t border-rc-rule">
+    <div className="border-t border-rc-rule">
       {/* Column heads — sticky so the tier you're reading stays labelled while
           the groups scroll past inside the dialog. */}
       <div
