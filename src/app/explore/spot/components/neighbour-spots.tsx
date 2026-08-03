@@ -1,9 +1,10 @@
 "use client";
 
 import Link from "next/link";
-import { Heart, Wind } from "lucide-react";
+import { Wind } from "lucide-react";
 import { tierFor, TIER_TEXT } from "../../lib/explore-data";
 import { useFavorite } from "../../lib/use-favorite";
+import SpotTrend from "../../components/spot-trend";
 import type {
   NearbySpotCard,
   SeasonState,
@@ -43,17 +44,18 @@ function NearbyCard({ n }: { n: NearbySpotCard }) {
 
   const body = (
     <div className="flex h-full flex-col overflow-hidden rounded border border-rc-rule bg-rc-panel transition-colors group-hover:border-rc-brand/40">
-      {/* Decorative relief band — nearbySpots carry no coords, so this is a
-          consistent chart texture, not a per-spot map. */}
+      {/* Satellite band — a real picture of this spot's water at z=12, not the
+          shared chart texture that used to sit here. Served through
+          /api/bluecaster/map/spot-thumb, which holds the Google key and caches
+          per spot (coordinates never move). The surface tint stays underneath
+          as the backdrop while it loads, and if imagery is unavailable. */}
       <div className="relative h-24 bg-rc-surface">
-        <div
-          className="absolute inset-0 opacity-60"
-          style={{
-            backgroundImage: "url(/landing/chart-illustration.svg)",
-            backgroundSize: "cover",
-            backgroundPosition: "center",
-          }}
+        <img
+          src={`/api/bluecaster/map/spot-thumb?spot=${n.id}&z=12&size=card`}
+          alt=""
           aria-hidden
+          loading="lazy"
+          className="absolute inset-0 h-full w-full object-cover"
         />
         {verdict && (
           <span
@@ -71,11 +73,21 @@ function NearbyCard({ n }: { n: NearbySpotCard }) {
           }}
           aria-pressed={fav}
           aria-label={fav ? "Remove favourite" : "Save spot"}
-          className="absolute top-2.5 right-2.5 flex h-7 w-7 items-center justify-center rounded-full bg-rc-panel/90 text-rc-ink-soft hover:text-rc-brand transition-colors"
+          className="group/fav absolute top-2.5 right-2.5 flex h-7 w-7 items-center justify-center rounded-full bg-rc-panel/90 transition-colors"
         >
-          <Heart
-            className={`w-4 h-4 ${fav ? "fill-rc-brand text-rc-brand" : ""}`}
-          />
+          {/* Same star as the Explore rail card's favourite (spot-card.tsx) —
+              one favourite glyph across the product, gold when saved. */}
+          <svg
+            viewBox="0 0 42 40"
+            aria-hidden
+            className={`w-[15px] h-[14px] transition-[fill] duration-200 ${
+              fav
+                ? "fill-rc-badge"
+                : "fill-rc-ink-mute group-hover/fav:fill-rc-badge"
+            }`}
+          >
+            <path d="M21,34 L10.4346982,39.5545079 C8.47875732,40.5828068 7.19697214,39.6450119 7.56952871,37.4728404 L9.5873218,25.7082039 L1.03981311,17.3764421 C-0.542576313,15.8339937 -0.0467737017,14.3251489 2.13421047,14.0082334 L13.946577,12.2917961 L19.2292279,1.58797623 C20.2071983,-0.393608322 21.7954064,-0.388330682 22.7707721,1.58797623 L28.053423,12.2917961 L39.8657895,14.0082334 C42.0525979,14.3259953 42.5383619,15.8381017 40.9601869,17.3764421 L32.4126782,25.7082039 L34.4304713,37.4728404 C34.8040228,39.6508126 33.5160333,40.5800681 31.5653018,39.5545079 L21,34 Z" />
+          </svg>
         </button>
       </div>
 
@@ -130,6 +142,12 @@ function NearbyCard({ n }: { n: NearbySpotCard }) {
             ))}
           </div>
         )}
+
+        {/* The rail card's 24h trend, same component so a spot's day reads
+            identically here and in the Explore sidebar. */}
+        <div className="mt-3">
+          <SpotTrend hours={n.scoreNext24h} />
+        </div>
 
         <div className="mt-auto flex items-end justify-between gap-2 border-t border-rc-rule-soft pt-3 mt-3">
           <span className="flex items-center gap-1.5 font-rc-mono text-[11px] text-rc-ink-soft">
