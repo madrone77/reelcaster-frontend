@@ -10,6 +10,7 @@
 // in this codebase). No `NEXT_PUBLIC_BLUECASTER_*` env var needed.
 
 import { supabase } from "./supabase";
+import type { FreshCatchesResponse } from "@/app/explore/lib/fresh-catch-types";
 import type {
   StationConditions,
   BuoyConditions,
@@ -291,6 +292,29 @@ export async function fetchMapSpotsAsViewer(
   );
   if (!res.ok) return null;
   return (await res.json().catch(() => null)) as MapSpotsPayload | null;
+}
+
+/** Aggregate catch reports per spot, Pro-gated at the route.
+ *
+ *  Forwards the Supabase access token when there is one. `getUserIdFromRequest`
+ *  reads `Authorization: Bearer`, NOT cookies, so a plain same-origin fetch
+ *  authenticates as nobody — which silently served every Pro user the locked
+ *  payload. Signed-out callers still fetch (they get the locked shape by
+ *  design); the header is simply absent.
+ *
+ *  `spot` narrows the response to one spot id, for the spot page. */
+export async function fetchFreshCatches(
+  spotId?: string,
+): Promise<FreshCatchesResponse | null> {
+  const { data } = await supabase.auth.getSession();
+  const token = data.session?.access_token;
+  const qs = spotId ? `?spot=${encodeURIComponent(spotId)}` : "";
+  const res = await fetch(`/api/bluecaster/map/fresh-catches${qs}`, {
+    headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+    cache: "no-store",
+  });
+  if (!res.ok) return null;
+  return (await res.json().catch(() => null)) as FreshCatchesResponse | null;
 }
 
 /** The signed-in user's own custom spots (private + public), for the "your

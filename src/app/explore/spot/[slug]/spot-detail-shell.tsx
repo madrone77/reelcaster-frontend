@@ -20,6 +20,7 @@ import {
 } from "../../lib/forecast-strip";
 import {
   fetchForecast14d,
+  fetchFreshCatches,
   fetchSpotScore,
   fetchPointConditions,
   fetchCurrentsPoint,
@@ -48,7 +49,7 @@ import SpotTerminal from "../components/spot-terminal";
 import SpotMiniMap from "../components/spot-mini-map";
 import ScoreCard from "../components/score-card";
 import { FreshCatchBlock } from "@/app/explore/components/fresh-catch-reports";
-import type { RailFreshCatch, FreshCatchesResponse } from "@/app/explore/lib/fresh-catch-types";
+import type { RailFreshCatch } from "@/app/explore/lib/fresh-catch-types";
 import CustomAlertCta from "../components/custom-alert-cta";
 import MarketingFooter from "@/app/components/marketing/marketing-footer";
 import LogCatchDialog from "../components/log-catch-dialog";
@@ -186,8 +187,7 @@ export default function SpotDetailShell({
   useEffect(() => {
     if (!freshTracked || !isPaid) return;
     let cancelled = false;
-    fetch(`/api/bluecaster/map/fresh-catches?spot=${encodeURIComponent(spot.id)}`)
-      .then((r) => (r.ok ? (r.json() as Promise<FreshCatchesResponse>) : null))
+    fetchFreshCatches(spot.id)
       .then((d) => {
         const mine = d?.spots?.[spot.id];
         if (!cancelled && mine) setFresh(mine);
