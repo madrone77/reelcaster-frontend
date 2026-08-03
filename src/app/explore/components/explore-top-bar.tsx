@@ -6,6 +6,7 @@ import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { LifeBuoy } from "lucide-react";
 import { useAuth } from "@/contexts/auth-context";
+import { useSubscription } from "@/hooks/use-subscription";
 import TrialModalButton from "@/app/components/paywall/trial-modal-button";
 
 const NAV: { href: string; label: string; signedInOnly?: boolean }[] = [
@@ -39,6 +40,7 @@ export default function ExploreTopBar({
   preview?: boolean;
 } = {}) {
   const { user, session, loading } = useAuth();
+  const { isPaid, loading: tierLoading } = useSubscription();
   const pathname = usePathname();
   const brand = variant === "brand";
   const initials = user?.email ? user.email.slice(0, 2).toUpperCase() : null;
@@ -46,6 +48,12 @@ export default function ExploreTopBar({
   // Signed-in vs out — a preview forces the signed-in look for the mock.
   const signedIn = preview || !!user;
   const avatarLabel = preview ? "R" : initials;
+
+  // Nothing until the tier is known: a button that appears and then vanishes
+  // reads as "we thought you weren't paying", and a member who is paying
+  // should never be sold to. The preview mock has no user, so it stays out
+  // of this entirely.
+  const showUpgrade = !!user && !tierLoading && !isPaid;
 
   // Active-alert count → "Notifications" badge.
   const [alertCount, setAlertCount] = useState<number | null>(null);
@@ -142,6 +150,26 @@ export default function ExploreTopBar({
         <div className="flex items-center gap-2 sm:gap-3 ml-auto">
           {loading && !preview ? null : signedIn && avatarLabel ? (
             <>
+              {/* Signing in used to remove the only standing way to buy: the
+                  bar swapped the trial CTA for the avatar, leaving a free
+                  account with nothing but the walls it happened to hit. Same
+                  modal as every other entry point, so the pitch a member sees
+                  is the pitch a visitor sees. */}
+              {showUpgrade && (
+                <TrialModalButton
+                  from="explore-topbar-free"
+                  data-testid="topbar-upgrade"
+                  className={`px-3 py-1.5 rounded text-sm font-semibold transition-colors ${
+                    brand
+                      ? "bg-white text-rc-brand hover:bg-white/90"
+                      : "bg-rc-brand hover:bg-rc-brand-hover text-white"
+                  }`}
+                >
+                  {/* Room for the full label once there's a bar to put it in. */}
+                  <span className="sm:hidden">Upgrade</span>
+                  <span className="hidden sm:inline">Upgrade to Pro</span>
+                </TrialModalButton>
+              )}
               <Link
                 href={SUPPORT_HREF}
                 aria-label="Support"

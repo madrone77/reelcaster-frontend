@@ -19,6 +19,7 @@ import {
   TrialCadence,
   TrialCtaProvider,
   TrialTerms,
+  useTrialOffer,
 } from "./trial-cta";
 import { TRIAL_DAYS } from "@/lib/pricing";
 import {
@@ -29,6 +30,7 @@ import {
   PRO_ROW_START,
   nagHeadline,
   nagSubhead,
+  type NagFeature,
   type NagFeatureId,
   type PlanCell,
   type PlanTierId,
@@ -120,19 +122,9 @@ export default function ProTrialModal({
             })
           }
         >
-          {/* pr-10 clears the dialog's own close button — which is also why
-              there's no "Not now": two dismissals for one modal. */}
-          <DialogHeader className="shrink-0 px-4 pr-10 pt-6 pb-5 sm:px-6 sm:pr-12 text-left">
-            <p className="font-rc-mono text-[10px] font-semibold tracking-[0.14em] uppercase text-rc-brand">
-              ReelCaster Pro
-            </p>
-            <DialogTitle className="mt-2 text-xl sm:text-2xl font-black tracking-[-0.02em] text-rc-ink text-balance">
-              {nagHeadline(nag, viewerTier, spotName)}
-            </DialogTitle>
-            <DialogDescription className="mt-2 text-sm leading-relaxed text-rc-ink-soft">
-              {nagSubhead()}
-            </DialogDescription>
-          </DialogHeader>
+          {/* Inside the provider, so the offer it names is the offer the
+              button below actually gives. */}
+          <NagCopy nag={nag} spotName={spotName} />
 
           {/* Buy, then cadence — the toggle sits against the plan table it
               re-prices, rather than above the button it feeds. */}
@@ -154,7 +146,10 @@ export default function ProTrialModal({
                 {ctaLabel}
               </Link>
             ) : (
-              <TrialBuy signupLabel={ctaLabel} />
+              /* No signupLabel: without a signupHref it was never rendered,
+                 and it carried a hardcoded trial promise. TrialBuy labels
+                 itself from the eligibility it resolved. */
+              <TrialBuy />
             )}
             {!ctaHref && <TrialCadence className="mt-3" />}
           </div>
@@ -206,6 +201,39 @@ export default function ProTrialModal({
 }
 
 /* ---------------------------------------------------------------------- */
+
+/**
+ * Headline + subhead, rendered inside `TrialCtaProvider` so they can read the
+ * resolved offer rather than assume one.
+ *
+ * A signed-in free account that has already spent its trial gets paid terms
+ * from the checkout route and a "Get Pro" button from `TrialBuy` — a headline
+ * over it promising a free trial is the mismatch the server-side eligibility
+ * lookup exists to prevent. While that lookup is in flight neither line names
+ * an offer at all.
+ */
+function NagCopy({ nag, spotName }: { nag: NagFeature; spotName?: string }) {
+  const { trialOn } = useTrialOffer();
+
+  return (
+    /* pr-10 clears the dialog's own close button — which is also why there's
+       no "Not now": two dismissals for one modal. */
+    <DialogHeader className="shrink-0 px-4 pr-10 pt-6 pb-5 sm:px-6 sm:pr-12 text-left">
+      <p className="font-rc-mono text-[10px] font-semibold tracking-[0.14em] uppercase text-rc-brand">
+        ReelCaster Pro
+      </p>
+      <DialogTitle
+        data-trial={trialOn === undefined ? "resolving" : String(trialOn)}
+        className="mt-2 text-xl sm:text-2xl font-black tracking-[-0.02em] text-rc-ink text-balance"
+      >
+        {nagHeadline(nag, spotName, trialOn)}
+      </DialogTitle>
+      <DialogDescription className="mt-2 text-sm leading-relaxed text-rc-ink-soft">
+        {nagSubhead(trialOn)}
+      </DialogDescription>
+    </DialogHeader>
+  );
+}
 
 // Narrow value columns on a phone so the feature label keeps most of the row;
 // they widen once there's room for the longer strings ("Unlimited").
