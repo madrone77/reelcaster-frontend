@@ -140,13 +140,10 @@ export default function ExploreTopBar() {
               >
                 Sign in
               </Link>
-              {/* The label promises a trial, so it lands on checkout, not a
-                  bare signup form — /plans/checkout signs them in and hands
-                  off to Stripe. */}
+              {/* The label promises a trial, so it goes to checkout — which
+                  now takes an email and a card without an account first. */}
               <Link
-                href={`/signup?next=${encodeURIComponent(
-                  "/plans/checkout?plan=annual&from=explore-topbar",
-                )}`}
+                href="/plans/checkout?plan=annual&from=explore-topbar"
                 className="px-4 py-2 rounded bg-rc-brand hover:bg-rc-brand-hover text-sm font-semibold text-white transition-colors"
               >
                 Start free trial

@@ -19,13 +19,18 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/contexts/auth-context';
+import TrialCta from '@/app/components/paywall/trial-cta';
 import { supabase } from '@/lib/supabase';
 import {
   ANNUAL_PRICE_CENTS,
   MONTHLY_PRICE_CENTS,
+  TRIAL_DAYS,
   annualDiscount,
   type PricingPlan,
 } from '@/lib/pricing';
+
+/** Pay-first checkout — see src/app/components/paywall/trial-cta.tsx. */
+const PAY_FIRST = process.env.NEXT_PUBLIC_PAY_FIRST_CHECKOUT === '1';
 
 const REGIONS = [
   { value: 'BC', label: 'British Columbia' },
@@ -236,6 +241,38 @@ export default function CheckoutPanel({
     // a Monthly buyer to the annual default on the way back from signing in.
     const qs = searchParams.toString();
     const returnTo = `/plans/checkout${qs ? `?${qs}` : ''}`;
+
+    // Pay-first: no account needed. Checkout collects the email and the card,
+    // and the account is provisioned from it afterwards. Signing in is the
+    // secondary path, for someone who already has one.
+    if (PAY_FIRST) {
+      return (
+        <div className="rounded-xl border border-rc-rule bg-rc-panel p-6 shadow-rc-panel md:p-8">
+          <h2 className="text-xl font-bold text-rc-ink">
+            Start your {TRIAL_DAYS}-day free trial
+          </h2>
+          <p className="mt-2 text-sm leading-relaxed text-rc-ink-soft">
+            No account needed to start — we&apos;ll set one up from the email
+            you check out with, and sign you in when you land back here.
+          </p>
+
+          <div className="mt-6">
+            <TrialCta from={fromQuery} theme="light" />
+          </div>
+
+          <p className="mt-5 text-sm text-rc-ink-mute">
+            Already have an account?{' '}
+            <Link
+              href={`/login?next=${encodeURIComponent(returnTo)}`}
+              className="font-semibold text-rc-brand underline underline-offset-2 hover:text-rc-brand-hover"
+            >
+              Sign in
+            </Link>
+            .
+          </p>
+        </div>
+      );
+    }
 
     return (
       <div className="rounded-xl border border-rc-rule bg-rc-panel p-6 shadow-rc-panel md:p-8">
