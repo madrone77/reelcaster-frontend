@@ -20,6 +20,8 @@ export type AuthIntent = "catch" | "alert" | "forecast";
 interface IntentCopy {
   label: string;
   lead: string;
+  /** Closes the headline after the spot name: "… with a free trial". */
+  tail: string;
   verb: string;
   /**
    * Does a FREE account unlock this, per src/lib/plan-features.ts?
@@ -36,18 +38,21 @@ const INTENT_COPY: Record<AuthIntent, IntentCopy> = {
   catch: {
     label: "SAVE YOUR CATCH",
     lead: "Log catches at",
+    tail: "with a free trial",
     verb: "logging your catch",
     freeUnlocks: true,
   },
   alert: {
     label: "GET ALERTS",
-    lead: "Get alerts for",
+    lead: "Set an alert for",
+    tail: "with a free trial",
     verb: "setting your alert",
     freeUnlocks: false,
   },
   forecast: {
     label: "SEE THE WEEK AHEAD",
     lead: "See the week ahead at",
+    tail: "with a free trial",
     verb: "unlocking the 7-day forecast",
     freeUnlocks: true,
   },
@@ -168,7 +173,7 @@ export default function SignupGateDialog({
           <>
             {/* a11y title/description (visible heading rendered below) */}
             <DialogTitle className="sr-only">
-              {lead} {spotName}
+              {lead} {spotName} {mode === "signup" ? copy.tail : ""}
             </DialogTitle>
             <DialogDescription className="sr-only">
               {copy.freeUnlocks
@@ -186,6 +191,11 @@ export default function SignupGateDialog({
               <div className="mt-1 text-4xl sm:text-5xl font-bold leading-[1.05] tracking-[-0.03em] text-rc-brand">
                 {spotName}
               </div>
+              {mode === "signup" && (
+                <div className="mt-1 text-2xl sm:text-3xl font-bold leading-tight tracking-[-0.02em] text-rc-ink">
+                  {copy.tail}
+                </div>
+              )}
               <div className="mt-3 font-rc-mono text-[12px] text-rc-ink-mute">
                 No account needed — checkout sets one up for you
               </div>
