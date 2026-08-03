@@ -6,6 +6,7 @@ import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { LifeBuoy } from "lucide-react";
 import { useAuth } from "@/contexts/auth-context";
+import TrialModalButton from "@/app/components/paywall/trial-modal-button";
 
 const NAV: { href: string; label: string; signedInOnly?: boolean }[] = [
   { href: "/dashboard", label: "Dashboard", signedInOnly: true },
@@ -181,10 +182,9 @@ export default function ExploreTopBar({
               >
                 Sign in
               </Link>
-              {/* The label promises a trial, so it goes to checkout — which
-                  now takes an email and a card without an account first. */}
-              <Link
-                href="/plans/checkout?plan=annual&from=explore-topbar"
+              {/* Same modal as every other trial CTA in the product. */}
+              <TrialModalButton
+                from="explore-topbar"
                 className={`px-4 py-2 rounded text-sm font-semibold transition-colors ${
                   brand
                     ? "bg-white text-rc-brand hover:bg-white/90"
@@ -192,7 +192,7 @@ export default function ExploreTopBar({
                 }`}
               >
                 Start free trial
-              </Link>
+              </TrialModalButton>
             </>
           )}
         </div>
