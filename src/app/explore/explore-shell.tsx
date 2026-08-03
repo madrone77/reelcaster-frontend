@@ -58,6 +58,21 @@ function haversineKm(lat1: number, lng1: number, lat2: number, lng2: number): nu
   return 2 * R * Math.asin(Math.sqrt(a));
 }
 
+/**
+ * The strip's fetch key: the box padded 20% and rounded.
+ *
+ * Rounded to 2dp (~1 km), not 3. The map settles in stages — `load`, then the
+ * `fitBounds` animation, then a resize — and each stage used to mint a
+ * bbox that differed in the fourth decimal, missing the payload cache and
+ * refetching the same 14 days. At 2dp those stages collapse onto one key.
+ */
+function paddedBbox(b: { w: number; s: number; e: number; n: number }): string {
+  const padLng = (b.e - b.w) * 0.2;
+  const padLat = (b.n - b.s) * 0.2;
+  const r = (v: number) => Math.round(v * 100) / 100;
+  return `${r(b.w - padLng)},${r(b.s - padLat)},${r(b.e + padLng)},${r(b.n + padLat)}`;
+}
+
 function boundsOf(spots: RailSpot[]): [[number, number], [number, number]] | null {
   if (spots.length === 0) return null;
   let w = Infinity,
@@ -178,34 +193,10 @@ export default function ExploreShell({
       setViewBounds(b);
       setViewCenter(c);
       if (vpTimerRef.current) window.clearTimeout(vpTimerRef.current);
-      vpTimerRef.current = window.setTimeout(() => {
-        const padLng = (b.e - b.w) * 0.2;
-        const padLat = (b.n - b.s) * 0.2;
-        const r = (v: number) => Math.round(v * 1000) / 1000;
-        setVpBbox(
-          `${r(b.w - padLng)},${r(b.s - padLat)},${r(b.e + padLng)},${r(b.n + padLat)}`,
-        );
-      }, 300);
+      vpTimerRef.current = window.setTimeout(() => setVpBbox(paddedBbox(b)), 300);
     },
     [],
   );
-
-  // The strip's only source of a bbox used to be the map, and the map reports
-  // its first viewport from MapLibre's `load` — which waits on the relief-tile
-  // CDN. When those tiles are slow the event is late, and if a tile request
-  // hangs it never arrives at all: the 14-day strip then sits empty forever on
-  // a page that otherwise looks fine. Seen on prod, blank at 97s.
-  //
-  // So fall back to the server-rendered bbox — the same one `data.spots` was
-  // built from — if the map hasn't reported anything shortly after mount. A
-  // healthy map still wins the race and this never fires; a stalled one now
-  // costs a slightly wider strip instead of no strip.
-  useEffect(() => {
-    const t = window.setTimeout(() => {
-      if (!vpReported.current) setVpBbox((prev) => prev ?? bbox);
-    }, 1500);
-    return () => window.clearTimeout(t);
-  }, [bbox]);
 
   const today = data.date;
   const selectedIso = day ?? today;
@@ -671,6 +662,40 @@ export default function ExploreShell({
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedCity?.slug]);
+
+  // Seed the strip's bbox from those same bounds, immediately, instead of
+  // waiting for the map to report one.
+  //
+  // The map's first viewport comes from MapLibre's `load`, which blocks on the
+  // relief-tile CDN, and then moves again when the `fitBounds` above finishes
+  // animating. Measured on prod: the forecast request started somewhere between
+  // 0.9s and 1.9s and a second one fired around 5s when the camera finally
+  // settled — so the strip could be empty for several seconds on a page whose
+  // spot rail had rendered long before.
+  //
+  // Nothing about that wait was necessary. `boundsOf(citySpots)` is exactly
+  // what the map is about to fit to, and it is known from `data.spots` at
+  // mount. Seeding from it starts the fetch in the first frame and shows the
+  // right area, not a wider stand-in — and because both paths now round to the
+  // same 2dp key, the map's own report usually lands on the cached payload
+  // rather than refetching it.
+  const vpSeeded = useRef(false);
+  useEffect(() => {
+    if (vpSeeded.current || vpReported.current) return;
+    const citySpots = selectedCity
+      ? displaySpots.filter((s) => s.citySlug === selectedCity.slug)
+      : displaySpots;
+    const bounds = boundsOf(citySpots);
+    vpSeeded.current = true;
+    setVpBbox((prev) =>
+      prev ??
+      (bounds
+        ? paddedBbox({ w: bounds[0][0], s: bounds[0][1], e: bounds[1][0], n: bounds[1][1] })
+        : // No spots to frame (empty viewport / failed payload): the
+          // server-rendered bbox still beats rendering nothing.
+          bbox),
+    );
+  }, [displaySpots, selectedCity, bbox]);
 
   // The map is a single instance whose container flips between an in-flow
   // block (<lg) and a full-screen absolute pane (lg+). trackResize handles
