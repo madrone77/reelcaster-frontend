@@ -11,6 +11,7 @@ import { PLAN_FEATURES } from '@/lib/plan-features';
 import PlansFeatureCallout from '@/app/components/plans/plans-feature-callout';
 import {
   breadcrumbJsonLd,
+  DEFAULT_OG,
   SITE_NAME,
   SITE_URL,
   siteUrl,
@@ -96,6 +97,10 @@ export const metadata: Metadata = {
     siteName: SITE_NAME,
     type: 'website',
     locale: 'en_CA',
+    // Every other indexable page spreads DEFAULT_OG; /plans was the one that
+    // didn't, so the sales page — the most-shared link on the site — rendered
+    // as a bare text card everywhere it was posted.
+    ...DEFAULT_OG,
   },
   robots: { index: true, follow: true },
 };

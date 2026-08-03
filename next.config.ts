@@ -2,6 +2,20 @@ import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
   trailingSlash: false,
+  env: {
+    // A real build timestamp for the sitemap's static entries.
+    //
+    // src/app/sitemap.ts is a dynamic route, so a module-scope `new Date()`
+    // there is evaluated per serverless cold start, not at build — the static
+    // pages' <lastmod> drifted forward by minutes every time a new instance
+    // answered, claiming the copy had just changed when it hadn't. That is the
+    // same always-says-now signal the file already fixed for the scored URLs.
+    //
+    // `env` entries are inlined at compile time, so every instance of a given
+    // deployment reports the one moment that deployment's copy could have
+    // changed, and the value only advances on a new build.
+    BUILD_TIMESTAMP: new Date().toISOString(),
+  },
   images: {
     remotePatterns: [
       // Unsplash hero images for city pages (seeded by
