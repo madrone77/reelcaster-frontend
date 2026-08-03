@@ -937,13 +937,14 @@ a thin wrapper), and alert creation — `create-alert-dialog.tsx` takes an
 would refuse. `upgrade-required-modal.tsx` + `unlock-with-pro-card.tsx` still
 serve `/alerts` and `/support`.
 
-### Pay first, sign up never (2026-08-03, behind a flag)
+### Pay first, sign up never (2026-08-03, live and verified)
 
 A signed-out angler can buy Pro without making an account: Stripe collects the
 email and the card, and the account is provisioned afterwards from
-`customer_details.email`. Gated by **`NEXT_PUBLIC_PAY_FIRST_CHECKOUT=1`** —
-unset, signed-out buyers keep going to `/plans/checkout`, so deploying this
-changes nothing until the switch is flipped.
+`customer_details.email`. Gated by **`NEXT_PUBLIC_PAY_FIRST_CHECKOUT`**, which is **set to 1 in
+production**. A real purchase was completed end to end on 2026-08-03 —
+Stripe → webhook provisioning → signed in — so the chain is confirmed, not
+assumed. Unset the variable to fall back to `/plans/checkout`.
 
 - `POST /api/stripe/checkout` gains an **unauthenticated branch**
   (`anonCheckout`) that creates a customer-less session with `customer_email`.
@@ -972,6 +973,21 @@ changes nothing until the switch is flipped.
 
 Accounts made this way have **no password** — magic link or Google until they
 set one.
+
+**Every signup-nudge modal runs this flow**, not just the Pro paywalls:
+`signup-gate-dialog.tsx` (Set alert / Log catch / locked days), the
+`pro-trial-modal.tsx` matrix, `unlock-with-pro-card.tsx`, and the signed-out
+state of `/plans/checkout`. Two of those gates gate FREE features (log a catch,
+forecast days 3–7, per `plan-features.ts`), so they keep a free-signup path
+under the pay CTA — the day tiles say "Sign up free", and charging there would
+contradict the tile the user just clicked. Alerts are Pro-only and get no free
+option. The matrix modal also carries a **"Sign up today as a free user"** link
+at its foot, below the table, anon only.
+
+**Gotcha:** don't pass `viewerTier` into `ProTrialModal` from a wrapper.
+`upgrade-dialog.tsx` used to force `"free"`, which marked the Free column "You"
+for signed-out visitors and suppressed the anon-only free offer. The `variant`
+prop picks which wall was hit; the modal reads the tier from auth.
 
 ### The in-app paywalls buy without leaving (2026-08-03)
 
