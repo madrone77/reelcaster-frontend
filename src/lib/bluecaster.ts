@@ -424,6 +424,37 @@ export async function fetchBuoyConditions(
   return bcGet<BuoyConditions>("/api/v1/map/buoy-conditions", { sid });
 }
 
+/**
+ * Satellite still for one spot — image bytes, not JSON, so it can't go through
+ * `bcGet`. BlueCaster holds the Google Static Maps key; we pass a spot id and
+ * get back a rendered PNG. A spot's coordinates never move, so the render is
+ * immutable and safe to cache hard.
+ */
+export async function fetchSpotThumb(
+  spotId: string,
+  opts: { zoom?: number; size?: "card" | "panel" } = {},
+): Promise<{ body: ArrayBuffer; contentType: string } | null> {
+  const env = bcEnv();
+  if (!env) return null;
+  const url = new URL(`${env.baseUrl}/api/v1/map/spot-thumb`);
+  url.searchParams.set("spot", spotId);
+  if (opts.zoom) url.searchParams.set("z", String(opts.zoom));
+  if (opts.size) url.searchParams.set("size", opts.size);
+  try {
+    const res = await fetch(url.toString(), {
+      headers: { "x-api-key": env.apiKey },
+      next: { revalidate: 86400 },
+    });
+    if (!res.ok) return null;
+    return {
+      body: await res.arrayBuffer(),
+      contentType: res.headers.get("content-type") ?? "image/png",
+    };
+  } catch {
+    return null;
+  }
+}
+
 // ── Hierarchy (regions index) ───────────────────────────────────────
 
 export interface BlueCasterHierarchy {
