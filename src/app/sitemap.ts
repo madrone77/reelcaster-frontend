@@ -20,7 +20,15 @@ type SitemapEntry = {
 //
 // Static pages get the build time, which is the last moment their copy could
 // have changed.
-const BUILD_TIME = new Date();
+//
+// This is injected by next.config.ts and inlined at compile time. It must not
+// become `new Date()` here: this route is dynamic, so module scope runs on every
+// serverless cold start, and the timestamp would drift forward on its own — the
+// same "always says now" signal scoredLastModified() exists to avoid. The
+// fallback only applies in environments that skip the Next build (unit tests).
+const BUILD_TIME = process.env.BUILD_TIMESTAMP
+  ? new Date(process.env.BUILD_TIMESTAMP)
+  : new Date();
 
 /**
  * The scoring day the current map payload describes, as the `lastModified` for
