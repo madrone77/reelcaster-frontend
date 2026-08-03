@@ -232,6 +232,11 @@ export default function CheckoutPanel({
   }
 
   if (!user) {
+    // Carry the whole query back: `next=/plans/checkout` alone silently reset
+    // a Monthly buyer to the annual default on the way back from signing in.
+    const qs = searchParams.toString();
+    const returnTo = `/plans/checkout${qs ? `?${qs}` : ''}`;
+
     return (
       <div className="rounded-xl border border-rc-rule bg-rc-panel p-6 shadow-rc-panel md:p-8">
         <h2 className="text-xl font-bold text-rc-ink">Sign in to continue</h2>
@@ -240,7 +245,7 @@ export default function CheckoutPanel({
           we need you signed in before checkout.
         </p>
         <Link
-          href={`/login?next=${encodeURIComponent('/plans/checkout')}`}
+          href={`/login?next=${encodeURIComponent(returnTo)}`}
           className="mt-5 inline-flex items-center justify-center rounded-md bg-rc-brand px-5 py-3 text-sm font-bold text-white transition-colors hover:bg-rc-brand-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rc-brand focus-visible:ring-offset-2"
         >
           Sign in
@@ -248,7 +253,7 @@ export default function CheckoutPanel({
         <p className="mt-3 text-sm text-rc-ink-mute">
           No account?{' '}
           <Link
-            href={`/signup?next=${encodeURIComponent('/plans/checkout')}`}
+            href={`/signup?next=${encodeURIComponent(returnTo)}`}
             className="font-semibold text-rc-brand underline underline-offset-2 hover:text-rc-brand-hover"
           >
             Create one free
