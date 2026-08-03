@@ -365,6 +365,45 @@ export async function fetchMapForecast14d(
   return bcGet<MapForecast14dPayload>("/api/v1/map/forecast-14d", { bbox }, 120);
 }
 
+// ── Fresh catch reports ─────────────────────────────────────────────
+
+export type FreshCatchVerdict = "strong" | "mixed" | "slow";
+
+export interface FreshCatchSpecies {
+  count: number;
+  positive: number;
+  latest_date: string | null;
+}
+
+/** Upstream (ungated) per-spot aggregate. Never hand this to a client as-is —
+ *  the Pro gate lives in the /api/bluecaster/map/fresh-catches proxy. */
+export interface FreshCatchSpot {
+  count: number;
+  positive: number;
+  verdict: FreshCatchVerdict;
+  latest_date: string | null;
+  species: Record<string, FreshCatchSpecies>;
+}
+
+export interface FreshCatchesPayload {
+  since: string;
+  days: number;
+  spots: Record<string, FreshCatchSpot>; // keyed by spot UUID
+}
+
+/** Aggregate scraped catch reports per published spot (21-day window).
+ *  Counts and hit/miss only — the endpoint serves no report text. */
+export async function fetchFreshCatches(opts: {
+  city?: string;
+  days?: number;
+}): Promise<FreshCatchesPayload | null> {
+  return bcGet<FreshCatchesPayload>(
+    "/api/v1/map/fresh-catches",
+    { city: opts.city, days: opts.days },
+    600, // intel moves on the scraper's twice-daily cadence
+  );
+}
+
 // ── Map station/buoy click panels ───────────────────────────────────
 
 export async function fetchStationConditions(

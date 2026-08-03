@@ -42,6 +42,10 @@ const FEATURE_COPY: Record<string, { title: string; body: string }> = {
     title: 'Your pin, our full model',
     body: 'Pro scores a spot we don’t publish. Drop it anywhere inside a city we cover and it gets the same model run as everything else on the map.',
   },
+  'catch-reports': {
+    title: 'What anglers are actually catching',
+    body: 'We read the local reports so you don’t have to. Pro shows how many trips landed fish at a spot in the last three weeks, and which species they came for.',
+  },
   'spot-horizon': {
     title: 'The full forecast on this spot',
     body: 'Pro opens the complete 14-day window with hourly detail and 5-species comparison on every spot page.',

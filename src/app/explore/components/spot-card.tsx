@@ -10,6 +10,8 @@ import { useSubscription } from "@/hooks/use-subscription";
 import { FREE_FAVORITE_SPOTS } from "@/lib/plan-features";
 import { bestWindow } from "./hourly-bars";
 import SpotTrend from "./spot-trend";
+import { FreshCatchBadge } from "./fresh-catch-reports";
+import type { RailFreshCatch } from "../lib/fresh-catch-types";
 
 const ProTrialModal = dynamic(
   () => import("@/app/components/paywall/pro-trial-modal"),
@@ -29,6 +31,7 @@ export default function SpotCard({
   showVisibility = false,
   homeBadge = false,
   onFavoriteChange,
+  fresh,
 }: {
   spot: RailSpot;
   /** Accepted for call-site compatibility; the compact trend needs no tz. */
@@ -44,10 +47,14 @@ export default function SpotCard({
   /** Fires after the star toggles, so a list keyed on favourites can drop or
    *  add the card without a reload. */
   onFavoriteChange?: (fav: boolean) => void;
+  /** Scraped catch reports for this spot, if any land in the window. Already
+   *  Pro-gated by the route: a free viewer's entry is `{ locked: true }`. */
+  fresh?: RailFreshCatch;
 }) {
   const [fav, toggleFav] = useFavorite(spot.slug);
   const { isPaid } = useSubscription();
   const [upgradeOpen, setUpgradeOpen] = useState(false);
+  const [reportsUpgradeOpen, setReportsUpgradeOpen] = useState(false);
   // Drives the one-shot "pop" animation when a spot is favorited (not on load).
   const [popping, setPopping] = useState(false);
 
@@ -123,6 +130,12 @@ export default function SpotCard({
                 <span className="inline-flex shrink-0 items-center rounded bg-rc-brand-soft px-1.5 py-0.5 font-rc-mono text-[9px] uppercase tracking-[0.06em] text-rc-brand">
                   Home
                 </span>
+              )}
+              {fresh && (
+                <FreshCatchBadge
+                  fresh={fresh}
+                  onUnlock={() => setReportsUpgradeOpen(true)}
+                />
               )}
               {showVisibility && spot.isCustom && (
                 <span
@@ -221,6 +234,15 @@ export default function SpotCard({
         feature="favorite-spots"
         from="explore-rail"
         spotName={spot.name}
+      />
+      {/* Separate instance from the favourites nag: same modal, different
+          pitch. No spotName — the offer is the whole reporting stream, not
+          this one card's numbers. */}
+      <ProTrialModal
+        open={reportsUpgradeOpen}
+        onOpenChange={setReportsUpgradeOpen}
+        feature="catch-reports"
+        from="explore-rail-reports"
       />
     </div>
   );

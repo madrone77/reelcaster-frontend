@@ -15,6 +15,8 @@ import {
 } from "lucide-react";
 import { useFavorite, favoriteCount } from "../lib/use-favorite";
 import { useSubscription } from "@/hooks/use-subscription";
+import { FreshCatchBlock } from "./fresh-catch-reports";
+import type { RailFreshCatch } from "../lib/fresh-catch-types";
 import { FREE_FAVORITE_SPOTS } from "@/lib/plan-features";
 import {
   TIER_PILL,
@@ -74,6 +76,9 @@ export default function SpotDrawer({
   onBack,
   onHourHover,
   onSetAlert,
+  fresh,
+  freshDays = 21,
+  freshSpeciesNames,
 }: {
   spot: RailSpot;
   date: string;
@@ -89,6 +94,12 @@ export default function SpotDrawer({
   /** Opens the create-alert modal in place for this spot. When omitted, the
       "Set alert" button falls back to the spot page (which opens the modal). */
   onSetAlert?: (spot: RailSpot) => void;
+  /** Scraped catch reports for this spot. Already Pro-gated by the route —
+      a free viewer's entry is `{ locked: true }` and carries no numbers. */
+  fresh?: RailFreshCatch;
+  freshDays?: number;
+  /** speciesId → display name, for the per-species split. */
+  freshSpeciesNames?: Record<string, string>;
 }) {
   // Resting state anchors to the day's PEAK hour — the drawer's headline
   // promise is "the best this day gets", not the score at whatever hour the
@@ -136,6 +147,7 @@ export default function SpotDrawer({
   const [fav, toggleFav] = useFavorite(spot.slug);
   const { isPaid } = useSubscription();
   const [upgradeOpen, setUpgradeOpen] = useState(false);
+  const [reportsUpgradeOpen, setReportsUpgradeOpen] = useState(false);
   // Drives the one-shot "pop" animation when a spot is favorited (not on load).
   const [popping, setPopping] = useState(false);
   const onStar = () => {
@@ -263,6 +275,18 @@ export default function SpotDrawer({
           </div>
         </div>
 
+        {/* Fresh catch reports — the evidence, directly under the prediction.
+            Renders nothing when this spot has no reports in the window. */}
+        {fresh && (
+          <FreshCatchBlock
+            fresh={fresh}
+            days={freshDays}
+            speciesNames={freshSpeciesNames}
+            onUpgrade={() => setReportsUpgradeOpen(true)}
+            className="mt-5 pb-5 border-b border-rc-rule-soft"
+          />
+        )}
+
         {/* Conditions grid — captioned with the hour it is read at, so the
             values and the time they belong to change together in one glance
             instead of the time living alone up in the header. */}
@@ -335,6 +359,12 @@ export default function SpotDrawer({
         feature="favorite-spots"
         from="explore-drawer"
         spotName={spot.name}
+      />
+      <ProTrialModal
+        open={reportsUpgradeOpen}
+        onOpenChange={setReportsUpgradeOpen}
+        feature="catch-reports"
+        from="explore-drawer-reports"
       />
     </div>
   );

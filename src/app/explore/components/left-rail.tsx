@@ -14,6 +14,7 @@ import SpotCard from "./spot-card";
 import SpotDrawer from "./spot-drawer";
 import StationDrawer from "./station-drawer";
 import type { StationPick } from "./explore-map";
+import type { FreshCatchesResponse } from "../lib/fresh-catch-types";
 
 interface MapControlsProps {
   relief: boolean;
@@ -52,6 +53,7 @@ export default function LeftRail({
   onCloseStation,
   onSpotHourHover,
   onSetAlert,
+  freshCatches,
   mapControls,
 }: {
   locations: ProvinceNode[];
@@ -74,10 +76,22 @@ export default function LeftRail({
   onSpotHourHover?: (hour: number | null) => void;
   /** Opens the create-alert modal in place for the drawer's spot. */
   onSetAlert?: (spot: RailSpot) => void;
+  /** Scraped catch reports keyed by spot id. Already Pro-gated by the route —
+   *  a free viewer's entries carry `locked: true` and no numbers. */
+  freshCatches?: FreshCatchesResponse | null;
   mapControls: MapControlsProps;
 }) {
   const [sort, setSort] = useState<SortKey>("score");
   const sortedSpots = useMemo(() => sortSpots(spots, sort), [spots, sort]);
+
+  // Names for the drawer's per-species report split. mapControls.species is the
+  // map payload's dict, which has already had catch-and-release species dropped
+  // — anything missing from it folds into "Other species" rather than being
+  // named, which keeps intel consistent with what the map is willing to rank.
+  const speciesNames = useMemo(
+    () => Object.fromEntries(mapControls.species.map((s) => [s.id, s.name])),
+    [mapControls.species],
+  );
 
   // The spot list wants the full column (it scrolls); a drawer does not — it
   // has a fixed amount to say, and pinning it to the viewport floor stranded
@@ -105,6 +119,9 @@ export default function LeftRail({
             onBack={onCloseSpot}
             onHourHover={onSpotHourHover}
             onSetAlert={onSetAlert}
+            fresh={freshCatches?.spots[selectedSpot.id]}
+            freshDays={freshCatches?.days ?? 21}
+            freshSpeciesNames={speciesNames}
           />
         </div>
       ) : selectedStation ? (
@@ -164,6 +181,7 @@ export default function LeftRail({
                     spot={spot}
                     tz={tz}
                     onSelect={() => onSelectSpot(spot.slug)}
+                    fresh={freshCatches?.spots[spot.id]}
                   />
                 ))}
               </div>

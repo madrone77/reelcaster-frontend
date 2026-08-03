@@ -140,6 +140,13 @@ export const PLAN_FEATURES: PlanFeatureRow[] = [
     pro: true,
   },
   {
+    id: "catch-reports",
+    label: "See what anglers are actually catching, spot by spot",
+    anon: false,
+    free: false,
+    pro: true,
+  },
+  {
     id: "all-cities",
     label: "Every covered city, one price",
     anon: false,
@@ -160,7 +167,8 @@ export type NagFeatureId =
   | "custom-spots"
   | "forecast-week"
   | "forecast-14d"
-  | "catch-log";
+  | "catch-log"
+  | "catch-reports";
 
 export interface NagFeature {
   /** Completes "Start your 7-day Pro trial to ___". Lower case, no period. */
@@ -236,6 +244,16 @@ export const NAG_FEATURES: Record<NagFeatureId, NagFeature> = {
     unlocksAt: "free",
     rowId: "catch-log",
     pricingFeature: "favorite-spots",
+  },
+  // Deliberately NOT spot-scoped: the pitch is the whole reporting stream
+  // across every spot, not this one spot's numbers. "for Oak Bay Flats" would
+  // undersell it to the size of whatever card they happened to click.
+  "catch-reports": {
+    action: "see what anglers are catching",
+    headline: "Unlock all fresh catch reports",
+    unlocksAt: "pro",
+    rowId: "catch-reports",
+    pricingFeature: "catch-reports",
   },
 };
 
