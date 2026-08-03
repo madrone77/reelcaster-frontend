@@ -9,7 +9,10 @@ import {
   type BillingCurrency,
   type PricingPlan,
 } from '@/lib/pricing';
-import { checkTrialEligibility } from '@/lib/trial';
+import {
+  checkTrialEligibility,
+  checkTrialEligibilityByEmail,
+} from '@/lib/trial';
 import { resolveEntitlement } from '@/lib/entitlement';
 
 export const runtime = 'nodejs';
@@ -22,6 +25,125 @@ const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
 const admin = createClient(supabaseUrl, supabaseServiceKey, {
   auth: { autoRefreshToken: false, persistSession: false },
 });
+
+/**
+ * Pay-first checkout (buy Pro with no account, account provisioned from the
+ * email Stripe bills). NEXT_PUBLIC_ so the paywall UI and this route read the
+ * same switch — the modal shows its email field only when this is on.
+ */
+const PAY_FIRST_ENABLED = process.env.NEXT_PUBLIC_PAY_FIRST_CHECKOUT === '1';
+
+/**
+ * Checkout for someone who has no account yet.
+ *
+ * The paywall's whole point is that deciding to pay shouldn't require a signup
+ * form first: Stripe takes the email and the card, and the webhook provisions
+ * the account from `customer_details.email`. So this creates a session with NO
+ * customer attached — the customer, and then the user row, come into existence
+ * downstream.
+ *
+ * The email is still collected in our UI (one field, no password) because it's
+ * the only way to check trial eligibility BEFORE Stripe applies a trial. Layer
+ * 3 in the webhook catches whatever slips through.
+ */
+async function anonCheckout(request: NextRequest) {
+  // Off until someone has watched one real transaction go through. Every
+  // other path is unaffected; with this unset the paywall keeps sending
+  // signed-out buyers to /plans/checkout exactly as it does today.
+  if (!PAY_FIRST_ENABLED) {
+    return NextResponse.json({ error: 'unauthorized' }, { status: 401 });
+  }
+
+  let body: CheckoutBody;
+  try {
+    body = await request.json();
+  } catch {
+    return NextResponse.json({ error: 'invalid_body' }, { status: 400 });
+  }
+
+  const email = (body.email ?? '').toString().trim().toLowerCase();
+  if (!EMAIL_RE.test(email)) {
+    return NextResponse.json({ error: 'email_required' }, { status: 400 });
+  }
+
+  const plan: PricingPlan = body.plan === 'annual' ? 'annual' : 'monthly';
+  const region = (body.region ?? '').toString().trim();
+
+  if (region.toLowerCase() === 'other') {
+    return NextResponse.json({ redirect: '/explore?waitlist=1' }, { status: 200 });
+  }
+
+  const priceId = priceIdFor(plan);
+  if (!priceId) {
+    console.error(`[stripe checkout] no price ID configured for plan "${plan}"`);
+    return NextResponse.json({ error: 'plan_unavailable', plan }, { status: 503 });
+  }
+
+  const stripe = await getStripe();
+  const currency: BillingCurrency = currencyForRegion(
+    region,
+    request.headers.get('x-vercel-ip-country'),
+  );
+
+  const eligibility = await checkTrialEligibilityByEmail(admin, email);
+  const trialEligible = eligibility.eligible;
+  if (!trialEligible) {
+    console.info('[stripe checkout] anon trial withheld', eligibility.reason);
+  }
+
+  try {
+    const origin = appOrigin(request);
+    const session = await stripe.checkout.sessions.create({
+      mode: 'subscription',
+      // No `customer`: Stripe creates one from the email it collects, and the
+      // webhook binds it to the account it provisions.
+      customer_email: email,
+      currency,
+      line_items: [{ price: priceId, quantity: 1 }],
+      allow_promotion_codes: true,
+      payment_method_collection: 'always',
+      success_url: `${origin}/billing/success?session_id={CHECKOUT_SESSION_ID}`,
+      cancel_url: `${origin}/billing/cancel`,
+      metadata: {
+        // No supabase_user_id yet — `anon_checkout` is the webhook's signal to
+        // provision one rather than log an unresolvable subscription.
+        anon_checkout: 'true',
+        checkout_email: email,
+        plan,
+        currency,
+        region: region || '',
+        from: body.from ?? '',
+        trial: String(trialEligible),
+      },
+      subscription_data: {
+        metadata: {
+          anon_checkout: 'true',
+          checkout_email: email,
+          plan,
+          currency,
+          trial: String(trialEligible),
+        },
+        ...(trialEligible
+          ? {
+              trial_period_days: TRIAL_DAYS,
+              trial_settings: {
+                end_behavior: { missing_payment_method: 'cancel' as const },
+              },
+            }
+          : {}),
+      },
+    });
+
+    return NextResponse.json({
+      url: session.url,
+      id: session.id,
+      trial_days: trialEligible ? TRIAL_DAYS : 0,
+    });
+  } catch (err) {
+    console.error('[stripe checkout] anon session failed', err);
+    return NextResponse.json({ error: 'checkout_failed' }, { status: 502 });
+  }
+}
 
 async function getUserFromRequest(request: NextRequest) {
   const authHeader = request.headers.get('authorization');
@@ -39,12 +161,17 @@ interface CheckoutBody {
   plan?: PricingPlan;
   region?: string; // 'BC' | 'WA' | 'OR' | 'Other' | other slug
   from?: string;   // analytics: 'spot' | 'pricing' | etc.
+  /** Signed-out buyers only: the address Stripe bills and we provision from. */
+  email?: string;
 }
+
+/** Deliberately loose — Stripe re-validates, and we only need to reject junk. */
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 export async function POST(request: NextRequest) {
   const user = await getUserFromRequest(request);
   if (!user) {
-    return NextResponse.json({ error: 'unauthorized' }, { status: 401 });
+    return anonCheckout(request);
   }
 
   const stripe = await getStripe();

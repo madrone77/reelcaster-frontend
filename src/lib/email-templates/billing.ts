@@ -121,3 +121,35 @@ export function trialUnavailableEmail(params: {
     ),
   };
 }
+
+/**
+ * Sent when a purchase can't sign the buyer in from the success page: the
+ * email already had an account, or the one-time handoff was already used.
+ *
+ * Completing a checkout is not proof of owning an inbox, so this link is the
+ * only way into an account that existed before the purchase.
+ */
+export function checkoutSignInEmail(actionLink: string): {
+  subject: string;
+  html: string;
+  text: string;
+} {
+  return {
+    subject: 'Your ReelCaster Pro is ready — sign in',
+    html: shell(
+      `<tr><td>
+        <h1 style="margin:0 0 16px;font-size:22px;line-height:30px;color:${INK};">You're on Pro</h1>
+        <p style="margin:0 0 16px;font-size:15px;line-height:24px;color:${INK_SOFT};">
+          Your payment went through and Pro is on this email address. Use the button below to
+          sign in — no password needed.
+        </p>
+        <p style="margin:0 0 24px;font-size:15px;line-height:24px;color:${INK_MUTE};">
+          The link works once and expires shortly, so open it on the device you want to fish from.
+        </p>
+        <p style="margin:0 0 8px;">${button(actionLink, 'Sign in to ReelCaster')}</p>
+      </td></tr>`,
+      'Your Pro subscription is active. Sign in to start using it.',
+    ),
+    text: `You're on Pro. Sign in here (the link works once and expires shortly): ${actionLink}`,
+  };
+}

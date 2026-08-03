@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useId, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useAuth } from '@/contexts/auth-context';
 import { supabase } from '@/lib/supabase';
@@ -39,6 +39,14 @@ interface CheckoutStatus {
   trial_days: number;
   annual_available: boolean;
 }
+
+/**
+ * Pay-first checkout: a signed-out buyer goes straight to Stripe and the
+ * account is created afterwards from the email Stripe billed. Off until a real
+ * transaction has been watched end to end — with it off, signed-out buyers get
+ * the /plans/checkout link instead, which is the shipped behaviour.
+ */
+const PAY_FIRST = process.env.NEXT_PUBLIC_PAY_FIRST_CHECKOUT === '1';
 
 function dollars(cents: number): string {
   const v = cents / 100;
@@ -92,6 +100,43 @@ export default function TrialCta({
   const [plan, setPlan] = useState<PricingPlan>('annual');
   const [status, setStatus] = useState<CheckoutStatus | null>(null);
   const [statusLoading, setStatusLoading] = useState(true);
+  const [email, setEmail] = useState('');
+  const [anonSubmitting, setAnonSubmitting] = useState(false);
+  const [anonError, setAnonError] = useState<string | null>(null);
+  const emailFieldId = useId();
+
+  /**
+   * Signed-out purchase: straight to Stripe with no account. The session is
+   * created customer-less; the webhook provisions the account from the email
+   * Stripe bills, and /billing/success finishes the sign-in.
+   */
+  async function startAnonCheckout() {
+    setAnonSubmitting(true);
+    setAnonError(null);
+    try {
+      const res = await fetch('/api/stripe/checkout', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ plan, from, email: email.trim() }),
+      });
+      let payload: { url?: string; redirect?: string; error?: string } = {};
+      try {
+        payload = await res.json();
+      } catch {
+        /* non-JSON error body */
+      }
+      if (!res.ok) throw new Error(payload.error ?? 'checkout_failed');
+      if (payload.redirect) {
+        window.location.href = payload.redirect;
+        return;
+      }
+      if (!payload.url) throw new Error('no_url');
+      window.location.href = payload.url;
+    } catch {
+      setAnonError('We couldn’t start checkout. Please try again in a moment.');
+      setAnonSubmitting(false);
+    }
+  }
 
   useEffect(() => {
     if (authLoading) return;
@@ -130,10 +175,10 @@ export default function TrialCta({
 
   const isLight = theme === 'light';
   const yearly = plan === 'annual';
-  // Signed out: Stripe needs a Supabase user, so the cadence choice carries
-  // into /plans/checkout (which signs them in and hands off) instead of
-  // POSTing. That page re-resolves eligibility, so an optimistic trial here is
-  // corrected before any card is taken.
+  // Signed out: pay first, account after. The email field below is the only
+  // thing collected here; eligibility is checked server-side against it before
+  // Stripe is told to apply a trial, so this optimistic `true` never survives
+  // into the actual session for someone who has already had one.
   const anon = !authLoading && !user;
   const trialOn = anon || Boolean(status?.trial_available);
   const trialDays = status?.trial_days ?? TRIAL_DAYS;
@@ -248,7 +293,7 @@ export default function TrialCta({
         </button>
       </div>
 
-      {anon ? (
+      {anon && !PAY_FIRST ? (
         <Link
           href={checkoutHref}
           data-testid="trial-cta"
@@ -258,6 +303,50 @@ export default function TrialCta({
         >
           {ctaLabel}
         </Link>
+      ) : anon ? (
+        // Pay first, sign up never: one email field, no password, no account.
+        // Stripe collects the card and the account is provisioned from this
+        // address afterwards. The field exists so trial eligibility can be
+        // checked BEFORE Stripe applies a trial — see /api/stripe/checkout.
+        <form
+          className="flex flex-col gap-2"
+          onSubmit={(e) => {
+            e.preventDefault();
+            onActivate?.(plan);
+            startAnonCheckout();
+          }}
+        >
+          <label htmlFor={emailFieldId} className={cn('text-xs', subtle)}>
+            Your email — we’ll set up your account after checkout, no password
+            needed.
+          </label>
+          <input
+            id={emailFieldId}
+            type="email"
+            required
+            autoComplete="email"
+            inputMode="email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            placeholder="angler@example.com"
+            disabled={anonSubmitting}
+            className={cn(
+              'w-full rounded-lg border px-3 py-2.5 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rc-brand focus-visible:ring-offset-2 disabled:opacity-60',
+              isLight
+                ? 'border-rc-rule bg-rc-surface text-rc-ink placeholder:text-rc-ink-mute'
+                : 'border-rc-bg-light bg-rc-bg-light text-rc-text placeholder:text-rc-text-muted',
+            )}
+          />
+          <button
+            type="submit"
+            data-testid="trial-cta"
+            data-plan={plan}
+            disabled={anonSubmitting}
+            className={ctaClass}
+          >
+            {anonSubmitting ? 'Starting…' : ctaLabel}
+          </button>
+        </form>
       ) : (
         <button
           type="button"
@@ -303,7 +392,7 @@ export default function TrialCta({
         </p>
       )}
 
-      {error && (
+      {(error || anonError) && (
         <p
           role="alert"
           className="rounded-md border border-rc-poor/30 bg-rc-poor-bg p-2.5 text-xs text-rc-poor-ink"
