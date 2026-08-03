@@ -937,6 +937,30 @@ a thin wrapper), and alert creation — `create-alert-dialog.tsx` takes an
 would refuse. `upgrade-required-modal.tsx` + `unlock-with-pro-card.tsx` still
 serve `/alerts` and `/support`.
 
+### The in-app paywalls buy without leaving (2026-08-03)
+
+Both paywall CTAs used to link to `/plans`, so buying took two more pages.
+They now pick a cadence and hand off to Stripe in place, via the shared
+**`src/app/components/paywall/trial-cta.tsx`** (used by `pro-trial-modal.tsx`
+and `unlock-with-pro-card.tsx`; checkout POST goes through the existing
+`useUpgradeFlow()`).
+
+**The disclosure travels with the button — do not remove it.** `/plans/checkout`
+exists partly to state the renewal amount and charge date before the card is
+taken (Canadian consumer-protection rules, US FTC negative-option rule; see that
+panel's header). Skipping that page means `TrialCta` must carry the same terms,
+so it renders them above the CTA for the **selected** cadence — which is why the
+cadence is a single-choice toggle rather than two buy buttons that could not say
+which price is about to be charged. It also re-fetches
+`GET /api/stripe/checkout` for `trial_available` and shows **paid** terms when a
+trial isn't confirmed (the safe direction to fail), exactly as `CheckoutPanel`
+does.
+
+Signed-out visitors still get the `/plans` (or `/signup`) link — a Checkout
+Session needs a Supabase user. `ctaHref` on either component restores the plain
+link if a surface ever needs the old two-step. `/plans` and `/plans/checkout` are
+unchanged and remain the sales path from marketing.
+
 The custom-spots nag (`feature="custom-spots"`) is wired but unreachable: the
 "Create custom spot" map button is `isPaid &&` gated, so a free user never sees
 the wall.
