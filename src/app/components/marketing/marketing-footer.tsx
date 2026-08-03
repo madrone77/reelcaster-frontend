@@ -74,6 +74,13 @@ export default function MarketingFooter() {
                 </Link>
               </li>
             ))}
+            {/* Plain <a>: /sitemap.xml is a route handler, not an app page, so
+                <Link> would prefetch an RSC payload that doesn't exist. */}
+            <li>
+              <a href="/sitemap.xml" className="hover:text-rc-ink transition-colors">
+                Sitemap
+              </a>
+            </li>
           </ul>
           <p className="text-xs text-rc-ink-mute">© {year} ReelCaster · BC fishing forecasts</p>
         </div>
