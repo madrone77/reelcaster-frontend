@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { Check, ImagePlus, Loader2, Sparkles } from "lucide-react";
 import { useAuth } from "@/contexts/auth-context";
+import { resolveFirstName } from "@/lib/display-name";
 import { useUnitPreferences } from "@/contexts/unit-preferences-context";
 import {
   convertDistance,
@@ -100,7 +101,7 @@ export default function CatchForm({
 
   const fileRef = useRef<HTMLInputElement>(null);
 
-  const firstName = displayFirstName(user?.email, user?.user_metadata);
+  const firstName = resolveFirstName(user);
 
   // Handle a selected photo: upload to Storage + run BlueCaster vision preview
   // to pre-fill species/size (best-effort; never blocks).
@@ -461,15 +462,6 @@ export default function CatchForm({
 /** Short pill label, e.g. "Chinook Salmon" → "Chinook". */
 function shortSpecies(name: string): string {
   return name.replace(/\s+(Salmon|Crab)$/i, "").replace(/^Pacific\s+/i, "");
-}
-
-function displayFirstName(
-  email?: string | null,
-  metadata?: Record<string, unknown> | undefined,
-): string {
-  const full = (metadata?.full_name ?? metadata?.name) as string | undefined;
-  const raw = full?.trim().split(/\s+/)[0] || email?.split("@")[0] || "angler";
-  return raw.charAt(0).toUpperCase() + raw.slice(1);
 }
 
 function parseSize(text: string): {

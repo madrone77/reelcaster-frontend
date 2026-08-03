@@ -7,7 +7,7 @@ import { Label } from '@/components/ui/label'
 import { useAuth } from '@/contexts/auth-context'
 import { useAnalytics } from '@/hooks/use-analytics'
 import { Alert, AlertDescription } from '@/components/ui/alert'
-import { Mail, CheckCircle } from 'lucide-react'
+import { Mail, CheckCircle, User } from 'lucide-react'
 
 interface AuthFormProps {
   defaultMode?: 'signin' | 'signup'
@@ -18,6 +18,7 @@ interface AuthFormProps {
 
 export function AuthForm({ defaultMode = 'signin', onSuccess, source = 'auth-form', className }: AuthFormProps) {
   const [mode, setMode] = useState<'signin' | 'signup' | 'forgot'>(defaultMode)
+  const [firstName, setFirstName] = useState('')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
@@ -91,7 +92,7 @@ export function AuthForm({ defaultMode = 'signin', onSuccess, source = 'auth-for
           })
         }
       } else if (mode === 'signup') {
-        const { error, session } = await signUp(email, password)
+        const { error, session } = await signUp(email, password, firstName)
 
         if (error) {
           setError(error.message)
@@ -106,6 +107,7 @@ export function AuthForm({ defaultMode = 'signin', onSuccess, source = 'auth-for
             // so drop the user straight into the app instead of the
             // (misleading) check-your-email screen.
             onSuccess?.()
+            setFirstName('')
             setEmail('')
             setPassword('')
           } else {
@@ -222,6 +224,28 @@ export function AuthForm({ defaultMode = 'signin', onSuccess, source = 'auth-for
               </div>
             </div>
           </>
+        )}
+
+        {mode === 'signup' && (
+          <div className="space-y-2">
+            <Label htmlFor={`${source}-first-name`} className="text-sm font-medium text-rc-ink">
+              First name
+            </Label>
+            <div className="relative">
+              <User className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-rc-ink-mute" />
+              <Input
+                id={`${source}-first-name`}
+                type="text"
+                autoComplete="given-name"
+                value={firstName}
+                onChange={e => setFirstName(e.target.value)}
+                placeholder="Casey"
+                required
+                disabled={loading}
+                className="pl-10 bg-rc-panel border-rc-rule text-rc-ink placeholder:text-rc-ink-mute focus-visible:border-rc-brand focus-visible:ring-rc-brand/25"
+              />
+            </div>
+          </div>
         )}
 
         <div className="space-y-2">

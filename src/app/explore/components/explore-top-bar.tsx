@@ -6,7 +6,8 @@ import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { useAuth } from "@/contexts/auth-context";
 
-const NAV = [
+const NAV: { href: string; label: string; signedInOnly?: boolean }[] = [
+  { href: "/dashboard", label: "Dashboard", signedInOnly: true },
   { href: "/explore", label: "Explore" },
   { href: "/log-catch", label: "Log a catch" },
   { href: "/catches", label: "My catches" },
@@ -70,7 +71,7 @@ export default function ExploreTopBar() {
         </Link>
 
         <nav className="hidden md:flex items-center gap-7 text-sm font-medium text-rc-ink-soft">
-          {NAV.map((item) => {
+          {NAV.filter((item) => !item.signedInOnly || user).map((item) => {
             const active = isActive(item.href);
             const showBadge =
               item.href === "/notifications" && !!alertCount && alertCount > 0;

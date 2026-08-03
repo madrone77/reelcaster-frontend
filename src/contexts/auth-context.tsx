@@ -9,7 +9,11 @@ interface AuthContextType {
   session: Session | null
   loading: boolean
   isPasswordRecovery: boolean
-  signUp: (email: string, password: string) => Promise<{ error: any; session: Session | null }>
+  signUp: (
+    email: string,
+    password: string,
+    firstName?: string,
+  ) => Promise<{ error: any; session: Session | null }>
   signIn: (email: string, password: string) => Promise<{ error: any }>
   signInWithGoogle: () => Promise<{ error: any }>
   signInWithFacebook: () => Promise<{ error: any }>
@@ -50,16 +54,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return () => subscription.unsubscribe()
   }, [])
 
-  const signUp = async (email: string, password: string) => {
-    const redirectUrl = process.env.NEXT_PUBLIC_APP_URL 
+  const signUp = async (email: string, password: string, firstName?: string) => {
+    const redirectUrl = process.env.NEXT_PUBLIC_APP_URL
       ? `${process.env.NEXT_PUBLIC_APP_URL}/auth/callback`
       : `${window.location.origin}/auth/callback`
-      
+
+    const trimmedName = firstName?.trim()
     const { data, error } = await supabase.auth.signUp({
       email,
       password,
       options: {
-        emailRedirectTo: redirectUrl
+        emailRedirectTo: redirectUrl,
+        // Persisted on the auth user; the whole app reads the display name
+        // from user_metadata.first_name (never from the email).
+        ...(trimmedName ? { data: { first_name: trimmedName } } : {}),
       }
     })
     // `session` is non-null only when email confirmation is disabled — the
