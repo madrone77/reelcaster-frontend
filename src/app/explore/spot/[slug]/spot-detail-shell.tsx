@@ -40,6 +40,7 @@ import SpeciesCardRow from "../components/species-card-row";
 import SpotProfile from "../components/spot-profile";
 import NeighbourSpots from "../components/neighbour-spots";
 import SeasonalityStrip from "../components/seasonality-strip";
+import UpcomingRegulations from "../components/upcoming-regulations";
 import NowConditions from "../components/now-conditions";
 import ScoreFactors from "../components/score-factors";
 import { useFavorite } from "../../lib/use-favorite";
@@ -168,6 +169,8 @@ export default function SpotDetailShell({
   const seasonWeeks = selId ? (page.seasonWeeksBySpecies[selId] ?? []) : [];
   const seasonRegWeeks = selId ? (page.regWeeksBySpecies[selId] ?? undefined) : undefined;
   const regulation = page.regulations.find((r) => r.speciesId === selId) ?? null;
+  // Guarded: older payloads (pre-upcomingRegChanges backend) omit the field.
+  const upcomingRegChanges = page.upcomingRegChanges ?? [];
 
   const fcSource = fc ?? page;
   const stripModel = useMemo(
@@ -790,6 +793,17 @@ export default function SpotDetailShell({
                   todayWeek={page.todayWeek}
                   nextOpenDate={regulation?.nextOpenDate ?? null}
                   nextOpenSummary={regulation?.nextOpenSummary ?? null}
+                />
+              </div>
+            )}
+            {selSpecies && (seasonRegWeeks || upcomingRegChanges.length > 0) && (
+              <div className="border-t border-rc-rule pt-8">
+                <UpcomingRegulations
+                  speciesName={selSpecies.name}
+                  speciesId={selId}
+                  regWeeks={seasonRegWeeks}
+                  todayWeek={page.todayWeek}
+                  changes={upcomingRegChanges}
                 />
               </div>
             )}

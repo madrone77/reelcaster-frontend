@@ -176,6 +176,24 @@ export type LiveRegulation = {
   nextOpenSummary: string | null;
 };
 
+// Provenance of an upcoming regulation change. `confirmed` = a published,
+// dated DFO Fishery Notice amendment; `expected` = projected from the standing
+// season calendar (not yet ratified by a notice). The UI must never present an
+// `expected` change as if it were confirmed. Mirrors the bluecaster payload.
+export type RegChangeConfidence = "confirmed" | "expected";
+
+export type UpcomingRegChange = {
+  // ISO date (YYYY-MM-DD) the change takes effect.
+  date: string;
+  changeType: "opening" | "closure" | "gear" | "limit" | "other";
+  speciesId: string | null;
+  speciesCommon: string;
+  summary: string;
+  confidence: RegChangeConfidence;
+  // Notice number for `confirmed`; "seasonal" for `expected`.
+  source: string | null;
+};
+
 // ─── Catch signals ────────────────────────────────────────────────────
 
 export type LiveCatchSignal = {
@@ -253,6 +271,10 @@ export type LiveSpotDetail = {
   topScoreHourBySpecies: Record<string, number>;
   regulations: LiveRegulation[];
   regAreaCode: string | null;
+  // Forthcoming regulation changes (next ~60 days), confirmed notices merged
+  // with expected season-calendar reopenings, sorted by date. Drives the spot
+  // page's "upcoming changes" list. Absent on older payloads → default to [].
+  upcomingRegChanges: UpcomingRegChange[];
   catchSignals: LiveCatchSignal[];
   intelVerdict: "strong" | "mixed" | "slow" | null;
   tideStationName: string | null;
