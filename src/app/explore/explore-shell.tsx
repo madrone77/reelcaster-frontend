@@ -83,8 +83,17 @@ export default function ExploreShell({
 }) {
   const mapRef = useRef<MapRef>(null);
   const router = useRouter();
-  const { isPaid } = useSubscription();
+  const { isPaid, loading: tierLoading } = useSubscription();
   const { user } = useAuth();
+  // Key data fetches on the id, not the object: `useAuth` hands back a fresh
+  // `user` on every onAuthStateChange (including token refresh), so an effect
+  // depending on the object refetches the same URL for no reason.
+  const userId = user?.id ?? null;
+  // `tierLoading` matters: before it clears, `isPaid` is still its initial
+  // `false`, so a Pro account would render as "free" and lock days 8–14 behind
+  // an upgrade CTA. The strip waits for the real answer instead (see the
+  // `stripModel` memo) — in practice the tier lands well before the forecast
+  // payload it decorates.
   const accessTier: ForecastTier = isPaid ? "pro" : user ? "free" : "anonymous";
   const { citySlug, spotSlug, day, stn, setQuery } = useExploreState();
 
@@ -109,7 +118,7 @@ export default function ExploreShell({
   const [customSpots, setCustomSpots] = useState<CustomSpotPin[]>([]);
 
   useEffect(() => {
-    if (!user) {
+    if (!userId) {
       setCustomSpots([]);
       return;
     }
@@ -132,7 +141,7 @@ export default function ExploreShell({
     return () => {
       cancelled = true;
     };
-  }, [user]);
+  }, [userId]);
 
   const handleMapPick = useCallback((c: { lat: number; lng: number }) => {
     setPinCoords(c);
@@ -159,9 +168,11 @@ export default function ExploreShell({
   const [viewCenter, setViewCenter] = useState<{ lat: number; lng: number } | null>(null);
   const [vpBbox, setVpBbox] = useState<string | null>(null);
   const vpTimerRef = useRef<number | null>(null);
+  const vpReported = useRef(false);
 
   const handleViewportChange = useCallback(
     (b: { w: number; s: number; e: number; n: number }, c: { lat: number; lng: number }) => {
+      vpReported.current = true;
       setViewBounds(b);
       setViewCenter(c);
       if (vpTimerRef.current) window.clearTimeout(vpTimerRef.current);
@@ -176,6 +187,23 @@ export default function ExploreShell({
     },
     [],
   );
+
+  // The strip's only source of a bbox used to be the map, and the map reports
+  // its first viewport from MapLibre's `load` — which waits on the relief-tile
+  // CDN. When those tiles are slow the event is late, and if a tile request
+  // hangs it never arrives at all: the 14-day strip then sits empty forever on
+  // a page that otherwise looks fine. Seen on prod, blank at 97s.
+  //
+  // So fall back to the server-rendered bbox — the same one `data.spots` was
+  // built from — if the map hasn't reported anything shortly after mount. A
+  // healthy map still wins the race and this never fires; a stalled one now
+  // costs a slightly wider strip instead of no strip.
+  useEffect(() => {
+    const t = window.setTimeout(() => {
+      if (!vpReported.current) setVpBbox((prev) => prev ?? bbox);
+    }, 1500);
+    return () => window.clearTimeout(t);
+  }, [bbox]);
 
   const today = data.date;
   const selectedIso = day ?? today;
@@ -219,36 +247,51 @@ export default function ExploreShell({
   // (ranking, species filter, pin colour, the drawer) then treats them as
   // ordinary spots, which is what makes the pin clickable at all: selection is
   // slug-keyed off this list.
-  const [ownRailSpots, setOwnRailSpots] = useState<RailSpot[]>([]);
   // Bumped on create so a brand-new spot appears without a reload — it can't be
   // in a payload fetched before it existed.
   const [ownSpotsRefresh, setOwnSpotsRefresh] = useState(0);
+  const [viewerPayload, setViewerPayload] = useState<MapSpotsPayload | null>(null);
 
+  // Only what the request URL actually depends on belongs in these deps.
+  // `customSpots` and the `user` object used to be here too, and both change
+  // identity after the first render — `customSpots` when its own fetch
+  // resolves, `user` on every onAuthStateChange — so this fired three times
+  // with a byte-identical URL on every /explore load. `customSpots` only
+  // decorates the result, which is derivation, not fetching (see the memo
+  // below).
   useEffect(() => {
-    if (!user) {
-      setOwnRailSpots([]);
+    if (!userId) {
+      setViewerPayload(null);
       return;
     }
     let cancelled = false;
     fetchMapSpotsAsViewer(bbox, selectedIso)
       .then((payload) => {
         if (cancelled || !payload) return;
-        const extras = extraRailSpotsFromPayload(
-          data.spots,
-          payload,
-          selectedIso === today,
-          new Map(customSpots.map((c) => [c.slug ?? "", c.visibility])),
-        );
-        // Your own spots come back starred unless you've un-starred them —
-        // covers spots made on another device, or before auto-favoriting.
-        for (const spot of extras) favoriteIfUnset(spot.slug);
-        setOwnRailSpots(extras);
+        setViewerPayload(payload);
       })
       .catch(() => {});
     return () => {
       cancelled = true;
     };
-  }, [user, bbox, selectedIso, today, data.spots, customSpots, ownSpotsRefresh]);
+  }, [userId, bbox, selectedIso, ownSpotsRefresh]);
+
+  const ownRailSpots = useMemo<RailSpot[]>(() => {
+    if (!viewerPayload) return [];
+    return extraRailSpotsFromPayload(
+      data.spots,
+      viewerPayload,
+      selectedIso === today,
+      new Map(customSpots.map((c) => [c.slug ?? "", c.visibility])),
+    );
+  }, [viewerPayload, data.spots, selectedIso, today, customSpots]);
+
+  // Your own spots come back starred unless you've un-starred them — covers
+  // spots made on another device, or before auto-favoriting. A write, so it
+  // stays an effect rather than riding along in the memo above.
+  useEffect(() => {
+    for (const spot of ownRailSpots) favoriteIfUnset(spot.slug);
+  }, [ownRailSpots]);
 
   const effectiveSpots = useMemo(() => {
     const base =
@@ -572,9 +615,9 @@ export default function ExploreShell({
   }, [vpBbox]);
 
   const stripModel: ForecastStripModel | null = useMemo(() => {
-    if (!fcPayload) return null;
+    if (!fcPayload || tierLoading) return null;
     return buildViewportForecastDays(fcPayload, speciesFilter, accessTier);
-  }, [fcPayload, speciesFilter, accessTier]);
+  }, [fcPayload, tierLoading, speciesFilter, accessTier]);
 
   // Strip header label: the pinned species, else the cross-species best fold.
   const stripSpeciesName = speciesFilter
