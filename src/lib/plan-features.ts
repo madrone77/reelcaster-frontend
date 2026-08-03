@@ -251,12 +251,6 @@ export function nagHeadline(
   viewerTier: PlanTierId,
   spotName?: string,
 ): string {
-  // A signed-out visitor blocked by something a free account already gives
-  // gets sold the account, not the subscription — asking for a card to see
-  // day 5 of a forecast a free login unlocks is a way to lose the signup.
-  if (feature.unlocksAt === "free" && viewerTier === "anon") {
-    return `Create a free account to ${feature.action}`;
-  }
   const subject =
     feature.takesSpot && spotName
       ? `${feature.headline} for ${spotName}`
@@ -264,11 +258,12 @@ export function nagHeadline(
   return `${subject} with a free trial`;
 }
 
-/** The reassurance line under the headline. */
-export function nagSubhead(feature: NagFeature, viewerTier: PlanTierId): string {
-  if (feature.unlocksAt === "free" && viewerTier === "anon") {
-    return "Takes about 30 seconds. No card, no charge.";
-  }
+/**
+ * The reassurance line under the headline. Same for every wall now — the
+ * modal sells the trial regardless of which one was hit, and the free tier is
+ * offered by the link at its foot.
+ */
+export function nagSubhead(): string {
   return `Free for ${TRIAL_DAYS} days, then $${MONTHLY_PRICE_CENTS / 100}/month or $${
     ANNUAL_PRICE_CENTS / 100
   }/year. Cancel anytime before the trial ends and you pay nothing.`;

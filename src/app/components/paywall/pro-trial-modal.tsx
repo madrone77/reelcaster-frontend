@@ -79,16 +79,10 @@ export default function ProTrialModal({
   const viewerTier: PlanTierId =
     viewerTierProp ?? (isPaid ? "pro" : user ? "free" : "anon");
 
-  // A signed-out visitor blocked by something a FREE account unlocks is sold
-  // the account, not a subscription. Everyone else — signed in or not — gets
-  // the cadence choice and the payment handoff.
-  const sellsAccount = nag.unlocksAt === "free" && viewerTier === "anon";
-  const signupHref = sellsAccount
-    ? `/signup?next=${encodeURIComponent("/explore")}`
-    : undefined;
-  const ctaLabel = sellsAccount
-    ? "Create free account"
-    : `Start ${TRIAL_DAYS}-day free trial`;
+  // Every wall sells the trial, including the ones a free account would also
+  // open. The free tier isn't hidden — it's the link at the foot of the
+  // modal, after the matrix has shown what the tiers actually differ on.
+  const ctaLabel = `Start ${TRIAL_DAYS}-day free trial`;
 
   useEffect(() => {
     if (!open) return;
@@ -122,7 +116,7 @@ export default function ProTrialModal({
               viewerTier,
               from,
               plan: plan ?? "signup",
-              destination: plan ? "checkout" : signupHref,
+              destination: "checkout",
             })
           }
         >
@@ -136,7 +130,7 @@ export default function ProTrialModal({
               {nagHeadline(nag, viewerTier, spotName)}
             </DialogTitle>
             <DialogDescription className="mt-2 text-sm leading-relaxed text-rc-ink-soft">
-              {nagSubhead(nag, viewerTier)}
+              {nagSubhead()}
             </DialogDescription>
           </DialogHeader>
 
@@ -160,9 +154,9 @@ export default function ProTrialModal({
                 {ctaLabel}
               </Link>
             ) : (
-              <TrialBuy signupHref={signupHref} signupLabel={ctaLabel} />
+              <TrialBuy signupLabel={ctaLabel} />
             )}
-            {!ctaHref && !sellsAccount && <TrialCadence className="mt-3" />}
+            {!ctaHref && <TrialCadence className="mt-3" />}
           </div>
 
           <div className="min-h-0 flex-1 overflow-y-auto">
@@ -172,7 +166,7 @@ export default function ProTrialModal({
           {/* Terms sit down here rather than under the button: short, and the
               last thing read before the free-tier alternative. */}
           <div className="shrink-0 border-t border-rc-rule px-4 sm:px-6 py-4">
-            {!ctaHref && !sellsAccount && <TrialTerms className="text-center" />}
+            {!ctaHref && <TrialTerms className="text-center" />}
 
             {/* The free tier, offered last and on purpose: after the matrix
                 has shown what an account gets you without paying. Only for
