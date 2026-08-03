@@ -13,6 +13,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import type { AlertProfile } from '@/lib/custom-alert-engine';
 import ScoreAlertForm, { type ScoreAlertFormValue } from './score-alert-form';
 import UpgradeRequiredModal from '@/app/components/paywall/upgrade-required-modal';
+import TrialModalButton from '@/app/components/paywall/trial-modal-button';
 
 export interface AlertsSpot {
   slug: string;
@@ -251,12 +252,13 @@ export default function AlertsClient({ spots }: Props) {
                   <p className="text-sm text-rc-ink-mute mb-3">
                     Upgrade to Pro for up to 10 alerts plus SMS delivery.
                   </p>
-                  <Link
-                    href="/plans?from=alerts"
+                  <TrialModalButton
+                    feature="alerts"
+                    from="alerts-page"
                     className="inline-flex items-center px-4 py-2 bg-rc-brand hover:bg-rc-brand-hover rounded-md text-sm font-semibold text-white transition-colors"
                   >
-                    See Pro pricing →
-                  </Link>
+                    Start free trial
+                  </TrialModalButton>
                 </div>
               </CardContent>
             </Card>

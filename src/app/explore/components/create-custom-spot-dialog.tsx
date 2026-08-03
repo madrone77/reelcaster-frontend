@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import Link from "next/link";
 import { Loader2, MapPin, Lock, Globe } from "lucide-react";
 import {
   Dialog,
@@ -12,6 +11,7 @@ import {
 import { useAuth } from "@/contexts/auth-context";
 import { createCustomSpot } from "@/lib/bluecaster-client";
 import type { CreateCustomSpotResponse } from "@/lib/bluecaster/catch-ingest-types";
+import TrialModalButton from "@/app/components/paywall/trial-modal-button";
 
 export interface CustomSpotSpeciesOption {
   id: string;
@@ -142,12 +142,13 @@ export default function CreateCustomSpotDialog({
                 score there.
               </p>
               <div className="flex gap-2 mt-3">
-                <Link
-                  href="/plans?from=custom-spot"
+                <TrialModalButton
+                  feature="custom-spots"
+                  from="custom-spot-dialog"
                   className="flex-1 text-center px-4 py-2.5 rounded-lg bg-rc-brand hover:bg-rc-brand-hover text-white text-sm font-semibold transition-colors"
                 >
                   Upgrade to Pro
-                </Link>
+                </TrialModalButton>
                 <button
                   type="button"
                   onClick={() => onOpenChange(false)}
