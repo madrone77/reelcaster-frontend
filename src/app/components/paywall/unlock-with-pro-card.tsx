@@ -5,6 +5,7 @@ import { cn } from '@/lib/utils';
 import { TRIAL_DAYS } from '@/lib/pricing';
 import { useAnalytics } from '@/hooks/use-analytics';
 import { ANNUAL_PRICE_CENTS } from '@/lib/pricing';
+import TrialCta from './trial-cta';
 
 /**
  * The in-app paywall card, styled to match /plans.
@@ -44,7 +45,10 @@ export interface UnlockWithProCardProps {
   headline?: string;
   /** Bullet list of unlocked features. */
   bullets?: string[];
-  /** CTA destination. Defaults to /plans with paywall context query. */
+  /**
+   * Escape hatch: renders a plain link here instead of the cadence choice +
+   * Stripe handoff. Signed-out visitors get this href either way.
+   */
   ctaHref?: string;
   /** CTA label override. */
   ctaLabel?: string;
@@ -144,14 +148,32 @@ export function UnlockWithProCard({
         ))}
       </ul>
 
-      <Link
-        href={href}
-        onClick={() => trackEvent('Paywall CTA Clicked', { feature, href })}
-        data-testid="upgrade-cta"
-        className="inline-flex items-center justify-center rounded-md bg-rc-brand px-6 py-3 text-sm font-bold text-white transition-colors hover:bg-rc-brand-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rc-brand focus-visible:ring-offset-2"
-      >
-        {label}
-      </Link>
+      {ctaHref ? (
+        <Link
+          href={href}
+          onClick={() => trackEvent('Paywall CTA Clicked', { feature, href })}
+          data-testid="upgrade-cta"
+          className="inline-flex items-center justify-center rounded-md bg-rc-brand px-6 py-3 text-sm font-bold text-white transition-colors hover:bg-rc-brand-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rc-brand focus-visible:ring-offset-2"
+        >
+          {label}
+        </Link>
+      ) : (
+        // Cadence + terms + Stripe handoff. Signed-out visitors fall back to
+        // `href` (/plans), since a Checkout Session needs an account.
+        <TrialCta
+          from={feature ? `paywall:${feature}` : 'paywall'}
+          anonHref={href}
+          anonLabel={label}
+          theme={isLight ? 'light' : 'dark'}
+          onActivate={(plan) =>
+            trackEvent('Paywall CTA Clicked', {
+              feature,
+              plan: plan ?? 'anon',
+              destination: plan ? 'stripe' : href,
+            })
+          }
+        />
+      )}
     </div>
   );
 }

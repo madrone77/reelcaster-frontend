@@ -13,6 +13,7 @@ import {
 import { useAuth } from "@/contexts/auth-context";
 import { useSubscription } from "@/hooks/use-subscription";
 import { useAnalytics } from "@/hooks/use-analytics";
+import TrialCta from "./trial-cta";
 import { TRIAL_DAYS } from "@/lib/pricing";
 import {
   NAG_FEATURES,
@@ -67,15 +68,14 @@ export default function ProTrialModal({
     viewerTierProp ?? (isPaid ? "pro" : user ? "free" : "anon");
 
   // A signed-out visitor blocked by a free-tier feature gets sent to signup;
-  // everyone else goes to pricing with the feature context attached.
+  // everyone else goes to /plans with the feature context attached. Signed-in
+  // members skip both — Stripe needs an account, so this is only the anon path.
   const sellsAccount = nag.unlocksAt === "free" && viewerTier === "anon";
-  const href =
-    ctaHref ??
-    (sellsAccount
-      ? `/signup?next=${encodeURIComponent("/explore")}`
-      : `/plans?from=${encodeURIComponent(from)}&feature=${encodeURIComponent(
-          nag.pricingFeature,
-        )}`);
+  const anonHref = sellsAccount
+    ? `/signup?next=${encodeURIComponent("/explore")}`
+    : `/plans?from=${encodeURIComponent(from)}&feature=${encodeURIComponent(
+        nag.pricingFeature,
+      )}`;
   const ctaLabel = sellsAccount
     ? "Create free account"
     : `Start ${TRIAL_DAYS}-day free trial`;
@@ -111,30 +111,50 @@ export default function ProTrialModal({
         </DialogHeader>
 
         {/* CTA sits above the matrix — someone already sold shouldn't have to
-            scroll a comparison table to find the button. */}
-        <div className="px-4 sm:px-6 flex flex-col-reverse sm:flex-row gap-2">
+            scroll a comparison table to find the button. Cadence is chosen
+            here and the modal goes straight to Stripe; `ctaHref` still routes
+            through /plans for any caller that wants the old two-step. */}
+        <div className="px-4 sm:px-6">
+          {ctaHref ? (
+            <Link
+              href={ctaHref}
+              data-testid="pro-trial-cta"
+              onClick={() =>
+                trackEvent("Paywall CTA Clicked", {
+                  feature,
+                  viewerTier,
+                  from,
+                  href: ctaHref,
+                })
+              }
+              className="block text-center px-4 py-2.5 rounded-lg bg-rc-brand hover:bg-rc-brand-hover text-white text-sm font-bold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rc-brand focus-visible:ring-offset-2"
+            >
+              {ctaLabel}
+            </Link>
+          ) : (
+            <TrialCta
+              from={from}
+              anonHref={anonHref}
+              anonLabel={ctaLabel}
+              theme="light"
+              onActivate={(plan) =>
+                trackEvent("Paywall CTA Clicked", {
+                  feature,
+                  viewerTier,
+                  from,
+                  plan: plan ?? "signup",
+                  destination: plan ? "stripe" : anonHref,
+                })
+              }
+            />
+          )}
           <button
             type="button"
             onClick={() => onOpenChange(false)}
-            className="px-4 py-2.5 rounded-lg border border-rc-rule text-rc-ink text-sm font-medium hover:bg-rc-surface transition-colors"
+            className="mt-2 w-full px-4 py-2.5 rounded-lg border border-rc-rule text-rc-ink text-sm font-medium hover:bg-rc-surface transition-colors"
           >
             Not now
           </button>
-          <Link
-            href={href}
-            data-testid="pro-trial-cta"
-            onClick={() =>
-              trackEvent("Paywall CTA Clicked", {
-                feature,
-                viewerTier,
-                from,
-                href,
-              })
-            }
-            className="flex-1 text-center px-4 py-2.5 rounded-lg bg-rc-brand hover:bg-rc-brand-hover text-white text-sm font-bold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rc-brand focus-visible:ring-offset-2"
-          >
-            {ctaLabel}
-          </Link>
         </div>
 
         <PlanMatrix viewerTier={viewerTier} highlightRowId={nag.rowId} />
