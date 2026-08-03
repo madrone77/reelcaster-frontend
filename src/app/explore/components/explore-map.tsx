@@ -113,6 +113,7 @@ export default function ExploreMap({
   onViewportChange,
   pinDropMode = false,
   onMapPick,
+  showBrand = true,
 }: {
   mapRef: RefObject<MapRef | null>;
   spots: RailSpot[];
@@ -123,6 +124,8 @@ export default function ExploreMap({
    *  selecting features — the "create custom spot" placement mode. */
   pinDropMode?: boolean;
   onMapPick?: (coords: { lat: number; lng: number }) => void;
+  /** Show the ReelCaster brand watermark. Off for summary maps (dashboard). */
+  showBrand?: boolean;
   /** Fired on load + every moveend with the visible bounds and centre —
    *  drives the viewport-scoped rail, strip and pill label. */
   onViewportChange?: (
@@ -482,15 +485,19 @@ export default function ExploreMap({
           inline to its left on the same vertical midline (the ctrl container
           is positioned via globals.css, keyed to these logo sizes).
           Desktop additionally rides above the forecast strip via the inset. */}
-      <div className="lg:hidden pointer-events-none absolute bottom-2.5 right-2.5 z-10">
-        <MapBrandLogo width={52} />
-      </div>
-      <div
-        className="hidden lg:block pointer-events-none absolute right-2.5 z-10"
-        style={{ bottom: "calc(var(--rc-map-inset, 0px) + 10px)" }}
-      >
-        <MapBrandLogo width={60} />
-      </div>
+      {showBrand && (
+        <>
+          <div className="lg:hidden pointer-events-none absolute bottom-2.5 right-2.5 z-10">
+            <MapBrandLogo width={52} />
+          </div>
+          <div
+            className="hidden lg:block pointer-events-none absolute right-2.5 z-10"
+            style={{ bottom: "calc(var(--rc-map-inset, 0px) + 10px)" }}
+          >
+            <MapBrandLogo width={60} />
+          </div>
+        </>
+      )}
     </div>
   );
 }

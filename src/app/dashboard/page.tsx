@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
-import { ChevronRight, Home, Plus } from "lucide-react";
+import { ChevronRight, Home, Plus, Pencil } from "lucide-react";
 import { useAuth } from "@/contexts/auth-context";
 import {
   fetchMyCustomSpots,
@@ -17,7 +17,9 @@ import {
   type RailSpot,
 } from "@/app/explore/lib/explore-data";
 import SpotCard from "@/app/explore/components/spot-card";
+import ExploreTopBar from "@/app/explore/components/explore-top-bar";
 import DashboardSavedMap from "./dashboard-saved-map";
+import MarketingFooter from "@/app/components/marketing/marketing-footer";
 import type { MapSpotsPayload } from "@/lib/bluecaster";
 import { readHomeSpot } from "@/app/explore/lib/use-home-spot";
 import { setFavorite } from "@/app/explore/lib/use-favorite";
@@ -156,9 +158,9 @@ export default function DashboardPage() {
   const [alerts, setAlerts] = useState<AlertProfile[] | null>(null);
   const [catches, setCatches] = useState<CatchRow[] | null>(null);
   const [catchTotal, setCatchTotal] = useState<number | null>(null);
-  // Display name: server fallback (Stripe name → "Angler") when no first_name is
-  // stored, plus inline "Add your name" edit state.
+  // Server fallback name (Stripe name → "Angler") when no first_name is stored.
   const [serverName, setServerName] = useState<string | null>(null);
+  // Inline name edit (triggered by the pencil).
   const [localName, setLocalName] = useState<string | null>(null);
   const [editingName, setEditingName] = useState(false);
   const [nameDraft, setNameDraft] = useState("");
@@ -401,10 +403,8 @@ export default function DashboardPage() {
   const activeAlertCount = (alerts ?? []).filter((a) => a.is_active).length;
   const trackedCount = spotCards?.length ?? 0;
 
-  // Never derive a name from the email. `stored` is the angler's own first name
-  // (null until they set it); `greetName` folds in the server fallback.
-  const stored = localName ?? storedFirstName(user);
-  const greetName = stored ?? serverName ?? NAME_FALLBACK;
+  // Never derive a name from the email; fall back to the Stripe / "Angler" name.
+  const greetName = localName ?? storedFirstName(user) ?? serverName ?? NAME_FALLBACK;
   const saveName = async () => {
     const v = nameDraft.trim();
     if (!v) return;
@@ -456,7 +456,8 @@ export default function DashboardPage() {
   const favCount = favSlugs?.length ?? 0;
 
   return (
-    <div className="min-h-dvh bg-rc-page">
+    <div className="min-h-dvh bg-rc-panel pt-16">
+      <ExploreTopBar variant="brand" />
       <div className="mx-auto max-w-[1400px] px-5 py-8 lg:px-10 lg:py-10">
         {/* ── Header ─────────────────────────────────────────────────────── */}
         <header className="mb-8 flex flex-col gap-6 lg:flex-row lg:items-start lg:justify-between">
@@ -465,75 +466,67 @@ export default function DashboardPage() {
               Your dashboard
             </p>
             <h1 className="mt-1.5 text-3xl font-black tracking-[-0.02em] text-rc-ink">
-              Welcome back, {greetName}
-            </h1>
-            {!stored &&
-              (editingName ? (
-                <form
-                  onSubmit={(e) => {
-                    e.preventDefault();
-                    void saveName();
-                  }}
-                  className="mt-1.5 flex items-center gap-2"
-                >
+              {editingName ? (
+                <span className="inline-flex flex-wrap items-center gap-2">
+                  Welcome back,
                   <input
                     autoFocus
                     value={nameDraft}
                     onChange={(e) => setNameDraft(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        e.preventDefault();
+                        void saveName();
+                      }
+                      if (e.key === "Escape") setEditingName(false);
+                    }}
                     placeholder="Your first name"
-                    className="h-7 w-44 rounded border border-rc-rule bg-rc-panel px-2 font-rc-mono text-[12px] text-rc-ink focus:border-rc-brand focus:outline-none"
+                    className="w-56 border-0 border-b-2 border-rc-rule bg-transparent px-0.5 text-3xl font-black tracking-[-0.02em] text-rc-ink focus:border-rc-brand focus:outline-none"
                   />
                   <button
-                    type="submit"
+                    type="button"
+                    onClick={() => void saveName()}
                     disabled={savingName || !nameDraft.trim()}
-                    className="font-rc-mono text-[12px] font-bold text-rc-brand disabled:opacity-50"
+                    className="text-sm font-semibold text-rc-brand disabled:opacity-50"
                   >
                     {savingName ? "Saving…" : "Save"}
                   </button>
                   <button
                     type="button"
                     onClick={() => setEditingName(false)}
-                    className="font-rc-mono text-[12px] text-rc-ink-mute hover:text-rc-ink"
+                    className="text-sm font-medium text-rc-ink-mute hover:text-rc-ink"
                   >
                     Cancel
                   </button>
-                </form>
+                </span>
               ) : (
-                <button
-                  type="button"
-                  onClick={() => {
-                    setNameDraft("");
-                    setEditingName(true);
-                  }}
-                  className="mt-1.5 block font-rc-mono text-[12px] font-bold text-rc-brand hover:underline"
-                >
-                  Add your name
-                </button>
-              ))}
+                <span className="inline-flex items-center gap-2.5">
+                  Welcome back, {greetName}
+                  <button
+                    type="button"
+                    aria-label="Edit your name"
+                    onClick={() => {
+                      setNameDraft(localName ?? storedFirstName(user) ?? "");
+                      setEditingName(true);
+                    }}
+                    className="text-rc-brand transition-transform hover:scale-110"
+                  >
+                    <Pencil className="h-5 w-5" />
+                  </button>
+                </span>
+              )}
+            </h1>
             <p className="mt-1.5 font-rc-mono text-[12px] text-rc-ink-mute">
               {longDate()} · {trackedCount} spot{trackedCount === 1 ? "" : "s"}{" "}
               tracked · {activeAlertCount} alert
               {activeAlertCount === 1 ? "" : "s"} armed
             </p>
-            {/* The one authored primary CTA on the dashboard. */}
-            <Link
-              href="/explore"
-              className="mt-4 inline-flex h-9 items-center gap-1.5 rounded bg-rc-brand px-4 text-sm font-normal text-white transition-colors hover:bg-rc-brand-hover"
-            >
-              View all spots
-              <ChevronRight className="h-4 w-4" />
-            </Link>
           </div>
-          <div className="flex items-start gap-5 divide-x divide-rc-rule sm:gap-6">
+          <div className="flex items-start divide-x divide-rc-rule">
             <Stat n={spotsHot != null ? String(spotsHot) : "—"} label="Spots ≥ 80" tone="good" />
-            <Stat n={topScore != null ? String(topScore) : "—"} label="Top score" tone="good" pad />
-            <Stat
-              n={catchTotal != null ? String(catchTotal) : "—"}
-              label="Fresh catches"
-              tone="good"
-              pad
-            />
-            <Stat n={avgScore != null ? String(avgScore) : "—"} label="Avg score" pad />
+            <Stat n={topScore != null ? String(topScore) : "—"} label="Top score" tone="good" />
+            <Stat n={catchTotal != null ? String(catchTotal) : "—"} label="Fresh catches" tone="good" />
+            <Stat n={avgScore != null ? String(avgScore) : "—"} label="Avg score" />
           </div>
         </header>
 
@@ -623,7 +616,7 @@ export default function DashboardPage() {
             ) : (
               <Link
                 href="/explore"
-                className="flex items-center justify-between rounded border-2 border-dashed border-rc-rule bg-rc-panel px-6 py-8 text-rc-ink-soft transition-colors hover:border-rc-brand/40"
+                className="flex items-center justify-between rounded border border-dashed border-rc-rule bg-rc-panel px-6 py-8 text-rc-ink-soft transition-colors hover:border-rc-brand/40"
               >
                 <span className="flex items-center gap-3">
                   <Home className="h-5 w-5 text-rc-ink-mute" />
@@ -634,6 +627,11 @@ export default function DashboardPage() {
                 <ChevronRight className="h-4 w-4 text-rc-ink-mute" />
               </Link>
             )}
+
+            {/* Saved-spots summary map — sits right under the hero. */}
+            <div className="mt-6">
+              <DashboardSavedMap spots={railSpots ?? []} />
+            </div>
 
             {/* Your spots */}
             <div className="mb-3 mt-8 flex items-center justify-between">
@@ -657,7 +655,7 @@ export default function DashboardPage() {
                 {[0, 1, 2, 3, 4, 5].map((i) => (
                   <div
                     key={i}
-                    className="h-40 animate-pulse rounded border-2 border-rc-rule bg-rc-surface"
+                    className="h-40 animate-pulse rounded border border-rc-rule bg-rc-surface"
                   />
                 ))}
               </div>
@@ -683,7 +681,7 @@ export default function DashboardPage() {
                 ))}
               </div>
             ) : (
-              <div className="rounded border-2 border-dashed border-rc-rule bg-rc-panel p-8 text-center">
+              <div className="rounded border border-dashed border-rc-rule bg-rc-panel p-8 text-center">
                 <p className="text-sm font-semibold text-rc-ink">No spots yet</p>
                 <p className="mt-1 text-sm text-rc-ink-soft">
                   Save a spot or drop your own to see it here.
@@ -697,10 +695,6 @@ export default function DashboardPage() {
               </div>
             )}
 
-            {/* Saved-spots summary map. */}
-            <div className="mt-8">
-              <DashboardSavedMap spots={railSpots ?? []} />
-            </div>
           </div>
 
           {/* RIGHT — rail. Cards share the Explore spot-card language: a 2px
@@ -850,6 +844,8 @@ export default function DashboardPage() {
         </div>
       </div>
 
+      <MarketingFooter />
+
       {undo && (
         <div className="fixed inset-x-0 bottom-6 z-50 flex justify-center px-4">
           <div className="flex items-center gap-3 rounded-lg bg-rc-navy px-4 py-2.5 text-sm text-white shadow-rc-panel">
@@ -912,7 +908,7 @@ function RailCard({
   children: React.ReactNode;
 }) {
   return (
-    <div className="overflow-hidden rounded border-2 border-rc-rule bg-rc-panel">
+    <div className="overflow-hidden rounded border border-rc-rule bg-rc-panel">
       <div className="px-4 pb-3.5 pt-3.5">
         <div className="flex items-start justify-between gap-2">
           <span className="text-[15px] font-medium text-rc-ink">{title}</span>
@@ -954,15 +950,14 @@ function Stat({
   n,
   label,
   tone,
-  pad,
 }: {
   n: string;
   label: string;
   tone?: "good";
-  pad?: boolean;
 }) {
   return (
-    <div className={pad ? "pl-5 sm:pl-6" : ""}>
+    // Symmetric padding so the divider rule sits evenly between columns.
+    <div className="px-4 first:pl-0 last:pr-0">
       <div
         className={`text-2xl font-black tabular-nums leading-none ${
           tone === "good" ? "text-rc-good" : "text-rc-ink"
@@ -970,7 +965,7 @@ function Stat({
       >
         {n}
       </div>
-      <div className="mt-1.5 font-rc-mono text-[9px] uppercase tracking-[0.1em] text-rc-ink-mute">
+      <div className="mt-2 font-rc-mono text-[9px] uppercase tracking-[0.1em] text-rc-ink-mute">
         {label}
       </div>
     </div>

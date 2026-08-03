@@ -21,11 +21,23 @@ const NAV: { href: string; label: string; signedInOnly?: boolean }[] = [
  * links and the signed-in affordances differ. Stays `fixed` (not `sticky`)
  * because Explore owns its own scroll containers.
  */
-export default function ExploreTopBar() {
+export default function ExploreTopBar({
+  variant = "default",
+  preview,
+}: {
+  /** "brand" inverts the bar to a blue background with a white mark/links. */
+  variant?: "default" | "brand";
+  /** Force the signed-in affordance for a static preview (dashboard mock). */
+  preview?: boolean;
+} = {}) {
   const { user, session, loading } = useAuth();
   const pathname = usePathname();
-
+  const brand = variant === "brand";
   const initials = user?.email ? user.email.slice(0, 2).toUpperCase() : null;
+
+  // Signed-in vs out — a preview forces the signed-in look for the mock.
+  const signedIn = preview || !!user;
+  const avatarLabel = preview ? "R" : initials;
 
   // Active-alert count → "Notifications" badge.
   const [alertCount, setAlertCount] = useState<number | null>(null);
@@ -64,13 +76,27 @@ export default function ExploreTopBar() {
     // only exists there to merge the bar into the hero band, and there's no
     // such band here. Opaque, so there's no backdrop to blur. Keeps its rule:
     // this bar floats over the map and needs the edge.
-    <header className="fixed top-0 inset-x-0 h-16 z-40 bg-rc-panel border-b border-rc-rule">
+    <header
+      className={`fixed top-0 inset-x-0 h-16 z-40 border-b ${
+        brand ? "bg-rc-brand border-white/15" : "bg-rc-panel border-rc-rule"
+      }`}
+    >
       <div className="h-full px-4 sm:px-6 flex items-center gap-8">
         <Link href="/" className="shrink-0 flex items-center" aria-label="ReelCaster home">
-          <Image src="/reelcaster-mark.svg" alt="ReelCaster" width={104} height={48} priority />
+          <Image
+            src={brand ? "/reelcaster-mark-white.svg" : "/reelcaster-mark.svg"}
+            alt="ReelCaster"
+            width={104}
+            height={48}
+            priority
+          />
         </Link>
 
-        <nav className="hidden md:flex items-center gap-7 text-sm font-medium text-rc-ink-soft">
+        <nav
+          className={`hidden md:flex items-center gap-7 text-sm font-medium ${
+            brand ? "text-white/70" : "text-rc-ink-soft"
+          }`}
+        >
           {NAV.filter((item) => !item.signedInOnly || user).map((item) => {
             const active = isActive(item.href);
             const showBadge =
@@ -82,13 +108,21 @@ export default function ExploreTopBar() {
                 aria-current={active ? "page" : undefined}
                 className={`flex items-center gap-1.5 transition-colors ${
                   active
-                    ? "text-rc-brand font-semibold"
-                    : "hover:text-rc-ink"
+                    ? brand
+                      ? "text-white font-semibold"
+                      : "text-rc-brand font-semibold"
+                    : brand
+                      ? "hover:text-white"
+                      : "hover:text-rc-ink"
                 }`}
               >
                 {item.label}
                 {showBadge && (
-                  <span className="inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full bg-rc-badge text-rc-ink text-[10px] font-bold">
+                  <span
+                    className={`inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full text-[10px] font-bold ${
+                      brand ? "bg-white text-rc-brand" : "bg-rc-badge text-rc-ink"
+                    }`}
+                  >
                     {alertCount}
                   </span>
                 )}
@@ -98,14 +132,18 @@ export default function ExploreTopBar() {
         </nav>
 
         <div className="flex items-center gap-2 sm:gap-3 ml-auto">
-          {loading ? null : user && initials ? (
-            <Link
-              href="/profile"
-              aria-label="Profile"
-              className="flex items-center justify-center w-8 h-8 rounded-full bg-rc-ink text-white font-rc-mono font-bold text-[11px]"
-            >
-              {initials}
-            </Link>
+          {loading && !preview ? null : signedIn && avatarLabel ? (
+            <>
+              <Link
+                href="/profile"
+                aria-label="Profile"
+                className={`flex items-center justify-center w-8 h-8 rounded-full font-rc-mono font-bold text-[11px] ${
+                  brand ? "bg-white text-rc-brand" : "bg-rc-ink text-white"
+                }`}
+              >
+                {avatarLabel}
+              </Link>
+            </>
           ) : (
             // Same signed-out pairing as MarketingHeader (About, the
             // homepage, etc.) — "Sign in" text link + a filled sign-up CTA —
@@ -114,13 +152,19 @@ export default function ExploreTopBar() {
             <>
               <Link
                 href="/login"
-                className="hidden sm:inline-flex text-sm font-medium text-rc-ink-soft hover:text-rc-ink px-3 py-1.5 transition-colors"
+                className={`hidden sm:inline-flex text-sm font-medium px-3 py-1.5 transition-colors ${
+                  brand ? "text-white/80 hover:text-white" : "text-rc-ink-soft hover:text-rc-ink"
+                }`}
               >
                 Sign in
               </Link>
               <Link
                 href="/signup"
-                className="px-4 py-2 rounded bg-rc-brand hover:bg-rc-brand-hover text-sm font-semibold text-white transition-colors"
+                className={`px-4 py-2 rounded text-sm font-semibold transition-colors ${
+                  brand
+                    ? "bg-white text-rc-brand hover:bg-white/90"
+                    : "bg-rc-brand hover:bg-rc-brand-hover text-white"
+                }`}
               >
                 Start free trial
               </Link>

@@ -68,18 +68,14 @@ export default function DashboardSavedMap({ spots }: { spots: RailSpot[] }) {
   }, [ready, plottable.length]);
 
   return (
-    <section className="overflow-hidden rounded border-2 border-rc-rule bg-rc-panel">
-      <div className="flex items-center justify-between px-4 pb-2.5 pt-3.5">
-        <span className="text-[15px] font-medium text-rc-ink">Your map</span>
-        <Link
-          href="/explore"
-          className="inline-flex items-center gap-1 font-rc-mono text-[11px] font-bold text-rc-brand hover:underline"
-        >
-          View full map <ChevronRight className="h-3.5 w-3.5" />
-        </Link>
-      </div>
+    <section className="overflow-hidden rounded border border-rc-rule bg-rc-panel">
       {plottable.length > 0 ? (
-        <div className="relative h-72 w-full border-t border-rc-rule">
+        <div className="dash-map relative h-72 w-full">
+          {/* Zoom + attribution controls: 20px in from the right edge. */}
+          <style>{`
+            .dash-map .maplibregl-ctrl-bottom-right { right: 20px !important; }
+            .dash-map .maplibregl-ctrl-bottom-right .maplibregl-ctrl { margin-right: 0 !important; }
+          `}</style>
           <ExploreMap
             mapRef={mapRef}
             spots={plottable}
@@ -91,11 +87,19 @@ export default function DashboardSavedMap({ spots }: { spots: RailSpot[] }) {
             relief={false}
             labels
             currents={false}
+            showBrand={false}
             onViewportChange={() => setReady(true)}
           />
+          {/* The one map CTA, sitting on the map itself. */}
+          <Link
+            href="/explore"
+            className="absolute left-3 top-3 z-10 inline-flex items-center gap-1 rounded bg-rc-panel/95 px-2.5 py-1.5 font-rc-mono text-[11px] font-bold text-rc-brand shadow-rc-panel backdrop-blur-sm hover:bg-rc-panel"
+          >
+            View full map <ChevronRight className="h-3.5 w-3.5" />
+          </Link>
         </div>
       ) : (
-        <div className="border-t border-rc-rule px-4 py-8 text-center">
+        <div className="px-4 py-8 text-center">
           <p className="text-sm text-rc-ink-soft">
             Save spots to see them on your map.
           </p>

@@ -81,7 +81,7 @@ export default function SpotCard({
   };
 
   return (
-    <div className="bg-rc-panel border-2 border-rc-rule rounded overflow-hidden">
+    <div className="bg-rc-panel border border-rc-rule rounded overflow-hidden">
       {/* Body — the primary target; clicking it opens the location report.
           Hover/focus feedback lives here (a surface shift), not on the whole
           card, so the footer controls read as separate.

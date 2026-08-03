@@ -48,6 +48,12 @@ export default function MobileBottomNav() {
   const moreActive =
     moreOpen || MORE_LINKS.some((l) => isActive(l.href));
 
+  // The dashboard has its own top nav + footer — the floating pill is
+  // redundant there and overlaps the footer, so drop it on that route.
+  if (pathname === "/dashboard" || pathname.startsWith("/dashboard/")) {
+    return null;
+  }
+
   return (
     <>
       {/* Reserve scroll space so content clears the floating bar. */}
