@@ -20,6 +20,7 @@ import {
   type ForecastTier,
 } from "./lib/forecast-strip";
 import {
+  fetchFreshCatches,
   fetchMapForecast14d,
   fetchMapSpotsAsViewer,
   fetchMyCustomSpots,
@@ -220,8 +221,7 @@ export default function ExploreShell({
 
   useEffect(() => {
     let cancelled = false;
-    fetch("/api/bluecaster/map/fresh-catches")
-      .then((r) => (r.ok ? (r.json() as Promise<FreshCatchesResponse>) : null))
+    fetchFreshCatches()
       .then((p) => {
         if (!cancelled && p) setFreshCatches(p);
       })
@@ -231,7 +231,10 @@ export default function ExploreShell({
     return () => {
       cancelled = true;
     };
-  }, []);
+    // Re-runs when the session resolves: the first pass often fires before
+    // Supabase has rehydrated, which would leave a Pro viewer holding the
+    // anonymous (locked) payload for the rest of the visit.
+  }, [userId]);
 
   // ── Day re-scoring: refetch map/spots for the selected date, cache it,
   //    and overlay the new scores onto the (stable) base spot set. ────────
