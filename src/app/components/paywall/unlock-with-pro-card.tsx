@@ -158,18 +158,16 @@ export function UnlockWithProCard({
           {label}
         </Link>
       ) : (
-        // Cadence + terms + Stripe handoff. Signed-out visitors fall back to
-        // `href` (/plans), since a Checkout Session needs an account.
+        // Cadence + terms + payment handoff (Stripe when signed in,
+        // /plans/checkout when not).
         <TrialCta
           from={feature ? `paywall:${feature}` : 'paywall'}
-          anonHref={href}
-          anonLabel={label}
           theme={isLight ? 'light' : 'dark'}
           onActivate={(plan) =>
             trackEvent('Paywall CTA Clicked', {
               feature,
               plan: plan ?? 'anon',
-              destination: plan ? 'stripe' : href,
+              destination: 'checkout',
             })
           }
         />

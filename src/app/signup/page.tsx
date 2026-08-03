@@ -6,6 +6,7 @@ import { AuthForm } from '../components/auth/auth-form'
 import HeroScoreCard from '@/app/(marketing)/components/hero-score-card'
 import { NotebookPen, BarChart3, Bell, MapPin } from 'lucide-react'
 import Link from 'next/link'
+import { readNextParam } from '@/lib/next-param'
 import Image from 'next/image'
 
 const features = [
@@ -68,7 +69,7 @@ export default function SignupPage() {
             <AuthForm
               defaultMode="signup"
               source="signup-page"
-              onSuccess={() => router.replace('/explore')}
+              onSuccess={() => router.replace(readNextParam('/explore'))}
             />
           </div>
 

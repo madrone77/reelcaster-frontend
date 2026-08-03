@@ -67,15 +67,13 @@ export default function ProTrialModal({
   const viewerTier: PlanTierId =
     viewerTierProp ?? (isPaid ? "pro" : user ? "free" : "anon");
 
-  // A signed-out visitor blocked by a free-tier feature gets sent to signup;
-  // everyone else goes to /plans with the feature context attached. Signed-in
-  // members skip both — Stripe needs an account, so this is only the anon path.
+  // A signed-out visitor blocked by something a FREE account unlocks is sold
+  // the account, not a subscription. Everyone else — signed in or not — gets
+  // the cadence choice and the payment handoff.
   const sellsAccount = nag.unlocksAt === "free" && viewerTier === "anon";
-  const anonHref = sellsAccount
+  const signupHref = sellsAccount
     ? `/signup?next=${encodeURIComponent("/explore")}`
-    : `/plans?from=${encodeURIComponent(from)}&feature=${encodeURIComponent(
-        nag.pricingFeature,
-      )}`;
+    : undefined;
   const ctaLabel = sellsAccount
     ? "Create free account"
     : `Start ${TRIAL_DAYS}-day free trial`;
@@ -134,8 +132,8 @@ export default function ProTrialModal({
           ) : (
             <TrialCta
               from={from}
-              anonHref={anonHref}
-              anonLabel={ctaLabel}
+              signupHref={signupHref}
+              signupLabel={ctaLabel}
               theme="light"
               onActivate={(plan) =>
                 trackEvent("Paywall CTA Clicked", {
@@ -143,7 +141,7 @@ export default function ProTrialModal({
                   viewerTier,
                   from,
                   plan: plan ?? "signup",
-                  destination: plan ? "stripe" : anonHref,
+                  destination: plan ? "checkout" : signupHref,
                 })
               }
             />

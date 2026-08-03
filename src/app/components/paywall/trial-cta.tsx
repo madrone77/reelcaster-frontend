@@ -62,10 +62,14 @@ function longDate(d: Date): string {
 export interface TrialCtaProps {
   /** Analytics origin passed to Stripe metadata ('explore', 'paywall', …). */
   from: string;
-  /** Where a signed-out visitor goes instead — Stripe needs an account. */
-  anonHref: string;
-  /** Label for the signed-out link. */
-  anonLabel?: string;
+  /**
+   * Sells an ACCOUNT rather than a subscription (a signed-out visitor blocked
+   * by something a free account unlocks). Renders one plain link to this href
+   * with no cadence choice — charging for what's free would be a lie.
+   */
+  signupHref?: string;
+  /** Label for the `signupHref` link. */
+  signupLabel?: string;
   /** Light panel (modals, /support) vs the dark Explore surfaces. */
   theme?: 'light' | 'dark';
   className?: string;
@@ -75,8 +79,8 @@ export interface TrialCtaProps {
 
 export default function TrialCta({
   from,
-  anonHref,
-  anonLabel,
+  signupHref,
+  signupLabel,
   theme = 'light',
   className,
   onActivate,
@@ -126,7 +130,12 @@ export default function TrialCta({
 
   const isLight = theme === 'light';
   const yearly = plan === 'annual';
-  const trialOn = Boolean(status?.trial_available);
+  // Signed out: Stripe needs a Supabase user, so the cadence choice carries
+  // into /plans/checkout (which signs them in and hands off) instead of
+  // POSTing. That page re-resolves eligibility, so an optimistic trial here is
+  // corrected before any card is taken.
+  const anon = !authLoading && !user;
+  const trialOn = anon || Boolean(status?.trial_available);
   const trialDays = status?.trial_days ?? TRIAL_DAYS;
   const priceCents = yearly ? ANNUAL_PRICE_CENTS : MONTHLY_PRICE_CENTS;
   const periodWord = yearly ? 'year' : 'month';
@@ -140,11 +149,11 @@ export default function TrialCta({
     ? 'text-rc-brand underline underline-offset-2 hover:text-rc-brand-hover'
     : 'text-white underline underline-offset-2';
 
-  // Signed out: no Supabase user means no Checkout Session to create.
-  if (!authLoading && !user) {
+  // Selling an account, not a subscription — one link, no cadence, no terms.
+  if (signupHref) {
     return (
       <Link
-        href={anonHref}
+        href={signupHref}
         data-testid="trial-cta-anon"
         onClick={() => onActivate?.(null)}
         className={cn(
@@ -152,7 +161,7 @@ export default function TrialCta({
           className,
         )}
       >
-        {anonLabel ?? `Start ${TRIAL_DAYS}-day free trial`}
+        {signupLabel ?? 'Create free account'}
       </Link>
     );
   }
@@ -173,7 +182,13 @@ export default function TrialCta({
     );
   }
 
-  const busy = authLoading || statusLoading;
+  const busy = authLoading || (!anon && statusLoading);
+  const ctaClass =
+    'inline-flex w-full items-center justify-center rounded-lg bg-rc-brand px-4 py-2.5 text-sm font-bold text-white transition-colors hover:bg-rc-brand-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rc-brand focus-visible:ring-offset-2 disabled:opacity-60';
+  const checkoutHref = `/plans/checkout?plan=${plan}&from=${encodeURIComponent(from)}`;
+  const ctaLabel = trialOn
+    ? `Start ${trialDays}-day free trial`
+    : `Get Pro · ${dollars(priceCents)}/${periodWord}`;
   // Only yearly depends on STRIPE_ANNUAL_PRICE_ID; a missing annual price must
   // not take monthly checkout down with it.
   const annualDown = Boolean(status && !status.annual_available);
@@ -233,27 +248,33 @@ export default function TrialCta({
         </button>
       </div>
 
-      <button
-        type="button"
-        disabled={busy || submitting}
-        data-testid="trial-cta"
-        data-plan={plan}
-        onClick={() => {
-          onActivate?.(plan);
-          openCheckout({ plan, from }).catch(() => {
-            /* surfaced through `error` below */
-          });
-        }}
-        className="inline-flex w-full items-center justify-center rounded-lg bg-rc-brand px-4 py-2.5 text-sm font-bold text-white transition-colors hover:bg-rc-brand-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rc-brand focus-visible:ring-offset-2 disabled:opacity-60"
-      >
-        {submitting
-          ? 'Starting…'
-          : busy
-            ? 'Loading…'
-            : trialOn
-              ? `Start ${trialDays}-day free trial`
-              : `Get Pro · ${dollars(priceCents)}/${periodWord}`}
-      </button>
+      {anon ? (
+        <Link
+          href={checkoutHref}
+          data-testid="trial-cta"
+          data-plan={plan}
+          onClick={() => onActivate?.(plan)}
+          className={ctaClass}
+        >
+          {ctaLabel}
+        </Link>
+      ) : (
+        <button
+          type="button"
+          disabled={busy || submitting}
+          data-testid="trial-cta"
+          data-plan={plan}
+          onClick={() => {
+            onActivate?.(plan);
+            openCheckout({ plan, from }).catch(() => {
+              /* surfaced through `error` below */
+            });
+          }}
+          className={ctaClass}
+        >
+          {submitting ? 'Starting…' : busy ? 'Loading…' : ctaLabel}
+        </button>
+      )}
 
       {/* Auto-renewal disclosure. Required, and deliberately not buried. */}
       {!busy && (
