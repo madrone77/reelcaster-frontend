@@ -934,6 +934,7 @@ export default function ExploreShell({
         onOpenChange={setAlertUpgradeOpen}
         feature="alerts"
         from="explore"
+        spotName={alertSpot?.name}
       />
 
       <SignupGateDialog

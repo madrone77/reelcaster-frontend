@@ -220,6 +220,7 @@ export default function SpotCard({
         onOpenChange={setUpgradeOpen}
         feature="favorite-spots"
         from="explore-rail"
+        spotName={spot.name}
       />
     </div>
   );

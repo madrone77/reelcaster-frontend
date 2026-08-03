@@ -334,6 +334,7 @@ export default function SpotDrawer({
         onOpenChange={setUpgradeOpen}
         feature="favorite-spots"
         from="explore-drawer"
+        spotName={spot.name}
       />
     </div>
   );
