@@ -8,23 +8,62 @@ import {
   DialogDescription,
 } from "@/components/ui/dialog";
 import { useAuth } from "@/contexts/auth-context";
+import Link from "next/link";
+import { usePathname } from "next/navigation";
+import TrialCta from "@/app/components/paywall/trial-cta";
 import { useAnalytics } from "@/hooks/use-analytics";
 import { CheckCircle2 } from "lucide-react";
 
 /** Which CTA opened the gate — drives the headline copy. */
 export type AuthIntent = "catch" | "alert" | "forecast";
 
-const INTENT_COPY: Record<AuthIntent, { label: string; lead: string; verb: string }> = {
-  catch: { label: "SAVE YOUR CATCH", lead: "Sign up to log catches at", verb: "logging your catch" },
-  alert: { label: "GET ALERTS", lead: "Sign up to set alerts for", verb: "setting your alert" },
-  forecast: { label: "SEE THE WEEK AHEAD", lead: "Sign up free for 7 days at", verb: "unlocking the 7-day forecast" },
+interface IntentCopy {
+  label: string;
+  lead: string;
+  verb: string;
+  /**
+   * Does a FREE account unlock this, per src/lib/plan-features.ts?
+   *
+   * Alerts are Pro-only, so that gate sells Pro and nothing else. Logging a
+   * catch and forecast days 3-7 are free-tier, and the day tiles literally
+   * read "Sign up free" — so those keep the free path underneath the Pro CTA
+   * rather than charging for what the plan matrix promises is free.
+   */
+  freeUnlocks: boolean;
+}
+
+const INTENT_COPY: Record<AuthIntent, IntentCopy> = {
+  catch: {
+    label: "SAVE YOUR CATCH",
+    lead: "Log catches at",
+    verb: "logging your catch",
+    freeUnlocks: true,
+  },
+  alert: {
+    label: "GET ALERTS",
+    lead: "Get alerts for",
+    verb: "setting your alert",
+    freeUnlocks: false,
+  },
+  forecast: {
+    label: "SEE THE WEEK AHEAD",
+    lead: "See the week ahead at",
+    verb: "unlocking the 7-day forecast",
+    freeUnlocks: true,
+  },
 };
 
 /**
- * Sign-up gate shown when a signed-out angler taps "Set alert" or "Log catch"
- * on the spot-detail page (per the mockup). Passwordless only — Continue with
- * Google (existing OAuth) + an email magic link. The headline names the spot
- * and adapts to the intent that opened it.
+ * The gate a signed-out angler hits from "Set alert", "Log catch" or a locked
+ * forecast day.
+ *
+ * It used to sell a signup and nothing else. It now leads with the pay-first
+ * flow — pick a cadence, leave an email, go to Stripe, account provisioned
+ * afterwards — because asking someone to make an account before they've
+ * decided to buy is the friction this whole funnel exists to remove.
+ *
+ * The passwordless signup (Google + magic link) survives only where a free
+ * account genuinely unlocks the thing that was tapped.
  */
 export default function SignupGateDialog({
   open,
@@ -59,6 +98,8 @@ export default function SignupGateDialog({
     }
   }, [open]);
 
+  const pathname = usePathname();
+  const returnTo = pathname || "/explore";
   const copy = INTENT_COPY[intent];
   const lead = mode === "signup" ? copy.lead : "Sign in to continue at";
 
@@ -145,9 +186,12 @@ export default function SignupGateDialog({
                 {spotName}
               </div>
               <div className="mt-3 font-rc-mono text-[12px] text-rc-ink-mute">
-                Free · 30 seconds · we keep it private
+                No account needed — checkout sets one up for you
               </div>
             </div>
+
+            {/* Pay first. No signup form stands between deciding and buying. */}
+            <TrialCta from={`spot-gate-${intent}`} theme="light" />
 
             {error && (
               <div className="rounded-lg bg-rc-poor-bg text-rc-poor-ink text-sm px-3 py-2">
@@ -155,6 +199,14 @@ export default function SignupGateDialog({
               </div>
             )}
 
+            {copy.freeUnlocks && (
+              <div className="text-center font-rc-mono text-[11px] tracking-[0.08em] text-rc-ink-mute">
+                OR CREATE A FREE ACCOUNT
+              </div>
+            )}
+
+            {copy.freeUnlocks && (
+              <>
             <button
               type="button"
               onClick={handleGoogle}
@@ -206,6 +258,22 @@ export default function SignupGateDialog({
                 {mode === "signup" ? "Sign in" : "Sign up"}
               </button>
             </div>
+              </>
+            )}
+
+            {/* Pro-only gates have no free block, so the way back in for an
+                existing customer has to live outside it. */}
+            {!copy.freeUnlocks && (
+              <div className="text-center font-rc-mono text-[12px] text-rc-ink-mute">
+                Already have an account?{" "}
+                <Link
+                  href={`/login?next=${encodeURIComponent(returnTo)}`}
+                  className="text-rc-brand font-semibold hover:underline"
+                >
+                  Sign in
+                </Link>
+              </div>
+            )}
           </>
         )}
       </DialogContent>
