@@ -171,8 +171,9 @@ export default function SignupGateDialog({
               {lead} {spotName}
             </DialogTitle>
             <DialogDescription className="sr-only">
-              Sign up with Google or an email magic link. Free, takes about 30
-              seconds.
+              {copy.freeUnlocks
+                ? "Start a Pro trial with your email — no account needed — or create a free account with Google or a magic link."
+                : "Start a Pro trial with your email. No account needed; checkout sets one up for you."}
             </DialogDescription>
 
             <div>
