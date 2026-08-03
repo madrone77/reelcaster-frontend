@@ -937,6 +937,42 @@ a thin wrapper), and alert creation — `create-alert-dialog.tsx` takes an
 would refuse. `upgrade-required-modal.tsx` + `unlock-with-pro-card.tsx` still
 serve `/alerts` and `/support`.
 
+### Pay first, sign up never (2026-08-03, behind a flag)
+
+A signed-out angler can buy Pro without making an account: Stripe collects the
+email and the card, and the account is provisioned afterwards from
+`customer_details.email`. Gated by **`NEXT_PUBLIC_PAY_FIRST_CHECKOUT=1`** —
+unset, signed-out buyers keep going to `/plans/checkout`, so deploying this
+changes nothing until the switch is flipped.
+
+- `POST /api/stripe/checkout` gains an **unauthenticated branch**
+  (`anonCheckout`) that creates a customer-less session with `customer_email`.
+  The one email field in the modal exists so trial eligibility can be checked
+  before Stripe applies a trial — `checkTrialEligibilityByEmail` runs layer 2
+  (the identity hash); layer 3 (card fingerprint) still backstops it in the
+  webhook.
+- The webhook's `resolveUserId` used to return null for a subscription with no
+  known user and simply log it — meaning **an anonymous payment would be
+  charged and never linked to anything**. It now falls through to
+  `provisionUserForSubscription`, which find-or-creates the account
+  (`src/lib/checkout-account.ts`) and stamps `supabase_user_id` onto the Stripe
+  customer so later events resolve through metadata.
+- `POST /api/stripe/claim` turns a completed session into a signed-in session.
+  **The rule that matters:** it only signs someone in when
+  `user_settings.created_via_checkout` is true — i.e. the purchase created the
+  account. If the email already had one, paying for it is not proof of owning
+  the inbox, so that path emails a link instead. `checkout_claims` (PK on
+  session_id) makes the handoff one-time; the session must also be `complete`
+  and under 30 minutes old.
+- `/billing/success` and `/billing/cancel` are now **public in `auth-gate.tsx`**
+  — gating them would strand someone who has already paid.
+- `checkout_claims` and `user_settings.created_via_checkout` already existed in
+  the production database with no migration file and no code using them;
+  `supabase/migrations/20260803_pay_first_checkout.sql` makes the repo match.
+
+Accounts made this way have **no password** — magic link or Google until they
+set one.
+
 ### The in-app paywalls buy without leaving (2026-08-03)
 
 Both paywall CTAs used to link to `/plans`, so buying took two more pages.

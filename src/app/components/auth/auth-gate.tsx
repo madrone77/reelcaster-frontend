@@ -17,6 +17,11 @@ const PUBLIC_PREFIXES = [
   // that preserves next=/plans/checkout. Bouncing to a bare /login here would
   // drop the return path and lose the sale.
   '/plans',
+  // Where Stripe returns a pay-first buyer. They have no account yet — the
+  // page's job is to claim the one the webhook just created for them, so
+  // gating it would strand someone who has already paid.
+  '/billing/success',
+  '/billing/cancel',
   '/explore',
   '/favorites',
   '/fishing',

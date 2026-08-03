@@ -4,6 +4,7 @@ import { createClient } from '@supabase/supabase-js';
 import { getStripe } from '@/lib/stripe';
 import { ANNUAL_PRICE_ID, ANNUAL_PRICE_CENTS, MONTHLY_PRICE_CENTS } from '@/lib/pricing';
 import { recordTrialGrant, recordTrialCardFingerprint } from '@/lib/trial';
+import { findOrCreateUserForCheckout } from '@/lib/checkout-account';
 import { sendEmail } from '@/lib/email-service';
 import {
   trialEndingEmail,
@@ -62,7 +63,89 @@ async function resolveUserId(subscription: Stripe.Subscription): Promise<string 
     .eq('stripe_customer_id', customerIdOf(subscription))
     .maybeSingle();
 
-  return data?.user_id ?? null;
+  if (data?.user_id) return data.user_id;
+
+  // Pay-first checkout: the buyer had no account when they paid, so this is
+  // where the account comes from. Without this the subscription is charged and
+  // never linked to anything — the customer pays and gets nothing.
+  return provisionUserForSubscription(subscription);
+}
+
+/** The billing email Stripe holds for this subscription's customer. */
+async function customerEmailOf(
+  subscription: Stripe.Subscription,
+): Promise<string | null> {
+  const fromMeta =
+    subscription.metadata?.checkout_email ??
+    (typeof subscription.customer === 'string' || subscription.customer.deleted
+      ? null
+      : subscription.customer.email);
+  if (fromMeta) return fromMeta;
+
+  try {
+    const stripe = await getStripe();
+    const customer = await stripe.customers.retrieve(customerIdOf(subscription));
+    return customer.deleted ? null : (customer.email ?? null);
+  } catch (err) {
+    console.error('[stripe webhook] could not read customer email', err);
+    return null;
+  }
+}
+
+/**
+ * Create (or attach to) the account behind a subscription bought without one.
+ *
+ * Also stamps `supabase_user_id` onto the Stripe customer, so every later
+ * event for this customer resolves through metadata and never re-enters this
+ * path. `user_settings.created_via_checkout` records whether the account was
+ * created BY this purchase — the claim route needs that to decide between
+ * signing the buyer in and emailing a link (see src/lib/checkout-account.ts).
+ */
+async function provisionUserForSubscription(
+  subscription: Stripe.Subscription,
+): Promise<string | null> {
+  const email = await customerEmailOf(subscription);
+  if (!email) {
+    console.error(
+      '[stripe webhook] no email to provision from for subscription',
+      subscription.id,
+    );
+    return null;
+  }
+
+  const account = await findOrCreateUserForCheckout(admin, email);
+  if (!account) return null;
+
+  const customerId = customerIdOf(subscription);
+
+  // created_via_checkout is what lets the claim route sign this buyer in from
+  // the success URL. Only ever set true — an existing account that happens to
+  // buy again must not become claimable.
+  await admin.from('user_settings').upsert(
+    {
+      user_id: account.userId,
+      stripe_customer_id: customerId,
+      ...(account.created ? { created_via_checkout: true } : {}),
+    },
+    { onConflict: 'user_id' },
+  );
+
+  try {
+    const stripe = await getStripe();
+    await stripe.customers.update(customerId, {
+      metadata: { supabase_user_id: account.userId },
+    });
+  } catch (err) {
+    // Not fatal: user_settings.stripe_customer_id below is the other lookup
+    // path, so resolution still works without the stamp.
+    console.warn('[stripe webhook] could not stamp customer metadata', err);
+  }
+
+  console.info(
+    `[stripe webhook] provisioned ${account.created ? 'new' : 'existing'} account for anon checkout`,
+    customerId,
+  );
+  return account.userId;
 }
 
 async function emailForUser(userId: string): Promise<string | null> {

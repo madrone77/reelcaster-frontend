@@ -172,6 +172,36 @@ export async function recordTrialGrant(
     .eq('user_id', params.userId);
 }
 
+/**
+ * Pre-checkout check for a buyer with no account yet (the paywall's
+ * pay-first flow). Layer 2 only — there is no user row to carry
+ * `has_used_trial`, so the email identity hash is the whole guard here.
+ *
+ * Layer 3 (card fingerprint, in the webhook) still backs this up, which is
+ * what stops a fresh inbox plus the same card from farming free weeks.
+ */
+export async function checkTrialEligibilityByEmail(
+  admin: SupabaseClient,
+  email: string,
+): Promise<TrialEligibility> {
+  const { data: priorGrant, error } = await admin
+    .from('trial_grants')
+    .select('id')
+    .eq('email_hash', emailIdentityHash(email))
+    .eq('outcome', 'granted')
+    .maybeSingle();
+
+  // Fail closed, for the same reason checkTrialEligibility does.
+  if (error) {
+    console.error('[trial] anon eligibility lookup failed', error);
+    return { eligible: false, reason: 'lookup_failed' };
+  }
+
+  return priorGrant
+    ? { eligible: false, reason: 'identity_used_trial' }
+    : { eligible: true };
+}
+
 export interface CardCheckResult {
   /** True when this card already consumed a trial under a different grant. */
   duplicate: boolean;
