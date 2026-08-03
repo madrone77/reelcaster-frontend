@@ -406,8 +406,8 @@ export default function CheckoutPanel({
 
           {trialOn && (
             <p className="mt-1.5 text-sm text-rc-ink-soft">
-              Free for {trialDays} days, then {dollars(ANNUAL_PRICE_CENTS)} a
-              year.
+              Free for {trialDays} days, then {dollars(priceCents)} a{' '}
+              {periodWord}.
             </p>
           )}
 
@@ -495,9 +495,9 @@ export default function CheckoutPanel({
                   <strong className="text-rc-ink-soft">{chargeDate}</strong>{' '}
                   your card is charged{' '}
                   <strong className="text-rc-ink-soft">
-                    {dollars(ANNUAL_PRICE_CENTS)}
+                    {dollars(priceCents)}
                   </strong>{' '}
-                  for one year, and renews yearly at that price until you
+                  for one {periodWord}, and renews {yearly ? 'yearly' : 'monthly'} at that price until you
                   cancel. Cancel anytime before then from your account and you
                   won’t be charged. We’ll email you 3 days before the trial
                   ends.
