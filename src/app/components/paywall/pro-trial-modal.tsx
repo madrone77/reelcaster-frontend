@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useEffect } from "react";
+import { usePathname } from "next/navigation";
 import { Check, Minus } from "lucide-react";
 import {
   Dialog,
@@ -16,6 +17,7 @@ import { useAnalytics } from "@/hooks/use-analytics";
 import TrialCta from "./trial-cta";
 import { TRIAL_DAYS } from "@/lib/pricing";
 import {
+  FREE_FAVORITE_SPOTS,
   NAG_FEATURES,
   PLAN_FEATURES,
   PLAN_TIERS,
@@ -63,6 +65,8 @@ export default function ProTrialModal({
   const { isPaid } = useSubscription();
   const { trackEvent } = useAnalytics();
 
+  const pathname = usePathname();
+  const returnTo = pathname || "/explore";
   const nag = NAG_FEATURES[feature];
   const viewerTier: PlanTierId =
     viewerTierProp ?? (isPaid ? "pro" : user ? "free" : "anon");
@@ -156,6 +160,37 @@ export default function ProTrialModal({
         </div>
 
         <PlanMatrix viewerTier={viewerTier} highlightRowId={nag.rowId} />
+
+        {/* The free tier, offered last and on purpose: after the matrix has
+            shown what an account gets you without paying. Only for visitors
+            who don't have one — a signed-in free member is already here. */}
+        {viewerTier === "anon" && (
+          <div className="border-t border-rc-rule px-4 sm:px-6 py-4 text-center">
+            <Link
+              href={`/signup?next=${encodeURIComponent(returnTo)}`}
+              data-testid="free-signup-cta"
+              onClick={() =>
+                trackEvent("Paywall CTA Clicked", {
+                  feature,
+                  viewerTier,
+                  from,
+                  plan: "free",
+                  destination: "signup",
+                })
+              }
+              className="text-sm font-semibold text-rc-brand hover:text-rc-brand-hover underline underline-offset-2"
+            >
+              Sign up today as a free user
+            </Link>
+            <p className="mt-1.5 text-[11px] leading-relaxed text-rc-ink-mute">
+              No card. Keeps today&apos;s score, a week of forecast, and{" "}
+              {FREE_FAVORITE_SPOTS === 1
+                ? "one saved spot"
+                : `${FREE_FAVORITE_SPOTS} saved spots`}
+              .
+            </p>
+          </div>
+        )}
       </DialogContent>
     </Dialog>
   );
