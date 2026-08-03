@@ -5,6 +5,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { LifeBuoy } from "lucide-react";
+import { btn } from "@/app/components/ui/button";
 import { useAuth } from "@/contexts/auth-context";
 
 const NAV: { href: string; label: string; signedInOnly?: boolean }[] = [
@@ -176,21 +177,20 @@ export default function ExploreTopBar({
             <>
               <Link
                 href="/login"
-                className={`hidden sm:inline-flex text-sm font-medium px-3 py-1.5 transition-colors ${
+                className={`hidden sm:inline-flex text-sm font-semibold uppercase tracking-wide px-3 py-1.5 transition-colors ${
                   brand ? "text-white/80 hover:text-white" : "text-rc-ink-soft hover:text-rc-ink"
                 }`}
               >
                 Sign in
               </Link>
               {/* The label promises a trial, so it goes to checkout — which
-                  now takes an email and a card without an account first. */}
+                  now takes an email and a card without an account first.
+                  Uses the canonical btn styles so it matches the marketing
+                  header's CTA exactly (btn.nav), inverted to a white button on
+                  the blue bar (btn.navOnBrand). */}
               <Link
                 href="/plans/checkout?plan=annual&from=explore-topbar"
-                className={`px-4 py-2 rounded text-sm font-semibold transition-colors ${
-                  brand
-                    ? "bg-white text-rc-brand hover:bg-white/90"
-                    : "bg-rc-brand hover:bg-rc-brand-hover text-white"
-                }`}
+                className={brand ? btn.navOnBrand : btn.nav}
               >
                 Start free trial
               </Link>
