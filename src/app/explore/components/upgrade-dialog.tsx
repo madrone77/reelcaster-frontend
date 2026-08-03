@@ -7,9 +7,16 @@ import ProTrialModal from "@/app/components/paywall/pro-trial-modal";
  * `<ProTrialModal>` so every locked day, favourite cap and alert wall on
  * /explore shows one modal with one plan matrix.
  *
- * - "pro" (default): a signed-in free user tapped a Pro day (8–14).
- * - "signup": a signed-out visitor tapped a locked day — days 3–7 come with a
- *   free account, so the modal sells the account, not the subscription.
+ * `variant` picks WHICH WALL was hit, not who hit it:
+ *
+ * - "pro" (default): a Pro day (8–14).
+ * - "signup": a locked day that a free account unlocks (3–7), so the modal
+ *   sells the account rather than the subscription.
+ *
+ * It deliberately does NOT pass `viewerTier`. It used to force "free" for the
+ * pro variant, which told a signed-out visitor the matrix's Free column was
+ * "You" and suppressed the free-signup offer at the foot of the modal. The
+ * modal reads the real tier from auth itself.
  */
 export default function UpgradeDialog({
   open,
@@ -25,7 +32,6 @@ export default function UpgradeDialog({
       open={open}
       onOpenChange={onOpenChange}
       feature={variant === "signup" ? "forecast-week" : "forecast-14d"}
-      viewerTier={variant === "signup" ? "anon" : "free"}
       from="explore-forecast"
     />
   );
