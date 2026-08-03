@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
-import { User, MapPin, Mail, Calendar, Bell, LogOut, Save, Clock, Gauge } from 'lucide-react'
+import { User, MapPin, Mail, Calendar, Bell, LifeBuoy, LogOut, Save, Clock, Gauge } from 'lucide-react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
@@ -404,6 +404,31 @@ export default function ProfilePage() {
 
             {/* Subscription */}
             <SubscriptionCard />
+
+            {/* Support. Sits directly under Subscription because that is where
+                billing questions occur to people, and The Port is where they
+                get answered. */}
+            <Card className="border-rc-rule shadow-none">
+              <CardContent className="py-5 flex items-start gap-4">
+                <div className="w-10 h-10 bg-rc-brand-soft rounded-full flex items-center justify-center shrink-0">
+                  <LifeBuoy className="h-5 w-5 text-rc-brand" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-rc-ink font-semibold">Need a hand?</p>
+                  <p className="text-sm text-rc-ink-mute mt-1">
+                    The Port has guides, answers, service status and priority
+                    support for Pro members.
+                  </p>
+                  <Button
+                    variant="outline"
+                    onClick={() => router.push('/support')}
+                    className="w-full mt-4 border-rc-rule text-rc-brand hover:bg-rc-brand-soft hover:text-rc-brand transition-colors"
+                  >
+                    Open The Port
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
 
             {/* Unit Preferences */}
             <Card className="border-rc-rule shadow-none">

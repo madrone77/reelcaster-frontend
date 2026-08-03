@@ -10,6 +10,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import type { AlertTriggers } from '@/lib/custom-alert-engine';
+import { resolveEntitlement } from '@/lib/entitlement';
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
@@ -295,14 +296,7 @@ export async function POST(request: NextRequest) {
       .select('*', { count: 'exact', head: true })
       .eq('user_id', userId);
 
-    const { data: settings } = await supabaseAdmin
-      .from('user_settings')
-      .select('subscription_tier, subscription_status')
-      .eq('user_id', userId)
-      .maybeSingle();
-    const isPaid =
-      (settings?.subscription_tier === 'pro_monthly' || settings?.subscription_tier === 'pro_annual') &&
-      (settings?.subscription_status === 'active' || settings?.subscription_status === 'trialing');
+    const { isPro: isPaid } = await resolveEntitlement(supabaseAdmin, userId);
     const limit = isPaid ? 10 : 1;
 
     if (count !== null && count >= limit) {

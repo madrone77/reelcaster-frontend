@@ -15,6 +15,7 @@ import {
 } from "lucide-react";
 import { useFavorite, favoriteCount } from "../lib/use-favorite";
 import { useSubscription } from "@/hooks/use-subscription";
+import { FREE_FAVORITE_SPOTS } from "@/lib/plan-features";
 import {
   TIER_PILL,
   TIER_TEXT,
@@ -28,13 +29,11 @@ import HourlyBars from "./hourly-bars";
 import { useUnitPreferences } from "@/contexts/unit-preferences-context";
 import { convertDistance, formatDistance } from "@/app/utils/unit-conversions";
 
-const UpgradeRequiredModal = dynamic(
-  () => import("@/app/components/paywall/upgrade-required-modal"),
+const ProTrialModal = dynamic(
+  () => import("@/app/components/paywall/pro-trial-modal"),
   { ssr: false },
 );
 
-/** Free tier may favorite this many spots before hitting the upgrade cap. */
-const FREE_FAV_CAP = 1;
 
 function dateStamp(date: string): string {
   if (!date) return "";
@@ -140,7 +139,7 @@ export default function SpotDrawer({
   // Drives the one-shot "pop" animation when a spot is favorited (not on load).
   const [popping, setPopping] = useState(false);
   const onStar = () => {
-    if (!fav && !isPaid && favoriteCount() >= FREE_FAV_CAP) {
+    if (!fav && !isPaid && favoriteCount() >= FREE_FAVORITE_SPOTS) {
       setUpgradeOpen(true);
       return;
     }
@@ -330,16 +329,11 @@ export default function SpotDrawer({
         )}
       </div>
 
-      <UpgradeRequiredModal
+      <ProTrialModal
         open={upgradeOpen}
-        onClose={() => setUpgradeOpen(false)}
+        onOpenChange={setUpgradeOpen}
         feature="favorite-spots"
-        headline="Upgrade to save more spots"
-        bullets={[
-          "Unlimited favorite spots",
-          "Reorder + score sparklines",
-          "Full 14-day outlook & alerts",
-        ]}
+        from="explore-drawer"
       />
     </div>
   );

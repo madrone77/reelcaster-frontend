@@ -6,6 +6,7 @@ import dynamic from "next/dynamic";
 import { ArrowUpCircle, ChevronLeft, ChevronRight, Home } from "lucide-react";
 import { useAuth } from "@/contexts/auth-context";
 import { useSubscription } from "@/hooks/use-subscription";
+import { FREE_FAVORITE_SPOTS } from "@/lib/plan-features";
 import { favoriteCount } from "../../lib/use-favorite";
 import ExploreTopBar from "../../components/explore-top-bar";
 import DayCell from "../../components/day-cell";
@@ -52,14 +53,12 @@ import MarketingFooter from "@/app/components/marketing/marketing-footer";
 import LogCatchDialog from "../components/log-catch-dialog";
 import CreateAlertDialog from "../components/create-alert-dialog";
 
-const UpgradeRequiredModal = dynamic(
-  () => import("@/app/components/paywall/upgrade-required-modal"),
+const ProTrialModal = dynamic(
+  () => import("@/app/components/paywall/pro-trial-modal"),
   { ssr: false },
 );
 
 const TZ = "America/Vancouver";
-/** Free tier may favorite this many spots before hitting the upgrade cap. */
-const FREE_FAV_CAP = 1;
 
 const REG_PILL: Record<string, string> = {
   Open: "bg-rc-good-bg text-rc-good-ink",
@@ -123,7 +122,7 @@ export default function SpotDetailShell({
   // rail SpotCard star interaction exactly, including the free-tier cap.
   const [savePop, setSavePop] = useState(false);
   const handleToggleSaved = () => {
-    if (!saved && !isPaid && favoriteCount() >= FREE_FAV_CAP) {
+    if (!saved && !isPaid && favoriteCount() >= FREE_FAVORITE_SPOTS) {
       setFavUpgradeOpen(true);
       return;
     }
@@ -178,6 +177,7 @@ export default function SpotDetailShell({
 
   const [selectedIso, setSelectedIso] = useState<string | null>(null);
   const [upgradeOpen, setUpgradeOpen] = useState(false);
+  const [alertUpgradeOpen, setAlertUpgradeOpen] = useState(false);
 
   // 14-day strip scroll affordance — overlaid arrows that fade in/out with
   // scroll position, so it's clear there's more to see in either direction.
@@ -373,9 +373,11 @@ export default function SpotDetailShell({
 
   const handleDay = (day: ForecastDay) => {
     if (day.locked) {
-      // Signed-out → sign-up gate (an account unlocks days 3–7 and is the
-      // first step toward Pro); signed-in free → the Pro upgrade dialog.
-      if (!user) setAuthIntent("forecast");
+      // Follow the tile's own label. A "Sign up free" day (3–7) is unlocked by
+      // an account, so it opens the sign-up gate; an "Upgrade to Pro" day
+      // (8–14) opens the Pro modal even when signed out — sending those to a
+      // sign-up form promised Pro and delivered an email field.
+      if (day.lockTier === "free" && !user) setAuthIntent("forecast");
       else setUpgradeOpen(true);
       return;
     }
@@ -871,18 +873,21 @@ export default function SpotDetailShell({
         speciesOptions={speciesOptions}
         initialSpeciesId={selId}
         dailyScores={dailyScores}
+        onUpgradeRequired={() => setAlertUpgradeOpen(true)}
       />
 
-      <UpgradeRequiredModal
+      <ProTrialModal
+        open={alertUpgradeOpen}
+        onOpenChange={setAlertUpgradeOpen}
+        feature="alerts"
+        from="spot-page"
+      />
+
+      <ProTrialModal
         open={favUpgradeOpen}
-        onClose={() => setFavUpgradeOpen(false)}
+        onOpenChange={setFavUpgradeOpen}
         feature="favorite-spots"
-        headline="Upgrade to save more spots"
-        bullets={[
-          "Unlimited favorite spots",
-          "Reorder + score sparklines",
-          "Full 14-day outlook & alerts",
-        ]}
+        from="spot-page"
       />
     </div>
   );

@@ -20,7 +20,15 @@ type SitemapEntry = {
 //
 // Static pages get the build time, which is the last moment their copy could
 // have changed.
-const BUILD_TIME = new Date();
+//
+// This is injected by next.config.ts and inlined at compile time. It must not
+// become `new Date()` here: this route is dynamic, so module scope runs on every
+// serverless cold start, and the timestamp would drift forward on its own — the
+// same "always says now" signal scoredLastModified() exists to avoid. The
+// fallback only applies in environments that skip the Next build (unit tests).
+const BUILD_TIME = process.env.BUILD_TIMESTAMP
+  ? new Date(process.env.BUILD_TIMESTAMP)
+  : new Date();
 
 /**
  * The scoring day the current map payload describes, as the `lastModified` for
@@ -48,7 +56,9 @@ function scoredLastModified(date: string | undefined): Date {
 // sitemap — the file is a list of pages we want indexed.
 const STATIC_ENTRIES: Omit<SitemapEntry, "lastModified">[] = [
   { url: siteUrl("/"), changeFrequency: "weekly", priority: 1.0 },
-  { url: siteUrl("/pricing"), changeFrequency: "monthly", priority: 0.5 },
+  // /pricing 308s to /plans (see next.config.ts) — a sitemap must list the
+  // destination, never the redirect.
+  { url: siteUrl("/plans"), changeFrequency: "monthly", priority: 0.6 },
   { url: siteUrl("/about"), changeFrequency: "monthly", priority: 0.5 },
   { url: siteUrl("/faq"), changeFrequency: "monthly", priority: 0.5 },
   { url: siteUrl("/contact"), changeFrequency: "monthly", priority: 0.4 },

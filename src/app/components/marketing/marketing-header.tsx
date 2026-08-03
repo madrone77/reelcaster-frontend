@@ -57,7 +57,11 @@ export default function MarketingHeader() {
               >
                 Sign in
               </Link>
-              <Link href="/signup" className={btn.nav}>
+              {/* Goes to the sales page, not /signup — the button says "free
+                  trial", and the trial is a Pro thing. /plans/checkout still
+                  routes to signup with next= preserved, so registration
+                  happens either way, just one step further down. */}
+              <Link href="/plans" className={btn.nav}>
                 Start free trial
               </Link>
             </>

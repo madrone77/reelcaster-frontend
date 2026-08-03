@@ -7,14 +7,14 @@ import AboutTabs from './about-tabs';
 export const metadata: Metadata = {
   // Bare title — the root layout's "%s | ReelCaster" template adds the brand,
   // so naming it here too rendered "About ReelCaster | … | ReelCaster".
-  title: 'About — BC Fishing Forecasts',
+  title: 'About: BC Fishing Forecasts',
   description:
     'ReelCaster turns tides, weather, water conditions, and DFO regulations into one simple fishing score for the BC coast. Built by anglers in Victoria, BC.',
   alternates: { canonical: `${SITE_URL}/about` },
   openGraph: {
     title: 'About ReelCaster',
     description:
-      'Tides, weather, water conditions, and regulations in one simple fishing score — built by anglers in Victoria, BC.',
+      'Tides, weather, water conditions, and regulations in one simple fishing score, built by anglers in Victoria, BC.',
     url: `${SITE_URL}/about`,
     siteName: 'ReelCaster',
     type: 'website',
@@ -61,7 +61,7 @@ const HOW = [
   {
     n: '02',
     title: 'Every spot',
-    body: 'Computed for the actual bank, point, or channel you fish — on nautical-chart bathymetry, not a weather grid.',
+    body: 'Computed for the actual bank, point, or channel you fish, on nautical-chart bathymetry rather than a weather grid.',
   },
   {
     n: '03',
@@ -165,7 +165,7 @@ export default function AboutPage() {
               </h1>
               <p className="mt-5 max-w-md text-pretty leading-relaxed text-white/75">
                 We got tired of cross-referencing tide tables, wind apps, and
-                regulation PDFs before every trip — and still guessing. So we
+                regulation PDFs before every trip, and still guessing. So we
                 built one honest score for the water we fish.
               </p>
             </div>
@@ -186,7 +186,7 @@ export default function AboutPage() {
                 <p className="mt-4 max-w-md text-pretty leading-relaxed text-white/70">
                   ReelCaster starts where we fish and grows city by city. Every
                   new area is seeded with local spots and reviewed before it goes
-                  live — coverage grows carefully, not all at once.
+                  live. Coverage grows carefully, not all at once.
                 </p>
 
                 <ul className="mt-8 space-y-4">

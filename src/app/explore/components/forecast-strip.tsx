@@ -2,7 +2,11 @@
 
 import { useState } from "react";
 import { CloudSun } from "lucide-react";
-import type { ForecastStripModel, ForecastDay } from "../lib/forecast-strip";
+import type {
+  ForecastStripModel,
+  ForecastDay,
+  LockTier,
+} from "../lib/forecast-strip";
 import DayCell from "./day-cell";
 import DayScrubCell from "./day-scrub-cell";
 import UpgradeDialog from "./upgrade-dialog";
@@ -48,10 +52,15 @@ export default function ForecastStrip({
   onShow?: () => void;
 }) {
   const [upgradeOpen, setUpgradeOpen] = useState(false);
+  // Which plan the tapped day needs. A "Sign up free" day (3-7) sells the
+  // account; an "Upgrade to Pro" day (8-14) sells Pro even to a signed-out
+  // visitor, who would otherwise get a sign-up form after a Pro promise.
+  const [lockTier, setLockTier] = useState<LockTier>("pro");
   const hasHours = selectedDayHours.some((v) => typeof v === "number");
 
   const handleDay = (day: ForecastDay) => {
     if (day.locked) {
+      setLockTier(day.lockTier ?? "pro");
       setUpgradeOpen(true);
       return;
     }
@@ -159,7 +168,7 @@ export default function ForecastStrip({
       <UpgradeDialog
         open={upgradeOpen}
         onOpenChange={setUpgradeOpen}
-        variant={signedIn ? "pro" : "signup"}
+        variant={!signedIn && lockTier === "free" ? "signup" : "pro"}
       />
     </>
   );
@@ -182,10 +191,15 @@ export function MobileForecastStrip({
   signedIn: boolean;
 }) {
   const [upgradeOpen, setUpgradeOpen] = useState(false);
+  // Which plan the tapped day needs. A "Sign up free" day (3-7) sells the
+  // account; an "Upgrade to Pro" day (8-14) sells Pro even to a signed-out
+  // visitor, who would otherwise get a sign-up form after a Pro promise.
+  const [lockTier, setLockTier] = useState<LockTier>("pro");
   if (!model) return null;
 
   const handleDay = (day: ForecastDay) => {
     if (day.locked) {
+      setLockTier(day.lockTier ?? "pro");
       setUpgradeOpen(true);
       return;
     }
@@ -208,7 +222,7 @@ export function MobileForecastStrip({
       <UpgradeDialog
         open={upgradeOpen}
         onOpenChange={setUpgradeOpen}
-        variant={signedIn ? "pro" : "signup"}
+        variant={!signedIn && lockTier === "free" ? "signup" : "pro"}
       />
     </>
   );

@@ -112,7 +112,7 @@ export default function SubscriptionCard() {
           // portal button would be permanently disabled with no explanation,
           // so say what's actually going on instead.
           <div className="bg-rc-good-bg border border-rc-good-border rounded-md p-3 text-sm text-rc-good-ink">
-            Pro is complimentary on this account — there&rsquo;s no billing to
+            Pro is complimentary on this account, so there&rsquo;s no billing to
             manage and no card on file.
           </div>
         ) : isPaid ? (
@@ -137,7 +137,7 @@ export default function SubscriptionCard() {
             asChild
             className="w-full bg-rc-brand hover:bg-rc-brand-hover text-white"
           >
-            <Link href="/pricing?from=profile">
+            <Link href="/plans?from=profile">
               Upgrade to Pro
             </Link>
           </Button>
@@ -148,7 +148,7 @@ export default function SubscriptionCard() {
             ? 'You keep full Pro access until the date above. Nothing renews and nothing is charged.'
             : isPaid
             ? 'Use the Stripe portal to update your card, change plan, or cancel anytime.'
-            : 'Pro unlocks the full 14-day forecast, custom spots in covered waters, up to 10 alerts, and SMS delivery (coming soon).'}
+            : 'Pro unlocks the full 14-day forecast, custom spots in covered waters, up to 10 alerts, and SMS delivery.'}
         </p>
       </CardContent>
     </Card>

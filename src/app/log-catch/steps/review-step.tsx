@@ -289,7 +289,7 @@ export default function ReviewStep({
             )}
             {scoreSnapshot.status === "pending" && (
               <div className="font-rc-mono text-[11px] text-rc-ink-mute">
-                Score pending — new spot scores on the next forecast run
+                Score pending. New spot scores on the next forecast run
               </div>
             )}
           </div>

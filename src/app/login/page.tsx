@@ -4,6 +4,7 @@ import { useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { useAuth } from '@/contexts/auth-context'
 import { AuthForm } from '../components/auth/auth-form'
+import { readNextParam } from '@/lib/next-param'
 import LoginStandings from './login-standings'
 import Link from 'next/link'
 import Image from 'next/image'
@@ -29,7 +30,7 @@ export default function LoginPage() {
     // (e.g. navigated to /login while logged in). If they just signed in
     // via the form, the onSuccess callback handles navigation.
     if (!loading && user && wasAlreadyAuthed.current) {
-      router.replace('/dashboard')
+      router.replace(readNextParam('/dashboard'))
     }
   }, [user, loading, router])
 
@@ -76,7 +77,7 @@ export default function LoginPage() {
             <AuthForm
               defaultMode="signin"
               source="login-page"
-              onSuccess={() => router.push('/dashboard')}
+              onSuccess={() => router.push(readNextParam('/dashboard'))}
             />
           </div>
 

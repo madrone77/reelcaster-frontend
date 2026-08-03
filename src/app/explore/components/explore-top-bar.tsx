@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
+import { LifeBuoy } from "lucide-react";
 import { useAuth } from "@/contexts/auth-context";
 
 const NAV: { href: string; label: string; signedInOnly?: boolean }[] = [
@@ -13,6 +14,12 @@ const NAV: { href: string; label: string; signedInOnly?: boolean }[] = [
   { href: "/catches", label: "My catches" },
   { href: "/notifications", label: "Notifications" },
 ];
+
+// The Port is Pro-only and lives beside the avatar rather than in NAV: this bar
+// renders for signed-out visitors too, and a top-level link that greets most of
+// them with a paywall is worse than no link. Signed-in members see it; the page
+// itself handles the free-tier case.
+const SUPPORT_HREF = "/support";
 
 /**
  * Fixed 64px top bar. Deliberately mirrors MarketingHeader's styling (same
@@ -135,6 +142,22 @@ export default function ExploreTopBar({
           {loading && !preview ? null : signedIn && avatarLabel ? (
             <>
               <Link
+                href={SUPPORT_HREF}
+                aria-label="Support"
+                aria-current={isActive(SUPPORT_HREF) ? "page" : undefined}
+                title="Support: The Port"
+                className={`hidden sm:inline-flex items-center gap-1.5 text-sm font-medium px-3 py-1.5 transition-colors ${
+                  brand
+                    ? "text-white/80 hover:text-white"
+                    : isActive(SUPPORT_HREF)
+                      ? "text-rc-brand font-semibold"
+                      : "text-rc-ink-soft hover:text-rc-ink"
+                }`}
+              >
+                <LifeBuoy className="w-4 h-4" aria-hidden />
+                Support
+              </Link>
+              <Link
                 href="/profile"
                 aria-label="Profile"
                 className={`flex items-center justify-center w-8 h-8 rounded-full font-rc-mono font-bold text-[11px] ${
@@ -158,8 +181,10 @@ export default function ExploreTopBar({
               >
                 Sign in
               </Link>
+              {/* The label promises a trial, so it goes to checkout — which
+                  now takes an email and a card without an account first. */}
               <Link
-                href="/signup"
+                href="/plans/checkout?plan=annual&from=explore-topbar"
                 className={`px-4 py-2 rounded text-sm font-semibold transition-colors ${
                   brand
                     ? "bg-white text-rc-brand hover:bg-white/90"

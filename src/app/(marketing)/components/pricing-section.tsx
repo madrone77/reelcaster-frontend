@@ -2,6 +2,7 @@ import Link from 'next/link';
 import {
   ANNUAL_PRICE_CENTS,
   MONTHLY_PRICE_CENTS,
+  TRIAL_DAYS,
   annualDiscount,
 } from '@/lib/pricing';
 import { btn } from '@/app/components/ui/button';
@@ -60,18 +61,21 @@ export default function PricingSection() {
               </span>
             </p>
             <p className="mt-1.5 font-rc-mono text-[11px] text-rc-ink-mute">
-              or ${annualDollars}/yr — save {pct}%
+              or ${annualDollars}/yr, save {pct}%
+            </p>
+            <p className="mt-1.5 font-rc-mono text-[11px] font-semibold text-rc-good-ink">
+              first {TRIAL_DAYS} days free
             </p>
             <p className="mt-4 text-pretty text-sm leading-relaxed text-rc-ink-soft">
               Plan ahead with 14-day hourly forecasts, custom spot profiles, and
-              custom alerts by email + SMS.
+              custom alerts by email + SMS. Cancel anytime.
             </p>
             <div className="mt-auto pt-8">
               <Link
-                href="/pricing"
+                href="/plans"
                 className={btn.cardPrimary}
               >
-                Start ReelCaster Pro
+                Start {TRIAL_DAYS}-day free trial
               </Link>
             </div>
           </div>

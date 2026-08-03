@@ -46,7 +46,7 @@ pnpm test:e2e:headed e2e/sections/city-page.spec.ts
 | `spot-page.spec.ts` | `/fishing/bc/victoria-bc/james-island-909cc6` | Hero, score CTA, forecast strip, paywall teaser, signed-out banner. Asserts breakdown panel **absent** (authed-only). |
 | `species.spec.ts` | `/species`, `/species/chinook-salmon` | Index list + ≥1 card; detail hero + CTA + optional seasonal calendar |
 | `regulations.spec.ts` | `/regulations` | DFO list + GovernmentService JSON-LD |
-| `pricing.spec.ts` | `/pricing`, `/pricing?feature=alerts` | Feature callout absent on bare URL, present with `?feature=` |
+| `plans.spec.ts` | `/plans`, `/plans?feature=alerts` | Feature callout absent on bare URL, present with `?feature=`; `/pricing` 308s to `/plans` |
 | `4xx.spec.ts` | `/v1`, `/14-day-report`, `/map-test`, unknown city | Each returns HTTP 404 (not a soft 200 with inline error) |
 
 ## Data prerequisites

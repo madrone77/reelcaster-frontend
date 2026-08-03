@@ -68,7 +68,7 @@ export default function CreateCustomSpotDialog({
 
   const handleCreate = async () => {
     if (!session?.access_token || !coords) {
-      setError("Something went wrong — try dropping the pin again.");
+      setError("Something went wrong. Try dropping the pin again.");
       return;
     }
     const trimmed = name.trim();
@@ -143,7 +143,7 @@ export default function CreateCustomSpotDialog({
               </p>
               <div className="flex gap-2 mt-3">
                 <Link
-                  href="/pricing?from=custom-spot"
+                  href="/plans?from=custom-spot"
                   className="flex-1 text-center px-4 py-2.5 rounded-lg bg-rc-brand hover:bg-rc-brand-hover text-white text-sm font-semibold transition-colors"
                 >
                   Upgrade to Pro

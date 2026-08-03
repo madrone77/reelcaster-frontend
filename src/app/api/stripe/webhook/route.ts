@@ -2,7 +2,15 @@ import { NextResponse } from 'next/server';
 import type Stripe from 'stripe';
 import { createClient } from '@supabase/supabase-js';
 import { getStripe } from '@/lib/stripe';
-import { ANNUAL_PRICE_ID } from '@/lib/pricing';
+import { ANNUAL_PRICE_ID, ANNUAL_PRICE_CENTS, MONTHLY_PRICE_CENTS } from '@/lib/pricing';
+import { recordTrialGrant, recordTrialCardFingerprint } from '@/lib/trial';
+import { findOrCreateUserForCheckout } from '@/lib/checkout-account';
+import { sendEmail } from '@/lib/email-service';
+import {
+  trialEndingEmail,
+  paymentFailedEmail,
+  trialUnavailableEmail,
+} from '@/lib/email-templates/billing';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -10,6 +18,9 @@ export const dynamic = 'force-dynamic';
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
 const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET || '';
+
+/** Days of Pro kept alive after a failed payment while Stripe retries. */
+const GRACE_DAYS = 7;
 
 const admin = createClient(supabaseUrl, supabaseServiceKey, {
   auth: { autoRefreshToken: false, persistSession: false },
@@ -19,25 +30,132 @@ function tierFromPriceId(priceId: string | null | undefined): 'pro_annual' | 'pr
   return priceId === ANNUAL_PRICE_ID ? 'pro_annual' : 'pro_monthly';
 }
 
-async function applySubscriptionToUser(subscription: Stripe.Subscription) {
+function amountLabelForTier(tier: string): string {
+  const cents = tier === 'pro_annual' ? ANNUAL_PRICE_CENTS : MONTHLY_PRICE_CENTS;
+  return `$${(cents / 100).toFixed(2).replace(/\.00$/, '')}`;
+}
+
+/**
+ * Statuses where the customer has a payment problem rather than a
+ * cancellation. We hold the paid tier in place for these and let
+ * `grace_until` (checked in src/lib/entitlement.ts) decide entitlement.
+ */
+const PAYMENT_PROBLEM_STATUSES = new Set(['past_due', 'unpaid']);
+
+function customerIdOf(subscription: Stripe.Subscription): string {
+  const c = subscription.customer;
+  return typeof c === 'string' ? c : c.id;
+}
+
+async function resolveUserId(subscription: Stripe.Subscription): Promise<string | null> {
   const customer = subscription.customer;
-  const customerId = typeof customer === 'string' ? customer : customer.id;
   const customerMetaUserId =
     typeof customer === 'string' || customer.deleted
       ? null
       : customer.metadata?.supabase_user_id ?? null;
 
-  let resolvedUserId: string | null =
-    subscription.metadata?.supabase_user_id ?? customerMetaUserId;
+  const fromMeta = subscription.metadata?.supabase_user_id ?? customerMetaUserId;
+  if (fromMeta) return fromMeta;
 
-  if (!resolvedUserId && customerId) {
-    const { data } = await admin
-      .from('user_settings')
-      .select('user_id')
-      .eq('stripe_customer_id', customerId)
-      .maybeSingle();
-    resolvedUserId = data?.user_id ?? null;
+  const { data } = await admin
+    .from('user_settings')
+    .select('user_id')
+    .eq('stripe_customer_id', customerIdOf(subscription))
+    .maybeSingle();
+
+  if (data?.user_id) return data.user_id;
+
+  // Pay-first checkout: the buyer had no account when they paid, so this is
+  // where the account comes from. Without this the subscription is charged and
+  // never linked to anything — the customer pays and gets nothing.
+  return provisionUserForSubscription(subscription);
+}
+
+/** The billing email Stripe holds for this subscription's customer. */
+async function customerEmailOf(
+  subscription: Stripe.Subscription,
+): Promise<string | null> {
+  const fromMeta =
+    subscription.metadata?.checkout_email ??
+    (typeof subscription.customer === 'string' || subscription.customer.deleted
+      ? null
+      : subscription.customer.email);
+  if (fromMeta) return fromMeta;
+
+  try {
+    const stripe = await getStripe();
+    const customer = await stripe.customers.retrieve(customerIdOf(subscription));
+    return customer.deleted ? null : (customer.email ?? null);
+  } catch (err) {
+    console.error('[stripe webhook] could not read customer email', err);
+    return null;
   }
+}
+
+/**
+ * Create (or attach to) the account behind a subscription bought without one.
+ *
+ * Also stamps `supabase_user_id` onto the Stripe customer, so every later
+ * event for this customer resolves through metadata and never re-enters this
+ * path. `user_settings.created_via_checkout` records whether the account was
+ * created BY this purchase — the claim route needs that to decide between
+ * signing the buyer in and emailing a link (see src/lib/checkout-account.ts).
+ */
+async function provisionUserForSubscription(
+  subscription: Stripe.Subscription,
+): Promise<string | null> {
+  const email = await customerEmailOf(subscription);
+  if (!email) {
+    console.error(
+      '[stripe webhook] no email to provision from for subscription',
+      subscription.id,
+    );
+    return null;
+  }
+
+  const account = await findOrCreateUserForCheckout(admin, email);
+  if (!account) return null;
+
+  const customerId = customerIdOf(subscription);
+
+  // created_via_checkout is what lets the claim route sign this buyer in from
+  // the success URL. Only ever set true — an existing account that happens to
+  // buy again must not become claimable.
+  await admin.from('user_settings').upsert(
+    {
+      user_id: account.userId,
+      stripe_customer_id: customerId,
+      ...(account.created ? { created_via_checkout: true } : {}),
+    },
+    { onConflict: 'user_id' },
+  );
+
+  try {
+    const stripe = await getStripe();
+    await stripe.customers.update(customerId, {
+      metadata: { supabase_user_id: account.userId },
+    });
+  } catch (err) {
+    // Not fatal: user_settings.stripe_customer_id below is the other lookup
+    // path, so resolution still works without the stamp.
+    console.warn('[stripe webhook] could not stamp customer metadata', err);
+  }
+
+  console.info(
+    `[stripe webhook] provisioned ${account.created ? 'new' : 'existing'} account for anon checkout`,
+    customerId,
+  );
+  return account.userId;
+}
+
+async function emailForUser(userId: string): Promise<string | null> {
+  const { data } = await admin.auth.admin.getUserById(userId);
+  return data?.user?.email ?? null;
+}
+
+async function applySubscriptionToUser(subscription: Stripe.Subscription) {
+  const customerId = customerIdOf(subscription);
+  const resolvedUserId = await resolveUserId(subscription);
 
   if (!resolvedUserId) {
     console.error('[stripe webhook] no user_id resolvable for subscription', subscription.id);
@@ -52,19 +170,169 @@ async function applySubscriptionToUser(subscription: Stripe.Subscription) {
     ? new Date(item.current_period_end * 1000).toISOString()
     : null;
 
+  const isEntitledStatus = status === 'active' || status === 'trialing';
+  const isPaymentProblem = PAYMENT_PROBLEM_STATUSES.has(status);
+
+  // Hold the paid tier through a payment problem. Dropping it here — which is
+  // what this used to do — locked people out the instant a card expired, with
+  // Stripe still mid-retry. entitlement.ts gates on grace_until instead.
+  const nextTier = isEntitledStatus || isPaymentProblem ? tier : 'free';
+
+  const update: Record<string, unknown> = {
+    user_id: resolvedUserId,
+    stripe_customer_id: customerId,
+    stripe_subscription_id: subscription.id,
+    subscription_status: status,
+    subscription_tier: nextTier,
+    subscription_period_end: periodEnd,
+  };
+
+  // Payment is good again (or the subscription ended) — close the window.
+  if (!isPaymentProblem) {
+    update.grace_until = null;
+  }
+
+  await admin.from('user_settings').upsert(update, { onConflict: 'user_id' });
+
+  if (status === 'trialing') {
+    await handleTrialingSubscription(subscription, resolvedUserId, tier);
+  }
+}
+
+/**
+ * Trial bookkeeping + the card-fingerprint abuse check.
+ *
+ * The fingerprint check can only happen here: the card doesn't exist until
+ * checkout completes, so the pre-checkout guards in src/lib/trial.ts can't see
+ * it. A card that has already had a free week gets the subscription cancelled
+ * with no charge — not an immediate bill, because this also fires on a
+ * legitimately shared household card, and a surprise charge there costs more
+ * in chargebacks than the sale is worth.
+ */
+async function handleTrialingSubscription(
+  subscription: Stripe.Subscription,
+  userId: string,
+  tier: string,
+) {
+  const email = await emailForUser(userId);
+  const trialEndsAt = subscription.trial_end
+    ? new Date(subscription.trial_end * 1000).toISOString()
+    : null;
+
+  await recordTrialGrant(admin, {
+    userId,
+    email,
+    stripeCustomerId: customerIdOf(subscription),
+    stripeSubscriptionId: subscription.id,
+    trialEndsAt,
+  });
+
+  const fingerprint = await cardFingerprintFor(subscription);
+  if (!fingerprint) return;
+
+  const { duplicate } = await recordTrialCardFingerprint(admin, subscription.id, fingerprint);
+  if (!duplicate) return;
+
+  console.warn('[stripe webhook] duplicate trial card, cancelling', subscription.id);
+
+  const stripe = await getStripe();
+  await stripe.subscriptions.cancel(subscription.id, { prorate: false });
+
+  if (email) {
+    const { subject, html } = trialUnavailableEmail({
+      amountLabel: amountLabelForTier(tier),
+    });
+    await sendEmail({ to: email, subject, html });
+  }
+}
+
+/**
+ * Stripe's card fingerprint is stable for the same physical card across
+ * different customers, which is the only cross-account signal available
+ * without asking people for ID.
+ */
+async function cardFingerprintFor(
+  subscription: Stripe.Subscription,
+): Promise<string | null> {
+  const stripe = await getStripe();
+
+  let pmId: string | null = null;
+  const dpm = subscription.default_payment_method;
+  if (dpm) {
+    pmId = typeof dpm === 'string' ? dpm : dpm.id;
+  } else {
+    // Checkout attaches the card to the customer; the subscription may not
+    // carry it directly.
+    const customer = await stripe.customers.retrieve(customerIdOf(subscription));
+    if (!customer.deleted) {
+      const def = customer.invoice_settings?.default_payment_method;
+      pmId = typeof def === 'string' ? def : def?.id ?? null;
+    }
+  }
+
+  if (!pmId) return null;
+
+  try {
+    const pm = await stripe.paymentMethods.retrieve(pmId);
+    return pm.card?.fingerprint ?? null;
+  } catch (err) {
+    console.error('[stripe webhook] could not read payment method', pmId, err);
+    return null;
+  }
+}
+
+/**
+ * Open the 7-day grace window. Idempotent: Stripe retries a failing invoice
+ * several times and each attempt fires this event, but the deadline is set
+ * from the FIRST failure so retries can't extend it indefinitely.
+ */
+async function openGraceWindow(subscription: Stripe.Subscription) {
+  const userId = await resolveUserId(subscription);
+  if (!userId) return;
+
+  const { data: settings } = await admin
+    .from('user_settings')
+    .select('grace_until, subscription_tier')
+    .eq('user_id', userId)
+    .maybeSingle();
+
+  if (settings?.grace_until) return; // window already open
+
+  const graceUntil = new Date(Date.now() + GRACE_DAYS * 86_400_000).toISOString();
+
   await admin
     .from('user_settings')
-    .upsert(
-      {
-        user_id: resolvedUserId,
-        stripe_customer_id: customerId,
-        stripe_subscription_id: subscription.id,
-        subscription_status: status,
-        subscription_tier: status === 'active' || status === 'trialing' ? tier : 'free',
-        subscription_period_end: periodEnd,
-      },
-      { onConflict: 'user_id' },
-    );
+    .update({ grace_until: graceUntil })
+    .eq('user_id', userId);
+
+  const email = await emailForUser(userId);
+  if (email) {
+    const { subject, html } = paymentFailedEmail({
+      graceUntil,
+      amountLabel: amountLabelForTier(settings?.subscription_tier ?? 'pro_annual'),
+    });
+    await sendEmail({ to: email, subject, html });
+  }
+}
+
+/**
+ * Fires 3 days before a trial converts. Required notice for a card-required
+ * trial that auto-charges — see src/lib/email-templates/billing.ts.
+ */
+async function sendTrialEndingNotice(subscription: Stripe.Subscription) {
+  const userId = await resolveUserId(subscription);
+  if (!userId || !subscription.trial_end) return;
+
+  const email = await emailForUser(userId);
+  if (!email) return;
+
+  const priceId = subscription.items.data[0]?.price?.id ?? null;
+  const { subject, html } = trialEndingEmail({
+    trialEndsAt: new Date(subscription.trial_end * 1000).toISOString(),
+    amountLabel: amountLabelForTier(tierFromPriceId(priceId)),
+  });
+
+  await sendEmail({ to: email, subject, html });
 }
 
 export async function POST(request: Request) {
@@ -107,12 +375,31 @@ export async function POST(request: Request) {
         await applySubscriptionToUser(sub);
         break;
       }
+      case 'customer.subscription.trial_will_end': {
+        const sub = event.data.object as Stripe.Subscription;
+        await sendTrialEndingNotice(sub);
+        break;
+      }
       case 'invoice.payment_failed': {
         const invoice = event.data.object as Stripe.Invoice & { subscription?: string | Stripe.Subscription };
         if (invoice.subscription) {
           const subId = typeof invoice.subscription === 'string'
             ? invoice.subscription
             : invoice.subscription.id;
+          const sub = await stripe.subscriptions.retrieve(subId);
+          await applySubscriptionToUser(sub);
+          await openGraceWindow(sub);
+        }
+        break;
+      }
+      case 'invoice.payment_succeeded': {
+        const invoice = event.data.object as Stripe.Invoice & { subscription?: string | Stripe.Subscription };
+        if (invoice.subscription) {
+          const subId = typeof invoice.subscription === 'string'
+            ? invoice.subscription
+            : invoice.subscription.id;
+          // applySubscriptionToUser clears grace_until once the status is no
+          // longer a payment problem.
           const sub = await stripe.subscriptions.retrieve(subId);
           await applySubscriptionToUser(sub);
         }

@@ -17,6 +17,33 @@ const COVERED_BBOX_ALL = "-139.06,41.99,-114.03,60";
 const TITLE_BUDGET = 60;
 const BRAND_SUFFIX_LENGTH = " | ReelCaster".length;
 
+// Google renders roughly 160 characters of a meta description before
+// truncating. `seoIntro` is a full multi-paragraph spot write-up — around 1000
+// characters on these pages — so passing it through verbatim shipped a snippet
+// that got cut mid-sentence in the SERP and buried the spot's opening claim.
+//
+// The <h1>, the page body, and the Place JSON-LD all still carry the full
+// prose; only the snippet is budgeted.
+const DESCRIPTION_BUDGET = 160;
+
+/**
+ * Trim `text` to the snippet budget on a sentence boundary.
+ *
+ * Prefers ending on the last sentence that fits, so the snippet reads as a
+ * complete thought. Falls back to a word boundary with an ellipsis when the
+ * first sentence alone is already over budget.
+ */
+function snippet(text: string): string {
+  const clean = text.replace(/\s+/g, " ").trim();
+  if (clean.length <= DESCRIPTION_BUDGET) return clean;
+
+  const sentenceEnd = clean.lastIndexOf(". ", DESCRIPTION_BUDGET);
+  if (sentenceEnd > 0) return clean.slice(0, sentenceEnd + 1);
+
+  const wordEnd = clean.lastIndexOf(" ", DESCRIPTION_BUDGET - 1);
+  return `${clean.slice(0, wordEnd > 0 ? wordEnd : DESCRIPTION_BUDGET - 1)}…`;
+}
+
 // Prerender the published spots. On-demand rendering makes Next stream
 // metadata, which lands <title> and the canonical at the end of the body
 // instead of in <head>; prerendering resolves them before the first byte.
@@ -69,9 +96,9 @@ export async function generateMetadata({
     full.length + BRAND_SUFFIX_LENGTH <= TITLE_BUDGET
       ? full
       : compose(name.replace(/\s*\([^)]*\)/g, ""));
-  const description =
-    page.spot.seoIntro ??
-    `Live fishing forecast, conditions, and 14-day outlook for ${name}.`;
+  const description = page.spot.seoIntro
+    ? snippet(page.spot.seoIntro)
+    : `Live fishing forecast, conditions, and 14-day outlook for ${name}.`;
 
   return {
     // Bare title — the root layout's "%s | ReelCaster" template adds the brand.

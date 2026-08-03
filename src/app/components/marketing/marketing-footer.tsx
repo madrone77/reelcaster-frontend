@@ -4,6 +4,7 @@ const LEGAL_LINKS: Array<{ href: string; label: string }> = [
   { href: '/privacy', label: 'Privacy' },
   { href: '/terms', label: 'Terms' },
   { href: '/contact', label: 'Contact' },
+  { href: '/support', label: 'Support' },
   { href: '/about', label: 'About' },
   { href: '/faq', label: 'FAQ' },
   { href: '/login', label: 'Sign In' },
@@ -13,17 +14,19 @@ export default function MarketingFooter() {
   const year = new Date().getFullYear();
   return (
     <footer data-testid="marketing-footer" className="border-t border-rc-rule bg-rc-surface">
-      {/* Only routes that still exist: unlisted paths rewrite to /coming-soon
-          instead of 404ing — so a stale link here reads as a real page until
-          clicked. Locations lists the /fishing province directories; add
-          Washington/Oregon here once they have lifecycle-published cities. */}
+      {/* Only routes that still exist — unlisted paths now return a real 404
+          (the /coming-soon wall was retired), so a stale link here is a dead
+          link. Locations lists the /fishing province directories; add
+          Washington/Oregon here once they have lifecycle-published cities.
+          "Support" points at /support, which paywalls non-Pro visitors — FAQ
+          and Contact directly above it are the open routes. */}
       <div className="max-w-6xl mx-auto px-6 py-12 grid grid-cols-2 md:grid-cols-5 gap-8 text-sm">
         <div>
           <h4 className="rc-label text-[10px] mb-3">Product</h4>
           <ul className="space-y-2 text-rc-ink-soft">
             <li><Link href="/explore" className="hover:text-rc-ink">Explore the map</Link></li>
             <li><Link href="/catches" className="hover:text-rc-ink">Catch log</Link></li>
-            <li><Link href="/pricing" className="hover:text-rc-ink">Pro pricing</Link></li>
+            <li><Link href="/plans" className="hover:text-rc-ink">Pro plans</Link></li>
           </ul>
         </div>
 
@@ -40,6 +43,7 @@ export default function MarketingFooter() {
             <li><Link href="/about" className="hover:text-rc-ink">About</Link></li>
             <li><Link href="/faq" className="hover:text-rc-ink">FAQ</Link></li>
             <li><Link href="/contact" className="hover:text-rc-ink">Contact</Link></li>
+            <li><Link href="/support" className="hover:text-rc-ink">Support</Link></li>
           </ul>
         </div>
 
@@ -55,7 +59,7 @@ export default function MarketingFooter() {
           <h4 className="font-bold text-rc-ink mb-3">ReelCaster</h4>
           <p className="text-rc-ink-mute text-xs leading-relaxed">
             Fishing intelligence for British Columbia and the Pacific
-            Northwest. Forecasts are reference only — always verify
+            Northwest. Forecasts are reference only; always verify
             regulations with DFO.
           </p>
         </div>
@@ -70,6 +74,13 @@ export default function MarketingFooter() {
                 </Link>
               </li>
             ))}
+            {/* Plain <a>: /sitemap.xml is a route handler, not an app page, so
+                <Link> would prefetch an RSC payload that doesn't exist. */}
+            <li>
+              <a href="/sitemap.xml" className="hover:text-rc-ink transition-colors">
+                Sitemap
+              </a>
+            </li>
           </ul>
           <p className="text-xs text-rc-ink-mute">© {year} ReelCaster · BC fishing forecasts</p>
         </div>

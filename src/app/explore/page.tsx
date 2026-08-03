@@ -14,12 +14,12 @@ export const metadata: Metadata = {
   // Spelling it out here rendered "Explore | ReelCaster | ReelCaster".
   title: "Explore the Fishing Map",
   description:
-    "Interactive fishing map — browse covered spots in BC, WA, and OR with live scores, conditions, and the day's best windows.",
+    "Interactive fishing map: browse covered spots in BC, WA, and OR with live scores, conditions, and the day's best windows.",
   alternates: { canonical: `${SITE_URL}/explore` },
   openGraph: {
     title: "Explore the Fishing Map | ReelCaster",
     description:
-      "Interactive fishing map — browse covered spots and see live RC scores.",
+      "Interactive fishing map: browse covered spots and see live RC scores.",
     url: `${SITE_URL}/explore`,
     siteName: "ReelCaster",
     type: "website",

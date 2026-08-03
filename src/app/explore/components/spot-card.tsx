@@ -7,16 +7,15 @@ import { Wind, Waves, Navigation, Lock, Globe } from "lucide-react";
 import { TIER_PILL, tierFor, type RailSpot } from "../lib/explore-data";
 import { useFavorite, favoriteCount } from "../lib/use-favorite";
 import { useSubscription } from "@/hooks/use-subscription";
+import { FREE_FAVORITE_SPOTS } from "@/lib/plan-features";
 import { bestWindow } from "./hourly-bars";
 import SpotTrend from "./spot-trend";
 
-const UpgradeRequiredModal = dynamic(
-  () => import("@/app/components/paywall/upgrade-required-modal"),
+const ProTrialModal = dynamic(
+  () => import("@/app/components/paywall/pro-trial-modal"),
   { ssr: false },
 );
 
-/** Free tier may favorite this many spots before hitting the upgrade cap. */
-const FREE_FAV_CAP = 1;
 
 /**
  * Rail spot card. No hover-only actions: header + score badge, a plain-English
@@ -67,7 +66,7 @@ export default function SpotCard({
   const onStar = (e: React.MouseEvent) => {
     e.stopPropagation();
     // Turning a favorite ON while at the free cap → upgrade modal (never a silent no-op).
-    if (!fav && !isPaid && favoriteCount() >= FREE_FAV_CAP) {
+    if (!fav && !isPaid && favoriteCount() >= FREE_FAVORITE_SPOTS) {
       setUpgradeOpen(true);
       return;
     }
@@ -129,8 +128,8 @@ export default function SpotCard({
                 <span
                   title={
                     spot.visibility === "public"
-                      ? "Public — visible to other anglers"
-                      : "Private — only you can see this spot"
+                      ? "Public: visible to other anglers"
+                      : "Private: only you can see this spot"
                   }
                   className="inline-flex shrink-0 items-center gap-1 rounded bg-rc-surface px-1.5 py-0.5 font-rc-mono text-[9px] uppercase tracking-[0.06em] text-rc-ink-mute"
                 >
@@ -216,16 +215,11 @@ export default function SpotCard({
         </button>
       </div>
 
-      <UpgradeRequiredModal
+      <ProTrialModal
         open={upgradeOpen}
-        onClose={() => setUpgradeOpen(false)}
+        onOpenChange={setUpgradeOpen}
         feature="favorite-spots"
-        headline="Upgrade to save more spots"
-        bullets={[
-          "Unlimited favorite spots",
-          "Reorder + score sparklines",
-          "Full 14-day outlook & alerts",
-        ]}
+        from="explore-rail"
       />
     </div>
   );

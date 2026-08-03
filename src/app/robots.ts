@@ -11,20 +11,29 @@ export default function robots(): MetadataRoute.Robots {
       {
         userAgent: "*",
         allow: "/",
+        // Only paths that must never be FETCHED belong here.
+        //
+        // This list used to also carry the signed-in surfaces — /profile/,
+        // /alerts, /notifications, /support, /dashboard, /favorites,
+        // /log-catch, /catches, /coming-soon. That combination is
+        // self-defeating: Disallow stops crawling, not indexing, so a
+        // disallowed URL that something links to can still be listed (as a
+        // bare URL with no snippet), and because Google is blocked from
+        // fetching it, it can never read the `noindex` that would say
+        // otherwise. The homepage links to /dashboard, /catches, /log-catch,
+        // /notifications and /favorites, so those links were live all along.
+        //
+        // Every one of those routes now carries `robots: { index: false }` on
+        // the page or its layout, which is the directive that actually
+        // removes a URL. Letting the crawler fetch them is what makes it work.
         disallow: [
-          // Endpoints and account surfaces — nothing indexable, and crawling
-          // them burns budget that belongs to spot and city pages.
+          // API responses are not documents; there is no page-level directive
+          // to serve, so blocking the fetch is the only lever.
           "/api/",
+          // Auth and billing callbacks carry one-time tokens and codes in the
+          // URL. Keep crawlers off them entirely.
           "/auth/",
-          "/profile/",
-          "/alerts",
           "/billing/",
-          "/notifications",
-          "/dashboard",
-          "/favorites",
-          "/log-catch",
-          "/catches",
-          "/coming-soon",
         ],
       },
     ],

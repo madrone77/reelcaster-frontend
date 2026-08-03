@@ -1,14 +1,12 @@
 import type { Metadata } from 'next';
-import { DEFAULT_OG, SITE_URL } from '@/lib/site';
+import { DEFAULT_OG, SITE_URL, SUPPORT_EMAIL } from '@/lib/site';
 import Link from 'next/link';
-import { Mail, MessageCircle, AlertCircle, Newspaper } from 'lucide-react';
-
-const SUPPORT_EMAIL = 'support@reelcaster.com';
+import { Mail, MessageCircle, AlertCircle, Newspaper, LifeBuoy } from 'lucide-react';
 
 export const metadata: Metadata = {
   // Bare title — the root layout's "%s | ReelCaster" template adds the brand,
   // so naming it here too rendered "Contact ReelCaster | … | ReelCaster".
-  title: 'Contact — Support, Billing & Press',
+  title: 'Contact: Support, Billing & Press',
   description:
     'Get in touch with ReelCaster for support, billing questions, spot data corrections, or press inquiries. We respond within two business days.',
   alternates: { canonical: `${SITE_URL}/contact` },
@@ -96,7 +94,7 @@ export default function ContactPage() {
                 </a>
                 <p className="text-sm text-rc-ink-mute mt-2">
                   Include your account email and any relevant screenshots or
-                  spot URLs — it speeds things up.
+                  spot URLs. It speeds things up.
                 </p>
               </div>
             </div>
@@ -121,6 +119,31 @@ export default function ContactPage() {
                   </span>
                 </a>
               ))}
+            </div>
+          </div>
+
+          {/* Static page — it cannot know the reader's tier, so this names the
+              benefit rather than addressing them as though it did. */}
+          <div className="bg-rc-brand-soft border border-rc-brand-soft2 rounded-xl p-6 flex items-start gap-4">
+            <LifeBuoy
+              className="w-5 h-5 text-rc-brand shrink-0 mt-0.5"
+              aria-hidden
+            />
+            <div>
+              <h2 className="text-base font-bold text-rc-ink">
+                Pro members: skip the queue
+              </h2>
+              <p className="mt-1.5 text-sm text-rc-ink-soft leading-relaxed">
+                <Link
+                  href="/support"
+                  className="text-rc-brand hover:text-rc-brand-hover font-semibold underline underline-offset-2"
+                >
+                  The Port
+                </Link>{' '}
+                is the Pro support portal. File a ticket with a one business
+                day reply target, track it afterwards, and read the guides,
+                knowledge base and live service status while you wait.
+              </p>
             </div>
           </div>
 

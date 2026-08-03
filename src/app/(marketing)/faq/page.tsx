@@ -1,5 +1,5 @@
 import type { Metadata } from 'next';
-import { DEFAULT_OG, SITE_URL } from '@/lib/site';
+import { DEFAULT_OG, SITE_URL, SUPPORT_EMAIL } from '@/lib/site';
 import Link from 'next/link';
 import { ChevronDown } from 'lucide-react';
 
@@ -29,7 +29,7 @@ const FAQS: Array<{ q: string; a: string }> = [
   },
   {
     q: 'Which regions are covered?',
-    a: 'British Columbia is the launch region — Salish Sea, west coast Vancouver Island, and parts of the north coast and inlets. Other provinces and Pacific Northwest US waters are on the roadmap; sign up for updates and you’ll hear when your area lights up.',
+    a: 'British Columbia is the launch region: Salish Sea, west coast Vancouver Island, and parts of the north coast and inlets. Other provinces and Pacific Northwest US waters are on the roadmap; sign up for updates and you’ll hear when your area lights up.',
   },
   {
     q: 'How accurate are the forecasts?',
@@ -37,14 +37,14 @@ const FAQS: Array<{ q: string; a: string }> = [
   },
   {
     q: 'How does upgrading work?',
-    a: 'Hit Pricing, pick monthly or annual, and Stripe handles the checkout. Your tier flips immediately on success. You can manage or cancel anytime from the customer portal — your access continues until the end of the paid period.',
+    a: 'Hit Pricing, pick monthly or annual, and Stripe handles the checkout. Your tier flips immediately on success. You can manage or cancel anytime from the customer portal, and your access continues until the end of the paid period.',
   },
   {
     q: 'Can I export my catch log?',
-    a: 'Yes. From your profile, request an export and we’ll email you a CSV of every catch you’ve logged. We’re working on direct integrations with common log formats — file a request via Contact if there’s a specific one you need.',
+    a: 'Yes. From your profile, request an export and we’ll email you a CSV of every catch you’ve logged. We’re working on direct integrations with common log formats. File a request via Contact if there’s a specific one you need.',
   },
   {
-    q: 'A spot is wrong or missing — can I report it?',
+    q: 'A spot is wrong or missing. Can I report it?',
     a: 'Please do. Email support@reelcaster.com with the spot URL or coordinates and what should change. We review reports manually before publishing edits so the public surface stays trustworthy.',
   },
   {
@@ -53,7 +53,7 @@ const FAQS: Array<{ q: string; a: string }> = [
   },
   {
     q: 'Are DFO regulations on the site authoritative?',
-    a: 'No — they’re a reference. We aggregate DFO Pacific Region notices to surface them faster, but you’re always responsible for following the live DFO regulations. We link to the official source on every notice.',
+    a: 'No, they’re a reference. We aggregate DFO Pacific Region notices to surface them faster, but you’re always responsible for following the live DFO regulations. We link to the official source on every notice.',
   },
 ];
 
@@ -125,13 +125,32 @@ export default function FaqPage() {
             ))}
           </ul>
 
-          <div className="mt-8 text-sm text-rc-ink-mute">
+          {/* Static page, so this cannot check the visitor's tier — it names
+              the benefit rather than pretending to know who is reading. */}
+          <div className="mt-8 bg-rc-panel border border-rc-rule rounded-xl p-5">
+            <p className="font-rc-mono text-[10px] tracking-[0.14em] uppercase text-rc-ink-mute">
+              Pro members
+            </p>
+            <p className="mt-2 text-sm text-rc-ink-soft leading-relaxed">
+              <Link
+                href="/support"
+                className="text-rc-brand hover:text-rc-brand-hover font-semibold underline underline-offset-2"
+              >
+                The Port
+              </Link>{' '}
+              is the full support portal: in-depth guides, a searchable
+              knowledge base, live service status, and priority tickets with a
+              one business day reply target.
+            </p>
+          </div>
+
+          <div className="mt-6 text-sm text-rc-ink-mute">
             Still stuck? Reach us at{' '}
             <a
-              href="mailto:support@reelcaster.com"
+              href={`mailto:${SUPPORT_EMAIL}`}
               className="text-rc-brand hover:text-rc-brand-hover underline underline-offset-2"
             >
-              support@reelcaster.com
+              {SUPPORT_EMAIL}
             </a>
             .
           </div>

@@ -3,7 +3,7 @@ import { ImageResponse } from "next/og";
 // Site-wide fallback social card. Any route that does not define its own
 // `opengraph-image` inherits this one, so every share renders as a card
 // instead of a bare text link.
-export const alt = "ReelCaster — tides, weather, and regulations in one fishing score";
+export const alt = "ReelCaster: tides, weather, and regulations in one fishing score";
 export const size = { width: 1200, height: 630 };
 export const contentType = "image/png";
 

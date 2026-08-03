@@ -6,6 +6,32 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ReelCaster Frontend is a Next.js 15 application that provides fishing forecasts and historical data analysis for British Columbia, Canada. It integrates multiple APIs to deliver weather, marine conditions, tide data, and fishing statistics to help anglers make informed decisions.
 
+## Deployment — READ BEFORE SHIPPING
+
+**Merging to GitHub `main` deploys nothing.** There is no Vercel git integration
+on this repo. Shipping is always an explicit CLI deploy (see `.claude/commands/deploy.md`).
+
+| Scope | Vercel project | Serves |
+|---|---|---|
+| `casey-1425s-projects` | `reelcaster-frontend` (`prj_Qv3yU2f5mm26lPYiKOgHlKr6HIGU`) | **www.reelcaster.com** |
+| `reelcaster-devs-projects` | `reelcaster-frontend-web` (`prj_WoRjjGtjUopMvMCKJkQbiYHPhuZw`) | `*.vercel.app` only — **decoy** |
+
+The decoy has old production deploys and `-git-main-` aliases, and its project id
+is the one quoted in the Vault section below — deploying there succeeds and
+changes nothing on the live domain. Verify with `npx vercel ls`, which must print
+`casey-1425s-projects/reelcaster-frontend`; `--scope` alone does not override an
+existing wrong link.
+
+Ship: clone `main` fresh → `pnpm install --frozen-lockfile` →
+`npx vercel@latest link --yes --scope casey-1425s-projects --project reelcaster-frontend`
+→ `npx vercel@latest deploy --prod --yes --scope casey-1425s-projects`. Fall back to
+`vercel promote <url>` if the domain doesn't follow. Then verify with a real curl
+against `www.reelcaster.com` — never claim it is live off a green build.
+
+Repos: `madrone77/reelcaster-frontend` is canonical.
+`reelcasterdev/reelcaster-frontend` is a stale mirror; this machine has no
+credential for it and pushing there is not possible.
+
 ## Development Commands
 
 ```bash
@@ -61,6 +87,7 @@ src/app/
 - `/` - Marketing landing page (public since 2026-07-15; light rc-* design, sections in `src/app/(marketing)/components/`, static demo hero data, real seasonal prices from `src/lib/pricing.ts`, illustrations in `public/landing/`)
 - `/pricing`, `/billing/*` - purchase flow; `/login`, `/signup`, `/auth/*` - auth flow
 - `/about`, `/contact`, `/faq`, `/privacy`, `/terms` - info/legal pages (unwalled + restyled light 2026-07-15)
+- `/support` - **The Port**, the Pro-only support portal (guides, knowledge base, billing, status, ticketing) — added 2026-07-30, see its own section below
 - `/profile` (+ `catch-log`, `custom-alerts`, `forecast-emails`, `notification-settings`)
 - `/alerts`, `/notifications`, `/log-catch` - kept alongside the explore soft-launch
 
@@ -834,7 +861,8 @@ catches, and any catch logged before its spot's first scoring run, get
 
 ### `/catches` — "My catches" list
 
-`src/app/catches/` (added to `middleware.ts` `ALLOW_PREFIXES`) replaces the
+`src/app/catches/` (historically added to `middleware.ts` `ALLOW_PREFIXES` —
+that list no longer exists, see "Route gating" below) replaces the
 old `/profile/catch-log`: reads `GET /api/catches` (extended with `status`,
 `q` full-text-ish search via `.or()`, `sort`/`order`) + `GET /api/catches/
 stats` (season aggregates). Season stats row, species chips with counts,
@@ -851,8 +879,206 @@ badges. Thumbnails via batched `getCatchPhotoSignedUrls()` (one
   page's LOG CATCH button, pre-filled with the current spot + live conditions.
 - **Alerts** — `create-alert-dialog.tsx` + `/notifications` still drive the
   Custom Alert Engine via `/api/alerts`, unrelated to this revamp.
-- **Nav + wall:** any new walled-off route must be added to `src/middleware.ts`
-  `ALLOW_PREFIXES` or it renders `/coming-soon`.
+- **Nav + wall:** ~~any new walled-off route must be added to `ALLOW_PREFIXES`~~
+  — **no longer true.** See "Route gating" below: `middleware.ts` now walls
+  nothing, and a new route needs no middleware change at all.
+
+## Route gating — how a new route becomes reachable (corrected 2026-07-30)
+
+The `ALLOW_PREFIXES` allow-list described above and in the catch-log section is
+**gone**. `src/middleware.ts` inverted it into an opt-in deny-list,
+`WALLED_PREFIXES`, which is currently **empty** — the old list had grown to
+cover every real route, so its only surviving effect was answering nonexistent
+URLs with a `/coming-soon` body at HTTP 200 (a soft 404). Unmatched paths now
+fall through to `src/app/not-found.tsx` with a real 404.
+
+What actually gates routes today:
+
+- **`src/middleware.ts`** — add a prefix to `WALLED_PREFIXES` only if you
+  deliberately want a surface behind the holding page. New routes need nothing.
+- **`src/app/components/auth/auth-gate.tsx`** — this is the list that behaves
+  the way `ALLOW_PREFIXES` used to. Anything **not** in `PUBLIC_EXACT` /
+  `PUBLIC_PREFIXES` is private: AuthGate blocks render and redirects to
+  `/login`. So a **private route needs no change**, and a **public route MUST**
+  be added to `PUBLIC_PREFIXES` or signed-out visitors and crawlers get a
+  spinner. Note AuthGate returns a spinner instead of children for signed-out
+  users, so a page's own `router.replace('/login?next=…')` never actually runs
+  — the `next` param is lost and you land on bare `/login`. Pages still carry
+  that redirect as belt-and-braces (`/alerts`, `/support`).
+- **`src/app/robots.ts`** — add private paths to `disallow`, and set
+  `robots: { index: false, follow: false }` in the page metadata.
+- **`src/app/sitemap.ts`** — `STATIC_ENTRIES`, public routes only.
+
+## Plan matrix + upgrade modal (2026-07-31)
+
+**`src/lib/plan-features.ts` is the single source of truth for what each tier
+gets.** It holds the /plans comparison table's rows *and their order* — the
+rationale for what may go on the table (live features only; the free block
+first; keep "Plan a week ahead" adjacent to "Plan the full two weeks") lives in
+that file's header. `/plans` renders the `free`/`pro` columns from it; the
+in-app upgrade modal renders the same rows plus an `anon` column, so the sales
+page and every paywall prompt cannot drift apart. Before this, the answer lived
+in the plans table, the paywall card's `DEFAULT_BULLETS`, the FAQ,
+`support/content.ts` and a dozen server limit constants. **Change a limit here
+in the same PR you change its enforcement.**
+
+`src/app/components/paywall/pro-trial-modal.tsx` renders it: a headline naming
+what the angler just tried to do ("Start your 7-day Pro trial to create an
+alert"), then the matrix with the viewer's column marked and the blocking row
+highlighted. A signed-out visitor blocked by something a *free* account unlocks
+is sent to `/signup`, not `/plans`. `NAG_FEATURES` maps each wall to its
+headline, its row, and the `?feature=` slug — which must match a key in
+`components/plans/plans-feature-callout.tsx` or the callout renders nothing.
+
+Wired on /explore at: the favourites cap (rail card, drawer, spot page),
+locked forecast days (via `explore/components/upgrade-dialog.tsx`, which is now
+a thin wrapper), and alert creation — `create-alert-dialog.tsx` takes an
+`onUpgradeRequired` callback and hands off *before* rendering a form the API
+would refuse. `upgrade-required-modal.tsx` + `unlock-with-pro-card.tsx` still
+serve `/alerts` and `/support`.
+
+### Pay first, sign up never (2026-08-03, behind a flag)
+
+A signed-out angler can buy Pro without making an account: Stripe collects the
+email and the card, and the account is provisioned afterwards from
+`customer_details.email`. Gated by **`NEXT_PUBLIC_PAY_FIRST_CHECKOUT=1`** —
+unset, signed-out buyers keep going to `/plans/checkout`, so deploying this
+changes nothing until the switch is flipped.
+
+- `POST /api/stripe/checkout` gains an **unauthenticated branch**
+  (`anonCheckout`) that creates a customer-less session with `customer_email`.
+  The one email field in the modal exists so trial eligibility can be checked
+  before Stripe applies a trial — `checkTrialEligibilityByEmail` runs layer 2
+  (the identity hash); layer 3 (card fingerprint) still backstops it in the
+  webhook.
+- The webhook's `resolveUserId` used to return null for a subscription with no
+  known user and simply log it — meaning **an anonymous payment would be
+  charged and never linked to anything**. It now falls through to
+  `provisionUserForSubscription`, which find-or-creates the account
+  (`src/lib/checkout-account.ts`) and stamps `supabase_user_id` onto the Stripe
+  customer so later events resolve through metadata.
+- `POST /api/stripe/claim` turns a completed session into a signed-in session.
+  **The rule that matters:** it only signs someone in when
+  `user_settings.created_via_checkout` is true — i.e. the purchase created the
+  account. If the email already had one, paying for it is not proof of owning
+  the inbox, so that path emails a link instead. `checkout_claims` (PK on
+  session_id) makes the handoff one-time; the session must also be `complete`
+  and under 30 minutes old.
+- `/billing/success` and `/billing/cancel` are now **public in `auth-gate.tsx`**
+  — gating them would strand someone who has already paid.
+- `checkout_claims` and `user_settings.created_via_checkout` already existed in
+  the production database with no migration file and no code using them;
+  `supabase/migrations/20260803_pay_first_checkout.sql` makes the repo match.
+
+Accounts made this way have **no password** — magic link or Google until they
+set one.
+
+### The in-app paywalls buy without leaving (2026-08-03)
+
+Both paywall CTAs used to link to `/plans`, so buying took two more pages.
+They now pick a cadence and hand off to Stripe in place, via the shared
+**`src/app/components/paywall/trial-cta.tsx`** (used by `pro-trial-modal.tsx`
+and `unlock-with-pro-card.tsx`; checkout POST goes through the existing
+`useUpgradeFlow()`).
+
+**The disclosure travels with the button — do not remove it.** `/plans/checkout`
+exists partly to state the renewal amount and charge date before the card is
+taken (Canadian consumer-protection rules, US FTC negative-option rule; see that
+panel's header). Skipping that page means `TrialCta` must carry the same terms,
+so it renders them above the CTA for the **selected** cadence — which is why the
+cadence is a single-choice toggle rather than two buy buttons that could not say
+which price is about to be charged. It also re-fetches
+`GET /api/stripe/checkout` for `trial_available` and shows **paid** terms when a
+trial isn't confirmed (the safe direction to fail), exactly as `CheckoutPanel`
+does.
+
+Signed-out visitors still get the `/plans` (or `/signup`) link — a Checkout
+Session needs a Supabase user. `ctaHref` on either component restores the plain
+link if a surface ever needs the old two-step. `/plans` and `/plans/checkout` are
+unchanged and remain the sales path from marketing.
+
+The custom-spots nag (`feature="custom-spots"`) is wired but unreachable: the
+"Create custom spot" map button is `isPaid &&` gated, so a free user never sees
+the wall.
+
+**The free favourites cap is `FREE_FAVORITE_SPOTS` (1), exported from
+`plan-features.ts` and imported by both sides of the wall** — the three
+/explore star buttons and `POST /api/favorite-spots`. It used to be a local
+`FREE_FAV_CAP = 1` in each of the three components and a separate
+`FREE_TIER_LIMIT = 5` in the route, so the UI nagged at one spot while the API
+happily stored five, and the sales copy claimed both. Don't reintroduce a local
+copy.
+
+### Alert delivery channels
+
+`src/app/components/alerts/delivery-channel-picker.tsx` owns the email + SMS
+toggles **and** the inline phone-verification flow (`POST /api/alerts/verify-
+phone` sends a code, `PUT` confirms). Both alert forms use it — the spot-page
+`create-alert-dialog.tsx` and the `/alerts` `score-alert-form.tsx`, which until
+2026-07-31 hardcoded `delivery_channels: ['email']` and could not text anyone
+regardless of tier. Add a channel here, not in either form.
+
+SMS is live for Pro with a verified phone. A 503 from the verify route means
+Twilio is unreachable *right now* (`isVerifyConfigured()`), not that the feature
+is unbuilt — keep that copy phrased as a transient failure. `POST /api/alerts`
+re-reads `phone_verified` and silently strips `sms` from a payload it can't
+stand behind, so the picker is convenience, not the gate.
+
+## The Port — Pro-only support portal (`/support`, 2026-07-30)
+
+Before this, "customer support" was a `mailto:` on `/contact` plus 8 static
+FAQs: no form, no endpoint, no table, no third-party widget, and nothing at all
+inside the signed-in product. The Port is the real thing, gated to Pro.
+
+- **Route:** `src/app/support/page.tsx` (server, `robots: noindex`) →
+  `support-client.tsx`. **Hard Pro gate**, three states: signed-out redirects
+  to `/login`; free tier gets a paywall (`UnlockWithProCard`, `feature="support"`)
+  that **explicitly routes to `/faq` + `/contact`** so a hard gate is not a dead
+  end; Pro gets the portal. `useSubscription().isPaid` is the client gate — the
+  API re-checks server-side, so the client gate is cosmetic.
+- **Six sections**, switched in-page (no sub-routes), under
+  `src/app/support/components/`: `port-nav` (sticky rail desktop / scrolling
+  chips mobile), `port-search`, `port-section` (shared heading frame),
+  `start-section`, `guides-section`, `answers-section`, `billing-section`,
+  `status-section`, `tickets-section` + `ticket-form`.
+- **Content is a typed module, not a CMS** — `src/app/support/content.ts` holds
+  `GUIDES`, `ARTICLES`, `CHANGELOG`, `KNOWN_ISSUES` and a module-scope search
+  index. Deliberate: this content describes what ships, so it changes in the
+  same PR as the code it describes. **If you make a fact here untrue, fix it in
+  that PR.** `searchContent()` is AND-matching across all four sources with
+  title hits weighted 2× — one search box, no request, no debounce.
+- **Ticketing:** `supabase/migrations/20260730_create_support_tickets.sql` —
+  `support_tickets` with a human `ticket_ref` (`RC-XXXXXX`, derived from
+  `gen_random_uuid()` so it carries no pgcrypto dependency), category/status/
+  priority CHECKs, a frozen `context` jsonb snapshot (tier at filing time —
+  today's tier can't answer "what were they paying when this happened"), and
+  `resolution_note` surfaced back to the member. RLS grants select-own and
+  insert-own and **deliberately no update/delete** (a user who could set their
+  own ticket to `urgent`, or delete a billing dispute, makes the queue
+  meaningless).
+- **API:** `src/app/api/support/tickets/route.ts` — GET own + POST, both
+  Bearer-authed via `getUserIdFromRequest` **and** re-checking Pro server-side
+  (tier `startsWith('pro')` && status active|trialing, mirroring
+  `forecast-14d`). **Persist-then-notify is load-bearing:** `sendEmail()`
+  silently returns `success: true` when `RESEND_API_KEY` is unset, so the row is
+  written first and the response carries `emailed` — the UI says "saved but
+  confirmation didn't send" rather than implying both legs worked. `context` is
+  key-allowlisted (`page`/`spotSlug`/`appBuild`); `userAgent` is read from the
+  request header, not the body.
+- **Emails:** `src/lib/email-templates/support-ticket.ts` — triage email to the
+  inbox + ack to the member. Ticket bodies are user-authored and land in HTML,
+  so both templates escape before interpolation.
+- **Shared types:** `src/lib/support-types.ts` (unions must track the table's
+  CHECK constraints — drift shows up as a 500 on insert, not a type error).
+- **Wiring:** `/support` added to `robots.ts` `disallow`; linked from
+  `explore-top-bar.tsx` (beside the avatar, signed-in only — that bar renders
+  for signed-out visitors and a top-level link to a paywall is worse than no
+  link), the `mobile-bottom-nav.tsx` More sheet, and a card under
+  `SubscriptionCard` on `/profile`, and a **Support** link in both
+  `marketing-footer.tsx` rows. `/contact` and `/faq` gained static "Pro
+  members" pointers (they're server components and can't read tier).
+- **`SUPPORT_EMAIL` now lives in `src/lib/site.ts`** — it had been hardcoded in
+  8 places. New code must import it; the legal pages still hold copies.
 
 ### Secrets via HashiCorp Vault (runtime OIDC loader, 2026-06-30)
 
@@ -913,3 +1139,10 @@ The journey suite is layered on top of:
 - `e2e/api/journeys.spec.ts` — post-seed assertions (Phase C.5).
 
 See `e2e/journeys/README.md` for prereqs, env-var checklist, and the resolved 6h-vs-0d signed-out-clip note.
+### Route note: `/support`, not `/theport`
+
+The portal briefly shipped at `/theport` and moved to `/support` on the same
+day. "The Port" remains its name in the UI — only the URL changed. Two
+permanent redirects in `next.config.ts` (`/theport` and `/theport/:path*`)
+keep the old path working, which matters because ticket acknowledgement
+emails had already gone out carrying `/theport` links.

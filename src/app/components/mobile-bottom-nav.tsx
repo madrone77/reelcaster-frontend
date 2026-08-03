@@ -14,10 +14,14 @@ const TABS = [
 
 // The "More" tab opens a sheet with the secondary destinations instead of
 // linking somewhere directly.
+// This sheet renders for signed-out visitors too, so The Port sits below the
+// account links rather than at the top — it is the Pro support surface, and
+// the page itself explains the paywall to anyone who arrives without Pro.
 const MORE_LINKS = [
   { href: "/profile", label: "Profile" },
   { href: "/alerts", label: "Alerts" },
-  { href: "/pricing", label: "Pricing" },
+  { href: "/support", label: "Support" },
+  { href: "/plans", label: "Plans" },
   { href: "/about", label: "About" },
   { href: "/faq", label: "FAQ" },
   { href: "/terms", label: "Terms" },

@@ -7,6 +7,7 @@ import { CheckCircle2, Loader2 } from 'lucide-react'
 import { AppShell } from '@/app/components/layout'
 import { apiFetch } from '@/lib/api-client'
 import { useSubscription } from '@/hooks/use-subscription'
+import { useAuth } from '@/contexts/auth-context'
 
 interface CheckoutStatus {
   tier: string
@@ -20,13 +21,64 @@ function BillingSuccessInner() {
   const searchParams = useSearchParams()
   const sessionId = searchParams.get('session_id')
   const subscription = useSubscription()
+  const { user, loading: authLoading } = useAuth()
   const [status, setStatus] = useState<CheckoutStatus | null>(null)
   const [polling, setPolling] = useState(true)
+  // Pay-first purchases land here with no session at all: the account was
+  // created from the email Stripe billed, and this is where it gets claimed.
+  const [claimState, setClaimState] = useState<'idle' | 'working' | 'emailed'>(
+    'idle',
+  )
+
+  useEffect(() => {
+    if (authLoading || user || !sessionId) return
+
+    let cancelled = false
+    let attempts = 0
+    setClaimState('working')
+
+    const claim = async () => {
+      try {
+        const res = await fetch('/api/stripe/claim', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ session_id: sessionId }),
+        })
+        const body = await res.json().catch(() => ({}))
+
+        if (cancelled) return
+
+        // 202 = the webhook hasn't provisioned the account yet. Keep waiting.
+        if (res.status === 202) {
+          attempts += 1
+          if (attempts < 15) setTimeout(claim, 2000)
+          else setClaimState('emailed')
+          return
+        }
+
+        if (body?.status === 'signed_in' && body.url) {
+          // The magic link signs them in and returns to /explore.
+          window.location.href = body.url
+          return
+        }
+        setClaimState('emailed')
+      } catch {
+        if (!cancelled) setClaimState('emailed')
+      }
+    }
+
+    claim()
+    return () => {
+      cancelled = true
+    }
+  }, [authLoading, user, sessionId])
 
   // Poll the checkout status endpoint until the webhook flips
   // user_settings.subscription_status to active. Bail out after ~30s.
   useEffect(() => {
-    if (!sessionId) {
+    // Signed-out buyer: nothing to poll with. The claim effect above owns
+    // that path until the magic link lands them back here signed in.
+    if (!sessionId || (!authLoading && !user)) {
       setPolling(false)
       return
     }
@@ -82,20 +134,32 @@ function BillingSuccessInner() {
             unlocking now.
           </p>
 
-          {polling ? (
+          {claimState === 'working' ? (
+            <div className="mt-6 inline-flex items-center gap-2 text-sm text-rc-text-muted">
+              <Loader2 className="w-4 h-4 animate-spin" />
+              Setting up your account…
+            </div>
+          ) : claimState === 'emailed' ? (
+            // Either the email already had an account (paying isn't proof of
+            // owning an inbox) or the one-time handoff was already used.
+            <div className="mt-6 text-sm text-rc-text-muted">
+              Your subscription is active. We&apos;ve emailed you a sign-in
+              link — open it and you&apos;re in. No password needed.
+            </div>
+          ) : polling ? (
             <div className="mt-6 inline-flex items-center gap-2 text-sm text-rc-text-muted">
               <Loader2 className="w-4 h-4 animate-spin" />
               Activating your account…
             </div>
           ) : status?.is_active ? (
-            <div className="mt-6 text-sm text-green-400">All set — taking you to Explore.</div>
+            <div className="mt-6 text-sm text-green-400">All set. Taking you to Explore.</div>
           ) : (
             <div className="mt-6 text-sm text-rc-text-muted">
-              Stripe is still finalizing the payment. You can{' '}
+              Stripe is still finalizing your subscription. You can{' '}
               <Link href="/explore" className="text-blue-400 hover:text-blue-300 underline">
                 head to Explore
-              </Link>{' '}
-              — Pro features unlock as soon as the webhook lands.
+              </Link>
+              . Pro features unlock as soon as the webhook lands.
             </div>
           )}
         </div>

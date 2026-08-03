@@ -3,7 +3,7 @@ import CatchesShell from "./catches-shell";
 
 export const metadata: Metadata = {
   title: "My catches · ReelCaster",
-  description: "Your private catch log — every catch with conditions at catch time.",
+  description: "Your private catch log: every catch with conditions at catch time.",
   robots: { index: false },
 };
 

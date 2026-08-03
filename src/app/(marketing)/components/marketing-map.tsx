@@ -159,7 +159,7 @@ export default function MarketingMap({
               <div
                 className="flex h-8 w-8 items-center justify-center rounded-full text-[11px] font-bold text-white ring-2 ring-white shadow-rc-pin"
                 style={{ backgroundColor: TIER_HEX[tier] }}
-                title={`${p.name} — ${p.score ?? "no score"}`}
+                title={`${p.name}: ${p.score ?? "no score"}`}
               >
                 {p.score ?? "—"}
               </div>

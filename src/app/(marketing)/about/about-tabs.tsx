@@ -11,8 +11,8 @@ const TABS: Tab[] = [
     body: (
       <>
         Reelcaster exists to take the guesswork out of fishing. We fold tides,
-        weather, water, and regulations into one honest score — per spot, per
-        species, per hour — so you spend your time on the water when it actually
+        weather, water, and regulations into one honest score for every spot,
+        species, and hour, so you spend your time on the water when it actually
         counts, not cross-referencing five apps before you leave the dock.
       </>
     ),
@@ -27,7 +27,7 @@ const TABS: Tab[] = [
         </li>
         <li>
           <span className="font-bold text-rc-ink">Spot-level truth.</span>{' '}
-          The actual bank, point, or channel you fish — never a regional
+          The actual bank, point, or channel you fish, never a regional
           average.
         </li>
         <li>
@@ -41,8 +41,8 @@ const TABS: Tab[] = [
     label: 'What We Do',
     body: (
       <>
-        We build a profile for every spot and species — what tide stage, light,
-        and conditions actually produce there — computed on nautical-chart
+        We build a profile for every spot and species: what tide stage, light,
+        and conditions actually produce there, computed on nautical-chart
         bathymetry and sharpened by logged catches and local reports. Spots that
         keep proving out score higher. That’s the whole point.
       </>

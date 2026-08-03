@@ -159,7 +159,7 @@ export default function WaitlistPinModal({
             <Label htmlFor="species" className="text-rc-text">
               Target species{' '}
               <span className="text-rc-text-muted text-xs font-normal">
-                (optional — comma-separated)
+                (optional, comma-separated)
               </span>
             </Label>
             <Input

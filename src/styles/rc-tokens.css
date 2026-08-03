@@ -12,6 +12,8 @@
   --rc-brand-soft:   #E8ECFD;   /* nav active · selected card fill */
   --rc-brand-soft2:  #DBEAFE;   /* badge bg · soft borders */
   --rc-badge:        #FFCB1F;   /* notification badge · ★BEST tag */
+  --rc-lemon:        #F0E6A8;   /* CTA fill on the brand-blue bar */
+  --rc-lemon-hover:  #E6DA93;   /* ≈6% deeper, for the press */
 
   /* ─── INK (text) ────────────────────────────────────────── */
   --rc-ink:          #0B1220;   /* primary text · avatar fill */
