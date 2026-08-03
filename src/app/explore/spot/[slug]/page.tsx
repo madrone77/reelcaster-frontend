@@ -5,6 +5,10 @@ import { breadcrumbJsonLd, DEFAULT_OG, SITE_URL, siteUrl } from "@/lib/site";
 import { findCityForSpot } from "@/app/fishing/lib/fishing-data";
 import { provinceCodeFromName } from "@/lib/regions";
 import SpotDetailShell from "./spot-detail-shell";
+import { spotHasFreshReports } from "@/app/explore/lib/fresh-catch-types";
+
+/** Catch-report window. Must match FRESH_DAYS in the fresh-catches route. */
+const FRESH_DAYS = 21;
 
 type PageProps = { params: Promise<{ slug: string }> };
 
@@ -77,6 +81,7 @@ export async function generateMetadata({
   // 404s from its generateMetadata.
   if (!page) notFound();
 
+
   const name = page.spot.name;
   // "Constance Bank Fishing · Victoria, BC" — the postal code keeps the common
   // case inside the ~60 characters Google renders before truncating, which the
@@ -134,6 +139,14 @@ export default async function SpotDetailPage({ params }: PageProps) {
   // private spot client-side. The status is honest for crawlers either way,
   // because no crawler carries the token that would turn it into a hit.
   if (!page) notFound();
+  // Scraped catch reports. The raw `catchSignals` carry verbatim third-party
+  // forum text and per-report detail — neither may reach the browser, and this
+  // page is prerendered, so everything below the paywall is stripped here and
+  // only a boolean survives. A Pro viewer's numbers are fetched client-side
+  // from the gated route; keeping the static render locked is what lets this
+  // page stay prerendered for search.
+  const freshTracked = spotHasFreshReports(page.catchSignals, FRESH_DAYS);
+  const { catchSignals: _signals, intelVerdict: _verdict, ...pageForClient } = page;
 
   // Where this spot sits in the public directory, so the page can link back up
   // to its city and province. Null for custom spots and unpublished cities.
@@ -199,7 +212,8 @@ export default async function SpotDetailPage({ params }: PageProps) {
         dangerouslySetInnerHTML={{ __html: JSON.stringify(spotJsonLd) }}
       />
       <SpotDetailShell
-        page={page}
+        page={pageForClient}
+        freshTracked={freshTracked}
         slug={slug}
         // Narrowed to the four strings the breadcrumb needs — `place.city`
         // carries the city's whole spot roster, which has no business crossing

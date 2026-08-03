@@ -25,6 +25,7 @@ import {
   fetchMyCustomSpots,
 } from "@/lib/bluecaster-client";
 import type { MapForecast14dPayload } from "@/lib/bluecaster";
+import type { FreshCatchesResponse } from "./lib/fresh-catch-types";
 import { useSubscription } from "@/hooks/use-subscription";
 import { useAuth } from "@/contexts/auth-context";
 import { useExploreState } from "./lib/use-explore-state";
@@ -207,6 +208,30 @@ export default function ExploreShell({
 
   const today = data.date;
   const selectedIso = day ?? today;
+
+  // ── Fresh catch reports: scraped intel per spot, joined onto the rail by
+  //    spot id. Date-independent (keyed on the spot, not the scrubber day), so
+  //    this fetches once and is reused across date and hour changes. The Pro
+  //    gate lives in the route — a free caller gets `{ locked: true }` per spot
+  //    and no numbers ever reach the browser. ───────────────────────────────
+  const [freshCatches, setFreshCatches] = useState<FreshCatchesResponse | null>(
+    null,
+  );
+
+  useEffect(() => {
+    let cancelled = false;
+    fetch("/api/bluecaster/map/fresh-catches")
+      .then((r) => (r.ok ? (r.json() as Promise<FreshCatchesResponse>) : null))
+      .then((p) => {
+        if (!cancelled && p) setFreshCatches(p);
+      })
+      .catch(() => {
+        // Intel is additive — if it fails the rail is still the rail.
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   // ── Day re-scoring: refetch map/spots for the selected date, cache it,
   //    and overlay the new scores onto the (stable) base spot set. ────────
@@ -883,6 +908,7 @@ export default function ExploreShell({
         date={selectedIso}
         tz={MAP_TZ}
         scrubHour={scrubHour}
+        freshCatches={freshCatches}
         bottomInset={stripHidden ? 64 : 152}
         onSelectCity={handleSelectCity}
         onSelectSpot={handleSelectSpot}

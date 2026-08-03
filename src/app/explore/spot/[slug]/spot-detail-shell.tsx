@@ -47,6 +47,8 @@ import { useHomeSpot } from "../../lib/use-home-spot";
 import SpotTerminal from "../components/spot-terminal";
 import SpotMiniMap from "../components/spot-mini-map";
 import ScoreCard from "../components/score-card";
+import { FreshCatchBlock } from "@/app/explore/components/fresh-catch-reports";
+import type { RailFreshCatch, FreshCatchesResponse } from "@/app/explore/lib/fresh-catch-types";
 import CustomAlertCta from "../components/custom-alert-cta";
 import MarketingFooter from "@/app/components/marketing/marketing-footer";
 import LogCatchDialog from "../components/log-catch-dialog";
@@ -59,13 +61,26 @@ const ProTrialModal = dynamic(
 
 const TZ = "America/Vancouver";
 
+/** Catch-report window. Matches FRESH_DAYS in the fresh-catches route. */
+const FRESH_DAYS = 21;
+
+/**
+ * What actually crosses into the client. `catchSignals` carries verbatim
+ * third-party forum text and per-report detail; the server strips both before
+ * render, and this type is what stops them being handed back by accident.
+ */
+export type SpotPageForClient = Omit<
+  SpotPageInitial,
+  "catchSignals" | "intelVerdict"
+>;
+
 const REG_PILL: Record<string, string> = {
   Open: "bg-rc-good-bg text-rc-good-ink",
   Release: "bg-rc-fair-bg text-rc-fair-ink",
   Closed: "bg-rc-poor-bg text-rc-poor-ink",
 };
 
-function bestSpeciesId(page: SpotPageInitial): string | null {
+function bestSpeciesId(page: SpotPageForClient): string | null {
   let best: string | null = null;
   let bestScore = -1;
   for (const s of page.species) {
@@ -91,10 +106,14 @@ export default function SpotDetailShell({
   page,
   slug,
   cityLink,
+  freshTracked = false,
 }: {
-  page: SpotPageInitial;
+  page: SpotPageForClient;
   slug: string;
   cityLink: SpotCityLink | null;
+  /** Does this spot have scraped catch reports in the window? The only fact
+   *  about them the prerendered (free) render is allowed to carry. */
+  freshTracked?: boolean;
 }) {
   const { spot } = page;
   const nowHour = currentLocalHour(TZ);
@@ -105,12 +124,25 @@ export default function SpotDetailShell({
     [page.species],
   );
   const [selId, setSelId] = useState<string | null>(() => bestSpeciesId(page));
+  // Names for the per-species report split. The roster is the species this spot
+  // is scored for; anglers report others (crab and lingcod at a salmon spot),
+  // and those fold into "Other species" rather than being dropped.
+  const freshSpeciesNames = useMemo(
+    () => Object.fromEntries(species.map((sp) => [sp.id, sp.name])),
+    [species],
+  );
   const selSpecies = species.find((s) => s.id === selId) ?? species[0] ?? null;
 
   // ── lazy data ─────────────────────────────────────────────────────────
   const [fc, setFc] = useState<Forecast14dPayload | null>(null);
   const [score, setScore] = useState<SpotScorePayload | null>(null);
   const [point, setPoint] = useState<PointConditions | null>(null);
+  // Catch reports. The static render is always locked (that's what keeps this
+  // page prerenderable); a Pro viewer upgrades it client-side from the gated
+  // route, which is also where the entitlement is actually enforced.
+  const [fresh, setFresh] = useState<RailFreshCatch | null>(
+    freshTracked ? { locked: true } : null,
+  );
   const [saved, toggleSaved] = useFavorite(spot.slug);
   const [isHome, toggleHome] = useHomeSpot(spot.slug);
   const { isPaid, loading: tierLoading } = useSubscription();
@@ -119,6 +151,7 @@ export default function SpotDetailShell({
   // strip holds off rather than briefly locking a Pro account's days 8–14.
   const accessTier: ForecastTier = isPaid ? "pro" : user ? "free" : "anonymous";
   const [favUpgradeOpen, setFavUpgradeOpen] = useState(false);
+  const [reportsUpgradeOpen, setReportsUpgradeOpen] = useState(false);
   // One-shot "pop" when favoriting (not on un-favorite or load) — mirrors the
   // rail SpotCard star interaction exactly, including the free-tier cap.
   const [savePop, setSavePop] = useState(false);
@@ -146,6 +179,26 @@ export default function SpotDetailShell({
       cancelled = true;
     };
   }, [slug, spot.lat, spot.lng]);
+
+  // Pro-only upgrade of the locked block. The route re-checks entitlement
+  // server-side (and unlike the client's `isPaid`, it honours the grace
+  // window), so this call is a request, not the gate.
+  useEffect(() => {
+    if (!freshTracked || !isPaid) return;
+    let cancelled = false;
+    fetch(`/api/bluecaster/map/fresh-catches?spot=${encodeURIComponent(spot.id)}`)
+      .then((r) => (r.ok ? (r.json() as Promise<FreshCatchesResponse>) : null))
+      .then((d) => {
+        const mine = d?.spots?.[spot.id];
+        if (!cancelled && mine) setFresh(mine);
+      })
+      .catch(() => {
+        // Stays locked — additive, never blocking.
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [freshTracked, isPaid, spot.id]);
 
   useEffect(() => {
     if (!selId) return;
@@ -657,6 +710,20 @@ export default function SpotDetailShell({
                 onSetAlert={handleSetAlert}
               />
 
+              {/* Fresh catch reports — the evidence, directly under the
+                  model's prediction. Absent entirely when this spot has no
+                  reports in the window. */}
+              {fresh && (
+                <div className="border-t border-rc-rule pt-5">
+                  <FreshCatchBlock
+                    fresh={fresh}
+                    days={FRESH_DAYS}
+                    speciesNames={freshSpeciesNames}
+                    onUpgrade={() => setReportsUpgradeOpen(true)}
+                  />
+                </div>
+              )}
+
               <div className="border-t border-rc-rule pt-5">
                 <ScoreFactors factors={selId ? (page.todayFactorsBySpecies[selId] ?? []) : []} />
               </div>
@@ -892,6 +959,12 @@ export default function SpotDetailShell({
         feature="favorite-spots"
         from="spot-page"
         spotName={spot.name}
+      />
+      <ProTrialModal
+        open={reportsUpgradeOpen}
+        onOpenChange={setReportsUpgradeOpen}
+        feature="catch-reports"
+        from="spot-page-reports"
       />
     </div>
   );
