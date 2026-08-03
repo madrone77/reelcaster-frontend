@@ -4,13 +4,29 @@ import { fetchHierarchy, fetchMapSpots, fetchSpotLivePage } from "@/lib/bluecast
 import { breadcrumbJsonLd, DEFAULT_OG, SITE_URL, siteUrl } from "@/lib/site";
 import { findCityForSpot } from "@/app/fishing/lib/fishing-data";
 import { provinceCodeFromName } from "@/lib/regions";
-import SpotDetailShell from "./spot-detail-shell";
+import SpotDetailShell, { type SpotPageForClient } from "./spot-detail-shell";
+import type { SpotPageInitial } from "@/lib/bluecaster/live-spot-types";
 import { spotHasFreshReports } from "@/app/explore/lib/fresh-catch-types";
 
 /** Catch-report window. Must match FRESH_DAYS in the fresh-catches route. */
 const FRESH_DAYS = 21;
 
 type PageProps = { params: Promise<{ slug: string }> };
+
+/**
+ * Drop the fields that must never cross into the client bundle.
+ *
+ * `catchSignals` carries verbatim third-party forum text and per-report detail;
+ * `intelVerdict` is paid information. Everything handed to a client component
+ * is serialized into the page for anyone to read, so the strip happens here.
+ * The `void`s are the lint-visible way of saying "destructured to discard".
+ */
+function stripPaidIntel(raw: SpotPageInitial): SpotPageForClient {
+  const { catchSignals, intelVerdict, ...rest } = raw;
+  void catchSignals;
+  void intelVerdict;
+  return rest;
+}
 
 // Same extent /explore and the sitemap use (BC + WA + OR).
 const COVERED_BBOX_ALL = "-139.06,41.99,-114.03,60";
@@ -146,7 +162,7 @@ export default async function SpotDetailPage({ params }: PageProps) {
   // from the gated route; keeping the static render locked is what lets this
   // page stay prerendered for search.
   const freshTracked = spotHasFreshReports(page.catchSignals, FRESH_DAYS);
-  const { catchSignals: _signals, intelVerdict: _verdict, ...pageForClient } = page;
+  const pageForClient = stripPaidIntel(page);
 
   // Where this spot sits in the public directory, so the page can link back up
   // to its city and province. Null for custom spots and unpublished cities.
