@@ -1,10 +1,24 @@
 'use client';
 
+import { useState } from 'react';
 import Link from 'next/link';
 import { Sparkles } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { TRIAL_DAYS } from '@/lib/pricing';
+import {
+  ANNUAL_PRICE_CENTS,
+  MONTHLY_PRICE_CENTS,
+  TRIAL_DAYS,
+  annualDiscount,
+  type PricingPlan,
+} from '@/lib/pricing';
 import { useAnalytics } from '@/hooks/use-analytics';
+import { useStartCheckout } from '@/hooks/use-start-checkout';
+
+// $5, $33 — drop the cents when they're zero (same rule as the pricing card).
+function dollars(cents: number): string {
+  const v = cents / 100;
+  return Number.isInteger(v) ? `$${v}` : `$${v.toFixed(2)}`;
+}
 
 const DEFAULT_BULLETS = [
   '14-day forecast',
@@ -19,9 +33,12 @@ export interface UnlockWithProCardProps {
   headline?: string;
   /** Bullet list of unlocked features. */
   bullets?: string[];
-  /** CTA destination. Defaults to /pricing with paywall context query. */
+  /**
+   * Escape hatch: renders a plain link to this href instead of starting
+   * checkout. Leave unset — the CTA's job is to open Stripe, not /pricing.
+   */
   ctaHref?: string;
-  /** CTA label override. */
+  /** CTA label override. Only used by the `ctaHref` link variant. */
   ctaLabel?: string;
   /** Feature id used for analytics + default ctaHref query. */
   feature?: string;
@@ -46,9 +63,27 @@ export function UnlockWithProCard({
   className,
 }: UnlockWithProCardProps) {
   const { trackEvent } = useAnalytics();
-  const href =
-    ctaHref ??
-    `/pricing?from=paywall${feature ? `&feature=${encodeURIComponent(feature)}` : ''}`;
+  const { startCheckout, submitting, error } = useStartCheckout();
+  // Which button was pressed — the hook has one `submitting` flag, but only the
+  // button the user actually clicked should say "Starting…".
+  const [pending, setPending] = useState<PricingPlan | null>(null);
+
+  const { pct } = annualDiscount();
+
+  // Signed-out visitors can't have a Checkout Session (there's no Supabase user
+  // to attach the subscription to), and this card renders on public /explore
+  // surfaces — so they still get /pricing, which sells before it asks. The
+  // cadence they picked here rides along.
+  const pricingHref = (plan: PricingPlan) =>
+    `/pricing?from=paywall${
+      feature ? `&feature=${encodeURIComponent(feature)}` : ''
+    }&plan=${plan}`;
+
+  function buy(plan: PricingPlan) {
+    trackEvent('Paywall CTA Clicked', { feature, plan, destination: 'stripe' });
+    setPending(plan);
+    startCheckout({ plan, from: 'paywall', signedOutHref: pricingHref(plan) });
+  }
 
   const themeClasses =
     theme === 'light'
@@ -88,14 +123,80 @@ export function UnlockWithProCard({
         ))}
       </ul>
 
-      <Link
-        href={href}
-        onClick={() => trackEvent('Paywall CTA Clicked', { feature, href })}
-        data-testid="upgrade-cta"
-        className="inline-flex items-center justify-center rounded-full bg-green-600 hover:bg-green-500 px-5 py-2 text-sm font-medium text-white transition-colors"
-      >
-        {ctaLabel}
-      </Link>
+      {ctaHref ? (
+        <Link
+          href={ctaHref}
+          onClick={() =>
+            trackEvent('Paywall CTA Clicked', { feature, href: ctaHref })
+          }
+          data-testid="upgrade-cta"
+          className="inline-flex items-center justify-center rounded-full bg-green-600 hover:bg-green-500 px-5 py-2 text-sm font-medium text-white transition-colors"
+        >
+          {ctaLabel}
+        </Link>
+      ) : (
+        <div className="flex flex-col gap-2 sm:flex-row">
+          {/* Yearly leads — it's the better deal — but both go straight to
+              Stripe, so the cadence is chosen here and nowhere else. */}
+          <button
+            type="button"
+            disabled={submitting}
+            onClick={() => buy('annual')}
+            data-testid="upgrade-cta"
+            data-plan="annual"
+            className="inline-flex flex-1 items-center justify-center gap-2 rounded-full bg-green-600 px-5 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-green-500 disabled:opacity-60"
+          >
+            {pending === 'annual' && submitting ? (
+              'Starting…'
+            ) : (
+              <>
+                <span>Yearly · {dollars(ANNUAL_PRICE_CENTS)}</span>
+                <span className="rounded-full bg-white/20 px-1.5 py-0.5 text-[10px] font-bold leading-none">
+                  −{pct}%
+                </span>
+              </>
+            )}
+          </button>
+          <button
+            type="button"
+            disabled={submitting}
+            onClick={() => buy('monthly')}
+            data-testid="upgrade-cta-monthly"
+            data-plan="monthly"
+            className={cn(
+              'inline-flex flex-1 items-center justify-center rounded-full border px-5 py-2.5 text-sm font-semibold transition-colors disabled:opacity-60',
+              theme === 'light'
+                ? 'border-stone-300 text-stone-900 hover:bg-stone-100'
+                : 'border-rc-bg-light text-rc-text hover:bg-rc-bg-light',
+            )}
+          >
+            {pending === 'monthly' && submitting
+              ? 'Starting…'
+              : `Monthly · ${dollars(MONTHLY_PRICE_CENTS)}`}
+          </button>
+        </div>
+      )}
+
+      {!ctaHref && (
+        <p className={cn('mt-2.5 text-xs', subtleText)}>
+          {TRIAL_DAYS} days free on either plan — nothing is charged until the
+          trial ends, and you can cancel before then.
+        </p>
+      )}
+
+      {error && (
+        <p
+          role="alert"
+          className={cn(
+            'mt-3 rounded-md p-3 text-xs',
+            theme === 'light'
+              ? 'border border-red-200 bg-red-50 text-red-700'
+              : 'border border-red-500/30 bg-red-500/10 text-red-300',
+          )}
+        >
+          {error}
+        </p>
+      )}
     </div>
   );
 }

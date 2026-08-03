@@ -965,6 +965,33 @@ inside the signed-in product. The Port is the real thing, gated to Pro.
 - **`SUPPORT_EMAIL` now lives in `src/lib/site.ts`** — it had been hardcoded in
   8 places. New code must import it; the legal pages still hold copies.
 
+## Every trial CTA opens Stripe directly (2026-08-03)
+
+There is no longer a page or a dialog between "start the trial" and Stripe
+Checkout. Both paths that used to interpose one were removed:
+
+- **`src/hooks/use-start-checkout.ts`** is the single checkout action — POSTs
+  `/api/stripe/checkout` with the Supabase bearer token and hands the browser to
+  `session.url`. It owns the `plan_unavailable` copy, the empty-body parse
+  guard, and the `'Other'` region → `/explore?waitlist=1` redirect. Any new
+  upgrade CTA must use it rather than linking to `/pricing`.
+- **`unlock-with-pro-card.tsx`** (the paywall card, wrapped by
+  `upgrade-required-modal.tsx` on spot cards, the spot drawer, spot pages and
+  `/alerts`, and rendered inline on `/support`) offers **two buttons — Yearly
+  and Monthly** — each starting checkout for that cadence. Passing `ctaHref`
+  turns the CTA back into a plain link; nothing does today. Signed-out visitors
+  can't have a Checkout Session, so they still get `/pricing?from=paywall&…`
+  with their chosen `plan` in the query.
+- **`pricing-card.tsx`** lost its region-picker modal. Region now comes from
+  `?region=` or the page's IP geo (`x-vercel-ip-country-region`), and currency
+  is re-resolved server-side from `x-vercel-ip-country`. **Consequence:** no
+  surface lets a buyer self-declare "somewhere else" any more, so the waitlist
+  bounce only fires via `?region=Other`. The `/pricing` coverage note is the
+  remaining path to the waitlist.
+
+Checkout errors are rendered inline by each caller (they were modal-only
+before). `/api/stripe/checkout` is unchanged.
+
 ### Secrets via HashiCorp Vault (runtime OIDC loader, 2026-06-30)
 
 Server secrets can be sourced at runtime from a self-hosted Vault instead of (or alongside) Vercel env vars. Integration is in place; the full rollout across consumers is still pending.

@@ -1,24 +1,23 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useSearchParams } from 'next/navigation';
 import { useAuth } from '@/contexts/auth-context';
-import { supabase } from '@/lib/supabase';
+import { useStartCheckout } from '@/hooks/use-start-checkout';
 import {
   ANNUAL_PRICE_CENTS,
   MONTHLY_PRICE_CENTS,
   TRIAL_DAYS,
   annualDiscount,
-  currencyLabelForRegion,
   type PricingPlan,
 } from '@/lib/pricing';
 
-const REGIONS = [
-  { value: 'BC', label: 'British Columbia' },
-  { value: 'WA', label: 'Washington' },
-  { value: 'OR', label: 'Oregon' },
-  { value: 'Other', label: 'Somewhere else' },
-];
+// Regions Pro is sold in. There is no longer a picker — the CTA goes straight
+// to Stripe — so this is only the allow-list for a region arriving by `?region=`
+// or IP geo. Anything else (including 'Other') is handled server-side: the
+// checkout route bounces uncovered regions to the waitlist and falls back to
+// the request's IP country for currency.
+const REGION_VALUES = ['BC', 'WA', 'OR', 'Other'];
 
 const FEATURES = [
   '14-day hourly forecasts',
@@ -38,16 +37,16 @@ export default function PricingCard({
 }: {
   defaultRegion: string | null;
 }) {
-  const router = useRouter();
   const searchParams = useSearchParams();
-  const { user, loading } = useAuth();
+  const { loading } = useAuth();
+  const { startCheckout, submitting, error } = useStartCheckout();
 
   const { fullCents, saveCents, pct, perMonthCents } = annualDiscount();
 
-  const initialRegion = useMemo(() => {
+  const region = useMemo(() => {
     const fromUrl = searchParams.get('region');
-    if (fromUrl && REGIONS.some((r) => r.value === fromUrl)) return fromUrl;
-    if (defaultRegion && REGIONS.some((r) => r.value === defaultRegion))
+    if (fromUrl && REGION_VALUES.includes(fromUrl)) return fromUrl;
+    if (defaultRegion && REGION_VALUES.includes(defaultRegion))
       return defaultRegion;
     return 'BC';
   }, [searchParams, defaultRegion]);
@@ -58,10 +57,6 @@ export default function PricingCard({
     searchParams.get('plan') === 'monthly' ? 'monthly' : 'annual';
 
   const [plan, setPlan] = useState<PricingPlan>(initialPlan);
-  const [modalOpen, setModalOpen] = useState(false);
-  const [region, setRegion] = useState(initialRegion);
-  const [submitting, setSubmitting] = useState(false);
-  const [error, setError] = useState<string | null>(null);
 
   const fromQuery = searchParams.get('from') ?? undefined;
   const successFlag = searchParams.get('success');
@@ -79,64 +74,11 @@ export default function PricingCard({
     }
   }, [successFlag]);
 
-  async function startCheckout() {
-    setSubmitting(true);
-    setError(null);
-
-    if (!user) {
-      const ret = `/pricing?from=${encodeURIComponent(
-        fromQuery ?? 'pricing',
-      )}&region=${encodeURIComponent(region)}&plan=${plan}`;
-      router.push(`/login?next=${encodeURIComponent(ret)}`);
-      return;
-    }
-
-    try {
-      const {
-        data: { session },
-      } = await supabase.auth.getSession();
-      const accessToken = session?.access_token;
-      if (!accessToken) throw new Error('No session token. Please sign in again.');
-
-      const res = await fetch('/api/stripe/checkout', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${accessToken}`,
-        },
-        body: JSON.stringify({ plan, region, from: fromQuery }),
-      });
-      // Guard the parse — a crashed function can return an empty body, and
-      // "Unexpected end of JSON input" is not a message to show a customer.
-      let body: { url?: string; redirect?: string; error?: string } = {};
-      try {
-        body = await res.json();
-      } catch {
-        /* non-JSON error body */
-      }
-      if (!res.ok) {
-        throw new Error(
-          body.error === 'plan_unavailable'
-            ? `${plan === 'annual' ? 'Yearly' : 'Monthly'} billing isn't available right now — please try the ${plan === 'annual' ? 'monthly' : 'yearly'} plan or check back soon.`
-            : 'We couldn’t start checkout. Please try again in a moment.',
-        );
-      }
-
-      if (body.redirect) {
-        router.push(body.redirect);
-        return;
-      }
-      if (body.url) {
-        window.location.href = body.url;
-        return;
-      }
-      throw new Error('Unexpected checkout response');
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : 'Could not start checkout';
-      setError(msg);
-      setSubmitting(false);
-    }
-  }
+  // Signed-out visitors come back to this exact card (cadence + region intact)
+  // after logging in, then continue to Stripe.
+  const signedOutHref = `/login?next=${encodeURIComponent(
+    `/pricing?from=${encodeURIComponent(fromQuery ?? 'pricing')}&region=${encodeURIComponent(region)}&plan=${plan}`,
+  )}`;
 
   const yearly = plan === 'annual';
 
@@ -282,15 +224,28 @@ export default function PricingCard({
           </div>
         </div>
 
-        {/* CTA */}
+        {/* CTA — straight to Stripe. There is no region step in between: the
+            region comes from `?region=` or IP geo, and checkout resolves the
+            currency (and the uncovered-region waitlist bounce) server-side. */}
         <button
           type="button"
-          onClick={() => setModalOpen(true)}
-          disabled={loading}
+          onClick={() =>
+            startCheckout({ plan, region, from: fromQuery, signedOutHref })
+          }
+          disabled={loading || submitting}
           className="mt-6 flex w-full items-center justify-center rounded-md bg-rc-brand px-5 py-3 text-sm font-bold text-white transition-colors hover:bg-rc-brand-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rc-brand focus-visible:ring-offset-2 disabled:opacity-60"
         >
-          Start {TRIAL_DAYS}-day free trial
+          {submitting ? 'Starting…' : `Start ${TRIAL_DAYS}-day free trial`}
         </button>
+
+        {error && (
+          <p
+            role="alert"
+            className="mt-3 rounded-md border border-rc-poor/30 bg-rc-poor-bg p-3 text-xs text-rc-poor-ink"
+          >
+            {error}
+          </p>
+        )}
 
         {/* Features */}
         <ul className="mt-6 space-y-2 border-t border-rc-rule pt-6 text-sm text-rc-ink-soft">
@@ -302,88 +257,6 @@ export default function PricingCard({
           ))}
         </ul>
       </div>
-
-      {/* Region modal → checkout */}
-      {modalOpen && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-rc-ink/50 p-4"
-          onClick={() => !submitting && setModalOpen(false)}
-        >
-          <div
-            className="w-full max-w-md rounded-xl border border-rc-rule bg-rc-panel p-6 shadow-rc-panel"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <h2 className="mb-1 text-xl font-bold text-rc-ink">
-              {yearly
-                ? `ReelCaster Pro — ${dollars(ANNUAL_PRICE_CENTS)}/yr`
-                : `ReelCaster Pro — ${dollars(MONTHLY_PRICE_CENTS)}/mo`}
-            </h2>
-            <p className="mb-5 text-sm text-rc-ink-mute">
-              Where do you mostly fish? We&apos;re live in BC, WA, and OR.
-            </p>
-
-            <label className="mb-1.5 block text-xs font-medium uppercase tracking-wide text-rc-ink-mute">
-              Primary region
-            </label>
-            <select
-              value={region}
-              onChange={(e) => setRegion(e.target.value)}
-              disabled={submitting}
-              className="mb-4 w-full rounded-lg border border-rc-rule bg-rc-surface px-3 py-2.5 text-sm text-rc-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rc-brand focus-visible:ring-offset-2"
-            >
-              {REGIONS.map((r) => (
-                <option key={r.value} value={r.value}>
-                  {r.label}
-                </option>
-              ))}
-            </select>
-
-            {region === 'Other' ? (
-              <p className="mb-4 rounded-md border border-rc-fair-border bg-rc-fair-bg p-3 text-xs text-rc-fair-ink">
-                Pro isn&apos;t live in your region yet. We&apos;ll redirect you
-                to drop a waitlist pin.
-              </p>
-            ) : (
-              <p className="mb-4 font-rc-mono text-[11px] text-rc-ink-mute" aria-live="polite">
-                {TRIAL_DAYS} days free, then{' '}
-                {yearly
-                  ? `${dollars(ANNUAL_PRICE_CENTS)} ${currencyLabelForRegion(region)}/year`
-                  : `${dollars(MONTHLY_PRICE_CENTS)} ${currencyLabelForRegion(region)}/month`}
-                . Cancel during the trial and you won&apos;t be charged.
-              </p>
-            )}
-
-            {error && (
-              <p className="mb-4 rounded-md border border-rc-poor/30 bg-rc-poor-bg p-3 text-xs text-rc-poor-ink">
-                {error}
-              </p>
-            )}
-
-            <div className="flex gap-2">
-              <button
-                type="button"
-                onClick={() => setModalOpen(false)}
-                disabled={submitting}
-                className="flex-1 rounded-lg border border-rc-rule bg-rc-panel px-4 py-2.5 text-sm font-medium text-rc-ink transition-colors hover:border-rc-brand/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rc-brand focus-visible:ring-offset-2 disabled:opacity-60"
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                onClick={startCheckout}
-                disabled={submitting}
-                className="flex-1 rounded-lg bg-rc-brand px-4 py-2.5 text-sm font-bold text-white transition-colors hover:bg-rc-brand-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rc-brand focus-visible:ring-offset-2 disabled:opacity-60"
-              >
-                {submitting
-                  ? 'Starting…'
-                  : region === 'Other'
-                    ? 'Drop a waitlist pin'
-                    : 'Continue to checkout →'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }

@@ -6,11 +6,14 @@ import UnlockWithProCard from './unlock-with-pro-card'
 interface Props {
   open: boolean
   onClose: () => void
-  /** Feature id used for analytics + ?feature= query on /pricing. */
+  /** Feature id used for analytics + the signed-out ?feature= query on /pricing. */
   feature: string
   headline?: string
   bullets?: string[]
-  /** Optional override for the CTA target. */
+  /**
+   * Optional override that turns the CTA back into a plain link. Unset means
+   * the CTA starts Stripe checkout.
+   */
   ctaHref?: string
 }
 
@@ -50,10 +53,13 @@ export default function UpgradeRequiredModal({
         >
           <X className="w-4 h-4" />
         </button>
+        {/* No ctaHref by default: the card's CTA opens Stripe directly rather
+            than routing through /pricing for a second click. */}
         <UnlockWithProCard
           headline={headline}
           bullets={bullets}
-          ctaHref={ctaHref ?? `/pricing?from=paywall&feature=${encodeURIComponent(feature)}`}
+          feature={feature}
+          ctaHref={ctaHref}
           theme="light"
         />
       </div>

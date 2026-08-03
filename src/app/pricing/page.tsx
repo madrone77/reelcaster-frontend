@@ -85,7 +85,8 @@ const PRICING_BREADCRUMBS = breadcrumbJsonLd([
 ]);
 
 // Vercel sets x-vercel-ip-country-region (e.g. "BC", "WA", "OR"). Best-effort —
-// the user can always override in the checkout modal.
+// the CTA goes straight to Stripe, so this (or an explicit `?region=`) is the
+// region the checkout records; currency is re-resolved server-side from IP.
 async function detectRegion(): Promise<string | null> {
   const h = await headers();
   const region = h.get("x-vercel-ip-country-region");
