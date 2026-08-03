@@ -48,7 +48,6 @@ import SpotTerminal from "../components/spot-terminal";
 import SpotMiniMap from "../components/spot-mini-map";
 import ScoreCard from "../components/score-card";
 import CustomAlertCta from "../components/custom-alert-cta";
-import SignupGateDialog, { type AuthIntent } from "../components/signup-gate-dialog";
 import MarketingFooter from "@/app/components/marketing/marketing-footer";
 import LogCatchDialog from "../components/log-catch-dialog";
 import CreateAlertDialog from "../components/create-alert-dialog";
@@ -177,6 +176,8 @@ export default function SpotDetailShell({
 
   const [selectedIso, setSelectedIso] = useState<string | null>(null);
   const [upgradeOpen, setUpgradeOpen] = useState(false);
+  // Which wall the tapped tile belongs to — highlights the matching matrix row.
+  const [lockedTier, setLockedTier] = useState<"free" | "pro">("pro");
   const [alertUpgradeOpen, setAlertUpgradeOpen] = useState(false);
 
   // 14-day strip scroll affordance — overlaid arrows that fade in/out with
@@ -203,7 +204,6 @@ export default function SpotDetailShell({
   // Sign-up gate: signed-out anglers who tap "Set alert" / "Log catch" (or a
   // locked forecast day) are sent through the sign-up flow; the intent drives
   // the modal copy.
-  const [authIntent, setAuthIntent] = useState<AuthIntent | null>(null);
   const [logCatchOpen, setLogCatchOpen] = useState(false);
   const [alertOpen, setAlertOpen] = useState(false);
 
@@ -376,12 +376,11 @@ export default function SpotDetailShell({
 
   const handleDay = (day: ForecastDay) => {
     if (day.locked) {
-      // Follow the tile's own label. A "Sign up free" day (3–7) is unlocked by
-      // an account, so it opens the sign-up gate; an "Upgrade to Pro" day
-      // (8–14) opens the Pro modal even when signed out — sending those to a
-      // sign-up form promised Pro and delivered an email field.
-      if (day.lockTier === "free" && !user) setAuthIntent("forecast");
-      else setUpgradeOpen(true);
+      setLockedTier(day.lockTier ?? "pro");
+      // Every locked day opens the same modal, including the "Sign up free"
+      // days 3–7: the free account they unlock is offered by the link at the
+      // foot of that modal rather than by a separate sign-up dialog.
+      setUpgradeOpen(true);
       return;
     }
     setSelectedIso(day.iso);
@@ -849,15 +848,10 @@ export default function SpotDetailShell({
 
       <MarketingFooter />
 
-      <UpgradeDialog open={upgradeOpen} onOpenChange={setUpgradeOpen} />
-
-      <SignupGateDialog
-        open={authIntent !== null}
-        onOpenChange={(o) => {
-          if (!o) setAuthIntent(null);
-        }}
-        intent={authIntent ?? "catch"}
-        spotName={spot.name}
+      <UpgradeDialog
+        open={upgradeOpen}
+        onOpenChange={setUpgradeOpen}
+        variant={!user && lockedTier === "free" ? "signup" : "pro"}
       />
 
       <LogCatchDialog
