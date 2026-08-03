@@ -113,8 +113,10 @@ export default function SpotDetailShell({
   const [point, setPoint] = useState<PointConditions | null>(null);
   const [saved, toggleSaved] = useFavorite(spot.slug);
   const [isHome, toggleHome] = useHomeSpot(spot.slug);
-  const { isPaid } = useSubscription();
+  const { isPaid, loading: tierLoading } = useSubscription();
   const { user, loading: authLoading } = useAuth();
+  // Until `tierLoading` clears, `isPaid` is still its initial `false` — the
+  // strip holds off rather than briefly locking a Pro account's days 8–14.
   const accessTier: ForecastTier = isPaid ? "pro" : user ? "free" : "anonymous";
   const [favUpgradeOpen, setFavUpgradeOpen] = useState(false);
   // One-shot "pop" when favoriting (not on un-favorite or load) — mirrors the
@@ -170,8 +172,11 @@ export default function SpotDetailShell({
 
   const fcSource = fc ?? page;
   const stripModel = useMemo(
-    () => (selId ? buildForecastDays(fcSource, selId, accessTier, null, regulation) : null),
-    [fcSource, selId, accessTier, regulation],
+    () =>
+      selId && !tierLoading
+        ? buildForecastDays(fcSource, selId, accessTier, null, regulation)
+        : null,
+    [fcSource, selId, tierLoading, accessTier, regulation],
   );
 
   const [selectedIso, setSelectedIso] = useState<string | null>(null);

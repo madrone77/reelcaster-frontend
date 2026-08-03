@@ -83,8 +83,13 @@ export default function ExploreShell({
 }) {
   const mapRef = useRef<MapRef>(null);
   const router = useRouter();
-  const { isPaid } = useSubscription();
+  const { isPaid, loading: tierLoading } = useSubscription();
   const { user } = useAuth();
+  // `tierLoading` matters: before it clears, `isPaid` is still its initial
+  // `false`, so a Pro account would render as "free" and lock days 8–14 behind
+  // an upgrade CTA. The strip waits for the real answer instead (see the
+  // `stripModel` memo) — in practice the tier lands well before the forecast
+  // payload it decorates.
   const accessTier: ForecastTier = isPaid ? "pro" : user ? "free" : "anonymous";
   const { citySlug, spotSlug, day, stn, setQuery } = useExploreState();
 
@@ -572,9 +577,9 @@ export default function ExploreShell({
   }, [vpBbox]);
 
   const stripModel: ForecastStripModel | null = useMemo(() => {
-    if (!fcPayload) return null;
+    if (!fcPayload || tierLoading) return null;
     return buildViewportForecastDays(fcPayload, speciesFilter, accessTier);
-  }, [fcPayload, speciesFilter, accessTier]);
+  }, [fcPayload, tierLoading, speciesFilter, accessTier]);
 
   // Strip header label: the pinned species, else the cross-species best fold.
   const stripSpeciesName = speciesFilter
