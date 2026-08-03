@@ -8,6 +8,7 @@ import { readNextParam } from '@/lib/next-param'
 import LoginStandings from './login-standings'
 import Link from 'next/link'
 import Image from 'next/image'
+import TrialModalButton from '@/app/components/paywall/trial-modal-button'
 
 export default function LoginPage() {
   const { user, loading } = useAuth()
@@ -83,12 +84,15 @@ export default function LoginPage() {
 
           <p className="mt-6 text-center text-sm text-rc-ink-mute">
             New to ReelCaster?{' '}
-            <Link
-              href="/signup"
+            {/* Same modal as every other signup entry. Someone who only
+                wants the free account gets it from the link at its foot, one
+                click away, having seen what the tiers actually differ on. */}
+            <TrialModalButton
+              from="login-page"
               className="font-semibold text-rc-brand hover:text-rc-brand-hover transition-colors"
             >
               Create an account
-            </Link>
+            </TrialModalButton>
           </p>
         </div>
       </div>

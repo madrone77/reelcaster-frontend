@@ -6,6 +6,7 @@ import {
   annualDiscount,
 } from '@/lib/pricing';
 import { btn } from '@/app/components/ui/button';
+import TrialModalButton from '@/app/components/paywall/trial-modal-button';
 
 // Free vs Pro. Pro is one flat plan — $5/mo or $33/yr (45% off) — wired to the
 // real prices in src/lib/pricing.ts (no fake price points).
@@ -37,12 +38,12 @@ export default function PricingSection() {
               how the platform works.
             </p>
             <div className="mt-auto pt-8">
-              <Link
-                href="/signup"
+              <TrialModalButton
+                from="marketing-pricing"
                 className={btn.cardPrimary}
               >
                 Start Free
-              </Link>
+              </TrialModalButton>
             </div>
           </div>
 

@@ -1,5 +1,5 @@
-import Link from 'next/link';
 import { btn } from '@/app/components/ui/button';
+import TrialModalButton from '@/app/components/paywall/trial-modal-button';
 
 export default function CtaBand() {
   return (
@@ -17,9 +17,9 @@ export default function CtaBand() {
         </div>
         {/* White on brand blue — the band is already the accent, so the CTA
             inverts rather than stacking a second blue on top of it. */}
-        <Link href="/signup" className={`shrink-0 ${btn.onBrand}`}>
+        <TrialModalButton from="marketing-cta-band" className={`shrink-0 ${btn.onBrand}`}>
           Start free trial
-        </Link>
+        </TrialModalButton>
       </div>
     </section>
   );

@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import HeroScoreCard from './hero-score-card';
 import { btn } from '@/app/components/ui/button';
+import TrialModalButton from '@/app/components/paywall/trial-modal-button';
 
 export default function Hero() {
   return (
@@ -22,9 +23,13 @@ export default function Hero() {
           {/* compact: two full-width fills stacked, primary on top; medium+
               they hug (per the button system). */}
           <div className="mt-9 flex flex-col gap-3 sm:flex-row">
-            <Link href="/signup" data-testid="marketing-primary-cta" className={btn.primary}>
+            <TrialModalButton
+              from="marketing-hero"
+              data-testid="marketing-primary-cta"
+              className={btn.primary}
+            >
               Start Free
-            </Link>
+            </TrialModalButton>
             <Link href="#how-it-works" className={btn.secondary}>
               How It Works
             </Link>
