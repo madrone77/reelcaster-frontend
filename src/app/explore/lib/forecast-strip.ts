@@ -5,9 +5,17 @@
 // horizon are locked: signed-out visitors see 2 days, free accounts 7,
 // Pro all 14.
 
-import type { Forecast14dPayload } from "@/lib/bluecaster/live-spot-types";
+import type {
+  Forecast14dPayload,
+  HourlyConditions,
+  SunHours,
+} from "@/lib/bluecaster/live-spot-types";
 import type { MapForecast14dPayload } from "@/lib/bluecaster";
 import { tierFor, fmtPeak, type Tier } from "./explore-data";
+import {
+  dominantWeather,
+  type WeatherCondition,
+} from "../spot/components/weather-icon";
 
 /** Signed-out visitors see the first 2 days. */
 export const ANON_STRIP_DAYS = 2;
@@ -47,6 +55,25 @@ export interface ForecastDay {
    *  would read as bad fishing when the fish are there but non-retention).
    *  Set for days before the species' reopen date; the cell shows a label. */
   nonRetention: boolean;
+  /** Dominant daylight weather (best-window-weighted); null until the 14-day
+   *  conditions grid loads, or on the viewport strip. Drives the weather icon. */
+  weather: WeatherCondition | null;
+}
+
+/** Per-day dominant weather — daylight hours, weighted toward the day's best
+ *  window (its peak hour). Falls back to a 06–20 band when sun isn't available. */
+function dayWeather(
+  hours: (HourlyConditions | null | undefined)[] | undefined,
+  sun: SunHours | null | undefined,
+  peakHour: number | null,
+): WeatherCondition | null {
+  if (!hours || hours.length === 0) return null;
+  return dominantWeather(hours, {
+    sunriseHour: sun ? Math.round(sun.sunrise) : 6,
+    sunsetHour: sun ? Math.round(sun.sunset) : 20,
+    bestWindow:
+      peakHour != null ? { start: peakHour - 1, end: peakHour + 1 } : null,
+  });
 }
 
 /** The selected species' effective regulation, enough to decide per-day
@@ -102,6 +129,8 @@ export function buildForecastDays(
   // The selected species' regulation — when it's non-retention, days before
   // its reopen date show a "Non-retention" label instead of a (misleading) score.
   reg?: StripRegulation | null,
+  // Sun times for the daylight window used by the per-day weather icon.
+  sun?: SunHours | null,
 ): ForecastStripModel {
   const grid = bestSpeciesId
     ? payload.hourlyScoreGrid[bestSpeciesId]
@@ -134,6 +163,7 @@ export function buildForecastDays(
       lockTier,
       isBest: false,
       nonRetention,
+      weather: dayWeather(payload.hourlyConditionsGrid?.[i], sun, fromGrid.hour),
     };
   });
 
@@ -174,6 +204,8 @@ export function buildViewportForecastDays(
       // Viewport strip is the best-across-spots score, not a single species'
       // legality — no per-day non-retention concept here.
       nonRetention: false,
+      // Map/viewport payload carries no conditions grid — no weather icon.
+      weather: null,
     };
   });
 

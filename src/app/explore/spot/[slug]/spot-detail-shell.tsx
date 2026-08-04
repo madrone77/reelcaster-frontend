@@ -42,6 +42,7 @@ import SpotProfile from "../components/spot-profile";
 import NeighbourSpots from "../components/neighbour-spots";
 import SeasonalityStrip from "../components/seasonality-strip";
 import CurrentConditionsStrip from "../components/current-conditions-strip";
+import CurrentRegulations from "../components/current-regulations";
 import ScoreFactors from "../components/score-factors";
 import { useFavorite } from "../../lib/use-favorite";
 import { useHomeSpot } from "../../lib/use-home-spot";
@@ -227,9 +228,9 @@ export default function SpotDetailShell({
   const stripModel = useMemo(
     () =>
       selId && !tierLoading
-        ? buildForecastDays(fcSource, selId, accessTier, null, regulation)
+        ? buildForecastDays(fcSource, selId, accessTier, null, regulation, page.sun)
         : null,
-    [fcSource, selId, tierLoading, accessTier, regulation],
+    [fcSource, selId, tierLoading, accessTier, regulation, page.sun],
   );
 
   const [selectedIso, setSelectedIso] = useState<string | null>(null);
@@ -836,6 +837,18 @@ export default function SpotDetailShell({
           <div className="border-t border-rc-rule pt-8">
             <ScoreFactors factors={selId ? (page.todayFactorsBySpecies[selId] ?? []) : []} />
           </div>
+
+          {/* Current regulations — the limits in effect for the active species
+              (daily limit / size / gear), broken out. */}
+          {selSpecies && page.regulations.length > 0 && (
+            <div className="border-t border-rc-rule pt-8">
+              <CurrentRegulations
+                regulations={page.regulations}
+                selectedId={selId}
+                areaCode={page.regAreaCode}
+              />
+            </div>
+          )}
 
           {/* 8 · Seasonality */}
           {selSpecies && seasonWeeks.length > 0 && (
