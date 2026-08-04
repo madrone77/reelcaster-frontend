@@ -781,17 +781,9 @@ export default function SpotDetailShell({
             </div>
           )}
 
-          {/* 9 · Spot profile — reference material (map + depth/structure/
-              launch/peak), below the forecast reasoning, not competing with it. */}
-          <div className="border-t border-rc-rule pt-8 space-y-5">
-            <SpotMiniMap
-              spot={spot}
-              score={nowScore ?? todayScore}
-              speciesName={selSpecies?.name ?? null}
-              timeIso={
-                activeIso ? zonedHourToUtcIso(activeIso, selectedHour, TZ) : null
-              }
-            />
+          {/* 9 · Spot profile — reference material (depth/structure/launch/
+              peak), below the forecast reasoning. Map lives in the top band. */}
+          <div className="border-t border-rc-rule pt-8">
             <SpotProfile spot={spot} seasonState={seasonState} />
           </div>
 
@@ -803,7 +795,7 @@ export default function SpotDetailShell({
           {/* 11 · Description + the SEO/hierarchy trail. */}
           <div className="border-t border-rc-rule pt-8 space-y-6">
             {spot.seoIntro && (
-              <p className="rc-body text-rc-ink-soft leading-relaxed max-w-2xl">
+              <p className="rc-body text-rc-ink-soft leading-relaxed">
                 {spot.seoIntro}
               </p>
             )}
