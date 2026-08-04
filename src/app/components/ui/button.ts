@@ -35,4 +35,7 @@ export const btn = {
   cardPrimary: `${BASE} ${PROMINENT} w-full ${PRIMARY}`,
   // Compact header CTA: small, always hugs.
   nav: `${BASE} ${SMALL} ${PRIMARY}`,
+  // Same compact header CTA, on a brand-colored bar (white button) — the blue
+  // top nav's "Start free trial". Identical shape/type to `nav`, inverted fill.
+  navOnBrand: `${BASE} ${SMALL} ${ON_BRAND}`,
 } as const;
