@@ -62,7 +62,7 @@ export default function SpeciesCardRow({
             type="button"
             onClick={() => onSelect(s.id)}
             aria-pressed={sel}
-            className={`flex-1 min-w-[120px] rounded border px-5 py-4 text-left transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-rc-brand ${
+            className={`flex-1 min-w-[150px] rounded border px-4 py-3 text-left transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-rc-brand ${
               sel
                 ? "border-rc-brand bg-rc-brand-soft"
                 : "border-rc-rule bg-rc-panel hover:border-rc-ink-mute"
@@ -70,27 +70,29 @@ export default function SpeciesCardRow({
           >
             <div className="rc-label text-[10px] truncate">{s.name}</div>
             {note ? (
-              <div className="mt-2.5">
-                <div className="text-lg font-bold leading-none tracking-[-0.02em] text-rc-ink-mute">
+              <div className="mt-2">
+                <div className="text-base font-bold leading-tight tracking-[-0.02em] text-rc-ink-mute">
                   {note.label}
                 </div>
-                {note.sub && <div className="rc-label mt-1 text-[10px] text-rc-ink-mute">{note.sub}</div>}
+                {note.sub && <div className="rc-label mt-0.5 text-[10px] text-rc-ink-mute">{note.sub}</div>}
               </div>
             ) : (
-              <>
+              // Score on the left, the 24h trend on the right, aligned to the
+              // number's baseline — keeps the card short.
+              <div className="mt-2 flex items-end justify-between gap-3">
                 <div
-                  className={`text-4xl font-bold leading-none tracking-[-0.04em] mt-2.5 ${
+                  className={`text-3xl font-bold leading-none tracking-[-0.04em] ${
                     sel ? "text-rc-brand" : TIER_TEXT[tier]
                   }`}
                 >
                   {score ?? "—"}
                 </div>
                 {hasTrend && (
-                  <div className="mt-3">
+                  <div className="flex-1 min-w-[64px] max-w-[130px]">
                     <SpotTrend hours={hours} />
                   </div>
                 )}
-              </>
+              </div>
             )}
           </button>
         );
