@@ -557,7 +557,7 @@ export default function SpotDetailShell({
         {/* Single top-to-bottom reading order (conclusion-first). A desktop-
             width column (not a narrow prose measure — this is a data page);
             list/prose sub-content caps its own width so it doesn't stretch. */}
-        <div className="max-w-[1040px] mx-auto px-4 lg:px-6 py-4 lg:py-6 space-y-8">
+        <div className="max-w-[1200px] mx-auto px-4 lg:px-6 py-4 lg:py-6 space-y-8">
           {/* 1–3 · Identity + score cluster. ScoreCard already carries the
               Best Window callout (item 2) and the DFO reg strip (item 3). */}
           <div className="space-y-5">
@@ -633,36 +633,38 @@ export default function SpotDetailShell({
               </div>
             )}
 
-            {/* 2 · Best Window + 3 · DFO reg strip (both inside ScoreCard) */}
-            <ScoreCard
-                nowLabel={nowLabel}
-                score={nowScore}
-                peak={peakScore ?? todayScore}
-                peakTime={fmtPeak(peakHourNum)}
-                windowLabel={win.label}
-                windowPeak={peakScore ?? todayScore}
-                tidePhase={peakTidePhase}
-                dfoArea={page.regAreaCode}
-                speciesName={selSpecies?.name ?? null}
-                regOpen={regulation?.status === "Open"}
-                onSetAlert={handleSetAlert}
-              />
-
+            {/* Map (left) beside the score info (right) — a two-column band for
+                orientation + verdict. Stacks on mobile with the score first. */}
+            <div className="grid gap-5 lg:grid-cols-2 lg:items-start">
+              <div className="order-2 lg:order-1">
+                <SpotMiniMap
+                  spot={spot}
+                  score={nowScore ?? todayScore}
+                  speciesName={selSpecies?.name ?? null}
+                  timeIso={
+                    activeIso ? zonedHourToUtcIso(activeIso, selectedHour, TZ) : null
+                  }
+                />
+              </div>
+              {/* 2 · Best Window + 3 · DFO reg strip (both inside ScoreCard) */}
+              <div className="order-1 lg:order-2">
+                <ScoreCard
+                  nowLabel={nowLabel}
+                  score={nowScore}
+                  peak={peakScore ?? todayScore}
+                  peakTime={fmtPeak(peakHourNum)}
+                  windowLabel={win.label}
+                  windowPeak={peakScore ?? todayScore}
+                  tidePhase={peakTidePhase}
+                  dfoArea={page.regAreaCode}
+                  speciesName={selSpecies?.name ?? null}
+                  regOpen={regulation?.status === "Open"}
+                  onSetAlert={handleSetAlert}
+                />
+              </div>
+            </div>
           </div>
           {/* end identity + score cluster (items 1–3) */}
-
-          {/* Orientation — where the spot is, right under the verdict (a map is
-              location context, not the reference data that sits further down). */}
-          <div className="border-t border-rc-rule pt-8">
-            <SpotMiniMap
-              spot={spot}
-              score={nowScore ?? todayScore}
-              speciesName={selSpecies?.name ?? null}
-              timeIso={
-                activeIso ? zonedHourToUtcIso(activeIso, selectedHour, TZ) : null
-              }
-            />
-          </div>
 
           {/* 4 · 14-day forecast */}
           <div className="border-t border-rc-rule pt-8">
