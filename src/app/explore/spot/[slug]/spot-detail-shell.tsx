@@ -41,7 +41,7 @@ import SpeciesCardRow from "../components/species-card-row";
 import SpotProfile from "../components/spot-profile";
 import NeighbourSpots from "../components/neighbour-spots";
 import SeasonalityStrip from "../components/seasonality-strip";
-import NowConditions from "../components/now-conditions";
+import CurrentConditionsStrip from "../components/current-conditions-strip";
 import ScoreFactors from "../components/score-factors";
 import { useFavorite } from "../../lib/use-favorite";
 import { useHomeSpot } from "../../lib/use-home-spot";
@@ -397,22 +397,6 @@ export default function SpotDetailShell({
       ),
     [todayHoursGrid],
   );
-  const seaToday = useMemo(
-    () =>
-      Array.from(
-        { length: 24 },
-        (_, i) => (todayHoursGrid?.[i]?.waveM ?? null) as number | null,
-      ),
-    [todayHoursGrid],
-  );
-  const cloudToday = useMemo(
-    () =>
-      Array.from(
-        { length: 24 },
-        (_, i) => (todayHoursGrid?.[i]?.cloudPct ?? null) as number | null,
-      ),
-    [todayHoursGrid],
-  );
   const todayCurrent = useMemo(() => {
     const samples = todayIso ? curByIso[todayIso] : null;
     return samples ? signCurrentSeries(samples, tideToday) : null;
@@ -627,13 +611,15 @@ export default function SpotDetailShell({
         </div>
 
         {/* Body: single stack on mobile, two columns on desktop */}
-        <div className="max-w-[1400px] mx-auto px-4 lg:px-6 py-4 lg:py-6">
-          <div className="grid grid-cols-1 lg:grid-cols-[380px_1fr] gap-6 lg:gap-8">
-            {/* ── LEFT PANEL: name · map · score+DFO+actions · RIGHT NOW · profile ── */}
-            <div className="space-y-5 min-w-0">
-              {/* Name reads first — it's the spot's identity, so it leads the
-                  panel above the map. Star to the right marks the saved state. */}
-              <div>
+        {/* Single top-to-bottom reading order (conclusion-first). A desktop-
+            width column (not a narrow prose measure — this is a data page);
+            list/prose sub-content caps its own width so it doesn't stretch. */}
+        <div className="max-w-[1200px] mx-auto px-4 lg:px-6 py-4 lg:py-6 space-y-8">
+          {/* 1–3 · Identity + score cluster. ScoreCard already carries the
+              Best Window callout (item 2) and the DFO reg strip (item 3). */}
+          <div className="space-y-5">
+            {/* 1 · Spot header — name reads first, it's the spot's identity. */}
+            <div>
                 {pills}
                 <div className="flex items-center gap-2 mt-3">
                   <h1 className="rc-title-lg text-3xl lg:text-4xl min-w-0">
@@ -685,236 +671,236 @@ export default function SpotDetailShell({
                 </p>
               </div>
 
-              <SpotMiniMap
-                spot={spot}
-                score={nowScore ?? todayScore}
-                speciesName={selSpecies?.name ?? null}
-                timeIso={
-                  activeIso
-                    ? zonedHourToUtcIso(activeIso, selectedHour, TZ)
-                    : null
-                }
-              />
-
-              <ScoreCard
-                nowLabel={nowLabel}
-                score={nowScore}
-                peak={peakScore ?? todayScore}
-                peakTime={fmtPeak(peakHourNum)}
-                windowLabel={win.label}
-                windowPeak={peakScore ?? todayScore}
-                tidePhase={peakTidePhase}
-                dfoArea={page.regAreaCode}
-                speciesName={selSpecies?.name ?? null}
-                regOpen={regulation?.status === "Open"}
-                onSetAlert={handleSetAlert}
-              />
-
-              {/* Fresh catch reports — the evidence, directly under the
-                  model's prediction. Absent entirely when this spot has no
-                  reports in the window. */}
-              {fresh && (
-                <div className="border-t border-rc-rule pt-5">
-                  <FreshCatchBlock
-                    fresh={fresh}
-                    days={FRESH_DAYS}
-                    speciesNames={freshSpeciesNames}
-                    onUpgrade={() => setReportsUpgradeOpen(true)}
-                  />
-                </div>
-              )}
-
-              <div className="border-t border-rc-rule pt-5">
-                <ScoreFactors factors={selId ? (page.todayFactorsBySpecies[selId] ?? []) : []} />
-              </div>
-
-              <div className="border-t border-rc-rule pt-5">
-                <NowConditions
-                  rightNow={page.rightNow}
-                  tideSeries={tideToday}
-                  seaSeries={seaToday}
-                  skySeries={cloudToday}
-                  currentSigned={todayCurrent}
-                  currentSample={
-                    (todayIso ? curByIso[todayIso]?.[nowHour] : null) ?? null
-                  }
-                  pointCurrent={point?.current ?? null}
-                  nowHour={nowHour}
-                />
-              </div>
-
-              <div className="border-t border-rc-rule pt-5">
-                <SpotProfile spot={spot} seasonState={seasonState} />
-              </div>
-            </div>
-
-            {/* ── RIGHT COLUMN: species tabs · 14-day · stacked charts ──── */}
-            <div className="space-y-6 min-w-0">
-              {species.length > 1 && (
-                <div>
-                  <div className="flex items-baseline justify-between mb-3">
-                    <div className="rc-label text-[9px]">Species</div>
-                    <div className="font-rc-mono text-[10px] text-rc-ink-mute italic">
-                      tap to switch driver
-                    </div>
-                  </div>
-                  <SpeciesCardRow
-                    species={species}
-                    scores={page.topScoreTodayBySpecies}
-                    regulations={page.regulations}
-                    selectedId={selId}
-                    onSelect={setSelId}
-                  />
-                </div>
-              )}
-
+            {/* Species switcher drives every score below — pick first. */}
+            {species.length > 1 && (
               <div>
-                {/* Single-line header: label left, confidence caption right
-                    (the BEST badge on the strip already marks the best day). */}
-                <div className="flex items-baseline justify-between gap-3 mb-3">
-                  <div className="rc-label text-[9px]">14-Day Forecast</div>
-                  <span className="font-rc-mono text-[10px] text-rc-ink-mute italic shrink-0">
-                    confidence fades past day 7 · ECMWF + GFS
-                  </span>
-                </div>
-                <div className="relative">
-                  {/* pt-2: the BEST badge sits at -top-1.5, and overflow-x-auto
-                      clips the y-axis — the top padding keeps it inside the box. */}
-                  <div
-                    ref={dayStripRef}
-                    className="flex gap-1.5 h-[124px] pt-2 overflow-x-auto scrollbar-hide"
-                  >
-                    {(stripModel?.days ?? []).map((day) => (
-                      <div key={day.index} className="flex-1 min-w-[54px] flex">
-                        <DayCell
-                          day={day}
-                          selected={day.iso === activeIso}
-                          onSelect={() => handleDay(day)}
-                        />
-                      </div>
-                    ))}
-                  </div>
-                  <div
-                    aria-hidden
-                    className={`pointer-events-none absolute right-0 top-2 bottom-0 w-10 flex items-center justify-end pr-0.5 bg-gradient-to-l from-rc-panel to-transparent transition-opacity duration-200 ${
-                      dayStripScrollable ? "opacity-100" : "opacity-0"
-                    }`}
-                  >
-                    <ChevronRight className="w-4 h-4 text-rc-ink-mute" />
-                  </div>
-                  <div
-                    aria-hidden
-                    className={`pointer-events-none absolute left-0 top-2 bottom-0 w-10 flex items-center justify-start pl-0.5 bg-gradient-to-r from-rc-panel to-transparent transition-opacity duration-200 ${
-                      dayStripScrolledLeft ? "opacity-100" : "opacity-0"
-                    }`}
-                  >
-                    <ChevronLeft className="w-4 h-4 text-rc-ink-mute" />
+                <div className="flex items-baseline justify-between mb-3">
+                  <div className="rc-label text-[9px]">Species</div>
+                  <div className="font-rc-mono text-[10px] text-rc-ink-mute italic">
+                    tap to switch driver
                   </div>
                 </div>
-              </div>
-
-              <div>
-                <div className="flex flex-wrap items-end justify-between gap-x-4 gap-y-1">
-                  <div>
-                    <h3 className="rc-label text-[10px]">24-Hour Conditions</h3>
-                    <p className="font-rc-mono text-[11px] text-rc-ink-soft mt-1">
-                      {tzAbbrev ? `All times ${tzAbbrev}` : "Local time"}
-                    </p>
-                  </div>
-                  <p className="font-rc-mono text-[10px] text-rc-ink-mute italic">
-                    <span className="lg:hidden">Tap or drag to read any hour</span>
-                    <span className="hidden lg:inline">Hover or drag to read any hour</span>
-                  </p>
-                </div>
-                <SpotTerminal
-                  hours={terminalHours}
-                  realCurrent={chartCurrent}
-                  tideRange={tideRange}
-                  sun={page.sun}
-                  nowHour={nowHour}
-                  selectedHour={selectedHour}
-                  onSelectHour={setSelectedHour}
-                  bestWindow={win.window}
-                  speciesName={selSpecies?.name ?? null}
-                />
-                {scoreEntry && (
-                  <button
-                    type="button"
-                    onClick={() => setUpgradeOpen(true)}
-                    className="mt-4 w-full flex items-center justify-center gap-2 rounded bg-rc-brand-soft text-rc-brand font-rc-mono text-xs font-semibold tracking-[0.04em] py-3 hover:bg-rc-brand-soft/70 transition-colors"
-                  >
-                    <ArrowUpCircle className="w-4 h-4" />
-                    Upgrade to Pro for the full 14-day outlook
-                  </button>
-                )}
-              </div>
-
-            </div>
-          </div>
-
-          {/* ── Full-width sections: seasonality + nearby spots ────────── */}
-          <div className="mt-10 space-y-10">
-            {selSpecies && seasonWeeks.length > 0 && (
-              <div className="border-t border-rc-rule pt-8">
-                <SeasonalityStrip
-                  speciesName={selSpecies.name}
-                  weeks={seasonWeeks}
-                  regWeeks={seasonRegWeeks}
-                  state={seasonState ?? seasonWeeks[page.todayWeek] ?? "nodata"}
-                  todayWeek={page.todayWeek}
-                  nextOpenDate={regulation?.nextOpenDate ?? null}
-                  nextOpenSummary={regulation?.nextOpenSummary ?? null}
+                <SpeciesCardRow
+                  species={species}
+                  scores={page.topScoreTodayBySpecies}
+                  hourlyScoreGrid={fcSource.hourlyScoreGrid}
+                  regulations={page.regulations}
+                  selectedId={selId}
+                  onSelect={setSelId}
                 />
               </div>
             )}
+
+            {/* Score info (left) beside the map (right) — a two-column band for
+                verdict + orientation. Stacks on mobile with the score first. */}
+            <div className="grid gap-5 lg:grid-cols-2 lg:items-start">
+              <div className="order-2">
+                <SpotMiniMap
+                  spot={spot}
+                  score={nowScore ?? todayScore}
+                  speciesName={selSpecies?.name ?? null}
+                  timeIso={
+                    activeIso ? zonedHourToUtcIso(activeIso, selectedHour, TZ) : null
+                  }
+                />
+              </div>
+              {/* 2 · Best Window + 3 · DFO reg strip (both inside ScoreCard) */}
+              <div className="order-1">
+                <ScoreCard
+                  nowLabel={nowLabel}
+                  score={nowScore}
+                  peak={peakScore ?? todayScore}
+                  peakTime={fmtPeak(peakHourNum)}
+                  windowLabel={win.label}
+                  windowPeak={peakScore ?? todayScore}
+                  tidePhase={peakTidePhase}
+                  dfoArea={page.regAreaCode}
+                  speciesName={selSpecies?.name ?? null}
+                  regOpen={regulation?.status === "Open"}
+                  onSetAlert={handleSetAlert}
+                />
+              </div>
+            </div>
+          </div>
+          {/* end identity + score cluster (items 1–3) */}
+
+          {/* Fresh catch reports — the angler evidence, right under the model's
+              prediction. Absent entirely when the spot has no reports. */}
+          {fresh && (
             <div className="border-t border-rc-rule pt-8">
-              <NeighbourSpots spots={page.nearbySpots} />
+              <FreshCatchBlock
+                fresh={fresh}
+                days={FRESH_DAYS}
+                speciesNames={freshSpeciesNames}
+                onUpgrade={() => setReportsUpgradeOpen(true)}
+              />
+            </div>
+          )}
+
+          {/* 4 · 14-day forecast */}
+          <div className="border-t border-rc-rule pt-8">
+            <div className="flex items-baseline justify-between gap-3 mb-3">
+              <div className="rc-label text-[9px]">14-Day Forecast</div>
+              <span className="font-rc-mono text-[10px] text-rc-ink-mute italic shrink-0">
+                confidence fades past day 7 · ECMWF + GFS
+              </span>
+            </div>
+            <div className="relative">
+              {/* pt-2: the BEST badge sits at -top-1.5, and overflow-x-auto
+                  clips the y-axis — the top padding keeps it inside the box. */}
+              <div
+                ref={dayStripRef}
+                className="flex gap-1.5 h-[124px] pt-2 overflow-x-auto scrollbar-hide"
+              >
+                {(stripModel?.days ?? []).map((day) => (
+                  <div key={day.index} className="flex-1 min-w-[54px] flex">
+                    <DayCell
+                      day={day}
+                      selected={day.iso === activeIso}
+                      onSelect={() => handleDay(day)}
+                    />
+                  </div>
+                ))}
+              </div>
+              <div
+                aria-hidden
+                className={`pointer-events-none absolute right-0 top-2 bottom-0 w-10 flex items-center justify-end pr-0.5 bg-gradient-to-l from-rc-panel to-transparent transition-opacity duration-200 ${
+                  dayStripScrollable ? "opacity-100" : "opacity-0"
+                }`}
+              >
+                <ChevronRight className="w-4 h-4 text-rc-ink-mute" />
+              </div>
+              <div
+                aria-hidden
+                className={`pointer-events-none absolute left-0 top-2 bottom-0 w-10 flex items-center justify-start pl-0.5 bg-gradient-to-r from-rc-panel to-transparent transition-opacity duration-200 ${
+                  dayStripScrolledLeft ? "opacity-100" : "opacity-0"
+                }`}
+              >
+                <ChevronLeft className="w-4 h-4 text-rc-ink-mute" />
+              </div>
             </div>
           </div>
 
-          {/* ── Full-width footer ─────────────────────────────────────── */}
-          <div className="mt-8 space-y-6">
-            <CustomAlertCta spotName={spot.name} onCreateAlert={handleSetAlert} />
-            {spot.seoIntro && (
+          {/* 5 · Current conditions strip — the condensed now-state that
+              replaces the standalone RIGHT NOW panel. */}
+          <div className="border-t border-rc-rule pt-8">
+            <CurrentConditionsStrip
+              rightNow={page.rightNow}
+              currentSigned={todayCurrent}
+              currentSample={
+                (todayIso ? curByIso[todayIso]?.[nowHour] : null) ?? null
+              }
+              point={point}
+              nowHour={nowHour}
+            />
+          </div>
+
+          {/* 6 · 24-hour graph */}
+          <div className="border-t border-rc-rule pt-8">
+            <div className="flex flex-wrap items-end justify-between gap-x-4 gap-y-1">
               <div>
-                <p className="rc-body text-rc-ink-soft leading-relaxed">
-                  {spot.seoIntro}
+                <h3 className="rc-label text-[10px]">24-Hour Conditions</h3>
+                <p className="font-rc-mono text-[11px] text-rc-ink-soft mt-1">
+                  {tzAbbrev ? `All times ${tzAbbrev}` : "Local time"}
                 </p>
               </div>
+              <p className="font-rc-mono text-[10px] text-rc-ink-mute italic">
+                <span className="lg:hidden">Tap or drag to read any hour</span>
+                <span className="hidden lg:inline">Hover or drag to read any hour</span>
+              </p>
+            </div>
+            <SpotTerminal
+              hours={terminalHours}
+              realCurrent={chartCurrent}
+              tideRange={tideRange}
+              sun={page.sun}
+              nowHour={nowHour}
+              selectedHour={selectedHour}
+              onSelectHour={setSelectedHour}
+              bestWindow={win.window}
+              speciesName={selSpecies?.name ?? null}
+            />
+            {scoreEntry && (
+              <button
+                type="button"
+                onClick={() => setUpgradeOpen(true)}
+                className="mt-4 w-full flex items-center justify-start gap-2 rounded bg-rc-brand-soft text-rc-brand font-rc-mono text-xs font-semibold tracking-[0.04em] px-4 py-3 hover:bg-rc-brand-soft/70 transition-colors"
+              >
+                <ArrowUpCircle className="w-4 h-4" />
+                Upgrade to Pro for the full 14-day outlook
+              </button>
             )}
           </div>
 
-          {/* The desktop sub-header breadcrumb is `hidden lg:flex`, so on
-              mobile it contributes no link at all. This runs in the document
-              flow at every width, keeping the spot → city → province edges
-              present for both readers and crawlers. */}
-          {cityLink && (
-            <p className="mt-12 text-sm text-rc-ink-soft">
-              {spot.name} is one of the spots we track around{" "}
-              <Link
-                href={cityLink.cityPath}
-                className="text-rc-brand font-medium hover:underline"
-              >
-                {cityLink.cityName}
-              </Link>
-              . See every scored spot in{" "}
-              <Link
-                href={cityLink.provincePath}
-                className="text-rc-brand font-medium hover:underline"
-              >
-                {cityLink.provinceName}
+          {/* 7 · Score Explained */}
+          <div className="border-t border-rc-rule pt-8">
+            <ScoreFactors factors={selId ? (page.todayFactorsBySpecies[selId] ?? []) : []} />
+          </div>
+
+          {/* 8 · Seasonality */}
+          {selSpecies && seasonWeeks.length > 0 && (
+            <div className="border-t border-rc-rule pt-8">
+              <SeasonalityStrip
+                speciesName={selSpecies.name}
+                weeks={seasonWeeks}
+                regWeeks={seasonRegWeeks}
+                state={seasonState ?? seasonWeeks[page.todayWeek] ?? "nodata"}
+                todayWeek={page.todayWeek}
+                nextOpenDate={regulation?.nextOpenDate ?? null}
+                nextOpenSummary={regulation?.nextOpenSummary ?? null}
+              />
+            </div>
+          )}
+
+          {/* 9 · Spot profile — reference material (depth/structure/launch/
+              peak), below the forecast reasoning. Map lives in the top band. */}
+          <div className="border-t border-rc-rule pt-8">
+            <SpotProfile spot={spot} seasonState={seasonState} />
+          </div>
+
+          {/* 10 · Neighbouring spots */}
+          <div className="border-t border-rc-rule pt-8">
+            <NeighbourSpots spots={page.nearbySpots} />
+          </div>
+
+          {/* 11 · Description + the SEO/hierarchy trail. */}
+          <div className="border-t border-rc-rule pt-8 space-y-6">
+            {spot.seoIntro && (
+              <p className="rc-body text-rc-ink-soft leading-relaxed">
+                {spot.seoIntro}
+              </p>
+            )}
+            <CustomAlertCta spotName={spot.name} onCreateAlert={handleSetAlert} />
+            {/* Runs in the document flow at every width (the desktop breadcrumb
+                is hidden on mobile), keeping the spot → city → province edges
+                present for readers and crawlers. */}
+            {cityLink && (
+              <p className="text-sm text-rc-ink-soft">
+                {spot.name} is one of the spots we track around{" "}
+                <Link
+                  href={cityLink.cityPath}
+                  className="text-rc-brand font-medium hover:underline"
+                >
+                  {cityLink.cityName}
+                </Link>
+                . See every scored spot in{" "}
+                <Link
+                  href={cityLink.provincePath}
+                  className="text-rc-brand font-medium hover:underline"
+                >
+                  {cityLink.provinceName}
+                </Link>
+                .
+              </p>
+            )}
+            <p className="text-sm text-rc-ink-soft">
+              Looking for the full interactive map?{" "}
+              <Link href="/explore" className="text-rc-brand font-medium hover:underline">
+                Open Explore
               </Link>
               .
             </p>
-          )}
-
-          <p className="mt-4 text-sm text-rc-ink-soft">
-            Looking for the full interactive map?{" "}
-            <Link href="/explore" className="text-rc-brand font-medium hover:underline">
-              Open Explore
-            </Link>
-            .
-          </p>
+          </div>
         </div>
       </div>
 
