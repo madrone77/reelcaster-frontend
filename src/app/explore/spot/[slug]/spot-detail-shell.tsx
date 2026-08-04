@@ -633,10 +633,10 @@ export default function SpotDetailShell({
               </div>
             )}
 
-            {/* Map (left) beside the score info (right) — a two-column band for
-                orientation + verdict. Stacks on mobile with the score first. */}
+            {/* Score info (left) beside the map (right) — a two-column band for
+                verdict + orientation. Stacks on mobile with the score first. */}
             <div className="grid gap-5 lg:grid-cols-2 lg:items-start">
-              <div className="order-2 lg:order-1">
+              <div className="order-2">
                 <SpotMiniMap
                   spot={spot}
                   score={nowScore ?? todayScore}
@@ -647,7 +647,7 @@ export default function SpotDetailShell({
                 />
               </div>
               {/* 2 · Best Window + 3 · DFO reg strip (both inside ScoreCard) */}
-              <div className="order-1 lg:order-2">
+              <div className="order-1">
                 <ScoreCard
                   nowLabel={nowLabel}
                   score={nowScore}
