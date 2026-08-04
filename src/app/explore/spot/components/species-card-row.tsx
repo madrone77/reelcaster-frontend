@@ -1,6 +1,7 @@
 "use client";
 
 import { tierFor, TIER_TEXT } from "../../lib/explore-data";
+import SpotTrend from "../../components/spot-trend";
 import type { LiveSpecies, LiveRegulation } from "@/lib/bluecaster/live-spot-types";
 
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
@@ -32,12 +33,16 @@ function retentionNote(reg: LiveRegulation | undefined): { label: string; sub: s
 export default function SpeciesCardRow({
   species,
   scores,
+  hourlyScoreGrid,
   regulations,
   selectedId,
   onSelect,
 }: {
   species: LiveSpecies[];
   scores: Record<string, number>;
+  /** Per-species hourly score grid ([day][hour]); [0] is today. Drives the
+   *  card's glanceable 24h trend sparkline. */
+  hourlyScoreGrid: Record<string, (number | null)[][]>;
   regulations: LiveRegulation[];
   selectedId: string | null;
   onSelect: (id: string) => void;
@@ -49,6 +54,8 @@ export default function SpeciesCardRow({
         const tier = tierFor(score);
         const sel = s.id === selectedId;
         const note = retentionNote(regulations.find((r) => r.speciesId === s.id));
+        const hours = hourlyScoreGrid[s.id]?.[0] ?? [];
+        const hasTrend = hours.some((h) => h != null);
         return (
           <button
             key={s.id}
@@ -70,13 +77,20 @@ export default function SpeciesCardRow({
                 {note.sub && <div className="rc-label mt-1 text-[10px] text-rc-ink-mute">{note.sub}</div>}
               </div>
             ) : (
-              <div
-                className={`text-4xl font-bold leading-none tracking-[-0.04em] mt-2.5 ${
-                  sel ? "text-rc-brand" : TIER_TEXT[tier]
-                }`}
-              >
-                {score ?? "—"}
-              </div>
+              <>
+                <div
+                  className={`text-4xl font-bold leading-none tracking-[-0.04em] mt-2.5 ${
+                    sel ? "text-rc-brand" : TIER_TEXT[tier]
+                  }`}
+                >
+                  {score ?? "—"}
+                </div>
+                {hasTrend && (
+                  <div className="mt-3">
+                    <SpotTrend hours={hours} />
+                  </div>
+                )}
+              </>
             )}
           </button>
         );

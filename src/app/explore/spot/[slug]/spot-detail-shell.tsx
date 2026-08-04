@@ -626,6 +626,7 @@ export default function SpotDetailShell({
                 <SpeciesCardRow
                   species={species}
                   scores={page.topScoreTodayBySpecies}
+                  hourlyScoreGrid={fcSource.hourlyScoreGrid}
                   regulations={page.regulations}
                   selectedId={selId}
                   onSelect={setSelId}
