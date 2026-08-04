@@ -96,7 +96,9 @@ function FactorRow({ factor, units }: { factor: TodayFactor; units: UnitPrefs })
 export default function ScoreFactors({ factors }: { factors: TodayFactor[] }) {
   const units = useUnitPreferences();
   return (
-    <div>
+    // Capped measure so the right-aligned verdict pills stay next to their
+    // factor rather than flung to the far edge of a wide desktop column.
+    <div className="max-w-md">
       <div className="rc-label text-[9px] mb-1">Why this score</div>
       {factors.length > 0 ? (
         <div className="divide-y divide-rc-rule-soft">
