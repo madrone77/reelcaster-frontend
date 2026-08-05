@@ -846,6 +846,7 @@ export default function SpotDetailShell({
                 regulations={page.regulations}
                 selectedId={selId}
                 areaCode={page.regAreaCode}
+                syncedAt={page.regSyncedAt}
               />
             </div>
           )}
