@@ -156,14 +156,26 @@ export type TodayFactor = {
 
 export type RegStatus = "Open" | "Release" | "Closed";
 
+// Provenance of a regulation value. `confirmed` = a verified standing reg or an
+// active DFO notice; `expected` = an unverified default/seasonal pattern. The
+// panel renders expected in muted contrast — never as confirmed.
+export type RegChangeConfidence = "confirmed" | "expected";
+
 export type LiveRegulation = {
   speciesId: string | null;
   speciesCommon: string;
   status: RegStatus;
   dailyLimit: number | null;
+  // Fish that may be held in possession. Null → "Not published".
+  possessionLimit: number | null;
   sizeLimitCm: number | null;
   sizeLimitMaxCm: number | null;
   gearRestrictions: string | null;
+  // Annual/seasonal quota where one applies. Null → "Not published".
+  annualLimit: number | null;
+  // Whether this row is notice-backed/verified (`confirmed`) or an unverified
+  // default (`expected`).
+  confidence: RegChangeConfidence;
   notes: string | null;
   source: string | null;
   detail: string;
@@ -253,6 +265,9 @@ export type LiveSpotDetail = {
   topScoreHourBySpecies: Record<string, number>;
   regulations: LiveRegulation[];
   regAreaCode: string | null;
+  // Newest verified_at/updated_at across the reg rows (ISO), for the panel's
+  // "synced …" attribution line. Null when no row carries a timestamp.
+  regSyncedAt: string | null;
   catchSignals: LiveCatchSignal[];
   intelVerdict: "strong" | "mixed" | "slow" | null;
   tideStationName: string | null;

@@ -38,6 +38,10 @@ function fmtMD(iso: string | null): string | null {
   return `${mon} ${Number(m[2])}`;
 }
 
+// A limit we have no published figure for. A null limit must never render as a
+// bare "0" — that reads as "zero allowed" (a closure), the opposite of "unknown".
+const NOT_PUBLISHED = "Not published";
+
 /** The daily-retention allowance (quantity). */
 function limitText(r: LiveRegulation): string {
   if (r.status === "Closed") return "No retention";
@@ -45,6 +49,20 @@ function limitText(r: LiveRegulation): string {
   if (r.dailyLimit != null && r.dailyLimit > 0)
     return `${r.dailyLimit} per day`;
   return "See DFO";
+}
+
+/** Possession allowance (how many you may hold), or "Not published". */
+function possessionText(r: LiveRegulation): string {
+  if (r.possessionLimit != null && r.possessionLimit > 0)
+    return `${r.possessionLimit} in possession`;
+  return NOT_PUBLISHED;
+}
+
+/** Annual/seasonal quota, or "Not published". */
+function annualText(r: LiveRegulation): string {
+  if (r.annualLimit != null && r.annualLimit > 0)
+    return `${r.annualLimit} per year`;
+  return NOT_PUBLISHED;
 }
 
 /** The size/length rule — min, max, or a slot. */
@@ -57,6 +75,21 @@ function sizeText(r: LiveRegulation): string | null {
   return null;
 }
 
+/** ISO timestamp → "synced 3 days ago". Coarse relative buckets. */
+function syncedText(iso: string | null): string {
+  if (!iso) return "sync date unavailable";
+  const then = Date.parse(iso);
+  if (Number.isNaN(then)) return "sync date unavailable";
+  const days = Math.floor((Date.now() - then) / 86_400_000);
+  if (days <= 0) return "synced today";
+  if (days === 1) return "synced yesterday";
+  if (days < 30) return `synced ${days} days ago`;
+  const months = Math.floor(days / 30);
+  if (months < 12) return `synced ${months} month${months === 1 ? "" : "s"} ago`;
+  const years = Math.floor(days / 365);
+  return `synced ${years} year${years === 1 ? "" : "s"} ago`;
+}
+
 /**
  * The current, in-effect regulations for the active species at this spot,
  * broken out — daily quantity, size/length, gear, and any other restrictions —
@@ -67,16 +100,24 @@ export default function CurrentRegulations({
   regulations,
   selectedId,
   areaCode,
+  syncedAt,
 }: {
   regulations: LiveRegulation[];
   selectedId: string | null;
   areaCode: string | null;
+  syncedAt: string | null;
 }) {
   if (!regulations.length) return null;
 
   const active =
     regulations.find((r) => r.speciesId === selectedId) ?? regulations[0];
   const others = regulations.filter((r) => r !== active);
+
+  // Retention-context rows (possession + annual quota) only make sense where you
+  // may actually keep fish; under a closure/release the daily row already says so.
+  const canRetain = active.status === "Open";
+  // Unverified default rows render muted, never dressed up as confirmed regs.
+  const isExpected = active.confidence === "expected";
 
   const size = sizeText(active);
   const season =
@@ -88,11 +129,31 @@ export default function CurrentRegulations({
       ? `${fmtMD(active.nextOpenDate)}${active.nextOpenSummary ? ` · ${active.nextOpenSummary}` : ""}`
       : null;
 
-  const rows: Array<{ label: string; value: string }> = [
+  // `muted` forces a value to the muted ink regardless of confidence — used for
+  // "Not published", which is an absence, not a confirmed rule.
+  const rows: Array<{ label: string; value: string; muted?: boolean }> = [
     { label: "Daily limit", value: limitText(active) },
+    ...(canRetain
+      ? [
+          {
+            label: "Possession",
+            value: possessionText(active),
+            muted: active.possessionLimit == null || active.possessionLimit <= 0,
+          },
+        ]
+      : []),
     ...(size ? [{ label: "Size", value: size }] : []),
     ...(active.gearRestrictions
       ? [{ label: "Gear", value: active.gearRestrictions }]
+      : []),
+    ...(canRetain
+      ? [
+          {
+            label: "Annual quota",
+            value: annualText(active),
+            muted: active.annualLimit == null || active.annualLimit <= 0,
+          },
+        ]
       : []),
     ...(active.notes ? [{ label: "Other", value: active.notes }] : []),
     ...(season ? [{ label: "Season", value: season }] : []),
@@ -104,7 +165,7 @@ export default function CurrentRegulations({
       <div className="flex items-baseline justify-between gap-3">
         <h3 className="text-lg font-bold text-rc-ink">Current regulations</h3>
         <span className="font-rc-mono text-[11px] text-rc-ink-mute shrink-0">
-          {areaCode ? `PFMA ${areaCode}` : "DFO"} · in effect now
+          In effect now
         </span>
       </div>
       <p className="text-sm text-rc-ink-soft mt-0.5">
@@ -117,21 +178,35 @@ export default function CurrentRegulations({
           <span className="text-base font-bold text-rc-ink">
             {active.speciesCommon}
           </span>
-          <span
-            className={`shrink-0 px-2.5 py-1 rounded font-rc-mono text-[10px] font-bold uppercase tracking-[0.08em] ${STATUS_PILL[active.status]}`}
-          >
-            {STATUS_LABEL[active.status]}
-          </span>
+          <div className="flex items-center gap-2 shrink-0">
+            {isExpected && (
+              <span className="px-2 py-0.5 rounded border border-dashed border-rc-rule font-rc-mono text-[9px] font-bold uppercase tracking-[0.08em] text-rc-ink-mute">
+                Expected
+              </span>
+            )}
+            <span
+              className={`px-2.5 py-1 rounded font-rc-mono text-[10px] font-bold uppercase tracking-[0.08em] ${STATUS_PILL[active.status]}`}
+            >
+              {STATUS_LABEL[active.status]}
+            </span>
+          </div>
         </div>
 
-        {/* Broken-out rules */}
+        {/* Broken-out rules. Expected regs read muted; "Not published" values
+            (row.muted) are always muted regardless of confidence. */}
         <dl className="mt-4 divide-y divide-rc-rule">
           {rows.map((row) => (
             <div key={row.label} className="flex gap-4 py-2.5">
               <dt className="w-24 shrink-0 font-rc-mono text-[11px] uppercase tracking-[0.06em] text-rc-ink-mute pt-0.5">
                 {row.label}
               </dt>
-              <dd className="text-sm text-rc-ink flex-1">{row.value}</dd>
+              <dd
+                className={`text-sm flex-1 ${
+                  row.muted || isExpected ? "text-rc-ink-mute" : "text-rc-ink"
+                }`}
+              >
+                {row.value}
+              </dd>
             </div>
           ))}
         </dl>
@@ -167,6 +242,11 @@ export default function CurrentRegulations({
           Always check with DFO ↗
         </a>
       </div>
+
+      {/* Provenance — text-only source + freshness attribution. */}
+      <p className="mt-2 font-rc-mono text-[10px] text-rc-ink-mute">
+        Source: DFO/MPO{areaCode ? ` · PFMA ${areaCode}` : ""} · {syncedText(syncedAt)}
+      </p>
     </div>
   );
 }
