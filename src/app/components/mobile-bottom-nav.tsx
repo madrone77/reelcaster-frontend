@@ -18,7 +18,9 @@ const TABS = [
 // account links rather than at the top — it is the Pro support surface, and
 // the page itself explains the paywall to anyone who arrives without Pro.
 const MORE_LINKS = [
-  { href: "/profile", label: "Profile" },
+  { href: "/settings/account", label: "Account" },
+  { href: "/settings/preferences", label: "Preferences" },
+  { href: "/settings/units", label: "Units" },
   { href: "/alerts", label: "Alerts" },
   { href: "/support", label: "Support" },
   { href: "/plans", label: "Plans" },
