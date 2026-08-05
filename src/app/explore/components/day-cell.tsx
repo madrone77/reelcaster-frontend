@@ -3,6 +3,7 @@
 import { Lock } from "lucide-react";
 import type { Tier } from "../lib/explore-data";
 import type { ForecastDay } from "../lib/forecast-strip";
+import WeatherIcon from "../spot/components/weather-icon";
 
 /**
  * Score-numeral colors for the big cell number. Uses tier tokens that clear
@@ -115,6 +116,12 @@ export default function DayCell({
         }`}
       >
         {day.score ?? "—"}
+      </div>
+
+      {/* Dominant daylight weather — a small icon between the score and the
+          peak chip. Inherits the cell's text color (white when selected). */}
+      <div className={`h-3.5 flex items-center ${selected ? "text-white" : "text-rc-ink-mute"}`}>
+        <WeatherIcon condition={day.weather} size={14} />
       </div>
 
       <div

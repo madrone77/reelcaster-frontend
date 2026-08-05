@@ -95,14 +95,25 @@ function FactorRow({ factor, units }: { factor: TodayFactor; units: UnitPrefs })
  */
 export default function ScoreFactors({ factors }: { factors: TodayFactor[] }) {
   const units = useUnitPreferences();
+  const mid = Math.ceil(factors.length / 2);
+  const columns = [factors.slice(0, mid), factors.slice(mid)];
   return (
-    <div>
+    <div className="max-w-4xl">
       <div className="rc-label text-[9px] mb-1">Why this score</div>
       {factors.length > 0 ? (
-        <div className="divide-y divide-rc-rule-soft">
-          {factors.map((f) => (
-            <FactorRow key={f.label} factor={f} units={units} />
-          ))}
+        // Two columns on desktop — uses the width and keeps each row's measure
+        // tight so the verdict pill stays next to its factor. Single column on
+        // mobile.
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-10">
+          {columns.map((col, i) =>
+            col.length > 0 ? (
+              <div key={i} className="divide-y divide-rc-rule-soft">
+                {col.map((f) => (
+                  <FactorRow key={f.label} factor={f} units={units} />
+                ))}
+              </div>
+            ) : null,
+          )}
         </div>
       ) : (
         <p className="font-rc-mono text-xs text-rc-ink-mute italic py-2">

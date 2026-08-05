@@ -5,6 +5,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { LifeBuoy } from "lucide-react";
+import { btn } from "@/app/components/ui/button";
 import { useAuth } from "@/contexts/auth-context";
 import TrialModalButton from "@/app/components/paywall/trial-modal-button";
 
@@ -30,10 +31,11 @@ const SUPPORT_HREF = "/support";
  * because Explore owns its own scroll containers.
  */
 export default function ExploreTopBar({
-  variant = "default",
+  variant = "brand",
   preview,
 }: {
-  /** "brand" inverts the bar to a blue background with a white mark/links. */
+  /** "brand" (the default) is a blue bar with a white mark/links; "default"
+   *  is the light bar, kept available for any surface that needs it. */
   variant?: "default" | "brand";
   /** Force the signed-in affordance for a static preview (dashboard mock). */
   preview?: boolean;
@@ -176,20 +178,18 @@ export default function ExploreTopBar({
             <>
               <Link
                 href="/login"
-                className={`hidden sm:inline-flex text-sm font-medium px-3 py-1.5 transition-colors ${
+                className={`hidden sm:inline-flex text-sm font-semibold uppercase tracking-wide px-3 py-1.5 transition-colors ${
                   brand ? "text-white/80 hover:text-white" : "text-rc-ink-soft hover:text-rc-ink"
                 }`}
               >
                 Sign in
               </Link>
-              {/* Same modal as every other trial CTA in the product. */}
+              {/* Same trial modal as every other CTA in the product, styled
+                  with the canonical btn — btn.nav on light, inverted to
+                  btn.navOnBrand on the blue bar. */}
               <TrialModalButton
                 from="explore-topbar"
-                className={`px-4 py-2 rounded text-sm font-semibold transition-colors ${
-                  brand
-                    ? "bg-white text-rc-brand hover:bg-white/90"
-                    : "bg-rc-brand hover:bg-rc-brand-hover text-white"
-                }`}
+                className={brand ? btn.navOnBrand : btn.nav}
               >
                 Start free trial
               </TrialModalButton>

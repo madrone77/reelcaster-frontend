@@ -545,6 +545,23 @@ export function buildExploreData(
   // filters by city, so per-city order falls out of this.
   spots.sort((a, b) => (b.score ?? -1) - (a.score ?? -1));
 
+  // A spot shared by two cities (e.g. Race Rocks ∈ Sooke + Cowichan) is pushed
+  // once per city membership above, so the flat list carries the same slug
+  // twice — which trips a React duplicate-key warning downstream and can
+  // duplicate/drop a card. Collapse to one entry per slug here at the source
+  // (score-sorted, so the highest-scoring copy — identical for true dupes —
+  // wins), fixing every consumer at once.
+  {
+    const seenSlugs = new Set<string>();
+    let w = 0;
+    for (let r = 0; r < spots.length; r++) {
+      if (seenSlugs.has(spots[r].slug)) continue;
+      seenSlugs.add(spots[r].slug);
+      spots[w++] = spots[r];
+    }
+    spots.length = w;
+  }
+
   // The page opens on the flagship/pilot city (Victoria) when it's covered, so
   // it lands on the bathymetry-rich Juan de Fuca coastline rather than whichever
   // city happens to score highest that day. Falls back to best-scoring otherwise.

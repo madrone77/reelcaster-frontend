@@ -4,13 +4,17 @@ import { useEffect, useRef, useState } from "react";
 import type { SunHours } from "@/lib/bluecaster/live-spot-types";
 import { niceCurrentScale } from "../../lib/current-series";
 import { monoInterp as interp } from "../../lib/curve";
+import {
+  weatherFromHour,
+  weatherIconMarkup,
+  type WeatherCondition,
+} from "./weather-icon";
 import { useUnitPreferences } from "@/contexts/unit-preferences-context";
 import {
   WIND_LABELS,
   convertWind,
   convertTemp,
   convertHeight,
-  convertPrecip,
   type WindUnit,
   type TempUnit,
   type PrecipUnit,
@@ -246,7 +250,6 @@ function buildSvg(
     { k: "wind", l: "Wind", n: `${wLbl} · bar+gust`, h: mob ? 84 : 122 },
     { k: "arrow", l: "", n: "", h: mob ? 22 : 32 },
     { k: "sea", l: "Sea State", n: `wave ${u.heightUnit} · 0–${tickFmt(cvH(1))}`, h: 70 * base },
-    { k: "sky", l: "Sky", n: u.precipUnit === "mm" ? "cloud + mm · 0–4" : `cloud + in · 0–${convertPrecip(4, "mm", "inches").toFixed(2)}`, h: mob ? 42 : 58 },
     { k: "air", l: "Air Temp", n: `°${u.tempUnit} · ${Math.round(cvT(5))}–${Math.round(cvT(25))} fixed`, h: mob ? 42 : 56 },
   ] as { k: string; l: string; n: string; h: number; y0?: number; y1?: number }[];
   // Mobile row labels live in the inter-row gaps, so the gaps must clear a
@@ -257,7 +260,11 @@ function buildSvg(
   const Y: Record<string, { y0: number; y1: number }> = {};
   let cy = top;
   rows.forEach((r) => { r.y0 = cy; r.y1 = cy + r.h; Y[r.k] = { y0: r.y0, y1: r.y1 }; cy += r.h + (r.k === "arrow" ? (mob ? gap : 4) : gap); });
-  const axisY = cy + 2, H = axisY + (mob ? 16 : 22);
+  const axisY = cy + 2;
+  // Weather-icon row beneath the hour axis (replaces the in-stack SKY row).
+  const wxIconY = axisY + (mob ? 14 : 20) + (mob ? 12 : 15);
+  const wxLabelY = wxIconY + (mob ? 12 : 15);
+  const H = wxLabelY + (mob ? 4 : 6);
   const cTop = Y.score.y0, cBot = Y.air.y1;
 
   // twilight bands
@@ -349,12 +356,8 @@ function buildSvg(
     for (let i = 0; i < 24; i++) { const v = num(hours.sea[i]); if (v == null) continue; const cx = xAt(i), bw = hw * 0.56, col = v < 0.35 ? C.faint : v < 0.65 ? C.r[2] : C.r[3], by = yIn(v, r.y0, r.y1, 0, 1);
       s += `<rect x="${(cx + hw / 2 - bw / 2).toFixed(1)}" y="${by.toFixed(1)}" width="${bw.toFixed(1)}" height="${Math.max(1.5, r.y1 - by).toFixed(1)}" rx="1" fill="${col}"/>`; } }
 
-  // SKY cloud strip + precip 0-4
-  { const r = Y.sky, stripH = 6, vmax = 4;
-    for (let i = 0; i < 24; i++) { const cx = xAt(i), cl = num(hours.cloud[i]) ?? 0; s += `<rect x="${(cx + 0.6).toFixed(1)}" y="${r.y0}" width="${(hw - 1.2).toFixed(1)}" height="${stripH}" fill="${C.muted}" opacity="${(0.1 + (cl / 100) * 0.7).toFixed(2)}"/>`; }
-    let anyRain = false;
-    for (let i = 0; i < 24; i++) { const p = num(hours.precip[i]); if (p == null || p <= 0) continue; anyRain = true; const cx = xAt(i), bw = hw * 0.56, bh = (Math.min(p, vmax) / vmax) * (r.y1 - (r.y0 + stripH + 4)); s += `<rect x="${(cx + hw / 2 - bw / 2).toFixed(1)}" y="${(r.y1 - bh).toFixed(1)}" width="${bw.toFixed(1)}" height="${bh.toFixed(1)}" rx="1" fill="${C.brand}" opacity=".7"/>`; }
-    if (wide && !anyRain) s += `<text class="tm-note" x="${(x0 + cw * 0.28).toFixed(1)}" y="${((r.y0 + r.y1) / 2 + 3)}" text-anchor="middle" style="fill:${C.faint};letter-spacing:.1em">DRY ALL DAY</text>`; }
+  // (Sky is no longer an in-stack row — cloud + precip now render as the
+  // weather-icon row beneath the hour axis; see below.)
 
   // AIR 5-25
   { const r = Y.air; const line = curve((t) => interp(hours.air, t), r.y0, r.y1, 5, 25); if (line) s += `<path d="${line}" fill="none" stroke="${C.r[3]}" stroke-width="1.6"/>`;
@@ -387,6 +390,26 @@ function buildSvg(
     [sun.sunrise, sun.sunset].forEach((t) => {
       s += `<text x="${xAt(t).toFixed(1)}" y="${axisY + 12}" text-anchor="middle" style="font-size:11px;fill:${C.r[2]};font-family:var(--rc-font-mono)">☀${hh(t)}</text>`;
     });
+  }
+
+  // Weather-icon row — 6 fixed 4-hour segments (00/04/08/12/16/20), one icon
+  // per segment's dominant condition, beneath the hour axis. Replaces the cloud
+  // strip + precip bars; precip is the only emphasized condition.
+  {
+    const wxSize = mob ? 14 : 18;
+    for (const seg of [0, 4, 8, 12, 16, 20]) {
+      const tally: Partial<Record<WeatherCondition, number>> = {};
+      for (let h = seg; h < seg + 4; h++) {
+        const c = weatherFromHour(num(hours.cloud[h]), num(hours.precip[h]));
+        if (c) tally[c] = (tally[c] ?? 0) + 1;
+      }
+      const cond = (Object.entries(tally) as [WeatherCondition, number][]).sort(
+        (a, b) => b[1] - a[1],
+      )[0]?.[0];
+      const cx = xAt(seg + 2);
+      if (cond) s += weatherIconMarkup(cond, { x: cx, y: wxIconY, size: wxSize });
+      s += `<text class="tm-ax" x="${cx.toFixed(1)}" y="${wxLabelY}" text-anchor="middle">${String(seg).padStart(2, "0")}</text>`;
+    }
   }
 
   // right-gutter readouts (desktop)
