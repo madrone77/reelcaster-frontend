@@ -57,9 +57,11 @@ const pad = (n: number): string => String(n).padStart(2, "0");
 
 type ValueUnits = {
   windUnit: WindUnit;
+  currentUnit: WindUnit;
   tempUnit: TempUnit;
   precipUnit: PrecipUnit;
-  heightUnit: HeightUnit;
+  tideUnit: HeightUnit;
+  waveUnit: HeightUnit;
   pressureUnit: PressureUnit;
 };
 
@@ -75,15 +77,15 @@ const buildValueUnit = (u: ValueUnits): Record<string, (v: number) => string> =>
   wind: (v) =>
     `${Math.round(convertWind(v, "knots", u.windUnit))} ${WIND_LABELS[u.windUnit]} wind`,
   tidal_current_speed_kt: (v) =>
-    `${convertWind(v, "knots", u.windUnit).toFixed(1)} ${WIND_LABELS[u.windUnit]} current`,
+    `${convertWind(v, "knots", u.currentUnit).toFixed(1)} ${WIND_LABELS[u.currentUnit]} current`,
   tidal_current_rate_of_change_kt_per_hr: (v) =>
-    `${convertWind(v, "knots", u.windUnit).toFixed(1)} ${WIND_LABELS[u.windUnit]}/hr`,
+    `${convertWind(v, "knots", u.currentUnit).toFixed(1)} ${WIND_LABELS[u.currentUnit]}/hr`,
   swell_height_m: (v) =>
-    `${convertHeight(v, "m", u.heightUnit).toFixed(1)} ${u.heightUnit} swell`,
+    `${convertHeight(v, "m", u.waveUnit).toFixed(1)} ${u.waveUnit} swell`,
   swell_period_s: (v) => `${Math.round(v)} s period`,
-  wave_height_m: (v) => `${convertHeight(v, "m", u.heightUnit).toFixed(1)} ${u.heightUnit}`,
+  wave_height_m: (v) => `${convertHeight(v, "m", u.waveUnit).toFixed(1)} ${u.waveUnit}`,
   tide_range_24h_m: (v) =>
-    `${convertHeight(v, "m", u.heightUnit).toFixed(1)} ${u.heightUnit} swing`,
+    `${convertHeight(v, "m", u.tideUnit).toFixed(1)} ${u.tideUnit} swing`,
   solar_elevation_deg: (v) => `${Math.round(v)}° sun`,
   daylight_hours: (v) => `${v.toFixed(1)} h light`,
   moon_illumination_pct: (v) => `${Math.round(v)}% moon`,
@@ -508,10 +510,10 @@ export default function FactorCharts({
   windowLabel?: string | null;
 }) {
   const series = useMemo(() => buildSeries(entry, tz), [entry, tz]);
-  const { windUnit, tempUnit, precipUnit, heightUnit, pressureUnit } = useUnitPreferences();
+  const { windUnit, currentUnit, tempUnit, precipUnit, tideUnit, waveUnit, pressureUnit } = useUnitPreferences();
   const valueUnit = useMemo(
-    () => buildValueUnit({ windUnit, tempUnit, precipUnit, heightUnit, pressureUnit }),
-    [windUnit, tempUnit, precipUnit, heightUnit, pressureUnit],
+    () => buildValueUnit({ windUnit, currentUnit, tempUnit, precipUnit, tideUnit, waveUnit, pressureUnit }),
+    [windUnit, currentUnit, tempUnit, precipUnit, tideUnit, waveUnit, pressureUnit],
   );
 
   if (series.length === 0) return null;

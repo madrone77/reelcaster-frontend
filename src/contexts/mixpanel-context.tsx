@@ -59,7 +59,10 @@ export function MixpanelProvider({ children }: { children: React.ReactNode }) {
           windUnit: preferences.windUnit,
           tempUnit: preferences.tempUnit,
           precipUnit: preferences.precipUnit,
-          heightUnit: preferences.heightUnit,
+          tideUnit: preferences.tideUnit,
+          waveUnit: preferences.waveUnit,
+          depthUnit: preferences.depthUnit,
+          currentUnit: preferences.currentUnit,
           notificationsEnabled: preferences.notificationsEnabled,
         };
 
@@ -80,7 +83,10 @@ export function MixpanelProvider({ children }: { children: React.ReactNode }) {
           windUnit: preferences.windUnit,
           tempUnit: preferences.tempUnit,
           precipUnit: preferences.precipUnit,
-          heightUnit: preferences.heightUnit,
+          tideUnit: preferences.tideUnit,
+          waveUnit: preferences.waveUnit,
+          depthUnit: preferences.depthUnit,
+          currentUnit: preferences.currentUnit,
           notificationsEnabled: preferences.notificationsEnabled,
           lastActiveDate: new Date().toISOString(),
         };

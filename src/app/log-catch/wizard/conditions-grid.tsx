@@ -38,7 +38,7 @@ export default function ConditionsGrid({
   speciesName: string | null;
   loading: boolean;
 }) {
-  const { windUnit, tempUnit, heightUnit, pressureUnit } = useUnitPreferences();
+  const { windUnit, currentUnit, tempUnit, tideUnit, pressureUnit } = useUnitPreferences();
 
   if (!snapshot && !loading) {
     return (
@@ -92,6 +92,7 @@ export default function ConditionsGrid({
   const tempNote = waterTempNote(s.water_temp_c, speciesName);
 
   const speedLabel = WIND_LABELS[windUnit];
+  const currentSpeedLabel = WIND_LABELS[currentUnit];
 
   const cells: Array<{
     key: CellKey;
@@ -108,9 +109,9 @@ export default function ConditionsGrid({
       value: s.tide_height_m,
       display:
         s.tide_height_m !== null
-          ? `${s.tide_height_m >= 0 ? "+" : ""}${formatHeight(convertHeight(s.tide_height_m, "m", heightUnit), heightUnit)} ${rising ? "↑" : "↓"}`
+          ? `${s.tide_height_m >= 0 ? "+" : ""}${formatHeight(convertHeight(s.tide_height_m, "m", tideUnit), tideUnit)} ${rising ? "↑" : "↓"}`
           : "—",
-      unit: heightUnit,
+      unit: tideUnit,
       sub: tideWord ? `${rising ? "Rising" : "Falling"} · ${tideWord}` : "—",
       step: 0.1,
     },
@@ -122,10 +123,10 @@ export default function ConditionsGrid({
         s.current_speed_kt !== null && s.current_dir
           ? `${tideWord === "ebb" ? "Ebb" : "Flood"} ${s.current_dir}`
           : "—",
-      unit: speedLabel,
+      unit: currentSpeedLabel,
       sub:
         s.current_speed_kt !== null
-          ? `${formatWind(convertWind(s.current_speed_kt, "knots", windUnit), windUnit, 1)}${currentTrend ? ` · ${currentTrend}` : ""}`
+          ? `${formatWind(convertWind(s.current_speed_kt, "knots", currentUnit), currentUnit, 1)}${currentTrend ? ` · ${currentTrend}` : ""}`
           : "No current data here",
       step: 0.1,
     },

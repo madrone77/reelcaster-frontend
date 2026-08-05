@@ -4,9 +4,12 @@ import { createContext, useContext, useEffect, useState, useCallback } from 'rea
 import { UserPreferencesService } from '@/lib/user-preferences'
 import {
   WindUnit,
+  CurrentUnit,
   TempUnit,
   PrecipUnit,
-  HeightUnit,
+  TideUnit,
+  WaveUnit,
+  DepthUnit,
   DistanceUnit,
   PressureUnit,
   AnyUnit,
@@ -18,9 +21,12 @@ import { useMixpanel } from './mixpanel-context'
 
 export interface UnitPrefs {
   windUnit: WindUnit
+  currentUnit: CurrentUnit
   tempUnit: TempUnit
   precipUnit: PrecipUnit
-  heightUnit: HeightUnit
+  tideUnit: TideUnit
+  waveUnit: WaveUnit
+  depthUnit: DepthUnit
   distanceUnit: DistanceUnit
   pressureUnit: PressureUnit
 }
@@ -33,24 +39,32 @@ interface UnitPreferencesContextType extends UnitPrefs {
   loading: boolean
 }
 
-// Defaults: marine convention (wind/current in knots, pressure mb), and
-// heights/depths in FEET — BC anglers think in feet, so imperial depth is the
-// out-of-the-box experience and metres is the toggle. Keep in step with
+// Defaults: BC marine convention. Wind + current in knots and pressure in mb
+// (marine standard); tide + wave heights in METRES (how DFO tide tables and
+// marine forecasts quote them); DEPTH in FEET (how BC anglers sound bottom);
+// distance in km. Each variable is independent — a mixed screen (km + ft + m)
+// is the intended default, not an accident. Keep in step with
 // DEFAULT_PREFERENCES in lib/user-preferences.ts.
 const DEFAULT_UNITS: UnitPrefs = {
   windUnit: 'knots',
+  currentUnit: 'knots',
   tempUnit: 'C',
   precipUnit: 'mm',
-  heightUnit: 'ft',
+  tideUnit: 'm',
+  waveUnit: 'm',
+  depthUnit: 'ft',
   distanceUnit: 'km',
   pressureUnit: 'mb',
 }
 
 const UNIT_KEY: Record<MetricType, keyof UnitPrefs> = {
   wind: 'windUnit',
+  current: 'currentUnit',
   temp: 'tempUnit',
   precip: 'precipUnit',
-  height: 'heightUnit',
+  tide: 'tideUnit',
+  wave: 'waveUnit',
+  depth: 'depthUnit',
   distance: 'distanceUnit',
   pressure: 'pressureUnit',
 }
@@ -94,9 +108,17 @@ export function UnitPreferencesProvider({ children }: { children: React.ReactNod
       const p = await UserPreferencesService.getUserPreferences()
       const server: UnitPrefs = {
         windUnit: p.windUnit || DEFAULT_UNITS.windUnit,
+        // Current historically borrowed the wind unit; seed from it once.
+        currentUnit: p.currentUnit || p.windUnit || DEFAULT_UNITS.currentUnit,
         tempUnit: p.tempUnit || DEFAULT_UNITS.tempUnit,
         precipUnit: p.precipUnit || DEFAULT_UNITS.precipUnit,
-        heightUnit: p.heightUnit || DEFAULT_UNITS.heightUnit,
+        // Tide + wave were one "height" key; the new default is metres, so we
+        // don't migrate the old (feet) height here — a deliberate convention shift.
+        tideUnit: p.tideUnit || DEFAULT_UNITS.tideUnit,
+        waveUnit: p.waveUnit || DEFAULT_UNITS.waveUnit,
+        // Depth stays feet, matching the legacy height default, so migrating an
+        // explicit old height choice into depth is safe.
+        depthUnit: p.depthUnit || p.heightUnit || DEFAULT_UNITS.depthUnit,
         distanceUnit: p.distanceUnit || DEFAULT_UNITS.distanceUnit,
         pressureUnit: p.pressureUnit || DEFAULT_UNITS.pressureUnit,
       }

@@ -116,7 +116,7 @@ export default function ProfilePage() {
         if (preferences.windUnit !== original.windUnit) changedFields.push('windUnit')
         if (preferences.tempUnit !== original.tempUnit) changedFields.push('tempUnit')
         if (preferences.precipUnit !== original.precipUnit) changedFields.push('precipUnit')
-        if (preferences.heightUnit !== original.heightUnit) changedFields.push('heightUnit')
+        if (preferences.tideUnit !== original.tideUnit) changedFields.push('tideUnit')
         if (preferences.notificationsEnabled !== original.notificationsEnabled) changedFields.push('notificationsEnabled')
         if (preferences.emailForecasts !== original.emailForecasts) changedFields.push('emailForecasts')
         if (preferences.notificationTime !== original.notificationTime) changedFields.push('notificationTime')
@@ -129,7 +129,7 @@ export default function ProfilePage() {
           windUnit: preferences.windUnit,
           tempUnit: preferences.tempUnit,
           precipUnit: preferences.precipUnit,
-          heightUnit: preferences.heightUnit,
+          tideUnit: preferences.tideUnit,
           notificationsEnabled: preferences.notificationsEnabled,
           timestamp: new Date().toISOString(),
         })
@@ -455,7 +455,13 @@ export default function ProfilePage() {
                     <Select
                       value={preferences.windUnit || 'knots'}
                       onValueChange={value =>
-                        setPreferences(prev => ({ ...prev, windUnit: value as 'kph' | 'mph' | 'knots' }))
+                        // Current speed tracks wind on this legacy control; the
+                        // /settings/units page splits them independently.
+                        setPreferences(prev => ({
+                          ...prev,
+                          windUnit: value as 'kph' | 'mph' | 'knots',
+                          currentUnit: value as 'kph' | 'mph' | 'knots',
+                        }))
                       }
                     >
                       <SelectTrigger className="h-11">
@@ -514,15 +520,21 @@ export default function ProfilePage() {
                     <p className="text-xs text-rc-ink-mute">Rainfall and precipitation</p>
                   </div>
 
-                  {/* Height Unit */}
+                  {/* Height Unit — coarse control that sets tide, wave, and
+                      depth together. The /settings/units page splits them. */}
                   <div className="space-y-2">
                     <Label htmlFor="height-unit" className="text-rc-ink font-medium text-sm">
                       Height / Depth
                     </Label>
                     <Select
-                      value={preferences.heightUnit || 'ft'}
+                      value={preferences.tideUnit || 'm'}
                       onValueChange={value =>
-                        setPreferences(prev => ({ ...prev, heightUnit: value as 'ft' | 'm' }))
+                        setPreferences(prev => ({
+                          ...prev,
+                          tideUnit: value as 'ft' | 'm',
+                          waveUnit: value as 'ft' | 'm',
+                          depthUnit: value as 'ft' | 'm',
+                        }))
                       }
                     >
                       <SelectTrigger className="h-11">
@@ -533,7 +545,7 @@ export default function ProfilePage() {
                         <SelectItem value="ft">Feet (ft)</SelectItem>
                       </SelectContent>
                     </Select>
-                    <p className="text-xs text-rc-ink-mute">Tide heights and wave heights</p>
+                    <p className="text-xs text-rc-ink-mute">Tide, wave, and depth</p>
                   </div>
 
                   {/* Distance Unit */}

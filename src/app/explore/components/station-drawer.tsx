@@ -51,7 +51,7 @@ function TideCurve({
   extremes: StationConditions["extremes"];
   tz: string;
 }) {
-  const { heightUnit } = useUnitPreferences();
+  const { tideUnit } = useUnitPreferences();
   const model = useMemo(() => {
     if (series.length < 2) return null;
     const W = 336;
@@ -90,14 +90,14 @@ function TideCurve({
           labelX,
           crowded,
           kind: e.kind,
-          label: `${convertHeight(e.height_m, "m", heightUnit).toFixed(1)}${heightUnit}`,
+          label: `${convertHeight(e.height_m, "m", tideUnit).toFixed(1)}${tideUnit}`,
           time: fmtLocalTime(e.time_utc, tz),
         };
       });
     const nowMs = Date.now();
     const nowX = nowMs >= t0 && nowMs <= t1 ? PAD_X + ((nowMs - t0) / (t1 - t0)) * (W - 2 * PAD_X) : null;
     return { W, H, path, dots, nowX };
-  }, [series, extremes, tz, heightUnit]);
+  }, [series, extremes, tz, tideUnit]);
 
   if (!model) return null;
   return (
@@ -157,7 +157,7 @@ export default function StationDrawer({
   tz: string;
   onBack: () => void;
 }) {
-  const { windUnit, tempUnit, heightUnit, pressureUnit } = useUnitPreferences();
+  const { windUnit, tempUnit, tideUnit, waveUnit, pressureUnit } = useUnitPreferences();
   const [tide, setTide] = useState<StationConditions | null>(null);
   const [buoy, setBuoy] = useState<BuoyConditions | null>(null);
   const [loading, setLoading] = useState(true);
@@ -228,8 +228,8 @@ export default function StationDrawer({
           ? "High slack"
           : "Low slack";
     if (!next) return dir;
-    return `${dir} · ${next.kind} ${formatHeight(convertHeight(next.height_m, "m", heightUnit), heightUnit)} at ${fmtLocalTime(next.time_utc, tz)}`;
-  }, [tide, upcoming, tz, heightUnit]);
+    return `${dir} · ${next.kind} ${formatHeight(convertHeight(next.height_m, "m", tideUnit), tideUnit)} at ${fmtLocalTime(next.time_utc, tz)}`;
+  }, [tide, upcoming, tz, tideUnit]);
 
   const obs = buoy?.latest ?? null;
   const buoyCells: Array<{ label: string; value: string; sub: string | null }> = obs
@@ -249,7 +249,7 @@ export default function StationDrawer({
         },
         {
           label: "WAVES",
-          value: obs.wave_height_m != null ? formatHeight(convertHeight(obs.wave_height_m, "m", heightUnit), heightUnit) : "—",
+          value: obs.wave_height_m != null ? formatHeight(convertHeight(obs.wave_height_m, "m", waveUnit), waveUnit) : "—",
           sub:
             obs.dominant_period_s != null
               ? `${Math.round(obs.dominant_period_s)}s period`
@@ -334,13 +334,13 @@ export default function StationDrawer({
           <>
             <div className="flex items-baseline gap-3 mt-6 pb-4 border-b border-rc-rule-soft">
               <span className="text-[44px] leading-none font-bold tracking-[-0.04em] text-rc-ink">
-                {tide.now ? formatHeight(convertHeight(tide.now.height_m, "m", heightUnit), heightUnit) : "—"}
+                {tide.now ? formatHeight(convertHeight(tide.now.height_m, "m", tideUnit), tideUnit) : "—"}
               </span>
               {tide.now && (
                 <span className="font-rc-mono text-xs text-rc-ink-soft">
                   {formatHeight(
-                    convertHeight(tide.now.height_m, "m", heightUnit === "m" ? "ft" : "m"),
-                    heightUnit === "m" ? "ft" : "m",
+                    convertHeight(tide.now.height_m, "m", tideUnit === "m" ? "ft" : "m"),
+                    tideUnit === "m" ? "ft" : "m",
                   )}
                 </span>
               )}
@@ -371,7 +371,7 @@ export default function StationDrawer({
                         {e.kind === "high" ? "High" : "Low"}
                       </span>
                       <span className="text-rc-ink-soft">
-                        {formatHeight(convertHeight(e.height_m, "m", heightUnit), heightUnit)}
+                        {formatHeight(convertHeight(e.height_m, "m", tideUnit), tideUnit)}
                       </span>
                       <span className="text-rc-ink">
                         {fmtLocalTime(e.time_utc, tz)}

@@ -2,7 +2,7 @@
 
 import type { LiveSpot, SeasonState } from "@/lib/bluecaster/live-spot-types";
 import { useUnitPreferences } from "@/contexts/unit-preferences-context";
-import { convertHeight } from "@/app/utils/unit-conversions";
+import { convertDepth, DEPTH_LABELS } from "@/app/utils/unit-conversions";
 
 const SEASON_LABEL: Record<SeasonState, string> = {
   peak: "Peak now",
@@ -50,13 +50,14 @@ export default function SpotProfile({
   spot: LiveSpot;
   seasonState: SeasonState | null;
 }) {
-  const { heightUnit } = useUnitPreferences();
-  const depthVal = (m: number) => Math.round(convertHeight(m, "m", heightUnit));
+  const { depthUnit } = useUnitPreferences();
+  const depthLbl = DEPTH_LABELS[depthUnit];
+  const depthVal = (m: number) => Math.round(convertDepth(m, "m", depthUnit));
   const depth =
     spot.depthMinM != null && spot.depthMaxM != null
-      ? `${depthVal(spot.depthMinM)}–${depthVal(spot.depthMaxM)} ${heightUnit}`
+      ? `${depthVal(spot.depthMinM)}–${depthVal(spot.depthMaxM)} ${depthLbl}`
       : spot.depthMeanM != null
-        ? `~${depthVal(spot.depthMeanM)} ${heightUnit}`
+        ? `~${depthVal(spot.depthMeanM)} ${depthLbl}`
         : "—";
 
   return (

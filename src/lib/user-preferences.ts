@@ -10,13 +10,19 @@ export interface UserPreferences {
   emailForecasts?: boolean
   notificationTime?: string // Format: "HH:MM" (24-hour format)
   timezone?: string
-  // Unit preferences
-  windUnit?: 'kph' | 'mph' | 'knots'
+  // Unit preferences — eight independent display variables.
+  windUnit?: 'kph' | 'mph' | 'knots' | 'ms'
+  currentUnit?: 'kph' | 'mph' | 'knots' | 'ms'
   tempUnit?: 'C' | 'F'
   precipUnit?: 'mm' | 'inches'
-  heightUnit?: 'ft' | 'm'
-  distanceUnit?: 'km' | 'miles'
+  tideUnit?: 'ft' | 'm'
+  waveUnit?: 'ft' | 'm'
+  depthUnit?: 'ft' | 'm' | 'fathoms'
+  distanceUnit?: 'km' | 'miles' | 'nm'
   pressureUnit?: 'mb' | 'inHg'
+  /** @deprecated Split into tideUnit/waveUnit/depthUnit. Read only to migrate
+   *  an existing saved choice into depthUnit; never written going forward. */
+  heightUnit?: 'ft' | 'm'
 }
 
 export interface NotificationPreferences {
@@ -88,13 +94,16 @@ const DEFAULT_PREFERENCES: UserPreferences = {
   emailForecasts: false,
   notificationTime: '06:00',
   timezone: 'America/Vancouver',
-  // Marine-convention defaults — match what the product surfaces render when
+  // BC marine-convention defaults — match what the product surfaces render when
   // no preference is set (keep in step with DEFAULT_UNITS in
-  // contexts/unit-preferences-context.tsx).
+  // contexts/unit-preferences-context.tsx). Tide + wave in metres, depth in feet.
   windUnit: 'knots',
+  currentUnit: 'knots',
   tempUnit: 'C',
   precipUnit: 'mm',
-  heightUnit: 'ft',
+  tideUnit: 'm',
+  waveUnit: 'm',
+  depthUnit: 'ft',
   distanceUnit: 'km',
   pressureUnit: 'mb',
 }
