@@ -9,6 +9,7 @@ import { niceCurrentScale, nextSlackHour } from "../../lib/current-series";
 import { useUnitPreferences } from "@/contexts/unit-preferences-context";
 import {
   convertHeight,
+  convertPressure,
   convertTemp,
   convertWind,
   formatHeight,
@@ -95,7 +96,7 @@ export default function CurrentConditionsStrip({
   point?: PointConditions | null;
   nowHour?: number;
 }) {
-  const { windUnit, tempUnit, heightUnit } = useUnitPreferences();
+  const { windUnit, currentUnit, tempUnit, tideUnit, waveUnit, pressureUnit } = useUnitPreferences();
   const rn = rightNow;
   const cond = point?.conditions ?? null;
 
@@ -146,7 +147,7 @@ export default function CurrentConditionsStrip({
       label: "Tide",
       value:
         rn?.tideM != null
-          ? `${formatHeight(convertHeight(rn.tideM, "m", heightUnit), heightUnit)} ${tideArrow}`.trim()
+          ? `${formatHeight(convertHeight(rn.tideM, "m", tideUnit), tideUnit)} ${tideArrow}`.trim()
           : DASH,
       sub: accel,
     },
@@ -154,7 +155,7 @@ export default function CurrentConditionsStrip({
       label: "Current",
       value:
         curSpeed != null
-          ? formatWind(convertWind(curSpeed, "knots", windUnit), windUnit, 1)
+          ? formatWind(convertWind(curSpeed, "knots", currentUnit), currentUnit, 1)
           : DASH,
       sub:
         curSet == null
@@ -165,7 +166,14 @@ export default function CurrentConditionsStrip({
     },
     {
       label: "Pressure",
-      value: pressure != null ? `${Math.round(pressure)} hPa` : DASH,
+      // mb ≡ hPa numerically; keep the "hPa" label for metric (matches the
+      // factor breakdown), convert to inHg when the viewer prefers it.
+      value:
+        pressure == null
+          ? DASH
+          : pressureUnit === "inHg"
+            ? `${convertPressure(pressure, "mb", "inHg").toFixed(2)} inHg`
+            : `${Math.round(pressure)} hPa`,
       sub: pWord,
       glyph: pArrow ? (
         <span className="font-rc-mono text-sm text-rc-ink-mute leading-none">{pArrow}</span>
@@ -187,7 +195,7 @@ export default function CurrentConditionsStrip({
       value: seaState(rn?.waveM ?? null) ?? DASH,
       sub:
         rn?.waveM != null
-          ? formatHeight(convertHeight(rn.waveM, "m", heightUnit), heightUnit)
+          ? formatHeight(convertHeight(rn.waveM, "m", waveUnit), waveUnit)
           : null,
     },
     {

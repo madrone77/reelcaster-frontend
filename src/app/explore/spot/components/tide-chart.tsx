@@ -16,7 +16,7 @@ export default function TideChart({
   series: (number | null)[];
   selectedHour?: number | null;
 }) {
-  const { heightUnit } = useUnitPreferences();
+  const { tideUnit } = useUnitPreferences();
   const vals = series.filter((v): v is number => v != null);
   if (vals.length < 2) return null;
 
@@ -43,7 +43,7 @@ export default function TideChart({
           preserveAspectRatio="none"
           className="w-full h-full"
           role="img"
-          aria-label={`24-hour tide, ${formatHeight(convertHeight(min, "m", heightUnit), heightUnit)} to ${formatHeight(convertHeight(max, "m", heightUnit), heightUnit)}`}
+          aria-label={`24-hour tide, ${formatHeight(convertHeight(min, "m", tideUnit), tideUnit)} to ${formatHeight(convertHeight(max, "m", tideUnit), tideUnit)}`}
         >
           <polygon points={area} fill="var(--rc-brand)" opacity={0.08} />
           <polyline

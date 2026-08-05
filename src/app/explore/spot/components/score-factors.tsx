@@ -34,17 +34,17 @@ function composeValueLine(factor: TodayFactor, units: UnitPrefs): string | null 
   switch (factor.key) {
     case "tidal_current_speed_kt": {
       if (v < 0.2) return "Slack";
-      const s = `${convertWind(v, "knots", units.windUnit).toFixed(1)} ${WIND_LABELS[units.windUnit]}`;
+      const s = `${convertWind(v, "knots", units.currentUnit).toFixed(1)} ${WIND_LABELS[units.currentUnit]}`;
       return v < 0.7 ? `${s} light` : s;
     }
     case "tide_range_24h_m":
-      return `${convertHeight(v, "m", units.heightUnit).toFixed(1)} ${units.heightUnit} range today`;
+      return `${convertHeight(v, "m", units.tideUnit).toFixed(1)} ${units.tideUnit} range today`;
     case "swell_height_m":
       if (v < 0.1) return "Flat";
-      return `${convertHeight(v, "m", units.heightUnit).toFixed(1)} ${units.heightUnit}`;
+      return `${convertHeight(v, "m", units.waveUnit).toFixed(1)} ${units.waveUnit}`;
     case "wave_height_m":
       if (v < 0.15) return "Flat";
-      return `${convertHeight(v, "m", units.heightUnit).toFixed(1)} ${units.heightUnit} chop`;
+      return `${convertHeight(v, "m", units.waveUnit).toFixed(1)} ${units.waveUnit} chop`;
     case "sea_surface_temp_c":
       return `${convertTemp(v, "C", units.tempUnit).toFixed(1)}°${units.tempUnit}`;
     case "barometric_pressure_hpa":

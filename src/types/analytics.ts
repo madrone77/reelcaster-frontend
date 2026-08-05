@@ -113,6 +113,11 @@ export interface PreferencesSavedEventProps {
   windUnit?: string;
   tempUnit?: string;
   precipUnit?: string;
+  tideUnit?: string;
+  waveUnit?: string;
+  depthUnit?: string;
+  currentUnit?: string;
+  /** @deprecated split into tide/wave/depth */
   heightUnit?: string;
   notificationsEnabled?: boolean;
   timestamp: string;
@@ -225,6 +230,11 @@ export interface UserProperties {
   windUnit?: string;
   tempUnit?: string;
   precipUnit?: string;
+  tideUnit?: string;
+  waveUnit?: string;
+  depthUnit?: string;
+  currentUnit?: string;
+  /** @deprecated split into tide/wave/depth */
   heightUnit?: string;
   notificationsEnabled?: boolean;
   totalForecasts?: number;
