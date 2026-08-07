@@ -11,7 +11,7 @@ import DayCell from "./day-cell";
 import DayScrubCell from "./day-scrub-cell";
 import UpgradeDialog from "./upgrade-dialog";
 
-const CONFIDENCE_NOTE = "confidence fades past day 7 · ECMWF + GFS";
+const MODEL_NOTE = "ECMWF + GFS + ReelCaster";
 
 /**
  * Docked 14-day forecast strip (desktop) — a full-bleed instrument panel
@@ -76,7 +76,7 @@ export default function ForecastStrip({
         className="hidden lg:flex fixed bottom-4 left-6 z-30 items-center gap-2 px-3 py-2 rounded bg-rc-panel/88 backdrop-blur-md border border-rc-rule shadow-rc-panel hover:border-rc-ink-mute transition-colors"
       >
         <CloudSun className="w-4 h-4 text-rc-ink-mute" />
-        <span className="rc-label text-[9px]">14-Day Forecast</span>
+        <span className="rc-label text-[9px]">14 Day Outlook</span>
         <span className="text-xs font-semibold text-rc-brand ml-1">Show</span>
       </button>
     );
@@ -91,7 +91,7 @@ export default function ForecastStrip({
             <div className="flex items-center gap-1.5 shrink-0">
               <CloudSun className="w-4 h-4 text-rc-ink-mute" />
               <span className="rc-label text-[9px] text-rc-ink">
-                14-Day Forecast{speciesName ? ` · ${speciesName}` : ""}
+                14 Day Outlook{speciesName ? ` · ${speciesName}` : ""}
               </span>
             </div>
             {model?.bestDay && (
@@ -110,7 +110,7 @@ export default function ForecastStrip({
           </div>
           <div className="flex items-center gap-4 shrink-0">
             <span className="font-rc-mono text-[10px] text-rc-ink-mute italic hidden xl:inline">
-              {CONFIDENCE_NOTE}
+              {MODEL_NOTE}
             </span>
             {onHide && (
               <button

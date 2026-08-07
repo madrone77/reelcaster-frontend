@@ -92,7 +92,7 @@ export default function SheetForecast({
             )}
           </div>
         ) : (
-          <span className="rc-label text-[9px]">14-day forecast</span>
+          <span className="rc-label text-[9px]">14 Day Outlook</span>
         )}
       </div>
 

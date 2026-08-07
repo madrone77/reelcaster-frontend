@@ -769,12 +769,12 @@ export default function SpotDetailShell({
               )}
 
               <div>
-                {/* Single-line header: label left, confidence caption right
+                {/* Single-line header: label left, model caption right
                     (the BEST badge on the strip already marks the best day). */}
                 <div className="flex items-baseline justify-between gap-3 mb-3">
-                  <div className="rc-label text-[9px]">14-Day Forecast</div>
+                  <div className="rc-label text-[9px]">14 Day Outlook</div>
                   <span className="font-rc-mono text-[10px] text-rc-ink-mute italic shrink-0">
-                    confidence fades past day 7 · ECMWF + GFS
+                    ECMWF + GFS + ReelCaster
                   </span>
                 </div>
                 <div className="relative">
