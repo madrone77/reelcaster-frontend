@@ -25,6 +25,7 @@ import { readHomeSpot } from "@/app/explore/lib/use-home-spot";
 import { setFavorite } from "@/app/explore/lib/use-favorite";
 import { storedFirstName, NAME_FALLBACK } from "@/lib/display-name";
 import { supabase } from "@/lib/supabase";
+import { PAGE_MEASURE } from "@/app/components/layout/page-measure";
 import type { AlertProfile } from "@/lib/custom-alert-engine";
 import type { SpotPageInitial } from "@/lib/bluecaster/live-spot-types";
 
@@ -458,7 +459,11 @@ export default function DashboardPage() {
   return (
     <div className="min-h-dvh bg-rc-panel pt-16">
       <ExploreTopBar variant="brand" />
-      <div className="mx-auto max-w-[1400px] px-5 py-8 lg:px-10 lg:py-10">
+      {/* Was max-w-[1400px] px-5 lg:px-10 — the only body on the site wider
+          than the app gridline, which left the top bar visibly inset from the
+          content it sits above. Tightened onto the gridline so the mark, the
+          "Your dashboard" kicker and the avatar share one left/right edge. */}
+      <div className={`${PAGE_MEASURE} py-8 lg:py-10`}>
         {/* ── Header ─────────────────────────────────────────────────────── */}
         <header className="mb-8 flex flex-col gap-6 lg:flex-row lg:items-start lg:justify-between">
           <div>
@@ -651,7 +656,7 @@ export default function DashboardPage() {
             </div>
 
             {spotsLoading ? (
-              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 {[0, 1, 2, 3, 4, 5].map((i) => (
                   <div
                     key={i}
@@ -660,7 +665,7 @@ export default function DashboardPage() {
                 ))}
               </div>
             ) : railSpots && railSpots.length > 0 ? (
-              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 {railSpots.map((rs) => (
                   <SpotCard
                     key={rs.slug}

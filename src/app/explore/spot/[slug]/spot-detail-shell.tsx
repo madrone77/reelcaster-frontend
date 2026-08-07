@@ -53,6 +53,7 @@ import { FreshCatchBlock } from "@/app/explore/components/fresh-catch-reports";
 import type { RailFreshCatch } from "@/app/explore/lib/fresh-catch-types";
 import CustomAlertCta from "../components/custom-alert-cta";
 import MarketingFooter from "@/app/components/marketing/marketing-footer";
+import { PAGE_MEASURE } from "@/app/components/layout/page-measure";
 import LogCatchDialog from "../components/log-catch-dialog";
 import CreateAlertDialog from "../components/create-alert-dialog";
 
@@ -62,14 +63,6 @@ const ProTrialModal = dynamic(
 );
 
 const TZ = "America/Vancouver";
-
-/**
- * The one gridline this page hangs off. The top bar, the breadcrumb sub-header
- * and the body all share it, so the mark, "Back to map" and the spot name sit
- * on the same left edge, and the trial CTA, the freshness stamp and the map's
- * right edge sit on the same right one. Change it here or the rows drift apart.
- */
-const PAGE_MEASURE = "max-w-[1200px] mx-auto px-4 lg:px-6";
 
 /** Catch-report window. Matches FRESH_DAYS in the fresh-catches route. */
 const FRESH_DAYS = 21;
@@ -570,7 +563,7 @@ export default function SpotDetailShell({
     // Nothing here listened to that scroller anyway (only the 14-day strip
     // scrolls, horizontally, on its own).
     <div className="min-h-dvh bg-rc-panel">
-      <ExploreTopBar containerClassName={PAGE_MEASURE} />
+      <ExploreTopBar />
 
       <div className="pt-16">
         {/* Desktop sub-header: breadcrumb + freshness. Full-bleed rule, inner
