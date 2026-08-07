@@ -63,6 +63,14 @@ const ProTrialModal = dynamic(
 
 const TZ = "America/Vancouver";
 
+/**
+ * The one gridline this page hangs off. The top bar, the breadcrumb sub-header
+ * and the body all share it, so the mark, "Back to map" and the spot name sit
+ * on the same left edge, and the trial CTA, the freshness stamp and the map's
+ * right edge sit on the same right one. Change it here or the rows drift apart.
+ */
+const PAGE_MEASURE = "max-w-[1200px] mx-auto px-4 lg:px-6";
+
 /** Catch-report window. Matches FRESH_DAYS in the fresh-catches route. */
 const FRESH_DAYS = 21;
 
@@ -555,59 +563,72 @@ export default function SpotDetailShell({
   );
 
   return (
-    <div className="h-dvh overflow-y-auto bg-rc-panel">
-      <ExploreTopBar />
+    // The document scrolls, not a nested box. A `h-dvh overflow-y-auto` root
+    // would put the scrollbar *inside* this element, so the body would centre
+    // in a viewport half a scrollbar narrower than the one the fixed top bar
+    // measures against — the mark landing a few px right of the spot name.
+    // Nothing here listened to that scroller anyway (only the 14-day strip
+    // scrolls, horizontally, on its own).
+    <div className="min-h-dvh bg-rc-panel">
+      <ExploreTopBar containerClassName={PAGE_MEASURE} />
 
       <div className="pt-16">
-        {/* Desktop sub-header: breadcrumb + freshness */}
-        <div className="hidden lg:flex flex-wrap items-center justify-between gap-2 px-4 lg:px-6 py-3 border-b border-rc-rule">
-          <div className="flex items-center gap-2 font-rc-mono text-[11px] text-rc-ink-mute">
-            <Link
-              href="/explore"
-              className="flex items-center gap-1 text-rc-brand hover:underline"
-            >
-              <ChevronLeft className="w-3.5 h-3.5" />
-              Back to map
-            </Link>
-            <span className="text-rc-rule">·</span>
-            {/* Real anchors up the hierarchy, not prose. This used to render
-                the country › region › city trail as plain text, which left
-                every spot page linking only sideways to /explore — nothing
-                pointed back at the city page that should rank for it. */}
-            <nav aria-label="Breadcrumb" className="min-w-0 truncate">
-              {cityLink ? (
-                <>
-                  <Link
-                    href={cityLink.provincePath}
-                    className="hover:text-rc-ink transition-colors"
-                  >
-                    {cityLink.provinceName}
-                  </Link>
-                  {" › "}
-                  <Link
-                    href={cityLink.cityPath}
-                    className="hover:text-rc-ink transition-colors"
-                  >
-                    {cityLink.cityName}
-                  </Link>
-                  {" › "}
-                </>
-              ) : (
-                <>
-                  {[spot.country, spot.region, spot.city]
-                    .filter(Boolean)
-                    .join(" › ")}
-                  {" › "}
-                </>
-              )}
-              <span className="text-rc-ink-soft" aria-current="page">
-                {spot.name}
-              </span>
-            </nav>
-          </div>
-          <div className="flex items-center gap-1.5 font-rc-mono text-[10px] text-rc-ink-mute uppercase tracking-[0.08em]">
-            <span className="w-1.5 h-1.5 rounded-full bg-rc-good" />
-            Live · auto-refresh 5 min
+        {/* Desktop sub-header: breadcrumb + freshness. Full-bleed rule, inner
+            row on the page measure — so "Back to map" starts on the same
+            gridline as the spot name below it, and the freshness stamp ends on
+            the same one as the map's right edge. */}
+        <div className="hidden lg:block border-b border-rc-rule">
+          <div
+            className={`${PAGE_MEASURE} flex flex-wrap items-center justify-between gap-2 py-3`}
+          >
+            <div className="flex items-center gap-2 font-rc-mono text-[11px] text-rc-ink-mute">
+              <Link
+                href="/explore"
+                className="flex items-center gap-1 text-rc-brand hover:underline"
+              >
+                <ChevronLeft className="w-3.5 h-3.5" />
+                Back to map
+              </Link>
+              <span className="text-rc-rule">·</span>
+              {/* Real anchors up the hierarchy, not prose. This used to render
+                  the country › region › city trail as plain text, which left
+                  every spot page linking only sideways to /explore — nothing
+                  pointed back at the city page that should rank for it. */}
+              <nav aria-label="Breadcrumb" className="min-w-0 truncate">
+                {cityLink ? (
+                  <>
+                    <Link
+                      href={cityLink.provincePath}
+                      className="hover:text-rc-ink transition-colors"
+                    >
+                      {cityLink.provinceName}
+                    </Link>
+                    {" › "}
+                    <Link
+                      href={cityLink.cityPath}
+                      className="hover:text-rc-ink transition-colors"
+                    >
+                      {cityLink.cityName}
+                    </Link>
+                    {" › "}
+                  </>
+                ) : (
+                  <>
+                    {[spot.country, spot.region, spot.city]
+                      .filter(Boolean)
+                      .join(" › ")}
+                    {" › "}
+                  </>
+                )}
+                <span className="text-rc-ink-soft" aria-current="page">
+                  {spot.name}
+                </span>
+              </nav>
+            </div>
+            <div className="flex items-center gap-1.5 font-rc-mono text-[10px] text-rc-ink-mute uppercase tracking-[0.08em]">
+              <span className="w-1.5 h-1.5 rounded-full bg-rc-good" />
+              Live · auto-refresh 5 min
+            </div>
           </div>
         </div>
 
@@ -615,7 +636,7 @@ export default function SpotDetailShell({
         {/* Single top-to-bottom reading order (conclusion-first). A desktop-
             width column (not a narrow prose measure — this is a data page);
             list/prose sub-content caps its own width so it doesn't stretch. */}
-        <div className="max-w-[1200px] mx-auto px-4 lg:px-6 py-4 lg:py-6 space-y-8">
+        <div className={`${PAGE_MEASURE} py-4 lg:py-6 space-y-8`}>
           {/* 1–3 · Identity + score cluster. ScoreCard already carries the
               Best Window callout (item 2) and the DFO reg strip (item 3). */}
           <div className="space-y-5">
