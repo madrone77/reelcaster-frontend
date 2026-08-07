@@ -821,7 +821,12 @@ export default function ExploreShell({
   }, [labelCity]);
 
   return (
-    <div className="relative h-[calc(100dvh-3.5rem)] overflow-hidden lg:h-full lg:min-h-0 lg:overflow-visible">
+    // Explore pins itself to the viewport: the map fills the box and the rail
+    // and forecast strip scroll inside it, so the document itself never
+    // scrolls. This height + clip used to come from ExploreLayout, but that
+    // layout is shared with the spot page, which is a long document — so the
+    // surface that wants the lock owns it.
+    <div className="relative h-[calc(100dvh-3.5rem)] lg:h-dvh lg:min-h-0 overflow-hidden">
       {/* The one surface that stays off the app gridline: the map runs to both
           edges, and a centred row would strand the mark in the middle of it. */}
       <ExploreTopBar containerClassName={BLEED_MEASURE} />
