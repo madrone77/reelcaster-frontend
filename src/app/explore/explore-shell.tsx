@@ -31,6 +31,7 @@ import { useSubscription } from "@/hooks/use-subscription";
 import { useAuth } from "@/contexts/auth-context";
 import { useExploreState } from "./lib/use-explore-state";
 import ExploreTopBar from "./components/explore-top-bar";
+import { BLEED_MEASURE } from "@/app/components/layout/page-measure";
 import ExploreMap, { type StationPick, type CustomSpotPin } from "./components/explore-map";
 import CreateCustomSpotDialog from "./components/create-custom-spot-dialog";
 import { favoriteIfUnset, setFavorite } from "./lib/use-favorite";
@@ -821,7 +822,9 @@ export default function ExploreShell({
 
   return (
     <div className="relative h-[calc(100dvh-3.5rem)] overflow-hidden lg:h-full lg:min-h-0 lg:overflow-visible">
-      <ExploreTopBar />
+      {/* The one surface that stays off the app gridline: the map runs to both
+          edges, and a centred row would strand the mark in the middle of it. */}
+      <ExploreTopBar containerClassName={BLEED_MEASURE} />
 
       {/* Mobile-only location header — floats over the top of the full-screen
           map (Zillow-style), just under the fixed top bar. Desktop shows the

@@ -6,6 +6,7 @@ import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { LifeBuoy } from "lucide-react";
 import { btn } from "@/app/components/ui/button";
+import { PAGE_MEASURE } from "@/app/components/layout/page-measure";
 import { useAuth } from "@/contexts/auth-context";
 import TrialModalButton from "@/app/components/paywall/trial-modal-button";
 
@@ -33,7 +34,7 @@ const SUPPORT_HREF = "/support";
 export default function ExploreTopBar({
   variant = "brand",
   preview,
-  containerClassName = "px-4 sm:px-6",
+  containerClassName = PAGE_MEASURE,
 }: {
   /** "brand" (the default) is a blue bar with a white mark/links; "default"
    *  is the light bar, kept available for any surface that needs it. */
@@ -42,10 +43,9 @@ export default function ExploreTopBar({
   preview?: boolean;
   /** Measure for the bar's inner row. The rule and background stay full-bleed
    *  either way; this only moves the mark and the right-hand controls. Defaults
-   *  to edge-padding, which is what Explore wants — a centred row would leave
-   *  the mark floating over the middle of a full-bleed map. Content pages pass
-   *  their own container (e.g. `max-w-[1200px] mx-auto px-4 lg:px-6`) so the
-   *  mark lines up with the copy underneath it instead of the viewport edge. */
+   *  to the app gridline, so a new surface lands on it without having to know
+   *  it exists. Explore passes BLEED_MEASURE — it's the one surface where a
+   *  centred row would leave the mark floating over the middle of a map. */
   containerClassName?: string;
 } = {}) {
   const { user, session, loading } = useAuth();
