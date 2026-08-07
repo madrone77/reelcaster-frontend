@@ -33,12 +33,20 @@ const SUPPORT_HREF = "/support";
 export default function ExploreTopBar({
   variant = "brand",
   preview,
+  containerClassName = "px-4 sm:px-6",
 }: {
   /** "brand" (the default) is a blue bar with a white mark/links; "default"
    *  is the light bar, kept available for any surface that needs it. */
   variant?: "default" | "brand";
   /** Force the signed-in affordance for a static preview (dashboard mock). */
   preview?: boolean;
+  /** Measure for the bar's inner row. The rule and background stay full-bleed
+   *  either way; this only moves the mark and the right-hand controls. Defaults
+   *  to edge-padding, which is what Explore wants — a centred row would leave
+   *  the mark floating over the middle of a full-bleed map. Content pages pass
+   *  their own container (e.g. `max-w-[1200px] mx-auto px-4 lg:px-6`) so the
+   *  mark lines up with the copy underneath it instead of the viewport edge. */
+  containerClassName?: string;
 } = {}) {
   const { user, session, loading } = useAuth();
   const pathname = usePathname();
@@ -91,7 +99,7 @@ export default function ExploreTopBar({
         brand ? "bg-rc-brand border-white/15" : "bg-rc-panel border-rc-rule"
       }`}
     >
-      <div className="h-full px-4 sm:px-6 flex items-center gap-8">
+      <div className={`h-full flex items-center gap-8 ${containerClassName}`}>
         <Link href="/" className="shrink-0 flex items-center" aria-label="ReelCaster home">
           <Image
             src={brand ? "/reelcaster-mark-white.svg" : "/reelcaster-mark.svg"}
