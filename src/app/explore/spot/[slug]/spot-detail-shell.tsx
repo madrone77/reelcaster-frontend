@@ -7,6 +7,7 @@ import { ArrowUpCircle, ChevronLeft, ChevronRight, Home } from "lucide-react";
 import { useAuth } from "@/contexts/auth-context";
 import { useSubscription } from "@/hooks/use-subscription";
 import { FREE_FAVORITE_SPOTS } from "@/lib/plan-features";
+import { countryDisplayName, regulatorFor } from "@/lib/regions";
 import { favoriteCount } from "../../lib/use-favorite";
 import ExploreTopBar from "../../components/explore-top-bar";
 import DayCell from "../../components/day-cell";
@@ -103,6 +104,8 @@ export type SpotCityLink = {
   cityPath: string;
   provinceName: string;
   provincePath: string;
+  /** Breadcrumb label, not the formal name — "USA", "Canada". */
+  countryName: string;
 };
 
 export default function SpotDetailShell({
@@ -119,6 +122,10 @@ export default function SpotDetailShell({
   freshTracked?: boolean;
 }) {
   const { spot } = page;
+  // Which fisheries authority governs this spot. `spot.region` is the
+  // province/state ("Washington"); the linked breadcrumb's province name is
+  // the same value when a published city owns the spot.
+  const regulator = regulatorFor(cityLink?.provinceName ?? spot.region);
   const nowHour = currentLocalHour(TZ);
   const [selectedHour, setSelectedHour] = useState<number>(nowHour);
 
@@ -534,11 +541,13 @@ export default function SpotDetailShell({
   const pills = (
     <div className="flex flex-wrap items-center gap-2">
       {/* Neutral area label — no open/closed claim. Area-level status isn't
-          in the payload, and DFO areas carry in-season closures we can't see
-          here; only the per-species pill below is data-driven. */}
+          in the payload, and management areas carry in-season closures we
+          can't see here; only the per-species pill below is data-driven.
+          The area TERM is jurisdictional, not cosmetic: BC's PFMA 10 and
+          Washington's Marine Area 10 are different pieces of water. */}
       {page.regAreaCode && (
         <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-rc-surface text-rc-ink-mute font-rc-mono text-[10px] font-semibold uppercase tracking-[0.06em]">
-          PFMA {page.regAreaCode}
+          {regulator.areaLabel} {page.regAreaCode}
         </span>
       )}
       {regulation && (
@@ -590,6 +599,12 @@ export default function SpotDetailShell({
               <nav aria-label="Breadcrumb" className="min-w-0 truncate">
                 {cityLink ? (
                   <>
+                    {/* Country is a label, not a link — there is no
+                        /fishing/<country> route to point it at. It still leads
+                        the trail so a US spot reads "USA › Washington › …"
+                        rather than opening on a state name with no context. */}
+                    {cityLink.countryName}
+                    {" › "}
                     <Link
                       href={cityLink.provincePath}
                       className="hover:text-rc-ink transition-colors"
@@ -607,7 +622,15 @@ export default function SpotDetailShell({
                   </>
                 ) : (
                   <>
-                    {[spot.country, spot.region, spot.city]
+                    {/* No published city to link up to. Same shape, from the
+                        spot's own flat address — `spot.country` arrives as the
+                        formal name ("United States"), so it gets the same
+                        display mapping the linked branch already applied. */}
+                    {[
+                      spot.country ? countryDisplayName(spot.country) : null,
+                      spot.region,
+                      spot.city,
+                    ]
                       .filter(Boolean)
                       .join(" › ")}
                     {" › "}
@@ -730,6 +753,7 @@ export default function SpotDetailShell({
                   windowPeak={peakScore ?? todayScore}
                   tidePhase={peakTidePhase}
                   dfoArea={page.regAreaCode}
+                  region={cityLink?.provinceName ?? spot.region}
                   speciesName={selSpecies?.name ?? null}
                   regOpen={regulation?.status === "Open"}
                   onSetAlert={handleSetAlert}
@@ -860,6 +884,7 @@ export default function SpotDetailShell({
                 regulations={page.regulations}
                 selectedId={selId}
                 areaCode={page.regAreaCode}
+                region={cityLink?.provinceName ?? spot.region}
                 syncedAt={page.regSyncedAt}
               />
             </div>

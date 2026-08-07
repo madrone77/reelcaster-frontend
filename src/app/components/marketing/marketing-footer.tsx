@@ -17,8 +17,9 @@ export default function MarketingFooter() {
     <footer data-testid="marketing-footer" className="border-t border-rc-rule bg-rc-surface">
       {/* Only routes that still exist — unlisted paths now return a real 404
           (the /coming-soon wall was retired), so a stale link here is a dead
-          link. Locations lists the /fishing province directories; add
-          Washington/Oregon here once they have lifecycle-published cities.
+          link. Locations lists the /fishing province directories; add a region
+          here once it has lifecycle-published cities. Washington qualified when
+          Seattle was promoted; Oregon still has none.
           "Support" points at /support, which paywalls non-Pro visitors — FAQ
           and Contact directly above it are the open routes. */}
       <div className="max-w-6xl mx-auto px-6 py-12 grid grid-cols-2 md:grid-cols-5 gap-8 text-sm">
@@ -35,6 +36,7 @@ export default function MarketingFooter() {
           <h4 className="rc-label text-[10px] mb-3">Locations</h4>
           <ul className="space-y-2 text-rc-ink-soft">
             <li><Link href="/fishing/bc" className="hover:text-rc-ink">British Columbia</Link></li>
+            <li><Link href="/fishing/wa" className="hover:text-rc-ink">Washington</Link></li>
           </ul>
         </div>
 
