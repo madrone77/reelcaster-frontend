@@ -207,18 +207,26 @@ export async function POST(request: NextRequest) {
 
   // BC bills in CAD, WA/OR in USD; paywall CTAs send no region, so fall back
   // to the request's IP country. Both currencies live on the same price.
-  let currency: BillingCurrency = currencyForRegion(
-    region,
-    request.headers.get('x-vercel-ip-country'),
-  );
+  const ipCountry = request.headers.get('x-vercel-ip-country');
+  let currency: BillingCurrency = currencyForRegion(region, ipCountry);
 
   // Look up an existing stripe_customer_id, or create the customer + row.
   try {
     const { data: existingSettings } = await admin
       .from('user_settings')
-      .select('stripe_customer_id, stripe_subscription_id')
+      .select('stripe_customer_id, stripe_subscription_id, primary_region_slug')
       .eq('user_id', user.id)
       .maybeSingle();
+
+    // The in-app paywall CTAs post no region, which left IP as the only
+    // signal: a BC angler buying from a hotel in Seattle got billed USD, and
+    // Stripe locks a customer to their first currency for good. The region
+    // they already told us beats where they happen to be standing. An
+    // explicit region in the body still wins over both.
+    const storedRegion = existingSettings?.primary_region_slug ?? null;
+    if (!region && storedRegion) {
+      currency = currencyForRegion(storedRegion, ipCountry);
+    }
 
     let stripeCustomerId = existingSettings?.stripe_customer_id ?? null;
 
@@ -332,7 +340,10 @@ export async function POST(request: NextRequest) {
         supabase_user_id: user.id,
         plan,
         currency,
-        region: region || '',
+        // The region the currency was actually chosen from, not just what the
+        // body carried — otherwise a paywall purchase looks region-less in
+        // Stripe while being billed on a stored one.
+        region: region || storedRegion || '',
         from: body.from ?? '',
         trial: String(trialEligible),
       },

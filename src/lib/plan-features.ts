@@ -263,26 +263,39 @@ export const NAG_FEATURES: Record<NagFeatureId, NagFeature> = {
  * Leads with the thing the angler just tried to do, not with the product —
  * a nag that opens by naming the plan reads as an interruption, one that
  * opens by naming their own action reads as an answer.
+ *
+ * The offer named here has to be the offer the button gives. A returning free
+ * account whose trial is spent gets paid terms from the checkout route and a
+ * "Get Pro · $33/year" button from `TrialBuy`; a headline still promising a
+ * free trial over that button is the mismatch the pre-checkout eligibility
+ * lookup exists to prevent. `trialOn` comes from that same lookup.
  */
 export function nagHeadline(
   feature: NagFeature,
-  viewerTier: PlanTierId,
   spotName?: string,
+  /** Undefined while eligibility resolves: name no offer rather than a wrong one. */
+  trialOn?: boolean,
 ): string {
   const subject =
     feature.takesSpot && spotName
       ? `${feature.headline} for ${spotName}`
       : feature.headline;
-  return `${subject} with a free trial`;
+  if (trialOn === undefined) return subject;
+  return trialOn ? `${subject} with a free trial` : `${subject} with Pro`;
 }
 
 /**
- * The reassurance line under the headline. Same for every wall now — the
- * modal sells the trial regardless of which one was hit, and the free tier is
- * offered by the link at its foot.
+ * The reassurance line under the headline. Same for every wall — which wall
+ * was hit doesn't change the offer — but it does change with eligibility, for
+ * the same reason the headline does. The free tier is offered by the link at
+ * the modal's foot, not here.
  */
-export function nagSubhead(): string {
-  return `Free for ${TRIAL_DAYS} days, then $${MONTHLY_PRICE_CENTS / 100}/month or $${
+export function nagSubhead(trialOn?: boolean): string {
+  const prices = `$${MONTHLY_PRICE_CENTS / 100}/month or $${
     ANNUAL_PRICE_CENTS / 100
-  }/year. Cancel anytime before the trial ends and you pay nothing.`;
+  }/year`;
+  if (trialOn === undefined) return `${prices}. Cancel anytime.`;
+  return trialOn
+    ? `Free for ${TRIAL_DAYS} days, then ${prices}. Cancel anytime before the trial ends and you pay nothing.`
+    : `${prices}, charged today. Cancel anytime.`;
 }

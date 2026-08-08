@@ -10,7 +10,12 @@ interface Props {
   feature: string
   headline?: string
   bullets?: string[]
-  /** Optional override for the CTA target. */
+  /**
+   * Optional override for the CTA target. Left unset, the card buys in place
+   * (cadence, terms, Stripe handoff) instead of linking out — a free account
+   * that just hit the alert cap has already decided, and /plans then
+   * /plans/checkout puts two pages between that decision and the card.
+   */
   ctaHref?: string
   /** Optional override for the CTA label. */
   ctaLabel?: string
@@ -57,7 +62,8 @@ export default function UpgradeRequiredModal({
           headline={headline}
           bullets={bullets}
           ctaLabel={ctaLabel}
-          ctaHref={ctaHref ?? `/plans?from=paywall&feature=${encodeURIComponent(feature)}`}
+          ctaHref={ctaHref}
+          feature={feature}
           theme="light"
         />
       </div>

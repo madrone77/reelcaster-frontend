@@ -126,6 +126,27 @@ function useTrialCta(): TrialCtaState {
   return ctx;
 }
 
+/**
+ * The resolved offer, for copy rendered outside the buy block — the modal's
+ * headline and subhead, which have to name the same offer the button gives.
+ *
+ * `trialOn` is `undefined` while eligibility is still in flight, so callers
+ * can say nothing rather than guess: promising a trial we then withhold is the
+ * one failure this whole path is built to avoid.
+ */
+export function useTrialOffer(): {
+  trialOn: boolean | undefined;
+  trialDays: number;
+  isActive: boolean;
+} {
+  const s = useTrialCta();
+  return {
+    trialOn: s.busy ? undefined : s.trialOn,
+    trialDays: s.trialDays,
+    isActive: Boolean(s.status?.is_active),
+  };
+}
+
 export function TrialCtaProvider({
   from,
   theme = 'light',

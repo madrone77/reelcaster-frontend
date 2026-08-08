@@ -1,13 +1,14 @@
 'use client'
 
 import { useState } from 'react'
-import Link from 'next/link'
 import { Crown, ExternalLink, Loader2 } from 'lucide-react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { Button } from '@/components/ui/button'
+import { Button, buttonVariants } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
+import TrialModalButton from '@/app/components/paywall/trial-modal-button'
 import { useSubscription } from '@/hooks/use-subscription'
 import { supabase } from '@/lib/supabase'
+import { cn } from '@/lib/utils'
 
 const TIER_LABELS: Record<string, string> = {
   free: 'Free',
@@ -133,14 +134,21 @@ export default function SubscriptionCard() {
             )}
           </Button>
         ) : (
-          <Button
-            asChild
-            className="w-full bg-rc-brand hover:bg-rc-brand-hover text-white"
+          // The modal, not /plans. Someone who clicked "Upgrade to Pro" has
+          // already read the pitch; sending them to the sales page and then
+          // on to /plans/checkout puts two pages between the decision and the
+          // card. Every other upgrade CTA in the product opens this modal, and
+          // the plan matrix inside it is the same table /plans renders.
+          <TrialModalButton
+            from="profile-subscription"
+            data-testid="profile-upgrade"
+            className={cn(
+              buttonVariants(),
+              'w-full bg-rc-brand hover:bg-rc-brand-hover text-white',
+            )}
           >
-            <Link href="/plans?from=profile">
-              Upgrade to Pro
-            </Link>
-          </Button>
+            Upgrade to Pro
+          </TrialModalButton>
         )}
 
         <p className="text-xs text-rc-ink-mute">

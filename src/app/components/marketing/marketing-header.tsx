@@ -4,11 +4,13 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { usePathname } from 'next/navigation';
 import { useAuth } from '@/contexts/auth-context';
+import { useSubscription } from '@/hooks/use-subscription';
 import { btn } from '@/app/components/ui/button';
 import TrialModalButton from '@/app/components/paywall/trial-modal-button';
 
 export default function MarketingHeader() {
   const { user, loading, signOut } = useAuth();
+  const { isPaid, loading: tierLoading } = useSubscription();
   const pathname = usePathname();
 
   // On the landing page the bar shares the hero's tint and drops its rule —
@@ -34,6 +36,15 @@ export default function MarketingHeader() {
         <div className="flex items-center gap-2 min-h-[36px] ml-auto">
           {loading ? null : user ? (
             <>
+              {/* A free account on the marketing site had no way to buy: this
+                  bar's only CTA was the signed-out one. Same modal, same
+                  pitch. Held back until the tier is known so a Pro member is
+                  never sold their own subscription. */}
+              {!tierLoading && !isPaid && (
+                <TrialModalButton from="marketing-header-free" className={btn.nav}>
+                  Upgrade to Pro
+                </TrialModalButton>
+              )}
               {/* Signed-in affordance (initials → /profile). */}
               <Link
                 href="/profile"
