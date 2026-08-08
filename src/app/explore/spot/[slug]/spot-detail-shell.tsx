@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import dynamic from "next/dynamic";
 import { ArrowUpCircle, ChevronLeft, ChevronRight, Home } from "lucide-react";
@@ -13,7 +13,13 @@ import ExploreTopBar from "../../components/explore-top-bar";
 import DayCell from "../../components/day-cell";
 import { bestWindow } from "../../components/hourly-bars";
 import UpgradeDialog from "../../components/upgrade-dialog";
-import { currentLocalHour, fmtPeak, zonedHourToUtcIso } from "../../lib/explore-data";
+import {
+  currentLocalHour,
+  fmtPeak,
+  zonedHourToUtcIso,
+  zoneAbbrev,
+} from "../../lib/explore-data";
+import { useSpotClock } from "../../lib/use-spot-clock";
 import {
   buildForecastDays,
   type ForecastDay,
@@ -63,8 +69,6 @@ const ProTrialModal = dynamic(
   { ssr: false },
 );
 
-const TZ = "America/Vancouver";
-
 /** Catch-report window. Matches FRESH_DAYS in the fresh-catches route. */
 const FRESH_DAYS = 21;
 
@@ -113,6 +117,8 @@ export default function SpotDetailShell({
   slug,
   cityLink,
   freshTracked = false,
+  tz: TZ,
+  serverNowMs,
 }: {
   page: SpotPageForClient;
   slug: string;
@@ -120,14 +126,35 @@ export default function SpotDetailShell({
   /** Does this spot have scraped catch reports in the window? The only fact
    *  about them the prerendered (free) render is allowed to carry. */
   freshTracked?: boolean;
+  /** The spot's IANA timezone, resolved from its region on the server. */
+  tz: string;
+  /** The instant the server baked into this HTML. Every time-dependent string
+   *  on the page derives from it until the component mounts. See
+   *  `useSpotClock`. */
+  serverNowMs: number;
 }) {
   const { spot } = page;
   // Which fisheries authority governs this spot. `spot.region` is the
   // province/state ("Washington"); the linked breadcrumb's province name is
   // the same value when a published city owns the spot.
   const regulator = regulatorFor(cityLink?.provinceName ?? spot.region);
-  const nowHour = currentLocalHour(TZ);
-  const [selectedHour, setSelectedHour] = useState<number>(nowHour);
+  const { hour: nowHour, at: nowAt } = useSpotClock(TZ, serverNowMs);
+  // Initial state is fixed at the first render, so it must be the server's
+  // hour — `nowHour` will have moved on by the time the effect below runs.
+  const [selectedHour, setSelectedHour] = useState<number>(() =>
+    currentLocalHour(TZ, new Date(serverNowMs)),
+  );
+  // Until the angler scrubs, the chart follows the live hour rather than
+  // sitting on whatever hour the cached page happened to be built in.
+  const [scrubbed, setScrubbed] = useState(false);
+  useEffect(() => {
+    if (!scrubbed) setSelectedHour(nowHour);
+  }, [nowHour, scrubbed]);
+  // Any deliberate hour pick pins the chart; the minute ticker stops moving it.
+  const selectHour = useCallback((hour: number) => {
+    setScrubbed(true);
+    setSelectedHour(hour);
+  }, []);
 
   const species = useMemo(
     () => [...page.species].sort((a, b) => a.rank - b.rank),
@@ -332,7 +359,7 @@ export default function SpotDetailShell({
         })
         .catch(() => {});
     }
-  }, [todayIso, activeIso, spot.lat, spot.lng]);
+  }, [todayIso, activeIso, spot.lat, spot.lng, TZ]);
 
   const hours24 = useMemo(() => {
     const grid = selId ? fcSource.hourlyScoreGrid[selId] : undefined;
@@ -474,30 +501,28 @@ export default function SpotDetailShell({
       : peakTideTrend === "falling"
         ? "Tide ebbing"
         : null;
-  const tzAbbrev = useMemo(
-    () =>
-      new Intl.DateTimeFormat("en-US", {
-        timeZone: TZ,
-        timeZoneName: "short",
-      })
-        .formatToParts(new Date())
-        .find((p) => p.type === "timeZoneName")?.value ?? "",
-    [],
-  );
+  // Seeded from the server so the first render matches, then recomputed once
+  // mounted — the two only differ if a DST boundary fell between the moment
+  // this HTML was cached and the moment it was loaded.
+  const tzAbbrev = useMemo(() => zoneAbbrev(TZ, nowAt), [nowAt, TZ]);
   // Driver species lives only in the status chip up top — keep it out of the
   // NOW label to avoid repeating it across the panel.
   const nowLabel = `NOW · ${String(nowHour).padStart(2, "0")}:00${tzAbbrev ? ` ${tzAbbrev}` : ""}`;
   const subtitle = spot.region ?? spot.city ?? spot.country ?? "";
 
   // ── Log-catch context (current spot + live conditions) ─────────────────
+  // Minute precision, so it can never be seeded: a cached page is wrong about
+  // the minute within 60 seconds of being built. Empty until mounted, then
+  // re-derived on each tick so "captured at" reflects when the angler actually
+  // logs the catch rather than when the page happened to load.
   const nowTimeLabel = useMemo(
     () =>
       new Intl.DateTimeFormat("en-US", {
         timeZone: TZ,
         hour: "numeric",
         minute: "2-digit",
-      }).format(new Date()),
-    [],
+      }).format(nowAt),
+    [nowAt, TZ],
   );
   const nowTideTrend =
     condGrid?.[0]?.[nowHour]?.tideTrend ?? page.rightNow?.tideTrend ?? null;
@@ -855,7 +880,7 @@ export default function SpotDetailShell({
               sun={page.sun}
               nowHour={nowHour}
               selectedHour={selectedHour}
-              onSelectHour={setSelectedHour}
+              onSelectHour={selectHour}
               bestWindow={win.window}
               speciesName={selSpecies?.name ?? null}
             />
@@ -886,6 +911,7 @@ export default function SpotDetailShell({
                 areaCode={page.regAreaCode}
                 region={cityLink?.provinceName ?? spot.region}
                 syncedAt={page.regSyncedAt}
+                nowMs={nowAt.getTime()}
               />
             </div>
           )}

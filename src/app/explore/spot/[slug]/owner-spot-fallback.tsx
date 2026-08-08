@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useAuth } from "@/contexts/auth-context";
 import type { SpotPageInitial } from "@/lib/bluecaster/live-spot-types";
 import SpotDetailShell from "./spot-detail-shell";
+import { timezoneFor } from "@/lib/regions";
 
 /**
  * Last resort for a spot the SERVER couldn't load.
@@ -60,7 +61,20 @@ export default function OwnerSpotFallback({ slug }: { slug: string }) {
 
   // A spot that only its owner can read is by definition not in the public
   // /fishing directory, so there is no city page to breadcrumb up to.
-  if (page) return <SpotDetailShell page={page} slug={slug} cityLink={null} />;
+  // This branch only ever renders after a client fetch resolves, so there is no
+  // server pass to disagree with and the seeds can just be the live values.
+  if (page) {
+    const tz = timezoneFor(page.spot.region);
+    return (
+      <SpotDetailShell
+        page={page}
+        slug={slug}
+        cityLink={null}
+        tz={tz}
+        serverNowMs={Date.now()}
+      />
+    );
+  }
 
   if (state === "denied") {
     return (
