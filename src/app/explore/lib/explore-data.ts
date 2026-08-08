@@ -420,6 +420,15 @@ function deriveScoring(
  * turns them into RailSpots so they rank, filter, and open a card exactly like
  * curated ones. Location metadata is borrowed from a known spot in the same
  * city (the payload carries only `city_slug`).
+ *
+ * Being absent from the base set does NOT make a spot yours. The base list is
+ * built from the hierarchy, which the server render caches for an hour, so a
+ * spot published in the last hour is missing from it while the viewer payload
+ * (no-store) already carries it. Treating that gap as ownership marked freshly
+ * published spots as private customs — and auto-favorited them, permanently,
+ * since the star is a localStorage write. `visibilityBySlug` is the angler's
+ * actual owned set (/anglers/[id]/spots), so ownership is read from there and
+ * anything else joins the rail as the ordinary spot it is.
  */
 export function extraRailSpotsFromPayload(
   base: RailSpot[],
@@ -434,14 +443,15 @@ export function extraRailSpotsFromPayload(
     .filter((entry) => !known.has(entry.slug))
     .map((entry) => {
       const near = cityMeta.get(entry.city_slug ?? "");
+      const visibility = visibilityBySlug.get(entry.slug);
       return {
         ...railSpotFromEntry(entry, payload, isToday),
         cityName: near?.cityName ?? "",
         regionSlug: near?.regionSlug ?? "",
         regionName: near?.regionName ?? "",
         provinceCode: near?.provinceCode ?? "",
-        isCustom: true,
-        visibility: visibilityBySlug.get(entry.slug) ?? "private",
+        isCustom: visibility !== undefined,
+        ...(visibility !== undefined ? { visibility } : {}),
       } satisfies RailSpot;
     });
 }
