@@ -4,6 +4,7 @@ import Link from "next/link";
 import { Heart, Wind } from "lucide-react";
 import { tierFor, TIER_TEXT } from "../../lib/explore-data";
 import { useFavorite } from "../../lib/use-favorite";
+import { regulatorFor, type Regulator } from "@/lib/regions";
 import type {
   NearbySpotCard,
   SeasonState,
@@ -34,7 +35,7 @@ function slugOf(n: NearbySpotCard): string {
   return n.href?.split("/").filter(Boolean).pop() ?? n.id;
 }
 
-function NearbyCard({ n }: { n: NearbySpotCard }) {
+function NearbyCard({ n, regulator }: { n: NearbySpotCard; regulator: Regulator }) {
   const [fav, toggle] = useFavorite(slugOf(n));
   const top = n.species[0];
   const tier = tierFor(top?.score ?? null);
@@ -86,7 +87,7 @@ function NearbyCard({ n }: { n: NearbySpotCard }) {
               {n.name}
             </div>
             <div className="font-rc-mono text-[11px] text-rc-ink-mute mt-0.5">
-              {n.dfoArea ? `DFO area ${n.dfoArea}` : "—"}
+              {n.dfoArea ? `${regulator.areaLabel} ${n.dfoArea}` : "—"}
             </div>
           </div>
           <div
@@ -163,9 +164,24 @@ function NearbyCard({ n }: { n: NearbySpotCard }) {
  * `nearbySpots`: intel verdict + fresh-catch count, top species and its
  * tier-coloured score, season state, bite window, the per-species score
  * breakdown, and current wind + next tides. Header links back to the map.
+ *
+ * `region` is the *viewed* spot's province/state, and it labels every card's
+ * area number. `NearbySpotCard` carries no region of its own, so a neighbour
+ * across a jurisdiction line would be mislabelled — acceptable here because
+ * these are "within easy run" of the viewed spot, and far better than the
+ * hardcoded "DFO area" this replaced, which called Puget Sound water a DFO
+ * area. Give the card its own region if cross-border neighbours ever ship.
  */
-export default function NeighbourSpots({ spots }: { spots: NearbySpotCard[] }) {
+export default function NeighbourSpots({
+  spots,
+  region,
+}: {
+  spots: NearbySpotCard[];
+  /** Province/state of the spot being viewed — picks the area vocabulary. */
+  region: string | null;
+}) {
   if (spots.length === 0) return null;
+  const regulator = regulatorFor(region);
   return (
     <div>
       <div className="flex items-baseline justify-between gap-3">
@@ -183,7 +199,7 @@ export default function NeighbourSpots({ spots }: { spots: NearbySpotCard[] }) {
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mt-4">
         {spots.slice(0, 4).map((n) => (
-          <NearbyCard key={n.id} n={n} />
+          <NearbyCard key={n.id} n={n} regulator={regulator} />
         ))}
       </div>
     </div>

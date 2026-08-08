@@ -913,7 +913,10 @@ export default function SpotDetailShell({
 
           {/* 10 · Neighbouring spots */}
           <div className="border-t border-rc-rule pt-8">
-            <NeighbourSpots spots={page.nearbySpots} />
+            <NeighbourSpots
+              spots={page.nearbySpots}
+              region={cityLink?.provinceName ?? spot.region}
+            />
           </div>
 
           {/* 11 · Description + the SEO/hierarchy trail. */}
