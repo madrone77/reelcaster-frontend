@@ -9,6 +9,7 @@ import MobileBottomNav from '@/app/components/mobile-bottom-nav'
 import ProWelcomeModal from '@/app/components/pro/pro-welcome-modal'
 import { GoogleAnalytics } from '@next/third-parties/google'
 import { ORGANIZATION_JSONLD, SITE_NAME, SITE_URL } from '@/lib/site'
+import { CLIENT_DIAG_SNIPPET } from '@/lib/client-diag'
 
 const geistSans = Geist({
   variable: '--font-geist-sans',
@@ -65,6 +66,11 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
+      <head>
+        {/* No-op unless the URL carries ?diag=1. Registered during head parse
+            so the listener is in place before hydration can throw. */}
+        <script dangerouslySetInnerHTML={{ __html: CLIENT_DIAG_SNIPPET }} />
+      </head>
       <body
         className={`${geistSans.variable} ${geistMono.variable} ${inter.variable} ${plexMono.variable} antialiased`}
       >
