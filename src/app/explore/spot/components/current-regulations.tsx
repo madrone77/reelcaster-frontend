@@ -1,6 +1,7 @@
 "use client";
 
 import type { LiveRegulation, RegStatus } from "@/lib/bluecaster/live-spot-types";
+import { regulatorFor } from "@/lib/regions";
 
 const MONTHS = [
   "Jan", "Feb", "Mar", "Apr", "May", "Jun",
@@ -100,14 +101,21 @@ export default function CurrentRegulations({
   regulations,
   selectedId,
   areaCode,
+  region,
   syncedAt,
 }: {
   regulations: LiveRegulation[];
   selectedId: string | null;
   areaCode: string | null;
+  /** Province/state — picks the authority this panel names and links to. */
+  region: string | null;
   syncedAt: string | null;
 }) {
   if (!regulations.length) return null;
+
+  // "Always check with DFO" is advice to verify against the governing
+  // authority — which is WDFW, not DFO, for a Washington spot.
+  const regulator = regulatorFor(region);
 
   const active =
     regulations.find((r) => r.speciesId === selectedId) ?? regulations[0];
@@ -234,18 +242,20 @@ export default function CurrentRegulations({
         )}
 
         <a
-          href="https://www.pac.dfo-mpo.gc.ca/fm-gp/rec/index-eng.html"
+          href={regulator.url}
           target="_blank"
           rel="noreferrer"
           className="inline-block mt-4 font-rc-mono text-[11px] font-medium text-rc-ink-mute hover:text-rc-ink underline"
         >
-          Always check with DFO ↗
+          Always check with {regulator.name} ↗
         </a>
       </div>
 
       {/* Provenance — text-only source + freshness attribution. */}
       <p className="mt-2 font-rc-mono text-[10px] text-rc-ink-mute">
-        Source: DFO/MPO{areaCode ? ` · PFMA ${areaCode}` : ""} · {syncedText(syncedAt)}
+        Source: {regulator.sourceName}
+        {areaCode ? ` · ${regulator.areaLabel} ${areaCode}` : ""} ·{" "}
+        {syncedText(syncedAt)}
       </p>
     </div>
   );

@@ -2,6 +2,7 @@
 
 import { Bell } from "lucide-react";
 import { tierFor, TIER_PILL, TIER_TEXT } from "../../lib/explore-data";
+import { regulatorFor } from "@/lib/regions";
 
 /**
  * Consolidated headline score card (per the Pedder Bay mockup): the live "NOW"
@@ -18,6 +19,7 @@ export default function ScoreCard({
   windowPeak,
   tidePhase,
   dfoArea,
+  region,
   speciesName,
   regOpen,
   onSetAlert,
@@ -36,8 +38,10 @@ export default function ScoreCard({
   windowPeak: number | null;
   /** Tide phase at the peak, e.g. "Tide flooding". */
   tidePhase: string | null;
-  /** DFO regulatory area code, e.g. "19-4". */
+  /** Regulatory area code, e.g. "19-4" in BC, "10" in WA. */
   dfoArea: string | null;
+  /** Province/state the spot sits in — picks the regulator this strip cites. */
+  region: string | null;
   /** Driver species common name, e.g. "Dungeness Crab". */
   speciesName: string | null;
   /** Whether the driver species is open (retention) in this area. */
@@ -46,6 +50,7 @@ export default function ScoreCard({
   onSetAlert: () => void;
 }) {
   const tier = tierFor(score ?? peak);
+  const regulator = regulatorFor(region);
   const windowSub = [
     windowPeak != null ? `Peaks at ${windowPeak}` : null,
     tidePhase,
@@ -94,19 +99,20 @@ export default function ScoreCard({
         </div>
       )}
 
-      {/* DFO notice — regulatory data, muted chrome, hairline border, no fill.
-          Points at DFO's own recreational-fishing page: the in-app
-          /regulations route was removed, and on regs we link the source
-          rather than restate it. */}
+      {/* Regulatory notice — muted chrome, hairline border, no fill. Points at
+          the governing authority's own recreational-fishing page: the in-app
+          /regulations route was removed, and on regs we link the source rather
+          than restate it. Which authority depends on the spot — this was
+          hardcoded to DFO, so Seattle spots cited Canadian regulations. */}
       {dfoArea && (
         <a
-          href="https://www.pac.dfo-mpo.gc.ca/fm-gp/rec/index-eng.html"
+          href={regulator.url}
           target="_blank"
           rel="noopener noreferrer"
           className="mt-3 flex min-h-[44px] items-center justify-between gap-2 rounded border border-rc-fair-border bg-rc-fair-bg px-3 py-2 font-rc-mono text-[11px] text-rc-fair-ink hover:brightness-[0.98] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-rc-brand transition-all"
         >
           <span className="truncate">
-            DFO · PFMA {dfoArea}
+            {regulator.name} · {regulator.areaLabel} {dfoArea}
             {speciesName ? ` · ${speciesName} ${regOpen ? "open" : "closed"}` : ""}
           </span>
           <span className="shrink-0 text-rc-brand">Regulations ↗</span>

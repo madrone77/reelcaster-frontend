@@ -9,7 +9,7 @@
 // stricter lifecycle gate.)
 
 import type { BlueCasterHierarchy } from "@/lib/bluecaster";
-import { COVERED_PROVINCES } from "@/lib/regions";
+import { COVERED_PROVINCES, countryDisplayName } from "@/lib/regions";
 
 export interface FishingSpotLink {
   id: string;
@@ -28,6 +28,8 @@ export interface FishingCity {
   regionSlug: string;
   provinceCode: string;
   provinceName: string;
+  /** Breadcrumb label for the country — "Canada", "USA". */
+  countryName: string;
   spots: FishingSpotLink[];
 }
 
@@ -35,6 +37,7 @@ export interface FishingProvince {
   code: string; // "BC"
   name: string; // "British Columbia"
   type: string; // "province" | "state"
+  countryName: string; // "Canada" | "USA"
   cities: FishingCity[];
 }
 
@@ -50,6 +53,7 @@ export function getFishingProvince(
     for (const sp of country.states_provinces) {
       if (sp.code !== code) continue;
 
+      const countryName = countryDisplayName(country.name);
       const cities: FishingCity[] = [];
       for (const region of sp.regions) {
         for (const city of region.cities) {
@@ -68,6 +72,7 @@ export function getFishingProvince(
             regionSlug: region.slug,
             provinceCode: sp.code,
             provinceName: sp.name,
+            countryName,
             spots,
           });
         }
@@ -78,7 +83,7 @@ export function getFishingProvince(
         (a, b) => b.spots.length - a.spots.length || a.name.localeCompare(b.name),
       );
 
-      return { code: sp.code, name: sp.name, type: sp.type, cities };
+      return { code: sp.code, name: sp.name, type: sp.type, countryName, cities };
     }
   }
   return null;

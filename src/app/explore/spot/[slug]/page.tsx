@@ -231,7 +231,7 @@ export default async function SpotDetailPage({ params }: PageProps) {
         page={pageForClient}
         freshTracked={freshTracked}
         slug={slug}
-        // Narrowed to the four strings the breadcrumb needs — `place.city`
+        // Narrowed to the five strings the breadcrumb needs — `place.city`
         // carries the city's whole spot roster, which has no business crossing
         // the server/client boundary on every spot page.
         cityLink={
@@ -241,6 +241,7 @@ export default async function SpotDetailPage({ params }: PageProps) {
                 cityPath: place.cityPath,
                 provinceName: place.city.provinceName,
                 provincePath: place.provincePath,
+                countryName: place.city.countryName,
               }
             : null
         }
