@@ -370,9 +370,13 @@ function deriveScoring(
  * spot published in the last hour is missing from it while the viewer payload
  * (no-store) already carries it. Treating that gap as ownership marked freshly
  * published spots as private customs — and auto-favorited them, permanently,
- * since the star is a localStorage write. `visibilityBySlug` is the angler's
- * actual owned set (/anglers/[id]/spots), so ownership is read from there and
- * anything else joins the rail as the ordinary spot it is.
+ * since the star is a localStorage write.
+ *
+ * Ownership is stated, never inferred: `entry.owned` comes straight from
+ * BlueCaster, which sets it on exactly the spots it added for this caller.
+ * `visibilityBySlug` (the angler's own /anglers/[id]/spots list) is the
+ * fallback for payloads predating that flag, and supplies the public/private
+ * badge either way. Anything else joins the rail as the ordinary spot it is.
  */
 export function extraRailSpotsFromPayload(
   base: RailSpot[],
@@ -394,7 +398,7 @@ export function extraRailSpotsFromPayload(
         regionSlug: near?.regionSlug ?? "",
         regionName: near?.regionName ?? "",
         provinceCode: near?.provinceCode ?? "",
-        isCustom: visibility !== undefined,
+        isCustom: entry.owned === true || visibility !== undefined,
         ...(visibility !== undefined ? { visibility } : {}),
       } satisfies RailSpot;
     });

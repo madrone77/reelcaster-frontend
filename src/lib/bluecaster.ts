@@ -299,6 +299,9 @@ export interface MapSpotEntry {
   best_species_id: string | null;
   scores: Record<string, MapSpeciesStrip>;
   conditions: MapCondStrip | null;
+  /** Set only on spots the requesting angler created. Absent everywhere else,
+   *  including in the anonymous (CDN-cached) payload. */
+  owned?: boolean;
 }
 
 export interface MapSpotsPayload {
