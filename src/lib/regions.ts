@@ -33,6 +33,36 @@ export function provinceCodeFromName(region: string): string {
   return PROVINCE_CODE_BY_NAME[trimmed.toLowerCase()] ?? trimmed;
 }
 
+// The spot payload carries no timezone, so it is derived from the region the
+// same way the regulator is. Every covered region is Pacific time today, which
+// is exactly why this was easy to get wrong: the spot page hardcoded
+// "America/Vancouver", and because BC, WA and OR share an offset, a Seattle
+// spot rendered the right *hour* under a Canadian timezone label — correct by
+// coincidence, and wrong the moment a spot lands outside Pacific time.
+const TIMEZONE_BY_PROVINCE: Record<CoveredProvince, string> = {
+  BC: "America/Vancouver",
+  WA: "America/Los_Angeles",
+  OR: "America/Los_Angeles",
+};
+
+/** Fallback for an unmapped region — the pilot region, matching regulatorFor. */
+const DEFAULT_TIMEZONE = TIMEZONE_BY_PROVINCE.BC;
+
+/**
+ * Region name or code → IANA timezone for that spot's local clock.
+ *
+ * Used for every "what hour is it there" decision on a spot page. Anything
+ * unmapped falls back to the pilot region rather than the *viewer's* timezone:
+ * a spot's clock is a property of the spot, not of who is looking at it, and
+ * resolving it per-viewer would make server and client disagree on a cached
+ * page.
+ */
+export function timezoneFor(region: string | null | undefined): string {
+  if (!region) return DEFAULT_TIMEZONE;
+  const code = provinceCodeFromName(region).toUpperCase();
+  return TIMEZONE_BY_PROVINCE[code as CoveredProvince] ?? DEFAULT_TIMEZONE;
+}
+
 // BlueCaster stores the formal country name ("United States"). Breadcrumbs are
 // a cramped 11px mono row, and nobody writes out "United States" in a trail —
 // "USA" is both shorter and how the crumb actually reads.

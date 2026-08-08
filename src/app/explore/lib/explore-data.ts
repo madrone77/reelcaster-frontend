@@ -247,15 +247,36 @@ export function zonedHourToUtcIso(dateIso: string, hour: number, tz: string): st
   return new Date(utc).toISOString();
 }
 
-/** Current local hour (0–23) in the payload's timezone. */
-export function currentLocalHour(tz: string): number {
+/**
+ * Local hour (0–23) in the given timezone at a given instant.
+ *
+ * `at` is explicit so a cached page can render the *server's* instant on both
+ * sides of hydration instead of each side reading its own clock.
+ */
+export function currentLocalHour(tz: string, at: Date = new Date()): number {
   return Number(
     new Intl.DateTimeFormat("en-GB", {
       timeZone: tz,
       hour: "2-digit",
       hour12: false,
-    }).format(new Date()),
+    }).format(at),
   ) % 24;
+}
+
+/**
+ * Short zone label ("PDT") for a timezone at a given instant.
+ *
+ * Takes the instant explicitly because it is not constant: the same zone is
+ * "PST" or "PDT" depending on the date. On a cached page the server and the
+ * client evaluate it at different moments, so the caller has to be deliberate
+ * about which instant it means rather than letting each side pick its own.
+ */
+export function zoneAbbrev(tz: string, at: Date = new Date()): string {
+  return (
+    new Intl.DateTimeFormat("en-US", { timeZone: tz, timeZoneName: "short" })
+      .formatToParts(at)
+      .find((p) => p.type === "timeZoneName")?.value ?? ""
+  );
 }
 
 function haversineKm(

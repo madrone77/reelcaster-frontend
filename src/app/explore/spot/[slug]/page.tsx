@@ -3,7 +3,7 @@ import { notFound } from "next/navigation";
 import { fetchHierarchy, fetchMapSpots, fetchSpotLivePage } from "@/lib/bluecaster";
 import { breadcrumbJsonLd, DEFAULT_OG, SITE_URL, siteUrl } from "@/lib/site";
 import { findCityForSpot } from "@/app/fishing/lib/fishing-data";
-import { provinceCodeFromName } from "@/lib/regions";
+import { provinceCodeFromName, timezoneFor } from "@/lib/regions";
 import SpotDetailShell, { type SpotPageForClient } from "./spot-detail-shell";
 import type { SpotPageInitial } from "@/lib/bluecaster/live-spot-types";
 import { spotHasFreshReports } from "@/app/explore/lib/fresh-catch-types";
@@ -162,11 +162,22 @@ export default async function SpotDetailPage({ params }: PageProps) {
   // from the gated route; keeping the static render locked is what lets this
   // page stay prerendered for search.
   const freshTracked = spotHasFreshReports(page.catchSignals, FRESH_DAYS);
+
   const pageForClient = stripPaidIntel(page);
 
   // Where this spot sits in the public directory, so the page can link back up
   // to its city and province. Null for custom spots and unpublished cities.
   const place = findCityForSpot(await fetchHierarchy().catch(() => null), slug);
+
+  // The spot's own clock. Derived from the region the same way the regulator
+  // is, and resolved here so the server and the client cannot disagree about
+  // which timezone the page is talking about.
+  const tz = timezoneFor(place?.city.provinceName ?? page.spot.region);
+  // One instant, baked into the cached HTML, from which every time-dependent
+  // string on the page is derived. The client's first render uses the same
+  // number, so hydration matches no matter how old the cached copy is; the
+  // live clock is adopted in an effect immediately after mount.
+  const serverNowMs = Date.now();
 
   const crumbs = place
     ? breadcrumbJsonLd([
@@ -231,6 +242,8 @@ export default async function SpotDetailPage({ params }: PageProps) {
         page={pageForClient}
         freshTracked={freshTracked}
         slug={slug}
+        tz={tz}
+        serverNowMs={serverNowMs}
         // Narrowed to the five strings the breadcrumb needs — `place.city`
         // carries the city's whole spot roster, which has no business crossing
         // the server/client boundary on every spot page.

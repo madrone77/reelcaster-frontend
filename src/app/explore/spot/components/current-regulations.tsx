@@ -76,12 +76,19 @@ function sizeText(r: LiveRegulation): string | null {
   return null;
 }
 
-/** ISO timestamp → "synced 3 days ago". Coarse relative buckets. */
-function syncedText(iso: string | null): string {
+/**
+ * ISO timestamp → "synced 3 days ago". Coarse relative buckets.
+ *
+ * `nowMs` is passed in rather than read from the clock: this renders inside a
+ * page served from the ISR cache, and a relative date computed independently on
+ * the server and the client disagrees as soon as the cached copy crosses a day
+ * boundary — which aborted hydration. See `useSpotClock`.
+ */
+function syncedText(iso: string | null, nowMs: number): string {
   if (!iso) return "sync date unavailable";
   const then = Date.parse(iso);
   if (Number.isNaN(then)) return "sync date unavailable";
-  const days = Math.floor((Date.now() - then) / 86_400_000);
+  const days = Math.floor((nowMs - then) / 86_400_000);
   if (days <= 0) return "synced today";
   if (days === 1) return "synced yesterday";
   if (days < 30) return `synced ${days} days ago`;
@@ -103,6 +110,7 @@ export default function CurrentRegulations({
   areaCode,
   region,
   syncedAt,
+  nowMs,
 }: {
   regulations: LiveRegulation[];
   selectedId: string | null;
@@ -110,6 +118,8 @@ export default function CurrentRegulations({
   /** Province/state — picks the authority this panel names and links to. */
   region: string | null;
   syncedAt: string | null;
+  /** Reference instant for the relative "synced …" label. */
+  nowMs: number;
 }) {
   if (!regulations.length) return null;
 
@@ -255,7 +265,7 @@ export default function CurrentRegulations({
       <p className="mt-2 font-rc-mono text-[10px] text-rc-ink-mute">
         Source: {regulator.sourceName}
         {areaCode ? ` · ${regulator.areaLabel} ${areaCode}` : ""} ·{" "}
-        {syncedText(syncedAt)}
+        {syncedText(syncedAt, nowMs)}
       </p>
     </div>
   );
