@@ -346,6 +346,9 @@ export default function SpotDetailShell({
       if (!iso || curRequested.current.has(iso)) continue;
       curRequested.current.add(iso);
       const fromMs = localDayStartUtcMs(iso, TZ);
+      // An unparseable day would make every Date below invalid, and
+      // `toISOString()` throws RangeError on those.
+      if (!Number.isFinite(fromMs)) continue;
       const from = new Date(fromMs).toISOString();
       const to = new Date(fromMs + 23 * 3_600_000).toISOString();
       fetchCurrentsPoint(spot.lat, spot.lng, from, to)

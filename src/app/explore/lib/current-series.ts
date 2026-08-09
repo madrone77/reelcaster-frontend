@@ -8,9 +8,17 @@
 
 import type { CurrentSample } from "@/lib/bluecaster-client";
 
-/** UTC epoch ms of local midnight for a `YYYY-MM-DD` date in an IANA zone. */
+/**
+ * UTC epoch ms of local midnight for a `YYYY-MM-DD` date in an IANA zone.
+ *
+ * Returns NaN for an unparseable date rather than throwing: the
+ * `formatToParts` below raises RangeError on a non-finite date, and an
+ * exception here escapes into Next's root error boundary, which replaces the
+ * whole page. Callers check with `Number.isFinite`.
+ */
 export function localDayStartUtcMs(iso: string, tz: string): number {
   const guess = Date.parse(`${iso}T00:00:00Z`);
+  if (!Number.isFinite(guess)) return NaN;
   const parts = new Intl.DateTimeFormat("en-US", {
     timeZone: tz,
     hour12: false,
