@@ -21,9 +21,9 @@ export async function POST(request: Request) {
   console.error(
     '[client-error]',
     JSON.stringify({
-      kind: p.kind,
-      message: p.message,
-      stack: typeof p.stack === 'string' ? p.stack.slice(0, 4000) : p.stack,
+      build: p.build,
+      errors: p.errors,
+      diff: p.diff,
       env: p.env,
       ip: request.headers.get('x-forwarded-for'),
       country: request.headers.get('x-vercel-ip-country'),

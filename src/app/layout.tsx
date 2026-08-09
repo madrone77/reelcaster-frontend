@@ -9,7 +9,7 @@ import MobileBottomNav from '@/app/components/mobile-bottom-nav'
 import ProWelcomeModal from '@/app/components/pro/pro-welcome-modal'
 import { GoogleAnalytics } from '@next/third-parties/google'
 import { ORGANIZATION_JSONLD, SITE_NAME, SITE_URL } from '@/lib/site'
-import { CLIENT_DIAG_SNIPPET } from '@/lib/client-diag'
+import { clientDiagSnippet } from '@/lib/client-diag'
 
 const geistSans = Geist({
   variable: '--font-geist-sans',
@@ -69,7 +69,18 @@ export default function RootLayout({
       <head>
         {/* No-op unless the URL carries ?diag=1. Registered during head parse
             so the listener is in place before hydration can throw. */}
-        <script dangerouslySetInnerHTML={{ __html: CLIENT_DIAG_SNIPPET }} />
+        <script
+          dangerouslySetInnerHTML={{
+            __html: clientDiagSnippet(
+              // Empty string when a build carries no git metadata, so a
+              // truthiness check rather than ?? — a blank build id is exactly
+              // the ambiguity this exists to remove.
+              process.env.VERCEL_GIT_COMMIT_SHA
+                ? process.env.VERCEL_GIT_COMMIT_SHA.slice(0, 7)
+                : 'local',
+            ),
+          }}
+        />
       </head>
       <body
         className={`${geistSans.variable} ${geistMono.variable} ${inter.variable} ${plexMono.variable} antialiased`}
