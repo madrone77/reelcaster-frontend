@@ -13,12 +13,7 @@ import ExploreTopBar from "../../components/explore-top-bar";
 import DayCell from "../../components/day-cell";
 import { bestWindow } from "../../components/hourly-bars";
 import UpgradeDialog from "../../components/upgrade-dialog";
-import {
-  currentLocalHour,
-  fmtPeak,
-  zonedHourToUtcIso,
-  zoneAbbrev,
-} from "../../lib/explore-data";
+import { fmtPeak, zonedHourToUtcIso, zoneAbbrev } from "../../lib/explore-data";
 import { useSpotClock } from "../../lib/use-spot-clock";
 import {
   buildForecastDays,
@@ -139,11 +134,11 @@ export default function SpotDetailShell({
   // the same value when a published city owns the spot.
   const regulator = regulatorFor(cityLink?.provinceName ?? spot.region);
   const { hour: nowHour, at: nowAt } = useSpotClock(TZ, serverNowMs);
-  // Initial state is fixed at the first render, so it must be the server's
-  // hour — `nowHour` will have moved on by the time the effect below runs.
-  const [selectedHour, setSelectedHour] = useState<number>(() =>
-    currentLocalHour(TZ, new Date(serverNowMs)),
-  );
+  // Initial state is fixed at the first render, which is exactly when
+  // `nowHour` still holds the server's seeded hour — so this matches what the
+  // server rendered without re-deriving it from the raw prop, and inherits the
+  // hook's handling of a prop missing from a stale payload.
+  const [selectedHour, setSelectedHour] = useState<number>(() => nowHour);
   // Until the angler scrubs, the chart follows the live hour rather than
   // sitting on whatever hour the cached page happened to be built in.
   const [scrubbed, setScrubbed] = useState(false);
