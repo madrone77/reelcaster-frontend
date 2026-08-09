@@ -273,12 +273,17 @@ export function zonedHourToUtcIso(
  * sides of hydration instead of each side reading its own clock.
  */
 export function currentLocalHour(tz: string, at: Date = new Date()): number {
+  // `Intl` throws RangeError on an Invalid Date, and an hour is used to index
+  // hourly arrays, so returning NaN would only move the failure. An invalid
+  // instant falls back to the real clock — see `useSpotClock` for how a prop
+  // from a stale payload gets here.
+  const when = Number.isFinite(at.getTime()) ? at : new Date();
   return Number(
     new Intl.DateTimeFormat("en-GB", {
       timeZone: tz,
       hour: "2-digit",
       hour12: false,
-    }).format(at),
+    }).format(when),
   ) % 24;
 }
 

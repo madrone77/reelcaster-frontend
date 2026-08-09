@@ -41,7 +41,21 @@ export type SpotClock = {
  */
 export function useSpotClock(tz: string, serverNowMs: number): SpotClock {
   const [clock, setClock] = useState<SpotClock>(() => {
-    const at = new Date(serverNowMs);
+    // `serverNowMs` can be absent even though the type says otherwise: a client
+    // bundle can hydrate an HTML payload that a *previous* build produced, and
+    // that payload predates the prop. `new Date(undefined)` is an Invalid Date,
+    // and every Intl call on one throws RangeError, which blanked the page —
+    // the deploy that introduced this prop could take out anyone still holding
+    // a cached copy of the page from before it.
+    //
+    // Falling back to the real clock can cost a hydration mismatch, but a
+    // mismatch is recoverable and a throw is not. Any prop that reaches a date
+    // constructor has to survive being missing.
+    const at = new Date(
+      typeof serverNowMs === "number" && Number.isFinite(serverNowMs)
+        ? serverNowMs
+        : Date.now(),
+    );
     return { hour: currentLocalHour(tz, at), at };
   });
 
