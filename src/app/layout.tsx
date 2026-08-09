@@ -72,12 +72,14 @@ export default function RootLayout({
         <script
           dangerouslySetInnerHTML={{
             __html: clientDiagSnippet(
-              // Empty string when a build carries no git metadata, so a
-              // truthiness check rather than ?? — a blank build id is exactly
-              // the ambiguity this exists to remove.
-              process.env.VERCEL_GIT_COMMIT_SHA
-                ? process.env.VERCEL_GIT_COMMIT_SHA.slice(0, 7)
-                : 'local',
+              // A CLI deploy from a detached worktree carries no git metadata,
+              // so VERCEL_GIT_COMMIT_SHA is empty and every report claimed to
+              // be from build "local" — the exact ambiguity this exists to
+              // remove. BUILD_TIMESTAMP is inlined by next.config at compile
+              // time, so it is always present and always distinct per build.
+              process.env.VERCEL_GIT_COMMIT_SHA?.slice(0, 7) ||
+                process.env.BUILD_TIMESTAMP ||
+                'local',
             ),
           }}
         />
