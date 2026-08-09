@@ -219,8 +219,19 @@ export function formatConditions(cell: MapCondCell | null): RailConditions {
  * Feeds the currents-field `time` param so the animated flow matches the
  * scrubbed hour. Two correction passes handle DST-transition days.
  */
-export function zonedHourToUtcIso(dateIso: string, hour: number, tz: string): string {
+export function zonedHourToUtcIso(
+  dateIso: string,
+  hour: number,
+  tz: string,
+): string | null {
+  // `Intl.DateTimeFormat.formatToParts` throws RangeError on a non-finite date
+  // rather than returning something falsy, so a malformed `dateIso` or an
+  // out-of-range `hour` used to take the whole page down: the throw escaped
+  // into Next's root error boundary, which replaces the entire tree. Returning
+  // null instead degrades the one feature that needed the instant. Callers
+  // already handle null, because this is passed straight into optional params.
   const wallUtc = Date.parse(`${dateIso}T${String(hour).padStart(2, "0")}:00:00Z`);
+  if (!Number.isFinite(wallUtc)) return null;
   const asWall = (ms: number): number => {
     const p: Record<string, string> = {};
     new Intl.DateTimeFormat("en-CA", {
@@ -242,8 +253,16 @@ export function zonedHourToUtcIso(dateIso: string, hour: number, tz: string): st
   };
   // Fixed-point iteration: adjust the guess until the zone's wall clock at
   // `utc` reads the requested hour (second pass settles DST-transition days).
+  // Re-checked each pass: `asWall` reassembles a date from formatted parts, so
+  // an unexpected calendar or numbering system yields NaN, and feeding that
+  // back would throw on the next pass instead of just being wrong.
   let utc = wallUtc;
-  for (let i = 0; i < 2; i++) utc += wallUtc - asWall(utc);
+  for (let i = 0; i < 2; i++) {
+    const wall = asWall(utc);
+    if (!Number.isFinite(wall)) return null;
+    utc += wallUtc - wall;
+    if (!Number.isFinite(utc)) return null;
+  }
   return new Date(utc).toISOString();
 }
 
@@ -272,6 +291,9 @@ export function currentLocalHour(tz: string, at: Date = new Date()): number {
  * about which instant it means rather than letting each side pick its own.
  */
 export function zoneAbbrev(tz: string, at: Date = new Date()): string {
+  // formatToParts throws RangeError on a non-finite date. A missing zone label
+  // is a cosmetic loss; a throw here would blank the page.
+  if (!Number.isFinite(at.getTime())) return "";
   return (
     new Intl.DateTimeFormat("en-US", { timeZone: tz, timeZoneName: "short" })
       .formatToParts(at)
