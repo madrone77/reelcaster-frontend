@@ -39,7 +39,9 @@ function NearbyCard({ n, regulator }: { n: NearbySpotCard; regulator: Regulator 
   const [fav, toggle] = useFavorite(slugOf(n));
   const top = n.species[0];
   const tier = tierFor(top?.score ?? null);
-  const season = SEASON[n.seasonState] ?? SEASON.nodata;
+  // No badge at all when the spot has no abundance curve for its top species —
+  // an empty "—" chip reads as a rating rather than as an absence.
+  const season = n.seasonState === "nodata" ? null : SEASON[n.seasonState] ?? null;
   const verdict = n.intel ? VERDICT[n.intel.verdict] : null;
 
   const body = (
@@ -104,11 +106,13 @@ function NearbyCard({ n, regulator }: { n: NearbySpotCard; regulator: Regulator 
               {n.scoreTopSpeciesName || top?.name || "—"}
             </span>
           </span>
-          <span
-            className={`shrink-0 px-2 py-0.5 rounded font-rc-mono text-[10px] font-bold uppercase tracking-[0.06em] ${season.cls}`}
-          >
-            {season.label}
-          </span>
+          {season && (
+            <span
+              className={`shrink-0 px-2 py-0.5 rounded font-rc-mono text-[10px] font-bold uppercase tracking-[0.06em] ${season.cls}`}
+            >
+              {season.label}
+            </span>
+          )}
         </div>
 
         {n.biteWindow && (
