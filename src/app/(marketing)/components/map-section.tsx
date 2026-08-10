@@ -1,6 +1,6 @@
 import Image from 'next/image';
 import Link from 'next/link';
-import { fetchHierarchy, fetchMapSpots } from '@/lib/bluecaster';
+import { fetchHierarchyLight, fetchMapSpots } from '@/lib/bluecaster';
 import { buildExploreData, type SpeciesOption } from '@/app/explore/lib/explore-data';
 import MarketingMap, { type MapSpot } from './marketing-map';
 import { btn } from '@/app/components/ui/button';
@@ -21,7 +21,7 @@ export default async function MapSection() {
   let species: SpeciesOption[] = [];
   try {
     const [hierarchy, payload] = await Promise.all([
-      fetchHierarchy(),
+      fetchHierarchyLight(),
       fetchMapSpots({ bbox: BBOX }),
     ]);
 

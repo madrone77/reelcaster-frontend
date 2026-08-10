@@ -177,6 +177,9 @@ export default function ExploreShell({
   const [currents, setCurrents] = useState(false);
   const [wind, setWind] = useState(false);
   const [speciesFilter, setSpeciesFilter] = useState<string | null>(null);
+  // Label fallback for a species pinned from search that no in-view spot
+  // carries, so the strip header can still name it.
+  const [pickedSpeciesName, setPickedSpeciesName] = useState<string | null>(null);
 
   // ── Viewport tracking: the map viewport is the source of truth for which
   //    spots the rail/list/strip reflect. `viewBounds` updates on every
@@ -336,11 +339,12 @@ export default function ExploreShell({
       .sort((a, b) => (b.score ?? -1) - (a.score ?? -1));
   }, [effectiveSpots, speciesFilter, data.species]);
 
-  // The hierarchy walk in buildExploreData emits one RailSpot per (city,
-  // spot) membership — a shared spot (Race Rocks ∈ Victoria + Sooke) appears
-  // once per member city. The old city-scoped rail hid that; the viewport
-  // rail/map must dedupe by slug (spots are score-sorted, so the first copy
-  // wins).
+  // Belt-and-braces dedupe by slug. buildExploreData now builds RailSpots from
+  // the map payload, which carries one entry per spot, so this should be a
+  // no-op — it used to walk city memberships and emit a shared spot (Race
+  // Rocks ∈ Victoria + Sooke) once per member city. Kept because a duplicate
+  // slug reaching the rail trips a React key warning and can drop a card, and
+  // the guard costs one pass.
   const uniqueSpots = useMemo(() => {
     const seen = new Set<string>();
     return displaySpots.filter((s) => {
@@ -639,9 +643,23 @@ export default function ExploreShell({
     return buildViewportForecastDays(fcPayload, speciesFilter, accessTier);
   }, [fcPayload, tierLoading, speciesFilter, accessTier]);
 
+  // Viewport centre, handed to search purely as a tie-break between equally
+  // good text matches. Search stays global — this never hides a distant hit.
+  const searchNear = useMemo(
+    () =>
+      viewBounds
+        ? {
+            lat: (viewBounds.s + viewBounds.n) / 2,
+            lng: (viewBounds.w + viewBounds.e) / 2,
+          }
+        : undefined,
+    [viewBounds],
+  );
+
   // Strip header label: the pinned species, else the cross-species best fold.
   const stripSpeciesName = speciesFilter
-    ? data.species.find((s) => s.id === speciesFilter)?.name ?? null
+    ? data.species.find((s) => s.id === speciesFilter)?.name ??
+      pickedSpeciesName
     : "Best species";
 
   // Frame the picked city's spots when the selection changes (search pick,
@@ -742,6 +760,65 @@ export default function ExploreShell({
     [router, setQuery, displaySpots],
   );
 
+  // ── Search picks ────────────────────────────────────────────────────
+  // A searched spot is usually NOT in the loaded payload — that's the whole
+  // point of searching — so these fly to coordinates the result carried rather
+  // than looking anything up in `displaySpots`. Once the camera lands, the
+  // viewport refetch pulls the spot in and the drawer fills itself.
+
+  const handleSearchSelectSpot = useCallback(
+    (slug: string, lat: number, lng: number) => {
+      if (
+        typeof window !== "undefined" &&
+        !window.matchMedia("(min-width:1024px)").matches
+      ) {
+        router.push(`/explore/spot/${slug}`);
+        return;
+      }
+      setQuery({ spot: slug, stn: null });
+      mapRef.current?.flyTo({
+        center: [lng, lat],
+        zoom: Math.max(mapRef.current.getZoom() ?? 9, 11),
+        duration: 700,
+      });
+    },
+    [router, setQuery],
+  );
+
+  const handleSearchSelectRegion = useCallback(
+    (bbox: number[]) => {
+      const [w, s, e, n] = bbox;
+      setQuery({ spot: null, stn: null });
+      const desktop = typeof window !== "undefined" && window.innerWidth >= 1024;
+      mapRef.current?.fitBounds(
+        [
+          [w, s],
+          [e, n],
+        ],
+        {
+          padding: desktop
+            ? { left: 460, top: 40, right: 80, bottom: 200 }
+            : { left: 24, top: 24, right: 24, bottom: 24 },
+          maxZoom: 10,
+          duration: 800,
+        },
+      );
+    },
+    [setQuery],
+  );
+
+  // Species is a filter, not a place — picking one pins the chip and leaves the
+  // camera alone. The name is kept alongside because a species can be searched
+  // that isn't on any spot in the current viewport, in which case the loaded
+  // species dict can't supply a label for the strip header.
+  const handleSearchSelectSpecies = useCallback(
+    (id: string, name: string) => {
+      setSpeciesFilter(id);
+      setPickedSpeciesName(name);
+    },
+    [],
+  );
+
   const handleCloseSpot = useCallback(() => {
     setQuery({ spot: null });
   }, [setQuery]);
@@ -839,6 +916,10 @@ export default function ExploreShell({
           locations={data.locations}
           selectedCity={labelCity}
           onSelectCity={handleSelectCity}
+          onSelectSpot={handleSearchSelectSpot}
+          onSelectRegion={handleSearchSelectRegion}
+          onSelectSpecies={handleSearchSelectSpecies}
+          near={searchNear}
           onFilterClick={() => setFilterOpen(true)}
         />
       </div>
@@ -948,6 +1029,10 @@ export default function ExploreShell({
         bottomInset={stripHidden ? 64 : 152}
         onSelectCity={handleSelectCity}
         onSelectSpot={handleSelectSpot}
+        onSearchSelectSpot={handleSearchSelectSpot}
+        onSearchSelectRegion={handleSearchSelectRegion}
+        onSearchSelectSpecies={handleSearchSelectSpecies}
+        searchNear={searchNear}
         onCloseSpot={handleCloseSpot}
         onCloseStation={handleCloseStation}
         onSpotHourHover={setScrubHour}

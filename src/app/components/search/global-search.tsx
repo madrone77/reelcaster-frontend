@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import dynamic from 'next/dynamic';
-import { Search, MapPin, Building2, Target, Loader2, X } from 'lucide-react';
+import { Search, MapPin, Building2, Map, Target, Loader2, X } from 'lucide-react';
 import type { BlueCasterSearchResult } from '@/lib/bluecaster';
 
 const WaitlistPinModal = dynamic(
@@ -19,8 +19,30 @@ interface Props {
 const TYPE_ICON = {
   spot: MapPin,
   city: Building2,
+  region: Map,
   species: Target,
 } as const;
+
+/**
+ * Where a result leads, or null if nothing on this site renders it.
+ *
+ * Species and areas are still worth showing — they tell you the coverage is
+ * there — but they have no standalone page, so they render inert rather than
+ * as dead links. Explore's own search handles those by filtering and framing;
+ * this palette can't, because it isn't mounted on Explore.
+ */
+function hrefFor(r: BlueCasterSearchResult): string | null {
+  const province =
+    typeof r.meta?.province_code === 'string' ? r.meta.province_code : null;
+  switch (r.kind) {
+    case 'spot':
+      return `/explore/spot/${r.slug}`;
+    case 'city':
+      return province ? `/fishing/${province.toLowerCase()}/${r.slug}` : null;
+    default:
+      return null;
+  }
+}
 
 export default function GlobalSearch({ open, onClose }: Props) {
   const router = useRouter();
@@ -78,8 +100,9 @@ export default function GlobalSearch({ open, onClose }: Props) {
 
   const navigate = useCallback(
     (r: BlueCasterSearchResult) => {
-      if (r.href) {
-        router.push(r.href);
+      const href = hrefFor(r);
+      if (href) {
+        router.push(href);
         onClose();
       }
     },
@@ -161,26 +184,27 @@ export default function GlobalSearch({ open, onClose }: Props) {
             {results.length > 0 && (
               <ul className="py-1">
                 {results.map((r, i) => {
-                  const Icon = TYPE_ICON[r.type];
+                  const Icon = TYPE_ICON[r.kind];
                   const active = i === highlight;
+                  const href = hrefFor(r);
                   return (
-                    <li key={`${r.type}-${r.id}`}>
+                    <li key={`${r.kind}-${r.id}`}>
                       <button
                         onClick={() => navigate(r)}
                         onMouseEnter={() => setHighlight(i)}
                         className={`w-full flex items-center gap-3 px-4 py-2.5 text-left transition-colors ${
                           active ? 'bg-rc-bg-light' : ''
-                        } ${r.href ? 'hover:bg-rc-bg-light cursor-pointer' : 'cursor-default opacity-60'}`}
+                        } ${href ? 'hover:bg-rc-bg-light cursor-pointer' : 'cursor-default opacity-60'}`}
                       >
                         <Icon className="w-4 h-4 text-rc-text-muted flex-shrink-0" />
                         <div className="flex-1 min-w-0">
                           <p className="text-sm text-rc-text truncate">{r.name}</p>
-                          {r.subtitle && (
-                            <p className="text-xs text-rc-text-muted truncate">{r.subtitle}</p>
+                          {r.label && (
+                            <p className="text-xs text-rc-text-muted truncate">{r.label}</p>
                           )}
                         </div>
                         <span className="text-[10px] uppercase tracking-wide text-rc-text-muted">
-                          {r.type}
+                          {r.kind}
                         </span>
                       </button>
                     </li>
