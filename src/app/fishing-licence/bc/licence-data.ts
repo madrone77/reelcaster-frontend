@@ -46,20 +46,8 @@ export const SOURCES = {
   irec: "https://www.irecreport.ca/",
 } as const;
 
-export interface FeeRow {
-  /** Left-hand label — the licence term, not the buyer. */
-  term: string;
-  /** One cell per column in the table's header, same order. */
-  prices: string[];
-}
-
-export interface FeeTable {
-  /** Column headers after the term column. */
-  columns: string[];
-  rows: FeeRow[];
-  /** Rendered under the table for the caveats a cell can't hold. */
-  notes: string[];
-}
+// Fee-grid shapes live in ../types.ts — Washington uses the same ones.
+import type { FeeTable } from "../types";
 
 /**
  * Tidal (saltwater) — DFO.

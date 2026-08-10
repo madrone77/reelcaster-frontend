@@ -37,11 +37,13 @@ export default function MarketingFooter() {
           <ul className="space-y-2 text-rc-ink-soft">
             <li><Link href="/fishing/bc" className="hover:text-rc-ink">British Columbia</Link></li>
             <li><Link href="/fishing/wa" className="hover:text-rc-ink">Washington</Link></li>
-            {/* Sitewide link so the guide isn't reachable only from search —
-                an indexable page nothing links to reads as low value. Lives
-                under Locations because it is BC-specific; it moves to its own
-                heading once Washington has one too. */}
+            {/* Sitewide links so the guides aren't reachable only from search —
+                an indexable page nothing links to reads as low value. They sit
+                under Locations because each is region-specific. Note the
+                spelling split: BC copy says "licence" (DFO), WA says "license"
+                (WDFW), while both share the /fishing-licence/ route segment. */}
             <li><Link href="/fishing-licence/bc" className="hover:text-rc-ink">BC fishing licence</Link></li>
+            <li><Link href="/fishing-licence/wa" className="hover:text-rc-ink">WA fishing license</Link></li>
           </ul>
         </div>
 
