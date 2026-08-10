@@ -3,12 +3,22 @@
 import { useState } from 'react'
 import Link from 'next/link'
 import { ArrowRight, X as CancelIcon } from 'lucide-react'
-import { AppShell } from '@/app/components/layout'
+import { btn } from '@/app/components/ui/button'
+import PlanMatrix from '@/app/components/paywall/plan-matrix'
 import { useUpgradeFlow } from '@/hooks/use-upgrade-flow'
+import { useAuth } from '@/contexts/auth-context'
+import { useSubscription } from '@/hooks/use-subscription'
+import type { PlanTierId } from '@/lib/plan-features'
 
 export default function BillingCancelPage() {
   const { openCheckout, loading, error } = useUpgradeFlow()
+  const { user } = useAuth()
+  const { isPaid } = useSubscription()
   const [retrying, setRetrying] = useState(false)
+
+  // Same derivation as ProTrialModal, so the "You" column marks the same
+  // tier whether they abandoned checkout or hit a wall inside the app.
+  const viewerTier: PlanTierId = isPaid ? 'pro' : user ? 'free' : 'anon'
 
   const handleRetry = async () => {
     setRetrying(true)
@@ -20,54 +30,57 @@ export default function BillingCancelPage() {
   }
 
   return (
-    <AppShell showLocationPanel={false}>
-      <div className="flex-1 min-h-screen p-4 sm:p-6 flex items-center justify-center">
-        <div
-          className="bg-rc-bg-dark border border-rc-bg-light rounded-2xl p-8 max-w-lg w-full"
-          data-testid="billing-cancel"
-        >
-          <div className="mx-auto w-12 h-12 rounded-full bg-rc-bg-light flex items-center justify-center">
-            <CancelIcon className="w-7 h-7 text-rc-text-muted" />
+    <div className="mx-auto flex max-w-2xl flex-col px-6 py-12 md:py-16">
+      <p className="font-rc-mono text-[10px] uppercase tracking-[0.14em] text-rc-ink-mute">
+        ReelCaster Pro
+      </p>
+
+      {/* The matrix carries its own rules and gutters, so the card drops its
+          padding and each block owns its own — otherwise the table would sit
+          inset with its full-bleed row borders stopping short of the edge. */}
+      <div
+        className="mt-6 overflow-hidden rounded-xl border border-rc-rule bg-rc-panel shadow-rc-panel"
+        data-testid="billing-cancel"
+      >
+        <div className="p-6 md:p-8">
+          <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full border border-rc-rule bg-rc-surface">
+            <CancelIcon className="h-7 w-7 text-rc-ink-mute" />
           </div>
-          <h1 className="mt-4 text-2xl font-semibold text-rc-text text-center">
+          <h1 className="mt-4 text-center text-2xl font-black tracking-[-0.02em] text-rc-ink md:text-3xl">
             Checkout canceled
           </h1>
-          <p className="mt-2 text-sm text-rc-text-muted text-center">
-            No worries, nothing was charged. Here&rsquo;s what Pro unlocks when you&rsquo;re ready.
+          <p className="mt-3 text-center text-sm leading-relaxed text-rc-ink-soft">
+            No worries, nothing was charged. Here&rsquo;s what Pro unlocks when
+            you&rsquo;re ready.
           </p>
+        </div>
 
-          <ul className="mt-5 space-y-2 text-sm text-rc-text">
-            <li>· 14-day forecast with hourly detail</li>
-            <li>· Multi-species comparative scoring (up to 5 species)</li>
-            <li>· Bathymetry layer (NOAA + CHS)</li>
-            <li>· Up to 10 alerts and unlimited favorite spots</li>
-            <li>· Forecast emails tuned to your home water</li>
-          </ul>
+        {/* Not sticky: this page is scrolled by the window, and sticky heads
+            would park themselves under the site's own sticky top bar. */}
+        <PlanMatrix viewerTier={viewerTier} stickyHeader={false} />
 
+        <div className="border-t border-rc-rule p-6 md:p-8">
           {error && (
-            <p className="mt-4 text-sm text-red-400 text-center">{error.message}</p>
+            <p className="mb-4 text-center text-sm text-rc-poor">{error.message}</p>
           )}
 
-          <div className="mt-6 flex flex-col sm:flex-row gap-2">
+          <div className="flex flex-col gap-2 sm:flex-row">
             <button
               type="button"
               onClick={handleRetry}
               disabled={loading || retrying}
-              className="inline-flex flex-1 items-center justify-center gap-1 px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white rounded-lg text-sm font-medium"
+              className={`${btn.primary} gap-1.5 sm:flex-1`}
               data-testid="billing-cancel-retry"
             >
               {retrying || loading ? 'Opening checkout…' : 'Try again'}
-              <ArrowRight className="w-4 h-4" />
+              <ArrowRight className="h-4 w-4" />
             </button>
-            <Link
-              href="/explore"
-              className="inline-flex flex-1 items-center justify-center gap-1 px-4 py-2 bg-rc-bg-light hover:bg-rc-bg-darkest text-rc-text rounded-lg text-sm font-medium border border-rc-bg-light"
-            >
+            <Link href="/explore" className={`${btn.secondary} sm:flex-1`}>
               Back to Explore
             </Link>
           </div>
         </div>
       </div>
-    </AppShell>
+    </div>
   )
 }
