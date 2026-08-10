@@ -33,6 +33,12 @@ export interface UnitPrefs {
 
 interface UnitPreferencesContextType extends UnitPrefs {
   setUnit: (type: MetricType, unit: AnyUnit) => Promise<void>
+  /**
+   * Set several variables at once in a single save. `setUnit` per variable
+   * costs one `auth.updateUser` round-trip each, which for a whole-preset
+   * change is nine sequential writes racing to merge the same metadata blob.
+   */
+  setUnits: (units: Partial<Record<MetricType, AnyUnit>>) => Promise<void>
   cycleUnit: (type: MetricType) => Promise<void>
   /** Re-pull saved prefs (e.g. after the profile page bulk-saves). */
   refresh: () => Promise<void>
@@ -95,14 +101,14 @@ const UnitPreferencesContext = createContext<UnitPreferencesContextType | undefi
 export function UnitPreferencesProvider({ children }: { children: React.ReactNode }) {
   const { user } = useAuth()
   const { trackEvent } = useMixpanel()
-  const [units, setUnits] = useState<UnitPrefs>(DEFAULT_UNITS)
+  const [units, setUnitsState] = useState<UnitPrefs>(DEFAULT_UNITS)
   const [loading, setLoading] = useState(true)
 
   const loadSaved = useCallback(async () => {
     // Local copy first so anonymous visitors (and the first paint for
     // signed-in users) don't flash defaults.
     const local = readLocal()
-    setUnits((prev) => ({ ...prev, ...local }))
+    setUnitsState((prev) => ({ ...prev, ...local }))
 
     if (user) {
       const p = await UserPreferencesService.getUserPreferences()
@@ -122,7 +128,7 @@ export function UnitPreferencesProvider({ children }: { children: React.ReactNod
         distanceUnit: p.distanceUnit || DEFAULT_UNITS.distanceUnit,
         pressureUnit: p.pressureUnit || DEFAULT_UNITS.pressureUnit,
       }
-      setUnits(server)
+      setUnitsState(server)
       writeLocal(server)
     }
     setLoading(false)
@@ -135,13 +141,33 @@ export function UnitPreferencesProvider({ children }: { children: React.ReactNod
   const setUnit = useCallback(
     async (type: MetricType, unit: AnyUnit) => {
       const key = UNIT_KEY[type]
-      setUnits((prev) => {
+      setUnitsState((prev) => {
         const next = { ...prev, [key]: unit }
         writeLocal(next)
         return next
       })
       if (user) {
         await UserPreferencesService.updateUserPreferences({ [key]: unit })
+      }
+    },
+    [user],
+  )
+
+  const setUnits = useCallback(
+    async (next: Partial<Record<MetricType, AnyUnit>>) => {
+      const patch: Partial<UnitPrefs> = {}
+      for (const [type, unit] of Object.entries(next)) {
+        if (unit) patch[UNIT_KEY[type as MetricType]] = unit as never
+      }
+      if (Object.keys(patch).length === 0) return
+
+      setUnitsState((prev) => {
+        const merged = { ...prev, ...patch }
+        writeLocal(merged)
+        return merged
+      })
+      if (user) {
+        await UserPreferencesService.updateUserPreferences(patch)
       }
     },
     [user],
@@ -167,6 +193,7 @@ export function UnitPreferencesProvider({ children }: { children: React.ReactNod
   const value: UnitPreferencesContextType = {
     ...units,
     setUnit,
+    setUnits,
     cycleUnit,
     refresh: loadSaved,
     loading,

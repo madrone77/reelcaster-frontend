@@ -206,7 +206,10 @@ export type AnalyticsEventName =
   | 'Paywall CTA Clicked'
   | 'Manage Subscription Clicked'
   | 'Pro Welcome Shown'
+  // Closed the onboarding wizard early. Paired with 'Pro Onboarding Completed'
+  // — both stop it reappearing, only one means they reached the end.
   | 'Pro Welcome Dismissed'
+  | 'Pro Onboarding Completed'
   // Performance
   | 'Page Load Time'
   | 'API Call'
