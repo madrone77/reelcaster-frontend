@@ -1,38 +1,59 @@
 /**
- * ReelCaster Pro pricing — one flat plan, billed monthly or yearly, in the
- * buyer's currency:
+ * ReelCaster Pro pricing — ONE plan, billed yearly, in the buyer's currency:
  *
- *   CAD: $5 / month · $33 / year        USD: $5 / month · $33 / year
+ *   CAD: $33 / year        USD: $33 / year
  *
- * Every subscription starts with a free trial (TRIAL_DAYS): the card is
+ * There is no monthly plan to choose any more. $33 is low enough that a
+ * cadence toggle was asking people to do arithmetic before they could buy, so
+ * the copy does the division for them instead: $33 a year IS $2.75 a month
+ * (`ANNUAL_PER_MONTH_CENTS`), which is the number every surface leads with.
+ * Nothing sells monthly, so nothing has to explain a discount.
+ *
+ * Every subscription starts with a free trial (TRIAL_DAYS): a payment method is
  * collected at checkout, $0 is charged today, and the first invoice lands when
  * the trial ends. The trial is granted per-session by the checkout route
  * (subscription_data.trial_period_days) and only to first-time subscribers —
- * it is not baked into the Stripe Price objects.
+ * it is not baked into the Stripe Price object.
  *
- * Yearly is a 45% discount: twelve monthly payments would be $60, so the
- * annual plan saves $27 (45% off). See annualDiscount() for the derived math
- * the pricing UI renders.
- *
- * Stripe-side model: ONE product with TWO multi-currency Prices (CAD base +
- * a USD currency_option at the same amounts), so each price ID covers both
+ * Stripe-side model: ONE product with ONE multi-currency Price (CAD base + a
+ * USD currency_option at the same amount), so the single price ID covers both
  * currencies. Checkout picks the presentment currency via the session-level
- * `currency` param. Price IDs come from STRIPE_MONTHLY_PRICE_ID /
- * STRIPE_ANNUAL_PRICE_ID; a plan whose ID is unset is refused by the
- * checkout route (503 plan_unavailable) rather than sent to Stripe.
+ * `currency` param. The price ID comes from STRIPE_ANNUAL_PRICE_ID; with it
+ * unset the checkout route refuses (503 plan_unavailable) rather than sending
+ * an empty price to Stripe.
  */
 
-export type PricingPlan = 'monthly' | 'annual';
 export type BillingCurrency = 'cad' | 'usd';
 
-export const MONTHLY_PRICE_CENTS = 500; // $5 / month (CAD and USD alike)
 export const ANNUAL_PRICE_CENTS = 3300; // $33 / year (CAD and USD alike)
+
+/**
+ * $33 ÷ 12, the way the price is actually pitched. Derived rather than typed
+ * out so the "that's $2.75 a month" line can never drift from what a customer
+ * is charged — change ANNUAL_PRICE_CENTS and every surface follows.
+ */
+export const ANNUAL_PER_MONTH_CENTS = Math.round(ANNUAL_PRICE_CENTS / 12);
 
 /** Free-trial length, in days. Shared by checkout and every piece of UI copy. */
 export const TRIAL_DAYS = 7;
 
-export const MONTHLY_PRICE_ID = process.env.STRIPE_MONTHLY_PRICE_ID ?? '';
 export const ANNUAL_PRICE_ID = process.env.STRIPE_ANNUAL_PRICE_ID ?? '';
+
+/**
+ * LEGACY. The old $5/month plan, which is no longer sold anywhere.
+ *
+ * Customers who subscribed monthly before the switch are still on it and still
+ * billing, so the webhook needs this to label their renewal and payment-failure
+ * emails with the amount they actually pay. Nothing customer-facing may use it
+ * to *sell* — the only reader is `amountLabelForTier` in the Stripe webhook.
+ */
+export const LEGACY_MONTHLY_PRICE_CENTS = 500;
+
+/** "$33", "$2.75" — trailing cents only when there are any. */
+export function dollars(cents: number): string {
+  const v = cents / 100;
+  return Number.isInteger(v) ? `$${v}` : `$${v.toFixed(2)}`;
+}
 
 /**
  * Region → billing currency. BC buys in CAD; WA/OR in USD. When no region is
@@ -59,20 +80,4 @@ export function currencyLabelForRegion(
   region: string | null | undefined,
 ): 'CAD' | 'USD' {
   return currencyForRegion(region) === 'cad' ? 'CAD' : 'USD';
-}
-
-/**
- * The savings story for the yearly plan, derived from the two prices above so
- * the copy can never drift from what a customer is actually charged.
- */
-export function annualDiscount() {
-  const fullCents = MONTHLY_PRICE_CENTS * 12; // $60 — twelve months at monthly
-  const saveCents = fullCents - ANNUAL_PRICE_CENTS; // $27 saved
-  const pct = Math.round((saveCents / fullCents) * 100); // 45% off
-  const perMonthCents = Math.round(ANNUAL_PRICE_CENTS / 12); // ~$2.75 / month
-  return { fullCents, saveCents, pct, perMonthCents };
-}
-
-export function priceIdFor(plan: PricingPlan): string {
-  return plan === 'annual' ? ANNUAL_PRICE_ID : MONTHLY_PRICE_ID;
 }

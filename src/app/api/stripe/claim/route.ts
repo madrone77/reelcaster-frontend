@@ -3,6 +3,10 @@ import { createClient } from '@supabase/supabase-js';
 import { getStripe, appOrigin } from '@/lib/stripe';
 import { sendEmail } from '@/lib/email-service';
 import { checkoutSignInEmail } from '@/lib/email-templates/billing';
+import {
+  EXPRESS_MARKER,
+  isExpressSetupIntentId,
+} from '@/lib/express-checkout';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -41,6 +45,13 @@ const CLAIM_WINDOW_MS = 30 * 60 * 1000;
  * Storage: `user_settings.created_via_checkout` answers "did this purchase
  * create the account", and a row in `checkout_claims` means "already
  * redeemed". Both predate this route in the database; see the migration.
+ *
+ * Two kinds of credential are accepted, because there are two ways to buy. A
+ * hosted checkout hands back a Checkout Session (`cs_`); an in-page wallet
+ * purchase never creates one, so the SetupIntent the wallet confirmed (`seti_`)
+ * stands in its place. The checks are the same shape either way — exists, is
+ * ours, actually completed, recent, unclaimed — and `checkout_claims.session_id`
+ * is a text primary key, so both ids share one ledger with no migration.
  */
 export async function POST(request: NextRequest) {
   let sessionId: string;
@@ -51,34 +62,23 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'invalid_body' }, { status: 400 });
   }
 
-  if (!sessionId.startsWith('cs_')) {
+  const express = isExpressSetupIntentId(sessionId);
+  if (!express && !sessionId.startsWith('cs_')) {
     return NextResponse.json({ error: 'invalid_session' }, { status: 400 });
   }
 
-  const stripe = await getStripe();
+  const proof = express
+    ? await proofFromSetupIntent(sessionId)
+    : await proofFromCheckoutSession(sessionId);
 
-  let session;
-  try {
-    session = await stripe.checkout.sessions.retrieve(sessionId);
-  } catch {
-    return NextResponse.json({ error: 'invalid_session' }, { status: 404 });
+  if ('error' in proof) {
+    return NextResponse.json({ error: proof.error }, { status: proof.status });
   }
 
-  if (session.status !== 'complete') {
-    return NextResponse.json({ error: 'session_incomplete' }, { status: 409 });
-  }
+  const { customerId, createdMs } = proof;
 
-  const createdMs = (session.created ?? 0) * 1000;
   if (!createdMs || Date.now() - createdMs > CLAIM_WINDOW_MS) {
     return NextResponse.json({ error: 'session_expired' }, { status: 410 });
-  }
-
-  const customerId =
-    typeof session.customer === 'string'
-      ? session.customer
-      : (session.customer?.id ?? null);
-  if (!customerId) {
-    return NextResponse.json({ error: 'no_customer' }, { status: 409 });
   }
 
   const { data: link } = await admin
@@ -93,8 +93,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ status: 'pending' }, { status: 202 });
   }
 
-  const email =
-    session.customer_details?.email ?? session.customer_email ?? null;
+  const email = proof.email;
 
   // The account predates this purchase, so paying for it proves nothing about
   // owning the inbox. Only the inbox can complete this one.
@@ -125,6 +124,80 @@ export async function POST(request: NextRequest) {
   }
 
   return NextResponse.json({ status: 'signed_in', url: actionLink });
+}
+
+/** What a valid purchase credential resolves to, whichever kind it is. */
+type Proof =
+  | { customerId: string; createdMs: number; email: string | null }
+  | { error: string; status: number };
+
+async function proofFromCheckoutSession(sessionId: string): Promise<Proof> {
+  const stripe = await getStripe();
+
+  let session;
+  try {
+    session = await stripe.checkout.sessions.retrieve(sessionId);
+  } catch {
+    return { error: 'invalid_session', status: 404 };
+  }
+
+  if (session.status !== 'complete') {
+    return { error: 'session_incomplete', status: 409 };
+  }
+
+  const customerId =
+    typeof session.customer === 'string'
+      ? session.customer
+      : (session.customer?.id ?? null);
+  if (!customerId) return { error: 'no_customer', status: 409 };
+
+  return {
+    customerId,
+    createdMs: (session.created ?? 0) * 1000,
+    email: session.customer_details?.email ?? session.customer_email ?? null,
+  };
+}
+
+/**
+ * The in-page wallet equivalent. A succeeded SetupIntent means the customer
+ * authorised Apple Pay / Google Pay on their own device, which is the same
+ * strength of claim a completed hosted checkout makes.
+ *
+ * It is NOT on its own proof that a subscription exists — but it doesn't have
+ * to be: the caller only gets past this point once the webhook has provisioned
+ * an account from the subscription, and no subscription means no
+ * `user_settings` row to find.
+ */
+async function proofFromSetupIntent(setupIntentId: string): Promise<Proof> {
+  const stripe = await getStripe();
+
+  let intent;
+  try {
+    intent = await stripe.setupIntents.retrieve(setupIntentId);
+  } catch {
+    return { error: 'invalid_session', status: 404 };
+  }
+
+  // Someone else's SetupIntent — from any other flow on this Stripe account —
+  // must not mint a login.
+  if (intent.metadata?.[EXPRESS_MARKER] !== '1') {
+    return { error: 'invalid_session', status: 400 };
+  }
+  if (intent.status !== 'succeeded') {
+    return { error: 'session_incomplete', status: 409 };
+  }
+
+  const customerId =
+    typeof intent.customer === 'string'
+      ? intent.customer
+      : (intent.customer?.id ?? null);
+  if (!customerId) return { error: 'no_customer', status: 409 };
+
+  return {
+    customerId,
+    createdMs: (intent.created ?? 0) * 1000,
+    email: intent.metadata?.checkout_email ?? null,
+  };
 }
 
 async function generateSignInLink(

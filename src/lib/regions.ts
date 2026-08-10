@@ -2,9 +2,24 @@
 // BlueCaster — we keep this list explicit so the frontend can render
 // "covered" vs "coming soon" badges and gate Stripe checkout client-side
 // without a polygon lookup. Sub-region tiers (T1/T2/T3) are deferred to v1.1.
+//
+// Oregon was in this list and shouldn't have been: it has no cities in
+// BlueCaster at all — not published, not even building — so it generated an
+// empty /fishing/or directory, listed itself in the sitemap, advertised itself
+// in the Offer markup, and let someone pick "Oregon" at checkout and pay for
+// water we don't forecast. Add a region back here the day it has a published
+// city, not the day we intend to build one.
 
-export const COVERED_PROVINCES = ["BC", "WA", "OR"] as const;
+export const COVERED_PROVINCES = ["BC", "WA"] as const;
 export type CoveredProvince = (typeof COVERED_PROVINCES)[number];
+
+/**
+ * Every region we can resolve FACTS about (timezone, regulator), which is a
+ * wider set than the ones we sell. A spot can sit just over a border — see the
+ * denormalized address on `places` — and still needs the right clock and the
+ * right fisheries authority even though its region isn't for sale.
+ */
+type KnownProvince = "BC" | "WA" | "OR";
 
 export function isCovered(provinceCode: string): boolean {
   return (COVERED_PROVINCES as readonly string[]).includes(
@@ -16,7 +31,7 @@ export function isCovered(provinceCode: string): boolean {
 // Titles want the postal code, both because "Victoria, BC" is how anglers
 // write it and because the full name pushed a third of our <title>s past the
 // ~60 characters Google renders before truncating.
-const PROVINCE_CODE_BY_NAME: Record<string, CoveredProvince> = {
+const PROVINCE_CODE_BY_NAME: Record<string, KnownProvince> = {
   "british columbia": "BC",
   washington: "WA",
   oregon: "OR",
@@ -39,7 +54,7 @@ export function provinceCodeFromName(region: string): string {
 // "America/Vancouver", and because BC, WA and OR share an offset, a Seattle
 // spot rendered the right *hour* under a Canadian timezone label — correct by
 // coincidence, and wrong the moment a spot lands outside Pacific time.
-const TIMEZONE_BY_PROVINCE: Record<CoveredProvince, string> = {
+const TIMEZONE_BY_PROVINCE: Record<KnownProvince, string> = {
   BC: "America/Vancouver",
   WA: "America/Los_Angeles",
   OR: "America/Los_Angeles",
@@ -60,7 +75,7 @@ const DEFAULT_TIMEZONE = TIMEZONE_BY_PROVINCE.BC;
 export function timezoneFor(region: string | null | undefined): string {
   if (!region) return DEFAULT_TIMEZONE;
   const code = provinceCodeFromName(region).toUpperCase();
-  return TIMEZONE_BY_PROVINCE[code as CoveredProvince] ?? DEFAULT_TIMEZONE;
+  return TIMEZONE_BY_PROVINCE[code as KnownProvince] ?? DEFAULT_TIMEZONE;
 }
 
 // BlueCaster stores the formal country name ("United States"). Breadcrumbs are
@@ -106,7 +121,7 @@ export interface Regulator {
   url: string;
 }
 
-const REGULATOR_BY_PROVINCE: Record<CoveredProvince, Regulator> = {
+const REGULATOR_BY_PROVINCE: Record<KnownProvince, Regulator> = {
   BC: {
     name: "DFO",
     sourceName: "DFO/MPO",
@@ -136,6 +151,6 @@ export function regulatorFor(region: string | null | undefined): Regulator {
   if (!region) return REGULATOR_BY_PROVINCE.BC;
   const code = provinceCodeFromName(region).toUpperCase();
   return (
-    REGULATOR_BY_PROVINCE[code as CoveredProvince] ?? REGULATOR_BY_PROVINCE.BC
+    REGULATOR_BY_PROVINCE[code as KnownProvince] ?? REGULATOR_BY_PROVINCE.BC
   );
 }

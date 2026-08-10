@@ -13,7 +13,7 @@ export default function BillingCancelPage() {
   const handleRetry = async () => {
     setRetrying(true)
     try {
-      await openCheckout({ plan: 'annual', from: 'billing-cancel' })
+      await openCheckout({ from: 'billing-cancel' })
     } finally {
       setRetrying(false)
     }

@@ -2,7 +2,11 @@ import { NextResponse } from 'next/server';
 import type Stripe from 'stripe';
 import { createClient } from '@supabase/supabase-js';
 import { getStripe } from '@/lib/stripe';
-import { ANNUAL_PRICE_ID, ANNUAL_PRICE_CENTS, MONTHLY_PRICE_CENTS } from '@/lib/pricing';
+import {
+  ANNUAL_PRICE_ID,
+  ANNUAL_PRICE_CENTS,
+  LEGACY_MONTHLY_PRICE_CENTS,
+} from '@/lib/pricing';
 import { recordTrialGrant, recordTrialCardFingerprint } from '@/lib/trial';
 import { findOrCreateUserForCheckout } from '@/lib/checkout-account';
 import { sendEmail } from '@/lib/email-service';
@@ -26,12 +30,19 @@ const admin = createClient(supabaseUrl, supabaseServiceKey, {
   auth: { autoRefreshToken: false, persistSession: false },
 });
 
+/**
+ * `pro_monthly` is now only ever reached by subscriptions that predate the
+ * switch to a single yearly plan. Nothing sells monthly, but people are still
+ * on it and still being billed $5 — so their renewal and payment-failure
+ * emails have to keep quoting the amount they actually pay.
+ */
 function tierFromPriceId(priceId: string | null | undefined): 'pro_annual' | 'pro_monthly' {
   return priceId === ANNUAL_PRICE_ID ? 'pro_annual' : 'pro_monthly';
 }
 
 function amountLabelForTier(tier: string): string {
-  const cents = tier === 'pro_annual' ? ANNUAL_PRICE_CENTS : MONTHLY_PRICE_CENTS;
+  const cents =
+    tier === 'pro_annual' ? ANNUAL_PRICE_CENTS : LEGACY_MONTHLY_PRICE_CENTS;
   return `$${(cents / 100).toFixed(2).replace(/\.00$/, '')}`;
 }
 

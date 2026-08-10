@@ -2,10 +2,8 @@
 
 import { useCallback, useState } from 'react';
 import { apiFetch } from '@/lib/api-client';
-import type { PricingPlan } from '@/lib/pricing';
 
 export interface OpenCheckoutOptions {
-  plan?: PricingPlan;
   /** Region slug (e.g. 'BC', 'WA', 'OR'); 'Other' triggers waitlist redirect. */
   region?: string;
   /** Analytics origin: 'spot', 'pricing', 'paywall:14-day-forecast', etc. */
@@ -37,7 +35,6 @@ export function useUpgradeFlow() {
       const res = await apiFetch<CheckoutResponse>('/api/stripe/checkout', {
         method: 'POST',
         body: {
-          plan: opts.plan ?? 'annual',
           region: opts.region ?? '',
           from: opts.from ?? '',
         },

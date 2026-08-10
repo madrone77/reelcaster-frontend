@@ -44,10 +44,12 @@ test.describe('/pricing → /plans', () => {
     expect(new URL(page.url()).pathname).toBe('/plans');
   });
 
-  test('the monthly deep link lands on checkout with the plan preserved', async ({ page }) => {
+  // Monthly is retired, but the link is in billing emails that already went
+  // out — it still has to land on a page you can buy from.
+  test('the old monthly deep link still lands on checkout', async ({ page }) => {
     await page.goto('/pricing?plan=monthly');
     const url = new URL(page.url());
     expect(url.pathname).toBe('/plans/checkout');
-    expect(url.searchParams.get('plan')).toBe('monthly');
+    expect(url.searchParams.get('plan')).toBeNull();
   });
 });

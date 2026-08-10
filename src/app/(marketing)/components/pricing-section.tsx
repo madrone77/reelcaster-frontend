@@ -1,20 +1,18 @@
 import Link from 'next/link';
 import {
+  ANNUAL_PER_MONTH_CENTS,
   ANNUAL_PRICE_CENTS,
-  MONTHLY_PRICE_CENTS,
   TRIAL_DAYS,
-  annualDiscount,
+  dollars,
 } from '@/lib/pricing';
 import { btn } from '@/app/components/ui/button';
 import TrialModalButton from '@/app/components/paywall/trial-modal-button';
 
-// Free vs Pro. Pro is one flat plan — $5/mo or $33/yr (45% off) — wired to the
-// real prices in src/lib/pricing.ts (no fake price points).
+// Free vs Pro. Pro is one plan — $33/yr, which is $2.75/mo — wired to the real
+// price in src/lib/pricing.ts (no fake price points). The big number is the
+// monthly one because that's the number that lands; the line beneath it says
+// what's actually charged and how often.
 export default function PricingSection() {
-  const monthlyDollars = MONTHLY_PRICE_CENTS / 100;
-  const annualDollars = ANNUAL_PRICE_CENTS / 100;
-  const { pct } = annualDiscount();
-
   return (
     <section id="pricing" data-testid="homepage-pricing" className="bg-rc-navy scroll-mt-16">
       <div className="max-w-5xl mx-auto px-6 py-16 md:py-20">
@@ -56,13 +54,13 @@ export default function PricingSection() {
               REELCASTER PRO
             </p>
             <p className="mt-2 text-5xl font-black tracking-[-0.03em] text-rc-ink">
-              ${monthlyDollars}
+              {dollars(ANNUAL_PER_MONTH_CENTS)}
               <span className="ml-1 align-baseline font-rc-mono text-xs font-medium tracking-wide text-rc-ink-mute">
                 /mo
               </span>
             </p>
             <p className="mt-1.5 font-rc-mono text-[11px] text-rc-ink-mute">
-              or ${annualDollars}/yr, save {pct}%
+              billed yearly at {dollars(ANNUAL_PRICE_CENTS)}
             </p>
             <p className="mt-1.5 font-rc-mono text-[11px] font-semibold text-rc-good-ink">
               first {TRIAL_DAYS} days free
