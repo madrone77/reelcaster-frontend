@@ -37,6 +37,11 @@ export default function MarketingFooter() {
           <ul className="space-y-2 text-rc-ink-soft">
             <li><Link href="/fishing/bc" className="hover:text-rc-ink">British Columbia</Link></li>
             <li><Link href="/fishing/wa" className="hover:text-rc-ink">Washington</Link></li>
+            {/* Sitewide link so the guide isn't reachable only from search —
+                an indexable page nothing links to reads as low value. Lives
+                under Locations because it is BC-specific; it moves to its own
+                heading once Washington has one too. */}
+            <li><Link href="/fishing-licence/bc" className="hover:text-rc-ink">BC fishing licence</Link></li>
           </ul>
         </div>
 
