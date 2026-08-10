@@ -14,12 +14,7 @@ import {
 import { useAuth } from "@/contexts/auth-context";
 import { useSubscription } from "@/hooks/use-subscription";
 import { useAnalytics } from "@/hooks/use-analytics";
-import {
-  TrialBuy,
-  TrialCadence,
-  TrialCtaProvider,
-  TrialTerms,
-} from "./trial-cta";
+import { TrialBuy, TrialCtaProvider, TrialExpress } from "./trial-cta";
 import { TRIAL_DAYS } from "@/lib/pricing";
 import {
   FREE_FAVORITE_SPOTS,
@@ -96,47 +91,58 @@ export default function ProTrialModal({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      {/* Column layout, not a single scrolling box: the headline and the buy
-          button stay put while the plan table scrolls under them, so the CTA
-          is never pushed off a short screen. */}
+      {/* ONE scrolling box. This used to pin the headline and the buy button
+          and scroll only the plan table between them — which on a phone left a
+          narrow strip of moving content trapped between two frozen bands, and
+          read as a broken page rather than a deliberate layout.
+
+          So the shell stays put and everything inside it scrolls together. The
+          close button is the one exception: it's absolutely positioned on the
+          shell, OUTSIDE the scroller, so it can't be scrolled away from — which
+          matters more here than it did before, now that the buy button can be. */}
       <DialogContent
         data-testid="pro-trial-modal"
         data-feature={feature}
-        className="bg-rc-panel border-rc-rule text-rc-ink p-0 gap-0 sm:max-w-lg max-h-[88dvh] flex flex-col overflow-hidden"
+        className="bg-rc-panel border-rc-rule text-rc-ink p-0 gap-0 sm:max-w-lg max-h-[88dvh] flex flex-col overflow-hidden [&>[data-slot=dialog-close]]:z-20"
       >
-        {/* One provider around all three pieces: the cadence sits by the plan
-            table, the button up top, the terms at the foot — and they still
-            share the selected plan. */}
+        {/* overscroll-contain so a flick past the end of the modal on a phone
+            doesn't start scrolling the page underneath it. */}
+        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
+        {/* One provider around all three pieces: the wallet buttons and the
+            buy form up top, the terms at the foot — sharing one resolution of
+            trial eligibility rather than each asking again. */}
         <TrialCtaProvider
           from={from}
           theme="light"
-          onActivate={(plan) =>
+          onActivate={(method) =>
             trackEvent("Paywall CTA Clicked", {
               feature,
               viewerTier,
               from,
-              plan: plan ?? "signup",
-              destination: "checkout",
+              plan: "annual",
+              method,
+              destination: method === "wallet" ? "wallet" : "checkout",
             })
           }
         >
           {/* pr-10 clears the dialog's own close button — which is also why
               there's no "Not now": two dismissals for one modal. */}
-          <DialogHeader className="shrink-0 px-4 pr-10 pt-6 pb-5 sm:px-6 sm:pr-12 text-left">
+          <DialogHeader className="px-4 pr-10 pt-6 pb-5 sm:px-6 sm:pr-12 text-left">
             <p className="font-rc-mono text-[10px] font-semibold tracking-[0.14em] uppercase text-rc-brand">
               ReelCaster Pro
             </p>
             <DialogTitle className="mt-2 text-xl sm:text-2xl font-black tracking-[-0.02em] text-rc-ink text-balance">
               {nagHeadline(nag, viewerTier, spotName)}
             </DialogTitle>
-            <DialogDescription className="mt-2 text-sm leading-relaxed text-rc-ink-soft">
-              {nagSubhead()}
-            </DialogDescription>
           </DialogHeader>
 
-          {/* Buy, then cadence — the toggle sits against the plan table it
-              re-prices, rather than above the button it feeds. */}
-          <div className="shrink-0 px-4 sm:px-6 pb-4">
+          {/* Wallets first, then the card path. A buyer with Apple Pay set up
+              is one tap from done and should never have to scroll past a form
+              to find that out; a buyer without one sees the form exactly where
+              it was, because <TrialExpress> renders nothing — not even its
+              divider — when no wallet is available. */}
+          <div className="px-4 sm:px-6 pb-4">
+            {!ctaHref && <TrialExpress className="mb-4" />}
             {ctaHref ? (
               <Link
                 href={ctaHref}
@@ -156,17 +162,40 @@ export default function ProTrialModal({
             ) : (
               <TrialBuy signupLabel={ctaLabel} />
             )}
-            {!ctaHref && <TrialCadence className="mt-3" />}
           </div>
 
-          <div className="min-h-0 flex-1 overflow-y-auto">
-            <PlanMatrix viewerTier={viewerTier} highlightRowId={nag.rowId} />
-          </div>
+          <PlanMatrix viewerTier={viewerTier} highlightRowId={nag.rowId} />
 
-          {/* Terms sit down here rather than under the button: short, and the
-              last thing read before the free-tier alternative. */}
-          <div className="shrink-0 border-t border-rc-rule px-4 sm:px-6 py-4">
-            {!ctaHref && <TrialTerms className="text-center" />}
+          {/* The second ask. Someone who read the whole table has just been
+              convinced by it, and making them scroll back up to act on that is
+              how you lose them. Both copies share one email field's worth of
+              state through the provider, so a half-typed address at the top is
+              already there at the bottom. */}
+          <div className="border-t border-rc-rule px-4 sm:px-6 py-4">
+            {!ctaHref && (
+              <TrialBuy signupLabel={ctaLabel} testId="trial-cta-bottom" />
+            )}
+
+            {/* The disclosure, directly under the button it belongs to — which
+                is the arrangement the rest of this code insists on (see
+                trial-cta.tsx). The Terms and Privacy links live here because
+                this is now the only place on the modal that carries them. */}
+            <DialogDescription className="mt-3 text-sm leading-relaxed text-rc-ink-soft">
+              {nagSubhead()}{" "}
+              <Link
+                href="/terms"
+                className="text-rc-brand underline underline-offset-2 hover:text-rc-brand-hover"
+              >
+                Terms
+              </Link>
+              {" · "}
+              <Link
+                href="/privacy"
+                className="text-rc-brand underline underline-offset-2 hover:text-rc-brand-hover"
+              >
+                Privacy
+              </Link>
+            </DialogDescription>
 
             {/* The free tier, offered last and on purpose: after the matrix
                 has shown what an account gets you without paying. Only for
@@ -200,6 +229,7 @@ export default function ProTrialModal({
             )}
           </div>
         </TrialCtaProvider>
+        </div>
       </DialogContent>
     </Dialog>
   );
@@ -222,7 +252,11 @@ function PlanMatrix({
   return (
     <div className="border-t border-rc-rule">
       {/* Column heads — sticky so the tier you're reading stays labelled while
-          the groups scroll past inside the dialog. */}
+          the rows scroll past. Now that the whole modal is one scroller these
+          stick to the top of the dialog rather than to a table-sized window,
+          which is the only thing that stays fixed while you read the rows. The
+          z sits below the close button's (see DialogContent) so it slides
+          under the X instead of over it. */}
       <div
         className={`${COL} sticky top-0 z-10 bg-rc-panel border-b border-rc-rule px-4 sm:px-6 py-2.5`}
       >
@@ -279,9 +313,17 @@ function PlanMatrix({
         );
       })}
 
+      {/* Names only what a customer can actually use today. Oregon used to be
+          listed here and in COVERED_PROVINCES despite having no cities in
+          BlueCaster at all, so this sold water we don't forecast; it has been
+          swept out of the covered set and every other surface that named it.
+          "More coming soon" covers the next region without naming a date.
+
+          The currency sentence stays: the price above says "$33" and nothing
+          else on this modal says which dollar that is. */}
       <p className="px-4 sm:px-6 py-4 text-[11px] leading-relaxed text-rc-ink-mute border-t border-rc-rule">
-        Pro is sold in British Columbia, Washington, and Oregon. Billed in CAD
-        in Canada, USD in the US.
+        Pro available in British Columbia and Washington. More coming soon.
+        Billed in CAD in Canada, USD in the US.
       </p>
     </div>
   );

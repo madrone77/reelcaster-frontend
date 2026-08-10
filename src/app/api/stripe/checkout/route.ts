@@ -4,10 +4,8 @@ import { getStripe, appOrigin } from '@/lib/stripe';
 import {
   ANNUAL_PRICE_ID,
   currencyForRegion,
-  priceIdFor,
   TRIAL_DAYS,
   type BillingCurrency,
-  type PricingPlan,
 } from '@/lib/pricing';
 import {
   checkTrialEligibility,
@@ -66,17 +64,18 @@ async function anonCheckout(request: NextRequest) {
     return NextResponse.json({ error: 'email_required' }, { status: 400 });
   }
 
-  const plan: PricingPlan = body.plan === 'annual' ? 'annual' : 'monthly';
   const region = (body.region ?? '').toString().trim();
 
   if (region.toLowerCase() === 'other') {
     return NextResponse.json({ redirect: '/explore?waitlist=1' }, { status: 200 });
   }
 
-  const priceId = priceIdFor(plan);
-  if (!priceId) {
-    console.error(`[stripe checkout] no price ID configured for plan "${plan}"`);
-    return NextResponse.json({ error: 'plan_unavailable', plan }, { status: 503 });
+  if (!ANNUAL_PRICE_ID) {
+    console.error('[stripe checkout] STRIPE_ANNUAL_PRICE_ID is not configured');
+    return NextResponse.json(
+      { error: 'plan_unavailable', plan: 'annual' },
+      { status: 503 },
+    );
   }
 
   const stripe = await getStripe();
@@ -99,7 +98,7 @@ async function anonCheckout(request: NextRequest) {
       // webhook binds it to the account it provisions.
       customer_email: email,
       currency,
-      line_items: [{ price: priceId, quantity: 1 }],
+      line_items: [{ price: ANNUAL_PRICE_ID, quantity: 1 }],
       allow_promotion_codes: true,
       payment_method_collection: 'always',
       success_url: `${origin}/billing/success?session_id={CHECKOUT_SESSION_ID}`,
@@ -109,7 +108,7 @@ async function anonCheckout(request: NextRequest) {
         // provision one rather than log an unresolvable subscription.
         anon_checkout: 'true',
         checkout_email: email,
-        plan,
+        plan: 'annual',
         currency,
         region: region || '',
         from: body.from ?? '',
@@ -119,7 +118,7 @@ async function anonCheckout(request: NextRequest) {
         metadata: {
           anon_checkout: 'true',
           checkout_email: email,
-          plan,
+          plan: 'annual',
           currency,
           trial: String(trialEligible),
         },
@@ -158,7 +157,6 @@ async function getUserFromRequest(request: NextRequest) {
 }
 
 interface CheckoutBody {
-  plan?: PricingPlan;
   region?: string; // 'BC' | 'WA' | 'OR' | 'Other' | other slug
   from?: string;   // analytics: 'spot' | 'pricing' | etc.
   /** Signed-out buyers only: the address Stripe bills and we provision from. */
@@ -183,7 +181,6 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'invalid_body' }, { status: 400 });
   }
 
-  const plan: PricingPlan = body.plan === 'annual' ? 'annual' : 'monthly';
   const region = (body.region ?? '').toString().trim();
 
   // "Other" region = uncovered. Bounce to waitlist instead of taking money for
@@ -195,14 +192,16 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  const priceId = priceIdFor(plan);
-  if (!priceId) {
-    // The plan's STRIPE_*_PRICE_ID env var is unset (see src/lib/pricing.ts).
-    // Fail with JSON rather than crashing on an empty line_items price, which
-    // surfaces as an unparseable 500 client-side. The annual plan carries the
-    // trial, so this gap takes the trial down with it.
-    console.error(`[stripe checkout] no price ID configured for plan "${plan}"`);
-    return NextResponse.json({ error: 'plan_unavailable', plan }, { status: 503 });
+  if (!ANNUAL_PRICE_ID) {
+    // STRIPE_ANNUAL_PRICE_ID is unset (see src/lib/pricing.ts). Fail with JSON
+    // rather than crashing on an empty line_items price, which surfaces as an
+    // unparseable 500 client-side. There is only one plan, so this gap takes
+    // the whole product — and the trial that rides on it — down with it.
+    console.error('[stripe checkout] STRIPE_ANNUAL_PRICE_ID is not configured');
+    return NextResponse.json(
+      { error: 'plan_unavailable', plan: 'annual' },
+      { status: 503 },
+    );
   }
 
   // BC bills in CAD, WA/OR in USD; paywall CTAs send no region, so fall back
@@ -321,7 +320,7 @@ export async function POST(request: NextRequest) {
       mode: 'subscription',
       customer: stripeCustomerId,
       currency,
-      line_items: [{ price: priceId, quantity: 1 }],
+      line_items: [{ price: ANNUAL_PRICE_ID, quantity: 1 }],
       allow_promotion_codes: true,
       // Explicit even though it's the default for subscription mode: the whole
       // trial design assumes a card is on file when the trial ends.
@@ -330,7 +329,7 @@ export async function POST(request: NextRequest) {
       cancel_url: `${origin}/billing/cancel`,
       metadata: {
         supabase_user_id: user.id,
-        plan,
+        plan: 'annual',
         currency,
         region: region || '',
         from: body.from ?? '',
@@ -339,7 +338,7 @@ export async function POST(request: NextRequest) {
       subscription_data: {
         metadata: {
           supabase_user_id: user.id,
-          plan,
+          plan: 'annual',
           currency,
           trial: String(trialEligible),
         },

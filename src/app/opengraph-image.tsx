@@ -68,7 +68,7 @@ export default function OpengraphImage() {
           </div>
           <div style={{ fontSize: 32, color: "#A8B4D8", maxWidth: 880, lineHeight: 1.35 }}>
             Tides, weather, water conditions, and regulations in one fishing
-            score for the BC, Washington, and Oregon coasts.
+            score for the BC and Washington coasts.
           </div>
         </div>
 

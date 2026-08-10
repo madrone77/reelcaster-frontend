@@ -28,14 +28,16 @@ const nextConfig: NextConfig = {
     // the same thing split the SEO signal, so /pricing is retired with a 308
     // that passes its link equity to /plans.
     //
-    // The ?plan=monthly deep link has to keep working — /pricing used to own
-    // the only monthly purchase path, and it's linked from the billing emails
-    // and the yearly/monthly switch. It lands on the checkout page directly.
+    // The ?plan=monthly deep link is still out in the wild — /pricing used to
+    // own the only monthly purchase path and it's linked from billing emails
+    // that have already been sent. Monthly isn't sold any more, so the param is
+    // dropped, but the link still has to land somewhere you can buy: checkout,
+    // which now has exactly one plan on it.
     return [
       {
         source: "/pricing",
         has: [{ type: "query", key: "plan", value: "monthly" }],
-        destination: "/plans/checkout?plan=monthly",
+        destination: "/plans/checkout",
         permanent: true,
       },
       {

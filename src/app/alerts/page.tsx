@@ -18,8 +18,11 @@ export default async function AlertsPage() {
   if (hierarchy) {
     for (const country of hierarchy.countries) {
       for (const sp of country.states_provinces) {
-        const isCovered = COVERED_PROVINCES.includes(sp.code as 'BC' | 'WA' | 'OR');
-        if (!isCovered) continue;
+        // Widened to a plain string check rather than re-listing the codes:
+        // an inline union here drifts silently every time COVERED_PROVINCES
+        // changes, which is exactly how Oregon stayed in this filter.
+        const covered = (COVERED_PROVINCES as readonly string[]).includes(sp.code);
+        if (!covered) continue;
         for (const region of sp.regions) {
           for (const city of region.cities) {
             for (const spot of city.spots) {

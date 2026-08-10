@@ -22,11 +22,10 @@ import { useAuth } from '@/contexts/auth-context';
 import TrialCta from '@/app/components/paywall/trial-cta';
 import { supabase } from '@/lib/supabase';
 import {
+  ANNUAL_PER_MONTH_CENTS,
   ANNUAL_PRICE_CENTS,
-  MONTHLY_PRICE_CENTS,
   TRIAL_DAYS,
-  annualDiscount,
-  type PricingPlan,
+  dollars,
 } from '@/lib/pricing';
 
 /** Pay-first checkout — see src/app/components/paywall/trial-cta.tsx. */
@@ -35,7 +34,8 @@ const PAY_FIRST = process.env.NEXT_PUBLIC_PAY_FIRST_CHECKOUT === '1';
 const REGIONS = [
   { value: 'BC', label: 'British Columbia' },
   { value: 'WA', label: 'Washington' },
-  { value: 'OR', label: 'Oregon' },
+  // Oregon deliberately absent: no published cities, so it belongs behind
+  // "Somewhere else", which routes to the waitlist instead of taking money.
   { value: 'Other', label: 'Somewhere else' },
 ];
 
@@ -63,11 +63,6 @@ interface CheckoutStatus {
   trial_available: boolean;
   trial_days: number;
   annual_available: boolean;
-}
-
-function dollars(cents: number): string {
-  const v = cents / 100;
-  return Number.isInteger(v) ? `$${v}` : `$${v.toFixed(2)}`;
 }
 
 function addDays(days: number): Date {
@@ -111,8 +106,6 @@ export default function CheckoutPanel({
   const searchParams = useSearchParams();
   const { user, loading: authLoading } = useAuth();
 
-  const { pct } = annualDiscount();
-
   const [status, setStatus] = useState<CheckoutStatus | null>(null);
   const [statusLoading, setStatusLoading] = useState(true);
   const [showAll, setShowAll] = useState(false);
@@ -124,12 +117,6 @@ export default function CheckoutPanel({
 
   const fromQuery = searchParams.get('from') ?? 'plans-checkout';
 
-  // Yearly is the default. `?plan=monthly` is the deep link the old /pricing
-  // page used to own — this page is the only place monthly can be bought now.
-  // Both cadences carry the trial.
-  const plan: PricingPlan =
-    searchParams.get('plan') === 'monthly' ? 'monthly' : 'annual';
-  const yearly = plan === 'annual';
 
   // Resolve trial eligibility + current subscription before drawing terms.
   useEffect(() => {
@@ -184,14 +171,14 @@ export default function CheckoutPanel({
           'Content-Type': 'application/json',
           Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify({ plan, region, from: fromQuery }),
+        body: JSON.stringify({ region, from: fromQuery }),
       });
       const body = await res.json();
 
       if (!res.ok) {
         throw new Error(
           body.error === 'plan_unavailable'
-            ? `The ${yearly ? 'yearly' : 'monthly'} plan isn’t available right now. Please try again shortly.`
+            ? 'Pro isn’t available to buy right now. Please try again shortly.'
             : (body.message ?? body.error ?? 'Could not start checkout'),
         );
       }
@@ -209,15 +196,14 @@ export default function CheckoutPanel({
       setError(err instanceof Error ? err.message : 'Could not start checkout');
       setSubmitting(false);
     }
-  }, [plan, yearly, region, fromQuery, router]);
+  }, [region, fromQuery, router]);
 
-  // The trial applies to BOTH plans — main shipped it per-subscription and
-  // /support documents it that way. It is granted per checkout session by the
-  // checkout route, not baked into the Stripe Price.
+  // The trial is granted per checkout session by the checkout route, not baked
+  // into the Stripe Price — see /support, which documents it that way.
   const trialOn = Boolean(status?.trial_available);
   const trialDays = status?.trial_days ?? 7;
-  const priceCents = yearly ? ANNUAL_PRICE_CENTS : MONTHLY_PRICE_CENTS;
-  const periodWord = yearly ? 'year' : 'month';
+  const priceCents = ANNUAL_PRICE_CENTS;
+  const periodWord = 'year';
   const chargeDate = useMemo(
     () => longDate(trialOn ? addDays(trialDays) : new Date()),
     [trialOn, trialDays],
@@ -328,9 +314,9 @@ export default function CheckoutPanel({
     );
   }
 
-  // Only the yearly plan depends on STRIPE_ANNUAL_PRICE_ID — a missing
-  // annual price must not disable monthly checkout.
-  const annualDown = yearly && status ? !status.annual_available : false;
+  // The one plan depends on STRIPE_ANNUAL_PRICE_ID; without it there is
+  // nothing to sell, so the button goes down with it.
+  const annualDown = status ? !status.annual_available : false;
 
   // ── Main order summary ─────────────────────────────────────────────
 
@@ -351,8 +337,8 @@ export default function CheckoutPanel({
             </>
           ) : (
             <>
-              Every Pro feature, billed {yearly ? 'yearly' : 'monthly'} at{' '}
-              {dollars(priceCents)}.
+              Every Pro feature, billed yearly at {dollars(priceCents)} —{' '}
+              {dollars(ANNUAL_PER_MONTH_CENTS)} a month.
             </>
           )}
         </p>
@@ -411,25 +397,17 @@ export default function CheckoutPanel({
 
           <div className="mt-4 flex items-baseline justify-between gap-3">
             <span className="text-sm text-rc-ink-soft">
-              ReelCaster Pro, {yearly ? 'yearly' : 'monthly'}
+              ReelCaster Pro, yearly
             </span>
             <span className="text-sm font-semibold text-rc-ink">
-              {dollars(priceCents)}/{yearly ? 'yr' : 'mo'}
+              {dollars(priceCents)}/yr
             </span>
           </div>
 
-          {yearly ? (
-            <div className="mt-2 flex items-baseline justify-between gap-3 text-sm text-rc-ink-mute">
-              <span>Versus {dollars(MONTHLY_PRICE_CENTS)}/mo billed monthly</span>
-              <span className="font-rc-mono text-[11px] font-bold text-rc-good-ink">
-                −{pct}%
-              </span>
-            </div>
-          ) : (
-            <div className="mt-2 text-sm text-rc-ink-mute">
-              Renews monthly until you cancel.
-            </div>
-          )}
+          <div className="mt-2 flex items-baseline justify-between gap-3 text-sm text-rc-ink-mute">
+            <span>Works out to {dollars(ANNUAL_PER_MONTH_CENTS)} a month</span>
+            <span>Renews yearly until you cancel</span>
+          </div>
 
           <div className="mt-5 flex items-baseline justify-between gap-3 border-t border-rc-rule pt-5">
             <span className="text-base font-bold text-rc-ink">Billed today</span>
@@ -479,8 +457,7 @@ export default function CheckoutPanel({
 
           {annualDown && (
             <p className="mt-3 rounded-md border border-rc-fair-border bg-rc-fair-bg p-3 text-xs leading-relaxed text-rc-fair-ink">
-              The yearly plan is temporarily unavailable. Please check back
-              shortly.
+              Pro is temporarily unavailable to buy. Please check back shortly.
             </p>
           )}
 
@@ -505,7 +482,7 @@ export default function CheckoutPanel({
                 ? 'Drop a waitlist pin'
                 : trialOn
                   ? `Start ${trialDays}-day free trial`
-                  : `Subscribe · ${dollars(priceCents)}/${yearly ? 'yr' : 'mo'}`}
+                  : `Subscribe · ${dollars(priceCents)}/yr`}
           </button>
 
           <p className="mt-3 flex items-center justify-center gap-1.5 text-xs text-rc-ink-mute">
@@ -534,9 +511,9 @@ export default function CheckoutPanel({
                   <strong className="text-rc-ink-soft">
                     {dollars(priceCents)}
                   </strong>{' '}
-                  for one {periodWord}, and renews {yearly ? 'yearly' : 'monthly'} at that price until you
-                  cancel. Cancel anytime before then from your account and you
-                  won’t be charged. We’ll email you 3 days before the trial
+                  for one {periodWord}, and renews yearly at that price until
+                  you cancel. Cancel anytime before then from your account and
+                  you won’t be charged. We’ll email you 3 days before the trial
                   ends.
                 </>
               ) : (
@@ -545,9 +522,8 @@ export default function CheckoutPanel({
                   <strong className="text-rc-ink-soft">
                     {dollars(priceCents)}
                   </strong>{' '}
-                  today for one {periodWord} of Pro, and renews{' '}
-                  {yearly ? 'yearly' : 'monthly'} at that price until you
-                  cancel. Cancel anytime from your account.
+                  today for one {periodWord} of Pro, and renews yearly at that
+                  price until you cancel. Cancel anytime from your account.
                 </>
               )}{' '}
               <Link
@@ -568,27 +544,8 @@ export default function CheckoutPanel({
         </div>
 
         <p className="mt-4 text-center text-xs text-rc-ink-mute">
-          {yearly ? (
-            <>
-              Prefer to pay monthly?{' '}
-              <Link
-                href="/plans/checkout?plan=monthly"
-                className="font-semibold text-rc-brand underline underline-offset-2 hover:text-rc-brand-hover"
-              >
-                {dollars(MONTHLY_PRICE_CENTS)}/mo
-              </Link>
-            </>
-          ) : (
-            <>
-              Pay yearly instead and save {pct}%?{' '}
-              <Link
-                href="/plans/checkout"
-                className="font-semibold text-rc-brand underline underline-offset-2 hover:text-rc-brand-hover"
-              >
-                {dollars(ANNUAL_PRICE_CENTS)}/yr
-              </Link>
-            </>
-          )}
+          One plan, {dollars(ANNUAL_PRICE_CENTS)} a year. Every city we cover,
+          nothing else to choose.
         </p>
       </div>
     </div>

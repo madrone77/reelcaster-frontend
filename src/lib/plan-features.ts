@@ -33,7 +33,12 @@
  *   custom spots      src/app/api/bluecaster/fishing-spots/custom/route.ts
  */
 
-import { ANNUAL_PRICE_CENTS, MONTHLY_PRICE_CENTS, TRIAL_DAYS } from "./pricing";
+import {
+  ANNUAL_PER_MONTH_CENTS,
+  ANNUAL_PRICE_CENTS,
+  TRIAL_DAYS,
+  dollars,
+} from "./pricing";
 
 /**
  * How many spots a free account may save. Pro is unlimited, so there is no
@@ -62,7 +67,10 @@ export interface PlanTier {
 export const PLAN_TIERS: PlanTier[] = [
   { id: "anon", label: "Browsing", price: "No account" },
   { id: "free", label: "Free", price: "$0" },
-  { id: "pro", label: "Pro", price: `$${MONTHLY_PRICE_CENTS / 100}/mo` },
+  // The charged amount, not the $2.75/mo pitch: the headline above the table
+  // already does that division, and the column a customer scans for "what does
+  // this cost me" should be the number that lands on their card.
+  { id: "pro", label: "Pro", price: `${dollars(ANNUAL_PRICE_CENTS)}/yr` },
 ];
 
 /**
@@ -280,9 +288,16 @@ export function nagHeadline(
  * The reassurance line under the headline. Same for every wall now — the
  * modal sells the trial regardless of which one was hit, and the free tier is
  * offered by the link at its foot.
+ *
+ * One price, and the per-month division done for the reader. $33 is small
+ * enough that the monthly framing is what makes it land ("less than a coffee")
+ * while the yearly number is what they're actually agreeing to, so both appear
+ * and the yearly one is the one attached to the verb "billed".
  */
 export function nagSubhead(): string {
-  return `Free for ${TRIAL_DAYS} days, then $${MONTHLY_PRICE_CENTS / 100}/month or $${
-    ANNUAL_PRICE_CENTS / 100
-  }/year. Cancel anytime before the trial ends and you pay nothing.`;
+  return `Free for ${TRIAL_DAYS} days, then ${dollars(
+    ANNUAL_PER_MONTH_CENTS,
+  )} a month, billed yearly at ${dollars(
+    ANNUAL_PRICE_CENTS,
+  )}. Cancel anytime before the trial ends and you pay nothing.`;
 }
