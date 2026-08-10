@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { Loader2, Plus } from "lucide-react";
 import ExploreTopBar from "@/app/explore/components/explore-top-bar";
+import { PAGE_MEASURE } from "@/app/components/layout/page-measure";
 import { useAuth } from "@/contexts/auth-context";
 import { getCatchPhotoSignedUrls } from "@/lib/catch-photo-upload";
 import type { CatchLogRow } from "@/lib/catch-log-types";
@@ -158,7 +159,7 @@ export default function CatchesShell() {
     <div className="min-h-dvh bg-rc-page">
       <ExploreTopBar />
       <main className="pt-16">
-        <div className="max-w-5xl mx-auto px-4 sm:px-6 py-8">
+        <div className={`${PAGE_MEASURE} py-8`}>
           {!loading && !user ? (
             <SignedOut />
           ) : (

@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Check } from "lucide-react";
 import ExploreTopBar from "@/app/explore/components/explore-top-bar";
+import { PAGE_MEASURE, READING_MEASURE } from "@/app/components/layout/page-measure";
 import { useAuth } from "@/contexts/auth-context";
 import {
   fetchCatchPreview,
@@ -598,82 +599,81 @@ export default function LogCatchShell() {
     <div className="min-h-dvh bg-rc-page">
       <ExploreTopBar />
       <main className="pt-16">
-        <div
-          className={`mx-auto px-4 sm:px-6 ${
-            step === "review"
-              ? "max-w-3xl py-10"
-              : step === "location"
-                ? "max-w-5xl py-6"
-                : "max-w-2xl py-10"
-          }`}
-        >
-          {!loading && !user ? (
-            <SignedOut />
-          ) : saved ? (
-            <SavedState />
-          ) : rejection ? (
-            <Rejected message={rejection} onRetry={resetAll} />
-          ) : step === "upload" ? (
-            <UploadStep onFile={handleFile} error={error} />
-          ) : step === "analyzing" ? (
-            <AnalyzingStep
-              photoUrl={photoUrl}
-              done={previewDone}
-              onComplete={handleAnalyzeComplete}
-            />
-          ) : step === "location" ? (
-            <LocationStep
-              pin={pin}
-              pinSource={pinSource}
-              resolving={resolvingPin}
-              searching={searching}
-              match={match}
-              candidates={candidates}
-              mgmtArea={dfoArea}
-              onPinMove={handlePinMove}
-              onUseMyLocation={handleUseMyLocation}
-              onUseSpot={handleUseSpot}
-              onCreateSpot={handleCreateSpot}
-            />
-          ) : pin ? (
-            <ReviewStep
-              photoUrl={photoUrl}
-              fishDetected={!preview?.vision.no_fish_detected}
-              species={species}
-              speciesAtSpot={
-                spot && preview?.spot_match?.id === spot.id
-                  ? (preview?.species_at_spot ?? [])
-                  : []
-              }
-              caughtAtNaive={caughtAtNaive}
-              pin={pin}
-              spot={spot}
-              match={match}
-              candidates={candidates}
-              mgmtArea={dfoArea}
-              searching={searching}
-              snapshot={snapshot}
-              snapshotLoading={snapshotLoading}
-              overrides={overrides}
-              scoreSnapshot={scoreSnapshot}
-              stats={stats}
-              saving={saving}
-              onChangePhoto={resetAll}
-              onSpeciesChange={handleSpeciesChange}
-              onTimeChange={handleTimeChange}
-              onPinMove={handlePinMove}
-              onCreateSpot={handleCreateSpot}
-              onOverride={handleOverride}
-              onStatsChange={(patch) => setStats((s) => ({ ...s, ...patch }))}
-              onSave={handleSave}
-            />
-          ) : null}
+        {/* One gridline and one vertical rhythm for every step. The wizard used
+            to retune both per step (2xl/5xl/3xl, py-10/py-6), so the column you
+            were reading jumped sideways as you advanced. Only the map picker
+            still earns extra room, and it takes it by growing right from the
+            fixed left edge rather than by re-centring the whole page. */}
+        <div className={`${PAGE_MEASURE} py-8`}>
+          <div className={step === "location" ? "max-w-5xl" : READING_MEASURE}>
+            {!loading && !user ? (
+              <SignedOut />
+            ) : saved ? (
+              <SavedState />
+            ) : rejection ? (
+              <Rejected message={rejection} onRetry={resetAll} />
+            ) : step === "upload" ? (
+              <UploadStep onFile={handleFile} error={error} />
+            ) : step === "analyzing" ? (
+              <AnalyzingStep
+                photoUrl={photoUrl}
+                done={previewDone}
+                onComplete={handleAnalyzeComplete}
+              />
+            ) : step === "location" ? (
+              <LocationStep
+                pin={pin}
+                pinSource={pinSource}
+                resolving={resolvingPin}
+                searching={searching}
+                match={match}
+                candidates={candidates}
+                mgmtArea={dfoArea}
+                onPinMove={handlePinMove}
+                onUseMyLocation={handleUseMyLocation}
+                onUseSpot={handleUseSpot}
+                onCreateSpot={handleCreateSpot}
+              />
+            ) : pin ? (
+              <ReviewStep
+                photoUrl={photoUrl}
+                fishDetected={!preview?.vision.no_fish_detected}
+                species={species}
+                speciesAtSpot={
+                  spot && preview?.spot_match?.id === spot.id
+                    ? (preview?.species_at_spot ?? [])
+                    : []
+                }
+                caughtAtNaive={caughtAtNaive}
+                pin={pin}
+                spot={spot}
+                match={match}
+                candidates={candidates}
+                mgmtArea={dfoArea}
+                searching={searching}
+                snapshot={snapshot}
+                snapshotLoading={snapshotLoading}
+                overrides={overrides}
+                scoreSnapshot={scoreSnapshot}
+                stats={stats}
+                saving={saving}
+                onChangePhoto={resetAll}
+                onSpeciesChange={handleSpeciesChange}
+                onTimeChange={handleTimeChange}
+                onPinMove={handlePinMove}
+                onCreateSpot={handleCreateSpot}
+                onOverride={handleOverride}
+                onStatsChange={(patch) => setStats((s) => ({ ...s, ...patch }))}
+                onSave={handleSave}
+              />
+            ) : null}
 
-          {error && step !== "upload" && !saved && (
-            <div className="mt-4 rounded-lg bg-rc-poor-bg text-rc-poor-ink text-sm px-3 py-2">
-              {error}
-            </div>
-          )}
+            {error && step !== "upload" && !saved && (
+              <div className="mt-4 rounded-lg bg-rc-poor-bg text-rc-poor-ink text-sm px-3 py-2">
+                {error}
+              </div>
+            )}
+          </div>
         </div>
       </main>
     </div>

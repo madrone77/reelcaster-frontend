@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ArrowLeft, Check, Loader2 } from "lucide-react";
 import ExploreTopBar from "@/app/explore/components/explore-top-bar";
+import { PAGE_MEASURE, READING_MEASURE } from "@/app/components/layout/page-measure";
 import { useAuth } from "@/contexts/auth-context";
 import {
   fetchNearestSpots,
@@ -453,60 +454,62 @@ export default function CatchDetailShell({ catchId }: { catchId: string }) {
     <div className="min-h-dvh bg-rc-page">
       <ExploreTopBar />
       <main className="pt-16">
-        <div className="max-w-3xl mx-auto px-4 sm:px-6 py-8">
-          <Link
-            href="/catches"
-            className="inline-flex items-center gap-1.5 text-[13px] font-semibold text-rc-ink-soft hover:text-rc-ink transition-colors"
-          >
-            <ArrowLeft className="w-4 h-4" /> My catches
-          </Link>
-          {isDraft && (
-            <span className="ml-3 rounded-sm bg-rc-ink-mute px-1.5 py-0.5 rc-label text-[8px] text-white align-middle">
-              DRAFT
-            </span>
-          )}
-
-          <div className="mt-4">
-            {!loading && !user ? (
-              <SignedOut catchId={catchId} />
-            ) : saved ? (
-              <SavedState />
-            ) : loadError ? (
-              <ErrorState message={loadError} />
-            ) : !row || !pin ? (
-              <div className="flex items-center justify-center py-24 text-rc-ink-mute">
-                <Loader2 className="w-6 h-6 animate-spin" />
-              </div>
-            ) : (
-              <ReviewStep
-                photoUrl={photoUrl}
-                fishDetected
-                species={species}
-                speciesAtSpot={[]}
-                caughtAtNaive={caughtAtNaive}
-                pin={pin}
-                spot={spot}
-                match={match}
-                candidates={candidates}
-                mgmtArea={dfoArea}
-                searching={searching}
-                snapshot={snapshot}
-                snapshotLoading={snapshotLoading}
-                overrides={overrides}
-                scoreSnapshot={scoreSnapshot}
-                stats={stats}
-                saving={saving}
-                draftButton={isDraft}
-                saveLabel={isDraft ? "Save catch ✓" : "Save changes"}
-                onSpeciesChange={handleSpeciesChange}
-                onTimeChange={handleTimeChange}
-                onPinMove={handlePinMove}
-                onCreateSpot={handleCreateSpot}
-                onOverride={handleOverride}
-                onStatsChange={(patch) => setStats((s) => ({ ...s, ...patch }))}
-                onSave={handleSave}
-              />
+        <div className={`${PAGE_MEASURE} py-8`}>
+          <div className={READING_MEASURE}>
+            <Link
+              href="/catches"
+              className="inline-flex items-center gap-1.5 text-[13px] font-semibold text-rc-ink-soft hover:text-rc-ink transition-colors"
+            >
+              <ArrowLeft className="w-4 h-4" /> My catches
+            </Link>
+            {isDraft && (
+              <span className="ml-3 rounded-sm bg-rc-ink-mute px-1.5 py-0.5 rc-label text-[8px] text-white align-middle">
+                DRAFT
+              </span>
             )}
+
+            <div className="mt-4">
+              {!loading && !user ? (
+                <SignedOut catchId={catchId} />
+              ) : saved ? (
+                <SavedState />
+              ) : loadError ? (
+                <ErrorState message={loadError} />
+              ) : !row || !pin ? (
+                <div className="flex items-center justify-center py-24 text-rc-ink-mute">
+                  <Loader2 className="w-6 h-6 animate-spin" />
+                </div>
+              ) : (
+                <ReviewStep
+                  photoUrl={photoUrl}
+                  fishDetected
+                  species={species}
+                  speciesAtSpot={[]}
+                  caughtAtNaive={caughtAtNaive}
+                  pin={pin}
+                  spot={spot}
+                  match={match}
+                  candidates={candidates}
+                  mgmtArea={dfoArea}
+                  searching={searching}
+                  snapshot={snapshot}
+                  snapshotLoading={snapshotLoading}
+                  overrides={overrides}
+                  scoreSnapshot={scoreSnapshot}
+                  stats={stats}
+                  saving={saving}
+                  draftButton={isDraft}
+                  saveLabel={isDraft ? "Save catch ✓" : "Save changes"}
+                  onSpeciesChange={handleSpeciesChange}
+                  onTimeChange={handleTimeChange}
+                  onPinMove={handlePinMove}
+                  onCreateSpot={handleCreateSpot}
+                  onOverride={handleOverride}
+                  onStatsChange={(patch) => setStats((s) => ({ ...s, ...patch }))}
+                  onSave={handleSave}
+                />
+              )}
+            </div>
           </div>
         </div>
       </main>
