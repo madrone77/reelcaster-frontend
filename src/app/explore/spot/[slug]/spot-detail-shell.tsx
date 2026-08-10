@@ -787,6 +787,7 @@ export default function SpotDetailShell({
           <div className="border-t border-rc-rule pt-8">
             <CurrentConditionsStrip
               rightNow={page.rightNow}
+              score={nowScore}
               currentSigned={todayCurrent}
               currentSample={
                 (todayIso ? curByIso[todayIso]?.[nowHour] : null) ?? null
@@ -797,7 +798,7 @@ export default function SpotDetailShell({
           </div>
 
           {/* 6 · 24-hour graph */}
-          <div className="border-t border-rc-rule pt-8">
+          <div id="conditions-24h" className="scroll-mt-20 border-t border-rc-rule pt-8">
             <div className="flex flex-wrap items-end justify-between gap-x-4 gap-y-1">
               <div>
                 <h3 className="rc-label text-[10px]">24-Hour Conditions</h3>

@@ -221,7 +221,7 @@ const TAG_H = 20, TAG_GAP = 5, TAG_PAD = 10, TAG_MIN_W = 64;
 // Gutter widths shared by buildSvg, the pointer math, and the cursor mover —
 // mobile needs a real left gutter or the y-axis ticks clip off the canvas.
 const gutters = (mob: boolean) =>
-  mob ? { LABEL: 36, READ: 10 } : { LABEL: 132, READ: 72 };
+  mob ? { LABEL: 36, READ: 10 } : { LABEL: 132, READ: 20 };
 
 function buildSvg(
   hours: TerminalHours,
@@ -416,12 +416,10 @@ function buildSvg(
     }
   }
 
-  // right-gutter readouts (desktop)
-  if (!mob) { const rx = x1 + 14;
-    ([["score", Y.score], ["tide", Y.tide], ["cur", Y.cur], ["wind", Y.wind], ["sea", Y.sea], ["air", Y.air]] as const).forEach(([k, r]) => {
-      const midy = (r.y0 + r.y1) / 2;
-      s += `<text class="tm-rv" id="${id}-${k}-v" x="${rx}" y="${midy}">—</text><text class="tm-rs" id="${id}-${k}-s" x="${rx}" y="${midy + 13}">—</text>`; });
-  }
+  // (The per-hour score/tide/current/wind/sea/air values that used to sit in a
+  // right-hand gutter here now live once in the "Conditions · now" data strip
+  // above the graph; scrubbing still reads out via the cursor pill + a11y live
+  // region below.)
 
   // Score-cell outline — highlights the whole hour cell under the cursor.
   // Positioned absolutely (not inside the translated cursor group) so it stays
@@ -564,14 +562,8 @@ export default function SpotTerminal({
         const shift = Math.max(x0 + half, Math.min(x1 - half, cursorX)) - cursorX;
         tagg.setAttribute("transform", `translate(${shift.toFixed(1)},0)`);
       }
-      const set = (k: string, v: string, fill?: string) => { const e = svg.querySelector(`#${id}-${k}-v`); if (e) { e.textContent = v; if (fill) e.setAttribute("fill", fill); } };
-      const sub = (k: string, v: string) => { const e = svg.querySelector(`#${id}-${k}-s`); if (e) e.textContent = v; };
-      set("score", d.score, d.col); sub("score", `${d.verd}${d.scoreDeltaTxt}`);
-      set("tide", d.tide); sub("tide", d.tideS);
-      set("cur", d.curSigned); sub("cur", d.curS);
-      set("wind", d.wind); sub("wind", d.windS);
-      set("sea", d.sea); sub("sea", d.seaS);
-      set("air", d.air); sub("air", d.airS);
+      // Right-gutter readouts were removed — the data strip above the graph
+      // carries the now-state, and the cursor pill/a11y region cover scrubbing.
     }
     svg.setAttribute("aria-valuenow", String(idx));
     svg.setAttribute("aria-valuetext", `${hh(idx)}, score ${d.score} ${d.verd}, tide ${d.tide}, wind ${d.wind}, sea ${d.seaS}, air ${d.air}`);
