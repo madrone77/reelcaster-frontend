@@ -1,9 +1,10 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { ChevronDown, ExternalLink, Fish, Info, Waves } from "lucide-react";
+import { ChevronDown, Fish, Info, Waves } from "lucide-react";
 import { btn } from "@/app/components/ui/button";
 import TrialModalButton from "@/app/components/paywall/trial-modal-button";
 import { breadcrumbJsonLd, DEFAULT_OG, siteUrl } from "@/lib/site";
+import { DetailCards, Fees, SectionHeading, Source, Steps } from "../guide-ui";
 import {
   FRESHWATER_FEES,
   LICENCE_YEAR,
@@ -13,7 +14,6 @@ import {
   TIDAL_CATCH_RECORDS,
   TIDAL_FEES,
   VERIFIED_ON,
-  type FeeTable,
 } from "./licence-data";
 
 const PATH = "/fishing-licence/bc";
@@ -106,108 +106,6 @@ const FAQ_JSONLD = {
     acceptedAnswer: { "@type": "Answer", text: f.a },
   })),
 };
-
-/** External link to a regulator, marked so it reads as leaving the site. */
-function Source({ href, children }: { href: string; children: React.ReactNode }) {
-  return (
-    <a
-      href={href}
-      target="_blank"
-      rel="noopener noreferrer"
-      className="inline-flex items-baseline gap-1 text-rc-brand hover:text-rc-brand-hover underline underline-offset-2"
-    >
-      {children}
-      <ExternalLink className="w-3 h-3 self-center shrink-0" aria-hidden />
-    </a>
-  );
-}
-
-/**
- * Fee grid. Scrolls horizontally on compact rather than wrapping — a fee table
- * that reflows puts a price under the wrong column heading, which is worse than
- * a scrollbar.
- */
-function Fees({ table, caption }: { table: FeeTable; caption: string }) {
-  return (
-    <div className="mt-5">
-      <div className="overflow-x-auto rounded-xl border border-rc-rule bg-rc-panel">
-        <table className="w-full text-sm border-collapse">
-          <caption className="sr-only">{caption}</caption>
-          <thead>
-            <tr className="border-b border-rc-rule">
-              <th scope="col" className="text-left font-rc-mono text-[11px] uppercase tracking-[0.08em] text-rc-ink-mute px-4 py-3">
-                Licence
-              </th>
-              {table.columns.map((c) => (
-                <th
-                  key={c}
-                  scope="col"
-                  className="text-right font-rc-mono text-[11px] uppercase tracking-[0.08em] text-rc-ink-mute px-4 py-3 whitespace-nowrap"
-                >
-                  {c}
-                </th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {table.rows.map((row) => (
-              <tr key={row.term} className="border-b border-rc-rule-soft last:border-b-0">
-                <th scope="row" className="text-left font-medium text-rc-ink px-4 py-3 whitespace-nowrap">
-                  {row.term}
-                </th>
-                {row.prices.map((p, i) => (
-                  <td
-                    key={table.columns[i]}
-                    className="text-right font-rc-mono tabular-nums text-rc-ink px-4 py-3 whitespace-nowrap"
-                  >
-                    {p}
-                  </td>
-                ))}
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-      <ul className="mt-3 space-y-1.5">
-        {table.notes.map((n) => (
-          <li key={n} className="text-[13px] leading-relaxed text-rc-ink-mute">
-            {n}
-          </li>
-        ))}
-      </ul>
-    </div>
-  );
-}
-
-/** Numbered how-to-buy list. */
-function Steps({ steps }: { steps: React.ReactNode[] }) {
-  return (
-    <ol className="mt-5 space-y-4">
-      {steps.map((s, i) => (
-        <li key={i} className="flex gap-4">
-          <span
-            className="shrink-0 w-7 h-7 rounded-full bg-rc-brand-soft text-rc-brand font-rc-mono text-xs font-bold grid place-items-center"
-            aria-hidden
-          >
-            {i + 1}
-          </span>
-          <div className="text-[15px] leading-relaxed text-rc-ink-soft pt-0.5">{s}</div>
-        </li>
-      ))}
-    </ol>
-  );
-}
-
-function SectionHeading({ id, children }: { id: string; children: React.ReactNode }) {
-  return (
-    <h2
-      id={id}
-      className="scroll-mt-24 text-2xl md:text-3xl font-black tracking-[-0.02em] text-rc-ink"
-    >
-      {children}
-    </h2>
-  );
-}
 
 export default function BcFishingLicencePage() {
   return (
@@ -330,6 +228,18 @@ export default function BcFishingLicencePage() {
                   with the wrong licence is an offence even if you never move.
                   Boundaries are listed per-river in the{" "}
                   <Source href={SOURCES.dfoRec}>BC Tidal Waters Sport Fishing Guide</Source>
+                  .
+                </p>
+                <p className="mt-2">
+                  Fishing south of the border too? Washington splits things a
+                  different way — finfish and shellfish are separate licences
+                  there, so a saltwater licence does not cover crab. See the{" "}
+                  <Link
+                    href="/fishing-licence/wa"
+                    className="text-rc-brand underline underline-offset-2 hover:text-rc-brand-hover"
+                  >
+                    Washington fishing license guide
+                  </Link>
                   .
                 </p>
               </div>
@@ -457,36 +367,16 @@ export default function BcFishingLicencePage() {
               horizontal scroll to reach a $11.43 is worse than no table at
               all. The fee grids above stay tabular because they are pure
               numbers with short labels, which is what tables are good at. */}
-          <ul className="mt-5 space-y-3">
-            {SURCHARGES.map((s) => (
-              <li
-                key={s.name}
-                className="rounded-xl border border-rc-rule bg-rc-panel p-5"
-              >
-                {/* Stacked on compact, name-left/prices-right from medium up.
-                    Explicit rather than relying on flex-wrap: with wrap alone
-                    a short name keeps its prices inline while a long one
-                    pushes them to the next line, so the list rendered ragged
-                    row to row. */}
-                <div className="flex flex-col gap-y-1.5 sm:flex-row sm:items-baseline sm:justify-between sm:gap-x-6">
-                  <h4 className="font-medium text-rc-ink">{s.name}</h4>
-                  <dl className="flex flex-wrap gap-x-5 gap-y-1 font-rc-mono text-[13px] tabular-nums">
-                    <div className="flex items-baseline gap-1.5 whitespace-nowrap">
-                      <dt className="text-rc-ink-mute">Resident</dt>
-                      <dd className="text-rc-ink">{s.resident}</dd>
-                    </div>
-                    <div className="flex items-baseline gap-1.5 whitespace-nowrap">
-                      <dt className="text-rc-ink-mute">Non-resident</dt>
-                      <dd className="text-rc-ink">{s.nonResident}</dd>
-                    </div>
-                  </dl>
-                </div>
-                <p className="mt-2 text-[13px] leading-relaxed text-rc-ink-soft">
-                  {s.requiredFor}
-                </p>
-              </li>
-            ))}
-          </ul>
+          <DetailCards
+            items={SURCHARGES.map((s) => ({
+              name: s.name,
+              figures: [
+                { label: "Resident", value: s.resident },
+                { label: "Non-resident", value: s.nonResident },
+              ],
+              detail: s.requiredFor,
+            }))}
+          />
           <p className="mt-3 text-[13px] leading-relaxed text-rc-ink-mute">
             Full conditions and the classified-waters schedule are on{" "}
             <Source href={SOURCES.surcharges}>the province&rsquo;s surcharge page</Source>
@@ -563,26 +453,13 @@ export default function BcFishingLicencePage() {
 
           {/* Cards for the same reason as the surcharges: the scope column is
               a sentence, and Lingcod's is a long one. */}
-          <ul className="mt-5 space-y-3">
-            {TIDAL_CATCH_RECORDS.map((r) => (
-              <li
-                key={r.species}
-                className="rounded-xl border border-rc-rule bg-rc-panel p-5"
-              >
-                {/* Same stack-then-inline rule as the surcharge cards. */}
-                <div className="flex flex-col gap-y-1.5 sm:flex-row sm:items-baseline sm:justify-between sm:gap-x-6">
-                  <h4 className="font-medium text-rc-ink">{r.species}</h4>
-                  <p className="flex items-baseline gap-1.5 whitespace-nowrap font-rc-mono text-[13px]">
-                    <span className="text-rc-ink-mute">Annual quota</span>
-                    <span className="text-rc-ink tabular-nums">{r.annualQuota}</span>
-                  </p>
-                </div>
-                <p className="mt-2 text-[13px] leading-relaxed text-rc-ink-soft">
-                  {r.scope}
-                </p>
-              </li>
-            ))}
-          </ul>
+          <DetailCards
+            items={TIDAL_CATCH_RECORDS.map((r) => ({
+              name: r.species,
+              figures: [{ label: "Annual quota", value: r.annualQuota }],
+              detail: r.scope,
+            }))}
+          />
 
           <h3 className="mt-8 text-lg font-bold text-rc-ink">
             The iREC survey is mandatory
