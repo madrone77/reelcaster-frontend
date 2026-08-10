@@ -882,7 +882,11 @@ export default function SpotDetailShell({
               bestWindow={win.window}
               speciesName={selSpecies?.name ?? null}
             />
-            {scoreEntry && (
+            {/* Sells the days a viewer can't see — so it has no business on a
+                Pro account, which already has all 14. Held until `tierLoading`
+                clears (isPaid starts `false`), same as the day strip, so a Pro
+                viewer never gets a flash of the upsell they already bought. */}
+            {scoreEntry && !tierLoading && !isPaid && (
               <button
                 type="button"
                 onClick={() => setUpgradeOpen(true)}
