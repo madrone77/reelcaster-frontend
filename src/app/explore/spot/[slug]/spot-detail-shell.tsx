@@ -6,6 +6,7 @@ import dynamic from "next/dynamic";
 import { ArrowUpCircle, ChevronLeft, ChevronRight, Home } from "lucide-react";
 import { useAuth } from "@/contexts/auth-context";
 import { useSubscription } from "@/hooks/use-subscription";
+import AdSlot from "@/app/components/ads/ad-slot";
 import { FREE_FAVORITE_SPOTS } from "@/lib/plan-features";
 import { countryDisplayName, regulatorFor } from "@/lib/regions";
 import { favoriteCount } from "../../lib/use-favorite";
@@ -901,6 +902,11 @@ export default function SpotDetailShell({
             <ScoreFactors factors={selId ? (page.todayFactorsBySpecies[selId] ?? []) : []} />
           </div>
 
+          {/* Renders nothing for Pro, and nothing until tier resolves. Placed
+              after the forecast reasoning rather than among it — everything
+              above this line is what the reader came for. */}
+          <AdSlot placement="spotMid" className="border-t border-rc-rule pt-8" />
+
           {/* Current regulations — the limits in effect for the active species
               (daily limit / size / gear), broken out. */}
           {selSpecies && page.regulations.length > 0 && (
@@ -983,6 +989,11 @@ export default function SpotDetailShell({
               .
             </p>
           </div>
+
+          {/* Last thing above the footer — after the description and the
+              hierarchy trail, so the crawlable copy and the outbound city /
+              province links stay ahead of it. */}
+          <AdSlot placement="spotFoot" className="border-t border-rc-rule pt-8" />
         </div>
       </div>
 
