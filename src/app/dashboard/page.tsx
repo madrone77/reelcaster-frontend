@@ -458,7 +458,9 @@ export default function DashboardPage() {
 
   return (
     <div className="min-h-dvh bg-rc-panel pt-16">
-      <ExploreTopBar variant="brand" />
+      {/* `variant="brand"` is the default — passing it here implied the other
+          surfaces were getting something else. */}
+      <ExploreTopBar />
       {/* Was max-w-[1400px] px-5 lg:px-10 — the only body on the site wider
           than the app gridline, which left the top bar visibly inset from the
           content it sits above. Tightened onto the gridline so the mark, the
