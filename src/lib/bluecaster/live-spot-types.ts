@@ -238,7 +238,10 @@ export type NearbySpotCard = {
   href: string | null;
   species: { name: string; score: number }[];
   biteWindow: string | null;
-  seasonState: "peak" | "shoulder" | "off" | "closed";
+  /** Biological abundance of the card's top species this week — same axis as
+   *  the seasonality strip's fill. "closed" belongs to the regulatory axis and
+   *  is not emitted here; "nodata" means the city has no curve for it. */
+  seasonState: SeasonState;
   intel: { verdict: "strong" | "mixed" | "slow"; count: number; last: string } | null;
   windKt: number;
   windDir: string;
