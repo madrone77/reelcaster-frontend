@@ -175,6 +175,19 @@
   * {
     @apply border-border outline-ring/50;
   }
+  /* Always reserve the scrollbar gutter.
+   *
+   * Without this the layout width is 1440 on a short page and 1425 on a
+   * scrolling one, and because the top bar is centred (`mx-auto`) that 15px
+   * splits in half — so the mark, every nav link and the avatar all jump 7px
+   * sideways the moment you navigate from a page that scrolls to one that
+   * doesn't. Dashboard → Log a catch was the clearest case. Reserving the
+   * gutter on both makes the bar land on the same pixel everywhere, which is
+   * the point of the shared gridline in the first place.
+   */
+  html {
+    scrollbar-gutter: stable;
+  }
   body {
     @apply bg-background text-foreground;
   }
