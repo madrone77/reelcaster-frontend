@@ -438,7 +438,7 @@ function buildSvg(
 }
 
 export default function SpotTerminal({
-  hours, realCurrent, tideRange, sun, nowHour, selectedHour, onSelectHour, bestWindow, speciesName,
+  hours, realCurrent, tideRange, sun, nowHour, selectedHour, onSelectHour, bestWindow,
 }: {
   hours: TerminalHours;
   /** Signed real current (kn, +flood −ebb) for the day; null → tide-derived fallback. */
@@ -450,7 +450,6 @@ export default function SpotTerminal({
   selectedHour: number;
   onSelectHour: (h: number) => void;
   bestWindow: [number, number] | null;
-  speciesName: string | null;
 }) {
   const deskRef = useRef<HTMLDivElement>(null);
   const mobRef = useRef<HTMLDivElement>(null);
@@ -654,14 +653,6 @@ export default function SpotTerminal({
   }, [selectedHour, hours, realCurrent, deskW, mobW, windUnit, currentUnit, tempUnit, tideUnit, waveUnit]);
 
   const d = readAt(selectedHour);
-  const isNow = selectedHour === nowHour;
-  const cell = (k: string, v: string, sub: string, color?: string, subColor?: string) => (
-    <div className="min-w-0">
-      <div className="text-[8px] tracking-[0.1em] uppercase text-rc-ink-mute">{k}</div>
-      <div className="text-[15px] font-bold font-rc-mono leading-tight tabular-nums" style={color ? { color } : undefined}>{v}</div>
-      <div className="text-[8.5px] tracking-[0.05em] uppercase text-rc-ink-mute" style={subColor ? { color: subColor } : undefined}>{sub}</div>
-    </div>
-  );
 
   return (
     <div className="tm-scope">
@@ -687,22 +678,9 @@ export default function SpotTerminal({
         {`Hour ${d.hour}. Score ${d.score} ${d.verd}. Tide ${d.tide} ${d.tideS}. Current ${d.curSigned} ${d.curS}. Wind ${d.wind} ${d.windS}. Sea ${d.sea} ${d.seaS}. Air ${d.air}.`}
       </div>
 
-      {/* Mobile readout bar */}
-      <div className="lg:hidden grid grid-cols-4 gap-x-3 gap-y-2 px-1 pb-3">
-        {cell(
-          "Time",
-          d.hour,
-          isNow ? "Now" : selectedHour > nowHour ? `in ${selectedHour - nowHour}h` : `${nowHour - selectedHour}h ago`,
-          "#1E40E0",
-        )}
-        {cell("Score", d.score, `${d.verd}${d.scoreDeltaTxt}`, d.col)}
-        {cell("Tide", d.tide, d.tideS)}
-        {cell("Current", d.curSigned, d.curS, undefined, d.curS === "Slack" ? "#059669" : undefined)}
-        {cell("Wind", d.wind, d.windS)}
-        {cell("Sea", d.sea, d.seaS)}
-        {cell("Air", d.air, d.airS, undefined)}
-        {cell("Species", speciesName ?? "—", "Driver")}
-      </div>
+      {/* The mobile per-hour readout bar was removed — the "Conditions · now"
+          data strip above the graph carries the now-state, and scrubbing reads
+          out via the cursor pill + the a11y live region above. */}
 
       <div ref={deskRef} className="hidden lg:block" />
       <div ref={mobRef} className="lg:hidden" />

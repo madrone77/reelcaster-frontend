@@ -820,7 +820,6 @@ export default function SpotDetailShell({
               selectedHour={selectedHour}
               onSelectHour={setSelectedHour}
               bestWindow={win.window}
-              speciesName={selSpecies?.name ?? null}
             />
             {scoreEntry && (
               <button
