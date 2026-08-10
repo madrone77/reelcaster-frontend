@@ -221,7 +221,7 @@ const TAG_H = 20, TAG_GAP = 5, TAG_PAD = 10, TAG_MIN_W = 64;
 // Gutter widths shared by buildSvg, the pointer math, and the cursor mover —
 // mobile needs a real left gutter or the y-axis ticks clip off the canvas.
 const gutters = (mob: boolean) =>
-  mob ? { LABEL: 36, READ: 10 } : { LABEL: 132, READ: 72 };
+  mob ? { LABEL: 36, READ: 10 } : { LABEL: 132, READ: 20 };
 
 function buildSvg(
   hours: TerminalHours,
@@ -416,12 +416,10 @@ function buildSvg(
     }
   }
 
-  // right-gutter readouts (desktop)
-  if (!mob) { const rx = x1 + 14;
-    ([["score", Y.score], ["tide", Y.tide], ["cur", Y.cur], ["wind", Y.wind], ["sea", Y.sea], ["air", Y.air]] as const).forEach(([k, r]) => {
-      const midy = (r.y0 + r.y1) / 2;
-      s += `<text class="tm-rv" id="${id}-${k}-v" x="${rx}" y="${midy}">—</text><text class="tm-rs" id="${id}-${k}-s" x="${rx}" y="${midy + 13}">—</text>`; });
-  }
+  // (The per-hour score/tide/current/wind/sea/air values that used to sit in a
+  // right-hand gutter here now live once in the "Conditions · now" data strip
+  // above the graph; scrubbing still reads out via the cursor pill + a11y live
+  // region below.)
 
   // Score-cell outline — highlights the whole hour cell under the cursor.
   // Positioned absolutely (not inside the translated cursor group) so it stays
@@ -440,7 +438,7 @@ function buildSvg(
 }
 
 export default function SpotTerminal({
-  hours, realCurrent, tideRange, sun, nowHour, selectedHour, onSelectHour, bestWindow, speciesName,
+  hours, realCurrent, tideRange, sun, nowHour, selectedHour, onSelectHour, bestWindow,
 }: {
   hours: TerminalHours;
   /** Signed real current (kn, +flood −ebb) for the day; null → tide-derived fallback. */
@@ -452,7 +450,6 @@ export default function SpotTerminal({
   selectedHour: number;
   onSelectHour: (h: number) => void;
   bestWindow: [number, number] | null;
-  speciesName: string | null;
 }) {
   const deskRef = useRef<HTMLDivElement>(null);
   const mobRef = useRef<HTMLDivElement>(null);
@@ -564,14 +561,8 @@ export default function SpotTerminal({
         const shift = Math.max(x0 + half, Math.min(x1 - half, cursorX)) - cursorX;
         tagg.setAttribute("transform", `translate(${shift.toFixed(1)},0)`);
       }
-      const set = (k: string, v: string, fill?: string) => { const e = svg.querySelector(`#${id}-${k}-v`); if (e) { e.textContent = v; if (fill) e.setAttribute("fill", fill); } };
-      const sub = (k: string, v: string) => { const e = svg.querySelector(`#${id}-${k}-s`); if (e) e.textContent = v; };
-      set("score", d.score, d.col); sub("score", `${d.verd}${d.scoreDeltaTxt}`);
-      set("tide", d.tide); sub("tide", d.tideS);
-      set("cur", d.curSigned); sub("cur", d.curS);
-      set("wind", d.wind); sub("wind", d.windS);
-      set("sea", d.sea); sub("sea", d.seaS);
-      set("air", d.air); sub("air", d.airS);
+      // Right-gutter readouts were removed — the data strip above the graph
+      // carries the now-state, and the cursor pill/a11y region cover scrubbing.
     }
     svg.setAttribute("aria-valuenow", String(idx));
     svg.setAttribute("aria-valuetext", `${hh(idx)}, score ${d.score} ${d.verd}, tide ${d.tide}, wind ${d.wind}, sea ${d.seaS}, air ${d.air}`);
@@ -662,14 +653,6 @@ export default function SpotTerminal({
   }, [selectedHour, hours, realCurrent, deskW, mobW, windUnit, currentUnit, tempUnit, tideUnit, waveUnit]);
 
   const d = readAt(selectedHour);
-  const isNow = selectedHour === nowHour;
-  const cell = (k: string, v: string, sub: string, color?: string, subColor?: string) => (
-    <div className="min-w-0">
-      <div className="text-[8px] tracking-[0.1em] uppercase text-rc-ink-mute">{k}</div>
-      <div className="text-[15px] font-bold font-rc-mono leading-tight tabular-nums" style={color ? { color } : undefined}>{v}</div>
-      <div className="text-[8.5px] tracking-[0.05em] uppercase text-rc-ink-mute" style={subColor ? { color: subColor } : undefined}>{sub}</div>
-    </div>
-  );
 
   return (
     <div className="tm-scope">
@@ -695,22 +678,9 @@ export default function SpotTerminal({
         {`Hour ${d.hour}. Score ${d.score} ${d.verd}. Tide ${d.tide} ${d.tideS}. Current ${d.curSigned} ${d.curS}. Wind ${d.wind} ${d.windS}. Sea ${d.sea} ${d.seaS}. Air ${d.air}.`}
       </div>
 
-      {/* Mobile readout bar */}
-      <div className="lg:hidden grid grid-cols-4 gap-x-3 gap-y-2 px-1 pb-3">
-        {cell(
-          "Time",
-          d.hour,
-          isNow ? "Now" : selectedHour > nowHour ? `in ${selectedHour - nowHour}h` : `${nowHour - selectedHour}h ago`,
-          "#1E40E0",
-        )}
-        {cell("Score", d.score, `${d.verd}${d.scoreDeltaTxt}`, d.col)}
-        {cell("Tide", d.tide, d.tideS)}
-        {cell("Current", d.curSigned, d.curS, undefined, d.curS === "Slack" ? "#059669" : undefined)}
-        {cell("Wind", d.wind, d.windS)}
-        {cell("Sea", d.sea, d.seaS)}
-        {cell("Air", d.air, d.airS, undefined)}
-        {cell("Species", speciesName ?? "—", "Driver")}
-      </div>
+      {/* The mobile per-hour readout bar was removed — the "Conditions · now"
+          data strip above the graph carries the now-state, and scrubbing reads
+          out via the cursor pill + the a11y live region above. */}
 
       <div ref={deskRef} className="hidden lg:block" />
       <div ref={mobRef} className="lg:hidden" />

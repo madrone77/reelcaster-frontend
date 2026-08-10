@@ -6,17 +6,24 @@ import type {
 } from "@/lib/bluecaster/live-spot-types";
 import type { CurrentSample } from "@/lib/bluecaster-client";
 import { niceCurrentScale, nextSlackHour } from "../../lib/current-series";
+import { tierFor, type Tier } from "../../lib/explore-data";
 import { useUnitPreferences } from "@/contexts/unit-preferences-context";
 import {
   convertHeight,
-  convertPressure,
   convertTemp,
   convertWind,
   formatHeight,
   formatWind,
 } from "@/app/utils/unit-conversions";
+import WeatherIcon, {
+  weatherFromHour,
+  type WeatherCondition,
+} from "./weather-icon";
 
 const DASH = "—";
+
+/** Anchor on the 24-hour graph section; the weather cell links here. */
+const CONDITIONS_ANCHOR = "#conditions-24h";
 
 // Sea-state words — one vocabulary with the 24h chart and the old panel.
 function seaState(wav: number | null): string | null {
@@ -27,6 +34,34 @@ function seaState(wav: number | null): string | null {
   if (wav < 1.0) return "Choppy";
   return "Rough";
 }
+
+/** Air-temp word — same bands as the 24h chart's AIR row. */
+function airWord(t: number | null): string | null {
+  if (t == null) return null;
+  return t < 11 ? "Cold" : t < 18 ? "Mild" : "Warm";
+}
+
+const WEATHER_WORD: Record<WeatherCondition, string> = {
+  clear: "Clear",
+  partly: "Partly cloudy",
+  overcast: "Overcast",
+  rain: "Rain",
+  "heavy-rain": "Heavy rain",
+};
+
+// Score numeral color by tier — matches the day cells / terminal.
+const TIER_INK: Record<Tier, string> = {
+  good: "text-rc-good",
+  fair: "text-rc-fair-ink",
+  poor: "text-rc-poor",
+  none: "text-rc-ink-mute",
+};
+const TIER_WORD: Record<Tier, string> = {
+  good: "Good",
+  fair: "Fair",
+  poor: "Tough",
+  none: "—",
+};
 
 const hh = (t: number) => {
   let h = Math.floor(t);
@@ -63,42 +98,44 @@ function tideAccel(
   return "Easing";
 }
 
-// Optimal water-temp band (°C). Coarse, species-agnostic heuristic — see
-// PHASE-TWO.md for a species-aware model.
-const WATER_OPTIMAL_MIN = 8;
-const WATER_OPTIMAL_MAX = 14;
-
 type Cell = {
   label: string;
   value: string;
   sub?: string | null;
-  /** Trailing glyph (trend arrow / optimal dot) — one max. */
+  /** Trailing glyph (trend arrow / weather icon). */
   glyph?: React.ReactNode;
+  /** Tier ink override for the value (score cell). */
+  valueClass?: string;
+  /** When set, the cell renders as an in-page link. */
+  href?: string;
 };
 
 /**
- * Condensed "now" conditions — the data that used to live in the standalone
- * RIGHT NOW panel, collapsed into a single header band: two groups of three,
- * water (primary) then air & surface (secondary), split by a hairline. Water
- * leads because tide and current drive the score more than wind does. Group A's
- * value type is fractionally larger — no colour is used to rank the groups.
+ * The spot's "now" data strip — a single row of the numbers that drive the
+ * read: score, then the conditions in the same order the 24h graph stacks them
+ * (tide · current · wind · sea state · air temp), capped with a weather cell
+ * (icon) that links down to the full 24-hour graph. This is the ONE place the
+ * now-state lives; the 24h graph no longer repeats these as right-gutter
+ * readouts. Values are the current hour and don't follow the graph scrub.
  */
 export default function CurrentConditionsStrip({
   rightNow,
+  score = null,
   currentSigned = null,
   currentSample = null,
   point = null,
   nowHour = 0,
 }: {
   rightNow: RightNowSnapshot | null;
+  /** Current-hour score for the selected species (0–100). */
+  score?: number | null;
   currentSigned?: (number | null)[] | null;
   currentSample?: CurrentSample | null;
   point?: PointConditions | null;
   nowHour?: number;
 }) {
-  const { windUnit, currentUnit, tempUnit, tideUnit, waveUnit, pressureUnit } = useUnitPreferences();
+  const { windUnit, currentUnit, tempUnit, tideUnit, waveUnit } = useUnitPreferences();
   const rn = rightNow;
-  const cond = point?.conditions ?? null;
 
   // ── current (signed series first, point sample fallback) ──────────────
   const signedNow = currentSigned?.[nowHour] ?? null;
@@ -128,21 +165,23 @@ export default function CurrentConditionsStrip({
     rn?.tideTrend === "rising" ? "▲" : rn?.tideTrend === "falling" ? "▼" : "";
   const accel = tideAccel(currentSigned, nowHour, slackThr, rn?.tideTrend ?? null);
 
-  // ── pressure ────────────────────────────────────────────────────────────
-  const pressure = cond?.barometric_pressure_hpa ?? null;
-  const pTrend = cond?.pressure_trend_3h ?? null;
-  const pArrow = pTrend == null ? "" : pTrend > 0.5 ? "↑" : pTrend < -0.5 ? "↓" : "→";
-  const pWord = pTrend == null ? null : pTrend > 0.5 ? "rising" : pTrend < -0.5 ? "falling" : "steady";
-
-  // ── water temp ───────────────────────────────────────────────────────
-  const waterC = rn?.seaTempC ?? cond?.sea_surface_temp_c ?? null;
-  const waterOptimal =
-    waterC == null ? null : waterC >= WATER_OPTIMAL_MIN && waterC <= WATER_OPTIMAL_MAX;
+  // ── air temp + weather ─────────────────────────────────────────────────
+  const airC = rn?.airTempC ?? null;
+  const wx: WeatherCondition | null =
+    rn ? weatherFromHour(rn.cloudPct, rn.precipMm) : null;
 
   const gusty =
     rn?.windKt != null && rn?.windGustKt != null && rn.windGustKt - rn.windKt > 8;
 
-  const groupA: Cell[] = [
+  const scoreTier = tierFor(score);
+
+  const cells: Cell[] = [
+    {
+      label: "Score",
+      value: score != null ? String(Math.round(score)) : DASH,
+      valueClass: TIER_INK[scoreTier],
+      sub: score != null ? TIER_WORD[scoreTier] : null,
+    },
     {
       label: "Tide",
       value:
@@ -165,24 +204,6 @@ export default function CurrentConditionsStrip({
             : curSet,
     },
     {
-      label: "Pressure",
-      // mb ≡ hPa numerically; keep the "hPa" label for metric (matches the
-      // factor breakdown), convert to inHg when the viewer prefers it.
-      value:
-        pressure == null
-          ? DASH
-          : pressureUnit === "inHg"
-            ? `${convertPressure(pressure, "mb", "inHg").toFixed(2)} inHg`
-            : `${Math.round(pressure)} hPa`,
-      sub: pWord,
-      glyph: pArrow ? (
-        <span className="font-rc-mono text-sm text-rc-ink-mute leading-none">{pArrow}</span>
-      ) : null,
-    },
-  ];
-
-  const groupB: Cell[] = [
-    {
       label: "Wind",
       value:
         rn?.windKt != null
@@ -199,54 +220,61 @@ export default function CurrentConditionsStrip({
           : null,
     },
     {
-      label: "Water temp",
-      value: waterC != null ? `${convertTemp(waterC, "C", tempUnit).toFixed(1)}°` : DASH,
-      sub: waterOptimal == null ? null : waterOptimal ? "optimal" : "suboptimal",
-      glyph:
-        waterOptimal == null ? null : (
-          <span
-            className={`w-2 h-2 rounded-full shrink-0 ${waterOptimal ? "bg-rc-good" : "bg-rc-ink-mute"}`}
-            aria-hidden
-          />
-        ),
+      label: "Air temp",
+      value: airC != null ? `${convertTemp(airC, "C", tempUnit).toFixed(0)}°` : DASH,
+      sub: airWord(airC),
+    },
+    {
+      label: "Weather",
+      value: wx ? WEATHER_WORD[wx] : DASH,
+      sub: "24-hour graph ↓",
+      href: CONDITIONS_ANCHOR,
+      glyph: wx ? (
+        <span className="text-rc-ink-soft shrink-0">
+          <WeatherIcon condition={wx} size={18} />
+        </span>
+      ) : null,
     },
   ];
 
   return (
     <div>
       <div className="rc-label text-[9px] mb-2">Conditions · now</div>
-      <div className="flex flex-col sm:flex-row border-y border-rc-rule">
-        <Group cells={groupA} primary />
-        <div className="border-t sm:border-t-0 sm:border-l border-rc-rule" aria-hidden />
-        <Group cells={groupB} />
-      </div>
-    </div>
-  );
-}
-
-function Group({ cells, primary = false }: { cells: Cell[]; primary?: boolean }) {
-  return (
-    <div className="grid grid-cols-3 flex-1">
-      {cells.map((c) => (
-        <div key={c.label} className="px-3 py-2.5 min-w-0">
-          <div className="rc-label text-[10px]">{c.label}</div>
-          <div className="flex items-baseline gap-1.5 mt-1">
-            <span
-              className={`font-bold text-rc-ink leading-none truncate ${
-                primary ? "text-base" : "text-sm"
-              }`}
+      <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 border-y border-rc-rule divide-x divide-rc-rule">
+        {cells.map((c) => {
+          const inner = (
+            <>
+              <div className="rc-label text-[10px]">{c.label}</div>
+              <div className="flex items-baseline gap-1.5 mt-1">
+                <span
+                  className={`font-bold leading-none truncate ${c.valueClass ?? "text-rc-ink"} text-base`}
+                >
+                  {c.value}
+                </span>
+                {c.glyph}
+              </div>
+              {c.sub && (
+                <div className="font-rc-mono text-[10px] text-rc-ink-mute mt-0.5 truncate">
+                  {c.sub}
+                </div>
+              )}
+            </>
+          );
+          return c.href ? (
+            <a
+              key={c.label}
+              href={c.href}
+              className="px-3 py-2.5 min-w-0 block group hover:bg-rc-brand-soft/40 transition-colors focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-rc-brand"
             >
-              {c.value}
-            </span>
-            {c.glyph}
-          </div>
-          {c.sub && (
-            <div className="font-rc-mono text-[10px] text-rc-ink-mute mt-0.5 truncate">
-              {c.sub}
+              {inner}
+            </a>
+          ) : (
+            <div key={c.label} className="px-3 py-2.5 min-w-0">
+              {inner}
             </div>
-          )}
-        </div>
-      ))}
+          );
+        })}
+      </div>
     </div>
   );
 }

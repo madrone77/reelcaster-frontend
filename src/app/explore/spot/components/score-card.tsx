@@ -23,6 +23,7 @@ export default function ScoreCard({
   speciesName,
   regOpen,
   onSetAlert,
+  children,
 }: {
   /** e.g. "NOW · CHINOOK · 07:00 PDT" */
   nowLabel: string;
@@ -48,6 +49,9 @@ export default function ScoreCard({
   regOpen: boolean;
   /** Tapped "Set alert" — the shell gates signed-out anglers into sign-up. */
   onSetAlert: () => void;
+  /** Optional content nested inside the card, above the Set alert button
+   *  (e.g. the fresh-catch evidence). */
+  children?: React.ReactNode;
 }) {
   const tier = tierFor(score ?? peak);
   const regulator = regulatorFor(region);
@@ -117,6 +121,12 @@ export default function ScoreCard({
           </span>
           <span className="shrink-0 text-rc-brand">Regulations ↗</span>
         </a>
+      )}
+
+      {/* Nested content (e.g. fresh-catch evidence) sits between the reg
+          notice and the alert CTA. */}
+      {children && (
+        <div className="mt-4 pt-4 border-t border-rc-rule">{children}</div>
       )}
 
       {/* Single alert action — saving lives on the star beside the spot name.

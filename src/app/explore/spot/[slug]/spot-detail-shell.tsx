@@ -765,7 +765,9 @@ export default function SpotDetailShell({
                   }
                 />
               </div>
-              {/* 2 · Best Window + 3 · DFO reg strip (both inside ScoreCard) */}
+              {/* 2 · Best Window + 3 · DFO reg strip, then the fresh-catch
+                  evidence nested inside the card above Set alert — angler
+                  reports sit with the verdict. Absent when no reports exist. */}
               <div className="order-1">
                 <ScoreCard
                   nowLabel={nowLabel}
@@ -780,24 +782,20 @@ export default function SpotDetailShell({
                   speciesName={selSpecies?.name ?? null}
                   regOpen={regulation?.status === "Open"}
                   onSetAlert={handleSetAlert}
-                />
+                >
+                  {fresh && (
+                    <FreshCatchBlock
+                      fresh={fresh}
+                      days={FRESH_DAYS}
+                      speciesNames={freshSpeciesNames}
+                      onUpgrade={() => setReportsUpgradeOpen(true)}
+                    />
+                  )}
+                </ScoreCard>
               </div>
             </div>
           </div>
           {/* end identity + score cluster (items 1–3) */}
-
-          {/* Fresh catch reports — the angler evidence, right under the model's
-              prediction. Absent entirely when the spot has no reports. */}
-          {fresh && (
-            <div className="border-t border-rc-rule pt-8">
-              <FreshCatchBlock
-                fresh={fresh}
-                days={FRESH_DAYS}
-                speciesNames={freshSpeciesNames}
-                onUpgrade={() => setReportsUpgradeOpen(true)}
-              />
-            </div>
-          )}
 
           {/* 4 · 14-day forecast */}
           <div className="border-t border-rc-rule pt-8">
@@ -848,6 +846,7 @@ export default function SpotDetailShell({
           <div className="border-t border-rc-rule pt-8">
             <CurrentConditionsStrip
               rightNow={page.rightNow}
+              score={nowScore}
               currentSigned={todayCurrent}
               currentSample={
                 (todayIso ? curByIso[todayIso]?.[nowHour] : null) ?? null
@@ -858,7 +857,7 @@ export default function SpotDetailShell({
           </div>
 
           {/* 6 · 24-hour graph */}
-          <div className="border-t border-rc-rule pt-8">
+          <div id="conditions-24h" className="scroll-mt-20 border-t border-rc-rule pt-8">
             <div className="flex flex-wrap items-end justify-between gap-x-4 gap-y-1">
               <div>
                 <h3 className="rc-label text-[10px]">24-Hour Conditions</h3>
@@ -880,7 +879,6 @@ export default function SpotDetailShell({
               selectedHour={selectedHour}
               onSelectHour={selectHour}
               bestWindow={win.window}
-              speciesName={selSpecies?.name ?? null}
             />
             {/* Sells the days a viewer can't see — so it has no business on a
                 Pro account, which already has all 14. Held until `tierLoading`
