@@ -705,10 +705,10 @@ export default function SpotDetailShell({
                   }
                 />
               </div>
-              {/* 2 · Best Window + 3 · DFO reg strip (inside ScoreCard), then
-                  the fresh-catch evidence — angler reports sit with the verdict,
-                  not buried below the fold. Absent when the spot has no reports. */}
-              <div className="order-1 space-y-6">
+              {/* 2 · Best Window + 3 · DFO reg strip, then the fresh-catch
+                  evidence nested inside the card above Set alert — angler
+                  reports sit with the verdict. Absent when no reports exist. */}
+              <div className="order-1">
                 <ScoreCard
                   nowLabel={nowLabel}
                   score={nowScore}
@@ -721,17 +721,16 @@ export default function SpotDetailShell({
                   speciesName={selSpecies?.name ?? null}
                   regOpen={regulation?.status === "Open"}
                   onSetAlert={handleSetAlert}
-                />
-                {fresh && (
-                  <div className="border-t border-rc-rule pt-6">
+                >
+                  {fresh && (
                     <FreshCatchBlock
                       fresh={fresh}
                       days={FRESH_DAYS}
                       speciesNames={freshSpeciesNames}
                       onUpgrade={() => setReportsUpgradeOpen(true)}
                     />
-                  </div>
-                )}
+                  )}
+                </ScoreCard>
               </div>
             </div>
           </div>
