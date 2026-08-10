@@ -23,6 +23,13 @@ export interface UserPreferences {
   /** @deprecated Split into tideUnit/waveUnit/depthUnit. Read only to migrate
    *  an existing saved choice into depthUnit; never written going forward. */
   heightUnit?: 'ft' | 'm'
+  /**
+   * The angler's pinned home spot, as a BlueCaster spot slug. Lives here rather
+   * than in localStorage alone so it survives the move to a phone — the same
+   * reason the Pro welcome records its dismissal server-side. `use-home-spot`
+   * still keeps a localStorage copy as a synchronous first-paint cache.
+   */
+  homeSpotSlug?: string
 }
 
 export interface NotificationPreferences {

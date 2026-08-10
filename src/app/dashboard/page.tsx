@@ -21,7 +21,7 @@ import ExploreTopBar from "@/app/explore/components/explore-top-bar";
 import DashboardSavedMap from "./dashboard-saved-map";
 import MarketingFooter from "@/app/components/marketing/marketing-footer";
 import type { MapSpotsPayload } from "@/lib/bluecaster";
-import { readHomeSpot } from "@/app/explore/lib/use-home-spot";
+import { useHomeSpotSlug } from "@/app/explore/lib/use-home-spot";
 import { setFavorite } from "@/app/explore/lib/use-favorite";
 import { storedFirstName, NAME_FALLBACK } from "@/lib/display-name";
 import { supabase } from "@/lib/supabase";
@@ -154,7 +154,9 @@ export default function DashboardPage() {
   const [payload, setPayload] = useState<MapSpotsPayload | null>(null);
   // Undo snackbar for an un-starred spot.
   const [undo, setUndo] = useState<{ slug: string; name: string } | null>(null);
-  const [homeSlug, setHomeSlug] = useState<string | null>(null);
+  // Pinned home spot. Hydrates from the saved profile copy, so the hero is
+  // populated on a device that never set the pin itself.
+  const homeSlug = useHomeSpotSlug(true);
   const [homeLive, setHomeLive] = useState<SpotPageInitial | null>(null);
   const [alerts, setAlerts] = useState<AlertProfile[] | null>(null);
   const [catches, setCatches] = useState<CatchRow[] | null>(null);
@@ -265,17 +267,6 @@ export default function DashboardPage() {
     };
   }, [user]);
 
-  // Pinned home spot (localStorage).
-  useEffect(() => {
-    const sync = () => setHomeSlug(readHomeSpot());
-    sync();
-    const onStorage = (e: StorageEvent) => {
-      if (e.key === "rc-home-spot" || e.key === null) sync();
-    };
-    window.addEventListener("storage", onStorage);
-    return () => window.removeEventListener("storage", onStorage);
-  }, []);
-
   // Home-spot live payload — powers the hero conditions, sparkline, and the
   // regulations rail (the spot's own DFO regs). Degrades to null.
   useEffect(() => {
@@ -363,8 +354,27 @@ export default function DashboardPage() {
         tag: slug === homeSlug ? "home" : null,
       });
     }
+    // A home spot is PINNED, not saved — onboarding asks anglers to pin their
+    // water without also favouriting it, and "your dashboard opens on it" has
+    // to hold for them too. Without this the hero silently falls back to the
+    // "pin a home spot" prompt for someone who just pinned one. Name and score
+    // come off the live payload the hero already fetches.
+    if (homeSlug && !bySlug.has(homeSlug)) {
+      const best = homeLive?.topScoreTodayBySpecies ?? {};
+      const topId = Object.keys(best).sort((a, b) => best[b] - best[a])[0];
+      bySlug.set(homeSlug, {
+        slug: homeSlug,
+        name: homeLive?.spot.name ?? prettify(homeSlug),
+        score: scoreBySlug[homeSlug]?.score ?? (topId ? best[topId] : null),
+        species:
+          scoreBySlug[homeSlug]?.species ??
+          homeLive?.species.find((s) => s.id === topId)?.name ??
+          null,
+        tag: "home",
+      });
+    }
     return [...bySlug.values()].sort((a, b) => (b.score ?? -1) - (a.score ?? -1));
-  }, [custom, favSlugs, scoreBySlug, homeSlug]);
+  }, [custom, favSlugs, scoreBySlug, homeSlug, homeLive]);
 
   // The same spots as RailSpots, so the grid renders the shared Explore card
   // (24h bars + WIND/SEA/CURRENT + star) instead of a forked card. Built from
