@@ -346,7 +346,7 @@ function WalletButtons({
         // handled, it's just "no wallet available", which is a state the modal
         // already knows how to render.
         onLoadError={() => onAvailabilityChange?.(false)}
-        onClick={({ resolve }) => {
+        onClick={({ resolve }: { resolve: () => void }) => {
           onActivate?.();
           resolve();
         }}
