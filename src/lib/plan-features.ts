@@ -16,10 +16,16 @@
  * read as a wall rather than an addition.
  *
  * Ordering is the argument: seven rows of "this is a serious tool, and it's
- * free", then five rows of what paying adds. The hinge is the adjacency of
+ * free", then seven rows of what paying adds. The hinge is the adjacency of
  * "Plan a week ahead" (free) and "Plan the full two weeks" (Pro) — the first is
  * what makes an account worth creating, the second is the obvious next step
  * from it. Keep them next to each other; `PRO_ROW_START` marks the seam.
+ *
+ * "No ads" sits high in the Pro block, second only to the hinge, because it is
+ * the one row a reader can evaluate without knowing anything about fishing —
+ * they have already seen the ads on the page the modal opened over. It is a
+ * real entitlement, not a slogan: <AdSlot> renders nothing for a paid viewer,
+ * trialists included (src/app/components/ads/ad-slot.tsx).
  *
  * Regulation-change alerts are still deliberately absent: built, not gated, and
  * not yet a thing a customer can switch on.
@@ -31,6 +37,7 @@
  *   favourites        FREE_FAVORITE_SPOTS below — imported by both the
  *                     /explore star buttons and /api/favorite-spots
  *   custom spots      src/app/api/bluecaster/fishing-spots/custom/route.ts
+ *   ads               src/app/components/ads/ad-slot.tsx (the `isPaid` gate)
  */
 
 import {
@@ -127,6 +134,17 @@ export const PLAN_FEATURES: PlanFeatureRow[] = [
   { id: "week-ahead", label: "Plan a week ahead", anon: "Next 2 days", free: true, pro: true },
   // ── everything below is what paying adds ──
   { id: "two-weeks", label: "Plan the full two weeks", anon: false, free: false, pro: true },
+  // Stated as the thing you get, not the thing we stop doing to you: "No ads"
+  // is a removal, "Read the water with no ads in it" is the product. The free
+  // and browsing columns take a cross rather than the string "Ads" — this
+  // table lists what a tier gets, and a tier does not "get" advertising.
+  {
+    id: "ad-free",
+    label: "Read the water with no ads in the way",
+    anon: false,
+    free: false,
+    pro: true,
+  },
   { id: "save-spots", label: "Save every spot you fish", anon: false, free: false, pro: true },
   // Deliberately NOT "add your own spots" — that reads as another way of saying
   // "save". The value is that a spot we don't publish gets the full model run on

@@ -30,6 +30,7 @@ import TrialCta from './trial-cta';
  */
 const DEFAULT_BULLETS = [
   'Plan the full two weeks',
+  'Read the water with no ads in the way',
   'Save every spot you fish',
   'Score a spot we don’t cover: your pin, our full model',
   'Alerts when it’s on, by text or email',
