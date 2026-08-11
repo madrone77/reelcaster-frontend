@@ -166,6 +166,7 @@ function ProGate() {
               'Priority support with a one business day reply target',
               'Ticket history you can reference later',
               'Full guide library and searchable knowledge base',
+              'Read the water with no ads in the way',
               'Everything else Pro unlocks: 14-day forecast, 10 alerts, custom spots',
             ]}
           />

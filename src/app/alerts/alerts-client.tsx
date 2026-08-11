@@ -347,6 +347,9 @@ export default function AlertsClient({ spots }: Props) {
           'SMS delivery in addition to email',
           'Composite triggers (wind + tide + pressure + score)',
           'Pause / duplicate / history per alert',
+          // Every upgrade surface names it, including the ones that lead with
+          // a single feature. Same wording as the plan matrix row.
+          'Read the water with no ads in the way',
         ]}
       />
     </div>

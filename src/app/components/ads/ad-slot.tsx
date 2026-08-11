@@ -303,7 +303,7 @@ function HouseCard({ placement }: { placement: AdPlacement }) {
           eye lands on the action in the place it has already learned to. */}
       <div className="flex items-stretch border-t border-rc-rule bg-rc-surface">
         <TrialModalButton
-          feature="support"
+          feature="support-the-map"
           from={`ads-house-${placement}`}
           data-testid="ad-house-cta"
           className="flex-1 text-left px-3 py-2 font-rc-mono text-[11px] font-semibold tracking-[0.08em] text-rc-brand hover:bg-rc-brand-soft/40 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-rc-brand"

@@ -202,7 +202,7 @@ export type NagFeatureId =
   | "catch-log"
   | "catch-reports"
   | "remove-ads"
-  | "support";
+  | "support-the-map";
 
 export interface NagFeature {
   /** Completes "Start your 7-day Pro trial to ___". Lower case, no period. */
@@ -287,11 +287,11 @@ export const NAG_FEATURES: Record<NagFeatureId, NagFeature> = {
   // usually because the reader blocks them. No rowId: someone who already has
   // no ads is not being sold ad removal, and there is no single row that says
   // "keep this thing running". The whole matrix is the answer to that.
-  support: {
+  "support-the-map": {
     action: "support the map",
     headline: "Support ReelCaster",
     unlocksAt: "pro",
-    pricingFeature: "support",
+    pricingFeature: "support-the-map",
   },
   // Fired by the "remove ads" link under an ad unit, so the reader arrives
   // having just looked at the thing they want gone. Not spot-scoped: ads are a
