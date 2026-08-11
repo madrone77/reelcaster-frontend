@@ -201,7 +201,8 @@ export type NagFeatureId =
   | "forecast-14d"
   | "catch-log"
   | "catch-reports"
-  | "remove-ads";
+  | "remove-ads"
+  | "support";
 
 export interface NagFeature {
   /** Completes "Start your 7-day Pro trial to ___". Lower case, no period. */
@@ -217,8 +218,12 @@ export interface NagFeature {
   takesSpot?: boolean;
   /** Lowest tier that unlocks it — decides whether we sell Pro or an account. */
   unlocksAt: "free" | "pro";
-  /** Row in the matrix to highlight. */
-  rowId: string;
+  /**
+   * Row in the matrix to highlight. Optional, because not every prompt is
+   * answered by one row: "support the map" is an argument for the whole table,
+   * and singling out a line of it would be a smaller pitch than the truth.
+   */
+  rowId?: string;
   /** `?feature=` for /plans — must match a `plans-feature-callout` key. */
   pricingFeature: string;
 }
@@ -277,6 +282,16 @@ export const NAG_FEATURES: Record<NagFeatureId, NagFeature> = {
     unlocksAt: "free",
     rowId: "catch-log",
     pricingFeature: "favorite-spots",
+  },
+  // Fired by the house card that stands in for an ad that never arrived —
+  // usually because the reader blocks them. No rowId: someone who already has
+  // no ads is not being sold ad removal, and there is no single row that says
+  // "keep this thing running". The whole matrix is the answer to that.
+  support: {
+    action: "support the map",
+    headline: "Support ReelCaster",
+    unlocksAt: "pro",
+    pricingFeature: "support",
   },
   // Fired by the "remove ads" link under an ad unit, so the reader arrives
   // having just looked at the thing they want gone. Not spot-scoped: ads are a

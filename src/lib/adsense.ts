@@ -42,6 +42,13 @@ export interface AdUnit {
    * there. Without it a fluid unit has no shape to render into.
    */
   layoutKey?: string;
+  /**
+   * Show the house "support us" card when the unit comes up empty — blocked
+   * loader or no fill. Opt-in per placement, because the card is shaped like a
+   * rail card and only reads as one in a list of them. A placement dropped
+   * into the middle of a page body wants a different fallback, or none.
+   */
+  house?: boolean;
 }
 
 /**
@@ -62,6 +69,7 @@ export const AD_SLOTS: Record<AdPlacement, AdUnit> = {
     slot: '1234112037',
     format: 'fluid',
     layoutKey: '-fb+5w+4e-db+86',
+    house: true,
   },
   /** Spot page, between "Score Explained" and "Seasonality". */
   spotMid: { slot: '', format: 'auto' },

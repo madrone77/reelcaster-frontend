@@ -46,6 +46,10 @@ const FEATURE_COPY: Record<string, { title: string; body: string }> = {
     title: 'What anglers are actually catching',
     body: 'We read the local reports so you don’t have to. Pro shows how many trips landed fish at a spot in the last three weeks, and which species they came for.',
   },
+  support: {
+    title: 'Keep the map running',
+    body: 'Ads pay for the free map, and yours are blocked, which is fair enough. Pro is the other way to pay for it: everything below, and nothing to block.',
+  },
   'remove-ads': {
     title: 'No ads, anywhere',
     body: 'Ads pay for the free map. Pro pays for itself, so there are none: the same spots, the same forecast, nothing sold around the edges.',
