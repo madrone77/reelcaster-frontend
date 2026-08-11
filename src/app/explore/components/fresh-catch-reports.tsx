@@ -124,8 +124,13 @@ export function FreshCatchBlock({
   }
 
   const total = fresh.count ?? 0;
-  const pos = fresh.positive ?? 0;
-  const pct = total ? Math.round((pos / total) * 100) : 0;
+  // Activity signal, NOT a landed-ratio. A run of reports means the spot is
+  // being fished right now; "X of Y landed" read as a coin-flip and buried that.
+  // The landed/reported split still lives in the per-species detail below.
+  const activity =
+    total >= 8
+      ? { label: "Hot", cls: "bg-rc-good text-white" }
+      : { label: "Active", cls: "bg-rc-good-bg text-rc-good-ink" };
 
   // The headline counts OUTINGS; these rows count per-species mentions. One
   // post naming two species is one outing above and two rows below, so the two
@@ -148,16 +153,21 @@ export function FreshCatchBlock({
   return (
     <div className={className}>
       {header}
-      <div className="mt-2 flex h-1.5 w-full overflow-hidden rounded-full bg-rc-surface">
-        <div className="h-full bg-rc-good" style={{ width: `${pct}%` }} />
-        <div className="h-full bg-rc-fair" style={{ width: `${100 - pct}%` }} />
+      <div className="mt-2 flex items-center gap-2">
+        <span
+          className={`shrink-0 rounded px-2 py-0.5 font-rc-mono text-[10px] font-bold uppercase tracking-[0.08em] ${activity.cls}`}
+        >
+          {activity.label}
+        </span>
+        <span className="text-[15px] font-bold text-rc-ink">
+          {total} recent report{total === 1 ? "" : "s"}
+        </span>
+        {fresh.latestDate && (
+          <span className="ml-auto shrink-0 font-rc-mono text-[10px] text-rc-ink-mute">
+            latest {reportAge(fresh.latestDate)}
+          </span>
+        )}
       </div>
-      <p className="mt-1.5 text-[13px] leading-snug text-rc-ink-soft">
-        {pos === 0
-          ? `${total} report${total === 1 ? "" : "s"} — slow lately`
-          : `${pos} of ${total} report${total === 1 ? "" : "s"} landed fish`}
-        {fresh.latestDate ? ` · latest ${reportAge(fresh.latestDate)}` : ""}
-      </p>
 
       {(rows.length > 0 || otherCount > 0) && (
         <>
