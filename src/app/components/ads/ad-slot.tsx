@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useSubscription } from '@/hooks/use-subscription';
 import { ADSENSE_CLIENT, AD_SLOTS, type AdPlacement } from '@/lib/adsense';
+import TrialModalButton from '@/app/components/paywall/trial-modal-button';
 
 declare global {
   interface Window {
@@ -62,6 +63,13 @@ export default function AdSlot({ placement, only, className }: AdSlotProps) {
   // `null` until measured — there is no viewport on the server, and guessing
   // would mount the wrong copy for a tick and let it claim the slot.
   const [breakpointOk, setBreakpointOk] = useState<boolean | null>(null);
+  // Whether Google actually put an ad in the box. The "remove ads" link below
+  // is gated on it: an unfilled <ins> is a zero-height nothing, and offering to
+  // remove an ad the reader cannot see reads as a bug at best and an invented
+  // excuse to sell at worst. AdSense stamps `data-ad-status` on the element it
+  // fills, so that attribute is the only honest signal that there is an ad on
+  // the page — no stamp (loader blocked, or no fill) means no link.
+  const [filled, setFilled] = useState(false);
 
   useEffect(() => {
     if (!only) return;
@@ -137,6 +145,26 @@ export default function AdSlot({ placement, only, className }: AdSlotProps) {
     return () => observer.disconnect();
   }, [shouldRender]);
 
+  // Watch for the fill stamp. Separate from the enqueue effect above because
+  // it outlives it: that one disconnects the moment the push succeeds, and the
+  // status attribute doesn't land until the ad request comes back after it.
+  useEffect(() => {
+    if (!shouldRender) return;
+    const el = insRef.current;
+    if (!el) return;
+
+    const sync = () =>
+      setFilled(el.getAttribute('data-ad-status') === 'filled');
+    sync();
+
+    const observer = new MutationObserver(sync);
+    observer.observe(el, {
+      attributes: true,
+      attributeFilter: ['data-ad-status'],
+    });
+    return () => observer.disconnect();
+  }, [shouldRender]);
+
   if (!shouldRender) return null;
 
   // An in-feed unit is shaped by its layout key and takes its width from the
@@ -158,6 +186,29 @@ export default function AdSlot({ placement, only, className }: AdSlotProps) {
         data-ad-format={unit.format}
         {...shapeAttrs}
       />
+
+      {/* The way out, offered where the reason to want it is. This is the one
+          upgrade prompt on the site that doesn't have to argue for itself: the
+          reader is looking at the ad while they read it.
+
+          It opens the same trial modal every other wall does, on the row that
+          covers it, so "remove ads" and "here is what else Pro is" are one
+          click rather than two. Deliberately quiet — small, muted, and set off
+          from the unit — because a loud CTA butted against an ad is both worse
+          copy and the kind of adjacency AdSense treats as encouraging
+          accidental clicks. */}
+      {filled && (
+        <div className="mt-2 text-center">
+          <TrialModalButton
+            feature="remove-ads"
+            from={`ads-${placement}`}
+            data-testid="ad-remove-cta"
+            className="text-[11px] leading-none text-rc-ink-mute underline underline-offset-2 transition-colors hover:text-rc-brand focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rc-brand focus-visible:ring-offset-2 rounded-sm"
+          >
+            Click here to remove ads
+          </TrialModalButton>
+        </div>
+      )}
     </div>
   );
 }

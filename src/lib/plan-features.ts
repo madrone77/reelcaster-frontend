@@ -185,7 +185,13 @@ export const PLAN_FEATURES: PlanFeatureRow[] = [
  * Nag features — the thing the angler just tried to do.
  * ---------------------------------------------------------------------- */
 
-/** Every action on /explore that can hit a wall. */
+/**
+ * Every action on /explore that can hit a wall.
+ *
+ * "remove-ads" is the odd one out: nothing was blocked, the reader just wants
+ * the ad gone. It rides the same machinery because the answer is identical —
+ * the same modal, opened on the row that covers it.
+ */
 export type NagFeatureId =
   | "alerts"
   | "sms-alerts"
@@ -194,7 +200,8 @@ export type NagFeatureId =
   | "forecast-week"
   | "forecast-14d"
   | "catch-log"
-  | "catch-reports";
+  | "catch-reports"
+  | "remove-ads";
 
 export interface NagFeature {
   /** Completes "Start your 7-day Pro trial to ___". Lower case, no period. */
@@ -270,6 +277,16 @@ export const NAG_FEATURES: Record<NagFeatureId, NagFeature> = {
     unlocksAt: "free",
     rowId: "catch-log",
     pricingFeature: "favorite-spots",
+  },
+  // Fired by the "remove ads" link under an ad unit, so the reader arrives
+  // having just looked at the thing they want gone. Not spot-scoped: ads are a
+  // property of the page, not of whichever card the unit landed next to.
+  "remove-ads": {
+    action: "remove the ads",
+    headline: "Remove the ads",
+    unlocksAt: "pro",
+    rowId: "ad-free",
+    pricingFeature: "remove-ads",
   },
   // Deliberately NOT spot-scoped: the pitch is the whole reporting stream
   // across every spot, not this one spot's numbers. "for Oak Bay Flats" would
