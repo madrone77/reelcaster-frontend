@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useSubscription } from '@/hooks/use-subscription';
 import { ADSENSE_CLIENT, AD_SLOTS, type AdPlacement } from '@/lib/adsense';
+import TrialModalButton from '@/app/components/paywall/trial-modal-button';
 
 declare global {
   interface Window {
@@ -12,6 +13,21 @@ declare global {
 
 /** Matches the `lg:` breakpoint the Explore surfaces switch on. */
 const DESKTOP_QUERY = '(min-width:1024px)';
+
+/**
+ * How long to wait for AdSense to say anything before calling the slot empty.
+ *
+ * A blocked loader is silent by definition — it never runs, so it never stamps
+ * `data-ad-status`, and there is no event to wait for. Only a clock can tell
+ * that apart from a request still in flight. Long enough that a slow network
+ * isn't mistaken for a blocker (a working loader stamps in a few hundred ms);
+ * short enough that the house card isn't a late arrival. An explicit
+ * "unfilled" stamp doesn't wait for this at all — that answer is definitive.
+ */
+const SETTLE_MS = 2500;
+
+/** What the ad request came back with, if it came back. */
+type AdState = 'pending' | 'filled' | 'empty';
 
 interface AdSlotProps {
   placement: AdPlacement;
@@ -62,6 +78,15 @@ export default function AdSlot({ placement, only, className }: AdSlotProps) {
   // `null` until measured — there is no viewport on the server, and guessing
   // would mount the wrong copy for a tick and let it claim the slot.
   const [breakpointOk, setBreakpointOk] = useState<boolean | null>(null);
+  // Whether Google actually put an ad in the box, and what to show if not.
+  //
+  // AdSense stamps `data-ad-status` on the element it answers for, so that
+  // attribute is the only honest signal that there is an ad on the page. It
+  // decides both halves of what renders here: the "remove ads" link needs an
+  // ad to be removing — offering to remove one the reader cannot see reads as
+  // a bug at best and an invented excuse to sell at worst — and the house card
+  // needs the opposite, an empty slot to stand in for.
+  const [adState, setAdState] = useState<AdState>('pending');
 
   useEffect(() => {
     if (!only) return;
@@ -137,7 +162,69 @@ export default function AdSlot({ placement, only, className }: AdSlotProps) {
     return () => observer.disconnect();
   }, [shouldRender]);
 
+  // Watch for the answer. Separate from the enqueue effect above because it
+  // outlives it: that one disconnects the moment the push succeeds, and the
+  // status attribute doesn't land until the ad request comes back after it.
+  useEffect(() => {
+    if (!shouldRender) return;
+    const el = insRef.current;
+    if (!el) return;
+
+    const sync = () => {
+      const status = el.getAttribute('data-ad-status');
+      if (status !== 'filled' && status !== 'unfilled') return false;
+      setAdState(status === 'filled' ? 'filled' : 'empty');
+      return true;
+    };
+
+    if (sync()) return;
+
+    // The two reference each other — whichever resolves first cancels the
+    // other. Both closures run long after this block, so the forward reference
+    // to `timer` is only a textual one.
+    const observer = new MutationObserver(() => {
+      if (!sync()) return;
+      observer.disconnect();
+      clearTimeout(timer);
+    });
+    observer.observe(el, {
+      attributes: true,
+      attributeFilter: ['data-ad-status'],
+    });
+
+    const timer = setTimeout(() => {
+      observer.disconnect();
+      setAdState('empty');
+    }, SETTLE_MS);
+
+    return () => {
+      observer.disconnect();
+      clearTimeout(timer);
+    };
+  }, [shouldRender]);
+
   if (!shouldRender) return null;
+
+  // Nothing came back and the placement has a house card, so run it instead.
+  //
+  // The <ins> is unmounted rather than hidden. A hidden one could still be
+  // filled later, which spends an impression on an ad nobody can see — worse
+  // than losing the slot, and not something to do to an advertiser. This is
+  // also why SETTLE_MS is generous: by the time we get here the slot is being
+  // given away, so the only mistake worth guarding against is calling it too
+  // early.
+  //
+  // Covers a blocked loader and an honest no-fill alike. They are not
+  // distinguishable from here and don't need to be: either way there is a
+  // card-shaped hole in the rail and nothing in it.
+  if (adState === 'empty') {
+    if (!unit.house) return null;
+    return (
+      <div className={className} data-ad-placement={placement}>
+        <HouseCard placement={placement} />
+      </div>
+    );
+  }
 
   // An in-feed unit is shaped by its layout key and takes its width from the
   // list row it occupies; `full-width-responsive` is an `auto` concept and is
@@ -158,6 +245,72 @@ export default function AdSlot({ placement, only, className }: AdSlotProps) {
         data-ad-format={unit.format}
         {...shapeAttrs}
       />
+
+      {/* The way out, offered where the reason to want it is. This is the one
+          upgrade prompt on the site that doesn't have to argue for itself: the
+          reader is looking at the ad while they read it.
+
+          It opens the same trial modal every other wall does, on the row that
+          covers it, so "remove ads" and "here is what else Pro is" are one
+          click rather than two. Deliberately quiet — small, muted, and set off
+          from the unit — because a loud CTA butted against an ad is both worse
+          copy and the kind of adjacency AdSense treats as encouraging
+          accidental clicks. */}
+      {adState === 'filled' && (
+        <div className="mt-2 text-center">
+          <TrialModalButton
+            feature="remove-ads"
+            from={`ads-${placement}`}
+            data-testid="ad-remove-cta"
+            className="text-[11px] leading-none text-rc-ink-mute underline underline-offset-2 transition-colors hover:text-rc-brand focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rc-brand focus-visible:ring-offset-2 rounded-sm"
+          >
+            Click here to remove ads
+          </TrialModalButton>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/**
+ * The house ad: what fills the slot when nothing else did.
+ *
+ * Built to the rail card's own shell — same panel, same rule, same rounding,
+ * same body padding, same footer step — because a slot in a list of cards
+ * should be a card. Anything that reads as "an ad failed here" is worse than
+ * the ad would have been.
+ *
+ * The ask is plain, and deliberately not aggrieved. Most of the people reading
+ * this blocked the ad on purpose; scolding them is how you turn a maybe into a
+ * no. It states what pays for the map, asks once, and gets out of the way.
+ */
+function HouseCard({ placement }: { placement: AdPlacement }) {
+  return (
+    <div
+      className="bg-rc-panel border border-rc-rule rounded overflow-hidden"
+      data-testid="ad-house-card"
+    >
+      <div className="px-3 pt-3 pb-2.5">
+        <p className="text-[15px] font-medium text-rc-ink">
+          Enjoying ReelCaster?
+        </p>
+        <p className="mt-1 text-xs leading-relaxed text-rc-ink-soft">
+          Ads keep the map free. Please support us by upgrading to Pro.
+        </p>
+      </div>
+
+      {/* The footer step, exactly where a spot card puts VIEW MORE — so the
+          eye lands on the action in the place it has already learned to. */}
+      <div className="flex items-stretch border-t border-rc-rule bg-rc-surface">
+        <TrialModalButton
+          feature="support-the-map"
+          from={`ads-house-${placement}`}
+          data-testid="ad-house-cta"
+          className="flex-1 text-left px-3 py-2 font-rc-mono text-[11px] font-semibold tracking-[0.08em] text-rc-brand hover:bg-rc-brand-soft/40 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-rc-brand"
+        >
+          UPGRADE TO PRO →
+        </TrialModalButton>
+      </div>
     </div>
   );
 }
