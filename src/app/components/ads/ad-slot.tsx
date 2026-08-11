@@ -73,9 +73,9 @@ export default function AdSlot({ placement, only, className }: AdSlotProps) {
     return () => mql.removeEventListener('change', sync);
   }, [only]);
 
-  const slot = AD_SLOTS[placement];
+  const unit = AD_SLOTS[placement];
   const shouldRender =
-    !loading && !isPaid && slot !== '' && (!only || breakpointOk === true);
+    !loading && !isPaid && unit.slot !== '' && (!only || breakpointOk === true);
 
   useEffect(() => {
     if (!shouldRender) return;
@@ -139,6 +139,14 @@ export default function AdSlot({ placement, only, className }: AdSlotProps) {
 
   if (!shouldRender) return null;
 
+  // An in-feed unit is shaped by its layout key and takes its width from the
+  // list row it occupies; `full-width-responsive` is an `auto` concept and is
+  // not meaningful there. Sending both would describe two different units.
+  const shapeAttrs =
+    unit.format === 'fluid'
+      ? { 'data-ad-layout-key': unit.layoutKey }
+      : { 'data-full-width-responsive': 'true' };
+
   return (
     <div className={className} data-ad-placement={placement}>
       <ins
@@ -146,9 +154,9 @@ export default function AdSlot({ placement, only, className }: AdSlotProps) {
         className="adsbygoogle block"
         style={{ display: 'block' }}
         data-ad-client={ADSENSE_CLIENT}
-        data-ad-slot={slot}
-        data-ad-format="auto"
-        data-full-width-responsive="true"
+        data-ad-slot={unit.slot}
+        data-ad-format={unit.format}
+        {...shapeAttrs}
       />
     </div>
   );

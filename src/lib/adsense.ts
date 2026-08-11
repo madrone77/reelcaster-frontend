@@ -24,25 +24,47 @@
 
 export const ADSENSE_CLIENT = 'ca-pub-8843447703932843';
 
-/**
- * Slot IDs per placement. An empty string disables that placement outright —
- * <AdSlot> renders nothing at all rather than an <ins> AdSense can never fill.
- *
- * That is the deliberate pre-approval state: the placements can ship, be
- * reviewed, and be verified as invisible before the account is live, and light
- * up on the deploy that fills these in.
- */
 export type AdPlacement = 'exploreList' | 'spotMid' | 'spotFoot';
 
-// Typed as plain strings rather than `as const`: under `as const` each value
-// narrows to its own literal, and <AdSlot>'s `slot !== ''` guard becomes a
-// comparison TypeScript rejects as impossible the moment a real ID is pasted
-// in — turning "fill in the slot IDs" into a build failure.
-export const AD_SLOTS: Record<AdPlacement, string> = {
+export interface AdUnit {
+  /** `data-ad-slot`. Empty disables the placement — nothing renders at all. */
+  slot: string;
+  /**
+   * `data-ad-format`. `fluid` is an in-feed unit: it takes its shape from the
+   * list it sits in and is styled by `layoutKey`, which is how it reads as one
+   * more card rather than a rectangle dropped between two. `auto` is an
+   * ordinary responsive display unit.
+   */
+  format: 'auto' | 'fluid';
+  /**
+   * `data-ad-layout-key`. In-feed units only, and not optional for them — the
+   * console generates it alongside the unit and it encodes the layout chosen
+   * there. Without it a fluid unit has no shape to render into.
+   */
+  layoutKey?: string;
+}
+
+/**
+ * The ad unit behind each placement, as configured in the AdSense console.
+ *
+ * A placement with an empty `slot` is off: <AdSlot> renders nothing rather than
+ * an <ins> AdSense can never fill. That is the deliberate state for a placement
+ * whose unit has not been created yet — it can ship, be reviewed, and be
+ * verified invisible, then light up on the deploy that fills the slot in.
+ *
+ * Deliberately not `as const`: literal narrowing turns <AdSlot>'s `slot !== ''`
+ * guard into a comparison TypeScript rejects as impossible the moment a real ID
+ * is pasted in, which would make "fill in the slot ID" a build failure.
+ */
+export const AD_SLOTS: Record<AdPlacement, AdUnit> = {
   /** In the desktop rail's spot list, and the mobile pull-up sheet's list. */
-  exploreList: '',
+  exploreList: {
+    slot: '1234112037',
+    format: 'fluid',
+    layoutKey: '-fb+5w+4e-db+86',
+  },
   /** Spot page, between "Score Explained" and "Seasonality". */
-  spotMid: '',
+  spotMid: { slot: '', format: 'auto' },
   /** Spot page, below the description and hierarchy trail. */
-  spotFoot: '',
+  spotFoot: { slot: '', format: 'auto' },
 };
