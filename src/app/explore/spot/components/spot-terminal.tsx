@@ -389,7 +389,12 @@ function buildSvg(
   { const r = Y.wind, vmax = 24;
     [10, 20].forEach((tk) => { const yy = yIn(tk, r.y0, r.y1, 0, vmax); s += `<line x1="${x0}" y1="${yy.toFixed(1)}" x2="${x1}" y2="${yy.toFixed(1)}" stroke="${C.ruleSoft}" stroke-width="1" stroke-dasharray="3 3"/><text class="tm-tick" x="${x0 - 5}" y="${yy + 3}" text-anchor="end">${Math.round(cvW(tk))}</text>`; });
     const scy = yIn(15, r.y0, r.y1, 0, vmax); s += `<line x1="${x0}" y1="${scy.toFixed(1)}" x2="${x1}" y2="${scy.toFixed(1)}" stroke="${C.r[4]}" stroke-width="1" stroke-dasharray="4 3" opacity=".8"/>`;
-    if (wide) s += `<text class="tm-note" x="${x0 + 3}" y="${scy - 4}" style="fill:${C.r[4]}">${Math.round(cvW(15))} ${wLbl.toUpperCase()} SMALL CRAFT</text>`;
+    // Centred, not pinned to x0: the left edge is where the night dot shading
+    // sits, and the label was reading through the texture. Midday is the one
+    // stretch of this row that is reliably clear — it's outside both night
+    // regions, and gusts strong enough to cross the 15 kn line (which is what
+    // would collide here) cluster in the afternoon and evening, not at noon.
+    if (wide) s += `<text class="tm-note" x="${((x0 + x1) / 2).toFixed(1)}" y="${scy - 4}" text-anchor="middle" style="fill:${C.r[4]}">${Math.round(cvW(15))} ${wLbl.toUpperCase()} SMALL CRAFT</text>`;
     for (let i = 0; i < 24; i++) { const cx = xAt(i), bw = hw * 0.56, v = num(hours.wind[i]); if (v == null) continue; const by = yIn(v, r.y0, r.y1, 0, vmax);
       s += `<rect x="${(cx + hw / 2 - bw / 2).toFixed(1)}" y="${by.toFixed(1)}" width="${bw.toFixed(1)}" height="${(r.y1 - by).toFixed(1)}" rx="1.5" fill="${C.wind}"/>`;
       const gv = num(hours.gust[i]); if (gv != null) { const gy = yIn(gv, r.y0, r.y1, 0, vmax); s += `<line x1="${(cx + hw / 2 - bw / 2 - 1).toFixed(1)}" y1="${gy.toFixed(1)}" x2="${(cx + hw / 2 + bw / 2 + 1).toFixed(1)}" y2="${gy.toFixed(1)}" stroke="${C.soft}" stroke-width="1.4"/>`; } }
