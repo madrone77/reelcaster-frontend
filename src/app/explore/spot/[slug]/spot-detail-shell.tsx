@@ -415,27 +415,20 @@ export default function SpotDetailShell({
     return min <= max ? { min, max } : null;
   }, [fcSource]);
 
-  // Signed flood/ebb current — the terminal chart follows the selected day,
-  // the RIGHT NOW tile is pinned to today. Null until the series arrives (the
-  // chart falls back to its tide-derived shape, the tile to point-conditions).
+  // Signed flood/ebb current for the selected day — fed to BOTH the terminal
+  // chart and the conditions strip, so the strip's current cell is literally
+  // the series the chart plots. Null until it arrives (the chart falls back to
+  // its tide-derived shape, the strip to point-conditions).
+  //
+  // A second series pinned to today (`todayCurrent`, off `tideToday` /
+  // `todayHoursGrid`) used to exist purely to feed the strip while it was
+  // locked to the live hour. The strip follows the scrub now, so that whole
+  // chain was dead — and keeping it would have meant a strip that silently
+  // disagreed with the chart whenever the angler picked another day.
   const chartCurrent = useMemo(() => {
     const samples = activeIso ? curByIso[activeIso] : null;
     return samples ? signCurrentSeries(samples, terminalHours.tide) : null;
   }, [curByIso, activeIso, terminalHours.tide]);
-
-  const todayHoursGrid = (fc ?? page).hourlyConditionsGrid?.[0];
-  const tideToday = useMemo(
-    () =>
-      Array.from(
-        { length: 24 },
-        (_, i) => (todayHoursGrid?.[i]?.tideM ?? null) as number | null,
-      ),
-    [todayHoursGrid],
-  );
-  const todayCurrent = useMemo(() => {
-    const samples = todayIso ? curByIso[todayIso] : null;
-    return samples ? signCurrentSeries(samples, tideToday) : null;
-  }, [curByIso, todayIso, tideToday]);
 
   // Merge the two fetched UTC days into one hour list; FactorCharts windows it
   // down to the current local day (fills the local evening that day-0 alone drops).
@@ -842,22 +835,7 @@ export default function SpotDetailShell({
             </div>
           </div>
 
-          {/* 5 · Current conditions strip — the condensed now-state that
-              replaces the standalone RIGHT NOW panel. */}
-          <div className="border-t border-rc-rule pt-8">
-            <CurrentConditionsStrip
-              rightNow={page.rightNow}
-              score={nowScore}
-              currentSigned={todayCurrent}
-              currentSample={
-                (todayIso ? curByIso[todayIso]?.[nowHour] : null) ?? null
-              }
-              point={point}
-              nowHour={nowHour}
-            />
-          </div>
-
-          {/* 6 · 24-hour graph */}
+          {/* 5 · 24-hour graph, with the conditions strip as its readout */}
           <div id="conditions-24h" className="scroll-mt-20 border-t border-rc-rule pt-8">
             <div className="flex flex-wrap items-end justify-between gap-x-4 gap-y-1">
               <div>
@@ -870,6 +848,30 @@ export default function SpotDetailShell({
                 <span className="lg:hidden">Tap or drag to read any hour</span>
                 <span className="hidden lg:inline">Hover or drag to read any hour</span>
               </p>
+            </div>
+            {/* The graph's readout. Every prop is the SELECTED day + hour and
+                comes from the same series the chart draws, so scrubbing moves
+                these numbers and the two can never disagree. `tilesSnapshot` is
+                already the scrubbed hour's cell; `hours24` is the score row the
+                chart paints; `chartCurrent` is the signed series it plots. */}
+            {/* Inset to the chart's band boxes so the strip's edges land on
+                theirs. The terminal renders its SVG 1:1 (viewBox width = CSS
+                width), so its gutters are constant CSS px, not fractions:
+                bands start 6px in and stop 20px short of the right on desktop,
+                0.5px/10px on the mobile variant — and the lg breakpoint is
+                exactly where the two SVGs swap. Measured, not guessed. */}
+            <div className="mt-5 ml-[0.5px] mr-[10px] lg:ml-[6px] lg:mr-[20px]">
+              <CurrentConditionsStrip
+                rightNow={tilesSnapshot}
+                score={hours24?.[selectedHour] ?? null}
+                currentSigned={chartCurrent}
+                currentSample={
+                  (activeIso ? curByIso[activeIso]?.[selectedHour] : null) ?? null
+                }
+                point={point}
+                hour={selectedHour}
+                isNow={dayIndex === 0 && selectedHour === nowHour}
+              />
             </div>
             <SpotTerminal
               hours={terminalHours}
