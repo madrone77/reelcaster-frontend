@@ -7,7 +7,9 @@ import { UnitPreferencesProvider } from '@/contexts/unit-preferences-context'
 import AuthGate from '@/app/components/auth/auth-gate'
 import MobileBottomNav from '@/app/components/mobile-bottom-nav'
 import ProWelcomeModal from '@/app/components/pro/pro-welcome-modal'
+import Script from 'next/script'
 import { GoogleAnalytics } from '@next/third-parties/google'
+import { ADSENSE_CLIENT } from '@/lib/adsense'
 import { ORGANIZATION_JSONLD, SITE_NAME, SITE_URL } from '@/lib/site'
 import { clientDiagSnippet } from '@/lib/client-diag'
 
@@ -56,6 +58,14 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: 'summary_large_image',
+  },
+  // AdSense site verification. This is the static half of the integration and
+  // the half Google actually crawls for: a meta tag is in the prerendered HTML
+  // of every route, so ownership verifies whether or not the crawler executes
+  // the loader — which matters because /explore is noindex and the loader is
+  // now injected after hydration rather than served in <head>.
+  other: {
+    'google-adsense-account': ADSENSE_CLIENT,
   },
 }
 
@@ -107,6 +117,29 @@ export default function RootLayout({
             </UnitPreferencesProvider>
           </MixpanelProvider>
         </AuthProvider>
+        {/* AdSense loader, site-wide so any page can serve — but the only
+            places an ad unit is actually mounted are /explore and the spot
+            page, and only for anonymous and free viewers (see <AdSlot>).
+            ⚠ This is also why Auto ads must stay OFF in the console: Auto ads
+            key off this loader alone and would paste ads onto the marketing
+            pages, the billing pages, and every Pro account.
+
+            `afterInteractive` is load-bearing, not a default. As a plain
+            <script> in <head> this broke hydration: the loader prepends
+            `show_ads_impl.js` into <head> before React hydrates, React's walk
+            found Google's script where it expected our own, and reported a
+            mismatch it explicitly would not patch up — on prerendered spot
+            pages, the same failure shape that has blanked them before.
+            Injecting after hydration removes the race entirely; ownership
+            verification does not depend on it, and rides the
+            `google-adsense-account` meta tag above instead. */}
+        <Script
+          id="adsbygoogle-loader"
+          async
+          strategy="afterInteractive"
+          src={`https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=${ADSENSE_CLIENT}`}
+          crossOrigin="anonymous"
+        />
         <GoogleAnalytics gaId="G-HLHG768MWJ" />
       </body>
     </html>

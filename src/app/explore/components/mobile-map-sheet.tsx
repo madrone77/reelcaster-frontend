@@ -1,6 +1,7 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import AdSlot from "@/app/components/ads/ad-slot";
 import type { RailSpot } from "../lib/explore-data";
 import type { ForecastStripModel, ForecastDay } from "../lib/forecast-strip";
 import SpotCard from "./spot-card";
@@ -220,13 +221,19 @@ export default function MobileMapSheet({
         ) : (
           <div className="px-4 pb-4">
             <div className="mx-auto max-w-[392px] space-y-3 pt-1">
-              {sorted.map((spot) => (
-                <SpotCard
-                  key={spot.id}
-                  spot={spot}
-                  tz={tz}
-                  onSelect={() => onSelectSpot(spot.slug)}
-                />
+              {sorted.map((spot, i) => (
+                <Fragment key={spot.id}>
+                  <SpotCard
+                    spot={spot}
+                    tz={tz}
+                    onSelect={() => onSelectSpot(spot.slug)}
+                  />
+                  {/* Same position as the desktop rail — after the third spot,
+                      or at the foot of a shorter list. */}
+                  {i === Math.min(2, sorted.length - 1) && (
+                    <AdSlot placement="exploreList" only="mobile" />
+                  )}
+                </Fragment>
               ))}
 
               {spots.length === 0 && (
