@@ -38,6 +38,7 @@ import type {
   SpotScorePayload,
   PointConditions,
   RightNowSnapshot,
+  LiveRegulation,
 } from "@/lib/bluecaster/live-spot-types";
 import SpeciesCardRow from "../components/species-card-row";
 import SpotProfile from "../components/spot-profile";
@@ -82,6 +83,34 @@ const REG_PILL: Record<string, string> = {
   Release: "bg-rc-fair-bg text-rc-fair-ink",
   Closed: "bg-rc-poor-bg text-rc-poor-ink",
 };
+
+/**
+ * Three at-a-glance takeaways for the near-the-top reg digest: quantity, size,
+ * and the major restriction (gear). The full breakdown still lives in the
+ * CurrentRegulations panel lower on the page. Empty when nothing to say.
+ */
+function regDigestOf(r: LiveRegulation): string[] {
+  const quantity =
+    r.status === "Closed"
+      ? "No retention"
+      : r.status === "Release" || r.dailyLimit === 0
+        ? "Release only"
+        : r.dailyLimit != null && r.dailyLimit > 0
+          ? `${r.dailyLimit}/day`
+          : null;
+  const size =
+    r.sizeLimitCm != null && r.sizeLimitMaxCm != null
+      ? `${r.sizeLimitCm}–${r.sizeLimitMaxCm} cm`
+      : r.sizeLimitCm != null
+        ? `Min ${r.sizeLimitCm} cm`
+        : r.sizeLimitMaxCm != null
+          ? `Max ${r.sizeLimitMaxCm} cm`
+          : null;
+  const restriction = r.gearRestrictions
+    ? r.gearRestrictions.charAt(0).toUpperCase() + r.gearRestrictions.slice(1)
+    : null;
+  return [quantity, size, restriction].filter((v): v is string => v != null);
+}
 
 function bestSpeciesId(page: SpotPageForClient): string | null {
   let best: string | null = null;
@@ -253,6 +282,7 @@ export default function SpotDetailShell({
   const seasonWeeks = selId ? (page.seasonWeeksBySpecies[selId] ?? []) : [];
   const seasonRegWeeks = selId ? (page.regWeeksBySpecies[selId] ?? undefined) : undefined;
   const regulation = page.regulations.find((r) => r.speciesId === selId) ?? null;
+  const regDigest = regulation ? regDigestOf(regulation) : [];
 
   const fcSource = fc ?? page;
   const stripModel = useMemo(
@@ -781,6 +811,7 @@ export default function SpotDetailShell({
                   region={cityLink?.provinceName ?? spot.region}
                   speciesName={selSpecies?.name ?? null}
                   regOpen={regulation?.status === "Open"}
+                  regDigest={regDigest}
                   onSetAlert={handleSetAlert}
                 >
                   {fresh && (

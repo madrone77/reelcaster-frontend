@@ -22,6 +22,7 @@ export default function ScoreCard({
   region,
   speciesName,
   regOpen,
+  regDigest = [],
   onSetAlert,
   children,
 }: {
@@ -47,6 +48,9 @@ export default function ScoreCard({
   speciesName: string | null;
   /** Whether the driver species is open (retention) in this area. */
   regOpen: boolean;
+  /** Up to three at-a-glance reg takeaways (quantity · size · restriction),
+   *  shown as a second line under the reg notice. Full detail is lower. */
+  regDigest?: string[];
   /** Tapped "Set alert" — the shell gates signed-out anglers into sign-up. */
   onSetAlert: () => void;
   /** Optional content nested inside the card, above the Set alert button
@@ -113,13 +117,20 @@ export default function ScoreCard({
           href={regulator.url}
           target="_blank"
           rel="noopener noreferrer"
-          className="mt-3 flex min-h-[44px] items-center justify-between gap-2 rounded border border-rc-fair-border bg-rc-fair-bg px-3 py-2 font-rc-mono text-[11px] text-rc-fair-ink hover:brightness-[0.98] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-rc-brand transition-all"
+          className="mt-3 flex min-h-[44px] flex-col justify-center gap-0.5 rounded border border-rc-fair-border bg-rc-fair-bg px-3 py-2 font-rc-mono text-[11px] text-rc-fair-ink hover:brightness-[0.98] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-rc-brand transition-all"
         >
-          <span className="truncate">
-            {regulator.name} · {regulator.areaLabel} {dfoArea}
-            {speciesName ? ` · ${speciesName} ${regOpen ? "open" : "closed"}` : ""}
-          </span>
-          <span className="shrink-0 text-rc-brand">Regulations ↗</span>
+          <div className="flex items-center justify-between gap-2">
+            <span className="truncate">
+              {regulator.name} · {regulator.areaLabel} {dfoArea}
+              {speciesName ? ` · ${speciesName} ${regOpen ? "open" : "closed"}` : ""}
+            </span>
+            <span className="shrink-0 text-rc-brand">Regulations ↗</span>
+          </div>
+          {regDigest.length > 0 && (
+            <div className="truncate text-[10px] text-rc-fair-ink/75">
+              {regDigest.join(" · ")}
+            </div>
+          )}
         </a>
       )}
 
