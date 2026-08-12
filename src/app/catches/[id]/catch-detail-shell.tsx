@@ -460,7 +460,7 @@ export default function CatchDetailShell({ catchId }: { catchId: string }) {
               href="/catches"
               className="inline-flex items-center gap-1.5 text-[13px] font-semibold text-rc-ink-soft hover:text-rc-ink transition-colors"
             >
-              <ArrowLeft className="w-4 h-4" /> My catches
+              <ArrowLeft className="w-4 h-4" /> Catch log
             </Link>
             {isDraft && (
               <span className="ml-3 rounded-sm bg-rc-ink-mute px-1.5 py-0.5 rc-label text-[8px] text-white align-middle">
@@ -537,7 +537,7 @@ function ErrorState({ message }: { message: string }) {
         href="/catches"
         className="mt-5 inline-block px-5 py-2.5 rounded-xl bg-rc-brand hover:bg-rc-brand-hover text-white font-semibold transition-colors"
       >
-        Back to my catches
+        Back to catch log
       </Link>
     </div>
   );

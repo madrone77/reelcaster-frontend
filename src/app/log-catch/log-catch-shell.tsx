@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Check } from "lucide-react";
+import { ArrowLeft, Check } from "lucide-react";
 import ExploreTopBar from "@/app/explore/components/explore-top-bar";
 import { PAGE_MEASURE, READING_MEASURE } from "@/app/components/layout/page-measure";
 import { useAuth } from "@/contexts/auth-context";
@@ -606,6 +606,18 @@ export default function LogCatchShell() {
             fixed left edge rather than by re-centring the whole page. */}
         <div className={`${PAGE_MEASURE} py-8`}>
           <div className={step === "location" ? "max-w-5xl" : READING_MEASURE}>
+            {/* The wizard is no longer its own nav destination. It's the "Log a
+                catch" button on the catch log, so it needs the same way back
+                that every other sub-page of the log has. Hidden once the catch
+                is saved: that state is already redirecting there. */}
+            {!saved && (
+              <Link
+                href="/catches"
+                className="mb-4 inline-flex items-center gap-1.5 text-[13px] font-semibold text-rc-ink-soft hover:text-rc-ink transition-colors"
+              >
+                <ArrowLeft className="w-4 h-4" /> Catch log
+              </Link>
+            )}
             {!loading && !user ? (
               <SignedOut />
             ) : saved ? (
