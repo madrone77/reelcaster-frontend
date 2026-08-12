@@ -10,7 +10,9 @@ import {
   fetchMapSpotsCached,
   fetchSpotLive,
   fetchFreshCatches,
+  fetchSpotsOutlook14d,
   type OwnedCustomSpot,
+  type SpotsOutlook14dPayload,
 } from "@/lib/bluecaster-client";
 import type { FreshCatchesResponse } from "@/app/explore/lib/fresh-catch-types";
 import {
@@ -20,6 +22,7 @@ import {
   type RailSpot,
 } from "@/app/explore/lib/explore-data";
 import SpotCard from "@/app/explore/components/spot-card";
+import { spotDaysFrom } from "@/app/explore/components/spot-day-strip";
 import ExploreTopBar from "@/app/explore/components/explore-top-bar";
 import DashboardSavedMap from "./dashboard-saved-map";
 import MarketingFooter from "@/app/components/marketing/marketing-footer";
@@ -36,6 +39,9 @@ import type { SpotPageInitial } from "@/lib/bluecaster/live-spot-types";
 
 // The whole covered extent — favourites can live anywhere in it.
 const COVERED_BBOX_ALL = "-139.06,41.99,-114.03,60";
+
+/** A real spot id, as opposed to the slug `unscoredRailSpot` stands in with. */
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 // ── tier + formatting helpers ───────────────────────────────────────────────
 const TIER = {
@@ -167,6 +173,11 @@ export default function DashboardPage() {
   // Distinct from `catches` below, which is the angler's OWN catch log.
   const [spotReports, setSpotReports] = useState<FreshCatchesResponse | null>(
     null,
+  );
+  // Every card's next 14 days, in one request. undefined = still reading, and
+  // the cards hold the strip's space rather than growing under the cursor.
+  const [outlook, setOutlook] = useState<SpotsOutlook14dPayload | null | undefined>(
+    undefined,
   );
   const [catches, setCatches] = useState<CatchRow[] | null>(null);
   const [catchTotal, setCatchTotal] = useState<number | null>(null);
@@ -521,6 +532,47 @@ export default function DashboardPage() {
     return [...bySlug.values()].sort((a, b) => (b.score ?? -1) - (a.score ?? -1));
   }, [custom, favSlugs, payload, coords]);
 
+  // The 14-day strip under every card, in one bulk read keyed on the spot ids
+  // actually on screen — not a spot-page fetch per card. A card whose id has
+  // not resolved yet is skipped: `unscoredRailSpot` falls back to the slug for
+  // an id, and a slug is not something the outlook endpoint can key on.
+  //
+  // Keyed on the access token for the same reason the reports read is: the
+  // plan gate lives in the route and reads the token, so a pass fired before
+  // Supabase rehydrates would cap a Pro angler's strip at seven days.
+  const outlookIdsKey = useMemo(
+    () =>
+      (railSpots ?? [])
+        .map((s) => s.id)
+        .filter((id) => UUID_RE.test(id))
+        .sort()
+        .join(","),
+    [railSpots],
+  );
+  useEffect(() => {
+    if (!outlookIdsKey) {
+      // Either the spot set is still resolving (hold the skeletons) or there
+      // is genuinely nothing to draw (drop the row).
+      setOutlook(railSpots === null ? undefined : null);
+      return;
+    }
+    let cancelled = false;
+    setOutlook(undefined);
+    fetchSpotsOutlook14d({ spotIds: outlookIdsKey.split(",") })
+      .then((p) => {
+        if (!cancelled) setOutlook(p);
+      })
+      .catch(() => {
+        if (!cancelled) setOutlook(null);
+      });
+    return () => {
+      cancelled = true;
+    };
+    // railSpots only decides the empty-vs-loading branch above; the request
+    // itself is keyed on the id list, so a re-sorted grid doesn't refetch.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [outlookIdsKey, railSpots === null, session?.access_token]);
+
   // ── derived ────────────────────────────────────────────────────────────────
   const activeAlertCount = alerts ? alerts.filter((a) => a.is_active).length : null;
   // null, not 0, while the saved set is still resolving. The shell is
@@ -788,17 +840,20 @@ export default function DashboardPage() {
               </Link>
             </div>
 
+            {/* One column, not two. Each card now carries its own 14-day
+                strip, and 14 labelled day cells need the full measure — at
+                half-width they compress to ~24px and stop being readable. */}
             {spotsLoading ? (
-              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                {[0, 1, 2, 3, 4, 5].map((i) => (
+              <div className="grid grid-cols-1 gap-4">
+                {[0, 1, 2, 3].map((i) => (
                   <div
                     key={i}
-                    className="h-40 animate-pulse rounded border border-rc-rule bg-rc-surface"
+                    className="h-52 animate-pulse rounded border border-rc-rule bg-rc-surface"
                   />
                 ))}
               </div>
             ) : railSpots && railSpots.length > 0 ? (
-              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <div className="grid grid-cols-1 gap-4">
                 {railSpots.map((rs) => (
                   <SpotCard
                     key={rs.slug}
@@ -806,6 +861,12 @@ export default function DashboardPage() {
                     showVisibility
                     homeBadge={rs.slug === homeSlug}
                     fresh={spotReports?.spots[rs.id]}
+                    showDayStrip
+                    days14={
+                      outlook === undefined
+                        ? undefined
+                        : spotDaysFrom(outlook, rs.id)
+                    }
                     onFavoriteChange={(fav) => {
                       // Un-starring a saved (non-custom) spot drops it from the
                       // grid immediately, with an undo. Custom spots persist.
