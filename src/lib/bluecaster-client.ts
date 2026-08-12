@@ -367,6 +367,33 @@ export async function fetchFreshCatches(
   return (await res.json().catch(() => null)) as FreshCatchesResponse | null;
 }
 
+/** The written report for one spot, for a paying angler.
+ *
+ *  Forwards the Supabase token for the same reason `fetchFreshCatches` does:
+ *  the route reads `Authorization: Bearer`, not cookies, so a bare fetch
+ *  authenticates as nobody and hands a Pro angler the locked teaser. That is
+ *  exactly what shipped first time round.
+ *
+ *  Returns null when locked or on any failure, which leaves the teaser in
+ *  place rather than blanking the block. */
+export async function fetchSpotRecentReports(slug: string): Promise<unknown | null> {
+  const { data } = await supabase.auth.getSession();
+  const token = data.session?.access_token;
+  const res = await fetch(
+    `/api/bluecaster/spots/${encodeURIComponent(slug)}/recent-reports`,
+    {
+      headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+      cache: "no-store",
+    },
+  );
+  if (!res.ok) return null;
+  const body = (await res.json().catch(() => null)) as
+    | { locked?: boolean; reports?: unknown }
+    | null;
+  if (!body || body.locked) return null;
+  return body.reports ?? null;
+}
+
 /** Per-spot 14-day outlook for a whole list of cards in one request.
  *
  *  Scope it by explicit spot ids (the dashboard knows exactly which spots it
