@@ -87,6 +87,14 @@ export interface RailSpot {
    */
   isCustom?: boolean;
   visibility?: "private" | "public";
+  /**
+   * Scraped catch reports exist here in the intel window. Comes in on the
+   * map/spots payload, which Explore renders server-side, so the reports badge
+   * is in the first paint. The Pro-gated counts arrive separately and replace
+   * the lock with a number; this flag is only ever "tracked / not tracked",
+   * which is public by design.
+   */
+  hasReports?: boolean;
 }
 
 /** A species present in the loaded scores — populates the map filter dropdown. */
@@ -462,6 +470,7 @@ export function railSpotFromEntry(
     regionName: "",
     provinceCode: "",
     distanceKm: null,
+    hasReports: entry.has_reports === true,
     ...deriveScoring(entry, payload.species, atHour),
   };
 }
@@ -554,6 +563,7 @@ export function buildExploreData(
               condStrip: s.condStrip,
               hours24: s.hours24,
               scoresBySpecies: s.scoresBySpecies,
+              hasReports: entry?.has_reports === true,
             });
 
             spotCount++;
