@@ -22,6 +22,7 @@ import {
 import {
   fetchForecast14d,
   fetchFreshCatches,
+  fetchSpotRecentReports,
   fetchSpotScore,
   fetchPointConditions,
   fetchCurrentsPoint,
@@ -244,12 +245,13 @@ export default function SpotDetailShell({
       return;
     }
     let cancelled = false;
-    fetch(`/api/bluecaster/spots/${encodeURIComponent(spot.slug)}/recent-reports`)
-      .then((r) => (r.ok ? r.json() : null))
+    fetchSpotRecentReports(spot.slug)
       .then((d) => {
-        if (!cancelled && d && !d.locked) setReports(d.reports ?? null);
+        if (!cancelled) setReports((d as RecentReportsData | null) ?? null);
       })
-      .catch(() => {});
+      .catch(() => {
+        // Stays on the teaser — additive, never blocking.
+      });
     return () => {
       cancelled = true;
     };
