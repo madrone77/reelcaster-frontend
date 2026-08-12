@@ -97,11 +97,18 @@ export default function DashboardSavedMap({
   const mapRef = useRef<MapRef>(null);
   const hasFitted = useRef(false);
 
-  // Read once, synchronously with the first render — it decides the opening
-  // camera, so it cannot wait for an effect.
-  const [savedView] = useState<SavedView | null>(() =>
-    typeof window === "undefined" ? null : readSavedView(),
-  );
+  // Read AFTER mount, not in a state initializer.
+  //
+  // This page is server-rendered now, and the server has no localStorage: an
+  // initializer would make the first client render (the hydration pass)
+  // disagree with the server HTML — map here, skeleton there — which is the
+  // mismatch class that has blanked pages in this app before. The cost is one
+  // effect tick before the map mounts, which is nothing next to the round trip
+  // it used to wait on.
+  const [savedView, setSavedView] = useState<SavedView | null>(null);
+  useEffect(() => {
+    setSavedView(readSavedView());
+  }, []);
 
   // Start the map chunk immediately, in parallel with the dashboard's own data
   // fetches, whichever branch renders below.
