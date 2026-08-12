@@ -1,7 +1,7 @@
 /**
  * Saved spots — the star on a spot card, server-side.
  *
- *   GET    /api/saved-spots              → { slugs: string[] }
+ *   GET    /api/saved-spots              → { slugs: string[], spots: SpotCoord[] }
  *   POST   /api/saved-spots              → star a spot   { slug, spot_id? }
  *   DELETE /api/saved-spots?slug=<slug>  → un-star it
  *
@@ -25,6 +25,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server'
+import { fetchSpotCoords } from '@/lib/bluecaster'
 import { createClient } from '@supabase/supabase-js'
 import { resolveEntitlement } from '@/lib/entitlement'
 import { FREE_FAVORITE_SPOTS } from '@/lib/plan-features'
@@ -83,9 +84,23 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Failed to fetch saved spots' }, { status: 500 })
     }
 
-    return NextResponse.json({
-      slugs: (data ?? []).map((r) => r.spot_slug as string),
-    })
+    const slugs = (data ?? []).map((r) => r.spot_slug as string)
+
+    // Coordinates ride along with the list.
+    //
+    // Every consumer that draws these spots — the dashboard map above all —
+    // needs to know WHERE they are, and knowing the slugs is not knowing that.
+    // Fetched separately it was a second client round trip that could not even
+    // begin until this one came back, which put the map two serial hops deep.
+    // Here it is one server-to-server call against a CDN-cached BlueCaster
+    // read, on a request the client was already waiting for.
+    //
+    // Additive and best-effort: `slugs` is the contract, `spots` is a
+    // convenience, and a failure to resolve coordinates must never cost the
+    // caller their saved list.
+    const spots = slugs.length > 0 ? await fetchSpotCoords(slugs).catch(() => null) : []
+
+    return NextResponse.json({ slugs, spots: spots ?? [] })
   } catch (error) {
     console.error('Error in GET /api/saved-spots:', error)
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })

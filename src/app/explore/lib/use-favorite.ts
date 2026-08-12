@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import { apiFetch, ApiError, UpgradeRequiredError } from "@/lib/api-client";
 import { FREE_FAVORITE_SPOTS } from "@/lib/plan-features";
+import type { SpotCoord } from "@/lib/bluecaster";
 
 /**
  * Saved spots — the star on a spot card.
@@ -29,6 +30,9 @@ import { FREE_FAVORITE_SPOTS } from "@/lib/plan-features";
  */
 
 let slugs = new Set<string>();
+/** Coordinates for the saved set, served alongside it by /api/saved-spots so
+ *  a map can draw without a second round trip. Keyed by slug. */
+let coords: Record<string, SpotCoord> = {};
 let loaded = false;
 let inflight: Promise<void> | null = null;
 /** Whose list is in `slugs` — clearing on sign-out is not enough, because a
@@ -58,13 +62,17 @@ function ensureLoaded(): Promise<void> {
     const userId = await currentUserId();
     if (!userId) {
       slugs = new Set();
+      coords = {};
       ownerId = null;
       loaded = true;
       return;
     }
     try {
-      const res = await apiFetch<{ slugs: string[] }>("/api/saved-spots");
+      const res = await apiFetch<{ slugs: string[]; spots?: SpotCoord[] }>(
+        "/api/saved-spots",
+      );
       slugs = new Set(res.slugs ?? []);
+      coords = Object.fromEntries((res.spots ?? []).map((s) => [s.slug, s]));
       ownerId = userId;
       loaded = true;
     } catch {
@@ -83,6 +91,7 @@ function ensureLoaded(): Promise<void> {
 /** Drop the cached list — on sign-in, sign-out, or an account switch. */
 export function resetFavorites(): void {
   slugs = new Set();
+  coords = {};
   loaded = false;
   inflight = null;
   ownerId = null;
@@ -108,7 +117,13 @@ export type ToggleResult = "saved" | "removed" | "signed-out" | "at-cap" | "erro
  * cap: firing the upgrade modal off a set that hasn't loaded would nag a Pro
  * user on a cold page.
  */
-export function useSavedSpots(): { slugs: string[]; ready: boolean } {
+export function useSavedSpots(): {
+  slugs: string[];
+  /** Coordinates for those slugs, from the same request. Absent for a spot
+   *  that is unpublished or gone — match on slug, do not assume length. */
+  coords: Record<string, SpotCoord>;
+  ready: boolean;
+} {
   const [, force] = useState(0);
 
   useEffect(() => {
@@ -120,7 +135,7 @@ export function useSavedSpots(): { slugs: string[]; ready: boolean } {
     };
   }, []);
 
-  return { slugs: [...slugs], ready: loaded };
+  return { slugs: [...slugs], coords, ready: loaded };
 }
 
 /**
