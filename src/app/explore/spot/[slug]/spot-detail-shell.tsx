@@ -234,24 +234,36 @@ export default function SpotDetailShell({
     };
   }, [freshTracked, isPaid, spot.id]);
 
-  // The written report. Fired on mount rather than waiting for `isPaid` to
-  // flip, because the route is the gate: a free caller gets {locked:true} and
-  // nothing else. Gating the request on the client tier put two waits in
-  // series (resolve entitlement, THEN fetch) and that gap is what a Pro angler
-  // saw as a lock that appeared and then vanished.
+  // The written report. Three states, driven by the REQUEST, not by the client
+  // tier: "asking" / "not allowed" / "here it is".
+  //
+  // Gating the upsell on entitlement was wrong, and is why the lock still
+  // flashed after the first attempt at this. Entitlement resolves FASTER than
+  // the report does — user_settings is one query, the report is a round trip
+  // through BlueCaster — so a Pro angler resolved to "not loading, no report
+  // yet" and got the upsell painted at them for the few hundred milliseconds in
+  // between. The route already answers the only question that matters, so the
+  // block waits for it and nothing else.
+  //
+  // Fired on mount rather than after `isPaid`, because the route is the gate: a
+  // free caller gets {locked:true} and no prose.
   const [reports, setReports] = useState<RecentReportsData | null>(null);
+  const [reportsLocked, setReportsLocked] = useState<boolean | null>(null);
   useEffect(() => {
     if (!page.recentReportsTeaser) {
       setReports(null);
+      setReportsLocked(null);
       return;
     }
     let cancelled = false;
     fetchSpotRecentReports(spot.slug)
-      .then((d) => {
-        if (!cancelled) setReports((d as RecentReportsData | null) ?? null);
+      .then(({ locked, reports: r }) => {
+        if (cancelled) return;
+        setReportsLocked(locked);
+        setReports((r as RecentReportsData | null) ?? null);
       })
       .catch(() => {
-        // Stays on the teaser — additive, never blocking.
+        if (!cancelled) setReportsLocked(true);
       });
     return () => {
       cancelled = true;
@@ -831,10 +843,9 @@ export default function SpotDetailShell({
             <RecentReportsBand
               teaser={page.recentReportsTeaser}
               updatedAt={page.recentReportsUpdatedAt}
-              /* Withhold the upsell until we know the reader is not Pro.
-                 Showing it while entitlement is still resolving is what made
-                 the block flash a lock at paying anglers. */
-              tierResolved={!tierLoading}
+              /* null while the request is in flight. The upsell only appears
+                 once the server has actually said no. */
+              locked={reportsLocked}
               reports={reports}
               fresh={fresh}
               days={FRESH_DAYS}

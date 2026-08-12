@@ -374,9 +374,12 @@ export async function fetchFreshCatches(
  *  authenticates as nobody and hands a Pro angler the locked teaser. That is
  *  exactly what shipped first time round.
  *
- *  Returns null when locked or on any failure, which leaves the teaser in
- *  place rather than blanking the block. */
-export async function fetchSpotRecentReports(slug: string): Promise<unknown | null> {
+ *  Resolves to {locked} so the caller can tell "not allowed" apart from "not
+ *  answered yet". Failures resolve locked, which leaves the teaser and upsell
+ *  in place rather than blanking the block. */
+export async function fetchSpotRecentReports(
+  slug: string,
+): Promise<{ locked: boolean; reports: unknown | null }> {
   const { data } = await supabase.auth.getSession();
   const token = data.session?.access_token;
   const res = await fetch(
@@ -386,12 +389,16 @@ export async function fetchSpotRecentReports(slug: string): Promise<unknown | nu
       cache: "no-store",
     },
   );
-  if (!res.ok) return null;
+  // The locked flag is returned, not swallowed. The block needs to distinguish
+  // "still asking" from "asked, and you may not have it": collapsing both to
+  // null is what let the upsell paint while a Pro angler's report was still in
+  // flight.
+  if (!res.ok) return { locked: true, reports: null };
   const body = (await res.json().catch(() => null)) as
     | { locked?: boolean; reports?: unknown }
     | null;
-  if (!body || body.locked) return null;
-  return body.reports ?? null;
+  if (!body) return { locked: true, reports: null };
+  return { locked: !!body.locked, reports: body.reports ?? null };
 }
 
 /** Per-spot 14-day outlook for a whole list of cards in one request.
