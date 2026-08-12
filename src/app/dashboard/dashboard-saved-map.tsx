@@ -10,14 +10,21 @@ import type { RailSpot } from "@/app/explore/lib/explore-data";
 
 // SSR-off: MapLibre touches `window` on mount.
 //
-// Named so the same import can be kicked off by hand on mount (see below).
-// Without that, the ~270 KB MapLibre chunk doesn't even start downloading until
-// the auth round trip and the saved-spots fetch have both returned and this
-// component renders its map branch — three serial stages deep. The dynamic()
-// wrapper and the manual call share webpack's module promise, so the second
-// caller reuses the in-flight request rather than starting a new one.
+// Named so the same import can be kicked off by hand — see below. Left to
+// dynamic() alone, the ~263 KB MapLibre chunk does not start downloading until
+// this component renders its map branch, which is several serial stages deep.
 const loadExploreMap = () => import("@/app/explore/components/explore-map");
 const ExploreMap = dynamic(loadExploreMap, { ssr: false });
+
+// Kick the chunk off at MODULE scope, not from a mount effect.
+//
+// The effect version waited for hydration, so on a first visit the 263 KB
+// MapLibre chunk did not start downloading until ~1.8s — after the page chunk
+// had been fetched, parsed, and hydrated. At module scope it starts the moment
+// this chunk executes, which is before React has rendered anything, and it
+// overlaps the saved-spots request instead of queueing behind it. Same webpack
+// module promise the dynamic() wrapper awaits, so nothing is fetched twice.
+if (typeof window !== "undefined") void loadExploreMap();
 
 /** Last view the map settled on, so a returning angler opens over their own
  *  water instead of flying there after everything has loaded. */
@@ -108,12 +115,6 @@ export default function DashboardSavedMap({
   const [savedView, setSavedView] = useState<SavedView | null>(null);
   useEffect(() => {
     setSavedView(readSavedView());
-  }, []);
-
-  // Start the map chunk immediately, in parallel with the dashboard's own data
-  // fetches, whichever branch renders below.
-  useEffect(() => {
-    void loadExploreMap();
   }, []);
 
   // Only spots with real coordinates can plot (unscored fallbacks have 0,0).

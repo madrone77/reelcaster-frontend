@@ -8,8 +8,6 @@ import {
   fetchMyCustomSpots,
   fetchMapSpotsAsViewer,
   fetchMapSpotsCached,
-  fetchSpotCoords,
-  type SpotCoord,
   fetchSpotLive,
   fetchFreshCatches,
   type OwnedCustomSpot,
@@ -158,9 +156,6 @@ export default function DashboardPage() {
   // Raw map payload kept so the grid can render the shared Explore card from
   // the same numbers (railSpotFromEntry), not a forked card.
   const [payload, setPayload] = useState<MapSpotsPayload | null>(null);
-  // Coordinates for the saved favourites, fetched straight off the slug list.
-  // This is what the map draws from on a first visit; scores arrive later.
-  const [coords, setCoords] = useState<Record<string, SpotCoord> | null>(null);
   // Undo snackbar for an un-starred spot.
   const [undo, setUndo] = useState<{ slug: string; name: string } | null>(null);
   // Pinned home spot. Hydrates from the saved profile copy, so the hero is
@@ -248,34 +243,20 @@ export default function DashboardPage() {
   // Memoized on the joined slugs because `useSavedSpots` hands back a fresh
   // array each render: passed straight into the dependency arrays below, the
   // coordinate fetch would re-fire on every render forever.
-  const { slugs: savedSlugs, ready: savedReady } = useSavedSpots();
+  const {
+    slugs: savedSlugs,
+    coords: savedCoords,
+    ready: savedReady,
+  } = useSavedSpots();
   const savedKey = savedSlugs.join(",");
   // eslint-disable-next-line react-hooks/exhaustive-deps
   const favSlugs = useMemo(() => (savedReady ? savedSlugs : null), [savedReady, savedKey]);
 
-  // Coordinates for those favourites — the map's first paint.
-  //
-  // Favourites are slugs in localStorage, so this can start before auth has
-  // resolved and before anything else on the page. It is the small read for
-  // the small question: the map needs four coordinates, and used to get them
-  // by waiting on the bulk map payload (every published spot in the covered
-  // extent, each with a 24-hour score strip). Cached at the edge, no identity.
-  useEffect(() => {
-    if (!favSlugs || favSlugs.length === 0) {
-      setCoords({});
-      return;
-    }
-    let cancelled = false;
-    fetchSpotCoords(favSlugs)
-      .then((rows) => {
-        if (cancelled) return;
-        setCoords(Object.fromEntries(rows.map((r) => [r.slug, r])));
-      })
-      .catch(() => !cancelled && setCoords({}));
-    return () => {
-      cancelled = true;
-    };
-  }, [favSlugs]);
+  // Coordinates for those favourites — the map's first paint — now ride along
+  // with the saved list itself (/api/saved-spots resolves them server-side).
+  // They used to be a second client round trip that could not begin until the
+  // list came back, which put the map two serial hops deep on a first visit.
+  const coords = savedReady ? savedCoords : null;
 
   // Today's best score per spot across the covered extent.
   // The personalized payload wins once it lands; the cached one must never
