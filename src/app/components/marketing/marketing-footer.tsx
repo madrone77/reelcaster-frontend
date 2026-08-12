@@ -26,34 +26,34 @@ export default function MarketingFooter() {
         <div>
           <h4 className="rc-label text-[10px] mb-3">Product</h4>
           <ul className="space-y-2 text-rc-ink-soft">
-            <li><Link href="/explore" className="hover:text-rc-ink">Explore the map</Link></li>
-            <li><Link href="/catches" className="hover:text-rc-ink">Catch log</Link></li>
-            <li><Link href="/plans" className="hover:text-rc-ink">Pro plans</Link></li>
+            <li><Link href="/explore" prefetch={false} className="hover:text-rc-ink">Explore the map</Link></li>
+            <li><Link href="/catches" prefetch={false} className="hover:text-rc-ink">Catch log</Link></li>
+            <li><Link href="/plans" prefetch={false} className="hover:text-rc-ink">Pro plans</Link></li>
           </ul>
         </div>
 
         <div>
           <h4 className="rc-label text-[10px] mb-3">Locations</h4>
           <ul className="space-y-2 text-rc-ink-soft">
-            <li><Link href="/fishing/bc" className="hover:text-rc-ink">British Columbia</Link></li>
-            <li><Link href="/fishing/wa" className="hover:text-rc-ink">Washington</Link></li>
+            <li><Link href="/fishing/bc" prefetch={false} className="hover:text-rc-ink">British Columbia</Link></li>
+            <li><Link href="/fishing/wa" prefetch={false} className="hover:text-rc-ink">Washington</Link></li>
             {/* Sitewide links so the guides aren't reachable only from search —
                 an indexable page nothing links to reads as low value. They sit
                 under Locations because each is region-specific. Note the
                 spelling split: BC copy says "licence" (DFO), WA says "license"
                 (WDFW), while both share the /fishing-licence/ route segment. */}
-            <li><Link href="/fishing-licence/bc" className="hover:text-rc-ink">BC fishing licence</Link></li>
-            <li><Link href="/fishing-licence/wa" className="hover:text-rc-ink">WA fishing license</Link></li>
+            <li><Link href="/fishing-licence/bc" prefetch={false} className="hover:text-rc-ink">BC fishing licence</Link></li>
+            <li><Link href="/fishing-licence/wa" prefetch={false} className="hover:text-rc-ink">WA fishing license</Link></li>
           </ul>
         </div>
 
         <div>
           <h4 className="rc-label text-[10px] mb-3">Company</h4>
           <ul className="space-y-2 text-rc-ink-soft">
-            <li><Link href="/about" className="hover:text-rc-ink">About</Link></li>
-            <li><Link href="/faq" className="hover:text-rc-ink">FAQ</Link></li>
-            <li><Link href="/contact" className="hover:text-rc-ink">Contact</Link></li>
-            <li><Link href="/support" className="hover:text-rc-ink">Support</Link></li>
+            <li><Link href="/about" prefetch={false} className="hover:text-rc-ink">About</Link></li>
+            <li><Link href="/faq" prefetch={false} className="hover:text-rc-ink">FAQ</Link></li>
+            <li><Link href="/contact" prefetch={false} className="hover:text-rc-ink">Contact</Link></li>
+            <li><Link href="/support" prefetch={false} className="hover:text-rc-ink">Support</Link></li>
           </ul>
         </div>
 
@@ -65,7 +65,7 @@ export default function MarketingFooter() {
                 Start free
               </TrialModalButton>
             </li>
-            <li><Link href="/login" className="hover:text-rc-ink">Sign in</Link></li>
+            <li><Link href="/login" prefetch={false} className="hover:text-rc-ink">Sign in</Link></li>
           </ul>
         </div>
 
@@ -83,7 +83,16 @@ export default function MarketingFooter() {
           <ul data-testid="marketing-footer-legal" className="flex flex-wrap gap-x-5 gap-y-2 text-xs text-rc-ink-mute">
             {LEGAL_LINKS.map((l) => (
               <li key={l.href}>
-                <Link href={l.href} className="hover:text-rc-ink transition-colors">
+                {/* prefetch={false}: Next prefetches every in-viewport Link, so
+                    a footer of 14 links pulled 14 route payloads on a page the
+                    reader has not finished loading yet — competing with the
+                    content for bandwidth to speculate on a navigation that
+                    mostly does not happen. Footers are not a hot path. */}
+                <Link
+                  href={l.href}
+                  prefetch={false}
+                  className="hover:text-rc-ink transition-colors"
+                >
                   {l.label}
                 </Link>
               </li>

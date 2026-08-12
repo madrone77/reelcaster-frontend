@@ -28,6 +28,7 @@ import { useHomeSpotSlug } from "@/app/explore/lib/use-home-spot";
 import { setFavorite } from "@/app/explore/lib/use-favorite";
 import { storedFirstName, NAME_FALLBACK } from "@/lib/display-name";
 import { supabase } from "@/lib/supabase";
+import { fetchAlertProfiles } from "@/lib/alerts-client";
 import { PAGE_MEASURE } from "@/app/components/layout/page-measure";
 import type { AlertProfile } from "@/lib/custom-alert-engine";
 import type { SpotPageInitial } from "@/lib/bluecaster/live-spot-types";
@@ -340,9 +341,10 @@ export default function DashboardPage() {
     const token = session?.access_token;
     if (!token) return;
     let cancelled = false;
-    fetch("/api/alerts", { headers: { Authorization: `Bearer ${token}` } })
-      .then((r) => (r.ok ? r.json() : null))
-      .then((data) => !cancelled && setAlerts(data?.profiles ?? []))
+    // Shared with the top bar's badge count, which asks for the same list on
+    // the same paint — see lib/alerts-client.
+    fetchAlertProfiles(token)
+      .then((profiles) => !cancelled && setAlerts(profiles))
       .catch(() => !cancelled && setAlerts([]));
     return () => {
       cancelled = true;
@@ -370,7 +372,9 @@ export default function DashboardPage() {
     return () => {
       cancelled = true;
     };
-  }, [session]);
+    // Token, not the session object — AuthProvider re-emits a fresh session on
+    // every auth event, and an object dep fired this twice per load.
+  }, [session?.access_token]);
 
   // Fresh catches — the angler's own catch log, last 14 days.
   useEffect(() => {
