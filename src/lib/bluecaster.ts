@@ -299,6 +299,12 @@ export interface MapSpotEntry {
   best_species_id: string | null;
   scores: Record<string, MapSpeciesStrip>;
   conditions: MapCondStrip | null;
+  /** Scraped catch reports exist for this spot in the 21-day intel window.
+   *  Presence only — the counts and the verdict are Pro-gated on
+   *  /map/fresh-catches. Riding in this payload is what lets the reports badge
+   *  render server-side instead of a second after hydration. Optional so a
+   *  cached pre-`has_reports` body still parses. */
+  has_reports?: boolean;
 }
 
 export interface MapSpotsPayload {

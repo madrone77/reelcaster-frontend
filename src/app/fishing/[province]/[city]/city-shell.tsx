@@ -27,6 +27,9 @@ import {
   type RailSpot,
   type SpeciesOption,
 } from "../../../explore/lib/explore-data";
+import type { FreshCatchesResponse } from "../../../explore/lib/fresh-catch-types";
+import { fetchFreshCatches } from "@/lib/bluecaster-client";
+import { useAuth } from "@/contexts/auth-context";
 import type { FishingCity } from "../../lib/fishing-data";
 
 const MAP_TZ = "America/Vancouver";
@@ -48,6 +51,8 @@ export default function CityShell({
 }) {
   const mapRef = useRef<MapRef>(null);
   const router = useRouter();
+  const { user } = useAuth();
+  const userId = user?.id ?? null;
 
   const [selectedSlug, setSelectedSlug] = useState<string | null>(null);
   const [station, setStation] = useState<StationPick | null>(null);
@@ -56,6 +61,28 @@ export default function CityShell({
   const [relief, setRelief] = useState(true);
   const [currents, setCurrents] = useState(false);
   const [wind, setWind] = useState(false);
+  const [freshCatches, setFreshCatches] = useState<FreshCatchesResponse | null>(
+    null,
+  );
+
+  // Scraped catch reports, keyed by spot id — the same payload Explore's rail
+  // joins on, so a spot wears the same badge here as it does there. This page
+  // is server-rendered for crawlers; the badge is a client-side additive layer
+  // on top, so a failed fetch (or a bot that never runs it) still gets the
+  // whole page. Re-runs when the session resolves: the Pro gate lives in the
+  // route and reads the access token, so a pass fired before Supabase
+  // rehydrates would leave a Pro angler holding the locked payload.
+  useEffect(() => {
+    let cancelled = false;
+    fetchFreshCatches()
+      .then((p) => {
+        if (!cancelled && p) setFreshCatches(p);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [userId]);
 
   // Species filter re-scores every card/pin to the chosen species (same
   // mapping Explore applies); "Best bet" (null) = best species per spot.
@@ -264,6 +291,7 @@ export default function CityShell({
                       spot={spot}
                       tz={MAP_TZ}
                       onSelect={() => handleSelectSpot(spot.slug)}
+                      fresh={freshCatches?.spots[spot.id]}
                     />
                   ))}
                 </div>
@@ -297,6 +325,7 @@ export default function CityShell({
         spots={displaySpots}
         tz={MAP_TZ}
         onSelectSpot={handleSelectSpot}
+        freshCatches={freshCatches}
       />
     </div>
   );

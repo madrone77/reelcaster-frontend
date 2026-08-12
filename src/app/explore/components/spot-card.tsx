@@ -48,7 +48,8 @@ export default function SpotCard({
    *  add the card without a reload. */
   onFavoriteChange?: (fav: boolean) => void;
   /** Scraped catch reports for this spot, if any land in the window. Already
-   *  Pro-gated by the route: a free viewer's entry is `{ locked: true }`. */
+   *  Pro-gated by the route: a free viewer's entry is `{ locked: true }`.
+   *  Optional — a card with `spot.hasReports` shows the locked badge without it. */
   fresh?: RailFreshCatch;
 }) {
   const [fav, toggleFav] = useFavorite(spot.slug);
@@ -69,6 +70,15 @@ export default function SpotCard({
     : "No live score yet";
 
   const reportHref = `/explore/spot/${spot.slug}`;
+
+  // The badge has two sources and they arrive at different times. `spot.hasReports`
+  // rides in on the map payload, which is server-rendered, so the locked badge is
+  // in the first paint. `fresh` comes from the Pro-gated intel fetch, which cannot
+  // start until after hydration — when it lands it replaces the lock with the
+  // count. Before this the badge had only the second source and appeared about a
+  // second late, after the card had already settled.
+  const reports: RailFreshCatch | undefined =
+    fresh ?? (spot.hasReports ? { locked: true } : undefined);
 
   const onStar = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -131,9 +141,9 @@ export default function SpotCard({
                   Home
                 </span>
               )}
-              {fresh && (
+              {reports && (
                 <FreshCatchBadge
-                  fresh={fresh}
+                  fresh={reports}
                   onUnlock={() => setReportsUpgradeOpen(true)}
                 />
               )}

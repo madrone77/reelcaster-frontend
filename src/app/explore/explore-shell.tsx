@@ -933,6 +933,7 @@ export default function ExploreShell({
         onScrubHour={setScrubHour}
         onSelectDay={handleSelectDay}
         signedIn={!!user}
+        freshCatches={freshCatches}
       />
 
       <LeftRail
