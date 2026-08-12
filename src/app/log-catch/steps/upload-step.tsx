@@ -22,10 +22,10 @@ export default function UploadStep({
     // every other page's h1 sat on the gridline. The drop zone below keeps its
     // own centred contents; that's a target, not a heading.
     <div>
-      <div className="rc-label text-[10px] text-rc-ink-mute">
-        REELCASTER · CATCH LOG
-      </div>
-      <h1 className="mt-2 text-4xl font-bold tracking-[-0.02em] text-rc-ink">
+      {/* No "REELCASTER · CATCH LOG" eyebrow: the shell's back link says the
+          same thing one line above, and the catch detail page (the wizard's
+          sibling under the log) heads itself the same way. */}
+      <h1 className="text-4xl font-bold tracking-[-0.02em] text-rc-ink">
         Log a catch
       </h1>
       <p className="mt-3 text-rc-ink-soft max-w-lg">
