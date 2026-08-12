@@ -535,7 +535,33 @@ export async function fetchSpotThumb(
 
 // ── Hierarchy (regions index) ───────────────────────────────────────
 
-export interface BlueCasterHierarchy {
+interface HierarchyCityBase {
+  id: string;
+  name: string;
+  slug: string;
+  lat: number;
+  lng: number;
+  /** cities.lifecycle — building | staging | published. */
+  lifecycle: string;
+}
+
+export interface HierarchyCity extends HierarchyCityBase {
+  spots: Array<{
+    id: string;
+    name: string;
+    slug: string;
+    lat: number;
+    lng: number;
+    is_published: boolean;
+  }>;
+}
+
+export interface HierarchyCityLight extends HierarchyCityBase {
+  /** Published member spots. Replaces `spots[]` when fetched with spots=0. */
+  spot_count: number;
+}
+
+interface HierarchyTree<C> {
   countries: Array<{
     id: string;
     name: string;
@@ -549,27 +575,24 @@ export interface BlueCasterHierarchy {
         id: string;
         name: string;
         slug: string;
-        cities: Array<{
-          id: string;
-          name: string;
-          slug: string;
-          lat: number;
-          lng: number;
-          /** cities.lifecycle — building | staging | published. */
-          lifecycle: string;
-          spots: Array<{
-            id: string;
-            name: string;
-            slug: string;
-            lat: number;
-            lng: number;
-            is_published: boolean;
-          }>;
-        }>;
+        cities: C[];
       }>;
     }>;
   }>;
 }
+
+export type BlueCasterHierarchy = HierarchyTree<HierarchyCity>;
+
+/**
+ * The place tree WITHOUT the per-city spot arrays — cities carry `spot_count`
+ * instead.
+ *
+ * The full tree inlines every approved/published spot in the database with no
+ * pagination, so a page that server-renders it pays a payload cost that grows
+ * with the database rather than with what it shows. Explore gets its spots
+ * from /api/v1/map/spots (bbox-scoped), so it only ever needed the places.
+ */
+export type BlueCasterHierarchyLight = HierarchyTree<HierarchyCityLight>;
 
 // ── City page (editorial content for /fishing/[province]/[city]) ────
 // Trimmed view of GET /api/v1/cities/[slug]/page — only the fields the
@@ -606,13 +629,13 @@ export async function fetchCityPage(
   );
 }
 
-export async function fetchHierarchy(): Promise<BlueCasterHierarchy | null> {
+async function fetchHierarchyTree<T>(query: string): Promise<T | null> {
   const baseUrl = process.env.BLUECASTER_API_URL;
   const apiKey = process.env.BLUECASTER_API_KEY;
   if (!baseUrl || !apiKey) return null;
 
   try {
-    const res = await fetch(`${baseUrl}/api/v1/hierarchy`, {
+    const res = await fetch(`${baseUrl}/api/v1/hierarchy${query}`, {
       headers: { "x-api-key": apiKey },
       next: { revalidate: 3600 },
     });
@@ -621,6 +644,22 @@ export async function fetchHierarchy(): Promise<BlueCasterHierarchy | null> {
   } catch {
     return null;
   }
+}
+
+/** The full place tree, spot arrays included. */
+export async function fetchHierarchy(): Promise<BlueCasterHierarchy | null> {
+  return fetchHierarchyTree<BlueCasterHierarchy>("");
+}
+
+/**
+ * The place tree with `spot_count` in place of the per-city spot arrays.
+ *
+ * Prefer this anywhere the spots themselves aren't rendered — it's a separate
+ * function rather than a flag so the return type tells you which shape you got
+ * instead of leaving `spots` optional everywhere.
+ */
+export async function fetchHierarchyLight(): Promise<BlueCasterHierarchyLight | null> {
+  return fetchHierarchyTree<BlueCasterHierarchyLight>("?spots=0");
 }
 
 // =============================================================================
@@ -697,47 +736,70 @@ export async function fetchSpotsByCoordinates(
 // Phase 8 — search
 // =============================================================================
 
+export type SearchKind = "spot" | "city" | "region" | "species";
+
 export interface BlueCasterSearchResult {
-  type: "spot" | "city" | "species";
+  kind: SearchKind;
   id: string;
+  slug: string;
   name: string;
-  slug: string | null;
-  lat?: number;
-  lng?: number;
-  subtitle: string;
-  href: string | null;
-  city_slug?: string | null;
-  province_code?: string | null;
+  /** null for regions and species — there is no single point to fly to. */
+  lat: number | null;
+  lng: number | null;
+  /** Display subtitle: "Sooke, BC", "South Vancouver Island, BC", a scientific name. */
+  label: string | null;
+  /** True for the caller's own custom spots. */
+  owned: boolean;
+  /** [w,s,e,n] — regions only, the extent of their published spots. */
+  bbox: number[] | null;
+  /** Per-kind extras: spot_count (city), spot_type (spot), scientific_name (species). */
+  meta: Record<string, unknown>;
+  /** Higher is better. Comparable within one response only. */
+  rank: number;
 }
 
 export interface BlueCasterSearchResponse {
   query: string;
   results: BlueCasterSearchResult[];
-  counts: { spots: number; cities: number; species: number };
+  meta: {
+    count: number;
+    /** The result set hit the cap — the UI can hint "keep typing to narrow". */
+    truncated: boolean;
+    near: { lat: number; lng: number } | null;
+    viewer: boolean;
+  };
 }
 
+/**
+ * Ranked search across spots, cities, regions and species.
+ *
+ * Results come back FLAT and pre-ranked — group by `kind` for display, but
+ * keep the array order inside each group, because that order is the ranking.
+ *
+ * `near` only breaks ties (capped at 0.08 server-side), so this stays a global
+ * search: a far-away exact match still outranks a nearby fuzzy one.
+ *
+ * A verified `viewerId` widens the results to include that angler's own custom
+ * spots. That response is per-user and bypasses the Data Cache.
+ */
 export async function searchBlueCaster(
   q: string,
-  type: "spot" | "city" | "species" | "all" = "all",
+  opts: { near?: { lat: number; lng: number }; limit?: number; viewerId?: string } = {},
 ): Promise<BlueCasterSearchResponse | null> {
-  const baseUrl = process.env.BLUECASTER_API_URL;
-  const apiKey = process.env.BLUECASTER_API_KEY;
-  if (!baseUrl || !apiKey) return null;
-
-  const url = new URL(`${baseUrl}/api/v1/search`);
-  url.searchParams.set("q", q);
-  url.searchParams.set("type", type);
-
-  try {
-    const res = await fetch(url.toString(), {
-      headers: { "x-api-key": apiKey },
-      cache: "no-store",
-    });
-    if (!res.ok) return null;
-    return (await res.json()) as BlueCasterSearchResponse;
-  } catch {
-    return null;
-  }
+  return bcGet<BlueCasterSearchResponse>(
+    "/api/v1/search",
+    {
+      q,
+      near: opts.near ? `${opts.near.lat},${opts.near.lng}` : undefined,
+      limit: opts.limit,
+      // Distinct edge cache key for personalized reads — see fetchMapSpots.
+      // Identity stays in the header; this is just a flag, so no user id ever
+      // lands in a URL or an access log.
+      viewer: opts.viewerId ? "1" : undefined,
+    },
+    300,
+    opts.viewerId,
+  );
 }
 
 // =============================================================================

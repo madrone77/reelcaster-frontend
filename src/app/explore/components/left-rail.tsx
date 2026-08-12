@@ -50,6 +50,10 @@ export default function LeftRail({
   bottomInset,
   onSelectCity,
   onSelectSpot,
+  onSearchSelectSpot,
+  onSearchSelectRegion,
+  onSearchSelectSpecies,
+  searchNear,
   onCloseSpot,
   onCloseStation,
   onSpotHourHover,
@@ -71,6 +75,13 @@ export default function LeftRail({
   bottomInset: number;
   onSelectCity: (city: CityNode) => void;
   onSelectSpot: (slug: string) => void;
+  /** Search picks — carry their own coordinates, since a searched spot is
+      usually outside the viewport and so absent from the loaded payload. */
+  onSearchSelectSpot: (slug: string, lat: number, lng: number) => void;
+  onSearchSelectRegion: (bbox: number[]) => void;
+  onSearchSelectSpecies: (id: string, name: string) => void;
+  /** Viewport centre — tie-break only, never a filter. */
+  searchNear?: { lat: number; lng: number };
   onCloseSpot: () => void;
   onCloseStation: () => void;
   /** Drawer 24h-chart hover hour (null on leave) — retunes the currents flow. */
@@ -141,6 +152,10 @@ export default function LeftRail({
               locations={locations}
               selectedCity={selectedCity}
               onSelectCity={onSelectCity}
+              onSelectSpot={onSearchSelectSpot}
+              onSelectRegion={onSearchSelectRegion}
+              onSelectSpecies={onSearchSelectSpecies}
+              near={searchNear}
               mapControls={mapControls}
             />
             <div className="px-3 pt-1 pb-2.5">

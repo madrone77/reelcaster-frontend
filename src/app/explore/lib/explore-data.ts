@@ -5,6 +5,9 @@
 
 import type {
   BlueCasterHierarchy,
+  BlueCasterHierarchyLight,
+  HierarchyCity,
+  HierarchyCityLight,
   MapSpotsPayload,
   MapSpotEntry,
   MapCondCell,
@@ -516,17 +519,55 @@ export function rescoreSpots(
 
 // ── Build ───────────────────────────────────────────────────────────
 
+/**
+ * Fold the hierarchy tree + the bbox-scoped map payload into everything the
+ * Explore shell renders.
+ *
+ * The spot list is built from the MAP PAYLOAD, not the tree. The tree supplies
+ * only places — which is why Explore fetches it with `spots=0`. It used to walk
+ * `city.spots[]`, which meant the page server-rendered every approved spot in
+ * the database on every load, so the payload grew with the database rather than
+ * with what was on screen. The payload already carries each spot's `city_slug`,
+ * so region/province resolve through the city index below.
+ */
 export function buildExploreData(
-  hierarchy: BlueCasterHierarchy | null,
+  // Takes either tree shape. Explore and the marketing map fetch the light one;
+  // /fishing/[province]/[city] already needs the full one for its own spot
+  // lists, so it would gain nothing from a second request.
+  hierarchy: BlueCasterHierarchy | BlueCasterHierarchyLight | null,
   payload: MapSpotsPayload | null,
 ): ExploreData {
   const spots: RailSpot[] = [];
   const locations: ProvinceNode[] = [];
 
-  const byId = new Map(payload?.spots.map((s) => [s.id, s]) ?? []);
-  const bySlug = new Map(payload?.spots.map((s) => [s.slug, s]) ?? []);
   const speciesDict = payload?.species ?? {};
   const nowHour = payload ? currentLocalHour(payload.tz) : 0;
+
+  // How many payload spots landed in each city, so a city with coverage but
+  // nothing in this bbox can still be told apart from an empty one.
+  const payloadSpotsByCity = new Map<string, number>();
+  for (const s of payload?.spots ?? []) {
+    if (!s.city_slug) continue;
+    payloadSpotsByCity.set(s.city_slug, (payloadSpotsByCity.get(s.city_slug) ?? 0) + 1);
+  }
+
+  // city_slug → its place in the tree. One pass, so the spot loop below is
+  // O(spots) rather than O(spots × cities).
+  const cityIndex = new Map<
+    string,
+    {
+      city: HierarchyCity | HierarchyCityLight;
+      regionSlug: string;
+      regionName: string;
+      provinceCode: string;
+    }
+  >();
+
+  /** Published member spots, from whichever tree shape we were handed. */
+  const publishedCount = (city: HierarchyCity | HierarchyCityLight) =>
+    "spot_count" in city
+      ? city.spot_count
+      : city.spots.filter((s) => s.is_published).length;
 
   for (const country of hierarchy?.countries ?? []) {
     for (const sp of country.states_provinces) {
@@ -546,46 +587,18 @@ export function buildExploreData(
         };
 
         for (const city of region.cities) {
-          let spotCount = 0;
-          let bestScore: number | null = null;
+          cityIndex.set(city.slug, {
+            city,
+            regionSlug: region.slug,
+            regionName: region.name,
+            provinceCode: sp.code,
+          });
 
-          for (const spot of city.spots) {
-            if (!spot.is_published) continue;
-            const entry = byId.get(spot.id) ?? bySlug.get(spot.slug);
-            const s = deriveScoring(entry, speciesDict, nowHour);
-
-            spots.push({
-              id: spot.id,
-              slug: spot.slug,
-              name: spot.name,
-              lat: spot.lat,
-              lng: spot.lng,
-              citySlug: city.slug,
-              cityName: city.name,
-              regionSlug: region.slug,
-              regionName: region.name,
-              provinceCode: sp.code,
-              score: s.score,
-              bestSpeciesId: s.bestSpeciesId,
-              driverSpecies: s.driverSpecies,
-              peakHour: s.peakHour,
-              distanceKm:
-                Number.isFinite(city.lat) && Number.isFinite(city.lng)
-                  ? Math.round(haversineKm(city.lat, city.lng, spot.lat, spot.lng))
-                  : null,
-              conditions: s.conditions,
-              condStrip: s.condStrip,
-              hours24: s.hours24,
-              scoresBySpecies: s.scoresBySpecies,
-              hasReports: entry?.has_reports === true,
-            });
-
-            spotCount++;
-            if (s.score !== null && (bestScore === null || s.score > bestScore)) {
-              bestScore = s.score;
-            }
-          }
-
+          // This counts every published spot the city owns — NOT just the ones
+          // in this bbox. Keeping it authoritative is the point: the browse
+          // list should read "16 spots" for Sooke whether or not you happen to
+          // be looking at Sooke right now.
+          const spotCount = publishedCount(city);
           if (spotCount > 0) {
             regionNode.cities.push({
               slug: city.slug,
@@ -596,20 +609,70 @@ export function buildExploreData(
               regionName: region.name,
               provinceCode: sp.code,
               spotCount,
-              bestScore,
+              bestScore: null, // filled from the payload below
             });
           }
         }
 
-        if (regionNode.cities.length > 0) {
-          regionNode.cities.sort(
-            (a, b) => (b.bestScore ?? -1) - (a.bestScore ?? -1),
-          );
-          provinceNode.regions.push(regionNode);
-        }
+        if (regionNode.cities.length > 0) provinceNode.regions.push(regionNode);
       }
 
       if (provinceNode.regions.length > 0) locations.push(provinceNode);
+    }
+  }
+
+  // Now the spots themselves, straight off the payload.
+  const bestScoreByCity = new Map<string, number>();
+  for (const entry of payload?.spots ?? []) {
+    const place = entry.city_slug ? cityIndex.get(entry.city_slug) : undefined;
+    // A spot whose city isn't in the covered tree (an uncovered province, or a
+    // custom spot filed against a city we don't render) has nowhere to sit in
+    // the rail's grouping, so it's dropped here exactly as it was before.
+    if (!place) continue;
+
+    const s = deriveScoring(entry, speciesDict, nowHour);
+    const { city, regionSlug, regionName, provinceCode } = place;
+
+    spots.push({
+      id: entry.id,
+      slug: entry.slug,
+      name: entry.name,
+      lat: entry.lat,
+      lng: entry.lng,
+      citySlug: city.slug,
+      cityName: city.name,
+      regionSlug,
+      regionName,
+      provinceCode,
+      score: s.score,
+      bestSpeciesId: s.bestSpeciesId,
+      driverSpecies: s.driverSpecies,
+      peakHour: s.peakHour,
+      distanceKm:
+        Number.isFinite(city.lat) && Number.isFinite(city.lng)
+          ? Math.round(haversineKm(city.lat, city.lng, entry.lat, entry.lng))
+          : null,
+      conditions: s.conditions,
+      condStrip: s.condStrip,
+      hours24: s.hours24,
+      scoresBySpecies: s.scoresBySpecies,
+      hasReports: entry.has_reports === true,
+    });
+
+    if (s.score !== null) {
+      const prev = bestScoreByCity.get(city.slug);
+      if (prev === undefined || s.score > prev) bestScoreByCity.set(city.slug, s.score);
+    }
+  }
+
+  // bestScore stays payload-derived — it always was, since scores only exist
+  // there. A city outside the fetched bbox simply has none yet.
+  for (const prov of locations) {
+    for (const region of prov.regions) {
+      for (const city of region.cities) {
+        city.bestScore = bestScoreByCity.get(city.slug) ?? null;
+      }
+      region.cities.sort((a, b) => (b.bestScore ?? -1) - (a.bestScore ?? -1));
     }
   }
 
@@ -617,12 +680,11 @@ export function buildExploreData(
   // filters by city, so per-city order falls out of this.
   spots.sort((a, b) => (b.score ?? -1) - (a.score ?? -1));
 
-  // A spot shared by two cities (e.g. Race Rocks ∈ Sooke + Cowichan) is pushed
-  // once per city membership above, so the flat list carries the same slug
-  // twice — which trips a React duplicate-key warning downstream and can
-  // duplicate/drop a card. Collapse to one entry per slug here at the source
-  // (score-sorted, so the highest-scoring copy — identical for true dupes —
-  // wins), fixing every consumer at once.
+  // Collapse to one entry per slug. The payload carries a spot once, so this
+  // is now a safety net rather than the fix it was when this walked city
+  // memberships and pushed a shared spot (Race Rocks ∈ Sooke + Cowichan) once
+  // per member city. A duplicate slug trips a React key warning downstream and
+  // can drop a card, so it stays. Score-sorted above, so the best copy wins.
   {
     const seenSlugs = new Set<string>();
     let w = 0;

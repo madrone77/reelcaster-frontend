@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { Suspense } from "react";
 import { DEFAULT_OG, SITE_URL } from '@/lib/site';
-import { fetchHierarchy, fetchMapSpots } from "@/lib/bluecaster";
+import { fetchHierarchyLight, fetchMapSpots } from "@/lib/bluecaster";
 import { buildExploreData } from "./lib/explore-data";
 import ExploreShell from "./explore-shell";
 
@@ -39,7 +39,7 @@ export const metadata: Metadata = {
 
 export default async function ExplorePage() {
   const [hierarchy, payload] = await Promise.all([
-    fetchHierarchy(),
+    fetchHierarchyLight(),
     fetchMapSpots({ bbox: COVERED_BBOX_ALL }),
   ]);
 
