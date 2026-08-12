@@ -11,7 +11,7 @@ import { fetchCHSTideDataByCoordinates, type CHSWaterData } from '@/app/utils/ch
 import { calculateOpenMeteoFishingScore } from '@/app/utils/fishingCalculations';
 import { getMoonPhase } from '@/app/utils/astronomicalCalculations';
 import type { OpenMeteo15MinData } from '@/app/utils/openMeteoApi';
-import { fetchTodaySpotSpeciesScore } from '@/lib/bluecaster-score';
+import { fetchSpotSpeciesOutlook, type SpotSpeciesOutlook } from '@/lib/bluecaster-score';
 
 // =============================================================================
 // Types
@@ -40,6 +40,51 @@ export interface AlertProfile {
   target_bluecaster_spot_slug?: string | null;
   target_species?: string | null;
   score_threshold?: number | null;
+  // Subset of {email, sms}. SMS is only delivered to a verified phone.
+  delivery_channels?: string[] | null;
+  // How far ahead this alert may fire. See LEAD_CAP_DAYS.
+  lead_time_mode?: LeadTimeMode | null;
+}
+
+export type LeadTimeMode = 'asap' | 'short' | 'day_of';
+
+export type AlertBeat = 'heads_up' | 'confirm' | 'stand_down';
+
+/**
+ * How many days ahead each mode is willing to look.
+ *
+ * These live in code, not in the database, so they can be retuned against
+ * measured forecast stability without a migration and without changing what an
+ * angler's saved alert means. Six is a deliberate ceiling: past roughly a week
+ * the weather models sit close to climatology, and an alert that is wrong a
+ * third of the time trains people to ignore it.
+ */
+const LEAD_CAP_DAYS: Record<LeadTimeMode, number> = {
+  asap: 6,
+  short: 3,
+  day_of: 0,
+};
+
+/**
+ * Below this many days out we do not bother with a heads-up: the confirm beat
+ * is already about to fire, and two messages a day apart saying the same thing
+ * is how an alert becomes noise.
+ */
+const MIN_HEADS_UP_LEAD_DAYS = 2;
+
+/** One message we intend to send, already claimed in the ledger. */
+export interface AlertSendJob {
+  /** alert_day_notices row id, to stamp once the send resolves. */
+  noticeId: string;
+  profileId: string;
+  beat: AlertBeat;
+  /** The fishing day this message is about, YYYY-MM-DD. */
+  targetDate: string;
+  leadDays: number;
+  score: number;
+  /** False when we fell back to the spot's best species. */
+  speciesMatched: boolean;
+  scoredSpeciesSlug: string | null;
 }
 
 export interface AlertTriggers {
@@ -635,67 +680,274 @@ function currentHourInZone(timezone = 'America/Vancouver'): number {
   return Number(hh) % 24;
 }
 
+export function scoreThresholdFor(profile: AlertProfile): number {
+  return profile.score_threshold ?? profile.triggers.fishing_score?.min_score ?? 75;
+}
+
+function leadModeFor(profile: AlertProfile): LeadTimeMode {
+  const mode = profile.lead_time_mode;
+  return mode === 'asap' || mode === 'short' || mode === 'day_of' ? mode : 'asap';
+}
+
+/** A message we want to send, before it has been claimed in the ledger. */
+interface ScoreBeatCandidate {
+  beat: AlertBeat;
+  targetDate: string;
+  leadDays: number;
+  score: number;
+}
+
 /**
- * Evaluate a spot-anchored score alert against the real ReelCaster spot score.
+ * Work out which messages a score alert owes the angler, given the spot's
+ * 14-day outlook.
  *
- * Fires when today's PEAK score for the target spot + species is at or above the
- * user's threshold, but only during daytime hours so alerts don't arrive
- * overnight. Reuses the `fishing_score` trigger name so the existing
- * cooldown/hysteresis/history/notification path in processAlerts applies.
+ * Pure and synchronous: the caller fetches the outlook once per spot and passes
+ * it in, so ten alerts on Victoria Waterfront cost one round trip rather than
+ * ten. Deduplication is not this function's job either. It happily proposes the
+ * same heads-up every run, and the unique constraint on `alert_day_notices` is
+ * what makes the second one a no-op.
+ *
+ * Beats, by how far out the qualifying day is:
+ *
+ *   2 days or more   heads_up, the early warning that makes booking possible
+ *   0 to 1 days      confirm, "it held, go"
+ *
+ * `stand_down` (the day fell apart after we promised it) is not emitted yet. It
+ * needs to look up whether a heads-up went out for that day, which lands with
+ * the morning-check job.
  */
-async function evaluateBluecasterScoreProfile(
+export function scoreBeatsFor(
   profile: AlertProfile,
-): Promise<EvaluationResult> {
-  const timestamp = new Date().toISOString();
-  const threshold =
-    profile.score_threshold ?? profile.triggers.fishing_score?.min_score ?? 75;
+  outlook: SpotSpeciesOutlook,
+): ScoreBeatCandidate[] {
+  // The quiet-hours gate is about when we SEND, not what we send about, so it
+  // short-circuits everything. Nobody wants a text about next Saturday at 2am.
+  const hour = currentHourInZone();
+  if (hour < SCORE_ALERT_HOUR_START || hour >= SCORE_ALERT_HOUR_END) return [];
 
-  const result = await fetchTodaySpotSpeciesScore(
-    profile.target_bluecaster_spot_slug!,
-    profile.target_species ?? null,
-  );
+  const threshold = scoreThresholdFor(profile);
+  const mode = leadModeFor(profile);
+  const cap = LEAD_CAP_DAYS[mode];
 
-  if (!result) {
-    return {
-      matches: false,
-      matchedTriggers: [],
-      triggerResults: {},
-      reason: 'Spot score unavailable',
-      conditionSnapshot: { timestamp },
-    };
+  // day_of never looks past today, so its confirm window is today alone.
+  const confirmMaxLead = mode === 'day_of' ? 0 : 1;
+
+  const beats: ScoreBeatCandidate[] = [];
+  let headsUpSent = false;
+
+  for (const day of outlook.days) {
+    if (day.dayIndex > cap) continue;
+    if (day.peak < threshold) continue;
+
+    if (day.dayIndex <= confirmMaxLead) {
+      // Today and tomorrow are different days, and both being good is worth
+      // two messages. There are at most two of them.
+      beats.push({
+        beat: 'confirm',
+        targetDate: day.date,
+        leadDays: day.dayIndex,
+        score: day.peak,
+      });
+    } else if (day.dayIndex >= MIN_HEADS_UP_LEAD_DAYS && !headsUpSent) {
+      // At most ONE heads-up per run, the nearest qualifying day.
+      //
+      // A settled summer week can put five days over the threshold at once.
+      // Without this, the first run after an alert is created (or after this
+      // feature shipped, when the ledger was empty for every existing alert)
+      // fires a separate message for each of them inside one tick. Five emails
+      // in a minute reads as a broken integration, not a useful service.
+      //
+      // The other days are not lost. They stay unclaimed in the ledger, so the
+      // next run picks up the next nearest one, and the window naturally doles
+      // them out over following days instead of dumping them.
+      beats.push({
+        beat: 'heads_up',
+        targetDate: day.date,
+        leadDays: day.dayIndex,
+        score: day.peak,
+      });
+      headsUpSent = true;
+    }
   }
 
-  const score = result.score;
-  const withinDaytime =
-    currentHourInZone() >= SCORE_ALERT_HOUR_START &&
-    currentHourInZone() < SCORE_ALERT_HOUR_END;
-  const matched = score >= threshold && withinDaytime;
+  return beats;
+}
 
-  const triggerResult: TriggerResult = {
-    triggered: matched,
-    currentValue: score,
-    threshold: `≥${threshold}`,
-    details: `Today's peak ${score.toFixed(0)}/100${
-      result.speciesMatched ? '' : ' (best species)'
-    }`,
-  };
+/**
+ * Claim a beat in the ledger, returning the row id, or null if it was already
+ * claimed.
+ *
+ * This is the deduplication, and the order matters: the row goes in BEFORE the
+ * message goes out. A crash between claiming and sending loses that message,
+ * which is the failure we want. The alternative ordering loses the claim on a
+ * retry and sends twice, and a duplicate text at six in the morning costs more
+ * trust than a missed one.
+ */
+async function claimBeat(
+  profile: AlertProfile,
+  candidate: ScoreBeatCandidate,
+  channels: string[],
+): Promise<string | null> {
+  const { data, error } = await supabaseAdmin
+    .from('alert_day_notices')
+    .insert({
+      alert_profile_id: profile.id,
+      user_id: profile.user_id,
+      target_date: candidate.targetDate,
+      beat: candidate.beat,
+      score_at_send: candidate.score,
+      lead_days: candidate.leadDays,
+      channels_sent: channels,
+      notification_sent: false,
+    })
+    .select('id')
+    .single();
 
-  let reason: string;
-  if (score < threshold) {
-    reason = `Today's peak ${score.toFixed(0)} below threshold ${threshold}`;
-  } else if (!withinDaytime) {
-    reason = `Score met (${score.toFixed(0)}) but outside daytime window`;
-  } else {
-    reason = `Today's peak ${score.toFixed(0)} at or above ${threshold}`;
+  if (error) {
+    // 23505 = unique_violation. Already claimed, by an earlier tick or a
+    // concurrent worker. Not an error, just nothing left to do.
+    if (error.code === '23505') return null;
+    console.error(
+      `[score-alert] claim failed for ${profile.id} ${candidate.targetDate} ${candidate.beat}:`,
+      error,
+    );
+    return null;
   }
 
-  return {
-    matches: matched,
-    matchedTriggers: matched ? ['fishing_score'] : [],
-    triggerResults: { fishing_score: triggerResult },
-    reason,
-    conditionSnapshot: { timestamp, fishing_score: score },
-  };
+  return data?.id ?? null;
+}
+
+/** Stamp a claimed beat with what actually happened when we tried to send it. */
+export async function markBeatSent(
+  noticeId: string,
+  sent: boolean,
+  channels: string[],
+  errorMessage?: string,
+): Promise<void> {
+  const { error } = await supabaseAdmin
+    .from('alert_day_notices')
+    .update({
+      notification_sent: sent,
+      channels_sent: channels,
+      notification_error: errorMessage ?? null,
+      sent_at: new Date().toISOString(),
+    })
+    .eq('id', noticeId);
+
+  if (error) console.error(`[score-alert] failed to stamp notice ${noticeId}:`, error);
+}
+
+/**
+ * Run every score alert and return the messages to send.
+ *
+ * Grouped by spot slug rather than by lat/lng: score alerts read the bluecaster
+ * outlook and touch neither Open-Meteo nor CHS, so they have no business in the
+ * location loop that fetches both.
+ */
+async function processScoreAlerts(profiles: AlertProfile[]): Promise<{
+  sendJobs: AlertSendJob[];
+  results: Array<{ profileId: string; profileName: string; triggered: boolean; reason: string }>;
+  errors: number;
+}> {
+  const sendJobs: AlertSendJob[] = [];
+  const results: Array<{
+    profileId: string;
+    profileName: string;
+    triggered: boolean;
+    reason: string;
+  }> = [];
+  let errors = 0;
+
+  const bySlug = new Map<string, AlertProfile[]>();
+  for (const profile of profiles) {
+    const slug = profile.target_bluecaster_spot_slug;
+    if (!slug) continue;
+    if (!bySlug.has(slug)) bySlug.set(slug, []);
+    bySlug.get(slug)!.push(profile);
+  }
+
+  for (const [slug, slugProfiles] of bySlug) {
+    // One outlook per spot, shared by every alert pointed at it. The species
+    // resolution inside differs per alert, so the fetch is per (spot, species)
+    // in principle, but the overwhelmingly common case is a handful of alerts
+    // on the same spot and the response carries every species' grid anyway.
+    const outlookCache = new Map<string, SpotSpeciesOutlook | null>();
+
+    for (const profile of slugProfiles) {
+      try {
+        const speciesKey = profile.target_species ?? '';
+        if (!outlookCache.has(speciesKey)) {
+          outlookCache.set(speciesKey, await fetchSpotSpeciesOutlook(slug, profile.target_species ?? null));
+        }
+        const outlook = outlookCache.get(speciesKey) ?? null;
+
+        if (!outlook) {
+          results.push({
+            profileId: profile.id,
+            profileName: profile.name,
+            triggered: false,
+            reason: 'Spot outlook unavailable',
+          });
+          continue;
+        }
+
+        const candidates = scoreBeatsFor(profile, outlook);
+        if (candidates.length === 0) {
+          const best = outlook.days.reduce((m, d) => (d.peak > m ? d.peak : m), 0);
+          results.push({
+            profileId: profile.id,
+            profileName: profile.name,
+            triggered: false,
+            reason: `No day in window at or above ${scoreThresholdFor(profile)} (best ${best.toFixed(0)}), or outside send hours`,
+          });
+          continue;
+        }
+
+        const channels: string[] = profile.delivery_channels ?? ['email'];
+        let claimed = 0;
+
+        for (const candidate of candidates) {
+          const noticeId = await claimBeat(profile, candidate, channels);
+          // Already sent for this day and beat. The common case on every tick
+          // after the first, and entirely uninteresting.
+          if (!noticeId) continue;
+
+          claimed++;
+          sendJobs.push({
+            noticeId,
+            profileId: profile.id,
+            beat: candidate.beat,
+            targetDate: candidate.targetDate,
+            leadDays: candidate.leadDays,
+            score: candidate.score,
+            speciesMatched: outlook.speciesMatched,
+            scoredSpeciesSlug: outlook.scoredSpeciesSlug,
+          });
+        }
+
+        results.push({
+          profileId: profile.id,
+          profileName: profile.name,
+          triggered: claimed > 0,
+          reason:
+            claimed > 0
+              ? `${claimed} new beat(s) claimed from ${candidates.length} qualifying day(s)`
+              : `${candidates.length} qualifying day(s), all already sent`,
+        });
+      } catch (err) {
+        console.error(`[score-alert] error processing profile ${profile.id}:`, err);
+        results.push({
+          profileId: profile.id,
+          profileName: profile.name,
+          triggered: false,
+          reason: `Error: ${err instanceof Error ? err.message : 'Unknown'}`,
+        });
+        errors++;
+      }
+    }
+  }
+
+  return { sendJobs, results, errors };
 }
 
 export async function evaluateAlertProfile(
@@ -705,11 +957,10 @@ export async function evaluateAlertProfile(
   sunrise: number,
   sunset: number,
 ): Promise<EvaluationResult> {
-  // Score alerts anchored to a real ReelCaster spot evaluate against the
-  // bluecaster spot score, not the Open-Meteo trigger machinery below.
-  if (profile.alert_kind === 'score' && profile.target_bluecaster_spot_slug) {
-    return evaluateBluecasterScoreProfile(profile);
-  }
+  // Score alerts do not come through here at all any more. They read the
+  // bluecaster outlook and emit dated beats, which this function's
+  // single-boolean return cannot express, so processAlerts routes them to
+  // processScoreAlerts before this point.
 
   const now = new Date();
   const triggers = profile.triggers;
@@ -953,6 +1204,8 @@ export async function processAlerts(): Promise<{
     triggered: boolean;
     reason: string;
   }>;
+  /** Claimed score-alert messages awaiting delivery. */
+  sendJobs: AlertSendJob[];
 }> {
   const results: Array<{
     profileId: string;
@@ -965,16 +1218,40 @@ export async function processAlerts(): Promise<{
   let triggered = 0;
   let skipped = 0;
   let errors = 0;
+  let sendJobs: AlertSendJob[] = [];
 
   try {
     // Fetch all active profiles
     const profiles = await getActiveAlertProfiles();
     console.log(`Processing ${profiles.length} active alert profiles`);
 
-    // Group profiles by location to minimize API calls
+    // Score alerts and composite alerts share nothing but a table. Score alerts
+    // read the bluecaster outlook; composite alerts read Open-Meteo and CHS.
+    // Running them through one loop meant every score alert paid for a weather
+    // and tide fetch it never opened.
+    const scoreProfiles = profiles.filter(
+      (p) => p.alert_kind === 'score' && p.target_bluecaster_spot_slug,
+    );
+    const compositeProfiles = profiles.filter(
+      (p) => !(p.alert_kind === 'score' && p.target_bluecaster_spot_slug),
+    );
+
+    if (scoreProfiles.length > 0) {
+      const scoreRun = await processScoreAlerts(scoreProfiles);
+      sendJobs = scoreRun.sendJobs;
+      results.push(...scoreRun.results);
+      processed += scoreProfiles.length;
+      triggered += scoreRun.results.filter((r) => r.triggered).length;
+      errors += scoreRun.errors;
+      console.log(
+        `Score alerts: ${scoreProfiles.length} profiles, ${sendJobs.length} messages to send`,
+      );
+    }
+
+    // Group the rest by location to minimize API calls
     const locationGroups = new Map<string, AlertProfile[]>();
 
-    for (const profile of profiles) {
+    for (const profile of compositeProfiles) {
       const key = `${profile.location_lat.toFixed(2)},${profile.location_lng.toFixed(2)}`;
       if (!locationGroups.has(key)) {
         locationGroups.set(key, []);
@@ -1145,5 +1422,5 @@ export async function processAlerts(): Promise<{
     throw error;
   }
 
-  return { processed, triggered, skipped, errors, results };
+  return { processed, triggered, skipped, errors, results, sendJobs };
 }
