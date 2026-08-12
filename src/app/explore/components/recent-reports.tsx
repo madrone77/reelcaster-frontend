@@ -124,6 +124,7 @@ export function RecentReportsBand({
   reports,
   fresh,
   days,
+  tierResolved = true,
   onUpgrade,
   className = "",
 }: {
@@ -137,6 +138,9 @@ export function RecentReportsBand({
   reports: RecentReportsData | null;
   fresh: RailFreshCatch | null;
   days: number;
+  /** False while entitlement is still resolving. The upsell is withheld until
+   *  it is true, so a Pro angler never sees a lock that then disappears. */
+  tierResolved?: boolean;
   onUpgrade?: () => void;
   className?: string;
 }) {
@@ -155,6 +159,10 @@ export function RecentReportsBand({
   // than a generic "reports tracked here": a real sentence about this spot,
   // cut off, is a far better argument for Pro than a padlock. The rest of the
   // sentence never reaches the browser, so there is nothing to read around it.
+  // Teaser: the headline is public and renders straight away, but the upsell
+  // waits for entitlement. A Pro angler's report arrives a moment later and
+  // replaces this outright, so they read a real sentence that grows rather than
+  // a padlock that vanishes.
   if (!reports && teaser) {
     return (
       <section className={shell}>
@@ -162,22 +170,27 @@ export function RecentReportsBand({
         <p className="mt-3 text-[17px] font-semibold leading-snug text-rc-ink lg:text-[19px]">
           {teaser}
         </p>
-        <button
-          type="button"
-          onClick={onUpgrade}
-          className="mt-3 flex w-full items-center gap-3 rounded border border-rc-brand/40 bg-rc-brand-soft px-4 py-3 text-left transition-colors hover:bg-rc-brand-soft/70"
-        >
-          <Lock className="h-4 w-4 shrink-0 text-rc-brand" />
-          <span className="min-w-0 flex-1">
-            <span className="block text-[14px] font-semibold text-rc-ink">
-              Upgrade to Pro for the full report
+        {tierResolved ? (
+          <button
+            type="button"
+            onClick={onUpgrade}
+            className="mt-3 flex w-full items-center gap-3 rounded border border-rc-brand/40 bg-rc-brand-soft px-4 py-3 text-left transition-colors hover:bg-rc-brand-soft/70"
+          >
+            <Lock className="h-4 w-4 shrink-0 text-rc-brand" />
+            <span className="min-w-0 flex-1">
+              <span className="block text-[14px] font-semibold text-rc-ink">
+                Upgrade to Pro for the full report
+              </span>
+              <span className="block font-rc-mono text-[11px] text-rc-ink-mute">
+                What is being caught here, what worked, and what is going nearby
+              </span>
             </span>
-            <span className="block font-rc-mono text-[11px] text-rc-ink-mute">
-              What is being caught here, what worked, and what is going nearby
-            </span>
-          </span>
-          <span className="shrink-0 font-rc-mono text-[13px] font-bold text-rc-brand">→</span>
-        </button>
+            <span className="shrink-0 font-rc-mono text-[13px] font-bold text-rc-brand">→</span>
+          </button>
+        ) : (
+          /* Reserves the CTA's height so nothing below jumps when it resolves. */
+          <div className="mt-3 h-[58px] animate-pulse rounded bg-rc-surface" aria-hidden />
+        )}
       </section>
     );
   }
