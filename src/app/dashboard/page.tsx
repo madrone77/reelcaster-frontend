@@ -27,7 +27,7 @@ import DashboardSavedMap from "./dashboard-saved-map";
 import MarketingFooter from "@/app/components/marketing/marketing-footer";
 import type { MapSpotsPayload } from "@/lib/bluecaster";
 import { useHomeSpotSlug } from "@/app/explore/lib/use-home-spot";
-import { setFavorite } from "@/app/explore/lib/use-favorite";
+import { favoriteSlugs, setFavorite } from "@/app/explore/lib/use-favorite";
 import { storedFirstName, NAME_FALLBACK } from "@/lib/display-name";
 import { supabase } from "@/lib/supabase";
 import { fetchAlertProfiles } from "@/lib/alerts-client";
@@ -242,18 +242,7 @@ export default function DashboardPage() {
 
   // Favourites (localStorage rc-fav:<slug>).
   useEffect(() => {
-    try {
-      const out: string[] = [];
-      for (let i = 0; i < localStorage.length; i++) {
-        const k = localStorage.key(i);
-        if (k?.startsWith("rc-fav:") && localStorage.getItem(k) === "1") {
-          out.push(k.slice("rc-fav:".length));
-        }
-      }
-      setFavSlugs(out);
-    } catch {
-      setFavSlugs([]);
-    }
+    setFavSlugs(favoriteSlugs());
   }, []);
 
   // Coordinates for those favourites — the map's first paint.

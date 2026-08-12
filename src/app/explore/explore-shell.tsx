@@ -296,7 +296,11 @@ export default function ExploreShell({
     };
   }, [userId, bbox, selectedIso, ownSpotsRefresh]);
 
-  const ownRailSpots = useMemo<RailSpot[]>(() => {
+  // Everything the viewer-scoped payload carries that the server render didn't:
+  // this angler's own custom spots, plus any spot published since the hierarchy
+  // the base set was built from was cached. Only the former are flagged
+  // `isCustom` — see extraRailSpotsFromPayload.
+  const extraRailSpots = useMemo<RailSpot[]>(() => {
     if (!viewerPayload) return [];
     return extraRailSpotsFromPayload(
       data.spots,
@@ -308,20 +312,24 @@ export default function ExploreShell({
 
   // Your own spots come back starred unless you've un-starred them — covers
   // spots made on another device, or before auto-favoriting. A write, so it
-  // stays an effect rather than riding along in the memo above.
+  // stays an effect rather than riding along in the memo above. Strictly the
+  // spots you created: starring is permanent, so a spot that merely looks
+  // unfamiliar must never earn one.
   useEffect(() => {
-    for (const spot of ownRailSpots) favoriteIfUnset(spot.slug);
-  }, [ownRailSpots]);
+    for (const spot of extraRailSpots) {
+      if (spot.isCustom) favoriteIfUnset(spot.slug);
+    }
+  }, [extraRailSpots]);
 
   const effectiveSpots = useMemo(() => {
     const base =
       selectedIso === today || !dayPayload
         ? data.spots
         : rescoreSpots(data.spots, dayPayload, false);
-    if (ownRailSpots.length === 0) return base;
+    if (extraRailSpots.length === 0) return base;
     // Sorted with the rest — a custom spot earns its rail position by score.
-    return [...base, ...ownRailSpots].sort((a, b) => (b.score ?? -1) - (a.score ?? -1));
-  }, [selectedIso, today, dayPayload, data.spots, ownRailSpots]);
+    return [...base, ...extraRailSpots].sort((a, b) => (b.score ?? -1) - (a.score ?? -1));
+  }, [selectedIso, today, dayPayload, data.spots, extraRailSpots]);
 
   // Species filter: re-score each spot to the chosen species (pins recolor,
   // rail re-ranks, forecast strip keys off it). "Best bet" (null) = unchanged.

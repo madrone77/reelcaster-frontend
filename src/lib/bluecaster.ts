@@ -305,6 +305,9 @@ export interface MapSpotEntry {
    *  render server-side instead of a second after hydration. Optional so a
    *  cached pre-`has_reports` body still parses. */
   has_reports?: boolean;
+  /** Set only on spots the requesting angler created. Absent everywhere else,
+   *  including in the anonymous (CDN-cached) payload. */
+  owned?: boolean;
 }
 
 export interface MapSpotsPayload {
