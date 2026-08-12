@@ -279,6 +279,27 @@ export type { OwnedCustomSpot } from "./bluecaster";
  * rather than floating on the map. Returns null signed out or on any error
  * (callers fall back to the anonymous set).
  */
+/**
+ * map/spots for NO viewer — the anonymous, CDN-cacheable read.
+ *
+ * Identical payload and engine to the viewer variant minus the caller's own
+ * custom spots, but because it carries no identity the proxy marks it
+ * `public, max-age=300` and the edge can serve it: ~140ms on a hit against
+ * ~3s for the personalized read, which is `private, no-store` and therefore
+ * BYPASSes the cache on every load. Deliberately sends no Authorization
+ * header — one would make the response per-user and uncacheable.
+ */
+export async function fetchMapSpotsCached(
+  bbox: string,
+  date: string,
+): Promise<MapSpotsPayload | null> {
+  const res = await fetch(
+    `/api/bluecaster/map/spots?bbox=${encodeURIComponent(bbox)}&date=${encodeURIComponent(date)}`,
+  );
+  if (!res.ok) return null;
+  return (await res.json().catch(() => null)) as MapSpotsPayload | null;
+}
+
 export async function fetchMapSpotsAsViewer(
   bbox: string,
   date: string,

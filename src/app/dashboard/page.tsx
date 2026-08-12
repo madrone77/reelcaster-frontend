@@ -1,12 +1,13 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ChevronRight, Home, Plus, Pencil } from "lucide-react";
 import { useAuth } from "@/contexts/auth-context";
 import {
   fetchMyCustomSpots,
   fetchMapSpotsAsViewer,
+  fetchMapSpotsCached,
   fetchSpotLive,
   fetchFreshCatches,
   type OwnedCustomSpot,
@@ -202,7 +203,12 @@ export default function DashboardPage() {
     return () => {
       cancelled = true;
     };
-  }, [user, session]);
+    // Keyed on the IDENTIFIERS, not the objects: AuthProvider re-emits a fresh
+    // user/session on every auth event (INITIAL_SESSION, TOKEN_REFRESHED, …),
+    // so an object dep re-runs this on each one — the dashboard was firing
+    // every one of its reads two and three times per load.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.id, session?.access_token]);
 
   // Auto-dismiss the un-star undo snackbar.
   useEffect(() => {
@@ -221,7 +227,12 @@ export default function DashboardPage() {
     return () => {
       cancelled = true;
     };
-  }, [user]);
+    // Keyed on the IDENTIFIERS, not the objects: AuthProvider re-emits a fresh
+    // user/session on every auth event (INITIAL_SESSION, TOKEN_REFRESHED, …),
+    // so an object dep re-runs this on each one — the dashboard was firing
+    // every one of its reads two and three times per load.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.id]);
 
   // Favourites (localStorage rc-fav:<slug>).
   useEffect(() => {
@@ -240,39 +251,73 @@ export default function DashboardPage() {
   }, []);
 
   // Today's best score per spot across the covered extent.
-  useEffect(() => {
-    if (!user) return;
-    let cancelled = false;
-    fetchMapSpotsAsViewer(COVERED_BBOX_ALL, todayVancouver())
-      .then((payload) => {
-        if (cancelled || !payload?.spots) return;
-        setPayload(payload);
-        const species = payload.species ?? {};
-        const map: Record<string, Scored> = {};
-        for (const s of payload.spots) {
-          let best = 0;
-          let bestId: string | null = null;
-          for (const [id, strip] of Object.entries(s.scores ?? {})) {
-            const peak = (strip as { peak?: number })?.peak;
-            if (typeof peak === "number" && peak > best) {
-              best = peak;
-              bestId = id;
-            }
-          }
-          if (best > 0) {
-            map[s.slug] = {
-              score: Math.round(best * 100),
-              species: (bestId && species[bestId]?.name) || null,
-            };
-          }
+  // The personalized payload wins once it lands; the cached one must never
+  // overwrite it afterwards (it lacks this angler's own custom spots).
+  const viewerPayloadLanded = useRef(false);
+  const applyPayload = useCallback((p: MapSpotsPayload, fromViewer: boolean) => {
+    if (!p?.spots) return;
+    if (viewerPayloadLanded.current && !fromViewer) return;
+    if (fromViewer) viewerPayloadLanded.current = true;
+    setPayload(p);
+    const species = p.species ?? {};
+    const map: Record<string, Scored> = {};
+    for (const s of p.spots) {
+      let best = 0;
+      let bestId: string | null = null;
+      for (const [id, strip] of Object.entries(s.scores ?? {})) {
+        const peak = (strip as { peak?: number })?.peak;
+        if (typeof peak === "number" && peak > best) {
+          best = peak;
+          bestId = id;
         }
-        setScoreBySlug(map);
+      }
+      if (best > 0) {
+        map[s.slug] = {
+          score: Math.round(best * 100),
+          species: (bestId && species[bestId]?.name) || null,
+        };
+      }
+    }
+    setScoreBySlug(map);
+  }, []);
+
+  // Coordinates and scores for every PUBLISHED spot, from the anonymous read.
+  // Same payload, same engine — but it is CDN-cacheable, so it returns in
+  // ~140ms against the personalized read's ~3s (which is `private, no-store`
+  // and BYPASSes the edge on every single load). Favourites are published
+  // spots, so this alone is enough to put the map and the cards on screen.
+  // Fires without waiting on auth, since it needs no identity.
+  useEffect(() => {
+    let cancelled = false;
+    fetchMapSpotsCached(COVERED_BBOX_ALL, todayVancouver())
+      .then((p) => {
+        if (!cancelled && p) applyPayload(p, false);
       })
       .catch(() => {});
     return () => {
       cancelled = true;
     };
-  }, [user]);
+  }, [applyPayload]);
+
+  // The personalized read then upgrades it — its only delta is this angler's
+  // own custom spots, carrying the 24-hour strips the owner-scoped list can't.
+  useEffect(() => {
+    if (!user) return;
+    let cancelled = false;
+    fetchMapSpotsAsViewer(COVERED_BBOX_ALL, todayVancouver())
+      .then((p) => {
+        if (!cancelled && p) applyPayload(p, true);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+    // Keyed on the IDENTIFIERS, not the objects: AuthProvider re-emits a fresh
+    // user/session on every auth event (INITIAL_SESSION, TOKEN_REFRESHED, …),
+    // so an object dep re-runs this on each one — the dashboard was firing
+    // every one of its reads two and three times per load.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.id, applyPayload]);
 
   // Home-spot live payload — powers the hero conditions, sparkline, and the
   // regulations rail (the spot's own DFO regs). Degrades to null.
@@ -302,7 +347,11 @@ export default function DashboardPage() {
     return () => {
       cancelled = true;
     };
-  }, [session]);
+    // Keyed on the IDENTIFIERS, not the objects: AuthProvider re-emits a fresh
+    // user/session on every auth event (INITIAL_SESSION, TOKEN_REFRESHED, …),
+    // so an object dep re-runs this on each one — the dashboard was firing
+    // every one of its reads two and three times per load.
+  }, [session?.access_token]);
 
   // Scraped catch reports, keyed by spot id — the same payload Explore's rail
   // joins on, so a saved spot wears the same "N reports" badge here as it does
@@ -353,7 +402,11 @@ export default function DashboardPage() {
     return () => {
       cancelled = true;
     };
-  }, [session]);
+    // Keyed on the IDENTIFIERS, not the objects: AuthProvider re-emits a fresh
+    // user/session on every auth event (INITIAL_SESSION, TOKEN_REFRESHED, …),
+    // so an object dep re-runs this on each one — the dashboard was firing
+    // every one of its reads two and three times per load.
+  }, [session?.access_token]);
 
   // The spots shown in the grid — custom (private) + favourites, deduped,
   // scored, tagged, ranked by score. Home spot floats via its tag, not order.
@@ -427,6 +480,11 @@ export default function DashboardPage() {
         name: c.name,
         isCustom: true,
         visibility: c.visibility,
+        // The owner-scoped list already carries the coordinates, so a custom
+        // spot plots immediately instead of sitting at 0,0 (and being dropped
+        // as unplottable) until a map payload happens to include it.
+        lat: c.lat,
+        lng: c.lng,
       });
     }
     for (const slug of favSlugs) {
@@ -675,7 +733,7 @@ export default function DashboardPage() {
             <div className="mt-6">
               <DashboardSavedMap
                 spots={railSpots ?? []}
-                loading={railSpots === null}
+                resolving={railSpots === null || payload === null}
               />
             </div>
 
