@@ -8,6 +8,8 @@ import {
   fetchMyCustomSpots,
   fetchMapSpotsAsViewer,
   fetchMapSpotsCached,
+  fetchSpotCoords,
+  type SpotCoord,
   fetchSpotLive,
   fetchFreshCatches,
   type OwnedCustomSpot,
@@ -156,6 +158,9 @@ export default function DashboardPage() {
   // Raw map payload kept so the grid can render the shared Explore card from
   // the same numbers (railSpotFromEntry), not a forked card.
   const [payload, setPayload] = useState<MapSpotsPayload | null>(null);
+  // Coordinates for the saved favourites, fetched straight off the slug list.
+  // This is what the map draws from on a first visit; scores arrive later.
+  const [coords, setCoords] = useState<Record<string, SpotCoord> | null>(null);
   // Undo snackbar for an un-starred spot.
   const [undo, setUndo] = useState<{ slug: string; name: string } | null>(null);
   // Pinned home spot. Hydrates from the saved profile copy, so the hero is
@@ -250,6 +255,30 @@ export default function DashboardPage() {
       setFavSlugs([]);
     }
   }, []);
+
+  // Coordinates for those favourites — the map's first paint.
+  //
+  // Favourites are slugs in localStorage, so this can start before auth has
+  // resolved and before anything else on the page. It is the small read for
+  // the small question: the map needs four coordinates, and used to get them
+  // by waiting on the bulk map payload (every published spot in the covered
+  // extent, each with a 24-hour score strip). Cached at the edge, no identity.
+  useEffect(() => {
+    if (!favSlugs || favSlugs.length === 0) {
+      setCoords({});
+      return;
+    }
+    let cancelled = false;
+    fetchSpotCoords(favSlugs)
+      .then((rows) => {
+        if (cancelled) return;
+        setCoords(Object.fromEntries(rows.map((r) => [r.slug, r])));
+      })
+      .catch(() => !cancelled && setCoords({}));
+    return () => {
+      cancelled = true;
+    };
+  }, [favSlugs]);
 
   // Today's best score per spot across the covered extent.
   // The personalized payload wins once it lands; the cached one must never
@@ -497,10 +526,22 @@ export default function DashboardPage() {
     }
     for (const slug of favSlugs) {
       if (bySlug.has(slug)) continue;
-      bySlug.set(slug, railBySlug.get(slug) ?? unscoredRailSpot(slug, prettify(slug)));
+      // Before the map payload lands, the coords read is what makes a
+      // favourite plottable — and it carries the real name, so the card does
+      // not have to flash a slug-derived guess first.
+      const c = coords?.[slug];
+      bySlug.set(
+        slug,
+        railBySlug.get(slug) ??
+          unscoredRailSpot(
+            slug,
+            c?.name ?? prettify(slug),
+            c ? { id: c.id, lat: c.lat, lng: c.lng } : {},
+          ),
+      );
     }
     return [...bySlug.values()].sort((a, b) => (b.score ?? -1) - (a.score ?? -1));
-  }, [custom, favSlugs, payload]);
+  }, [custom, favSlugs, payload, coords]);
 
   // ── derived ────────────────────────────────────────────────────────────────
   const activeAlertCount = (alerts ?? []).filter((a) => a.is_active).length;
@@ -741,7 +782,10 @@ export default function DashboardPage() {
             <div className="mt-6">
               <DashboardSavedMap
                 spots={railSpots ?? []}
-                resolving={railSpots === null || payload === null}
+                // Coordinates, not scores: once the coords read lands every
+                // favourite is placeable (custom spots carry their own), so the
+                // map no longer has to wait on the bulk payload.
+                resolving={railSpots === null || coords === null}
               />
             </div>
 

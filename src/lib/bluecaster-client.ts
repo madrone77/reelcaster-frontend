@@ -15,7 +15,8 @@ import type {
   StationConditions,
   BuoyConditions,
 } from "./bluecaster/station-types";
-import type { MapForecast14dPayload, MapSpotsPayload, OwnedCustomSpot } from "./bluecaster";
+import type { MapForecast14dPayload, MapSpotsPayload, OwnedCustomSpot, SpotCoord } from "./bluecaster";
+export type { SpotCoord } from "./bluecaster";
 export type {
   StationConditions,
   BuoyConditions,
@@ -279,6 +280,27 @@ export type { OwnedCustomSpot } from "./bluecaster";
  * rather than floating on the map. Returns null signed out or on any error
  * (callers fall back to the anonymous set).
  */
+/**
+ * Coordinates for a list of saved slugs — the dashboard's first-paint read.
+ *
+ * Favourites are slugs in localStorage, available before anything has loaded;
+ * this turns them into pins without waiting on the bulk map payload (~700 KB,
+ * and on the personalized path several seconds). Scores still arrive from
+ * map/spots and fill in behind it. Cacheable, no identity: safe to fire before
+ * auth resolves.
+ */
+export async function fetchSpotCoords(
+  slugs: string[],
+): Promise<SpotCoord[]> {
+  if (slugs.length === 0) return [];
+  const res = await fetch(
+    `/api/bluecaster/map/spot-coords?slugs=${encodeURIComponent(slugs.join(","))}`,
+  );
+  if (!res.ok) return [];
+  const body = (await res.json().catch(() => null)) as { spots?: SpotCoord[] } | null;
+  return body?.spots ?? [];
+}
+
 /**
  * map/spots for NO viewer — the anonymous, CDN-cacheable read.
  *
