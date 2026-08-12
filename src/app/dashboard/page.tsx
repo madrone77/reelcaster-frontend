@@ -647,7 +647,10 @@ export default function DashboardPage() {
 
             {/* Saved-spots summary map — sits right under the hero. */}
             <div className="mt-6">
-              <DashboardSavedMap spots={railSpots ?? []} />
+              <DashboardSavedMap
+                spots={railSpots ?? []}
+                loading={railSpots === null}
+              />
             </div>
 
             {/* Your spots */}
