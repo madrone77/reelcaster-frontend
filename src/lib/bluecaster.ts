@@ -1106,3 +1106,84 @@ export async function fetchPoolIntelligence(
     0,
   );
 }
+
+// =============================================================================
+// Daily city report (Pro dashboard card)
+// =============================================================================
+
+/**
+ * GET /api/v1/cities/[slug]/daily-report — the AI briefing for one city.
+ *
+ * `reports_md` is the substance: what anglers are actually catching, in
+ * three or four sentences. `outlook_md` is a short forecast note. Both are
+ * markdown with spot and species names bolded.
+ *
+ * BlueCaster strips its own audit trail (source citations, evidence counts,
+ * per-tip provenance) before serving this, so there is nothing here that
+ * identifies where the intel came from. Don't go looking for it — it isn't
+ * meant to reach this side.
+ *
+ * `status: "pending"` means nobody had asked for that city yet; the read
+ * itself registers demand and a report appears shortly.
+ */
+export interface BlueCasterCityDailyReport {
+  city: { slug: string; name: string };
+  status: "ready" | "pending";
+  report: {
+    report_date: string;
+    headline: string | null;
+    reports_md: string | null;
+    reports_window_days: number;
+    outlook_md: string | null;
+    outlook_horizon_days: number;
+    tips: Array<{ text: string }>;
+    generated_at: string;
+  } | null;
+}
+
+export async function fetchCityDailyReport(
+  citySlug: string,
+): Promise<BlueCasterCityDailyReport | null> {
+  // Short revalidate, not none: the report changes once a day, but a stale
+  // card on a dashboard is worse than a slightly slower one, and this is
+  // already behind a Pro gate that forbids shared caching downstream.
+  return bcGet<BlueCasterCityDailyReport>(
+    `/api/v1/cities/${encodeURIComponent(citySlug)}/daily-report`,
+    {},
+    300,
+  );
+}
+
+/**
+ * The city a home spot belongs to.
+ *
+ * There is no stored home *city* — a spot has exactly one home city under
+ * BlueCaster's shared-spot model, so the home spot the Pro wizard already
+ * pins resolves to one. Deriving it means no new column, no new onboarding
+ * step, and it works for everyone who has pinned a spot already.
+ *
+ * Returns null when no spot is pinned, when the slug no longer resolves, or
+ * when the city isn't published.
+ */
+export async function resolveHomeCity(
+  homeSpotSlug: string | null | undefined,
+): Promise<{ slug: string; name: string } | null> {
+  if (!homeSpotSlug) return null;
+
+  const hierarchy = await fetchHierarchy();
+  if (!hierarchy) return null;
+
+  for (const country of hierarchy.countries) {
+    for (const province of country.states_provinces) {
+      for (const region of province.regions) {
+        for (const city of region.cities) {
+          if (city.lifecycle !== "published") continue;
+          if (city.spots.some((s) => s.slug === homeSpotSlug)) {
+            return { slug: city.slug, name: city.name };
+          }
+        }
+      }
+    }
+  }
+  return null;
+}

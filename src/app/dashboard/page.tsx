@@ -30,6 +30,7 @@ import { useHomeSpotSlug } from "@/app/explore/lib/use-home-spot";
 import { favoriteSlugs, setFavorite } from "@/app/explore/lib/use-favorite";
 import { storedFirstName, NAME_FALLBACK } from "@/lib/display-name";
 import { supabase } from "@/lib/supabase";
+import { DailyReportCard } from "./daily-report-card";
 import { fetchAlertProfiles } from "@/lib/alerts-client";
 import { PAGE_MEASURE } from "@/app/components/layout/page-measure";
 import type { AlertProfile } from "@/lib/custom-alert-engine";
@@ -851,6 +852,11 @@ export default function DashboardPage() {
               rule, a mono status pill top-right, and a plain-English
               conclusion line — no colored top-borders or filled boxes. */}
           <div className="space-y-4">
+            {/* Daily report for the home spot's city — leads the rail
+                because it's the one thing here that changes every day and
+                that nobody else has. Pro only; renders nothing for free. */}
+            <DailyReportCard />
+
             {/* Alerts */}
             <RailCard
               title="Alerts"
