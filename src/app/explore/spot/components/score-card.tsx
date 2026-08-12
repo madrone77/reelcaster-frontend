@@ -50,8 +50,10 @@ export default function ScoreCard({
   /** In-effect regulation for the driver species — drives the status word and
    *  the limits line. Null when no row resolves for this species. */
   regulation: LiveRegulation | null;
-  /** Tapped "Set alert" — the shell gates signed-out anglers into sign-up. */
-  onSetAlert: () => void;
+  /** Tapped "Set alert" — the shell gates signed-out anglers into sign-up.
+   *  Optional: the spot page moved this CTA up to the identity row, so the card
+   *  renders no button when it is absent. Other callers still pass it. */
+  onSetAlert?: () => void;
   /** Optional content nested inside the card, above the Set alert button
    *  (e.g. the fresh-catch evidence). */
   children?: React.ReactNode;
@@ -186,6 +188,7 @@ export default function ScoreCard({
 
       {/* Single alert action — saving lives on the star beside the spot name.
           Outlined (not filled) so the score numeral stays the loudest thing. */}
+      {onSetAlert && (
       <button
         type="button"
         onClick={onSetAlert}
@@ -194,6 +197,7 @@ export default function ScoreCard({
         <Bell className="w-4 h-4" />
         Set alert
       </button>
+      )}
     </div>
   );
 }

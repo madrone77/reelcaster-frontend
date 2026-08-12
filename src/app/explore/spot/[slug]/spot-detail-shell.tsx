@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import dynamic from "next/dynamic";
-import { ArrowUpCircle, ChevronLeft, ChevronRight, Home } from "lucide-react";
+import { ArrowUpCircle, ChevronLeft, ChevronRight, Home, Bell } from "lucide-react";
 import { useAuth } from "@/contexts/auth-context";
 import { useSubscription } from "@/hooks/use-subscription";
 import AdSlot from "@/app/components/ads/ad-slot";
@@ -50,7 +50,8 @@ import { useHomeSpot } from "../../lib/use-home-spot";
 import SpotTerminal from "../components/spot-terminal";
 import SpotMiniMap from "../components/spot-mini-map";
 import ScoreCard from "../components/score-card";
-import { FreshCatchBlock } from "@/app/explore/components/fresh-catch-reports";
+import { RecentReportsBand } from "@/app/explore/components/recent-reports";
+import type { RecentReports as RecentReportsData } from "@/lib/bluecaster/live-spot-types";
 import type { RailFreshCatch } from "@/app/explore/lib/fresh-catch-types";
 import CustomAlertCta from "../components/custom-alert-cta";
 import MarketingFooter from "@/app/components/marketing/marketing-footer";
@@ -73,8 +74,14 @@ const FRESH_DAYS = 21;
  */
 export type SpotPageForClient = Omit<
   SpotPageInitial,
-  "catchSignals" | "intelVerdict"
->;
+  "catchSignals" | "intelVerdict" | "recentReports"
+> & {
+  /** Truncated headline only. The full report is Pro and is fetched at request
+   *  time from the gated route, never serialized into the prerendered HTML. */
+  recentReportsTeaser: string | null;
+  /** Date of the newest report, so the block can show its freshness even locked. */
+  recentReportsUpdatedAt: string | null;
+};
 
 const REG_PILL: Record<string, string> = {
   Open: "bg-rc-good-bg text-rc-good-ink",
@@ -158,10 +165,6 @@ export default function SpotDetailShell({
   // Names for the per-species report split. The roster is the species this spot
   // is scored for; anglers report others (crab and lingcod at a salmon spot),
   // and those fold into "Other species" rather than being dropped.
-  const freshSpeciesNames = useMemo(
-    () => Object.fromEntries(species.map((sp) => [sp.id, sp.name])),
-    [species],
-  );
   const selSpecies = species.find((s) => s.id === selId) ?? species[0] ?? null;
 
   // ── lazy data ─────────────────────────────────────────────────────────
@@ -229,6 +232,28 @@ export default function SpotDetailShell({
       cancelled = true;
     };
   }, [freshTracked, isPaid, spot.id]);
+
+  // The written report, for paying anglers only. Same shape of gate as `fresh`:
+  // the static HTML carries the teaser, this fills in the rest once the server
+  // has confirmed entitlement. `resolveEntitlement` on the route is the real
+  // check; `isPaid` here only decides whether it is worth asking.
+  const [reports, setReports] = useState<RecentReportsData | null>(null);
+  useEffect(() => {
+    if (!page.recentReportsTeaser || !isPaid) {
+      setReports(null);
+      return;
+    }
+    let cancelled = false;
+    fetch(`/api/bluecaster/spots/${encodeURIComponent(spot.slug)}/recent-reports`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => {
+        if (!cancelled && d && !d.locked) setReports(d.reports ?? null);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [page.recentReportsTeaser, isPaid, spot.slug]);
 
   useEffect(() => {
     if (!selId) return;
@@ -714,6 +739,23 @@ export default function SpotDetailShell({
                       strokeWidth={isHome ? 2.4 : 2}
                     />
                   </button>
+                  {/* Alerts are a page-level action on the spot, not a
+                      property of the score, so the CTA sits with the identity
+                      row rather than buried under the score card. ml-auto keeps
+                      it hard right without disturbing the name/star/home group. */}
+                  <button
+                    type="button"
+                    onClick={handleSetAlert}
+                    /* The label collapses to the bell on narrow screens, so the
+                       button needs its own accessible name or it announces as
+                       nothing to a screen reader. */
+                    aria-label="Set alert"
+                    title="Set alert"
+                    className="ml-auto shrink-0 flex items-center gap-2 rounded border border-rc-brand px-3 py-2 text-rc-brand hover:bg-rc-brand-soft text-[13px] font-semibold focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-rc-brand transition-colors"
+                  >
+                    <Bell className="w-4 h-4" aria-hidden />
+                    <span className="hidden sm:inline">Set alert</span>
+                  </button>
                 </div>
                 <p className="font-rc-mono text-xs text-rc-ink-mute mt-1.5">
                   {`${Math.abs(spot.lat).toFixed(2)}°${
@@ -757,9 +799,10 @@ export default function SpotDetailShell({
                   }
                 />
               </div>
-              {/* 2 · Best Window + 3 · DFO reg strip, then the fresh-catch
-                  evidence nested inside the card above Set alert — angler
-                  reports sit with the verdict. Absent when no reports exist. */}
+              {/* 2 · Best Window + 3 · DFO reg strip. The fresh-catch evidence
+                  and the alert CTA both used to live in here; they moved out to
+                  the full-width reports band and the identity row respectively,
+                  so this card is now purely the score verdict. */}
               <div className="order-1">
                 <ScoreCard
                   nowLabel={nowLabel}
@@ -773,19 +816,23 @@ export default function SpotDetailShell({
                   region={cityLink?.provinceName ?? spot.region}
                   speciesName={selSpecies?.name ?? null}
                   regulation={regulation}
-                  onSetAlert={handleSetAlert}
-                >
-                  {fresh && (
-                    <FreshCatchBlock
-                      fresh={fresh}
-                      days={FRESH_DAYS}
-                      speciesNames={freshSpeciesNames}
-                      onUpgrade={() => setReportsUpgradeOpen(true)}
-                    />
-                  )}
-                </ScoreCard>
+                />
               </div>
             </div>
+
+            {/* Reports, full width under the score/map row. It was two panels
+                inside the columns before: the counts were cramped and the
+                narrative left a tall gap beside the map. Full width also lets
+                the three columns (here / what worked / nearby) sit side by side
+                instead of stacking. */}
+            <RecentReportsBand
+              teaser={page.recentReportsTeaser}
+              updatedAt={page.recentReportsUpdatedAt}
+              reports={reports}
+              fresh={fresh}
+              days={FRESH_DAYS}
+              onUpgrade={() => setReportsUpgradeOpen(true)}
+            />
           </div>
           {/* end identity + score cluster (items 1–3) */}
 
