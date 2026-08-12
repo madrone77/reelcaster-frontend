@@ -9,6 +9,7 @@ import { btn } from "@/app/components/ui/button";
 import { PAGE_MEASURE } from "@/app/components/layout/page-measure";
 import { useAuth } from "@/contexts/auth-context";
 import TrialModalButton from "@/app/components/paywall/trial-modal-button";
+import { fetchAlertProfiles } from "@/lib/alerts-client";
 
 const NAV: { href: string; label: string; signedInOnly?: boolean }[] = [
   { href: "/dashboard", label: "Dashboard", signedInOnly: true },
@@ -65,16 +66,11 @@ export default function ExploreTopBar({
       return;
     }
     let cancelled = false;
-    fetch("/api/alerts", {
-      headers: { Authorization: `Bearer ${session.access_token}` },
-    })
-      .then((r) => (r.ok ? r.json() : null))
-      .then((d) => {
-        if (cancelled || !d) return;
-        const n = (d.profiles ?? []).filter(
-          (p: { is_active?: boolean }) => p.is_active,
-        ).length;
-        setAlertCount(n);
+    // Shared read — the dashboard wants the same list on the same paint.
+    fetchAlertProfiles(session.access_token)
+      .then((profiles) => {
+        if (cancelled) return;
+        setAlertCount(profiles.filter((p) => p.is_active).length);
       })
       .catch(() => {});
     return () => {
