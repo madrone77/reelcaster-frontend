@@ -316,6 +316,33 @@ export interface MapSpotsPayload {
   spots: MapSpotEntry[];
 }
 
+export interface SpotCoord {
+  id: string;
+  slug: string;
+  name: string;
+  lat: number;
+  lng: number;
+}
+
+/**
+ * Coordinates for a known list of slugs — the small read behind the dashboard's
+ * first paint. Published spots only, so it is CDN-cacheable; misses are simply
+ * absent from the array rather than an error, since a saved favourite can
+ * outlive the spot it points at.
+ */
+export async function fetchSpotCoords(
+  slugs: string[],
+): Promise<SpotCoord[] | null> {
+  if (slugs.length === 0) return [];
+  const res = await bcGet<{ spots: SpotCoord[] }>(
+    "/api/v1/map/spot-coords",
+    { slugs: slugs.join(",") },
+    // A spot does not move; the slug list is the whole cache key.
+    3600,
+  );
+  return res?.spots ?? null;
+}
+
 export async function fetchMapSpots(opts: {
   bbox?: string; // "w,s,e,n"
   city?: string;
