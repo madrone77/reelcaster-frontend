@@ -80,11 +80,18 @@ const DEFAULT_CENTER = { lat: 49.3, lng: -123.6 };
  */
 export default function DashboardSavedMap({
   spots,
-  loading = false,
+  resolving = false,
 }: {
   spots: RailSpot[];
-  /** Saved set still resolving. Distinguishes "no spots yet" from "no spots". */
-  loading?: boolean;
+  /**
+   * Coordinates for the saved set are still arriving. Distinguishes "no spots
+   * yet" from "no spots" — and it must stay true until the map payload lands,
+   * not merely until the saved list does: a favourite is known by slug long
+   * before anything knows where it is, so the list can be non-empty while
+   * every entry still sits at 0,0. Treating that gap as "no spots" tore the
+   * map down a second after it mounted and rebuilt it seconds later.
+   */
+  resolving?: boolean;
 }) {
   const router = useRouter();
   const mapRef = useRef<MapRef>(null);
@@ -118,7 +125,7 @@ export default function DashboardSavedMap({
   // map can mount and start fetching tiles while their spots are still in
   // flight. Without one, wait — a first-timer with nothing saved should not pay
   // for a map they are about to be told they have no spots for.
-  const showMap = plottable.length > 0 || (loading && savedView !== null);
+  const showMap = plottable.length > 0 || (resolving && savedView !== null);
 
   // Fit to the saved set as soon as it arrives. Deliberately NOT gated on the
   // map's 'load' event: that waits on the style and the first tile batch, which
@@ -199,7 +206,7 @@ export default function DashboardSavedMap({
             View full map <ChevronRight className="h-3.5 w-3.5" />
           </Link>
         </div>
-      ) : loading ? (
+      ) : resolving ? (
         <div className="h-72 w-full animate-pulse bg-rc-rule/30" />
       ) : (
         <div className="px-4 py-8 text-center">
