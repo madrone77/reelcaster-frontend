@@ -170,9 +170,11 @@ export default function ProWelcomeModal() {
       cancelled = true;
     };
     // trackEvent is stable for the life of the provider; re-running on it would
-    // re-fire the impression event.
+    // re-fire the impression event. `user?.id` rather than `user`: AuthProvider
+    // re-emits a fresh user object on every auth event, and an object dep made
+    // this gate call /api/pro/welcome twice on every page load, site-wide.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user, authLoading, suppressed]);
+  }, [user?.id, authLoading, suppressed]);
 
   /**
    * Record the close and hide. `completed` distinguishes reaching the end from

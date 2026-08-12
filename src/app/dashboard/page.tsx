@@ -300,10 +300,14 @@ export default function DashboardPage() {
     };
   }, [applyPayload]);
 
-  // The personalized read then upgrades it — its only delta is this angler's
-  // own custom spots, carrying the 24-hour strips the owner-scoped list can't.
+  // The personalized read then upgrades it — but ONLY if there is something to
+  // upgrade. Its entire delta over the cached read is this angler's own custom
+  // spots and their 24-hour strips, so for an angler with none it is a 3-second
+  // uncached re-fetch (`private, no-store`, BYPASS on every load) of a payload
+  // we already have from the edge in ~140ms. Wait for `custom` to resolve, then
+  // skip it unless it came back non-empty.
   useEffect(() => {
-    if (!user) return;
+    if (!user || !custom || custom.length === 0) return;
     let cancelled = false;
     fetchMapSpotsAsViewer(COVERED_BBOX_ALL, todayVancouver())
       .then((p) => {
@@ -318,7 +322,7 @@ export default function DashboardPage() {
     // so an object dep re-runs this on each one — the dashboard was firing
     // every one of its reads two and three times per load.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user?.id, applyPayload]);
+  }, [user?.id, custom?.length, applyPayload]);
 
   // Home-spot live payload — powers the hero conditions, sparkline, and the
   // regulations rail (the spot's own DFO regs). Degrades to null.
