@@ -1,10 +1,22 @@
 /**
- * Favorite Spots CRUD API
+ * Saved locations CRUD API — NOT the star on a spot card.
  *
- * GET    /api/favorite-spots         - List user's spots
- * POST   /api/favorite-spots         - Create new spot (with BlueCaster enrichment + tier gate)
- * PUT    /api/favorite-spots         - Update spot (requires id in body)
- * DELETE /api/favorite-spots?id=xxx  - Delete spot
+ * Despite the path, this has nothing to do with saved spots. It stores an
+ * arbitrary place the user described (a name and a lat/lon they typed or
+ * picked), enriched against BlueCaster reference data, and today its only
+ * product surface is the default-location picker — the location panel and the
+ * "set default location" modal. The path and the `favorite_spots` table keep
+ * their names because renaming a live route and table buys nothing; the concept
+ * is saved *locations*.
+ *
+ * The star on a spot card is `/api/saved-spots`, backed by
+ * `user_favorite_spots`. If you are looking for what the dashboard's "Saved
+ * spots" section reads, it is that one, not this.
+ *
+ * GET    /api/favorite-spots         - List user's saved locations
+ * POST   /api/favorite-spots         - Create one (with BlueCaster enrichment + tier gate)
+ * PUT    /api/favorite-spots         - Update one (requires id in body)
+ * DELETE /api/favorite-spots?id=xxx  - Delete one
  */
 
 import { NextRequest, NextResponse } from 'next/server'

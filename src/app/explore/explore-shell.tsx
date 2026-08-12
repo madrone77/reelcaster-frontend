@@ -34,7 +34,7 @@ import ExploreTopBar from "./components/explore-top-bar";
 import { BLEED_MEASURE } from "@/app/components/layout/page-measure";
 import ExploreMap, { type StationPick, type CustomSpotPin } from "./components/explore-map";
 import CreateCustomSpotDialog from "./components/create-custom-spot-dialog";
-import { favoriteIfUnset, setFavorite } from "./lib/use-favorite";
+import { setFavorite } from "./lib/use-favorite";
 import { Plus, X } from "lucide-react";
 import StationDrawer from "./components/station-drawer";
 import LeftRail from "./components/left-rail";
@@ -310,16 +310,12 @@ export default function ExploreShell({
     );
   }, [viewerPayload, data.spots, selectedIso, today, customSpots]);
 
-  // Your own spots come back starred unless you've un-starred them — covers
-  // spots made on another device, or before auto-favoriting. A write, so it
-  // stays an effect rather than riding along in the memo above. Strictly the
-  // spots you created: starring is permanent, so a spot that merely looks
-  // unfamiliar must never earn one.
-  useEffect(() => {
-    for (const spot of extraRailSpots) {
-      if (spot.isCustom) favoriteIfUnset(spot.slug);
-    }
-  }, [extraRailSpots]);
+  // Nothing stars spots on sight any more. This is where a spot you'd created
+  // on another device used to be re-starred on arrival, because the star lived
+  // in localStorage and a second browser had no way to know about it — the same
+  // effect that, when it mistook freshly published spots for yours, filled
+  // everyone's Saved spots with things they never chose (#259). Favourites are
+  // server-side now, so the account already knows; there is nothing to infer.
 
   const effectiveSpots = useMemo(() => {
     const base =
@@ -912,7 +908,7 @@ export default function ExploreShell({
         onCreated={(spot) => {
           // A spot you placed and named starts favorited — it appears starred
           // in the rail and in Saved spots without a second click.
-          if (spot.slug) setFavorite(spot.slug);
+          if (spot.slug) void setFavorite(spot.slug, spot.id);
           setOwnSpotsRefresh((n) => n + 1);
           setCustomSpots((prev) => [
             {
