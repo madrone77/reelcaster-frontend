@@ -24,7 +24,11 @@
 
 export const ADSENSE_CLIENT = 'ca-pub-8843447703932843';
 
-export type AdPlacement = 'exploreList' | 'spotMid' | 'spotFoot';
+export type AdPlacement =
+  | 'exploreList'
+  | 'exploreDrawer'
+  | 'spotMid'
+  | 'spotFoot';
 
 export interface AdUnit {
   /** `data-ad-slot`. Empty disables the placement — nothing renders at all. */
@@ -71,6 +75,13 @@ export const AD_SLOTS: Record<AdPlacement, AdUnit> = {
     layoutKey: '-fb+5w+4e-db+86',
     house: true,
   },
+  /**
+   * Explore's spot drawer, directly under the score block.
+   *
+   * A display unit, not in-feed: the drawer is a ~384px panel of prose and
+   * figures, not a list, so there is no feed row for a fluid unit to imitate.
+   */
+  exploreDrawer: { slot: '', format: 'auto' },
   /** Spot page, between "Score Explained" and "Seasonality". */
   spotMid: { slot: '', format: 'auto' },
   /** Spot page, below the description and hierarchy trail. */

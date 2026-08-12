@@ -123,6 +123,9 @@ export default function LeftRail({
             fresh={freshCatches?.spots[selectedSpot.id]}
             freshDays={freshCatches?.days ?? 21}
             freshSpeciesNames={speciesNames}
+            // Explore is monetised; the city pages that share this drawer are
+            // not, so they pass nothing and stay ad-free.
+            adPlacement="exploreDrawer"
           />
         </div>
       ) : selectedStation ? (

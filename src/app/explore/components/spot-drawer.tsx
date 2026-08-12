@@ -15,6 +15,8 @@ import {
 } from "lucide-react";
 import { useFavorite } from "../lib/use-favorite";
 import { useSubscription } from "@/hooks/use-subscription";
+import AdSlot from "@/app/components/ads/ad-slot";
+import type { AdPlacement } from "@/lib/adsense";
 import { FreshCatchBlock } from "./fresh-catch-reports";
 import type { RailFreshCatch } from "../lib/fresh-catch-types";
 import {
@@ -78,6 +80,7 @@ export default function SpotDrawer({
   fresh,
   freshDays = 21,
   freshSpeciesNames,
+  adPlacement,
 }: {
   spot: RailSpot;
   date: string;
@@ -99,6 +102,18 @@ export default function SpotDrawer({
   freshDays?: number;
   /** speciesId → display name, for the per-species split. */
   freshSpeciesNames?: Record<string, string>;
+  /**
+   * Render an ad under the score block, using this placement's unit. Omitted =
+   * no ad, which is the default on purpose.
+   *
+   * This drawer is shared by two surfaces that are not both monetised: the
+   * Explore rail, and the city pages under /fishing/[province]/[city]. Ads are
+   * scoped to Explore and the spot page, so the decision belongs to the call
+   * site rather than to the drawer. Naming the placement rather than passing a
+   * boolean also keeps each surface on its own ad unit, so the reporting stays
+   * separable if a second surface is ever switched on.
+   */
+  adPlacement?: AdPlacement;
 }) {
   // Resting state anchors to the day's PEAK hour — the drawer's headline
   // promise is "the best this day gets", not the score at whatever hour the
@@ -273,6 +288,17 @@ export default function SpotDrawer({
             )}
           </div>
         </div>
+
+        {/* Directly under the score, which is what the reader came to this
+            drawer for — the ad sits after the answer, not in front of it.
+            Renders nothing for paid accounts, and nothing until tier resolves. */}
+        {adPlacement && (
+          <AdSlot
+            placement={adPlacement}
+            only="desktop"
+            className="mt-5 pb-5 border-b border-rc-rule-soft"
+          />
+        )}
 
         {/* Fresh catch reports — the evidence, directly under the prediction.
             Renders nothing when this spot has no reports in the window. */}
