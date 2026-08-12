@@ -234,13 +234,14 @@ export default function SpotDetailShell({
     };
   }, [freshTracked, isPaid, spot.id]);
 
-  // The written report, for paying anglers only. Same shape of gate as `fresh`:
-  // the static HTML carries the teaser, this fills in the rest once the server
-  // has confirmed entitlement. `resolveEntitlement` on the route is the real
-  // check; `isPaid` here only decides whether it is worth asking.
+  // The written report. Fired on mount rather than waiting for `isPaid` to
+  // flip, because the route is the gate: a free caller gets {locked:true} and
+  // nothing else. Gating the request on the client tier put two waits in
+  // series (resolve entitlement, THEN fetch) and that gap is what a Pro angler
+  // saw as a lock that appeared and then vanished.
   const [reports, setReports] = useState<RecentReportsData | null>(null);
   useEffect(() => {
-    if (!page.recentReportsTeaser || !isPaid) {
+    if (!page.recentReportsTeaser) {
       setReports(null);
       return;
     }
@@ -255,7 +256,7 @@ export default function SpotDetailShell({
     return () => {
       cancelled = true;
     };
-  }, [page.recentReportsTeaser, isPaid, spot.slug]);
+  }, [page.recentReportsTeaser, spot.slug]);
 
   useEffect(() => {
     if (!selId) return;
@@ -830,6 +831,10 @@ export default function SpotDetailShell({
             <RecentReportsBand
               teaser={page.recentReportsTeaser}
               updatedAt={page.recentReportsUpdatedAt}
+              /* Withhold the upsell until we know the reader is not Pro.
+                 Showing it while entitlement is still resolving is what made
+                 the block flash a lock at paying anglers. */
+              tierResolved={!tierLoading}
               reports={reports}
               fresh={fresh}
               days={FRESH_DAYS}
