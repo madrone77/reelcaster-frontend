@@ -16,10 +16,16 @@
  * read as a wall rather than an addition.
  *
  * Ordering is the argument: seven rows of "this is a serious tool, and it's
- * free", then five rows of what paying adds. The hinge is the adjacency of
+ * free", then seven rows of what paying adds. The hinge is the adjacency of
  * "Plan a week ahead" (free) and "Plan the full two weeks" (Pro) — the first is
  * what makes an account worth creating, the second is the obvious next step
  * from it. Keep them next to each other; `PRO_ROW_START` marks the seam.
+ *
+ * "No ads" sits high in the Pro block, second only to the hinge, because it is
+ * the one row a reader can evaluate without knowing anything about fishing —
+ * they have already seen the ads on the page the modal opened over. It is a
+ * real entitlement, not a slogan: <AdSlot> renders nothing for a paid viewer,
+ * trialists included (src/app/components/ads/ad-slot.tsx).
  *
  * Regulation-change alerts are still deliberately absent: built, not gated, and
  * not yet a thing a customer can switch on.
@@ -28,24 +34,36 @@
  *   forecast horizon  src/app/explore/lib/forecast-strip.ts (+ the two
  *                     forecast-14d route mirrors)
  *   alerts            src/app/api/alerts/route.ts
- *   favourites        FREE_FAVORITE_SPOTS below — imported by both the
- *                     /explore star buttons and /api/favorite-spots
+ *   saved spots       FREE_FAVORITE_SPOTS below — imported by both the
+ *                     /explore star buttons and /api/saved-spots
  *   custom spots      src/app/api/bluecaster/fishing-spots/custom/route.ts
+ *   ads               src/app/components/ads/ad-slot.tsx (the `isPaid` gate)
  */
 
-import { ANNUAL_PRICE_CENTS, MONTHLY_PRICE_CENTS, TRIAL_DAYS } from "./pricing";
+import {
+  ANNUAL_PER_MONTH_CENTS,
+  ANNUAL_PRICE_CENTS,
+  TRIAL_DAYS,
+  dollars,
+} from "./pricing";
 
 /**
  * How many spots a free account may save. Pro is unlimited, so there is no
  * matching PRO constant to keep in step.
  *
- * Two *separate* stores enforce this and they used to disagree: the /explore
- * star buttons keep favourites in localStorage (`rc-fav:<slug>`, see
- * `explore/lib/use-favorite.ts`) and capped at 1, while the DB-backed
- * `POST /api/favorite-spots` capped at 5 — and the sales copy claimed both
- * numbers. They read one constant now. Note the star does NOT write to that
- * table; the route's only callers today are the e2e specs, so the two counts
- * still can't see each other. Unifying them is separate work.
+ * This is the cap on **saved spots** — the star on a spot card, stored in
+ * `user_favorite_spots` and enforced by `POST /api/saved-spots`. The route is
+ * the authority; `explore/lib/use-favorite.ts` checks the same constant first
+ * only so it can open the upgrade modal without a round trip.
+ *
+ * It is NOT the cap on the older `POST /api/favorite-spots`, which writes the
+ * `favorite_spots` table. That one stores an arbitrary place the user typed and
+ * feeds the default-location picker — a saved *locations* list that kept a
+ * confusingly similar name. The two used to be conflated: both were called
+ * favourites, each enforced its own limit (1 here, 5 there), and the sales copy
+ * quoted both numbers. They share this constant so the numbers can't drift
+ * again, but they are separate features and only this one is what the star
+ * means.
  */
 export const FREE_FAVORITE_SPOTS = 1;
 
@@ -62,7 +80,10 @@ export interface PlanTier {
 export const PLAN_TIERS: PlanTier[] = [
   { id: "anon", label: "Browsing", price: "No account" },
   { id: "free", label: "Free", price: "$0" },
-  { id: "pro", label: "Pro", price: `$${MONTHLY_PRICE_CENTS / 100}/mo` },
+  // The charged amount, not the $2.75/mo pitch: the headline above the table
+  // already does that division, and the column a customer scans for "what does
+  // this cost me" should be the number that lands on their card.
+  { id: "pro", label: "Pro", price: `${dollars(ANNUAL_PRICE_CENTS)}/yr` },
 ];
 
 /**
@@ -119,6 +140,17 @@ export const PLAN_FEATURES: PlanFeatureRow[] = [
   { id: "week-ahead", label: "Plan a week ahead", anon: "Next 2 days", free: true, pro: true },
   // ── everything below is what paying adds ──
   { id: "two-weeks", label: "Plan the full two weeks", anon: false, free: false, pro: true },
+  // Stated as the thing you get, not the thing we stop doing to you: "No ads"
+  // is a removal, "Read the water with no ads in it" is the product. The free
+  // and browsing columns take a cross rather than the string "Ads" — this
+  // table lists what a tier gets, and a tier does not "get" advertising.
+  {
+    id: "ad-free",
+    label: "Read the water with no ads in the way",
+    anon: false,
+    free: false,
+    pro: true,
+  },
   { id: "save-spots", label: "Save every spot you fish", anon: false, free: false, pro: true },
   // Deliberately NOT "add your own spots" — that reads as another way of saying
   // "save". The value is that a spot we don't publish gets the full model run on
@@ -159,7 +191,13 @@ export const PLAN_FEATURES: PlanFeatureRow[] = [
  * Nag features — the thing the angler just tried to do.
  * ---------------------------------------------------------------------- */
 
-/** Every action on /explore that can hit a wall. */
+/**
+ * Every action on /explore that can hit a wall.
+ *
+ * "remove-ads" is the odd one out: nothing was blocked, the reader just wants
+ * the ad gone. It rides the same machinery because the answer is identical —
+ * the same modal, opened on the row that covers it.
+ */
 export type NagFeatureId =
   | "alerts"
   | "sms-alerts"
@@ -168,7 +206,9 @@ export type NagFeatureId =
   | "forecast-week"
   | "forecast-14d"
   | "catch-log"
-  | "catch-reports";
+  | "catch-reports"
+  | "remove-ads"
+  | "support-the-map";
 
 export interface NagFeature {
   /** Completes "Start your 7-day Pro trial to ___". Lower case, no period. */
@@ -184,8 +224,12 @@ export interface NagFeature {
   takesSpot?: boolean;
   /** Lowest tier that unlocks it — decides whether we sell Pro or an account. */
   unlocksAt: "free" | "pro";
-  /** Row in the matrix to highlight. */
-  rowId: string;
+  /**
+   * Row in the matrix to highlight. Optional, because not every prompt is
+   * answered by one row: "support the map" is an argument for the whole table,
+   * and singling out a line of it would be a smaller pitch than the truth.
+   */
+  rowId?: string;
   /** `?feature=` for /plans — must match a `plans-feature-callout` key. */
   pricingFeature: string;
 }
@@ -245,6 +289,26 @@ export const NAG_FEATURES: Record<NagFeatureId, NagFeature> = {
     rowId: "catch-log",
     pricingFeature: "favorite-spots",
   },
+  // Fired by the house card that stands in for an ad that never arrived —
+  // usually because the reader blocks them. No rowId: someone who already has
+  // no ads is not being sold ad removal, and there is no single row that says
+  // "keep this thing running". The whole matrix is the answer to that.
+  "support-the-map": {
+    action: "support the map",
+    headline: "Support ReelCaster",
+    unlocksAt: "pro",
+    pricingFeature: "support-the-map",
+  },
+  // Fired by the "remove ads" link under an ad unit, so the reader arrives
+  // having just looked at the thing they want gone. Not spot-scoped: ads are a
+  // property of the page, not of whichever card the unit landed next to.
+  "remove-ads": {
+    action: "remove the ads",
+    headline: "Remove the ads",
+    unlocksAt: "pro",
+    rowId: "ad-free",
+    pricingFeature: "remove-ads",
+  },
   // Deliberately NOT spot-scoped: the pitch is the whole reporting stream
   // across every spot, not this one spot's numbers. "for Oak Bay Flats" would
   // undersell it to the size of whatever card they happened to click.
@@ -280,9 +344,16 @@ export function nagHeadline(
  * The reassurance line under the headline. Same for every wall now — the
  * modal sells the trial regardless of which one was hit, and the free tier is
  * offered by the link at its foot.
+ *
+ * One price, and the per-month division done for the reader. $33 is small
+ * enough that the monthly framing is what makes it land ("less than a coffee")
+ * while the yearly number is what they're actually agreeing to, so both appear
+ * and the yearly one is the one attached to the verb "billed".
  */
 export function nagSubhead(): string {
-  return `Free for ${TRIAL_DAYS} days, then $${MONTHLY_PRICE_CENTS / 100}/month or $${
-    ANNUAL_PRICE_CENTS / 100
-  }/year. Cancel anytime before the trial ends and you pay nothing.`;
+  return `Free for ${TRIAL_DAYS} days, then ${dollars(
+    ANNUAL_PER_MONTH_CENTS,
+  )} a month, billed yearly at ${dollars(
+    ANNUAL_PRICE_CENTS,
+  )}. Cancel anytime before the trial ends and you pay nothing.`;
 }

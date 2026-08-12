@@ -1,6 +1,7 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { Fragment, useMemo, useState } from "react";
+import AdSlot from "@/app/components/ads/ad-slot";
 import {
   type CityNode,
   type ProvinceNode,
@@ -190,14 +191,22 @@ export default function LeftRail({
           <div className="flex-1 min-h-0 overflow-y-auto">
             <div className="px-3 pt-3 pb-3">
               <div className="space-y-3">
-                {sortedSpots.map((spot) => (
-                  <SpotCard
-                    key={spot.id}
-                    spot={spot}
-                    tz={tz}
-                    onSelect={() => onSelectSpot(spot.slug)}
-                    fresh={freshCatches?.spots[spot.id]}
-                  />
+                {sortedSpots.map((spot, i) => (
+                  <Fragment key={spot.id}>
+                    <SpotCard
+                      spot={spot}
+                      tz={tz}
+                      onSelect={() => onSelectSpot(spot.slug)}
+                      fresh={freshCatches?.spots[spot.id]}
+                    />
+                    {/* Card-shaped unit in the flow of the list, never over the
+                        map. Sits after the third spot so the top of the rail is
+                        the ranking itself; a short list gets it at the foot
+                        instead of not at all. */}
+                    {i === Math.min(2, sortedSpots.length - 1) && (
+                      <AdSlot placement="exploreList" only="desktop" />
+                    )}
+                  </Fragment>
                 ))}
               </div>
 

@@ -272,7 +272,7 @@ export const ARTICLES: Article[] = [
     topic: 'Account & billing',
     tags: ['stripe', 'portal', 'cancel', 'refund', 'invoice', 'receipt'],
     answer:
-      'Everything billing-related lives in the Stripe customer portal. Open it from the Billing section of The Port or from your profile. You can swap between monthly and annual, update your card, download invoices, and cancel. Cancelling keeps your Pro access until the end of the period you already paid for; nothing is clawed back.',
+      'Everything billing-related lives in the Stripe customer portal. Open it from the Billing section of The Port or from your profile. You can update your card, download invoices, and cancel. Cancelling keeps your Pro access until the end of the period you already paid for; nothing is clawed back.',
   },
   {
     id: 'trial',
@@ -475,6 +475,13 @@ export interface ChangelogEntry {
 
 /** Newest first. */
 export const CHANGELOG: ChangelogEntry[] = [
+  {
+    date: '2026-08-09',
+    tag: 'Improved',
+    title: 'One price, and Apple Pay at the paywall',
+    detail:
+      'Pro is now a single plan — $33 a year, which is $2.75 a month — instead of a monthly/yearly choice. You can also start a trial with Apple Pay or Google Pay without leaving the page. Anyone already billing monthly stays on their existing plan and price.',
+  },
   {
     date: '2026-07-30',
     tag: 'New',

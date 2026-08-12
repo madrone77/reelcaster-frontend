@@ -2,11 +2,7 @@
 
 import type { LiveRegulation, RegStatus } from "@/lib/bluecaster/live-spot-types";
 import { regulatorFor } from "@/lib/regions";
-
-const MONTHS = [
-  "Jan", "Feb", "Mar", "Apr", "May", "Jun",
-  "Jul", "Aug", "Sep", "Oct", "Nov", "Dec",
-];
+import { fmtMD, sizeText } from "../../lib/reg-limits";
 
 const STATUS_LABEL: Record<RegStatus, string> = {
   Open: "Retention open",
@@ -27,17 +23,6 @@ const STATUS_TAG: Record<RegStatus, string> = {
   Release: "text-rc-fair-ink",
   Closed: "text-rc-poor-ink",
 };
-
-/** "2026-08-01" | "08-01" → "Aug 1". Null-safe. Year (when present) is a
- *  convention on annual MM-DD windows, so only month/day are shown. */
-function fmtMD(iso: string | null): string | null {
-  if (!iso) return null;
-  const m = /(?:\d{4}-)?(\d{2})-(\d{2})/.exec(iso);
-  if (!m) return null;
-  const mon = MONTHS[Number(m[1]) - 1];
-  if (!mon) return null;
-  return `${mon} ${Number(m[2])}`;
-}
 
 // A limit we have no published figure for. A null limit must never render as a
 // bare "0" — that reads as "zero allowed" (a closure), the opposite of "unknown".
@@ -64,16 +49,6 @@ function annualText(r: LiveRegulation): string {
   if (r.annualLimit != null && r.annualLimit > 0)
     return `${r.annualLimit} per year`;
   return NOT_PUBLISHED;
-}
-
-/** The size/length rule — min, max, or a slot. */
-function sizeText(r: LiveRegulation): string | null {
-  const min = r.sizeLimitCm;
-  const max = r.sizeLimitMaxCm;
-  if (min != null && max != null) return `${min}–${max} cm slot`;
-  if (min != null) return `Minimum ${min} cm`;
-  if (max != null) return `Maximum ${max} cm`;
-  return null;
 }
 
 /**

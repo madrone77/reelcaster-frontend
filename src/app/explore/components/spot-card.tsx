@@ -5,11 +5,11 @@ import dynamic from "next/dynamic";
 import { useState } from "react";
 import { Wind, Waves, Navigation, Lock, Globe } from "lucide-react";
 import { TIER_PILL, tierFor, type RailSpot } from "../lib/explore-data";
-import { useFavorite, favoriteCount } from "../lib/use-favorite";
+import { useFavorite } from "../lib/use-favorite";
 import { useSubscription } from "@/hooks/use-subscription";
-import { FREE_FAVORITE_SPOTS } from "@/lib/plan-features";
 import { bestWindow } from "./hourly-bars";
 import SpotTrend from "./spot-trend";
+import SpotDayStrip, { SpotDayStripSkeleton, type SpotDay } from "./spot-day-strip";
 import { FreshCatchBadge } from "./fresh-catch-reports";
 import type { RailFreshCatch } from "../lib/fresh-catch-types";
 
@@ -21,9 +21,10 @@ const ProTrialModal = dynamic(
 
 /**
  * Rail spot card. No hover-only actions: header + score badge, a plain-English
- * conclusion line, a WIND/SEA/TIDE meta row, the 24h sparkline, and a
- * persistent footer (VIEW 14-DAY link + favorite star). The whole body above
- * the footer opens the location report; the footer controls act on their own.
+ * conclusion line, a WIND/SEA/TIDE meta row, the 24h sparkline, an optional
+ * 14-day strip, and a persistent footer (VIEW 14-DAY link + favorite star).
+ * The whole body above the footer opens the location report; the strip and the
+ * footer controls act on their own.
  */
 export default function SpotCard({
   spot,
@@ -32,6 +33,9 @@ export default function SpotCard({
   homeBadge = false,
   onFavoriteChange,
   fresh,
+  showDayStrip = false,
+  days14,
+  dayStripDensity = "labelled",
 }: {
   spot: RailSpot;
   /** Accepted for call-site compatibility; the compact trend needs no tz. */
@@ -48,13 +52,25 @@ export default function SpotCard({
    *  add the card without a reload. */
   onFavoriteChange?: (fav: boolean) => void;
   /** Scraped catch reports for this spot, if any land in the window. Already
-   *  Pro-gated by the route: a free viewer's entry is `{ locked: true }`. */
+   *  Pro-gated by the route: a free viewer's entry is `{ locked: true }`.
+   *  Optional — a card with `spot.hasReports` shows the locked badge without it. */
   fresh?: RailFreshCatch;
+  /** Give the card a 14-day strip along its bottom edge. Off by default, so
+   *  every surface that renders this card today is untouched. */
+  showDayStrip?: boolean;
+  /** This spot's next 14 days. `undefined` while the bulk read is in flight —
+   *  the strip holds its space with a skeleton so the card doesn't jump when
+   *  the read lands; `null` when the spot has no outlook, which drops the row.
+   *  Already plan-gated by the route: locked days arrive scoreless. */
+  days14?: SpotDay[] | null;
+  /** `labelled` needs roughly 560px of card. Narrow rails pass `compact`. */
+  dayStripDensity?: "labelled" | "compact";
 }) {
   const [fav, toggleFav] = useFavorite(spot.slug);
   const { isPaid } = useSubscription();
   const [upgradeOpen, setUpgradeOpen] = useState(false);
   const [reportsUpgradeOpen, setReportsUpgradeOpen] = useState(false);
+  const [forecastUpgradeOpen, setForecastUpgradeOpen] = useState(false);
   // Drives the one-shot "pop" animation when a spot is favorited (not on load).
   const [popping, setPopping] = useState(false);
 
@@ -70,20 +86,42 @@ export default function SpotCard({
 
   const reportHref = `/explore/spot/${spot.slug}`;
 
-  const onStar = (e: React.MouseEvent) => {
+  // The badge has two sources and they arrive at different times. `spot.hasReports`
+  // rides in on the map payload, which is server-rendered, so the locked badge is
+  // in the first paint. `fresh` comes from the Pro-gated intel fetch, which cannot
+  // start until after hydration — when it lands it replaces the lock with the
+  // count. Before this the badge had only the second source and appeared about a
+  // second late, after the card had already settled.
+  const reports: RailFreshCatch | undefined =
+    fresh ?? (spot.hasReports ? { locked: true } : undefined);
+
+  // Which plan a locked day is selling. A signed-out visitor's strip stops at
+  // day 2, so the first lock is inside the week a free account already gets —
+  // pitch the account. A free account's strip stops at day 7, so its locks are
+  // Pro days. Mirrors the forecast strip's lockTier split.
+  const firstLockedDay = days14?.findIndex((d) => d.locked) ?? -1;
+  const forecastNag =
+    firstLockedDay >= 0 && firstLockedDay < 7 ? "forecast-week" : "forecast-14d";
+
+  const onStar = async (e: React.MouseEvent) => {
     e.stopPropagation();
-    // Turning a favorite ON while at the free cap → upgrade modal (never a silent no-op).
-    if (!fav && !isPaid && favoriteCount() >= FREE_FAVORITE_SPOTS) {
+    // Both refusals open the same modal: it sells the trial to a free account
+    // at the cap and offers registration to an anonymous one, off the tier it
+    // detects itself. Never a silent no-op either way.
+    const res = await toggleFav({ isPaid, spotId: spot.id });
+    if (res === "signed-out" || res === "at-cap") {
       setUpgradeOpen(true);
       return;
     }
-    // Pop only when favoriting (the on-transition), not when un-favoriting.
-    if (!fav) {
+    if (res === "error") return;
+    // Pop only when saving (the on-transition), not when un-saving. Fires on
+    // the confirmed write rather than the tap — the star itself already flipped
+    // optimistically, so this stays in step with what actually persisted.
+    if (res === "saved") {
       setPopping(true);
       window.setTimeout(() => setPopping(false), 600);
     }
-    toggleFav();
-    onFavoriteChange?.(!fav);
+    onFavoriteChange?.(res === "saved");
   };
 
   return (
@@ -131,9 +169,9 @@ export default function SpotCard({
                   Home
                 </span>
               )}
-              {fresh && (
+              {reports && (
                 <FreshCatchBadge
-                  fresh={fresh}
+                  fresh={reports}
                   onUnlock={() => setReportsUpgradeOpen(true)}
                 />
               )}
@@ -197,6 +235,20 @@ export default function SpotCard({
         </div>
       </Link>
 
+      {/* 4 · the next 14 days. Outside the body <a> on purpose: a locked day
+          sells the upgrade, and a day cell inside the link would navigate to
+          the spot report instead. */}
+      {showDayStrip &&
+        (days14 === undefined ? (
+          <SpotDayStripSkeleton density={dayStripDensity} />
+        ) : days14 && days14.length > 0 ? (
+          <SpotDayStrip
+            days={days14}
+            density={dayStripDensity}
+            onUnlock={() => setForecastUpgradeOpen(true)}
+          />
+        ) : null)}
+
       {/* 5 · persistent footer (one step below the card surface) */}
       <div className="flex items-stretch border-t border-rc-rule bg-rc-surface">
         <Link
@@ -243,6 +295,15 @@ export default function SpotCard({
         onOpenChange={setReportsUpgradeOpen}
         feature="catch-reports"
         from="explore-rail-reports"
+      />
+      {/* A locked day in the strip. Named for the spot so the pitch is about
+          the fortnight at a place the angler already cares about. */}
+      <ProTrialModal
+        open={forecastUpgradeOpen}
+        onOpenChange={setForecastUpgradeOpen}
+        feature={forecastNag}
+        from="spot-card-day-strip"
+        spotName={spot.name}
       />
     </div>
   );

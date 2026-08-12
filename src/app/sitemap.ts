@@ -61,6 +61,21 @@ const STATIC_ENTRIES: Omit<SitemapEntry, "lastModified">[] = [
   { url: siteUrl("/plans"), changeFrequency: "monthly", priority: 0.6 },
   { url: siteUrl("/about"), changeFrequency: "monthly", priority: 0.5 },
   { url: siteUrl("/faq"), changeFrequency: "monthly", priority: 0.5 },
+  // Licence guide. Static content whose figures are hand-verified against DFO
+  // and gov.bc.ca, so BUILD_TIME is an honest lastmod: the copy genuinely can
+  // only change on a deploy. Yearly is the real cadence (fees reset April 1),
+  // but monthly leaves room for the mid-year rule changes that do happen —
+  // the 2026 move of freshwater licensing into WILD being the example.
+  {
+    url: siteUrl("/fishing-licence/bc"),
+    changeFrequency: "monthly",
+    priority: 0.7,
+  },
+  {
+    url: siteUrl("/fishing-licence/wa"),
+    changeFrequency: "monthly",
+    priority: 0.7,
+  },
   { url: siteUrl("/contact"), changeFrequency: "monthly", priority: 0.4 },
   { url: siteUrl("/privacy"), changeFrequency: "yearly", priority: 0.3 },
   { url: siteUrl("/terms"), changeFrequency: "yearly", priority: 0.3 },

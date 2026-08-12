@@ -1,15 +1,20 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ChevronRight, Home, Plus, Pencil } from "lucide-react";
 import { useAuth } from "@/contexts/auth-context";
 import {
   fetchMyCustomSpots,
   fetchMapSpotsAsViewer,
+  fetchMapSpotsCached,
   fetchSpotLive,
+  fetchFreshCatches,
+  fetchSpotsOutlook14d,
   type OwnedCustomSpot,
+  type SpotsOutlook14dPayload,
 } from "@/lib/bluecaster-client";
+import type { FreshCatchesResponse } from "@/app/explore/lib/fresh-catch-types";
 import {
   TIER_PILL,
   tierFor,
@@ -17,20 +22,26 @@ import {
   type RailSpot,
 } from "@/app/explore/lib/explore-data";
 import SpotCard from "@/app/explore/components/spot-card";
+import { spotDaysFrom } from "@/app/explore/components/spot-day-strip";
 import ExploreTopBar from "@/app/explore/components/explore-top-bar";
 import DashboardSavedMap from "./dashboard-saved-map";
 import MarketingFooter from "@/app/components/marketing/marketing-footer";
 import type { MapSpotsPayload } from "@/lib/bluecaster";
-import { readHomeSpot } from "@/app/explore/lib/use-home-spot";
-import { setFavorite } from "@/app/explore/lib/use-favorite";
+import { useHomeSpotSlug } from "@/app/explore/lib/use-home-spot";
+import { useSavedSpots, setFavorite } from "@/app/explore/lib/use-favorite";
 import { storedFirstName, NAME_FALLBACK } from "@/lib/display-name";
 import { supabase } from "@/lib/supabase";
+import { DailyReportCard } from "./daily-report-card";
+import { fetchAlertProfiles } from "@/lib/alerts-client";
 import { PAGE_MEASURE } from "@/app/components/layout/page-measure";
 import type { AlertProfile } from "@/lib/custom-alert-engine";
 import type { SpotPageInitial } from "@/lib/bluecaster/live-spot-types";
 
 // The whole covered extent — favourites can live anywhere in it.
 const COVERED_BBOX_ALL = "-139.06,41.99,-114.03,60";
+
+/** A real spot id, as opposed to the slug `unscoredRailSpot` stands in with. */
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 // ── tier + formatting helpers ───────────────────────────────────────────────
 const TIER = {
@@ -147,16 +158,27 @@ type CatchRow = {
 export default function DashboardPage() {
   const { user, session } = useAuth();
   const [custom, setCustom] = useState<OwnedCustomSpot[] | null>(null);
-  const [favSlugs, setFavSlugs] = useState<string[] | null>(null);
   const [scoreBySlug, setScoreBySlug] = useState<Record<string, Scored>>({});
   // Raw map payload kept so the grid can render the shared Explore card from
   // the same numbers (railSpotFromEntry), not a forked card.
   const [payload, setPayload] = useState<MapSpotsPayload | null>(null);
   // Undo snackbar for an un-starred spot.
   const [undo, setUndo] = useState<{ slug: string; name: string } | null>(null);
-  const [homeSlug, setHomeSlug] = useState<string | null>(null);
+  // Pinned home spot. Hydrates from the saved profile copy, so the hero is
+  // populated on a device that never set the pin itself.
+  const homeSlug = useHomeSpotSlug(true);
   const [homeLive, setHomeLive] = useState<SpotPageInitial | null>(null);
   const [alerts, setAlerts] = useState<AlertProfile[] | null>(null);
+  // Scraped catch reports per spot — the "N reports" badge on the grid cards.
+  // Distinct from `catches` below, which is the angler's OWN catch log.
+  const [spotReports, setSpotReports] = useState<FreshCatchesResponse | null>(
+    null,
+  );
+  // Every card's next 14 days, in one request. undefined = still reading, and
+  // the cards hold the strip's space rather than growing under the cursor.
+  const [outlook, setOutlook] = useState<SpotsOutlook14dPayload | null | undefined>(
+    undefined,
+  );
   const [catches, setCatches] = useState<CatchRow[] | null>(null);
   const [catchTotal, setCatchTotal] = useState<number | null>(null);
   // Server fallback name (Stripe name → "Angler") when no first_name is stored.
@@ -193,7 +215,12 @@ export default function DashboardPage() {
     return () => {
       cancelled = true;
     };
-  }, [user, session]);
+    // Keyed on the IDENTIFIERS, not the objects: AuthProvider re-emits a fresh
+    // user/session on every auth event (INITIAL_SESSION, TOKEN_REFRESHED, …),
+    // so an object dep re-runs this on each one — the dashboard was firing
+    // every one of its reads two and three times per load.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.id, session?.access_token]);
 
   // Auto-dismiss the un-star undo snackbar.
   useEffect(() => {
@@ -212,69 +239,108 @@ export default function DashboardPage() {
     return () => {
       cancelled = true;
     };
-  }, [user]);
+    // Keyed on the IDENTIFIERS, not the objects: AuthProvider re-emits a fresh
+    // user/session on every auth event (INITIAL_SESSION, TOKEN_REFRESHED, …),
+    // so an object dep re-runs this on each one — the dashboard was firing
+    // every one of its reads two and three times per load.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.id]);
 
-  // Favourites (localStorage rc-fav:<slug>).
-  useEffect(() => {
-    try {
-      const out: string[] = [];
-      for (let i = 0; i < localStorage.length; i++) {
-        const k = localStorage.key(i);
-        if (k?.startsWith("rc-fav:") && localStorage.getItem(k) === "1") {
-          out.push(k.slice("rc-fav:".length));
-        }
-      }
-      setFavSlugs(out);
-    } catch {
-      setFavSlugs([]);
-    }
-  }, []);
+  // Saved spots, from the account rather than this browser. `null` until the
+  // first read resolves — several things below distinguish "no saved spots"
+  // from "don't know yet", and rendering the empty state during the load would
+  // tell a user with a full list that they have none.
+  //
+  // Memoized on the joined slugs because `useSavedSpots` hands back a fresh
+  // array each render: passed straight into the dependency arrays below, the
+  // coordinate fetch would re-fire on every render forever.
+  const {
+    slugs: savedSlugs,
+    coords: savedCoords,
+    ready: savedReady,
+  } = useSavedSpots();
+  const savedKey = savedSlugs.join(",");
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const favSlugs = useMemo(() => (savedReady ? savedSlugs : null), [savedReady, savedKey]);
+
+  // Coordinates for those favourites — the map's first paint — now ride along
+  // with the saved list itself (/api/saved-spots resolves them server-side).
+  // They used to be a second client round trip that could not begin until the
+  // list came back, which put the map two serial hops deep on a first visit.
+  const coords = savedReady ? savedCoords : null;
 
   // Today's best score per spot across the covered extent.
-  useEffect(() => {
-    if (!user) return;
-    let cancelled = false;
-    fetchMapSpotsAsViewer(COVERED_BBOX_ALL, todayVancouver())
-      .then((payload) => {
-        if (cancelled || !payload?.spots) return;
-        setPayload(payload);
-        const species = payload.species ?? {};
-        const map: Record<string, Scored> = {};
-        for (const s of payload.spots) {
-          let best = 0;
-          let bestId: string | null = null;
-          for (const [id, strip] of Object.entries(s.scores ?? {})) {
-            const peak = (strip as { peak?: number })?.peak;
-            if (typeof peak === "number" && peak > best) {
-              best = peak;
-              bestId = id;
-            }
-          }
-          if (best > 0) {
-            map[s.slug] = {
-              score: Math.round(best * 100),
-              species: (bestId && species[bestId]?.name) || null,
-            };
-          }
+  // The personalized payload wins once it lands; the cached one must never
+  // overwrite it afterwards (it lacks this angler's own custom spots).
+  const viewerPayloadLanded = useRef(false);
+  const applyPayload = useCallback((p: MapSpotsPayload, fromViewer: boolean) => {
+    if (!p?.spots) return;
+    if (viewerPayloadLanded.current && !fromViewer) return;
+    if (fromViewer) viewerPayloadLanded.current = true;
+    setPayload(p);
+    const species = p.species ?? {};
+    const map: Record<string, Scored> = {};
+    for (const s of p.spots) {
+      let best = 0;
+      let bestId: string | null = null;
+      for (const [id, strip] of Object.entries(s.scores ?? {})) {
+        const peak = (strip as { peak?: number })?.peak;
+        if (typeof peak === "number" && peak > best) {
+          best = peak;
+          bestId = id;
         }
-        setScoreBySlug(map);
+      }
+      if (best > 0) {
+        map[s.slug] = {
+          score: Math.round(best * 100),
+          species: (bestId && species[bestId]?.name) || null,
+        };
+      }
+    }
+    setScoreBySlug(map);
+  }, []);
+
+  // Coordinates and scores for every PUBLISHED spot, from the anonymous read.
+  // Same payload, same engine — but it is CDN-cacheable, so it returns in
+  // ~140ms against the personalized read's ~3s (which is `private, no-store`
+  // and BYPASSes the edge on every single load). Favourites are published
+  // spots, so this alone is enough to put the map and the cards on screen.
+  // Fires without waiting on auth, since it needs no identity.
+  useEffect(() => {
+    let cancelled = false;
+    fetchMapSpotsCached(COVERED_BBOX_ALL, todayVancouver())
+      .then((p) => {
+        if (!cancelled && p) applyPayload(p, false);
       })
       .catch(() => {});
     return () => {
       cancelled = true;
     };
-  }, [user]);
+  }, [applyPayload]);
 
-  // Pinned home spot (localStorage).
+  // The personalized read then upgrades it — but ONLY if there is something to
+  // upgrade. Its entire delta over the cached read is this angler's own custom
+  // spots and their 24-hour strips, so for an angler with none it is a 3-second
+  // uncached re-fetch (`private, no-store`, BYPASS on every load) of a payload
+  // we already have from the edge in ~140ms. Wait for `custom` to resolve, then
+  // skip it unless it came back non-empty.
   useEffect(() => {
-    const sync = () => setHomeSlug(readHomeSpot());
-    sync();
-    const onStorage = (e: StorageEvent) => {
-      if (e.key === "rc-home-spot" || e.key === null) sync();
+    if (!user || !custom || custom.length === 0) return;
+    let cancelled = false;
+    fetchMapSpotsAsViewer(COVERED_BBOX_ALL, todayVancouver())
+      .then((p) => {
+        if (!cancelled && p) applyPayload(p, true);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
     };
-    window.addEventListener("storage", onStorage);
-    return () => window.removeEventListener("storage", onStorage);
-  }, []);
+    // Keyed on the IDENTIFIERS, not the objects: AuthProvider re-emits a fresh
+    // user/session on every auth event (INITIAL_SESSION, TOKEN_REFRESHED, …),
+    // so an object dep re-runs this on each one — the dashboard was firing
+    // every one of its reads two and three times per load.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.id, custom?.length, applyPayload]);
 
   // Home-spot live payload — powers the hero conditions, sparkline, and the
   // regulations rail (the spot's own DFO regs). Degrades to null.
@@ -297,14 +363,40 @@ export default function DashboardPage() {
     const token = session?.access_token;
     if (!token) return;
     let cancelled = false;
-    fetch("/api/alerts", { headers: { Authorization: `Bearer ${token}` } })
-      .then((r) => (r.ok ? r.json() : null))
-      .then((data) => !cancelled && setAlerts(data?.profiles ?? []))
+    // Shared with the top bar's badge count, which asks for the same list on
+    // the same paint — see lib/alerts-client.
+    fetchAlertProfiles(token)
+      .then((profiles) => !cancelled && setAlerts(profiles))
       .catch(() => !cancelled && setAlerts([]));
     return () => {
       cancelled = true;
     };
-  }, [session]);
+    // Keyed on the IDENTIFIERS, not the objects: AuthProvider re-emits a fresh
+    // user/session on every auth event (INITIAL_SESSION, TOKEN_REFRESHED, …),
+    // so an object dep re-runs this on each one — the dashboard was firing
+    // every one of its reads two and three times per load.
+  }, [session?.access_token]);
+
+  // Scraped catch reports, keyed by spot id — the same payload Explore's rail
+  // joins on, so a saved spot wears the same "N reports" badge here as it does
+  // there. Date-independent, so one fetch covers the whole grid. Keyed on the
+  // session, not just `user`: the Pro gate lives in the route and reads the
+  // access token, so a pass fired before Supabase rehydrates would leave a Pro
+  // angler holding the locked payload. Degrades to null — the badge is
+  // additive, and a card without it is still the card.
+  useEffect(() => {
+    let cancelled = false;
+    fetchFreshCatches()
+      .then((p) => {
+        if (!cancelled && p) setSpotReports(p);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+    // Token, not the session object — AuthProvider re-emits a fresh session on
+    // every auth event, and an object dep fired this twice per load.
+  }, [session?.access_token]);
 
   // Fresh catches — the angler's own catch log, last 14 days.
   useEffect(() => {
@@ -336,7 +428,11 @@ export default function DashboardPage() {
     return () => {
       cancelled = true;
     };
-  }, [session]);
+    // Keyed on the IDENTIFIERS, not the objects: AuthProvider re-emits a fresh
+    // user/session on every auth event (INITIAL_SESSION, TOKEN_REFRESHED, …),
+    // so an object dep re-runs this on each one — the dashboard was firing
+    // every one of its reads two and three times per load.
+  }, [session?.access_token]);
 
   // The spots shown in the grid — custom (private) + favourites, deduped,
   // scored, tagged, ranked by score. Home spot floats via its tag, not order.
@@ -363,8 +459,27 @@ export default function DashboardPage() {
         tag: slug === homeSlug ? "home" : null,
       });
     }
+    // A home spot is PINNED, not saved — onboarding asks anglers to pin their
+    // water without also favouriting it, and "your dashboard opens on it" has
+    // to hold for them too. Without this the hero silently falls back to the
+    // "pin a home spot" prompt for someone who just pinned one. Name and score
+    // come off the live payload the hero already fetches.
+    if (homeSlug && !bySlug.has(homeSlug)) {
+      const best = homeLive?.topScoreTodayBySpecies ?? {};
+      const topId = Object.keys(best).sort((a, b) => best[b] - best[a])[0];
+      bySlug.set(homeSlug, {
+        slug: homeSlug,
+        name: homeLive?.spot.name ?? prettify(homeSlug),
+        score: scoreBySlug[homeSlug]?.score ?? (topId ? best[topId] : null),
+        species:
+          scoreBySlug[homeSlug]?.species ??
+          homeLive?.species.find((s) => s.id === topId)?.name ??
+          null,
+        tag: "home",
+      });
+    }
     return [...bySlug.values()].sort((a, b) => (b.score ?? -1) - (a.score ?? -1));
-  }, [custom, favSlugs, scoreBySlug, homeSlug]);
+  }, [custom, favSlugs, scoreBySlug, homeSlug, homeLive]);
 
   // The same spots as RailSpots, so the grid renders the shared Explore card
   // (24h bars + WIND/SEA/CURRENT + star) instead of a forked card. Built from
@@ -391,18 +506,80 @@ export default function DashboardPage() {
         name: c.name,
         isCustom: true,
         visibility: c.visibility,
+        // The owner-scoped list already carries the coordinates, so a custom
+        // spot plots immediately instead of sitting at 0,0 (and being dropped
+        // as unplottable) until a map payload happens to include it.
+        lat: c.lat,
+        lng: c.lng,
       });
     }
     for (const slug of favSlugs) {
       if (bySlug.has(slug)) continue;
-      bySlug.set(slug, railBySlug.get(slug) ?? unscoredRailSpot(slug, prettify(slug)));
+      // Before the map payload lands, the coords read is what makes a
+      // favourite plottable — and it carries the real name, so the card does
+      // not have to flash a slug-derived guess first.
+      const c = coords?.[slug];
+      bySlug.set(
+        slug,
+        railBySlug.get(slug) ??
+          unscoredRailSpot(
+            slug,
+            c?.name ?? prettify(slug),
+            c ? { id: c.id, lat: c.lat, lng: c.lng } : {},
+          ),
+      );
     }
     return [...bySlug.values()].sort((a, b) => (b.score ?? -1) - (a.score ?? -1));
-  }, [custom, favSlugs, payload]);
+  }, [custom, favSlugs, payload, coords]);
+
+  // The 14-day strip under every card, in one bulk read keyed on the spot ids
+  // actually on screen — not a spot-page fetch per card. A card whose id has
+  // not resolved yet is skipped: `unscoredRailSpot` falls back to the slug for
+  // an id, and a slug is not something the outlook endpoint can key on.
+  //
+  // Keyed on the access token for the same reason the reports read is: the
+  // plan gate lives in the route and reads the token, so a pass fired before
+  // Supabase rehydrates would cap a Pro angler's strip at seven days.
+  const outlookIdsKey = useMemo(
+    () =>
+      (railSpots ?? [])
+        .map((s) => s.id)
+        .filter((id) => UUID_RE.test(id))
+        .sort()
+        .join(","),
+    [railSpots],
+  );
+  useEffect(() => {
+    if (!outlookIdsKey) {
+      // Either the spot set is still resolving (hold the skeletons) or there
+      // is genuinely nothing to draw (drop the row).
+      setOutlook(railSpots === null ? undefined : null);
+      return;
+    }
+    let cancelled = false;
+    setOutlook(undefined);
+    fetchSpotsOutlook14d({ spotIds: outlookIdsKey.split(",") })
+      .then((p) => {
+        if (!cancelled) setOutlook(p);
+      })
+      .catch(() => {
+        if (!cancelled) setOutlook(null);
+      });
+    return () => {
+      cancelled = true;
+    };
+    // railSpots only decides the empty-vs-loading branch above; the request
+    // itself is keyed on the id list, so a re-sorted grid doesn't refetch.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [outlookIdsKey, railSpots === null, session?.access_token]);
 
   // ── derived ────────────────────────────────────────────────────────────────
-  const activeAlertCount = (alerts ?? []).filter((a) => a.is_active).length;
-  const trackedCount = spotCards?.length ?? 0;
+  const activeAlertCount = alerts ? alerts.filter((a) => a.is_active).length : null;
+  // null, not 0, while the saved set is still resolving. The shell is
+  // server-rendered now, so whatever this says is on screen for real: "0 spots
+  // tracked" to an angler with twelve of them is not a placeholder, it is a
+  // wrong answer that happens to get corrected later.
+  const trackedCount = spotCards?.length ?? null;
 
   // Never derive a name from the email; fall back to the Stripe / "Angler" name.
   const greetName = localName ?? storedFirstName(user) ?? serverName ?? NAME_FALLBACK;
@@ -422,7 +599,7 @@ export default function DashboardPage() {
   const scored = (spotCards ?? []).filter(
     (s): s is GridSpot & { score: number } => typeof s.score === "number"
   );
-  const spotsHot = scored.filter((s) => s.score >= 80).length;
+  const spotsHot = spotCards === null ? null : scored.filter((s) => s.score >= 80).length;
   const topScore = scored.length ? Math.max(...scored.map((s) => s.score)) : null;
   const avgScore = scored.length
     ? Math.round(scored.reduce((a, s) => a + s.score, 0) / scored.length)
@@ -458,7 +635,9 @@ export default function DashboardPage() {
 
   return (
     <div className="min-h-dvh bg-rc-panel pt-16">
-      <ExploreTopBar variant="brand" />
+      {/* `variant="brand"` is the default — passing it here implied the other
+          surfaces were getting something else. */}
+      <ExploreTopBar />
       {/* Was max-w-[1400px] px-5 lg:px-10 — the only body on the site wider
           than the app gridline, which left the top bar visibly inset from the
           content it sits above. Tightened onto the gridline so the mark, the
@@ -522,8 +701,8 @@ export default function DashboardPage() {
               )}
             </h1>
             <p className="mt-1.5 font-rc-mono text-[12px] text-rc-ink-mute">
-              {longDate()} · {trackedCount} spot{trackedCount === 1 ? "" : "s"}{" "}
-              tracked · {activeAlertCount} alert
+              {longDate()} · {trackedCount ?? "—"} spot
+              {trackedCount === 1 ? "" : "s"} tracked · {activeAlertCount ?? "—"} alert
               {activeAlertCount === 1 ? "" : "s"} armed
             </p>
           </div>
@@ -635,7 +814,13 @@ export default function DashboardPage() {
 
             {/* Saved-spots summary map — sits right under the hero. */}
             <div className="mt-6">
-              <DashboardSavedMap spots={railSpots ?? []} />
+              <DashboardSavedMap
+                spots={railSpots ?? []}
+                // Coordinates, not scores: once the coords read lands every
+                // favourite is placeable (custom spots carry their own), so the
+                // map no longer has to wait on the bulk payload.
+                resolving={railSpots === null || coords === null}
+              />
             </div>
 
             {/* Your spots */}
@@ -655,30 +840,40 @@ export default function DashboardPage() {
               </Link>
             </div>
 
+            {/* One column, not two. Each card now carries its own 14-day
+                strip, and 14 labelled day cells need the full measure — at
+                half-width they compress to ~24px and stop being readable. */}
             {spotsLoading ? (
-              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                {[0, 1, 2, 3, 4, 5].map((i) => (
+              <div className="grid grid-cols-1 gap-4">
+                {[0, 1, 2, 3].map((i) => (
                   <div
                     key={i}
-                    className="h-40 animate-pulse rounded border border-rc-rule bg-rc-surface"
+                    className="h-52 animate-pulse rounded border border-rc-rule bg-rc-surface"
                   />
                 ))}
               </div>
             ) : railSpots && railSpots.length > 0 ? (
-              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <div className="grid grid-cols-1 gap-4">
                 {railSpots.map((rs) => (
                   <SpotCard
                     key={rs.slug}
                     spot={rs}
                     showVisibility
                     homeBadge={rs.slug === homeSlug}
+                    fresh={spotReports?.spots[rs.id]}
+                    showDayStrip
+                    days14={
+                      outlook === undefined
+                        ? undefined
+                        : spotDaysFrom(outlook, rs.id)
+                    }
                     onFavoriteChange={(fav) => {
                       // Un-starring a saved (non-custom) spot drops it from the
                       // grid immediately, with an undo. Custom spots persist.
+                      // The card already wrote the removal through the
+                      // store, so the grid drops it on its own; this only
+                      // offers the way back.
                       if (!fav && !rs.isCustom) {
-                        setFavSlugs((prev) =>
-                          (prev ?? []).filter((s) => s !== rs.slug),
-                        );
                         setUndo({ slug: rs.slug, name: rs.name });
                       }
                     }}
@@ -706,13 +901,22 @@ export default function DashboardPage() {
               rule, a mono status pill top-right, and a plain-English
               conclusion line — no colored top-borders or filled boxes. */}
           <div className="space-y-4">
+            {/* Daily report for the home spot's city — leads the rail
+                because it's the one thing here that changes every day and
+                that nobody else has. Pro only; renders nothing for free. */}
+            <DailyReportCard />
+
             {/* Alerts */}
             <RailCard
               title="Alerts"
               pill={
                 <Link href="/alerts">
-                  <Pill className={activeAlertCount > 0 ? TIER_PILL.good : TIER_PILL.none}>
-                    {activeAlertCount} ARMED
+                  <Pill
+                    className={
+                      (activeAlertCount ?? 0) > 0 ? TIER_PILL.good : TIER_PILL.none
+                    }
+                  >
+                    {activeAlertCount ?? "—"} ARMED
                   </Pill>
                 </Link>
               }
@@ -859,11 +1063,7 @@ export default function DashboardPage() {
               type="button"
               onClick={() => {
                 if (!undo) return;
-                const slug = undo.slug;
-                setFavorite(slug, true);
-                setFavSlugs((prev) =>
-                  (prev ?? []).includes(slug) ? (prev ?? []) : [...(prev ?? []), slug],
-                );
+                void setFavorite(undo.slug);
                 setUndo(null);
               }}
               className="font-rc-mono text-[12px] font-bold uppercase tracking-wide text-rc-brand-soft hover:text-white"

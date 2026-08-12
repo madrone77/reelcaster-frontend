@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useAuth } from "@/contexts/auth-context";
 import type { SpotPageInitial } from "@/lib/bluecaster/live-spot-types";
+import { stripPaidIntel } from "./strip-paid-intel";
 import SpotDetailShell from "./spot-detail-shell";
 import { timezoneFor } from "@/lib/regions";
 
@@ -67,7 +68,7 @@ export default function OwnerSpotFallback({ slug }: { slug: string }) {
     const tz = timezoneFor(page.spot.region);
     return (
       <SpotDetailShell
-        page={page}
+        page={stripPaidIntel(page)}
         slug={slug}
         cityLink={null}
         tz={tz}

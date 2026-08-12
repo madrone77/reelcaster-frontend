@@ -1,8 +1,10 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import AdSlot from "@/app/components/ads/ad-slot";
 import type { RailSpot } from "../lib/explore-data";
 import type { ForecastStripModel, ForecastDay } from "../lib/forecast-strip";
+import type { FreshCatchesResponse } from "../lib/fresh-catch-types";
 import SpotCard from "./spot-card";
 import SortControl, { type SortKey, sortSpots } from "./sort-control";
 import SheetForecast from "./sheet-forecast";
@@ -31,6 +33,7 @@ export default function MobileMapSheet({
   onScrubHour,
   onSelectDay,
   signedIn,
+  freshCatches,
 }: {
   spots: RailSpot[];
   tz: string;
@@ -43,6 +46,10 @@ export default function MobileMapSheet({
   onScrubHour: (h: number) => void;
   onSelectDay: (day: ForecastDay) => void;
   signedIn: boolean;
+  /** Scraped catch reports keyed by spot id — the same payload the desktop
+   *  rail joins on, so a spot wears the same badge on both surfaces. Already
+   *  Pro-gated by the route: a free viewer's entries carry `locked: true`. */
+  freshCatches?: FreshCatchesResponse | null;
 }) {
   const [view, setView] = useState<SheetView>("spots");
   const [sort, setSort] = useState<SortKey>("score");
@@ -220,13 +227,20 @@ export default function MobileMapSheet({
         ) : (
           <div className="px-4 pb-4">
             <div className="mx-auto max-w-[392px] space-y-3 pt-1">
-              {sorted.map((spot) => (
-                <SpotCard
-                  key={spot.id}
-                  spot={spot}
-                  tz={tz}
-                  onSelect={() => onSelectSpot(spot.slug)}
-                />
+              {sorted.map((spot, i) => (
+                <Fragment key={spot.id}>
+                  <SpotCard
+                    spot={spot}
+                    tz={tz}
+                    onSelect={() => onSelectSpot(spot.slug)}
+                    fresh={freshCatches?.spots[spot.id]}
+                  />
+                  {/* Same position as the desktop rail — after the third spot,
+                      or at the foot of a shorter list. */}
+                  {i === Math.min(2, sorted.length - 1) && (
+                    <AdSlot placement="exploreList" only="mobile" />
+                  )}
+                </Fragment>
               ))}
 
               {spots.length === 0 && (

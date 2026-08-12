@@ -65,8 +65,9 @@ export const ORGANIZATION_JSONLD = {
   logo: `${SITE_URL}/reelcaster-logo.svg`,
   email: SUPPORT_EMAIL,
   areaServed: [
+    // Only regions with published cities — see COVERED_PROVINCES. Claiming a
+    // service area we can't forecast is a promise made to Google.
     { "@type": "AdministrativeArea", name: "British Columbia" },
     { "@type": "AdministrativeArea", name: "Washington" },
-    { "@type": "AdministrativeArea", name: "Oregon" },
   ],
 };

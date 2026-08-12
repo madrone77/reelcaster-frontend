@@ -11,6 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { useAuth } from '@/contexts/auth-context'
 import { UserPreferences, UserPreferencesService } from '@/lib/user-preferences'
 import ExploreTopBar from '@/app/explore/components/explore-top-bar'
+import { PAGE_MEASURE, READING_MEASURE } from '@/app/components/layout/page-measure'
 import NotificationPreferencesForm from '@/app/components/notifications/notification-preferences-form'
 import { FISHING_LOCATIONS } from '@/app/config/locations'
 import { SPECIES_OPTIONS } from '@/app/config/species'
@@ -105,150 +106,152 @@ export default function PreferencesSettingsPage() {
     <div className="min-h-dvh bg-rc-page">
       <ExploreTopBar />
       <main className="pt-16">
-        <div className="max-w-3xl mx-auto px-4 sm:px-6 py-8">
-          <div className="mb-6">
-            <div className="rc-label text-[10px] text-rc-brand">Settings</div>
-            <h1 className="text-2xl font-bold text-rc-ink mt-1">Preferences</h1>
-            <p className="text-sm text-rc-ink-soft mt-1.5">
-              Your default location and how ReelCaster reaches you.
-            </p>
-          </div>
-
-          {loading ? (
-            <div className="min-h-[40vh] flex items-center justify-center">
-              <div className="w-10 h-10 border-4 border-rc-brand border-t-transparent rounded-full animate-spin" />
+        <div className={`${PAGE_MEASURE} py-8`}>
+          <div className={READING_MEASURE}>
+            <div className="mb-6">
+              <div className="rc-label text-[10px] text-rc-brand">Settings</div>
+              <h1 className="text-2xl font-bold text-rc-ink mt-1">Preferences</h1>
+              <p className="text-sm text-rc-ink-soft mt-1.5">
+                Your default location and how ReelCaster reaches you.
+              </p>
             </div>
-          ) : (
-            <div className="space-y-6">
-              {message && (
-                <Alert
-                  className={
-                    message.type === 'success'
-                      ? 'border-rc-good-border bg-rc-good-bg text-rc-good-ink'
-                      : 'border-rc-poor/40 bg-rc-poor-bg text-rc-poor-ink'
-                  }
-                >
-                  {message.text}
-                </Alert>
-              )}
 
-              {/* Favorite location + species */}
-              <Card className="border-rc-rule shadow-none">
-                <CardHeader className="pb-6">
-                  <div className="flex items-center gap-4">
-                    <div className="w-10 h-10 bg-rc-brand-soft rounded-full flex items-center justify-center">
-                      <MapPin className="h-5 w-5 text-rc-brand" />
+            {loading ? (
+              <div className="min-h-[40vh] flex items-center justify-center">
+                <div className="w-10 h-10 border-4 border-rc-brand border-t-transparent rounded-full animate-spin" />
+              </div>
+            ) : (
+              <div className="space-y-6">
+                {message && (
+                  <Alert
+                    className={
+                      message.type === 'success'
+                        ? 'border-rc-good-border bg-rc-good-bg text-rc-good-ink'
+                        : 'border-rc-poor/40 bg-rc-poor-bg text-rc-poor-ink'
+                    }
+                  >
+                    {message.text}
+                  </Alert>
+                )}
+
+                {/* Favorite location + species */}
+                <Card className="border-rc-rule shadow-none">
+                  <CardHeader className="pb-6">
+                    <div className="flex items-center gap-4">
+                      <div className="w-10 h-10 bg-rc-brand-soft rounded-full flex items-center justify-center">
+                        <MapPin className="h-5 w-5 text-rc-brand" />
+                      </div>
+                      <div>
+                        <CardTitle className="text-rc-ink text-xl">Default fishing location</CardTitle>
+                        <CardDescription className="text-rc-ink-mute mt-1">
+                          Where forecasts open to, and your target species
+                        </CardDescription>
+                      </div>
                     </div>
-                    <div>
-                      <CardTitle className="text-rc-ink text-xl">Default fishing location</CardTitle>
-                      <CardDescription className="text-rc-ink-mute mt-1">
-                        Where forecasts open to, and your target species
-                      </CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-6">
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                      <div className="space-y-2">
+                        <Label htmlFor="location" className="text-rc-ink font-medium text-sm">Location</Label>
+                        <Select value={preferences.favoriteLocation} onValueChange={handleLocationChange}>
+                          <SelectTrigger className="h-11">
+                            <SelectValue placeholder="Select location" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {fishingLocations.map((location) => (
+                              <SelectItem key={location.id} value={location.name}>
+                                {location.name}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <p className="text-xs text-rc-ink-mute">Choose your preferred fishing region</p>
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label htmlFor="hotspot" className="text-rc-ink font-medium text-sm">Fishing Hotspot</Label>
+                        <Select value={preferences.favoriteHotspot} onValueChange={handleHotspotChange}>
+                          <SelectTrigger className="h-11">
+                            <SelectValue placeholder="Select hotspot" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {availableHotspots.map((hotspot) => (
+                              <SelectItem key={hotspot.name} value={hotspot.name}>
+                                {hotspot.name}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <p className="text-xs text-rc-ink-mute">Specific spot within your chosen location</p>
+                      </div>
                     </div>
-                  </div>
-                </CardHeader>
-                <CardContent className="space-y-6">
-                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+
                     <div className="space-y-2">
-                      <Label htmlFor="location" className="text-rc-ink font-medium text-sm">Location</Label>
-                      <Select value={preferences.favoriteLocation} onValueChange={handleLocationChange}>
-                        <SelectTrigger className="h-11">
-                          <SelectValue placeholder="Select location" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {fishingLocations.map((location) => (
-                            <SelectItem key={location.id} value={location.name}>
-                              {location.name}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                      <p className="text-xs text-rc-ink-mute">Choose your preferred fishing region</p>
+                      <Label htmlFor="species" className="text-rc-ink font-medium text-sm">
+                        Target Species <span className="text-rc-ink-mute font-normal">(Optional)</span>
+                      </Label>
+                      <div className="max-w-md">
+                        <Select
+                          value={preferences.favoriteSpecies || 'none'}
+                          onValueChange={(value) =>
+                            setPreferences((prev) => ({ ...prev, favoriteSpecies: value === 'none' ? undefined : value }))
+                          }
+                        >
+                          <SelectTrigger className="h-11">
+                            <SelectValue placeholder="Select species" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="none">No preference</SelectItem>
+                            {fishSpecies.map((species) => (
+                              <SelectItem key={species.id} value={species.name}>
+                                {species.name}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <p className="text-xs text-rc-ink-mute">Species-specific forecasts and recommendations</p>
                     </div>
 
-                    <div className="space-y-2">
-                      <Label htmlFor="hotspot" className="text-rc-ink font-medium text-sm">Fishing Hotspot</Label>
-                      <Select value={preferences.favoriteHotspot} onValueChange={handleHotspotChange}>
-                        <SelectTrigger className="h-11">
-                          <SelectValue placeholder="Select hotspot" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {availableHotspots.map((hotspot) => (
-                            <SelectItem key={hotspot.name} value={hotspot.name}>
-                              {hotspot.name}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                      <p className="text-xs text-rc-ink-mute">Specific spot within your chosen location</p>
-                    </div>
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="species" className="text-rc-ink font-medium text-sm">
-                      Target Species <span className="text-rc-ink-mute font-normal">(Optional)</span>
-                    </Label>
-                    <div className="max-w-md">
-                      <Select
-                        value={preferences.favoriteSpecies || 'none'}
-                        onValueChange={(value) =>
-                          setPreferences((prev) => ({ ...prev, favoriteSpecies: value === 'none' ? undefined : value }))
-                        }
+                    <div className="flex justify-end">
+                      <Button
+                        onClick={handleSavePreferences}
+                        disabled={saving}
+                        className="bg-rc-brand hover:bg-rc-brand-hover text-white px-6"
                       >
-                        <SelectTrigger className="h-11">
-                          <SelectValue placeholder="Select species" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="none">No preference</SelectItem>
-                          {fishSpecies.map((species) => (
-                            <SelectItem key={species.id} value={species.name}>
-                              {species.name}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+                        {saving ? (
+                          <>
+                            <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2" />
+                            Saving…
+                          </>
+                        ) : (
+                          <>
+                            <Save className="h-4 w-4 mr-2" />
+                            Save
+                          </>
+                        )}
+                      </Button>
                     </div>
-                    <p className="text-xs text-rc-ink-mute">Species-specific forecasts and recommendations</p>
-                  </div>
+                  </CardContent>
+                </Card>
 
-                  <div className="flex justify-end">
-                    <Button
-                      onClick={handleSavePreferences}
-                      disabled={saving}
-                      className="bg-rc-brand hover:bg-rc-brand-hover text-white px-6"
-                    >
-                      {saving ? (
-                        <>
-                          <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2" />
-                          Saving…
-                        </>
-                      ) : (
-                        <>
-                          <Save className="h-4 w-4 mr-2" />
-                          Save
-                        </>
-                      )}
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
-
-              {/* Notification & alert delivery (notification_preferences table) */}
-              <Card className="border-rc-rule shadow-none">
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-rc-ink text-xl">Notifications</CardTitle>
-                  <CardDescription className="text-rc-ink-mute mt-1">
-                    Scheduled forecast digests and the conditions that trigger them. Real-time
-                    bite alerts and SMS live in{' '}
-                    <a href="/alerts" className="text-rc-brand hover:underline">Alerts</a>.
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <NotificationPreferencesForm />
-                </CardContent>
-              </Card>
-            </div>
-          )}
+                {/* Notification & alert delivery (notification_preferences table) */}
+                <Card className="border-rc-rule shadow-none">
+                  <CardHeader className="pb-2">
+                    <CardTitle className="text-rc-ink text-xl">Notifications</CardTitle>
+                    <CardDescription className="text-rc-ink-mute mt-1">
+                      Scheduled forecast digests and the conditions that trigger them. Real-time
+                      bite alerts and SMS live in{' '}
+                      <a href="/alerts" className="text-rc-brand hover:underline">Alerts</a>.
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <NotificationPreferencesForm />
+                  </CardContent>
+                </Card>
+              </div>
+            )}
+          </div>
         </div>
       </main>
     </div>

@@ -4,13 +4,27 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import { Home, Map, NotebookPen, MoreHorizontal, ChevronRight } from "lucide-react";
+import type { LucideIcon } from "lucide-react";
 
 // Home is the dashboard (the angler's saved/favorite spots) and sits far left.
-const TABS = [
+// Catch log owns the wizard at /log-catch too. It's one destination with a
+// "Log a catch" button on it, so the tab stays lit while you're logging instead
+// of leaving no tab active at all.
+const TABS: {
+  href: string;
+  label: string;
+  Icon: LucideIcon;
+  alsoActiveFor?: string[];
+}[] = [
   { href: "/dashboard", label: "Home", Icon: Home },
   { href: "/explore", label: "Explore", Icon: Map },
-  { href: "/catches", label: "Catch Log", Icon: NotebookPen },
-] as const;
+  {
+    href: "/catches",
+    label: "Catch log",
+    Icon: NotebookPen,
+    alsoActiveFor: ["/log-catch"],
+  },
+];
 
 // The "More" tab opens a sheet with the secondary destinations instead of
 // linking somewhere directly.
@@ -34,7 +48,7 @@ const MORE_LINKS = [
  * Mobile bottom tab bar (Zillow-style, floating) — a rounded pill detached from
  * the screen edges, hovering above the content with a soft shadow, on phones
  * and tablets; hidden on desktop (the rail + top bar own that layout). Four
- * tabs: Home, Explore, Catch Log, and More (which opens a sheet of secondary links).
+ * tabs: Home, Explore, Catch log, and More (which opens a sheet of secondary links).
  * Active tab reads brand; the rest are muted. Renders a matching-height spacer
  * in flow so page content can scroll clear of the floating bar. Shows on every
  * page — marketing, auth, and the coming-soon wall included.
@@ -103,8 +117,9 @@ export default function MobileBottomNav() {
         className="lg:hidden pointer-events-none fixed inset-x-0 bottom-0 z-50 px-4 pb-[calc(0.75rem+env(safe-area-inset-bottom))]"
       >
         <div className="pointer-events-auto mx-auto grid h-16 max-w-md grid-cols-4 rounded-2xl border border-rc-rule bg-rc-panel/95 shadow-[0_6px_24px_rgba(15,23,42,0.18)] backdrop-blur-md">
-          {TABS.map(({ href, label, Icon }) => {
-            const active = isActive(href);
+          {TABS.map(({ href, label, Icon, alsoActiveFor }) => {
+            const active =
+              isActive(href) || !!alsoActiveFor?.some((h) => isActive(h));
             return (
               <Link
                 key={href}

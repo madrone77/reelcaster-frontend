@@ -1,6 +1,7 @@
 "use client";
 
 import ExploreTopBar from "@/app/explore/components/explore-top-bar";
+import { PAGE_MEASURE, READING_MEASURE } from "@/app/components/layout/page-measure";
 import { ToggleGroup, type ToggleOption } from "@/app/components/ui/toggle-group";
 import { useUnitPreferences } from "@/contexts/unit-preferences-context";
 import {
@@ -84,28 +85,30 @@ export default function UnitsSettingsPage() {
     <div className="min-h-dvh bg-rc-page">
       <ExploreTopBar />
       <main className="pt-16">
-        <div className="max-w-3xl mx-auto px-4 sm:px-6 py-8">
-          {/* Header */}
-          <div className="mb-6">
-            <div className="rc-label text-[10px] text-rc-brand">Settings</div>
-            <h1 className="text-2xl font-bold text-rc-ink mt-1">Units</h1>
-            <p className="text-sm text-rc-ink-soft mt-1.5 max-w-prose">
-              How measurements read across the app. Mix freely — metres for tide,
-              feet for depth, knots for wind. Changes apply instantly.
-            </p>
-          </div>
+        <div className={`${PAGE_MEASURE} py-8`}>
+          <div className={READING_MEASURE}>
+            {/* Header */}
+            <div className="mb-6">
+              <div className="rc-label text-[10px] text-rc-brand">Settings</div>
+              <h1 className="text-2xl font-bold text-rc-ink mt-1">Units</h1>
+              <p className="text-sm text-rc-ink-soft mt-1.5 max-w-prose">
+                How measurements read across the app. Mix freely — metres for tide,
+                feet for depth, knots for wind. Changes apply instantly.
+              </p>
+            </div>
 
-          {/* Presets */}
-          <div className="flex flex-wrap items-center gap-2 mb-8">
-            <span className="font-rc-mono text-[10px] uppercase tracking-[0.08em] text-rc-ink-mute mr-1">
-              Quick set
-            </span>
-            <PresetButton label="All metric" active={isMetric} onClick={() => applyPreset(METRIC)} />
-            <PresetButton label="All imperial" active={isImperial} onClick={() => applyPreset(IMPERIAL)} />
-          </div>
+            {/* Presets */}
+            <div className="flex flex-wrap items-center gap-2 mb-8">
+              <span className="font-rc-mono text-[10px] uppercase tracking-[0.08em] text-rc-ink-mute mr-1">
+                Quick set
+              </span>
+              <PresetButton label="All metric" active={isMetric} onClick={() => applyPreset(METRIC)} />
+              <PresetButton label="All imperial" active={isImperial} onClick={() => applyPreset(IMPERIAL)} />
+            </div>
 
-          <Section title="On the water" variables={WATER} selected={selected} setUnit={setUnit} />
-          <Section title="Weather & map" variables={WEATHER} selected={selected} setUnit={setUnit} />
+            <Section title="On the water" variables={WATER} selected={selected} setUnit={setUnit} />
+            <Section title="Weather & map" variables={WEATHER} selected={selected} setUnit={setUnit} />
+          </div>
         </div>
       </main>
     </div>

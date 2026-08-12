@@ -3,8 +3,8 @@ import Link from 'next/link';
 import {
   ANNUAL_PRICE_ID,
   ANNUAL_PRICE_CENTS,
-  MONTHLY_PRICE_CENTS,
-  annualDiscount,
+  ANNUAL_PER_MONTH_CENTS,
+  dollars,
 } from '@/lib/pricing';
 import { TRIAL_DAYS } from '@/lib/trial';
 import { PLAN_FEATURES } from '@/lib/plan-features';
@@ -20,34 +20,29 @@ import {
 /**
  * Product + Offer markup, ported from the retired /pricing page (#c4d8706).
  *
- * Four offers, not two: one product with multi-currency Prices means the same
- * plan is sold in CAD and USD, and Google wants the eligible region stated per
- * currency. Amounts come from the same constants the visible table renders, so
+ * Two offers, not one: a single product with a multi-currency Price is still
+ * sold in CAD and USD, and Google wants the eligible region stated per
+ * currency. Amounts come from the same constants the visible page renders, so
  * the markup can't advertise a price the page doesn't show.
  */
 /**
- * No annual Price in Stripe means the annual plan — and the trial that rides on
- * it — cannot be bought. The page body already falls back to monthly, but the
- * metadata and the Offer markup are module-scope constants and used to advertise
- * annual regardless, so search results and link previews promised a $33/yr trial
- * that the page itself didn't offer. Everything customer-facing gates on this.
+ * No annual Price in Stripe means there is nothing to sell at all — it's the
+ * only plan now, and the trial rides on it. The metadata and the Offer markup
+ * are module-scope constants, so without this gate search results and link
+ * previews would promise a $33/yr trial that checkout then 503s on.
  */
 const ANNUAL_SELLABLE = Boolean(ANNUAL_PRICE_ID);
 
 const CAD_REGIONS = [
   { '@type': 'AdministrativeArea', name: 'British Columbia' },
 ];
-const USD_REGIONS = [
-  { '@type': 'AdministrativeArea', name: 'Washington' },
-  { '@type': 'AdministrativeArea', name: 'Oregon' },
-];
+const USD_REGIONS = [{ '@type': 'AdministrativeArea', name: 'Washington' }];
 
-function proOffer(plan: 'Monthly' | 'Annual', currency: 'CAD' | 'USD') {
-  const cents = plan === 'Monthly' ? MONTHLY_PRICE_CENTS : ANNUAL_PRICE_CENTS;
+function proOffer(currency: 'CAD' | 'USD') {
   return {
     '@type': 'Offer',
-    name: `ReelCaster Pro ${plan} (${currency})`,
-    price: (cents / 100).toFixed(2),
+    name: `ReelCaster Pro Annual (${currency})`,
+    price: (ANNUAL_PRICE_CENTS / 100).toFixed(2),
     priceCurrency: currency,
     availability: 'https://schema.org/InStock',
     url: siteUrl('/plans'),
@@ -61,17 +56,11 @@ const PLANS_JSONLD = {
   '@type': 'Product',
   name: 'ReelCaster Pro',
   description:
-    'Full 14-day fishing forecasts, custom score alerts, and custom spot profiles for the BC, Washington, and Oregon coasts.',
+    'Full 14-day fishing forecasts, custom score alerts, and custom spot profiles for the BC and Washington coasts.',
   brand: { '@type': 'Brand', name: SITE_NAME },
   url: siteUrl('/plans'),
   category: 'Fishing forecast subscription',
-  offers: [
-    proOffer('Monthly', 'CAD'),
-    proOffer('Monthly', 'USD'),
-    ...(ANNUAL_SELLABLE
-      ? [proOffer('Annual', 'CAD'), proOffer('Annual', 'USD')]
-      : []),
-  ],
+  offers: ANNUAL_SELLABLE ? [proOffer('CAD'), proOffer('USD')] : [],
 };
 
 const PLANS_BREADCRUMBS = breadcrumbJsonLd([
@@ -83,8 +72,10 @@ const PLANS_BREADCRUMBS = breadcrumbJsonLd([
 // reason the Offer markup does: the description can't promise a number the page
 // doesn't show.
 const PRICE_SENTENCE = ANNUAL_SELLABLE
-  ? `${dollars(ANNUAL_PRICE_CENTS)} a year after a ${TRIAL_DAYS}-day free trial.`
-  : `${dollars(MONTHLY_PRICE_CENTS)} a month, cancel anytime.`;
+  ? `${dollars(ANNUAL_PRICE_CENTS)} a year — ${dollars(
+      ANNUAL_PER_MONTH_CENTS,
+    )} a month — after a ${TRIAL_DAYS}-day free trial.`
+  : 'Pricing is temporarily unavailable.';
 
 export const metadata: Metadata = {
   title: 'ReelCaster Pro: Plans',
@@ -104,11 +95,6 @@ export const metadata: Metadata = {
   },
   robots: { index: true, follow: true },
 };
-
-function dollars(cents: number): string {
-  const v = cents / 100;
-  return Number.isInteger(v) ? `$${v}` : `$${v.toFixed(2)}`;
-}
 
 // The comparison table's rows, their order, and the free/pro split now live in
 // `@/lib/plan-features` — the same list the in-app upgrade modal renders, so
@@ -141,8 +127,8 @@ const FAQ: { q: string; a: React.ReactNode }[] = [
     q: 'Do you cover where I fish?',
     a: (
       <>
-        We’re live in British Columbia, Washington, and Oregon. If you fish
-        somewhere else,{' '}
+        We’re live in British Columbia and Washington, with more coming soon.
+        If you fish somewhere else,{' '}
         <Link
           href="/explore"
           className="text-rc-brand underline underline-offset-2 hover:text-rc-brand-hover"
@@ -155,18 +141,13 @@ const FAQ: { q: string; a: React.ReactNode }[] = [
     ),
   },
   {
-    q: 'Can I pay monthly instead?',
+    q: 'Is there a monthly plan?',
     a: (
       <>
-        Yes, {dollars(MONTHLY_PRICE_CENTS)} a month, cancel whenever. Both
-        plans start with the same free trial.{' '}
-        <Link
-          href="/plans/checkout?plan=monthly"
-          className="text-rc-brand underline underline-offset-2 hover:text-rc-brand-hover"
-        >
-          Go monthly
-        </Link>
-        .
+        No — one plan, {dollars(ANNUAL_PRICE_CENTS)} for the year, which works
+        out to {dollars(ANNUAL_PER_MONTH_CENTS)} a month. Splitting that into
+        monthly billing would cost you more and cost us more to run, so we
+        don’t. Cancel anytime and the rest of the year still works.
       </>
     ),
   },
@@ -191,10 +172,9 @@ function Check({ dim = false }: { dim?: boolean }) {
 }
 
 export default function PlansPage() {
-  const { pct, perMonthCents, fullCents, saveCents } = annualDiscount();
-
-  // No annual Price in Stripe means no trial to sell. Rather than advertise a
-  // free week that 503s at checkout, the page falls back to the monthly plan.
+  // No annual Price in Stripe means nothing to sell — it's the only plan, and
+  // the trial rides on it. Rather than advertise a free week that 503s at
+  // checkout, the CTAs say so plainly.
   const trialSellable = ANNUAL_SELLABLE;
 
   return (
@@ -241,7 +221,7 @@ export default function PlansPage() {
               >
                 {trialSellable
                   ? `Start ${TRIAL_DAYS}-day free trial`
-                  : `Get Pro · ${dollars(MONTHLY_PRICE_CENTS)}/mo`}
+                  : 'Try the map free'}
               </Link>
               <Link
                 href="/explore"
@@ -255,13 +235,13 @@ export default function PlansPage() {
               {trialSellable ? (
                 <>
                   Free for {TRIAL_DAYS} days, then{' '}
-                  {dollars(ANNUAL_PRICE_CENTS)} a year. Cancel anytime, and you
-                  keep your free account.
+                  {dollars(ANNUAL_PRICE_CENTS)} a year —{' '}
+                  {dollars(ANNUAL_PER_MONTH_CENTS)} a month. Cancel anytime, and
+                  you keep your free account.
                 </>
               ) : (
                 <>
-                  {dollars(MONTHLY_PRICE_CENTS)} a month, cancel anytime. Yearly
-                  billing is coming back shortly.
+                  Pro is briefly unavailable to buy. The free map is unaffected.
                 </>
               )}
             </p>
@@ -347,16 +327,14 @@ export default function PlansPage() {
                 </span>
               </div>
               <p className="mt-1.5 text-sm text-rc-ink-soft">
-                That’s {dollars(perMonthCents)} a month, billed yearly. Or{' '}
-                {dollars(MONTHLY_PRICE_CENTS)} a month if you’d rather:{' '}
-                twelve of those is {dollars(fullCents)}, so the year saves you{' '}
-                {dollars(saveCents)}.
+                That’s {dollars(ANNUAL_PER_MONTH_CENTS)} a month. One price,
+                every city we cover, no tiers to compare.
               </p>
             </div>
 
             <div className="flex flex-col items-start gap-2">
               <span className="rounded bg-rc-good-bg px-2 py-1 font-rc-mono text-[11px] font-bold tracking-tight text-rc-good-ink">
-                SAVE {pct}% YEARLY
+                FIRST {TRIAL_DAYS} DAYS FREE
               </span>
               <Link
                 href="/plans/checkout"
@@ -388,10 +366,10 @@ export default function PlansPage() {
       <section className="mx-auto max-w-6xl px-6 py-8">
         <div className="rounded-lg border border-rc-rule bg-rc-panel p-5 text-sm leading-relaxed text-rc-ink-soft">
           Pro is sold only where we forecast:{' '}
-          <strong className="text-rc-ink">British Columbia</strong>,{' '}
-          <strong className="text-rc-ink">Washington</strong>, and{' '}
-          <strong className="text-rc-ink">Oregon</strong>. Prices are in CAD for
-          Canada and USD for the US. Fish somewhere else?{' '}
+          <strong className="text-rc-ink">British Columbia</strong> and{' '}
+          <strong className="text-rc-ink">Washington</strong>, with more coming
+          soon. Prices are in CAD for Canada and USD for the US. Fish somewhere
+          else?{' '}
           <Link
             href="/explore"
             className="text-rc-brand underline underline-offset-2 hover:text-rc-brand-hover"
@@ -448,12 +426,13 @@ export default function PlansPage() {
           >
             {trialSellable
               ? `Start ${TRIAL_DAYS}-day free trial`
-              : `Get Pro · ${dollars(MONTHLY_PRICE_CENTS)}/mo`}
+              : 'Try the map free'}
           </Link>
           {trialSellable && (
             <p className="mt-4 text-xs text-rc-ink-mute">
-              {dollars(ANNUAL_PRICE_CENTS)} a year after the trial. Cancel
-              anytime.
+              {dollars(ANNUAL_PRICE_CENTS)} a year —{' '}
+              {dollars(ANNUAL_PER_MONTH_CENTS)} a month — after the trial.
+              Cancel anytime.
             </p>
           )}
         </div>

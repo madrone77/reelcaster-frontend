@@ -8,6 +8,8 @@ import AuthGate from '@/app/components/auth/auth-gate'
 import MobileBottomNav from '@/app/components/mobile-bottom-nav'
 import ProWelcomeModal from '@/app/components/pro/pro-welcome-modal'
 import { GoogleAnalytics } from '@next/third-parties/google'
+import { ADSENSE_CLIENT } from '@/lib/adsense'
+import AdSenseLoader from '@/app/components/ads/adsense-loader'
 import { ORGANIZATION_JSONLD, SITE_NAME, SITE_URL } from '@/lib/site'
 import { clientDiagSnippet } from '@/lib/client-diag'
 
@@ -46,7 +48,7 @@ export const metadata: Metadata = {
     template: `%s | ${SITE_NAME}`,
   },
   description:
-    'Tides, weather, water conditions, and regulations combined into one fishing score for the BC, Washington, and Oregon coasts. Find the best spot and the best window before you go.',
+    'Tides, weather, water conditions, and regulations combined into one fishing score for the BC and Washington coasts. Find the best spot and the best window before you go.',
   applicationName: SITE_NAME,
   // `keywords` has been ignored by Google since 2009 and shipped on every page.
   openGraph: {
@@ -56,6 +58,14 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: 'summary_large_image',
+  },
+  // AdSense site verification. This is the static half of the integration and
+  // the half Google actually crawls for: a meta tag is in the prerendered HTML
+  // of every route, so ownership verifies whether or not the crawler executes
+  // the loader — which matters because /explore is noindex and the loader is
+  // now injected after hydration rather than served in <head>.
+  other: {
+    'google-adsense-account': ADSENSE_CLIENT,
   },
 }
 
@@ -107,6 +117,10 @@ export default function RootLayout({
             </UnitPreferencesProvider>
           </MixpanelProvider>
         </AuthProvider>
+        {/* AdSense loader — mounted only on the routes that carry an ad unit.
+            See src/app/components/ads/adsense-loader.tsx for why, and for the
+            hydration and Auto-ads constraints it still has to honour. */}
+        <AdSenseLoader />
         <GoogleAnalytics gaId="G-HLHG768MWJ" />
       </body>
     </html>

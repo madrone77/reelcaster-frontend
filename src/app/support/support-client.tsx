@@ -8,6 +8,7 @@ import { Anchor, LifeBuoy } from 'lucide-react';
 import { useAuth } from '@/contexts/auth-context';
 import { useSubscription } from '@/hooks/use-subscription';
 import ExploreTopBar from '@/app/explore/components/explore-top-bar';
+import { PAGE_MEASURE } from '@/app/components/layout/page-measure';
 import UnlockWithProCard from '@/app/components/paywall/unlock-with-pro-card';
 import { SUPPORT_EMAIL } from '@/lib/site';
 
@@ -83,7 +84,7 @@ export default function SupportClient() {
     <div className="min-h-dvh bg-rc-page">
       <ExploreTopBar />
       <main className="pt-16">
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 py-8">
+        <div className={`${PAGE_MEASURE} py-8`}>
           <PortHeader />
 
           {subLoading ? (
@@ -165,6 +166,7 @@ function ProGate() {
               'Priority support with a one business day reply target',
               'Ticket history you can reference later',
               'Full guide library and searchable knowledge base',
+              'Read the water with no ads in the way',
               'Everything else Pro unlocks: 14-day forecast, 10 alerts, custom spots',
             ]}
           />

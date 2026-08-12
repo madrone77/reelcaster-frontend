@@ -273,6 +273,14 @@ export type LiveSpotDetail = {
   regSyncedAt: string | null;
   catchSignals: LiveCatchSignal[];
   intelVerdict: "strong" | "mixed" | "slow" | null;
+  /**
+   * Written summary of the recent report window, produced by BlueCaster's
+   * intel-digest job and grounded in real angler posts. Null whenever the spot
+   * has too little evidence, sits outside covered water, or the summary failed
+   * its grounding check. Null means render nothing: an absent block beats a
+   * thin one.
+   */
+  recentReports: RecentReports | null;
   tideStationName: string | null;
   seasonStateBySpecies: Record<string, SeasonState>;
   seasonWeeksBySpecies: Record<string, SeasonState[]>;
@@ -369,3 +377,39 @@ export type PointConditions = {
   /** Now-current at the point (SalishSeaCast bake); flow-toward bearing. */
   current?: { speed_kn: number; dir_deg: number } | null;
 };
+
+/** A named place a species is actually caught, when it was reported at a spot
+ *  that is not its ground. */
+export interface RecentReportsPlace {
+  name: string;
+  km: number;
+}
+
+export interface RecentReportsSpecies {
+  name: string;
+  posts: number;
+  positive: number;
+  state: "biting" | "patchy" | "quiet";
+  note: string;
+}
+
+/** Species reported at this spot but credited to the water around it. A single
+ *  post often covers several marks, so a catch named alongside this spot did not
+ *  necessarily happen on it. */
+export interface RecentReportsNearby extends RecentReportsSpecies {
+  likelySpots: RecentReportsPlace[];
+}
+
+export interface RecentReports {
+  headline: string;
+  body: string;
+  species: RecentReportsSpecies[];
+  nearby: RecentReportsNearby[];
+  /** Depth, gear, timing pulled out of the prose of the reports themselves. */
+  whatWorked: string[];
+  reportCount: number;
+  /** Of those reports, how many landed a fish. Counted per outing. */
+  landedCount: number;
+  latestDate: string | null;
+  windowDays: number;
+}

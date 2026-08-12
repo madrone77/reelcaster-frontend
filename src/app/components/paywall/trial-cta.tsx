@@ -2,6 +2,7 @@
 
 import {
   createContext,
+  useCallback,
   useContext,
   useEffect,
   useId,
@@ -9,38 +10,43 @@ import {
   useState,
 } from 'react';
 import Link from 'next/link';
+import { ArrowDown } from 'lucide-react';
 import { useAuth } from '@/contexts/auth-context';
 import { supabase } from '@/lib/supabase';
 import { useUpgradeFlow } from '@/hooks/use-upgrade-flow';
 import { cn } from '@/lib/utils';
-import {
-  ANNUAL_PRICE_CENTS,
-  MONTHLY_PRICE_CENTS,
-  TRIAL_DAYS,
-  annualDiscount,
-  type PricingPlan,
-} from '@/lib/pricing';
+import ExpressCheckout from './express-checkout';
+import { ANNUAL_PRICE_CENTS, TRIAL_DAYS, dollars } from '@/lib/pricing';
 
 /**
  * The buy control shared by every in-app paywall.
  *
- * Composed by default (`<TrialCta>` = cadence, buy, terms in one block), but
+ * Composed by default (`<TrialCta>` = wallets, buy, terms in one block), but
  * the pieces are exported separately because the plan-matrix modal spreads
- * them out: buy button up top, cadence next to the plan table, terms down at
- * the foot beside the free-signup offer. They share one provider so the
- * cadence a customer picks drives the price on the button AND the amount in
- * the terms, wherever those happen to be rendered.
+ * them out: wallet buttons and the buy form up top, terms down at the foot
+ * beside the free-signup offer. They share one provider so the state resolved
+ * once — trial eligibility, whether the plan is sellable at all — drives every
+ * piece wherever it happens to be rendered.
  *
- * Two things here are load-bearing:
+ * There is one plan and one price now (see src/lib/pricing.ts), so there is no
+ * cadence to choose. What used to be a Yearly/Monthly toggle is dead weight the
+ * buyer had to clear before they could pay; the price says $2.75 a month and
+ * bills $33 a year, and that's the whole offer.
+ *
+ * Three things here are load-bearing:
  *
  * 1. **The terms travel with the button.** Skipping /plans/checkout means the
  *    renewal amount and charge date have to be stated before the click
  *    (Canadian consumer-protection rules, US FTC negative-option rule). Short,
- *    but never absent.
+ *    but never absent — including in the wallet sheet, which carries its own
+ *    copy of them.
  * 2. **Eligibility is resolved server-side before the button is drawn**, so a
  *    repeat customer sees paid terms rather than a trial the checkout would
  *    refuse. Any failure falls back to paid terms — understating the offer is
  *    the safe direction to fail.
+ * 3. **The wallet path is additive.** If Apple Pay / Google Pay aren't
+ *    available, `<TrialExpress>` renders nothing at all and the email-and-card
+ *    form below is exactly what it was.
  */
 
 interface CheckoutStatus {
@@ -56,10 +62,8 @@ interface CheckoutStatus {
  */
 const PAY_FIRST = process.env.NEXT_PUBLIC_PAY_FIRST_CHECKOUT === '1';
 
-function dollars(cents: number): string {
-  const v = cents / 100;
-  return Number.isInteger(v) ? `$${v}` : `$${v.toFixed(2)}`;
-}
+/** How the purchase was started, for the caller's analytics. */
+export type TrialCtaMethod = 'annual' | 'wallet' | 'signup';
 
 function addDays(days: number): Date {
   const d = new Date();
@@ -78,7 +82,7 @@ export interface TrialCtaProps {
   /**
    * Sells an ACCOUNT rather than a subscription (a signed-out visitor blocked
    * by something a free account unlocks). Renders one plain link to this href
-   * with no cadence choice — charging for what's free would be a lie.
+   * and no purchase controls — charging for what's free would be a lie.
    */
   signupHref?: string;
   /** Label for the `signupHref` link. */
@@ -87,26 +91,22 @@ export interface TrialCtaProps {
   theme?: 'light' | 'dark';
   className?: string;
   /** Fires on any CTA activation, for the caller's own analytics. */
-  onActivate?: (plan: PricingPlan | null) => void;
+  onActivate?: (method: TrialCtaMethod) => void;
 }
 
 interface TrialCtaState {
-  plan: PricingPlan;
-  setPlan: (p: PricingPlan) => void;
   status: CheckoutStatus | null;
   busy: boolean;
   anon: boolean;
   trialOn: boolean;
   trialDays: number;
-  yearly: boolean;
   priceCents: number;
   periodWord: string;
   chargeDate: string;
-  pct: number;
-  annualDown: boolean;
+  planDown: boolean;
   isLight: boolean;
   from: string;
-  onActivate?: (plan: PricingPlan | null) => void;
+  onActivate?: (method: TrialCtaMethod) => void;
   // buy
   email: string;
   setEmail: (v: string) => void;
@@ -134,14 +134,12 @@ export function TrialCtaProvider({
 }: {
   from: string;
   theme?: 'light' | 'dark';
-  onActivate?: (plan: PricingPlan | null) => void;
+  onActivate?: (method: TrialCtaMethod) => void;
   children: React.ReactNode;
 }) {
   const { user, loading: authLoading } = useAuth();
   const { openCheckout, loading: submitting, error } = useUpgradeFlow();
-  const { pct } = annualDiscount();
 
-  const [plan, setPlan] = useState<PricingPlan>('annual');
   const [status, setStatus] = useState<CheckoutStatus | null>(null);
   const [statusLoading, setStatusLoading] = useState(true);
   const [email, setEmail] = useState('');
@@ -184,12 +182,11 @@ export function TrialCtaProvider({
 
   const anon = !authLoading && !user;
   // Eligibility for a signed-out buyer is checked server-side against the
-  // email they type, so an optimistic `true` here never survives into the
-  // session for someone who has already had a trial.
+  // email they give — typed, or handed over by the wallet — so an optimistic
+  // `true` here never survives into the session for someone who has already
+  // had a trial.
   const trialOn = anon || Boolean(status?.trial_available);
   const trialDays = status?.trial_days ?? TRIAL_DAYS;
-  const yearly = plan === 'annual';
-  const priceCents = yearly ? ANNUAL_PRICE_CENTS : MONTHLY_PRICE_CENTS;
   const chargeDate = useMemo(
     () => shortDate(trialOn ? addDays(trialDays) : new Date()),
     [trialOn, trialDays],
@@ -202,7 +199,7 @@ export function TrialCtaProvider({
       const res = await fetch('/api/stripe/checkout', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ plan, from, email: email.trim() }),
+        body: JSON.stringify({ from, email: email.trim() }),
       });
       let payload: { url?: string; redirect?: string; error?: string } = {};
       try {
@@ -224,19 +221,15 @@ export function TrialCtaProvider({
   }
 
   const value: TrialCtaState = {
-    plan,
-    setPlan,
     status,
     busy: authLoading || (!anon && statusLoading),
     anon,
     trialOn,
     trialDays,
-    yearly,
-    priceCents,
-    periodWord: yearly ? 'year' : 'month',
+    priceCents: ANNUAL_PRICE_CENTS,
+    periodWord: 'year',
     chargeDate,
-    pct,
-    annualDown: Boolean(status && !status.annual_available),
+    planDown: Boolean(status && !status.annual_available),
     isLight: theme === 'light',
     from,
     onActivate,
@@ -248,7 +241,7 @@ export function TrialCtaProvider({
       (error ? 'We couldn’t start checkout. Please try again in a moment.' : null),
     startAnonCheckout,
     startCheckout: () => {
-      openCheckout({ plan, from }).catch(() => {
+      openCheckout({ from }).catch(() => {
         /* surfaced through errorText */
       });
     },
@@ -257,64 +250,62 @@ export function TrialCtaProvider({
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }
 
-/** Yearly / Monthly. One selection drives the button price and the terms. */
-export function TrialCadence({ className }: { className?: string }) {
+/**
+ * Apple Pay / Google Pay, plus the rule that separates them from the card
+ * form. Renders nothing when no wallet is available — including the rule, so
+ * an "or" never floats above empty space.
+ */
+export function TrialExpress({
+  region,
+  className,
+}: {
+  region?: string;
+  className?: string;
+}) {
   const s = useTrialCta();
-  if (s.status?.is_active) return null;
+  // Optimistic: the element itself reports back on ready, and hiding until
+  // then would make the buttons pop in under the buyer's cursor.
+  const [available, setAvailable] = useState(true);
+
+  const handleAvailability = useCallback((v: boolean) => setAvailable(v), []);
+  const handleActivate = useCallback(
+    () => s.onActivate?.('wallet'),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [s.onActivate],
+  );
+
+  if (s.status?.is_active || s.planDown) return null;
 
   return (
-    <div
-      role="group"
-      aria-label="Billing cadence"
-      className={cn(
-        'inline-flex rounded-full border p-1',
-        s.isLight
-          ? 'border-rc-rule bg-rc-surface'
-          : 'border-rc-bg-light bg-rc-bg-darkest',
-        className,
-      )}
-    >
-      <button
-        type="button"
-        aria-pressed={s.yearly}
-        disabled={s.annualDown}
-        onClick={() => s.setPlan('annual')}
-        data-testid="cadence-annual"
-        className={cn(
-          'flex items-center gap-1.5 rounded-full px-3.5 py-1.5 text-xs font-semibold transition-colors disabled:opacity-40',
-          s.yearly
-            ? 'bg-rc-brand text-white shadow-sm'
-            : s.isLight
-              ? 'text-rc-ink-soft hover:text-rc-ink'
-              : 'text-rc-text-muted hover:text-rc-text',
-        )}
-      >
-        Yearly
+    <div className={cn(available ? 'block' : 'hidden', className)}>
+      <ExpressCheckout
+        from={s.from}
+        region={region}
+        onAvailabilityChange={handleAvailability}
+        onActivate={handleActivate}
+      />
+      <div className="mt-3 flex items-center gap-3" aria-hidden>
         <span
           className={cn(
-            'rounded-full px-1.5 py-0.5 font-rc-mono text-[10px] font-bold leading-none',
-            s.yearly ? 'bg-white/20 text-white' : 'bg-rc-good-bg text-rc-good-ink',
+            'h-px flex-1',
+            s.isLight ? 'bg-rc-rule' : 'bg-rc-bg-light',
+          )}
+        />
+        <span
+          className={cn(
+            'font-rc-mono text-[10px] uppercase tracking-[0.14em]',
+            s.isLight ? 'text-rc-ink-mute' : 'text-rc-text-muted',
           )}
         >
-          −{s.pct}%
+          or pay by card
         </span>
-      </button>
-      <button
-        type="button"
-        aria-pressed={!s.yearly}
-        onClick={() => s.setPlan('monthly')}
-        data-testid="cadence-monthly"
-        className={cn(
-          'rounded-full px-3.5 py-1.5 text-xs font-semibold transition-colors',
-          !s.yearly
-            ? 'bg-rc-brand text-white shadow-sm'
-            : s.isLight
-              ? 'text-rc-ink-soft hover:text-rc-ink'
-              : 'text-rc-text-muted hover:text-rc-text',
-        )}
-      >
-        Monthly
-      </button>
+        <span
+          className={cn(
+            'h-px flex-1',
+            s.isLight ? 'bg-rc-rule' : 'bg-rc-bg-light',
+          )}
+        />
+      </div>
     </div>
   );
 }
@@ -323,10 +314,18 @@ export function TrialCadence({ className }: { className?: string }) {
 export function TrialBuy({
   signupHref,
   signupLabel,
+  testId = 'trial-cta',
   className,
 }: {
   signupHref?: string;
   signupLabel?: string;
+  /**
+   * A surface may render this twice — once above the plan table and once
+   * below it — so the id has to be overridable or a selector matches both.
+   * Both copies share the provider's email state, so whichever one is typed
+   * into, the other is already filled.
+   */
+  testId?: string;
   className?: string;
 }) {
   const s = useTrialCta();
@@ -344,7 +343,7 @@ export function TrialBuy({
       <Link
         href={signupHref}
         data-testid="trial-cta-anon"
-        onClick={() => s.onActivate?.(null)}
+        onClick={() => s.onActivate?.('signup')}
         className={cn(ctaClass, className)}
       >
         {signupLabel ?? 'Create free account'}
@@ -368,8 +367,6 @@ export function TrialBuy({
     );
   }
 
-  const subtle = s.isLight ? 'text-rc-ink-mute' : 'text-rc-text-muted';
-
   return (
     <div className={cn('flex flex-col gap-2', className)}>
       {s.anon && PAY_FIRST ? (
@@ -378,13 +375,31 @@ export function TrialBuy({
           className="flex flex-col gap-2"
           onSubmit={(e) => {
             e.preventDefault();
-            s.onActivate?.(s.plan);
+            s.onActivate?.('annual');
             s.startAnonCheckout();
           }}
         >
-          <label htmlFor={emailFieldId} className={cn('text-xs', subtle)}>
-            Your email — we’ll set up your account after checkout, no password
-            needed.
+          {/* The ask, at the size of an ask. This used to be fine print
+              explaining the mechanics of pay-first checkout; nobody needed the
+              mechanics before typing an address, they needed to know what to
+              do. "To begin" rather than "to claim your free trial" because it
+              is also true for a repeat customer who has no trial left — one
+              string that never has to promise something checkout would refuse.
+
+              items-end keeps the arrow on the last line of a wrapped label, so
+              it stays next to the field it's pointing at. */}
+          <label
+            htmlFor={emailFieldId}
+            className={cn(
+              'flex items-end gap-2 text-base sm:text-lg font-black tracking-[-0.01em]',
+              s.isLight ? 'text-rc-ink' : 'text-rc-text',
+            )}
+          >
+            <span className="text-balance">Enter your email to begin</span>
+            <ArrowDown
+              aria-hidden
+              className="mb-0.5 h-5 w-5 shrink-0 animate-bounce text-rc-good motion-reduce:animate-none"
+            />
           </label>
           <input
             id={emailFieldId}
@@ -405,8 +420,8 @@ export function TrialBuy({
           />
           <button
             type="submit"
-            data-testid="trial-cta"
-            data-plan={s.plan}
+            data-testid={testId}
+            data-plan="annual"
             disabled={s.submitting}
             className={ctaClass}
           >
@@ -415,10 +430,10 @@ export function TrialBuy({
         </form>
       ) : s.anon ? (
         <Link
-          href={`/plans/checkout?plan=${s.plan}&from=${encodeURIComponent(s.from)}`}
-          data-testid="trial-cta"
-          data-plan={s.plan}
-          onClick={() => s.onActivate?.(s.plan)}
+          href={`/plans/checkout?from=${encodeURIComponent(s.from)}`}
+          data-testid={testId}
+          data-plan="annual"
+          onClick={() => s.onActivate?.('annual')}
           className={ctaClass}
         >
           {ctaLabel}
@@ -427,10 +442,10 @@ export function TrialBuy({
         <button
           type="button"
           disabled={s.busy || s.submitting}
-          data-testid="trial-cta"
-          data-plan={s.plan}
+          data-testid={testId}
+          data-plan="annual"
           onClick={() => {
-            s.onActivate?.(s.plan);
+            s.onActivate?.('annual');
             s.startCheckout();
           }}
           className={ctaClass}
@@ -489,7 +504,7 @@ export function TrialTerms({ className }: { className?: string }) {
   );
 }
 
-/** Cadence + buy + terms in one block, for surfaces that don't split them. */
+/** Wallets + buy + terms in one block, for surfaces that don't split them. */
 export default function TrialCta({
   from,
   signupHref,
@@ -501,7 +516,7 @@ export default function TrialCta({
   return (
     <TrialCtaProvider from={from} theme={theme} onActivate={onActivate}>
       <div className={cn('flex flex-col gap-3', className)}>
-        {!signupHref && <TrialCadence className="self-start" />}
+        {!signupHref && <TrialExpress />}
         <TrialBuy signupHref={signupHref} signupLabel={signupLabel} />
         {!signupHref && <TrialTerms />}
       </div>

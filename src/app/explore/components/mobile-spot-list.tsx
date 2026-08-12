@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import type { RailSpot } from "../lib/explore-data";
+import type { FreshCatchesResponse } from "../lib/fresh-catch-types";
 import SpotCard from "./spot-card";
 import SortControl, { type SortKey, sortSpots } from "./sort-control";
 
@@ -15,10 +16,14 @@ export default function MobileSpotList({
   spots,
   tz,
   onSelectSpot,
+  freshCatches,
 }: {
   spots: RailSpot[];
   tz: string;
   onSelectSpot: (slug: string) => void;
+  /** Scraped catch reports keyed by spot id — same payload, same badge as the
+   *  desktop rail beside it. Already Pro-gated by the route. */
+  freshCatches?: FreshCatchesResponse | null;
 }) {
   const [sort, setSort] = useState<SortKey>("score");
   const sorted = useMemo(() => sortSpots(spots, sort), [spots, sort]);
@@ -46,6 +51,7 @@ export default function MobileSpotList({
             spot={spot}
             tz={tz}
             onSelect={() => onSelectSpot(spot.slug)}
+            fresh={freshCatches?.spots[spot.id]}
           />
         ))}
 

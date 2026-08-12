@@ -3,6 +3,7 @@ import { Suspense } from 'react';
 import { headers } from 'next/headers';
 import CheckoutPanel from '@/app/components/plans/checkout-panel';
 import { siteUrl } from '@/lib/site';
+import { isCovered } from '@/lib/regions';
 
 export const metadata: Metadata = {
   title: 'Checkout | ReelCaster Pro',
@@ -13,14 +14,20 @@ export const metadata: Metadata = {
   robots: { index: false, follow: true },
 };
 
-// Vercel sets x-vercel-ip-country-region (e.g. "BC", "WA", "OR"). Best-effort
-// prefill only — the customer can change it in the summary.
+// Vercel sets x-vercel-ip-country-region (e.g. "BC", "WA"). Best-effort prefill
+// only — the customer can change it in the summary.
+//
+// Gated on COVERED_PROVINCES rather than a hand-written list: this used to
+// accept "OR" too, and once Oregon left the region dropdown that would have
+// preselected a <select> value with no matching <option>, leaving the field
+// showing British Columbia while the state said Oregon. Anything uncovered
+// returns null and the summary falls back to its own default.
 async function detectRegion(): Promise<string | null> {
   const h = await headers();
   const region = h.get('x-vercel-ip-country-region');
   if (!region) return null;
   const r = region.toUpperCase();
-  return r === 'BC' || r === 'WA' || r === 'OR' ? r : null;
+  return isCovered(r) ? r : null;
 }
 
 export default async function PlansCheckoutPage() {
