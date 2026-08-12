@@ -8,8 +8,10 @@ import {
   fetchMyCustomSpots,
   fetchMapSpotsAsViewer,
   fetchSpotLive,
+  fetchFreshCatches,
   type OwnedCustomSpot,
 } from "@/lib/bluecaster-client";
+import type { FreshCatchesResponse } from "@/app/explore/lib/fresh-catch-types";
 import {
   TIER_PILL,
   tierFor,
@@ -159,6 +161,11 @@ export default function DashboardPage() {
   const homeSlug = useHomeSpotSlug(true);
   const [homeLive, setHomeLive] = useState<SpotPageInitial | null>(null);
   const [alerts, setAlerts] = useState<AlertProfile[] | null>(null);
+  // Scraped catch reports per spot — the "N reports" badge on the grid cards.
+  // Distinct from `catches` below, which is the angler's OWN catch log.
+  const [spotReports, setSpotReports] = useState<FreshCatchesResponse | null>(
+    null,
+  );
   const [catches, setCatches] = useState<CatchRow[] | null>(null);
   const [catchTotal, setCatchTotal] = useState<number | null>(null);
   // Server fallback name (Stripe name → "Angler") when no first_name is stored.
@@ -292,6 +299,25 @@ export default function DashboardPage() {
       .then((r) => (r.ok ? r.json() : null))
       .then((data) => !cancelled && setAlerts(data?.profiles ?? []))
       .catch(() => !cancelled && setAlerts([]));
+    return () => {
+      cancelled = true;
+    };
+  }, [session]);
+
+  // Scraped catch reports, keyed by spot id — the same payload Explore's rail
+  // joins on, so a saved spot wears the same "N reports" badge here as it does
+  // there. Date-independent, so one fetch covers the whole grid. Keyed on the
+  // session, not just `user`: the Pro gate lives in the route and reads the
+  // access token, so a pass fired before Supabase rehydrates would leave a Pro
+  // angler holding the locked payload. Degrades to null — the badge is
+  // additive, and a card without it is still the card.
+  useEffect(() => {
+    let cancelled = false;
+    fetchFreshCatches()
+      .then((p) => {
+        if (!cancelled && p) setSpotReports(p);
+      })
+      .catch(() => {});
     return () => {
       cancelled = true;
     };
@@ -687,6 +713,7 @@ export default function DashboardPage() {
                     spot={rs}
                     showVisibility
                     homeBadge={rs.slug === homeSlug}
+                    fresh={spotReports?.spots[rs.id]}
                     onFavoriteChange={(fav) => {
                       // Un-starring a saved (non-custom) spot drops it from the
                       // grid immediately, with an undo. Custom spots persist.
