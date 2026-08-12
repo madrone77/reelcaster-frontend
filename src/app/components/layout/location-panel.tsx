@@ -15,7 +15,7 @@ import {
   type Hotspot,
 } from '@/app/config/locations'
 
-interface FavoriteSpot {
+interface SavedLocation {
   id: string
   name: string
   location: string | null
@@ -78,12 +78,12 @@ export default function LocationPanel() {
   const currentHotspot = searchParams.get('hotspot') || 'Breakwater'
   const currentSpecies = searchParams.get('species') || null
 
-  // Favorite spots
-  const [favoriteSpots, setFavoriteSpots] = useState<FavoriteSpot[]>([])
+  // Saved locations
+  const [savedLocations, setSavedLocations] = useState<SavedLocation[]>([])
 
   useEffect(() => {
     if (!user) return
-    const fetchFavorites = async () => {
+    const fetchSavedLocations = async () => {
       const { data: { session } } = await supabase.auth.getSession()
       if (!session) return
       try {
@@ -92,13 +92,13 @@ export default function LocationPanel() {
         })
         if (res.ok) {
           const data = await res.json()
-          setFavoriteSpots(data.spots || [])
+          setSavedLocations(data.spots || [])
         }
       } catch {
         // silently fail
       }
     }
-    fetchFavorites()
+    fetchSavedLocations()
   }, [user])
 
   const selectedLocationData = useMemo(() => {
@@ -217,14 +217,14 @@ export default function LocationPanel() {
           </ul>
         </section>
 
-        {/* Favorites Section */}
-        {favoriteSpots.length > 0 && (
-          <section className="p-3 border-t border-rc-bg-light" aria-label="Favorite spots">
+        {/* Saved locations section */}
+        {savedLocations.length > 0 && (
+          <section className="p-3 border-t border-rc-bg-light" aria-label="Saved locations">
             <div className="flex items-center justify-between mb-2">
-              <SectionHeader>Favorites</SectionHeader>
+              <SectionHeader>Saved locations</SectionHeader>
             </div>
             <ul className="space-y-0.5">
-              {favoriteSpots.map(spot => (
+              {savedLocations.map(spot => (
                 <li key={spot.id}>
                   <SelectableItem
                     isSelected={currentHotspot === spot.name}
