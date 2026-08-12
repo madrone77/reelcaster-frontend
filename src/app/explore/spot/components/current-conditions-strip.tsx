@@ -287,15 +287,28 @@ export default function CurrentConditionsStrip({
           the graph's score strip, and the chart draws every one of its rows as
           a bordered box. Same shape = reads as the top row of one instrument.
           4 across on mobile — 8 cells, 2 clean rows — then 7 across on desktop
-          once the Time cell drops out. */}
-      <div className="grid grid-cols-4 lg:grid-cols-7 rounded border border-rc-rule divide-x divide-y lg:divide-y-0 divide-rc-rule overflow-hidden">
+          once the Time cell drops out.
+
+          The internal rules are a 1px grid gap over a rule-coloured parent,
+          NOT divide-x / divide-y. Tailwind's divide utilities key off
+          :not(:last-child), which knows nothing about where a row wraps: on
+          the 4-across mobile layout every cell but the eighth drew a right AND
+          a bottom border, so Current's right border landed on the box's right
+          edge and Wind / Sea state / Air temp's bottom borders landed on its
+          bottom edge, 2px there against 1px everywhere else. A gap is
+          column-count agnostic, and a `lg:hidden` cell leaves grid flow
+          entirely, so it can't strand a rule behind it either. */}
+      <div className="grid grid-cols-4 lg:grid-cols-7 gap-px rounded border border-rc-rule bg-rc-rule overflow-hidden">
         {cells.map((c) => (
           // Quarter-width cells are tight at 375px, so the type and padding
           // step down below lg and every line truncates rather than wraps —
           // a wrapped value would push its row taller than its neighbours.
+          // bg-rc-panel is what makes the gap read as a rule: the cells cover
+          // the grid's rule-coloured background except in the 1px gutters, so
+          // the cell fill has to stay opaque and match the page.
           <div
             key={c.label}
-            className={`px-1.5 py-2 lg:px-3 lg:py-2.5 min-w-0 ${c.mobileOnly ? "lg:hidden" : ""}`}
+            className={`bg-rc-panel px-1.5 py-2 lg:px-3 lg:py-2.5 min-w-0 ${c.mobileOnly ? "lg:hidden" : ""}`}
           >
             {/* No font-size utility here: .rc-label sets `font:` shorthand,
                 which resets size and wins, so a text-[9px] would be a no-op
