@@ -772,7 +772,7 @@ export default function SpotDetailShell({
                   dfoArea={page.regAreaCode}
                   region={cityLink?.provinceName ?? spot.region}
                   speciesName={selSpecies?.name ?? null}
-                  regOpen={regulation?.status === "Open"}
+                  regulation={regulation}
                   onSetAlert={handleSetAlert}
                 >
                   {fresh && (
