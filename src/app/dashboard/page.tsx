@@ -544,8 +544,12 @@ export default function DashboardPage() {
   }, [custom, favSlugs, payload, coords]);
 
   // ── derived ────────────────────────────────────────────────────────────────
-  const activeAlertCount = (alerts ?? []).filter((a) => a.is_active).length;
-  const trackedCount = spotCards?.length ?? 0;
+  const activeAlertCount = alerts ? alerts.filter((a) => a.is_active).length : null;
+  // null, not 0, while the saved set is still resolving. The shell is
+  // server-rendered now, so whatever this says is on screen for real: "0 spots
+  // tracked" to an angler with twelve of them is not a placeholder, it is a
+  // wrong answer that happens to get corrected later.
+  const trackedCount = spotCards?.length ?? null;
 
   // Never derive a name from the email; fall back to the Stripe / "Angler" name.
   const greetName = localName ?? storedFirstName(user) ?? serverName ?? NAME_FALLBACK;
@@ -565,7 +569,7 @@ export default function DashboardPage() {
   const scored = (spotCards ?? []).filter(
     (s): s is GridSpot & { score: number } => typeof s.score === "number"
   );
-  const spotsHot = scored.filter((s) => s.score >= 80).length;
+  const spotsHot = spotCards === null ? null : scored.filter((s) => s.score >= 80).length;
   const topScore = scored.length ? Math.max(...scored.map((s) => s.score)) : null;
   const avgScore = scored.length
     ? Math.round(scored.reduce((a, s) => a + s.score, 0) / scored.length)
@@ -667,8 +671,8 @@ export default function DashboardPage() {
               )}
             </h1>
             <p className="mt-1.5 font-rc-mono text-[12px] text-rc-ink-mute">
-              {longDate()} · {trackedCount} spot{trackedCount === 1 ? "" : "s"}{" "}
-              tracked · {activeAlertCount} alert
+              {longDate()} · {trackedCount ?? "—"} spot
+              {trackedCount === 1 ? "" : "s"} tracked · {activeAlertCount ?? "—"} alert
               {activeAlertCount === 1 ? "" : "s"} armed
             </p>
           </div>
@@ -863,8 +867,12 @@ export default function DashboardPage() {
               title="Alerts"
               pill={
                 <Link href="/alerts">
-                  <Pill className={activeAlertCount > 0 ? TIER_PILL.good : TIER_PILL.none}>
-                    {activeAlertCount} ARMED
+                  <Pill
+                    className={
+                      (activeAlertCount ?? 0) > 0 ? TIER_PILL.good : TIER_PILL.none
+                    }
+                  >
+                    {activeAlertCount ?? "—"} ARMED
                   </Pill>
                 </Link>
               }
