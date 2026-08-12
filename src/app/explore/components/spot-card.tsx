@@ -5,9 +5,8 @@ import dynamic from "next/dynamic";
 import { useState } from "react";
 import { Wind, Waves, Navigation, Lock, Globe } from "lucide-react";
 import { TIER_PILL, tierFor, type RailSpot } from "../lib/explore-data";
-import { useFavorite, favoriteCount } from "../lib/use-favorite";
+import { useFavorite } from "../lib/use-favorite";
 import { useSubscription } from "@/hooks/use-subscription";
-import { FREE_FAVORITE_SPOTS } from "@/lib/plan-features";
 import { bestWindow } from "./hourly-bars";
 import SpotTrend from "./spot-trend";
 import { FreshCatchBadge } from "./fresh-catch-reports";
@@ -80,20 +79,25 @@ export default function SpotCard({
   const reports: RailFreshCatch | undefined =
     fresh ?? (spot.hasReports ? { locked: true } : undefined);
 
-  const onStar = (e: React.MouseEvent) => {
+  const onStar = async (e: React.MouseEvent) => {
     e.stopPropagation();
-    // Turning a favorite ON while at the free cap → upgrade modal (never a silent no-op).
-    if (!fav && !isPaid && favoriteCount() >= FREE_FAVORITE_SPOTS) {
+    // Both refusals open the same modal: it sells the trial to a free account
+    // at the cap and offers registration to an anonymous one, off the tier it
+    // detects itself. Never a silent no-op either way.
+    const res = await toggleFav({ isPaid, spotId: spot.id });
+    if (res === "signed-out" || res === "at-cap") {
       setUpgradeOpen(true);
       return;
     }
-    // Pop only when favoriting (the on-transition), not when un-favoriting.
-    if (!fav) {
+    if (res === "error") return;
+    // Pop only when saving (the on-transition), not when un-saving. Fires on
+    // the confirmed write rather than the tap — the star itself already flipped
+    // optimistically, so this stays in step with what actually persisted.
+    if (res === "saved") {
       setPopping(true);
       window.setTimeout(() => setPopping(false), 600);
     }
-    toggleFav();
-    onFavoriteChange?.(!fav);
+    onFavoriteChange?.(res === "saved");
   };
 
   return (

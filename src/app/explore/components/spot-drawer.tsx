@@ -13,11 +13,10 @@ import {
   Thermometer,
   type LucideIcon,
 } from "lucide-react";
-import { useFavorite, favoriteCount } from "../lib/use-favorite";
+import { useFavorite } from "../lib/use-favorite";
 import { useSubscription } from "@/hooks/use-subscription";
 import { FreshCatchBlock } from "./fresh-catch-reports";
 import type { RailFreshCatch } from "../lib/fresh-catch-types";
-import { FREE_FAVORITE_SPOTS } from "@/lib/plan-features";
 import {
   TIER_PILL,
   TIER_TEXT,
@@ -150,16 +149,16 @@ export default function SpotDrawer({
   const [reportsUpgradeOpen, setReportsUpgradeOpen] = useState(false);
   // Drives the one-shot "pop" animation when a spot is favorited (not on load).
   const [popping, setPopping] = useState(false);
-  const onStar = () => {
-    if (!fav && !isPaid && favoriteCount() >= FREE_FAVORITE_SPOTS) {
+  const onStar = async () => {
+    const res = await toggleFav({ isPaid, spotId: spot.id });
+    if (res === "signed-out" || res === "at-cap") {
       setUpgradeOpen(true);
       return;
     }
-    if (!fav) {
+    if (res === "saved") {
       setPopping(true);
       window.setTimeout(() => setPopping(false), 600);
     }
-    toggleFav();
   };
 
   // All six cells read the map-spots conditions strip at the displayed hour

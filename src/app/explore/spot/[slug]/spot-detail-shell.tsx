@@ -7,9 +7,7 @@ import { ArrowUpCircle, ChevronLeft, ChevronRight, Home } from "lucide-react";
 import { useAuth } from "@/contexts/auth-context";
 import { useSubscription } from "@/hooks/use-subscription";
 import AdSlot from "@/app/components/ads/ad-slot";
-import { FREE_FAVORITE_SPOTS } from "@/lib/plan-features";
 import { countryDisplayName, regulatorFor } from "@/lib/regions";
-import { favoriteCount } from "../../lib/use-favorite";
 import ExploreTopBar from "../../components/explore-top-bar";
 import DayCell from "../../components/day-cell";
 import { bestWindow } from "../../components/hourly-bars";
@@ -188,16 +186,16 @@ export default function SpotDetailShell({
   // One-shot "pop" when favoriting (not on un-favorite or load) — mirrors the
   // rail SpotCard star interaction exactly, including the free-tier cap.
   const [savePop, setSavePop] = useState(false);
-  const handleToggleSaved = () => {
-    if (!saved && !isPaid && favoriteCount() >= FREE_FAVORITE_SPOTS) {
+  const handleToggleSaved = async () => {
+    const res = await toggleSaved({ isPaid, spotId: spot.id });
+    if (res === "signed-out" || res === "at-cap") {
       setFavUpgradeOpen(true);
       return;
     }
-    if (!saved) {
+    if (res === "saved") {
       setSavePop(true);
       window.setTimeout(() => setSavePop(false), 600);
     }
-    toggleSaved();
   };
 
   useEffect(() => {

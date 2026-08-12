@@ -27,7 +27,7 @@ import DashboardSavedMap from "./dashboard-saved-map";
 import MarketingFooter from "@/app/components/marketing/marketing-footer";
 import type { MapSpotsPayload } from "@/lib/bluecaster";
 import { useHomeSpotSlug } from "@/app/explore/lib/use-home-spot";
-import { favoriteSlugs, setFavorite } from "@/app/explore/lib/use-favorite";
+import { useSavedSpots, setFavorite } from "@/app/explore/lib/use-favorite";
 import { storedFirstName, NAME_FALLBACK } from "@/lib/display-name";
 import { supabase } from "@/lib/supabase";
 import { fetchAlertProfiles } from "@/lib/alerts-client";
@@ -153,7 +153,6 @@ type CatchRow = {
 export default function DashboardPage() {
   const { user, session } = useAuth();
   const [custom, setCustom] = useState<OwnedCustomSpot[] | null>(null);
-  const [favSlugs, setFavSlugs] = useState<string[] | null>(null);
   const [scoreBySlug, setScoreBySlug] = useState<Record<string, Scored>>({});
   // Raw map payload kept so the grid can render the shared Explore card from
   // the same numbers (railSpotFromEntry), not a forked card.
@@ -240,10 +239,18 @@ export default function DashboardPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.id]);
 
-  // Favourites (localStorage rc-fav:<slug>).
-  useEffect(() => {
-    setFavSlugs(favoriteSlugs());
-  }, []);
+  // Saved spots, from the account rather than this browser. `null` until the
+  // first read resolves — several things below distinguish "no saved spots"
+  // from "don't know yet", and rendering the empty state during the load would
+  // tell a user with a full list that they have none.
+  //
+  // Memoized on the joined slugs because `useSavedSpots` hands back a fresh
+  // array each render: passed straight into the dependency arrays below, the
+  // coordinate fetch would re-fire on every render forever.
+  const { slugs: savedSlugs, ready: savedReady } = useSavedSpots();
+  const savedKey = savedSlugs.join(",");
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const favSlugs = useMemo(() => (savedReady ? savedSlugs : null), [savedReady, savedKey]);
 
   // Coordinates for those favourites — the map's first paint.
   //
@@ -820,10 +827,10 @@ export default function DashboardPage() {
                     onFavoriteChange={(fav) => {
                       // Un-starring a saved (non-custom) spot drops it from the
                       // grid immediately, with an undo. Custom spots persist.
+                      // The card already wrote the removal through the
+                      // store, so the grid drops it on its own; this only
+                      // offers the way back.
                       if (!fav && !rs.isCustom) {
-                        setFavSlugs((prev) =>
-                          (prev ?? []).filter((s) => s !== rs.slug),
-                        );
                         setUndo({ slug: rs.slug, name: rs.name });
                       }
                     }}
@@ -1008,11 +1015,7 @@ export default function DashboardPage() {
               type="button"
               onClick={() => {
                 if (!undo) return;
-                const slug = undo.slug;
-                setFavorite(slug, true);
-                setFavSlugs((prev) =>
-                  (prev ?? []).includes(slug) ? (prev ?? []) : [...(prev ?? []), slug],
-                );
+                void setFavorite(undo.slug);
                 setUndo(null);
               }}
               className="font-rc-mono text-[12px] font-bold uppercase tracking-wide text-rc-brand-soft hover:text-white"
