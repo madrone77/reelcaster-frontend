@@ -175,9 +175,12 @@ export default function SpotDetailShell({
   // Catch reports. The static render is always locked (that's what keeps this
   // page prerenderable); a Pro viewer upgrades it client-side from the gated
   // route, which is also where the entitlement is actually enforced.
-  const [fresh, setFresh] = useState<RailFreshCatch | null>(
-    freshTracked ? { locked: true } : null,
-  );
+  // Starts null, NOT {locked:true}. Seeding it locked was optimistic about the
+  // reader being free, so a Pro angler on a spot with reports but no written
+  // digest got the upsell painted at them until the counts arrived. Same flash
+  // as the report block had, one branch over. The locked state is set below,
+  // once entitlement says the reader actually is free.
+  const [fresh, setFresh] = useState<RailFreshCatch | null>(null);
   const [saved, toggleSaved] = useFavorite(spot.slug);
   const [isHome, toggleHome] = useHomeSpot(spot.slug);
   const { isPaid, loading: tierLoading } = useSubscription();
@@ -219,7 +222,13 @@ export default function SpotDetailShell({
   // server-side (and unlike the client's `isPaid`, it honours the grace
   // window), so this call is a request, not the gate.
   useEffect(() => {
-    if (!freshTracked || !isPaid) return;
+    if (!freshTracked) return;
+    // Not paying, and we now know it: show the locked state.
+    if (!tierLoading && !isPaid) {
+      setFresh({ locked: true });
+      return;
+    }
+    if (!isPaid) return; // still resolving — show nothing rather than a lock
     let cancelled = false;
     fetchFreshCatches(spot.id)
       .then((d) => {
@@ -232,7 +241,7 @@ export default function SpotDetailShell({
     return () => {
       cancelled = true;
     };
-  }, [freshTracked, isPaid, spot.id]);
+  }, [freshTracked, isPaid, tierLoading, spot.id]);
 
   // The written report. Three states, driven by the REQUEST, not by the client
   // tier: "asking" / "not allowed" / "here it is".
