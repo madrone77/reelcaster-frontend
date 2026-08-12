@@ -401,6 +401,48 @@ export async function fetchMapForecast14d(
   return bcGet<MapForecast14dPayload>("/api/v1/map/forecast-14d", { bbox }, 120);
 }
 
+// ── Per-spot 14-day outlook (map/spot-forecast-14d) ─────────────────
+
+export interface SpotOutlookDayPeak extends MapForecastDayPeak {
+  species_id: string; // the species that scored the day at this spot
+}
+
+export interface SpotsOutlook14dPayload {
+  start: string; // day 0 (today, local)
+  tz: string;
+  forecast_version: number;
+  days: Array<{ iso: string; dow: string; date: string }>; // length 14
+  species: Record<string, { id: string; slug: string; name: string }>;
+  /** spot id → 14 entries, index i = days[i]. null = no score, or a locked day. */
+  by_spot: Record<string, (SpotOutlookDayPeak | null)[]>;
+  meta?: { spots: number };
+}
+
+/**
+ * Per-day best score for EACH spot, rather than one strip folded across the
+ * whole viewport. One request backs a whole list of spot cards; scope it by
+ * explicit ids (a dashboard's saved + custom spots) or by city.
+ *
+ * `viewerId` is required for the id scope to reach a caller's own unpublished
+ * custom spots, and forces an uncached fetch — one angler's private spots must
+ * never land in a shared cache entry.
+ */
+export async function fetchSpotsOutlook14d(
+  scope: { spotIds?: string[]; citySlug?: string; bbox?: string },
+  opts: { viewerId?: string } = {},
+): Promise<SpotsOutlook14dPayload | null> {
+  return bcGet<SpotsOutlook14dPayload>(
+    "/api/v1/map/spot-forecast-14d",
+    {
+      spots: scope.spotIds?.length ? scope.spotIds.join(",") : undefined,
+      city: scope.citySlug,
+      bbox: scope.bbox,
+    },
+    120,
+    opts.viewerId,
+  );
+}
+
 // ── Fresh catch reports ─────────────────────────────────────────────
 
 export type FreshCatchVerdict = "strong" | "mixed" | "slow";

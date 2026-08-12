@@ -28,7 +28,12 @@ import {
   type SpeciesOption,
 } from "../../../explore/lib/explore-data";
 import type { FreshCatchesResponse } from "../../../explore/lib/fresh-catch-types";
-import { fetchFreshCatches } from "@/lib/bluecaster-client";
+import {
+  fetchFreshCatches,
+  fetchSpotsOutlook14d,
+  type SpotsOutlook14dPayload,
+} from "@/lib/bluecaster-client";
+import { spotDaysFrom } from "../../../explore/components/spot-day-strip";
 import { useAuth } from "@/contexts/auth-context";
 import type { FishingCity } from "../../lib/fishing-data";
 
@@ -64,6 +69,11 @@ export default function CityShell({
   const [freshCatches, setFreshCatches] = useState<FreshCatchesResponse | null>(
     null,
   );
+  // Every card's next 14 days for this city, in one read. undefined = still
+  // loading, so the strip holds its space instead of the rail reflowing.
+  const [outlook, setOutlook] = useState<SpotsOutlook14dPayload | null | undefined>(
+    undefined,
+  );
 
   // Scraped catch reports, keyed by spot id — the same payload Explore's rail
   // joins on, so a spot wears the same badge here as it does there. This page
@@ -83,6 +93,25 @@ export default function CityShell({
       cancelled = true;
     };
   }, [userId]);
+
+  // Per-spot 14-day outlook for the whole city, scoped by slug so it is one
+  // request for the rail rather than one per card. Same additive contract as
+  // the badge above — the page renders whole without it — and re-run on the
+  // session for the same plan-gate reason.
+  useEffect(() => {
+    let cancelled = false;
+    setOutlook(undefined);
+    fetchSpotsOutlook14d({ citySlug: city.slug })
+      .then((p) => {
+        if (!cancelled) setOutlook(p);
+      })
+      .catch(() => {
+        if (!cancelled) setOutlook(null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [city.slug, userId]);
 
   // Species filter re-scores every card/pin to the chosen species (same
   // mapping Explore applies); "Best bet" (null) = best species per spot.
@@ -292,6 +321,16 @@ export default function CityShell({
                       tz={MAP_TZ}
                       onSelect={() => handleSelectSpot(spot.slug)}
                       fresh={freshCatches?.spots[spot.id]}
+                      showDayStrip
+                      // The rail is 400px. Fourteen labelled day cells would
+                      // be ~26px each here, so this density draws the shape of
+                      // the fortnight and leaves the numbers to the spot page.
+                      dayStripDensity="compact"
+                      days14={
+                        outlook === undefined
+                          ? undefined
+                          : spotDaysFrom(outlook, spot.id)
+                      }
                     />
                   ))}
                 </div>

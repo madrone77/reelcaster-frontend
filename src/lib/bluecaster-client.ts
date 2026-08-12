@@ -15,7 +15,14 @@ import type {
   StationConditions,
   BuoyConditions,
 } from "./bluecaster/station-types";
-import type { MapForecast14dPayload, MapSpotsPayload, OwnedCustomSpot, SpotCoord } from "./bluecaster";
+import type {
+  MapForecast14dPayload,
+  MapSpotsPayload,
+  OwnedCustomSpot,
+  SpotCoord,
+  SpotsOutlook14dPayload,
+} from "./bluecaster";
+export type { SpotsOutlook14dPayload } from "./bluecaster";
 export type { SpotCoord } from "./bluecaster";
 export type {
   StationConditions,
@@ -358,6 +365,33 @@ export async function fetchFreshCatches(
   });
   if (!res.ok) return null;
   return (await res.json().catch(() => null)) as FreshCatchesResponse | null;
+}
+
+/** Per-spot 14-day outlook for a whole list of cards in one request.
+ *
+ *  Scope it by explicit spot ids (the dashboard knows exactly which spots it
+ *  is drawing) or by city slug. Days past the caller's plan come back null —
+ *  the route does that gating, so the strip only ever draws what it may show.
+ *
+ *  Forwards the Supabase token for the same reason `fetchFreshCatches` does:
+ *  the route reads `Authorization: Bearer`, not cookies, so a bare fetch would
+ *  authenticate as nobody and quietly hand a Pro angler the 2-day payload. */
+export async function fetchSpotsOutlook14d(
+  scope: { spotIds?: string[]; citySlug?: string },
+): Promise<SpotsOutlook14dPayload | null> {
+  const qs = new URLSearchParams();
+  if (scope.spotIds?.length) qs.set("spots", scope.spotIds.join(","));
+  if (scope.citySlug) qs.set("city", scope.citySlug);
+  if ([...qs.keys()].length === 0) return null;
+
+  const { data } = await supabase.auth.getSession();
+  const token = data.session?.access_token;
+  const res = await fetch(`/api/bluecaster/map/spot-forecast-14d?${qs}`, {
+    headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+    cache: "no-store",
+  });
+  if (!res.ok) return null;
+  return (await res.json().catch(() => null)) as SpotsOutlook14dPayload | null;
 }
 
 /** The signed-in user's own custom spots (private + public), for the "your
