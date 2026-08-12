@@ -66,11 +66,20 @@ const LEAD_CAP_DAYS: Record<LeadTimeMode, number> = {
 };
 
 /**
- * Below this many days out we do not bother with a heads-up: the confirm beat
- * is already about to fire, and two messages a day apart saying the same thing
- * is how an alert becomes noise.
+ * At most one heads-up per alert per rolling week.
+ *
+ * The threshold alone cannot carry this. Scores live in roughly a 70 to 90
+ * band since the 2026-08-03 rescale, so a 75 threshold matches nearly every
+ * day: six of the eight live alerts had all seven days in the window
+ * qualifying. An alert that fires on every qualifying day would have sent
+ * seven messages in an afternoon.
+ *
+ * `cooldown_hours` used to hide this. It capped a day-of alert at one send per
+ * 12 hours no matter how many days were good, so nobody noticed the threshold
+ * had stopped discriminating. The create-alert dialog has been saying so all
+ * along, in the "~ 7 days a week match this" line under the slider.
  */
-const MIN_HEADS_UP_LEAD_DAYS = 2;
+const HEADS_UP_COOLDOWN_DAYS = 7;
 
 /** One message we intend to send, already claimed in the ledger. */
 export interface AlertSendJob {
@@ -697,28 +706,43 @@ interface ScoreBeatCandidate {
   score: number;
 }
 
+/** What we have already told this angler, read from the ledger. */
+export interface NoticeState {
+  /** Dates (YYYY-MM-DD) we have already sent a heads-up for. */
+  headsUpDates: Set<string>;
+  /** When the most recent heads-up went out, for the weekly rate limit. */
+  lastHeadsUpAt: Date | null;
+}
+
 /**
- * Work out which messages a score alert owes the angler, given the spot's
- * 14-day outlook.
+ * Work out which messages a score alert owes the angler.
  *
- * Pure and synchronous: the caller fetches the outlook once per spot and passes
- * it in, so ten alerts on Victoria Waterfront cost one round trip rather than
- * ten. Deduplication is not this function's job either. It happily proposes the
- * same heads-up every run, and the unique constraint on `alert_day_notices` is
- * what makes the second one a no-op.
+ * The alert answers one question: "is there a day worth taking off?" So it
+ * speaks about the BEST day in the window, not about every day that clears the
+ * bar. The threshold is a floor, not a trigger. That distinction is the whole
+ * reason this is usable: with scores clustered between 70 and 90, "every day
+ * over 75" is most of the calendar, while "the best day in your next week" is
+ * exactly one day.
  *
- * Beats, by how far out the qualifying day is:
+ * Beats:
  *
- *   2 days or more   heads_up, the early warning that makes booking possible
- *   0 to 1 days      confirm, "it held, go"
+ *   heads_up    the best qualifying day in the window, at most one a week
+ *   confirm     a day we already flagged, now here or tomorrow, still good
  *
- * `stand_down` (the day fell apart after we promised it) is not emitted yet. It
- * needs to look up whether a heads-up went out for that day, which lands with
- * the morning-check job.
+ * A confirm requires a prior heads-up on purpose. Without that condition, a
+ * settled week would confirm today, then confirm tomorrow's today, and so on
+ * forever, because each day is a fresh target_date the ledger has never seen.
+ *
+ * Pure and synchronous. The caller fetches the outlook and the ledger state, so
+ * this is trivially testable and several alerts on one spot share a round trip.
+ *
+ * `stand_down` (a flagged day fell apart) lands with the morning-check job.
  */
 export function scoreBeatsFor(
   profile: AlertProfile,
   outlook: SpotSpeciesOutlook,
+  notices: NoticeState,
+  now: Date = new Date(),
 ): ScoreBeatCandidate[] {
   // The quiet-hours gate is about when we SEND, not what we send about, so it
   // short-circuits everything. Nobody wants a text about next Saturday at 2am.
@@ -729,48 +753,93 @@ export function scoreBeatsFor(
   const mode = leadModeFor(profile);
   const cap = LEAD_CAP_DAYS[mode];
 
-  // day_of never looks past today, so its confirm window is today alone.
-  const confirmMaxLead = mode === 'day_of' ? 0 : 1;
+  // day_of is the angler explicitly asking to be told on the morning itself.
+  // It gets the legacy behaviour: today, if today is good. The per-date ledger
+  // key holds it to one message a day.
+  if (mode === 'day_of') {
+    const today = outlook.days.find((d) => d.dayIndex === 0);
+    if (!today || today.peak < threshold) return [];
+    return [{ beat: 'confirm', targetDate: today.date, leadDays: 0, score: today.peak }];
+  }
 
   const beats: ScoreBeatCandidate[] = [];
-  let headsUpSent = false;
 
+  // 1. Confirm a day we already promised, now that it is here or tomorrow.
   for (const day of outlook.days) {
-    if (day.dayIndex > cap) continue;
+    if (day.dayIndex > 1) continue;
+    if (!notices.headsUpDates.has(day.date)) continue;
     if (day.peak < threshold) continue;
+    beats.push({
+      beat: 'confirm',
+      targetDate: day.date,
+      leadDays: day.dayIndex,
+      score: day.peak,
+    });
+  }
 
-    if (day.dayIndex <= confirmMaxLead) {
-      // Today and tomorrow are different days, and both being good is worth
-      // two messages. There are at most two of them.
-      beats.push({
-        beat: 'confirm',
-        targetDate: day.date,
-        leadDays: day.dayIndex,
-        score: day.peak,
-      });
-    } else if (day.dayIndex >= MIN_HEADS_UP_LEAD_DAYS && !headsUpSent) {
-      // At most ONE heads-up per run, the nearest qualifying day.
-      //
-      // A settled summer week can put five days over the threshold at once.
-      // Without this, the first run after an alert is created (or after this
-      // feature shipped, when the ledger was empty for every existing alert)
-      // fires a separate message for each of them inside one tick. Five emails
-      // in a minute reads as a broken integration, not a useful service.
-      //
-      // The other days are not lost. They stay unclaimed in the ledger, so the
-      // next run picks up the next nearest one, and the window naturally doles
-      // them out over following days instead of dumping them.
+  // 2. Flag the best day in the window, if we have not spoken recently.
+  const daysSinceHeadsUp = notices.lastHeadsUpAt
+    ? (now.getTime() - notices.lastHeadsUpAt.getTime()) / 86_400_000
+    : Infinity;
+
+  if (daysSinceHeadsUp >= HEADS_UP_COOLDOWN_DAYS) {
+    let best: OutlookDayLike | null = null;
+    for (const day of outlook.days) {
+      if (day.dayIndex > cap) continue;
+      if (day.peak < threshold) continue;
+      if (notices.headsUpDates.has(day.date)) continue;
+      // Strictly greater, so ties go to the nearer day. A tie on score is not
+      // really a tie: the closer day is the one you can still plan around.
+      if (best === null || day.peak > best.peak) best = day;
+    }
+
+    if (best) {
       beats.push({
         beat: 'heads_up',
-        targetDate: day.date,
-        leadDays: day.dayIndex,
-        score: day.peak,
+        targetDate: best.date,
+        leadDays: best.dayIndex,
+        score: best.peak,
       });
-      headsUpSent = true;
     }
   }
 
   return beats;
+}
+
+type OutlookDayLike = { date: string; dayIndex: number; peak: number };
+
+/**
+ * Read what we have already told this alert's owner.
+ *
+ * Scoped to target dates from today forward. Days in the past cannot be
+ * confirmed and must not hold back this week's heads-up.
+ */
+async function loadNoticeState(profileId: string, today: string): Promise<NoticeState> {
+  const { data, error } = await supabaseAdmin
+    .from('alert_day_notices')
+    .select('target_date, beat, created_at')
+    .eq('alert_profile_id', profileId)
+    .gte('target_date', today);
+
+  if (error) {
+    console.error(`[score-alert] notice history unavailable for ${profileId}:`, error);
+    // Fail closed. An empty state would read as "we have never spoken", and
+    // this alert would re-flag a day it already sent. Silence beats repeating
+    // ourselves, and the next run gets another go.
+    return { headsUpDates: new Set(), lastHeadsUpAt: new Date() };
+  }
+
+  const headsUpDates = new Set<string>();
+  let lastHeadsUpAt: Date | null = null;
+
+  for (const row of data ?? []) {
+    if (row.beat !== 'heads_up') continue;
+    headsUpDates.add(row.target_date);
+    const at = new Date(row.created_at);
+    if (!lastHeadsUpAt || at > lastHeadsUpAt) lastHeadsUpAt = at;
+  }
+
+  return { headsUpDates, lastHeadsUpAt };
 }
 
 /**
@@ -891,14 +960,19 @@ async function processScoreAlerts(profiles: AlertProfile[]): Promise<{
           continue;
         }
 
-        const candidates = scoreBeatsFor(profile, outlook);
+        // Bluecaster's own day-0 label for this spot, so "today" means today
+        // where the boat goes in rather than wherever this process is running.
+        const today = outlook.days[0]?.date ?? new Date().toISOString().slice(0, 10);
+        const notices = await loadNoticeState(profile.id, today);
+
+        const candidates = scoreBeatsFor(profile, outlook, notices);
         if (candidates.length === 0) {
           const best = outlook.days.reduce((m, d) => (d.peak > m ? d.peak : m), 0);
           results.push({
             profileId: profile.id,
             profileName: profile.name,
             triggered: false,
-            reason: `No day in window at or above ${scoreThresholdFor(profile)} (best ${best.toFixed(0)}), or outside send hours`,
+            reason: `Nothing to say: best in window ${best.toFixed(0)} vs threshold ${scoreThresholdFor(profile)}, heads-up ${notices.lastHeadsUpAt ? `last sent ${notices.lastHeadsUpAt.toISOString().slice(0, 10)}` : 'never sent'}`,
           });
           continue;
         }

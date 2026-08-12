@@ -113,10 +113,23 @@ export function generateScoreAlertMessage(
   let sms: string;
 
   if (beat === 'heads_up') {
-    subject = `${day} looks strong for ${species} at ${spotName}: ${rounded}`;
-    headline = `${day} is looking strong`;
-    body = `${spotName} is forecast to peak at ${rounded} for ${species} on ${day}. That is ${leadPhrase(leadDays)}, so it can still move. We will confirm the morning before.`;
-    sms = `${day} looks strong for ${species} at ${spotName}: ${rounded}. That is ${leadPhrase(leadDays)} so it can still move, we will confirm the morning before.`;
+    // A heads-up can land on the day itself, when today simply is the best day
+    // in the window. Promising to "confirm the morning before" a day that has
+    // already arrived is nonsense, and so is warning that it might still move.
+    const imminent = leadDays <= 1;
+    const whenWord = leadDays === 0 ? 'Today' : 'Tomorrow';
+
+    if (imminent) {
+      subject = `${whenWord} is your best day for ${species} at ${spotName}: ${rounded}`;
+      headline = `${whenWord} is the best day this week`;
+      body = `${spotName} peaks at ${rounded} for ${species} ${leadPhrase(leadDays)}, the best day in your next week.`;
+      sms = `${whenWord} is your best day for ${species} at ${spotName}: ${rounded}.`;
+    } else {
+      subject = `${day} looks strong for ${species} at ${spotName}: ${rounded}`;
+      headline = `${day} is looking strong`;
+      body = `${spotName} is forecast to peak at ${rounded} for ${species} on ${day}, the best day in your next week. That is ${leadPhrase(leadDays)}, so it can still move. We will confirm the morning before.`;
+      sms = `${day} looks strong for ${species} at ${spotName}: ${rounded}. That is ${leadPhrase(leadDays)} so it can still move, we will confirm the morning before.`;
+    }
   } else if (beat === 'confirm') {
     subject = isToday
       ? `Today at ${spotName}: ${species} ${rounded}`
