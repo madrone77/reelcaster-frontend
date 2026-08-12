@@ -124,7 +124,7 @@ export function RecentReportsBand({
   reports,
   fresh,
   days,
-  tierResolved = true,
+  locked,
   onUpgrade,
   className = "",
 }: {
@@ -138,9 +138,13 @@ export function RecentReportsBand({
   reports: RecentReportsData | null;
   fresh: RailFreshCatch | null;
   days: number;
-  /** False while entitlement is still resolving. The upsell is withheld until
-   *  it is true, so a Pro angler never sees a lock that then disappears. */
-  tierResolved?: boolean;
+  /** Has the server said whether this reader may have the report?
+   *  null = still asking, true = no, false = yes. The upsell renders only on
+   *  true. Waiting on this rather than on the client tier is what stops a Pro
+   *  angler seeing a lock: entitlement resolves faster than the report does, so
+   *  "tier known, report not here yet" is not the same as "you may not have
+   *  it". */
+  locked: boolean | null;
   onUpgrade?: () => void;
   className?: string;
 }) {
@@ -159,10 +163,9 @@ export function RecentReportsBand({
   // than a generic "reports tracked here": a real sentence about this spot,
   // cut off, is a far better argument for Pro than a padlock. The rest of the
   // sentence never reaches the browser, so there is nothing to read around it.
-  // Teaser: the headline is public and renders straight away, but the upsell
-  // waits for entitlement. A Pro angler's report arrives a moment later and
-  // replaces this outright, so they read a real sentence that grows rather than
-  // a padlock that vanishes.
+  // Teaser: the headline is public and renders straight away. Below it, nothing
+  // at all until the server answers — no skeleton, because a grey box that
+  // appears and vanishes is the same flash by another name.
   if (!reports && teaser) {
     return (
       <section className={shell}>
@@ -170,7 +173,7 @@ export function RecentReportsBand({
         <p className="mt-3 text-[17px] font-semibold leading-snug text-rc-ink lg:text-[19px]">
           {teaser}
         </p>
-        {tierResolved ? (
+        {locked === true && (
           <button
             type="button"
             onClick={onUpgrade}
@@ -187,9 +190,6 @@ export function RecentReportsBand({
             </span>
             <span className="shrink-0 font-rc-mono text-[13px] font-bold text-rc-brand">→</span>
           </button>
-        ) : (
-          /* Reserves the CTA's height so nothing below jumps when it resolves. */
-          <div className="mt-3 h-[58px] animate-pulse rounded bg-rc-surface" aria-hidden />
         )}
       </section>
     );
