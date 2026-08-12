@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { Heart, ChevronRight, MapPin } from "lucide-react";
 import ExploreTopBar from "@/app/explore/components/explore-top-bar";
+import { favoriteSlugs } from "@/app/explore/lib/use-favorite";
 import { PAGE_MEASURE, READING_MEASURE } from "@/app/components/layout/page-measure";
 
 // "victoria-waterfront-ad3f9b" → "Victoria Waterfront" (strip the id suffix,
@@ -27,19 +28,7 @@ export default function FavoritesPage() {
   const [slugs, setSlugs] = useState<string[] | null>(null);
 
   useEffect(() => {
-    try {
-      const out: string[] = [];
-      for (let i = 0; i < localStorage.length; i++) {
-        const k = localStorage.key(i);
-        if (k?.startsWith("rc-fav:") && localStorage.getItem(k) === "1") {
-          out.push(k.slice("rc-fav:".length));
-        }
-      }
-      out.sort((a, b) => prettify(a).localeCompare(prettify(b)));
-      setSlugs(out);
-    } catch {
-      setSlugs([]);
-    }
+    setSlugs(favoriteSlugs().sort((a, b) => prettify(a).localeCompare(prettify(b))));
   }, []);
 
   return (
