@@ -3,7 +3,10 @@ import { createClient } from "@supabase/supabase-js";
 import { fetchMapForecast14d } from "@/lib/bluecaster";
 import { getUserIdFromRequest } from "@/lib/server-auth";
 import { resolveEntitlement } from "@/lib/entitlement";
-import type { MapForecast14dPayload } from "@/lib/bluecaster";
+import {
+  stripViewportForecast,
+  visibleForecastDays,
+} from "@/lib/forecast-horizon";
 
 /**
  * Same-origin proxy → BlueCaster GET /api/v1/map/forecast-14d.
@@ -11,16 +14,12 @@ import type { MapForecast14dPayload } from "@/lib/bluecaster";
  * forecast strip calls this with the current map bbox.
  *
  * Day peaks past the caller's horizon are stripped server-side (anon 2
- * days, free account 7, Pro 14 — same tiers as the spot forecast route);
- * the day entries stay so the strip renders its locked tiles. Upstream
- * fetch is cached by bbox; the strip is applied per-request, so the
- * response is private-cacheable only.
+ * days, free account 7, Pro 14 — see @/lib/forecast-horizon, which the
+ * Explore page's prefetch and the per-spot outlook share); the day entries
+ * stay so the strip renders its locked tiles. Upstream fetch is cached by
+ * bbox; the strip is applied per-request, so the response is
+ * private-cacheable only.
  */
-
-/** Server-side mirrors of ANON_STRIP_DAYS / FREE_STRIP_DAYS in
- *  src/app/explore/lib/forecast-strip.ts. */
-const ANON_FORECAST_DAYS = 2;
-const FREE_FORECAST_DAYS = 7;
 
 const supabaseAdmin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -30,27 +29,10 @@ const supabaseAdmin = createClient(
 
 async function callerVisibleDays(request: NextRequest): Promise<number> {
   const userId = await getUserIdFromRequest(request);
-  if (!userId) return ANON_FORECAST_DAYS;
+  if (!userId) return visibleForecastDays(false, false);
 
   const { isPro } = await resolveEntitlement(supabaseAdmin, userId);
-  return isPro ? 14 : FREE_FORECAST_DAYS;
-}
-
-function stripLockedDays(
-  data: MapForecast14dPayload,
-  visibleDays: number,
-): MapForecast14dPayload {
-  const locked = (i: number) => i >= visibleDays;
-  return {
-    ...data,
-    best: data.best.map((cell, i) => (locked(i) ? null : cell)),
-    by_species: Object.fromEntries(
-      Object.entries(data.by_species).map(([speciesId, cells]) => [
-        speciesId,
-        cells.map((cell, i) => (locked(i) ? null : cell)),
-      ]),
-    ),
-  };
+  return visibleForecastDays(true, isPro);
 }
 
 export async function GET(request: NextRequest) {
@@ -65,8 +47,7 @@ export async function GET(request: NextRequest) {
   if (!data) {
     return NextResponse.json({ error: "upstream unavailable" }, { status: 502 });
   }
-  return NextResponse.json(
-    visibleDays >= 14 ? data : stripLockedDays(data, visibleDays),
-    { headers: { "Cache-Control": "private, max-age=120" } },
-  );
+  return NextResponse.json(stripViewportForecast(data, visibleDays), {
+    headers: { "Cache-Control": "private, max-age=120" },
+  });
 }

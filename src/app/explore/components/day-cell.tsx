@@ -64,6 +64,25 @@ export default function DayCell({
     );
   }
 
+  // Still resolving whether this day is ours to show (see ForecastDay.pending).
+  // Keeps the date, drops the number: the strip's shape is already correct, so
+  // nothing shifts when the answer lands — and we never draw a padlock we might
+  // have to take back.
+  if (day.pending) {
+    return (
+      <div
+        aria-busy="true"
+        className="flex-1 min-w-0 h-full rounded border border-rc-rule bg-rc-surface flex flex-col items-center justify-center gap-1 py-2"
+      >
+        <div className="rc-label text-[9px] leading-none text-center text-rc-ink-soft">
+          {day.dow}
+        </div>
+        <div className="font-rc-mono text-[10px] text-rc-ink-soft">{day.date}</div>
+        <div className="w-8 h-6 my-0.5 rounded bg-rc-panel animate-pulse" />
+      </div>
+    );
+  }
+
   if (day.locked) {
     return (
       <button
