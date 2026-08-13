@@ -74,6 +74,12 @@ export default function MobileBottomNav() {
     return null;
   }
 
+  // Cold-traffic ad landing pages (/lp/*) are deliberately distraction-free —
+  // one CTA, no app navigation competing with the free-trial conversion.
+  if (pathname.startsWith("/lp/") || pathname === "/lp") {
+    return null;
+  }
+
   return (
     <>
       {/* Reserve scroll space so content clears the floating bar. */}
