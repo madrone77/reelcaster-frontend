@@ -413,7 +413,11 @@ export default function LpShell(props: LpShellProps) {
         <div className="wrap">
           <div className="sec-head">
             <span className="label">The water</span>
-            <h2>It reads the water so you don&apos;t have to.</h2>
+            <h2>
+              It reads the water so you
+              <br />
+              don&apos;t have to.
+            </h2>
             <p>
               Bottom structure, live currents, wind — the conditions that
               actually move fish, on one live map. Pan, zoom, and filter by
