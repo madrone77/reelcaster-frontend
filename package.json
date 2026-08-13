@@ -10,7 +10,8 @@
     "scrape-reports": "tsx scripts/scrape-historical-reports.ts",
     "test:e2e": "playwright test",
     "test:e2e:ui": "playwright test --ui",
-    "test:e2e:headed": "playwright test --headed"
+    "test:e2e:headed": "playwright test --headed",
+    "analyze": "ANALYZE=true next build"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.79.0",
@@ -56,6 +57,7 @@
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3",
+    "@next/bundle-analyzer": "^16.3.0",
     "@playwright/test": "^1.59.1",
     "@tailwindcss/postcss": "^4",
     "@types/leaflet": "^1.9.21",
