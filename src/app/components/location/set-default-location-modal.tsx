@@ -17,11 +17,11 @@ interface SelectedLocation {
   name: string
   lat: number
   lon: number
-  type: 'predefined' | 'favorite' | 'custom'
+  type: 'predefined' | 'saved' | 'custom'
   region?: string
 }
 
-interface FavoriteSpot {
+interface SavedLocation {
   id: string
   name: string
   location: string | null
@@ -31,7 +31,7 @@ interface FavoriteSpot {
   created_at: string
 }
 
-type TabType = 'predefined' | 'favorites' | 'custom'
+type TabType = 'predefined' | 'saved' | 'custom'
 
 export default function SetDefaultLocationModal({ isOpen, onClose }: SetDefaultLocationModalProps) {
   const router = useRouter()
@@ -52,9 +52,9 @@ export default function SetDefaultLocationModal({ isOpen, onClose }: SetDefaultL
     lon: number
   } | null>(null)
 
-  // Favorites data
-  const [favorites, setFavorites] = useState<FavoriteSpot[]>([])
-  const [favoritesLoading, setFavoritesLoading] = useState(false)
+  // Saved locations data
+  const [savedLocations, setSavedLocations] = useState<SavedLocation[]>([])
+  const [savedLocationsLoading, setSavedLocationsLoading] = useState(false)
 
   // Custom pin position
   const [customPin, setCustomPin] = useState<{ lat: number; lon: number } | null>(null)
@@ -77,9 +77,9 @@ export default function SetDefaultLocationModal({ isOpen, onClose }: SetDefaultL
     }
   }, [isOpen])
 
-  const loadFavorites = useCallback(async () => {
+  const loadSavedLocations = useCallback(async () => {
     if (!session) return
-    setFavoritesLoading(true)
+    setSavedLocationsLoading(true)
     try {
       const res = await fetch('/api/favorite-spots', {
         headers: {
@@ -88,21 +88,21 @@ export default function SetDefaultLocationModal({ isOpen, onClose }: SetDefaultL
       })
       if (res.ok) {
         const data = await res.json()
-        setFavorites(data.spots || [])
+        setSavedLocations(data.spots || [])
       }
     } catch (error) {
-      console.error('Error loading favorites:', error)
+      console.error('Error loading savedLocations:', error)
     } finally {
-      setFavoritesLoading(false)
+      setSavedLocationsLoading(false)
     }
   }, [session])
 
-  // Load favorites when tab changes or modal opens
+  // Load savedLocations when tab changes or modal opens
   useEffect(() => {
-    if (isOpen && user && session && activeTab === 'favorites') {
-      loadFavorites()
+    if (isOpen && user && session && activeTab === 'saved') {
+      loadSavedLocations()
     }
-  }, [isOpen, user, session, activeTab, loadFavorites])
+  }, [isOpen, user, session, activeTab, loadSavedLocations])
 
   // Toggle location group expansion
   const toggleExpand = useCallback((locationName: string) => {
@@ -147,6 +147,10 @@ export default function SetDefaultLocationModal({ isOpen, onClose }: SetDefaultL
     setSaveError(null)
 
     try {
+      // These four keys are stored user preferences, not local names, and they
+      // predate the split between saved locations and saved spots. Renaming
+      // them to match the rest of this file would orphan the default location
+      // of every account that has one.
       const result = await UserPreferencesService.updateUserPreferences({
         favoriteLocation: selectedLocation.region || selectedLocation.name,
         favoriteHotspot: selectedLocation.name,
@@ -243,14 +247,14 @@ export default function SetDefaultLocationModal({ isOpen, onClose }: SetDefaultL
               Predefined
             </button>
             <button
-              onClick={() => setActiveTab('favorites')}
+              onClick={() => setActiveTab('saved')}
               className={`flex-1 px-4 py-3 text-sm font-medium transition-colors ${
-                activeTab === 'favorites'
+                activeTab === 'saved'
                   ? 'text-blue-400 border-b-2 border-blue-400 bg-rc-bg-light/30'
                   : 'text-rc-text-muted hover:text-rc-text hover:bg-rc-bg-light/20'
               }`}
             >
-              Favorites
+              Saved locations
             </button>
             <button
               onClick={() => setActiveTab('custom')}
@@ -283,24 +287,24 @@ export default function SetDefaultLocationModal({ isOpen, onClose }: SetDefaultL
               </div>
             )}
 
-            {/* Favorites Tab */}
-            {activeTab === 'favorites' && (
+            {/* Saved locations tab */}
+            {activeTab === 'saved' && (
               <div className="space-y-2">
                 {!user ? (
                   <AuthPrompt onSignIn={handleOpenAuth} />
-                ) : favoritesLoading ? (
+                ) : savedLocationsLoading ? (
                   <div className="flex items-center justify-center py-12">
                     <Loader2 className="w-8 h-8 text-rc-text-muted animate-spin" />
                   </div>
-                ) : favorites.length === 0 ? (
-                  <EmptyFavorites />
+                ) : savedLocations.length === 0 ? (
+                  <EmptySavedLocations />
                 ) : (
-                  favorites.map(spot => (
-                    <FavoriteItem
+                  savedLocations.map(spot => (
+                    <SavedLocationItem
                       key={spot.id}
                       spot={spot}
                       isSelected={
-                        selectedLocation?.type === 'favorite' &&
+                        selectedLocation?.type === 'saved' &&
                         selectedLocation?.name === spot.name
                       }
                       onSelect={() =>
@@ -308,7 +312,7 @@ export default function SetDefaultLocationModal({ isOpen, onClose }: SetDefaultL
                           name: spot.name,
                           lat: spot.lat,
                           lon: spot.lon,
-                          type: 'favorite',
+                          type: 'saved',
                           region: spot.location || undefined,
                         })
                       }
@@ -479,13 +483,13 @@ function LocationGroup({
   )
 }
 
-interface FavoriteItemProps {
-  spot: FavoriteSpot
+interface SavedLocationItemProps {
+  spot: SavedLocation
   isSelected: boolean
   onSelect: () => void
 }
 
-function FavoriteItem({ spot, isSelected, onSelect }: FavoriteItemProps) {
+function SavedLocationItem({ spot, isSelected, onSelect }: SavedLocationItemProps) {
   return (
     <button
       onClick={onSelect}
@@ -512,11 +516,11 @@ function FavoriteItem({ spot, isSelected, onSelect }: FavoriteItemProps) {
   )
 }
 
-function EmptyFavorites() {
+function EmptySavedLocations() {
   return (
     <div className="text-center py-12">
       <Heart className="w-12 h-12 text-rc-text-muted mx-auto mb-4" />
-      <h3 className="text-lg font-medium text-rc-text mb-2">No Saved Favorites</h3>
+      <h3 className="text-lg font-medium text-rc-text mb-2">No saved locations</h3>
       <p className="text-sm text-rc-text-muted">
         Save spots from the forecast map to see them here.
       </p>
@@ -534,7 +538,7 @@ function AuthPrompt({ onSignIn }: AuthPromptProps) {
       <Heart className="w-12 h-12 text-rc-text-muted mx-auto mb-4" />
       <h3 className="text-lg font-medium text-rc-text mb-2">Sign In Required</h3>
       <p className="text-sm text-rc-text-muted mb-4">
-        Sign in to access your saved favorites and set custom locations.
+        Sign in to access your saved savedLocations and set custom locations.
       </p>
       <button
         onClick={onSignIn}

@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Loader2, Pause, Pencil, Play, Plus, Trash2 } from "lucide-react";
 import ExploreTopBar from "@/app/explore/components/explore-top-bar";
+import { PAGE_MEASURE } from "@/app/components/layout/page-measure";
 import { useAuth } from "@/contexts/auth-context";
 import { getSpeciesById } from "@/app/config/species";
 import {
@@ -268,7 +269,7 @@ export default function NotificationsShell() {
     <div className="min-h-dvh bg-rc-page">
       <ExploreTopBar />
       <main className="pt-16">
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 py-8">
+        <div className={`${PAGE_MEASURE} py-8`}>
           {/* Header */}
           <div className="flex items-start justify-between gap-4">
             <div>

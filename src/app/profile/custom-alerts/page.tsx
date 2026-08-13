@@ -6,6 +6,7 @@ import { ArrowLeft, Loader2 } from 'lucide-react'
 import Link from 'next/link'
 import { useAuth } from '@/contexts/auth-context'
 import ExploreTopBar from '@/app/explore/components/explore-top-bar'
+import { PAGE_MEASURE, READING_MEASURE } from '@/app/components/layout/page-measure'
 import {
   CustomAlertForm,
   type AlertSpotContext,
@@ -84,27 +85,29 @@ function AdvancedAlertBuilder() {
   }
 
   return (
-    <div className="max-w-2xl mx-auto px-4 sm:px-6 py-8 space-y-6">
-      <div>
-        <Link
-          href={`/explore/spot/${spotContext.slug}`}
-          className="inline-flex items-center gap-1.5 font-rc-mono text-[11px] font-semibold text-rc-ink-mute hover:text-rc-brand transition-colors"
-        >
-          <ArrowLeft className="w-3.5 h-3.5" /> BACK TO SPOT
-        </Link>
-        <h1 className="mt-3 text-3xl font-bold tracking-[-0.02em] text-rc-ink">
-          Advanced alert
-        </h1>
-        <p className="mt-1.5 font-rc-mono text-[12px] text-rc-ink-mute">
-          Fine-tune the exact conditions that trigger this alert. Start from a
-          score, then layer on wind, tide, pressure, temperature, or solunar.
-        </p>
+    <div className={`${PAGE_MEASURE} py-8`}>
+      <div className={`${READING_MEASURE} space-y-6`}>
+        <div>
+          <Link
+            href={`/explore/spot/${spotContext.slug}`}
+            className="inline-flex items-center gap-1.5 font-rc-mono text-[11px] font-semibold text-rc-ink-mute hover:text-rc-brand transition-colors"
+          >
+            <ArrowLeft className="w-3.5 h-3.5" /> BACK TO SPOT
+          </Link>
+          <h1 className="mt-3 text-3xl font-bold tracking-[-0.02em] text-rc-ink">
+            Advanced alert
+          </h1>
+          <p className="mt-1.5 font-rc-mono text-[12px] text-rc-ink-mute">
+            Fine-tune the exact conditions that trigger this alert. Start from a
+            score, then layer on wind, tide, pressure, temperature, or solunar.
+          </p>
+        </div>
+        <CustomAlertForm
+          spotContext={spotContext}
+          onSubmit={submit}
+          onCancel={() => router.push(`/explore/spot/${spotContext.slug}`)}
+        />
       </div>
-      <CustomAlertForm
-        spotContext={spotContext}
-        onSubmit={submit}
-        onCancel={() => router.push(`/explore/spot/${spotContext.slug}`)}
-      />
     </div>
   )
 }

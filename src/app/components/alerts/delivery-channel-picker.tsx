@@ -5,8 +5,13 @@ import Link from "next/link";
 import { CheckCircle2, Loader2, Mail, Smartphone } from "lucide-react";
 import { useAuth } from "@/contexts/auth-context";
 import { useSubscription } from "@/hooks/use-subscription";
-
-const E164_RE = /^\+[1-9]\d{7,14}$/;
+import {
+  formatNational,
+  fromE164,
+  isValidNational,
+  nationalDigits,
+  toE164,
+} from "@/lib/phone";
 
 /**
  * Email + SMS delivery picker for the alert forms, including the inline
@@ -60,7 +65,7 @@ export default function DeliveryChannelPicker({
   useEffect(() => {
     setVerifyOpen(false);
     setVerifyStep("enter-phone");
-    setPhoneInput(phoneE164 ?? "");
+    setPhoneInput(nationalDigits(phoneE164 ?? ""));
     setCodeInput("");
     setVerifyError(null);
     setVerifyInfo(null);
@@ -70,10 +75,9 @@ export default function DeliveryChannelPicker({
   const handleSendCode = async () => {
     setVerifyError(null);
     setVerifyInfo(null);
-    if (!E164_RE.test(phoneInput)) {
-      setVerifyError(
-        "Enter a phone number like +15551234567 (with country code).",
-      );
+    const e164 = toE164(phoneInput);
+    if (!e164) {
+      setVerifyError("Enter a 10-digit mobile number, like (250) 555-0134.");
       return;
     }
     if (!session?.access_token) {
@@ -88,7 +92,7 @@ export default function DeliveryChannelPicker({
           "Content-Type": "application/json",
           Authorization: `Bearer ${session.access_token}`,
         },
-        body: JSON.stringify({ phone: phoneInput }),
+        body: JSON.stringify({ phone: e164 }),
       });
       const body = await res.json().catch(() => ({}));
       if (!res.ok) {
@@ -101,7 +105,9 @@ export default function DeliveryChannelPicker({
         );
       }
       setVerifyStep("enter-code");
-      setVerifyInfo(`We texted a code to ${phoneInput}. It may take a minute.`);
+      setVerifyInfo(
+        `We texted a code to ${formatNational(phoneInput)}. It may take a minute.`,
+      );
     } catch (err) {
       setVerifyError(
         err instanceof Error ? err.message : "Couldn't send the code.",
@@ -130,7 +136,7 @@ export default function DeliveryChannelPicker({
           "Content-Type": "application/json",
           Authorization: `Bearer ${session.access_token}`,
         },
-        body: JSON.stringify({ phone: phoneInput, code: codeInput }),
+        body: JSON.stringify({ phone: toE164(phoneInput), code: codeInput }),
       });
       const body = await res.json().catch(() => ({}));
       if (!res.ok || !body.approved) {
@@ -185,7 +191,7 @@ export default function DeliveryChannelPicker({
             </div>
             <div className="font-rc-mono text-[11px] text-rc-ink-mute truncate">
               {smsAvailable
-                ? (phoneE164 ?? "Instant texts")
+                ? (fromE164(phoneE164) || "Instant texts")
                 : isPaid
                   ? "Verify your phone to enable SMS"
                   : "Available with Pro"}
@@ -229,19 +235,30 @@ export default function DeliveryChannelPicker({
           <div className="mt-3 space-y-2 border-t border-rc-rule-soft pt-3">
             {verifyStep === "enter-phone" ? (
               <>
-                <input
-                  type="tel"
-                  inputMode="tel"
-                  autoComplete="tel"
-                  value={phoneInput}
-                  onChange={(e) => setPhoneInput(e.target.value)}
-                  placeholder="+15551234567"
-                  className="w-full rounded-lg border border-rc-rule bg-rc-panel px-3 py-2 text-sm text-rc-ink placeholder:text-rc-ink-mute focus:border-rc-brand focus:outline-none"
-                />
+                {/* Fixed +1: every region we sell is North American, so the
+                    country code is ours to know, not theirs to type. */}
+                <div className="flex w-full items-center rounded-lg border border-rc-rule bg-rc-panel focus-within:border-rc-brand">
+                  <span
+                    aria-hidden="true"
+                    className="pl-3 pr-2 font-rc-mono text-sm text-rc-ink-mute select-none"
+                  >
+                    +1
+                  </span>
+                  <input
+                    type="tel"
+                    inputMode="tel"
+                    autoComplete="tel-national"
+                    aria-label="Phone number"
+                    value={formatNational(phoneInput)}
+                    onChange={(e) => setPhoneInput(nationalDigits(e.target.value))}
+                    placeholder="(250) 555-0134"
+                    className="w-full rounded-r-lg bg-transparent py-2 pr-3 text-sm text-rc-ink placeholder:text-rc-ink-mute focus:outline-none"
+                  />
+                </div>
                 <button
                   type="button"
                   onClick={handleSendCode}
-                  disabled={verifyBusy || !phoneInput}
+                  disabled={verifyBusy || !isValidNational(phoneInput)}
                   className="flex w-full items-center justify-center gap-2 rounded-lg bg-rc-brand py-2 text-sm font-semibold text-white transition-colors hover:bg-rc-brand-hover disabled:opacity-60"
                 >
                   {verifyBusy && <Loader2 className="h-4 w-4 animate-spin" />}

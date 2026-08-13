@@ -51,6 +51,26 @@ const nextConfig: NextConfig = {
       // went out carrying /theport links and those must keep working.
       { source: "/theport", destination: "/support", permanent: true },
       { source: "/theport/:path*", destination: "/support/:path*", permanent: true },
+      // The licence guide canonicalises on the Canadian "licence", matching DFO
+      // and gov.bc.ca — the sources it quotes. Plenty of people type the
+      // American "license", including British Columbians, so that spelling is
+      // routed in rather than 404ing. One indexable copy, one canonical.
+      //
+      // The two bare-segment rules MUST precede the wildcard: `:path*` matches
+      // zero segments too, so an earlier wildcard would swallow
+      // /fishing-license and send it on a pointless second hop through
+      // /fishing-licence. Most specific first.
+      //
+      // Truncating to the bare segment is a natural thing to try, and BC is the
+      // only jurisdiction on it today — hence temporary. When Washington lands
+      // this becomes a real index page and both rules go.
+      { source: "/fishing-licence", destination: "/fishing-licence/bc", permanent: false },
+      { source: "/fishing-license", destination: "/fishing-licence/bc", permanent: false },
+      {
+        source: "/fishing-license/:path*",
+        destination: "/fishing-licence/:path*",
+        permanent: true,
+      },
     ];
   },
   async headers() {

@@ -12,6 +12,27 @@ import {
   checkTrialEligibilityByEmail,
 } from '@/lib/trial';
 import { resolveEntitlement } from '@/lib/entitlement';
+import { readWall } from '@/lib/attribution';
+
+/**
+ * Which wall sent this buyer to checkout, read off the rc_wall cookie rather
+ * than threaded down through <ProTrialModal> → <TrialCtaProvider> → <TrialBuy>
+ * as a prop. The cookie is already on the request, and the redirect out to
+ * Stripe's hosted page is precisely what a prop would not survive.
+ *
+ * Both keys go into `subscription_data.metadata`, not just the session's. The
+ * webhook resolves everything from `subscription.metadata`, so anything left
+ * only on the session is invisible to it — which is why the `from` that has
+ * been set on sessions all along never reached the database.
+ */
+function attributionMetadata(request: NextRequest): Record<string, string> {
+  const wall = readWall(request.headers.get('cookie') ?? '');
+  if (!wall) return {};
+  return {
+    attr_feature: (wall.feature || '').slice(0, 200),
+    attr_from: (wall.from || '').slice(0, 200),
+  };
+}
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -121,6 +142,7 @@ async function anonCheckout(request: NextRequest) {
           plan: 'annual',
           currency,
           trial: String(trialEligible),
+          ...attributionMetadata(request),
         },
         ...(trialEligible
           ? {
@@ -341,6 +363,7 @@ export async function POST(request: NextRequest) {
           plan: 'annual',
           currency,
           trial: String(trialEligible),
+          ...attributionMetadata(request),
         },
         ...(trialEligible
           ? {

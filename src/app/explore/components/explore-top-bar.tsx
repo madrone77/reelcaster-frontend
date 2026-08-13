@@ -9,12 +9,21 @@ import { btn } from "@/app/components/ui/button";
 import { PAGE_MEASURE } from "@/app/components/layout/page-measure";
 import { useAuth } from "@/contexts/auth-context";
 import TrialModalButton from "@/app/components/paywall/trial-modal-button";
+import { fetchAlertProfiles } from "@/lib/alerts-client";
 
-const NAV: { href: string; label: string; signedInOnly?: boolean }[] = [
+// "Catch log" is the single destination for catch logging. The wizard at
+// /log-catch used to sit beside it as its own nav item, which made one feature
+// look like two places; it is now reached from the "Log a catch" button on the
+// log itself, and lights this item up while you're in it (`alsoActiveFor`).
+const NAV: {
+  href: string;
+  label: string;
+  signedInOnly?: boolean;
+  alsoActiveFor?: string[];
+}[] = [
   { href: "/dashboard", label: "Dashboard", signedInOnly: true },
   { href: "/explore", label: "Explore" },
-  { href: "/log-catch", label: "Log a catch" },
-  { href: "/catches", label: "My catches" },
+  { href: "/catches", label: "Catch log", alsoActiveFor: ["/log-catch"] },
   { href: "/notifications", label: "Notifications" },
 ];
 
@@ -65,16 +74,11 @@ export default function ExploreTopBar({
       return;
     }
     let cancelled = false;
-    fetch("/api/alerts", {
-      headers: { Authorization: `Bearer ${session.access_token}` },
-    })
-      .then((r) => (r.ok ? r.json() : null))
-      .then((d) => {
-        if (cancelled || !d) return;
-        const n = (d.profiles ?? []).filter(
-          (p: { is_active?: boolean }) => p.is_active,
-        ).length;
-        setAlertCount(n);
+    // Shared read — the dashboard wants the same list on the same paint.
+    fetchAlertProfiles(session.access_token)
+      .then((profiles) => {
+        if (cancelled) return;
+        setAlertCount(profiles.filter((p) => p.is_active).length);
       })
       .catch(() => {});
     return () => {
@@ -116,7 +120,9 @@ export default function ExploreTopBar({
           }`}
         >
           {NAV.filter((item) => !item.signedInOnly || user).map((item) => {
-            const active = isActive(item.href);
+            const active =
+              isActive(item.href) ||
+              !!item.alsoActiveFor?.some((href) => isActive(href));
             const showBadge =
               item.href === "/notifications" && !!alertCount && alertCount > 0;
             return (

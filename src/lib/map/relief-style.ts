@@ -52,6 +52,79 @@ function placeLayers() {
 }
 
 /**
+ * Minimal land + place-label style for SUMMARY maps (the dashboard's saved-spot
+ * overview), where the chart substrate is switched off anyway.
+ *
+ * The full relief style pulls nine GeoJSON sources — ~3.1 MB raw, and every byte
+ * of it is fetched AND parsed on the main thread on every mount, because
+ * MapLibre loads a GeoJSON source's data as soon as the style is added,
+ * regardless of layer zoom ranges or visibility. A summary map draws none of it:
+ * relief and contours are toggled off by the caller, and the regulatory grids,
+ * RCAs/MPAs, marine structures, tide donuts and buoys are all instruments that
+ * belong to /explore. `marine_features_salish.geojson` alone is 2.0 MB.
+ *
+ * What is left is what a "where are my spots" map actually needs: the land mask
+ * (vector tiles, loaded lazily per viewport) and place labels for orientation,
+ * plus the border line, which is 1.4 KB and reads as geography. That is ~310 KB
+ * of parse instead of ~3.1 MB.
+ *
+ * Layer ids are kept identical to buildReliefStyle so the shared toggles in
+ * ExploreMap (which are all getLayer()-guarded) stay correct.
+ */
+export function buildSummaryStyle(origin: string): Record<string, unknown> {
+  const ATTR_OSM = "© OpenStreetMap contributors (ODbL)";
+  return {
+    version: 8,
+    glyphs: `${origin}/fonts/{fontstack}/{range}.pbf`,
+    sources: {
+      land: {
+        type: "vector",
+        tiles: [tileUrlTemplate(origin, "land-2026-05")],
+        minzoom: 4,
+        maxzoom: 14,
+        attribution: ATTR_OSM,
+      },
+      border: { type: "geojson", data: `${origin}/usca_border_salish.geojson`, attribution: ATTR_OSM },
+      places: { type: "geojson", data: `${origin}/region_places.geojson` },
+    },
+    layers: [
+      { id: "bg", type: "background", paint: { "background-color": "#AFD2E6" } },
+      {
+        id: "land",
+        type: "fill",
+        source: "land",
+        "source-layer": "land",
+        paint: { "fill-color": LAND_COLOR, "fill-antialias": true },
+      },
+      // Border line only — the CANADA / UNITED STATES word marks are sized for a
+      // full-screen chart and just crowd a 288px-tall panel.
+      {
+        id: "border-casing",
+        type: "line",
+        source: "border",
+        layout: { "line-cap": "round", "line-join": "round" },
+        paint: {
+          "line-color": "rgba(255,255,255,0.9)",
+          "line-width": ["interpolate", ["linear"], ["zoom"], 8, 3.4, 14, 6.0],
+        },
+      },
+      {
+        id: "border-line",
+        type: "line",
+        source: "border",
+        layout: { "line-cap": "round", "line-join": "round" },
+        paint: {
+          "line-color": "rgba(58,46,92,0.92)",
+          "line-width": ["interpolate", ["linear"], ["zoom"], 8, 1.8, 14, 3.2],
+          "line-dasharray": [4, 2],
+        },
+      },
+      ...placeLayers(),
+    ],
+  };
+}
+
+/**
  * Build the relief base style at full /bathy-relief parity. `origin` is the
  * absolute base URL serving the regulatory/marine/tide/place GeoJSON + glyph
  * fonts (this app's origin); relief/contour/land tiles come from the per-tile

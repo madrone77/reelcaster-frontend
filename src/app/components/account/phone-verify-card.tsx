@@ -9,8 +9,7 @@ import { Label } from '@/components/ui/label'
 import { Badge } from '@/components/ui/badge'
 import { useSubscription } from '@/hooks/use-subscription'
 import { supabase } from '@/lib/supabase'
-
-const E164_RE = /^\+[1-9]\d{7,14}$/
+import { formatNational, isValidNational, nationalDigits, toE164 } from '@/lib/phone'
 
 export default function PhoneVerifyCard() {
   const { phoneE164, phoneVerified, loading, refresh } = useSubscription()
@@ -24,7 +23,7 @@ export default function PhoneVerifyCard() {
   const [smsAvailable, setSmsAvailable] = useState<boolean | null>(null)
 
   useEffect(() => {
-    if (phoneE164) setPhone(phoneE164)
+    if (phoneE164) setPhone(nationalDigits(phoneE164))
   }, [phoneE164])
 
   // Probe verify configuration once
@@ -47,8 +46,9 @@ export default function PhoneVerifyCard() {
   const handleSendCode = async () => {
     setError(null)
     setInfo(null)
-    if (!E164_RE.test(phone)) {
-      setError('Enter a phone number in E.164 format (e.g. +15551234567)')
+    const e164 = toE164(phone)
+    if (!e164) {
+      setError('Enter a 10-digit mobile number, like (250) 555-0134.')
       return
     }
     setBusy(true)
@@ -61,7 +61,7 @@ export default function PhoneVerifyCard() {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${session.access_token}`,
         },
-        body: JSON.stringify({ phone }),
+        body: JSON.stringify({ phone: e164 }),
       })
       const body = await res.json()
       if (!res.ok) {
@@ -74,7 +74,7 @@ export default function PhoneVerifyCard() {
         throw new Error(body.error ?? 'Failed to send code')
       }
       setStep('enter-code')
-      setInfo(`We sent a code to ${phone}. It may take a minute to arrive.`)
+      setInfo(`We sent a code to ${formatNational(phone)}. It may take a minute to arrive.`)
       refresh()
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to send code')
@@ -100,7 +100,7 @@ export default function PhoneVerifyCard() {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${session.access_token}`,
         },
-        body: JSON.stringify({ phone, code }),
+        body: JSON.stringify({ phone: toE164(phone), code }),
       })
       const body = await res.json()
       if (!res.ok || !body.approved) {
@@ -149,16 +149,29 @@ export default function PhoneVerifyCard() {
           <Label htmlFor="phone-input" className="text-rc-ink">
             Phone number
           </Label>
-          <Input
-            id="phone-input"
-            type="tel"
-            value={phone}
-            onChange={(e) => setPhone(e.target.value)}
-            placeholder="+15551234567"
-            disabled={busy || step === 'enter-code'}
-          />
+          {/* Fixed +1 — every region we sell is North American, so the country
+              code is ours to know rather than theirs to type. */}
+          <div className="flex items-center rounded-md border border-rc-rule bg-rc-panel focus-within:border-rc-brand">
+            <span
+              aria-hidden="true"
+              className="pl-3 pr-2 font-rc-mono text-sm text-rc-ink-mute select-none"
+            >
+              +1
+            </span>
+            <input
+              id="phone-input"
+              type="tel"
+              inputMode="tel"
+              autoComplete="tel-national"
+              value={formatNational(phone)}
+              onChange={(e) => setPhone(nationalDigits(e.target.value))}
+              placeholder="(250) 555-0134"
+              disabled={busy || step === 'enter-code'}
+              className="w-full rounded-r-md bg-transparent py-2 pr-3 text-sm text-rc-ink placeholder:text-rc-ink-mute focus:outline-none disabled:opacity-60"
+            />
+          </div>
           <p className="text-xs text-rc-ink-mute">
-            E.164 format with country code (e.g. <code>+15551234567</code>).
+            Canadian or US mobile number. Standard message rates apply.
           </p>
         </div>
 
@@ -193,7 +206,7 @@ export default function PhoneVerifyCard() {
           {step === 'enter-phone' ? (
             <Button
               onClick={handleSendCode}
-              disabled={busy || !phone || smsAvailable === false}
+              disabled={busy || !isValidNational(phone) || smsAvailable === false}
               className="flex-1 bg-rc-brand hover:bg-rc-brand-hover text-white"
             >
               {busy ? (

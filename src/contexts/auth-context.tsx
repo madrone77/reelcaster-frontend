@@ -3,6 +3,7 @@
 import { createContext, useContext, useEffect, useState } from 'react'
 import { User, Session } from '@supabase/supabase-js'
 import { supabase } from '@/lib/supabase'
+import { resetFavorites } from '@/app/explore/lib/use-favorite'
 
 interface AuthContextType {
   user: User | null
@@ -48,6 +49,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setLoading(false)
       if (event === 'PASSWORD_RECOVERY') {
         setIsPasswordRecovery(true)
+      }
+      // Saved spots are cached at module scope, so they outlive a sign-out and
+      // would otherwise be shown to whoever signs in next on the same tab.
+      if (event === 'SIGNED_IN' || event === 'SIGNED_OUT' || event === 'USER_UPDATED') {
+        resetFavorites()
       }
     })
 

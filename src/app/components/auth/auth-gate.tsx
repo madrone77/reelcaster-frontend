@@ -32,9 +32,30 @@ const PUBLIC_PREFIXES = [
   '/faq',
 ]
 
+// Private routes that render their OWN pending state — a skeleton of the page
+// they are about to be — instead of this file's full-screen spinner.
+//
+// `loading` starts true and can only settle in the browser, so for a private
+// route the server always rendered the spinner: the initial HTML of
+// /dashboard was three pulsing dots and the word "Loading...", and the real
+// page could not begin to exist until ~750 KB of JavaScript had downloaded,
+// parsed, and read the session. Nothing on these pages' skeletons is
+// account-specific — headings, section frames, empty cards — so there is
+// nothing to protect during that window, and showing the shape of the page
+// beats showing a spinner.
+//
+// This is the pending window ONLY. Once `loading` settles, a signed-out
+// visitor still gets the redirect and the "Redirecting..." spinner below,
+// so account chrome is never shown to someone who isn't signed in.
+const SELF_PENDING_PREFIXES = ['/dashboard']
+
 function isPublicPath(pathname: string): boolean {
   if (PUBLIC_EXACT.includes(pathname)) return true
   return PUBLIC_PREFIXES.some(p => pathname.startsWith(p))
+}
+
+function rendersOwnPendingState(pathname: string): boolean {
+  return SELF_PENDING_PREFIXES.some(p => pathname.startsWith(p))
 }
 
 function FullScreenSpinner({ label }: { label: string }) {
@@ -81,8 +102,10 @@ export default function AuthGate({ children }: { children: React.ReactNode }) {
   }
 
   // Private routes still wait: rendering account content before the session
-  // resolves would flash it to a signed-out visitor.
+  // resolves would flash it to a signed-out visitor. Except the ones that
+  // render a skeleton of themselves instead — see SELF_PENDING_PREFIXES.
   if (loading) {
+    if (rendersOwnPendingState(pathname)) return <>{children}</>
     return <FullScreenSpinner label="Loading..." />
   }
 

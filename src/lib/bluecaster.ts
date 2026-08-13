@@ -299,6 +299,15 @@ export interface MapSpotEntry {
   best_species_id: string | null;
   scores: Record<string, MapSpeciesStrip>;
   conditions: MapCondStrip | null;
+  /** Scraped catch reports exist for this spot in the 21-day intel window.
+   *  Presence only — the counts and the verdict are Pro-gated on
+   *  /map/fresh-catches. Riding in this payload is what lets the reports badge
+   *  render server-side instead of a second after hydration. Optional so a
+   *  cached pre-`has_reports` body still parses. */
+  has_reports?: boolean;
+  /** Set only on spots the requesting angler created. Absent everywhere else,
+   *  including in the anonymous (CDN-cached) payload. */
+  owned?: boolean;
 }
 
 export interface MapSpotsPayload {
@@ -308,6 +317,33 @@ export interface MapSpotsPayload {
   hours_utc: string[]; // 24 ISO instants; index i = local hour i
   species: Record<string, { id: string; slug: string; name: string }>;
   spots: MapSpotEntry[];
+}
+
+export interface SpotCoord {
+  id: string;
+  slug: string;
+  name: string;
+  lat: number;
+  lng: number;
+}
+
+/**
+ * Coordinates for a known list of slugs — the small read behind the dashboard's
+ * first paint. Published spots only, so it is CDN-cacheable; misses are simply
+ * absent from the array rather than an error, since a saved favourite can
+ * outlive the spot it points at.
+ */
+export async function fetchSpotCoords(
+  slugs: string[],
+): Promise<SpotCoord[] | null> {
+  if (slugs.length === 0) return [];
+  const res = await bcGet<{ spots: SpotCoord[] }>(
+    "/api/v1/map/spot-coords",
+    { slugs: slugs.join(",") },
+    // A spot does not move; the slug list is the whole cache key.
+    3600,
+  );
+  return res?.spots ?? null;
 }
 
 export async function fetchMapSpots(opts: {
@@ -363,6 +399,48 @@ export async function fetchMapForecast14d(
   bbox: string,
 ): Promise<MapForecast14dPayload | null> {
   return bcGet<MapForecast14dPayload>("/api/v1/map/forecast-14d", { bbox }, 120);
+}
+
+// ── Per-spot 14-day outlook (map/spot-forecast-14d) ─────────────────
+
+export interface SpotOutlookDayPeak extends MapForecastDayPeak {
+  species_id: string; // the species that scored the day at this spot
+}
+
+export interface SpotsOutlook14dPayload {
+  start: string; // day 0 (today, local)
+  tz: string;
+  forecast_version: number;
+  days: Array<{ iso: string; dow: string; date: string }>; // length 14
+  species: Record<string, { id: string; slug: string; name: string }>;
+  /** spot id → 14 entries, index i = days[i]. null = no score, or a locked day. */
+  by_spot: Record<string, (SpotOutlookDayPeak | null)[]>;
+  meta?: { spots: number };
+}
+
+/**
+ * Per-day best score for EACH spot, rather than one strip folded across the
+ * whole viewport. One request backs a whole list of spot cards; scope it by
+ * explicit ids (a dashboard's saved + custom spots) or by city.
+ *
+ * `viewerId` is required for the id scope to reach a caller's own unpublished
+ * custom spots, and forces an uncached fetch — one angler's private spots must
+ * never land in a shared cache entry.
+ */
+export async function fetchSpotsOutlook14d(
+  scope: { spotIds?: string[]; citySlug?: string; bbox?: string },
+  opts: { viewerId?: string } = {},
+): Promise<SpotsOutlook14dPayload | null> {
+  return bcGet<SpotsOutlook14dPayload>(
+    "/api/v1/map/spot-forecast-14d",
+    {
+      spots: scope.spotIds?.length ? scope.spotIds.join(",") : undefined,
+      city: scope.citySlug,
+      bbox: scope.bbox,
+    },
+    120,
+    opts.viewerId,
+  );
 }
 
 // ── Fresh catch reports ─────────────────────────────────────────────
@@ -457,7 +535,33 @@ export async function fetchSpotThumb(
 
 // ── Hierarchy (regions index) ───────────────────────────────────────
 
-export interface BlueCasterHierarchy {
+interface HierarchyCityBase {
+  id: string;
+  name: string;
+  slug: string;
+  lat: number;
+  lng: number;
+  /** cities.lifecycle — building | staging | published. */
+  lifecycle: string;
+}
+
+export interface HierarchyCity extends HierarchyCityBase {
+  spots: Array<{
+    id: string;
+    name: string;
+    slug: string;
+    lat: number;
+    lng: number;
+    is_published: boolean;
+  }>;
+}
+
+export interface HierarchyCityLight extends HierarchyCityBase {
+  /** Published member spots. Replaces `spots[]` when fetched with spots=0. */
+  spot_count: number;
+}
+
+interface HierarchyTree<C> {
   countries: Array<{
     id: string;
     name: string;
@@ -471,27 +575,24 @@ export interface BlueCasterHierarchy {
         id: string;
         name: string;
         slug: string;
-        cities: Array<{
-          id: string;
-          name: string;
-          slug: string;
-          lat: number;
-          lng: number;
-          /** cities.lifecycle — building | staging | published. */
-          lifecycle: string;
-          spots: Array<{
-            id: string;
-            name: string;
-            slug: string;
-            lat: number;
-            lng: number;
-            is_published: boolean;
-          }>;
-        }>;
+        cities: C[];
       }>;
     }>;
   }>;
 }
+
+export type BlueCasterHierarchy = HierarchyTree<HierarchyCity>;
+
+/**
+ * The place tree WITHOUT the per-city spot arrays — cities carry `spot_count`
+ * instead.
+ *
+ * The full tree inlines every approved/published spot in the database with no
+ * pagination, so a page that server-renders it pays a payload cost that grows
+ * with the database rather than with what it shows. Explore gets its spots
+ * from /api/v1/map/spots (bbox-scoped), so it only ever needed the places.
+ */
+export type BlueCasterHierarchyLight = HierarchyTree<HierarchyCityLight>;
 
 // ── City page (editorial content for /fishing/[province]/[city]) ────
 // Trimmed view of GET /api/v1/cities/[slug]/page — only the fields the
@@ -528,13 +629,13 @@ export async function fetchCityPage(
   );
 }
 
-export async function fetchHierarchy(): Promise<BlueCasterHierarchy | null> {
+async function fetchHierarchyTree<T>(query: string): Promise<T | null> {
   const baseUrl = process.env.BLUECASTER_API_URL;
   const apiKey = process.env.BLUECASTER_API_KEY;
   if (!baseUrl || !apiKey) return null;
 
   try {
-    const res = await fetch(`${baseUrl}/api/v1/hierarchy`, {
+    const res = await fetch(`${baseUrl}/api/v1/hierarchy${query}`, {
       headers: { "x-api-key": apiKey },
       next: { revalidate: 3600 },
     });
@@ -543,6 +644,22 @@ export async function fetchHierarchy(): Promise<BlueCasterHierarchy | null> {
   } catch {
     return null;
   }
+}
+
+/** The full place tree, spot arrays included. */
+export async function fetchHierarchy(): Promise<BlueCasterHierarchy | null> {
+  return fetchHierarchyTree<BlueCasterHierarchy>("");
+}
+
+/**
+ * The place tree with `spot_count` in place of the per-city spot arrays.
+ *
+ * Prefer this anywhere the spots themselves aren't rendered — it's a separate
+ * function rather than a flag so the return type tells you which shape you got
+ * instead of leaving `spots` optional everywhere.
+ */
+export async function fetchHierarchyLight(): Promise<BlueCasterHierarchyLight | null> {
+  return fetchHierarchyTree<BlueCasterHierarchyLight>("?spots=0");
 }
 
 // =============================================================================
@@ -619,47 +736,70 @@ export async function fetchSpotsByCoordinates(
 // Phase 8 — search
 // =============================================================================
 
+export type SearchKind = "spot" | "city" | "region" | "species";
+
 export interface BlueCasterSearchResult {
-  type: "spot" | "city" | "species";
+  kind: SearchKind;
   id: string;
+  slug: string;
   name: string;
-  slug: string | null;
-  lat?: number;
-  lng?: number;
-  subtitle: string;
-  href: string | null;
-  city_slug?: string | null;
-  province_code?: string | null;
+  /** null for regions and species — there is no single point to fly to. */
+  lat: number | null;
+  lng: number | null;
+  /** Display subtitle: "Sooke, BC", "South Vancouver Island, BC", a scientific name. */
+  label: string | null;
+  /** True for the caller's own custom spots. */
+  owned: boolean;
+  /** [w,s,e,n] — regions only, the extent of their published spots. */
+  bbox: number[] | null;
+  /** Per-kind extras: spot_count (city), spot_type (spot), scientific_name (species). */
+  meta: Record<string, unknown>;
+  /** Higher is better. Comparable within one response only. */
+  rank: number;
 }
 
 export interface BlueCasterSearchResponse {
   query: string;
   results: BlueCasterSearchResult[];
-  counts: { spots: number; cities: number; species: number };
+  meta: {
+    count: number;
+    /** The result set hit the cap — the UI can hint "keep typing to narrow". */
+    truncated: boolean;
+    near: { lat: number; lng: number } | null;
+    viewer: boolean;
+  };
 }
 
+/**
+ * Ranked search across spots, cities, regions and species.
+ *
+ * Results come back FLAT and pre-ranked — group by `kind` for display, but
+ * keep the array order inside each group, because that order is the ranking.
+ *
+ * `near` only breaks ties (capped at 0.08 server-side), so this stays a global
+ * search: a far-away exact match still outranks a nearby fuzzy one.
+ *
+ * A verified `viewerId` widens the results to include that angler's own custom
+ * spots. That response is per-user and bypasses the Data Cache.
+ */
 export async function searchBlueCaster(
   q: string,
-  type: "spot" | "city" | "species" | "all" = "all",
+  opts: { near?: { lat: number; lng: number }; limit?: number; viewerId?: string } = {},
 ): Promise<BlueCasterSearchResponse | null> {
-  const baseUrl = process.env.BLUECASTER_API_URL;
-  const apiKey = process.env.BLUECASTER_API_KEY;
-  if (!baseUrl || !apiKey) return null;
-
-  const url = new URL(`${baseUrl}/api/v1/search`);
-  url.searchParams.set("q", q);
-  url.searchParams.set("type", type);
-
-  try {
-    const res = await fetch(url.toString(), {
-      headers: { "x-api-key": apiKey },
-      cache: "no-store",
-    });
-    if (!res.ok) return null;
-    return (await res.json()) as BlueCasterSearchResponse;
-  } catch {
-    return null;
-  }
+  return bcGet<BlueCasterSearchResponse>(
+    "/api/v1/search",
+    {
+      q,
+      near: opts.near ? `${opts.near.lat},${opts.near.lng}` : undefined,
+      limit: opts.limit,
+      // Distinct edge cache key for personalized reads — see fetchMapSpots.
+      // Identity stays in the header; this is just a flag, so no user id ever
+      // lands in a URL or an access log.
+      viewer: opts.viewerId ? "1" : undefined,
+    },
+    300,
+    opts.viewerId,
+  );
 }
 
 // =============================================================================
@@ -1069,4 +1209,85 @@ export async function fetchPoolIntelligence(
     { spot_id: spotId, species_id: speciesId, time_window: timeWindow },
     0,
   );
+}
+
+// =============================================================================
+// Daily city report (Pro dashboard card)
+// =============================================================================
+
+/**
+ * GET /api/v1/cities/[slug]/daily-report — the AI briefing for one city.
+ *
+ * `reports_md` is the substance: what anglers are actually catching, in
+ * three or four sentences. `outlook_md` is a short forecast note. Both are
+ * markdown with spot and species names bolded.
+ *
+ * BlueCaster strips its own audit trail (source citations, evidence counts,
+ * per-tip provenance) before serving this, so there is nothing here that
+ * identifies where the intel came from. Don't go looking for it — it isn't
+ * meant to reach this side.
+ *
+ * `status: "pending"` means nobody had asked for that city yet; the read
+ * itself registers demand and a report appears shortly.
+ */
+export interface BlueCasterCityDailyReport {
+  city: { slug: string; name: string };
+  status: "ready" | "pending";
+  report: {
+    report_date: string;
+    headline: string | null;
+    reports_md: string | null;
+    reports_window_days: number;
+    outlook_md: string | null;
+    outlook_horizon_days: number;
+    tips: Array<{ text: string }>;
+    generated_at: string;
+  } | null;
+}
+
+export async function fetchCityDailyReport(
+  citySlug: string,
+): Promise<BlueCasterCityDailyReport | null> {
+  // Short revalidate, not none: the report changes once a day, but a stale
+  // card on a dashboard is worse than a slightly slower one, and this is
+  // already behind a Pro gate that forbids shared caching downstream.
+  return bcGet<BlueCasterCityDailyReport>(
+    `/api/v1/cities/${encodeURIComponent(citySlug)}/daily-report`,
+    {},
+    300,
+  );
+}
+
+/**
+ * The city a home spot belongs to.
+ *
+ * There is no stored home *city* — a spot has exactly one home city under
+ * BlueCaster's shared-spot model, so the home spot the Pro wizard already
+ * pins resolves to one. Deriving it means no new column, no new onboarding
+ * step, and it works for everyone who has pinned a spot already.
+ *
+ * Returns null when no spot is pinned, when the slug no longer resolves, or
+ * when the city isn't published.
+ */
+export async function resolveHomeCity(
+  homeSpotSlug: string | null | undefined,
+): Promise<{ slug: string; name: string } | null> {
+  if (!homeSpotSlug) return null;
+
+  const hierarchy = await fetchHierarchy();
+  if (!hierarchy) return null;
+
+  for (const country of hierarchy.countries) {
+    for (const province of country.states_provinces) {
+      for (const region of province.regions) {
+        for (const city of region.cities) {
+          if (city.lifecycle !== "published") continue;
+          if (city.spots.some((s) => s.slug === homeSpotSlug)) {
+            return { slug: city.slug, name: city.name };
+          }
+        }
+      }
+    }
+  }
+  return null;
 }

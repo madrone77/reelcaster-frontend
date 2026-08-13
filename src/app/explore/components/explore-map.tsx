@@ -17,7 +17,7 @@ import type {
 } from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
 import type { RailSpot } from "../lib/explore-data";
-import { buildReliefStyle } from "@/lib/map/relief-style";
+import { buildReliefStyle, buildSummaryStyle } from "@/lib/map/relief-style";
 import { attachRcaHatch } from "@/lib/map/rca-hatch";
 import {
   attachSquarePuck,
@@ -44,6 +44,9 @@ const BUOY_MARKER = "buoy-marker";
 
 // Both spot shapes must be interactive — the square is a spot, not decoration.
 const INTERACTIVE = [SPOT_CIRCLE, SPOT_CUSTOM_SQUARE, TIDE_STATION, BUOY_MARKER];
+// Summary style ships no tide/buoy layers; querying a layer id that isn't in the
+// style throws inside queryRenderedFeatures on every mouse move.
+const INTERACTIVE_SUMMARY = [SPOT_CIRCLE, SPOT_CUSTOM_SQUARE];
 
 /** A clicked tide-station donut or weather-buoy marker. */
 export interface StationPick {
@@ -114,6 +117,7 @@ export default function ExploreMap({
   pinDropMode = false,
   onMapPick,
   showBrand = true,
+  summary = false,
 }: {
   mapRef: RefObject<MapRef | null>;
   spots: RailSpot[];
@@ -126,6 +130,10 @@ export default function ExploreMap({
   onMapPick?: (coords: { lat: number; lng: number }) => void;
   /** Show the ReelCaster brand watermark. Off for summary maps (dashboard). */
   showBrand?: boolean;
+  /** Summary mode: land + labels only, no chart substrate and no station
+   *  markers. Skips ~2.8 MB of GeoJSON parsing that a "where are my spots"
+   *  overview never draws. Implies relief/contours off. */
+  summary?: boolean;
   /** Fired on load + every moveend with the visible bounds and centre —
    *  drives the viewport-scoped rail, strip and pill label. */
   onViewportChange?: (
@@ -221,13 +229,11 @@ export default function ExploreMap({
   // to parse URL"), so contour + land tiles silently load zero features. Raster,
   // GeoJSON, and glyphs resolve on the main thread, which masks it. Use the full
   // origin so every source URL is absolute.
-  const mapStyle = useMemo(
-    () =>
-      buildReliefStyle(
-        typeof window !== "undefined" ? window.location.origin : "",
-      ) as unknown as StyleSpecification,
-    [],
-  );
+  const mapStyle = useMemo(() => {
+    const origin = typeof window !== "undefined" ? window.location.origin : "";
+    const build = summary ? buildSummaryStyle : buildReliefStyle;
+    return build(origin) as unknown as StyleSpecification;
+  }, [summary]);
 
   const data = useMemo(
     () => spotsToFeatureCollection(spots, hour),
@@ -430,11 +436,13 @@ export default function ExploreMap({
         mapStyle={mapStyle}
         minZoom={3.5}
         maxZoom={15}
-        interactiveLayerIds={INTERACTIVE}
+        interactiveLayerIds={summary ? INTERACTIVE_SUMMARY : INTERACTIVE}
         cursor={pinDropMode ? "crosshair" : cursor}
         onClick={handleClick}
         onLoad={(e) => {
-          attachRcaHatch(e.target); // register RCA fill-pattern image (hatch)
+          // The hatch is only referenced by rca-fill, which the summary style
+          // omits entirely.
+          if (!summary) attachRcaHatch(e.target); // RCA fill-pattern image
           attachSquarePuck(e.target); // register the custom-spot square (SDF icon)
           setMapObj(e.target);
           reportViewport(e.target);
@@ -452,7 +460,7 @@ export default function ExploreMap({
         <NavigationControl position="bottom-right" showCompass={false} />
         <AttributionControl compact position="bottom-right" customAttribution={MAP_CUSTOM_ATTRIBUTION} />
 
-        {OWM_KEY && (
+        {OWM_KEY && !summary && (
           <Source
             id={WIND_LAYER}
             type="raster"

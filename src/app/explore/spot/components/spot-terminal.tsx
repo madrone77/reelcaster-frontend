@@ -255,27 +255,41 @@ function buildSvg(
     { k: "arrow", l: "", n: "", h: mob ? 22 : 32 },
     { k: "sea", l: "Sea State", n: `wave ${u.waveUnit} · 0–${tickFmt(cvWave(1))}`, h: 70 * base },
     { k: "air", l: "Air Temp", n: `°${u.tempUnit} · ${Math.round(cvT(5))}–${Math.round(cvT(25))} fixed`, h: mob ? 42 : 56 },
+    // Note must fit the 132px label gutter — at 10px mono (~6px/char) that's
+    // ~20 chars before it runs out from under the label and into the plot.
+    { k: "wx", l: "Weather", n: "4-hour blocks", h: mob ? 28 : 34 },
   ] as { k: string; l: string; n: string; h: number; y0?: number; y1?: number }[];
-  // Mobile row labels live in the inter-row gaps, so the gaps must clear a
-  // 12px label — including after the arrow row, which precedes "Sea State".
-  // Desktop `top` also reserves headroom for the hover pill, which floats above
-  // the score row — at the old 21 the pill's rounded top clipped off the viewBox.
-  const gap = mob ? 17 : 15, top = mob ? 18 : 28;
+  // Each instrument sits in its own bordered band. The rows used to butt up
+  // against one another with a bare 15px gap and no rule, under one continuous
+  // column of twilight shading, so tide/current/wind/sea/air blended into a
+  // single wall of chart. `gap` is the whitespace between band boxes; PAD is
+  // the breathing room inside each box, above and below its rows. Wind and its
+  // direction arrows are ONE instrument, so they share a band and get a tight
+  // inner gap instead.
+  // Mobile row labels live in the gap above their band, so the gap must clear a
+  // 12px label. Desktop `top` also reserves headroom for the hover pill, which
+  // floats above the first band — too little and its rounded top clips off the
+  // viewBox.
+  const gap = mob ? 32 : 30, top = mob ? 26 : 36, PAD = mob ? 6 : 8;
   const Y: Record<string, { y0: number; y1: number }> = {};
   let cy = top;
-  rows.forEach((r) => { r.y0 = cy; r.y1 = cy + r.h; Y[r.k] = { y0: r.y0, y1: r.y1 }; cy += r.h + (r.k === "arrow" ? (mob ? gap : 4) : gap); });
+  rows.forEach((r) => { r.y0 = cy; r.y1 = cy + r.h; Y[r.k] = { y0: r.y0, y1: r.y1 }; cy += r.h + (r.k === "wind" ? 2 : gap); });
   const axisY = cy + 2;
-  // Weather-icon row beneath the hour axis (replaces the in-stack SKY row).
-  const wxIconY = axisY + (mob ? 14 : 20) + (mob ? 12 : 15);
-  const wxLabelY = wxIconY + (mob ? 12 : 15);
-  const H = wxLabelY + (mob ? 4 : 6);
-  const cTop = Y.score.y0, cBot = Y.air.y1;
+  const H = axisY + (mob ? 20 : 24);
+  // The bordered groups, top to bottom. Each spans its rows plus PAD.
+  const bands = ([["score"], ["tide"], ["cur"], ["wind", "arrow"], ["sea"], ["air"], ["wx"]] as string[][]).map(
+    (ks) => ({ k: ks[0], y0: Y[ks[0]].y0 - PAD, y1: Y[ks[ks.length - 1]].y1 + PAD }),
+  );
+  const cTop = bands[0].y0, cBot = bands[bands.length - 1].y1;
 
-  // twilight bands
-  const TW: [number, number, number][] = [
-    [0, sun.nauticalRise, 0.065], [sun.nauticalRise, sun.civilRise, 0.045], [sun.civilRise, sun.sunrise, 0.03],
-    [sun.sunset, sun.civilSet, 0.03], [sun.civilSet, sun.nauticalSet, 0.045], [sun.nauticalSet, 24, 0.065],
-  ];
+  // Night = before sunrise, after sunset. This was a six-segment opacity ramp
+  // (nautical → civil → sunrise) too faint to read; then a dot region bounded
+  // at civil twilight — but the axis marks true sunrise/sunset, so the shading
+  // edge and the ☀ marker were two marks for "day begins" 35 min and ~23px
+  // apart, each orphaned from the other. One boundary now: the shaded edge and
+  // the ☀ marker are the same moment at the same x. Suffix picks which pattern
+  // to fill with — each is anchored to the boundary it meets (see ntPat).
+  const TW: [number, number, string][] = [[0, sun.sunrise, "a"], [sun.sunset, 24, "b"]];
 
   const xAt = (t: number) => x0 + t * hw;
   // Clamp an annotation's anchor so its text box stays inside the plot area —
@@ -300,11 +314,41 @@ function buildSvg(
   };
 
   let s = `<svg id="${id}" viewBox="0 0 ${W} ${H}" width="100%" tabindex="0" role="slider" aria-label="24-hour conditions, arrow keys to scrub by hour" aria-valuemin="0" aria-valuemax="23" aria-valuenow="0" data-ty0="${Y.tide.y0}" data-ty1="${Y.tide.y1}" style="touch-action:none;cursor:crosshair">`;
-  s += `<defs><linearGradient id="${id}tg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${C.brand}" stop-opacity=".13"/><stop offset="1" stop-color="${C.brand}" stop-opacity="0"/></linearGradient></defs>`;
+  // Night texture — a dot grid, not a wash. patternUnits is user space, so the
+  // dots land on the same columns in every band and the night regions line up
+  // down the whole stack.
+  //
+  // One pattern per region, each phase-shifted so the tile grid starts on the
+  // sunrise/sunset boundary it meets. With a single origin-anchored pattern the
+  // grid ignores the boundary and the edge slices whichever dot it lands on,
+  // leaving a ragged margin up to a full tile wide — the texture stopped near
+  // the sun marker rather than at it. Dot centred in the tile, so the last
+  // column sits a predictable 2.5px off the edge on either side.
+  const NT = 5;
+  const ntPat = (n: string, edgeX: number) =>
+    `<pattern id="${id}nt${n}" width="${NT}" height="${NT}" patternUnits="userSpaceOnUse" patternTransform="translate(${(edgeX % NT).toFixed(2)},0)"><rect width="${NT}" height="${NT}" fill="${C.soft}" opacity=".035"/><circle cx="${NT / 2}" cy="${NT / 2}" r=".85" fill="${C.faint}" opacity=".85"/></pattern>`;
+  s += `<defs><linearGradient id="${id}tg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${C.brand}" stop-opacity=".13"/><stop offset="1" stop-color="${C.brand}" stop-opacity="0"/></linearGradient>`;
+  s += ntPat("a", xAt(sun.sunrise)) + ntPat("b", xAt(sun.sunset)) + `</defs>`;
 
-  TW.forEach((t) => { if (t[1] <= t[0]) return; s += `<rect x="${xAt(t[0]).toFixed(1)}" y="${cTop}" width="${((t[1] - t[0]) * hw).toFixed(1)}" height="${cBot - cTop}" fill="#334155" opacity="${t[2]}"/>`; });
-  if (best) s += `<rect x="${xAt(best[0]).toFixed(1)}" y="${cTop}" width="${((best[1] - best[0] + 1) * hw).toFixed(1)}" height="${cBot - cTop}" fill="${C.brand}" opacity=".045"/>`;
-  for (let g = 0; g <= 24; g += mob ? 6 : 3) s += `<line x1="${xAt(g).toFixed(1)}" y1="${cTop}" x2="${xAt(g).toFixed(1)}" y2="${cBot}" stroke="${C.ruleSoft}" stroke-width="1"/>`;
+  // Band backgrounds — twilight, best window and the hour grid stop at each
+  // band's border rather than running the height of the stack, so every box
+  // reads as its own plot instead of one shaded column with lines through it.
+  bands.forEach((b, bi) => {
+    const by = b.y0.toFixed(1), bh = (b.y1 - b.y0).toFixed(1);
+    // Night skips the score band (bi 0): the tinted cells cover it, so all it
+    // did was leave dotted strips in the padding above and below them.
+    if (bi > 0) TW.forEach((t) => { if (t[1] <= t[0]) return; s += `<rect x="${xAt(t[0]).toFixed(1)}" y="${by}" width="${((t[1] - t[0]) * hw).toFixed(1)}" height="${bh}" fill="url(#${id}nt${t[2]})"/>`; });
+    if (best) s += `<rect x="${xAt(best[0]).toFixed(1)}" y="${by}" width="${((best[1] - best[0] + 1) * hw).toFixed(1)}" height="${bh}" fill="${C.brand}" opacity=".045"/>`;
+    // Weather is summarised in 4-hour blocks, so its grid rules sit on the
+    // block boundaries — the standard 3-hour grid would cut each icon's block
+    // in the wrong place and imply an hourly reading it doesn't have.
+    const gs = b.k === "wx" ? 4 : mob ? 6 : 3;
+    for (let g = 0; g <= 24; g += gs) s += `<line x1="${xAt(g).toFixed(1)}" y1="${by}" x2="${xAt(g).toFixed(1)}" y2="${b.y1.toFixed(1)}" stroke="${C.ruleSoft}" stroke-width="1"/>`;
+  });
+  // Band borders. Desktop encloses the left label block too, so a label and its
+  // plot are visibly one unit; mobile labels sit above their box.
+  const bandX = mob ? 0.5 : 6;
+  bands.forEach((b) => { s += `<rect x="${bandX}" y="${b.y0.toFixed(1)}" width="${(x1 - bandX).toFixed(1)}" height="${(b.y1 - b.y0).toFixed(1)}" rx="3" fill="none" stroke="${C.rule}" stroke-width="1"/>`; });
 
   // SCORE — cells carry only their tier tint; the selected hour is outlined by
   // the movable cursor group (below), so no static range highlight here.
@@ -345,7 +389,12 @@ function buildSvg(
   { const r = Y.wind, vmax = 24;
     [10, 20].forEach((tk) => { const yy = yIn(tk, r.y0, r.y1, 0, vmax); s += `<line x1="${x0}" y1="${yy.toFixed(1)}" x2="${x1}" y2="${yy.toFixed(1)}" stroke="${C.ruleSoft}" stroke-width="1" stroke-dasharray="3 3"/><text class="tm-tick" x="${x0 - 5}" y="${yy + 3}" text-anchor="end">${Math.round(cvW(tk))}</text>`; });
     const scy = yIn(15, r.y0, r.y1, 0, vmax); s += `<line x1="${x0}" y1="${scy.toFixed(1)}" x2="${x1}" y2="${scy.toFixed(1)}" stroke="${C.r[4]}" stroke-width="1" stroke-dasharray="4 3" opacity=".8"/>`;
-    if (wide) s += `<text class="tm-note" x="${x0 + 3}" y="${scy - 4}" style="fill:${C.r[4]}">${Math.round(cvW(15))} ${wLbl.toUpperCase()} SMALL CRAFT</text>`;
+    // Centred, not pinned to x0: the left edge is where the night dot shading
+    // sits, and the label was reading through the texture. Midday is the one
+    // stretch of this row that is reliably clear — it's outside both night
+    // regions, and gusts strong enough to cross the 15 kn line (which is what
+    // would collide here) cluster in the afternoon and evening, not at noon.
+    if (wide) s += `<text class="tm-note" x="${((x0 + x1) / 2).toFixed(1)}" y="${scy - 4}" text-anchor="middle" style="fill:${C.r[4]}">${Math.round(cvW(15))} ${wLbl.toUpperCase()} SMALL CRAFT</text>`;
     for (let i = 0; i < 24; i++) { const cx = xAt(i), bw = hw * 0.56, v = num(hours.wind[i]); if (v == null) continue; const by = yIn(v, r.y0, r.y1, 0, vmax);
       s += `<rect x="${(cx + hw / 2 - bw / 2).toFixed(1)}" y="${by.toFixed(1)}" width="${bw.toFixed(1)}" height="${(r.y1 - by).toFixed(1)}" rx="1.5" fill="${C.wind}"/>`;
       const gv = num(hours.gust[i]); if (gv != null) { const gy = yIn(gv, r.y0, r.y1, 0, vmax); s += `<line x1="${(cx + hw / 2 - bw / 2 - 1).toFixed(1)}" y1="${gy.toFixed(1)}" x2="${(cx + hw / 2 + bw / 2 + 1).toFixed(1)}" y2="${gy.toFixed(1)}" stroke="${C.soft}" stroke-width="1.4"/>`; } }
@@ -371,36 +420,48 @@ function buildSvg(
 
   // labels
   rows.forEach((r) => { if (r.k === "arrow") return;
-    if (mob) s += `<text class="tm-lbl" x="${x0}" y="${(r.y0 ?? 0) - 5}">${r.l.toUpperCase()}</text>`;
+    // Mobile: the label rides in the gap ABOVE the band border, not inside it.
+    if (mob) s += `<text class="tm-lbl" x="${x0}" y="${(r.y0 ?? 0) - PAD - 5}">${r.l.toUpperCase()}</text>`;
     else { s += `<text class="tm-lbl" x="12" y="${(r.y0 ?? 0) + 14}">${r.l.toUpperCase()}</text>`; if (r.n) s += `<text class="tm-note" x="12" y="${(r.y0 ?? 0) + 30}">${r.n}</text>`; } });
 
-  // hour axis + sun context. Desktop: sunrise/sunset carry a glyph + time, and
-  // first light / last light (nautical twilight) get a faint tick at the top of
-  // the plot — the daylight envelope Surfline shows. The plain hour label under
-  // any sun marker is dropped so they don't collide.
-  const sunTimes = mob ? [sun.sunrise, sun.sunset] : [sun.nauticalRise, sun.sunrise, sun.sunset, sun.nauticalSet];
+  // hour axis + sun context. Sunrise/sunset carry a glyph + time; the plain hour
+  // label under a sun marker is dropped so they don't collide. Nautical first
+  // light / last light no longer appear here — the night shading is bounded at
+  // sunrise/sunset, so a nautical tick marked an edge nothing on the chart drew.
+  //
+  // The drop test is in PIXELS, not hours. A fixed 0.8h window doesn't know how
+  // wide the label it's protecting is, and hour cells shrink with the viewport:
+  // at 375px "18" and "☀20:37" clear each other by 8px, but at 320px the same
+  // 2.6h separation is only ~2px and they touch. Measure the two half-widths
+  // instead (mono, ~0.6em/char) and keep 5px of air.
+  const sunTimes = [sun.sunrise, sun.sunset];
+  const sunFS = mob ? 10 : 11;
+  const minSep = (sunFS * 0.6 * 6) / 2 + (sunFS * 0.6 * 2) / 2 + 5;
   for (let a = 0; a <= 24; a += mob ? 6 : 3) {
-    if (sunTimes.some((t) => Math.abs(t - a) < 0.8)) continue;
+    if (sunTimes.some((t) => Math.abs(xAt(t) - xAt(a)) < minSep)) continue;
     s += `<text class="tm-ax" x="${xAt(a).toFixed(1)}" y="${axisY + 12}" text-anchor="middle">${String(a).padStart(2, "0")}</text>`;
   }
-  if (mob) {
-    [sun.sunrise, sun.sunset].forEach((t) => { s += `<text x="${xAt(t).toFixed(1)}" y="${axisY + 12}" text-anchor="middle" style="font-size:8px;fill:${C.r[2]}">☀</text>`; });
-  } else {
-    // first / last light — faint short ticks just under the axis
-    [sun.nauticalRise, sun.nauticalSet].forEach((t) => {
-      s += `<text class="tm-ax" x="${xAt(t).toFixed(1)}" y="${axisY + 12}" text-anchor="middle" style="fill:${C.faint}">${hh(t)}</text>`;
-    });
-    // sunrise / sunset — glyph + time
-    [sun.sunrise, sun.sunset].forEach((t) => {
-      s += `<text x="${xAt(t).toFixed(1)}" y="${axisY + 12}" text-anchor="middle" style="font-size:11px;fill:${C.r[2]};font-family:var(--rc-font-mono)">☀${hh(t)}</text>`;
-    });
-  }
+  // sunrise / sunset — glyph + time, on both variants. This is the mark the
+  // night shading's edge now lands on, so it has to be legible: mobile drew a
+  // bare 8px ☀ with no time, which read as a stray orange dot rather than the
+  // boundary the texture stops at. The label fits — even at a 320px viewport
+  // it clears the neighbouring 12:00 hour label by ~40px.
+  [sun.sunrise, sun.sunset].forEach((t) => {
+    s += `<text x="${xAt(t).toFixed(1)}" y="${axisY + 12}" text-anchor="middle" style="font-size:${sunFS}px;fill:${C.r[2]};font-family:var(--rc-font-mono)">☀${hh(t)}</text>`;
+  });
 
-  // Weather-icon row — 6 fixed 4-hour segments (00/04/08/12/16/20), one icon
-  // per segment's dominant condition, beneath the hour axis. Replaces the cloud
-  // strip + precip bars; precip is the only emphasized condition.
+  // WEATHER — 6 fixed 4-hour blocks (00/04/08/12/16/20), one icon per block's
+  // dominant condition. Precip is the only emphasized condition.
+  //
+  // This was a loose strip below the hour axis, outside every band, carrying
+  // its own row of hour numbers — a second time ruler under the real one. Worse,
+  // each number was drawn at xAt(seg + 2), the block's CENTRE, while its text
+  // said `seg`: every label sat two hours right of the hour it named. It's now
+  // a band like the rest, directly above the axis, and the numbers are gone —
+  // the hour axis beneath it is the only time ruler, and the block rules above
+  // show each icon's span.
   {
-    const wxSize = mob ? 14 : 18;
+    const r = Y.wx, wxSize = mob ? 14 : 18, wxY = (r.y0 + r.y1) / 2;
     for (const seg of [0, 4, 8, 12, 16, 20]) {
       const tally: Partial<Record<WeatherCondition, number>> = {};
       for (let h = seg; h < seg + 4; h++) {
@@ -410,9 +471,7 @@ function buildSvg(
       const cond = (Object.entries(tally) as [WeatherCondition, number][]).sort(
         (a, b) => b[1] - a[1],
       )[0]?.[0];
-      const cx = xAt(seg + 2);
-      if (cond) s += weatherIconMarkup(cond, { x: cx, y: wxIconY, size: wxSize });
-      s += `<text class="tm-ax" x="${cx.toFixed(1)}" y="${wxLabelY}" text-anchor="middle">${String(seg).padStart(2, "0")}</text>`;
+      if (cond) s += weatherIconMarkup(cond, { x: xAt(seg + 2), y: wxY, size: wxSize });
     }
   }
 

@@ -3,12 +3,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import dynamic from "next/dynamic";
-import { ArrowUpCircle, ChevronLeft, ChevronRight, Home } from "lucide-react";
+import { ArrowUpCircle, ChevronLeft, ChevronRight, Home, Bell } from "lucide-react";
 import { useAuth } from "@/contexts/auth-context";
 import { useSubscription } from "@/hooks/use-subscription";
-import { FREE_FAVORITE_SPOTS } from "@/lib/plan-features";
+import AdSlot from "@/app/components/ads/ad-slot";
 import { countryDisplayName, regulatorFor } from "@/lib/regions";
-import { favoriteCount } from "../../lib/use-favorite";
 import ExploreTopBar from "../../components/explore-top-bar";
 import DayCell from "../../components/day-cell";
 import { bestWindow } from "../../components/hourly-bars";
@@ -23,6 +22,7 @@ import {
 import {
   fetchForecast14d,
   fetchFreshCatches,
+  fetchSpotRecentReports,
   fetchSpotScore,
   fetchPointConditions,
   fetchCurrentsPoint,
@@ -38,7 +38,6 @@ import type {
   SpotScorePayload,
   PointConditions,
   RightNowSnapshot,
-  LiveRegulation,
 } from "@/lib/bluecaster/live-spot-types";
 import SpeciesCardRow from "../components/species-card-row";
 import SpotProfile from "../components/spot-profile";
@@ -52,7 +51,8 @@ import { useHomeSpot } from "../../lib/use-home-spot";
 import SpotTerminal from "../components/spot-terminal";
 import SpotMiniMap from "../components/spot-mini-map";
 import ScoreCard from "../components/score-card";
-import { FreshCatchBlock } from "@/app/explore/components/fresh-catch-reports";
+import { RecentReportsBand } from "@/app/explore/components/recent-reports";
+import type { RecentReports as RecentReportsData } from "@/lib/bluecaster/live-spot-types";
 import type { RailFreshCatch } from "@/app/explore/lib/fresh-catch-types";
 import CustomAlertCta from "../components/custom-alert-cta";
 import MarketingFooter from "@/app/components/marketing/marketing-footer";
@@ -75,42 +75,20 @@ const FRESH_DAYS = 21;
  */
 export type SpotPageForClient = Omit<
   SpotPageInitial,
-  "catchSignals" | "intelVerdict"
->;
+  "catchSignals" | "intelVerdict" | "recentReports"
+> & {
+  /** Truncated headline only. The full report is Pro and is fetched at request
+   *  time from the gated route, never serialized into the prerendered HTML. */
+  recentReportsTeaser: string | null;
+  /** Date of the newest report, so the block can show its freshness even locked. */
+  recentReportsUpdatedAt: string | null;
+};
 
 const REG_PILL: Record<string, string> = {
   Open: "bg-rc-good-bg text-rc-good-ink",
   Release: "bg-rc-fair-bg text-rc-fair-ink",
   Closed: "bg-rc-poor-bg text-rc-poor-ink",
 };
-
-/**
- * Three at-a-glance takeaways for the near-the-top reg digest: quantity, size,
- * and the major restriction (gear). The full breakdown still lives in the
- * CurrentRegulations panel lower on the page. Empty when nothing to say.
- */
-function regDigestOf(r: LiveRegulation): string[] {
-  const quantity =
-    r.status === "Closed"
-      ? "No retention"
-      : r.status === "Release" || r.dailyLimit === 0
-        ? "Release only"
-        : r.dailyLimit != null && r.dailyLimit > 0
-          ? `${r.dailyLimit}/day`
-          : null;
-  const size =
-    r.sizeLimitCm != null && r.sizeLimitMaxCm != null
-      ? `${r.sizeLimitCm}–${r.sizeLimitMaxCm} cm`
-      : r.sizeLimitCm != null
-        ? `Min ${r.sizeLimitCm} cm`
-        : r.sizeLimitMaxCm != null
-          ? `Max ${r.sizeLimitMaxCm} cm`
-          : null;
-  const restriction = r.gearRestrictions
-    ? r.gearRestrictions.charAt(0).toUpperCase() + r.gearRestrictions.slice(1)
-    : null;
-  return [quantity, size, restriction].filter((v): v is string => v != null);
-}
 
 function bestSpeciesId(page: SpotPageForClient): string | null {
   let best: string | null = null;
@@ -188,10 +166,6 @@ export default function SpotDetailShell({
   // Names for the per-species report split. The roster is the species this spot
   // is scored for; anglers report others (crab and lingcod at a salmon spot),
   // and those fold into "Other species" rather than being dropped.
-  const freshSpeciesNames = useMemo(
-    () => Object.fromEntries(species.map((sp) => [sp.id, sp.name])),
-    [species],
-  );
   const selSpecies = species.find((s) => s.id === selId) ?? species[0] ?? null;
 
   // ── lazy data ─────────────────────────────────────────────────────────
@@ -201,9 +175,12 @@ export default function SpotDetailShell({
   // Catch reports. The static render is always locked (that's what keeps this
   // page prerenderable); a Pro viewer upgrades it client-side from the gated
   // route, which is also where the entitlement is actually enforced.
-  const [fresh, setFresh] = useState<RailFreshCatch | null>(
-    freshTracked ? { locked: true } : null,
-  );
+  // Starts null, NOT {locked:true}. Seeding it locked was optimistic about the
+  // reader being free, so a Pro angler on a spot with reports but no written
+  // digest got the upsell painted at them until the counts arrived. Same flash
+  // as the report block had, one branch over. The locked state is set below,
+  // once entitlement says the reader actually is free.
+  const [fresh, setFresh] = useState<RailFreshCatch | null>(null);
   const [saved, toggleSaved] = useFavorite(spot.slug);
   const [isHome, toggleHome] = useHomeSpot(spot.slug);
   const { isPaid, loading: tierLoading } = useSubscription();
@@ -216,16 +193,16 @@ export default function SpotDetailShell({
   // One-shot "pop" when favoriting (not on un-favorite or load) — mirrors the
   // rail SpotCard star interaction exactly, including the free-tier cap.
   const [savePop, setSavePop] = useState(false);
-  const handleToggleSaved = () => {
-    if (!saved && !isPaid && favoriteCount() >= FREE_FAVORITE_SPOTS) {
+  const handleToggleSaved = async () => {
+    const res = await toggleSaved({ isPaid, spotId: spot.id });
+    if (res === "signed-out" || res === "at-cap") {
       setFavUpgradeOpen(true);
       return;
     }
-    if (!saved) {
+    if (res === "saved") {
       setSavePop(true);
       window.setTimeout(() => setSavePop(false), 600);
     }
-    toggleSaved();
   };
 
   useEffect(() => {
@@ -245,7 +222,13 @@ export default function SpotDetailShell({
   // server-side (and unlike the client's `isPaid`, it honours the grace
   // window), so this call is a request, not the gate.
   useEffect(() => {
-    if (!freshTracked || !isPaid) return;
+    if (!freshTracked) return;
+    // Not paying, and we now know it: show the locked state.
+    if (!tierLoading && !isPaid) {
+      setFresh({ locked: true });
+      return;
+    }
+    if (!isPaid) return; // still resolving — show nothing rather than a lock
     let cancelled = false;
     fetchFreshCatches(spot.id)
       .then((d) => {
@@ -258,7 +241,43 @@ export default function SpotDetailShell({
     return () => {
       cancelled = true;
     };
-  }, [freshTracked, isPaid, spot.id]);
+  }, [freshTracked, isPaid, tierLoading, spot.id]);
+
+  // The written report. Three states, driven by the REQUEST, not by the client
+  // tier: "asking" / "not allowed" / "here it is".
+  //
+  // Gating the upsell on entitlement was wrong, and is why the lock still
+  // flashed after the first attempt at this. Entitlement resolves FASTER than
+  // the report does — user_settings is one query, the report is a round trip
+  // through BlueCaster — so a Pro angler resolved to "not loading, no report
+  // yet" and got the upsell painted at them for the few hundred milliseconds in
+  // between. The route already answers the only question that matters, so the
+  // block waits for it and nothing else.
+  //
+  // Fired on mount rather than after `isPaid`, because the route is the gate: a
+  // free caller gets {locked:true} and no prose.
+  const [reports, setReports] = useState<RecentReportsData | null>(null);
+  const [reportsLocked, setReportsLocked] = useState<boolean | null>(null);
+  useEffect(() => {
+    if (!page.recentReportsTeaser) {
+      setReports(null);
+      setReportsLocked(null);
+      return;
+    }
+    let cancelled = false;
+    fetchSpotRecentReports(spot.slug)
+      .then(({ locked, reports: r }) => {
+        if (cancelled) return;
+        setReportsLocked(locked);
+        setReports((r as RecentReportsData | null) ?? null);
+      })
+      .catch(() => {
+        if (!cancelled) setReportsLocked(true);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [page.recentReportsTeaser, spot.slug]);
 
   useEffect(() => {
     if (!selId) return;
@@ -282,7 +301,6 @@ export default function SpotDetailShell({
   const seasonWeeks = selId ? (page.seasonWeeksBySpecies[selId] ?? []) : [];
   const seasonRegWeeks = selId ? (page.regWeeksBySpecies[selId] ?? undefined) : undefined;
   const regulation = page.regulations.find((r) => r.speciesId === selId) ?? null;
-  const regDigest = regulation ? regDigestOf(regulation) : [];
 
   const fcSource = fc ?? page;
   const stripModel = useMemo(
@@ -444,27 +462,20 @@ export default function SpotDetailShell({
     return min <= max ? { min, max } : null;
   }, [fcSource]);
 
-  // Signed flood/ebb current — the terminal chart follows the selected day,
-  // the RIGHT NOW tile is pinned to today. Null until the series arrives (the
-  // chart falls back to its tide-derived shape, the tile to point-conditions).
+  // Signed flood/ebb current for the selected day — fed to BOTH the terminal
+  // chart and the conditions strip, so the strip's current cell is literally
+  // the series the chart plots. Null until it arrives (the chart falls back to
+  // its tide-derived shape, the strip to point-conditions).
+  //
+  // A second series pinned to today (`todayCurrent`, off `tideToday` /
+  // `todayHoursGrid`) used to exist purely to feed the strip while it was
+  // locked to the live hour. The strip follows the scrub now, so that whole
+  // chain was dead — and keeping it would have meant a strip that silently
+  // disagreed with the chart whenever the angler picked another day.
   const chartCurrent = useMemo(() => {
     const samples = activeIso ? curByIso[activeIso] : null;
     return samples ? signCurrentSeries(samples, terminalHours.tide) : null;
   }, [curByIso, activeIso, terminalHours.tide]);
-
-  const todayHoursGrid = (fc ?? page).hourlyConditionsGrid?.[0];
-  const tideToday = useMemo(
-    () =>
-      Array.from(
-        { length: 24 },
-        (_, i) => (todayHoursGrid?.[i]?.tideM ?? null) as number | null,
-      ),
-    [todayHoursGrid],
-  );
-  const todayCurrent = useMemo(() => {
-    const samples = todayIso ? curByIso[todayIso] : null;
-    return samples ? signCurrentSeries(samples, tideToday) : null;
-  }, [curByIso, todayIso, tideToday]);
 
   // Merge the two fetched UTC days into one hour list; FactorCharts windows it
   // down to the current local day (fills the local evening that day-0 alone drops).
@@ -752,6 +763,23 @@ export default function SpotDetailShell({
                       strokeWidth={isHome ? 2.4 : 2}
                     />
                   </button>
+                  {/* Alerts are a page-level action on the spot, not a
+                      property of the score, so the CTA sits with the identity
+                      row rather than buried under the score card. ml-auto keeps
+                      it hard right without disturbing the name/star/home group. */}
+                  <button
+                    type="button"
+                    onClick={handleSetAlert}
+                    /* The label collapses to the bell on narrow screens, so the
+                       button needs its own accessible name or it announces as
+                       nothing to a screen reader. */
+                    aria-label="Set alert"
+                    title="Set alert"
+                    className="ml-auto shrink-0 flex items-center gap-2 rounded border border-rc-brand px-3 py-2 text-rc-brand hover:bg-rc-brand-soft text-[13px] font-semibold focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-rc-brand transition-colors"
+                  >
+                    <Bell className="w-4 h-4" aria-hidden />
+                    <span className="hidden sm:inline">Set alert</span>
+                  </button>
                 </div>
                 <p className="font-rc-mono text-xs text-rc-ink-mute mt-1.5">
                   {`${Math.abs(spot.lat).toFixed(2)}°${
@@ -795,9 +823,10 @@ export default function SpotDetailShell({
                   }
                 />
               </div>
-              {/* 2 · Best Window + 3 · DFO reg strip, then the fresh-catch
-                  evidence nested inside the card above Set alert — angler
-                  reports sit with the verdict. Absent when no reports exist. */}
+              {/* 2 · Best Window + 3 · DFO reg strip. The fresh-catch evidence
+                  and the alert CTA both used to live in here; they moved out to
+                  the full-width reports band and the identity row respectively,
+                  so this card is now purely the score verdict. */}
               <div className="order-1">
                 <ScoreCard
                   nowLabel={nowLabel}
@@ -810,21 +839,27 @@ export default function SpotDetailShell({
                   dfoArea={page.regAreaCode}
                   region={cityLink?.provinceName ?? spot.region}
                   speciesName={selSpecies?.name ?? null}
-                  regOpen={regulation?.status === "Open"}
-                  regDigest={regDigest}
-                  onSetAlert={handleSetAlert}
-                >
-                  {fresh && (
-                    <FreshCatchBlock
-                      fresh={fresh}
-                      days={FRESH_DAYS}
-                      speciesNames={freshSpeciesNames}
-                      onUpgrade={() => setReportsUpgradeOpen(true)}
-                    />
-                  )}
-                </ScoreCard>
+                  regulation={regulation}
+                />
               </div>
             </div>
+
+            {/* Reports, full width under the score/map row. It was two panels
+                inside the columns before: the counts were cramped and the
+                narrative left a tall gap beside the map. Full width also lets
+                the three columns (here / what worked / nearby) sit side by side
+                instead of stacking. */}
+            <RecentReportsBand
+              teaser={page.recentReportsTeaser}
+              updatedAt={page.recentReportsUpdatedAt}
+              /* null while the request is in flight. The upsell only appears
+                 once the server has actually said no. */
+              locked={reportsLocked}
+              reports={reports}
+              fresh={fresh}
+              days={FRESH_DAYS}
+              onUpgrade={() => setReportsUpgradeOpen(true)}
+            />
           </div>
           {/* end identity + score cluster (items 1–3) */}
 
@@ -872,22 +907,7 @@ export default function SpotDetailShell({
             </div>
           </div>
 
-          {/* 5 · Current conditions strip — the condensed now-state that
-              replaces the standalone RIGHT NOW panel. */}
-          <div className="border-t border-rc-rule pt-8">
-            <CurrentConditionsStrip
-              rightNow={page.rightNow}
-              score={nowScore}
-              currentSigned={todayCurrent}
-              currentSample={
-                (todayIso ? curByIso[todayIso]?.[nowHour] : null) ?? null
-              }
-              point={point}
-              nowHour={nowHour}
-            />
-          </div>
-
-          {/* 6 · 24-hour graph */}
+          {/* 5 · 24-hour graph, with the conditions strip as its readout */}
           <div id="conditions-24h" className="scroll-mt-20 border-t border-rc-rule pt-8">
             <div className="flex flex-wrap items-end justify-between gap-x-4 gap-y-1">
               <div>
@@ -900,6 +920,30 @@ export default function SpotDetailShell({
                 <span className="lg:hidden">Tap or drag to read any hour</span>
                 <span className="hidden lg:inline">Hover or drag to read any hour</span>
               </p>
+            </div>
+            {/* The graph's readout. Every prop is the SELECTED day + hour and
+                comes from the same series the chart draws, so scrubbing moves
+                these numbers and the two can never disagree. `tilesSnapshot` is
+                already the scrubbed hour's cell; `hours24` is the score row the
+                chart paints; `chartCurrent` is the signed series it plots. */}
+            {/* Inset to the chart's band boxes so the strip's edges land on
+                theirs. The terminal renders its SVG 1:1 (viewBox width = CSS
+                width), so its gutters are constant CSS px, not fractions:
+                bands start 6px in and stop 20px short of the right on desktop,
+                0.5px/10px on the mobile variant — and the lg breakpoint is
+                exactly where the two SVGs swap. Measured, not guessed. */}
+            <div className="mt-5 ml-[0.5px] mr-[10px] lg:ml-[6px] lg:mr-[20px]">
+              <CurrentConditionsStrip
+                rightNow={tilesSnapshot}
+                score={hours24?.[selectedHour] ?? null}
+                currentSigned={chartCurrent}
+                currentSample={
+                  (activeIso ? curByIso[activeIso]?.[selectedHour] : null) ?? null
+                }
+                point={point}
+                hour={selectedHour}
+                isNow={dayIndex === 0 && selectedHour === nowHour}
+              />
             </div>
             <SpotTerminal
               hours={terminalHours}
@@ -931,6 +975,11 @@ export default function SpotDetailShell({
           <div className="border-t border-rc-rule pt-8">
             <ScoreFactors factors={selId ? (page.todayFactorsBySpecies[selId] ?? []) : []} />
           </div>
+
+          {/* Renders nothing for Pro, and nothing until tier resolves. Placed
+              after the forecast reasoning rather than among it — everything
+              above this line is what the reader came for. */}
+          <AdSlot placement="spotMid" className="border-t border-rc-rule pt-8" />
 
           {/* Current regulations — the limits in effect for the active species
               (daily limit / size / gear), broken out. */}
@@ -1014,6 +1063,11 @@ export default function SpotDetailShell({
               .
             </p>
           </div>
+
+          {/* Last thing above the footer — after the description and the
+              hierarchy trail, so the crawlable copy and the outbound city /
+              province links stay ahead of it. */}
+          <AdSlot placement="spotFoot" className="border-t border-rc-rule pt-8" />
         </div>
       </div>
 

@@ -30,11 +30,12 @@ import type { FreshCatchesResponse } from "./lib/fresh-catch-types";
 import { useSubscription } from "@/hooks/use-subscription";
 import { useAuth } from "@/contexts/auth-context";
 import { useExploreState } from "./lib/use-explore-state";
+import { readExploreView, writeExploreView, type ExploreView } from "./lib/view-memory";
 import ExploreTopBar from "./components/explore-top-bar";
 import { BLEED_MEASURE } from "@/app/components/layout/page-measure";
 import ExploreMap, { type StationPick, type CustomSpotPin } from "./components/explore-map";
 import CreateCustomSpotDialog from "./components/create-custom-spot-dialog";
-import { favoriteIfUnset, setFavorite } from "./lib/use-favorite";
+import { setFavorite } from "./lib/use-favorite";
 import { Plus, X } from "lucide-react";
 import StationDrawer from "./components/station-drawer";
 import LeftRail from "./components/left-rail";
@@ -115,6 +116,33 @@ export default function ExploreShell({
   const accessTier: ForecastTier = isPaid ? "pro" : user ? "free" : "anonymous";
   const { citySlug, spotSlug, day, stn, setQuery } = useExploreState();
 
+  // ── Return-trip memory ──────────────────────────────────────────────────
+  //
+  // Read in the first render, not an effect: `initialViewState` is read once
+  // by MapLibre at mount, so a camera arriving a tick later would already have
+  // lost the race to the default city and its `fitBounds`.
+  //
+  // Rendering off browser storage is normally a hydration hazard, and this
+  // component does server-render — so ONLY the camera comes from here. The
+  // camera never reaches the HTML (react-map-gl emits a bare container on the
+  // server and builds the map in an effect), which is exactly why it is safe
+  // to read early. Everything else the memory holds — the species filter, the
+  // layer toggles, the viewport seed, `?spot`/`?day` — does show up in the
+  // markup, so it is applied in the mount effect further down, after
+  // hydration has matched.
+  //
+  // A URL that names its own place always wins: `?loc` is a city pick, `?spot`
+  // a spot deep link, `?stn` a station — all of them somebody asking for a
+  // specific frame, not for the one they left. Only a bare /explore, which is
+  // what "Back to map" and the nav both point at, restores.
+  const restoredRef = useRef<ExploreView | null | undefined>(undefined);
+  if (restoredRef.current === undefined) {
+    restoredRef.current = citySlug || spotSlug || stn ? null : readExploreView();
+  }
+  const restored = restoredRef.current;
+  /** The blob last written, so a handler can amend it without rebuilding it. */
+  const savedRef = useRef<ExploreView | null>(restored);
+
   // ── Custom spots (Pro): a "Create custom spot" button arms pin-drop mode;
   //    the next map click opens a modal to name it + pick species. The user's
   //    own custom spots render as distinct markers (fetched on sign-in, plus
@@ -177,13 +205,21 @@ export default function ExploreShell({
   const [currents, setCurrents] = useState(false);
   const [wind, setWind] = useState(false);
   const [speciesFilter, setSpeciesFilter] = useState<string | null>(null);
+  // Label fallback for a species pinned from search that no in-view spot
+  // carries, so the strip header can still name it.
+  const [pickedSpeciesName, setPickedSpeciesName] = useState<string | null>(null);
 
   // ── Viewport tracking: the map viewport is the source of truth for which
   //    spots the rail/list/strip reflect. `viewBounds` updates on every
   //    moveend (client-side spot filter); `vpBbox` is the same box padded
   //    20% and rounded, debounced, and drives the strip's forecast fetch. ──
+  //    On a return trip the mount effect seeds all of these from the
+  //    remembered frame, so the rail, the pill label and the strip open on the
+  //    water the angler left rather than on the default city's spots for the
+  //    second or two before MapLibre reports.
   const [viewBounds, setViewBounds] = useState<{ w: number; s: number; e: number; n: number } | null>(null);
   const [viewCenter, setViewCenter] = useState<{ lat: number; lng: number } | null>(null);
+  const [viewZoom, setViewZoom] = useState<number | null>(null);
   const [vpBbox, setVpBbox] = useState<string | null>(null);
   const vpTimerRef = useRef<number | null>(null);
   const vpReported = useRef(false);
@@ -193,6 +229,8 @@ export default function ExploreShell({
       vpReported.current = true;
       setViewBounds(b);
       setViewCenter(c);
+      const z = mapRef.current?.getZoom();
+      if (typeof z === "number") setViewZoom(z);
       if (vpTimerRef.current) window.clearTimeout(vpTimerRef.current);
       vpTimerRef.current = window.setTimeout(() => setVpBbox(paddedBbox(b)), 300);
     },
@@ -296,7 +334,11 @@ export default function ExploreShell({
     };
   }, [userId, bbox, selectedIso, ownSpotsRefresh]);
 
-  const ownRailSpots = useMemo<RailSpot[]>(() => {
+  // Everything the viewer-scoped payload carries that the server render didn't:
+  // this angler's own custom spots, plus any spot published since the hierarchy
+  // the base set was built from was cached. Only the former are flagged
+  // `isCustom` — see extraRailSpotsFromPayload.
+  const extraRailSpots = useMemo<RailSpot[]>(() => {
     if (!viewerPayload) return [];
     return extraRailSpotsFromPayload(
       data.spots,
@@ -306,22 +348,22 @@ export default function ExploreShell({
     );
   }, [viewerPayload, data.spots, selectedIso, today, customSpots]);
 
-  // Your own spots come back starred unless you've un-starred them — covers
-  // spots made on another device, or before auto-favoriting. A write, so it
-  // stays an effect rather than riding along in the memo above.
-  useEffect(() => {
-    for (const spot of ownRailSpots) favoriteIfUnset(spot.slug);
-  }, [ownRailSpots]);
+  // Nothing stars spots on sight any more. This is where a spot you'd created
+  // on another device used to be re-starred on arrival, because the star lived
+  // in localStorage and a second browser had no way to know about it — the same
+  // effect that, when it mistook freshly published spots for yours, filled
+  // everyone's Saved spots with things they never chose (#259). Favourites are
+  // server-side now, so the account already knows; there is nothing to infer.
 
   const effectiveSpots = useMemo(() => {
     const base =
       selectedIso === today || !dayPayload
         ? data.spots
         : rescoreSpots(data.spots, dayPayload, false);
-    if (ownRailSpots.length === 0) return base;
+    if (extraRailSpots.length === 0) return base;
     // Sorted with the rest — a custom spot earns its rail position by score.
-    return [...base, ...ownRailSpots].sort((a, b) => (b.score ?? -1) - (a.score ?? -1));
-  }, [selectedIso, today, dayPayload, data.spots, ownRailSpots]);
+    return [...base, ...extraRailSpots].sort((a, b) => (b.score ?? -1) - (a.score ?? -1));
+  }, [selectedIso, today, dayPayload, data.spots, extraRailSpots]);
 
   // Species filter: re-score each spot to the chosen species (pins recolor,
   // rail re-ranks, forecast strip keys off it). "Best bet" (null) = unchanged.
@@ -336,11 +378,12 @@ export default function ExploreShell({
       .sort((a, b) => (b.score ?? -1) - (a.score ?? -1));
   }, [effectiveSpots, speciesFilter, data.species]);
 
-  // The hierarchy walk in buildExploreData emits one RailSpot per (city,
-  // spot) membership — a shared spot (Race Rocks ∈ Victoria + Sooke) appears
-  // once per member city. The old city-scoped rail hid that; the viewport
-  // rail/map must dedupe by slug (spots are score-sorted, so the first copy
-  // wins).
+  // Belt-and-braces dedupe by slug. buildExploreData now builds RailSpots from
+  // the map payload, which carries one entry per spot, so this should be a
+  // no-op — it used to walk city memberships and emit a shared spot (Race
+  // Rocks ∈ Victoria + Sooke) once per member city. Kept because a duplicate
+  // slug reaching the rail trips a React key warning and can drop a card, and
+  // the guard costs one pass.
   const uniqueSpots = useMemo(() => {
     const seen = new Set<string>();
     return displaySpots.filter((s) => {
@@ -639,15 +682,39 @@ export default function ExploreShell({
     return buildViewportForecastDays(fcPayload, speciesFilter, accessTier);
   }, [fcPayload, tierLoading, speciesFilter, accessTier]);
 
+  // Viewport centre, handed to search purely as a tie-break between equally
+  // good text matches. Search stays global — this never hides a distant hit.
+  const searchNear = useMemo(
+    () =>
+      viewBounds
+        ? {
+            lat: (viewBounds.s + viewBounds.n) / 2,
+            lng: (viewBounds.w + viewBounds.e) / 2,
+          }
+        : undefined,
+    [viewBounds],
+  );
+
   // Strip header label: the pinned species, else the cross-species best fold.
   const stripSpeciesName = speciesFilter
-    ? data.species.find((s) => s.id === speciesFilter)?.name ?? null
+    ? data.species.find((s) => s.id === speciesFilter)?.name ??
+      pickedSpeciesName
     : "Best species";
 
   // Frame the picked city's spots when the selection changes (search pick,
   // Near me, ?loc deep link). Panning afterwards never re-triggers this —
   // the viewport stays wherever the user takes it.
+  //
+  // On a restored view the mount pass is skipped: `selectedCity` is the
+  // default city (a bare /explore carries no `?loc`), so letting this run
+  // would fit Victoria's spots right over the frame we just restored. Later
+  // city picks still fit, because by then the skip is spent.
+  const skipInitialFit = useRef(restored !== null);
   useEffect(() => {
+    if (skipInitialFit.current) {
+      skipInitialFit.current = false;
+      return;
+    }
     const citySpots = selectedCity
       ? displaySpots.filter((s) => s.citySlug === selectedCity.slug)
       : displaySpots;
@@ -680,7 +747,8 @@ export default function ExploreShell({
   // right area, not a wider stand-in — and because both paths now round to the
   // same 2dp key, the map's own report usually lands on the cached payload
   // rather than refetching it.
-  const vpSeeded = useRef(false);
+  // Already seeded when a remembered view brought its own bounds.
+  const vpSeeded = useRef(restored?.bounds != null);
   useEffect(() => {
     if (vpSeeded.current || vpReported.current) return;
     const citySpots = selectedCity
@@ -722,15 +790,31 @@ export default function ExploreShell({
     (slug: string) => {
       // Mobile (<lg) has no rail/drawer — go straight to the responsive spot
       // page. Desktop keeps the in-rail drawer + flyTo.
+      const spot = displaySpots.find((s) => s.slug === slug);
       if (
         typeof window !== "undefined" &&
         !window.matchMedia("(min-width:1024px)").matches
       ) {
+        // Leave the memory centred on this spot — the same frame desktop's
+        // flyTo below would have left. Mobile taps a card and goes straight to
+        // the page, so without this "Back to map" returns to whatever the list
+        // happened to be scrolled over rather than to the spot just viewed.
+        const base = savedRef.current;
+        if (base && spot) {
+          writeExploreView({
+            ...base,
+            lat: spot.lat,
+            lng: spot.lng,
+            zoom: Math.max(base.zoom, 11),
+            // Recentring invalidates them; the map reports real ones on load.
+            bounds: null,
+            spot: slug,
+          });
+        }
         router.push(`/explore/spot/${slug}`);
         return;
       }
       setQuery({ spot: slug, stn: null });
-      const spot = displaySpots.find((s) => s.slug === slug);
       if (spot) {
         mapRef.current?.flyTo({
           center: [spot.lng, spot.lat],
@@ -740,6 +824,65 @@ export default function ExploreShell({
       }
     },
     [router, setQuery, displaySpots],
+  );
+
+  // ── Search picks ────────────────────────────────────────────────────
+  // A searched spot is usually NOT in the loaded payload — that's the whole
+  // point of searching — so these fly to coordinates the result carried rather
+  // than looking anything up in `displaySpots`. Once the camera lands, the
+  // viewport refetch pulls the spot in and the drawer fills itself.
+
+  const handleSearchSelectSpot = useCallback(
+    (slug: string, lat: number, lng: number) => {
+      if (
+        typeof window !== "undefined" &&
+        !window.matchMedia("(min-width:1024px)").matches
+      ) {
+        router.push(`/explore/spot/${slug}`);
+        return;
+      }
+      setQuery({ spot: slug, stn: null });
+      mapRef.current?.flyTo({
+        center: [lng, lat],
+        zoom: Math.max(mapRef.current.getZoom() ?? 9, 11),
+        duration: 700,
+      });
+    },
+    [router, setQuery],
+  );
+
+  const handleSearchSelectRegion = useCallback(
+    (bbox: number[]) => {
+      const [w, s, e, n] = bbox;
+      setQuery({ spot: null, stn: null });
+      const desktop = typeof window !== "undefined" && window.innerWidth >= 1024;
+      mapRef.current?.fitBounds(
+        [
+          [w, s],
+          [e, n],
+        ],
+        {
+          padding: desktop
+            ? { left: 460, top: 40, right: 80, bottom: 200 }
+            : { left: 24, top: 24, right: 24, bottom: 24 },
+          maxZoom: 10,
+          duration: 800,
+        },
+      );
+    },
+    [setQuery],
+  );
+
+  // Species is a filter, not a place — picking one pins the chip and leaves the
+  // camera alone. The name is kept alongside because a species can be searched
+  // that isn't on any spot in the current viewport, in which case the loaded
+  // species dict can't supply a label for the strip header.
+  const handleSearchSelectSpecies = useCallback(
+    (id: string, name: string) => {
+      setSpeciesFilter(id);
+      setPickedSpeciesName(name);
+    },
+    [],
   );
 
   const handleCloseSpot = useCallback(() => {
@@ -800,10 +943,85 @@ export default function ExploreShell({
     [setQuery, today],
   );
 
-  const initialCenter = selectedCity
-    ? { lat: selectedCity.lat, lng: selectedCity.lng }
-    : { lat: 50.5, lng: -126.5 };
-  const initialZoom = selectedCity ? 9 : 4.5;
+  // The remembered camera outranks the city one — see the restore block up
+  // top. `initialViewState` is read once by MapLibre at mount, so this is the
+  // only place the return trip can land in the right frame without a visible
+  // jump from the default city.
+  const initialCenter = restored
+    ? { lat: restored.lat, lng: restored.lng }
+    : selectedCity
+      ? { lat: selectedCity.lat, lng: selectedCity.lng }
+      : { lat: 50.5, lng: -126.5 };
+  const initialZoom = restored ? restored.zoom : selectedCity ? 9 : 4.5;
+
+  // ── Writing the return-trip memory ──────────────────────────────────────
+  //
+  // Every settled move, plus any change to what the canvas is showing. Cheap:
+  // `moveend` fires once per gesture, not per frame.
+  useEffect(() => {
+    if (!viewCenter || viewZoom == null) return;
+    const view: ExploreView = {
+      lat: viewCenter.lat,
+      lng: viewCenter.lng,
+      zoom: viewZoom,
+      bounds: viewBounds,
+      spot: spotSlug,
+      day,
+      species: speciesFilter,
+      relief,
+      labels,
+      currents,
+      wind,
+    };
+    savedRef.current = view;
+    writeExploreView(view);
+  }, [
+    viewCenter,
+    viewZoom,
+    viewBounds,
+    spotSlug,
+    day,
+    speciesFilter,
+    relief,
+    labels,
+    currents,
+    wind,
+  ]);
+
+  // The rest of the restore — everything the camera block up top deliberately
+  // left alone because it shows up in the server-rendered markup. Applying it
+  // here, one tick after hydration, is invisible to the eye and keeps the
+  // first client render byte-identical to the server's.
+  //
+  // Seeding the viewport by hand matters as much as the camera does: without
+  // it the rail, the pill and the 14-day strip spend the tile-load wait
+  // showing the default city's water while the map sits over somewhere else.
+  //
+  // `?spot`/`?day` go through `setQuery` so the URL stays honest about what's
+  // selected — reload, or copy the link, and you get the same canvas. A stale
+  // day is dropped rather than restored: a tab left open overnight would
+  // otherwise come back selecting a day the strip no longer has.
+  useEffect(() => {
+    if (!restored) return;
+    if (restored.species != null) setSpeciesFilter(restored.species);
+    if (restored.relief != null) setRelief(restored.relief);
+    if (restored.labels != null) setLabels(restored.labels);
+    if (restored.currents != null) setCurrents(restored.currents);
+    if (restored.wind != null) setWind(restored.wind);
+    if (restored.bounds) {
+      setViewBounds(restored.bounds);
+      setVpBbox(paddedBbox(restored.bounds));
+    }
+    setViewCenter({ lat: restored.lat, lng: restored.lng });
+    setViewZoom(restored.zoom);
+
+    const next: Record<string, string | null> = {};
+    if (restored.spot) next.spot = restored.spot;
+    if (restored.day && restored.day > today) next.day = restored.day;
+    if (Object.keys(next).length > 0) setQuery(next);
+    // Mount only — `restored` is fixed for the life of the component.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Remember the last viewed city (nearest to the viewport) — the catch
   // wizard's location fallback (geo-fallback.ts) centers its pin here when a
@@ -839,6 +1057,10 @@ export default function ExploreShell({
           locations={data.locations}
           selectedCity={labelCity}
           onSelectCity={handleSelectCity}
+          onSelectSpot={handleSearchSelectSpot}
+          onSelectRegion={handleSearchSelectRegion}
+          onSelectSpecies={handleSearchSelectSpecies}
+          near={searchNear}
           onFilterClick={() => setFilterOpen(true)}
         />
       </div>
@@ -904,7 +1126,7 @@ export default function ExploreShell({
         onCreated={(spot) => {
           // A spot you placed and named starts favorited — it appears starred
           // in the rail and in Saved spots without a second click.
-          if (spot.slug) setFavorite(spot.slug);
+          if (spot.slug) void setFavorite(spot.slug, spot.id);
           setOwnSpotsRefresh((n) => n + 1);
           setCustomSpots((prev) => [
             {
@@ -933,6 +1155,7 @@ export default function ExploreShell({
         onScrubHour={setScrubHour}
         onSelectDay={handleSelectDay}
         signedIn={!!user}
+        freshCatches={freshCatches}
       />
 
       <LeftRail
@@ -948,6 +1171,10 @@ export default function ExploreShell({
         bottomInset={stripHidden ? 64 : 152}
         onSelectCity={handleSelectCity}
         onSelectSpot={handleSelectSpot}
+        onSearchSelectSpot={handleSearchSelectSpot}
+        onSearchSelectRegion={handleSearchSelectRegion}
+        onSearchSelectSpecies={handleSearchSelectSpecies}
+        searchNear={searchNear}
         onCloseSpot={handleCloseSpot}
         onCloseStation={handleCloseStation}
         onSpotHourHover={setScrubHour}

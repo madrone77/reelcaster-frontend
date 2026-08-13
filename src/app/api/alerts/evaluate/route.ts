@@ -8,9 +8,10 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { processAlerts, getUserEmail } from '@/lib/custom-alert-engine';
+import { processAlerts, getUserEmail, markBeatSent } from '@/lib/custom-alert-engine';
 import { sendEmail } from '@/lib/email-service';
 import { generateCustomAlertEmail } from '@/lib/email-templates/custom-alert';
+import { generateScoreAlertMessage } from '@/lib/email-templates/score-alert';
 import { sendSms, isTwilioConfigured } from '@/lib/twilio';
 import { createClient } from '@supabase/supabase-js';
 
@@ -69,6 +70,13 @@ export async function POST(request: NextRequest) {
 
         if (profileError || !profile) {
           console.error(`Failed to fetch profile ${result.profileId}:`, profileError);
+          continue;
+        }
+
+        // Score alerts are delivered from `sendJobs` below: they are about a
+        // dated day rather than about right now, they write `alert_day_notices`
+        // instead of `alert_history`, and their copy changes with the beat.
+        if (profile.alert_kind === 'score' && profile.target_bluecaster_spot_slug) {
           continue;
         }
 
@@ -186,6 +194,115 @@ export async function POST(request: NextRequest) {
           email: 'unknown',
           success: false,
           error: notifyError instanceof Error ? notifyError.message : 'Unknown error',
+        });
+      }
+    }
+
+    // Score-alert delivery.
+    //
+    // Every job here has already been claimed in `alert_day_notices`, so the
+    // send is allowed to fail: the claim is what guarantees we never say the
+    // same thing about the same day twice, and a message lost to a bad SMTP
+    // response is a better outcome than a duplicate.
+    for (const job of results.sendJobs) {
+      try {
+        const { data: profile, error: profileError } = await supabaseAdmin
+          .from('user_alert_profiles')
+          .select('*')
+          .eq('id', job.profileId)
+          .single();
+
+        if (profileError || !profile) {
+          console.error(`Failed to fetch profile ${job.profileId}:`, profileError);
+          await markBeatSent(job.noticeId, false, [], 'Profile lookup failed');
+          continue;
+        }
+
+        const email = await getUserEmail(profile.user_id);
+        if (!email) {
+          console.error(`No email found for user ${profile.user_id}`);
+          await markBeatSent(job.noticeId, false, [], 'No email on account');
+          continue;
+        }
+
+        // Name the species we actually scored, which is not always the one on
+        // the alert when the mapping has drifted.
+        const speciesSlug = job.scoredSpeciesSlug ?? profile.target_species ?? null;
+        const speciesName = speciesSlug
+          ? speciesSlug
+              .split('-')
+              .map((w: string) => w.charAt(0).toUpperCase() + w.slice(1))
+              .join(' ')
+          : null;
+
+        const appBase = process.env.NEXT_PUBLIC_APP_URL || 'https://reelcaster.com';
+        const message = generateScoreAlertMessage({
+          beat: job.beat,
+          spotName: profile.location_name || profile.target_bluecaster_spot_slug || 'your spot',
+          speciesName,
+          speciesMatched: job.speciesMatched,
+          targetDate: job.targetDate,
+          leadDays: job.leadDays,
+          score: job.score,
+          threshold: profile.score_threshold ?? 75,
+          forecastUrl: `${appBase}/explore/spot/${profile.target_bluecaster_spot_slug}`,
+          manageAlertsUrl: `${appBase}/alerts`,
+        });
+
+        const channels: string[] = profile.delivery_channels ?? ['email'];
+        const delivered: string[] = [];
+
+        if (channels.includes('email')) {
+          const sendResult = await sendEmail({
+            to: email,
+            subject: message.subject,
+            html: message.html,
+          });
+          if (sendResult.success) delivered.push('email');
+          else console.error(`Email dispatch failed for ${job.profileId}:`, sendResult.error);
+        }
+
+        // SMS carries the confirm and the stand-down only. A heads-up is a
+        // planning message six days out, and planning happens at a desk. Three
+        // texts per qualifying day is how an alert gets muted.
+        const smsWorthy = job.beat === 'confirm' || job.beat === 'stand_down';
+        if (smsWorthy && channels.includes('sms') && isTwilioConfigured()) {
+          const { data: settings } = await supabaseAdmin
+            .from('user_settings')
+            .select('phone_e164, phone_verified')
+            .eq('user_id', profile.user_id)
+            .maybeSingle();
+          if (settings?.phone_verified && settings.phone_e164) {
+            const smsResult = await sendSms(settings.phone_e164, message.sms);
+            if (smsResult.ok) delivered.push('sms');
+            else console.error(`SMS dispatch failed for ${job.profileId}:`, smsResult);
+          }
+        }
+
+        const sent = delivered.length > 0;
+        await markBeatSent(
+          job.noticeId,
+          sent,
+          delivered,
+          sent ? undefined : 'No channel delivered',
+        );
+
+        notificationResults.push({
+          profileId: job.profileId,
+          email,
+          success: sent,
+          error: sent ? undefined : 'No channel delivered',
+        });
+      } catch (notifyError) {
+        const messageText =
+          notifyError instanceof Error ? notifyError.message : 'Unknown error';
+        console.error(`Error sending score alert for ${job.profileId}:`, notifyError);
+        await markBeatSent(job.noticeId, false, [], messageText);
+        notificationResults.push({
+          profileId: job.profileId,
+          email: 'unknown',
+          success: false,
+          error: messageText,
         });
       }
     }

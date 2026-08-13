@@ -17,14 +17,18 @@ export default function UploadStep({
   const [dragOver, setDragOver] = useState(false);
 
   return (
-    <div className="text-center">
-      <div className="rc-label text-[10px] text-rc-ink-mute">
-        REELCASTER · CATCH LOG
-      </div>
-      <h1 className="mt-2 text-4xl font-bold tracking-[-0.02em] text-rc-ink">
+    // The page heading is left-aligned like every other surface's — centring it
+    // put "Log a catch" in the middle of the column while the mark above it and
+    // every other page's h1 sat on the gridline. The drop zone below keeps its
+    // own centred contents; that's a target, not a heading.
+    <div>
+      {/* No "REELCASTER · CATCH LOG" eyebrow: the shell's back link says the
+          same thing one line above, and the catch detail page (the wizard's
+          sibling under the log) heads itself the same way. */}
+      <h1 className="text-4xl font-bold tracking-[-0.02em] text-rc-ink">
         Log a catch
       </h1>
-      <p className="mt-3 text-rc-ink-soft max-w-lg mx-auto">
+      <p className="mt-3 text-rc-ink-soft max-w-lg">
         Drop one photo. We read EXIF and run vision to pull species, lure, size,
         location and time, then attach the tide / wind / temp snapshot. You
         just confirm.
@@ -54,7 +58,7 @@ export default function UploadStep({
           const f = e.dataTransfer.files?.[0];
           if (f) onFile(f);
         }}
-        className={`mt-8 rounded-2xl border-2 border-dashed py-16 px-6 transition-colors ${
+        className={`mt-8 rounded-2xl border-2 border-dashed py-16 px-6 text-center transition-colors ${
           dragOver
             ? "border-rc-brand bg-rc-brand-soft/40"
             : "border-rc-rule bg-rc-panel"

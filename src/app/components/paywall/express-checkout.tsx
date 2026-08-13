@@ -7,7 +7,16 @@ import {
   useElements,
   useStripe,
 } from '@stripe/react-stripe-js';
-import { loadStripe, type Stripe } from '@stripe/stripe-js';
+// `@stripe/stripe-js` fetches stripe.js as a SIDE EFFECT OF BEING IMPORTED —
+// not when loadStripe() is called. This module is reachable from the top bar
+// (TrialModalButton → ProTrialModal → TrialCta), which every signed-in page
+// renders, so 246 KB of Stripe was downloading and evaluating on the dashboard,
+// on settings, on every route — including for Pro accounts that can never open
+// a checkout. The `/pure` entrypoint defers the fetch to the first loadStripe()
+// call, which is getStripeJs() below, which only runs when the express-checkout
+// element actually mounts.
+import { loadStripe } from '@stripe/stripe-js/pure';
+import type { Stripe } from '@stripe/stripe-js';
 import type {
   StripeExpressCheckoutElementConfirmEvent,
   StripeExpressCheckoutElementReadyEvent,

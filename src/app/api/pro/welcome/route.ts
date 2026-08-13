@@ -1,8 +1,15 @@
 /**
- * Backs the one-time "Welcome to Pro" modal.
+ * Backs the one-time "Welcome to Pro" onboarding wizard.
  *
- *   GET  /api/pro/welcome  -> should the modal show, and in which variant?
- *   POST /api/pro/welcome  -> the user dismissed it; never show it again.
+ *   GET  /api/pro/welcome  -> should it show, and in which variant?
+ *   POST /api/pro/welcome  -> the user closed it; never show it again, and
+ *                             persist anything the wizard collected that lives
+ *                             on `user_settings` rather than auth metadata.
+ *
+ * The wizard's other fields write themselves from the client — first name and
+ * units to auth metadata, the alert to /api/alerts, the phone to
+ * /api/alerts/verify-phone. Only the region needs this route, because
+ * `user_settings` is service-role-only.
  *
  * This deliberately does NOT ride along on `useSubscription()`. PostgREST
  * fails the whole select if any named column is missing, so adding
@@ -14,6 +21,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
+import { COVERED_PROVINCES } from '@/lib/regions';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -58,7 +66,7 @@ export async function GET(request: NextRequest) {
   const { data, error } = await admin
     .from('user_settings')
     .select(
-      'subscription_tier, subscription_status, subscription_period_end, comp_expires_at, pro_welcome_seen_at',
+      'subscription_tier, subscription_status, subscription_period_end, comp_expires_at, pro_welcome_seen_at, primary_region_slug',
     )
     .eq('user_id', userId)
     .maybeSingle();
@@ -89,6 +97,9 @@ export async function GET(request: NextRequest) {
     trialing: !comped && status === 'trialing',
     // For a comp this is the day the grant lapses; otherwise the next renewal.
     until: comped ? compExpiresAt : (data.subscription_period_end ?? null),
+    // Buyers already picked a region at checkout; comped users and anyone who
+    // signed up another way have none, and the wizard asks.
+    region: data.primary_region_slug ?? null,
   });
 }
 
@@ -98,9 +109,41 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'unauthorized' }, { status: 401 });
   }
 
+  // Body is optional — a bare POST is still just "dismissed", which is what
+  // the modal sent before it grew steps.
+  let body: { region?: unknown; completed?: unknown } = {};
+  try {
+    body = await request.json();
+  } catch {
+    // No body, or not JSON.
+  }
+
+  const now = new Date().toISOString();
+  const patch: Record<string, string> = {
+    pro_welcome_seen_at: now,
+    updated_at: now,
+  };
+
+  // Only regions we actually sell — the same gate /api/stripe/checkout applies.
+  // An unrecognized value is dropped rather than 400'd: losing the region is
+  // not worth failing a dismissal over, which would loop the wizard forever.
+  if (typeof body.region === 'string') {
+    const region = body.region.trim().toUpperCase();
+    if ((COVERED_PROVINCES as readonly string[]).includes(region)) {
+      patch.primary_region_slug = region;
+    }
+  }
+
+  // Distinct from `pro_welcome_seen_at`: closing the wizard always stops it
+  // reappearing, but only reaching the end counts as onboarded. Keeping them
+  // apart is what lets a later nudge target "saw it, never filled it in".
+  if (body.completed === true) {
+    patch.onboarding_completed_at = now;
+  }
+
   const { error } = await admin
     .from('user_settings')
-    .update({ pro_welcome_seen_at: new Date().toISOString(), updated_at: new Date().toISOString() })
+    .update(patch)
     .eq('user_id', userId);
 
   if (error) {

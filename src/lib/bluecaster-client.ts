@@ -15,7 +15,15 @@ import type {
   StationConditions,
   BuoyConditions,
 } from "./bluecaster/station-types";
-import type { MapForecast14dPayload, MapSpotsPayload, OwnedCustomSpot } from "./bluecaster";
+import type {
+  MapForecast14dPayload,
+  MapSpotsPayload,
+  OwnedCustomSpot,
+  SpotCoord,
+  SpotsOutlook14dPayload,
+} from "./bluecaster";
+export type { SpotsOutlook14dPayload } from "./bluecaster";
+export type { SpotCoord } from "./bluecaster";
 export type {
   StationConditions,
   BuoyConditions,
@@ -279,6 +287,48 @@ export type { OwnedCustomSpot } from "./bluecaster";
  * rather than floating on the map. Returns null signed out or on any error
  * (callers fall back to the anonymous set).
  */
+/**
+ * Coordinates for a list of saved slugs — the dashboard's first-paint read.
+ *
+ * Favourites are slugs in localStorage, available before anything has loaded;
+ * this turns them into pins without waiting on the bulk map payload (~700 KB,
+ * and on the personalized path several seconds). Scores still arrive from
+ * map/spots and fill in behind it. Cacheable, no identity: safe to fire before
+ * auth resolves.
+ */
+export async function fetchSpotCoords(
+  slugs: string[],
+): Promise<SpotCoord[]> {
+  if (slugs.length === 0) return [];
+  const res = await fetch(
+    `/api/bluecaster/map/spot-coords?slugs=${encodeURIComponent(slugs.join(","))}`,
+  );
+  if (!res.ok) return [];
+  const body = (await res.json().catch(() => null)) as { spots?: SpotCoord[] } | null;
+  return body?.spots ?? [];
+}
+
+/**
+ * map/spots for NO viewer — the anonymous, CDN-cacheable read.
+ *
+ * Identical payload and engine to the viewer variant minus the caller's own
+ * custom spots, but because it carries no identity the proxy marks it
+ * `public, max-age=300` and the edge can serve it: ~140ms on a hit against
+ * ~3s for the personalized read, which is `private, no-store` and therefore
+ * BYPASSes the cache on every load. Deliberately sends no Authorization
+ * header — one would make the response per-user and uncacheable.
+ */
+export async function fetchMapSpotsCached(
+  bbox: string,
+  date: string,
+): Promise<MapSpotsPayload | null> {
+  const res = await fetch(
+    `/api/bluecaster/map/spots?bbox=${encodeURIComponent(bbox)}&date=${encodeURIComponent(date)}`,
+  );
+  if (!res.ok) return null;
+  return (await res.json().catch(() => null)) as MapSpotsPayload | null;
+}
+
 export async function fetchMapSpotsAsViewer(
   bbox: string,
   date: string,
@@ -315,6 +365,67 @@ export async function fetchFreshCatches(
   });
   if (!res.ok) return null;
   return (await res.json().catch(() => null)) as FreshCatchesResponse | null;
+}
+
+/** The written report for one spot, for a paying angler.
+ *
+ *  Forwards the Supabase token for the same reason `fetchFreshCatches` does:
+ *  the route reads `Authorization: Bearer`, not cookies, so a bare fetch
+ *  authenticates as nobody and hands a Pro angler the locked teaser. That is
+ *  exactly what shipped first time round.
+ *
+ *  Resolves to {locked} so the caller can tell "not allowed" apart from "not
+ *  answered yet". Failures resolve locked, which leaves the teaser and upsell
+ *  in place rather than blanking the block. */
+export async function fetchSpotRecentReports(
+  slug: string,
+): Promise<{ locked: boolean; reports: unknown | null }> {
+  const { data } = await supabase.auth.getSession();
+  const token = data.session?.access_token;
+  const res = await fetch(
+    `/api/bluecaster/spots/${encodeURIComponent(slug)}/recent-reports`,
+    {
+      headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+      cache: "no-store",
+    },
+  );
+  // The locked flag is returned, not swallowed. The block needs to distinguish
+  // "still asking" from "asked, and you may not have it": collapsing both to
+  // null is what let the upsell paint while a Pro angler's report was still in
+  // flight.
+  if (!res.ok) return { locked: true, reports: null };
+  const body = (await res.json().catch(() => null)) as
+    | { locked?: boolean; reports?: unknown }
+    | null;
+  if (!body) return { locked: true, reports: null };
+  return { locked: !!body.locked, reports: body.reports ?? null };
+}
+
+/** Per-spot 14-day outlook for a whole list of cards in one request.
+ *
+ *  Scope it by explicit spot ids (the dashboard knows exactly which spots it
+ *  is drawing) or by city slug. Days past the caller's plan come back null —
+ *  the route does that gating, so the strip only ever draws what it may show.
+ *
+ *  Forwards the Supabase token for the same reason `fetchFreshCatches` does:
+ *  the route reads `Authorization: Bearer`, not cookies, so a bare fetch would
+ *  authenticate as nobody and quietly hand a Pro angler the 2-day payload. */
+export async function fetchSpotsOutlook14d(
+  scope: { spotIds?: string[]; citySlug?: string },
+): Promise<SpotsOutlook14dPayload | null> {
+  const qs = new URLSearchParams();
+  if (scope.spotIds?.length) qs.set("spots", scope.spotIds.join(","));
+  if (scope.citySlug) qs.set("city", scope.citySlug);
+  if ([...qs.keys()].length === 0) return null;
+
+  const { data } = await supabase.auth.getSession();
+  const token = data.session?.access_token;
+  const res = await fetch(`/api/bluecaster/map/spot-forecast-14d?${qs}`, {
+    headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+    cache: "no-store",
+  });
+  if (!res.ok) return null;
+  return (await res.json().catch(() => null)) as SpotsOutlook14dPayload | null;
 }
 
 /** The signed-in user's own custom spots (private + public), for the "your

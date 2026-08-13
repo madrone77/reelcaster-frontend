@@ -1,6 +1,7 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { Fragment, useMemo, useState } from "react";
+import AdSlot from "@/app/components/ads/ad-slot";
 import {
   type CityNode,
   type ProvinceNode,
@@ -49,6 +50,10 @@ export default function LeftRail({
   bottomInset,
   onSelectCity,
   onSelectSpot,
+  onSearchSelectSpot,
+  onSearchSelectRegion,
+  onSearchSelectSpecies,
+  searchNear,
   onCloseSpot,
   onCloseStation,
   onSpotHourHover,
@@ -70,6 +75,13 @@ export default function LeftRail({
   bottomInset: number;
   onSelectCity: (city: CityNode) => void;
   onSelectSpot: (slug: string) => void;
+  /** Search picks — carry their own coordinates, since a searched spot is
+      usually outside the viewport and so absent from the loaded payload. */
+  onSearchSelectSpot: (slug: string, lat: number, lng: number) => void;
+  onSearchSelectRegion: (bbox: number[]) => void;
+  onSearchSelectSpecies: (id: string, name: string) => void;
+  /** Viewport centre — tie-break only, never a filter. */
+  searchNear?: { lat: number; lng: number };
   onCloseSpot: () => void;
   onCloseStation: () => void;
   /** Drawer 24h-chart hover hour (null on leave) — retunes the currents flow. */
@@ -140,6 +152,10 @@ export default function LeftRail({
               locations={locations}
               selectedCity={selectedCity}
               onSelectCity={onSelectCity}
+              onSelectSpot={onSearchSelectSpot}
+              onSelectRegion={onSearchSelectRegion}
+              onSelectSpecies={onSearchSelectSpecies}
+              near={searchNear}
               mapControls={mapControls}
             />
             <div className="px-3 pt-1 pb-2.5">
@@ -175,14 +191,22 @@ export default function LeftRail({
           <div className="flex-1 min-h-0 overflow-y-auto">
             <div className="px-3 pt-3 pb-3">
               <div className="space-y-3">
-                {sortedSpots.map((spot) => (
-                  <SpotCard
-                    key={spot.id}
-                    spot={spot}
-                    tz={tz}
-                    onSelect={() => onSelectSpot(spot.slug)}
-                    fresh={freshCatches?.spots[spot.id]}
-                  />
+                {sortedSpots.map((spot, i) => (
+                  <Fragment key={spot.id}>
+                    <SpotCard
+                      spot={spot}
+                      tz={tz}
+                      onSelect={() => onSelectSpot(spot.slug)}
+                      fresh={freshCatches?.spots[spot.id]}
+                    />
+                    {/* Card-shaped unit in the flow of the list, never over the
+                        map. Sits after the third spot so the top of the rail is
+                        the ranking itself; a short list gets it at the foot
+                        instead of not at all. */}
+                    {i === Math.min(2, sortedSpots.length - 1) && (
+                      <AdSlot placement="exploreList" only="desktop" />
+                    )}
+                  </Fragment>
                 ))}
               </div>
 

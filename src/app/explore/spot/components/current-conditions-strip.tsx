@@ -22,9 +22,6 @@ import WeatherIcon, {
 
 const DASH = "—";
 
-/** Anchor on the 24-hour graph section; the weather cell links here. */
-const CONDITIONS_ANCHOR = "#conditions-24h";
-
 // Sea-state words — one vocabulary with the 24h chart and the old panel.
 function seaState(wav: number | null): string | null {
   if (wav == null) return null;
@@ -78,19 +75,19 @@ const hh = (t: number) => {
  */
 function tideAccel(
   signed: (number | null)[] | null,
-  nowHour: number,
+  hour: number,
   slackThr: number,
   tideTrend: "rising" | "falling" | null,
 ): string | null {
-  const v = signed?.[nowHour];
+  const v = signed?.[hour];
   if (v == null) {
     // No current series yet — name the direction from the tide trend.
     return tideTrend === "rising" ? "Flooding" : tideTrend === "falling" ? "Ebbing" : null;
   }
   const mag = Math.abs(v);
   if (mag < slackThr) return "Turning";
-  const prev = signed?.[nowHour - 1];
-  const next = signed?.[nowHour + 1];
+  const prev = signed?.[hour - 1];
+  const next = signed?.[hour + 1];
   const magPrev = prev != null ? Math.abs(prev) : mag;
   const magNext = next != null ? Math.abs(next) : mag;
   if (mag >= magPrev && mag >= magNext) return v > 0 ? "Peak flood" : "Peak ebb";
@@ -101,22 +98,31 @@ function tideAccel(
 type Cell = {
   label: string;
   value: string;
-  sub?: string | null;
+  /** ReactNode, not string — a couple of subs carry a shorter mobile variant. */
+  sub?: React.ReactNode;
   /** Trailing glyph (trend arrow / weather icon). */
   glyph?: React.ReactNode;
   /** Tier ink override for the value (score cell). */
   valueClass?: string;
-  /** When set, the cell renders as an in-page link. */
-  href?: string;
+  /**
+   * Hidden from the desktop row. `display:none` drops the cell out of grid flow
+   * entirely, so the lg layout stays a clean 7-across without a spare column.
+   */
+  mobileOnly?: boolean;
 };
 
 /**
- * The spot's "now" data strip — a single row of the numbers that drive the
- * read: score, then the conditions in the same order the 24h graph stacks them
- * (tide · current · wind · sea state · air temp), capped with a weather cell
- * (icon) that links down to the full 24-hour graph. This is the ONE place the
- * now-state lives; the 24h graph no longer repeats these as right-gutter
- * readouts. Values are the current hour and don't follow the graph scrub.
+ * The spot's data strip — a single row of the numbers that drive the read:
+ * score, then the conditions in the same order the 24h graph stacks them
+ * (tide · current · wind · sea state · air temp), capped with a weather cell.
+ * This is the ONE place these values live; the 24h graph no longer repeats them
+ * as right-gutter readouts.
+ *
+ * It sits directly above the graph's score strip and READS THE SCRUBBED HOUR —
+ * every cell is the hour under the cursor, so dragging the chart drives the
+ * numbers. `hour` indexes the same per-day series the chart is drawing, so the
+ * two can't disagree. When the cursor is parked on the live hour of today,
+ * `isNow` is set and the heading says "now" rather than a clock time.
  */
 export default function CurrentConditionsStrip({
   rightNow,
@@ -124,21 +130,25 @@ export default function CurrentConditionsStrip({
   currentSigned = null,
   currentSample = null,
   point = null,
-  nowHour = 0,
+  hour = 0,
+  isNow = true,
 }: {
   rightNow: RightNowSnapshot | null;
-  /** Current-hour score for the selected species (0–100). */
+  /** Score at `hour` for the selected species (0–100). */
   score?: number | null;
   currentSigned?: (number | null)[] | null;
   currentSample?: CurrentSample | null;
   point?: PointConditions | null;
-  nowHour?: number;
+  /** The hour being read — the chart's scrubbed hour, not the wall clock. */
+  hour?: number;
+  /** True when `hour` is the live hour of today, so the heading reads "now". */
+  isNow?: boolean;
 }) {
   const { windUnit, currentUnit, tempUnit, tideUnit, waveUnit } = useUnitPreferences();
   const rn = rightNow;
 
   // ── current (signed series first, point sample fallback) ──────────────
-  const signedNow = currentSigned?.[nowHour] ?? null;
+  const signedNow = currentSigned?.[hour] ?? null;
   const slackThr = currentSigned
     ? Math.min(0.3, Math.max(0.1, 0.2 * niceCurrentScale(currentSigned)))
     : 0.3;
@@ -158,12 +168,12 @@ export default function CurrentConditionsStrip({
         : rn?.tideTrend === "falling"
           ? "Ebb"
           : null;
-  const slackAt = currentSigned ? nextSlackHour(currentSigned, nowHour) : null;
+  const slackAt = currentSigned ? nextSlackHour(currentSigned, hour) : null;
 
   // ── tide ──────────────────────────────────────────────────────────────
   const tideArrow =
     rn?.tideTrend === "rising" ? "▲" : rn?.tideTrend === "falling" ? "▼" : "";
-  const accel = tideAccel(currentSigned, nowHour, slackThr, rn?.tideTrend ?? null);
+  const accel = tideAccel(currentSigned, hour, slackThr, rn?.tideTrend ?? null);
 
   // ── air temp + weather ─────────────────────────────────────────────────
   const airC = rn?.airTempC ?? null;
@@ -176,6 +186,17 @@ export default function CurrentConditionsStrip({
   const scoreTier = tierFor(score);
 
   const cells: Cell[] = [
+    // Mobile packs 8 cells into 4×2. There are only 7 readings, so the hour
+    // being read takes the eighth slot — which is the one thing a scrubbable
+    // strip actually needs and the heading alone was carrying. On desktop the
+    // row is 7-across with no spare slot, so this drops out and the heading
+    // keeps the hour instead.
+    {
+      label: "Time",
+      value: hh(hour),
+      sub: isNow ? "Now" : null,
+      mobileOnly: true,
+    },
     {
       label: "Score",
       value: score != null ? String(Math.round(score)) : DASH,
@@ -196,12 +217,19 @@ export default function CurrentConditionsStrip({
         curSpeed != null
           ? formatWind(convertWind(curSpeed, "knots", currentUnit), currentUnit, 1)
           : DASH,
+      // "Flood · slack ~15:36" overruns a quarter-width mobile cell by 42px.
+      // The slack time is worth keeping there — on a narrow phone the chart's
+      // own SLACK annotations are suppressed, so this is the only place it
+      // shows — so mobile drops the connecting words, not the time.
       sub:
-        curSet == null
-          ? null
-          : slackAt != null && curSet !== "Slack"
-            ? `${curSet} · slack ~${hh(slackAt)}`
-            : curSet,
+        curSet == null ? null : slackAt != null && curSet !== "Slack" ? (
+          <>
+            <span className="lg:hidden">{`${curSet} ~${hh(slackAt)}`}</span>
+            <span className="hidden lg:inline">{`${curSet} · slack ~${hh(slackAt)}`}</span>
+          </>
+        ) : (
+          curSet
+        ),
     },
     {
       label: "Wind",
@@ -227,10 +255,20 @@ export default function CurrentConditionsStrip({
     {
       label: "Weather",
       value: wx ? WEATHER_WORD[wx] : DASH,
-      sub: "24-hour graph ↓",
-      href: CONDITIONS_ANCHOR,
+      // Was "24-hour graph ↓" linking to #conditions-24h. The strip now lives
+      // INSIDE that section, so the link pointed at its own container. Carries
+      // the reading behind the icon instead: rain when there is any, else cloud.
+      sub:
+        rn?.precipMm != null && rn.precipMm >= 0.2
+          ? `${rn.precipMm.toFixed(1)} mm/h`
+          : rn?.cloudPct != null
+            ? `${Math.round(rn.cloudPct)}% cloud`
+            : null,
+      // Hidden on mobile: the icon plus its gap costs 22px of a 67px cell, and
+      // "Overcast" needs all of it. The word already names the condition, and
+      // the graph's weather band sits a few pixels below with the icons in it.
       glyph: wx ? (
-        <span className="text-rc-ink-soft shrink-0">
+        <span className="hidden lg:block text-rc-ink-soft shrink-0">
           <WeatherIcon condition={wx} size={18} />
         </span>
       ) : null,
@@ -239,41 +277,60 @@ export default function CurrentConditionsStrip({
 
   return (
     <div>
-      <div className="rc-label text-[9px] mb-2">Conditions · now</div>
-      <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 border-y border-rc-rule divide-x divide-rc-rule">
-        {cells.map((c) => {
-          const inner = (
-            <>
-              <div className="rc-label text-[10px]">{c.label}</div>
-              <div className="flex items-baseline gap-1.5 mt-1">
-                <span
-                  className={`font-bold leading-none truncate ${c.valueClass ?? "text-rc-ink"} text-base`}
-                >
-                  {c.value}
-                </span>
-                {c.glyph}
-              </div>
-              {c.sub && (
-                <div className="font-rc-mono text-[10px] text-rc-ink-mute mt-0.5 truncate">
-                  {c.sub}
-                </div>
-              )}
-            </>
-          );
-          return c.href ? (
-            <a
-              key={c.label}
-              href={c.href}
-              className="px-3 py-2.5 min-w-0 block group hover:bg-rc-brand-soft/40 transition-colors focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-rc-brand"
-            >
-              {inner}
-            </a>
-          ) : (
-            <div key={c.label} className="px-3 py-2.5 min-w-0">
-              {inner}
+      {/* The Time cell carries the hour on mobile, so the heading only repeats
+          it where that cell is hidden. */}
+      <div className="rc-label text-[9px] mb-1.5">
+        Conditions
+        <span className="hidden lg:inline"> · {isNow ? "now" : hh(hour)}</span>
+      </div>
+      {/* Bordered box, not the old border-y band: this sits directly on top of
+          the graph's score strip, and the chart draws every one of its rows as
+          a bordered box. Same shape = reads as the top row of one instrument.
+          4 across on mobile — 8 cells, 2 clean rows — then 7 across on desktop
+          once the Time cell drops out.
+
+          The internal rules are a 1px grid gap over a rule-coloured parent,
+          NOT divide-x / divide-y. Tailwind's divide utilities key off
+          :not(:last-child), which knows nothing about where a row wraps: on
+          the 4-across mobile layout every cell but the eighth drew a right AND
+          a bottom border, so Current's right border landed on the box's right
+          edge and Wind / Sea state / Air temp's bottom borders landed on its
+          bottom edge, 2px there against 1px everywhere else. A gap is
+          column-count agnostic, and a `lg:hidden` cell leaves grid flow
+          entirely, so it can't strand a rule behind it either. */}
+      <div className="grid grid-cols-4 lg:grid-cols-7 gap-px rounded border border-rc-rule bg-rc-rule overflow-hidden">
+        {cells.map((c) => (
+          // Quarter-width cells are tight at 375px, so the type and padding
+          // step down below lg and every line truncates rather than wraps —
+          // a wrapped value would push its row taller than its neighbours.
+          // bg-rc-panel is what makes the gap read as a rule: the cells cover
+          // the grid's rule-coloured background except in the 1px gutters, so
+          // the cell fill has to stay opaque and match the page.
+          <div
+            key={c.label}
+            className={`bg-rc-panel px-1.5 py-2 lg:px-3 lg:py-2.5 min-w-0 ${c.mobileOnly ? "lg:hidden" : ""}`}
+          >
+            {/* No font-size utility here: .rc-label sets `font:` shorthand,
+                which resets size and wins, so a text-[9px] would be a no-op
+                that only looked like it did something. The labels stay 10px and
+                the cell padding is what buys "SEA STATE" its room — at px-2 its
+                uppercase tracking put it 1px over and it ellipsised. */}
+            <div className="rc-label truncate">{c.label}</div>
+            <div className="flex items-baseline gap-1 lg:gap-1.5 mt-1">
+              <span
+                className={`font-bold leading-none truncate ${c.valueClass ?? "text-rc-ink"} text-sm lg:text-base`}
+              >
+                {c.value}
+              </span>
+              {c.glyph}
             </div>
-          );
-        })}
+            {c.sub && (
+              <div className="font-rc-mono text-[9px] lg:text-[10px] text-rc-ink-mute mt-0.5 truncate">
+                {c.sub}
+              </div>
+            )}
+          </div>
+        ))}
       </div>
     </div>
   );

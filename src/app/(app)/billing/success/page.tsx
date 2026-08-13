@@ -4,7 +4,6 @@ import { Suspense, useEffect, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { CheckCircle2, Loader2 } from 'lucide-react'
-import { AppShell } from '@/app/components/layout'
 import { apiFetch } from '@/lib/api-client'
 import { useSubscription } from '@/hooks/use-subscription'
 import { useAuth } from '@/contexts/auth-context'
@@ -117,54 +116,61 @@ function BillingSuccessInner() {
   }, [sessionId])
 
   return (
-    <AppShell showLocationPanel={false}>
-      <div className="flex-1 min-h-screen p-4 sm:p-6 flex items-center justify-center">
-        <div
-          className="bg-rc-bg-dark border border-rc-bg-light rounded-2xl p-8 max-w-lg w-full text-center"
-          data-testid="billing-success"
-        >
-          <div className="mx-auto w-12 h-12 rounded-full bg-green-500/20 flex items-center justify-center">
-            <CheckCircle2 className="w-7 h-7 text-green-400" />
-          </div>
-          <h1 className="mt-4 text-2xl font-semibold text-rc-text">
-            Welcome to ReelCaster Pro
-          </h1>
-          <p className="mt-2 text-sm text-rc-text-muted">
-            Your 14-day forecast, multi-species scoring, bathymetry layer, and expanded alerts are
-            unlocking now.
-          </p>
+    <div className="mx-auto flex max-w-lg flex-col px-6 py-12 md:py-16">
+      <p className="font-rc-mono text-[10px] uppercase tracking-[0.14em] text-rc-ink-mute">
+        ReelCaster Pro
+      </p>
 
-          {claimState === 'working' ? (
-            <div className="mt-6 inline-flex items-center gap-2 text-sm text-rc-text-muted">
-              <Loader2 className="w-4 h-4 animate-spin" />
-              Setting up your account…
-            </div>
-          ) : claimState === 'emailed' ? (
-            // Either the email already had an account (paying isn't proof of
-            // owning an inbox) or the one-time handoff was already used.
-            <div className="mt-6 text-sm text-rc-text-muted">
-              Your subscription is active. We&apos;ve emailed you a sign-in
-              link — open it and you&apos;re in. No password needed.
-            </div>
-          ) : polling ? (
-            <div className="mt-6 inline-flex items-center gap-2 text-sm text-rc-text-muted">
-              <Loader2 className="w-4 h-4 animate-spin" />
-              Activating your account…
-            </div>
-          ) : status?.is_active ? (
-            <div className="mt-6 text-sm text-green-400">All set. Taking you to Explore.</div>
-          ) : (
-            <div className="mt-6 text-sm text-rc-text-muted">
-              Stripe is still finalizing your subscription. You can{' '}
-              <Link href="/explore" className="text-blue-400 hover:text-blue-300 underline">
-                head to Explore
-              </Link>
-              . Pro features unlock as soon as the webhook lands.
-            </div>
-          )}
+      <div
+        className="mt-6 rounded-xl border border-rc-rule bg-rc-panel p-6 text-center shadow-rc-panel md:p-8"
+        data-testid="billing-success"
+      >
+        <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full border border-rc-good-border bg-rc-good-bg">
+          <CheckCircle2 className="h-7 w-7 text-rc-good" />
         </div>
+        <h1 className="mt-4 text-2xl font-black tracking-[-0.02em] text-rc-ink md:text-3xl">
+          Welcome to ReelCaster Pro
+        </h1>
+        <p className="mt-3 text-sm leading-relaxed text-rc-ink-soft">
+          Your 14-day forecast, multi-species scoring, bathymetry layer, and expanded alerts are
+          unlocking now.
+        </p>
+
+        {claimState === 'working' ? (
+          <div className="mt-6 inline-flex items-center gap-2 text-sm text-rc-ink-mute">
+            <Loader2 className="h-4 w-4 animate-spin" />
+            Setting up your account…
+          </div>
+        ) : claimState === 'emailed' ? (
+          // Either the email already had an account (paying isn't proof of
+          // owning an inbox) or the one-time handoff was already used.
+          <div className="mt-6 text-sm leading-relaxed text-rc-ink-soft">
+            Your subscription is active. We&apos;ve emailed you a sign-in
+            link — open it and you&apos;re in. No password needed.
+          </div>
+        ) : polling ? (
+          <div className="mt-6 inline-flex items-center gap-2 text-sm text-rc-ink-mute">
+            <Loader2 className="h-4 w-4 animate-spin" />
+            Activating your account…
+          </div>
+        ) : status?.is_active ? (
+          <div className="mt-6 text-sm font-semibold text-rc-good-ink">
+            All set. Taking you to Explore.
+          </div>
+        ) : (
+          <div className="mt-6 text-sm leading-relaxed text-rc-ink-soft">
+            Stripe is still finalizing your subscription. You can{' '}
+            <Link
+              href="/explore"
+              className="font-semibold text-rc-brand underline underline-offset-2 hover:text-rc-brand-hover"
+            >
+              head to Explore
+            </Link>
+            . Pro features unlock as soon as the webhook lands.
+          </div>
+        )}
       </div>
-    </AppShell>
+    </div>
   )
 }
 
