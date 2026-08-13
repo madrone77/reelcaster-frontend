@@ -1,4 +1,5 @@
 import type { NextConfig } from "next";
+import bundleAnalyzer from "@next/bundle-analyzer";
 
 const nextConfig: NextConfig = {
   trailingSlash: false,
@@ -87,4 +88,12 @@ const nextConfig: NextConfig = {
   },
 };
 
-export default nextConfig;
+// Opt-in bundle report: `ANALYZE=true npx next build` writes
+// .next/analyze/client.html. Off by default, so a normal build is unaffected.
+// Kept in the repo because "which package is in the chunks /explore has to
+// parse before it can hydrate" is not a question you can answer by reading
+// minified output, and it is the question worth re-asking before adding a
+// dependency to a client route.
+export default bundleAnalyzer({ enabled: process.env.ANALYZE === "true" })(
+  nextConfig,
+);

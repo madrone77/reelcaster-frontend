@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import dynamic from "next/dynamic";
 import { useRouter, useSearchParams } from "next/navigation";
 import type { MapRef } from "react-map-gl/maplibre";
 import type { MapSpotsPayload } from "@/lib/bluecaster";
@@ -23,6 +24,7 @@ import {
   type ForecastTier,
 } from "./lib/forecast-strip";
 import { boundsOf, paddedBbox } from "./lib/viewport-bbox";
+import { useMountedOnce } from "@/hooks/use-mounted-once";
 import {
   fetchFreshCatches,
   fetchMapForecast14d,
@@ -40,17 +42,44 @@ import { readExploreView, writeExploreView, type ExploreView } from "./lib/view-
 import ExploreTopBar from "./components/explore-top-bar";
 import { BLEED_MEASURE } from "@/app/components/layout/page-measure";
 import ExploreMap, { type StationPick, type CustomSpotPin } from "./components/explore-map";
-import CreateCustomSpotDialog from "./components/create-custom-spot-dialog";
+
 import { setFavorite } from "./lib/use-favorite";
 import { Plus, X } from "lucide-react";
-import StationDrawer from "./components/station-drawer";
 import LeftRail from "./components/left-rail";
 import LocationSelector from "./components/location-selector";
 import MobileMapSheet from "./components/mobile-map-sheet";
-import MobileFilterSheet from "./components/mobile-filter-sheet";
 import ForecastStrip from "./components/forecast-strip";
-import CreateAlertDialog from "./spot/components/create-alert-dialog";
-import ProTrialModal from "@/app/components/paywall/pro-trial-modal";
+
+// ── Loaded on demand ─────────────────────────────────────────────────────
+//
+// Everything below opens behind a tap: a pin drop, a station click, the
+// filter button, "create alert", an upgrade prompt. Statically imported they
+// were in the chunks /explore has to fetch and parse before it can hydrate —
+// and `ProTrialModal` drags Stripe in behind it, so a map that never sells
+// anything was paying for a checkout form on every load.
+//
+// `ssr: false` is free here: ExploreShell is a client component and each of
+// these renders nothing until its state flips, so the server markup they
+// contribute today is already empty.
+const CreateCustomSpotDialog = dynamic(
+  () => import("./components/create-custom-spot-dialog"),
+  { ssr: false },
+);
+const StationDrawer = dynamic(() => import("./components/station-drawer"), {
+  ssr: false,
+});
+const MobileFilterSheet = dynamic(
+  () => import("./components/mobile-filter-sheet"),
+  { ssr: false },
+);
+const CreateAlertDialog = dynamic(
+  () => import("./spot/components/create-alert-dialog"),
+  { ssr: false },
+);
+const ProTrialModal = dynamic(
+  () => import("@/app/components/paywall/pro-trial-modal"),
+  { ssr: false },
+);
 
 const MAP_TZ = "America/Vancouver";
 
@@ -155,6 +184,7 @@ export default function ExploreShell({
   }, [searchParams, isPaid]);
   const [pinCoords, setPinCoords] = useState<{ lat: number; lng: number } | null>(null);
   const [customModalOpen, setCustomModalOpen] = useState(false);
+  const customModalMounted = useMountedOnce(customModalOpen);
   const [customSpots, setCustomSpots] = useState<CustomSpotPin[]>([]);
 
   useEffect(() => {
@@ -192,6 +222,7 @@ export default function ExploreShell({
   // Mobile (<lg) map-filter sheet (species + layer toggles + near-me),
   // opened by the location header's filter button.
   const [filterOpen, setFilterOpen] = useState(false);
+  const filterSheetMounted = useMountedOnce(filterOpen);
 
   // ── Map-layer toggles + species filter (MapControls) ────────────────
   const [relief, setRelief] = useState(true);
@@ -709,6 +740,7 @@ export default function ExploreShell({
   const [alertSpot, setAlertSpot] = useState<RailSpot | null>(null);
   const [alertOpen, setAlertOpen] = useState(false);
   const [alertUpgradeOpen, setAlertUpgradeOpen] = useState(false);
+  const alertUpgradeMounted = useMountedOnce(alertUpgradeOpen);
 
   const handleSetAlert = useCallback(
     (spot: RailSpot) => {
@@ -1325,6 +1357,7 @@ export default function ExploreShell({
         )}
       </div>
 
+      {customModalMounted && (
       <CreateCustomSpotDialog
         open={customModalOpen}
         onOpenChange={setCustomModalOpen}
@@ -1348,6 +1381,7 @@ export default function ExploreShell({
           ]);
         }}
       />
+      )}
 
       {/* Mobile-only pull-up spot sheet over the map (Zillow-style). */}
       <MobileMapSheet
@@ -1431,6 +1465,7 @@ export default function ExploreShell({
       />
 
       {/* Mobile-only map-filter sheet (species + layers + near-me). */}
+      {filterSheetMounted && (
       <MobileFilterSheet
         open={filterOpen}
         onClose={() => setFilterOpen(false)}
@@ -1446,6 +1481,7 @@ export default function ExploreShell({
         onNearMe={handleNearMe}
         locating={locating}
       />
+      )}
 
       {/* Create-alert modal + sign-up gate, opened from the drawer's "Set alert". */}
       {alertSpot && (
@@ -1465,6 +1501,7 @@ export default function ExploreShell({
         />
       )}
 
+      {alertUpgradeMounted && (
       <ProTrialModal
         open={alertUpgradeOpen}
         onOpenChange={setAlertUpgradeOpen}
@@ -1472,6 +1509,7 @@ export default function ExploreShell({
         from="explore"
         spotName={alertSpot?.name}
       />
+      )}
     </div>
   );
 }

@@ -3,7 +3,7 @@
  * Wrapper functions for type-safe Mixpanel tracking
  */
 
-import { getMixpanel, isMixpanelEnabled } from './mixpanel';
+import { isMixpanelEnabled, withMixpanel } from './mixpanel';
 import type { AnalyticsEventName, UserProperties } from '@/types/analytics';
 
 /**
@@ -23,20 +23,20 @@ export function trackEvent<T extends Record<string, unknown>>(
     return;
   }
 
-  const mixpanel = getMixpanel();
-  if (!mixpanel) return;
+  // Add timestamp at CALL time, not at send time: a queued event describes
+  // the moment it happened, not the moment the SDK finished loading.
+  const eventProperties = {
+    ...properties,
+    timestamp: new Date().toISOString(),
+  };
 
-  try {
-    // Add timestamp to all events
-    const eventProperties = {
-      ...properties,
-      timestamp: new Date().toISOString(),
-    };
-
-    mixpanel.track(eventName, eventProperties);
-  } catch (error) {
-    console.error('[Analytics] Track error:', error);
-  }
+  withMixpanel((mixpanel) => {
+    try {
+      mixpanel.track(eventName, eventProperties);
+    } catch (error) {
+      console.error('[Analytics] Track error:', error);
+    }
+  });
 }
 
 /**
@@ -55,18 +55,15 @@ export function identifyUser(
     return;
   }
 
-  const mixpanel = getMixpanel();
-  if (!mixpanel) return;
-
-  try {
-    mixpanel.identify(userId);
-
-    if (properties) {
-      setUserProperties(properties);
+  withMixpanel((mixpanel) => {
+    try {
+      mixpanel.identify(userId);
+    } catch (error) {
+      console.error('[Analytics] Identify error:', error);
     }
-  } catch (error) {
-    console.error('[Analytics] Identify error:', error);
-  }
+  });
+
+  if (properties) setUserProperties(properties);
 }
 
 /**
@@ -81,14 +78,13 @@ export function aliasUser(userId: string): void {
     return;
   }
 
-  const mixpanel = getMixpanel();
-  if (!mixpanel) return;
-
-  try {
-    mixpanel.alias(userId);
-  } catch (error) {
-    console.error('[Analytics] Alias error:', error);
-  }
+  withMixpanel((mixpanel) => {
+    try {
+      mixpanel.alias(userId);
+    } catch (error) {
+      console.error('[Analytics] Alias error:', error);
+    }
+  });
 }
 
 /**
@@ -103,14 +99,13 @@ export function setUserProperties(properties: UserProperties): void {
     return;
   }
 
-  const mixpanel = getMixpanel();
-  if (!mixpanel) return;
-
-  try {
-    mixpanel.people.set(properties);
-  } catch (error) {
-    console.error('[Analytics] Set user properties error:', error);
-  }
+  withMixpanel((mixpanel) => {
+    try {
+      mixpanel.people.set(properties);
+    } catch (error) {
+      console.error('[Analytics] Set user properties error:', error);
+    }
+  });
 }
 
 /**
@@ -126,14 +121,13 @@ export function incrementUserProperty(property: string, by: number = 1): void {
     return;
   }
 
-  const mixpanel = getMixpanel();
-  if (!mixpanel) return;
-
-  try {
-    mixpanel.people.increment(property, by);
-  } catch (error) {
-    console.error('[Analytics] Increment error:', error);
-  }
+  withMixpanel((mixpanel) => {
+    try {
+      mixpanel.people.increment(property, by);
+    } catch (error) {
+      console.error('[Analytics] Increment error:', error);
+    }
+  });
 }
 
 /**
@@ -147,14 +141,13 @@ export function resetAnalytics(): void {
     return;
   }
 
-  const mixpanel = getMixpanel();
-  if (!mixpanel) return;
-
-  try {
-    mixpanel.reset();
-  } catch (error) {
-    console.error('[Analytics] Reset error:', error);
-  }
+  withMixpanel((mixpanel) => {
+    try {
+      mixpanel.reset();
+    } catch (error) {
+      console.error('[Analytics] Reset error:', error);
+    }
+  });
 }
 
 /**
