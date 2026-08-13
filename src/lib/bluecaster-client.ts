@@ -324,6 +324,9 @@ export async function fetchMapSpotsCached(
 ): Promise<MapSpotsPayload | null> {
   const res = await fetch(
     `/api/bluecaster/map/spots?bbox=${encodeURIComponent(bbox)}&date=${encodeURIComponent(date)}`,
+    // The rail and the pins can fill in a moment late; the forecast strip
+    // cannot, and this is the request it would otherwise be stuck behind.
+    { priority: "low" },
   );
   if (!res.ok) return null;
   return (await res.json().catch(() => null)) as MapSpotsPayload | null;
@@ -338,7 +341,11 @@ export async function fetchMapSpotsAsViewer(
   if (!token) return null;
   const res = await fetch(
     `/api/bluecaster/map/spots?bbox=${encodeURIComponent(bbox)}&date=${encodeURIComponent(date)}`,
-    { headers: { Authorization: `Bearer ${token}` }, cache: "no-store" },
+    {
+      headers: { Authorization: `Bearer ${token}` },
+      cache: "no-store",
+      priority: "low",
+    },
   );
   if (!res.ok) return null;
   return (await res.json().catch(() => null)) as MapSpotsPayload | null;
@@ -545,6 +552,11 @@ export async function fetchMapForecast14d(
     {
       cache: "no-store",
       headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+      // 4.7 KB that the strip is blocked on, fired in the same commit as a
+      // spot payload an order of magnitude larger. At equal priority the
+      // strip's request shares the pipe with it and lands late for no reason
+      // — the numbers a Pro viewer is waiting on queue behind pin colours.
+      priority: "high",
     }
   );
   if (!res.ok) {

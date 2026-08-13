@@ -58,6 +58,21 @@ export interface ForecastDay {
   /** Dominant daylight weather (best-window-weighted); null until the 14-day
    *  conditions grid loads, or on the viewport strip. Drives the weather icon. */
   weather: WeatherCondition | null;
+  /**
+   * We do not yet know whether this day is locked, so it renders as a skeleton
+   * rather than committing to either answer.
+   *
+   * Only the server-prefetched strip sets this. That payload is built without a
+   * session — it is baked into a statically rendered page — so it carries the
+   * anonymous horizon and nothing beyond it. For a signed-out visitor that is
+   * already the truth. For a Pro account it is not, and drawing a padlock over
+   * days they have paid for, for as long as it takes the tier to resolve, is
+   * the lock-then-unlock flash this app has fixed twice on the spot page. So
+   * the days past the anonymous horizon stay pending until either the tier
+   * comes back anonymous (they were locked all along) or the tier-correct
+   * payload lands (they fill in).
+   */
+  pending: boolean;
 }
 
 /** Per-day dominant weather — daylight hours, weighted toward the day's best
@@ -164,6 +179,9 @@ export function buildForecastDays(
       isBest: false,
       nonRetention,
       weather: dayWeather(payload.hourlyConditionsGrid?.[i], sun, fromGrid.hour),
+      // The spot page fetches its own payload under the caller's session, so
+      // its lock states are final on arrival — nothing to resolve later.
+      pending: false,
     };
   });
 
@@ -180,6 +198,12 @@ export function buildViewportForecastDays(
   payload: MapForecast14dPayload,
   speciesFilter: string | null,
   accessTier: ForecastTier,
+  /**
+   * Index from which the payload cannot be trusted to say whether a day is
+   * locked — see `ForecastDay.pending`. null (the default) means the payload
+   * and the tier agree and every cell is final.
+   */
+  pendingFrom: number | null = null,
 ): ForecastStripModel {
   const series = speciesFilter
     ? payload.by_species[speciesFilter] ?? []
@@ -188,16 +212,17 @@ export function buildViewportForecastDays(
 
   const days: ForecastDay[] = payload.days.map((d, i) => {
     const cell = series[i] ?? null;
-    const lockTier = lockTierAt(i, visible);
+    const pending = pendingFrom !== null && i >= pendingFrom;
+    const lockTier = pending ? null : lockTierAt(i, visible);
     const locked = lockTier !== null;
     return {
       index: i,
       iso: d.iso,
       dow: d.dow.charAt(0).toUpperCase() + d.dow.slice(1).toLowerCase(),
       date: d.date,
-      score: cell?.score ?? null,
-      peakLabel: locked ? null : fmtPeak(cell?.peak_hour ?? null),
-      tier: tierFor(cell?.score ?? null),
+      score: pending ? null : cell?.score ?? null,
+      peakLabel: locked || pending ? null : fmtPeak(cell?.peak_hour ?? null),
+      tier: tierFor(pending ? null : cell?.score ?? null),
       locked,
       lockTier,
       isBest: false,
@@ -206,6 +231,7 @@ export function buildViewportForecastDays(
       nonRetention: false,
       // Map/viewport payload carries no conditions grid — no weather icon.
       weather: null,
+      pending,
     };
   });
 
@@ -213,11 +239,13 @@ export function buildViewportForecastDays(
 }
 
 // "Best" = highest-scoring unlocked, retainable day (the BEST ★ badge +
-// best-window line). Non-retention days never win it.
+// best-window line). Non-retention days never win it, and neither do pending
+// ones — a day still resolving has no score to compare, and letting the badge
+// land on it would make it jump when the real payload arrives.
 function finishModel(days: ForecastDay[]): ForecastStripModel {
   let bestDay: ForecastDay | null = null;
   for (const day of days) {
-    if (day.locked || day.nonRetention || day.score === null) continue;
+    if (day.locked || day.pending || day.nonRetention || day.score === null) continue;
     if (!bestDay || day.score > (bestDay.score ?? -1)) bestDay = day;
   }
   if (bestDay) bestDay.isBest = true;

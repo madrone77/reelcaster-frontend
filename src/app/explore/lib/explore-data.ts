@@ -100,6 +100,44 @@ export interface RailSpot {
   hasReports?: boolean;
 }
 
+/**
+ * The city /explore opens on when it is covered — the flagship pilot, so a cold
+ * load lands on the bathymetry-rich Juan de Fuca coastline rather than wherever
+ * happens to score highest today.
+ *
+ * Exported because the page now fetches this city's spots instead of every spot
+ * in every covered province: the opening payload has to be chosen before there
+ * are any scores to rank cities by.
+ */
+export const PREFERRED_DEFAULT_CITY = "victoria-bc";
+
+/** Published member spots, from whichever tree shape we were handed. */
+function publishedSpotCount(city: HierarchyCity | HierarchyCityLight): number {
+  return "spot_count" in city
+    ? city.spot_count
+    : city.spots.filter((s) => s.is_published).length;
+}
+
+/** Is the preferred opening city in the covered tree with published spots? */
+export function hasPreferredDefaultCity(
+  hierarchy: BlueCasterHierarchy | BlueCasterHierarchyLight | null,
+): boolean {
+  for (const country of hierarchy?.countries ?? []) {
+    for (const sp of country.states_provinces) {
+      if (!(COVERED_PROVINCES as readonly string[]).includes(sp.code)) continue;
+      for (const region of sp.regions) {
+        for (const city of region.cities as Array<
+          HierarchyCity | HierarchyCityLight
+        >) {
+          if (city.slug !== PREFERRED_DEFAULT_CITY) continue;
+          return publishedSpotCount(city) > 0;
+        }
+      }
+    }
+  }
+  return false;
+}
+
 /** A species present in the loaded scores — populates the map filter dropdown. */
 export interface SpeciesOption {
   id: string;
@@ -408,12 +446,25 @@ function deriveScoring(
   };
 }
 
-/**
- * Re-derive scores/conditions for an existing rail-spot set from a payload
- * fetched for a different date (forecast-day taps). Location metadata is
- * preserved; only the score-bearing fields change. Spots absent from the
- * new payload go unscored.
- */
+/** Species options carried by a payload, for merging into the filter list. */
+export function speciesOptionsFromPayload(
+  payload: MapSpotsPayload,
+  spots: RailSpot[],
+): SpeciesOption[] {
+  const best: Record<string, number> = {};
+  for (const spot of spots) {
+    for (const [sid, score] of Object.entries(spot.scoresBySpecies)) {
+      if (!(sid in best) || score > best[sid]) best[sid] = score;
+    }
+  }
+  return Object.keys(best).map((id) => ({
+    id,
+    name: speciesDisplayName(payload.species[id]?.name ?? id),
+    slug: payload.species[id]?.slug ?? id,
+    bestScore: best[id] ?? null,
+  }));
+}
+
 /**
  * Build rail spots for payload entries the base set doesn't have.
  *
@@ -492,30 +543,91 @@ export function railSpotFromEntry(
   };
 }
 
-export function rescoreSpots(
-  base: RailSpot[],
+/**
+ * Where a city sits, flattened out of the location tree.
+ *
+ * The spot payload carries only `city_slug`; region, province, and the city
+ * centre (for `distanceKm`) have to be joined on. The server does that against
+ * the hierarchy, but the client only ever receives the built `locations` tree,
+ * so this is the shape both sides can index by.
+ */
+export interface CityPlace {
+  slug: string;
+  name: string;
+  lat: number;
+  lng: number;
+  regionSlug: string;
+  regionName: string;
+  provinceCode: string;
+}
+
+/** city_slug → place, for joining a spot payload fetched in the browser. */
+export function cityIndexFromLocations(
+  locations: ProvinceNode[],
+): Map<string, CityPlace> {
+  const index = new Map<string, CityPlace>();
+  for (const prov of locations) {
+    for (const region of prov.regions) {
+      for (const city of region.cities) {
+        index.set(city.slug, {
+          slug: city.slug,
+          name: city.name,
+          lat: city.lat,
+          lng: city.lng,
+          regionSlug: region.slug,
+          regionName: region.name,
+          provinceCode: prov.code,
+        });
+      }
+    }
+  }
+  return index;
+}
+
+/**
+ * Spot-payload entries → located, scored RailSpots.
+ *
+ * Extracted from `buildExploreData` so the browser can turn a payload fetched
+ * for a new viewport into the same rows the server produced for the opening
+ * one — Explore loads spots as the map moves now, rather than shipping every
+ * spot in BC, WA and OR up front.
+ *
+ * Entries whose city is not in the covered tree are dropped: they have nowhere
+ * to sit in the rail's grouping. That has always been the rule here.
+ */
+export function railSpotsFromPayload(
   payload: MapSpotsPayload,
+  cities: Map<string, CityPlace>,
   isToday: boolean,
 ): RailSpot[] {
-  const byId = new Map(payload.spots.map((s) => [s.id, s]));
-  const bySlug = new Map(payload.spots.map((s) => [s.slug, s]));
-  const nowHour = currentLocalHour(payload.tz);
-  return base.map((spot) => {
-    const entry = byId.get(spot.id) ?? bySlug.get(spot.slug);
-    const s = deriveScoring(entry, payload.species, isToday ? nowHour : -1);
-    return {
-      ...spot,
-      score: s.score,
-      bestSpeciesId: s.bestSpeciesId,
-      driverSpecies: s.driverSpecies,
-      peakHour: s.peakHour,
-      conditions: s.conditions,
-      condStrip: s.condStrip,
-      hours24: s.hours24,
-      scoresBySpecies: s.scoresBySpecies,
-    };
-  });
+  const atHour = isToday ? currentLocalHour(payload.tz) : -1;
+  const out: RailSpot[] = [];
+  for (const entry of payload.spots) {
+    const place = entry.city_slug ? cities.get(entry.city_slug) : undefined;
+    if (!place) continue;
+    const s = deriveScoring(entry, payload.species, atHour);
+    out.push({
+      id: entry.id,
+      slug: entry.slug,
+      name: entry.name,
+      lat: entry.lat,
+      lng: entry.lng,
+      citySlug: place.slug,
+      cityName: place.name,
+      regionSlug: place.regionSlug,
+      regionName: place.regionName,
+      provinceCode: place.provinceCode,
+      distanceKm:
+        Number.isFinite(place.lat) && Number.isFinite(place.lng)
+          ? Math.round(haversineKm(place.lat, place.lng, entry.lat, entry.lng))
+          : null,
+      hasReports: entry.has_reports === true,
+      ...s,
+    });
+  }
+  return out;
 }
+
 
 // ── Build ───────────────────────────────────────────────────────────
 
@@ -563,12 +675,6 @@ export function buildExploreData(
     }
   >();
 
-  /** Published member spots, from whichever tree shape we were handed. */
-  const publishedCount = (city: HierarchyCity | HierarchyCityLight) =>
-    "spot_count" in city
-      ? city.spot_count
-      : city.spots.filter((s) => s.is_published).length;
-
   for (const country of hierarchy?.countries ?? []) {
     for (const sp of country.states_provinces) {
       if (!(COVERED_PROVINCES as readonly string[]).includes(sp.code)) continue;
@@ -598,7 +704,7 @@ export function buildExploreData(
           // in this bbox. Keeping it authoritative is the point: the browse
           // list should read "16 spots" for Sooke whether or not you happen to
           // be looking at Sooke right now.
-          const spotCount = publishedCount(city);
+          const spotCount = publishedSpotCount(city);
           if (spotCount > 0) {
             regionNode.cities.push({
               slug: city.slug,
@@ -699,7 +805,6 @@ export function buildExploreData(
   // The page opens on the flagship/pilot city (Victoria) when it's covered, so
   // it lands on the bathymetry-rich Juan de Fuca coastline rather than whichever
   // city happens to score highest that day. Falls back to best-scoring otherwise.
-  const PREFERRED_DEFAULT_CITY = "victoria-bc";
   let bestScoringSlug: string | null = null;
   let best = -1;
   let hasPreferred = false;

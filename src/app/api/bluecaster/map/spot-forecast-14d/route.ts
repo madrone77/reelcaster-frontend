@@ -3,7 +3,10 @@ import { createClient } from "@supabase/supabase-js";
 import { fetchSpotsOutlook14d } from "@/lib/bluecaster";
 import { getUserIdFromRequest } from "@/lib/server-auth";
 import { resolveEntitlement } from "@/lib/entitlement";
-import type { SpotsOutlook14dPayload } from "@/lib/bluecaster";
+import {
+  stripSpotsOutlook,
+  visibleForecastDays,
+} from "@/lib/forecast-horizon";
 
 /**
  * Same-origin proxy → BlueCaster GET /api/v1/map/spot-forecast-14d.
@@ -11,16 +14,12 @@ import type { SpotsOutlook14dPayload } from "@/lib/bluecaster";
  * cards: one request per list, not one per card.
  *
  * Days past the caller's horizon are nulled server-side (anon 2, free
- * account 7, Pro 14 — the same tiers the viewport strip and the spot
- * forecast route use), so a locked score never reaches the browser. The
- * `days` array stays whole; the strip draws its own locked cells off the
- * null. Per-caller, so the response is private-cacheable only.
+ * account 7, Pro 14 — see @/lib/forecast-horizon, shared with the viewport
+ * strip proxy and the Explore page's prefetch), so a locked score never
+ * reaches the browser. The `days` array stays whole; the strip draws its own
+ * locked cells off the null. Per-caller, so the response is
+ * private-cacheable only.
  */
-
-/** Server-side mirrors of ANON_STRIP_DAYS / FREE_STRIP_DAYS in
- *  src/app/explore/lib/forecast-strip.ts. */
-const ANON_FORECAST_DAYS = 2;
-const FREE_FORECAST_DAYS = 7;
 
 /** Matches the upstream cap; keeps a hand-built URL from blowing the query. */
 const MAX_SPOT_IDS = 120;
@@ -30,21 +29,6 @@ const supabaseAdmin = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY!,
   { auth: { autoRefreshToken: false, persistSession: false } },
 );
-
-function stripLockedDays(
-  data: SpotsOutlook14dPayload,
-  visibleDays: number,
-): SpotsOutlook14dPayload {
-  return {
-    ...data,
-    by_spot: Object.fromEntries(
-      Object.entries(data.by_spot).map(([spotId, cells]) => [
-        spotId,
-        cells.map((cell, i) => (i >= visibleDays ? null : cell)),
-      ]),
-    ),
-  };
-}
 
 export async function GET(request: NextRequest) {
   const sp = request.nextUrl.searchParams;
@@ -64,11 +48,10 @@ export async function GET(request: NextRequest) {
   }
 
   const userId = await getUserIdFromRequest(request);
-  const visibleDays = !userId
-    ? ANON_FORECAST_DAYS
-    : (await resolveEntitlement(supabaseAdmin, userId)).isPro
-      ? 14
-      : FREE_FORECAST_DAYS;
+  const visibleDays = visibleForecastDays(
+    !!userId,
+    userId ? (await resolveEntitlement(supabaseAdmin, userId)).isPro : false,
+  );
 
   // The id scope is the one that reaches a caller's own unpublished custom
   // spots, so it must not share a cache entry with the next request for the
@@ -82,8 +65,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: "upstream unavailable" }, { status: 502 });
   }
 
-  return NextResponse.json(
-    visibleDays >= 14 ? data : stripLockedDays(data, visibleDays),
-    { headers: { "Cache-Control": "private, max-age=120" } },
-  );
+  return NextResponse.json(stripSpotsOutlook(data, visibleDays), {
+    headers: { "Cache-Control": "private, max-age=120" },
+  });
 }
