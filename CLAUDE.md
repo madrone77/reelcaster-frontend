@@ -70,7 +70,7 @@ src/app/
 │   ├── auth/          # AuthForm, AuthGate
 │   ├── catch-log/     # Fish-on FAB + quick catch modal (legacy dark UI)
 │   ├── common/        # Shared bits still used by AppShell pages
-│   ├── forecast/      # AppShell page chrome (dashboard-header) — most of the old forecast UI was deleted 2026-07
+│   ├── forecast/      # algorithm-version-toggle — the rest of the old forecast UI was deleted 2026-07
 │   ├── layout/        # AppShell, icon-sidebar, mobile tab bar, location panel
 │   ├── location/      # Location selection helpers
 │   ├── notifications/ # Notification preference forms
@@ -171,7 +171,6 @@ a live page). Highlights:
 - `icon-sidebar.tsx` - Desktop icon-based sidebar navigation (Alerts · Catch Log · Profile)
 - `location-panel.tsx` / `mobile-location-sheet.tsx` - Location selection
 - `mobile-tab-bar.tsx` - Mobile bottom navigation
-- `forecast/dashboard-header.tsx` - Page header (name is legacy; the dashboard itself is gone)
 
 **Auth:**
 
@@ -252,31 +251,40 @@ Use Tailwind's built-in color palette for accents:
 
 #### Page Layout Pattern
 
-All pages should use the `AppShell` component with consistent padding:
+Signed-in pages mount their own chrome: `ExploreTopBar` for the nav, then the
+shared width tokens. `PAGE_MEASURE` bounds the page, `READING_MEASURE` bounds a
+column of text or form fields inside it.
 
 ```tsx
-import { AppShell } from '@/app/components/layout'
-import DashboardHeader from '@/app/components/forecast/dashboard-header'
+'use client'
+
+import ExploreTopBar from '@/app/explore/components/explore-top-bar'
+import { PAGE_MEASURE, READING_MEASURE } from '@/app/components/layout/page-measure'
 
 export default function MyPage() {
   return (
-    <AppShell showLocationPanel={false}>
-      <div className="flex-1 min-h-screen p-4 sm:p-6 space-y-4 sm:space-y-6">
-        <DashboardHeader
-          title="Page Title"
-          showTimeframe={false}
-          showSetLocation={false}
-          showCustomize={false}
-        />
-
-        <div className="max-w-4xl mx-auto space-y-6">
-          {/* Page content */}
+    <div className="min-h-dvh bg-rc-page">
+      <ExploreTopBar />
+      <main className="pt-16">
+        <div className={`${PAGE_MEASURE} py-8`}>
+          <div className={READING_MEASURE}>
+            <div className="mb-6">
+              <div className="rc-label text-[10px] text-rc-brand">Settings</div>
+              <h1 className="text-2xl font-bold text-rc-ink mt-1">Page Title</h1>
+            </div>
+            {/* Page content */}
+          </div>
         </div>
-      </div>
-    </AppShell>
+      </main>
+    </div>
   )
 }
 ```
+
+⚠️ This section used to document an `AppShell` + `DashboardHeader` pattern.
+`DashboardHeader` was deleted 2026-08-13 — nothing rendered it — and no page
+imports `AppShell` either; the pages listed above are what the app actually
+does.
 
 **Key Layout Classes:**
 - Outer container: `p-4 sm:p-6 space-y-4 sm:space-y-6`
@@ -359,7 +367,7 @@ export default function MyPage() {
   Secondary
 </button>
 
-// Pill-shaped button (used in DashboardHeader)
+// Pill-shaped button
 <button className="flex items-center bg-rc-bg-dark hover:bg-rc-bg-light border border-rc-bg-light rounded-full text-sm transition-colors">
   <span className="px-4 py-2 text-rc-text">Button Text</span>
 </button>
