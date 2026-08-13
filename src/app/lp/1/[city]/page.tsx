@@ -191,7 +191,7 @@ export default async function LpCityPage({
   const freshEntry = fresh?.spots[rep.id] ?? null;
   const freshCount = freshEntry?.count ?? 0;
   const freshActivity: LpShellProps["freshActivity"] =
-    freshCount >= 8 ? "Hot" : freshCount > 0 ? "Active" : null;
+    freshCount >= 8 ? "Busy" : freshCount > 0 ? "Active" : null;
   const freshSpecies: LpFreshSpecies[] = freshEntry
     ? Object.entries(freshEntry.species)
         .map(([id, s]) => ({

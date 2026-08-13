@@ -56,7 +56,7 @@ export interface LpShellProps {
 
   // fresh catch
   freshCount: number;
-  freshActivity: "Hot" | "Active" | null; // Hot at >= 8 reports, else Active, null when 0
+  freshActivity: "Busy" | "Active" | null; // Busy at >= 8 reports, else Active, null when 0
   freshSpecies: LpFreshSpecies[];
   freshLatest: string | null; // "2 days ago"
 
