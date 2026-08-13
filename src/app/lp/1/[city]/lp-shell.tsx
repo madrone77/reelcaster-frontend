@@ -411,27 +411,26 @@ export default function LpShell(props: LpShellProps) {
       {/* MAP */}
       <section className="band">
         <div className="wrap">
-          <div className="split">
-            <div className="copy">
-              <span className="label">The water</span>
-              <h2>It reads the water so you don&apos;t have to.</h2>
-              <p>
-                Bottom structure, live currents, wind — the conditions that
-                actually move fish, on one map. Tap a layer.
-              </p>
-            </div>
-            <div
-              className="mapwrap"
-              style={{ height: "420px" }}
-              aria-label={`Nautical chart with depth contours and scored spots near ${props.city}`}
-            >
-              <MarketingMap
-                spots={props.mapSpots}
-                species={props.mapSpecies}
-                center={props.mapCenter}
-                zoom={props.mapZoom}
-              />
-            </div>
+          <div className="sec-head">
+            <span className="label">The water</span>
+            <h2>It reads the water so you don&apos;t have to.</h2>
+            <p>
+              Bottom structure, live currents, wind — the conditions that
+              actually move fish, on one live map. Pan, zoom, and filter by
+              species.
+            </p>
+          </div>
+          <div
+            className="mapwrap"
+            style={{ height: "480px", marginTop: "28px" }}
+            aria-label={`Live fishing map with depth contours and scored spots near ${props.city}`}
+          >
+            <MarketingMap
+              spots={props.mapSpots}
+              species={props.mapSpecies}
+              center={props.mapCenter}
+              zoom={props.mapZoom}
+            />
           </div>
         </div>
       </section>
