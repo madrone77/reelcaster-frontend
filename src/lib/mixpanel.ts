@@ -11,6 +11,26 @@ import { ensureSafeStorage } from '@/lib/safe-storage'
 
 let mixpanelInstance: Mixpanel | null = null
 let isInitialized = false
+/** No token, or the SDK failed to load — nothing will ever arrive. */
+let isDisabled = false
+
+/**
+ * Calls made before the SDK finished loading, replayed once it has.
+ *
+ * Without this every event fired during the load window was dropped on the
+ * floor: `isMixpanelEnabled()` reports the *instance*, and `analytics.ts`
+ * returns early when there isn't one. That window used to be one dynamic
+ * import; deferring the load to idle (see `initMixpanel`) makes it seconds,
+ * and the events most worth having — the ones describing what someone did
+ * when they first landed — are exactly the ones in it.
+ *
+ * Bounded, because a queue that only grows is a leak wearing an analytics
+ * costume: if the SDK never arrives (blocked by an extension, offline) the
+ * oldest calls are dropped rather than held forever.
+ */
+type PendingCall = (mixpanel: Mixpanel) => void
+const pending: PendingCall[] = []
+const MAX_PENDING = 50
 
 /**
  * Initialize Mixpanel client
@@ -48,6 +68,7 @@ export function initMixpanel(): Mixpanel | null {
     // page load; warn logs it without the intrusive panel.
     console.warn('[Mixpanel] Token not found - analytics disabled')
     isInitialized = true
+    isDisabled = true
     return null
   }
 
@@ -56,17 +77,32 @@ export function initMixpanel(): Mixpanel | null {
   ensureSafeStorage()
 
   isInitialized = true
-  void loadMixpanel(token)
+  scheduleLoad(token)
   return mixpanelInstance
 }
 
 /**
- * Import and start the SDK.
+ * Load the SDK when the browser has nothing better to do.
  *
- * Kept async so the storage guard above is unconditionally in place first. The
- * gap is one already-bundled dynamic chunk, during which `getMixpanel()`
- * returns null and `analytics.ts` no-ops — the same thing it does when the
- * token is missing.
+ * It was loading the instant hydration finished, which is the worst moment
+ * available: 312 kB of analytics parsing on the main thread while the page is
+ * still assembling itself, competing with the requests the reader is actually
+ * waiting on. Nothing here is needed for the page to work, so it waits for
+ * idle — with a timeout, because a busy page may never idle and the events
+ * still have to be sent.
+ */
+function scheduleLoad(token: string): void {
+  const run = () => void loadMixpanel(token)
+  if (typeof window === 'undefined') return
+  const ric = window.requestIdleCallback
+  if (typeof ric === 'function') ric(run, { timeout: 4000 })
+  else window.setTimeout(run, 2000)
+}
+
+/**
+ * Import and start the SDK, then replay anything that happened while waiting.
+ *
+ * Kept async so the storage guard above is unconditionally in place first.
  */
 async function loadMixpanel(token: string): Promise<void> {
   try {
@@ -85,10 +121,42 @@ async function loadMixpanel(token: string): Promise<void> {
     })
 
     mixpanelInstance = mixpanel
+
+    // Replay in the order they were made — `alias` before `identify` before
+    // the events that depend on them, exactly as the callers wrote them.
+    const queued = pending.splice(0, pending.length)
+    for (const call of queued) {
+      try {
+        call(mixpanel)
+      } catch (error) {
+        console.error('[Mixpanel] Replay error:', error)
+      }
+    }
   } catch (error) {
     console.error('[Mixpanel] Initialization error:', error)
     mixpanelInstance = null
+    isDisabled = true
+    pending.length = 0
   }
+}
+
+/**
+ * Run `fn` against the SDK — now if it is here, on arrival if it is not.
+ *
+ * The one entry point `analytics.ts` should use. Reaching for `getMixpanel()`
+ * and bailing on null is what silently lost the early events.
+ */
+export function withMixpanel(fn: PendingCall): void {
+  if (mixpanelInstance) {
+    fn(mixpanelInstance)
+    return
+  }
+  if (isDisabled) return
+  // First caller starts the load; the rest queue behind it.
+  if (!isInitialized) initMixpanel()
+  if (isDisabled) return
+  if (pending.length >= MAX_PENDING) pending.shift()
+  pending.push(fn)
 }
 
 /**
@@ -102,8 +170,12 @@ export function getMixpanel(): Mixpanel | null {
 }
 
 /**
- * Check if Mixpanel is enabled (production + token exists)
+ * Is analytics on at all? Note this is NOT "has the SDK loaded" — it answers
+ * whether events are worth making, and a call made before the SDK lands is
+ * queued rather than lost. Basing it on the instance is what made the load
+ * window a dead zone.
  */
 export function isMixpanelEnabled(): boolean {
-  return mixpanelInstance !== null
+  if (!isInitialized) initMixpanel()
+  return !isDisabled
 }

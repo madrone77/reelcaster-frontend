@@ -1,6 +1,18 @@
 "use client";
 
-import ProTrialModal from "@/app/components/paywall/pro-trial-modal";
+import dynamic from "next/dynamic";
+import { useMountedOnce } from "@/hooks/use-mounted-once";
+
+// Loaded on the tap that opens it, not with the map. This wrapper is rendered
+// unconditionally by the forecast strip and the mobile sheet, so a static
+// import put the plan matrix, the pricing tables and the Stripe checkout
+// client into the chunks /explore parses before it can hydrate — on a page
+// whose whole job is a map. Matches `TrialModalButton`, which already does
+// this for the marketing CTAs.
+const ProTrialModal = dynamic(
+  () => import("@/app/components/paywall/pro-trial-modal"),
+  { ssr: false },
+);
 
 /**
  * Shown when a locked forecast day is tapped. Thin wrapper over the shared
@@ -27,6 +39,10 @@ export default function UpgradeDialog({
   onOpenChange: (open: boolean) => void;
   variant?: "pro" | "signup";
 }) {
+  // Latched, so closing the modal doesn't rip it out mid-animation.
+  const mounted = useMountedOnce(open);
+  if (!mounted) return null;
+
   return (
     <ProTrialModal
       open={open}
