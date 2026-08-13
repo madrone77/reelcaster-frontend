@@ -1,15 +1,14 @@
 "use client";
 
-import { useEffect, useMemo, useRef } from "react";
+import { useEffect, useRef } from "react";
 import Map, {
   Marker,
   NavigationControl,
   type MapRef,
   type MapLayerMouseEvent,
 } from "react-map-gl/maplibre";
-import type { StyleSpecification } from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
-import { buildReliefStyle } from "@/lib/map/relief-style";
+import { useReliefStyle } from "@/lib/map/use-relief-style";
 import type { NearestSpotHit } from "@/lib/bluecaster/catch-ingest-types";
 
 /**
@@ -42,13 +41,7 @@ export default function PinPickerMap({
   // reads as the map moving on its own.
   const internalMoveRef = useRef(false);
 
-  const mapStyle = useMemo(
-    () =>
-      buildReliefStyle(
-        typeof window !== "undefined" ? window.location.origin : "",
-      ) as unknown as StyleSpecification,
-    [],
-  );
+  const mapStyle = useReliefStyle();
 
   // Follow external pin jumps (initial geo-resolution, "use spot" actions).
   useEffect(() => {

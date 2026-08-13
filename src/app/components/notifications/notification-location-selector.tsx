@@ -1,9 +1,16 @@
 'use client'
 
 import React, { useState, useCallback, useRef } from 'react'
-import Map, { Marker, Layer, Source, MapRef } from 'react-map-gl/mapbox'
+import Map, {
+  Marker,
+  Layer,
+  Source,
+  type MapRef,
+  type MapLayerMouseEvent,
+} from 'react-map-gl/maplibre'
 import { MapPin } from 'lucide-react'
-import 'mapbox-gl/dist/mapbox-gl.css'
+import 'maplibre-gl/dist/maplibre-gl.css'
+import { useReliefStyle } from '@/lib/map/use-relief-style'
 
 interface NotificationLocationSelectorProps {
   initialLat?: number
@@ -40,13 +47,11 @@ const NotificationLocationSelector: React.FC<NotificationLocationSelectorProps> 
   })
 
   const [radius, setRadius] = useState(initialRadius)
-
-  // Get Mapbox token from environment
-  const mapboxToken = process.env.NEXT_PUBLIC_MAPBOX_TOKEN
+  const mapStyle = useReliefStyle()
 
   // Handle map click to set marker position
   const handleMapClick = useCallback(
-    (event: any) => {
+    (event: MapLayerMouseEvent) => {
       const { lngLat } = event
       const newPosition = {
         latitude: lngLat.lat,
@@ -121,17 +126,6 @@ const NotificationLocationSelector: React.FC<NotificationLocationSelectorProps> 
     },
   }
 
-  // Check for Mapbox token
-  if (!mapboxToken) {
-    return (
-      <div className="p-4 bg-rc-poor-bg border border-rc-poor/40 rounded-lg">
-        <p className="text-rc-poor-ink text-sm">
-          Mapbox token not configured. Please add NEXT_PUBLIC_MAPBOX_TOKEN to your environment variables.
-        </p>
-      </div>
-    )
-  }
-
   return (
     <div className="space-y-4">
       {/* Map Container */}
@@ -141,8 +135,7 @@ const NotificationLocationSelector: React.FC<NotificationLocationSelectorProps> 
           {...viewport}
           onMove={evt => setViewport(evt.viewState)}
           onClick={handleMapClick}
-          mapboxAccessToken={mapboxToken}
-          mapStyle="mapbox://styles/mapbox/light-v11"
+          mapStyle={mapStyle}
           style={{ width: '100%', height: '100%' }}
         >
           {/* Radius Circle */}

@@ -1,12 +1,15 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import dynamic from "next/dynamic";
 import { useRouter, useSearchParams } from "next/navigation";
 import type { MapRef } from "react-map-gl/maplibre";
 import type { MapSpotsPayload } from "@/lib/bluecaster";
 import {
+  cityIndexFromLocations,
   extraRailSpotsFromPayload,
-  rescoreSpots,
+  railSpotsFromPayload,
+  speciesOptionsFromPayload,
   zonedHourToUtcIso,
   type CityNode,
   type ExploreData,
@@ -14,16 +17,21 @@ import {
   type SpeciesOption,
 } from "./lib/explore-data";
 import {
+  ANON_STRIP_DAYS,
   buildViewportForecastDays,
   type ForecastDay,
   type ForecastStripModel,
   type ForecastTier,
 } from "./lib/forecast-strip";
+import { boundsOf, paddedBbox } from "./lib/viewport-bbox";
+import { useMountedOnce } from "@/hooks/use-mounted-once";
 import {
   fetchFreshCatches,
   fetchMapForecast14d,
   fetchMapSpotsAsViewer,
+  fetchMapSpotsCached,
   fetchMyCustomSpots,
+  fetchSpotCoords,
 } from "@/lib/bluecaster-client";
 import type { MapForecast14dPayload } from "@/lib/bluecaster";
 import type { FreshCatchesResponse } from "./lib/fresh-catch-types";
@@ -34,17 +42,44 @@ import { readExploreView, writeExploreView, type ExploreView } from "./lib/view-
 import ExploreTopBar from "./components/explore-top-bar";
 import { BLEED_MEASURE } from "@/app/components/layout/page-measure";
 import ExploreMap, { type StationPick, type CustomSpotPin } from "./components/explore-map";
-import CreateCustomSpotDialog from "./components/create-custom-spot-dialog";
+
 import { setFavorite } from "./lib/use-favorite";
 import { Plus, X } from "lucide-react";
-import StationDrawer from "./components/station-drawer";
 import LeftRail from "./components/left-rail";
 import LocationSelector from "./components/location-selector";
 import MobileMapSheet from "./components/mobile-map-sheet";
-import MobileFilterSheet from "./components/mobile-filter-sheet";
 import ForecastStrip from "./components/forecast-strip";
-import CreateAlertDialog from "./spot/components/create-alert-dialog";
-import ProTrialModal from "@/app/components/paywall/pro-trial-modal";
+
+// ── Loaded on demand ─────────────────────────────────────────────────────
+//
+// Everything below opens behind a tap: a pin drop, a station click, the
+// filter button, "create alert", an upgrade prompt. Statically imported they
+// were in the chunks /explore has to fetch and parse before it can hydrate —
+// and `ProTrialModal` drags Stripe in behind it, so a map that never sells
+// anything was paying for a checkout form on every load.
+//
+// `ssr: false` is free here: ExploreShell is a client component and each of
+// these renders nothing until its state flips, so the server markup they
+// contribute today is already empty.
+const CreateCustomSpotDialog = dynamic(
+  () => import("./components/create-custom-spot-dialog"),
+  { ssr: false },
+);
+const StationDrawer = dynamic(() => import("./components/station-drawer"), {
+  ssr: false,
+});
+const MobileFilterSheet = dynamic(
+  () => import("./components/mobile-filter-sheet"),
+  { ssr: false },
+);
+const CreateAlertDialog = dynamic(
+  () => import("./spot/components/create-alert-dialog"),
+  { ssr: false },
+);
+const ProTrialModal = dynamic(
+  () => import("@/app/components/paywall/pro-trial-modal"),
+  { ssr: false },
+);
 
 const MAP_TZ = "America/Vancouver";
 
@@ -60,45 +95,25 @@ function haversineKm(lat1: number, lng1: number, lat2: number, lng2: number): nu
   return 2 * R * Math.asin(Math.sqrt(a));
 }
 
-/**
- * The strip's fetch key: the box padded 20% and rounded.
- *
- * Rounded to 2dp (~1 km), not 3. The map settles in stages — `load`, then the
- * `fitBounds` animation, then a resize — and each stage used to mint a
- * bbox that differed in the fourth decimal, missing the payload cache and
- * refetching the same 14 days. At 2dp those stages collapse onto one key.
- */
-function paddedBbox(b: { w: number; s: number; e: number; n: number }): string {
-  const padLng = (b.e - b.w) * 0.2;
-  const padLat = (b.n - b.s) * 0.2;
-  const r = (v: number) => Math.round(v * 100) / 100;
-  return `${r(b.w - padLng)},${r(b.s - padLat)},${r(b.e + padLng)},${r(b.n + padLat)}`;
-}
-
-function boundsOf(spots: RailSpot[]): [[number, number], [number, number]] | null {
-  if (spots.length === 0) return null;
-  let w = Infinity,
-    s = Infinity,
-    e = -Infinity,
-    n = -Infinity;
-  for (const spot of spots) {
-    w = Math.min(w, spot.lng);
-    e = Math.max(e, spot.lng);
-    s = Math.min(s, spot.lat);
-    n = Math.max(n, spot.lat);
-  }
-  return [
-    [w, s],
-    [e, n],
-  ];
-}
+// `paddedBbox` and `boundsOf` moved to ./lib/viewport-bbox so the server can
+// compute the opening box with the same arithmetic and prefetch its strip.
 
 export default function ExploreShell({
   data,
   bbox,
+  initialForecast,
+  initialForecastBbox,
 }: {
   data: ExploreData;
   bbox: string;
+  /**
+   * The 14-day viewport strip for `initialForecastBbox`, fetched by the page so
+   * the strip can paint from the first response instead of waiting out the JS
+   * bundle. Anonymous-horizon only — see the prefetch comment in page.tsx.
+   */
+  initialForecast?: MapForecast14dPayload | null;
+  /** The box `initialForecast` covers; matches the shell's own mount-time seed. */
+  initialForecastBbox?: string | null;
 }) {
   const mapRef = useRef<MapRef>(null);
   const router = useRouter();
@@ -110,9 +125,8 @@ export default function ExploreShell({
   const userId = user?.id ?? null;
   // `tierLoading` matters: before it clears, `isPaid` is still its initial
   // `false`, so a Pro account would render as "free" and lock days 8–14 behind
-  // an upgrade CTA. The strip waits for the real answer instead (see the
-  // `stripModel` memo) — in practice the tier lands well before the forecast
-  // payload it decorates.
+  // an upgrade CTA. The strip renders the days it is sure of and marks the rest
+  // pending until the tier lands — see the `stripModel` memo.
   const accessTier: ForecastTier = isPaid ? "pro" : user ? "free" : "anonymous";
   const { citySlug, spotSlug, day, stn, setQuery } = useExploreState();
 
@@ -143,6 +157,15 @@ export default function ExploreShell({
   /** The blob last written, so a handler can amend it without rebuilding it. */
   const savedRef = useRef<ExploreView | null>(restored);
 
+  /**
+   * The URL asked for a specific place, so the page's prefetch is not about the
+   * water we are going to. The prefetch covers the default city — right for a
+   * bare /explore, wrong for `?loc=vancouver-bc`, where showing Victoria's
+   * numbers for a beat before Vancouver's arrive would be a worse first paint
+   * than showing none. Same test the view-memory restore uses.
+   */
+  const urlNamesPlace = !!(citySlug || spotSlug || stn);
+
   // ── Custom spots (Pro): a "Create custom spot" button arms pin-drop mode;
   //    the next map click opens a modal to name it + pick species. The user's
   //    own custom spots render as distinct markers (fetched on sign-in, plus
@@ -161,6 +184,7 @@ export default function ExploreShell({
   }, [searchParams, isPaid]);
   const [pinCoords, setPinCoords] = useState<{ lat: number; lng: number } | null>(null);
   const [customModalOpen, setCustomModalOpen] = useState(false);
+  const customModalMounted = useMountedOnce(customModalOpen);
   const [customSpots, setCustomSpots] = useState<CustomSpotPin[]>([]);
 
   useEffect(() => {
@@ -198,6 +222,7 @@ export default function ExploreShell({
   // Mobile (<lg) map-filter sheet (species + layer toggles + near-me),
   // opened by the location header's filter button.
   const [filterOpen, setFilterOpen] = useState(false);
+  const filterSheetMounted = useMountedOnce(filterOpen);
 
   // ── Map-layer toggles + species filter (MapControls) ────────────────
   const [relief, setRelief] = useState(true);
@@ -220,7 +245,18 @@ export default function ExploreShell({
   const [viewBounds, setViewBounds] = useState<{ w: number; s: number; e: number; n: number } | null>(null);
   const [viewCenter, setViewCenter] = useState<{ lat: number; lng: number } | null>(null);
   const [viewZoom, setViewZoom] = useState<number | null>(null);
-  const [vpBbox, setVpBbox] = useState<string | null>(null);
+  // Seeded in the initial state, not an effect: on a cold load the server has
+  // already told us which box it prefetched, and on a return trip the
+  // remembered frame is readable in the first render. Either way the strip's
+  // fetch key exists before the first effect runs, so nothing waits a tick for
+  // it. The mount effect below still covers the case where neither applies.
+  const [vpBbox, setVpBbox] = useState<string | null>(
+    restored?.bounds
+      ? paddedBbox(restored.bounds)
+      : urlNamesPlace
+        ? null
+        : initialForecastBbox ?? null,
+  );
   const vpTimerRef = useRef<number | null>(null);
   const vpReported = useRef(false);
 
@@ -266,36 +302,90 @@ export default function ExploreShell({
     // anonymous (locked) payload for the rest of the visit.
   }, [userId]);
 
-  // ── Day re-scoring: refetch map/spots for the selected date, cache it,
-  //    and overlay the new scores onto the (stable) base spot set. ────────
-  const dayCacheRef = useRef<Map<string, MapSpotsPayload>>(new Map());
-  const [dayPayload, setDayPayload] = useState<MapSpotsPayload | null>(null);
+  // ── Spots follow the map ─────────────────────────────────────────────────
+  //
+  // The page ships the opening city and nothing else. Everywhere the angler
+  // pans to is loaded here and kept, so the rail, the pins and the species
+  // filter fill in as the map moves and panning back is free.
+  //
+  // Keyed by DATE as well as box: a payload fetched for Thursday says nothing
+  // about Friday's scores, and quietly reusing it would show the wrong numbers
+  // on a spot the angler had already visited.
+  const cityIndex = useMemo(
+    () => cityIndexFromLocations(data.locations),
+    [data.locations],
+  );
+  const [loadedByDate, setLoadedByDate] = useState<
+    Map<string, Map<string, RailSpot>>
+  >(() => new Map());
+  const [loadedSpecies, setLoadedSpecies] = useState<SpeciesOption[]>([]);
+  /** "bbox|date" already requested — one request per box per date, ever. */
+  const spotFetchRef = useRef<Set<string>>(new Set());
 
   useEffect(() => {
-    if (selectedIso === today) {
-      setDayPayload(null);
-      return;
-    }
-    const cached = dayCacheRef.current.get(selectedIso);
-    if (cached) {
-      setDayPayload(cached);
-      return;
-    }
+    if (!vpBbox) return;
+    // The Set itself never changes identity, so holding it across the cleanup
+    // is safe (and is what the cleanup needs) — the lint rule is warning about
+    // DOM refs.
+    const claimed = spotFetchRef.current;
+    const key = `${vpBbox}|${selectedIso}`;
+    if (claimed.has(key)) return;
+    claimed.add(key);
+    const isToday = selectedIso === today;
     let cancelled = false;
-    fetch(
-      `/api/bluecaster/map/spots?bbox=${encodeURIComponent(bbox)}&date=${selectedIso}`,
-    )
-      .then((r) => (r.ok ? (r.json() as Promise<MapSpotsPayload>) : null))
+    let landed = false;
+    fetchMapSpotsCached(vpBbox, selectedIso)
       .then((p) => {
         if (cancelled || !p) return;
-        dayCacheRef.current.set(selectedIso, p);
-        setDayPayload(p);
+        landed = true;
+        const rows = railSpotsFromPayload(p, cityIndex, isToday);
+        if (rows.length === 0) return;
+        setLoadedByDate((prev) => {
+          const next = new Map(prev);
+          const forDate = new Map(next.get(selectedIso) ?? []);
+          for (const row of rows) forDate.set(row.slug, row);
+          next.set(selectedIso, forDate);
+          return next;
+        });
+        const opts = speciesOptionsFromPayload(p, rows);
+        setLoadedSpecies((prev) => {
+          const byId = new Map(prev.map((s) => [s.id, s]));
+          for (const o of opts) {
+            const seen = byId.get(o.id);
+            if (!seen || (o.bestScore ?? -1) > (seen.bestScore ?? -1)) byId.set(o.id, o);
+          }
+          return [...byId.values()];
+        });
       })
-      .catch(() => {});
+      .catch(() => {
+        // Let a later pass over the same water try again.
+        claimed.delete(key);
+      });
     return () => {
       cancelled = true;
+      // A request that never landed must not leave its key claimed, or the box
+      // it was for would stay empty forever. Strict mode's double-invoke and a
+      // fast pan both take this path.
+      if (!landed) claimed.delete(key);
     };
-  }, [selectedIso, today, bbox]);
+  }, [vpBbox, selectedIso, today, cityIndex]);
+
+  /** The loaded set for the date on screen. */
+  const loadedSpots = useMemo(
+    () => [...(loadedByDate.get(selectedIso)?.values() ?? [])],
+    [loadedByDate, selectedIso],
+  );
+
+  // Day re-scoring used to live here: a second map/spots fetch for the picked
+  // date, overlaid onto the opening set via `rescoreSpots`. The viewport loader
+  // above already fetches per (box, date) and its rows win in `effectiveSpots`,
+  // so that was a third request for the same URL on every forecast-day tap —
+  // one from the loader, one from here, one from the viewer read.
+  //
+  // What it covered and this does not: spots in the opening payload that are
+  // OUTSIDE the current viewport keep today's score on a future date. They are
+  // off screen — the rail filters to the viewport — and panning to them loads
+  // that box for the selected date, which recolours them on arrival.
 
   // ── The viewer's own custom spots, as rail spots ────────────────────────
   //
@@ -317,36 +407,71 @@ export default function ExploreShell({
   // with a byte-identical URL on every /explore load. `customSpots` only
   // decorates the result, which is derivation, not fetching (see the memo
   // below).
+  //
+  // Scoped to the VIEWPORT, not to the page's covered-region box. This asks
+  // one question — "which spots here are this angler's own?" — and the answer
+  // only matters for water on screen, but it used to be asked over the whole
+  // of BC, WA and OR: a 685 KB payload, 2.9 s on the wire, re-downloading every
+  // published spot the server render had already sent, on every signed-in load.
+  // The viewport box answers the same question in a fraction of that, and
+  // follows the map, so a custom spot is loaded by the time it is in frame.
+  // Cached per box+date, the same way the forecast strip is: following the map
+  // means asking repeatedly, and panning back over water already visited should
+  // not re-ask. Cleared whenever the answer could have changed underneath —
+  // signing in or out, or creating a spot.
+  const viewerCacheRef = useRef<Map<string, MapSpotsPayload>>(new Map());
+  useEffect(() => {
+    viewerCacheRef.current.clear();
+  }, [userId, ownSpotsRefresh]);
+
+  const viewerBbox = vpBbox ?? bbox;
   useEffect(() => {
     if (!userId) {
       setViewerPayload(null);
       return;
     }
+    const key = `${viewerBbox}|${selectedIso}`;
+    const cached = viewerCacheRef.current.get(key);
+    if (cached) {
+      setViewerPayload(cached);
+      return;
+    }
     let cancelled = false;
-    fetchMapSpotsAsViewer(bbox, selectedIso)
+    fetchMapSpotsAsViewer(viewerBbox, selectedIso)
       .then((payload) => {
         if (cancelled || !payload) return;
+        if (viewerCacheRef.current.size > 50) viewerCacheRef.current.clear();
+        viewerCacheRef.current.set(key, payload);
         setViewerPayload(payload);
       })
       .catch(() => {});
     return () => {
       cancelled = true;
     };
-  }, [userId, bbox, selectedIso, ownSpotsRefresh]);
+  }, [userId, viewerBbox, selectedIso, ownSpotsRefresh]);
 
   // Everything the viewer-scoped payload carries that the server render didn't:
   // this angler's own custom spots, plus any spot published since the hierarchy
   // the base set was built from was cached. Only the former are flagged
   // `isCustom` — see extraRailSpotsFromPayload.
+  //
+  // Diffed against the loaded set too, not just the page's opening payload.
+  // Now that spots arrive as the map moves, a published spot the angler panned
+  // to is already known here; leaving it out of the "known" set would have this
+  // re-add it as an extra with borrowed, blank region metadata.
+  const knownSpots = useMemo(
+    () => (loadedSpots.length === 0 ? data.spots : [...data.spots, ...loadedSpots]),
+    [data.spots, loadedSpots],
+  );
   const extraRailSpots = useMemo<RailSpot[]>(() => {
     if (!viewerPayload) return [];
     return extraRailSpotsFromPayload(
-      data.spots,
+      knownSpots,
       viewerPayload,
       selectedIso === today,
       new Map(customSpots.map((c) => [c.slug ?? "", c.visibility])),
     );
-  }, [viewerPayload, data.spots, selectedIso, today, customSpots]);
+  }, [viewerPayload, knownSpots, selectedIso, today, customSpots]);
 
   // Nothing stars spots on sight any more. This is where a spot you'd created
   // on another device used to be re-starred on arrival, because the star lived
@@ -356,27 +481,40 @@ export default function ExploreShell({
   // server-side now, so the account already knows; there is nothing to infer.
 
   const effectiveSpots = useMemo(() => {
-    const base =
-      selectedIso === today || !dayPayload
-        ? data.spots
-        : rescoreSpots(data.spots, dayPayload, false);
-    if (extraRailSpots.length === 0) return base;
-    // Sorted with the rest — a custom spot earns its rail position by score.
-    return [...base, ...extraRailSpots].sort((a, b) => (b.score ?? -1) - (a.score ?? -1));
-  }, [selectedIso, today, dayPayload, data.spots, extraRailSpots]);
+    const base = data.spots;
+    if (loadedSpots.length === 0 && extraRailSpots.length === 0) return base;
+    // Later writers win, cheapest source first: the page's opening payload,
+    // then whatever the map has loaded since (fetched for THIS date, so its
+    // scores beat a rescore of the opening set), then the angler's own spots.
+    const bySlug = new Map(base.map((s) => [s.slug, s]));
+    for (const s of loadedSpots) bySlug.set(s.slug, s);
+    for (const s of extraRailSpots) bySlug.set(s.slug, s);
+    // Sorted together — a custom spot earns its rail position by score.
+    return [...bySlug.values()].sort((a, b) => (b.score ?? -1) - (a.score ?? -1));
+  }, [data.spots, loadedSpots, extraRailSpots]);
+
+  // The filter list grows with the map: species carried by the opening payload,
+  // plus any the angler has panned into. Scores here are only a seed — the
+  // chips re-derive them from what is actually in view (`speciesWithScores`).
+  const allSpecies = useMemo<SpeciesOption[]>(() => {
+    if (loadedSpecies.length === 0) return data.species;
+    const byId = new Map(data.species.map((s) => [s.id, s]));
+    for (const s of loadedSpecies) if (!byId.has(s.id)) byId.set(s.id, s);
+    return [...byId.values()].sort((a, b) => (b.bestScore ?? -1) - (a.bestScore ?? -1));
+  }, [data.species, loadedSpecies]);
 
   // Species filter: re-score each spot to the chosen species (pins recolor,
   // rail re-ranks, forecast strip keys off it). "Best bet" (null) = unchanged.
   const displaySpots = useMemo(() => {
     if (!speciesFilter) return effectiveSpots;
-    const name = data.species.find((s) => s.id === speciesFilter)?.name ?? null;
+    const name = allSpecies.find((s) => s.id === speciesFilter)?.name ?? null;
     return effectiveSpots
       .map((s) => {
         const score = s.scoresBySpecies[speciesFilter] ?? null;
         return { ...s, score, bestSpeciesId: speciesFilter, driverSpecies: name };
       })
       .sort((a, b) => (b.score ?? -1) - (a.score ?? -1));
-  }, [effectiveSpots, speciesFilter, data.species]);
+  }, [effectiveSpots, speciesFilter, allSpecies]);
 
   // Belt-and-braces dedupe by slug. buildExploreData now builds RailSpots from
   // the map payload, which carries one entry per spot, so this should be a
@@ -396,15 +534,24 @@ export default function ExploreShell({
   const activeCitySlug = citySlug ?? data.defaultCitySlug;
 
   const selectedCity = useMemo<CityNode | null>(() => {
-    if (!activeCitySlug) return null;
-    for (const prov of data.locations) {
-      for (const region of prov.regions) {
-        const city = region.cities.find((c) => c.slug === activeCitySlug);
-        if (city) return city;
+    const find = (slug: string | null) => {
+      if (!slug) return null;
+      for (const prov of data.locations) {
+        for (const region of prov.regions) {
+          const city = region.cities.find((c) => c.slug === slug);
+          if (city) return city;
+        }
       }
-    }
-    return null;
-  }, [data.locations, activeCitySlug]);
+      return null;
+    };
+    // An unresolvable `?loc` — a renamed city, a hand-edited URL, a link from
+    // before a slug changed — falls back to the default city rather than to no
+    // city at all. "No city" opens the map at zoom 4.5, spanning most of the
+    // continent, and now that spots load with the viewport that camera asks for
+    // every spot in it. A bad slug should land somewhere sensible, not fetch
+    // the world.
+    return find(activeCitySlug) ?? find(data.defaultCitySlug);
+  }, [data.locations, activeCitySlug, data.defaultCitySlug]);
 
   // The rail (and mobile list) show what the map shows: spots inside the
   // current viewport. Until the map reports its first viewport (SSR, map
@@ -493,10 +640,10 @@ export default function ExploreShell({
         if (!(sid in best) || score > best[sid]) best[sid] = score;
       }
     }
-    return data.species
+    return allSpecies
       .map((s) => ({ ...s, bestScore: best[s.id] ?? null }))
       .sort((a, b) => (b.bestScore ?? -1) - (a.bestScore ?? -1));
-  }, [railSpots, data.species]);
+  }, [railSpots, allSpecies]);
 
   // Jurisdiction auto-switch: the WDFW marine-area grid + MPAs (shipped hidden
   // in the relief style, Canada-first) turn on when the viewport sits in
@@ -593,6 +740,7 @@ export default function ExploreShell({
   const [alertSpot, setAlertSpot] = useState<RailSpot | null>(null);
   const [alertOpen, setAlertOpen] = useState(false);
   const [alertUpgradeOpen, setAlertUpgradeOpen] = useState(false);
+  const alertUpgradeMounted = useMountedOnce(alertUpgradeOpen);
 
   const handleSetAlert = useCallback(
     (spot: RailSpot) => {
@@ -611,10 +759,10 @@ export default function ExploreShell({
   const alertSpeciesOptions = useMemo(() => {
     if (!alertSpot) return [];
     const scored = new Set(Object.keys(alertSpot.scoresBySpecies));
-    return data.species
+    return allSpecies
       .filter((s) => scored.has(s.id))
       .map((s) => ({ id: s.id, name: s.name, slug: s.slug }));
-  }, [alertSpot, data.species]);
+  }, [alertSpot, allSpecies]);
 
   // ── Station/buoy selection (?stn=<chs|noaa|ndbc>:<sid>). The URL only
   //    carries source:sid; the click handler stashes the richer feature
@@ -651,6 +799,21 @@ export default function ExploreShell({
   const [fcPayload, setFcPayload] = useState<MapForecast14dPayload | null>(null);
   const [fcLoading, setFcLoading] = useState(false);
 
+  // The page's prefetch, held separately from `fcCacheRef` on purpose: it is
+  // stripped to the anonymous horizon, so caching it under its bbox would let a
+  // Pro viewer score a cache hit and never fetch the days they pay for. It only
+  // ever stands in until a tier-correct payload arrives for the same box.
+  // Captured once: the prop is fixed for the life of the page, and a ref keeps
+  // the fetch effect below from having to take it as a dependency.
+  const seedRef = useRef<MapForecast14dPayload | null>(
+    initialForecastBbox && initialForecast?.days && !urlNamesPlace
+      ? initialForecast
+      : null,
+  );
+  const seedForecast = seedRef.current;
+  const displayForecast = fcPayload ?? seedForecast;
+  const onSeed = fcPayload === null && seedForecast !== null;
+
   useEffect(() => {
     if (!vpBbox) return;
     const cached = fcCacheRef.current.get(vpBbox);
@@ -660,7 +823,9 @@ export default function ExploreShell({
       return;
     }
     let cancelled = false;
-    setFcLoading(fcCacheRef.current.size === 0);
+    // A seeded strip is already showing real days, so the skeleton would be a
+    // step backwards — the refetch that upgrades it happens underneath.
+    setFcLoading(fcCacheRef.current.size === 0 && seedRef.current === null);
     fetchMapForecast14d(vpBbox)
       .then((p) => {
         if (cancelled || !p?.days) return;
@@ -677,10 +842,32 @@ export default function ExploreShell({
     };
   }, [vpBbox]);
 
+  // The strip no longer waits for the tier before rendering anything.
+  //
+  // It used to return null while `tierLoading`, which was the safe answer when
+  // the payload could only arrive after hydration anyway — the tier always won
+  // that race. With the page prefetching the strip, the payload is now the
+  // early one, and blocking on the tier would hand the whole saving back.
+  //
+  // Instead the two facts are separated. Days inside the anonymous horizon are
+  // true for everyone, so they render immediately. Days past it depend on who
+  // is asking, so while that is unknown — or known to be more than anonymous
+  // while we are still holding the anonymous seed — they render pending rather
+  // than locked. Nothing is shown that a later answer would have to retract.
+  const pendingFrom =
+    !tierLoading && (!onSeed || accessTier === "anonymous")
+      ? null
+      : ANON_STRIP_DAYS;
+
   const stripModel: ForecastStripModel | null = useMemo(() => {
-    if (!fcPayload || tierLoading) return null;
-    return buildViewportForecastDays(fcPayload, speciesFilter, accessTier);
-  }, [fcPayload, tierLoading, speciesFilter, accessTier]);
+    if (!displayForecast) return null;
+    return buildViewportForecastDays(
+      displayForecast,
+      speciesFilter,
+      accessTier,
+      pendingFrom,
+    );
+  }, [displayForecast, speciesFilter, accessTier, pendingFrom]);
 
   // Viewport centre, handed to search purely as a tie-break between equally
   // good text matches. Search stays global — this never hides a distant hit.
@@ -697,7 +884,7 @@ export default function ExploreShell({
 
   // Strip header label: the pinned species, else the cross-species best fold.
   const stripSpeciesName = speciesFilter
-    ? data.species.find((s) => s.id === speciesFilter)?.name ??
+    ? allSpecies.find((s) => s.id === speciesFilter)?.name ??
       pickedSpeciesName
     : "Best species";
 
@@ -719,7 +906,21 @@ export default function ExploreShell({
       ? displaySpots.filter((s) => s.citySlug === selectedCity.slug)
       : displaySpots;
     const bounds = boundsOf(citySpots);
-    if (!bounds) return;
+    if (!bounds) {
+      // Spots load with the viewport now, so picking a city we have never
+      // looked at gives us nothing to frame. Its centre is in the location
+      // tree regardless, so fly there and let the move load the spots. Without
+      // this the camera would sit still, and a camera that never moves never
+      // asks for the spots that would have let it move.
+      if (selectedCity) {
+        mapRef.current?.flyTo({
+          center: [selectedCity.lng, selectedCity.lat],
+          zoom: 10,
+          duration: 800,
+        });
+      }
+      return;
+    }
     const desktop = typeof window !== "undefined" && window.innerWidth >= 1024;
     mapRef.current?.fitBounds(bounds, {
       padding: desktop
@@ -730,6 +931,41 @@ export default function ExploreShell({
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedCity?.slug]);
+
+  // A `?spot=` deep link can name a spot in water this session has not loaded
+  // — an "open in map" from a spot page, or a search hit two cities away. Ask
+  // for its coordinates alone (a few bytes, no scores) and fly there; the move
+  // pulls in the spots, and the ordinary slug-keyed selection below then finds
+  // it. Runs once per slug, and only when the spot really is missing.
+  const flownToSpot = useRef<string | null>(null);
+  useEffect(() => {
+    if (!spotSlug || flownToSpot.current === spotSlug) return;
+    if (effectiveSpots.some((s) => s.slug === spotSlug)) {
+      flownToSpot.current = spotSlug;
+      return;
+    }
+    let cancelled = false;
+    flownToSpot.current = spotSlug;
+    fetchSpotCoords([spotSlug])
+      .then((coords) => {
+        const hit = coords[0];
+        if (cancelled || !hit) return;
+        mapRef.current?.flyTo({
+          center: [hit.lng, hit.lat],
+          zoom: 12,
+          duration: 800,
+        });
+      })
+      .catch(() => {
+        flownToSpot.current = null;
+      });
+    return () => {
+      cancelled = true;
+    };
+    // `effectiveSpots` is read, not tracked: it changes on every load, and this
+    // only ever needs the answer at the moment the slug appears.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [spotSlug]);
 
   // Seed the strip's bbox from those same bounds, immediately, instead of
   // waiting for the map to report one.
@@ -747,8 +983,11 @@ export default function ExploreShell({
   // right area, not a wider stand-in — and because both paths now round to the
   // same 2dp key, the map's own report usually lands on the cached payload
   // rather than refetching it.
-  // Already seeded when a remembered view brought its own bounds.
-  const vpSeeded = useRef(restored?.bounds != null);
+  // Already seeded when a remembered view brought its own bounds, or when the
+  // server handed us the box it prefetched.
+  const vpSeeded = useRef(
+    restored?.bounds != null || (!urlNamesPlace && initialForecastBbox != null),
+  );
   useEffect(() => {
     if (vpSeeded.current || vpReported.current) return;
     const citySpots = selectedCity
@@ -1118,11 +1357,12 @@ export default function ExploreShell({
         )}
       </div>
 
+      {customModalMounted && (
       <CreateCustomSpotDialog
         open={customModalOpen}
         onOpenChange={setCustomModalOpen}
         coords={pinCoords}
-        speciesOptions={data.species}
+        speciesOptions={allSpecies}
         onCreated={(spot) => {
           // A spot you placed and named starts favorited — it appears starred
           // in the rail and in Saved spots without a second click.
@@ -1141,6 +1381,7 @@ export default function ExploreShell({
           ]);
         }}
       />
+      )}
 
       {/* Mobile-only pull-up spot sheet over the map (Zillow-style). */}
       <MobileMapSheet
@@ -1224,6 +1465,7 @@ export default function ExploreShell({
       />
 
       {/* Mobile-only map-filter sheet (species + layers + near-me). */}
+      {filterSheetMounted && (
       <MobileFilterSheet
         open={filterOpen}
         onClose={() => setFilterOpen(false)}
@@ -1233,12 +1475,13 @@ export default function ExploreShell({
         onToggleRelief={() => setRelief((v) => !v)}
         onToggleLabels={() => setLabels((v) => !v)}
         onToggleCurrents={() => setCurrents((v) => !v)}
-        species={data.species}
+        species={allSpecies}
         speciesFilter={speciesFilter}
         onSpeciesChange={setSpeciesFilter}
         onNearMe={handleNearMe}
         locating={locating}
       />
+      )}
 
       {/* Create-alert modal + sign-up gate, opened from the drawer's "Set alert". */}
       {alertSpot && (
@@ -1258,6 +1501,7 @@ export default function ExploreShell({
         />
       )}
 
+      {alertUpgradeMounted && (
       <ProTrialModal
         open={alertUpgradeOpen}
         onOpenChange={setAlertUpgradeOpen}
@@ -1265,6 +1509,7 @@ export default function ExploreShell({
         from="explore"
         spotName={alertSpot?.name}
       />
+      )}
     </div>
   );
 }
