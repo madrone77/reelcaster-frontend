@@ -25,6 +25,10 @@ const PUBLIC_PREFIXES = [
   '/explore',
   '/favorites',
   '/fishing',
+  // Cold-traffic ad landing pages (/lp/1/{city}). Visitors arrive straight from
+  // a Meta ad with no account — gating them to /login would bounce every one of
+  // them before they saw the page they were sent to.
+  '/lp',
   '/privacy',
   '/terms',
   '/contact',
