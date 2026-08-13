@@ -7,6 +7,7 @@ import { UnitPreferencesProvider } from '@/contexts/unit-preferences-context'
 import AuthGate from '@/app/components/auth/auth-gate'
 import MobileBottomNav from '@/app/components/mobile-bottom-nav'
 import ProWelcomeModal from '@/app/components/pro/pro-welcome-modal'
+import AttributionCapture from '@/app/components/attribution/attribution-capture'
 import { GoogleAnalytics } from '@next/third-parties/google'
 import { ADSENSE_CLIENT } from '@/lib/adsense'
 import AdSenseLoader from '@/app/components/ads/adsense-loader'
@@ -104,6 +105,10 @@ export default function RootLayout({
           dangerouslySetInnerHTML={{ __html: JSON.stringify(ORGANIZATION_JSONLD) }}
         />
         <AuthProvider>
+          {/* Renders null. Outside AuthGate so first-touch capture runs on the
+              public marketing and city pages, which is where acquisition
+              actually lands. */}
+          <AttributionCapture />
           <MixpanelProvider>
             <UnitPreferencesProvider>
               <AuthGate>

@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect } from "react";
+import { useCallback, useEffect } from "react";
 import { usePathname } from "next/navigation";
 import {
   Dialog,
@@ -13,6 +13,7 @@ import {
 import { useAuth } from "@/contexts/auth-context";
 import { useSubscription } from "@/hooks/use-subscription";
 import { useAnalytics } from "@/hooks/use-analytics";
+import { captureWall } from "@/lib/attribution";
 import { TrialBuy, TrialCtaProvider, TrialExpress } from "./trial-cta";
 import PlanMatrix from "./plan-matrix";
 import { TRIAL_DAYS } from "@/lib/pricing";
@@ -75,6 +76,42 @@ export default function ProTrialModal({
   // modal, after the matrix has shown what the tiers actually differ on.
   const ctaLabel = `Start ${TRIAL_DAYS}-day free trial`;
 
+  /**
+   * The server-side counter behind the conversion panels in bluecaster
+   * /admin/reelcaster/analytics. Mixpanel already has these as events; this is
+   * the copy the admin dashboard can actually query, and it is a day-grain
+   * count rather than a log.
+   *
+   * `keepalive` because a CTA click navigates away — to /signup, to /plans, or
+   * out to Stripe — and an in-flight fetch on a tearing-down document is
+   * dropped without it, which would lose exactly the clicks that converted.
+   */
+  const bumpCounter = useCallback(
+    (kind: "impression" | "cta_click") => {
+      void fetch("/api/attribution/paywall", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          kind,
+          feature,
+          surface: from,
+          viewer_tier: viewerTier,
+        }),
+        keepalive: true,
+      }).catch(() => {});
+    },
+    [feature, from, viewerTier],
+  );
+
+  /** Every CTA on this modal reports the same way. */
+  const trackCta = useCallback(
+    (extra: Record<string, unknown>) => {
+      trackEvent("Paywall CTA Clicked", { feature, viewerTier, from, ...extra });
+      bumpCounter("cta_click");
+    },
+    [trackEvent, feature, viewerTier, from, bumpCounter],
+  );
+
   useEffect(() => {
     if (!open) return;
     trackEvent("Upgrade Prompt Shown", {
@@ -83,7 +120,12 @@ export default function ProTrialModal({
       from,
       timestamp: new Date().toISOString(),
     });
-  }, [open, feature, viewerTier, from, trackEvent]);
+    bumpCounter("impression");
+    // The cookie that carries this wall across the navigation to /signup or
+    // out to Stripe, so whatever the visitor converts into knows which wall
+    // sent them. Last touch wins, and it expires in 30 minutes.
+    captureWall(feature, from);
+  }, [open, feature, viewerTier, from, trackEvent, bumpCounter]);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -111,10 +153,7 @@ export default function ProTrialModal({
           from={from}
           theme="light"
           onActivate={(method) =>
-            trackEvent("Paywall CTA Clicked", {
-              feature,
-              viewerTier,
-              from,
+            trackCta({
               plan: "annual",
               method,
               destination: method === "wallet" ? "wallet" : "checkout",
@@ -143,14 +182,7 @@ export default function ProTrialModal({
               <Link
                 href={ctaHref}
                 data-testid="pro-trial-cta"
-                onClick={() =>
-                  trackEvent("Paywall CTA Clicked", {
-                    feature,
-                    viewerTier,
-                    from,
-                    href: ctaHref,
-                  })
-                }
+                onClick={() => trackCta({ href: ctaHref })}
                 className="block text-center px-4 py-2.5 rounded-lg bg-rc-brand hover:bg-rc-brand-hover text-white text-sm font-bold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rc-brand focus-visible:ring-offset-2"
               >
                 {ctaLabel}
@@ -202,13 +234,7 @@ export default function ProTrialModal({
                   href={`/signup?next=${encodeURIComponent(returnTo)}`}
                   data-testid="free-signup-cta"
                   onClick={() =>
-                    trackEvent("Paywall CTA Clicked", {
-                      feature,
-                      viewerTier,
-                      from,
-                      plan: "free",
-                      destination: "signup",
-                    })
+                    trackCta({ plan: "free", destination: "signup" })
                   }
                   className="text-sm font-semibold text-rc-brand hover:text-rc-brand-hover underline underline-offset-2"
                 >
