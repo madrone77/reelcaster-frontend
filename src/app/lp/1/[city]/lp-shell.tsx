@@ -159,13 +159,16 @@ const CSS_STRING = `
   .fc li{display:flex;align-items:center;gap:16px;padding:12px 0;border-top:1px solid var(--rule-soft)}
   .fc li:first-child{border-top:0}
   .fc li .sp{flex-shrink:0;width:128px;font-size:14px;font-weight:600;color:var(--ink)}
-  .fc li .bar{flex:1;height:7px;min-width:40px}
-  .fc li .bar i{display:block;height:100%;min-width:6px;background:var(--good-bg);border-radius:999px;position:relative}
-  .fc li .bar i em{position:absolute;left:0;top:0;height:100%;min-width:6px;background:var(--good);border-radius:999px}
+  .fc li .bar{flex:1;height:8px;min-width:40px}
+  .fc li .bar i{display:block;height:100%;min-width:6px;background:color-mix(in srgb,var(--ink-mute) 40%,var(--panel));border-radius:999px;position:relative;overflow:hidden}
+  .fc li .bar i em{position:absolute;left:0;top:0;height:100%;background:var(--good);border-radius:999px}
   .fc li .r{flex-shrink:0;width:54px;text-align:right;font-family:var(--mono);font-size:13px;color:var(--ink-mute)}
   .fc li .r b{color:var(--good-ink);font-weight:800}
-  .fc .fnote{margin-top:14px;display:flex;align-items:center;gap:8px;font-family:var(--mono);font-size:10px;letter-spacing:.02em;color:var(--ink-mute)}
-  .fc .fnote .sw{width:22px;height:7px;border-radius:999px;background:var(--good);flex-shrink:0}
+  .fc .fnote{margin-top:16px;display:flex;align-items:center;gap:16px;flex-wrap:wrap;font-family:var(--mono);font-size:10px;letter-spacing:.04em;color:var(--ink-mute)}
+  .fc .fnote .k{display:inline-flex;align-items:center;gap:7px}
+  .fc .fnote .sw{width:16px;height:8px;border-radius:999px;flex-shrink:0}
+  .fc .fnote .sw-g{background:var(--good)}
+  .fc .fnote .sw-n{background:color-mix(in srgb,var(--ink-mute) 40%,var(--panel))}
 
   /* make it yours */
   .yours{margin-top:24px;display:grid;gap:16px}
@@ -498,7 +501,9 @@ export default function LpShell(props: LpShellProps) {
                         <span className="sp">{s.name}</span>
                         <span className="bar">
                           <i style={{ width: `${reportPct}%` }}>
-                            <em style={{ width: `${landedPct}%` }} />
+                            {s.positive > 0 && (
+                              <em style={{ width: `${landedPct}%` }} />
+                            )}
                           </i>
                         </span>
                         <span className="r">
@@ -509,10 +514,14 @@ export default function LpShell(props: LpShellProps) {
                   });
                 })()}
               </ul>
-              <p className="fnote">
-                <span className="sw" />
-                Solid green = landed · bar length = reports logged
-              </p>
+              <div className="fnote">
+                <span className="k">
+                  <span className="sw sw-g" /> Landed
+                </span>
+                <span className="k">
+                  <span className="sw sw-n" /> Reported, no catch
+                </span>
+              </div>
             </div>
           </div>
         </div>
