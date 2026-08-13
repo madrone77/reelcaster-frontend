@@ -1,12 +1,10 @@
 'use client';
 
 import { useState, useCallback } from 'react';
-import Map, { Marker } from 'react-map-gl/mapbox';
-import type { MapMouseEvent } from 'mapbox-gl';
+import Map, { Marker, type MapLayerMouseEvent } from 'react-map-gl/maplibre';
 import { MapPin } from 'lucide-react';
-import 'mapbox-gl/dist/mapbox-gl.css';
-
-const MAPBOX_TOKEN = process.env.NEXT_PUBLIC_MAPBOX_TOKEN;
+import 'maplibre-gl/dist/maplibre-gl.css';
+import { useReliefStyle } from '@/lib/map/use-relief-style';
 
 interface Props {
   initialLat?: number;
@@ -15,6 +13,7 @@ interface Props {
 }
 
 export default function WaitlistPinMap({ initialLat, initialLon, onChange }: Props) {
+  const mapStyle = useReliefStyle();
   const [pin, setPin] = useState<{ lat: number; lon: number } | null>(
     initialLat !== undefined && initialLon !== undefined
       ? { lat: initialLat, lon: initialLon }
@@ -22,7 +21,7 @@ export default function WaitlistPinMap({ initialLat, initialLon, onChange }: Pro
   );
 
   const handleClick = useCallback(
-    (e: MapMouseEvent) => {
+    (e: MapLayerMouseEvent) => {
       const next = { lat: e.lngLat.lat, lon: e.lngLat.lng };
       setPin(next);
       onChange(next);
@@ -30,23 +29,14 @@ export default function WaitlistPinMap({ initialLat, initialLon, onChange }: Pro
     [onChange],
   );
 
-  if (!MAPBOX_TOKEN) {
-    return (
-      <div className="w-full h-full flex items-center justify-center text-rc-text-muted text-sm">
-        Map unavailable (NEXT_PUBLIC_MAPBOX_TOKEN missing)
-      </div>
-    );
-  }
-
   return (
     <Map
-      mapboxAccessToken={MAPBOX_TOKEN}
       initialViewState={{
         latitude: initialLat ?? 48.41,
         longitude: initialLon ?? -123.4,
         zoom: 7,
       }}
-      mapStyle="mapbox://styles/mapbox/dark-v11"
+      mapStyle={mapStyle}
       onClick={handleClick}
       style={{ width: '100%', height: '100%' }}
     >
