@@ -371,7 +371,11 @@ export default function LpShell(props: LpShellProps) {
         <div className="wrap">
           <div className="sec-head">
             <span className="label">The forecast</span>
-            <h2>Two weeks out. Down to the hour.</h2>
+            <h2>
+              Two weeks out.
+              <br />
+              Down to the hour.
+            </h2>
             <p>
               See the days worth taking off — and the exact window to be on the
               water.
