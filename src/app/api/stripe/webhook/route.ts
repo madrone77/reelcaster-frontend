@@ -205,8 +205,50 @@ async function applySubscriptionToUser(subscription: Stripe.Subscription) {
 
   await admin.from('user_settings').upsert(update, { onConflict: 'user_id' });
 
+  if (isEntitledStatus) {
+    await recordUpgradeAttribution(subscription, resolvedUserId);
+  }
+
   if (status === 'trialing') {
     await handleTrialingSubscription(subscription, resolvedUserId, tier);
+  }
+}
+
+/**
+ * Stamp which paywall this upgrade came from, from the metadata the checkout
+ * route put on the subscription.
+ *
+ * Only for entitled statuses: a subscription that arrives already canceled, or
+ * one sitting in `incomplete` because the card was declined, has not converted
+ * anybody and must not claim a wall.
+ *
+ * Write-once via `.is('attr_trial_at', null)`. Subscription events fire many
+ * times over a member's life (renewals, card updates, tier changes) and every
+ * one of them carries the same original metadata; without the guard, the
+ * eventual paid conversion would keep re-stamping a trial attribution and the
+ * timestamp would drift years away from the thing it describes.
+ */
+async function recordUpgradeAttribution(
+  subscription: Stripe.Subscription,
+  userId: string,
+) {
+  const feature = subscription.metadata?.attr_feature?.trim();
+  const from = subscription.metadata?.attr_from?.trim();
+  if (!feature) return;
+
+  const { error } = await admin
+    .from('user_settings')
+    .update({
+      attr_trial_feature: feature,
+      attr_trial_from: from || null,
+      attr_trial_at: new Date().toISOString(),
+    })
+    .eq('user_id', userId)
+    .is('attr_trial_at', null);
+
+  if (error) {
+    // Attribution is reporting, not billing. It never fails a webhook.
+    console.warn('[stripe webhook] upgrade attribution write failed', error);
   }
 }
 
