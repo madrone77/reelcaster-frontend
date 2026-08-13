@@ -1,10 +1,10 @@
 'use client'
 
 import React, { useState, useRef, useCallback, useEffect } from 'react'
-import Map, { Marker, MapRef } from 'react-map-gl/mapbox'
-import type { MapMouseEvent } from 'mapbox-gl'
+import Map, { Marker, type MapRef, type MapLayerMouseEvent } from 'react-map-gl/maplibre'
 import { MapPin } from 'lucide-react'
-import 'mapbox-gl/dist/mapbox-gl.css'
+import 'maplibre-gl/dist/maplibre-gl.css'
+import { useReliefStyle } from '@/lib/map/use-relief-style'
 
 interface LocationMiniMapProps {
   initialPosition?: { lat: number; lon: number }
@@ -16,7 +16,7 @@ const LocationMiniMap: React.FC<LocationMiniMapProps> = ({
   onPositionChange,
 }) => {
   const mapRef = useRef<MapRef>(null)
-  const mapboxToken = process.env.NEXT_PUBLIC_MAPBOX_TOKEN
+  const mapStyle = useReliefStyle()
 
   // Pin position state
   const [pinPosition, setPinPosition] = useState<{ latitude: number; longitude: number } | null>(
@@ -43,7 +43,7 @@ const LocationMiniMap: React.FC<LocationMiniMapProps> = ({
   }, [initialPosition])
 
   // Handle map click - place pin
-  const handleMapClick = useCallback((e: MapMouseEvent) => {
+  const handleMapClick = useCallback((e: MapLayerMouseEvent) => {
     const { lng, lat } = e.lngLat
     setPinPosition({ latitude: lat, longitude: lng })
     onPositionChange({ lat, lon: lng })
@@ -56,16 +56,6 @@ const LocationMiniMap: React.FC<LocationMiniMapProps> = ({
     onPositionChange({ lat, lon: lng })
   }, [onPositionChange])
 
-  if (!mapboxToken) {
-    return (
-      <div className="p-4 bg-red-900/20 border border-red-500/30 rounded-lg h-[200px] sm:h-[250px] flex items-center justify-center">
-        <p className="text-red-400 text-sm text-center">
-          Mapbox token not configured. Please add NEXT_PUBLIC_MAPBOX_TOKEN to your environment variables.
-        </p>
-      </div>
-    )
-  }
-
   return (
     <div className="space-y-2">
       {/* Map Container */}
@@ -75,8 +65,7 @@ const LocationMiniMap: React.FC<LocationMiniMapProps> = ({
           {...viewport}
           onMove={evt => setViewport(evt.viewState)}
           onClick={handleMapClick}
-          mapboxAccessToken={mapboxToken}
-          mapStyle="mapbox://styles/mapbox/dark-v11"
+          mapStyle={mapStyle}
           style={{ width: '100%', height: '100%' }}
         >
           {/* Custom Pin Marker */}

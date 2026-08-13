@@ -1,10 +1,10 @@
 'use client'
 
 import React, { useState, useRef, useCallback } from 'react'
-import Map, { Marker, MapRef } from 'react-map-gl/mapbox'
-import type { MapMouseEvent } from 'mapbox-gl'
+import Map, { Marker, type MapRef, type MapLayerMouseEvent } from 'react-map-gl/maplibre'
 import { MapPin } from 'lucide-react'
-import 'mapbox-gl/dist/mapbox-gl.css'
+import 'maplibre-gl/dist/maplibre-gl.css'
+import { useReliefStyle } from '@/lib/map/use-relief-style'
 
 interface AlertLocationMapProps {
   latitude: number
@@ -14,7 +14,7 @@ interface AlertLocationMapProps {
 
 export function AlertLocationMap({ latitude, longitude, onLocationChange }: AlertLocationMapProps) {
   const mapRef = useRef<MapRef>(null)
-  const mapboxToken = process.env.NEXT_PUBLIC_MAPBOX_TOKEN
+  const mapStyle = useReliefStyle()
 
   const [viewport, setViewport] = useState({
     latitude,
@@ -22,7 +22,7 @@ export function AlertLocationMap({ latitude, longitude, onLocationChange }: Aler
     zoom: 10,
   })
 
-  const handleMapClick = useCallback((e: MapMouseEvent) => {
+  const handleMapClick = useCallback((e: MapLayerMouseEvent) => {
     const { lng, lat } = e.lngLat
     onLocationChange(lat, lng)
   }, [onLocationChange])
@@ -32,16 +32,6 @@ export function AlertLocationMap({ latitude, longitude, onLocationChange }: Aler
     onLocationChange(lat, lng)
   }, [onLocationChange])
 
-  if (!mapboxToken) {
-    return (
-      <div className="p-4 bg-red-900/20 border border-red-500/30 rounded-lg">
-        <p className="text-red-400 text-sm">
-          Mapbox token not configured.
-        </p>
-      </div>
-    )
-  }
-
   return (
     <div className="space-y-2">
       <div className="relative w-full h-[250px] rounded-lg overflow-hidden border border-rc-bg-light">
@@ -50,8 +40,7 @@ export function AlertLocationMap({ latitude, longitude, onLocationChange }: Aler
           {...viewport}
           onMove={evt => setViewport(evt.viewState)}
           onClick={handleMapClick}
-          mapboxAccessToken={mapboxToken}
-          mapStyle="mapbox://styles/mapbox/navigation-night-v1"
+          mapStyle={mapStyle}
           style={{ width: '100%', height: '100%' }}
         >
           <Marker
