@@ -276,9 +276,9 @@ export default function LpShell(props: LpShellProps) {
           <a className="logo" href="#top" aria-label="ReelCaster home">
             <svg
               className="rcmark"
-              width="144"
-              height="66"
-              viewBox="0 0 144 66"
+              width="139"
+              height="64"
+              viewBox="0.26 -0.16 138.87 63.97"
               fill="none"
               xmlns="http://www.w3.org/2000/svg"
             >
