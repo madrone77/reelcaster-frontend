@@ -151,16 +151,16 @@ const CSS_STRING = `
   .fc{background:var(--panel);border:1px solid var(--rule);border-radius:var(--r);padding:24px}
   .fc .fh{display:flex;justify-content:space-between;font-family:var(--mono);font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-mute)}
   .fc .fr{display:flex;align-items:center;gap:10px;margin-top:12px}
-  .hot{font-family:var(--mono);font-size:11px;font-weight:800;letter-spacing:.06em;background:var(--good);color:#fff;padding:3px 8px;border-radius:var(--r)}
+  .hot{font-family:var(--mono);font-size:11px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;background:var(--good);color:#fff;padding:3px 8px;border-radius:var(--r)}
   .fc .fn{font-size:18px;font-weight:800}
-  .fc .fa{margin-left:auto;font-family:var(--mono);font-size:11px;color:var(--ink-mute)}
+  .fc .fa{margin-left:auto;font-family:var(--mono);font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-mute)}
   .fc .fkey{display:flex;justify-content:space-between;font-family:var(--mono);font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-mute);margin-top:18px;padding-bottom:8px;border-bottom:1px solid var(--rule)}
   .fc ul{margin:0;padding:0;list-style:none;display:flex;flex-direction:column}
   .fc li{display:flex;align-items:center;gap:16px;padding:12px 0;border-top:1px solid var(--rule-soft)}
   .fc li:first-child{border-top:0}
   .fc li .sp{flex-shrink:0;width:128px;font-size:14px;font-weight:600;color:var(--ink)}
   .fc li .bar{flex:1;height:8px;min-width:40px}
-  .fc li .bar i{display:block;height:100%;min-width:6px;background:color-mix(in srgb,var(--ink-mute) 40%,var(--panel));border-radius:999px;position:relative;overflow:hidden}
+  .fc li .bar i{display:block;height:100%;min-width:6px;background:var(--brand-soft2);border-radius:999px;position:relative;overflow:hidden}
   .fc li .bar i em{position:absolute;left:0;top:0;height:100%;background:var(--good);border-radius:999px}
   .fc li .r{flex-shrink:0;width:54px;text-align:right;font-family:var(--mono);font-size:13px;color:var(--ink-mute)}
   .fc li .r b{color:var(--good-ink);font-weight:800}
@@ -168,7 +168,7 @@ const CSS_STRING = `
   .fc .fnote .k{display:inline-flex;align-items:center;gap:7px}
   .fc .fnote .sw{width:16px;height:8px;border-radius:999px;flex-shrink:0}
   .fc .fnote .sw-g{background:var(--good)}
-  .fc .fnote .sw-n{background:color-mix(in srgb,var(--ink-mute) 40%,var(--panel))}
+  .fc .fnote .sw-n{background:var(--brand-soft2)}
 
   /* make it yours */
   .yours{margin-top:24px;display:grid;gap:16px}
