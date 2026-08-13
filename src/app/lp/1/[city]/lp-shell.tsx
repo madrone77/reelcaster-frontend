@@ -154,10 +154,18 @@ const CSS_STRING = `
   .hot{font-family:var(--mono);font-size:11px;font-weight:800;letter-spacing:.06em;background:var(--good);color:#fff;padding:3px 8px;border-radius:var(--r)}
   .fc .fn{font-size:18px;font-weight:800}
   .fc .fa{margin-left:auto;font-family:var(--mono);font-size:11px;color:var(--ink-mute)}
-  .fc ul{margin:14px 0 0;padding:0;list-style:none;display:flex;flex-direction:column;gap:8px}
-  .fc li{display:flex;justify-content:space-between;font-size:14px;color:var(--ink-soft);border-top:1px solid var(--rule-soft);padding-top:8px}
-  .fc li:first-child{border-top:0;padding-top:0}
-  .fc li .r{font-family:var(--mono);color:var(--ink-mute)} .fc li .r b{color:var(--good)}
+  .fc .fkey{display:flex;justify-content:space-between;font-family:var(--mono);font-size:9px;letter-spacing:.12em;text-transform:uppercase;color:var(--ink-mute);margin-top:18px;padding-bottom:8px;border-bottom:1px solid var(--rule)}
+  .fc ul{margin:0;padding:0;list-style:none;display:flex;flex-direction:column}
+  .fc li{display:flex;align-items:center;gap:16px;padding:12px 0;border-top:1px solid var(--rule-soft)}
+  .fc li:first-child{border-top:0}
+  .fc li .sp{flex-shrink:0;width:128px;font-size:14px;font-weight:600;color:var(--ink)}
+  .fc li .bar{flex:1;height:7px;min-width:40px}
+  .fc li .bar i{display:block;height:100%;min-width:6px;background:var(--good-bg);border-radius:999px;position:relative}
+  .fc li .bar i em{position:absolute;left:0;top:0;height:100%;min-width:6px;background:var(--good);border-radius:999px}
+  .fc li .r{flex-shrink:0;width:46px;text-align:right;font-family:var(--mono);font-size:13px;color:var(--ink-mute)}
+  .fc li .r b{color:var(--good-ink);font-weight:800}
+  .fc .fnote{margin-top:14px;display:flex;align-items:center;gap:8px;font-family:var(--mono);font-size:10px;letter-spacing:.02em;color:var(--ink-mute)}
+  .fc .fnote .sw{width:22px;height:7px;border-radius:999px;background:var(--good);flex-shrink:0}
 
   /* make it yours */
   .yours{margin-top:24px;display:grid;gap:16px}
@@ -469,16 +477,42 @@ export default function LpShell(props: LpShellProps) {
                   <span className="fa">latest {props.freshLatest}</span>
                 )}
               </div>
+              <div className="fkey">
+                <span>Species</span>
+                <span>Landed / reports</span>
+              </div>
               <ul>
-                {props.freshSpecies.map((s, i) => (
-                  <li key={`${s.name}-${i}`}>
-                    <span>{s.name}</span>
-                    <span className="r">
-                      <b>{s.positive}</b> / {s.count}
-                    </span>
-                  </li>
-                ))}
+                {(() => {
+                  const maxCount = Math.max(
+                    ...props.freshSpecies.map((x) => x.count),
+                    1,
+                  );
+                  return props.freshSpecies.map((s, i) => {
+                    const reportPct = Math.round((s.count / maxCount) * 100);
+                    const landedPct =
+                      s.count > 0
+                        ? Math.round((s.positive / s.count) * 100)
+                        : 0;
+                    return (
+                      <li key={`${s.name}-${i}`}>
+                        <span className="sp">{s.name}</span>
+                        <span className="bar">
+                          <i style={{ width: `${reportPct}%` }}>
+                            <em style={{ width: `${landedPct}%` }} />
+                          </i>
+                        </span>
+                        <span className="r">
+                          <b>{s.positive}</b>/{s.count}
+                        </span>
+                      </li>
+                    );
+                  });
+                })()}
               </ul>
+              <p className="fnote">
+                <span className="sw" />
+                Solid green = landed · bar length = reports logged
+              </p>
             </div>
           </div>
         </div>
