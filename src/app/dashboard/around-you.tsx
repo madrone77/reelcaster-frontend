@@ -1,8 +1,14 @@
 "use client";
 
 import Link from "next/link";
-import { ChevronRight, Home, Star } from "lucide-react";
+import { ChevronRight, Home, Lock, Star } from "lucide-react";
 import { TIER_PILL, tierFor } from "@/app/explore/lib/explore-data";
+import {
+  freshVerdictStyle,
+  reportAge,
+  type FreshCatchesResponse,
+  type FreshCatchVerdict,
+} from "@/app/explore/lib/fresh-catch-types";
 import type { MapSpotsPayload } from "@/lib/bluecaster";
 
 /** How many spots to list per city before deferring to Explore. */
@@ -32,7 +38,36 @@ export type AroundYouSpot = {
   species: string | null;
   isHome: boolean;
   isSaved: boolean;
+  /** Reports in the window. `null` for a free viewer — the count is paid. */
+  reportCount: number | null;
+  /** Whether ANY report exists. Free viewers are allowed this much. */
+  hasReports: boolean;
+  verdict: FreshCatchVerdict | null;
+  latestDate: string | null;
 };
+
+/**
+ * Rank key: activity first, score as the fallback.
+ *
+ * Scores say how the water should fish; reports say where anglers actually
+ * are. On the account this was built against the two disagree sharply — Sooke
+ * ranked by score leads with Jordan River Mouth (87) and Port Renfrew (86),
+ * neither of which has a single report, while the city's own daily report
+ * names Beechey Head (83, 7 reports) as "the busiest and most productive
+ * water". Victoria by score is three spots tied at 90; by activity it opens
+ * with Constance Bank, 25 reports and a strong verdict at a score of 81, which
+ * a score sort never surfaces at all.
+ *
+ * A free viewer has no counts — those are paid — so for them this degrades to
+ * "spots with reports first, then by score", which is the same shape of answer
+ * at the resolution they are entitled to.
+ */
+function activityRank(a: AroundYouSpot, b: AroundYouSpot): number {
+  if (a.hasReports !== b.hasReports) return a.hasReports ? -1 : 1;
+  const byCount = (b.reportCount ?? 0) - (a.reportCount ?? 0);
+  if (byCount !== 0) return byCount;
+  return b.score - a.score;
+}
 
 export type AroundYouCity = {
   slug: string;
@@ -53,6 +88,7 @@ export type AroundYouCity = {
  */
 export function aroundYouFrom(
   payload: MapSpotsPayload | null,
+  reports: FreshCatchesResponse | null,
   ownSlugs: string[],
   homeSlug: string | null,
 ): AroundYouCity[] | null {
@@ -85,6 +121,12 @@ export function aroundYouFrom(
       }
       // An unscored spot is not a recommendation — leave it to Explore.
       if (best <= 0) continue;
+      // `has_reports` rides on the map payload and is free-visible; the count
+      // and verdict come from the gated read and are absent when locked. Never
+      // infer one from the other — a locked row carries a key with no numbers,
+      // which is exactly how the paywall is meant to read.
+      const f = reports?.spots[e.id];
+      const locked = f?.locked !== false;
       scored.push({
         slug: e.slug,
         name: e.name,
@@ -92,10 +134,14 @@ export function aroundYouFrom(
         species: (bestId && species[bestId]?.name) || null,
         isHome: e.slug === homeSlug,
         isSaved: own.has(e.slug),
+        reportCount: locked ? null : (f?.count ?? null),
+        hasReports: e.has_reports === true || !!f,
+        verdict: locked ? null : (f?.verdict ?? null),
+        latestDate: locked ? null : (f?.latestDate ?? null),
       });
     }
     if (scored.length === 0) continue;
-    scored.sort((a, b) => b.score - a.score);
+    scored.sort(activityRank);
     cities.push({
       slug: city,
       name: cityName(city),
@@ -104,9 +150,9 @@ export function aroundYouFrom(
     });
   }
 
-  // Best city first, measured by its best spot — the city fishing hardest
-  // today leads, which is not always the one the home spot sits in.
-  cities.sort((a, b) => (b.spots[0]?.score ?? 0) - (a.spots[0]?.score ?? 0));
+  // Busiest city first, by the same key the rows use — so the city leading is
+  // the one anglers are actually on, not merely the one that models best.
+  cities.sort((a, b) => activityRank(a.spots[0], b.spots[0]));
   return cities;
 }
 
@@ -135,11 +181,38 @@ function SpotRow({ spot }: { spot: AroundYouSpot }) {
             <Star className="h-3 w-3 shrink-0 fill-rc-brand text-rc-brand" />
           ) : null}
         </span>
-        {spot.species && (
-          <span className="block truncate font-rc-mono text-[11px] text-rc-ink-mute">
-            {spot.species}
-          </span>
-        )}
+        {/* Activity leads the sub-line, because activity is what ordered the
+            list. A row that sorted above its neighbours has to say why. */}
+        <span className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-1">
+          {spot.reportCount != null && spot.reportCount > 0 ? (
+            <>
+              {spot.verdict && (
+                <span
+                  className={`inline-flex shrink-0 items-center rounded px-1.5 py-0.5 font-rc-mono text-[9px] uppercase tracking-[0.06em] ${
+                    freshVerdictStyle(spot.verdict).cls
+                  }`}
+                >
+                  {freshVerdictStyle(spot.verdict).label}
+                </span>
+              )}
+              <span className="font-rc-mono text-[11px] text-rc-ink-soft">
+                {spot.reportCount} report{spot.reportCount === 1 ? "" : "s"}
+                {spot.latestDate ? ` · ${reportAge(spot.latestDate)}` : ""}
+              </span>
+            </>
+          ) : spot.hasReports ? (
+            <span className="inline-flex shrink-0 items-center gap-1 rounded bg-rc-surface px-1.5 py-0.5 font-rc-mono text-[9px] uppercase tracking-[0.06em] text-rc-ink-mute">
+              <Lock className="h-2.5 w-2.5" />
+              Reports
+            </span>
+          ) : (
+            spot.species && (
+              <span className="truncate font-rc-mono text-[11px] text-rc-ink-mute">
+                {spot.species}
+              </span>
+            )
+          )}
+        </span>
       </span>
       <ChevronRight className="h-4 w-4 shrink-0 text-rc-ink-mute" />
     </Link>
@@ -153,8 +226,12 @@ function SpotRow({ spot }: { spot: AroundYouSpot }) {
  * this was built against, 14 of Sooke's 17 scored spots appeared nowhere else
  * on the page, two of them out-scoring the pinned home spot.
  *
- * Derived entirely from the map payload the dashboard already fetches for its
- * scores, so this costs no request.
+ * Ranked by activity — scraped reports in the window — with the score as the
+ * fallback, because a high score is a prediction and a pile of reports is
+ * evidence. See `activityRank`.
+ *
+ * Derived entirely from the map payload and the fresh-catch read the dashboard
+ * already fetches, so this costs no request.
  */
 export default function AroundYou({ cities }: { cities: AroundYouCity[] | null }) {
   if (cities === null) {
@@ -169,7 +246,7 @@ export default function AroundYou({ cities }: { cities: AroundYouCity[] | null }
       <div className="mb-3 flex items-baseline gap-3">
         <h2 className="text-lg font-bold text-rc-ink">Around you</h2>
         <span className="font-rc-mono text-[11px] text-rc-ink-mute">
-          today&apos;s best water where you fish
+          busiest water where you fish
         </span>
       </div>
 

@@ -163,6 +163,10 @@ export default function DashboardPage() {
   const [spotReports, setSpotReports] = useState<FreshCatchesResponse | null>(
     null,
   );
+  // Whether that read has come back, hit or miss. "Around you" ranks on it, so
+  // rendering before it lands would order the list by score and then visibly
+  // reshuffle — the one thing a ranked list must not do.
+  const [reportsSettled, setReportsSettled] = useState(false);
   // Every card's next 14 days, in one request. undefined = still reading, and
   // the cards hold the strip's space rather than growing under the cursor.
   const [outlook, setOutlook] = useState<SpotsOutlook14dPayload | null | undefined>(
@@ -379,9 +383,11 @@ export default function DashboardPage() {
     let cancelled = false;
     fetchFreshCatches()
       .then((p) => {
-        if (!cancelled && p) setSpotReports(p);
+        if (cancelled) return;
+        if (p) setSpotReports(p);
+        setReportsSettled(true);
       })
-      .catch(() => {});
+      .catch(() => !cancelled && setReportsSettled(true));
     return () => {
       cancelled = true;
     };
@@ -628,14 +634,15 @@ export default function DashboardPage() {
   // rendering a city short.
   const aroundYou = useMemo(
     () =>
-      railSpots === null || !payloadSettled
+      railSpots === null || !payloadSettled || !reportsSettled
         ? null
         : aroundYouFrom(
             payload,
+            spotReports,
             [...railSpots.map((s) => s.slug), ...(homeSlug ? [homeSlug] : [])],
             homeSlug,
           ),
-    [payload, payloadSettled, railSpots, homeSlug],
+    [payload, payloadSettled, spotReports, reportsSettled, railSpots, homeSlug],
   );
 
   // Regulations rail — a restrictive reg on the home spot, if any.
