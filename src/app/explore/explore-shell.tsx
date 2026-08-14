@@ -44,7 +44,7 @@ import { BLEED_MEASURE } from "@/app/components/layout/page-measure";
 import ExploreMap, { type StationPick, type CustomSpotPin } from "./components/explore-map";
 
 import { setFavorite } from "./lib/use-favorite";
-import { Plus, X } from "lucide-react";
+import { MapPinPlus, X } from "lucide-react";
 import LeftRail from "./components/left-rail";
 import LocationSelector from "./components/location-selector";
 import MobileMapSheet from "./components/mobile-map-sheet";
@@ -82,6 +82,25 @@ const ProTrialModal = dynamic(
 );
 
 const MAP_TZ = "America/Vancouver";
+
+/**
+ * Shape + vertical rhythm shared by the two pills that float over the map's top
+ * band: the "Create custom spot" action and the placement banner that replaces
+ * it. Keeping them on one line means arming pin-drop mode swaps the chrome in
+ * place instead of jumping it.
+ *
+ * `top` is the whole point of the constant. Mobile floats the 49px location
+ * header (Filters button included) over the map's own top edge, so anything
+ * pinned near `top-0` lands on it; `top-14` clears it. Desktop has no header
+ * there and instead has the left rail at viewport `top-[72px]` — the map box
+ * starts at `top-16`, so `lg:top-2` puts these on the rail's top edge, and
+ * `right-6` on the button mirrors the rail's `left-6` gutter.
+ *
+ * Callers own horizontal placement and colour.
+ */
+const MAP_ACTION_PILL =
+  "absolute z-20 top-14 lg:top-2 flex items-center rounded-full " +
+  "text-white text-[13px] lg:text-sm font-semibold px-3 lg:px-4 py-1.5 lg:py-2";
 
 function haversineKm(lat1: number, lng1: number, lat2: number, lng2: number): number {
   const R = 6371;
@@ -1352,26 +1371,39 @@ export default function ExploreShell({
           onMapPick={handleMapPick}
         />
 
-        {/* Pro-only "Create custom spot" action (top-right of the map). */}
+        {/* Pro-only "Create custom spot" action, top-right of the map.
+            Mobile has to clear the floating location header, which owns the
+            map's top band and puts the Filters button in this same corner;
+            desktop has no header there, so it rides at the rail's top edge
+            and mirrors the rail's 24px gutter on the other side. */}
         {isPaid && !customMode && (
           <button
             type="button"
             onClick={() => setCustomMode(true)}
-            className="absolute z-20 top-3 right-3 flex items-center gap-1.5 rounded-full bg-rc-brand hover:bg-rc-brand-hover text-white text-sm font-semibold px-4 py-2 shadow-md transition-colors"
+            className={`${MAP_ACTION_PILL} right-3 lg:right-6 gap-1.5 bg-rc-brand hover:bg-rc-brand-hover shadow-md transition-colors`}
           >
-            <Plus className="w-4 h-4" />
-            Create custom spot
+            <MapPinPlus className="w-4 h-4 shrink-0" />
+            {/* The map band on a phone is only ~335px tall, so the full label
+                would sit over an eighth of it. Same action, shorter name. */}
+            <span className="lg:hidden">Add spot</span>
+            <span className="hidden lg:inline">Create custom spot</span>
           </button>
         )}
 
-        {/* Placement banner while pin-drop mode is armed. */}
+        {/* Placement banner while pin-drop mode is armed. It takes the button's
+            exact slot rather than centring: the map box runs the full width,
+            but the left rail floats over its first 408px, so a centred banner
+            reads off-centre on desktop. Swapping in place also means arming the
+            mode doesn't move anything. */}
         {customMode && (
-          <div className="absolute z-20 top-3 left-1/2 -translate-x-1/2 flex items-center gap-3 rounded-full bg-rc-ink text-white text-sm font-semibold px-4 py-2 shadow-md">
-            <span>Tap the map to place your spot</span>
+          <div
+            className={`${MAP_ACTION_PILL} right-3 lg:right-6 max-w-[calc(100%-1.5rem)] gap-3 bg-rc-ink shadow-md`}
+          >
+            <span className="truncate">Place your spot on the map</span>
             <button
               type="button"
               onClick={() => setCustomMode(false)}
-              className="flex items-center gap-1 text-white/80 hover:text-white"
+              className="flex items-center gap-1 shrink-0 text-white/80 hover:text-white"
             >
               <X className="w-3.5 h-3.5" />
               Cancel
