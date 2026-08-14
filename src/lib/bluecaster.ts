@@ -350,12 +350,26 @@ export async function fetchMapSpots(opts: {
   bbox?: string; // "w,s,e,n"
   city?: string;
   date?: string; // YYYY-MM-DD
+  /**
+   * Explicit spot-id scope, upstream's `spots=`. Wins over `city` and `bbox`.
+   *
+   * For a surface that already knows which spots it draws (the dashboard's
+   * saved set) this is the whole ballgame: scoping by extent there meant
+   * pulling every published spot in BC and WA — 152 spots, 142 KB gzipped —
+   * to render about six. By id the same six are 9 KB.
+   *
+   * Published-only upstream, so it cannot widen visibility. A viewer's own
+   * custom spots still ride along via `viewerId`, narrowed to the ids asked
+   * for. Capped at 120 ids upstream.
+   */
+  spotIds?: string[];
   /** Verified viewer — adds that angler's own custom spots to the payload. */
   viewerId?: string;
 }): Promise<MapSpotsPayload | null> {
   return bcGet<MapSpotsPayload>(
     "/api/v1/map/spots",
     {
+      spots: opts.spotIds?.length ? opts.spotIds.join(",") : undefined,
       bbox: opts.bbox,
       city: opts.city,
       date: opts.date,

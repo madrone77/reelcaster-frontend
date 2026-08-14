@@ -332,6 +332,38 @@ export async function fetchMapSpotsCached(
   return (await res.json().catch(() => null)) as MapSpotsPayload | null;
 }
 
+/**
+ * map/spots for a KNOWN set of spot ids — the read for a surface that already
+ * has its list, rather than a viewport it is panning.
+ *
+ * The dashboard is the case this exists for. It used to scope by the whole
+ * covered extent, because asking by id was not something the API could do:
+ * 152 spots and 142 KB gzipped to render an angler's ~6 saved ones, and a
+ * second identical fetch on the personalized path on top. Scoped by id the
+ * same six are 9 KB, and the one request covers both — a signed-in caller's
+ * own custom spots ride along, narrowed upstream to the ids asked for.
+ *
+ * Sends the access token when there is one, so owned custom spots (which are
+ * not published, and so invisible to an anonymous read) come back. That makes
+ * the response `private, no-store`, which is fine at this size: the id list is
+ * per-angler anyway, so a shared cache entry was never going to be hit.
+ */
+export async function fetchMapSpotsForIds(
+  spotIds: string[],
+  date: string,
+): Promise<MapSpotsPayload | null> {
+  if (spotIds.length === 0) return null;
+  const { data } = await supabase.auth.getSession();
+  const token = data.session?.access_token;
+  const qs = new URLSearchParams({ spots: spotIds.join(","), date });
+  const res = await fetch(`/api/bluecaster/map/spots?${qs}`, {
+    ...(token ? { headers: { Authorization: `Bearer ${token}` }, cache: "no-store" as const } : {}),
+    priority: "low",
+  });
+  if (!res.ok) return null;
+  return (await res.json().catch(() => null)) as MapSpotsPayload | null;
+}
+
 export async function fetchMapSpotsAsViewer(
   bbox: string,
   date: string,
