@@ -4,6 +4,7 @@ import { createContext, useContext, useEffect, useState } from 'react'
 import { User, Session } from '@supabase/supabase-js'
 import { supabase } from '@/lib/supabase'
 import { resetFavorites } from '@/app/explore/lib/use-favorite'
+import { resetCachedUser } from '@/lib/user-preferences'
 
 interface AuthContextType {
   user: User | null
@@ -51,9 +52,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setIsPasswordRecovery(true)
       }
       // Saved spots are cached at module scope, so they outlive a sign-out and
-      // would otherwise be shown to whoever signs in next on the same tab.
+      // would otherwise be shown to whoever signs in next on the same tab. The
+      // cached auth user is module-scope for the same reason and goes stale in
+      // the same cases — USER_UPDATED included, since that IS a metadata write.
       if (event === 'SIGNED_IN' || event === 'SIGNED_OUT' || event === 'USER_UPDATED') {
         resetFavorites()
+        resetCachedUser()
       }
     })
 

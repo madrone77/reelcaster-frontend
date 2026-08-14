@@ -1,3 +1,4 @@
+import type { User } from '@supabase/supabase-js'
 import { supabase } from './supabase'
 
 export interface UserPreferences {
@@ -115,11 +116,59 @@ const DEFAULT_PREFERENCES: UserPreferences = {
   pressureUnit: 'mb',
 }
 
+/**
+ * The signed-in user, fetched at most once per auth state.
+ *
+ * `supabase.auth.getUser()` is a network round trip to `/auth/v1/user`, and
+ * supabase-js holds an exclusive lock across auth calls, so concurrent callers
+ * do not overlap — they QUEUE. Four independent consumers ask this service for
+ * preferences on a single dashboard paint (both Mixpanel effects, the
+ * unit-preferences context, and the home-spot hydrate), which meant four
+ * strictly serial round trips before the first of them could answer, and the
+ * whole set ran again on the next auth event. Nine `/auth/v1/user` calls on one
+ * load, most of them waiting on each other.
+ *
+ * Deliberately still `getUser()` and not `getSession()`. The session's cached
+ * `user_metadata` can be up to a token lifetime stale, and the home spot is
+ * stored there precisely so a pin set on a phone reaches the laptop — reading
+ * it locally would quietly break the one promise that field exists to keep.
+ * So the round trip stays; callers on the same paint just share it.
+ *
+ * Same shape as the saved-spots store: module-scope, one in-flight promise,
+ * reset from AuthProvider on sign-in/out/user-update.
+ */
+let userRequest: Promise<User | null> | null = null
+
+function currentUser(): Promise<User | null> {
+  if (!userRequest) {
+    userRequest = supabase.auth
+      .getUser()
+      .then(({ data }) => data.user ?? null)
+      // A failed read must not be cached as "signed out" — that would hand
+      // every caller the defaults and, for the home spot, look like no pin.
+      .catch(() => {
+        userRequest = null
+        return null
+      })
+  }
+  return userRequest
+}
+
+/**
+ * Drop the cached user — on sign-in, sign-out, an account switch, or any write
+ * that changes `user_metadata`. AuthProvider calls this alongside
+ * `resetFavorites`; `updateUserPreferences` calls it after its own write, so
+ * the next read reflects what it just saved.
+ */
+export function resetCachedUser(): void {
+  userRequest = null
+}
+
 export class UserPreferencesService {
-  
+
   static async getUserPreferences(): Promise<UserPreferences> {
     try {
-      const { data: { user } } = await supabase.auth.getUser()
+      const user = await currentUser()
       
       if (!user) {
         return DEFAULT_PREFERENCES
@@ -141,7 +190,7 @@ export class UserPreferencesService {
 
   static async updateUserPreferences(preferences: Partial<UserPreferences>): Promise<{ success: boolean; error?: string }> {
     try {
-      const { data: { user } } = await supabase.auth.getUser()
+      const user = await currentUser()
       
       if (!user) {
         return { success: false, error: 'User not authenticated' }
@@ -164,6 +213,10 @@ export class UserPreferencesService {
         return { success: false, error: error.message }
       }
 
+      // The write just changed `user_metadata`, so the cached copy this method
+      // merged from is now behind. Drop it: saving a home spot and immediately
+      // re-reading preferences must not hand back the pre-write value.
+      resetCachedUser()
       return { success: true }
     } catch (error) {
       console.error('Error updating user preferences:', error)
@@ -197,7 +250,7 @@ export class UserPreferencesService {
    */
   static async getNotificationPreferences(): Promise<NotificationPreferences> {
     try {
-      const { data: { user } } = await supabase.auth.getUser()
+      const user = await currentUser()
 
       if (!user) {
         return DEFAULT_NOTIFICATION_PREFERENCES as NotificationPreferences
@@ -234,7 +287,7 @@ export class UserPreferencesService {
     preferences: Partial<NotificationPreferences>
   ): Promise<{ success: boolean; error?: string; data?: NotificationPreferences }> {
     try {
-      const { data: { user } } = await supabase.auth.getUser()
+      const user = await currentUser()
 
       if (!user) {
         return { success: false, error: 'User not authenticated' }
@@ -300,7 +353,7 @@ export class UserPreferencesService {
     updates: Partial<NotificationPreferences>
   ): Promise<{ success: boolean; error?: string }> {
     try {
-      const { data: { user } } = await supabase.auth.getUser()
+      const user = await currentUser()
 
       if (!user) {
         return { success: false, error: 'User not authenticated' }
@@ -328,7 +381,7 @@ export class UserPreferencesService {
    */
   static async deleteNotificationPreferences(): Promise<{ success: boolean; error?: string }> {
     try {
-      const { data: { user } } = await supabase.auth.getUser()
+      const user = await currentUser()
 
       if (!user) {
         return { success: false, error: 'User not authenticated' }
