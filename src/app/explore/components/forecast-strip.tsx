@@ -11,7 +11,7 @@ import DayCell from "./day-cell";
 import DayScrubCell from "./day-scrub-cell";
 import UpgradeDialog from "./upgrade-dialog";
 
-const CONFIDENCE_NOTE = "confidence fades past day 7 · ECMWF + GFS";
+const CONFIDENCE_NOTE = "Click a day to update. ECMWF + GFS Data.";
 
 /**
  * Docked 14-day forecast strip (desktop) — a full-bleed instrument panel
