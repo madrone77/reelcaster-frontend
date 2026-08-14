@@ -206,13 +206,6 @@
   .maplibregl-ctrl-attrib-button {
     @apply bg-rc-bg-dark/80!;
   }
-  /* Zoom controls float top-right, 24px inset, aligned near the rail's top. */
-  .maplibregl-ctrl-top-right {
-    z-index: 40;
-  }
-  .maplibregl-ctrl-top-right .maplibregl-ctrl {
-    margin: 8px 24px 0 0;
-  }
   /* 88% opacity + blur, matching the frosted panels. */
   .maplibregl-ctrl-group {
     background: rgba(255, 255, 255, 0.88) !important;
@@ -220,15 +213,25 @@
   }
 }
 
-/* Mobile only: the location header floats over the map's top edge, so the
-   top-right zoom control (its default 8px inset) hides the "+" behind the
-   header — only "−" pokes out. Drop it below the header. Desktop has no header
-   over the map, so it keeps the 8px inset above. */
-@media (max-width: 1023px) {
-  .rc-explore-map .maplibregl-ctrl-top-right .maplibregl-ctrl {
-    margin-top: 3.75rem;
-    margin-right: 0.75rem;
-  }
+/* Top-right zoom control: 8px down, 24px in from the edge.
+   Overriding maplibre's own stylesheet takes clearing two hurdles, and this
+   rule needs both, so leave the shape alone unless you have re-checked it:
+     1. OUTSIDE `@layer base`. maplibre-gl.css ships unlayered, and an unlayered
+        normal declaration beats a layered one whatever the specificity, so
+        anything written inside the layer loses to maplibre by default.
+     2. The leading `.maplibregl-map`. Maplibre sets the same two selectors at
+        the same specificity (`.maplibregl-ctrl-top-right .maplibregl-ctrl
+        { margin: 10px 10px 0 0 }`), and it is imported per map component, so
+        its chunk lands after this file and wins any tie on source order. The
+        extra ancestor takes specificity to 0,3,0 and settles it without
+        reaching for !important.
+   The marketing map (marketing-map.tsx) is the app's only top-right control;
+   Explore keeps its controls bottom-right and is styled further down. */
+.maplibregl-map .maplibregl-ctrl-top-right {
+  z-index: 40;
+}
+.maplibregl-map .maplibregl-ctrl-top-right .maplibregl-ctrl {
+  margin: 8px 24px 0 0;
 }
 
 /* Mobile safe area utilities */
