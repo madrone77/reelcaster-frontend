@@ -206,7 +206,17 @@
   .maplibregl-ctrl-attrib-button {
     @apply bg-rc-bg-dark/80!;
   }
-  /* Zoom controls float top-right, 24px inset, aligned near the rail's top. */
+  /* INERT, kept as intent rather than behaviour. Two reasons, both worth
+     knowing before you edit it:
+       1. These sit in `@layer base`, and maplibre-gl.css is unlayered, so its
+          own `.maplibregl-ctrl { margin: 10px }` wins the cascade outright —
+          layered normal declarations always lose to unlayered ones. The
+          top-right control renders at maplibre's 10px/z-2 defaults today.
+       2. The only top-right control left in the app is the marketing map
+          (marketing-map.tsx); Explore moved its controls to bottom-right.
+     Moving these out of the layer would make them bite, which means shifting
+     the marketing map's zoom control from a 10px inset to 24px. That is a
+     visible change to the homepage, so it wants to be a deliberate one. */
   .maplibregl-ctrl-top-right {
     z-index: 40;
   }
@@ -217,17 +227,6 @@
   .maplibregl-ctrl-group {
     background: rgba(255, 255, 255, 0.88) !important;
     backdrop-filter: blur(8px);
-  }
-}
-
-/* Mobile only: the location header floats over the map's top edge, so the
-   top-right zoom control (its default 8px inset) hides the "+" behind the
-   header — only "−" pokes out. Drop it below the header. Desktop has no header
-   over the map, so it keeps the 8px inset above. */
-@media (max-width: 1023px) {
-  .rc-explore-map .maplibregl-ctrl-top-right .maplibregl-ctrl {
-    margin-top: 3.75rem;
-    margin-right: 0.75rem;
   }
 }
 
