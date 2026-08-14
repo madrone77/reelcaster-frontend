@@ -21,6 +21,13 @@ export async function GET(request: NextRequest) {
   const bbox = sp.get("bbox") ?? undefined;
   const city = sp.get("city") ?? undefined;
   const date = sp.get("date") ?? undefined;
+  // Id scope, forwarded verbatim. Upstream validates the ids, caps the list at
+  // 120, and applies the published filter, so there is nothing to guard here —
+  // an id a caller is not entitled to simply does not come back.
+  const spotIds = (sp.get("spots") ?? "")
+    .split(",")
+    .map((s) => s.trim())
+    .filter(Boolean);
 
   if (date && !/^\d{4}-\d{2}-\d{2}$/.test(date)) {
     return NextResponse.json(
@@ -32,7 +39,13 @@ export async function GET(request: NextRequest) {
   const viewerId = await getUserIdFromRequest(request);
 
   try {
-    const data = await fetchMapSpots({ bbox, city, date, viewerId: viewerId ?? undefined });
+    const data = await fetchMapSpots({
+      spotIds: spotIds.length ? spotIds : undefined,
+      bbox,
+      city,
+      date,
+      viewerId: viewerId ?? undefined,
+    });
     if (!data) {
       return NextResponse.json({ error: "unavailable" }, { status: 502 });
     }

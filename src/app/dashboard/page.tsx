@@ -1,13 +1,12 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { ChevronRight, Home, Plus, Pencil } from "lucide-react";
 import { useAuth } from "@/contexts/auth-context";
 import {
   fetchMyCustomSpots,
-  fetchMapSpotsAsViewer,
-  fetchMapSpotsCached,
+  fetchMapSpotsForIds,
   fetchSpotLive,
   fetchFreshCatches,
   fetchSpotsOutlook14d,
@@ -36,9 +35,6 @@ import { fetchAlertProfiles } from "@/lib/alerts-client";
 import { PAGE_MEASURE } from "@/app/components/layout/page-measure";
 import type { AlertProfile } from "@/lib/custom-alert-engine";
 import type { SpotPageInitial } from "@/lib/bluecaster/live-spot-types";
-
-// The whole covered extent — favourites can live anywhere in it.
-const COVERED_BBOX_ALL = "-139.06,41.99,-114.03,60";
 
 /** A real spot id, as opposed to the slug `unscoredRailSpot` stands in with. */
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -269,14 +265,9 @@ export default function DashboardPage() {
   // list came back, which put the map two serial hops deep on a first visit.
   const coords = savedReady ? savedCoords : null;
 
-  // Today's best score per spot across the covered extent.
-  // The personalized payload wins once it lands; the cached one must never
-  // overwrite it afterwards (it lacks this angler's own custom spots).
-  const viewerPayloadLanded = useRef(false);
-  const applyPayload = useCallback((p: MapSpotsPayload, fromViewer: boolean) => {
+  // Today's best score per spot, for the spots this dashboard actually draws.
+  const applyPayload = useCallback((p: MapSpotsPayload) => {
     if (!p?.spots) return;
-    if (viewerPayloadLanded.current && !fromViewer) return;
-    if (fromViewer) viewerPayloadLanded.current = true;
     setPayload(p);
     const species = p.species ?? {};
     const map: Record<string, Scored> = {};
@@ -300,47 +291,59 @@ export default function DashboardPage() {
     setScoreBySlug(map);
   }, []);
 
-  // Coordinates and scores for every PUBLISHED spot, from the anonymous read.
-  // Same payload, same engine — but it is CDN-cacheable, so it returns in
-  // ~140ms against the personalized read's ~3s (which is `private, no-store`
-  // and BYPASSes the edge on every single load). Favourites are published
-  // spots, so this alone is enough to put the map and the cards on screen.
-  // Fires without waiting on auth, since it needs no identity.
-  useEffect(() => {
-    let cancelled = false;
-    fetchMapSpotsCached(COVERED_BBOX_ALL, todayVancouver())
-      .then((p) => {
-        if (!cancelled && p) applyPayload(p, false);
-      })
-      .catch(() => {});
-    return () => {
-      cancelled = true;
-    };
-  }, [applyPayload]);
+  // The spot ids this dashboard draws: saved favourites (their ids ride along
+  // with /api/saved-spots) plus this angler's own custom spots. `null` while
+  // either is still resolving, `""` when there is genuinely nothing to score.
+  const scopedIdsKey = useMemo(() => {
+    if (custom === null || favSlugs === null) return null;
+    const ids = new Set<string>();
+    for (const c of custom) if (UUID_RE.test(c.id)) ids.add(c.id);
+    for (const slug of favSlugs) {
+      const id = coords?.[slug]?.id;
+      if (id && UUID_RE.test(id)) ids.add(id);
+    }
+    // Sorted so a re-ordered grid is the same request, not a second one.
+    return [...ids].sort().join(",");
+  }, [custom, favSlugs, coords]);
 
-  // The personalized read then upgrades it — but ONLY if there is something to
-  // upgrade. Its entire delta over the cached read is this angler's own custom
-  // spots and their 24-hour strips, so for an angler with none it is a 3-second
-  // uncached re-fetch (`private, no-store`, BYPASS on every load) of a payload
-  // we already have from the edge in ~140ms. Wait for `custom` to resolve, then
-  // skip it unless it came back non-empty.
+  // Scores and conditions for exactly those spots, in ONE request.
+  //
+  // This used to be two reads of `bbox=<the entire covered extent>`: an
+  // anonymous one that could fire before auth, then a personalized repeat for
+  // anglers with custom spots. Both returned every published spot in BC and
+  // WA — 152 spots, 142 KB gzipped — to render about six, and the second one
+  // returned the first one's payload again with a handful of rows added.
+  //
+  // Asking by id makes it 9 KB and collapses the pair into one call, because
+  // the id-scoped read already carries this angler's own custom spots
+  // (narrowed upstream to the ids we asked for). It costs one stage: the ids
+  // are not known until saved-spots and custom-spots resolve. That is a real
+  // trade and it is worth it — the grid was ALREADY gated on both of those
+  // (`spotCards` is null until they land), so nothing that could previously
+  // paint now waits. Only the scores arrive on a slightly later tick, and they
+  // arrive from a request that is an order of magnitude smaller.
   useEffect(() => {
-    if (!user || !custom || custom.length === 0) return;
+    if (scopedIdsKey === null) return; // still resolving — hold what we have
+    if (scopedIdsKey === "") {
+      setPayload(null);
+      setScoreBySlug({});
+      return;
+    }
     let cancelled = false;
-    fetchMapSpotsAsViewer(COVERED_BBOX_ALL, todayVancouver())
+    fetchMapSpotsForIds(scopedIdsKey.split(","), todayVancouver())
       .then((p) => {
-        if (!cancelled && p) applyPayload(p, true);
+        if (!cancelled && p) applyPayload(p);
       })
       .catch(() => {});
     return () => {
       cancelled = true;
     };
-    // Keyed on the IDENTIFIERS, not the objects: AuthProvider re-emits a fresh
-    // user/session on every auth event (INITIAL_SESSION, TOKEN_REFRESHED, …),
-    // so an object dep re-runs this on each one — the dashboard was firing
-    // every one of its reads two and three times per load.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user?.id, custom?.length, applyPayload]);
+    // Keyed on the id list and the TOKEN, not the session object: AuthProvider
+    // re-emits a fresh user/session on every auth event (INITIAL_SESSION,
+    // TOKEN_REFRESHED, …), and an object dep fired this two and three times a
+    // load. The token matters because owned custom spots only come back on an
+    // authenticated read.
+  }, [scopedIdsKey, session?.access_token, applyPayload]);
 
   // Home-spot live payload — powers the hero conditions, sparkline, and the
   // regulations rail (the spot's own DFO regs). Degrades to null.
