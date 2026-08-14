@@ -1,8 +1,12 @@
 /**
- * POST /api/attribution/signup  → { ok: true, written: boolean }
+ * POST /api/attribution/signup
+ *   → { ok: true, written: boolean, offer_claimed: boolean }
  *
  * Stamps "which wall earned this account, and how did they find us" onto
  * `user_settings`, reading the rc_wall / rc_entry cookies off the request.
+ * Also records an offer claim from rc_offer (src/lib/offers.ts) — same
+ * placement, same cookies-across-the-boundary problem, different lifetime
+ * rules, which are argued at the write itself below.
  *
  * Called when a user becomes authenticated for the first time in a browser,
  * NOT from the signup form's success branch. Two reasons:
@@ -23,6 +27,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { readEntry, readWall } from '@/lib/attribution';
+import { readOffer } from '@/lib/offers';
 import { NAG_FEATURES } from '@/lib/plan-features';
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
@@ -59,17 +64,70 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'unauthorized' }, { status: 401 });
   }
 
-  const accountAge = Date.now() - new Date(user.created_at).getTime();
-  if (accountAge > ACCOUNT_AGE_GRACE_MS) {
-    return NextResponse.json({ ok: true, written: false, reason: 'account_too_old' });
-  }
-
   const cookieHeader = request.headers.get('cookie') ?? '';
   const wall = readWall(cookieHeader);
   const entry = readEntry(cookieHeader);
+  const offer = readOffer(cookieHeader);
+
+  if (!wall && !entry && !offer) {
+    return NextResponse.json({ ok: true, written: false, reason: 'no_attribution' });
+  }
+
+  // The row may not exist yet for an account created seconds ago. DO NOTHING
+  // on conflict so this can never blank a column the webhook already wrote.
+  const { error: ensureError } = await admin
+    .from('user_settings')
+    .upsert({ user_id: user.id }, { onConflict: 'user_id', ignoreDuplicates: true });
+
+  if (ensureError) {
+    console.error('[attribution] could not ensure user_settings row', ensureError);
+    return NextResponse.json({ error: 'write_failed' }, { status: 500 });
+  }
+
+  // Offer claims are recorded BEFORE the account-age guard, and survive it.
+  //
+  // Attribution answers "what earned this signup", so believing a months-old
+  // account's cookies would be fiction. A claim answers "this person is asking
+  // for the deal", and an existing free user who follows an offer link is
+  // asking for it just as much as a new one. Dropping them would strand them:
+  // they'd sit in a free account waiting on an approval that never appears in
+  // anyone's queue.
+  //
+  // `.is('offer_code_at', null)` is the write-once guard — the first claim
+  // wins, so a second offer link cannot rewrite the one an admin is looking at.
+  let offerClaimed = false;
+  if (offer) {
+    const { data: claimed, error: offerError } = await admin
+      .from('user_settings')
+      .update({ offer_code: offer, offer_code_at: new Date().toISOString() })
+      .eq('user_id', user.id)
+      .is('offer_code_at', null)
+      .select('user_id');
+
+    if (offerError) {
+      console.error('[attribution] offer claim write failed', offerError);
+    } else {
+      offerClaimed = (claimed?.length ?? 0) > 0;
+    }
+  }
+
+  const accountAge = Date.now() - new Date(user.created_at).getTime();
+  if (accountAge > ACCOUNT_AGE_GRACE_MS) {
+    return NextResponse.json({
+      ok: true,
+      written: false,
+      offer_claimed: offerClaimed,
+      reason: 'account_too_old',
+    });
+  }
 
   if (!wall && !entry) {
-    return NextResponse.json({ ok: true, written: false, reason: 'no_attribution' });
+    return NextResponse.json({
+      ok: true,
+      written: false,
+      offer_claimed: offerClaimed,
+      reason: 'no_attribution',
+    });
   }
 
   // A cookie is client-writable, so the feature is checked against the enum
@@ -91,17 +149,6 @@ export async function POST(request: NextRequest) {
     patch.attr_utm_campaign = entry.utm_campaign || null;
   }
 
-  // The row may not exist yet for an account created seconds ago. DO NOTHING
-  // on conflict so this can never blank a column the webhook already wrote.
-  const { error: ensureError } = await admin
-    .from('user_settings')
-    .upsert({ user_id: user.id }, { onConflict: 'user_id', ignoreDuplicates: true });
-
-  if (ensureError) {
-    console.error('[attribution] could not ensure user_settings row', ensureError);
-    return NextResponse.json({ error: 'write_failed' }, { status: 500 });
-  }
-
   // `.is('attr_signup_at', null)` is the write-once guard. Re-posting is a
   // no-op, which is what makes the client side safe to fire on every mount.
   const { data, error } = await admin
@@ -116,5 +163,9 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'write_failed' }, { status: 500 });
   }
 
-  return NextResponse.json({ ok: true, written: (data?.length ?? 0) > 0 });
+  return NextResponse.json({
+    ok: true,
+    written: (data?.length ?? 0) > 0,
+    offer_claimed: offerClaimed,
+  });
 }

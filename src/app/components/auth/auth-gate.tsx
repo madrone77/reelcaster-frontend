@@ -29,6 +29,10 @@ const PUBLIC_PREFIXES = [
   // a Meta ad with no account — gating them to /login would bounce every one of
   // them before they saw the page they were sent to.
   '/lp',
+  // The free-first-year invite link. It renders its own signed-out pitch and
+  // sends people to /signup?next=/first, so bouncing them to a bare /login
+  // would drop them out of the offer they were invited into.
+  '/first',
   '/privacy',
   '/terms',
   '/contact',
