@@ -110,9 +110,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }
 
   const signInWithFacebook = async () => {
-    // Same origin-honoring redirect as Google. Requires the Facebook provider
-    // to be enabled in the Supabase dashboard (app ID + secret) — without that
-    // config this returns a provider error at click time.
+    // Same origin-honoring redirect as Google, but currently unused: the
+    // Facebook button is hidden in auth-form because the provider is not
+    // enabled in the Supabase dashboard (needs a Facebook app ID + secret).
+    // Note there is no client-side error to catch if it stays disabled.
+    // signInWithOAuth always returns { error: null } and navigates the browser
+    // to /auth/v1/authorize, which 400s with "provider is not enabled".
     const redirectUrl = `${window.location.origin}/auth/callback`
 
     const { error } = await supabase.auth.signInWithOAuth({

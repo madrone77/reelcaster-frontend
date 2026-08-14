@@ -24,10 +24,9 @@ export function AuthForm({ defaultMode = 'signin', onSuccess, source = 'auth-for
   const [error, setError] = useState('')
   const [success, setSuccess] = useState(false)
   const [loading, setLoading] = useState(false)
-  const { signIn, signUp, signInWithGoogle, signInWithFacebook, resetPasswordForEmail } = useAuth()
+  const { signIn, signUp, signInWithGoogle, resetPasswordForEmail } = useAuth()
   const { trackEvent } = useAnalytics()
   const [googleLoading, setGoogleLoading] = useState(false)
-  const [facebookLoading, setFacebookLoading] = useState(false)
 
   const handleGoogle = async () => {
     setError('')
@@ -48,28 +47,6 @@ export function AuthForm({ defaultMode = 'signin', onSuccess, source = 'auth-for
     } catch {
       setError('Could not start Google sign-in')
       setGoogleLoading(false)
-    }
-  }
-
-  const handleFacebook = async () => {
-    setError('')
-    setFacebookLoading(true)
-    try {
-      const { error } = await signInWithFacebook()
-      if (error) {
-        setError(error.message)
-        setFacebookLoading(false)
-        return
-      }
-      trackEvent('Sign In', {
-        method: 'facebook',
-        source,
-        timestamp: new Date().toISOString(),
-      })
-      // Browser is redirecting to Facebook — keep button in loading state.
-    } catch {
-      setError('Could not start Facebook sign-in')
-      setFacebookLoading(false)
     }
   }
 
@@ -190,7 +167,7 @@ export function AuthForm({ defaultMode = 'signin', onSuccess, source = 'auth-for
             <button
               type="button"
               onClick={handleGoogle}
-              disabled={loading || googleLoading || facebookLoading}
+              disabled={loading || googleLoading}
               className="w-full h-11 rounded-md text-sm font-medium bg-rc-panel border border-rc-rule text-rc-ink hover:bg-rc-surface transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
             >
               {googleLoading ? (
@@ -201,19 +178,10 @@ export function AuthForm({ defaultMode = 'signin', onSuccess, source = 'auth-for
               <span>{mode === 'signin' ? 'Sign in with Google' : 'Sign up with Google'}</span>
             </button>
 
-            <button
-              type="button"
-              onClick={handleFacebook}
-              disabled={loading || googleLoading || facebookLoading}
-              className="w-full h-11 rounded-md text-sm font-medium bg-rc-panel border border-rc-rule text-rc-ink hover:bg-rc-surface transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
-            >
-              {facebookLoading ? (
-                <span className="h-4 w-4 animate-spin rounded-full border-2 border-rc-ink border-t-transparent" />
-              ) : (
-                <FacebookGlyph />
-              )}
-              <span>{mode === 'signin' ? 'Sign in with Facebook' : 'Sign up with Facebook'}</span>
-            </button>
+            {/* Facebook sign-in is hidden until the Facebook provider is enabled
+                in the Supabase dashboard. Until then /auth/v1/authorize?provider=facebook
+                400s and the click just dumps the angler on a JSON error page.
+                Re-add this button (and the handler in auth-context) once it's on. */}
 
             <div className="relative">
               <div className="absolute inset-0 flex items-center">
@@ -370,17 +338,6 @@ function GoogleGlyph() {
       <path
         fill="#34A853"
         d="M9 18c2.43 0 4.47-.8 5.96-2.18l-2.84-2.2c-.76.53-1.78.9-3.12.9-2.38 0-4.4-1.57-5.12-3.74L.97 13.04C2.45 15.98 5.48 18 9 18z"
-      />
-    </svg>
-  )
-}
-
-function FacebookGlyph() {
-  return (
-    <svg width="16" height="16" viewBox="0 0 18 18" aria-hidden="true">
-      <path
-        fill="#1877F2"
-        d="M18 9a9 9 0 1 0-10.41 8.89v-6.29H5.31V9h2.28V7.02c0-2.25 1.34-3.5 3.4-3.5.98 0 2.01.18 2.01.18v2.22h-1.13c-1.12 0-1.47.69-1.47 1.4V9h2.5l-.4 2.6h-2.1v6.29A9 9 0 0 0 18 9z"
       />
     </svg>
   )
