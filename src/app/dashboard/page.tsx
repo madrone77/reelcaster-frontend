@@ -28,7 +28,7 @@ import HomeSpotHero, { deriveTide, type TideRead } from "./home-spot-hero";
 import AroundYou, { aroundYouFrom } from "./around-you";
 import MarketingFooter from "@/app/components/marketing/marketing-footer";
 import type { MapSpotsPayload } from "@/lib/bluecaster";
-import { useHomeSpotSlug } from "@/app/explore/lib/use-home-spot";
+import { useHomeSpotState } from "@/app/explore/lib/use-home-spot";
 import { useSavedSpots, setFavorite } from "@/app/explore/lib/use-favorite";
 import { storedFirstName, NAME_FALLBACK } from "@/lib/display-name";
 import { supabase } from "@/lib/supabase";
@@ -99,6 +99,33 @@ function longDate(): string {
   });
 }
 
+/**
+ * Today's date, read AFTER mount rather than during render.
+ *
+ * This page is prerendered, so its HTML is generated once at build time and
+ * then served to everyone until the next deploy. Calling the clock in render
+ * baked the build day into that HTML: on 2026-08-14 the dashboard opened on
+ * "Thu, Aug 13", and it would have kept saying so for as long as the build
+ * lasted. It is also the shape that aborted hydration on the spot page (React
+ * #418) — server and client render different strings for the same node.
+ *
+ * `null` until mounted, so both sides render the same placeholder and the real
+ * date arrives as an ordinary state update. See also `useSpotClock`, which
+ * solves the same problem the other way round for a page that has a server
+ * instant to anchor on. This one has none: nothing here is server-rendered
+ * with data, so there is no honest instant to seed with.
+ */
+function useToday(): string | null {
+  const [today, setToday] = useState<string | null>(null);
+  useEffect(() => {
+    setToday(longDate());
+    // Cross local midnight with the tab open and the header should follow.
+    const id = setInterval(() => setToday(longDate()), 60_000);
+    return () => clearInterval(id);
+  }, []);
+  return today;
+}
+
 function relTime(iso: string): string {
   const then = new Date(iso).getTime();
   if (Number.isNaN(then)) return "";
@@ -137,7 +164,7 @@ type CatchRow = {
  * regulation changes. Auth-gated by the global AuthGate.
  */
 export default function DashboardPage() {
-  const { user, session } = useAuth();
+  const { user, session, loading: authLoading } = useAuth();
   const [custom, setCustom] = useState<OwnedCustomSpot[] | null>(null);
   const [scoreBySlug, setScoreBySlug] = useState<Record<string, Scored>>({});
   // Raw map payload kept so the grid can render the shared Explore card from
@@ -151,9 +178,17 @@ export default function DashboardPage() {
   // Undo snackbar for an un-starred spot.
   const [undo, setUndo] = useState<{ slug: string; name: string } | null>(null);
   // Pinned home spot. Hydrates from the saved profile copy, so the hero is
-  // populated on a device that never set the pin itself.
-  const homeSlug = useHomeSpotSlug(true);
-  const [homeLive, setHomeLive] = useState<SpotPageInitial | null>(null);
+  // populated on a device that never set the pin itself. That is also why
+  // `homeReady` matters: until that copy lands, a null slug is "we have not
+  // looked", not "no home spot".
+  const { slug: homeSlug, ready: homeReady } = useHomeSpotState(true);
+  const today = useToday();
+  // undefined = the read is still out, null = it settled with nothing (no pin,
+  // or the fetch failed). The regulations rail needs to tell those apart:
+  // holding a skeleton on a FAILED read would hold it forever.
+  const [homeLive, setHomeLive] = useState<SpotPageInitial | null | undefined>(
+    undefined,
+  );
   // Tide direction + next turn for the home spot. `rightNow.tideTrend` comes
   // back null, so the hero derives both off the day's hourly curve instead.
   const [homeTide, setHomeTide] = useState<TideRead | null>(null);
@@ -359,6 +394,9 @@ export default function DashboardPage() {
       return;
     }
     let cancelled = false;
+    // Back to pending for the duration of the read, so switching home spots
+    // shows a skeleton rather than the previous spot's regulations.
+    setHomeLive(undefined);
     fetchSpotLive(homeSlug)
       .then((p) => {
         if (cancelled) return;
@@ -638,7 +676,14 @@ export default function DashboardPage() {
   const trackedCount = spotCards?.length ?? null;
 
   // Never derive a name from the email; fall back to the Stripe / "Angler" name.
-  const greetName = localName ?? storedFirstName(user) ?? serverName ?? NAME_FALLBACK;
+  //
+  // `null` while auth is still resolving, rather than "Angler". The prerendered
+  // HTML has no user, so a bare fallback greeted every returning angler by the
+  // wrong name for as long as it took Supabase to rehydrate — "Welcome back,
+  // Angler" to someone the app has known for months.
+  const greetName = authLoading
+    ? localName ?? storedFirstName(user)
+    : localName ?? storedFirstName(user) ?? serverName ?? NAME_FALLBACK;
   const saveName = async () => {
     const v = nameDraft.trim();
     if (!v) return;
@@ -662,6 +707,15 @@ export default function DashboardPage() {
     : null;
 
   const spotsLoading = spotCards === null;
+  // The hero waits on the home pin as well, and the grid deliberately does
+  // not. The hero is a statement about WHICH spot is yours, so until the pin
+  // is known there is nothing true to say — previously this was
+  // `spotsLoading && homeSlug`, so the one case that cannot be known
+  // server-side (no localStorage, hence no slug) fell straight through to the
+  // "pin a home spot" prompt. The grid needs none of that, and holding it for
+  // the pin's server round trip would trade one wrong answer for a slower
+  // right one.
+  const heroLoading = spotsLoading || !homeReady;
   const homeCard = spotCards?.find((s) => s.slug === homeSlug) ?? null;
   // Everything except the home spot — that one is the hero, and listing it
   // again three hundred pixels lower said the same thing twice.
@@ -705,8 +759,11 @@ export default function DashboardPage() {
       ? watchAlert.score_threshold - watchCurrent
       : null;
 
-  const customCount = custom?.length ?? 0;
-  const favCount = favSlugs?.length ?? 0;
+  // null, not 0, until each is actually known. "0 created · 0 saved" is what
+  // the prerendered HTML told an angler with a full list, and unlike a dash it
+  // reads as an answer rather than a wait.
+  const customCount = custom?.length ?? null;
+  const favCount = favSlugs?.length ?? null;
 
   return (
     <div className="min-h-dvh bg-rc-panel pt-16">
@@ -760,23 +817,28 @@ export default function DashboardPage() {
                 </span>
               ) : (
                 <span className="inline-flex items-center gap-2.5">
-                  Welcome back, {greetName}
-                  <button
-                    type="button"
-                    aria-label="Edit your name"
-                    onClick={() => {
-                      setNameDraft(localName ?? storedFirstName(user) ?? "");
-                      setEditingName(true);
-                    }}
-                    className="text-rc-brand transition-transform hover:scale-110"
-                  >
-                    <Pencil className="h-5 w-5" />
-                  </button>
+                  {/* No name yet: greet without one rather than with the wrong
+                      one, and hold the pencil back until there is something to
+                      edit. "Welcome back" alone is true for everybody. */}
+                  {greetName ? `Welcome back, ${greetName}` : "Welcome back"}
+                  {greetName && (
+                    <button
+                      type="button"
+                      aria-label="Edit your name"
+                      onClick={() => {
+                        setNameDraft(localName ?? storedFirstName(user) ?? "");
+                        setEditingName(true);
+                      }}
+                      className="text-rc-brand transition-transform hover:scale-110"
+                    >
+                      <Pencil className="h-5 w-5" />
+                    </button>
+                  )}
                 </span>
               )}
             </h1>
             <p className="mt-1.5 font-rc-mono text-[12px] text-rc-ink-mute">
-              {longDate()} · {trackedCount ?? "—"} spot
+              {today ?? "—"} · {trackedCount ?? "—"} spot
               {trackedCount === 1 ? "" : "s"} tracked · {activeAlertCount ?? "—"} alert
               {activeAlertCount === 1 ? "" : "s"} armed
             </p>
@@ -797,7 +859,11 @@ export default function DashboardPage() {
             in an order nobody chose. */}
         <div className="mx-auto max-w-[860px]">
           <div>
-            {spotsLoading && homeSlug ? (
+            {/* `heroLoading` rather than `spotsLoading && homeSlug`: a null slug
+                is ambiguous until the server copy lands, so gating on it flashed
+                the empty state at an angler who does have a pin. Height tracks
+                the rebuilt card, not the older 188px one. */}
+            {heroLoading ? (
               <div className="h-[300px] animate-pulse rounded bg-rc-navy/90" />
             ) : homeCard ? (
               <HomeSpotHero
@@ -871,7 +937,7 @@ export default function DashboardPage() {
               <div className="flex items-baseline gap-3">
                 <h2 className="text-lg font-bold text-rc-ink">Your spots</h2>
                 <span className="font-rc-mono text-[11px] text-rc-ink-mute">
-                  {customCount} created · {favCount} saved
+                  {customCount ?? "—"} created · {favCount ?? "—"} saved
                 </span>
               </div>
               <Link
@@ -1058,7 +1124,15 @@ export default function DashboardPage() {
                 ) : null
               }
             >
-              {restrictiveReg ? (
+              {/* Until the pin is known, this card has no subject. Both of its
+                  empty states name one ("your home spot" / "pin a home spot"),
+                  so either would be a claim about an angler we have not looked
+                  up yet. A signed-in angler WITH a home spot was reliably told
+                  to go pin one, because the prerendered HTML has no
+                  localStorage to read it from. */}
+              {!homeReady || homeLive === undefined ? (
+                <RailSkeleton />
+              ) : restrictiveReg ? (
                 <div>
                   <div className="flex items-start justify-between gap-2">
                     <span className="truncate text-sm font-medium text-rc-ink">

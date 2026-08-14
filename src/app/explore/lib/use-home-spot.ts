@@ -89,15 +89,37 @@ export async function hydrateHomeSpot(): Promise<string | null> {
   return local;
 }
 
+export interface HomeSpotState {
+  slug: string | null;
+  /**
+   * Whether `slug` is an answer yet, as opposed to the absence of one.
+   *
+   * `null` means two different things, and a caller that cannot tell them
+   * apart will assert the wrong one. The dashboard is prerendered, so the
+   * server — which has no localStorage — always renders pin-less, and the
+   * first client render must match it. A surface that draws "pin a home spot"
+   * off that is telling an angler who has one that they do not.
+   *
+   * With `hydrate` on this stays false until the SERVER copy lands, not merely
+   * until localStorage is read: a pin set on a phone does not exist in this
+   * browser's storage, and settling early would flash the empty state at
+   * exactly the angler the durable copy exists for.
+   */
+  ready: boolean;
+}
+
 /**
- * The current home-spot slug, reactive to changes from this tab, other tabs,
- * and (when `hydrate` is true) the server copy.
+ * The current home spot, reactive to changes from this tab, other tabs, and
+ * (when `hydrate` is true) the server copy — plus whether it is known yet.
  */
-export function useHomeSpotSlug(hydrate = false): string | null {
+export function useHomeSpotState(hydrate = false): HomeSpotState {
   const [slug, setSlug] = useState<string | null>(null);
+  const [ready, setReady] = useState(false);
 
   useEffect(() => {
     setSlug(readHomeSpot());
+    // Without a server round trip to wait for, the local read IS the answer.
+    if (!hydrate) setReady(true);
     const unsubscribe = subscribe(setSlug);
     const onStorage = (e: StorageEvent) => {
       if (e.key === KEY || e.key === null) setSlug(readHomeSpot());
@@ -107,20 +129,43 @@ export function useHomeSpotSlug(hydrate = false): string | null {
       unsubscribe();
       window.removeEventListener("storage", onStorage);
     };
+    // `hydrate` is a fixed choice per call site, not a changing input.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
     if (!hydrate) return;
     let cancelled = false;
-    void hydrateHomeSpot().then((s) => {
-      if (!cancelled) setSlug(s);
-    });
+    void hydrateHomeSpot()
+      .then((s) => {
+        if (!cancelled) {
+          setSlug(s);
+          setReady(true);
+        }
+      })
+      // hydrateHomeSpot swallows its own failures and falls back to the local
+      // pin, so this should not fire — but if it ever did, leaving `ready`
+      // false would strand the caller on a skeleton forever.
+      .catch(() => {
+        if (!cancelled) setReady(true);
+      });
     return () => {
       cancelled = true;
     };
   }, [hydrate]);
 
-  return slug;
+  return { slug, ready };
+}
+
+/**
+ * The current home-spot slug, reactive to changes from this tab, other tabs,
+ * and (when `hydrate` is true) the server copy.
+ *
+ * Callers that must distinguish "no home spot" from "not known yet" want
+ * `useHomeSpotState` instead.
+ */
+export function useHomeSpotSlug(hydrate = false): string | null {
+  return useHomeSpotState(hydrate).slug;
 }
 
 /**
