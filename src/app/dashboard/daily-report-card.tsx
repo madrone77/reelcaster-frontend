@@ -173,41 +173,45 @@ export function DailyReportCard() {
 
   return (
     <div className="overflow-hidden rounded-xl border border-rc-rule bg-rc-panel">
-      {/* The whole collapsed card is the toggle: at a glance it is a headline
-          with a plus, and anywhere on that row should open it. */}
+      {/* The whole card is the toggle, and it says so in words. A bare + asks
+          the reader to work out that there is more behind it and that the icon
+          is how you get there; "Click here for more information" asks nothing. */}
       <button
         type="button"
         onClick={() => setExpanded((v) => !v)}
         aria-expanded={expanded}
         aria-controls="daily-report-more"
-        className="flex w-full items-start gap-3 px-4 pb-4 pt-3.5 text-left focus-visible:outline focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-rc-brand"
+        className="block w-full px-4 pb-3.5 pt-3.5 text-left focus-visible:outline focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-rc-brand"
       >
-        <div className="min-w-0 flex-1">
-          <div className="flex items-center gap-2">
-            <span className="font-rc-mono text-[10px] font-bold uppercase tracking-[0.14em] text-rc-brand">
-              {data.city?.name ?? "Your area"} daily report
-            </span>
-            <span className="shrink-0 rounded bg-rc-surface px-1.5 py-0.5 font-rc-mono text-[10px] font-bold text-rc-ink-mute">
-              {r.reports_window_days}D
-            </span>
-          </div>
-          <p className="mt-1.5 text-[15px] font-semibold leading-snug text-rc-ink">
-            {r.headline ?? `What anglers are catching around ${data.city?.name ?? "you"}`}
-          </p>
+        <div className="flex items-center gap-2">
+          <span className="font-rc-mono text-[10px] font-bold uppercase tracking-[0.14em] text-rc-brand">
+            {data.city?.name ?? "Your area"} daily report
+          </span>
+          <span className="shrink-0 rounded bg-rc-surface px-1.5 py-0.5 font-rc-mono text-[10px] font-bold text-rc-ink-mute">
+            {r.reports_window_days}D
+          </span>
         </div>
-        <span
-          aria-hidden
-          className={`mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-rc-rule text-[15px] leading-none text-rc-brand transition-transform duration-200 ${
-            expanded ? "rotate-45" : ""
-          }`}
-        >
-          +
+        <p className="mt-1.5 text-[15px] font-semibold leading-snug text-rc-ink">
+          {r.headline ?? `What anglers are catching around ${data.city?.name ?? "you"}`}
+        </p>
+
+        <span className="mt-3 flex items-center justify-between gap-3 border-t border-rc-rule pt-3 text-[14px] font-semibold text-rc-brand">
+          {expanded ? "Click here to close" : "Click here for more information"}
+          <span
+            aria-hidden
+            className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-rc-rule text-[15px] leading-none transition-transform duration-200 ${
+              expanded ? "rotate-45" : ""
+            }`}
+          >
+            +
+          </span>
         </span>
       </button>
 
       {expanded && (
         <div id="daily-report-more" className="px-4 pb-4">
-          <div className="border-t border-rc-rule pt-3">
+          {/* No rule of its own — the toggle row above already closed with one. */}
+          <div>
             <div className="font-rc-mono text-[11px] font-bold uppercase tracking-wide text-rc-brand">
               On the water
             </div>
