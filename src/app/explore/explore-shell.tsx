@@ -101,11 +101,19 @@ function haversineKm(lat1: number, lng1: number, lat2: number, lng2: number): nu
 export default function ExploreShell({
   data,
   bbox,
+  initialCitySlug,
   initialForecast,
   initialForecastBbox,
 }: {
   data: ExploreData;
   bbox: string;
+  /**
+   * The city the server actually framed: `?loc` when it named a covered city,
+   * the default city otherwise. `data.spots` and `initialForecast` are both
+   * about this city, so it is the only honest way to tell whether the first
+   * response is about the water this URL is asking for.
+   */
+  initialCitySlug?: string | null;
   /**
    * The 14-day viewport strip for `initialForecastBbox`, fetched by the page so
    * the strip can paint from the first response instead of waiting out the JS
@@ -158,13 +166,28 @@ export default function ExploreShell({
   const savedRef = useRef<ExploreView | null>(restored);
 
   /**
-   * The URL asked for a specific place, so the page's prefetch is not about the
-   * water we are going to. The prefetch covers the default city — right for a
-   * bare /explore, wrong for `?loc=vancouver-bc`, where showing Victoria's
-   * numbers for a beat before Vancouver's arrive would be a worse first paint
-   * than showing none. Same test the view-memory restore uses.
+   * Is the page's prefetch about the water this URL is going to?
+   *
+   * This used to be the blunter question "does the URL name a place at all",
+   * because the server always prefetched the default city: on `?loc=vancouver-bc`
+   * showing Victoria's numbers for a beat before Vancouver's arrived would be a
+   * worse first paint than showing none, so the prefetch was thrown away.
+   *
+   * The server honours `?loc` now, so the common deep link arrives with a
+   * prefetch that IS Vancouver's, and discarding it would re-introduce exactly
+   * the wait this prop was added to remove. The three cases that still discard:
+   *
+   *   - `?spot` / `?stn` — the frame is one spot or one station, not a city
+   *     box, and the shell flies somewhere the prefetch does not cover.
+   *   - a `?loc` the server could not resolve (renamed or hand-edited slug, a
+   *     covered city with no published spots yet) — it fell back to the default
+   *     city, and so does `selectedCity`, but the two agreeing is not something
+   *     this component should assume, so it refetches rather than guess.
+   *   - no `initialCitySlug` at all — an older cached document from before the
+   *     prop existed, or a payload the page could not resolve a city for.
    */
-  const urlNamesPlace = !!(citySlug || spotSlug || stn);
+  const prefetchIsOurWater =
+    !spotSlug && !stn && !!initialCitySlug && (!citySlug || citySlug === initialCitySlug);
 
   // ── Custom spots (Pro): a "Create custom spot" button arms pin-drop mode;
   //    the next map click opens a modal to name it + pick species. The user's
@@ -253,9 +276,9 @@ export default function ExploreShell({
   const [vpBbox, setVpBbox] = useState<string | null>(
     restored?.bounds
       ? paddedBbox(restored.bounds)
-      : urlNamesPlace
-        ? null
-        : initialForecastBbox ?? null,
+      : prefetchIsOurWater
+        ? initialForecastBbox ?? null
+        : null,
   );
   const vpTimerRef = useRef<number | null>(null);
   const vpReported = useRef(false);
@@ -806,7 +829,7 @@ export default function ExploreShell({
   // Captured once: the prop is fixed for the life of the page, and a ref keeps
   // the fetch effect below from having to take it as a dependency.
   const seedRef = useRef<MapForecast14dPayload | null>(
-    initialForecastBbox && initialForecast?.days && !urlNamesPlace
+    initialForecastBbox && initialForecast?.days && prefetchIsOurWater
       ? initialForecast
       : null,
   );
@@ -986,7 +1009,7 @@ export default function ExploreShell({
   // Already seeded when a remembered view brought its own bounds, or when the
   // server handed us the box it prefetched.
   const vpSeeded = useRef(
-    restored?.bounds != null || (!urlNamesPlace && initialForecastBbox != null),
+    restored?.bounds != null || (prefetchIsOurWater && initialForecastBbox != null),
   );
   useEffect(() => {
     if (vpSeeded.current || vpReported.current) return;

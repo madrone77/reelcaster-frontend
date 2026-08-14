@@ -12,6 +12,7 @@ import {
 } from "@/lib/forecast-horizon";
 import {
   buildExploreData,
+  coveredCitySlug,
   hasPreferredDefaultCity,
   PREFERRED_DEFAULT_CITY,
 } from "./lib/explore-data";
@@ -50,8 +51,31 @@ export const metadata: Metadata = {
   robots: { index: false, follow: true },
 };
 
-export default async function ExplorePage() {
-  const hierarchy = await fetchHierarchyLight();
+export default async function ExplorePage({
+  searchParams,
+}: {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}) {
+  const [hierarchy, params] = await Promise.all([
+    fetchHierarchyLight(),
+    searchParams,
+  ]);
+
+  // ── The city the URL asked for ───────────────────────────────────────────
+  //
+  // `?loc` is the Explore canvas's city param (see use-explore-state), and the
+  // client has always honoured it: the shell resolves the slug, frames the
+  // city, and lets the viewport load its spots. What it could not do was make
+  // any of that happen before hydration. A deep link to Vancouver was served
+  // Victoria's spots and Victoria's prefetched strip, discarded both on the
+  // client because the URL named somewhere else, then flew to Vancouver's
+  // centre and fetched the lot again — so the one arrival that names its
+  // destination up front was the slowest one on the site.
+  //
+  // Reading it here costs the route its static render — see the note above the
+  // return. The client behaviour is unchanged for every URL this cannot
+  // resolve.
+  const loc = typeof params.loc === "string" ? params.loc : null;
 
   // ── Ship the opening city's spots, not three provinces' worth ────────────
   //
@@ -66,8 +90,12 @@ export default async function ExplorePage() {
   // but falls back to the best-scoring city, and "best-scoring" cannot be known
   // without scores for every city. When the pilot city is covered — which is
   // the shipped configuration — the narrow path is the one that runs.
-  const payload = hasPreferredDefaultCity(hierarchy)
-    ? await fetchMapSpots({ city: PREFERRED_DEFAULT_CITY })
+  const openingCity =
+    coveredCitySlug(hierarchy, loc) ??
+    (hasPreferredDefaultCity(hierarchy) ? PREFERRED_DEFAULT_CITY : null);
+
+  const payload = openingCity
+    ? await fetchMapSpots({ city: openingCity })
     : await fetchMapSpots({ bbox: COVERED_BBOX_ALL });
 
   const data = buildExploreData(hierarchy, payload);
@@ -84,13 +112,19 @@ export default async function ExplorePage() {
   // client finds this payload already in hand instead of refetching it.
   //
   // Stripped to the ANONYMOUS horizon before it goes into the HTML. This page
-  // is statically rendered and shared by every visitor, so it has no session to
-  // read and no business carrying paid days: putting all 14 in the markup is
-  // precisely the leak `resolveEntitlement` was written to close. The shell
-  // renders days past this horizon as pending rather than locked until the
-  // client learns the real tier — nothing is promised and nothing is withheld
-  // on a guess.
-  const initialBbox = openingBbox(data.spots, data.defaultCitySlug);
+  // reads no session — it renders per request now, but off `?loc` alone, which
+  // is not identity — so it has no business carrying paid days: putting all 14
+  // in the markup is precisely the leak `resolveEntitlement` was written to
+  // close. The shell renders days past this horizon as pending rather than
+  // locked until the client learns the real tier — nothing is promised and
+  // nothing is withheld on a guess.
+  //
+  // `framedCity` is the one the box is cut from, and it is what the shell is
+  // told: on the wide fallback `openingCity` is null but the box is still one
+  // city's, so passing the raw `openingCity` there would have the client throw
+  // away a prefetch that was perfectly good.
+  const framedCity = openingCity ?? data.defaultCitySlug;
+  const initialBbox = openingBbox(data.spots, framedCity);
   const forecast = initialBbox ? await fetchMapForecast14d(initialBbox) : null;
   const initialForecast = forecast
     ? stripViewportForecast(forecast, visibleForecastDays(false, false))
@@ -102,14 +136,32 @@ export default async function ExplorePage() {
   // every server render — the bailout was previously masked because the tree
   // below the gate never executed on the server at all.
   //
+  // ── Why this route is `ƒ` and not `○` ────────────────────────────────────
+  //
+  // Reading `searchParams` above opts the route out of static rendering: it
+  // used to prerender once and serve from the CDN, and now every request runs
+  // the function. There is no way around that in this Next version — a dynamic
+  // read anywhere bails the whole route, Suspense included, and PPR (which is
+  // exactly the feature that would let the shell stay static with a dynamic
+  // hole) is canary-only in 15.3.
+  //
+  // The cost is bounded on purpose. Both fetches above go through the Data
+  // Cache (300 s for spots, 120 s for the strip), so a warm render is
+  // assembly, not round trips — measured locally at ~15 ms against ~3 ms for
+  // the prerendered file. And `coveredCitySlug` gates `?loc` against the
+  // covered-city tree, so the number of distinct cache entries is the number
+  // of covered cities, not the number of strings a caller can invent.
+  //
   // The indexable content lives on /fishing/[province]/[city] and
   // /explore/spot/[slug], both of which prerender fully; this route is the
-  // interactive map app.
+  // interactive map app, already `robots: { index: false }`, so nothing about
+  // this trade touches what Google sees.
   return (
     <Suspense fallback={<ExploreLoading />}>
       <ExploreShell
         data={data}
         bbox={COVERED_BBOX_ALL}
+        initialCitySlug={framedCity}
         initialForecast={initialForecast}
         initialForecastBbox={initialBbox}
       />
