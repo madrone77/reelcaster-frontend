@@ -5,6 +5,7 @@ import {
   fetchHierarchyLight,
   fetchMapForecast14d,
   fetchMapSpots,
+  fetchSpotCoords,
 } from "@/lib/bluecaster";
 import {
   stripViewportForecast,
@@ -16,7 +17,7 @@ import {
   hasPreferredDefaultCity,
   PREFERRED_DEFAULT_CITY,
 } from "./lib/explore-data";
-import { openingBbox } from "./lib/viewport-bbox";
+import { openingBbox, spotViewBox } from "./lib/viewport-bbox";
 import ExploreShell from "./explore-shell";
 
 
@@ -76,6 +77,32 @@ export default async function ExplorePage({
   // return. The client behaviour is unchanged for every URL this cannot
   // resolve.
   const loc = typeof params.loc === "string" ? params.loc : null;
+  const spot = typeof params.spot === "string" ? params.spot : null;
+
+  // ── The spot the URL asked for, which outranks the city ──────────────────
+  //
+  // `?spot` is the more specific frame — an "open in map" from a spot page, a
+  // search hit, a link somebody shared of one piece of water — so it wins over
+  // `?loc` when both are present.
+  //
+  // It had a longer version of the same problem `?loc` did, and a worse chain:
+  // the shell could not find the slug in the default city's spots, so it asked
+  // for the spot's coordinates alone, flew 800 ms to them, and only then did
+  // the settled viewport pull in the spots that let the drawer open. Every leg
+  // of that waited on the JS bundle first.
+  //
+  // Resolving the slug here is the extra hop `?loc` did not need: `map/spots`
+  // takes a city or a bbox, never a spot, so a slug has to become coordinates
+  // before it can become a payload. It is cached upstream for an hour — a spot
+  // does not move — so the hop is a Data Cache read on all but the first ask.
+  //
+  // An unknown or unpublished slug resolves to nothing and simply falls through
+  // to the `?loc` / default-city path below, which is where the client would
+  // have ended up anyway.
+  const spotCoords = spot
+    ? (await fetchSpotCoords([spot]))?.find((s) => s.slug === spot) ?? null
+    : null;
+  const spotBox = spotCoords ? spotViewBox(spotCoords) : null;
 
   // ── Ship the opening city's spots, not three provinces' worth ────────────
   //
@@ -94,9 +121,11 @@ export default async function ExplorePage({
     coveredCitySlug(hierarchy, loc) ??
     (hasPreferredDefaultCity(hierarchy) ? PREFERRED_DEFAULT_CITY : null);
 
-  const payload = openingCity
-    ? await fetchMapSpots({ city: openingCity })
-    : await fetchMapSpots({ bbox: COVERED_BBOX_ALL });
+  const payload = spotBox
+    ? await fetchMapSpots({ bbox: spotBox })
+    : openingCity
+      ? await fetchMapSpots({ city: openingCity })
+      : await fetchMapSpots({ bbox: COVERED_BBOX_ALL });
 
   const data = buildExploreData(hierarchy, payload);
 
@@ -108,23 +137,34 @@ export default async function ExplorePage({
   // a 4x-throttled CPU — and 4.2 s of that 5.0 s was spent before the request
   // was even made. The payload is 4.7 KB. It belongs in the first response.
   //
-  // `openingBbox` is the same key the shell seeds itself with at mount, so the
-  // client finds this payload already in hand instead of refetching it.
+  // On a city frame `openingBbox` is the same key the shell seeds itself with
+  // at mount, so the client finds this payload already in hand instead of
+  // refetching it. A spot frame cannot reach that equality — its box comes from
+  // the real viewport, which is a browser fact — so there the prefetch is a
+  // seed that paints immediately and is replaced once the camera reports. That
+  // is still far better than the alternative, which was an empty strip until
+  // the bundle landed.
   //
   // Stripped to the ANONYMOUS horizon before it goes into the HTML. This page
-  // reads no session — it renders per request now, but off `?loc` alone, which
-  // is not identity — so it has no business carrying paid days: putting all 14
-  // in the markup is precisely the leak `resolveEntitlement` was written to
-  // close. The shell renders days past this horizon as pending rather than
-  // locked until the client learns the real tier — nothing is promised and
-  // nothing is withheld on a guess.
+  // reads no session — it renders per request now, but off `?loc`/`?spot`
+  // alone, which is not identity — so it has no business carrying paid days:
+  // putting all 14 in the markup is precisely the leak `resolveEntitlement` was
+  // written to close. The shell renders days past this horizon as pending
+  // rather than locked until the client learns the real tier — nothing is
+  // promised and nothing is withheld on a guess.
   //
-  // `framedCity` is the one the box is cut from, and it is what the shell is
-  // told: on the wide fallback `openingCity` is null but the box is still one
+  // `framedCity` is the city the payload is about, and it is what the shell is
+  // told. On the wide fallback `openingCity` is null but the box is still one
   // city's, so passing the raw `openingCity` there would have the client throw
-  // away a prefetch that was perfectly good.
-  const framedCity = openingCity ?? data.defaultCitySlug;
-  const initialBbox = openingBbox(data.spots, framedCity);
+  // away a prefetch that was perfectly good. On a spot frame it is read back off
+  // the payload — the spot knows its own home city, so this costs no extra
+  // fetch — and it is what scopes the rail and names the location pill while
+  // the map is still booting.
+  const framedCity = spotBox
+    ? data.spots.find((s) => s.slug === spot)?.citySlug ?? null
+    : openingCity ?? data.defaultCitySlug;
+
+  const initialBbox = spotBox ?? openingBbox(data.spots, framedCity);
   const forecast = initialBbox ? await fetchMapForecast14d(initialBbox) : null;
   const initialForecast = forecast
     ? stripViewportForecast(forecast, visibleForecastDays(false, false))
@@ -162,6 +202,7 @@ export default async function ExplorePage({
         data={data}
         bbox={COVERED_BBOX_ALL}
         initialCitySlug={framedCity}
+        initialSpot={spotCoords}
         initialForecast={initialForecast}
         initialForecastBbox={initialBbox}
       />

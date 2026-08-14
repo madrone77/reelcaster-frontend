@@ -29,6 +29,42 @@ export function paddedBbox(b: ViewBounds): string {
   return `${r(b.w - padLng)},${r(b.s - padLat)},${r(b.e + padLng)},${r(b.n + padLat)}`;
 }
 
+/** The zoom a `?spot` deep link opens at — the one its `flyTo` has always used. */
+export const SPOT_LINK_ZOOM = 12;
+
+/**
+ * A box around a single spot, big enough to cover the frame a `?spot` link
+ * opens at whatever size the browser turns out to be.
+ *
+ * This is a guess, and it has to be: framing a point means "zoom 12 around this
+ * coordinate", and how much water that covers depends on the viewport, which
+ * the server does not know. A 1440-wide desktop at zoom 12 spans roughly 0.25°
+ * of longitude; at 48°N the latitude degrees are Mercator-compressed by about
+ * cos(φ), so the same frame is roughly 0.10° tall.
+ *
+ * The numbers below are about 1.6× that, so the payload covers a desktop frame,
+ * a phone held in either orientation, and a little pan slack. Erring wide is
+ * nearly free — spots outside the frame just do not draw — while erring narrow
+ * costs the thing this whole path exists to avoid: an empty map until the
+ * client fetches again.
+ *
+ * Unlike `openingBbox`, this cannot round to the same key the client will mint,
+ * because that key comes from the real viewport. The strip still paints from it
+ * immediately and is replaced once when the camera reports; see the seeding
+ * comment in explore-shell.
+ */
+export function spotViewBox(spot: { lat: number; lng: number }): string {
+  const HALF_LNG = 0.2;
+  const HALF_LAT = 0.12;
+  const r = (v: number) => Math.round(v * 100) / 100;
+  return [
+    r(spot.lng - HALF_LNG),
+    r(spot.lat - HALF_LAT),
+    r(spot.lng + HALF_LNG),
+    r(spot.lat + HALF_LAT),
+  ].join(",");
+}
+
 export function boundsOf(
   spots: RailSpot[],
 ): [[number, number], [number, number]] | null {
