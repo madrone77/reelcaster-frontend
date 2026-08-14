@@ -6,7 +6,7 @@ import { MixpanelProvider } from '@/contexts/mixpanel-context'
 import { UnitPreferencesProvider } from '@/contexts/unit-preferences-context'
 import AuthGate from '@/app/components/auth/auth-gate'
 import MobileBottomNav from '@/app/components/mobile-bottom-nav'
-import ProWelcomeModal from '@/app/components/pro/pro-welcome-modal'
+import WelcomeGate from '@/app/components/welcome/welcome-gate'
 import AttributionCapture from '@/app/components/attribution/attribution-capture'
 import { GoogleAnalytics } from '@next/third-parties/google'
 import { ADSENSE_CLIENT } from '@/lib/adsense'
@@ -115,9 +115,10 @@ export default function RootLayout({
                 {children}
                 <MobileBottomNav />
                 {/* Mounted at the root because there is no single post-login
-                    landing page — a new Pro user can arrive on any route.
-                    Renders null for everyone who isn't owed the welcome. */}
-                <ProWelcomeModal />
+                    landing page: a new account can arrive on any route. Picks
+                    between the three-step new-user tour and the Pro setup
+                    wizard, and renders null for everyone owed neither. */}
+                <WelcomeGate />
               </AuthGate>
             </UnitPreferencesProvider>
           </MixpanelProvider>

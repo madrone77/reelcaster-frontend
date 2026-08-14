@@ -210,6 +210,12 @@ export type AnalyticsEventName =
   // — both stop it reappearing, only one means they reached the end.
   | 'Pro Welcome Dismissed'
   | 'Pro Onboarding Completed'
+  // New-user tour. 'Shown' fires once per account, 'Step' on each advance, and
+  // 'Completed' vs 'Dismissed' separates reading it through from bailing out.
+  | 'Welcome Tour Shown'
+  | 'Welcome Tour Step'
+  | 'Welcome Tour Completed'
+  | 'Welcome Tour Dismissed'
   // Performance
   | 'Page Load Time'
   | 'API Call'
