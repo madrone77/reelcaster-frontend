@@ -4,6 +4,7 @@ import Link from "next/link";
 import {
   ChevronRight,
   Home,
+  Lock,
   Sailboat,
   Thermometer,
   Waves,
@@ -11,6 +12,7 @@ import {
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import type { RightNowSnapshot } from "@/lib/bluecaster/live-spot-types";
+import type { SpotDay } from "@/app/explore/components/spot-day-strip";
 
 // Score tier → the ring stroke and the badge. Same three cuts the rest of the
 // app uses (75 / 55), but tuned for a dark card: the badge fills read as ink on
@@ -158,6 +160,111 @@ function HourStrip({
   );
 }
 
+/**
+ * The next fortnight, as one bar per day. The shared `SpotDayStrip` is built
+ * for a white card — its tier tokens are washes meant to sit on `rc-surface`
+ * and disappear against navy — so this is the hero's own rendering of the same
+ * `SpotDay[]`, off the same bulk payload as every card below.
+ *
+ * Bar heights are scaled to THIS fortnight's own range, not to 0–100 or to the
+ * shared strip's fixed floor of 40. After the engine's rescale a good spot's
+ * fourteen days sit inside a band like 82–90, which on any absolute scale is
+ * fourteen identical bars — the one question the strip exists to answer, which
+ * day to pick, is exactly the one it then cannot show. The trade is that a
+ * three-point spread draws as dramatically as a thirty-point one, so the range
+ * is printed next to the label: the shape is relative, the numbers are not.
+ */
+function DayStrip({ days }: { days: SpotDay[] }) {
+  const scored = days.filter((d) => d.score !== null);
+  const best = scored.reduce<SpotDay | null>(
+    (top, d) => (!top || d.score! > top.score! ? d : top),
+    null,
+  );
+  const lockedCount = days.filter((d) => d.locked).length;
+  const values = scored.map((d) => d.score!);
+  const lo = values.length ? Math.min(...values) : 0;
+  const hi = values.length ? Math.max(...values) : 0;
+  const span = hi - lo;
+  const heightPct = (s: number | null) => {
+    if (s === null) return 8;
+    // A flat fortnight is a real answer — draw it flat rather than letting
+    // rounding noise invent a shape out of a one-point spread.
+    if (span < 2) return 72;
+    return 32 + 68 * ((s - lo) / span);
+  };
+
+  return (
+    <div>
+      <div className="mb-2 flex items-baseline justify-between gap-2">
+        <span className="font-rc-mono text-[9px] uppercase tracking-[0.14em] text-white/45">
+          Next 14 days
+          {values.length > 1 && (
+            <span className="text-white/30">
+              {" "}
+              · {lo}–{hi}
+            </span>
+          )}
+        </span>
+        {lockedCount > 0 ? (
+          <span className="flex shrink-0 items-center gap-1 font-rc-mono text-[10px] font-bold uppercase tracking-[0.08em] text-white/60">
+            <Lock className="h-2.5 w-2.5" />
+            {lockedCount} more
+          </span>
+        ) : (
+          best && (
+            <span className="truncate font-rc-mono text-[10px] font-bold uppercase tracking-[0.08em] text-white/80">
+              Best {best.dow} {best.date} · {best.score}
+            </span>
+          )
+        )}
+      </div>
+
+      <div className="flex h-12 items-end gap-[3px] sm:h-16 sm:gap-1.5">
+        {days.map((d, i) => {
+          if (d.locked) {
+            return (
+              <div
+                key={i}
+                title={`${d.dow} ${d.date} · locked`}
+                className="h-full flex-1 rounded-sm border border-dashed border-white/15 bg-white/[0.03]"
+              />
+            );
+          }
+          const isBest = best !== null && d === best;
+          const tint =
+            d.score === null ? null : TIER[tierOf(d.score)].ring;
+          return (
+            <div
+              key={i}
+              title={`${d.dow} ${d.date}${d.score !== null ? ` · ${d.score}` : ""}`}
+              className="flex-1 rounded-sm transition-all duration-500"
+              style={{
+                height: `${heightPct(d.score)}%`,
+                background: tint ?? "rgba(255,255,255,0.10)",
+                // Only the best day runs at full strength; the rest are dimmed
+                // so the shape of the fortnight reads before the detail does.
+                opacity: tint ? (isBest ? 1 : 0.42) : 1,
+                boxShadow: isBest && tint ? `0 0 8px ${tint}88` : undefined,
+              }}
+            />
+          );
+        })}
+      </div>
+
+      <div className="mt-1.5 flex gap-[3px] sm:gap-1.5">
+        {days.map((d, i) => (
+          <span
+            key={i}
+            className="flex-1 text-center font-rc-mono text-[9px] uppercase text-white/35"
+          >
+            {d.dow.slice(0, 1)}
+          </span>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 function ConditionTile({
   Icon,
   label,
@@ -194,6 +301,7 @@ export default function HomeSpotHero({
   rightNow,
   hours24,
   peakHour,
+  days14,
 }: {
   slug: string;
   name: string;
@@ -202,6 +310,8 @@ export default function HomeSpotHero({
   rightNow: RightNowSnapshot | null;
   hours24?: (number | null)[];
   peakHour?: number | null;
+  /** undefined = still reading (hold the space), null = nothing to draw. */
+  days14?: SpotDay[] | null;
 }) {
   const rn = rightNow;
   const hasHours = !!hours24?.some((h) => h != null);
@@ -256,6 +366,19 @@ export default function HomeSpotHero({
             />
           </div>
         )}
+
+        {/* ── The fortnight ──────────────────────────────────────────────── */}
+        {days14 === undefined ? (
+          // Hold the space rather than letting the conditions jump down when
+          // the bulk outlook lands a beat after the rest of the card.
+          <div className="mt-4 border-t border-white/10 pt-4">
+            <div className="h-[74px] animate-pulse rounded bg-white/[0.05] sm:h-[94px]" />
+          </div>
+        ) : days14 && days14.length > 0 ? (
+          <div className="mt-4 border-t border-white/10 pt-4">
+            <DayStrip days={days14} />
+          </div>
+        ) : null}
 
         {/* ── Conditions right now ───────────────────────────────────────── */}
         {rn && (

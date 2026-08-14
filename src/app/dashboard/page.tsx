@@ -24,7 +24,6 @@ import {
 import SpotCard from "@/app/explore/components/spot-card";
 import { spotDaysFrom } from "@/app/explore/components/spot-day-strip";
 import ExploreTopBar from "@/app/explore/components/explore-top-bar";
-import DashboardSavedMap from "./dashboard-saved-map";
 import HomeSpotHero from "./home-spot-hero";
 import MarketingFooter from "@/app/components/marketing/marketing-footer";
 import type { MapSpotsPayload } from "@/lib/bluecaster";
@@ -146,6 +145,11 @@ export default function DashboardPage() {
   // Raw map payload kept so the grid can render the shared Explore card from
   // the same numbers (railSpotFromEntry), not a forked card.
   const [payload, setPayload] = useState<MapSpotsPayload | null>(null);
+  // Whether the cached map read has come back at all, hit or miss. The outlook
+  // request waits on this so it fires once with the home spot's id included
+  // rather than twice — and, being a settled flag rather than `payload !== null`,
+  // it still releases if that read fails outright.
+  const [payloadSettled, setPayloadSettled] = useState(false);
   // Undo snackbar for an un-starred spot.
   const [undo, setUndo] = useState<{ slug: string; name: string } | null>(null);
   // Pinned home spot. Hydrates from the saved profile copy, so the hero is
@@ -247,10 +251,10 @@ export default function DashboardPage() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   const favSlugs = useMemo(() => (savedReady ? savedSlugs : null), [savedReady, savedKey]);
 
-  // Coordinates for those favourites — the map's first paint — now ride along
-  // with the saved list itself (/api/saved-spots resolves them server-side).
-  // They used to be a second client round trip that could not begin until the
-  // list came back, which put the map two serial hops deep on a first visit.
+  // Names and coordinates for those favourites, riding along with the saved
+  // list itself (/api/saved-spots resolves them server-side). Now that the
+  // summary map is gone this is what lets a card show its real name straight
+  // away instead of flashing a slug-derived guess until the bulk payload lands.
   const coords = savedReady ? savedCoords : null;
 
   // Today's best score per spot across the covered extent.
@@ -294,9 +298,11 @@ export default function DashboardPage() {
     let cancelled = false;
     fetchMapSpotsCached(COVERED_BBOX_ALL, todayVancouver())
       .then((p) => {
-        if (!cancelled && p) applyPayload(p, false);
+        if (cancelled) return;
+        if (p) applyPayload(p, false);
+        setPayloadSettled(true);
       })
-      .catch(() => {});
+      .catch(() => !cancelled && setPayloadSettled(true));
     return () => {
       cancelled = true;
     };
@@ -524,20 +530,40 @@ export default function DashboardPage() {
   // Keyed on the access token for the same reason the reports read is: the
   // plan gate lives in the route and reads the token, so a pass fired before
   // Supabase rehydrates would cap a Pro angler's strip at seven days.
+  // Today's hourly strip for the home spot, for the hero's bar chart. Read
+  // straight off the map payload rather than out of `railSpots`: that list is
+  // built from saved + custom spots only, and a home spot can be PINNED
+  // without being either — which is precisely the case where the hero is the
+  // one place it shows up. Same derivation the grid cards use, so the two
+  // never disagree about the peak.
+  const homeStrip = useMemo(() => {
+    if (!homeSlug || !payload) return null;
+    const entry = payload.spots.find((s) => s.slug === homeSlug);
+    return entry ? railSpotFromEntry(entry, payload, true) : null;
+  }, [homeSlug, payload]);
+
+  // The home spot rides along explicitly. The hero draws its own 14 days now,
+  // and a PINNED-but-unsaved home spot is in neither `custom` nor the saved
+  // list, so keying only on `railSpots` would leave the one card at the top of
+  // the page as the only one without a fortnight.
   const outlookIdsKey = useMemo(
     () =>
-      (railSpots ?? [])
-        .map((s) => s.id)
-        .filter((id) => UUID_RE.test(id))
+      [...(railSpots ?? []).map((s) => s.id), homeStrip?.id]
+        .filter((id): id is string => !!id && UUID_RE.test(id))
+        .filter((id, i, all) => all.indexOf(id) === i)
         .sort()
         .join(","),
-    [railSpots],
+    [railSpots, homeStrip?.id],
   );
+  // The home spot's id only exists once the map payload has landed, and
+  // `railSpots` is non-null well before that. Firing on `railSpots` alone sent
+  // the request once without the home spot and again with it.
+  const outlookWaiting = railSpots === null || (!!homeSlug && !payloadSettled);
   useEffect(() => {
-    if (!outlookIdsKey) {
-      // Either the spot set is still resolving (hold the skeletons) or there
-      // is genuinely nothing to draw (drop the row).
-      setOutlook(railSpots === null ? undefined : null);
+    if (outlookWaiting || !outlookIdsKey) {
+      // Either an input is still resolving (hold the skeletons) or there is
+      // genuinely nothing to draw (drop the row).
+      setOutlook(outlookWaiting ? undefined : null);
       return;
     }
     let cancelled = false;
@@ -552,10 +578,10 @@ export default function DashboardPage() {
     return () => {
       cancelled = true;
     };
-    // railSpots only decides the empty-vs-loading branch above; the request
-    // itself is keyed on the id list, so a re-sorted grid doesn't refetch.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [outlookIdsKey, railSpots === null, session?.access_token]);
+    // `outlookWaiting` only decides the empty-vs-loading branch above; the
+    // request itself is keyed on the id list, so a re-sorted grid doesn't
+    // refetch.
+  }, [outlookIdsKey, outlookWaiting, session?.access_token]);
 
   // ── derived ────────────────────────────────────────────────────────────────
   const activeAlertCount = alerts ? alerts.filter((a) => a.is_active).length : null;
@@ -591,17 +617,9 @@ export default function DashboardPage() {
 
   const spotsLoading = spotCards === null;
   const homeCard = spotCards?.find((s) => s.slug === homeSlug) ?? null;
-  // Today's hourly strip for the home spot, for the hero's bar chart. Read
-  // straight off the map payload rather than out of `railSpots`: that list is
-  // built from saved + custom spots only, and a home spot can be PINNED
-  // without being either — which is precisely the case where the hero is the
-  // one place it shows up. Same derivation the grid cards use, so the two
-  // never disagree about the peak.
-  const homeStrip = useMemo(() => {
-    if (!homeSlug || !payload) return null;
-    const entry = payload.spots.find((s) => s.slug === homeSlug);
-    return entry ? railSpotFromEntry(entry, payload, true) : null;
-  }, [homeSlug, payload]);
+  // Everything except the home spot — that one is the hero, and listing it
+  // again three hundred pixels lower said the same thing twice.
+  const otherSpots = (railSpots ?? []).filter((s) => s.slug !== homeSlug);
 
   // Regulations rail — a restrictive reg on the home spot, if any.
   const restrictiveReg = (homeLive?.regulations ?? []).find(
@@ -708,9 +726,13 @@ export default function DashboardPage() {
           </div>
         </header>
 
-        {/* ── Two-column body ────────────────────────────────────────────── */}
-        <div className="grid grid-cols-1 gap-6 lg:grid-cols-[1fr_360px]">
-          {/* LEFT — hero + spots */}
+        {/* ── Body ───────────────────────────────────────────────────────
+            One column, top to bottom: the home spot, today's report, then
+            every other spot, with alerts / catches / regulations at the foot.
+            The 360px rail this used to carry only existed on desktop, so the
+            phone — where the dashboard is actually read — got a pile of cards
+            in an order nobody chose. */}
+        <div className="mx-auto max-w-[860px]">
           <div>
             {spotsLoading && homeSlug ? (
               <div className="h-[300px] animate-pulse rounded-2xl bg-rc-navy/90" />
@@ -723,6 +745,13 @@ export default function DashboardPage() {
                 rightNow={homeLive?.rightNow ?? null}
                 hours24={homeStrip?.hours24}
                 peakHour={homeStrip?.peakHour}
+                days14={
+                  outlook === undefined
+                    ? undefined
+                    : homeStrip
+                      ? spotDaysFrom(outlook, homeStrip.id)
+                      : null
+                }
               />
             ) : (
               <Link
@@ -739,18 +768,15 @@ export default function DashboardPage() {
               </Link>
             )}
 
-            {/* Saved-spots summary map — sits right under the hero. */}
-            <div className="mt-6">
-              <DashboardSavedMap
-                spots={railSpots ?? []}
-                // Coordinates, not scores: once the coords read lands every
-                // favourite is placeable (custom spots carry their own), so the
-                // map no longer has to wait on the bulk payload.
-                resolving={railSpots === null || coords === null}
-              />
+            {/* Today's report for the home spot's city, headline first. The
+                saved-spots map used to sit here; it repeated pins the angler
+                can already read on Explore, and it cost a MapLibre instance
+                and a tile fetch on every dashboard load to do it. */}
+            <div className="mt-4">
+              <DailyReportCard />
             </div>
 
-            {/* Your spots */}
+            {/* The rest of your spots */}
             <div className="mb-3 mt-8 flex items-center justify-between">
               <div className="flex items-baseline gap-3">
                 <h2 className="text-lg font-bold text-rc-ink">Your spots</h2>
@@ -779,14 +805,13 @@ export default function DashboardPage() {
                   />
                 ))}
               </div>
-            ) : railSpots && railSpots.length > 0 ? (
+            ) : otherSpots.length > 0 ? (
               <div className="grid grid-cols-1 gap-4">
-                {railSpots.map((rs) => (
+                {otherSpots.map((rs) => (
                   <SpotCard
                     key={rs.slug}
                     spot={rs}
                     showVisibility
-                    homeBadge={rs.slug === homeSlug}
                     fresh={spotReports?.spots[rs.id]}
                     showDayStrip
                     days14={
@@ -808,8 +833,10 @@ export default function DashboardPage() {
                 ))}
               </div>
             ) : (
-              <div className="rounded border border-dashed border-rc-rule bg-rc-panel p-8 text-center">
-                <p className="text-sm font-semibold text-rc-ink">No spots yet</p>
+              <div className="rounded-xl border border-dashed border-rc-rule bg-rc-panel p-8 text-center">
+                <p className="text-sm font-semibold text-rc-ink">
+                  {homeCard ? "Nothing else saved yet" : "No spots yet"}
+                </p>
                 <p className="mt-1 text-sm text-rc-ink-soft">
                   Save a spot or drop your own to see it here.
                 </p>
@@ -824,15 +851,14 @@ export default function DashboardPage() {
 
           </div>
 
-          {/* RIGHT — rail. Cards share the Explore spot-card language: a 2px
-              rule, a mono status pill top-right, and a plain-English
-              conclusion line — no colored top-borders or filled boxes. */}
-          <div className="space-y-4">
-            {/* Daily report for the home spot's city — leads the rail
-                because it's the one thing here that changes every day and
-                that nobody else has. Pro only; renders nothing for free. */}
-            <DailyReportCard />
-
+          {/* ── Foot — alerts, catches, regulations ──────────────────────────
+              Same three cards as before, moved out of the desktop-only right
+              rail to the bottom of the one column. They side by side once
+              there's room; on a phone they stack, which is where they already
+              ended up. Cards share the Explore spot-card language: a 2px rule,
+              a mono status pill top-right, and a plain-English conclusion line
+              — no colored top-borders or filled boxes. */}
+          <div className="mt-8 grid grid-cols-1 gap-4 md:grid-cols-3">
             {/* Alerts */}
             <RailCard
               title="Alerts"

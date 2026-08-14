@@ -83,10 +83,11 @@ function Paragraphs({ md, className }: { md: string; className: string }) {
 
 export function DailyReportCard() {
   const [data, setData] = useState<Payload | null>(null);
-  // Collapsed by default. Expanded, this card runs ~1160px against ~120px
-  // for the other rail cards, which pushes alerts, catches and regulations
-  // clean off the fold. "On the water" is the reason the card exists, so
-  // that stays open and the forecast note and tips fold away.
+  // Headline only until asked. The card now sits in the main column between
+  // the home spot and the saved-spot list, where three or four paragraphs of
+  // prose would push the spots clean off the fold. The headline is the whole
+  // report in one line; "On the water", the outlook and the tips are what the
+  // plus is for.
   const [expanded, setExpanded] = useState(false);
 
   useEffect(() => {
@@ -169,102 +170,93 @@ export function DailyReportCard() {
   }
 
   const r = data.report;
-  const hasMore = Boolean(r.outlook_md) || r.tips.length > 0;
 
   return (
-    <div className="overflow-hidden rounded border border-rc-rule bg-rc-panel">
-      <div className="px-4 pb-4 pt-3.5">
-        <div className="flex items-start justify-between gap-2">
-          <span className="text-[15px] font-medium text-rc-ink">
-            {data.city?.name ?? "Your area"} daily report
-          </span>
-          <span className="shrink-0 rounded bg-rc-surface px-2 py-0.5 font-rc-mono text-[11px] font-bold text-rc-ink-soft">
-            {r.reports_window_days}D
-          </span>
-        </div>
-
-        {r.headline && (
-          <p className="mt-2 text-[13.5px] font-medium leading-snug text-rc-ink">
-            {r.headline}
-          </p>
-        )}
-
-        <div className="mt-3 border-t border-rc-rule pt-3">
-          <div className="font-rc-mono text-[11px] font-bold uppercase tracking-wide text-rc-brand">
-            On the water
+    <div className="overflow-hidden rounded-xl border border-rc-rule bg-rc-panel">
+      {/* The whole collapsed card is the toggle: at a glance it is a headline
+          with a plus, and anywhere on that row should open it. */}
+      <button
+        type="button"
+        onClick={() => setExpanded((v) => !v)}
+        aria-expanded={expanded}
+        aria-controls="daily-report-more"
+        className="flex w-full items-start gap-3 px-4 pb-4 pt-3.5 text-left focus-visible:outline focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-rc-brand"
+      >
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center gap-2">
+            <span className="font-rc-mono text-[10px] font-bold uppercase tracking-[0.14em] text-rc-brand">
+              {data.city?.name ?? "Your area"} daily report
+            </span>
+            <span className="shrink-0 rounded bg-rc-surface px-1.5 py-0.5 font-rc-mono text-[10px] font-bold text-rc-ink-mute">
+              {r.reports_window_days}D
+            </span>
           </div>
-          {r.reports_md ? (
-            <div className="mt-1.5 space-y-2">
-              <Paragraphs
-                md={r.reports_md}
-                className="text-[13px] leading-relaxed text-rc-ink-soft"
-              />
-            </div>
-          ) : (
-            <p className="mt-1.5 font-rc-mono text-[12px] text-rc-ink-soft">
-              No angler reports around your spot in the last{" "}
-              {r.reports_window_days} days.
-            </p>
-          )}
+          <p className="mt-1.5 text-[15px] font-semibold leading-snug text-rc-ink">
+            {r.headline ?? `What anglers are catching around ${data.city?.name ?? "you"}`}
+          </p>
         </div>
+        <span
+          aria-hidden
+          className={`mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-rc-rule text-[15px] leading-none text-rc-brand transition-transform duration-200 ${
+            expanded ? "rotate-45" : ""
+          }`}
+        >
+          +
+        </span>
+      </button>
 
-        {hasMore && (
-          <div className="mt-3 border-t border-rc-rule pt-3">
-            <button
-              type="button"
-              onClick={() => setExpanded((v) => !v)}
-              aria-expanded={expanded}
-              aria-controls="daily-report-more"
-              // -my-1 keeps the padded hit area from adding height to the
-              // card; the row still reads as flush with the divider above.
-              className="-my-1 flex w-full items-center justify-between gap-2 rounded py-1 font-rc-mono text-[11px] font-bold uppercase tracking-wide text-rc-brand hover:text-rc-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-rc-brand"
-            >
-              <span>
-                {expanded
-                  ? "Hide outlook & tips"
-                  : `Outlook${r.tips.length > 0 ? " & tips" : ""}`}
-              </span>
-              <span aria-hidden className="text-[13px] leading-none">
-                {expanded ? "−" : "+"}
-              </span>
-            </button>
-
-            {expanded && (
-              <div id="daily-report-more">
-                {r.outlook_md && (
-                  <div className="mt-3">
-                    <div className="font-rc-mono text-[11px] font-bold uppercase tracking-wide text-rc-ink-mute">
-                      Next {r.outlook_horizon_days} days
-                    </div>
-                    <div className="mt-1.5 space-y-2">
-                      <Paragraphs
-                        md={r.outlook_md}
-                        className="text-[12.5px] leading-relaxed text-rc-ink-soft"
-                      />
-                    </div>
-                  </div>
-                )}
-
-                {r.tips.length > 0 && (
-                  <ul className="mt-3 space-y-1.5">
-                    {r.tips.map((t, i) => (
-                      <li
-                        key={i}
-                        className="flex gap-2 text-[12.5px] leading-snug text-rc-ink-soft"
-                      >
-                        <span aria-hidden className="text-rc-brand">
-                          →
-                        </span>
-                        <span>{t.text}</span>
-                      </li>
-                    ))}
-                  </ul>
-                )}
+      {expanded && (
+        <div id="daily-report-more" className="px-4 pb-4">
+          <div className="border-t border-rc-rule pt-3">
+            <div className="font-rc-mono text-[11px] font-bold uppercase tracking-wide text-rc-brand">
+              On the water
+            </div>
+            {r.reports_md ? (
+              <div className="mt-1.5 space-y-2">
+                <Paragraphs
+                  md={r.reports_md}
+                  className="text-[13px] leading-relaxed text-rc-ink-soft"
+                />
               </div>
+            ) : (
+              <p className="mt-1.5 font-rc-mono text-[12px] text-rc-ink-soft">
+                No angler reports around your spot in the last{" "}
+                {r.reports_window_days} days.
+              </p>
             )}
           </div>
-        )}
-      </div>
+
+          {r.outlook_md && (
+            <div className="mt-3 border-t border-rc-rule pt-3">
+              <div className="font-rc-mono text-[11px] font-bold uppercase tracking-wide text-rc-ink-mute">
+                Next {r.outlook_horizon_days} days
+              </div>
+              <div className="mt-1.5 space-y-2">
+                <Paragraphs
+                  md={r.outlook_md}
+                  className="text-[12.5px] leading-relaxed text-rc-ink-soft"
+                />
+              </div>
+            </div>
+          )}
+
+          {r.tips.length > 0 && (
+            <ul className="mt-3 space-y-1.5 border-t border-rc-rule pt-3">
+              {r.tips.map((t, i) => (
+                <li
+                  key={i}
+                  className="flex gap-2 text-[12.5px] leading-snug text-rc-ink-soft"
+                >
+                  <span aria-hidden className="text-rc-brand">
+                    →
+                  </span>
+                  <span>{t.text}</span>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      )}
     </div>
   );
 }
