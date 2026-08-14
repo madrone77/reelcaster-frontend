@@ -25,6 +25,7 @@ import SpotCard from "@/app/explore/components/spot-card";
 import { spotDaysFrom } from "@/app/explore/components/spot-day-strip";
 import ExploreTopBar from "@/app/explore/components/explore-top-bar";
 import HomeSpotHero from "./home-spot-hero";
+import AroundYou, { aroundYouFrom } from "./around-you";
 import MarketingFooter from "@/app/components/marketing/marketing-footer";
 import type { MapSpotsPayload } from "@/lib/bluecaster";
 import { useHomeSpotSlug } from "@/app/explore/lib/use-home-spot";
@@ -621,6 +622,22 @@ export default function DashboardPage() {
   // again three hundred pixels lower said the same thing twice.
   const otherSpots = (railSpots ?? []).filter((s) => s.slug !== homeSlug);
 
+  // The best water in the cities this angler already fishes, off the payload
+  // that is fetched for the scores anyway. `null` until both the spot set and
+  // that payload have settled, so the section holds its skeleton rather than
+  // rendering a city short.
+  const aroundYou = useMemo(
+    () =>
+      railSpots === null || !payloadSettled
+        ? null
+        : aroundYouFrom(
+            payload,
+            [...railSpots.map((s) => s.slug), ...(homeSlug ? [homeSlug] : [])],
+            homeSlug,
+          ),
+    [payload, payloadSettled, railSpots, homeSlug],
+  );
+
   // Regulations rail — a restrictive reg on the home spot, if any.
   const restrictiveReg = (homeLive?.regulations ?? []).find(
     (r) => r.status !== "Open" || r.nextOpenDate
@@ -774,6 +791,15 @@ export default function DashboardPage() {
                 and a tile fetch on every dashboard load to do it. */}
             <div className="mt-4">
               <DailyReportCard />
+            </div>
+
+            {/* The city block sits with the report rather than below the spot
+                list: both answer "what is happening around me", one in prose
+                and one in numbers, and the discovery is worth more before the
+                angler has scrolled their own spots than after. Kept to three
+                rows a city so it doesn't push that list off the fold. */}
+            <div className="mt-8">
+              <AroundYou cities={aroundYou} />
             </div>
 
             {/* The rest of your spots */}
