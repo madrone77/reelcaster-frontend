@@ -55,9 +55,15 @@ interface OfferClaim {
  * claim is attached to an account, a later visit cannot move it out from under
  * an admin who is about to action it.
  */
-export function captureOffer(code: OfferCode): void {
+export function captureOffer(offer: OfferCode): void {
   if (typeof window === 'undefined') return;
-  writeJsonCookie(OFFER_COOKIE, { code, ts: new Date().toISOString() }, OFFER_MAX_AGE);
+  // `{ code: offer }` rather than a shorthand `{ code }` with a matching
+  // parameter name. The minifier inlines this one-line function into its call
+  // site, and when it did that to the shorthand it dropped the parameter and
+  // emitted a bare `{code, ...}` with nothing named `code` in scope — a
+  // ReferenceError that took the whole page down on hydration, in production
+  // only, because dev builds aren't minified. Keep the two names different.
+  writeJsonCookie(OFFER_COOKIE, { code: offer, ts: new Date().toISOString() }, OFFER_MAX_AGE);
 }
 
 /** The claimed offer, or null. Pass a Cookie header to read it server-side. */
