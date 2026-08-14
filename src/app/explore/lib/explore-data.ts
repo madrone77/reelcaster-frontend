@@ -118,10 +118,24 @@ function publishedSpotCount(city: HierarchyCity | HierarchyCityLight): number {
     : city.spots.filter((s) => s.is_published).length;
 }
 
-/** Is the preferred opening city in the covered tree with published spots? */
-export function hasPreferredDefaultCity(
+/**
+ * Echo `slug` back if it names a covered city that has published spots,
+ * otherwise null.
+ *
+ * This is the gate on `?loc`, and the reason it exists is that the slug goes
+ * straight into an upstream `city=` fetch. Anyone can type anything into a
+ * query string, so an unchecked value turns /explore into an open proxy for
+ * probing the map API — and a slug for a city that is covered but still empty
+ * would fetch a payload with nothing in it, leaving the page with no spots to
+ * frame and no bbox to prefetch a strip for. Both cases fall back to the
+ * default city, which is what the client already does with an `?loc` it cannot
+ * resolve (see `selectedCity` in explore-shell).
+ */
+export function coveredCitySlug(
   hierarchy: BlueCasterHierarchy | BlueCasterHierarchyLight | null,
-): boolean {
+  slug: string | null | undefined,
+): string | null {
+  if (!slug) return null;
   for (const country of hierarchy?.countries ?? []) {
     for (const sp of country.states_provinces) {
       if (!(COVERED_PROVINCES as readonly string[]).includes(sp.code)) continue;
@@ -129,13 +143,20 @@ export function hasPreferredDefaultCity(
         for (const city of region.cities as Array<
           HierarchyCity | HierarchyCityLight
         >) {
-          if (city.slug !== PREFERRED_DEFAULT_CITY) continue;
-          return publishedSpotCount(city) > 0;
+          if (city.slug !== slug) continue;
+          return publishedSpotCount(city) > 0 ? city.slug : null;
         }
       }
     }
   }
-  return false;
+  return null;
+}
+
+/** Is the preferred opening city in the covered tree with published spots? */
+export function hasPreferredDefaultCity(
+  hierarchy: BlueCasterHierarchy | BlueCasterHierarchyLight | null,
+): boolean {
+  return coveredCitySlug(hierarchy, PREFERRED_DEFAULT_CITY) !== null;
 }
 
 /** A species present in the loaded scores — populates the map filter dropdown. */
