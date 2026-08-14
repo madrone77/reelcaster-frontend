@@ -206,28 +206,32 @@
   .maplibregl-ctrl-attrib-button {
     @apply bg-rc-bg-dark/80!;
   }
-  /* INERT, kept as intent rather than behaviour. Two reasons, both worth
-     knowing before you edit it:
-       1. These sit in `@layer base`, and maplibre-gl.css is unlayered, so its
-          own `.maplibregl-ctrl { margin: 10px }` wins the cascade outright —
-          layered normal declarations always lose to unlayered ones. The
-          top-right control renders at maplibre's 10px/z-2 defaults today.
-       2. The only top-right control left in the app is the marketing map
-          (marketing-map.tsx); Explore moved its controls to bottom-right.
-     Moving these out of the layer would make them bite, which means shifting
-     the marketing map's zoom control from a 10px inset to 24px. That is a
-     visible change to the homepage, so it wants to be a deliberate one. */
-  .maplibregl-ctrl-top-right {
-    z-index: 40;
-  }
-  .maplibregl-ctrl-top-right .maplibregl-ctrl {
-    margin: 8px 24px 0 0;
-  }
   /* 88% opacity + blur, matching the frosted panels. */
   .maplibregl-ctrl-group {
     background: rgba(255, 255, 255, 0.88) !important;
     backdrop-filter: blur(8px);
   }
+}
+
+/* Top-right zoom control: 8px down, 24px in from the edge.
+   Overriding maplibre's own stylesheet takes clearing two hurdles, and this
+   rule needs both, so leave the shape alone unless you have re-checked it:
+     1. OUTSIDE `@layer base`. maplibre-gl.css ships unlayered, and an unlayered
+        normal declaration beats a layered one whatever the specificity, so
+        anything written inside the layer loses to maplibre by default.
+     2. The leading `.maplibregl-map`. Maplibre sets the same two selectors at
+        the same specificity (`.maplibregl-ctrl-top-right .maplibregl-ctrl
+        { margin: 10px 10px 0 0 }`), and it is imported per map component, so
+        its chunk lands after this file and wins any tie on source order. The
+        extra ancestor takes specificity to 0,3,0 and settles it without
+        reaching for !important.
+   The marketing map (marketing-map.tsx) is the app's only top-right control;
+   Explore keeps its controls bottom-right and is styled further down. */
+.maplibregl-map .maplibregl-ctrl-top-right {
+  z-index: 40;
+}
+.maplibregl-map .maplibregl-ctrl-top-right .maplibregl-ctrl {
+  margin: 8px 24px 0 0;
 }
 
 /* Mobile safe area utilities */
