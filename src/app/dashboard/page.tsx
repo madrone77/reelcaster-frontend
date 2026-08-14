@@ -25,6 +25,7 @@ import SpotCard from "@/app/explore/components/spot-card";
 import { spotDaysFrom } from "@/app/explore/components/spot-day-strip";
 import ExploreTopBar from "@/app/explore/components/explore-top-bar";
 import DashboardSavedMap from "./dashboard-saved-map";
+import HomeSpotHero from "./home-spot-hero";
 import MarketingFooter from "@/app/components/marketing/marketing-footer";
 import type { MapSpotsPayload } from "@/lib/bluecaster";
 import { useHomeSpotSlug } from "@/app/explore/lib/use-home-spot";
@@ -42,15 +43,6 @@ const COVERED_BBOX_ALL = "-139.06,41.99,-114.03,60";
 
 /** A real spot id, as opposed to the slug `unscoredRailSpot` stands in with. */
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-
-// ── tier + formatting helpers ───────────────────────────────────────────────
-const TIER = {
-  good: { line: "#16A34A", fill: "#DCFCE7" },
-  fair: { line: "#D78711", fill: "#FEF3E2" },
-  poor: { line: "#DC2626", fill: "#FEE2E2" },
-} as const;
-type Tier = keyof typeof TIER;
-const tierOf = (s: number): Tier => (s >= 75 ? "good" : s >= 55 ? "fair" : "poor");
 
 // "victoria-waterfront-ad3f9b" → "Victoria Waterfront" (strip id suffix, title-case).
 function prettify(slug: string): string {
@@ -125,14 +117,6 @@ function relTime(iso: string): string {
 function kgToLb(kg: number | null | undefined): number | null {
   if (typeof kg !== "number") return null;
   return Math.round(kg * 2.2046);
-}
-
-function seaState(waveM: number | null | undefined): string | null {
-  if (typeof waveM !== "number") return null;
-  if (waveM < 0.3) return "Calm";
-  if (waveM < 0.6) return "Light chop";
-  if (waveM < 1.2) return "Moderate";
-  return "Rough";
 }
 
 type Scored = { score: number; species: string | null };
@@ -607,7 +591,17 @@ export default function DashboardPage() {
 
   const spotsLoading = spotCards === null;
   const homeCard = spotCards?.find((s) => s.slug === homeSlug) ?? null;
-  const rn = homeLive?.rightNow ?? null;
+  // Today's hourly strip for the home spot, for the hero's bar chart. Read
+  // straight off the map payload rather than out of `railSpots`: that list is
+  // built from saved + custom spots only, and a home spot can be PINNED
+  // without being either — which is precisely the case where the hero is the
+  // one place it shows up. Same derivation the grid cards use, so the two
+  // never disagree about the peak.
+  const homeStrip = useMemo(() => {
+    if (!homeSlug || !payload) return null;
+    const entry = payload.spots.find((s) => s.slug === homeSlug);
+    return entry ? railSpotFromEntry(entry, payload, true) : null;
+  }, [homeSlug, payload]);
 
   // Regulations rail — a restrictive reg on the home spot, if any.
   const restrictiveReg = (homeLive?.regulations ?? []).find(
@@ -719,88 +713,21 @@ export default function DashboardPage() {
           {/* LEFT — hero + spots */}
           <div>
             {spotsLoading && homeSlug ? (
-              <div className="h-[188px] animate-pulse rounded bg-rc-navy/90" />
+              <div className="h-[300px] animate-pulse rounded-2xl bg-rc-navy/90" />
             ) : homeCard ? (
-              <Link
-                href={`/explore/spot/${homeCard.slug}`}
-                className="block rounded bg-rc-navy p-6 text-white transition-transform hover:-translate-y-0.5"
-              >
-                <div className="flex flex-col gap-6 md:flex-row md:justify-between">
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-1.5 font-rc-mono text-[11px] uppercase tracking-[0.14em] text-white/60">
-                      <Home className="h-3.5 w-3.5" />
-                      Home spot
-                    </div>
-                    <h2 className="mt-2 text-3xl font-black tracking-[-0.02em]">
-                      {homeCard.name}
-                    </h2>
-                    {homeCard.species && (
-                      <span className="mt-2 inline-block rounded bg-white/10 px-2 py-1 font-rc-mono text-[10px] font-bold uppercase tracking-[0.1em] text-white/80">
-                        {homeCard.species}
-                      </span>
-                    )}
-                    {rn && (
-                      <div className="mt-5 grid grid-cols-2 gap-4 sm:grid-cols-4">
-                        <HeroStat
-                          k="Tide"
-                          v={
-                            rn.tideM != null
-                              ? `${rn.tideM.toFixed(1)} m${
-                                  rn.tideTrend === "rising"
-                                    ? " ↑"
-                                    : rn.tideTrend === "falling"
-                                      ? " ↓"
-                                      : ""
-                                }`
-                              : null
-                          }
-                        />
-                        <HeroStat
-                          k="Wind"
-                          v={
-                            rn.windKt != null
-                              ? `${Math.round(rn.windKt)} kn${rn.windDir ? ` ${rn.windDir}` : ""}`
-                              : null
-                          }
-                        />
-                        <HeroStat
-                          k="Water"
-                          v={rn.seaTempC != null ? `${rn.seaTempC.toFixed(1)} °C` : null}
-                        />
-                        <HeroStat k="Sea" v={seaState(rn.waveM)} />
-                      </div>
-                    )}
-                    {rn?.tideTrend && (
-                      <div className="mt-5 flex items-center gap-2 font-rc-mono text-[11px] text-rc-good">
-                        <span className="h-1.5 w-1.5 rounded-full bg-rc-good" />
-                        {rn.tideTrend === "rising" ? "FLOOD TIDE · WATER RISING" : "EBB TIDE · WATER FALLING"}
-                      </div>
-                    )}
-                  </div>
-                  <div className="flex flex-row items-start justify-between gap-4 md:w-[210px] md:flex-col md:items-end md:border-l md:border-white/10 md:pl-6">
-                    <div className="text-right">
-                      <div className="text-5xl font-black leading-none tabular-nums">
-                        {homeCard.score ?? "—"}
-                      </div>
-                      {homeCard.score != null && (
-                        <span
-                          className="mt-2 inline-block rounded px-2 py-0.5 font-rc-mono text-[10px] font-bold uppercase"
-                          style={{
-                            background: TIER[tierOf(homeCard.score)].fill,
-                            color: TIER[tierOf(homeCard.score)].line,
-                          }}
-                        >
-                          {tierOf(homeCard.score)}
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              </Link>
+              <HomeSpotHero
+                slug={homeCard.slug}
+                name={homeCard.name}
+                species={homeCard.species}
+                score={homeCard.score}
+                rightNow={homeLive?.rightNow ?? null}
+                hours24={homeStrip?.hours24}
+                peakHour={homeStrip?.peakHour}
+              />
             ) : (
               <Link
                 href="/explore"
-                className="flex items-center justify-between rounded border border-dashed border-rc-rule bg-rc-panel px-6 py-8 text-rc-ink-soft transition-colors hover:border-rc-brand/40"
+                className="flex items-center justify-between rounded-2xl border border-dashed border-rc-rule bg-rc-panel px-6 py-8 text-rc-ink-soft transition-colors hover:border-rc-brand/40"
               >
                 <span className="flex items-center gap-3">
                   <Home className="h-5 w-5 text-rc-ink-mute" />
@@ -1055,8 +982,10 @@ export default function DashboardPage() {
 
       <MarketingFooter />
 
+      {/* Un-star undo. Cleared above the floating tab bar on phones; back to
+          the screen edge on desktop, where that bar isn't rendered. */}
       {undo && (
-        <div className="fixed inset-x-0 bottom-6 z-50 flex justify-center px-4">
+        <div className="fixed inset-x-0 bottom-[calc(6.25rem+env(safe-area-inset-bottom))] z-50 flex justify-center px-4 lg:bottom-6">
           <div className="flex items-center gap-3 rounded-lg bg-rc-navy px-4 py-2.5 text-sm text-white shadow-rc-panel">
             <span className="truncate">Removed {undo.name} from saved</span>
             <button
@@ -1177,13 +1106,3 @@ function Stat({
   );
 }
 
-function HeroStat({ k, v }: { k: string; v: string | null }) {
-  return (
-    <div>
-      <div className="font-rc-mono text-[9px] uppercase tracking-[0.1em] text-white/40">
-        {k}
-      </div>
-      <div className="mt-1 text-sm font-semibold">{v ?? "—"}</div>
-    </div>
-  );
-}

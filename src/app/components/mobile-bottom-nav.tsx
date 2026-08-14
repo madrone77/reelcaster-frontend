@@ -51,7 +51,13 @@ const MORE_LINKS = [
  * tabs: Home, Explore, Catch log, and More (which opens a sheet of secondary links).
  * Active tab reads brand; the rest are muted. Renders a matching-height spacer
  * in flow so page content can scroll clear of the floating bar. Shows on every
- * page — marketing, auth, and the coming-soon wall included.
+ * page — marketing, auth, the dashboard, and the coming-soon wall included.
+ *
+ * The dashboard used to be excluded on the grounds that its own top bar and
+ * footer were enough. They are not the same thing: the footer is a sitemap you
+ * scroll to, not a way to move between the four places the app actually lives.
+ * Home was the one tab with nowhere to be lit, so the bar vanished exactly
+ * where an angler arrives after signing in.
  */
 export default function MobileBottomNav() {
   const pathname = usePathname();
@@ -67,12 +73,6 @@ export default function MobileBottomNav() {
 
   const moreActive =
     moreOpen || MORE_LINKS.some((l) => isActive(l.href));
-
-  // The dashboard has its own top nav + footer — the floating pill is
-  // redundant there and overlaps the footer, so drop it on that route.
-  if (pathname === "/dashboard" || pathname.startsWith("/dashboard/")) {
-    return null;
-  }
 
   // Cold-traffic ad landing pages (/lp/*) are deliberately distraction-free —
   // one CTA, no app navigation competing with the free-trial conversion.
