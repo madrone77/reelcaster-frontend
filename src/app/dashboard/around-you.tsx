@@ -1,6 +1,8 @@
 "use client";
 
 import Link from "next/link";
+import dynamic from "next/dynamic";
+import { useState } from "react";
 import { ChevronRight, Home, Lock, Star } from "lucide-react";
 import { TIER_PILL, tierFor } from "@/app/explore/lib/explore-data";
 import {
@@ -10,6 +12,14 @@ import {
   type FreshCatchVerdict,
 } from "@/app/explore/lib/fresh-catch-types";
 import type { MapSpotsPayload } from "@/lib/bluecaster";
+
+// Loaded on the tap that opens it, for the reason /explore's `UpgradeDialog`
+// does the same: a static import drags the plan matrix, the pricing tables and
+// the Stripe checkout client into the dashboard's first chunk.
+const ProTrialModal = dynamic(
+  () => import("@/app/components/paywall/pro-trial-modal"),
+  { ssr: false },
+);
 
 /** How many spots to list per city before deferring to Explore. */
 const PER_CITY = 3;
@@ -156,13 +166,24 @@ export function aroundYouFrom(
   return cities;
 }
 
-function SpotRow({ spot }: { spot: AroundYouSpot }) {
+function SpotRow({
+  spot,
+  locked,
+  onUnlock,
+}: {
+  spot: AroundYouSpot;
+  locked: boolean;
+  onUnlock: () => void;
+}) {
   const tier = tierFor(spot.score);
-  return (
-    <Link
-      href={`/explore/spot/${spot.slug}`}
-      className="flex items-center gap-3 border-t border-rc-rule px-4 py-2.5 transition-colors first:border-t-0 hover:bg-rc-surface"
-    >
+  const rowClass =
+    "flex w-full items-center gap-3 border-t border-rc-rule px-4 py-2.5 text-left transition-colors first:border-t-0 hover:bg-rc-surface";
+
+  const body = (
+    <>
+      {/* The score stays legible. It is on Explore for anyone, and it is what
+          makes the locked row a tease rather than a blank: there IS busy water
+          at 81 here, and the paid part is which water. */}
       <span
         className={`shrink-0 rounded px-2 py-0.5 font-rc-mono text-[12px] font-bold tabular-nums ${TIER_PILL[tier]}`}
       >
@@ -170,12 +191,19 @@ function SpotRow({ spot }: { spot: AroundYouSpot }) {
       </span>
       <span className="min-w-0 flex-1">
         <span className="flex items-center gap-1.5">
-          <span className="truncate text-[14px] font-medium text-rc-ink">
+          <span
+            aria-hidden={locked || undefined}
+            className={`truncate text-[14px] font-medium text-rc-ink ${
+              locked ? "select-none blur-[5px]" : ""
+            }`}
+          >
             {spot.name}
           </span>
-          {/* Says why a spot the angler already has is in a discovery list,
-              so it doesn't read as the dashboard forgetting they own it. */}
-          {spot.isHome ? (
+          {locked ? (
+            <Lock className="h-3 w-3 shrink-0 text-rc-brand" />
+          ) : /* Says why a spot the angler already has is in a discovery list,
+                so it doesn't read as the dashboard forgetting they own it. */
+          spot.isHome ? (
             <Home className="h-3 w-3 shrink-0 text-rc-brand" />
           ) : spot.isSaved ? (
             <Star className="h-3 w-3 shrink-0 fill-rc-brand text-rc-brand" />
@@ -203,7 +231,7 @@ function SpotRow({ spot }: { spot: AroundYouSpot }) {
           ) : spot.hasReports ? (
             <span className="inline-flex shrink-0 items-center gap-1 rounded bg-rc-surface px-1.5 py-0.5 font-rc-mono text-[9px] uppercase tracking-[0.06em] text-rc-ink-mute">
               <Lock className="h-2.5 w-2.5" />
-              Reports
+              {locked ? "Tap to unlock" : "Reports"}
             </span>
           ) : (
             spot.species && (
@@ -215,6 +243,27 @@ function SpotRow({ spot }: { spot: AroundYouSpot }) {
         </span>
       </span>
       <ChevronRight className="h-4 w-4 shrink-0 text-rc-ink-mute" />
+    </>
+  );
+
+  // A locked row must not link to the spot page — that page names the place,
+  // so linking there would hand over the very thing the blur is withholding.
+  if (locked) {
+    return (
+      <button
+        type="button"
+        onClick={onUnlock}
+        aria-label={`Locked spot scoring ${spot.score} — unlock with Pro`}
+        className={rowClass}
+      >
+        {body}
+      </button>
+    );
+  }
+
+  return (
+    <Link href={`/explore/spot/${spot.slug}`} className={rowClass}>
+      {body}
     </Link>
   );
 }
@@ -233,13 +282,34 @@ function SpotRow({ spot }: { spot: AroundYouSpot }) {
  * Derived entirely from the map payload and the fresh-catch read the dashboard
  * already fetches, so this costs no request.
  */
-export default function AroundYou({ cities }: { cities: AroundYouCity[] | null }) {
+export default function AroundYou({
+  cities,
+  unlocked,
+}: {
+  cities: AroundYouCity[] | null;
+  /**
+   * The server's own verdict on this viewer, straight off the gated
+   * fresh-catch read — not a client tier hook. It is already fetched, it is
+   * authoritative, and it cannot disagree with the counts rendered beside it.
+   * Defaults open: if that read failed we have no counts to show anyway, and
+   * blurring a paying angler's dashboard because a request timed out is a
+   * worse failure than showing public spot names to a free one.
+   */
+  unlocked: boolean;
+}) {
+  const [upgradeOpen, setUpgradeOpen] = useState(false);
+
   if (cities === null) {
     return (
       <div className="h-40 animate-pulse rounded-xl border border-rc-rule bg-rc-surface" />
     );
   }
   if (cities.length === 0) return null;
+
+  // Spots the angler already has are never blurred. They pinned the home spot
+  // and saved the rest — their names are not ours to sell back, and a blurred
+  // "your home spot" row reads as a bug, not a paywall.
+  const isLocked = (s: AroundYouSpot) => !unlocked && !s.isHome && !s.isSaved;
 
   return (
     <section>
@@ -266,7 +336,12 @@ export default function AroundYou({ cities }: { cities: AroundYouCity[] | null }
             </div>
             <div className="border-t border-rc-rule">
               {city.spots.map((s) => (
-                <SpotRow key={s.slug} spot={s} />
+                <SpotRow
+                  key={s.slug}
+                  spot={s}
+                  locked={isLocked(s)}
+                  onUnlock={() => setUpgradeOpen(true)}
+                />
               ))}
             </div>
             {city.total > city.spots.length && (
@@ -281,6 +356,16 @@ export default function AroundYou({ cities }: { cities: AroundYouCity[] | null }
           </div>
         ))}
       </div>
+
+      {/* One instance for the whole section, not one per row. `from` is its own
+          string so signup attribution can tell this wall apart from the rail's
+          reports nag — see lib/attribution. */}
+      <ProTrialModal
+        open={upgradeOpen}
+        onOpenChange={setUpgradeOpen}
+        feature="catch-reports"
+        from="dashboard-around-you"
+      />
     </section>
   );
 }

@@ -806,7 +806,13 @@ export default function DashboardPage() {
                 angler has scrolled their own spots than after. Kept to three
                 rows a city so it doesn't push that list off the fold. */}
             <div className="mt-8">
-              <AroundYou cities={aroundYou} />
+              <AroundYou
+                cities={aroundYou}
+                // Fails open — see the prop's own note. `spotReports` is null
+                // only when that read never came back, and blurring a paying
+                // angler's dashboard over a timeout is the worse mistake.
+                unlocked={spotReports ? spotReports.unlocked : true}
+              />
             </div>
 
             {/* The rest of your spots */}
