@@ -23,7 +23,7 @@ import {
   type ForecastStripModel,
   type ForecastTier,
 } from "./lib/forecast-strip";
-import { boundsOf, paddedBbox } from "./lib/viewport-bbox";
+import { boundsOf, paddedBbox, SPOT_LINK_ZOOM } from "./lib/viewport-bbox";
 import { useMountedOnce } from "@/hooks/use-mounted-once";
 import {
   fetchFreshCatches,
@@ -102,6 +102,7 @@ export default function ExploreShell({
   data,
   bbox,
   initialCitySlug,
+  initialSpot,
   initialForecast,
   initialForecastBbox,
 }: {
@@ -114,6 +115,14 @@ export default function ExploreShell({
    * response is about the water this URL is asking for.
    */
   initialCitySlug?: string | null;
+  /**
+   * The spot a `?spot` link named, resolved to coordinates by the page.
+   *
+   * Present only when the slug resolved to a published spot, so its presence is
+   * the signal that the server framed this spot: `data.spots` covers a box
+   * around it and the camera should open on it rather than on a city.
+   */
+  initialSpot?: { slug: string; lat: number; lng: number } | null;
   /**
    * The 14-day viewport strip for `initialForecastBbox`, fetched by the page so
    * the strip can paint from the first response instead of waiting out the JS
@@ -166,6 +175,16 @@ export default function ExploreShell({
   const savedRef = useRef<ExploreView | null>(restored);
 
   /**
+   * Did the server frame the spot this URL names?
+   *
+   * The slug comparison is the point: `initialSpot` is only trustworthy if it
+   * describes the spot currently in the URL. They come from one request today,
+   * but `?spot` also changes under client navigation (a rail click calls
+   * `setQuery`), and then the prop is about the spot we just left.
+   */
+  const serverFramedSpot = !!initialSpot && !!spotSlug && initialSpot.slug === spotSlug;
+
+  /**
    * Is the page's prefetch about the water this URL is going to?
    *
    * This used to be the blunter question "does the URL name a place at all",
@@ -173,21 +192,34 @@ export default function ExploreShell({
    * showing Victoria's numbers for a beat before Vancouver's arrived would be a
    * worse first paint than showing none, so the prefetch was thrown away.
    *
-   * The server honours `?loc` now, so the common deep link arrives with a
-   * prefetch that IS Vancouver's, and discarding it would re-introduce exactly
-   * the wait this prop was added to remove. The three cases that still discard:
+   * The server honours `?loc` and `?spot` now, so the common deep links arrive
+   * with a prefetch that IS about where they are going, and discarding it would
+   * re-introduce exactly the wait this prop was added to remove. What still
+   * discards:
    *
-   *   - `?spot` / `?stn` — the frame is one spot or one station, not a city
-   *     box, and the shell flies somewhere the prefetch does not cover.
+   *   - `?stn` — the frame is one station, and the shell flies somewhere the
+   *     prefetch does not cover.
+   *   - a `?spot` the server could not resolve (unpublished, renamed, invented)
+   *     — it fell through to a city frame, which is not where the client is
+   *     about to fly.
    *   - a `?loc` the server could not resolve (renamed or hand-edited slug, a
    *     covered city with no published spots yet) — it fell back to the default
    *     city, and so does `selectedCity`, but the two agreeing is not something
    *     this component should assume, so it refetches rather than guess.
    *   - no `initialCitySlug` at all — an older cached document from before the
    *     prop existed, or a payload the page could not resolve a city for.
+   *
+   * A spot frame's box is a guess at the viewport (see `spotViewBox`), so its
+   * key will not match the one the camera eventually mints. It still seeds: the
+   * strip paints from it now and is replaced by the tier-correct payload when
+   * the map reports, which is the same two-stage life a city frame has.
    */
   const prefetchIsOurWater =
-    !spotSlug && !stn && !!initialCitySlug && (!citySlug || citySlug === initialCitySlug);
+    !stn &&
+    (serverFramedSpot ||
+      (!spotSlug &&
+        !!initialCitySlug &&
+        (!citySlug || citySlug === initialCitySlug)));
 
   // ── Custom spots (Pro): a "Create custom spot" button arms pin-drop mode;
   //    the next map click opens a modal to name it + pick species. The user's
@@ -554,7 +586,12 @@ export default function ExploreShell({
     });
   }, [displaySpots]);
 
-  const activeCitySlug = citySlug ?? data.defaultCitySlug;
+  // `initialCitySlug` sits between the two on a `?spot` link: the URL names no
+  // city, but the payload is not the default city's either — it is the box
+  // around the linked spot, and the spot's own home city is the honest scope for
+  // the rail and the location pill. Without this a shared spot link read
+  // "Victoria" over a rail of Vancouver water until the map reported.
+  const activeCitySlug = citySlug ?? initialCitySlug ?? data.defaultCitySlug;
 
   const selectedCity = useMemo<CityNode | null>(() => {
     const find = (slug: string | null) => {
@@ -919,7 +956,14 @@ export default function ExploreShell({
   // default city (a bare /explore carries no `?loc`), so letting this run
   // would fit Victoria's spots right over the frame we just restored. Later
   // city picks still fit, because by then the skip is spent.
-  const skipInitialFit = useRef(restored !== null);
+  //
+  // A server-framed `?spot` skips it for the same reason and more sharply. The
+  // camera opens tight on the spot, and `activeCitySlug` now resolves to that
+  // spot's city, so without the skip this effect would immediately fit the
+  // whole city over it — zooming out from the one piece of water the link was
+  // about. That is the failure shipping the spots would otherwise have caused:
+  // before, the fit was harmless because the city had no spots loaded to fit to.
+  const skipInitialFit = useRef(restored !== null || serverFramedSpot);
   useEffect(() => {
     if (skipInitialFit.current) {
       skipInitialFit.current = false;
@@ -1209,12 +1253,30 @@ export default function ExploreShell({
   // top. `initialViewState` is read once by MapLibre at mount, so this is the
   // only place the return trip can land in the right frame without a visible
   // jump from the default city.
+  //
+  // A server-framed `?spot` outranks the city too, and for the same reason it
+  // has to be here rather than in an effect: this is the map's one chance to be
+  // born pointing at the spot. The `flyTo` in the deep-link effect below still
+  // covers the slug the server could not resolve — it just no longer runs for
+  // the ones it could, so the shared link opens on its water instead of
+  // animating there 800 ms after the bundle lands.
+  //
+  // `restored` is already null whenever `?spot` is set (a URL that names a
+  // place never restores), so the order between them is belt and braces.
   const initialCenter = restored
     ? { lat: restored.lat, lng: restored.lng }
-    : selectedCity
-      ? { lat: selectedCity.lat, lng: selectedCity.lng }
-      : { lat: 50.5, lng: -126.5 };
-  const initialZoom = restored ? restored.zoom : selectedCity ? 9 : 4.5;
+    : serverFramedSpot && initialSpot
+      ? { lat: initialSpot.lat, lng: initialSpot.lng }
+      : selectedCity
+        ? { lat: selectedCity.lat, lng: selectedCity.lng }
+        : { lat: 50.5, lng: -126.5 };
+  const initialZoom = restored
+    ? restored.zoom
+    : serverFramedSpot
+      ? SPOT_LINK_ZOOM
+      : selectedCity
+        ? 9
+        : 4.5;
 
   // ── Writing the return-trip memory ──────────────────────────────────────
   //
