@@ -123,6 +123,43 @@ export function trialUnavailableEmail(params: {
 }
 
 /**
+ * Sent when an admin approves a comped year (the /first invite link).
+ *
+ * It closes a loop the customer can't see: they signed up through an offer,
+ * got a free account, and have been waiting on a human. Everything here that
+ * sounds like reassurance is load-bearing — no card was taken, so "nothing to
+ * cancel" is a fact they'd otherwise have to ask about, and the end date is
+ * the one thing they can't find anywhere in the app.
+ */
+export function compGrantedEmail(params: {
+  expiresAt: string;
+  /** Omitted when the grant isn't a whole year, e.g. a 30-day comp. */
+  yearLong?: boolean;
+}): { subject: string; html: string } {
+  const date = formatDate(params.expiresAt);
+  const span = params.yearLong ? 'A full year of' : '';
+  return {
+    subject: 'Your free ReelCaster Pro is live',
+    html: shell(
+      `<tr><td>
+        <h1 style="margin:0 0 16px;font-size:22px;line-height:30px;color:${INK};">Pro is switched on</h1>
+        <p style="margin:0 0 16px;font-size:15px;line-height:24px;color:${INK_SOFT};">
+          ${span} ReelCaster Pro is now on your account: 14-day forecasts, your own private
+          spots, and alerts when conditions line up. Nothing else to do — sign in and it's there.
+        </p>
+        <p style="margin:0 0 24px;font-size:15px;line-height:24px;color:${INK_SOFT};">
+          It runs until <strong>${date}</strong>. We never took a card, so there's nothing to
+          cancel and nothing will be charged. On that date the account goes back to free and
+          keeps your spots and your catch log.
+        </p>
+        <p style="margin:0 0 8px;">${button('https://www.reelcaster.com/explore', 'Open the map')}</p>
+      </td></tr>`,
+      `Pro is on your account until ${date}. No card, nothing to cancel.`,
+    ),
+  };
+}
+
+/**
  * Sent when a purchase can't sign the buyer in from the success page: the
  * email already had an account, or the one-time handoff was already used.
  *
