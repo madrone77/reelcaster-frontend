@@ -807,6 +807,8 @@ export default function DashboardPage() {
                 }
                 speciesScores={homeSpeciesScores}
                 tide={homeTide}
+                tidePoints={homeLive?.tide14d}
+                tideStation={homeLive?.tideStationName}
                 // Same locked/unlocked shape every other surface uses: the
                 // counts are Pro, the fact that reports exist is not.
                 reports={

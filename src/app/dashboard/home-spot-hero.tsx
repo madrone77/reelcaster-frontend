@@ -13,7 +13,9 @@ import {
 import type { LucideIcon } from "lucide-react";
 import type { RightNowSnapshot } from "@/lib/bluecaster/live-spot-types";
 import { TIER_PILL } from "@/app/explore/lib/explore-data";
-import type { SpotDay } from "@/app/explore/components/spot-day-strip";
+import SpotDayStrip, {
+  type SpotDay,
+} from "@/app/explore/components/spot-day-strip";
 import {
   freshVerdictStyle,
   reportAge,
@@ -49,6 +51,8 @@ export type TideRead = {
   trend: "rising" | "falling";
   /** The next turn of the tide, if one falls inside the day's series. */
   turn: { kind: "high" | "low"; at: string; heightM: number } | null;
+  /** Index of the point nearest now, so the chart can mark it without a clock. */
+  nowIndex: number;
 };
 
 /**
@@ -102,7 +106,7 @@ export function deriveTide(points: { hourUtc: string; heightM: number }[] | null
       break;
     }
   }
-  return { trend, turn };
+  return { trend, turn, nowIndex: at };
 }
 
 /** "11 AM" in the water's own timezone, not the reader's. */
@@ -239,104 +243,96 @@ function HourStrip({
 }
 
 /**
- * The next fortnight, as one bar per day. The shared `SpotDayStrip` is built
- * for a white card — its tier tokens are washes meant to sit on `rc-surface`
- * and disappear against navy — so this is the hero's own rendering of the same
- * `SpotDay[]`, off the same bulk payload as every card below.
+ * Today's tide, as a curve. The card already reads `tide14d` to work out which
+ * way the water is going; drawing it costs no request and answers the question
+ * the two numbers could not — not just "ebbing, low at 11 AM" but how hard, and
+ * how long you have.
  *
- * Bar heights are scaled to THIS fortnight's own range, not to 0–100 or to the
- * shared strip's fixed floor of 40. After the engine's rescale a good spot's
- * fourteen days sit inside a band like 82–90, which on any absolute scale is
- * fourteen identical bars — the one question the strip exists to answer, which
- * day to pick, is exactly the one it then cannot show. The trade is that a
- * three-point spread draws as dramatically as a thirty-point one, so the range
- * is printed next to the label: the shape is relative, the numbers are not.
+ * `nowIndex` is passed in rather than found here: locating "now" means reading
+ * the clock, and a clock read during render is what put React #418 on the spot
+ * page. See `deriveTide`.
  */
-function DayStrip({ days }: { days: SpotDay[] }) {
-  const scored = days.filter((d) => d.score !== null);
-  const best = scored.reduce<SpotDay | null>(
-    (top, d) => (!top || d.score! > top.score! ? d : top),
-    null,
-  );
-  const lockedCount = days.filter((d) => d.locked).length;
-  const values = scored.map((d) => d.score!);
-  const lo = values.length ? Math.min(...values) : 0;
-  const hi = values.length ? Math.max(...values) : 0;
-  const span = hi - lo;
-  const heightPct = (s: number | null) => {
-    if (s === null) return 8;
-    // A flat fortnight is a real answer — draw it flat rather than letting
-    // rounding noise invent a shape out of a one-point spread.
-    if (span < 2) return 72;
-    return 32 + 68 * ((s - lo) / span);
-  };
+function TideChart({
+  points,
+  nowIndex,
+  trend,
+  turn,
+  station,
+}: {
+  points: { hourUtc: string; heightM: number }[];
+  nowIndex: number;
+  trend: "rising" | "falling";
+  turn: TideRead["turn"];
+  station?: string | null;
+}) {
+  const W = 300;
+  const H = 46;
+  const hs = points.map((p) => p.heightM);
+  const lo = Math.min(...hs);
+  const hi = Math.max(...hs);
+  const span = hi - lo || 1;
+  const x = (i: number) => (i / (points.length - 1)) * W;
+  // 3px of padding top and bottom so the extremes are not clipped by the stroke.
+  const y = (h: number) => H - 3 - ((h - lo) / span) * (H - 6);
+
+  const line = points.map((p, i) => `${i === 0 ? "M" : "L"}${x(i).toFixed(1)},${y(p.heightM).toFixed(1)}`).join(" ");
+  const area = `${line} L${W},${H} L0,${H} Z`;
+  const nx = x(nowIndex);
+  const ny = y(points[nowIndex].heightM);
 
   return (
     <div>
-      <div className="mb-2 flex items-baseline justify-between gap-2">
+      <div className="mb-1.5 flex items-baseline justify-between gap-2">
         <span className="font-rc-mono text-[9px] font-semibold uppercase tracking-[0.06em] text-white/45">
-          Next 14 days
-          {values.length > 1 && (
-            <span className="text-white/30">
-              {" "}
-              · {lo}–{hi}
-            </span>
-          )}
+          Tide{station ? ` · ${station}` : ""}
         </span>
-        {lockedCount > 0 ? (
-          <span className="flex shrink-0 items-center gap-1 font-rc-mono text-[9px] font-bold uppercase tracking-[0.06em] text-white/60">
-            <Lock className="h-2.5 w-2.5" />
-            {lockedCount} more
-          </span>
-        ) : (
-          best && (
-            <span className="truncate font-rc-mono text-[9px] font-bold uppercase tracking-[0.06em] text-white/80">
-              Best {best.dow} {best.date} · {best.score}
-            </span>
-          )
-        )}
+        <span className="truncate font-rc-mono text-[9px] font-bold uppercase tracking-[0.06em] text-white/80">
+          {trend === "rising" ? "Flood" : "Ebb"}
+          {turn ? ` · ${turn.kind} ${turnTime(turn.at)}` : ""}
+        </span>
       </div>
-
-      <div className="flex h-12 items-end gap-[3px] sm:h-16 sm:gap-1.5">
-        {days.map((d, i) => {
-          if (d.locked) {
-            return (
-              <div
-                key={i}
-                title={`${d.dow} ${d.date} · locked`}
-                className="h-full flex-1 rounded-sm border border-dashed border-white/15 bg-white/[0.03]"
-              />
-            );
-          }
-          const isBest = best !== null && d === best;
-          const tint =
-            d.score === null ? null : TIER[tierOf(d.score)].line;
-          return (
-            <div
-              key={i}
-              title={`${d.dow} ${d.date}${d.score !== null ? ` · ${d.score}` : ""}`}
-              className="flex-1 rounded-sm transition-all duration-500"
-              style={{
-                height: `${heightPct(d.score)}%`,
-                background: tint ?? "rgba(255,255,255,0.10)",
-                // Only the best day runs at full strength; the rest are dimmed
-                // so the shape of the fortnight reads before the detail does.
-                opacity: tint ? (isBest ? 1 : 0.5) : 1,
-              }}
-            />
-          );
-        })}
+      {/* The curve stretches to the card's width, so the SVG runs with
+          `preserveAspectRatio="none"`. That scales x and y unequally, which
+          turns a <circle> into an ellipse — badly so at desktop width. The
+          now-marker is therefore a DOM dot positioned in percentages over the
+          chart, where it stays round at any size. */}
+      <div className="relative h-[46px] w-full">
+        <svg
+          viewBox={`0 0 ${W} ${H}`}
+          preserveAspectRatio="none"
+          className="h-full w-full"
+          aria-hidden
+        >
+          <path d={area} fill="rgba(255,255,255,0.08)" />
+          <path
+            d={line}
+            fill="none"
+            stroke="rgba(255,255,255,0.55)"
+            strokeWidth="1.5"
+            vectorEffect="non-scaling-stroke"
+          />
+          <line
+            x1={nx}
+            y1="0"
+            x2={nx}
+            y2={H}
+            stroke="rgba(255,255,255,0.25)"
+            strokeWidth="1"
+            vectorEffect="non-scaling-stroke"
+          />
+        </svg>
+        <span
+          aria-hidden
+          className="absolute h-[7px] w-[7px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-rc-good ring-2 ring-rc-navy"
+          style={{ left: `${(nx / W) * 100}%`, top: `${(ny / H) * 100}%` }}
+        />
       </div>
-
-      <div className="mt-1.5 flex gap-[3px] sm:gap-1.5">
-        {days.map((d, i) => (
-          <span
-            key={i}
-            className="flex-1 text-center font-rc-mono text-[9px] uppercase text-white/35"
-          >
-            {d.dow.slice(0, 1)}
-          </span>
-        ))}
+      <div className="mt-1 flex justify-between font-rc-mono text-[9px] font-semibold uppercase tracking-[0.06em] text-white/35">
+        <span>12a</span>
+        <span>6a</span>
+        <span>12p</span>
+        <span>6p</span>
+        <span>11p</span>
       </div>
     </div>
   );
@@ -381,6 +377,8 @@ export default function HomeSpotHero({
   days14,
   speciesScores,
   tide,
+  tidePoints,
+  tideStation,
   reports,
 }: {
   slug: string;
@@ -396,6 +394,10 @@ export default function HomeSpotHero({
   speciesScores?: { name: string; score: number }[];
   /** Direction and next turn, derived in an effect — see `deriveTide`. */
   tide?: TideRead | null;
+  /** The day's hourly tide curve, for the chart. */
+  tidePoints?: { hourUtc: string; heightM: number }[] | null;
+  /** Which station the curve is read from — Victoria Harbour, etc. */
+  tideStation?: string | null;
   /** Scraped reports for this spot. Counts absent for a free viewer. */
   reports?: RailFreshCatch;
 }) {
@@ -495,16 +497,32 @@ export default function HomeSpotHero({
           </div>
         )}
 
-        {/* ── The fortnight ──────────────────────────────────────────────── */}
-        {days14 === undefined ? (
-          // Hold the space rather than letting the conditions jump down when
-          // the bulk outlook lands a beat after the rest of the card.
+        {/* ── Today's tide ───────────────────────────────────────────────── */}
+        {tide && tidePoints && tidePoints.length > 1 && (
           <div className="mt-4 border-t border-white/10 pt-4">
-            <div className="h-[74px] animate-pulse rounded bg-white/[0.05] sm:h-[94px]" />
+            <TideChart
+              points={tidePoints}
+              nowIndex={tide.nowIndex}
+              trend={tide.trend}
+              turn={tide.turn}
+              station={tideStation}
+            />
+          </div>
+        )}
+
+        {/* ── The fortnight ──────────────────────────────────────────────────
+            The shared `SpotDayStrip`, at the same labelled density every saved
+            spot card below uses — same cells, same tier fills, same yellow ring
+            on the best day. It is built for a white card, so it gets one:
+            an inset panel rather than a navy-native restyle, which is what
+            keeps it identical to the cards it is meant to match. */}
+        {days14 === undefined ? (
+          <div className="mt-4">
+            <div className="h-[74px] animate-pulse rounded bg-white/[0.05]" />
           </div>
         ) : days14 && days14.length > 0 ? (
-          <div className="mt-4 border-t border-white/10 pt-4">
-            <DayStrip days={days14} />
+          <div className="mt-4 overflow-hidden rounded bg-rc-panel">
+            <SpotDayStrip days={days14} density="labelled" />
           </div>
         ) : null}
 
@@ -540,28 +558,11 @@ export default function HomeSpotHero({
           </div>
         )}
 
-        {/* ── Tide state + the way in ────────────────────────────────────── */}
-        <div className="mt-4 flex items-center justify-between gap-3 border-t border-white/10 pt-3.5">
-          {trend ? (
-            <span className="flex min-w-0 items-center gap-2 font-rc-mono text-[9px] font-semibold uppercase tracking-[0.06em] text-white/70">
-              <span className="relative flex h-1.5 w-1.5 shrink-0">
-                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-rc-good opacity-60" />
-                <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-rc-good" />
-              </span>
-              <span className="truncate">
-                {trend === "rising" ? "Flood · rising" : "Ebb · falling"}
-                {/* The turn is the actionable half: "ebb" tells you which way
-                    the water is going, "low 11 AM" tells you when to be on it. */}
-                {tide?.turn
-                  ? ` · ${tide.turn.kind} ${turnTime(tide.turn.at)}`
-                  : ""}
-              </span>
-            </span>
-          ) : (
-            <span className="font-rc-mono text-[9px] font-semibold uppercase tracking-[0.06em] text-white/40">
-              Your pinned water
-            </span>
-          )}
+        {/* ── The way in ─────────────────────────────────────────────────────
+            The flood/ebb line that used to sit here now heads the tide chart,
+            where it belongs — repeating it under a drawing of the same thing
+            was saying it twice. */}
+        <div className="mt-4 flex items-center justify-end gap-3 border-t border-white/10 pt-3.5">
           <span className="flex shrink-0 items-center gap-0.5 font-rc-mono text-[9px] font-bold uppercase tracking-[0.06em] text-white/70 transition-colors group-hover:text-white">
             View spot
             <ChevronRight className="h-3.5 w-3.5 transition-transform group-hover:translate-x-0.5" />
