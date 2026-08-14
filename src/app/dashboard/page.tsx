@@ -19,12 +19,13 @@ import {
   TIER_PILL,
   tierFor,
   railSpotFromEntry,
+  speciesDisplayName,
   type RailSpot,
 } from "@/app/explore/lib/explore-data";
 import SpotCard from "@/app/explore/components/spot-card";
 import { spotDaysFrom } from "@/app/explore/components/spot-day-strip";
 import ExploreTopBar from "@/app/explore/components/explore-top-bar";
-import HomeSpotHero from "./home-spot-hero";
+import HomeSpotHero, { deriveTide, type TideRead } from "./home-spot-hero";
 import AroundYou, { aroundYouFrom } from "./around-you";
 import MarketingFooter from "@/app/components/marketing/marketing-footer";
 import type { MapSpotsPayload } from "@/lib/bluecaster";
@@ -157,6 +158,9 @@ export default function DashboardPage() {
   // populated on a device that never set the pin itself.
   const homeSlug = useHomeSpotSlug(true);
   const [homeLive, setHomeLive] = useState<SpotPageInitial | null>(null);
+  // Tide direction + next turn for the home spot. `rightNow.tideTrend` comes
+  // back null, so the hero derives both off the day's hourly curve instead.
+  const [homeTide, setHomeTide] = useState<TideRead | null>(null);
   const [alerts, setAlerts] = useState<AlertProfile[] | null>(null);
   // Scraped catch reports per spot — the "N reports" badge on the grid cards.
   // Distinct from `catches` below, which is the angler's OWN catch log.
@@ -346,8 +350,19 @@ export default function DashboardPage() {
     }
     let cancelled = false;
     fetchSpotLive(homeSlug)
-      .then((p) => !cancelled && setHomeLive(p))
-      .catch(() => !cancelled && setHomeLive(null));
+      .then((p) => {
+        if (cancelled) return;
+        setHomeLive(p);
+        // Derived HERE, not in render: `deriveTide` reads the clock, and a
+        // clock read during render is what put React #418 on the spot page.
+        setHomeTide(deriveTide(p?.tide14d));
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setHomeLive(null);
+          setHomeTide(null);
+        }
+      });
     return () => {
       cancelled = true;
     };
@@ -548,6 +563,20 @@ export default function DashboardPage() {
     const entry = payload.spots.find((s) => s.slug === homeSlug);
     return entry ? railSpotFromEntry(entry, payload, true) : null;
   }, [homeSlug, payload]);
+
+  // Every species scoring at the home spot today, best first. The hero used to
+  // name only the leader, which at a spot whose top three sit inside one point
+  // reads as "your home water is a crab spot" to someone chasing salmon.
+  // `speciesDisplayName` so "Pacific Halibut" reads "Halibut", as everywhere.
+  const homeSpeciesScores = useMemo(() => {
+    if (!homeStrip || !payload) return [];
+    return Object.entries(homeStrip.scoresBySpecies)
+      .map(([id, score]) => ({
+        name: speciesDisplayName(payload.species[id]?.name ?? id),
+        score,
+      }))
+      .sort((a, b) => b.score - a.score);
+  }, [homeStrip, payload]);
 
   // The home spot rides along explicitly. The hero draws its own 14 days now,
   // and a PINNED-but-unsaved home spot is in neither `custom` nor the saved
@@ -775,6 +804,16 @@ export default function DashboardPage() {
                     : homeStrip
                       ? spotDaysFrom(outlook, homeStrip.id)
                       : null
+                }
+                speciesScores={homeSpeciesScores}
+                tide={homeTide}
+                // Same locked/unlocked shape every other surface uses: the
+                // counts are Pro, the fact that reports exist is not.
+                reports={
+                  homeStrip
+                    ? (spotReports?.spots[homeStrip.id] ??
+                      (homeStrip.hasReports ? { locked: true } : undefined))
+                    : undefined
                 }
               />
             ) : (

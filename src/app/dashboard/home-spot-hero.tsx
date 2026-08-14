@@ -13,6 +13,11 @@ import {
 import type { LucideIcon } from "lucide-react";
 import type { RightNowSnapshot } from "@/lib/bluecaster/live-spot-types";
 import type { SpotDay } from "@/app/explore/components/spot-day-strip";
+import {
+  freshVerdictStyle,
+  reportAge,
+  type RailFreshCatch,
+} from "@/app/explore/lib/fresh-catch-types";
 
 // Score tier → the ring stroke and the badge. Same three cuts the rest of the
 // app uses (75 / 55), but tuned for a dark card: the badge fills read as ink on
@@ -35,6 +40,77 @@ function seaState(waveM: number | null | undefined): string | null {
 
 function hourLabel(h: number): string {
   return `${String(h).padStart(2, "0")}:00`;
+}
+
+export type TideRead = {
+  trend: "rising" | "falling";
+  /** The next turn of the tide, if one falls inside the day's series. */
+  turn: { kind: "high" | "low"; at: string; heightM: number } | null;
+};
+
+/**
+ * Derive the tide's direction, and the next turn, from the day's hourly curve.
+ *
+ * `rightNow.tideTrend` arrives null — checked against the live payload, which
+ * carries `tideM: 1.33` and `tideTrend: null` in the same object — so the tile's
+ * ↑/↓ never drew and the card's footer fell through to a line of filler. The
+ * curve that would have answered it is right there in `tide14d`: 24 hourly
+ * points over the local day, whose value at the current hour matches
+ * `rightNow.tideM` exactly.
+ *
+ * MUST be called from an effect, never during render. It reads the clock, and
+ * a clock read in render is what put React #418 on the spot page.
+ */
+export function deriveTide(points: { hourUtc: string; heightM: number }[] | null | undefined): TideRead | null {
+  if (!points || points.length < 2) return null;
+  const now = Date.now();
+  let at = 0;
+  let best = Infinity;
+  points.forEach((p, i) => {
+    const d = Math.abs(new Date(p.hourUtc).getTime() - now);
+    if (d < best) {
+      best = d;
+      at = i;
+    }
+  });
+  const here = points[at];
+  const next = points[at + 1];
+  const prev = points[at - 1];
+  const trend: TideRead["trend"] = next
+    ? next.heightM >= here.heightM
+      ? "rising"
+      : "falling"
+    : prev && here.heightM >= prev.heightM
+      ? "rising"
+      : "falling";
+
+  // The first place the slope flips sign at or after now.
+  let turn: TideRead["turn"] = null;
+  for (let i = at; i + 2 < points.length; i++) {
+    const d1 = points[i + 1].heightM - points[i].heightM;
+    const d2 = points[i + 2].heightM - points[i + 1].heightM;
+    if (d1 === 0 || d2 === 0) continue;
+    if (d1 > 0 !== d2 > 0) {
+      turn = {
+        kind: d1 > 0 ? "high" : "low",
+        at: points[i + 1].hourUtc,
+        heightM: points[i + 1].heightM,
+      };
+      break;
+    }
+  }
+  return { trend, turn };
+}
+
+/** "11 AM" in the water's own timezone, not the reader's. */
+function turnTime(iso: string): string {
+  return new Date(iso)
+    .toLocaleTimeString("en-US", {
+      timeZone: "America/Vancouver",
+      hour: "numeric",
+      minute: "2-digit",
+    })
+    .replace(":00", "");
 }
 
 /**
@@ -302,6 +378,9 @@ export default function HomeSpotHero({
   hours24,
   peakHour,
   days14,
+  speciesScores,
+  tide,
+  reports,
 }: {
   slug: string;
   name: string;
@@ -312,9 +391,23 @@ export default function HomeSpotHero({
   peakHour?: number | null;
   /** undefined = still reading (hold the space), null = nothing to draw. */
   days14?: SpotDay[] | null;
+  /** Every species scoring here today, best first. */
+  speciesScores?: { name: string; score: number }[];
+  /** Direction and next turn, derived in an effect — see `deriveTide`. */
+  tide?: TideRead | null;
+  /** Scraped reports for this spot. Counts absent for a free viewer. */
+  reports?: RailFreshCatch;
 }) {
   const rn = rightNow;
   const hasHours = !!hours24?.some((h) => h != null);
+  // The single top species is the fallback; a list is better when it exists.
+  const speciesList =
+    speciesScores && speciesScores.length > 0
+      ? speciesScores
+      : species
+        ? [{ name: species, score: score ?? 0 }]
+        : [];
+  const trend = tide?.trend ?? rn?.tideTrend ?? null;
 
   return (
     <Link
@@ -347,14 +440,58 @@ export default function HomeSpotHero({
             <h2 className="mt-2 text-[26px] font-black leading-[1.1] tracking-[-0.02em] sm:text-3xl">
               {name}
             </h2>
-            {species && (
-              <span className="mt-2.5 inline-block rounded-full border border-white/15 bg-white/10 px-2.5 py-1 font-rc-mono text-[10px] font-bold uppercase tracking-[0.1em] text-white/85">
-                {species}
+            {/* What anglers are reporting, on the card that ranks highest on
+                the page. "Around you" below sorts on exactly this, and the
+                hero was the one place still silent about it. */}
+            {reports && (reports.count ?? 0) > 0 && !reports.locked ? (
+              <span className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1">
+                {reports.verdict && (
+                  <span
+                    className={`inline-flex shrink-0 items-center rounded px-1.5 py-0.5 font-rc-mono text-[9px] uppercase tracking-[0.06em] ${
+                      freshVerdictStyle(reports.verdict).cls
+                    }`}
+                  >
+                    {freshVerdictStyle(reports.verdict).label}
+                  </span>
+                )}
+                <span className="font-rc-mono text-[11px] text-white/70">
+                  {reports.count} report{reports.count === 1 ? "" : "s"}
+                  {reports.latestDate ? ` · ${reportAge(reports.latestDate)}` : ""}
+                </span>
               </span>
-            )}
+            ) : reports?.locked ? (
+              <span className="mt-2 inline-flex items-center gap-1 rounded bg-white/10 px-1.5 py-0.5 font-rc-mono text-[9px] uppercase tracking-[0.06em] text-white/60">
+                <Lock className="h-2.5 w-2.5" />
+                Reports tracked
+              </span>
+            ) : null}
           </div>
           <ScoreRing score={score} />
         </div>
+
+        {/* Every species scoring here, not just the winner. At this spot the
+            top three sit inside a single point — Crab 84, Coho 83, Lingcod 83 —
+            so naming only the leader told an angler after salmon that their
+            home water was a crab spot. */}
+        {speciesList.length > 0 && (
+          <div className="mt-4 flex flex-wrap gap-1.5">
+            {speciesList.map((s, i) => (
+              <span
+                key={s.name}
+                className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 font-rc-mono text-[10px] font-bold uppercase tracking-[0.08em] ${
+                  i === 0
+                    ? "border-white/25 bg-white/15 text-white"
+                    : "border-white/10 bg-white/[0.06] text-white/70"
+                }`}
+              >
+                {s.name}
+                {s.score > 0 && (
+                  <span className="tabular-nums text-white/60">{s.score}</span>
+                )}
+              </span>
+            ))}
+          </div>
+        )}
 
         {/* ── Today's hours ──────────────────────────────────────────────── */}
         {hasHours && (
@@ -389,11 +526,7 @@ export default function HomeSpotHero({
               value={
                 rn.tideM != null
                   ? `${rn.tideM.toFixed(1)} m${
-                      rn.tideTrend === "rising"
-                        ? " ↑"
-                        : rn.tideTrend === "falling"
-                          ? " ↓"
-                          : ""
+                      trend === "rising" ? " ↑" : trend === "falling" ? " ↓" : ""
                     }`
                   : null
               }
@@ -418,15 +551,20 @@ export default function HomeSpotHero({
 
         {/* ── Tide state + the way in ────────────────────────────────────── */}
         <div className="mt-4 flex items-center justify-between gap-3 border-t border-white/10 pt-3.5">
-          {rn?.tideTrend ? (
-            <span className="flex items-center gap-2 font-rc-mono text-[10px] uppercase tracking-[0.1em] text-white/70">
-              <span className="relative flex h-1.5 w-1.5">
+          {trend ? (
+            <span className="flex min-w-0 items-center gap-2 font-rc-mono text-[10px] uppercase tracking-[0.1em] text-white/70">
+              <span className="relative flex h-1.5 w-1.5 shrink-0">
                 <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-rc-good opacity-60" />
                 <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-rc-good" />
               </span>
-              {rn.tideTrend === "rising"
-                ? "Flood tide · water rising"
-                : "Ebb tide · water falling"}
+              <span className="truncate">
+                {trend === "rising" ? "Flood · rising" : "Ebb · falling"}
+                {/* The turn is the actionable half: "ebb" tells you which way
+                    the water is going, "low 11 AM" tells you when to be on it. */}
+                {tide?.turn
+                  ? ` · ${tide.turn.kind} ${turnTime(tide.turn.at)}`
+                  : ""}
+              </span>
             </span>
           ) : (
             <span className="font-rc-mono text-[10px] uppercase tracking-[0.1em] text-white/40">
