@@ -45,6 +45,28 @@ function barHeightPct(score: number | null): number {
   return Math.min(100, Math.max(14, ((score - BAR_FLOOR) / (100 - BAR_FLOOR)) * 100));
 }
 
+/**
+ * The weekday label, at two lengths.
+ *
+ * `labelled` wants ~560px of card, and gets far less than that on a phone: at
+ * 390px each of the fourteen cells has about 19px of content width, while "FRI"
+ * at 9px mono needs roughly 20px. The labels overflowed their cells and ran
+ * together into "FRISATSUNMON…" on every spot card on the dashboard.
+ *
+ * Both lengths render and CSS picks one, so this stays a pure style switch with
+ * no measurement, no JS and nothing for hydration to disagree about. Two letters
+ * rather than one because "S/S" and "T/T" are ambiguous and "Sa/Su", "Tu/Th"
+ * are not.
+ */
+function DayLabel({ dow, className }: { dow: string; className: string }) {
+  return (
+    <span className={`${className} overflow-hidden`}>
+      <span className="sm:hidden">{dow.slice(0, 2)}</span>
+      <span className="hidden sm:inline">{dow}</span>
+    </span>
+  );
+}
+
 export interface SpotDay {
   dow: string; // "Wed"
   date: string; // "Aug 16"
@@ -199,9 +221,10 @@ export default function SpotDayStrip({
                   aria-label={`${d.dow} ${d.date} — upgrade to see this day`}
                   className="flex-1 min-w-0 rounded bg-rc-surface border border-rc-rule flex flex-col items-center justify-center gap-0.5 py-1.5 enabled:hover:border-rc-brand transition-colors"
                 >
-                  <span className="rc-label text-[9px] leading-none text-rc-ink-mute">
-                    {d.dow}
-                  </span>
+                  <DayLabel
+                    dow={d.dow}
+                    className="rc-label text-[9px] leading-none text-rc-ink-mute"
+                  />
                   <Lock className="w-3 h-3 text-rc-ink-mute" />
                 </button>
               );
@@ -219,9 +242,10 @@ export default function SpotDayStrip({
                   isBest ? "ring-1 ring-inset ring-rc-badge" : ""
                 }`}
               >
-                <span className="rc-label text-[9px] leading-none text-rc-ink-soft">
-                  {d.dow}
-                </span>
+                <DayLabel
+                  dow={d.dow}
+                  className="rc-label text-[9px] leading-none text-rc-ink-soft"
+                />
                 <span
                   className={`font-rc-mono text-[13px] font-bold leading-none tracking-[-0.02em] ${TIER_NUMERAL[t]}`}
                 >
