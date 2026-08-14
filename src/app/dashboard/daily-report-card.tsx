@@ -172,7 +172,7 @@ export function DailyReportCard() {
   const r = data.report;
 
   return (
-    <div className="overflow-hidden rounded-xl border border-rc-rule bg-rc-panel">
+    <div className="overflow-hidden rounded border border-rc-rule bg-rc-panel">
       {/* The whole card is the toggle, and it says so in words. A bare + asks
           the reader to work out that there is more behind it and that the icon
           is how you get there; "Click here for more information" asks nothing. */}
@@ -199,7 +199,7 @@ export function DailyReportCard() {
           {expanded ? "Click here to close" : "Click here for more information"}
           <span
             aria-hidden
-            className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-rc-rule text-[15px] leading-none transition-transform duration-200 ${
+            className={`flex h-7 w-7 shrink-0 items-center justify-center rounded border border-rc-rule text-[15px] leading-none transition-transform duration-200 ${
               expanded ? "rotate-45" : ""
             }`}
           >

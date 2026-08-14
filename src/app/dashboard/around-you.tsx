@@ -301,7 +301,7 @@ export default function AroundYou({
 
   if (cities === null) {
     return (
-      <div className="h-40 animate-pulse rounded-xl border border-rc-rule bg-rc-surface" />
+      <div className="h-40 animate-pulse rounded border border-rc-rule bg-rc-surface" />
     );
   }
   if (cities.length === 0) return null;
@@ -324,7 +324,7 @@ export default function AroundYou({
         {cities.map((city) => (
           <div
             key={city.slug}
-            className="overflow-hidden rounded-xl border border-rc-rule bg-rc-panel"
+            className="overflow-hidden rounded border border-rc-rule bg-rc-panel"
           >
             <div className="flex items-center justify-between gap-2 px-4 pb-2.5 pt-3">
               <span className="font-rc-mono text-[10px] font-bold uppercase tracking-[0.14em] text-rc-brand">

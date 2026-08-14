@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import type { RightNowSnapshot } from "@/lib/bluecaster/live-spot-types";
+import { TIER_PILL } from "@/app/explore/lib/explore-data";
 import type { SpotDay } from "@/app/explore/components/spot-day-strip";
 import {
   freshVerdictStyle,
@@ -19,13 +20,15 @@ import {
   type RailFreshCatch,
 } from "@/app/explore/lib/fresh-catch-types";
 
-// Score tier → the ring stroke and the badge. Same three cuts the rest of the
-// app uses (75 / 55), but tuned for a dark card: the badge fills read as ink on
-// white elsewhere, and at 10% opacity on navy they need their own light ink.
+// Score tier → the design-system tokens, unmodified. These are the same
+// --rc-good / --rc-fair / --rc-poor values the pins, the bars and the score
+// ticker use, and the ticker already runs them straight onto navy — so a dark
+// surface is no reason to invent a second palette, which is what the lighter
+// greens here used to be. Cuts are the system's: 75 / 55.
 const TIER = {
-  good: { ring: "#4ADE80", badgeBg: "rgba(74,222,128,0.14)", badgeInk: "#86EFAC" },
-  fair: { ring: "#FBBF24", badgeBg: "rgba(251,191,36,0.14)", badgeInk: "#FCD34D" },
-  poor: { ring: "#F87171", badgeBg: "rgba(248,113,113,0.14)", badgeInk: "#FCA5A5" },
+  good: { line: "var(--rc-good)", pill: TIER_PILL.good },
+  fair: { line: "var(--rc-fair)", pill: TIER_PILL.fair },
+  poor: { line: "var(--rc-poor)", pill: TIER_PILL.poor },
 } as const;
 type Tier = keyof typeof TIER;
 const tierOf = (s: number): Tier => (s >= 75 ? "good" : s >= 55 ? "fair" : "poor");
@@ -124,7 +127,7 @@ function ScoreRing({ score }: { score: number | null }) {
   const C = 2 * Math.PI * R;
   const pct = score == null ? 0 : Math.max(0, Math.min(100, score)) / 100;
   const tier = score == null ? null : tierOf(score);
-  const stroke = tier ? TIER[tier].ring : "rgba(255,255,255,0.35)";
+  const stroke = tier ? TIER[tier].line : "rgba(255,255,255,0.35)";
 
   return (
     <div className="relative h-[84px] w-[84px] shrink-0 sm:h-[104px] sm:w-[104px]">
@@ -149,18 +152,18 @@ function ScoreRing({ score }: { score: number | null }) {
             strokeDasharray={C}
             strokeDashoffset={C * (1 - pct)}
             className="transition-[stroke-dashoffset] duration-700 ease-out"
-            style={{ filter: `drop-shadow(0 0 6px ${stroke}66)` }}
           />
         )}
       </svg>
       <div className="absolute inset-0 flex flex-col items-center justify-center">
-        <span className="text-[26px] font-black leading-none tabular-nums sm:text-[32px]">
+        {/* Inter 700, the system's numeral face — `font-black` was a weight the
+            type scale does not carry. */}
+        <span className="text-[26px] font-bold leading-none tabular-nums sm:text-[32px]">
           {score ?? "—"}
         </span>
         {tier && (
           <span
-            className="mt-1 rounded px-1.5 py-0.5 font-rc-mono text-[9px] font-bold uppercase tracking-[0.08em]"
-            style={{ background: TIER[tier].badgeBg, color: TIER[tier].badgeInk }}
+            className={`mt-1 rounded px-1.5 py-0.5 font-rc-mono text-[9px] font-bold uppercase tracking-[0.06em] ${TIER[tier].pill}`}
           >
             {tier}
           </span>
@@ -185,16 +188,16 @@ function HourStrip({
   score: number | null;
 }) {
   const tier = score == null ? "good" : tierOf(score);
-  const peak = TIER[tier].ring;
+  const peak = TIER[tier].line;
 
   return (
     <div>
       <div className="mb-2 flex items-baseline justify-between">
-        <span className="font-rc-mono text-[9px] uppercase tracking-[0.14em] text-white/45">
+        <span className="font-rc-mono text-[9px] font-semibold uppercase tracking-[0.06em] text-white/45">
           Today, hour by hour
         </span>
         {peakHour != null && (
-          <span className="font-rc-mono text-[10px] font-bold uppercase tracking-[0.08em] text-white/80">
+          <span className="font-rc-mono text-[9px] font-bold uppercase tracking-[0.06em] text-white/80">
             Best {hourLabel(peakHour)}
           </span>
         )}
@@ -219,13 +222,12 @@ function HourStrip({
                   : isPeak
                     ? peak
                     : "rgba(255,255,255,0.28)",
-                boxShadow: isPeak ? `0 0 8px ${peak}88` : undefined,
               }}
             />
           );
         })}
       </div>
-      <div className="mt-1.5 flex items-center justify-between font-rc-mono text-[9px] uppercase tracking-[0.1em] text-white/35">
+      <div className="mt-1.5 flex items-center justify-between font-rc-mono text-[9px] font-semibold uppercase tracking-[0.06em] text-white/35">
         <span>12a</span>
         <span>6a</span>
         <span>12p</span>
@@ -272,7 +274,7 @@ function DayStrip({ days }: { days: SpotDay[] }) {
   return (
     <div>
       <div className="mb-2 flex items-baseline justify-between gap-2">
-        <span className="font-rc-mono text-[9px] uppercase tracking-[0.14em] text-white/45">
+        <span className="font-rc-mono text-[9px] font-semibold uppercase tracking-[0.06em] text-white/45">
           Next 14 days
           {values.length > 1 && (
             <span className="text-white/30">
@@ -282,13 +284,13 @@ function DayStrip({ days }: { days: SpotDay[] }) {
           )}
         </span>
         {lockedCount > 0 ? (
-          <span className="flex shrink-0 items-center gap-1 font-rc-mono text-[10px] font-bold uppercase tracking-[0.08em] text-white/60">
+          <span className="flex shrink-0 items-center gap-1 font-rc-mono text-[9px] font-bold uppercase tracking-[0.06em] text-white/60">
             <Lock className="h-2.5 w-2.5" />
             {lockedCount} more
           </span>
         ) : (
           best && (
-            <span className="truncate font-rc-mono text-[10px] font-bold uppercase tracking-[0.08em] text-white/80">
+            <span className="truncate font-rc-mono text-[9px] font-bold uppercase tracking-[0.06em] text-white/80">
               Best {best.dow} {best.date} · {best.score}
             </span>
           )
@@ -308,7 +310,7 @@ function DayStrip({ days }: { days: SpotDay[] }) {
           }
           const isBest = best !== null && d === best;
           const tint =
-            d.score === null ? null : TIER[tierOf(d.score)].ring;
+            d.score === null ? null : TIER[tierOf(d.score)].line;
           return (
             <div
               key={i}
@@ -319,8 +321,7 @@ function DayStrip({ days }: { days: SpotDay[] }) {
                 background: tint ?? "rgba(255,255,255,0.10)",
                 // Only the best day runs at full strength; the rest are dimmed
                 // so the shape of the fortnight reads before the detail does.
-                opacity: tint ? (isBest ? 1 : 0.42) : 1,
-                boxShadow: isBest && tint ? `0 0 8px ${tint}88` : undefined,
+                opacity: tint ? (isBest ? 1 : 0.5) : 1,
               }}
             />
           );
@@ -351,12 +352,12 @@ function ConditionTile({
   value: string | null;
 }) {
   return (
-    <div className="rounded-xl border border-white/10 bg-white/[0.06] px-3 py-2.5">
-      <div className="flex items-center gap-1.5 font-rc-mono text-[9px] uppercase tracking-[0.12em] text-white/45">
+    <div className="rounded border border-white/10 bg-white/[0.06] px-3 py-2">
+      <div className="flex items-center gap-1 font-rc-mono text-[9px] font-semibold uppercase tracking-[0.06em] text-white/45">
         <Icon className="h-3 w-3" strokeWidth={2.2} />
         {label}
       </div>
-      <div className="mt-1 text-[15px] font-semibold leading-tight tabular-nums">
+      <div className="mt-1 font-rc-mono text-[12px] font-medium leading-4 tabular-nums">
         {value ?? "—"}
       </div>
     </div>
@@ -410,34 +411,24 @@ export default function HomeSpotHero({
   const trend = tide?.trend ?? rn?.tideTrend ?? null;
 
   return (
+    // Flat --rc-navy, 4px radius, the panel shadow token. The gradient and the
+    // two radial washes that used to live here were invented for this one card:
+    // the system has no gradient, every other navy surface in the app is a flat
+    // fill, and the frontend's radius tokens are 4px across the board (xs
+    // through lg) with `rounded` on every shipped card.
     <Link
       href={`/explore/spot/${slug}`}
-      className="group relative block overflow-hidden rounded-2xl text-white shadow-[0_10px_30px_-12px_rgba(11,18,32,0.55)] transition-transform duration-200 hover:-translate-y-0.5"
-      style={{
-        background:
-          "linear-gradient(150deg, #1B2C63 0%, #16234E 45%, #0F1B3D 100%)",
-      }}
+      className="group relative block overflow-hidden rounded bg-rc-navy text-white shadow-rc-panel transition-transform duration-200 hover:-translate-y-0.5"
     >
-      {/* Depth wash — a soft light source off the top-right corner, and a
-          waterline glow along the bottom. Decorative, so it never eats a tap. */}
-      <div
-        aria-hidden
-        className="pointer-events-none absolute inset-0"
-        style={{
-          background:
-            "radial-gradient(120% 90% at 88% -20%, rgba(30,64,224,0.45) 0%, rgba(30,64,224,0) 60%), radial-gradient(80% 60% at 10% 115%, rgba(56,189,248,0.18) 0%, rgba(56,189,248,0) 70%)",
-        }}
-      />
-
-      <div className="relative p-5 sm:p-6">
+      <div className="relative p-4 sm:p-6">
         {/* ── Title + score ──────────────────────────────────────────────── */}
         <div className="flex items-start justify-between gap-4">
           <div className="min-w-0 flex-1">
-            <div className="flex items-center gap-1.5 font-rc-mono text-[10px] uppercase tracking-[0.16em] text-white/55">
+            <div className="flex items-center gap-1.5 font-rc-mono text-[9px] font-semibold uppercase tracking-[0.06em] text-white/55">
               <Home className="h-3.5 w-3.5" />
               Home spot
             </div>
-            <h2 className="mt-2 text-[26px] font-black leading-[1.1] tracking-[-0.02em] sm:text-3xl">
+            <h2 className="mt-2 text-2xl font-bold leading-8 tracking-[-0.01em]">
               {name}
             </h2>
             {/* What anglers are reporting, on the card that ranks highest on
@@ -478,7 +469,7 @@ export default function HomeSpotHero({
             {speciesList.map((s, i) => (
               <span
                 key={s.name}
-                className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 font-rc-mono text-[10px] font-bold uppercase tracking-[0.08em] ${
+                className={`inline-flex items-center gap-1.5 rounded border px-2 py-1 font-rc-mono text-[9px] font-bold uppercase tracking-[0.06em] ${
                   i === 0
                     ? "border-white/25 bg-white/15 text-white"
                     : "border-white/10 bg-white/[0.06] text-white/70"
@@ -552,7 +543,7 @@ export default function HomeSpotHero({
         {/* ── Tide state + the way in ────────────────────────────────────── */}
         <div className="mt-4 flex items-center justify-between gap-3 border-t border-white/10 pt-3.5">
           {trend ? (
-            <span className="flex min-w-0 items-center gap-2 font-rc-mono text-[10px] uppercase tracking-[0.1em] text-white/70">
+            <span className="flex min-w-0 items-center gap-2 font-rc-mono text-[9px] font-semibold uppercase tracking-[0.06em] text-white/70">
               <span className="relative flex h-1.5 w-1.5 shrink-0">
                 <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-rc-good opacity-60" />
                 <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-rc-good" />
@@ -567,11 +558,11 @@ export default function HomeSpotHero({
               </span>
             </span>
           ) : (
-            <span className="font-rc-mono text-[10px] uppercase tracking-[0.1em] text-white/40">
+            <span className="font-rc-mono text-[9px] font-semibold uppercase tracking-[0.06em] text-white/40">
               Your pinned water
             </span>
           )}
-          <span className="flex shrink-0 items-center gap-0.5 font-rc-mono text-[10px] font-bold uppercase tracking-[0.1em] text-white/70 transition-colors group-hover:text-white">
+          <span className="flex shrink-0 items-center gap-0.5 font-rc-mono text-[9px] font-bold uppercase tracking-[0.06em] text-white/70 transition-colors group-hover:text-white">
             View spot
             <ChevronRight className="h-3.5 w-3.5 transition-transform group-hover:translate-x-0.5" />
           </span>

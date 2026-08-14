@@ -788,7 +788,7 @@ export default function DashboardPage() {
         <div className="mx-auto max-w-[860px]">
           <div>
             {spotsLoading && homeSlug ? (
-              <div className="h-[300px] animate-pulse rounded-2xl bg-rc-navy/90" />
+              <div className="h-[300px] animate-pulse rounded bg-rc-navy/90" />
             ) : homeCard ? (
               <HomeSpotHero
                 slug={homeCard.slug}
@@ -819,7 +819,7 @@ export default function DashboardPage() {
             ) : (
               <Link
                 href="/explore"
-                className="flex items-center justify-between rounded-2xl border border-dashed border-rc-rule bg-rc-panel px-6 py-8 text-rc-ink-soft transition-colors hover:border-rc-brand/40"
+                className="flex items-center justify-between rounded border border-dashed border-rc-rule bg-rc-panel px-6 py-8 text-rc-ink-soft transition-colors hover:border-rc-brand/40"
               >
                 <span className="flex items-center gap-3">
                   <Home className="h-5 w-5 text-rc-ink-mute" />
@@ -911,7 +911,7 @@ export default function DashboardPage() {
                 ))}
               </div>
             ) : (
-              <div className="rounded-xl border border-dashed border-rc-rule bg-rc-panel p-8 text-center">
+              <div className="rounded border border-dashed border-rc-rule bg-rc-panel p-8 text-center">
                 <p className="text-sm font-semibold text-rc-ink">
                   {homeCard ? "Nothing else saved yet" : "No spots yet"}
                 </p>
