@@ -19,34 +19,25 @@ import "maplibre-gl/dist/maplibre-gl.css";
 import type { RailSpot } from "../lib/explore-data";
 import { buildReliefStyle, buildSummaryStyle } from "@/lib/map/relief-style";
 import { attachRcaHatch } from "@/lib/map/rca-hatch";
-import {
-  attachSquarePuck,
-  SQUARE_PUCK_IMAGE_ID,
-  SQUARE_PUCK_SIZE,
-} from "@/lib/map/square-puck";
+import { attachScorePucks, PUCK_TIP_OFFSET } from "../lib/score-puck";
 import { MAP_CUSTOM_ATTRIBUTION, MapBrandLogo } from "@/lib/map/map-brand";
-import { spotsToFeatureCollection, declutterHiddenSlugs, SELECT_HEX } from "../lib/spot-geojson";
+import { spotsToFeatureCollection, declutterHiddenSlugs } from "../lib/spot-geojson";
 import { useCurrentsFlow } from "../lib/use-currents-flow";
 
 const SOURCE_ID = "bc-spots";
-const SPOT_CIRCLE = "bc-spot-circle";
-const SPOT_LABEL = "bc-spot-label";
-// Square puck for a spot the viewer created — same size/colour as the circles,
-// differing only in shape.
-const SPOT_CUSTOM_SQUARE = "bc-spot-custom-square";
-const SPOT_CUSTOM_SQUARE_STROKE = "bc-spot-custom-square-stroke";
-/** Stroke copy scale — 1.12 of a 32px square ≈ the circles' 1.5px ring. */
-const SQUARE_STROKE_SCALE = 1.12;
+// One layer for every spot now: the body, tail, numeral and ring are all baked
+// into the sprite. Shape still marks ownership: a wide rounded pill for curated
+// spots, a square one for the viewer's own.
+const SPOT_PUCK = "bc-spot-puck";
 // Relief-style layers (tide donuts + weather buoys). Spot circles are React
 // layers added after the style, so they render on top and win overlap clicks.
 const TIDE_STATION = "tide-station";
 const BUOY_MARKER = "buoy-marker";
 
-// Both spot shapes must be interactive — the square is a spot, not decoration.
-const INTERACTIVE = [SPOT_CIRCLE, SPOT_CUSTOM_SQUARE, TIDE_STATION, BUOY_MARKER];
+const INTERACTIVE = [SPOT_PUCK, TIDE_STATION, BUOY_MARKER];
 // Summary style ships no tide/buoy layers; querying a layer id that isn't in the
 // style throws inside queryRenderedFeatures on every mouse move.
-const INTERACTIVE_SUMMARY = [SPOT_CIRCLE, SPOT_CUSTOM_SQUARE];
+const INTERACTIVE_SUMMARY = [SPOT_PUCK];
 
 /** A clicked tide-station donut or weather-buoy marker. */
 export interface StationPick {
@@ -156,7 +147,6 @@ export default function ExploreMap({
   wdfwRegs?: boolean;
 }) {
   const [cursor, setCursor] = useState<string>("");
-  const [hoveredSlug, setHoveredSlug] = useState<string | null>(null);
   const [mapObj, setMapObj] = useState<MlMap | null>(null);
   // Zoom snapshot for pin decluttering, quantised to quarter-steps so the
   // hidden set only recomputes a few times per pinch — pixel overlap depends
@@ -254,118 +244,47 @@ export default function ExploreMap({
     ["in", ["get", "slug"], ["literal", hiddenSlugs]],
   ]);
 
-  // Selection + hover drive the stroke (cobalt when selected, heavier when
-  // hovered) — never the radius, matching BlueCaster. Re-evaluated whenever
-  // selectedSlug/hoveredSlug change so the declarative paint updates.
+  // Selection drives which puck sprite a feature asks for. Hover is deliberately
+  // absent: `icon-image` is a LAYOUT property, so swapping it on every mouse
+  // move would relayout the whole symbol layer, and the hover already reads
+  // through the rail card and the cursor change.
   const sel = selectedSlug ?? "__none__";
-  const hov = hoveredSlug ?? "__none__";
-  const strokeColor = ["case", ["==", ["get", "slug"], sel], SELECT_HEX, "#ffffff"];
-  const strokeWidth = [
-    "case",
-    ["==", ["get", "slug"], sel], 3,
-    ["==", ["get", "slug"], hov], 2.5,
-    1.5,
-  ];
 
-  // One circle layer for every CURATED spot (scored colors + opacity baked into
-  // props; unscored = muted zinc dot at 0.6). Radius zoom-interpolated
-  // (11→14→16). The viewer's own spots are excluded here and drawn as squares
-  // by the layer below — without the exclusion each would render as both.
-  const spotCircleLayer: LayerProps = {
-    id: SPOT_CIRCLE,
-    type: "circle",
-    filter: expr(["all", declutterFilter, ["==", ["get", "isCustom"], 0]]),
-    paint: {
-      "circle-radius": expr(["interpolate", ["linear"], ["zoom"], 8, 11, 12, 14, 15, 16]),
-      "circle-color": expr(["get", "color"]),
-      "circle-opacity": expr(["get", "opacity"]),
-      "circle-stroke-width": expr(strokeWidth),
-      "circle-stroke-color": expr(strokeColor),
-    },
-  };
-
-  // The viewer's OWN spots: identical puck — score colour, white stroke, score
-  // numeral — but SQUARE. Shape is the only difference because colour is
-  // already carrying score, and cobalt already means "selected" here.
+  // One symbol layer for every spot, curated or custom. The pill, its tail, the
+  // score numeral and the ring are all baked into the sprite (see
+  // lib/score-puck.ts), which is why this replaced four layers: a circle, an
+  // SDF square, that square's scaled stroke copy, and a shared text layer.
   //
-  // MapLibre has no square primitive, so this is an SDF symbol (see
-  // lib/map/square-puck.ts): `icon-color` applies the same score ramp the
-  // circles use and `icon-halo-*` gives it the same white/selected stroke.
+  // Ownership still reads through SHAPE, exactly as the square carried it:
+  // `rd` is a wide rounded pill for curated spots, `sq` a square one for the
+  // viewer's own. Colour stays spoken for by the score ramp.
   //
-  // icon-size is a ratio of the drawn image, so the stops are
-  // circle-diameter ÷ image size — matching the circles' 11/14/16 radii
-  // exactly, which is what "same size as the circles" requires.
-  // The stroke is a SECOND, slightly larger copy of the same square drawn
-  // underneath — not `icon-halo-width`. An SDF halo renders far too faintly
-  // here to match the circles' crisp 1.5px ring (verified against a real pin
-  // side by side: at halo 3 it was still barely there). A scaled sibling gives
-  // an exact, uniform border.
-  //
-  // SQUARE_STROKE_SCALE is baked into the stops rather than written as
-  // ["*", interpolate, k] — `zoom` must be the top-level input of an
-  // interpolate or MapLibre rejects the whole layer, silently.
-  const customSquareStrokeLayer: LayerProps = {
-    id: SPOT_CUSTOM_SQUARE_STROKE,
+  // The tail tip sits PUCK_TIP_OFFSET above the sprite's bottom edge (the drop
+  // shadow needs the room), so the icon is nudged down by that much to land the
+  // tip exactly on the spot rather than the shadow.
+  const spotPuckLayer: LayerProps = {
+    id: SPOT_PUCK,
     type: "symbol",
-    filter: expr(["all", declutterFilter, ["==", ["get", "isCustom"], 1]]),
+    filter: expr(declutterFilter),
     layout: {
-      "icon-image": SQUARE_PUCK_IMAGE_ID,
-      "icon-size": expr([
-        "interpolate",
-        ["linear"],
-        ["zoom"],
-        8, ((11 * 2) / SQUARE_PUCK_SIZE) * SQUARE_STROKE_SCALE,
-        12, ((14 * 2) / SQUARE_PUCK_SIZE) * SQUARE_STROKE_SCALE,
-        15, ((16 * 2) / SQUARE_PUCK_SIZE) * SQUARE_STROKE_SCALE,
+      "icon-image": expr([
+        "concat",
+        "rcp:", ["get", "label"], ":",
+        [
+          "case",
+          ["==", ["get", "slug"], sel], "sel",
+          ["==", ["get", "fresh"], 1], "fresh",
+          "base",
+        ],
+        ":", ["to-string", ["get", "hot"]],
+        ":", ["case", ["==", ["get", "isCustom"], 1], "sq", "rd"],
       ]),
+      "icon-anchor": "bottom",
+      "icon-offset": [0, PUCK_TIP_OFFSET],
       "icon-allow-overlap": true,
       "icon-ignore-placement": true,
     },
-    paint: {
-      // Same white / cobalt-when-selected as the circles' stroke. Selection
-      // reads through colour alone here; the circles also widen their stroke,
-      // but a zoom interpolate can't be nested inside a selection `case`.
-      "icon-color": expr(strokeColor),
-      "icon-opacity": expr(["get", "opacity"]),
-    },
-  };
-
-  const customSquareLayer: LayerProps = {
-    id: SPOT_CUSTOM_SQUARE,
-    type: "symbol",
-    filter: expr(["all", declutterFilter, ["==", ["get", "isCustom"], 1]]),
-    layout: {
-      "icon-image": SQUARE_PUCK_IMAGE_ID,
-      "icon-size": expr([
-        "interpolate",
-        ["linear"],
-        ["zoom"],
-        8, (11 * 2) / SQUARE_PUCK_SIZE,
-        12, (14 * 2) / SQUARE_PUCK_SIZE,
-        15, (16 * 2) / SQUARE_PUCK_SIZE,
-      ]),
-      "icon-allow-overlap": true,
-      "icon-ignore-placement": true,
-    },
-    paint: {
-      "icon-color": expr(["get", "color"]),
-      "icon-opacity": expr(["get", "opacity"]),
-    },
-  };
-
-  // Score numeral (or "·" for unscored), color from the feature (white / grey).
-  const spotLabelLayer: LayerProps = {
-    id: SPOT_LABEL,
-    type: "symbol",
-    filter: declutterFilter,
-    layout: {
-      "text-field": expr(["get", "label"]),
-      "text-font": ["Open Sans Semibold"],
-      "text-size": expr(["interpolate", ["linear"], ["zoom"], 8, 10, 14, 12]),
-      "text-allow-overlap": true,
-      "text-ignore-placement": true,
-    },
-    paint: { "text-color": expr(["get", "txtColor"]) },
+    paint: { "icon-opacity": expr(["get", "opacity"]) },
   };
 
   const handleClick = useCallback(
@@ -377,7 +296,7 @@ export default function ExploreMap({
       }
       const f = e.features?.[0];
       if (!f) return;
-      if (f.layer.id === SPOT_CIRCLE || f.layer.id === SPOT_CUSTOM_SQUARE) {
+      if (f.layer.id === SPOT_PUCK) {
         const slug = f.properties?.slug;
         if (slug) onSelect(slug as string);
         return;
@@ -407,17 +326,15 @@ export default function ExploreMap({
     [onSelect, onSelectStation, pinDropMode, onMapPick],
   );
 
-  // Hover: pointer cursor + track the hovered spot so its stroke thickens.
+  // Hover: pointer cursor only. The puck no longer thickens on hover — its
+  // sprite is chosen by a LAYOUT property, so swapping it per mouse move would
+  // relayout every symbol on the map; the rail card carries the feedback.
   const handleMouseMove = useCallback((e: MapLayerMouseEvent) => {
-    const f = e.features?.[0];
-    const slug = f ? (f.properties?.slug as string) : null;
-    setCursor(f ? "pointer" : "");
-    setHoveredSlug((prev) => (prev === slug ? prev : slug));
+    setCursor(e.features?.[0] ? "pointer" : "");
   }, []);
 
   const handleMouseLeave = useCallback(() => {
     setCursor("");
-    setHoveredSlug(null);
   }, []);
 
   return (
@@ -443,7 +360,7 @@ export default function ExploreMap({
           // The hatch is only referenced by rca-fill, which the summary style
           // omits entirely.
           if (!summary) attachRcaHatch(e.target); // RCA fill-pattern image
-          attachSquarePuck(e.target); // register the custom-spot square (SDF icon)
+          attachScorePucks(e.target); // draw puck sprites on demand
           setMapObj(e.target);
           reportViewport(e.target);
         }}
@@ -480,11 +397,7 @@ export default function ExploreMap({
         )}
 
         <Source id={SOURCE_ID} type="geojson" data={data}>
-          <Layer {...spotCircleLayer} />
-          {/* Stroke copy first — it must sit UNDER the square it outlines. */}
-          <Layer {...customSquareStrokeLayer} />
-          <Layer {...customSquareLayer} />
-          <Layer {...spotLabelLayer} />
+          <Layer {...spotPuckLayer} />
         </Source>
 
       </Map>
