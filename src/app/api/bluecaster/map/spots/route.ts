@@ -51,7 +51,19 @@ export async function GET(request: NextRequest) {
     }
     return NextResponse.json(data, {
       headers: {
-        "Cache-Control": viewerId ? "private, no-store" : "public, max-age=300",
+        // Mirrors what BlueCaster sets on the same body. This proxy used to
+        // answer with a bare `public, max-age=300`, which threw away the
+        // upstream `s-maxage=600`: the shared edge cache fell back to the
+        // browser TTL, so it re-fetched twice as often, and with no
+        // `stale-while-revalidate` the angler who arrived on an expired entry
+        // waited out a full cold origin read instead of being served the
+        // slightly stale copy while the edge refreshed behind them.
+        //
+        // The viewer body carries that angler's own private spots and stays
+        // out of any shared cache.
+        "Cache-Control": viewerId
+          ? "private, no-store"
+          : "public, max-age=300, s-maxage=600, stale-while-revalidate=600",
       },
     });
   } catch (err) {
