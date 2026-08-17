@@ -41,6 +41,27 @@ import type { SpotPageInitial } from "@/lib/bluecaster/live-spot-types";
 /** A real spot id, as opposed to the slug `unscoredRailSpot` stands in with. */
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
+/**
+ * Grow a small control's TAP area to about 44px without moving anything.
+ *
+ * The rail links and the two icon-sized controls render at 17 to 24px tall,
+ * which reads fine on a desktop pointer and is a poor thumb target on a phone.
+ * Measured on an iPhone 13 Mini viewport: "Create an alert" 17px, "Log a catch"
+ * 17px, "View all regulations" 17px, the alerts pill 24px, the rename pencil
+ * 20px. Apple's guideline is 44.
+ *
+ * Padding the elements would work but pushes every rail apart, and the negative
+ * margin normally used to cancel that fights the `mt-*` already on these links.
+ * An absolutely positioned ::after is outside layout entirely, so the hit area
+ * grows and the design does not move a pixel.
+ *
+ * The insets are per-control because they start at different heights, and each
+ * is sized to land at 44px or just over rather than to a single round number.
+ */
+const TAP_TEXT = "relative after:absolute after:content-[''] after:-inset-x-2 after:-inset-y-3.5"; // 17 + 28 = 45
+const TAP_PILL = "relative after:absolute after:content-[''] after:-inset-2.5"; // 24 + 20 = 44
+const TAP_ICON = "relative after:absolute after:content-[''] after:-inset-3"; // 20 + 24 = 44
+
 // "victoria-waterfront-ad3f9b" → "Victoria Waterfront" (strip id suffix, title-case).
 function prettify(slug: string): string {
   return slug
@@ -829,7 +850,7 @@ export default function DashboardPage() {
                         setNameDraft(localName ?? storedFirstName(user) ?? "");
                         setEditingName(true);
                       }}
-                      className="text-rc-brand transition-transform hover:scale-110"
+                      className={`text-rc-brand transition-transform hover:scale-110 ${TAP_ICON}`}
                     >
                       <Pencil className="h-5 w-5" />
                     </button>
@@ -1019,7 +1040,7 @@ export default function DashboardPage() {
             <RailCard
               title="Alerts"
               pill={
-                <Link href="/alerts">
+                <Link href="/alerts" className={`inline-block ${TAP_PILL}`}>
                   <Pill
                     className={
                       (activeAlertCount ?? 0) > 0 ? TIER_PILL.good : TIER_PILL.none
@@ -1149,7 +1170,7 @@ export default function DashboardPage() {
                   </div>
                   <Link
                     href={`/explore/spot/${homeSlug}`}
-                    className="mt-2 inline-block font-rc-mono text-[11px] font-bold text-rc-brand"
+                    className={`mt-2 inline-block font-rc-mono text-[11px] font-bold text-rc-brand ${TAP_TEXT}`}
                   >
                     View all regulations ›
                   </Link>
@@ -1262,7 +1283,7 @@ function RailEmpty({
       <p className="font-rc-mono text-[12px] text-rc-ink-soft">{body}</p>
       <Link
         href={href}
-        className="mt-2 inline-block font-rc-mono text-[11px] font-bold text-rc-brand"
+        className={`mt-2 inline-block font-rc-mono text-[11px] font-bold text-rc-brand ${TAP_TEXT}`}
       >
         {cta} ›
       </Link>
