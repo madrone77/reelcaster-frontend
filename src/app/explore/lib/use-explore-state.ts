@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 
 /**
  * URL state for the Explore canvas — deep-linkable and back-button friendly.
@@ -12,7 +12,6 @@ import { useRouter, useSearchParams } from "next/navigation";
  *                     (src = chs | noaa for tide stations, ndbc for buoys)
  */
 export function useExploreState() {
-  const router = useRouter();
   const searchParams = useSearchParams();
 
   const citySlug = searchParams.get("loc");
@@ -28,9 +27,36 @@ export function useExploreState() {
         else params.set(k, v);
       }
       const qs = params.toString();
-      router.replace(qs ? `/explore?${qs}` : "/explore", { scroll: false });
+      const url = qs ? `/explore?${qs}` : "/explore";
+
+      // Native replaceState, NOT router.replace. The whole selection is client
+      // state that happens to be spelled in the URL, and going through the
+      // router made every pick of a spot, day, station or city wait on the
+      // server.
+      //
+      // `/explore` reads `?loc` and `?spot` during render, so it is a dynamic
+      // route (`ƒ`). A router navigation to a new query string cannot be
+      // answered from the client, so it fetches a fresh RSC payload, which
+      // re-runs fetchSpotCoords + fetchMapSpots + fetchMapForecast14d. Measured
+      // against prod: 270ms to 1.33s per pick, 68 to 86 KB a time. React holds
+      // the old UI for the whole pending transition, and `spotSlug` below only
+      // moves when it commits, so the drawer kept showing the PREVIOUS spot
+      // while `handleSelectSpot`'s imperative flyTo (which needs no server) had
+      // already moved the camera to the new one. Clicking Constance Bank and
+      // then another spot left Constance Bank in the rail over the wrong water,
+      // for as long as the round trip took. Cache warmth decides how long that
+      // is, which is what made it feel intermittent.
+      //
+      // Next patches history.pushState/replaceState to dispatch ACTION_RESTORE
+      // (see next/dist/client/components/app-router.js), so `useSearchParams`
+      // picks this up on the client with no fetch, and `replaceState` keeps the
+      // no-new-history-entry semantics `router.replace` had. The server reads
+      // in page.tsx still run for real document requests, which is the arrival
+      // path they were added for. Nothing here needs them, because the client
+      // already loads spots by viewport.
+      window.history.replaceState(null, "", url);
     },
-    [router, searchParams],
+    [searchParams],
   );
 
   return { citySlug, spotSlug, day, stn, setQuery };
