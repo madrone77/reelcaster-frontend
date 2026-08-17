@@ -36,7 +36,8 @@ export interface SpotFeatureProps {
   opacity: number;
   /** 1 when the viewer created this spot — drives the brand-blue ring layer. */
   isCustom: number;
-  /** 1 when scraped catch reports exist here in the intel window. */
+  /** 1 when scraped catch reports exist here AND this viewer may see that.
+   *  Drives the emerald collar. Pro-only, like the tag below. */
   fresh: number;
   /**
    * 1 when the puck should wear the "Hot" tag: a Pro viewer, on a scored spot
@@ -50,8 +51,8 @@ export interface SpotFeatureProps {
    * merely that someone posted), but matching that here would mean serving a
    * Pro-gated number in a shared, CDN-cached body.
    *
-   * Kept separate from `fresh` because the two are gated differently: the
-   * emerald collar still marks reported spots for everyone.
+   * Kept separate from `fresh` because the tag additionally needs a score to
+   * sit above, while the collar does not.
    */
   hot: number;
 }
@@ -77,15 +78,16 @@ export function spotsToFeatureCollection(
    *  day peak; spots without an hourly value that hour fall back to the peak. */
   hour?: number | null,
   /**
-   * Whether this viewer gets the "Hot" tag, which is Pro-only.
+   * Whether this viewer may see that a spot has catch reports at all. Gates
+   * BOTH report signals on the map: the "Hot" tag and the emerald collar.
    *
    * Defaults to OFF so a surface that never resolves a tier (the public city
-   * pages) cannot show it by omission. Note the caller must not pass a tier it
-   * is still loading: `useSubscription` reports `isPaid: false` until it
-   * resolves, which biases correctly to hidden, but means a Pro viewer's tags
-   * arrive a beat after first paint rather than never.
+   * pages) cannot show them by omission. Note the caller must not pass a tier
+   * it is still loading: `useSubscription` reports `isPaid: false` until it
+   * resolves, which biases correctly to hidden, but means a Pro viewer's
+   * signals arrive a beat after first paint rather than never.
    */
-  showHotTag = false,
+  showReports = false,
 ): SpotFeatureCollection {
   // Ascending score so the best pin paints LAST — when two pins still touch
   // after decluttering, the higher score sits on top and wins the click.
@@ -112,10 +114,10 @@ export function spotsToFeatureCollection(
           // Drives the brand-blue ring that marks a spot as yours. 1/0 rather
           // than a boolean: MapLibre filter expressions compare numbers.
           isCustom: s.isCustom ? 1 : 0,
-          fresh: s.hasReports ? 1 : 0,
+          fresh: showReports && s.hasReports ? 1 : 0,
           // A tag reading "Hot" next to no score at all would contradict
           // itself, so it needs a number to sit above.
-          hot: showHotTag && has && s.hasReports ? 1 : 0,
+          hot: showReports && has && s.hasReports ? 1 : 0,
         },
       };
     }),
