@@ -109,6 +109,7 @@ export default function ExploreMap({
   onMapPick,
   showBrand = true,
   summary = false,
+  showHotTag = false,
 }: {
   mapRef: RefObject<MapRef | null>;
   spots: RailSpot[];
@@ -145,6 +146,13 @@ export default function ExploreMap({
   stripVisible?: boolean;
   /** Show the WDFW marine-area grid + MPAs (active city is in Washington). */
   wdfwRegs?: boolean;
+  /**
+   * Whether this viewer gets the Pro-only "Hot" tag on reported spots. Off by
+   * default so a surface with no tier to resolve (the public city pages) cannot
+   * show it by omission; the emerald collar still marks those spots for
+   * everyone.
+   */
+  showHotTag?: boolean;
 }) {
   const [cursor, setCursor] = useState<string>("");
   const [mapObj, setMapObj] = useState<MlMap | null>(null);
@@ -226,8 +234,8 @@ export default function ExploreMap({
   }, [summary]);
 
   const data = useMemo(
-    () => spotsToFeatureCollection(spots, hour),
-    [spots, hour],
+    () => spotsToFeatureCollection(spots, hour, showHotTag),
+    [spots, hour, showHotTag],
   );
 
   // Overlapping pins: hide the lower-scored one at this zoom (it reappears on

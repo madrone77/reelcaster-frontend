@@ -39,14 +39,19 @@ export interface SpotFeatureProps {
   /** 1 when scraped catch reports exist here in the intel window. */
   fresh: number;
   /**
-   * 1 when the puck should wear the "Hot" tag. Today that is the same signal as
-   * `fresh`, because has_reports is all the map payload carries: it is a
-   * "tracked / not tracked" flag, deliberately public, with the Pro-gated
-   * counts arriving separately. BlueCaster sets a higher bar for the tag (a
-   * report that says fish were actually CAUGHT, not merely that someone
-   * posted); matching it here needs that positive count plumbed into
-   * /api/bluecaster/map/spots. Kept as its own property so that tightening is a
-   * one-line change here rather than a layer rewrite.
+   * 1 when the puck should wear the "Hot" tag: a Pro viewer, on a scored spot
+   * that has reports.
+   *
+   * It reads the same underlying signal as `fresh` rather than a stronger one.
+   * has_reports is all the map payload carries, and deliberately so: presence
+   * is the one public fact about reports, while the counts and the verdict
+   * stay behind the Pro gate on /map/fresh-catches. BlueCaster's own map sets
+   * a higher bar for the tag (a report saying fish were actually CAUGHT, not
+   * merely that someone posted), but matching that here would mean serving a
+   * Pro-gated number in a shared, CDN-cached body.
+   *
+   * Kept separate from `fresh` because the two are gated differently: the
+   * emerald collar still marks reported spots for everyone.
    */
   hot: number;
 }
@@ -71,6 +76,16 @@ export function spotsToFeatureCollection(
   /** When set (0–23), pins color/label by that hour's score instead of the
    *  day peak; spots without an hourly value that hour fall back to the peak. */
   hour?: number | null,
+  /**
+   * Whether this viewer gets the "Hot" tag, which is Pro-only.
+   *
+   * Defaults to OFF so a surface that never resolves a tier (the public city
+   * pages) cannot show it by omission. Note the caller must not pass a tier it
+   * is still loading: `useSubscription` reports `isPaid: false` until it
+   * resolves, which biases correctly to hidden, but means a Pro viewer's tags
+   * arrive a beat after first paint rather than never.
+   */
+  showHotTag = false,
 ): SpotFeatureCollection {
   // Ascending score so the best pin paints LAST — when two pins still touch
   // after decluttering, the higher score sits on top and wins the click.
@@ -100,7 +115,7 @@ export function spotsToFeatureCollection(
           fresh: s.hasReports ? 1 : 0,
           // A tag reading "Hot" next to no score at all would contradict
           // itself, so it needs a number to sit above.
-          hot: has && s.hasReports ? 1 : 0,
+          hot: showHotTag && has && s.hasReports ? 1 : 0,
         },
       };
     }),

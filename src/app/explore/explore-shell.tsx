@@ -1431,6 +1431,10 @@ export default function ExploreShell({
           onViewportChange={handleViewportChange}
           pinDropMode={customMode}
           onMapPick={handleMapPick}
+          // `isPaid` is false until `useSubscription` resolves, so the tag is
+          // hidden until the tier is known and then appears. That is the right
+          // way round: a Pro viewer waits a beat, a free one never sees it.
+          showHotTag={isPaid}
         />
 
         {/* Pro-only "Create custom spot" action, top-right of the map.
