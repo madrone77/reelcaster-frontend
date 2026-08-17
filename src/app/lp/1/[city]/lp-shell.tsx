@@ -441,7 +441,12 @@ export default function LpShell(props: LpShellProps) {
           </div>
           <div
             className="mapwrap"
-            style={{ height: "480px", marginTop: "28px" }}
+            style={{
+              height: "480px",
+              marginTop: "28px",
+              aspectRatio: "auto",
+              width: "100%",
+            }}
             aria-label={`Live fishing map with depth contours and scored spots near ${props.city}`}
           >
             <MarketingMap
