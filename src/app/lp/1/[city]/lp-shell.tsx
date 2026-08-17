@@ -446,7 +446,6 @@ export default function LpShell(props: LpShellProps) {
           >
             <MarketingMap
               spots={props.mapSpots}
-              species={props.mapSpecies}
               center={props.mapCenter}
               zoom={props.mapZoom}
             />
