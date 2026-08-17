@@ -296,20 +296,7 @@ export function RecentReportsBand({
       </div>
 
       {/* Collapsed = one headline sentence + the landed ratio; the reports live
-          behind the expander. */}
-      <button
-        type="button"
-        aria-expanded={expanded}
-        onClick={() => setExpanded((v) => !v)}
-        className="mt-4 flex items-center gap-1.5 font-rc-mono text-[11px] font-bold uppercase tracking-[0.06em] text-rc-brand hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-rc-brand"
-      >
-        {expanded ? "Show less" : "Show more"}
-        <ChevronDown
-          aria-hidden
-          className={`h-3.5 w-3.5 transition-transform ${expanded ? "rotate-180" : ""}`}
-        />
-      </button>
-
+          behind the expander at the foot of the card. */}
       {expanded && (
         <>
           {/* The reports — one line per species with a green/white landed bar. */}
@@ -350,6 +337,21 @@ export function RecentReportsBand({
           )}
         </>
       )}
+
+      {/* Expander at the foot — below whatever is revealed, so it always reads
+          as "more below" when closed and "that's all" when open. */}
+      <button
+        type="button"
+        aria-expanded={expanded}
+        onClick={() => setExpanded((v) => !v)}
+        className="mt-4 flex items-center gap-1.5 font-rc-mono text-[11px] font-bold uppercase tracking-[0.06em] text-rc-brand hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-rc-brand"
+      >
+        {expanded ? "Show less" : "Show more"}
+        <ChevronDown
+          aria-hidden
+          className={`h-3.5 w-3.5 transition-transform ${expanded ? "rotate-180" : ""}`}
+        />
+      </button>
     </section>
   );
 }
