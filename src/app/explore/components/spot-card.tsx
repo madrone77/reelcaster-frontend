@@ -259,12 +259,21 @@ export default function SpotCard({
           />
         ) : null)}
 
-      {/* 5 · persistent footer (one step below the card surface) */}
+      {/* 5 · persistent footer (one step below the card surface)
+          `min-h-11` is 44px, the touch guideline. This row rendered at 33px,
+          which is a poor thumb target on the card an angler actually taps. The
+          two controls sit SIDE BY SIDE rather than stacked, so growing them
+          separates nothing and cannot overlap a neighbour; the link centres its
+          own text rather than sitting against the top edge.
+
+          The minimum is on the two CONTROLS, not on the row. Putting it on the
+          row leaves each control at 43px, because the row's 1px border-t comes
+          out of the content box the children fill. */}
       <div className="flex items-stretch border-t border-rc-rule bg-rc-surface">
         <Link
           href={reportHref}
           onClick={(e) => e.stopPropagation()}
-          className="flex-1 text-left px-3 py-2 font-rc-mono text-[11px] font-semibold tracking-[0.08em] text-rc-brand hover:bg-rc-brand-soft/40 transition-colors"
+          className="flex flex-1 items-center min-h-11 text-left px-3 py-2 font-rc-mono text-[11px] font-semibold tracking-[0.08em] text-rc-brand hover:bg-rc-brand-soft/40 transition-colors"
         >
           VIEW MORE →
         </Link>
@@ -274,7 +283,7 @@ export default function SpotCard({
           onClick={onStar}
           aria-label={fav ? "Remove from favorites" : "Add to favorites"}
           aria-pressed={fav}
-          className="group w-12 flex items-center justify-center hover:bg-rc-badge/10 transition-colors"
+          className="group w-12 min-h-11 flex items-center justify-center hover:bg-rc-badge/10 transition-colors"
         >
           <svg
             viewBox="0 0 42 40"
