@@ -259,6 +259,15 @@ export default function ExploreShell({
   const [pinCoords, setPinCoords] = useState<{ lat: number; lng: number } | null>(null);
   const [customModalOpen, setCustomModalOpen] = useState(false);
   const customModalMounted = useMountedOnce(customModalOpen);
+  // The wall behind the same button for everyone else. The action is on the map
+  // whatever your tier — hiding it meant the one feature that answers "my spot
+  // isn't on here" was invisible to exactly the people asking.
+  const [customUpgradeOpen, setCustomUpgradeOpen] = useState(false);
+  const customUpgradeMounted = useMountedOnce(customUpgradeOpen);
+  const handleCreateCustomSpot = useCallback(() => {
+    if (isPaid) setCustomMode(true);
+    else setCustomUpgradeOpen(true);
+  }, [isPaid]);
   const [customSpots, setCustomSpots] = useState<CustomSpotPin[]>([]);
 
   useEffect(() => {
@@ -1433,16 +1442,20 @@ export default function ExploreShell({
           onMapPick={handleMapPick}
         />
 
-        {/* Pro-only "Create custom spot" action, top-right of the map.
+        {/* "Create custom spot" action, top-right of the map. Everyone sees it:
+            Pro arms pin-drop mode, anyone else gets the Pro wall for it.
             Mobile has to clear the floating location header, which owns the
             map's top band and puts the Filters button in this same corner;
             desktop has no header there, so it rides at the rail's top edge
             and mirrors the rail's 24px gutter on the other side. */}
-        {isPaid && !customMode && (
+        {!customMode && (
           <button
             type="button"
-            onClick={() => setCustomMode(true)}
-            className={`${MAP_ACTION_PILL} right-3 lg:right-6 gap-1.5 bg-rc-brand hover:bg-rc-brand-hover shadow-md transition-colors`}
+            onClick={handleCreateCustomSpot}
+            // Until the tier lands, a Pro account still reads as free, and a
+            // Pro angler would be sold what they already pay for.
+            disabled={tierLoading}
+            className={`${MAP_ACTION_PILL} right-3 lg:right-6 gap-1.5 bg-rc-brand hover:bg-rc-brand-hover shadow-md transition-colors disabled:opacity-70`}
           >
             <MapPinPlus className="w-4 h-4 shrink-0" />
             {/* The map band on a phone is only ~335px tall, so the full label
@@ -1625,6 +1638,18 @@ export default function ExploreShell({
         feature="alerts"
         from="explore"
         spotName={alertSpot?.name}
+      />
+      )}
+
+      {/* The wall behind "Create custom spot" for a free or signed-out angler.
+          Same modal and same plan matrix as every other wall on /explore, on
+          the row that actually got hit. */}
+      {customUpgradeMounted && (
+      <ProTrialModal
+        open={customUpgradeOpen}
+        onOpenChange={setCustomUpgradeOpen}
+        feature="custom-spots"
+        from="explore-map"
       />
       )}
     </div>
