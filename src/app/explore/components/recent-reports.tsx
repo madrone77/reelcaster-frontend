@@ -85,6 +85,7 @@ function SpeciesRow({
   state,
   note,
   places,
+  bar = false,
 }: {
   name: string;
   posts: number;
@@ -92,28 +93,49 @@ function SpeciesRow({
   state: string;
   note: string;
   places?: Array<{ name: string; km: number }>;
+  /** Show the green/white landed bar (trips that landed vs. total trips). Only
+   *  for the "caught here" reports; nearby species just carry a ratio. */
+  bar?: boolean;
 }) {
+  const pct = posts > 0 ? Math.round((positive / posts) * 100) : 0;
   return (
-    <li className="flex gap-2.5">
-      <span
-        aria-hidden
-        className={`mt-[7px] h-1.5 w-1.5 shrink-0 rounded-full ${STATE_DOT[state] ?? "bg-rc-ink-mute"}`}
-      />
-      <div className="min-w-0 flex-1">
-        <div className="flex items-baseline justify-between gap-3">
-          <span className="truncate text-[13.5px] font-medium text-rc-ink">{name}</span>
-          <span className="shrink-0 font-rc-mono text-[11px] text-rc-ink-mute">
-            <span className={positive > 0 ? "text-rc-good" : undefined}>{positive}</span>
-            {` / ${posts}`}
+    <li>
+      <div className="flex items-center gap-3">
+        <span
+          aria-hidden
+          className={`h-1.5 w-1.5 shrink-0 rounded-full ${STATE_DOT[state] ?? "bg-rc-ink-mute"}`}
+        />
+        <span className="w-[128px] shrink-0 truncate text-[13.5px] font-semibold text-rc-ink">
+          {name}
+        </span>
+        {bar && (
+          <span
+            className="h-1.5 min-w-0 flex-1 overflow-hidden rounded-full bg-rc-surface"
+            aria-hidden
+          >
+            <span
+              className="block h-full rounded-full bg-rc-good"
+              style={{ width: `${pct}%` }}
+            />
           </span>
-        </div>
-        {note && <p className="mt-0.5 text-[12.5px] leading-snug text-rc-ink-soft">{note}</p>}
-        {places && places.length > 0 && (
-          <p className="mt-1 font-rc-mono text-[10px] text-rc-ink-mute">
-            {places.map((p) => `${p.name} ${p.km} km`).join(" · ")}
-          </p>
         )}
+        <span
+          className={`shrink-0 font-rc-mono text-[11px] text-rc-ink-mute ${bar ? "" : "ml-auto"}`}
+        >
+          <span className={positive > 0 ? "text-rc-good" : undefined}>{positive}</span>
+          {`/${posts}`}
+        </span>
       </div>
+      {note && (
+        <p className="mt-1 pl-[22px] text-[12.5px] leading-snug text-rc-ink-soft">
+          {note}
+        </p>
+      )}
+      {places && places.length > 0 && (
+        <p className="mt-1 pl-[22px] font-rc-mono text-[10px] text-rc-ink-mute">
+          {places.map((p) => `${p.name} ${p.km} km`).join(" · ")}
+        </p>
+      )}
     </li>
   );
 }
@@ -255,7 +277,6 @@ export function RecentReportsBand({
           <h3 className="text-[17px] font-semibold leading-snug text-rc-ink lg:text-[19px]">
             {reports.headline}
           </h3>
-          <p className="mt-1.5 text-[14px] leading-relaxed text-rc-ink-soft">{reports.body}</p>
         </div>
 
         <div className="flex items-center gap-3 lg:w-[188px] lg:flex-col lg:items-end lg:gap-1.5">
@@ -274,6 +295,52 @@ export function RecentReportsBand({
         </div>
       </div>
 
+      {/* The reports — always visible: one line per species with a green/white
+          landed bar and its ratio. The per-species notes, the nearby species and
+          what-worked reveal on expand, so the verdict is scannable without a
+          click but the band stays short. */}
+      <div className="mt-4 border-t border-rc-rule pt-4">
+        <ColLabel>Caught here</ColLabel>
+        <ul className="mt-3 flex flex-col gap-3.5">
+          {reports.species.map((s, i) => (
+            <SpeciesRow key={i} {...s} bar note={expanded ? s.note : ""} />
+          ))}
+        </ul>
+      </div>
+
+      {expanded && (
+        <>
+          {reports.nearby.length > 0 && (
+            <div className="mt-4 border-t border-rc-rule pt-4">
+              <ColLabel>Reported nearby, not here</ColLabel>
+              <ul className="mt-3 flex flex-col gap-3.5">
+                {reports.nearby.map((n, i) => (
+                  <SpeciesRow key={i} {...n} places={n.likelySpots} />
+                ))}
+              </ul>
+            </div>
+          )}
+
+          {/* Full width, and gone entirely when the reports had no gear or
+              depth detail. */}
+          {reports.whatWorked.length > 0 && (
+            <div className="mt-4 border-t border-rc-rule pt-4">
+              <ColLabel>What worked</ColLabel>
+              <ul className="mt-2 grid gap-x-8 gap-y-2 md:grid-cols-2 xl:grid-cols-3">
+                {reports.whatWorked.map((w, i) => (
+                  <li key={i} className="flex gap-2 text-[12.5px] leading-snug text-rc-ink-soft">
+                    <span aria-hidden className="mt-[7px] h-1 w-1 shrink-0 rotate-45 bg-rc-brand" />
+                    <span className="min-w-0">{w}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+        </>
+      )}
+
+      {/* Expander at the foot — below whatever is revealed, so it always reads
+          as "more below" when closed and "that's all" when open. */}
       <button
         type="button"
         aria-expanded={expanded}
@@ -286,52 +353,6 @@ export function RecentReportsBand({
           className={`h-3.5 w-3.5 transition-transform ${expanded ? "rotate-180" : ""}`}
         />
       </button>
-
-      {expanded && (
-        <>
-      {/* Here vs not-here: a natural pair, so they share the row. */}
-      <div className="mt-5 grid gap-5 border-t border-rc-rule pt-4 sm:grid-cols-2 sm:gap-8">
-        <div>
-          <ColLabel>Caught here</ColLabel>
-          <ul className="mt-2 flex flex-col gap-2.5">
-            {reports.species.map((s, i) => (
-              <SpeciesRow key={i} {...s} />
-            ))}
-          </ul>
-        </div>
-
-        {reports.nearby.length > 0 && (
-          <div>
-            <ColLabel>Reported nearby, not here</ColLabel>
-            <ul className="mt-2 flex flex-col gap-2.5">
-              {reports.nearby.map((n, i) => (
-                <SpeciesRow key={i} {...n} places={n.likelySpots} />
-              ))}
-            </ul>
-          </div>
-        )}
-      </div>
-
-      {/* Full width, and gone entirely when the reports had no gear or depth
-          detail. It used to hold a third of the band to say "nobody mentioned
-          anything", which is not worth a column. */}
-      {reports.whatWorked.length > 0 && (
-        <div className="mt-4 border-t border-rc-rule pt-4">
-          <ColLabel>What worked</ColLabel>
-          <ul className="mt-2 grid gap-x-8 gap-y-2 md:grid-cols-2 xl:grid-cols-3">
-            {reports.whatWorked.map((w, i) => (
-              <li key={i} className="flex gap-2 text-[12.5px] leading-snug text-rc-ink-soft">
-                <span aria-hidden className="mt-[7px] h-1 w-1 shrink-0 rotate-45 bg-rc-brand" />
-                <span className="min-w-0">{w}</span>
-              </li>
-            ))}
-          </ul>
-        </div>
-      )}
-
-
-        </>
-      )}
     </section>
   );
 }
