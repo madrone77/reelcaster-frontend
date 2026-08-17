@@ -295,20 +295,21 @@ export function RecentReportsBand({
         </div>
       </div>
 
-      {/* Collapsed = one headline sentence + the landed ratio; the reports live
-          behind the expander at the foot of the card. */}
+      {/* The reports — always visible: one line per species with a green/white
+          landed bar and its ratio. The per-species notes, the nearby species and
+          what-worked reveal on expand, so the verdict is scannable without a
+          click but the band stays short. */}
+      <div className="mt-4 border-t border-rc-rule pt-4">
+        <ColLabel>Caught here</ColLabel>
+        <ul className="mt-3 flex flex-col gap-3.5">
+          {reports.species.map((s, i) => (
+            <SpeciesRow key={i} {...s} bar note={expanded ? s.note : ""} />
+          ))}
+        </ul>
+      </div>
+
       {expanded && (
         <>
-          {/* The reports — one line per species with a green/white landed bar. */}
-          <div className="mt-4 border-t border-rc-rule pt-4">
-            <ColLabel>Caught here</ColLabel>
-            <ul className="mt-3 flex flex-col gap-3.5">
-              {reports.species.map((s, i) => (
-                <SpeciesRow key={i} {...s} bar />
-              ))}
-            </ul>
-          </div>
-
           {reports.nearby.length > 0 && (
             <div className="mt-4 border-t border-rc-rule pt-4">
               <ColLabel>Reported nearby, not here</ColLabel>
