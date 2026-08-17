@@ -1431,6 +1431,11 @@ export default function ExploreShell({
           onViewportChange={handleViewportChange}
           pinDropMode={customMode}
           onMapPick={handleMapPick}
+          // `isPaid` is false until `useSubscription` resolves, so the report
+          // signals stay hidden until the tier is known and then appear. That
+          // is the right way round: a Pro viewer waits a beat, a free one never
+          // sees them.
+          showReports={isPaid}
         />
 
         {/* Pro-only "Create custom spot" action, top-right of the map.

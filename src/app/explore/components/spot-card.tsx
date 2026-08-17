@@ -86,14 +86,24 @@ export default function SpotCard({
 
   const reportHref = `/explore/spot/${spot.slug}`;
 
-  // The badge has two sources and they arrive at different times. `spot.hasReports`
-  // rides in on the map payload, which is server-rendered, so the locked badge is
-  // in the first paint. `fresh` comes from the Pro-gated intel fetch, which cannot
-  // start until after hydration — when it lands it replaces the lock with the
-  // count. Before this the badge had only the second source and appeared about a
-  // second late, after the card had already settled.
-  const reports: RailFreshCatch | undefined =
-    fresh ?? (spot.hasReports ? { locked: true } : undefined);
+  // Pro-only: which spots carry catch reports is no longer shown to free or
+  // anonymous viewers at all, matching the map, where the "Hot" tag and the
+  // emerald collar are both gated the same way.
+  //
+  // Two consequences worth knowing. The badge was the upsell entry point for
+  // reports — its `onUnlock` opens the Pro modal — so that conversion path is
+  // gone for exactly the viewers it was selling to. And the locked badge used
+  // to render server-side off `spot.hasReports`, which is what put it in the
+  // first paint; `isPaid` only resolves client-side, so for a Pro viewer it now
+  // arrives a beat later. Both follow from hiding the fact rather than the
+  // numbers, and neither is recoverable without un-gating it again.
+  //
+  // The two sources otherwise behave as before: `spot.hasReports` rides in on
+  // the server-rendered map payload and shows the lock, then `fresh` lands from
+  // the Pro-gated intel fetch and replaces it with the count.
+  const reports: RailFreshCatch | undefined = isPaid
+    ? (fresh ?? (spot.hasReports ? { locked: true } : undefined))
+    : undefined;
 
   // Which plan a locked day is selling. A signed-out visitor's strip stops at
   // day 2, so the first lock is inside the week a free account already gets —
