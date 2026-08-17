@@ -255,7 +255,6 @@ export function RecentReportsBand({
           <h3 className="text-[17px] font-semibold leading-snug text-rc-ink lg:text-[19px]">
             {reports.headline}
           </h3>
-          <p className="mt-1.5 text-[14px] leading-relaxed text-rc-ink-soft">{reports.body}</p>
         </div>
 
         <div className="flex items-center gap-3 lg:w-[188px] lg:flex-col lg:items-end lg:gap-1.5">
@@ -274,6 +273,25 @@ export function RecentReportsBand({
         </div>
       </div>
 
+      {/* Per-species scan — the verdict at a glance. Promoted out from behind
+          the expander in place of a prose paragraph that mostly restated the
+          headline. Compact by default (species + landed ratio, two columns);
+          the per-species notes reveal on expand. */}
+      <div className="mt-4 border-t border-rc-rule pt-4">
+        <ColLabel>Caught here</ColLabel>
+        <ul
+          className={
+            expanded
+              ? "mt-2 flex flex-col gap-2.5"
+              : "mt-2 grid gap-x-8 gap-y-1.5 sm:grid-cols-2"
+          }
+        >
+          {reports.species.map((s, i) => (
+            <SpeciesRow key={i} {...s} note={expanded ? s.note : ""} />
+          ))}
+        </ul>
+      </div>
+
       <button
         type="button"
         aria-expanded={expanded}
@@ -289,47 +307,32 @@ export function RecentReportsBand({
 
       {expanded && (
         <>
-      {/* Here vs not-here: a natural pair, so they share the row. */}
-      <div className="mt-5 grid gap-5 border-t border-rc-rule pt-4 sm:grid-cols-2 sm:gap-8">
-        <div>
-          <ColLabel>Caught here</ColLabel>
-          <ul className="mt-2 flex flex-col gap-2.5">
-            {reports.species.map((s, i) => (
-              <SpeciesRow key={i} {...s} />
-            ))}
-          </ul>
-        </div>
+          {reports.nearby.length > 0 && (
+            <div className="mt-5 border-t border-rc-rule pt-4">
+              <ColLabel>Reported nearby, not here</ColLabel>
+              <ul className="mt-2 grid gap-x-8 gap-y-2.5 sm:grid-cols-2">
+                {reports.nearby.map((n, i) => (
+                  <SpeciesRow key={i} {...n} places={n.likelySpots} />
+                ))}
+              </ul>
+            </div>
+          )}
 
-        {reports.nearby.length > 0 && (
-          <div>
-            <ColLabel>Reported nearby, not here</ColLabel>
-            <ul className="mt-2 flex flex-col gap-2.5">
-              {reports.nearby.map((n, i) => (
-                <SpeciesRow key={i} {...n} places={n.likelySpots} />
-              ))}
-            </ul>
-          </div>
-        )}
-      </div>
-
-      {/* Full width, and gone entirely when the reports had no gear or depth
-          detail. It used to hold a third of the band to say "nobody mentioned
-          anything", which is not worth a column. */}
-      {reports.whatWorked.length > 0 && (
-        <div className="mt-4 border-t border-rc-rule pt-4">
-          <ColLabel>What worked</ColLabel>
-          <ul className="mt-2 grid gap-x-8 gap-y-2 md:grid-cols-2 xl:grid-cols-3">
-            {reports.whatWorked.map((w, i) => (
-              <li key={i} className="flex gap-2 text-[12.5px] leading-snug text-rc-ink-soft">
-                <span aria-hidden className="mt-[7px] h-1 w-1 shrink-0 rotate-45 bg-rc-brand" />
-                <span className="min-w-0">{w}</span>
-              </li>
-            ))}
-          </ul>
-        </div>
-      )}
-
-
+          {/* Full width, and gone entirely when the reports had no gear or
+              depth detail. */}
+          {reports.whatWorked.length > 0 && (
+            <div className="mt-4 border-t border-rc-rule pt-4">
+              <ColLabel>What worked</ColLabel>
+              <ul className="mt-2 grid gap-x-8 gap-y-2 md:grid-cols-2 xl:grid-cols-3">
+                {reports.whatWorked.map((w, i) => (
+                  <li key={i} className="flex gap-2 text-[12.5px] leading-snug text-rc-ink-soft">
+                    <span aria-hidden className="mt-[7px] h-1 w-1 shrink-0 rotate-45 bg-rc-brand" />
+                    <span className="min-w-0">{w}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
         </>
       )}
     </section>
