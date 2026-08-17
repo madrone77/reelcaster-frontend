@@ -86,14 +86,24 @@ export default function SpotCard({
 
   const reportHref = `/explore/spot/${spot.slug}`;
 
-  // The badge has two sources and they arrive at different times. `spot.hasReports`
-  // rides in on the map payload, which is server-rendered, so the locked badge is
-  // in the first paint. `fresh` comes from the Pro-gated intel fetch, which cannot
-  // start until after hydration — when it lands it replaces the lock with the
-  // count. Before this the badge had only the second source and appeared about a
-  // second late, after the card had already settled.
-  const reports: RailFreshCatch | undefined =
-    fresh ?? (spot.hasReports ? { locked: true } : undefined);
+  // Pro-only: which spots carry catch reports is no longer shown to free or
+  // anonymous viewers at all, matching the map, where the "Hot" tag and the
+  // emerald collar are both gated the same way.
+  //
+  // Two consequences worth knowing. The badge was the upsell entry point for
+  // reports — its `onUnlock` opens the Pro modal — so that conversion path is
+  // gone for exactly the viewers it was selling to. And the locked badge used
+  // to render server-side off `spot.hasReports`, which is what put it in the
+  // first paint; `isPaid` only resolves client-side, so for a Pro viewer it now
+  // arrives a beat later. Both follow from hiding the fact rather than the
+  // numbers, and neither is recoverable without un-gating it again.
+  //
+  // The two sources otherwise behave as before: `spot.hasReports` rides in on
+  // the server-rendered map payload and shows the lock, then `fresh` lands from
+  // the Pro-gated intel fetch and replaces it with the count.
+  const reports: RailFreshCatch | undefined = isPaid
+    ? (fresh ?? (spot.hasReports ? { locked: true } : undefined))
+    : undefined;
 
   // Which plan a locked day is selling. A signed-out visitor's strip stops at
   // day 2, so the first lock is inside the week a free account already gets —
@@ -249,12 +259,21 @@ export default function SpotCard({
           />
         ) : null)}
 
-      {/* 5 · persistent footer (one step below the card surface) */}
+      {/* 5 · persistent footer (one step below the card surface)
+          `min-h-11` is 44px, the touch guideline. This row rendered at 33px,
+          which is a poor thumb target on the card an angler actually taps. The
+          two controls sit SIDE BY SIDE rather than stacked, so growing them
+          separates nothing and cannot overlap a neighbour; the link centres its
+          own text rather than sitting against the top edge.
+
+          The minimum is on the two CONTROLS, not on the row. Putting it on the
+          row leaves each control at 43px, because the row's 1px border-t comes
+          out of the content box the children fill. */}
       <div className="flex items-stretch border-t border-rc-rule bg-rc-surface">
         <Link
           href={reportHref}
           onClick={(e) => e.stopPropagation()}
-          className="flex-1 text-left px-3 py-2 font-rc-mono text-[11px] font-semibold tracking-[0.08em] text-rc-brand hover:bg-rc-brand-soft/40 transition-colors"
+          className="flex flex-1 items-center min-h-11 text-left px-3 py-2 font-rc-mono text-[11px] font-semibold tracking-[0.08em] text-rc-brand hover:bg-rc-brand-soft/40 transition-colors"
         >
           VIEW MORE →
         </Link>
@@ -264,7 +283,7 @@ export default function SpotCard({
           onClick={onStar}
           aria-label={fav ? "Remove from favorites" : "Add to favorites"}
           aria-pressed={fav}
-          className="group w-12 flex items-center justify-center hover:bg-rc-badge/10 transition-colors"
+          className="group w-12 min-h-11 flex items-center justify-center hover:bg-rc-badge/10 transition-colors"
         >
           <svg
             viewBox="0 0 42 40"

@@ -4,6 +4,7 @@
 // (app/map/MapExplorer.tsx + scoring-ui.ts).
 
 import type { RailSpot } from "./explore-data";
+import { PUCK_HALF_W } from "./score-puck";
 
 // BlueCaster's continuous score→color scale (scoring-ui.ts). Scores are 0–100
 // here (RailSpot.score), so thresholds are ×100 of BlueCaster's 0..1 stops.
@@ -35,6 +36,25 @@ export interface SpotFeatureProps {
   opacity: number;
   /** 1 when the viewer created this spot — drives the brand-blue ring layer. */
   isCustom: number;
+  /** 1 when scraped catch reports exist here AND this viewer may see that.
+   *  Drives the emerald collar. Pro-only, like the tag below. */
+  fresh: number;
+  /**
+   * 1 when the puck should wear the "Hot" tag: a Pro viewer, on a scored spot
+   * that has reports.
+   *
+   * It reads the same underlying signal as `fresh` rather than a stronger one.
+   * has_reports is all the map payload carries, and deliberately so: presence
+   * is the one public fact about reports, while the counts and the verdict
+   * stay behind the Pro gate on /map/fresh-catches. BlueCaster's own map sets
+   * a higher bar for the tag (a report saying fish were actually CAUGHT, not
+   * merely that someone posted), but matching that here would mean serving a
+   * Pro-gated number in a shared, CDN-cached body.
+   *
+   * Kept separate from `fresh` because the tag additionally needs a score to
+   * sit above, while the collar does not.
+   */
+  hot: number;
 }
 
 export type SpotFeatureCollection = {
@@ -57,6 +77,17 @@ export function spotsToFeatureCollection(
   /** When set (0–23), pins color/label by that hour's score instead of the
    *  day peak; spots without an hourly value that hour fall back to the peak. */
   hour?: number | null,
+  /**
+   * Whether this viewer may see that a spot has catch reports at all. Gates
+   * BOTH report signals on the map: the "Hot" tag and the emerald collar.
+   *
+   * Defaults to OFF so a surface that never resolves a tier (the public city
+   * pages) cannot show them by omission. Note the caller must not pass a tier
+   * it is still loading: `useSubscription` reports `isPaid: false` until it
+   * resolves, which biases correctly to hidden, but means a Pro viewer's
+   * signals arrive a beat after first paint rather than never.
+   */
+  showReports = false,
 ): SpotFeatureCollection {
   // Ascending score so the best pin paints LAST — when two pins still touch
   // after decluttering, the higher score sits on top and wins the click.
@@ -83,6 +114,10 @@ export function spotsToFeatureCollection(
           // Drives the brand-blue ring that marks a spot as yours. 1/0 rather
           // than a boolean: MapLibre filter expressions compare numbers.
           isCustom: s.isCustom ? 1 : 0,
+          fresh: showReports && s.hasReports ? 1 : 0,
+          // A tag reading "Hot" next to no score at all would contradict
+          // itself, so it needs a number to sit above.
+          hot: showReports && has && s.hasReports ? 1 : 0,
         },
       };
     }),
@@ -97,14 +132,6 @@ export function spotsToFeatureCollection(
 // cluster, hide the lower-scored pin of any overlapping pair; it reappears
 // as the user zooms in and the pair separates. Overlap depends only on zoom
 // (Web Mercator, no rotation), so this recomputes per zoom step — not on pan.
-
-/** Pin radius at a zoom level — mirror of the circle layer's interpolate stops. */
-export function pinRadius(zoom: number): number {
-  if (zoom <= 8) return 11;
-  if (zoom <= 12) return 11 + ((zoom - 8) / 4) * 3;
-  if (zoom <= 15) return 14 + ((zoom - 12) / 3) * 2;
-  return 16;
-}
 
 /** World-pixel position at a zoom (512px tiles, standard Web Mercator). */
 function worldPx(lat: number, lng: number, zoom: number): [number, number] {
@@ -132,7 +159,12 @@ export function declutterHiddenSlugs(
   keepSlug: string | null,
 ): string[] {
   if (spots.length < 2) return [];
-  const minDist = pinRadius(zoom) * 2 + STROKE_PAD;
+  // Pucks are a constant size at every zoom (the Zillow behaviour, and what
+  // keeps the baked numeral crisp), so the overlap threshold no longer varies
+  // with zoom the way the circles' 11→16 radii did. It is also wider, so
+  // co-located spots separate at a closer zoom than they used to.
+  void zoom;
+  const minDist = PUCK_HALF_W * 2 + STROKE_PAD;
   const ranked = [...spots].sort((a, b) => {
     if (a.slug === keepSlug) return -1;
     if (b.slug === keepSlug) return 1;

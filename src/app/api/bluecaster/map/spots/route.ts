@@ -21,6 +21,13 @@ export async function GET(request: NextRequest) {
   const bbox = sp.get("bbox") ?? undefined;
   const city = sp.get("city") ?? undefined;
   const date = sp.get("date") ?? undefined;
+  // Id scope, forwarded verbatim. Upstream validates the ids, caps the list at
+  // 120, and applies the published filter, so there is nothing to guard here —
+  // an id a caller is not entitled to simply does not come back.
+  const spotIds = (sp.get("spots") ?? "")
+    .split(",")
+    .map((s) => s.trim())
+    .filter(Boolean);
 
   if (date && !/^\d{4}-\d{2}-\d{2}$/.test(date)) {
     return NextResponse.json(
@@ -32,13 +39,31 @@ export async function GET(request: NextRequest) {
   const viewerId = await getUserIdFromRequest(request);
 
   try {
-    const data = await fetchMapSpots({ bbox, city, date, viewerId: viewerId ?? undefined });
+    const data = await fetchMapSpots({
+      spotIds: spotIds.length ? spotIds : undefined,
+      bbox,
+      city,
+      date,
+      viewerId: viewerId ?? undefined,
+    });
     if (!data) {
       return NextResponse.json({ error: "unavailable" }, { status: 502 });
     }
     return NextResponse.json(data, {
       headers: {
-        "Cache-Control": viewerId ? "private, no-store" : "public, max-age=300",
+        // Mirrors what BlueCaster sets on the same body. This proxy used to
+        // answer with a bare `public, max-age=300`, which threw away the
+        // upstream `s-maxage=600`: the shared edge cache fell back to the
+        // browser TTL, so it re-fetched twice as often, and with no
+        // `stale-while-revalidate` the angler who arrived on an expired entry
+        // waited out a full cold origin read instead of being served the
+        // slightly stale copy while the edge refreshed behind them.
+        //
+        // The viewer body carries that angler's own private spots and stays
+        // out of any shared cache.
+        "Cache-Control": viewerId
+          ? "private, no-store"
+          : "public, max-age=300, s-maxage=600, stale-while-revalidate=600",
       },
     });
   } catch (err) {

@@ -1,13 +1,12 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { ChevronRight, Home, Plus, Pencil } from "lucide-react";
 import { useAuth } from "@/contexts/auth-context";
 import {
   fetchMyCustomSpots,
-  fetchMapSpotsAsViewer,
-  fetchMapSpotsCached,
+  fetchMapSpotsForIds,
   fetchSpotLive,
   fetchFreshCatches,
   fetchSpotsOutlook14d,
@@ -29,7 +28,7 @@ import HomeSpotHero, { deriveTide, type TideRead } from "./home-spot-hero";
 import AroundYou, { aroundYouFrom } from "./around-you";
 import MarketingFooter from "@/app/components/marketing/marketing-footer";
 import type { MapSpotsPayload } from "@/lib/bluecaster";
-import { useHomeSpotSlug } from "@/app/explore/lib/use-home-spot";
+import { useHomeSpotState } from "@/app/explore/lib/use-home-spot";
 import { useSavedSpots, setFavorite } from "@/app/explore/lib/use-favorite";
 import { storedFirstName, NAME_FALLBACK } from "@/lib/display-name";
 import { supabase } from "@/lib/supabase";
@@ -39,11 +38,29 @@ import { PAGE_MEASURE } from "@/app/components/layout/page-measure";
 import type { AlertProfile } from "@/lib/custom-alert-engine";
 import type { SpotPageInitial } from "@/lib/bluecaster/live-spot-types";
 
-// The whole covered extent — favourites can live anywhere in it.
-const COVERED_BBOX_ALL = "-139.06,41.99,-114.03,60";
-
 /** A real spot id, as opposed to the slug `unscoredRailSpot` stands in with. */
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/**
+ * Grow a small control's TAP area to about 44px without moving anything.
+ *
+ * The rail links and the two icon-sized controls render at 17 to 24px tall,
+ * which reads fine on a desktop pointer and is a poor thumb target on a phone.
+ * Measured on an iPhone 13 Mini viewport: "Create an alert" 17px, "Log a catch"
+ * 17px, "View all regulations" 17px, the alerts pill 24px, the rename pencil
+ * 20px. Apple's guideline is 44.
+ *
+ * Padding the elements would work but pushes every rail apart, and the negative
+ * margin normally used to cancel that fights the `mt-*` already on these links.
+ * An absolutely positioned ::after is outside layout entirely, so the hit area
+ * grows and the design does not move a pixel.
+ *
+ * The insets are per-control because they start at different heights, and each
+ * is sized to land at 44px or just over rather than to a single round number.
+ */
+const TAP_TEXT = "relative after:absolute after:content-[''] after:-inset-x-2 after:-inset-y-3.5"; // 17 + 28 = 45
+const TAP_PILL = "relative after:absolute after:content-[''] after:-inset-2.5"; // 24 + 20 = 44
+const TAP_ICON = "relative after:absolute after:content-[''] after:-inset-3"; // 20 + 24 = 44
 
 // "victoria-waterfront-ad3f9b" → "Victoria Waterfront" (strip id suffix, title-case).
 function prettify(slug: string): string {
@@ -103,6 +120,33 @@ function longDate(): string {
   });
 }
 
+/**
+ * Today's date, read AFTER mount rather than during render.
+ *
+ * This page is prerendered, so its HTML is generated once at build time and
+ * then served to everyone until the next deploy. Calling the clock in render
+ * baked the build day into that HTML: on 2026-08-14 the dashboard opened on
+ * "Thu, Aug 13", and it would have kept saying so for as long as the build
+ * lasted. It is also the shape that aborted hydration on the spot page (React
+ * #418) — server and client render different strings for the same node.
+ *
+ * `null` until mounted, so both sides render the same placeholder and the real
+ * date arrives as an ordinary state update. See also `useSpotClock`, which
+ * solves the same problem the other way round for a page that has a server
+ * instant to anchor on. This one has none: nothing here is server-rendered
+ * with data, so there is no honest instant to seed with.
+ */
+function useToday(): string | null {
+  const [today, setToday] = useState<string | null>(null);
+  useEffect(() => {
+    setToday(longDate());
+    // Cross local midnight with the tab open and the header should follow.
+    const id = setInterval(() => setToday(longDate()), 60_000);
+    return () => clearInterval(id);
+  }, []);
+  return today;
+}
+
 function relTime(iso: string): string {
   const then = new Date(iso).getTime();
   if (Number.isNaN(then)) return "";
@@ -141,7 +185,7 @@ type CatchRow = {
  * regulation changes. Auth-gated by the global AuthGate.
  */
 export default function DashboardPage() {
-  const { user, session } = useAuth();
+  const { user, session, loading: authLoading } = useAuth();
   const [custom, setCustom] = useState<OwnedCustomSpot[] | null>(null);
   const [scoreBySlug, setScoreBySlug] = useState<Record<string, Scored>>({});
   // Raw map payload kept so the grid can render the shared Explore card from
@@ -155,9 +199,17 @@ export default function DashboardPage() {
   // Undo snackbar for an un-starred spot.
   const [undo, setUndo] = useState<{ slug: string; name: string } | null>(null);
   // Pinned home spot. Hydrates from the saved profile copy, so the hero is
-  // populated on a device that never set the pin itself.
-  const homeSlug = useHomeSpotSlug(true);
-  const [homeLive, setHomeLive] = useState<SpotPageInitial | null>(null);
+  // populated on a device that never set the pin itself. That is also why
+  // `homeReady` matters: until that copy lands, a null slug is "we have not
+  // looked", not "no home spot".
+  const { slug: homeSlug, ready: homeReady } = useHomeSpotState(true);
+  const today = useToday();
+  // undefined = the read is still out, null = it settled with nothing (no pin,
+  // or the fetch failed). The regulations rail needs to tell those apart:
+  // holding a skeleton on a FAILED read would hold it forever.
+  const [homeLive, setHomeLive] = useState<SpotPageInitial | null | undefined>(
+    undefined,
+  );
   // Tide direction + next turn for the home spot. `rightNow.tideTrend` comes
   // back null, so the hero derives both off the day's hourly curve instead.
   const [homeTide, setHomeTide] = useState<TideRead | null>(null);
@@ -266,14 +318,9 @@ export default function DashboardPage() {
   // away instead of flashing a slug-derived guess until the bulk payload lands.
   const coords = savedReady ? savedCoords : null;
 
-  // Today's best score per spot across the covered extent.
-  // The personalized payload wins once it lands; the cached one must never
-  // overwrite it afterwards (it lacks this angler's own custom spots).
-  const viewerPayloadLanded = useRef(false);
-  const applyPayload = useCallback((p: MapSpotsPayload, fromViewer: boolean) => {
+  // Today's best score per spot, for the spots this dashboard actually draws.
+  const applyPayload = useCallback((p: MapSpotsPayload) => {
     if (!p?.spots) return;
-    if (viewerPayloadLanded.current && !fromViewer) return;
-    if (fromViewer) viewerPayloadLanded.current = true;
     setPayload(p);
     const species = p.species ?? {};
     const map: Record<string, Scored> = {};
@@ -297,49 +344,68 @@ export default function DashboardPage() {
     setScoreBySlug(map);
   }, []);
 
-  // Coordinates and scores for every PUBLISHED spot, from the anonymous read.
-  // Same payload, same engine — but it is CDN-cacheable, so it returns in
-  // ~140ms against the personalized read's ~3s (which is `private, no-store`
-  // and BYPASSes the edge on every single load). Favourites are published
-  // spots, so this alone is enough to put the map and the cards on screen.
-  // Fires without waiting on auth, since it needs no identity.
+  // The spot ids this dashboard draws: saved favourites (their ids ride along
+  // with /api/saved-spots) plus this angler's own custom spots. `null` while
+  // either is still resolving, `""` when there is genuinely nothing to score.
+  const scopedIdsKey = useMemo(() => {
+    if (custom === null || favSlugs === null) return null;
+    const ids = new Set<string>();
+    for (const c of custom) if (UUID_RE.test(c.id)) ids.add(c.id);
+    for (const slug of favSlugs) {
+      const id = coords?.[slug]?.id;
+      if (id && UUID_RE.test(id)) ids.add(id);
+    }
+    // Sorted so a re-ordered grid is the same request, not a second one.
+    return [...ids].sort().join(",");
+  }, [custom, favSlugs, coords]);
+
+  // Scores and conditions for exactly those spots, in ONE request.
+  //
+  // This used to be two reads of `bbox=<the entire covered extent>`: an
+  // anonymous one that could fire before auth, then a personalized repeat for
+  // anglers with custom spots. Both returned every published spot in BC and
+  // WA — 152 spots, 142 KB gzipped — to render about six, and the second one
+  // returned the first one's payload again with a handful of rows added.
+  //
+  // Asking by id makes it 9 KB and collapses the pair into one call, because
+  // the id-scoped read already carries this angler's own custom spots
+  // (narrowed upstream to the ids we asked for). It costs one stage: the ids
+  // are not known until saved-spots and custom-spots resolve. That is a real
+  // trade and it is worth it — the grid was ALREADY gated on both of those
+  // (`spotCards` is null until they land), so nothing that could previously
+  // paint now waits. Only the scores arrive on a slightly later tick, and they
+  // arrive from a request that is an order of magnitude smaller.
+  //
+  // `payloadSettled` is what the 14-day outlook waits on, so it has to flip on
+  // EVERY terminal branch here, including the "nothing to score" one. It used
+  // to be set by the anonymous whole-coast read, which always fired; this read
+  // does not fire at all until the ids resolve, so leaving any branch unset
+  // strands the outlook on skeletons forever.
   useEffect(() => {
+    if (scopedIdsKey === null) return; // still resolving, hold what we have
+    if (scopedIdsKey === "") {
+      setPayload(null);
+      setScoreBySlug({});
+      setPayloadSettled(true);
+      return;
+    }
     let cancelled = false;
-    fetchMapSpotsCached(COVERED_BBOX_ALL, todayVancouver())
+    fetchMapSpotsForIds(scopedIdsKey.split(","), todayVancouver())
       .then((p) => {
         if (cancelled) return;
-        if (p) applyPayload(p, false);
+        if (p) applyPayload(p);
         setPayloadSettled(true);
       })
       .catch(() => !cancelled && setPayloadSettled(true));
     return () => {
       cancelled = true;
     };
-  }, [applyPayload]);
-
-  // The personalized read then upgrades it — but ONLY if there is something to
-  // upgrade. Its entire delta over the cached read is this angler's own custom
-  // spots and their 24-hour strips, so for an angler with none it is a 3-second
-  // uncached re-fetch (`private, no-store`, BYPASS on every load) of a payload
-  // we already have from the edge in ~140ms. Wait for `custom` to resolve, then
-  // skip it unless it came back non-empty.
-  useEffect(() => {
-    if (!user || !custom || custom.length === 0) return;
-    let cancelled = false;
-    fetchMapSpotsAsViewer(COVERED_BBOX_ALL, todayVancouver())
-      .then((p) => {
-        if (!cancelled && p) applyPayload(p, true);
-      })
-      .catch(() => {});
-    return () => {
-      cancelled = true;
-    };
-    // Keyed on the IDENTIFIERS, not the objects: AuthProvider re-emits a fresh
-    // user/session on every auth event (INITIAL_SESSION, TOKEN_REFRESHED, …),
-    // so an object dep re-runs this on each one — the dashboard was firing
-    // every one of its reads two and three times per load.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user?.id, custom?.length, applyPayload]);
+    // Keyed on the id list and the TOKEN, not the session object: AuthProvider
+    // re-emits a fresh user/session on every auth event (INITIAL_SESSION,
+    // TOKEN_REFRESHED, …), and an object dep fired this two and three times a
+    // load. The token matters because owned custom spots only come back on an
+    // authenticated read.
+  }, [scopedIdsKey, session?.access_token, applyPayload]);
 
   // Home-spot live payload — powers the hero conditions, sparkline, and the
   // regulations rail (the spot's own DFO regs). Degrades to null.
@@ -349,6 +415,9 @@ export default function DashboardPage() {
       return;
     }
     let cancelled = false;
+    // Back to pending for the duration of the read, so switching home spots
+    // shows a skeleton rather than the previous spot's regulations.
+    setHomeLive(undefined);
     fetchSpotLive(homeSlug)
       .then((p) => {
         if (cancelled) return;
@@ -628,7 +697,14 @@ export default function DashboardPage() {
   const trackedCount = spotCards?.length ?? null;
 
   // Never derive a name from the email; fall back to the Stripe / "Angler" name.
-  const greetName = localName ?? storedFirstName(user) ?? serverName ?? NAME_FALLBACK;
+  //
+  // `null` while auth is still resolving, rather than "Angler". The prerendered
+  // HTML has no user, so a bare fallback greeted every returning angler by the
+  // wrong name for as long as it took Supabase to rehydrate — "Welcome back,
+  // Angler" to someone the app has known for months.
+  const greetName = authLoading
+    ? localName ?? storedFirstName(user)
+    : localName ?? storedFirstName(user) ?? serverName ?? NAME_FALLBACK;
   const saveName = async () => {
     const v = nameDraft.trim();
     if (!v) return;
@@ -652,6 +728,15 @@ export default function DashboardPage() {
     : null;
 
   const spotsLoading = spotCards === null;
+  // The hero waits on the home pin as well, and the grid deliberately does
+  // not. The hero is a statement about WHICH spot is yours, so until the pin
+  // is known there is nothing true to say — previously this was
+  // `spotsLoading && homeSlug`, so the one case that cannot be known
+  // server-side (no localStorage, hence no slug) fell straight through to the
+  // "pin a home spot" prompt. The grid needs none of that, and holding it for
+  // the pin's server round trip would trade one wrong answer for a slower
+  // right one.
+  const heroLoading = spotsLoading || !homeReady;
   const homeCard = spotCards?.find((s) => s.slug === homeSlug) ?? null;
   // Everything except the home spot — that one is the hero, and listing it
   // again three hundred pixels lower said the same thing twice.
@@ -695,8 +780,11 @@ export default function DashboardPage() {
       ? watchAlert.score_threshold - watchCurrent
       : null;
 
-  const customCount = custom?.length ?? 0;
-  const favCount = favSlugs?.length ?? 0;
+  // null, not 0, until each is actually known. "0 created · 0 saved" is what
+  // the prerendered HTML told an angler with a full list, and unlike a dash it
+  // reads as an answer rather than a wait.
+  const customCount = custom?.length ?? null;
+  const favCount = favSlugs?.length ?? null;
 
   return (
     <div className="min-h-dvh bg-rc-panel pt-16">
@@ -750,23 +838,28 @@ export default function DashboardPage() {
                 </span>
               ) : (
                 <span className="inline-flex items-center gap-2.5">
-                  Welcome back, {greetName}
-                  <button
-                    type="button"
-                    aria-label="Edit your name"
-                    onClick={() => {
-                      setNameDraft(localName ?? storedFirstName(user) ?? "");
-                      setEditingName(true);
-                    }}
-                    className="text-rc-brand transition-transform hover:scale-110"
-                  >
-                    <Pencil className="h-5 w-5" />
-                  </button>
+                  {/* No name yet: greet without one rather than with the wrong
+                      one, and hold the pencil back until there is something to
+                      edit. "Welcome back" alone is true for everybody. */}
+                  {greetName ? `Welcome back, ${greetName}` : "Welcome back"}
+                  {greetName && (
+                    <button
+                      type="button"
+                      aria-label="Edit your name"
+                      onClick={() => {
+                        setNameDraft(localName ?? storedFirstName(user) ?? "");
+                        setEditingName(true);
+                      }}
+                      className={`text-rc-brand transition-transform hover:scale-110 ${TAP_ICON}`}
+                    >
+                      <Pencil className="h-5 w-5" />
+                    </button>
+                  )}
                 </span>
               )}
             </h1>
             <p className="mt-1.5 font-rc-mono text-[12px] text-rc-ink-mute">
-              {longDate()} · {trackedCount ?? "—"} spot
+              {today ?? "—"} · {trackedCount ?? "—"} spot
               {trackedCount === 1 ? "" : "s"} tracked · {activeAlertCount ?? "—"} alert
               {activeAlertCount === 1 ? "" : "s"} armed
             </p>
@@ -787,7 +880,11 @@ export default function DashboardPage() {
             in an order nobody chose. */}
         <div className="mx-auto max-w-[860px]">
           <div>
-            {spotsLoading && homeSlug ? (
+            {/* `heroLoading` rather than `spotsLoading && homeSlug`: a null slug
+                is ambiguous until the server copy lands, so gating on it flashed
+                the empty state at an angler who does have a pin. Height tracks
+                the rebuilt card, not the older 188px one. */}
+            {heroLoading ? (
               <div className="h-[300px] animate-pulse rounded bg-rc-navy/90" />
             ) : homeCard ? (
               <HomeSpotHero
@@ -861,7 +958,7 @@ export default function DashboardPage() {
               <div className="flex items-baseline gap-3">
                 <h2 className="text-lg font-bold text-rc-ink">Your spots</h2>
                 <span className="font-rc-mono text-[11px] text-rc-ink-mute">
-                  {customCount} created · {favCount} saved
+                  {customCount ?? "—"} created · {favCount ?? "—"} saved
                 </span>
               </div>
               <Link
@@ -943,7 +1040,7 @@ export default function DashboardPage() {
             <RailCard
               title="Alerts"
               pill={
-                <Link href="/alerts">
+                <Link href="/alerts" className={`inline-block ${TAP_PILL}`}>
                   <Pill
                     className={
                       (activeAlertCount ?? 0) > 0 ? TIER_PILL.good : TIER_PILL.none
@@ -1048,7 +1145,15 @@ export default function DashboardPage() {
                 ) : null
               }
             >
-              {restrictiveReg ? (
+              {/* Until the pin is known, this card has no subject. Both of its
+                  empty states name one ("your home spot" / "pin a home spot"),
+                  so either would be a claim about an angler we have not looked
+                  up yet. A signed-in angler WITH a home spot was reliably told
+                  to go pin one, because the prerendered HTML has no
+                  localStorage to read it from. */}
+              {!homeReady || homeLive === undefined ? (
+                <RailSkeleton />
+              ) : restrictiveReg ? (
                 <div>
                   <div className="flex items-start justify-between gap-2">
                     <span className="truncate text-sm font-medium text-rc-ink">
@@ -1065,7 +1170,7 @@ export default function DashboardPage() {
                   </div>
                   <Link
                     href={`/explore/spot/${homeSlug}`}
-                    className="mt-2 inline-block font-rc-mono text-[11px] font-bold text-rc-brand"
+                    className={`mt-2 inline-block font-rc-mono text-[11px] font-bold text-rc-brand ${TAP_TEXT}`}
                   >
                     View all regulations ›
                   </Link>
@@ -1178,7 +1283,7 @@ function RailEmpty({
       <p className="font-rc-mono text-[12px] text-rc-ink-soft">{body}</p>
       <Link
         href={href}
-        className="mt-2 inline-block font-rc-mono text-[11px] font-bold text-rc-brand"
+        className={`mt-2 inline-block font-rc-mono text-[11px] font-bold text-rc-brand ${TAP_TEXT}`}
       >
         {cta} ›
       </Link>

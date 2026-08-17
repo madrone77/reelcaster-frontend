@@ -3,6 +3,7 @@
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import AdSlot from "@/app/components/ads/ad-slot";
 import type { RailSpot } from "../lib/explore-data";
+import { MAP_INSET_ATTR, MAP_INSET_RESTING_ATTR } from "../lib/sheet-safe-center";
 import type { ForecastStripModel, ForecastDay } from "../lib/forecast-strip";
 import type { FreshCatchesResponse } from "../lib/fresh-catch-types";
 import SpotCard from "./spot-card";
@@ -135,6 +136,12 @@ export default function MobileMapSheet({
         style={{ height: "calc(5.25rem + env(safe-area-inset-bottom))" }}
       />
       <div
+        // Tells the camera how much of the map this covers, so a spot the angler
+        // taps here is framed in the water they can see, not behind the sheet.
+        // The resting height is what gets measured, not `height`: the sheet can
+        // be dragged up to browse, but it always comes back at peek, and that is
+        // the frame the return trip will be seen in.
+        {...{ [MAP_INSET_ATTR]: "bottom", [MAP_INSET_RESTING_ATTR]: String(detents.peek) }}
         className="lg:hidden fixed inset-x-0 z-30 flex flex-col rounded-t-2xl border-t border-rc-rule bg-rc-panel shadow-[0_-8px_30px_rgba(15,23,42,0.12)]"
         style={{
           // Sit above the floating bottom tab bar (pill h-16 + its 0.75rem gap).

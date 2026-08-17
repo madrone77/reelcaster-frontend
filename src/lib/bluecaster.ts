@@ -163,6 +163,25 @@ export async function fetchSpotLivePage(
   slug: string,
   ownerUserId?: string
 ): Promise<SpotPageInitial | null> {
+  return (await fetchSpotLivePageWithCacheControl(slug, ownerUserId)).data;
+}
+
+/**
+ * As {@link fetchSpotLivePage}, but also hands back BlueCaster's own
+ * `Cache-Control`.
+ *
+ * A proxy route cannot decide on its own whether this payload is shareable.
+ * The body depends only on the spot id, so for a spot everyone may see it is
+ * identical for every caller, but for a PRIVATE custom spot it must never
+ * reach a shared cache. Only BlueCaster knows which this slug is, because only
+ * it has the visibility row, and it says so in this header. Mirroring the
+ * header is therefore the one way the proxy can cache the shareable case
+ * without ever guessing about the private one.
+ */
+export async function fetchSpotLivePageWithCacheControl(
+  slug: string,
+  ownerUserId?: string
+): Promise<{ data: SpotPageInitial | null; cacheControl: string | null }> {
   const baseUrl = process.env.BLUECASTER_API_URL;
   const apiKey = process.env.BLUECASTER_API_KEY;
   if (!baseUrl || !apiKey) throw new Error("BlueCaster env vars not set");
@@ -176,9 +195,10 @@ export async function fetchSpotLivePage(
     // shared Data Cache, or the next anonymous visitor gets served it.
     ...(ownerUserId ? { cache: "no-store" as const } : { next: { revalidate: 60 } }),
   });
-  if (res.status === 404) return null;
+  const cacheControl = res.headers.get("cache-control");
+  if (res.status === 404) return { data: null, cacheControl };
   if (!res.ok) throw new Error(`BlueCaster API error: ${res.status}`);
-  return res.json();
+  return { data: await res.json(), cacheControl };
 }
 
 /**
@@ -350,12 +370,26 @@ export async function fetchMapSpots(opts: {
   bbox?: string; // "w,s,e,n"
   city?: string;
   date?: string; // YYYY-MM-DD
+  /**
+   * Explicit spot-id scope, upstream's `spots=`. Wins over `city` and `bbox`.
+   *
+   * For a surface that already knows which spots it draws (the dashboard's
+   * saved set) this is the whole ballgame: scoping by extent there meant
+   * pulling every published spot in BC and WA — 152 spots, 142 KB gzipped —
+   * to render about six. By id the same six are 9 KB.
+   *
+   * Published-only upstream, so it cannot widen visibility. A viewer's own
+   * custom spots still ride along via `viewerId`, narrowed to the ids asked
+   * for. Capped at 120 ids upstream.
+   */
+  spotIds?: string[];
   /** Verified viewer — adds that angler's own custom spots to the payload. */
   viewerId?: string;
 }): Promise<MapSpotsPayload | null> {
   return bcGet<MapSpotsPayload>(
     "/api/v1/map/spots",
     {
+      spots: opts.spotIds?.length ? opts.spotIds.join(",") : undefined,
       bbox: opts.bbox,
       city: opts.city,
       date: opts.date,

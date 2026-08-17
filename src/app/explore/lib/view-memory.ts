@@ -42,6 +42,22 @@ export interface ExploreView {
   day?: string | null;
   /** Species filter — component state, not URL. */
   species?: string | null;
+  /**
+   * Was this blob written on the way OUT to a spot page, rather than by the
+   * map settling?
+   *
+   * It decides who wins when both the URL and the memory name a place. Normally
+   * the URL does. But the browser's own Back button is not "Back to map": it
+   * returns to the history entry the shell was last on, and `setQuery` leaves
+   * the previous selection on that entry, so back from a spot page lands on
+   * `/explore?spot=<the spot before this one>`. Standing aside for that URL
+   * framed the spot the angler had already left. This flag says the memory is
+   * the newer of the two intents, so use it. Only `writeSpotHandoff` sets it.
+   *
+   * One shot: the first settled move after the return rewrites the blob without
+   * it, so a spot link opened later in the same tab still gets its own frame.
+   */
+  fromSpotPage?: boolean;
   /** Map-layer toggles. */
   relief?: boolean;
   labels?: boolean;

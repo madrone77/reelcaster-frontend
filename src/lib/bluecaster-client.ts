@@ -332,6 +332,38 @@ export async function fetchMapSpotsCached(
   return (await res.json().catch(() => null)) as MapSpotsPayload | null;
 }
 
+/**
+ * map/spots for a KNOWN set of spot ids — the read for a surface that already
+ * has its list, rather than a viewport it is panning.
+ *
+ * The dashboard is the case this exists for. It used to scope by the whole
+ * covered extent, because asking by id was not something the API could do:
+ * 152 spots and 142 KB gzipped to render an angler's ~6 saved ones, and a
+ * second identical fetch on the personalized path on top. Scoped by id the
+ * same six are 9 KB, and the one request covers both — a signed-in caller's
+ * own custom spots ride along, narrowed upstream to the ids asked for.
+ *
+ * Sends the access token when there is one, so owned custom spots (which are
+ * not published, and so invisible to an anonymous read) come back. That makes
+ * the response `private, no-store`, which is fine at this size: the id list is
+ * per-angler anyway, so a shared cache entry was never going to be hit.
+ */
+export async function fetchMapSpotsForIds(
+  spotIds: string[],
+  date: string,
+): Promise<MapSpotsPayload | null> {
+  if (spotIds.length === 0) return null;
+  const { data } = await supabase.auth.getSession();
+  const token = data.session?.access_token;
+  const qs = new URLSearchParams({ spots: spotIds.join(","), date });
+  const res = await fetch(`/api/bluecaster/map/spots?${qs}`, {
+    ...(token ? { headers: { Authorization: `Bearer ${token}` }, cache: "no-store" as const } : {}),
+    priority: "low",
+  });
+  if (!res.ok) return null;
+  return (await res.json().catch(() => null)) as MapSpotsPayload | null;
+}
+
 export async function fetchMapSpotsAsViewer(
   bbox: string,
   date: string,
@@ -351,6 +383,33 @@ export async function fetchMapSpotsAsViewer(
   return (await res.json().catch(() => null)) as MapSpotsPayload | null;
 }
 
+/**
+ * Shared read of the scraped catch reports, deduped per (spot, token) window.
+ *
+ * Every page that shows the reports badge fires this from an effect keyed on
+ * the viewer's identity, because the first pass usually runs before Supabase
+ * has rehydrated and a Pro angler would otherwise hold the locked payload for
+ * the rest of the visit. That key changes from "no session" to "session" on
+ * essentially every signed-in load, so the effect ran twice and sent two
+ * identical requests about 2 ms apart. Measured on the dashboard, and the same
+ * on Explore and the city pages, which key on `userId`.
+ *
+ * Re-running the effect is correct. Sending the request twice is not, so the
+ * dedup lives here rather than in each caller, the same way `alerts-client`
+ * solved this for `/api/alerts`. A short TTL rather than a bare in-flight
+ * promise because the two passes can land either side of the response.
+ *
+ * Keyed on the RESOLVED token, so the anonymous-then-authenticated transition
+ * that the effects exist to catch still refetches: different token, different
+ * key. That is the whole point of the re-run and it must survive the dedup.
+ */
+const FRESH_CATCHES_TTL_MS = 30_000;
+
+const freshCatchesCache = new Map<
+  string,
+  { at: number; promise: Promise<FreshCatchesResponse | null> }
+>();
+
 /** Aggregate catch reports per spot, Pro-gated at the route.
  *
  *  Forwards the Supabase access token when there is one. `getUserIdFromRequest`
@@ -365,13 +424,40 @@ export async function fetchFreshCatches(
 ): Promise<FreshCatchesResponse | null> {
   const { data } = await supabase.auth.getSession();
   const token = data.session?.access_token;
+
+  const now = Date.now();
+  const key = `${spotId ?? ""}|${token ?? ""}`;
+  const hit = freshCatchesCache.get(key);
+  if (hit && now - hit.at < FRESH_CATCHES_TTL_MS) return hit.promise;
+
+  // Drop expired keys on the way past. The spot page passes a spot id, so
+  // without this the map would grow by one entry per spot visited.
+  for (const [k, v] of freshCatchesCache) {
+    if (now - v.at >= FRESH_CATCHES_TTL_MS) freshCatchesCache.delete(k);
+  }
+
   const qs = spotId ? `?spot=${encodeURIComponent(spotId)}` : "";
-  const res = await fetch(`/api/bluecaster/map/fresh-catches${qs}`, {
+  const promise = fetch(`/api/bluecaster/map/fresh-catches${qs}`, {
     headers: token ? { Authorization: `Bearer ${token}` } : undefined,
     cache: "no-store",
-  });
-  if (!res.ok) return null;
-  return (await res.json().catch(() => null)) as FreshCatchesResponse | null;
+  })
+    .then(async (res) => {
+      // A failure must not hold the window, or one dropped request costs the
+      // badge everywhere for 30 s. A free caller's `{locked: true}` is a 200
+      // and a perfectly good answer, so only real failures evict.
+      if (!res.ok) {
+        freshCatchesCache.delete(key);
+        return null;
+      }
+      return (await res.json().catch(() => null)) as FreshCatchesResponse | null;
+    })
+    .catch((e) => {
+      freshCatchesCache.delete(key);
+      throw e;
+    });
+
+  freshCatchesCache.set(key, { at: now, promise });
+  return promise;
 }
 
 /** The written report for one spot, for a paying angler.

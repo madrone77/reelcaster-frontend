@@ -39,6 +39,7 @@ import { useSubscription } from "@/hooks/use-subscription";
 import { useAuth } from "@/contexts/auth-context";
 import { useExploreState } from "./lib/use-explore-state";
 import { readExploreView, writeExploreView, type ExploreView } from "./lib/view-memory";
+import { MAP_INSET_ATTR, mapInsetOffsetY, sheetSafeCenter } from "./lib/sheet-safe-center";
 import ExploreTopBar from "./components/explore-top-bar";
 import { BLEED_MEASURE } from "@/app/components/layout/page-measure";
 import ExploreMap, { type StationPick, type CustomSpotPin } from "./components/explore-map";
@@ -181,13 +182,26 @@ export default function ExploreShell({
   // markup, so it is applied in the mount effect further down, after
   // hydration has matched.
   //
-  // A URL that names its own place always wins: `?loc` is a city pick, `?spot`
-  // a spot deep link, `?stn` a station — all of them somebody asking for a
-  // specific frame, not for the one they left. Only a bare /explore, which is
+  // A URL that names its own place normally wins: `?loc` is a city pick,
+  // `?spot` a spot deep link, `?stn` a station, all of them somebody asking
+  // for a specific frame, not for the one they left. A bare /explore, which is
   // what "Back to map" and the nav both point at, restores.
+  //
+  // The exception is a `fromSpotPage` hand-off, and it exists because the
+  // browser's Back button is not "Back to map". Back returns to the history
+  // entry this shell was last on, and the restore before it called `setQuery`
+  // to keep the URL honest, so that entry reads `/explore?spot=<the previous
+  // spot>`. Deferring to it framed the spot the angler had already finished
+  // with instead of the pin they just tapped. When the memory was written on
+  // the way out to a spot page it is the newer of the two intents, so it wins.
+  // The mount effect below then rewrites `?spot` to match.
   const restoredRef = useRef<ExploreView | null | undefined>(undefined);
   if (restoredRef.current === undefined) {
-    restoredRef.current = citySlug || spotSlug || stn ? null : readExploreView();
+    const remembered = readExploreView();
+    restoredRef.current =
+      remembered && (remembered.fromSpotPage || !(citySlug || spotSlug || stn))
+        ? remembered
+        : null;
   }
   const restored = restoredRef.current;
   /** The blob last written, so a handler can amend it without rebuilding it. */
@@ -805,13 +819,35 @@ export default function ExploreShell({
     [flowHour, selectedIso],
   );
 
-  const selectedSpot = useMemo(
-    () =>
+  // Selecting a spot flies the camera, and the drawer opening resizes the map;
+  // both report a new viewport, which mints new bbox keys and refetches the
+  // spot list. Those fetches take 0.5-2.6s, and while they are in flight the
+  // rail's set is being replaced — so a spot that was on screen when it was
+  // clicked can briefly be in NEITHER list, and the drawer had nothing to
+  // render until the network settled.
+  //
+  // Measured before this: click to card was 151ms when the spot happened to
+  // survive the refetch, and 1481-1814ms when it did not.
+  //
+  // The clicked spot is in hand at click time, so hold it. `lastSelected` keeps
+  // the most recent match and is used only as a fallback, so a fresh payload
+  // still wins the moment it lands and the card upgrades in place rather than
+  // waiting. Keyed on the slug, so it never answers for a different spot.
+  const lastSelected = useRef<RailSpot | null>(null);
+  const selectedSpot = useMemo(() => {
+    const found =
       railSpots.find((s) => s.slug === spotSlug) ??
       displaySpots.find((s) => s.slug === spotSlug) ??
-      null,
-    [railSpots, displaySpots, spotSlug],
-  );
+      null;
+    if (found) {
+      lastSelected.current = found;
+      return found;
+    }
+    if (spotSlug && lastSelected.current?.slug === spotSlug) {
+      return lastSelected.current;
+    }
+    return null;
+  }, [railSpots, displaySpots, spotSlug]);
 
   // ── Create-alert modal — opened in place from the drawer's "Set alert",
   //    the same score-slider modal the spot page uses. Signed-out anglers hit
@@ -1023,7 +1059,16 @@ export default function ExploreShell({
   // for its coordinates alone (a few bytes, no scores) and fly there; the move
   // pulls in the spots, and the ordinary slug-keyed selection below then finds
   // it. Runs once per slug, and only when the spot really is missing.
-  const flownToSpot = useRef<string | null>(null);
+  //
+  // On a hand-off restore the slug this history entry still carries is the
+  // PREVIOUS spot, and the mount effect is about to replace it. Count it as
+  // already flown so it can't pull the camera off the restored frame in the
+  // tick before that happens.
+  const flownToSpot = useRef<string | null>(
+    restored?.fromSpotPage && spotSlug && restored.spot !== spotSlug
+      ? spotSlug
+      : null,
+  );
   useEffect(() => {
     if (!spotSlug || flownToSpot.current === spotSlug) return;
     if (effectiveSpots.some((s) => s.slug === spotSlug)) {
@@ -1111,6 +1156,45 @@ export default function ExploreShell({
     [setQuery],
   );
 
+  /**
+   * Point the return-trip memory at a spot, on the way out to its page.
+   *
+   * Amends the last settled blob where there is one, and builds a whole one
+   * where there isn't. The first viewport report comes from MapLibre's `load`,
+   * which waits on the relief-tile CDN, so an angler who taps a card in the
+   * first second or two gets here before anything has been remembered. Bailing
+   * out then, as this used to, left the return trip with no memory at all and
+   * sent the map home to the default city.
+   */
+  const writeSpotHandoff = useCallback(
+    (spot: { slug: string; lat: number; lng: number }) => {
+      const base = savedRef.current;
+      const zoom = Math.max(base?.zoom ?? mapRef.current?.getZoom() ?? 0, 11);
+      // Aim at the middle of the water the angler can see rather than the middle
+      // of the map pane, which the location header and the spot sheet push down
+      // out of. Measured here, where both panels are on screen, because the
+      // return trip has to open already framed and cannot pan after the fact.
+      const center = sheetSafeCenter(spot.lat, spot.lng, zoom, mapInsetOffsetY());
+      writeExploreView({
+        species: speciesFilter,
+        relief,
+        labels,
+        currents,
+        wind,
+        day,
+        ...base,
+        lat: center.lat,
+        lng: center.lng,
+        zoom,
+        // Recentring invalidates them; the map reports real ones on load.
+        bounds: null,
+        spot: spot.slug,
+        fromSpotPage: true,
+      });
+    },
+    [speciesFilter, relief, labels, currents, wind, day],
+  );
+
   const handleSelectSpot = useCallback(
     (slug: string) => {
       // Mobile (<lg) has no rail/drawer — go straight to the responsive spot
@@ -1120,22 +1204,11 @@ export default function ExploreShell({
         typeof window !== "undefined" &&
         !window.matchMedia("(min-width:1024px)").matches
       ) {
-        // Leave the memory centred on this spot — the same frame desktop's
+        // Leave the memory centred on this spot, the same frame desktop's
         // flyTo below would have left. Mobile taps a card and goes straight to
-        // the page, so without this "Back to map" returns to whatever the list
-        // happened to be scrolled over rather than to the spot just viewed.
-        const base = savedRef.current;
-        if (base && spot) {
-          writeExploreView({
-            ...base,
-            lat: spot.lat,
-            lng: spot.lng,
-            zoom: Math.max(base.zoom, 11),
-            // Recentring invalidates them; the map reports real ones on load.
-            bounds: null,
-            spot: slug,
-          });
-        }
+        // the page, so without this the return trip lands on whatever the list
+        // happened to be scrolled over rather than on the spot just viewed.
+        if (spot) writeSpotHandoff(spot);
         router.push(`/explore/spot/${slug}`);
         return;
       }
@@ -1148,7 +1221,7 @@ export default function ExploreShell({
         });
       }
     },
-    [router, setQuery, displaySpots],
+    [router, setQuery, displaySpots, writeSpotHandoff],
   );
 
   // ── Search picks ────────────────────────────────────────────────────
@@ -1163,6 +1236,10 @@ export default function ExploreShell({
         typeof window !== "undefined" &&
         !window.matchMedia("(min-width:1024px)").matches
       ) {
+        // The result carries its own coordinates, so a searched spot gets the
+        // same return-trip frame a tapped card does. Otherwise coming back
+        // from it landed on the water the search was typed over.
+        writeSpotHandoff({ slug, lat, lng });
         router.push(`/explore/spot/${slug}`);
         return;
       }
@@ -1173,7 +1250,7 @@ export default function ExploreShell({
         duration: 700,
       });
     },
-    [router, setQuery],
+    [router, setQuery, writeSpotHandoff],
   );
 
   const handleSearchSelectRegion = useCallback(
@@ -1395,7 +1472,10 @@ export default function ExploreShell({
       {/* Mobile-only location header — floats over the top of the full-screen
           map (Zillow-style), just under the fixed top bar. Desktop shows the
           same selector inside the rail. */}
-      <div className="lg:hidden absolute top-16 inset-x-0 z-20 bg-rc-panel border-b border-rc-rule">
+      <div
+        {...{ [MAP_INSET_ATTR]: "top" }}
+        className="lg:hidden absolute top-16 inset-x-0 z-20 bg-rc-panel border-b border-rc-rule"
+      >
         <LocationSelector
           locations={data.locations}
           selectedCity={labelCity}
@@ -1431,6 +1511,11 @@ export default function ExploreShell({
           onViewportChange={handleViewportChange}
           pinDropMode={customMode}
           onMapPick={handleMapPick}
+          // `isPaid` is false until `useSubscription` resolves, so the report
+          // signals stay hidden until the tier is known and then appear. That
+          // is the right way round: a Pro viewer waits a beat, a free one never
+          // sees them.
+          showReports={isPaid}
         />
 
         {/* Pro-only "Create custom spot" action, top-right of the map.
