@@ -39,6 +39,7 @@ import { useSubscription } from "@/hooks/use-subscription";
 import { useAuth } from "@/contexts/auth-context";
 import { useExploreState } from "./lib/use-explore-state";
 import { readExploreView, writeExploreView, type ExploreView } from "./lib/view-memory";
+import { MAP_INSET_ATTR, mapInsetOffsetY, sheetSafeCenter } from "./lib/sheet-safe-center";
 import ExploreTopBar from "./components/explore-top-bar";
 import { BLEED_MEASURE } from "@/app/components/layout/page-measure";
 import ExploreMap, { type StationPick, type CustomSpotPin } from "./components/explore-map";
@@ -1146,6 +1147,12 @@ export default function ExploreShell({
   const writeSpotHandoff = useCallback(
     (spot: { slug: string; lat: number; lng: number }) => {
       const base = savedRef.current;
+      const zoom = Math.max(base?.zoom ?? mapRef.current?.getZoom() ?? 0, 11);
+      // Aim at the middle of the water the angler can see rather than the middle
+      // of the map pane, which the location header and the spot sheet push down
+      // out of. Measured here, where both panels are on screen, because the
+      // return trip has to open already framed and cannot pan after the fact.
+      const center = sheetSafeCenter(spot.lat, spot.lng, zoom, mapInsetOffsetY());
       writeExploreView({
         species: speciesFilter,
         relief,
@@ -1154,9 +1161,9 @@ export default function ExploreShell({
         wind,
         day,
         ...base,
-        lat: spot.lat,
-        lng: spot.lng,
-        zoom: Math.max(base?.zoom ?? mapRef.current?.getZoom() ?? 0, 11),
+        lat: center.lat,
+        lng: center.lng,
+        zoom,
         // Recentring invalidates them; the map reports real ones on load.
         bounds: null,
         spot: spot.slug,
@@ -1443,7 +1450,10 @@ export default function ExploreShell({
       {/* Mobile-only location header — floats over the top of the full-screen
           map (Zillow-style), just under the fixed top bar. Desktop shows the
           same selector inside the rail. */}
-      <div className="lg:hidden absolute top-16 inset-x-0 z-20 bg-rc-panel border-b border-rc-rule">
+      <div
+        {...{ [MAP_INSET_ATTR]: "top" }}
+        className="lg:hidden absolute top-16 inset-x-0 z-20 bg-rc-panel border-b border-rc-rule"
+      >
         <LocationSelector
           locations={data.locations}
           selectedCity={labelCity}
