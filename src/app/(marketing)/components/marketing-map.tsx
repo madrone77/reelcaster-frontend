@@ -1,31 +1,40 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
-import Map, {
-  Marker,
-  NavigationControl,
-  Source,
-  Layer,
-} from "react-map-gl/maplibre";
-import type { Map as MlMap, StyleSpecification } from "maplibre-gl";
+import { useEffect, useMemo, useRef, useState } from "react";
+import Map, { Marker, Source, Layer, type LayerProps } from "react-map-gl/maplibre";
+import type { ExpressionSpecification, Map as MlMap, StyleSpecification } from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
 import { buildReliefStyle } from "@/lib/map/relief-style";
-import { useCurrentsFlow } from "@/app/explore/lib/use-currents-flow";
-import { tierFor, type SpeciesOption } from "@/app/explore/lib/explore-data";
-import MapFilterChips from "@/app/explore/components/map-filter-chips";
+import { attachScorePucks, PUCK_TIP_OFFSET, NO_DATA_LABEL } from "@/app/explore/lib/score-puck";
+import { tierFor } from "@/app/explore/lib/explore-data";
 
-const TIER_HEX: Record<string, string> = {
-  good: "#16A34A",
-  fair: "#D78711",
-  poor: "#DC2626",
-  none: "#9ca3af",
-};
+const SOURCE_ID = "mk-spots";
+const SPOT_PUCK = "mk-spot-puck";
 
-// Same layer ids the relief style defines — see ExploreMap.
-const RELIEF_LAYERS = ["color-relief", "contour-line", "contour-labels"];
+/**
+ * Everything in the relief style that is neither bathymetry nor a spot.
+ *
+ * The regulatory work (RCA hatch, subarea and marine-area boundaries, MPAs)
+ * and the station markers are real product features, and on Explore they are
+ * the point. On a marketing still they are noise: red polygons and scattered
+ * dots that a visitor cannot interpret and did not ask about. Hidden here so
+ * the picture says one thing — depth, and where the fish are.
+ */
+const CLUTTER_LAYERS = [
+  "subarea-lines-casing", "subarea-lines", "subarea-labels",
+  "wdfw-ma-casing", "wdfw-ma-lines", "wdfw-ma-labels",
+  "rca-fill", "rca-outline", "rca-labels",
+  "wdfw-mpa-fill", "wdfw-mpa-outline", "wdfw-mpa-labels",
+  "tide-station", "tide-label", "buoy-marker", "buoy-label",
+  "border-casing", "border-line", "country-ca", "country-us",
+];
 
-const OWM_KEY = process.env.NEXT_PUBLIC_OPENWEATHERMAP_API_KEY;
-const WIND_LAYER = "marketing-wind";
+/** How many of the best spots the highlight card cycles through, and how long
+ *  each one holds. Slow enough to read the card, quick enough to feel alive. */
+const FEATURED_COUNT = 5;
+const ROTATE_MS = 4200;
+
+const expr = (e: unknown) => e as ExpressionSpecification;
 
 export interface MapSpot {
   slug: string;
@@ -33,37 +42,44 @@ export interface MapSpot {
   lat: number;
   lng: number;
   score: number | null;
-  /** Per-species peak score, keyed by species id — powers the Species chip. */
+  /** Per-species peak score, keyed by species id. Retained on the type because
+   *  the callers build it from the same payload; this map no longer filters. */
   scoresBySpecies: Record<string, number>;
 }
 
+/** Plain-English verdict under the score, so the card explains the number. */
+function verdictOf(score: number | null): string {
+  const t = tierFor(score);
+  if (t === "good") return "Prime conditions";
+  if (t === "fair") return "Worth a look";
+  if (t === "poor") return "Slow today";
+  return "No live score";
+}
+
 /**
- * The marketing map — the Explore map, not a picture of it. Same
- * `buildReliefStyle` bathymetric relief, same /api/v1/map/spots data, same
- * `tierFor` pin colors, same MapFilterChips, and the same pan/zoom. The
- * landing page shows the real product, so it can't drift from it.
+ * The marketing map: a still of the real product, not a working copy of it.
  *
- * Wind renders tiles only when NEXT_PUBLIC_OPENWEATHERMAP_API_KEY is set;
- * without it the chip toggles and no overlay appears — identical to Explore.
+ * It draws the same bathymetric relief and the same score pucks Explore does
+ * (`buildReliefStyle`, `attachScorePucks`), so the picture cannot drift from
+ * the thing it is selling. What it deliberately does NOT carry is Explore's
+ * controls — no bathymetry / currents / species chips, no wind overlay, no
+ * navigation control — and it does not take pan, zoom or click. A visitor
+ * reading the landing page should look at it, not operate it.
+ *
+ * Instead of controls it cycles a card through the best few spots, anchored to
+ * each one in turn, so the scores on screen are explained rather than left as
+ * bare numbers.
  */
 export default function MarketingMap({
   spots,
-  species,
   center,
   zoom,
 }: {
   spots: MapSpot[];
-  species: SpeciesOption[];
   center: { lat: number; lng: number };
   zoom: number;
 }) {
   const [mapObj, setMapObj] = useState<MlMap | null>(null);
-  const [relief, setRelief] = useState(true);
-  const [currents, setCurrents] = useState(false);
-  const [wind, setWind] = useState(false);
-  const [speciesFilter, setSpeciesFilter] = useState<string | null>(null);
-
-  useCurrentsFlow({ map: mapObj, enabled: currents, timeIso: null });
 
   // Absolute origin is REQUIRED — MapLibre resolves vector-tile URLs inside a
   // Web Worker that can't expand root-relative paths, so contour + land tiles
@@ -76,96 +92,156 @@ export default function MarketingMap({
     [],
   );
 
-  // Relief toggle flips layer visibility once the style is up.
+  // Puck sprites are drawn on demand, exactly as on Explore.
+  useEffect(() => {
+    if (mapObj) attachScorePucks(mapObj);
+  }, [mapObj]);
+
+  // Strip the style back to depth + land. Guarded per id: the style evolves,
+  // and a layer that has been renamed should quietly not hide rather than throw
+  // and take the homepage's map down with it.
   useEffect(() => {
     if (!mapObj) return;
-    RELIEF_LAYERS.forEach((id) => {
-      if (mapObj.getLayer(id)) {
-        mapObj.setLayoutProperty(id, "visibility", relief ? "visible" : "none");
-      }
-    });
-  }, [mapObj, relief]);
+    for (const id of CLUTTER_LAYERS) {
+      if (mapObj.getLayer(id)) mapObj.setLayoutProperty(id, "visibility", "none");
+    }
+  }, [mapObj]);
 
-  // Selecting a species repoints each pin at that species' score, as the
-  // Explore rail does. Spots with no score for it drop out rather than
-  // showing a grey "—": Explore pairs those with a re-ranked rail that
-  // explains them, and this map has no rail — a screen of blank pins would
-  // just read as broken.
-  const pins = useMemo(() => {
-    if (!speciesFilter) return spots;
-    return spots
-      .map((s) => ({ ...s, score: s.scoresBySpecies[speciesFilter] ?? null }))
-      .filter((s) => s.score !== null);
-  }, [spots, speciesFilter]);
+  /** The best few, high to low — what the card cycles through. */
+  const featured = useMemo(
+    () =>
+      [...spots]
+        .filter((s) => s.score !== null)
+        .sort((a, b) => (b.score ?? -1) - (a.score ?? -1))
+        .slice(0, FEATURED_COUNT),
+    [spots],
+  );
+
+  const [activeIdx, setActiveIdx] = useState(0);
+  const featuredCount = featured.length;
+  useEffect(() => {
+    if (featuredCount < 2) return;
+    const id = window.setInterval(
+      () => setActiveIdx((i) => (i + 1) % featuredCount),
+      ROTATE_MS,
+    );
+    return () => window.clearInterval(id);
+  }, [featuredCount]);
+
+  const active = featured[activeIdx] ?? null;
+  const activeSlug = active?.slug ?? "__none__";
+
+  const data = useMemo(
+    () => ({
+      type: "FeatureCollection" as const,
+      // Ascending score so the best puck paints last and sits on top.
+      features: [...spots]
+        .sort((a, b) => (a.score ?? -1) - (b.score ?? -1))
+        .map((s, i) => ({
+          type: "Feature" as const,
+          id: i,
+          geometry: { type: "Point" as const, coordinates: [s.lng, s.lat] as [number, number] },
+          properties: {
+            slug: s.slug,
+            label: s.score === null ? NO_DATA_LABEL : String(s.score),
+            opacity: s.score === null ? 0.6 : 1,
+            // Marketing has no viewer, so no reports and no owned spots: every
+            // puck is a plain curated one.
+            fresh: 0,
+            hot: 0,
+            isCustom: 0,
+          },
+        })),
+    }),
+    [spots],
+  );
+
+  // The featured spot wears the same selected ring Explore gives a chosen spot.
+  // Memoised on the slug alone: `icon-image` is a layout property, so rebuilding
+  // it every render would relayout every puck on each tick of the rotation.
+  const iconImage = useMemo(
+    () =>
+      expr([
+        "concat",
+        "rcp:", ["get", "label"], ":",
+        ["case", ["==", ["get", "slug"], activeSlug], "sel", "base"],
+        ":0:rd",
+      ]),
+    [activeSlug],
+  );
+
+  const puckLayer: LayerProps = useMemo(
+    () => ({
+      id: SPOT_PUCK,
+      type: "symbol",
+      layout: {
+        "icon-image": iconImage,
+        "icon-anchor": "bottom",
+        "icon-offset": [0, PUCK_TIP_OFFSET],
+        "icon-allow-overlap": true,
+        "icon-ignore-placement": true,
+      },
+      paint: { "icon-opacity": expr(["get", "opacity"]) },
+    }),
+    [iconImage],
+  );
+
+  // Keep the featured spot in frame without letting the visitor drive: a slow
+  // ease as the card moves on, rather than a jump.
+  const first = useRef(true);
+  useEffect(() => {
+    if (!mapObj || !active) return;
+    if (first.current) {
+      first.current = false;
+      return;
+    }
+    mapObj.easeTo({ center: [active.lng, active.lat], duration: 1600 });
+  }, [mapObj, active]);
 
   return (
     <div className="relative h-full w-full">
-      <div className="absolute top-2 left-2 right-2 z-10">
-        <MapFilterChips
-          relief={relief}
-          currents={currents}
-          wind={wind}
-          onToggleRelief={() => setRelief((v) => !v)}
-          onToggleCurrents={() => setCurrents((v) => !v)}
-          onToggleWind={() => setWind((v) => !v)}
-          species={species}
-          speciesFilter={speciesFilter}
-          onSpeciesChange={setSpeciesFilter}
-        />
-      </div>
-
       <Map
-        initialViewState={{
-          latitude: center.lat,
-          longitude: center.lng,
-          zoom,
-        }}
+        initialViewState={{ latitude: center.lat, longitude: center.lng, zoom }}
         mapStyle={mapStyle}
-        minZoom={7}
-        maxZoom={14}
+        // A picture, not an instrument: no drag, scroll, keyboard or dblclick.
+        interactive={false}
         attributionControl={false}
         onLoad={(e) => setMapObj(e.target)}
         style={{ width: "100%", height: "100%" }}
       >
-        <NavigationControl position="top-right" showCompass={false} />
+        <Source id={SOURCE_ID} type="geojson" data={data}>
+          <Layer {...puckLayer} />
+        </Source>
 
-        {OWM_KEY && (
-          <Source
-            id={WIND_LAYER}
-            type="raster"
-            tiles={[
-              `https://tile.openweathermap.org/map/wind_new/{z}/{x}/{y}.png?appid=${OWM_KEY}`,
-            ]}
-            tileSize={256}
+        {active && (
+          <Marker
+            latitude={active.lat}
+            longitude={active.lng}
+            anchor="bottom"
+            // Clear the puck: its pill stands ~40px over the coordinate.
+            offset={[0, -46]}
           >
-            <Layer
-              id={WIND_LAYER}
-              type="raster"
-              paint={{ "raster-opacity": 0.6 }}
-              layout={{ visibility: wind ? "visible" : "none" }}
-            />
-          </Source>
-        )}
-
-        {pins.map((p) => {
-          const tier = tierFor(p.score);
-          return (
-            <Marker
-              key={p.slug}
-              latitude={p.lat}
-              longitude={p.lng}
-              anchor="center"
+            <div
+              key={active.slug}
+              className="pointer-events-none w-[248px] rounded border border-rc-rule/60 bg-rc-panel/95 px-3 py-2 shadow-rc-bar backdrop-blur-sm"
             >
-              <div
-                className="flex h-8 w-8 items-center justify-center rounded-full text-[11px] font-bold text-white ring-2 ring-white shadow-rc-pin"
-                style={{ backgroundColor: TIER_HEX[tier] }}
-                title={`${p.name}: ${p.score ?? "no score"}`}
-              >
-                {p.score ?? "—"}
+              <div className="flex items-baseline justify-between gap-2">
+                {/* Wraps rather than truncates: spot names run long ("Howe
+                    Sound (Pam Rock / Worlcombe)") and a clipped name on a
+                    marketing still reads as a bug. */}
+                <span className="text-[13px] font-semibold leading-snug text-rc-ink">
+                  {active.name}
+                </span>
+                <span className="shrink-0 font-rc-mono text-[15px] font-bold text-rc-ink">
+                  {active.score}
+                </span>
               </div>
-            </Marker>
-          );
-        })}
+              <div className="mt-0.5 font-rc-mono text-[10px] uppercase tracking-[0.06em] text-rc-ink-mute">
+                {verdictOf(active.score)}
+              </div>
+            </div>
+          </Marker>
+        )}
       </Map>
     </div>
   );
