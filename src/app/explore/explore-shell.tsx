@@ -819,13 +819,35 @@ export default function ExploreShell({
     [flowHour, selectedIso],
   );
 
-  const selectedSpot = useMemo(
-    () =>
+  // Selecting a spot flies the camera, and the drawer opening resizes the map;
+  // both report a new viewport, which mints new bbox keys and refetches the
+  // spot list. Those fetches take 0.5-2.6s, and while they are in flight the
+  // rail's set is being replaced — so a spot that was on screen when it was
+  // clicked can briefly be in NEITHER list, and the drawer had nothing to
+  // render until the network settled.
+  //
+  // Measured before this: click to card was 151ms when the spot happened to
+  // survive the refetch, and 1481-1814ms when it did not.
+  //
+  // The clicked spot is in hand at click time, so hold it. `lastSelected` keeps
+  // the most recent match and is used only as a fallback, so a fresh payload
+  // still wins the moment it lands and the card upgrades in place rather than
+  // waiting. Keyed on the slug, so it never answers for a different spot.
+  const lastSelected = useRef<RailSpot | null>(null);
+  const selectedSpot = useMemo(() => {
+    const found =
       railSpots.find((s) => s.slug === spotSlug) ??
       displaySpots.find((s) => s.slug === spotSlug) ??
-      null,
-    [railSpots, displaySpots, spotSlug],
-  );
+      null;
+    if (found) {
+      lastSelected.current = found;
+      return found;
+    }
+    if (spotSlug && lastSelected.current?.slug === spotSlug) {
+      return lastSelected.current;
+    }
+    return null;
+  }, [railSpots, displaySpots, spotSlug]);
 
   // ── Create-alert modal — opened in place from the drawer's "Set alert",
   //    the same score-slider modal the spot page uses. Signed-out anglers hit
