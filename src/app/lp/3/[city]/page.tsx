@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { angleFrom } from "../../_shared/lp-angles";
-import { resolveLpCity } from "../../_shared/lp-city";
+import { resolveLpCard } from "../../_shared/lp-spot";
 import LpShell from "../../_shared/lp-shell";
 import Lp3Hero from "./hero";
 
@@ -39,10 +39,10 @@ export async function generateMetadata({
 }): Promise<Metadata> {
   const [{ city: slug }, sp] = await Promise.all([params, searchParams]);
   const angle = angleFrom(sp);
-  const city = await resolveLpCity(slug);
+  const card = await resolveLpCard(slug);
   return {
     title: { absolute: `${angle.title} — ReelCaster` },
-    description: city ? `${angle.subhead} Covering ${city.name}.` : angle.subhead,
+    description: card ? `${angle.subhead} Covering ${card.cityName}.` : angle.subhead,
     robots: { index: false, follow: true },
   };
 }
@@ -57,8 +57,8 @@ export default async function Lp3CityPage({
   const [{ city: slug }, sp] = await Promise.all([params, searchParams]);
   const angle = angleFrom(sp);
 
-  const city = await resolveLpCity(slug);
-  if (!city) notFound();
+  const card = await resolveLpCard(slug);
+  if (!card) notFound();
 
   // lp3- rather than lp2-, so the hero variant is distinguishable from the
   // angle in the attribution columns.
@@ -69,7 +69,8 @@ export default async function Lp3CityPage({
       angle={angle}
       checkoutHref={checkoutHref}
       year={new Date().getFullYear()}
-      hero={<Lp3Hero angle={angle} cityName={city.name} />}
+      card={card}
+      hero={<Lp3Hero angle={angle} card={card} />}
     />
   );
 }

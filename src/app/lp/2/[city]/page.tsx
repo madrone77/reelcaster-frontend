@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { angleFrom } from "../../_shared/lp-angles";
-import { resolveLpCity } from "../../_shared/lp-city";
+import { resolveLpCard } from "../../_shared/lp-spot";
 import LpShell from "../../_shared/lp-shell";
 import Lp2Hero from "./hero";
 
@@ -21,9 +21,10 @@ import Lp2Hero from "./hero";
  * The `?a=` / `utm_content=` angle swaps headline, subhead, eyebrow, feature
  * order and the closing line — see ../../_shared/lp-angles.ts.
  *
- * Score-card numbers are static and are labelled EXAMPLE SPOT for that reason;
- * see the note at the top of ../../_shared/lp-content.ts. The city is real,
- * which is why an unknown one 404s instead of quietly rendering Victoria.
+ * The score card is real and city-specific: the city's top-scoring published
+ * spot, chosen by the same rule /lp/1/[city] uses so the two pages never
+ * disagree about a city's best spot. A city with no scored spot 404s rather
+ * than quietly rendering Victoria's.
  *
  * noindex comes from src/app/lp/layout.tsx.
  */
@@ -53,10 +54,10 @@ export async function generateMetadata({
 }): Promise<Metadata> {
   const [{ city: slug }, sp] = await Promise.all([params, searchParams]);
   const angle = angleFrom(sp);
-  const city = await resolveLpCity(slug);
+  const card = await resolveLpCard(slug);
   return {
     title: { absolute: `${angle.title} — ReelCaster` },
-    description: city ? `${angle.subhead} Covering ${city.name}.` : angle.subhead,
+    description: card ? `${angle.subhead} Covering ${card.cityName}.` : angle.subhead,
     robots: { index: false, follow: true },
   };
 }
@@ -74,8 +75,8 @@ export default async function Lp2CityPage({
   // Unknown, unpublished, or spotless city → 404. Falling back to the pilot
   // city would spend another city's ad budget on a Victoria page and make the
   // campaign read as a success.
-  const city = await resolveLpCity(slug);
-  if (!city) notFound();
+  const card = await resolveLpCard(slug);
+  if (!card) notFound();
 
   // `from` is what /plans/checkout records for attribution. It carries the page
   // variant as well as the angle, so "photo hero or copy hero" and "which
@@ -87,7 +88,8 @@ export default async function Lp2CityPage({
       angle={angle}
       checkoutHref={checkoutHref}
       year={new Date().getFullYear()}
-      hero={<Lp2Hero angle={angle} cityName={city.name} />}
+      card={card}
+      hero={<Lp2Hero angle={angle} card={card} />}
     />
   );
 }

@@ -1,6 +1,7 @@
 import Image from "next/image";
 import type { Angle } from "../../_shared/lp-angles";
 import LpScoreCard from "../../_shared/lp-score-card";
+import type { LpCard } from "../../_shared/lp-spot";
 import { heroFor } from "./heroes";
 
 /**
@@ -15,10 +16,10 @@ import { heroFor } from "./heroes";
  */
 export default function Lp3Hero({
   angle,
-  cityName,
+  card,
 }: {
   angle: Angle;
-  cityName: string;
+  card: LpCard;
 }) {
   const hero = heroFor(angle.id);
 
@@ -39,12 +40,12 @@ export default function Lp3Hero({
               {angle.headline.lead} <span className="accent">{angle.headline.accent}</span>
             </h1>
             <p className="subhead">{angle.subhead}</p>
-            <p className="locality">Every spot around {cityName}, scored hour by hour.</p>
+            <p className="locality">Every spot around {card.cityName}, scored hour by hour.</p>
           </div>
         </div>
       </div>
       <div className="wrap">
-        <LpScoreCard />
+        <LpScoreCard card={card} />
       </div>
     </section>
   );

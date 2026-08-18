@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import type { Angle } from "./lp-angles";
 import { FEATURES, LAYERS, PRICE, PROOF } from "./lp-content";
+import type { LpCard } from "./lp-spot";
 import { LP_CSS } from "./lp-css";
 
 /**
@@ -81,6 +82,7 @@ export default function LpShell({
   checkoutHref,
   year,
   hero,
+  card,
 }: {
   angle: Angle;
   checkoutHref: string;
@@ -89,6 +91,10 @@ export default function LpShell({
   year: number;
   /** The variant's hero. Rendered above the primary CTA. */
   hero: React.ReactNode;
+  /** Same card the hero renders — the breakdown block must show the same
+   *  number. Two different scores on one page is the fastest way to make a
+   *  visitor stop believing either of them. */
+  card: LpCard;
 }) {
   const heroCtaRef = useRef<HTMLAnchorElement>(null);
   const finalCtaRef = useRef<HTMLAnchorElement>(null);
@@ -140,10 +146,10 @@ export default function LpShell({
           <div className="wrap header-row">
             <span className="logo">
               <Image
-                src="/reelcaster-mark.svg"
+                src="/reelcaster-mark-blue.svg"
                 alt="ReelCaster"
-                width={104}
-                height={34}
+                width={128}
+                height={42}
                 priority
               />
             </span>
@@ -250,16 +256,19 @@ export default function LpShell({
           <div className="wrap">
             <div className="section-kicker">How the score is made</div>
             <div className="distill">
-              <div className="d-score">
+              <div className={`d-score d-${card.tier}`}>
                 <span className="mono-label">ReelCaster Score</span>
-                <span className="d-num">85</span>
-                <span className="d-tag">GOOD</span>
+                <span className="d-num">{card.score}</span>
+                {card.tagWord ? <span className="d-tag">{card.tagWord}</span> : null}
               </div>
               <div className="d-line" />
               <div className="d-stack" role="list" aria-label="Signal layers behind the score">
                 {LAYERS.map((l) => (
                   <div className={l.top ? "d-layer top" : "d-layer"} role="listitem" key={l.label}>
-                    <span className="d-label">{l.label}</span>
+                    {/* The top layer names the spot's actual driver species
+                        rather than a hardcoded one — it is the row claiming to
+                        describe today. */}
+                    <span className="d-label">{l.top ? `Today · ${card.species}` : l.label}</span>
                     <span className="d-src">{l.src}</span>
                   </div>
                 ))}
