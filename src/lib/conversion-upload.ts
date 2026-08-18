@@ -24,6 +24,7 @@
  */
 
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { googleAdsConfig, googleAccessToken, googleAdsHeaders } from './google-ads-auth';
 
 /** Give up after this many tries, so a permanently bad row stops churning. */
 const MAX_ATTEMPTS = 5;
@@ -52,20 +53,6 @@ export type UploadOutcome =
 
 const GOOGLE_API_VERSION = 'v18';
 
-function googleConfig() {
-  const developerToken = process.env.GOOGLE_ADS_DEVELOPER_TOKEN;
-  const clientId = process.env.GOOGLE_ADS_CLIENT_ID;
-  const clientSecret = process.env.GOOGLE_ADS_CLIENT_SECRET;
-  const refreshToken = process.env.GOOGLE_ADS_REFRESH_TOKEN;
-  // Digits only: the API rejects the dashed form people copy out of the UI.
-  const customerId = (process.env.GOOGLE_ADS_CUSTOMER_ID ?? '').replace(/-/g, '');
-  const loginCustomerId = (process.env.GOOGLE_ADS_LOGIN_CUSTOMER_ID ?? '').replace(/-/g, '');
-  if (!developerToken || !clientId || !clientSecret || !refreshToken || !customerId) {
-    return null;
-  }
-  return { developerToken, clientId, clientSecret, refreshToken, customerId, loginCustomerId };
-}
-
 /** The conversion action to credit, which differs per event. */
 function googleConversionAction(event: ConversionRow['event_type']): string | null {
   const raw =
@@ -73,25 +60,6 @@ function googleConversionAction(event: ConversionRow['event_type']): string | nu
       ? process.env.GOOGLE_ADS_CONVERSION_ACTION_PURCHASE
       : process.env.GOOGLE_ADS_CONVERSION_ACTION_TRIAL;
   return raw?.trim() || null;
-}
-
-async function googleAccessToken(cfg: NonNullable<ReturnType<typeof googleConfig>>): Promise<string> {
-  const res = await fetch('https://oauth2.googleapis.com/token', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-    body: new URLSearchParams({
-      client_id: cfg.clientId,
-      client_secret: cfg.clientSecret,
-      refresh_token: cfg.refreshToken,
-      grant_type: 'refresh_token',
-    }),
-  });
-  if (!res.ok) {
-    throw new Error(`oauth ${res.status}: ${(await res.text()).slice(0, 300)}`);
-  }
-  const json = (await res.json()) as { access_token?: string };
-  if (!json.access_token) throw new Error('oauth returned no access_token');
-  return json.access_token;
 }
 
 /**
@@ -104,7 +72,7 @@ export function googleDateTime(iso: string): string {
 }
 
 async function uploadToGoogle(row: ConversionRow): Promise<UploadOutcome> {
-  const cfg = googleConfig();
+  const cfg = googleAdsConfig();
   if (!cfg) return { status: 'skipped', reason: 'google_not_configured' };
 
   const conversionAction = googleConversionAction(row.event_type);
@@ -128,13 +96,7 @@ async function uploadToGoogle(row: ConversionRow): Promise<UploadOutcome> {
   if (!idField) return { status: 'skipped', reason: `not_a_google_click:${row.click_type}` };
 
   const token = await googleAccessToken(cfg);
-  const headers: Record<string, string> = {
-    Authorization: `Bearer ${token}`,
-    'developer-token': cfg.developerToken,
-    'Content-Type': 'application/json',
-  };
-  // Only present for manager accounts; sending an empty one is an error.
-  if (cfg.loginCustomerId) headers['login-customer-id'] = cfg.loginCustomerId;
+  const headers = googleAdsHeaders(cfg, token);
 
   const res = await fetch(
     `https://googleads.googleapis.com/${GOOGLE_API_VERSION}/customers/${cfg.customerId}:uploadClickConversions`,
