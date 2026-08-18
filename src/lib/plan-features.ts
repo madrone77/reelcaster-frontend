@@ -1,11 +1,17 @@
 /**
- * The plan matrix — what a visitor, a free account, and a Pro member each get.
+ * The plan matrix — what a free account and a Pro member each get.
  *
  * The Free/Pro rows and their ORDER are the ones written for the /plans page;
  * this module is now where they live, so the sales page and every in-app
- * upgrade prompt read from one list instead of drifting apart. /plans renders
- * the `free`/`pro` columns; the upgrade modal adds `anon`, because a signed-out
- * visitor on /explore is the one being asked to create an account.
+ * upgrade prompt read from one list instead of drifting apart. Two columns
+ * everywhere, /plans and the upgrade modal alike.
+ *
+ * There used to be a third "Browsing" column in the modal, on the theory that a
+ * signed-out visitor needed to see what browsing already gave them. It made the
+ * table a three-way comparison to answer a two-way question — free or paid —
+ * and the extra column cost the feature labels the width they needed. A visitor
+ * without an account reads the same two columns as everyone else; the free tier
+ * is still offered by name at the foot of the modal.
  *
  * LIVE FEATURES ONLY — everything here is a promise attached to a charge, so
  * nothing lands on this table before it actually works. "Live" is not the same
@@ -67,10 +73,18 @@ import {
  */
 export const FREE_FAVORITE_SPOTS = 1;
 
+/**
+ * Who is looking. Still three of these even though the table has two columns:
+ * "anon" is a viewer state — it decides whether the modal offers the free tier
+ * at all — not a thing we quote a price for.
+ */
 export type PlanTierId = "anon" | "free" | "pro";
 
+/** The columns the matrix actually draws. */
+export type PlanColumnId = Exclude<PlanTierId, "anon">;
+
 export interface PlanTier {
-  id: PlanTierId;
+  id: PlanColumnId;
   /** Column heading. */
   label: string;
   /** Price line under the heading. */
@@ -78,7 +92,6 @@ export interface PlanTier {
 }
 
 export const PLAN_TIERS: PlanTier[] = [
-  { id: "anon", label: "Browsing", price: "No account" },
   { id: "free", label: "Free", price: "$0" },
   // The charged amount, not the $2.75/mo pitch: the headline above the table
   // already does that division, and the column a customer scans for "what does
@@ -88,15 +101,15 @@ export const PLAN_TIERS: PlanTier[] = [
 
 /**
  * A cell: `true` = included, `false` = not included, string = the actual limit.
- * Only the `anon` column uses strings — "Next 2 days" says more to a signed-out
- * visitor than a bare cross, and it's the number the modal is arguing about.
+ * Nothing quotes a limit today — the "Next 2 days" string belonged to the
+ * Browsing column, which is gone — but the string case stays because a row like
+ * "1 saved spot" is the natural way to write the next limit we surface.
  */
 export type PlanCell = string | boolean;
 
 export interface PlanFeatureRow {
   id: string;
   label: string;
-  anon: PlanCell;
   free: PlanCell;
   pro: PlanCell;
 }
@@ -109,56 +122,49 @@ export const PLAN_FEATURES: PlanFeatureRow[] = [
   {
     id: "guide-reviewed",
     label: "Spots checked by a local guide before they go live",
-    anon: true,
     free: true,
     pro: true,
   },
-  { id: "today-score", label: "See today’s bite score", anon: true, free: true, pro: true },
+  { id: "today-score", label: "See today’s bite score", free: true, pro: true },
   {
     id: "bathymetry",
     label: "Read the bottom: depth and structure",
-    anon: true,
     free: true,
     pro: true,
   },
   {
     id: "tide-hourly",
     label: "Watch the tide push through, hour by hour",
-    anon: true,
     free: true,
     pro: true,
   },
-  { id: "regs", label: "Check the regs before you go", anon: true, free: true, pro: true },
+  { id: "regs", label: "Check the regs before you go", free: true, pro: true },
   {
     id: "catch-log",
     label: "Log a catch straight from the photo",
-    anon: false,
     free: true,
     pro: true,
   },
-  // Browsing stops at 2 days — the number the signed-out modal is arguing about.
-  { id: "week-ahead", label: "Plan a week ahead", anon: "Next 2 days", free: true, pro: true },
+  { id: "week-ahead", label: "Plan a week ahead", free: true, pro: true },
   // ── everything below is what paying adds ──
-  { id: "two-weeks", label: "Plan the full two weeks", anon: false, free: false, pro: true },
+  { id: "two-weeks", label: "Plan the full two weeks", free: false, pro: true },
   // Stated as the thing you get, not the thing we stop doing to you: "No ads"
   // is a removal, "Read the water with no ads in it" is the product. The free
-  // and browsing columns take a cross rather than the string "Ads" — this
-  // table lists what a tier gets, and a tier does not "get" advertising.
+  // column takes a cross rather than the string "Ads" — this table lists what a
+  // tier gets, and a tier does not "get" advertising.
   {
     id: "ad-free",
     label: "Read the water with no ads in the way",
-    anon: false,
     free: false,
     pro: true,
   },
-  { id: "save-spots", label: "Save every spot you fish", anon: false, free: false, pro: true },
+  { id: "save-spots", label: "Save every spot you fish", free: false, pro: true },
   // Deliberately NOT "add your own spots" — that reads as another way of saying
   // "save". The value is that a spot we don't publish gets the full model run on
   // it, not that you can drop a pin.
   {
     id: "custom-spots",
     label: "Score a spot we don’t cover: your pin, our full model",
-    anon: false,
     free: false,
     pro: true,
   },
@@ -167,21 +173,18 @@ export const PLAN_FEATURES: PlanFeatureRow[] = [
   {
     id: "alerts",
     label: "Alerts when it’s on, by text or email",
-    anon: false,
     free: false,
     pro: true,
   },
   {
     id: "catch-reports",
     label: "See what anglers are actually catching, spot by spot",
-    anon: false,
     free: false,
     pro: true,
   },
   {
     id: "all-cities",
     label: "Every covered city, one price",
-    anon: false,
     free: false,
     pro: true,
   },

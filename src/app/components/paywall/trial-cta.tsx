@@ -320,10 +320,9 @@ export function TrialBuy({
   signupHref?: string;
   signupLabel?: string;
   /**
-   * A surface may render this twice — once above the plan table and once
-   * below it — so the id has to be overridable or a selector matches both.
-   * Both copies share the provider's email state, so whichever one is typed
-   * into, the other is already filled.
+   * Overridable so a surface that renders this more than once doesn't hand a
+   * selector two matches. Every copy shares the provider's email state, so
+   * whichever one is typed into, the others are already filled.
    */
   testId?: string;
   className?: string;

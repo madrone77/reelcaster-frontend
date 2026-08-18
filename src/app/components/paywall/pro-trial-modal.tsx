@@ -36,7 +36,10 @@ import {
  *      instead of on a round trip to /plans.
  *
  * The viewer's current tier column is marked, and the row that blocked them is
- * highlighted, so "what I have" and "what I'd get" are both one glance.
+ * highlighted, so "what I have" and "what I'd get" are both one glance. The
+ * table is Free vs Pro for every viewer, signed out included — a signed-out
+ * visitor is being asked whether to pay, and a third "Browsing" column made
+ * that a three-way comparison. The free tier is still offered by name below.
  *
  * Copy + limits come from `@/lib/plan-features` — never hardcode them here.
  */
@@ -190,24 +193,14 @@ export default function ProTrialModal({
             ) : (
               <TrialBuy signupLabel={ctaLabel} />
             )}
-          </div>
 
-          <PlanMatrix viewerTier={viewerTier} highlightRowId={nag.rowId} />
-
-          {/* The second ask. Someone who read the whole table has just been
-              convinced by it, and making them scroll back up to act on that is
-              how you lose them. Both copies share one email field's worth of
-              state through the provider, so a half-typed address at the top is
-              already there at the bottom. */}
-          <div className="border-t border-rc-rule px-4 sm:px-6 py-4">
-            {!ctaHref && (
-              <TrialBuy signupLabel={ctaLabel} testId="trial-cta-bottom" />
-            )}
-
-            {/* The disclosure, directly under the button it belongs to — which
-                is the arrangement the rest of this code insists on (see
-                trial-cta.tsx). The Terms and Privacy links live here because
-                this is now the only place on the modal that carries them. */}
+            {/* The disclosure, directly under the button it belongs to. There
+                is one button now, so this rides with it above the table rather
+                than at the foot of the modal — the renewal amount and the
+                charge date have to be readable before the click, not a table's
+                worth of scrolling below it (see trial-cta.tsx). The Terms and
+                Privacy links live here because this is the only place on the
+                modal that carries them. */}
             <DialogDescription className="mt-3 text-sm leading-relaxed text-rc-ink-soft">
               {nagSubhead()}{" "}
               <Link
@@ -224,32 +217,41 @@ export default function ProTrialModal({
                 Privacy
               </Link>
             </DialogDescription>
-
-            {/* The free tier, offered last and on purpose: after the matrix
-                has shown what an account gets you without paying. Only for
-                visitors who don't have one. */}
-            {viewerTier === "anon" && (
-              <div className="mt-3 text-center">
-                <Link
-                  href={`/signup?next=${encodeURIComponent(returnTo)}`}
-                  data-testid="free-signup-cta"
-                  onClick={() =>
-                    trackCta({ plan: "free", destination: "signup" })
-                  }
-                  className="text-sm font-semibold text-rc-brand hover:text-rc-brand-hover underline underline-offset-2"
-                >
-                  Sign up today as a free user
-                </Link>
-                <p className="mt-1.5 text-[11px] leading-relaxed text-rc-ink-mute">
-                  No card. Keeps today&apos;s score, a week of forecast, and{" "}
-                  {FREE_FAVORITE_SPOTS === 1
-                    ? "one saved spot"
-                    : `${FREE_FAVORITE_SPOTS} saved spots`}
-                  .
-                </p>
-              </div>
-            )}
           </div>
+
+          <PlanMatrix viewerTier={viewerTier} highlightRowId={nag.rowId} />
+
+          {/* The free tier, offered last and on purpose: after the matrix has
+              shown what an account gets you without paying. Only for visitors
+              who don't have one — for everyone else the table is the last
+              thing on the modal, and the buy button is back up at the top
+              where the disclosure travels with it.
+
+              There used to be a second copy of the buy button down here, on
+              the argument that a reader who finished the table shouldn't have
+              to scroll back up to act on it. It doubled the ask, and the
+              disclosure attached to it was the only one on the modal — so the
+              terms sat below the whole table. One button, up top, with its
+              terms. */}
+          {viewerTier === "anon" && (
+            <div className="border-t border-rc-rule px-4 sm:px-6 py-4 text-center">
+              <Link
+                href={`/signup?next=${encodeURIComponent(returnTo)}`}
+                data-testid="free-signup-cta"
+                onClick={() => trackCta({ plan: "free", destination: "signup" })}
+                className="text-sm font-semibold text-rc-brand hover:text-rc-brand-hover underline underline-offset-2"
+              >
+                Sign up today as a free user
+              </Link>
+              <p className="mt-1.5 text-[11px] leading-relaxed text-rc-ink-mute">
+                No card. Keeps today&apos;s score, a week of forecast, and{" "}
+                {FREE_FAVORITE_SPOTS === 1
+                  ? "one saved spot"
+                  : `${FREE_FAVORITE_SPOTS} saved spots`}
+                .
+              </p>
+            </div>
+          )}
         </TrialCtaProvider>
         </div>
       </DialogContent>
