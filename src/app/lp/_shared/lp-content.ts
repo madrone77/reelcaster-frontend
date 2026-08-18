@@ -21,7 +21,10 @@ import { ANNUAL_PRICE_CENTS, ANNUAL_PER_MONTH_CENTS, TRIAL_DAYS } from "@/lib/pr
  */
 export const DEMO = {
   spotName: "Oak Bay Flats",
-  meta: "NEAR YOU · CHINOOK · PEAK SEASON",
+  // "NEAR YOU" was true only while this page was Victoria-only. The route now
+  // carries a city, so a Nanaimo visitor would be told an Oak Bay spot is near
+  // them. Labelled an example instead, which is also what it honestly is.
+  meta: "EXAMPLE SPOT · CHINOOK · PEAK SEASON",
   score: 85,
   tagWord: "GOOD",
   windowTime: "06:00 – 13:00",

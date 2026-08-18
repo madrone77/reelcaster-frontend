@@ -1,6 +1,6 @@
 import Image from "next/image";
-import type { Angle } from "../_shared/lp-angles";
-import LpScoreCard from "../_shared/lp-score-card";
+import type { Angle } from "../../_shared/lp-angles";
+import LpScoreCard from "../../_shared/lp-score-card";
 import { heroFor } from "./heroes";
 
 /**
@@ -13,7 +13,13 @@ import { heroFor } from "./heroes";
  * 480px, so asking for a viewport-width source above that would ship pixels
  * nobody sees.
  */
-export default function Lp3Hero({ angle }: { angle: Angle }) {
+export default function Lp3Hero({
+  angle,
+  cityName,
+}: {
+  angle: Angle;
+  cityName: string;
+}) {
   const hero = heroFor(angle.id);
 
   return (
@@ -33,6 +39,7 @@ export default function Lp3Hero({ angle }: { angle: Angle }) {
               {angle.headline.lead} <span className="accent">{angle.headline.accent}</span>
             </h1>
             <p className="subhead">{angle.subhead}</p>
+            <p className="locality">Every spot around {cityName}, scored hour by hour.</p>
           </div>
         </div>
       </div>
