@@ -1,7 +1,7 @@
 import Image from 'next/image';
 import Link from 'next/link';
 import { fetchHierarchyLight, fetchMapSpots } from '@/lib/bluecaster';
-import { buildExploreData, type SpeciesOption } from '@/app/explore/lib/explore-data';
+import { buildExploreData } from '@/app/explore/lib/explore-data';
 import MarketingMap, { type MapSpot } from './marketing-map';
 import { btn } from '@/app/components/ui/button';
 
@@ -18,7 +18,6 @@ export default async function MapSection() {
   // response from the API (or a spot the data build chokes on) must never 500
   // the whole homepage. Anything thrown here degrades to the illustration.
   let spots: MapSpot[] = [];
-  let species: SpeciesOption[] = [];
   try {
     const [hierarchy, payload] = await Promise.all([
       fetchHierarchyLight(),
@@ -26,10 +25,9 @@ export default async function MapSection() {
     ]);
 
     const data = buildExploreData(hierarchy, payload);
-    species = data.species;
 
-    // No cap: the map pans and zooms, so every scored spot in the bbox should
-    // be reachable. Unscored spots are dropped — a grey "—" pin sells nothing.
+    // No cap: every scored spot in the bbox draws. Unscored spots are dropped —
+    // a grey "—" pin sells nothing.
     spots = data.spots
       .filter((s) => s.score !== null)
       .map(({ slug, name, lat, lng, score, scoresBySpecies }) => ({
@@ -50,12 +48,7 @@ export default async function MapSection() {
         <div className="order-2 lg:order-1">
           <div className="h-[340px] w-full overflow-hidden rounded border border-rc-rule/60 shadow-rc-bar">
             {spots.length > 0 ? (
-              <MarketingMap
-                spots={spots}
-                species={species}
-                center={CENTER}
-                zoom={ZOOM}
-              />
+              <MarketingMap spots={spots} center={CENTER} zoom={ZOOM} />
             ) : (
               // The API is the one dependency here we don't control. If it's
               // down or returns nothing scored, fall back to the chart
