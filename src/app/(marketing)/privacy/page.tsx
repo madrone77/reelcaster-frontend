@@ -86,8 +86,22 @@ export default function PrivacyPage() {
             </p>
             <p>
               <strong className="text-rc-ink">Usage analytics.</strong>{' '}
-              Aggregate page views, feature usage, and error reports used to
-              prioritise improvements. No third-party advertising trackers.
+              Page views, feature usage, and error reports used to prioritise
+              improvements. These are processed by Mixpanel on our behalf.
+            </p>
+            <p>
+              <strong className="text-rc-ink">Advertising &amp; attribution.</strong>{' '}
+              When you arrive from one of our ads, the ad network adds a click
+              identifier to the link (Google uses <code>gclid</code>,{' '}
+              <code>gbraid</code> or <code>wbraid</code>; Meta uses{' '}
+              <code>fbclid</code>). We store that identifier, the campaign tags
+              on the link, and the page you landed on, so we can tell which ads
+              bring people to ReelCaster and stop paying for the ones that
+              don&rsquo;t. If you later start a trial or subscribe, we send the
+              click identifier back to the network that served the ad, together
+              with the fact that a conversion happened and its value, so the ad
+              can be credited. We do not send your name, email address, or any
+              of your fishing data with it.
             </p>
           </Block>
 
@@ -103,8 +117,38 @@ export default function PrivacyPage() {
             <p>
               We use cookies and browser local storage to keep you signed in,
               remember preferences (units, map type, recent locations), and
-              cache data offline (catch logs queue for sync). We do not use
-              third-party advertising cookies.
+              cache data offline (catch logs queue for sync).
+            </p>
+            <p>
+              We also set a small number of first-party cookies that describe
+              how you arrived, so a signup can be credited to the right link:
+            </p>
+            <ul className="list-disc pl-5 space-y-1">
+              <li>
+                <code>rc_entry</code> — the first page you landed on, the site
+                that referred you, and any campaign tags or click identifier on
+                that link. Written once and never overwritten. 90 days.
+              </li>
+              <li>
+                <code>rc_paid</code> — the most recent ad of ours you clicked,
+                and its click identifier. 90 days, which is how long the ad
+                networks accept a conversion for a click.
+              </li>
+              <li>
+                <code>rc_wall</code> — which upgrade prompt you were last
+                looking at. 30 minutes.
+              </li>
+              <li>
+                <code>rc_offer</code> — an offer code you followed a link for,
+                so it can be honoured at signup. 30 days.
+              </li>
+            </ul>
+            <p>
+              These are set by us, not by an ad network, and none of them
+              follows you to other websites. Clearing your browser cookies
+              removes them. You can also limit ad personalisation in your
+              Google and Meta account settings, which is separate from us and
+              applies everywhere those networks advertise.
             </p>
           </Block>
 
@@ -112,8 +156,17 @@ export default function PrivacyPage() {
             <p>
               We share data only with the service providers required to run
               ReelCaster: Supabase (database, auth), Stripe (billing), Resend
-              (transactional email), Mapbox (maps), Open-Meteo &amp; DFO
-              (public weather/regulation data). We do not sell your data.
+              (transactional email), Twilio (SMS alerts, if you turn them on),
+              Mixpanel (product analytics), and Open-Meteo, SalishSeaCast
+              &amp; DFO (public weather, water and regulation data). We do not
+              sell your data.
+            </p>
+            <p>
+              We also send Google and Meta confirmation that an ad of theirs
+              led to a trial or a subscription, identified only by the click
+              identifier they themselves issued and the value of the
+              conversion. This is how ad measurement works and it is the only
+              purpose we use it for.
             </p>
             <p>
               We may disclose data if compelled by Canadian law, or to
@@ -127,6 +180,12 @@ export default function PrivacyPage() {
               delete your account, personal data is removed within 30 days,
               except for billing records we&rsquo;re required to keep for tax
               and accounting (typically 7 years).
+            </p>
+            <p>
+              Attribution cookies expire on their own schedule (listed in
+              section 3) whether or not you ever make an account. Once an
+              account exists, the campaign and click identifier that brought it
+              in are stored alongside it and are deleted with it.
             </p>
           </Block>
 
