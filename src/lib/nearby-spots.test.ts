@@ -126,6 +126,37 @@ test("keeps only published cities that have spots", () => {
   assert.deepEqual(slugs, ["victoria-bc", "sooke-bc", "nanaimo-bc"]);
 });
 
+test("a published city in an uncovered province is not offered", () => {
+  // Oregon can hold a published city with spots and still not be somewhere we
+  // sell or forecast — see the note atop lib/regions.ts.
+  const tree = {
+    countries: [
+      {
+        id: "us",
+        name: "United States",
+        code: "US",
+        states_provinces: [
+          {
+            id: "or",
+            name: "Oregon",
+            code: "OR",
+            type: "state",
+            regions: [
+              {
+                id: "or-coast",
+                name: "Oregon coast",
+                slug: "or-coast",
+                cities: [city("astoria-or", "Astoria", 46.1879, -123.831)],
+              },
+            ],
+          },
+        ],
+      },
+    ],
+  } as unknown as BlueCasterHierarchyLight;
+  assert.deepEqual(coveredCityPoints(tree), []);
+});
+
 test("a null hierarchy yields no cities rather than throwing", () => {
   assert.deepEqual(coveredCityPoints(null), []);
 });

@@ -16,6 +16,7 @@ import type {
   BlueCasterHierarchyLight,
   MapSpotsPayload,
 } from "@/lib/bluecaster";
+import { COVERED_PROVINCES } from "@/lib/regions";
 
 /**
  * How far an IP may sit from a covered city before we say nothing.
@@ -87,12 +88,17 @@ export function haversineKm(
 /**
  * Every city an anonymous visitor could usefully be sent to.
  *
- * Two filters, both of which are the difference between a link that works and
- * a link that lands on an empty map:
+ * Three filters, each of which is the difference between a link that works and
+ * a link that lands somewhere we cannot serve:
+ *   • the province is in `COVERED_PROVINCES` — a region can hold a published
+ *     city and still not be one we sell or forecast. Oregon is the standing
+ *     example (see the note atop lib/regions.ts), and it is the only one of
+ *     the three gates that is not self-evident from the tree, which is why it
+ *     is easy to leave out and expensive to leave out.
  *   • `lifecycle === "published"` — a building/staging city is not public yet.
  *   • `spot_count > 0` — a covered city with nothing in it has no rows to show.
- * This mirrors `coveredCitySlug` in explore/lib/explore-data.ts, which gates
- * `?loc=` the same way.
+ * Together these mirror `coveredCitySlug` in explore/lib/explore-data.ts,
+ * which gates `?loc=` the same way.
  */
 export function coveredCityPoints(
   hierarchy: BlueCasterHierarchyLight | null,
@@ -101,6 +107,9 @@ export function coveredCityPoints(
   const out: CityPoint[] = [];
   for (const country of hierarchy.countries ?? []) {
     for (const province of country.states_provinces ?? []) {
+      if (!(COVERED_PROVINCES as readonly string[]).includes(province.code)) {
+        continue;
+      }
       for (const region of province.regions ?? []) {
         for (const city of region.cities ?? []) {
           if (city.lifecycle !== "published") continue;
