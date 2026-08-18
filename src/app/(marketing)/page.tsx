@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import { DEFAULT_OG, SITE_NAME, SITE_URL, siteUrl } from '@/lib/site';
 import Hero from './components/hero';
+import NearbySpots from './components/nearby-spots';
 import ScoreTicker from './components/score-ticker';
 import DataSources from './components/data-sources';
 import SignalsSection from './components/signals-section';
@@ -63,6 +64,10 @@ export default function MarketingHomePage() {
       <SignedInRedirect />
 
       <Hero />
+      {/* Client-only, and silent unless the caller's IP snaps to a covered
+          city — so the static HTML above and below is identical for every
+          visitor and every crawler. See components/nearby-spots.tsx. */}
+      <NearbySpots />
       <ScoreTicker />
       <DataSources />
       <SignalsSection />
