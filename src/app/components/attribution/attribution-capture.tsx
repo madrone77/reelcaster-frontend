@@ -3,13 +3,17 @@
 import { useEffect, useRef } from 'react';
 import { usePathname } from 'next/navigation';
 import { useAuth } from '@/contexts/auth-context';
-import { captureEntry } from '@/lib/attribution';
+import { captureEntry, capturePaidTouch } from '@/lib/attribution';
+import { registerAcquisition } from '@/lib/analytics';
 
 /**
  * Renders nothing. Does two things, both invisible:
  *
- *   1. Records first touch (landing path, referrer, UTM) into the rc_entry
- *      cookie. Write-once, so only the real landing page is kept.
+ *   1. Records first touch (landing path, referrer, UTM, click id) into the
+ *      rc_entry cookie. Write-once, so only the real landing page is kept.
+ *      Alongside it, records the most recent click we PAID for into rc_paid,
+ *      which overwrites, because first touch alone credits an ad that closed
+ *      a months-old organic visitor as organic. See src/lib/attribution.ts.
  *   2. When a user turns up, hands rc_entry and rc_wall to the server so the
  *      account carries "which wall earned it" for the dashboard.
  *
@@ -25,8 +29,18 @@ export default function AttributionCapture() {
   // Every route change, not just the first mount: `captureEntry` returns early
   // once the cookie exists, and a visitor whose very first page is a client
   // navigation (a prefetched link off a shared URL) would otherwise be missed.
+  //
+  // `capturePaidTouch` runs on the same schedule but for the opposite reason:
+  // it has to see every navigation because a paid click can arrive at any
+  // point in a session, not only at its start. It no-ops on a URL with no paid
+  // markers, so the organic pages in between leave the record alone.
   useEffect(() => {
     captureEntry();
+    capturePaidTouch();
+    // Registered after the cookies are written, never before: super properties
+    // are read back out of them, and the ordering is the difference between
+    // the landing event carrying its campaign and carrying nothing.
+    registerAcquisition();
   }, [pathname]);
 
   useEffect(() => {
