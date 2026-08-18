@@ -31,6 +31,13 @@ import type { NearbyPayload, NearbySpot } from '@/lib/nearby-spots';
  * one extra channel this list can afford, and it makes the ranking legible at
  * a glance without reading a single numeral.
  */
+/**
+ * Ceiling on the CLS impact fraction an insertion may cause. The distance
+ * fraction is at most 1, so this doubles as a hard ceiling on the shift score,
+ * set at the top of the "good" band with the realistic case well under it.
+ */
+const MAX_DISPLACED_FRACTION = 0.1;
+
 function dotSize(score: number): number {
   const t = Math.max(0, Math.min(100, score)) / 100;
   return 7 + t * 6;
@@ -94,30 +101,37 @@ export default function NearbySpots() {
   const anchorRef = useRef<HTMLElement | null>(null);
 
   /**
-   * Insert only once doing so cannot move anything the visitor can see.
+   * Insert only once the shift it would cause is negligible.
    *
-   * Dropping ~900px of list into the document the moment the fetch lands cost
-   * a measured CLS of 0.23 on a 1280x900 desktop — not because the section
-   * lands in view, but because it landed while the hero above it was still
-   * settling, so the ticker below was briefly on screen and got shoved off it.
-   * Baseline for the same page is 0.0001.
+   * Dropping the list into the document the moment the fetch lands cost a
+   * measured CLS of 0.23 on a 1280x900 desktop, against a 0.0001 baseline for
+   * the same page. So this waits for `load` — the anchor's position is not
+   * worth trusting until the art above it has settled — and then asks how much
+   * damage inserting would actually do.
    *
-   * Two conditions, both necessary:
-   *   • the page has finished loading, so the hero is at its final height and
-   *     the anchor's position is worth trusting;
-   *   • the anchor sits at or below the fold, so everything this displaces is
-   *     off-screen. A layout shift below the viewport contributes nothing to
-   *     CLS, and nobody watches content move where they cannot see it.
+   * The first version of this demanded the anchor sit entirely below the fold.
+   * That was too blunt: it hid the section on any window taller than ~1350px,
+   * which is a full-height 27-inch display, not an exotic setup. CLS is not
+   * binary either, so neither should this be.
    *
-   * This is why the section sits below <SignalsSection /> rather than directly
-   * under the hero. Measured on the current homepage at 1280 wide: the hero
-   * ends at 604px, so a slot under it is above a 900px fold and could never
-   * insert cleanly; the slot here is at 1348px and does. Anything that grows
-   * the page above this point pushes the slot further down, which is the safe
-   * direction. Anything that shrinks it needs a fresh look at these numbers.
+   * What CLS actually charges for an insertion here:
    *
-   * A window tall enough to see past 1348px on load (say 1512x1400) still
-   * holds the section back. That is the honest trade and it is rare.
+   *   impact   = the visible slice below the anchor, over the viewport height
+   *              (content above the anchor does not move, so it is not in the
+   *              impact region)
+   *   distance = how far that content travels, over the viewport height
+   *   score    = impact x distance
+   *
+   * `distance` is at most 1, so requiring `impact <= 0.1` bounds the worst
+   * case at 0.1 — the top of Google's "good" band — and the realistic case far
+   * below it. On a 2560x1440 monitor the anchor sits 92px above the fold and
+   * the section is ~709px tall: impact 0.064, distance 0.49, score 0.031.
+   *
+   * This is also why the section sits below <SignalsSection /> rather than
+   * directly under the hero. The slot here is at 1348px; a slot under the hero
+   * would be at 604px, which fails the test on every desktop window and should.
+   * Anything that grows the page above this point pushes the slot down, which
+   * is the safe direction; anything that shrinks it is worth re-measuring.
    *
    * Re-checking on scroll would not help: scrolling down moves the anchor
    * further ABOVE the viewport, never below it, and inserting there relies on
@@ -130,7 +144,12 @@ export default function NearbySpots() {
     const check = () => {
       if (cancelled) return;
       const top = anchorRef.current?.getBoundingClientRect().top;
-      if (typeof top === 'number' && top >= window.innerHeight) {
+      if (typeof top !== 'number') return;
+      // The slice of viewport below the anchor: everything an insertion here
+      // would push. Negative means the anchor is already past the fold and
+      // nothing visible moves at all.
+      const displaced = window.innerHeight - top;
+      if (displaced <= MAX_DISPLACED_FRACTION * window.innerHeight) {
         setSafeToInsert(true);
       }
     };
