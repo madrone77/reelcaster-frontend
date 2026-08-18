@@ -62,6 +62,10 @@ export const LP_CSS = `
   .lp h1{font-size:clamp(32px,9vw,40px);line-height:1.06;font-weight:800;letter-spacing:-.025em;color:var(--navy)}
   .lp h1 .accent{color:var(--blue)}
   .lp .subhead{margin-top:14px;font-size:16.5px;color:var(--muted);max-width:34ch}
+  /* City line. Deliberately a sentence rather than a second mono chip — the
+     eyebrow directly above is already mono/uppercase/blue, and two of those
+     stacked read as one repeated element instead of two facts. */
+  .lp .locality{margin-top:12px;font-size:14.5px;font-weight:600;color:var(--ink)}
 
   /* ---------- score card (signature) ---------- */
   .lp .score-card{margin-top:26px;background:var(--card);border:1px solid var(--line);
@@ -226,6 +230,7 @@ export const LP_CSS = `
   .lp .hero-cap h1 .accent{color:#A8BCFF}
   .lp .hero-cap .subhead{color:rgba(255,255,255,.86);margin-top:10px;text-shadow:0 1px 10px rgba(9,16,40,.5)}
   .lp .hero-cap .eyebrow{color:#A8BCFF}
+  .lp .hero-cap .locality{color:#fff;text-shadow:0 1px 10px rgba(9,16,40,.5)}
   /* Photo section runs to the edge; the score card climbs back over the seam so
      the product proof is attached to the image rather than floating below it. */
   .lp .hero.photo{padding:0;background:#fff}
