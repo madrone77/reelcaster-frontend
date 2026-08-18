@@ -17,9 +17,16 @@ import { formatHour12 } from "@/lib/time-format";
  * Bank, which is the water a Victoria salmon angler actually recognises. A cold
  * visitor judges the product on whether the spot name means something to them.
  *
- * Score is the tie-break and the fallback, so a city with no recent reports
- * still gets its best-scoring spot rather than nothing. Note this deliberately
- * diverges from /lp/1/[city], which ranks purely by score.
+ * Target species come first, ahead of activity: the ad copy sells salmon,
+ * halibut and lingcod, and Sidney's busiest mark is a Dungeness crab spot. A
+ * crab card under a headline about the bite is off-message even when the
+ * underlying number is honest.
+ *
+ * Then activity, then score as the final tie-break. Each rule is a fallback for
+ * the one before it, so a city with no target-species spot still shows its
+ * busiest, and a city with no recent reports still shows its best-scoring.
+ * Note this deliberately diverges from /lp/1/[city], which ranks purely by
+ * score.
  *
  * Every upstream call here goes through bcGet, which sets `next: { revalidate }`
  * (300s for spots, 600s for fresh catches). They ride the Data Cache, so the
@@ -59,6 +66,23 @@ export interface LpCard {
  * shoulder on a flat-topped day and tight enough that a day with one real spike
  * does not get reported as an all-day bite.
  */
+/**
+ * Species the landing pages are allowed to lead with.
+ *
+ * Matched on a letters-only lowercase form of the display name, so "Pacific
+ * Halibut" and "Ling Cod" both land — species names carry qualifiers, and
+ * "Pacific" in particular is stripped at display time but not in the data, so
+ * an exact-match list would quietly miss rows. Substring matching also covers
+ * every salmon (Chinook, Coho, Sockeye, Pink, Chum) with one entry.
+ */
+const PREFERRED_SPECIES = ["salmon", "halibut", "lingcod"];
+
+function isPreferredSpecies(name: string | null): boolean {
+  if (!name) return false;
+  const normalized = name.toLowerCase().replace(/[^a-z]/g, "");
+  return PREFERRED_SPECIES.some((p) => normalized.includes(p));
+}
+
 const PEAK_BAND = 8;
 
 /**
@@ -117,12 +141,17 @@ export async function resolveLpCard(citySlug: string): Promise<LpCard | null> {
   const candidates = data.spots.filter((s) => s.citySlug === citySlug && s.score !== null);
   if (!candidates.length) return null;
 
-  // Busiest first, score as tie-break and as the fallback when nothing in this
-  // city has been reported recently.
+  // Target species, then busiest, then best-scoring. Each step falls through to
+  // the next, so no city is left without a card.
   const catchesFor = (id: string) => fresh?.spots[id]?.count ?? 0;
+  const speciesRank = (s: (typeof candidates)[number]) =>
+    isPreferredSpecies(s.driverSpecies) ? 0 : 1;
   const rep = candidates.sort((a, b) => {
+    const bySpecies = speciesRank(a) - speciesRank(b);
+    if (bySpecies !== 0) return bySpecies;
     const byCatches = catchesFor(b.id) - catchesFor(a.id);
-    return byCatches !== 0 ? byCatches : (b.score ?? 0) - (a.score ?? 0);
+    if (byCatches !== 0) return byCatches;
+    return (b.score ?? 0) - (a.score ?? 0);
   })[0];
 
   const hours = rep.hours24.map((h) => (h == null ? 0 : Math.round(h)));
