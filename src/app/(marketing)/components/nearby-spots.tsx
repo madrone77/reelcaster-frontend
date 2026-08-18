@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { ChevronRight } from 'lucide-react';
+import { btn } from '@/app/components/ui/button';
 import { TIER_PILL, tierFor } from '@/app/explore/lib/explore-data';
 import { scoreColor } from '@/app/explore/lib/spot-geojson';
 import type { NearbyPayload, NearbySpot } from '@/lib/nearby-spots';
@@ -41,7 +42,7 @@ function SpotRow({ spot, rank }: { spot: NearbySpot; rank: number }) {
     <li>
       <Link
         href={`/explore/spot/${spot.slug}`}
-        className="flex items-center gap-3 border-t border-rc-rule px-4 py-3 transition-colors first:border-t-0 hover:bg-rc-surface"
+        className="flex items-center gap-3 px-4 py-2 transition-colors hover:bg-rc-surface"
       >
         <span className="w-4 shrink-0 text-right font-rc-mono text-[11px] tabular-nums text-rc-ink-mute">
           {rank}
@@ -62,11 +63,11 @@ function SpotRow({ spot, rank }: { spot: NearbySpot; rank: number }) {
         </span>
 
         <span className="min-w-0 flex-1">
-          <span className="block truncate text-[14px] font-medium text-rc-ink">
+          <span className="block truncate text-sm font-semibold leading-tight text-rc-ink">
             {spot.name}
           </span>
           {spot.topSpecies && (
-            <span className="mt-0.5 block truncate font-rc-mono text-[11px] text-rc-ink-mute">
+            <span className="mt-0.5 block truncate font-rc-mono text-[10px] uppercase tracking-[0.08em] text-rc-ink-mute">
               {spot.topSpecies}
             </span>
           )}
@@ -108,17 +109,19 @@ export default function NearbySpots() {
    *     off-screen. A layout shift below the viewport contributes nothing to
    *     CLS, and nobody watches content move where they cannot see it.
    *
-   * ⚠️ What this costs, measured on the current homepage: the hero ends at
-   * 604px on a 1280-wide desktop, so the slot below it is ABOVE the fold and
-   * this section holds back there. It shows on mobile, where the hero runs to
-   * 1029px against an 844px fold — which is also where "near you" earns the
-   * most. Moving <NearbySpots /> below <SignalsSection /> in page.tsx puts the
-   * slot at 1348px and makes it visible on standard laptops too; that is a
-   * placement call, not a code change.
+   * This is why the section sits below <SignalsSection /> rather than directly
+   * under the hero. Measured on the current homepage at 1280 wide: the hero
+   * ends at 604px, so a slot under it is above a 900px fold and could never
+   * insert cleanly; the slot here is at 1348px and does. Anything that grows
+   * the page above this point pushes the slot further down, which is the safe
+   * direction. Anything that shrinks it needs a fresh look at these numbers.
+   *
+   * A window tall enough to see past 1348px on load (say 1512x1400) still
+   * holds the section back. That is the honest trade and it is rare.
    *
    * Re-checking on scroll would not help: scrolling down moves the anchor
    * further ABOVE the viewport, never below it, and inserting there relies on
-   * scroll anchoring, which Safari does not implement — an iOS visitor would
+   * scroll anchoring, which Safari does not implement, so an iOS visitor would
    * get the page yanked out from under them mid-read.
    */
   useEffect(() => {
@@ -186,36 +189,46 @@ export default function NearbySpots() {
     <section
       ref={anchorRef as React.RefObject<HTMLElement>}
       data-testid="homepage-nearby-spots"
-      // Fades in rather than snapping. By the time this renders, `safeToInsert`
-      // has established that the space it is about to occupy is below the
-      // fold, so the height it adds pushes only off-screen content.
-      className="animate-fade-in border-b border-rc-rule bg-rc-panel motion-reduce:animate-none"
+      // Wears the same clothes as the sections around it: the panel/band
+      // alternation, the hairline top rule, the 6xl two-column grid. By the
+      // time this renders, `safeToInsert` has established that the space it is
+      // about to occupy is below the fold, so the height it adds pushes only
+      // off-screen content.
+      className="animate-fade-in border-t border-rc-rule/60 bg-rc-panel motion-reduce:animate-none"
     >
-      <div className="mx-auto max-w-3xl px-6 py-14">
-        <p className="flex items-center gap-2 font-rc-mono text-[10px] font-semibold uppercase tracking-[0.2em] text-rc-brand">
-          <span aria-hidden className="h-1.5 w-1.5 rounded-full bg-rc-brand" />
-          Near you
-        </p>
-        <h2 className="mt-3 text-2xl font-bold text-rc-ink md:text-3xl">
-          Top fishing spots near {city.name}
-        </h2>
-        <p className="mt-2 text-[14px] text-rc-ink-mute">
-          Ranked by current fishing score
-        </p>
+      <div className="max-w-6xl mx-auto grid gap-14 px-6 py-16 md:py-24 lg:grid-cols-2 lg:items-center">
+        <div>
+          <p className="flex items-center gap-2 font-rc-mono text-[10px] font-semibold uppercase tracking-[0.2em] text-rc-brand">
+            <span aria-hidden className="h-1.5 w-1.5 rounded-full bg-rc-brand" />
+            Near you
+          </p>
+          {/* Two lines, second one brand — the headline shape every other
+              section on this page uses. The city is the payoff, so it lands on
+              the blue line. */}
+          <h2 className="mt-4 text-balance text-3xl md:text-4xl font-black tracking-[-0.02em] leading-[1.15]">
+            <span className="block text-rc-ink">Today&apos;s best water</span>
+            <span className="block text-rc-brand">near {city.name}.</span>
+          </h2>
+          <p className="mt-5 max-w-lg text-pretty text-sm md:text-base leading-relaxed text-rc-ink-soft">
+            These are the {spots.length} spots scoring highest right now,
+            ranked by the same forecast the map draws from.
+          </p>
+          <p className="mt-3 max-w-lg text-pretty text-sm md:text-base leading-relaxed text-rc-ink-soft">
+            Tides, current, weather, and open seasons, updated through the day.
+          </p>
+          <Link href={`/explore?loc=${city.slug}`} className={`mt-9 ${btn.primary}`}>
+            See them on the map
+          </Link>
+        </div>
 
-        <ol className="mt-6 overflow-hidden rounded border border-rc-rule bg-rc-panel">
+        {/* Same card treatment as the map on this page: hairline border, soft
+            bar shadow, rows split by the internal-divider rule rather than by
+            a full-strength border. */}
+        <ol className="overflow-hidden rounded border border-rc-rule/60 bg-rc-panel shadow-rc-bar divide-y divide-rc-rule-soft">
           {spots.map((spot, i) => (
             <SpotRow key={spot.id} spot={spot} rank={i + 1} />
           ))}
         </ol>
-
-        <Link
-          href={`/explore?loc=${city.slug}`}
-          className="mt-4 inline-flex items-center gap-1 text-[14px] font-semibold text-rc-brand hover:underline"
-        >
-          Or view all spots on a map in {city.name}
-          <ChevronRight className="h-4 w-4" />
-        </Link>
       </div>
     </section>
   );

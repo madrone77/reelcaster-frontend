@@ -64,13 +64,15 @@ export default function MarketingHomePage() {
       <SignedInRedirect />
 
       <Hero />
-      {/* Client-only, and silent unless the caller's IP snaps to a covered
-          city — so the static HTML above and below is identical for every
-          visitor and every crawler. See components/nearby-spots.tsx. */}
-      <NearbySpots />
       <ScoreTicker />
       <DataSources />
       <SignalsSection />
+      {/* Client-only, and silent unless the caller's IP snaps to a covered
+          city, so the static HTML around it is identical for every visitor and
+          every crawler. It sits below the signals rather than under the hero:
+          the slot here is past the fold, which is what lets it appear without
+          shifting anything on screen. See components/nearby-spots.tsx. */}
+      <NearbySpots />
       {/* Pricing follows the map section: the two plans read as the answer to
           "Mapped." instead of interrupting the signal story. */}
       <MapSection />
