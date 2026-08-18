@@ -24,6 +24,10 @@ export const LP_CSS = `
     --card:#FFFFFF;
     --good:#16A34A;
     --good-bg:#DCFCE7;
+    --fair:#B45309;
+    --fair-bg:#FEF3C7;
+    --poor:#B91C1C;
+    --poor-bg:#FEE2E2;
     --radius:14px;
     --mono:var(--font-plex-mono,'IBM Plex Mono'),ui-monospace,Menlo,monospace;
     --sans:var(--font-inter,'Inter'),-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;
@@ -47,9 +51,16 @@ export const LP_CSS = `
 
   /* ---------- header ---------- */
   .lp header{background:#fff;border-bottom:1px solid var(--line)}
-  .lp .header-row{display:flex;align-items:center;justify-content:space-between;padding:14px 0}
+  /* The inline padding is repeated here on purpose. This element carries BOTH
+     classes, wrap and header-row, and a padding shorthand on the second one
+     wins over .wrap's 0 20px — so the original 14px 0 silently zeroed the
+     gutter and pinned the mark and the chip to the screen edges. Matching 20px
+     also keeps the mark aligned with the headline underneath it.
+     (No backticks in here: this whole file is one template literal.) */
+  .lp .header-row{display:flex;align-items:center;justify-content:space-between;
+    gap:12px;padding:16px 20px}
   .lp .logo{display:inline-flex;align-items:center}
-  .lp .logo img{display:block;height:34px;width:auto}
+  .lp .logo img{display:block;height:42px;width:auto}
   .lp .trust-chip{display:inline-flex;align-items:center;gap:6px;font-family:var(--mono);
     font-size:10px;letter-spacing:.1em;color:var(--muted);
     background:var(--bg);border:1px solid var(--line);border-radius:999px;padding:6px 10px}
@@ -83,17 +94,27 @@ export const LP_CSS = `
   .lp .spot-name{font-size:20px;font-weight:800;letter-spacing:-.01em;color:var(--navy)}
   .lp .spot-meta{margin-top:3px;font-family:var(--mono);font-size:10.5px;letter-spacing:.06em;color:var(--muted)}
   .lp .score-big{text-align:right;flex-shrink:0}
-  .lp .score-num{font-size:46px;font-weight:800;line-height:1;color:var(--good);letter-spacing:-.03em}
+  .lp .score-num{font-size:46px;font-weight:800;line-height:1;letter-spacing:-.03em;color:var(--good)}
+  .lp .score-num.score-fair{color:var(--fair)}
+  .lp .score-num.score-poor{color:var(--poor)}
+  .lp .score-tag.tag-fair{background:var(--fair-bg);color:var(--fair)}
+  .lp .score-tag.tag-poor{background:var(--poor-bg);color:var(--poor)}
   .lp .score-tag{display:inline-block;margin-top:4px;background:var(--good-bg);color:var(--good);
     font-family:var(--mono);font-size:10px;letter-spacing:.14em;font-weight:700;
     padding:3px 9px;border-radius:5px}
   .lp .window-band{margin-top:14px;background:var(--good-bg);border-radius:10px;padding:12px 14px;text-align:center}
+  .lp .window-band.band-fair{background:var(--fair-bg)}
+  .lp .window-band.band-poor{background:var(--poor-bg)}
+  .lp .window-band.band-fair .mono-label{color:var(--fair)}
+  .lp .window-band.band-poor .mono-label{color:var(--poor)}
   .lp .window-band .mono-label{color:var(--good)}
   .lp .window-time{font-size:22px;font-weight:800;color:var(--navy);letter-spacing:-.01em;margin-top:2px}
   .lp .window-note{font-size:12.5px;color:var(--muted);margin-top:2px}
   .lp .hours{display:flex;align-items:flex-end;gap:3px;height:52px;margin-top:16px}
   .lp .hours .bar{flex:1;border-radius:2.5px 2.5px 0 0;background:#D8DCEA;min-height:6px}
   .lp .hours .bar.on{background:var(--good)}
+  .lp .hours .bar.on.bar-fair{background:var(--fair)}
+  .lp .hours .bar.on.bar-poor{background:var(--poor)}
   .lp .hours-axis{display:flex;justify-content:space-between;margin-top:6px;
     font-family:var(--mono);font-size:9px;letter-spacing:.08em;color:var(--muted)}
   .lp .catch-line{display:flex;align-items:center;gap:7px;margin-top:14px;padding-top:13px;
@@ -158,6 +179,8 @@ export const LP_CSS = `
 
   /* ---------- score distillation ---------- */
   .lp .distill{display:flex;flex-direction:column;align-items:center}
+  .lp .d-score.d-fair{background:var(--fair);box-shadow:0 8px 20px rgba(180,83,9,.28)}
+  .lp .d-score.d-poor{background:var(--poor);box-shadow:0 8px 20px rgba(185,28,28,.28)}
   .lp .d-score{background:var(--good);color:#fff;border-radius:12px;padding:12px 26px 10px;
     text-align:center;box-shadow:0 8px 20px rgba(22,163,74,.28)}
   .lp .d-score .mono-label{color:rgba(255,255,255,.75);font-size:8.5px}

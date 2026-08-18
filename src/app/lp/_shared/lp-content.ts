@@ -2,43 +2,12 @@ import type { FeatureId } from "./lp-angles";
 import { ANNUAL_PRICE_CENTS, ANNUAL_PER_MONTH_CENTS, TRIAL_DAYS } from "@/lib/pricing";
 
 /**
- * Shared page content for /lp/2 and /lp/3 that does not change with the angle.
+ * Shared, city-independent page content for /lp/2 and /lp/3.
  *
- * ⚠️ THE HERO CARD IS ILLUSTRATIVE, NOT LIVE.
- *
- * Everything in DEMO below is hardcoded so copy angles can be iterated without
- * waiting on a data fetch. `/lp/1/[city]` already does the live version: it
- * loads the city's top-scoring published spot and renders its real score, real
- * best window, and real fresh-catch count. Swapping this page onto live data is
- * a page.tsx change plus a prop spread — the shell reads these fields by name,
- * so nothing in the markup has to move.
- *
- * While it stays hardcoded, the numbers below are a sample day at a real spot,
- * not a claim about right now. That is why the card's freshness chip says
- * UPDATED HOURLY rather than the prototype's "LIVE · 5 MIN AGO": the scoring
- * fan-out is not a five-minute loop, and a static number under a live badge is
- * the one thing on this page a customer could catch us on.
+ * The score card is NOT here any more — it is resolved per city in lp-spot.ts
+ * from the city's top-scoring published spot. What remains is copy that is true
+ * regardless of which city the route carries.
  */
-export const DEMO = {
-  spotName: "Oak Bay Flats",
-  // "NEAR YOU" was true only while this page was Victoria-only. The route now
-  // carries a city, so a Nanaimo visitor would be told an Oak Bay spot is near
-  // them. Labelled an example instead, which is also what it honestly is.
-  meta: "EXAMPLE SPOT · CHINOOK · PEAK SEASON",
-  score: 85,
-  tagWord: "GOOD",
-  windowTime: "06:00 – 13:00",
-  windowNote: "Peaks at 87 · Tide flooding",
-  freshCatches: 9,
-  freshWindowDays: 14,
-  /** 24 hourly score bars, midnight → midnight. `on` marks the best window. */
-  hours: [
-    18, 16, 15, 20, 24, 38, 78, 88, 92, 84, 76, 70, 64, 52, 48, 44, 50, 56, 46,
-    34, 24, 18, 14, 12,
-  ],
-  bestFrom: 6,
-  bestTo: 12,
-} as const;
 
 /** Price strings derived from the single source of truth, never retyped. */
 export const PRICE = {
