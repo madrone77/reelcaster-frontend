@@ -10,7 +10,7 @@ export interface LpDay {
   date: string; // "Aug 14"
   score: number | null;
   tier: LpTier;
-  peak: string | null; // "06:00" · "—" when the day is unscored
+  peak: string | null; // "6 AM" · "—" when the day is unscored
   isBest: boolean;
 }
 
@@ -40,9 +40,9 @@ export interface LpShellProps {
   regArea: string | null; // "19-3"
   regStatus: string | null; // "open" · "closed" · "release only"
   peakScore: number | null; // best today
-  peakTime: string | null; // "10:00 AM"
+  peakTime: string | null; // "10 AM"
   bestWindowLabel: string | null; // "Thu Aug 14"
-  bestWindowTime: string | null; // "06:00 – 10:00 AM"
+  bestWindowTime: string | null; // "6 AM – 10 AM"
   bestWindowSub: string | null; // "Peaks at 91"
   hours24: (number | null)[]; // 24 hourly scores for the cascade bars
   updatedLabel: string; // "Updated 9:41 AM"

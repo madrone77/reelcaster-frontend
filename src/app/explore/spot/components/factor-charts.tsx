@@ -6,6 +6,7 @@ import type {
   ScoreSpeciesEntry,
 } from "@/lib/bluecaster/live-spot-types";
 import { useUnitPreferences } from "@/contexts/unit-preferences-context";
+import { formatHour12 } from "@/lib/time-format";
 import {
   WIND_LABELS,
   convertWind,
@@ -50,8 +51,6 @@ const FACTOR_LABEL: Record<string, string> = {
 
 const num = (v: unknown): number =>
   typeof v === "number" && Number.isFinite(v) ? v : 0;
-
-const pad = (n: number): string => String(n).padStart(2, "0");
 
 // ── value sub-line formatting ─────────────────────────────────────────────
 
@@ -466,8 +465,8 @@ function FactorRow({
                 key={i}
                 type="button"
                 onClick={() => onSelectHour(i)}
-                title={`${pad(i)}:00`}
-                aria-label={`${pad(i)}:00`}
+                title={formatHour12(i)}
+                aria-label={formatHour12(i)}
                 aria-pressed={i === marker}
                 className="group relative flex-1 h-full cursor-pointer"
               >
@@ -518,7 +517,7 @@ export default function FactorCharts({
 
   if (series.length === 0) return null;
 
-  const timeLabel = `${pad(selectedHour)}:00${tzAbbrev ? ` ${tzAbbrev}` : ""}`;
+  const timeLabel = `${formatHour12(selectedHour)}${tzAbbrev ? ` ${tzAbbrev}` : ""}`;
 
   return (
     <div>
