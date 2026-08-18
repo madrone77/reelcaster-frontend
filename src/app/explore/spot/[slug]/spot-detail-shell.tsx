@@ -14,6 +14,7 @@ import { bestWindow } from "../../components/hourly-bars";
 import UpgradeDialog from "../../components/upgrade-dialog";
 import { fmtPeak, zonedHourToUtcIso, zoneAbbrev } from "../../lib/explore-data";
 import { useSpotClock } from "../../lib/use-spot-clock";
+import { formatHour12 } from "@/lib/time-format";
 import {
   buildForecastDays,
   type ForecastDay,
@@ -546,7 +547,7 @@ export default function SpotDetailShell({
   const tzAbbrev = useMemo(() => zoneAbbrev(TZ, nowAt), [nowAt, TZ]);
   // Driver species lives only in the status chip up top — keep it out of the
   // NOW label to avoid repeating it across the panel.
-  const nowLabel = `NOW · ${String(nowHour).padStart(2, "0")}:00${tzAbbrev ? ` ${tzAbbrev}` : ""}`;
+  const nowLabel = `NOW · ${formatHour12(nowHour)}${tzAbbrev ? ` ${tzAbbrev}` : ""}`;
   const subtitle = spot.region ?? spot.city ?? spot.country ?? "";
 
   // ── Log-catch context (current spot + live conditions) ─────────────────

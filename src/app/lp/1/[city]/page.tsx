@@ -9,6 +9,7 @@ import {
 } from "@/lib/bluecaster";
 import { regulatorFor } from "@/lib/regions";
 import { buildExploreData, fmtPeak, tierFor } from "@/app/explore/lib/explore-data";
+import { formatHour12 } from "@/lib/time-format";
 import type { MapSpot } from "@/app/(marketing)/components/marketing-map";
 import LpShell from "./lp-shell";
 import type { LpDay, LpFreshSpecies, LpShellProps, LpTier } from "./lp-types";
@@ -37,15 +38,6 @@ function titleCaseSlug(slug: string): string {
     .split("-")
     .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
     .join(" ");
-}
-
-/** 24h hour → "10:00 AM" / "6:00 PM". */
-function fmt12(hour: number | null): string | null {
-  if (hour === null) return null;
-  const h = ((hour % 24) + 24) % 24;
-  const period = h < 12 ? "AM" : "PM";
-  const h12 = h % 12 === 0 ? 12 : h % 12;
-  return `${h12}:00 ${period}`;
 }
 
 /** ISO → "3 min ago" / "2 days ago" / "just now". Whole-unit, coarse. */
@@ -147,7 +139,7 @@ export default async function LpCityPage({
     bestIdx >= 0 ? `${days[bestIdx].dow} ${days[bestIdx].date}` : null;
   const bestWindowTime =
     bestPeakHour != null
-      ? `${fmt12(bestPeakHour)} – ${fmt12(Math.min(bestPeakHour + 4, 23))}`
+      ? `${formatHour12(bestPeakHour)} – ${formatHour12(Math.min(bestPeakHour + 4, 23))}`
       : null;
   const bestWindowSub = bestScore >= 0 ? `Peaks at ${bestScore}` : null;
 
@@ -234,7 +226,7 @@ export default async function LpCityPage({
     regArea,
     regStatus,
     peakScore: rep.score,
-    peakTime: fmt12(rep.peakHour),
+    peakTime: rep.peakHour == null ? null : formatHour12(rep.peakHour),
     bestWindowLabel,
     bestWindowTime,
     bestWindowSub,

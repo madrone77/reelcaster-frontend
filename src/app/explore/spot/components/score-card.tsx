@@ -27,7 +27,7 @@ export default function ScoreCard({
   onSetAlert,
   children,
 }: {
-  /** e.g. "NOW · CHINOOK · 07:00 PDT" */
+  /** e.g. "NOW · CHINOOK · 7 AM PDT" */
   nowLabel: string;
   /** Score at the current hour (0–100), null if unavailable. */
   score: number | null;
@@ -35,7 +35,7 @@ export default function ScoreCard({
   peak: number | null;
   /** Today's peak time, e.g. "11:30". */
   peakTime: string | null;
-  /** Best contiguous window, e.g. "10:00–13:00". */
+  /** Best contiguous window, e.g. "10 AM–1 PM". */
   windowLabel: string | null;
   /** Score the window peaks at. */
   windowPeak: number | null;

@@ -15,6 +15,7 @@ import {
   formatHeight,
   formatWind,
 } from "@/app/utils/unit-conversions";
+import { formatFractionalHour12 } from "@/lib/time-format";
 import WeatherIcon, {
   weatherFromHour,
   type WeatherCondition,
@@ -60,12 +61,7 @@ const TIER_WORD: Record<Tier, string> = {
   none: "—",
 };
 
-const hh = (t: number) => {
-  let h = Math.floor(t);
-  let m = Math.round((t - h) * 60);
-  if (m === 60) { h++; m = 0; }
-  return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
-};
+const hh = (t: number) => formatFractionalHour12(t);
 
 /**
  * Tidal acceleration term from the signed current series: Turning (slack),

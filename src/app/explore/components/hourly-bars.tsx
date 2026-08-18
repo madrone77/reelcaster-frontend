@@ -2,10 +2,11 @@
 
 import { useMemo, useRef, useState } from "react";
 import { currentLocalHour } from "../lib/explore-data";
+import { formatHour12 } from "@/lib/time-format";
 
 const HOURS = 24;
 
-const hhmm = (h: number) => `${String(h).padStart(2, "0")}:00`;
+const hhmm = (h: number) => formatHour12(h);
 
 /** Fractional position of hour `h`'s center across the track, 0–1. */
 const centerOf = (h: number) => (h + 0.5) / HOURS;
@@ -263,6 +264,6 @@ export function bestWindow(hours: (number | null)[]): {
     }
   }
   if (!best) return { window: null, label: null };
-  const fmt = (h: number) => `${String(h).padStart(2, "0")}:00`;
+  const fmt = (h: number) => formatHour12(h);
   return { window: best, label: `${fmt(best[0])}–${fmt(best[1] + 1)}` };
 }

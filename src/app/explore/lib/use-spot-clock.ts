@@ -18,7 +18,7 @@ export type SpotClock = {
  * generated once and then handed to visitors for as long as the cache holds it.
  * Reading the clock during render therefore produced two different answers: the
  * server's was frozen at generation time, the client's was live. Every value
- * derived from it — the "NOW · HH:00" label, the headline score, the highlighted
+ * derived from it — the "NOW · 7 AM" label, the headline score, the highlighted
  * hour in the charts, "synced today" under the regulations — disagreed, and
  * React aborted hydration with error #418. The page painted, then blanked.
  *

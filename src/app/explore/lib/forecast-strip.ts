@@ -45,7 +45,7 @@ export interface ForecastDay {
   //              best-window callout keeps it title case ("Best window Wed…")
   date: string; // "May 14"
   score: number | null; // 0–100 day peak for the driver species
-  peakLabel: string | null; // "11:00"
+  peakLabel: string | null; // "11 AM"
   tier: Tier;
   locked: boolean;
   /** null when unlocked; otherwise the plan that unlocks this day. */

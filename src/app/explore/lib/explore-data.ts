@@ -14,6 +14,7 @@ import type {
   MapCondStrip,
 } from "@/lib/bluecaster";
 import { COVERED_PROVINCES } from "@/lib/regions";
+import { formatHour12 } from "@/lib/time-format";
 
 // ── Score tiers ─────────────────────────────────────────────────────
 
@@ -225,7 +226,7 @@ export function compass(deg: number): string {
 
 export function fmtPeak(hour: number | null): string | null {
   if (hour === null) return null;
-  return `${String(hour).padStart(2, "0")}:00`;
+  return formatHour12(hour);
 }
 
 function fmtWind(c: MapCondCell): string | null {

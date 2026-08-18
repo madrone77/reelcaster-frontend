@@ -29,6 +29,7 @@ import {
 import HourlyBars from "./hourly-bars";
 import { useUnitPreferences } from "@/contexts/unit-preferences-context";
 import { convertDistance, formatDistance } from "@/app/utils/unit-conversions";
+import { formatHour12 } from "@/lib/time-format";
 
 const ProTrialModal = dynamic(
   () => import("@/app/components/paywall/pro-trial-modal"),
@@ -49,7 +50,7 @@ function dateStamp(date: string): string {
 }
 
 function hourStamp(tz: string, hour: number | null): string {
-  return `${String(hour ?? currentLocalHour(tz)).padStart(2, "0")}:00`;
+  return formatHour12(hour ?? currentLocalHour(tz));
 }
 
 /**

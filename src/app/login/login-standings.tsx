@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { formatHour12 } from '@/lib/time-format'
 
 // Same Salish Sea extent the marketing map uses — the region with scored spots.
 const SALISH_BBOX = '-125.60,48.00,-122.60,49.60'
@@ -21,10 +22,7 @@ function tier(score: number): State {
 }
 
 function fmt12(h: number | null): string | null {
-  if (h == null) return null
-  const am = h < 12
-  const hr = h % 12 === 0 ? 12 : h % 12
-  return `${hr} ${am ? 'AM' : 'PM'}`
+  return h == null ? null : formatHour12(h)
 }
 
 const CHIP: Record<State, string> = {

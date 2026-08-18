@@ -13,6 +13,7 @@ import {
 import type { LucideIcon } from "lucide-react";
 import type { RightNowSnapshot } from "@/lib/bluecaster/live-spot-types";
 import { TIER_PILL } from "@/app/explore/lib/explore-data";
+import { formatHour12 } from "@/lib/time-format";
 import SpotDayStrip, {
   type SpotDay,
 } from "@/app/explore/components/spot-day-strip";
@@ -44,7 +45,7 @@ function seaState(waveM: number | null | undefined): string | null {
 }
 
 function hourLabel(h: number): string {
-  return `${String(h).padStart(2, "0")}:00`;
+  return formatHour12(h);
 }
 
 export type TideRead = {
