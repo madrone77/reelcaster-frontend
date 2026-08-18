@@ -50,7 +50,7 @@ export const FEATURES: Record<FeatureId, Feature> = {
     id: "alerts",
     title: "Text alerts when it turns on",
     tag: "SMS",
-    desc: "“Oak Bay just hit 82 — best window Saturday 06:00.” Set your threshold on up to 10 spots and we watch the water.",
+    desc: "“Oak Bay just hit 82. Best window Saturday 6 AM.” Set your threshold on up to 10 spots and we watch the water.",
   },
   regulations: {
     id: "regulations",

@@ -818,7 +818,6 @@ export default function SpotDetailShell({
                 <SpotMiniMap
                   spot={spot}
                   score={nowScore ?? todayScore}
-                  speciesName={selSpecies?.name ?? null}
                   timeIso={
                     activeIso ? zonedHourToUtcIso(activeIso, selectedHour, TZ) : null
                   }
