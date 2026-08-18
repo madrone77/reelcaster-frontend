@@ -34,22 +34,30 @@ const BRAND_SUFFIX_LENGTH = " | ReelCaster".length;
 // prose; only the snippet is budgeted.
 const DESCRIPTION_BUDGET = 160;
 
+// The share card is not bound by the SERP budget above. Facebook, iMessage and
+// Slack all render well past 160 characters, and these intros overwhelmingly
+// finish their first sentence between 160 and 200. Measured over the 121
+// published spots that have an intro, budgeting the card at 160 left 66 of them
+// ending mid-phrase ("over mixed bottom in 15 to…"); at 200 that drops to 12.
+// The SERP snippet keeps the tighter budget, so this only widens the card.
+const OG_DESCRIPTION_BUDGET = 200;
+
 /**
- * Trim `text` to the snippet budget on a sentence boundary.
+ * Trim `text` to a snippet budget on a sentence boundary.
  *
  * Prefers ending on the last sentence that fits, so the snippet reads as a
  * complete thought. Falls back to a word boundary with an ellipsis when the
  * first sentence alone is already over budget.
  */
-function snippet(text: string): string {
+function snippet(text: string, budget: number = DESCRIPTION_BUDGET): string {
   const clean = text.replace(/\s+/g, " ").trim();
-  if (clean.length <= DESCRIPTION_BUDGET) return clean;
+  if (clean.length <= budget) return clean;
 
-  const sentenceEnd = clean.lastIndexOf(". ", DESCRIPTION_BUDGET);
+  const sentenceEnd = clean.lastIndexOf(". ", budget);
   if (sentenceEnd > 0) return clean.slice(0, sentenceEnd + 1);
 
-  const wordEnd = clean.lastIndexOf(" ", DESCRIPTION_BUDGET - 1);
-  return `${clean.slice(0, wordEnd > 0 ? wordEnd : DESCRIPTION_BUDGET - 1)}…`;
+  const wordEnd = clean.lastIndexOf(" ", budget - 1);
+  return `${clean.slice(0, wordEnd > 0 ? wordEnd : budget - 1)}…`;
 }
 
 // Prerender the published spots. On-demand rendering makes Next stream
@@ -105,9 +113,13 @@ export async function generateMetadata({
     full.length + BRAND_SUFFIX_LENGTH <= TITLE_BUDGET
       ? full
       : compose(name.replace(/\s*\([^)]*\)/g, ""));
+  const fallbackDescription = `Live fishing forecast, conditions, and 14-day outlook for ${name}.`;
   const description = page.spot.seoIntro
     ? snippet(page.spot.seoIntro)
-    : `Live fishing forecast, conditions, and 14-day outlook for ${name}.`;
+    : fallbackDescription;
+  const ogDescription = page.spot.seoIntro
+    ? snippet(page.spot.seoIntro, OG_DESCRIPTION_BUDGET)
+    : fallbackDescription;
 
   return {
     // Bare title — the root layout's "%s | ReelCaster" template adds the brand.
@@ -116,7 +128,7 @@ export async function generateMetadata({
     alternates: { canonical: siteUrl(`/explore/spot/${slug}`) },
     openGraph: {
       title: `${title} | ReelCaster`,
-      description,
+      description: ogDescription,
       url: siteUrl(`/explore/spot/${slug}`),
       // A spot page is a place, not a piece of writing — `article` invited
       // article-shaped expectations (author, published date) it never meets.
