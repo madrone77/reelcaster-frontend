@@ -3,20 +3,23 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { Maximize2, Minimize2, ChevronLeft } from "lucide-react";
-import Map, { Marker, Source, Layer, type MapRef } from "react-map-gl/maplibre";
+import Map, { Source, Layer, type MapRef } from "react-map-gl/maplibre";
 import type { Map as MlMap, StyleSpecification } from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
 import { buildReliefStyle } from "@/lib/map/relief-style";
+import { attachRcaHatch } from "@/lib/map/rca-hatch";
 import { useCurrentsFlow } from "../../lib/use-currents-flow";
-import { tierFor } from "../../lib/explore-data";
+import {
+  attachScorePucks,
+  ensureScorePuck,
+  PUCK_TIP_OFFSET,
+  NO_DATA_LABEL,
+} from "../../lib/score-puck";
 import type { LiveSpot } from "@/lib/bluecaster/live-spot-types";
 
-const TIER_HEX: Record<string, string> = {
-  good: "#16A34A",
-  fair: "#D78711",
-  poor: "#DC2626",
-  none: "#9ca3af",
-};
+/** GeoJSON source + symbol layer that carry this spot's score puck. */
+const PUCK_SOURCE = "spot-puck-src";
+const PUCK_LAYER = "spot-puck";
 
 type Layer = "bathy" | "satellite" | "currents" | "winds";
 
@@ -38,8 +41,8 @@ const SAT_LAYER = "spot-sat";
 const WIND_LAYER = "spot-wind";
 
 /**
- * Compact spot map — reuses the bathymetric relief style + WebGL currents flow
- * from the Explore map, framed on a single spot with a tier-colored score pin.
+ * Compact spot map. Reuses the bathymetric relief style, the WebGL currents
+ * flow AND the score puck from the Explore map, framed on a single spot.
  * Four tabs: Bathymetry / Satellite (Esri World Imagery, keyless) / Currents /
  * Winds (OWM raster). Satellite & Winds are added to the live map object (not
  * the style) and toggled by visibility; Winds degrades to the base map with
@@ -48,12 +51,10 @@ const WIND_LAYER = "spot-wind";
 export default function SpotMiniMap({
   spot,
   score,
-  speciesName,
   timeIso,
 }: {
   spot: LiveSpot;
   score: number | null;
-  speciesName: string | null;
   /** UTC instant for the Currents tab's flow field; null = model "now". */
   timeIso?: string | null;
 }) {
@@ -88,7 +89,37 @@ export default function SpotMiniMap({
     [],
   );
 
-  const tier = tierFor(score);
+  // One feature, so the icon id is computed here rather than as a GL
+  // expression. Ring is always "sel": this IS the spot the reader chose, and
+  // cobalt means the same thing on Explore. The report signals stay off,
+  // because they are Pro-gated on the map payload and this page carries no
+  // such flag. The shape stays curated ("rd") for the same reason: nothing
+  // here tells a viewer's own spot apart from a published one.
+  const puckIcon = `rcp:${score ?? NO_DATA_LABEL}:sel:0:rd`;
+  const puckData = useMemo(
+    () => ({
+      type: "FeatureCollection" as const,
+      features: [
+        {
+          type: "Feature" as const,
+          id: 0,
+          geometry: {
+            type: "Point" as const,
+            coordinates: [spot.lng, spot.lat] as [number, number],
+          },
+          properties: {},
+        },
+      ],
+    }),
+    [spot.lng, spot.lat],
+  );
+
+  // The icon id carries the score, so scrubbing to another hour asks for an id
+  // that has never been drawn. The listener would catch it, but registering it
+  // here keeps the first paint after a scrub from flashing an empty pin.
+  useEffect(() => {
+    if (mapObj) ensureScorePuck(mapObj, puckIcon);
+  }, [mapObj, puckIcon]);
 
   return (
     <div
@@ -153,7 +184,16 @@ export default function SpotMiniMap({
         minZoom={6}
         maxZoom={15}
         attributionControl={false}
-        onLoad={(e) => setMapObj(e.target)}
+        onLoad={(e) => {
+          // All three run here, synchronously. A listener registered from a
+          // useEffect on mapObj arrives a tick too late: MapLibre fires
+          // styleimagemissing once per id and never again, and react-map-gl
+          // has already mounted the symbol layer by then.
+          attachRcaHatch(e.target); // RCA fill-pattern image
+          attachScorePucks(e.target); // covers every later id
+          ensureScorePuck(e.target, puckIcon); // covers the id on screen now
+          setMapObj(e.target);
+        }}
         style={{ width: "100%", height: "100%" }}
       >
         {/* Satellite / Winds rasters — declared so react-map-gl manages them (it
@@ -193,15 +233,24 @@ export default function SpotMiniMap({
           </Source>
         )}
 
-        <Marker latitude={spot.lat} longitude={spot.lng} anchor="center">
-          <div
-            className="flex items-center justify-center w-9 h-9 rounded-full text-white text-xs font-bold shadow-rc-pin ring-2 ring-white"
-            style={{ backgroundColor: TIER_HEX[tier] }}
-            title={speciesName ?? undefined}
-          >
-            {score ?? "—"}
-          </div>
-        </Marker>
+        {/* The same puck Explore draws: pill body, tail on the coordinate,
+            score baked into the sprite. Declared last so it paints over the
+            satellite and wind rasters. */}
+        <Source id={PUCK_SOURCE} type="geojson" data={puckData}>
+          <Layer
+            id={PUCK_LAYER}
+            type="symbol"
+            layout={{
+              "icon-image": puckIcon,
+              "icon-anchor": "bottom",
+              // Pushes the icon down so the TAIL TIP, not the shadow, lands on
+              // the spot.
+              "icon-offset": [0, PUCK_TIP_OFFSET],
+              "icon-allow-overlap": true,
+              "icon-ignore-placement": true,
+            }}
+          />
+        </Source>
       </Map>
     </div>
   );

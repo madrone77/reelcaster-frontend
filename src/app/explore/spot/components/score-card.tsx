@@ -33,7 +33,7 @@ export default function ScoreCard({
   score: number | null;
   /** Today's peak score. */
   peak: number | null;
-  /** Today's peak time, e.g. "11:30". */
+  /** Today's peak time, e.g. "11 AM". */
   peakTime: string | null;
   /** Best contiguous window, e.g. "10 AM–1 PM". */
   windowLabel: string | null;

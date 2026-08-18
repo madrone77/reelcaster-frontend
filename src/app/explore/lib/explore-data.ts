@@ -43,8 +43,9 @@ export const TIER_TEXT: Record<Tier, string> = {
   none: "text-rc-ink-mute",
 };
 
-// Map-pin tier fills moved to GL paint expressions — see
-// src/app/explore/lib/spot-geojson.ts (TIER_HEX).
+// Map pins do NOT use these three tiers. They carry the continuous score ramp
+// baked into the puck sprite. See src/app/explore/lib/spot-geojson.ts
+// (`scoreColor`) and src/app/explore/lib/score-puck.ts.
 
 // ── Rail spot ───────────────────────────────────────────────────────
 

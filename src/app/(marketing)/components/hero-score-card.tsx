@@ -47,8 +47,13 @@ export default function HeroScoreCard() {
   return (
     <div className="rounded border border-rc-rule bg-rc-panel shadow-rc-panel p-6 sm:p-8">
       <div className="text-center">
+        {/* NOT "Updated 5 min ago". Every number on this card is hardcoded,
+            the scoring fan-out is not a five-minute loop, and a static figure
+            under a live badge is the one thing here a customer could catch us
+            on. Same wording, and the same reasoning, as the /lp score card.
+            See the note at the top of src/app/lp/_shared/lp-content.ts. */}
         <p className="font-rc-mono text-[10px] tracking-[0.2em] uppercase text-rc-ink-mute/80">
-          Updated 5 min ago
+          Updated hourly
         </p>
         <p className="mt-1 font-rc-mono text-lg sm:text-xl tracking-[0.3em] uppercase text-rc-ink-mute">
           Reelcaster Score
