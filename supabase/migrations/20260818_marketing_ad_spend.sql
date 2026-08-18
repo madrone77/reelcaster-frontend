@@ -138,3 +138,17 @@ $$;
 revoke execute on function public.marketing_performance(date) from public;
 revoke execute on function public.marketing_performance(date) from anon;
 revoke execute on function public.marketing_performance(date) from authenticated;
+
+-- Defense in depth. RLS with zero policies already denies these to anon and
+-- authenticated, so this changes nothing today. It matters tomorrow: with the
+-- SELECT grant still in place, adding a single permissive policy for some
+-- unrelated reason would immediately expose click ids (personal data) and ad
+-- spend (commercially sensitive) to the anon key.
+--
+-- service_role bypasses RLS and is unaffected, and it is the only intended
+-- reader. bump_paywall_counter is SECURITY DEFINER and likewise unaffected.
+--
+-- NOTE: paywall_impressions (migration 20260813) has the same latent grant and
+-- was deliberately left alone here, being outside this change.
+revoke all on public.marketing_conversions from anon, authenticated;
+revoke all on public.marketing_ad_spend    from anon, authenticated;
