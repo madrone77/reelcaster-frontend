@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import { DEFAULT_OG, SITE_NAME, SITE_URL, siteUrl } from '@/lib/site';
 import Hero from './components/hero';
+import NearbySpots from './components/nearby-spots';
 import ScoreTicker from './components/score-ticker';
 import DataSources from './components/data-sources';
 import SignalsSection from './components/signals-section';
@@ -66,6 +67,12 @@ export default function MarketingHomePage() {
       <ScoreTicker />
       <DataSources />
       <SignalsSection />
+      {/* Client-only, and silent unless the caller's IP snaps to a covered
+          city, so the static HTML around it is identical for every visitor and
+          every crawler. It sits below the signals rather than under the hero:
+          the slot here is past the fold, which is what lets it appear without
+          shifting anything on screen. See components/nearby-spots.tsx. */}
+      <NearbySpots />
       {/* Pricing follows the map section: the two plans read as the answer to
           "Mapped." instead of interrupting the signal story. */}
       <MapSection />
