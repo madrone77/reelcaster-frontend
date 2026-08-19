@@ -250,7 +250,7 @@
 
 /* Mobile safe area utilities */
 .safe-area-bottom {
-  padding-bottom: env(safe-area-inset-bottom, 0);
+  padding-bottom: env(safe-area-inset-bottom, 0px);
 }
 
 /* How much room the floating mobile tab bar takes at the bottom of a phone
@@ -262,7 +262,11 @@
    The bar is lg:hidden, so the clearance collapses to zero on desktop and the
    same rule can be written once for both. */
 :root {
-  --rc-tabbar-clearance: calc(5.25rem + env(safe-area-inset-bottom, 0));
+  /* The env() fallback MUST carry a unit: a bare `0` makes `calc(5.25rem + 0)`
+     a length + number, which is invalid, and the build's CSS minifier drops the
+     whole declaration — leaving the var empty and every bottom-pinned sheet
+     jumping to the top of the screen. `0px` keeps the calc valid. */
+  --rc-tabbar-clearance: calc(5.25rem + env(safe-area-inset-bottom, 0px));
 }
 @media (min-width: 1024px) {
   :root {
@@ -271,7 +275,7 @@
 }
 
 .pb-safe {
-  padding-bottom: calc(1rem + env(safe-area-inset-bottom, 0));
+  padding-bottom: calc(1rem + env(safe-area-inset-bottom, 0px));
 }
 
 /* Custom animations */
