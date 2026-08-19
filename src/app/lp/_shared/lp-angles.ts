@@ -30,6 +30,15 @@ export interface Angle {
   rationale: string;
   /** Small chip above the H1. Null hides it. */
   eyebrow: string | null;
+  /**
+   * Replacement eyebrow for American water, applied only by the US-market
+   * variant (/lp/6) through localizeAngle below. Only one angle needs this:
+   * the local-knowledge pitch names the coverage area out loud, and "Built for
+   * BC and Washington" leads with another country on a Seattle page.
+   *
+   * Left undefined on region-neutral angles, which is most of them.
+   */
+  eyebrowUs?: string;
   /** Split so the second half can carry the accent colour. */
   headline: { lead: string; accent: string };
   subhead: string;
@@ -87,6 +96,7 @@ export const ANGLES: Angle[] = [
     rationale:
       "Local-knowledge framing. Sells the decades of pattern reading that a newcomer or transplant does not have.",
     eyebrow: "Built for BC and Washington",
+    eyebrowUs: "Built for Puget Sound",
     headline: { lead: "Twenty years of local knowledge,", accent: "on your phone." },
     subhead:
       "The guys who always limit out are reading tide, current, and season. ReelCaster reads all of it for every spot near you, every hour.",
@@ -139,4 +149,16 @@ export function angleFrom(
   const id = (Array.isArray(raw) ? raw[0] : raw)?.toLowerCase().trim();
   if (!id) return CONTROL_ANGLE;
   return ANGLES.find((a) => a.id === id) ?? CONTROL_ANGLE;
+}
+
+/**
+ * Swap in the American eyebrow where an angle has one.
+ *
+ * Only /lp/6 calls this. The other variants serve both sides of the border
+ * from one URL and keep the neutral wording, so applying it globally would
+ * change signed-off copy on pages that are not running this test.
+ */
+export function localizeAngle(angle: Angle, region: { isUS: boolean }): Angle {
+  if (!region.isUS || !angle.eyebrowUs) return angle;
+  return { ...angle, eyebrow: angle.eyebrowUs };
 }

@@ -5,6 +5,7 @@ import Image from "next/image";
 import type { Angle } from "./lp-angles";
 import { buildFeatures, buildLayers, PRICE, PROOF, type LpTreatment } from "./lp-content";
 import { lpRegionFor } from "./lp-region";
+import LpFlagUs from "./lp-flag";
 import type { LpCard } from "./lp-spot";
 import { LP_CSS } from "./lp-css";
 
@@ -185,6 +186,7 @@ export default function LpShell({
   hero,
   card,
   treatment = "classic",
+  showFlag = false,
 }: {
   angle: Angle;
   checkoutHref: string;
@@ -201,6 +203,10 @@ export default function LpShell({
    *  treatment; /lp/5 opts into the instrument one. Defaults to classic so a
    *  new variant has to ask for the change rather than inherit it. */
   treatment?: LpTreatment;
+  /** Show the market flag in the header chip. /lp/6 opts in; the pages that
+   *  serve both sides of the border deliberately do not fly one country's
+   *  flag over water belonging to the other. */
+  showFlag?: boolean;
 }) {
   const heroCtaRef = useRef<HTMLAnchorElement>(null);
   const finalCtaRef = useRef<HTMLAnchorElement>(null);
@@ -267,7 +273,10 @@ export default function LpShell({
                 priority
               />
             </span>
-            <span className="trust-chip">{region.trustChip}</span>
+            <span className={showFlag ? "trust-chip with-flag" : "trust-chip"}>
+              {showFlag && region.isUS ? <LpFlagUs /> : null}
+              {region.trustChip}
+            </span>
           </div>
         </header>
 
@@ -411,8 +420,8 @@ export default function LpShell({
             <details>
               <summary>What waters do you cover?</summary>
               <div className="faq-a">
-                Pro covers coastal British Columbia and Washington: reefs, banks and ledges, plus
-                your own pinned spots inside that coverage. More regions are coming.
+                Pro covers {region.coverageAnswer}: reefs, banks and ledges, plus your own pinned
+                spots inside that coverage. More regions are coming.
               </div>
             </details>
             <details>

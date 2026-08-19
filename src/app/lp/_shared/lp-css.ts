@@ -65,6 +65,11 @@ export const LP_CSS = `
     font-size:10px;letter-spacing:.1em;color:var(--muted);
     background:var(--bg);border:1px solid var(--line);border-radius:999px;padding:6px 10px}
   .lp .trust-chip::before{content:'';width:6px;height:6px;border-radius:50%;background:var(--good)}
+  /* With a flag the green status dot goes: two leading marks in a 10px chip is
+     one too many, and the flag is the stronger cue. A hairline keeps the white
+     stripes from bleeding into the chip's own pale background. */
+  .lp .trust-chip.with-flag::before{display:none}
+  .lp .trust-chip.with-flag svg{box-shadow:0 0 0 1px rgba(14,27,71,.16)}
 
   /* ---------- hero ---------- */
   .lp .hero{background:#fff;padding:28px 0 0}

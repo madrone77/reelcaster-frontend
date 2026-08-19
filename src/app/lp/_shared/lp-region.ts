@@ -52,6 +52,18 @@ export interface LpRegion {
    * area, so printing "Marine Area 10" would be a number we never looked up.
    */
   areaBadge: string;
+  /**
+   * Whether this water is American. Drives the market chrome on /lp/6 (the
+   * flag) and the order of the coverage answer below. Kept as a country fact
+   * rather than a per-state list so adding another US state is nothing.
+   */
+  isUS: boolean;
+  /**
+   * The "what waters do you cover" answer, with the reader's own side of the
+   * border first. Same fact either way; a page bought with a Seattle ad should
+   * not open its coverage answer with British Columbia.
+   */
+  coverageAnswer: string;
 }
 
 /** Canada vs the US, which is all the fuel anchor needs to know. */
@@ -80,5 +92,9 @@ export function lpRegionFor(provinceCode: string | null | undefined): LpRegion {
       : "Less than half a gallon of boat fuel per month.",
     areaModifier: metric ? "DFO subarea" : "WDFW Marine Area",
     areaBadge: metric ? "DFO PFMA" : "WDFW MARINE AREA",
+    isUS: !metric,
+    coverageAnswer: metric
+      ? "coastal British Columbia and Washington"
+      : "Washington and coastal British Columbia",
   };
 }
