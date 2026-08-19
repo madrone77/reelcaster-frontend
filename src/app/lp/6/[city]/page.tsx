@@ -5,6 +5,7 @@ import { resolveLpCard } from "../../_shared/lp-spot";
 import { lpRegionFor } from "../../_shared/lp-region";
 import { DEFAULT_US_LP_CITY } from "../../lp-entry";
 import LpShell from "../../_shared/lp-shell";
+import { lpCheckoutHref } from "../../_shared/lp-checkout";
 import LpPhotoHero from "../../_shared/lp-photo-hero";
 
 /**
@@ -78,7 +79,7 @@ export default async function Lp6CityPage({
 
   // lp6- so the American variant is distinguishable from /lp/5 in the
   // attribution columns, since the two are otherwise the same treatment.
-  const checkoutHref = `/plans/checkout?from=lp6-${angle.id}`;
+  const checkoutHref = lpCheckoutHref("6", angle.id, card);
 
   return (
     <LpShell
