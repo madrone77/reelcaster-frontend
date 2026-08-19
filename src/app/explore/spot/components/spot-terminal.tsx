@@ -11,6 +11,11 @@ import {
 } from "./weather-icon";
 import { useUnitPreferences } from "@/contexts/unit-preferences-context";
 import {
+  formatFractionalHour12,
+  formatFractionalHourCompact,
+  formatHourCompact,
+} from "@/lib/time-format";
+import {
   WIND_LABELS,
   convertWind,
   convertTemp,
@@ -39,6 +44,8 @@ export type TerminalHours = {
   gust: (number | null)[];
   windDir: (number | null)[];
   sea: (number | null)[];
+  /** Per hour: true when `sea` is a wind-derived estimate, not a modelled wave. */
+  seaEst: boolean[];
   cloud: (number | null)[];
   precip: (number | null)[];
   air: (number | null)[];
@@ -76,13 +83,24 @@ const WNAMES = ["N","NNE","NE","ENE","E","ESE","SE","SSE","S","SSW","SW","WSW","
 const windName = (d: number | null) => (d == null ? "—" : WNAMES[Math.round(d / 22.5) % 16]);
 const seaWord = (m: number | null) =>
   m == null ? "—" : m < 0.2 ? "Calm" : m < 0.35 ? "Rippled" : m < 0.65 ? "Light" : m < 1 ? "Chop" : "Rough";
-const airWord = (t: number | null) => (t == null ? "—" : t < 11 ? "Cold" : t < 18 ? "Mild" : "Warm");
-const hh = (t: number) => {
-  let h = Math.floor(t);
-  let m = Math.round((t - h) * 60);
-  if (m === 60) { h++; m = 0; }
-  return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
+// Row note for SEA STATE. Says so when the row is carrying wind-derived hours,
+// so nobody reads an inferred sea as a modelled one. Must fit the 132px label
+// gutter, about 20 chars at 10px mono. The 0/max ticks live in the plot, not here,
+// so dropping the scale from the estimate wording costs no information.
+const seaNote = (hours: TerminalHours, waveUnit: string, maxTick: string) => {
+  let real = 0, est = 0;
+  for (let i = 0; i < 24; i++) {
+    if (num(hours.sea[i]) == null) continue;
+    if (hours.seaEst?.[i]) est++; else real++;
+  }
+  if (est === 0) return `wave ${waveUnit} · 0–${maxTick}`;
+  return real === 0 ? "est. from wind" : "part est. from wind";
 };
+const airWord = (t: number | null) => (t == null ? "—" : t < 11 ? "Cold" : t < 18 ? "Mild" : "Warm");
+const hh = (t: number) => formatFractionalHour12(t);
+// Chart-internal variant: the SVG annotations and axis are pixel-starved, so
+// they wear the compact meridiem ("8:37p") rather than the spoken "8:37 PM".
+const hhTight = (t: number) => formatFractionalHourCompact(t);
 
 /**
  * Fallback pseudo-current from the tide rate: flood(+) on rising, ebb(−) on
@@ -215,7 +233,7 @@ type Dims = { w: number; LABEL: number; READ: number; mobile: boolean; id: strin
 
 // Hover-pill geometry (desktop). TAG_PAD is the horizontal breathing room on
 // each side of the label — the pill used to be a fixed 104px box that the
-// longest readouts ("11:00 · 100 Good") overflowed on both sides.
+// longest readouts ("11 AM · 100 Good") overflowed on both sides.
 const TAG_H = 20, TAG_GAP = 5, TAG_PAD = 10, TAG_MIN_W = 64;
 
 // Gutter widths shared by buildSvg, the pointer math, and the cursor mover —
@@ -253,11 +271,11 @@ function buildSvg(
     { k: "cur", l: "Current", n: `${cLbl} · +flood −ebb`, h: 128 * base },
     { k: "wind", l: "Wind", n: `${wLbl} · bar+gust`, h: mob ? 84 : 122 },
     { k: "arrow", l: "", n: "", h: mob ? 22 : 32 },
-    { k: "sea", l: "Sea State", n: `wave ${u.waveUnit} · 0–${tickFmt(cvWave(1))}`, h: 70 * base },
+    { k: "sea", l: "Sea State", n: seaNote(hours, u.waveUnit, tickFmt(cvWave(1))), h: 70 * base },
     { k: "air", l: "Air Temp", n: `°${u.tempUnit} · ${Math.round(cvT(5))}–${Math.round(cvT(25))} fixed`, h: mob ? 42 : 56 },
     // Note must fit the 132px label gutter — at 10px mono (~6px/char) that's
     // ~20 chars before it runs out from under the label and into the plot.
-    { k: "wx", l: "Weather", n: "4-hour blocks", h: mob ? 28 : 34 },
+    { k: "wx", l: "Weather", n: mob ? "6-hour blocks" : "3-hour blocks", h: mob ? 28 : 34 },
   ] as { k: string; l: string; n: string; h: number; y0?: number; y1?: number }[];
   // Each instrument sits in its own bordered band. The rows used to butt up
   // against one another with a bare 15px gap and no rule, under one continuous
@@ -339,11 +357,14 @@ function buildSvg(
     // did was leave dotted strips in the padding above and below them.
     if (bi > 0) TW.forEach((t) => { if (t[1] <= t[0]) return; s += `<rect x="${xAt(t[0]).toFixed(1)}" y="${by}" width="${((t[1] - t[0]) * hw).toFixed(1)}" height="${bh}" fill="url(#${id}nt${t[2]})"/>`; });
     if (best) s += `<rect x="${xAt(best[0]).toFixed(1)}" y="${by}" width="${((best[1] - best[0] + 1) * hw).toFixed(1)}" height="${bh}" fill="${C.brand}" opacity=".045"/>`;
-    // Weather is summarised in 4-hour blocks, so its grid rules sit on the
-    // block boundaries — the standard 3-hour grid would cut each icon's block
-    // in the wrong place and imply an hourly reading it doesn't have.
-    const gs = b.k === "wx" ? 4 : mob ? 6 : 3;
-    for (let g = 0; g <= 24; g += gs) s += `<line x1="${xAt(g).toFixed(1)}" y1="${by}" x2="${xAt(g).toFixed(1)}" y2="${b.y1.toFixed(1)}" stroke="${C.ruleSoft}" stroke-width="1"/>`;
+    // Weather carries one icon per hour label, so its rules bound each icon's
+    // span — they sit HALF a step off the other bands' grid, at the midpoints
+    // between labels. Rules on the labels themselves would split every block
+    // through its own icon.
+    const gs = mob ? 6 : 3;
+    const rule = (g: number) => `<line x1="${xAt(g).toFixed(1)}" y1="${by}" x2="${xAt(g).toFixed(1)}" y2="${b.y1.toFixed(1)}" stroke="${C.ruleSoft}" stroke-width="1"/>`;
+    if (b.k === "wx") { for (let g = gs / 2; g < 24; g += gs) s += rule(g); }
+    else { for (let g = 0; g <= 24; g += gs) s += rule(g); }
   });
   // Band borders. Desktop encloses the left label block too, so a label and its
   // plot are visibly one unit; mobile labels sit above their box.
@@ -366,7 +387,7 @@ function buildSvg(
       // Annotation flips to the other side of the dot when the extreme sits
       // close enough to the row edge that the text would bleed out of the row.
       const above = e.hi ? py - r.y0 >= 14 : r.y1 - py < 16;
-      if (wide) { const a = annAt(px); s += `<text class="tm-ann" x="${a.x.toFixed(1)}" y="${py + (above ? -6 : 14)}" text-anchor="${a.anchor}">${e.hi ? "H" : "L"} ${cvTide(e.v).toFixed(1)}${u.tideUnit} ${hh(e.i)}</text>`; } }); }
+      if (wide) { const a = annAt(px); s += `<text class="tm-ann" x="${a.x.toFixed(1)}" y="${py + (above ? -6 : 14)}" text-anchor="${a.anchor}">${e.hi ? "H" : "L"} ${cvTide(e.v).toFixed(1)}${u.tideUnit} ${hhTight(e.i)}</text>`; } }); }
 
   // CURRENT ±scale (adaptive to the day's real peak; ±2 for the fallback)
   { const r = Y.cur; const sc = cur.scale, thr = cur.thr; const zy = yIn(0, r.y0, r.y1, -sc, sc);
@@ -375,7 +396,7 @@ function buildSvg(
       s += `<rect x="${xAt(a).toFixed(1)}" y="${r.y0}" width="${((b - a + 1) * hw).toFixed(1)}" height="${r.y1 - r.y0}" fill="${C.slack}" opacity=".065"/>`;
       const mid = (a + b) / 2, px = xAt(mid + 0.5);
       s += `<path d="M${px.toFixed(1)},${zy - 4} L${(px + 4).toFixed(1)},${zy} L${px.toFixed(1)},${zy + 4} L${(px - 4).toFixed(1)},${zy} Z" fill="${C.slack}"/>`;
-      if (wide) { const a = annAt(px); s += `<text class="tm-ann tm-slack" x="${a.x.toFixed(1)}" y="${r.y1 - 4}" text-anchor="${a.anchor}">SLACK ${hh(mid + 0.5)}</text>`; }
+      if (wide) { const a = annAt(px); s += `<text class="tm-ann tm-slack" x="${a.x.toFixed(1)}" y="${r.y1 - 4}" text-anchor="${a.anchor}">SLACK ${hhTight(mid + 0.5)}</text>`; }
       i = b;
     }
     s += `<line x1="${x0}" y1="${zy.toFixed(1)}" x2="${x1}" y2="${zy.toFixed(1)}" stroke="${C.faint}" stroke-width="1"/>`;
@@ -407,7 +428,10 @@ function buildSvg(
   { const r = Y.sea; s += `<line x1="${x0}" y1="${yIn(0.5, r.y0, r.y1, 0, 1).toFixed(1)}" x2="${x1}" y2="${yIn(0.5, r.y0, r.y1, 0, 1).toFixed(1)}" stroke="${C.ruleSoft}" stroke-width="1" stroke-dasharray="3 3"/>`;
     s += `<text class="tm-tick" x="${x0 - 5}" y="${r.y0 + 7}" text-anchor="end">${tickFmt(cvWave(1))}</text><text class="tm-tick" x="${x0 - 5}" y="${r.y1}" text-anchor="end">0</text>`;
     for (let i = 0; i < 24; i++) { const v = num(hours.sea[i]); if (v == null) continue; const cx = xAt(i), bw = hw * 0.56, col = v < 0.35 ? C.faint : v < 0.65 ? C.r[2] : C.r[3], by = yIn(v, r.y0, r.y1, 0, 1);
-      s += `<rect x="${(cx + hw / 2 - bw / 2).toFixed(1)}" y="${by.toFixed(1)}" width="${bw.toFixed(1)}" height="${Math.max(1.5, r.y1 - by).toFixed(1)}" rx="1" fill="${col}"/>`; } }
+      // Wind-derived hours plot at reduced opacity, so a mixed day reads at a
+      // glance as part modelled, part inferred.
+      const op = hours.seaEst?.[i] ? ' fill-opacity="0.5"' : "";
+      s += `<rect x="${(cx + hw / 2 - bw / 2).toFixed(1)}" y="${by.toFixed(1)}" width="${bw.toFixed(1)}" height="${Math.max(1.5, r.y1 - by).toFixed(1)}" rx="1" fill="${col}"${op}/>`; } }
 
   // (Sky is no longer an in-stack row — cloud + precip now render as the
   // weather-icon row beneath the hour axis; see below.)
@@ -416,7 +440,7 @@ function buildSvg(
   { const r = Y.air; const line = curve((t) => interp(hours.air, t), r.y0, r.y1, 5, 25); if (line) s += `<path d="${line}" fill="none" stroke="${C.r[3]}" stroke-width="1.6"/>`;
     [25, 15, 5].forEach((tk) => { s += `<text class="tm-tick" x="${x0 - 5}" y="${yIn(tk, r.y0, r.y1, 5, 25) + 3}" text-anchor="end">${Math.round(cvT(tk))}</text>`; });
     if (wide) { const ex = extremes(hours.air); const hiE = ex.filter((e) => e.hi)[0], loE = ex.filter((e) => !e.hi)[0];
-      [loE, hiE].forEach((e) => { if (!e) return; const px = xAt(e.i), py = yIn(e.v, r.y0, r.y1, 5, 25), a = annAt(px); s += `<circle cx="${px.toFixed(1)}" cy="${py.toFixed(1)}" r="2.2" fill="${C.r[3]}"/><text class="tm-ann tm-sub" x="${a.x.toFixed(1)}" y="${py + (e.hi ? -7 : 14)}" text-anchor="${a.anchor}">${e.hi ? "H" : "L"} ${cvT(e.v).toFixed(1)}° ${hh(e.i)}</text>`; }); } }
+      [loE, hiE].forEach((e) => { if (!e) return; const px = xAt(e.i), py = yIn(e.v, r.y0, r.y1, 5, 25), a = annAt(px); s += `<circle cx="${px.toFixed(1)}" cy="${py.toFixed(1)}" r="2.2" fill="${C.r[3]}"/><text class="tm-ann tm-sub" x="${a.x.toFixed(1)}" y="${py + (e.hi ? -7 : 14)}" text-anchor="${a.anchor}">${e.hi ? "H" : "L"} ${cvT(e.v).toFixed(1)}° ${hhTight(e.i)}</text>`; }); } }
 
   // labels
   rows.forEach((r) => { if (r.k === "arrow") return;
@@ -431,47 +455,54 @@ function buildSvg(
   //
   // The drop test is in PIXELS, not hours. A fixed 0.8h window doesn't know how
   // wide the label it's protecting is, and hour cells shrink with the viewport:
-  // at 375px "18" and "☀20:37" clear each other by 8px, but at 320px the same
+  // at 375px "6p" and "☀8:37p" clear each other by 8px, but at 320px the same
   // 2.6h separation is only ~2px and they touch. Measure the two half-widths
-  // instead (mono, ~0.6em/char) and keep 5px of air.
+  // instead (mono, ~0.6em/char) and keep 5px of air. The widths are the worst
+  // case each label reaches on a 12-hour clock: "☀12:37p" is 7 glyphs, "12a"
+  // is 3.
   const sunTimes = [sun.sunrise, sun.sunset];
   const sunFS = mob ? 10 : 11;
-  const minSep = (sunFS * 0.6 * 6) / 2 + (sunFS * 0.6 * 2) / 2 + 5;
+  const minSep = (sunFS * 0.6 * 7) / 2 + (sunFS * 0.6 * 3) / 2 + 5;
   for (let a = 0; a <= 24; a += mob ? 6 : 3) {
     if (sunTimes.some((t) => Math.abs(xAt(t) - xAt(a)) < minSep)) continue;
-    s += `<text class="tm-ax" x="${xAt(a).toFixed(1)}" y="${axisY + 12}" text-anchor="middle">${String(a).padStart(2, "0")}</text>`;
+    s += `<text class="tm-ax" x="${xAt(a).toFixed(1)}" y="${axisY + 12}" text-anchor="middle">${formatHourCompact(a)}</text>`;
   }
   // sunrise / sunset — glyph + time, on both variants. This is the mark the
   // night shading's edge now lands on, so it has to be legible: mobile drew a
   // bare 8px ☀ with no time, which read as a stray orange dot rather than the
   // boundary the texture stops at. The label fits — even at a 320px viewport
-  // it clears the neighbouring 12:00 hour label by ~40px.
+  // it clears the neighbouring noon hour label by ~40px.
   [sun.sunrise, sun.sunset].forEach((t) => {
-    s += `<text x="${xAt(t).toFixed(1)}" y="${axisY + 12}" text-anchor="middle" style="font-size:${sunFS}px;fill:${C.r[2]};font-family:var(--rc-font-mono)">☀${hh(t)}</text>`;
+    s += `<text x="${xAt(t).toFixed(1)}" y="${axisY + 12}" text-anchor="middle" style="font-size:${sunFS}px;fill:${C.r[2]};font-family:var(--rc-font-mono)">☀${hhTight(t)}</text>`;
   });
 
-  // WEATHER — 6 fixed 4-hour blocks (00/04/08/12/16/20), one icon per block's
-  // dominant condition. Precip is the only emphasized condition.
+  // WEATHER — one icon per hour-axis tick, showing the dominant condition over
+  // the block centred on that tick. Precip is the only emphasized condition.
   //
-  // This was a loose strip below the hour axis, outside every band, carrying
-  // its own row of hour numbers — a second time ruler under the real one. Worse,
-  // each number was drawn at xAt(seg + 2), the block's CENTRE, while its text
-  // said `seg`: every label sat two hours right of the hour it named. It's now
-  // a band like the rest, directly above the axis, and the numbers are gone —
-  // the hour axis beneath it is the only time ruler, and the block rules above
-  // show each icon's span.
+  // The blocks are keyed to the axis stride (3h desktop, 6h mobile) rather than
+  // a fixed 4h, because the icons and the hour labels are the same ruler read
+  // twice. Six 4-hour blocks centred at 02/06/10/14/18/22 put every icon
+  // between two labels instead of above one, so the eye had to guess which
+  // time each icon belonged to. Now icon and label share an x.
+  //
+  // The end ticks get a half block ([0, step/2) and [24 − step/2, 24)) — the
+  // day has no hours past either edge to average in. Their icons overhang the
+  // plot exactly as much as the "12a" labels beneath them already do.
   {
     const r = Y.wx, wxSize = mob ? 14 : 18, wxY = (r.y0 + r.y1) / 2;
-    for (const seg of [0, 4, 8, 12, 16, 20]) {
+    const step = mob ? 6 : 3;
+    for (let a = 0; a <= 24; a += step) {
+      const lo = Math.max(0, Math.ceil(a - step / 2));
+      const hi = Math.min(24, Math.ceil(a + step / 2));
       const tally: Partial<Record<WeatherCondition, number>> = {};
-      for (let h = seg; h < seg + 4; h++) {
+      for (let h = lo; h < hi; h++) {
         const c = weatherFromHour(num(hours.cloud[h]), num(hours.precip[h]));
         if (c) tally[c] = (tally[c] ?? 0) + 1;
       }
       const cond = (Object.entries(tally) as [WeatherCondition, number][]).sort(
-        (a, b) => b[1] - a[1],
+        (x, y) => y[1] - x[1],
       )[0]?.[0];
-      if (cond) s += weatherIconMarkup(cond, { x: xAt(seg + 2), y: wxY, size: wxSize });
+      if (cond) s += weatherIconMarkup(cond, { x: xAt(a), y: wxY, size: wxSize });
     }
   }
 
@@ -565,7 +596,8 @@ export default function SpotTerminal({
       tide: convertHeight(num(hours.tide[hi]) ?? 0, "m", tideUnit).toFixed(1) + tideUnit, tideS: tR ? "Rising ▲" : "Falling ▼",
       curSigned: (cv >= 0 ? "+" : "") + cvC(cv).toFixed(1) + cLbl, curS: cs,
       wind: cvW(num(hours.wind[hi]) ?? 0).toFixed(0) + wLbl, windS: windName(hours.windDir[hi]) + " G" + cvW(num(hours.gust[hi]) ?? 0).toFixed(0),
-      sea: convertHeight(num(hours.sea[hi]) ?? 0, "m", waveUnit).toFixed(1) + waveUnit, seaS: seaWord(num(hours.sea[hi])),
+      sea: hours.seaEst?.[hi] ? "" : convertHeight(num(hours.sea[hi]) ?? 0, "m", waveUnit).toFixed(1) + waveUnit,
+      seaS: seaWord(num(hours.sea[hi])) + (hours.seaEst?.[hi] ? " (est. from wind)" : ""),
       air: convertTemp(num(hours.air[hi]) ?? 0, "C", tempUnit).toFixed(1) + "°", airS: airWord(num(hours.air[hi])),
     };
   };
@@ -603,7 +635,7 @@ export default function SpotTerminal({
       const tagg = g.querySelector(`#${id}-tagg`);
       if (tagg) {
         // Label the whole hour, not the sub-hour position the pointer happens
-        // to sit at — the cursor snaps to hour centres, so "11:30" was a lie.
+        // to sit at — the cursor snaps to hour centres, so "11:30 AM" was a lie.
         const t = svg.querySelector(`#${id}-tagt`) as SVGTextContentElement | null;
         const label = `${hh(idx)} · ${d.score === "—" ? "—" : d.score + " " + d.verd}`;
         let half = TAG_MIN_W / 2;
@@ -734,7 +766,7 @@ export default function SpotTerminal({
 
       {/* Screen-reader live readout of the scrubbed hour. */}
       <div aria-live="polite" className="sr-only">
-        {`Hour ${d.hour}. Score ${d.score} ${d.verd}. Tide ${d.tide} ${d.tideS}. Current ${d.curSigned} ${d.curS}. Wind ${d.wind} ${d.windS}. Sea ${d.sea} ${d.seaS}. Air ${d.air}.`}
+        {`Hour ${d.hour}. Score ${d.score} ${d.verd}. Tide ${d.tide} ${d.tideS}. Current ${d.curSigned} ${d.curS}. Wind ${d.wind} ${d.windS}. Sea ${[d.sea, d.seaS].filter(Boolean).join(" ")}. Air ${d.air}.`}
       </div>
 
       {/* The mobile per-hour readout bar was removed — the "Conditions · now"

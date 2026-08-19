@@ -249,21 +249,42 @@ type MapLike = {
   on: (type: "styleimagemissing", listener: (e: { id?: string }) => void) => void;
 };
 
+/** Draw + register one `rcp:...` id, unless the map already carries it. */
+function registerPuck(map: MapLike, id: string | undefined): void {
+  if (!id || !id.startsWith(`${PREFIX}:`)) return; // not ours (e.g. the RCA hatch)
+  if (map.hasImage?.(id)) return;
+  const parts = id.split(":");
+  if (parts.length !== 5) return;
+  const [, label, ring, hot, shape] = parts;
+  if (!(ring in COLLAR)) return;
+  if (shape !== "rd" && shape !== "sq") return;
+  const img = drawPuck(label, ring as PuckRing, hot === "1", shape);
+  if (img) map.addImage(id, img, { pixelRatio: RATIO });
+}
+
 /**
  * Draw score pucks on demand for a map. Safe to call once per map load; the
  * handler also covers style reloads, which drop every registered image.
+ *
+ * This alone is enough for a map whose spots arrive AFTER the style has
+ * loaded, which is every case on Explore: the first icon is asked for long
+ * after the listener is in place. A map that already knows its spots on the
+ * first render needs ensureScorePuck as well. See the note there.
  */
 export function attachScorePucks(map: MapLike): void {
-  map.on("styleimagemissing", (e) => {
-    const id = e.id;
-    if (!id || !id.startsWith(`${PREFIX}:`)) return; // not ours (e.g. the RCA hatch)
-    if (map.hasImage?.(id)) return;
-    const parts = id.split(":");
-    if (parts.length !== 5) return;
-    const [, label, ring, hot, shape] = parts;
-    if (!(ring in COLLAR)) return;
-    if (shape !== "rd" && shape !== "sq") return;
-    const img = drawPuck(label, ring as PuckRing, hot === "1", shape);
-    if (img) map.addImage(id, img, { pixelRatio: RATIO });
-  });
+  map.on("styleimagemissing", (e) => registerPuck(map, e.id));
+}
+
+/**
+ * Register one specific puck id up front, rather than waiting to be asked.
+ *
+ * MapLibre fires `styleimagemissing` ONCE per id and never again, and
+ * react-map-gl mounts declared `<Layer>` children before the map emits
+ * `load`. So on a map that renders a spot immediately, the icon is requested
+ * while onLoad has not run yet, the one event goes to nobody, and the puck
+ * silently never draws. Calling this for the id the layer references closes
+ * that window; the listener above still covers every later id.
+ */
+export function ensureScorePuck(map: MapLike, id: string): void {
+  registerPuck(map, id);
 }

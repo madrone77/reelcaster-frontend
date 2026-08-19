@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import { DEFAULT_OG, SITE_NAME, SITE_URL, siteUrl } from '@/lib/site';
 import Hero from './components/hero';
+import NearbySpots from './components/nearby-spots';
 import ScoreTicker from './components/score-ticker';
 import DataSources from './components/data-sources';
 import SignalsSection from './components/signals-section';
@@ -25,12 +26,12 @@ export const metadata: Metadata = {
     absolute: 'BC Fishing Forecast & Tide Conditions | ReelCaster',
   },
   description:
-    'ReelCaster combines tides, weather, water conditions, and regulations into one simple fishing score, so you know exactly when and where to fish on the BC coast.',
+    'ReelCaster turns tides, weather, water conditions, and regulations into one fishing score, so you know when and where to fish on the BC and Washington coasts.',
   alternates: { canonical: siteUrl('/') },
   openGraph: {
     title: 'ReelCaster: Know the bite. Before you go.',
     description:
-      'Tides, weather, water conditions, and regulations in one simple fishing score for the BC coast.',
+      'Tides, weather, water conditions, and regulations in one simple fishing score for the BC and Washington coasts.',
     url: siteUrl('/'),
     type: 'website',
     ...DEFAULT_OG,
@@ -46,7 +47,7 @@ const HOMEPAGE_JSONLD = {
   url: SITE_URL,
   publisher: { '@id': `${SITE_URL}/#organization` },
   description:
-    'Fishing forecasts for the BC coast: tides, weather, water conditions, and regulations combined into one simple score.',
+    'Fishing forecasts for the BC and Washington coasts: tides, weather, water conditions, and regulations combined into one simple score.',
 };
 
 export default function MarketingHomePage() {
@@ -66,6 +67,12 @@ export default function MarketingHomePage() {
       <ScoreTicker />
       <DataSources />
       <SignalsSection />
+      {/* Client-only, and silent unless the caller's IP snaps to a covered
+          city, so the static HTML around it is identical for every visitor and
+          every crawler. It sits below the signals rather than under the hero:
+          the slot here is past the fold, which is what lets it appear without
+          shifting anything on screen. See components/nearby-spots.tsx. */}
+      <NearbySpots />
       {/* Pricing follows the map section: the two plans read as the answer to
           "Mapped." instead of interrupting the signal story. */}
       <MapSection />

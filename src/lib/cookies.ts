@@ -12,21 +12,53 @@
 /** Cookies have a 4KB budget and no field we store earns more than this. */
 export const MAX_FIELD = 200;
 
+/**
+ * The one exception to MAX_FIELD: a verbatim landing query string, which is
+ * deliberately several parameters long. Still capped, because an attacker (or
+ * a broken redirect chain) can put arbitrary length in a URL and the cookie
+ * budget is shared with the session.
+ */
+export const MAX_QUERY = 400;
+
+/**
+ * Refuse to write past this, in encoded bytes.
+ *
+ * Browsers do not report a cookie that exceeds the 4KB limit; they drop it, so
+ * the next read returns nothing and the record is lost in full rather than in
+ * part. Checking first lets the caller shed a field and try again, which is
+ * strictly better than discovering the loss at conversion time.
+ */
+const MAX_COOKIE_BYTES = 3800;
+
 export function clampField(value: string | null | undefined): string {
   if (!value) return '';
   return value.slice(0, MAX_FIELD);
 }
 
-export function writeJsonCookie(name: string, value: object, maxAge: number): void {
-  if (typeof document === 'undefined') return;
+export function clampQuery(value: string | null | undefined): string {
+  if (!value) return '';
+  return value.slice(0, MAX_QUERY);
+}
+
+/**
+ * @returns true if the cookie was written, false if it was too large to fit.
+ *   A storage-blocked browser also returns true: nothing was persisted, but
+ *   retrying with fewer fields would not change that, and the caller's only
+ *   fallback is to write less.
+ */
+export function writeJsonCookie(name: string, value: object, maxAge: number): boolean {
+  if (typeof document === 'undefined') return false;
   try {
     const encoded = encodeURIComponent(JSON.stringify(value));
+    if (encoded.length + name.length > MAX_COOKIE_BYTES) return false;
     const secure = window.location.protocol === 'https:' ? '; Secure' : '';
     document.cookie = `${name}=${encoded}; path=/; max-age=${maxAge}; SameSite=Lax${secure}`;
+    return true;
   } catch {
     // Safari with "Block All Cookies" throws on storage access rather than
     // failing quietly, which is how the app has white-screened before. Losing
     // a cookie is fine; taking the page down over it is not.
+    return true;
   }
 }
 

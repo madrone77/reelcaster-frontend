@@ -1,14 +1,18 @@
 import type { Metadata } from 'next';
 import { DEFAULT_OG, SITE_URL } from '@/lib/site';
-import Link from 'next/link';
+import { LEGAL_CONTACT } from '@/lib/legal-contact';
+import {
+  LegalDocument,
+  readLegalDocument,
+} from '../components/legal-document';
 
-const LAST_UPDATED = 'May 1, 2026';
-
+// The document body lives in src/content/legal/privacy-policy.md. See the
+// note on the terms page: the markdown is canonical, this is just the frame.
 export const metadata: Metadata = {
-  // Bare title — the root layout's "%s | ReelCaster" template adds the brand.
+  // Bare title, the root layout's "%s | ReelCaster" template adds the brand.
   title: 'Privacy Policy',
   description:
-    'How ReelCaster collects, uses, and protects your data: accounts, fishing logs, location signals, billing, and analytics.',
+    'How ReelCaster collects, uses, and protects your data: accounts, catch logs, photo location metadata, billing, analytics, and advertising.',
   alternates: { canonical: `${SITE_URL}/privacy` },
   openGraph: {
     title: 'Privacy Policy | ReelCaster',
@@ -36,6 +40,11 @@ const JSONLD = {
 };
 
 export default function PrivacyPage() {
+  // Read per render, not at module scope: these pages are statically rendered
+  // so in production this runs once at build, but in dev it means editing the
+  // markdown does not need a server restart.
+  const markdown = readLegalDocument('privacy-policy');
+
   return (
     <>
       <script
@@ -52,145 +61,18 @@ export default function PrivacyPage() {
             Privacy Policy
           </h1>
           <p className="max-w-2xl text-base md:text-lg leading-relaxed text-rc-ink-soft">
-            How ReelCaster collects, uses, and protects your data. Plain
-            language first; legal details where they matter.
+            What we collect, why we collect it, who we share it with, and how to
+            get it back or have it deleted.
           </p>
           <p className="mt-4 text-xs text-rc-ink-mute">
-            Last updated: {LAST_UPDATED}
+            Last updated: {LEGAL_CONTACT.EFFECTIVE_DATE}
           </p>
         </header>
 
-        <section className="max-w-3xl mx-auto px-6 pb-16 space-y-8 text-rc-ink-soft leading-relaxed">
-          <Block title="1. Information we collect">
-            <p>
-              <strong className="text-rc-ink">Account info.</strong> Email
-              address, encrypted password (via Supabase Auth), display name,
-              and any optional profile preferences you set.
-            </p>
-            <p>
-              <strong className="text-rc-ink">Fishing data.</strong> Catch
-              logs, favorite spots, custom alerts, and notification
-              preferences you create inside ReelCaster.
-            </p>
-            <p>
-              <strong className="text-rc-ink">Location signals.</strong>{' '}
-              Coordinates you save (favorite spots, alert locations) and, when
-              you tap “Fish On,” the GPS reading from your device. We never
-              continuously track you in the background.
-            </p>
-            <p>
-              <strong className="text-rc-ink">Billing.</strong> Subscription
-              status, plan tier, and Stripe customer/subscription identifiers.
-              Payment card details are handled by Stripe. We never see or
-              store them.
-            </p>
-            <p>
-              <strong className="text-rc-ink">Usage analytics.</strong>{' '}
-              Aggregate page views, feature usage, and error reports used to
-              prioritise improvements. No third-party advertising trackers.
-            </p>
-          </Block>
-
-          <Block title="2. How we use it">
-            <p>
-              To run the product (forecasts, alerts, catch logs), bill the
-              right tier, send the notifications you opted into, respond when
-              you contact support, and improve the app. That&rsquo;s it.
-            </p>
-          </Block>
-
-          <Block title="3. Cookies & local storage">
-            <p>
-              We use cookies and browser local storage to keep you signed in,
-              remember preferences (units, map type, recent locations), and
-              cache data offline (catch logs queue for sync). We do not use
-              third-party advertising cookies.
-            </p>
-          </Block>
-
-          <Block title="4. Data sharing">
-            <p>
-              We share data only with the service providers required to run
-              ReelCaster: Supabase (database, auth), Stripe (billing), Resend
-              (transactional email), Mapbox (maps), Open-Meteo &amp; DFO
-              (public weather/regulation data). We do not sell your data.
-            </p>
-            <p>
-              We may disclose data if compelled by Canadian law, or to
-              investigate fraud or abuse.
-            </p>
-          </Block>
-
-          <Block title="5. Retention">
-            <p>
-              Account data is retained while your account is active. If you
-              delete your account, personal data is removed within 30 days,
-              except for billing records we&rsquo;re required to keep for tax
-              and accounting (typically 7 years).
-            </p>
-          </Block>
-
-          <Block title="6. Your rights">
-            <p>
-              You can access, correct, export, or delete your data at any
-              time. Email{' '}
-              <a
-                href="mailto:support@reelcaster.com"
-                className="text-rc-brand hover:text-rc-brand-hover underline underline-offset-2"
-              >
-                support@reelcaster.com
-              </a>{' '}
-              and we&rsquo;ll respond within 30 days. Canadian residents may
-              also contact the Office of the Privacy Commissioner if you
-              believe we&rsquo;ve mishandled your data.
-            </p>
-          </Block>
-
-          <Block title="7. Children">
-            <p>
-              ReelCaster is not directed at children under 13. If you believe
-              a child has created an account, contact us and we&rsquo;ll
-              remove it.
-            </p>
-          </Block>
-
-          <Block title="8. Changes">
-            <p>
-              We&rsquo;ll post material changes here and update the
-              &ldquo;Last updated&rdquo; date. Continued use after a change
-              means you accept the revised policy.
-            </p>
-          </Block>
-
-          <Block title="9. Contact">
-            <p>
-              Questions about this policy?{' '}
-              <Link
-                href="/contact"
-                className="text-rc-brand hover:text-rc-brand-hover underline underline-offset-2"
-              >
-                Get in touch
-              </Link>
-              .
-            </p>
-          </Block>
+        <section className="max-w-3xl mx-auto px-6 pb-16">
+          <LegalDocument markdown={markdown} />
         </section>
       </article>
     </>
-  );
-}
-
-function Block({
-  title,
-  children,
-}: {
-  title: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <section className="space-y-3">
-      <h2 className="text-xl font-bold text-rc-ink">{title}</h2>
-      <div className="space-y-3 text-sm md:text-base">{children}</div>
-    </section>
   );
 }

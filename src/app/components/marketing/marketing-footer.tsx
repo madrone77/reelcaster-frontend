@@ -83,8 +83,8 @@ export default function MarketingFooter() {
           <h4 className="font-bold text-rc-ink mb-3">ReelCaster</h4>
           <p className="text-rc-ink-mute text-xs leading-relaxed">
             Fishing intelligence for British Columbia and the Pacific
-            Northwest. Forecasts are reference only; always verify
-            regulations with your regulator — DFO in BC, WDFW in Washington.
+            Northwest. Forecasts are reference only. Always verify
+            regulations with your regulator: DFO in BC, WDFW in Washington.
           </p>
         </div>
       </div>

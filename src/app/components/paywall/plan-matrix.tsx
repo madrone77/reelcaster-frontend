@@ -15,12 +15,17 @@ import {
  * Extracted from ProTrialModal so the trial nag and /billing/cancel show the
  * same table rather than two drifting copies of it. Copy and limits come from
  * `@/lib/plan-features` — never hardcode them here.
+ *
+ * Two columns, Free and Pro, because that is the question being asked. A signed
+ * out visitor gets the same two: what they can see without an account was a
+ * third column that turned a yes/no into a three-way read.
  */
 
-// Narrow value columns on a phone so the feature label keeps most of the row;
-// they widen once there's room for the longer strings ("Unlimited").
+// One track per PLAN_TIERS entry — kept literal because Tailwind can't scan a
+// computed class. Narrow value columns on a phone so the feature label keeps
+// most of the row; they widen once there's room for a longer string.
 const COL =
-  "grid grid-cols-[minmax(0,1fr)_repeat(3,58px)] sm:grid-cols-[minmax(0,1fr)_repeat(3,minmax(64px,84px))]";
+  "grid grid-cols-[minmax(0,1fr)_repeat(2,64px)] sm:grid-cols-[minmax(0,1fr)_repeat(2,minmax(72px,96px))]";
 
 export default function PlanMatrix({
   viewerTier,

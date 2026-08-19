@@ -175,7 +175,7 @@ export default function LeftRail({
                   <button
                     type="button"
                     onClick={onCreateCustomSpot}
-                    className="shrink-0 flex items-center gap-1.5 rounded-full bg-rc-brand px-3 py-1.5 text-[13px] font-semibold text-white transition-colors hover:bg-rc-brand-hover"
+                    className="shrink-0 flex items-center gap-1 text-[13px] font-semibold text-rc-brand hover:text-rc-brand-hover hover:underline underline-offset-2 transition-colors"
                   >
                     <MapPinPlus className="h-4 w-4 shrink-0" />
                     Create custom spot

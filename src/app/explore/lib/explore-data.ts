@@ -14,6 +14,7 @@ import type {
   MapCondStrip,
 } from "@/lib/bluecaster";
 import { COVERED_PROVINCES } from "@/lib/regions";
+import { formatHour12 } from "@/lib/time-format";
 
 // ── Score tiers ─────────────────────────────────────────────────────
 
@@ -42,8 +43,9 @@ export const TIER_TEXT: Record<Tier, string> = {
   none: "text-rc-ink-mute",
 };
 
-// Map-pin tier fills moved to GL paint expressions — see
-// src/app/explore/lib/spot-geojson.ts (TIER_HEX).
+// Map pins do NOT use these three tiers. They carry the continuous score ramp
+// baked into the puck sprite. See src/app/explore/lib/spot-geojson.ts
+// (`scoreColor`) and src/app/explore/lib/score-puck.ts.
 
 // ── Rail spot ───────────────────────────────────────────────────────
 
@@ -225,7 +227,7 @@ export function compass(deg: number): string {
 
 export function fmtPeak(hour: number | null): string | null {
   if (hour === null) return null;
-  return `${String(hour).padStart(2, "0")}:00`;
+  return formatHour12(hour);
 }
 
 function fmtWind(c: MapCondCell): string | null {

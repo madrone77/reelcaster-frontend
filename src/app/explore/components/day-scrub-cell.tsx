@@ -3,6 +3,7 @@
 import { useMemo, useRef } from "react";
 import { tierFor, type Tier } from "../lib/explore-data";
 import type { ForecastDay } from "../lib/forecast-strip";
+import { formatHour12 } from "@/lib/time-format";
 
 const num = (v: number | null | undefined) =>
   typeof v === "number" && Number.isFinite(v) ? v : null;
@@ -110,7 +111,7 @@ export default function DayScrubCell({
             {liveScore ?? "—"}
           </div>
           <div className="font-rc-mono text-[11px] text-rc-ink mt-0.5">
-            {String(activeHour).padStart(2, "0")}:00
+            {formatHour12(activeHour)}
           </div>
         </div>
       </div>
@@ -125,7 +126,7 @@ export default function DayScrubCell({
           aria-valuemin={0}
           aria-valuemax={23}
           aria-valuenow={activeHour}
-          aria-valuetext={`${String(activeHour).padStart(2, "0")}:00, score ${liveScore ?? "unavailable"}`}
+          aria-valuetext={`${formatHour12(activeHour)}, score ${liveScore ?? "unavailable"}`}
           className="relative h-5 flex gap-px cursor-ew-resize touch-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-rc-brand rounded-sm"
           onPointerDown={(e) => {
             draggingRef.current = true;

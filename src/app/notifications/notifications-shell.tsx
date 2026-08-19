@@ -16,6 +16,7 @@ import {
 } from "@/app/explore/lib/explore-data";
 import { bestWindow } from "@/app/explore/components/hourly-bars";
 import { fetchSpotLive } from "@/lib/bluecaster-client";
+import { TIME_12H_OPTIONS } from "@/lib/time-format";
 import type { SpotPageInitial } from "@/lib/bluecaster/live-spot-types";
 
 interface AlertProfileRow {
@@ -790,9 +791,7 @@ function fmtDate(iso: string): string {
 function fmtTime(iso: string): string {
   return new Intl.DateTimeFormat("en-US", {
     timeZone: TZ,
-    hour: "2-digit",
-    minute: "2-digit",
-    hour12: false,
+    ...TIME_12H_OPTIONS,
   }).format(new Date(iso));
 }
 function fmtDateTime(iso: string): string {

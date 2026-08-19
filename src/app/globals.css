@@ -206,6 +206,20 @@
   .maplibregl-ctrl-attrib-button {
     @apply bg-rc-bg-dark/80!;
   }
+  /* Explore's collapsed ⓘ drops the dark chip and becomes the watermark's
+     twin instead — see the .rc-explore-map block further down for the white
+     recolor and the placement. It has to be written in here, next to the rule
+     it overrides: both are !important, and for important declarations the
+     cascade REVERSES layer order, so an unlayered copy of this would lose to
+     the layered rule above however specific it was. Expanded, the ⓘ is part of
+     the panel again and keeps the dark background. */
+  .rc-explore-map
+    .maplibregl-ctrl-attrib:not([open]):not(.maplibregl-compact-show),
+  .rc-explore-map
+    .maplibregl-ctrl-attrib:not([open]):not(.maplibregl-compact-show)
+    .maplibregl-ctrl-attrib-button {
+    background-color: transparent !important;
+  }
   /* 88% opacity + blur, matching the frosted panels. */
   .maplibregl-ctrl-group {
     background: rgba(255, 255, 255, 0.88) !important;
@@ -237,6 +251,23 @@
 /* Mobile safe area utilities */
 .safe-area-bottom {
   padding-bottom: env(safe-area-inset-bottom, 0);
+}
+
+/* How much room the floating mobile tab bar takes at the bottom of a phone
+   screen: the pill itself (h-16 = 4rem) plus the 0.75rem it is lifted off the
+   edge, plus a 0.5rem breathing gap, plus the device safe area. Anything
+   pinned to the bottom on mobile — bottom sheets, sticky action footers — must
+   sit at `bottom: var(--rc-tabbar-clearance)` or the tab bar covers it. Keep
+   this in step with the pill geometry in components/mobile-bottom-nav.tsx.
+   The bar is lg:hidden, so the clearance collapses to zero on desktop and the
+   same rule can be written once for both. */
+:root {
+  --rc-tabbar-clearance: calc(5.25rem + env(safe-area-inset-bottom, 0));
+}
+@media (min-width: 1024px) {
+  :root {
+    --rc-tabbar-clearance: 0px;
+  }
 }
 
 .pb-safe {
@@ -354,21 +385,46 @@
 .scrollbar-hide::-webkit-scrollbar {
   display: none;
 }
-/* Explore map: the brand watermark owns the bottom-right corner and the
-   attribution ⓘ sits inline just left of the R, centered on the logo's
-   vertical midline. Offsets are keyed to the MapBrandLogo widths in
-   explore-map.tsx (52px mobile → 23px tall, 60px desktop → 27px tall; the
-   24px ⓘ button carries a 10px margin). On desktop the forecast strip (128px,
-   fixed bottom) also covers the map's bottom edge — --rc-map-inset (set by
-   ExploreMap from the strip's visibility) lifts everything above it. */
+/* Explore map: the brand watermark owns the bottom-right corner. The zoom
+   control sits directly above it, one logo-inset clear of it, so the two read
+   as one right-aligned stack; the attribution ⓘ sits inline just left of the
+   R, on the logo's vertical midline.
+
+   Maplibre floats every control in a corner into one column, which is what put
+   the ⓘ on top of the zoom buttons and both of them off to the logo's left. So
+   each control is placed on its own against the corner instead.
+
+   Offsets are keyed to the MapBrandLogo widths in explore-map.tsx (52px mobile
+   → 23px tall, 60px desktop → 27px tall) and its 10px inset from the map edge:
+   the zoom group clears logo + inset (10 + 23 + 10 = 43), and the 24px ⓘ is
+   centred on the logo ((23 - 24) / 2 off its 10px bottom). On desktop the
+   forecast strip (128px, fixed bottom) also covers the map's bottom edge —
+   --rc-map-inset (set by ExploreMap from the strip's visibility) lifts
+   everything above it, exactly as it lifts the logo. */
 .rc-explore-map .maplibregl-ctrl-bottom-right {
-  bottom: 0px;
-  right: 58px;
+  bottom: 0;
+  right: 0;
+}
+.rc-explore-map .maplibregl-ctrl-bottom-right .maplibregl-ctrl {
+  position: absolute;
+  float: none;
+  margin: 0;
+}
+.rc-explore-map .maplibregl-ctrl-bottom-right .maplibregl-ctrl-group {
+  right: 10px;
+  bottom: 43px;
+}
+.rc-explore-map .maplibregl-ctrl-bottom-right .maplibregl-ctrl-attrib {
+  right: 66px;
+  bottom: 9.5px;
 }
 @media (min-width: 1024px) {
-  .rc-explore-map .maplibregl-ctrl-bottom-right {
-    bottom: calc(var(--rc-map-inset, 0px) + 2px);
-    right: 66px;
+  .rc-explore-map .maplibregl-ctrl-bottom-right .maplibregl-ctrl-group {
+    bottom: calc(var(--rc-map-inset, 0px) + 47px);
+  }
+  .rc-explore-map .maplibregl-ctrl-bottom-right .maplibregl-ctrl-attrib {
+    right: 74px;
+    bottom: calc(var(--rc-map-inset, 0px) + 11.5px);
   }
 }
 
@@ -380,6 +436,16 @@
 .rc-explore-map .maplibregl-ctrl-attrib[open],
 .rc-explore-map .maplibregl-ctrl-attrib.maplibregl-compact-show {
   opacity: 1;
+}
+
+/* Collapsed, the ⓘ is the watermark's twin: the same white recolor at the same
+   65% (MapBrandLogo), so the pair reads as one mark. Expanded, it goes back to
+   the dark panel the acknowledgments text is readable on. The chip behind it is
+   cleared up in @layer base, where the rule it overrides lives. */
+.rc-explore-map
+  .maplibregl-ctrl-attrib:not([open]):not(.maplibregl-compact-show)
+  .maplibregl-ctrl-attrib-button {
+  filter: brightness(0) invert(1);
 }
 
 /* An AdSense unit that goes unfilled keeps its reserved box, leaving a blank

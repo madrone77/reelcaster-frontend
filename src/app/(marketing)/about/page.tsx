@@ -9,7 +9,7 @@ export const metadata: Metadata = {
   // so naming it here too rendered "About ReelCaster | … | ReelCaster".
   title: 'About: BC Fishing Forecasts',
   description:
-    'ReelCaster turns tides, weather, water conditions, and DFO regulations into one simple fishing score for the BC coast. Built by anglers in Victoria, BC.',
+    'ReelCaster turns tides, weather, water conditions, and DFO and WDFW rules into one score for the BC and Washington coasts. Built by anglers in Victoria, BC.',
   alternates: { canonical: `${SITE_URL}/about` },
   openGraph: {
     title: 'About ReelCaster',

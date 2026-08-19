@@ -10,6 +10,7 @@ import {
   LocateFixed,
   Map as MapIcon,
   MapPin,
+  MapPinPlus,
   Search,
   SlidersHorizontal,
 } from "lucide-react";
@@ -74,6 +75,7 @@ export default function LocationSelector({
   onSelectRegion,
   onSelectSpecies,
   onFilterClick,
+  onAddSpot,
   mapControls,
   near,
 }: {
@@ -89,6 +91,9 @@ export default function LocationSelector({
   onSelectSpecies: (id: string, name: string) => void;
   /** Mobile only — opens the map-filter sheet. Omitted on desktop (inert). */
   onFilterClick?: () => void;
+  /** Mobile only — arms custom-spot placement. Sits beside Filters instead of a
+   *  floating pill. Omitted on desktop (the rail header carries this action). */
+  onAddSpot?: () => void;
   /** Desktop only — supplies the "Near me" action. */
   mapControls?: MapControlsProps;
   /** Viewport centre, used only to break ties between equally good matches. */
@@ -367,17 +372,34 @@ export default function LocationSelector({
             className={`w-4 h-4 text-rc-ink-mute shrink-0 transition-transform ${open ? "rotate-180" : ""}`}
           />
         </button>
-        {onFilterClick && !mapControls && (
+        {!mapControls && (onAddSpot || onFilterClick) && (
           <>
             <div className="flex-1" />
-            <button
-              type="button"
-              aria-label="Filters"
-              onClick={onFilterClick}
-              className="flex items-center justify-center w-8 h-8 rounded border border-rc-rule text-rc-ink-soft hover:bg-rc-surface transition-colors shrink-0"
-            >
-              <SlidersHorizontal className="w-4 h-4" />
-            </button>
+            {/* Mobile-only (desktop passes mapControls instead). Add-spot sits
+                beside Filters here rather than floating over the map, and both
+                are sized for a thumb. */}
+            <div className="flex items-center gap-1.5 shrink-0">
+              {onAddSpot && (
+                <button
+                  type="button"
+                  onClick={onAddSpot}
+                  className="flex items-center gap-1.5 h-10 rounded-lg border border-rc-rule px-3 text-[13px] font-semibold text-rc-brand hover:bg-rc-surface transition-colors"
+                >
+                  <MapPinPlus className="w-4 h-4 shrink-0" />
+                  Add spot
+                </button>
+              )}
+              {onFilterClick && (
+                <button
+                  type="button"
+                  aria-label="Filters"
+                  onClick={onFilterClick}
+                  className="flex items-center justify-center w-10 h-10 rounded-lg border border-rc-rule text-rc-ink-soft hover:bg-rc-surface transition-colors"
+                >
+                  <SlidersHorizontal className="w-4 h-4" />
+                </button>
+              )}
+            </div>
           </>
         )}
       </div>
@@ -400,7 +422,13 @@ export default function LocationSelector({
               className="fixed inset-0 z-[60] bg-black/30"
               onClick={() => setOpen(false)}
             />
-            <div className="fixed inset-x-0 bottom-0 z-[61] max-h-[75vh] overflow-y-auto bg-rc-panel rounded-t-2xl shadow-rc-panel animate-slide-up pb-[calc(0.5rem+env(safe-area-inset-bottom))]">
+            {/* Rides above the floating tab bar, like the filter sheet it sits
+                beside in the header. The clearance already carries the safe
+                area, so the sheet's own padding does not repeat it. */}
+            <div
+              style={{ bottom: "var(--rc-tabbar-clearance)" }}
+              className="fixed inset-x-0 z-[61] max-h-[75vh] overflow-y-auto bg-rc-panel rounded-t-2xl shadow-rc-panel animate-slide-up pb-2"
+            >
               <div className="flex justify-center pt-2.5 pb-1">
                 <div className="h-1 w-9 rounded-full bg-rc-rule" />
               </div>

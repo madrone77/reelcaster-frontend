@@ -45,7 +45,7 @@ import { BLEED_MEASURE } from "@/app/components/layout/page-measure";
 import ExploreMap, { type StationPick, type CustomSpotPin } from "./components/explore-map";
 
 import { setFavorite } from "./lib/use-favorite";
-import { MapPinPlus, X } from "lucide-react";
+import { X } from "lucide-react";
 import LeftRail from "./components/left-rail";
 import LocationSelector from "./components/location-selector";
 import MobileMapSheet from "./components/mobile-map-sheet";
@@ -100,7 +100,9 @@ const MAP_TZ = "America/Vancouver";
  * Callers own horizontal placement and colour.
  */
 const MAP_ACTION_PILL =
-  "absolute z-20 top-14 lg:top-2 flex items-center rounded-full " +
+  // top-16 on mobile clears the floating location pill (which starts 8px below
+  // the map's top edge and stands ~44px tall).
+  "absolute z-20 top-16 lg:top-2 flex items-center rounded-full " +
   "text-white text-[13px] lg:text-sm font-semibold px-3 lg:px-4 py-1.5 lg:py-2";
 
 function haversineKm(lat1: number, lng1: number, lat2: number, lng2: number): number {
@@ -273,6 +275,15 @@ export default function ExploreShell({
   const [pinCoords, setPinCoords] = useState<{ lat: number; lng: number } | null>(null);
   const [customModalOpen, setCustomModalOpen] = useState(false);
   const customModalMounted = useMountedOnce(customModalOpen);
+  // The wall behind the same button for everyone else. The action is on the map
+  // whatever your tier — hiding it meant the one feature that answers "my spot
+  // isn't on here" was invisible to exactly the people asking.
+  const [customUpgradeOpen, setCustomUpgradeOpen] = useState(false);
+  const customUpgradeMounted = useMountedOnce(customUpgradeOpen);
+  const handleCreateCustomSpot = useCallback(() => {
+    if (isPaid) setCustomMode(true);
+    else setCustomUpgradeOpen(true);
+  }, [isPaid]);
   const [customSpots, setCustomSpots] = useState<CustomSpotPin[]>([]);
 
   useEffect(() => {
@@ -1471,11 +1482,20 @@ export default function ExploreShell({
 
       {/* Mobile-only location header — floats over the top of the full-screen
           map (Zillow-style), just under the fixed top bar. Desktop shows the
-          same selector inside the rail. */}
+          same selector inside the rail.
+
+          An inset pill, not an edge-to-edge band: as a band it read as a second
+          header stacked under the top bar, and between the two of them a phone
+          gave up its first 110px before any water showed. The map already runs
+          underneath either way — this just lets it be seen. The outer div is
+          click-through so dragging the map beside the pill still works, and it
+          is what carries MAP_INSET_ATTR, so the camera keeps correcting for the
+          whole band the pill sits in. */}
       <div
         {...{ [MAP_INSET_ATTR]: "top" }}
-        className="lg:hidden absolute top-16 inset-x-0 z-20 bg-rc-panel border-b border-rc-rule"
+        className="lg:hidden pointer-events-none absolute top-16 inset-x-0 z-20 px-3 pt-2"
       >
+        <div className="pointer-events-auto rounded-xl border border-rc-rule bg-rc-panel/95 shadow-rc-panel backdrop-blur">
         <LocationSelector
           locations={data.locations}
           selectedCity={labelCity}
@@ -1485,7 +1505,11 @@ export default function ExploreShell({
           onSelectSpecies={handleSearchSelectSpecies}
           near={searchNear}
           onFilterClick={() => setFilterOpen(true)}
+          onAddSpot={
+            !customMode && !tierLoading ? handleCreateCustomSpot : undefined
+          }
         />
+        </div>
       </div>
 
       {/* The single map instance — full-screen on every breakpoint. Mobile
@@ -1518,24 +1542,10 @@ export default function ExploreShell({
           showReports={isPaid}
         />
 
-        {/* Pro-only "Create custom spot" action, top-right of the map.
-            Mobile has to clear the floating location header, which owns the
-            map's top band and puts the Filters button in this same corner;
-            desktop has no header there, so it rides at the rail's top edge
-            and mirrors the rail's 24px gutter on the other side. */}
-        {isPaid && !customMode && (
-          <button
-            type="button"
-            onClick={() => setCustomMode(true)}
-            className={`${MAP_ACTION_PILL} lg:hidden right-3 gap-1.5 bg-rc-brand hover:bg-rc-brand-hover shadow-md transition-colors`}
-          >
-            <MapPinPlus className="w-4 h-4 shrink-0" />
-            {/* The map band on a phone is only ~335px tall, so the full label
-                would sit over an eighth of it. Same action, shorter name. */}
-            <span className="lg:hidden">Add spot</span>
-            <span className="hidden lg:inline">Create custom spot</span>
-          </button>
-        )}
+        {/* The "Create custom spot" action no longer floats over the map: on
+            desktop it lives in the rail header, and on mobile/tablet it sits
+            beside the Filters button in the floating location header. Only the
+            placement banner remains over the map, while pin-drop is armed. */}
 
         {/* Placement banner while pin-drop mode is armed. It takes the button's
             exact slot rather than centring: the map box runs the full width,
@@ -1623,7 +1633,7 @@ export default function ExploreShell({
         onSpotHourHover={setScrubHour}
         onSetAlert={handleSetAlert}
         onCreateCustomSpot={
-          isPaid && !customMode ? () => setCustomMode(true) : undefined
+          !customMode && !tierLoading ? handleCreateCustomSpot : undefined
         }
         mapControls={{
           relief,
@@ -1645,7 +1655,10 @@ export default function ExploreShell({
       {/* Mobile-only station/buoy sheet — the rail (and its drawer slot) is
           desktop-only, so stations get a bottom sheet on small screens. */}
       {selectedStation && (
-        <div className="lg:hidden fixed inset-x-0 bottom-0 z-40 h-[60dvh] bg-rc-panel border-t border-rc-rule rounded-t-xl shadow-rc-panel overflow-hidden">
+        <div
+          style={{ bottom: "var(--rc-tabbar-clearance)" }}
+          className="lg:hidden fixed inset-x-0 z-40 h-[60dvh] bg-rc-panel border-t border-rc-rule rounded-t-xl shadow-rc-panel overflow-hidden"
+        >
           <StationDrawer
             pick={selectedStation}
             tz={MAP_TZ}
@@ -1713,6 +1726,18 @@ export default function ExploreShell({
         feature="alerts"
         from="explore"
         spotName={alertSpot?.name}
+      />
+      )}
+
+      {/* The wall behind "Create custom spot" for a free or signed-out angler.
+          Same modal and same plan matrix as every other wall on /explore, on
+          the row that actually got hit. */}
+      {customUpgradeMounted && (
+      <ProTrialModal
+        open={customUpgradeOpen}
+        onOpenChange={setCustomUpgradeOpen}
+        feature="custom-spots"
+        from="explore-map"
       />
       )}
     </div>

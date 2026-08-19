@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { headers } from "next/headers";
 import { Suspense } from "react";
 import { DEFAULT_OG, SITE_URL } from '@/lib/site';
 import {
@@ -17,6 +18,7 @@ import {
   hasPreferredDefaultCity,
   PREFERRED_DEFAULT_CITY,
 } from "./lib/explore-data";
+import { nearestOpeningCity, readVisitorPoint } from "./lib/opening-city";
 import { openingBbox, spotViewBox } from "./lib/viewport-bbox";
 import ExploreShell from "./explore-shell";
 
@@ -29,12 +31,16 @@ export const metadata: Metadata = {
   // Spelling it out here rendered "Explore | ReelCaster | ReelCaster".
   title: "Explore the Fishing Map",
   description:
-    "Interactive fishing map: browse covered spots in BC, WA, and OR with live scores, conditions, and the day's best windows.",
+    "Interactive fishing map: browse covered spots on the BC and Washington coasts with live scores, conditions, and the day's best windows.",
   alternates: { canonical: `${SITE_URL}/explore` },
   openGraph: {
-    title: "Explore the Fishing Map | ReelCaster",
+    // The card is a different channel from the SERP. Search wants the page
+    // described; a person glancing at a link in a text thread wants a reason to
+    // tap. The `description` above keeps the search wording, this replaces only
+    // what a share preview renders.
+    title: "See where the fish are biting today",
     description:
-      "Interactive fishing map: browse covered spots and see live RC scores.",
+      "Every fishing spot on the BC and Washington coasts, scored hour by hour on tides, weather, water conditions, and regulations. Pick your spot, then your window.",
     url: `${SITE_URL}/explore`,
     siteName: "ReelCaster",
     type: "website",
@@ -57,9 +63,10 @@ export default async function ExplorePage({
 }: {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
-  const [hierarchy, params] = await Promise.all([
+  const [hierarchy, params, headerList] = await Promise.all([
     fetchHierarchyLight(),
     searchParams,
+    headers(),
   ]);
 
   // ── The city the URL asked for ───────────────────────────────────────────
@@ -117,8 +124,39 @@ export default async function ExplorePage({
   // but falls back to the best-scoring city, and "best-scoring" cannot be known
   // without scores for every city. When the pilot city is covered — which is
   // the shipped configuration — the narrow path is the one that runs.
+  //
+  // ── Open on the visitor's nearest city, not on Victoria ──────────────────
+  //
+  // Three tiers, most specific first:
+  //   1. `?loc`, which is somebody naming a destination.
+  //   2. The covered city the visitor's IP would send them to — the nearest one
+  //      when they are near any of them, the nearest hub when they are not.
+  //      Seattle for an arrival from Seattle or from New York, Vancouver for
+  //      one from Calgary, Prince Rupert for one from Anchorage.
+  //   3. Victoria, for the arrivals that carry no position at all: `next dev`,
+  //      crawlers, uptime checks, anything on a data-centre IP.
+  //
+  // Tier 2 is the new one. Everyone used to get tier 3, so a Seattle angler's
+  // first frame was water in another country and the product's opening move was
+  // to make them pan out of it. See ./lib/opening-city.ts for why this reads an
+  // IP header rather than asking the browser, and why it carries no distance
+  // cap where the homepage's near-you section does.
+  //
+  // This costs nothing upstream: `readVisitorPoint` reads a header already on
+  // the request, and the snap runs against the hierarchy this page fetches
+  // anyway. It costs nothing at the CDN either — the route is already `ƒ` for
+  // reading `searchParams` (see the note above the return), so there is no
+  // shared cache entry here for one visitor's city to leak into another's.
+  // The fetches below stay keyed by city in the Data Cache, where Seattle's
+  // payload being shared between everyone who lands on Seattle is the point.
+  const visitor = readVisitorPoint(headerList, {
+    lat: typeof params.geo_lat === "string" ? params.geo_lat : null,
+    lng: typeof params.geo_lng === "string" ? params.geo_lng : null,
+  });
+
   const openingCity =
     coveredCitySlug(hierarchy, loc) ??
+    nearestOpeningCity(hierarchy, visitor) ??
     (hasPreferredDefaultCity(hierarchy) ? PREFERRED_DEFAULT_CITY : null);
 
   const payload = spotBox

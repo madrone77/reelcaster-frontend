@@ -4,6 +4,7 @@
  */
 
 import { isMixpanelEnabled, withMixpanel } from './mixpanel';
+import { readEntry, readPaid } from './attribution';
 import type { AnalyticsEventName, UserProperties } from '@/types/analytics';
 
 /**
@@ -202,4 +203,81 @@ export function trackError(
     component,
     timestamp: new Date().toISOString(),
   });
+}
+
+/**
+ * Stamp acquisition context onto every event this session will ever send.
+ *
+ * Super properties are the cheap half of campaign reporting: the app already
+ * emits a good event stream, and registering these makes every one of those
+ * events answerable by campaign without touching a single call site.
+ *
+ * Two registration modes, matching the two attribution models in
+ * src/lib/attribution.ts:
+ *
+ *   first_*  register_once — first touch, never overwritten, same contract as
+ *            the write-once rc_entry cookie it is read from.
+ *   paid_*   register — last paid touch wins, because the point of that record
+ *            is that the newest bought click is the one that closed the sale.
+ *
+ * What is deliberately NOT registered: the click id itself. gclid and fbclid
+ * are network-issued identifiers for a person, and the only thing that needs
+ * them is the server-side conversion upload. `*_click_type` says which network
+ * sold us the click, which is all the segmentation here needs and carries no
+ * identifier. Sending the id to a third-party analytics vendor would widen the
+ * blast radius of this data for no reporting gain.
+ *
+ * Safe to call on every navigation: it reads cookies and re-registers the same
+ * values, and `register_once` ignores the repeats.
+ */
+export function registerAcquisition(): void {
+  if (!isMixpanelEnabled()) return;
+
+  const entry = readEntry();
+  const paid = readPaid();
+  if (!entry && !paid) return;
+
+  const first: Record<string, string> = {};
+  if (entry) {
+    put(first, 'first_utm_source', entry.utm_source);
+    put(first, 'first_utm_medium', entry.utm_medium);
+    put(first, 'first_utm_campaign', entry.utm_campaign);
+    put(first, 'first_utm_content', entry.utm_content);
+    put(first, 'first_utm_term', entry.utm_term);
+    put(first, 'first_click_type', entry.click_type);
+    put(first, 'first_entry_path', entry.entry_path);
+    put(first, 'first_referrer', entry.referrer);
+    for (const [key, value] of Object.entries(entry.params ?? {})) {
+      put(first, `first_${key}`, value);
+    }
+  }
+
+  const last: Record<string, string> = {};
+  if (paid) {
+    put(last, 'paid_utm_source', paid.utm_source);
+    put(last, 'paid_utm_medium', paid.utm_medium);
+    put(last, 'paid_utm_campaign', paid.utm_campaign);
+    put(last, 'paid_utm_content', paid.utm_content);
+    put(last, 'paid_utm_term', paid.utm_term);
+    put(last, 'paid_click_type', paid.click_type);
+    put(last, 'paid_landing_path', paid.landing_path);
+    put(last, 'paid_at', paid.ts);
+    for (const [key, value] of Object.entries(paid.params ?? {})) {
+      put(last, `paid_${key}`, value);
+    }
+  }
+
+  withMixpanel((mixpanel) => {
+    try {
+      if (Object.keys(first).length > 0) mixpanel.register_once(first);
+      if (Object.keys(last).length > 0) mixpanel.register(last);
+    } catch (error) {
+      console.error('[Analytics] Acquisition register error:', error);
+    }
+  });
+}
+
+/** Skip empties, so an untagged visit does not fill Mixpanel with blank rows. */
+function put(target: Record<string, string>, key: string, value: string): void {
+  if (value) target[key] = value;
 }

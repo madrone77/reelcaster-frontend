@@ -8,6 +8,8 @@ import {
   LEGACY_MONTHLY_PRICE_CENTS,
 } from '@/lib/pricing';
 import { recordTrialGrant, recordTrialCardFingerprint } from '@/lib/trial';
+import { recordConversion } from '@/lib/conversions';
+import { uploadPendingConversions } from '@/lib/conversion-upload';
 import { findOrCreateUserForCheckout } from '@/lib/checkout-account';
 import { sendEmail } from '@/lib/email-service';
 import {
@@ -211,6 +213,26 @@ async function applySubscriptionToUser(subscription: Stripe.Subscription) {
 
   if (status === 'trialing') {
     await handleTrialingSubscription(subscription, resolvedUserId, tier);
+    // Value 0: nothing has been charged yet. The week-later payment is a
+    // separate conversion with the real amount on it.
+    //
+    // subscription.currency, NOT the price's. Pro is one multi-currency Price
+    // (CAD base with a USD currency_option on the same id, see lib/pricing),
+    // so price.currency reads 'cad' for an American buyer too and every US
+    // trial was reporting as Canadian. The subscription carries what the
+    // customer is actually billed in, which is also what the day-7 purchase
+    // row gets from invoice.currency — read the price here and one customer
+    // lands in two different currencies a week apart.
+    await recordConversion(admin, {
+      event: 'trial_start',
+      subscription,
+      userId: resolvedUserId,
+      valueCents: 0,
+      currency: subscription.currency ?? 'cad',
+      occurredAt: subscription.start_date
+        ? new Date(subscription.start_date * 1000).toISOString()
+        : new Date().toISOString(),
+    });
   }
 }
 
@@ -455,6 +477,29 @@ export async function POST(request: Request) {
           // longer a payment problem.
           const sub = await stripe.subscriptions.retrieve(subId);
           await applySubscriptionToUser(sub);
+
+          // The actualized paid conversion.
+          //
+          // Guarded on amount_paid: Stripe raises a $0 invoice when a trial
+          // begins, and that invoice succeeds. Without this check every trial
+          // would report a purchase on day zero, which is both wrong and
+          // exactly the number an ad network would then optimise towards.
+          //
+          // Renewals reach here too and are supposed to. The unique constraint
+          // in marketing_conversions makes the second one a no-op, because a
+          // renewal is retention rather than a new customer, and uploading it
+          // would tell Google the same ad bought the same person twice.
+          if ((invoice.amount_paid ?? 0) > 0) {
+            await recordConversion(admin, {
+              event: 'purchase',
+              subscription: sub,
+              userId: await resolveUserId(sub),
+              valueCents: invoice.amount_paid ?? 0,
+              currency: invoice.currency ?? 'cad',
+              occurredAt: new Date((invoice.created ?? Math.floor(Date.now() / 1000)) * 1000).toISOString(),
+              invoiceId: invoice.id ?? null,
+            });
+          }
         }
         break;
       }
@@ -465,6 +510,23 @@ export async function POST(request: Request) {
   } catch (err) {
     console.error('[stripe webhook] handler error', event.type, err);
     return NextResponse.json({ error: 'handler_failed' }, { status: 500 });
+  }
+
+  // Report the conversion onward while we are here, so the ad network learns
+  // about it in seconds rather than at the top of the next hour.
+  //
+  // Awaited, not fired and forgotten: this runs in a serverless function that
+  // stops executing the moment a response is returned, so a dangling promise
+  // would be killed mid-flight and the upload silently lost. Small limit to
+  // keep it well inside Stripe's timeout.
+  //
+  // Outside the try above and swallowed on its own, because reporting must
+  // never fail a webhook: a 500 here would have Stripe retry a subscription
+  // write that already succeeded.
+  try {
+    await uploadPendingConversions(admin, 5);
+  } catch (err) {
+    console.warn('[stripe webhook] conversion upload failed', err);
   }
 
   return NextResponse.json({ received: true });

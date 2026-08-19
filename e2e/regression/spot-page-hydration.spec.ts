@@ -62,5 +62,5 @@ test('the NOW label reflects the viewer clock, not the moment the page was cache
   await page.clock.install({ time: pinned });
 
   await page.goto(SPOT);
-  await expect(page.getByText(/NOW · 03:00/)).toBeVisible();
+  await expect(page.getByText(/NOW · 3 AM/)).toBeVisible();
 });

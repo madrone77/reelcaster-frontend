@@ -1,4 +1,3 @@
-import Link from 'next/link';
 import {
   ANNUAL_PER_MONTH_CENTS,
   ANNUAL_PRICE_CENTS,
@@ -70,12 +69,12 @@ export default function PricingSection() {
               custom alerts by email + SMS. Cancel anytime.
             </p>
             <div className="mt-auto pt-8">
-              <Link
-                href="/plans"
+              <TrialModalButton
+                from="marketing-pricing-pro"
                 className={btn.cardPrimary}
               >
                 Start {TRIAL_DAYS}-day free trial
-              </Link>
+              </TrialModalButton>
             </div>
           </div>
         </div>
