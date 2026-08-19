@@ -88,7 +88,7 @@ export default async function Lp6CityPage({
       card={card}
       treatment="instrument"
       showFlag
-      hero={<LpPhotoHero angle={angle} card={card} />}
+      hero={<LpPhotoHero angle={angle} card={card} market="us" />}
     />
   );
 }

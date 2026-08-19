@@ -2,7 +2,7 @@ import Image from "next/image";
 import type { Angle } from "./lp-angles";
 import LpScoreCard from "./lp-score-card";
 import type { LpCard } from "./lp-spot";
-import { heroFor } from "./lp-heroes";
+import { heroFor, type HeroMarket } from "./lp-heroes";
 
 /**
  * Photo-led hero, shared by /lp/3 and /lp/5. A full-bleed image carries the headline, and the
@@ -17,11 +17,15 @@ import { heroFor } from "./lp-heroes";
 export default function LpPhotoHero({
   angle,
   card,
+  market = "default",
 }: {
   angle: Angle;
   card: LpCard;
+  /** Which photography this page gets. /lp/6 asks for "us"; the variants that
+   *  serve both sides of the border stay on the neutral shot. */
+  market?: HeroMarket;
 }) {
-  const hero = heroFor(angle.id);
+  const hero = heroFor(angle.id, market);
 
   return (
     <section className="hero photo">
@@ -40,7 +44,10 @@ export default function LpPhotoHero({
               {angle.headline.lead} <span className="accent">{angle.headline.accent}</span>
             </h1>
             <p className="subhead">{angle.subhead}</p>
-            <p className="locality">Every spot around {card.cityName}, scored hour by hour.</p>
+            <p className="locality">
+              Every spot around {card.cityName}, scored hour by hour
+              {market === "us" ? " for the next 14 days" : ""}.
+            </p>
           </div>
         </div>
       </div>
