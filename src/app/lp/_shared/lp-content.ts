@@ -1,12 +1,18 @@
 import type { FeatureId } from "./lp-angles";
+import type { Regulator } from "@/lib/regions";
 import { ANNUAL_PRICE_CENTS, ANNUAL_PER_MONTH_CENTS, TRIAL_DAYS } from "@/lib/pricing";
 
 /**
- * Shared, city-independent page content for /lp/2 and /lp/3.
+ * Shared, city-independent page content for /lp/2, /lp/3 and /lp/4.
  *
  * The score card is NOT here any more — it is resolved per city in lp-spot.ts
  * from the city's top-scoring published spot. What remains is copy that is true
  * regardless of which city the route carries.
+ *
+ * "City-independent" stops at the border. The two strings that name a
+ * fisheries authority are built per region at the bottom of this file, because
+ * these pages sell in two countries and the authority is the one fact a
+ * regulations feature cannot be vague about.
  */
 
 /** Price strings derived from the single source of truth, never retyped. */
@@ -56,6 +62,8 @@ export const FEATURES: Record<FeatureId, Feature> = {
     id: "regulations",
     title: "Regulations, same screen",
     tag: null,
+    // Rewritten per region by regulationsDesc() below. This generic
+    // both-authorities line stays as the fallback.
     desc: "DFO and WDFW limits, sizes, and openings for your exact subarea — synced daily, next to the conditions.",
   },
   customSpots: {
@@ -101,11 +109,37 @@ export const PROOF: {
   },
 };
 
-/** The five signal layers behind the score, top row highlighted. */
-export const LAYERS = [
-  { label: "Today · Chinook", src: "Fresh catches", top: true },
-  { label: "Tide & current", src: "DFO stations", top: false },
-  { label: "Wind & pressure", src: "ECMWF · GFS", top: false },
-  { label: "Water temp & sky", src: "Buoys · NOAA", top: false },
-  { label: "Season & regulations", src: "PFMA · DFO", top: false },
-] as const;
+/**
+ * The five signal layers behind the score, top row highlighted.
+ *
+ * Two of them name a fisheries authority, and which one is right depends on
+ * the side of the border the city sits on. Tide predictions for a Washington
+ * spot come from NOAA rather than DFO stations, and its openings are Marine
+ * Areas under WDFW rather than PFMA subareas under DFO. These pages ran the
+ * Canadian strings in both countries, which put a false sourcing claim on
+ * every US page. The regulator itself comes from lib/regions, so there stays
+ * one place that knows which authority governs which region.
+ */
+export function layersFor(regulator: Regulator) {
+  const canadian = regulator.name === "DFO";
+  return [
+    { label: "Today · Chinook", src: "Fresh catches", top: true },
+    { label: "Tide & current", src: canadian ? "DFO stations" : "NOAA stations", top: false },
+    { label: "Wind & pressure", src: "ECMWF · GFS", top: false },
+    { label: "Water temp & sky", src: "Buoys · NOAA", top: false },
+    {
+      label: "Season & regulations",
+      src: `${regulator.areaLabel} · ${regulator.name}`,
+      top: false,
+    },
+  ];
+}
+
+/**
+ * The regulations feature, written for the region being sold rather than for
+ * both at once. Naming both authorities is accurate and vague; naming theirs
+ * is the claim that lands.
+ */
+export function regulationsDesc(regulator: Regulator): string {
+  return `${regulator.name} limits, sizes, and openings for your exact ${regulator.areaLabel} — synced daily, next to the conditions.`;
+}
