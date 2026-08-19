@@ -1,6 +1,6 @@
 /**
  * POST /api/attribution/signup
- *   → { ok: true, written: boolean, offer_claimed: boolean }
+ *   → { ok: true, written: boolean, offer_claimed: boolean, geo_written: boolean }
  *
  * Stamps "which wall earned this account, and how did they find us" onto
  * `user_settings`, reading the rc_wall / rc_entry cookies off the request.
@@ -22,6 +22,9 @@
  * skipped unless `attr_signup_at` is null (write-once) and the account itself
  * is younger than ACCOUNT_AGE_GRACE. Backfilling attribution onto old accounts
  * is worse than having none, because it looks like data.
+ *
+ * This route also stamps the account's coarse LOCATION (`geo_*`), which plays
+ * by different rules and is written separately below — see writeGeo().
  */
 
 import { NextRequest, NextResponse } from 'next/server';
@@ -92,6 +95,100 @@ function extraParams(c: CampaignParams): Record<string, string> | null {
 /** Matches MAX_FIELD in src/lib/cookies.ts; re-applied because the cookie lied. */
 const MAX_VALUE = 200;
 
+/**
+ * The account's location, as Vercel's edge resolved it from the connecting
+ * address before any of our code ran.
+ *
+ * THE IP ITSELF IS NEVER READ OR STORED. These headers are already a coarse
+ * place — country, subdivision, nearest city, and the city's centroid — so
+ * nothing here can be turned back into an address, and no geo-IP vendor is in
+ * the path. Absent outside production (localhost, `next build`), which is why
+ * every field is optional and a missing fix simply writes nothing.
+ */
+interface EdgeGeo {
+  country: string | null;
+  region: string | null;
+  city: string | null;
+  lat: number | null;
+  lng: number | null;
+}
+
+/** Header values are percent-encoded ("Port%20Angeles") and can be blank. */
+function geoHeader(request: NextRequest, name: string): string | null {
+  const raw = request.headers.get(name);
+  if (!raw) return null;
+  let value = raw;
+  try {
+    value = decodeURIComponent(raw);
+  } catch {
+    // A malformed escape is not worth dropping the whole fix over.
+  }
+  value = value.trim();
+  return value ? value.slice(0, MAX_VALUE) : null;
+}
+
+/**
+ * A blank header is not a coordinate: `Number('')` is 0, which reads as a
+ * perfectly valid fix at 0N 0E in the Gulf of Guinea. The explore opening-city
+ * snap shipped that bug once already; both halves are checked non-empty here
+ * before Number sees them.
+ */
+function geoCoord(request: NextRequest, name: string): number | null {
+  const raw = request.headers.get(name)?.trim();
+  if (!raw) return null;
+  const n = Number(raw);
+  return Number.isFinite(n) ? n : null;
+}
+
+function readGeo(request: NextRequest): EdgeGeo | null {
+  const geo: EdgeGeo = {
+    country: geoHeader(request, 'x-vercel-ip-country'),
+    region: geoHeader(request, 'x-vercel-ip-country-region'),
+    city: geoHeader(request, 'x-vercel-ip-city'),
+    lat: geoCoord(request, 'x-vercel-ip-latitude'),
+    lng: geoCoord(request, 'x-vercel-ip-longitude'),
+  };
+  // A fix with no country and no coordinates says nothing worth a write.
+  return geo.country || (geo.lat !== null && geo.lng !== null) ? geo : null;
+}
+
+/**
+ * Stamp the location, write-once, and deliberately NOT behind the account-age
+ * guard that protects attr_*.
+ *
+ * The two answer different questions. Attribution says "what earned this
+ * signup", so believing a months-old account's cookies would be fiction.
+ * Location says "where is this account", which is true whenever we first see
+ * it — so an account that predates these columns fills in on its owner's next
+ * sign-in rather than staying blank forever. `geo_captured_at` records which
+ * of the two happened; read it against `created_at` before calling a location
+ * an origin.
+ *
+ * Failure is logged and swallowed: a location is a nice-to-have, and failing
+ * the request over it would cost the attribution write that follows.
+ */
+async function writeGeo(userId: string, geo: EdgeGeo): Promise<boolean> {
+  const { data, error } = await admin
+    .from('user_settings')
+    .update({
+      geo_country: geo.country,
+      geo_region: geo.region,
+      geo_city: geo.city,
+      geo_lat: geo.lat,
+      geo_lng: geo.lng,
+      geo_captured_at: new Date().toISOString(),
+    })
+    .eq('user_id', userId)
+    .is('geo_captured_at', null)
+    .select('user_id');
+
+  if (error) {
+    console.error('[attribution] geo write failed', error);
+    return false;
+  }
+  return (data?.length ?? 0) > 0;
+}
+
 export async function POST(request: NextRequest) {
   const token = request.headers.get('authorization')?.replace(/^Bearer\s+/i, '');
   if (!token) {
@@ -116,7 +213,13 @@ export async function POST(request: NextRequest) {
   const paid = readPaid(cookieHeader);
   const offer = readOffer(cookieHeader);
 
-  if (!wall && !entry && !paid && !offer) {
+  // Location rides on the request, not on a cookie, so it survives the cases
+  // that leave us with no attribution at all — a browser blocking storage, an
+  // in-app browser that dropped the referrer. Those visitors are precisely the
+  // ones the roster otherwise cannot place at all.
+  const geo = readGeo(request);
+
+  if (!wall && !entry && !paid && !offer && !geo) {
     return NextResponse.json({ ok: true, written: false, reason: 'no_attribution' });
   }
 
@@ -130,6 +233,9 @@ export async function POST(request: NextRequest) {
     console.error('[attribution] could not ensure user_settings row', ensureError);
     return NextResponse.json({ error: 'write_failed' }, { status: 500 });
   }
+
+  // Before every guard below, because none of them apply to a location.
+  const geoWritten = geo ? await writeGeo(user.id, geo) : false;
 
   // Offer claims are recorded BEFORE the account-age guard, and survive it.
   //
@@ -164,6 +270,7 @@ export async function POST(request: NextRequest) {
       ok: true,
       written: false,
       offer_claimed: offerClaimed,
+      geo_written: geoWritten,
       reason: 'account_too_old',
     });
   }
@@ -173,6 +280,7 @@ export async function POST(request: NextRequest) {
       ok: true,
       written: false,
       offer_claimed: offerClaimed,
+      geo_written: geoWritten,
       reason: 'no_attribution',
     });
   }
@@ -232,5 +340,6 @@ export async function POST(request: NextRequest) {
     ok: true,
     written: (data?.length ?? 0) > 0,
     offer_claimed: offerClaimed,
+    geo_written: geoWritten,
   });
 }
