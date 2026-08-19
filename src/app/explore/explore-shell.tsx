@@ -1527,7 +1527,7 @@ export default function ExploreShell({
           <button
             type="button"
             onClick={() => setCustomMode(true)}
-            className={`${MAP_ACTION_PILL} right-3 lg:right-6 gap-1.5 bg-rc-brand hover:bg-rc-brand-hover shadow-md transition-colors`}
+            className={`${MAP_ACTION_PILL} lg:hidden right-3 gap-1.5 bg-rc-brand hover:bg-rc-brand-hover shadow-md transition-colors`}
           >
             <MapPinPlus className="w-4 h-4 shrink-0" />
             {/* The map band on a phone is only ~335px tall, so the full label
@@ -1622,6 +1622,9 @@ export default function ExploreShell({
         onCloseStation={handleCloseStation}
         onSpotHourHover={setScrubHour}
         onSetAlert={handleSetAlert}
+        onCreateCustomSpot={
+          isPaid && !customMode ? () => setCustomMode(true) : undefined
+        }
         mapControls={{
           relief,
           labels,
