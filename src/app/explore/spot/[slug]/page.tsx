@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { fetchHierarchy, fetchMapSpots, fetchSpotLivePage } from "@/lib/bluecaster";
-import { breadcrumbJsonLd, DEFAULT_OG, SITE_URL, siteUrl } from "@/lib/site";
+import { breadcrumbJsonLd, SITE_URL, siteUrl } from "@/lib/site";
 import { findCityForSpot } from "@/app/fishing/lib/fishing-data";
 import { provinceCodeFromName, timezoneFor } from "@/lib/regions";
 import SpotDetailShell from "./spot-detail-shell";
@@ -34,14 +34,6 @@ const BRAND_SUFFIX_LENGTH = " | ReelCaster".length;
 // prose; only the snippet is budgeted.
 const DESCRIPTION_BUDGET = 160;
 
-// The share card is not bound by the SERP budget above. Facebook, iMessage and
-// Slack all render well past 160 characters, and these intros overwhelmingly
-// finish their first sentence between 160 and 200. Measured over the 121
-// published spots that have an intro, budgeting the card at 160 left 66 of them
-// ending mid-phrase ("over mixed bottom in 15 to…"); at 200 that drops to 12.
-// The SERP snippet keeps the tighter budget, so this only widens the card.
-const OG_DESCRIPTION_BUDGET = 200;
-
 // The card title is a question, so it has to survive a long spot name without
 // running past what Facebook and iMessage render.
 const OG_TITLE_BUDGET = 65;
@@ -64,21 +56,25 @@ function cardSpeciesName(name: string): string {
 }
 
 /**
- * Trim `text` to a snippet budget on a sentence boundary.
+ * Trim `text` to the snippet budget on a sentence boundary.
  *
  * Prefers ending on the last sentence that fits, so the snippet reads as a
  * complete thought. Falls back to a word boundary with an ellipsis when the
  * first sentence alone is already over budget.
+ *
+ * Only the SERP description uses this now. The share card took a widened
+ * budget for a while so its text would stop cutting mid-phrase; it no longer
+ * derives from `seoIntro` at all, so the budget went with it.
  */
-function snippet(text: string, budget: number = DESCRIPTION_BUDGET): string {
+function snippet(text: string): string {
   const clean = text.replace(/\s+/g, " ").trim();
-  if (clean.length <= budget) return clean;
+  if (clean.length <= DESCRIPTION_BUDGET) return clean;
 
-  const sentenceEnd = clean.lastIndexOf(". ", budget);
+  const sentenceEnd = clean.lastIndexOf(". ", DESCRIPTION_BUDGET);
   if (sentenceEnd > 0) return clean.slice(0, sentenceEnd + 1);
 
-  const wordEnd = clean.lastIndexOf(" ", budget - 1);
-  return `${clean.slice(0, wordEnd > 0 ? wordEnd : budget - 1)}…`;
+  const wordEnd = clean.lastIndexOf(" ", DESCRIPTION_BUDGET - 1);
+  return `${clean.slice(0, wordEnd > 0 ? wordEnd : DESCRIPTION_BUDGET - 1)}…`;
 }
 
 // Prerender the published spots. On-demand rendering makes Next stream
@@ -175,7 +171,10 @@ export async function generateMetadata({
       // A spot page is a place, not a piece of writing — `article` invited
       // article-shaped expectations (author, published date) it never meets.
       type: "website",
-      ...DEFAULT_OG,
+      // No `images` here on purpose. This route has its own
+      // `opengraph-image.tsx`, and an explicit `images` entry in metadata beats
+      // the file convention, so spreading DEFAULT_OG would pin every spot back
+      // to the one site-wide card this route exists to replace.
     },
     robots: { index: true, follow: true },
   };
