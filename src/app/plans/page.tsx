@@ -72,9 +72,9 @@ const PLANS_BREADCRUMBS = breadcrumbJsonLd([
 // reason the Offer markup does: the description can't promise a number the page
 // doesn't show.
 const PRICE_SENTENCE = ANNUAL_SELLABLE
-  ? `${dollars(ANNUAL_PRICE_CENTS)} a year — ${dollars(
+  ? `${dollars(ANNUAL_PRICE_CENTS)} a year, ${dollars(
       ANNUAL_PER_MONTH_CENTS,
-    )} a month — after a ${TRIAL_DAYS}-day free trial.`
+    )} a month, after a ${TRIAL_DAYS}-day free trial.`
   : 'Pricing is temporarily unavailable.';
 
 export const metadata: Metadata = {
@@ -144,7 +144,7 @@ const FAQ: { q: string; a: React.ReactNode }[] = [
     q: 'Is there a monthly plan?',
     a: (
       <>
-        No — one plan, {dollars(ANNUAL_PRICE_CENTS)} for the year, which works
+        No. One plan, {dollars(ANNUAL_PRICE_CENTS)} for the year, which works
         out to {dollars(ANNUAL_PER_MONTH_CENTS)} a month. Splitting that into
         monthly billing would cost you more and cost us more to run, so we
         don’t. Cancel anytime and the rest of the year still works.
@@ -235,7 +235,7 @@ export default function PlansPage() {
               {trialSellable ? (
                 <>
                   Free for {TRIAL_DAYS} days, then{' '}
-                  {dollars(ANNUAL_PRICE_CENTS)} a year —{' '}
+                  {dollars(ANNUAL_PRICE_CENTS)} a year,{' '}
                   {dollars(ANNUAL_PER_MONTH_CENTS)} a month. Cancel anytime, and
                   you keep your free account.
                 </>
@@ -430,8 +430,8 @@ export default function PlansPage() {
           </Link>
           {trialSellable && (
             <p className="mt-4 text-xs text-rc-ink-mute">
-              {dollars(ANNUAL_PRICE_CENTS)} a year —{' '}
-              {dollars(ANNUAL_PER_MONTH_CENTS)} a month — after the trial.
+              {dollars(ANNUAL_PRICE_CENTS)} a year,{' '}
+              {dollars(ANNUAL_PER_MONTH_CENTS)} a month, after the trial.
               Cancel anytime.
             </p>
           )}

@@ -46,13 +46,13 @@ export const GUIDES: Guide[] = [
     id: 'read-a-score',
     title: 'Read a fishing score',
     summary:
-      'What the 0–100 number actually means, which factors moved it, and how to find the best window in a day.',
+      'What the 0-100 number actually means, which factors moved it, and how to find the best window in a day.',
     minutes: 4,
     steps: [
       {
         title: 'Start with the tier, not the digits',
         detail:
-          'Scores band into three tiers: 75 and above is good, 55–74 is fair, below 55 is poor. The difference between a 78 and an 81 is noise; the difference between a 78 and a 51 is your Saturday. Read the colour first.',
+          'Scores band into three tiers: 75 and above is good, 55-74 is fair, below 55 is poor. The difference between a 78 and an 81 is noise; the difference between a 78 and a 51 is your Saturday. Read the colour first.',
       },
       {
         title: 'Find the best window',
@@ -131,7 +131,7 @@ export const GUIDES: Guide[] = [
       {
         title: 'Set the threshold higher than feels right',
         detail:
-          'A threshold of 60 on a good spot fires most weeks and you will stop reading them. Start at 78–80. You can always lower it; you cannot un-train yourself to ignore the emails.',
+          'A threshold of 60 on a good spot fires most weeks and you will stop reading them. Start at 78-80. You can always lower it; you cannot un-train yourself to ignore the emails.',
       },
       {
         title: 'Use the cooldown',
@@ -321,7 +321,7 @@ export const ARTICLES: Article[] = [
     topic: 'Forecasts & scores',
     tags: ['score', '0-100', 'tier', 'rating'],
     answer:
-      'It is a 0–100 estimate of how favourable conditions are for the selected species at that spot in that hour. 75 and above is good, 55–74 is fair, below 55 is poor. It is per-hour, not per-day, so read the hourly bars: a spot that averages 60 but spikes to 85 for two hours is often the better trip.',
+      'It is a 0-100 estimate of how favourable conditions are for the selected species at that spot in that hour. 75 and above is good, 55-74 is fair, below 55 is poor. It is per-hour, not per-day, so read the hourly bars: a spot that averages 60 but spikes to 85 for two hours is often the better trip.',
   },
   {
     id: 'missing-factor-charts',
@@ -480,7 +480,7 @@ export const CHANGELOG: ChangelogEntry[] = [
     tag: 'Improved',
     title: 'One price, and Apple Pay at the paywall',
     detail:
-      'Pro is now a single plan — $33 a year, which is $2.75 a month — instead of a monthly/yearly choice. You can also start a trial with Apple Pay or Google Pay without leaving the page. Anyone already billing monthly stays on their existing plan and price.',
+      'Pro is now a single plan, $33 a year, which is $2.75 a month, instead of a monthly/yearly choice. You can also start a trial with Apple Pay or Google Pay without leaving the page. Anyone already billing monthly stays on their existing plan and price.',
   },
   {
     date: '2026-07-30',

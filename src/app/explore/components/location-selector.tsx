@@ -351,7 +351,7 @@ export default function LocationSelector({
 
         {searching && truncated && groups.length > 0 && (
           <div className="px-3 py-2 text-[11px] text-rc-ink-mute border-t border-rc-rule mt-1">
-            Showing the closest matches — keep typing to narrow.
+            Showing the closest matches. Keep typing to narrow.
           </div>
         )}
       </div>

@@ -34,7 +34,7 @@ export function FreshCatchBadge({
       "inline-flex shrink-0 items-center gap-1 rounded bg-rc-surface px-1.5 py-0.5 font-rc-mono text-[9px] uppercase tracking-[0.06em] text-rc-ink-mute";
     if (!onUnlock) {
       return (
-        <span title="Catch reports tracked here — see them with Pro" className={cls}>
+        <span title="Catch reports tracked here, see them with Pro" className={cls}>
           <Lock className="h-2.5 w-2.5" />
           Reports
         </span>
@@ -43,7 +43,7 @@ export function FreshCatchBadge({
     return (
       <button
         type="button"
-        title="Catch reports tracked here — see them with Pro"
+        title="Catch reports tracked here, see them with Pro"
         aria-label="Unlock fresh catch reports"
         onClick={(e) => {
           e.preventDefault();

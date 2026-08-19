@@ -9,6 +9,8 @@
  * which is what sends this.
  */
 
+import { siteUrl } from '@/lib/site';
+
 const SANS =
   "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif";
 const BRAND = '#1E40E0';
@@ -27,7 +29,7 @@ function shell(bodyHtml: string, preheader: string): string {
         ${bodyHtml}
         <tr><td style="padding-top:28px;border-top:1px solid ${RULE};color:${INK_MUTE};font-size:12px;line-height:18px;">
           ReelCaster · Manage or cancel your subscription anytime from
-          <a href="https://www.reelcaster.com/profile" style="color:${BRAND};">your account</a>.
+          <a href="${siteUrl('/profile')}" style="color:${BRAND};">your account</a>.
         </td></tr>
       </table>
     </td></tr>
@@ -39,36 +41,131 @@ function button(href: string, label: string): string {
   return `<a href="${href}" style="display:inline-block;background:${BRAND};color:#FFFFFF;text-decoration:none;font-weight:600;font-size:15px;padding:12px 24px;border-radius:8px;">${label}</a>`;
 }
 
+/**
+ * The charge date, as the customer's calendar shows it.
+ *
+ * The timezone is pinned. Without it this renders in whatever zone the process
+ * happens to be in, which is UTC on Vercel and something else on a laptop, and
+ * a trial ending at 00:43 UTC is the previous evening in Vancouver. Getting
+ * that wrong by a day on a notice that legally has to state when the card is
+ * charged is not a rounding error. Pacific covers the whole customer base
+ * (BC and Washington), so it is the honest one to show.
+ */
 function formatDate(iso: string): string {
   return new Date(iso).toLocaleDateString('en-CA', {
     weekday: 'long',
     month: 'long',
     day: 'numeric',
+    timeZone: 'America/Vancouver',
   });
 }
 
-/** Sent 3 days before the trial converts. Must state date and amount. */
+/**
+ * What the account has actually set up, so the day-4 note can say something
+ * true instead of a generic nudge. Both counts come from the database at send
+ * time; see src/lib/trial-reminder.ts.
+ */
+export interface TrialSetupState {
+  savedSpots: number;
+  activeAlerts: number;
+}
+
+function plural(n: number, one: string, many: string): string {
+  return n === 1 ? one : many;
+}
+
+/**
+ * The soft-touch half of the day-4 email.
+ *
+ * A trial that ends with nobody having saved a spot did not fail at the price,
+ * it failed at the setup, and a billing notice on its own does not fix that.
+ * So the email opens by saying where the account actually got to and points at
+ * the one thing left undone. The primary button changes with it: someone who
+ * has nothing saved should not be sent to a subscription screen.
+ */
+function checkIn(setup: TrialSetupState): {
+  html: string;
+  ctaHref: string;
+  ctaLabel: string;
+} {
+  const { savedSpots: spots, activeAlerts: alerts } = setup;
+
+  if (spots === 0) {
+    return {
+      html: `You have not saved a spot yet, so Pro has not had much to work with.
+        Star the water you actually fish and everything else keys off it: the
+        14-day forecast, the alerts, the catch log.`,
+      ctaHref: siteUrl('/explore'),
+      ctaLabel: 'Find your spots',
+    };
+  }
+
+  if (alerts === 0) {
+    return {
+      html: `You have ${spots} ${plural(spots, 'spot', 'spots')} saved. No alerts yet
+        though, and that is the part that works while you are not looking. Pick a
+        spot, set the score you would get out of bed for, and we message you when
+        the week turns.`,
+      ctaHref: siteUrl('/notifications'),
+      ctaLabel: 'Set up an alert',
+    };
+  }
+
+  return {
+    html: `${spots} ${plural(spots, 'spot', 'spots')} saved and ${alerts}
+      ${plural(alerts, 'alert', 'alerts')} running. That is the setup doing its
+      job, so you should be hearing from us when your water turns on.`,
+    ctaHref: siteUrl('/dashboard'),
+    ctaLabel: 'Open your dashboard',
+  };
+}
+
+/**
+ * Sent 3 days before the trial converts. Must state the date and the amount.
+ *
+ * `setup` is optional so a caller that could not read the counts still sends a
+ * valid notice rather than none. Missing the check-in is a worse email; missing
+ * the email is a compliance problem.
+ */
 export function trialEndingEmail(params: {
   trialEndsAt: string;
   amountLabel: string; // e.g. "$33"
+  setup?: TrialSetupState;
 }): { subject: string; html: string } {
   const date = formatDate(params.trialEndsAt);
+  const check = params.setup ? checkIn(params.setup) : null;
+
+  const primaryHref = check ? check.ctaHref : siteUrl('/profile');
+  const primaryLabel = check ? check.ctaLabel : 'Manage subscription';
+
   return {
     subject: `Your ReelCaster Pro trial ends ${date}`,
     html: shell(
       `<tr><td>
-        <h1 style="margin:0 0 16px;font-size:22px;line-height:30px;color:${INK};">Your trial ends ${date}</h1>
+        <h1 style="margin:0 0 16px;font-size:22px;line-height:30px;color:${INK};">Three days left on your trial</h1>
+        ${
+          check
+            ? `<p style="margin:0 0 16px;font-size:15px;line-height:24px;color:${INK_SOFT};">${check.html}</p>`
+            : ''
+        }
         <p style="margin:0 0 16px;font-size:15px;line-height:24px;color:${INK_SOFT};">
-          On ${date} we'll charge the card on file <strong>${params.amountLabel} for one year</strong> of ReelCaster Pro,
+          On ${date} we will charge the card on file <strong>${params.amountLabel} for one year</strong> of ReelCaster Pro,
           and your 14-day forecasts, private spots, and alerts keep running.
         </p>
         <p style="margin:0 0 24px;font-size:15px;line-height:24px;color:${INK_SOFT};">
-          If Pro isn't for you, cancel before then and you won't be charged. Your account stays:
-          you keep your spots, your catch log, and your 7-day forecast for free.
+          If Pro is not for you, cancel before then and you will not be charged. Your account stays:
+          you keep your spots, your catch log, and your 7-day forecast for free.${
+            check
+              ? ` <a href="${siteUrl('/profile')}" style="color:${BRAND};">Manage your subscription</a>.`
+              : ''
+          }
         </p>
-        <p style="margin:0 0 8px;">${button('https://www.reelcaster.com/profile', 'Manage subscription')}</p>
+        <p style="margin:0 0 20px;">${button(primaryHref, primaryLabel)}</p>
+        <p style="margin:0;font-size:14px;line-height:22px;color:${INK_MUTE};">
+          Stuck on something, or not sure how to set an alert up? Reply to this email and a person will read it.
+        </p>
       </td></tr>`,
-      `We'll charge ${params.amountLabel} on ${date} unless you cancel.`,
+      `We will charge ${params.amountLabel} on ${date} unless you cancel.`,
     ),
   };
 }
@@ -91,7 +188,7 @@ export function paymentFailedEmail(params: {
         <p style="margin:0 0 24px;font-size:15px;line-height:24px;color:${INK_SOFT};">
           Update your card and we'll retry automatically.
         </p>
-        <p style="margin:0 0 8px;">${button('https://www.reelcaster.com/profile', 'Update payment method')}</p>
+        <p style="margin:0 0 8px;">${button(siteUrl('/profile'), 'Update payment method')}</p>
       </td></tr>`,
       `Pro stays on until ${date}. Update your card to keep it.`,
     ),
@@ -115,7 +212,7 @@ export function trialUnavailableEmail(params: {
           You're welcome to subscribe at ${params.amountLabel} a year whenever you like, and if you think
           this is a mistake (a shared card will do it), just reply to this email and we'll sort it out.
         </p>
-        <p style="margin:0 0 8px;">${button('https://www.reelcaster.com/plans', 'See Pro pricing')}</p>
+        <p style="margin:0 0 8px;">${button(siteUrl('/plans'), 'See Pro pricing')}</p>
       </td></tr>`,
       'No charge was made.',
     ),
@@ -145,14 +242,14 @@ export function compGrantedEmail(params: {
         <h1 style="margin:0 0 16px;font-size:22px;line-height:30px;color:${INK};">Pro is switched on</h1>
         <p style="margin:0 0 16px;font-size:15px;line-height:24px;color:${INK_SOFT};">
           ${span} ReelCaster Pro is now on your account: 14-day forecasts, your own private
-          spots, and alerts when conditions line up. Nothing else to do — sign in and it's there.
+          spots, and alerts when conditions line up. Nothing else to do. Sign in and it's there.
         </p>
         <p style="margin:0 0 24px;font-size:15px;line-height:24px;color:${INK_SOFT};">
           It runs until <strong>${date}</strong>. We never took a card, so there's nothing to
           cancel and nothing will be charged. On that date the account goes back to free and
           keeps your spots and your catch log.
         </p>
-        <p style="margin:0 0 8px;">${button('https://www.reelcaster.com/explore', 'Open the map')}</p>
+        <p style="margin:0 0 8px;">${button(siteUrl('/explore'), 'Open the map')}</p>
       </td></tr>`,
       `Pro is on your account until ${date}. No card, nothing to cancel.`,
     ),
@@ -172,13 +269,13 @@ export function checkoutSignInEmail(actionLink: string): {
   text: string;
 } {
   return {
-    subject: 'Your ReelCaster Pro is ready — sign in',
+    subject: 'Your ReelCaster Pro is ready. Sign in.',
     html: shell(
       `<tr><td>
         <h1 style="margin:0 0 16px;font-size:22px;line-height:30px;color:${INK};">You're on Pro</h1>
         <p style="margin:0 0 16px;font-size:15px;line-height:24px;color:${INK_SOFT};">
           Your payment went through and Pro is on this email address. Use the button below to
-          sign in — no password needed.
+          sign in, no password needed.
         </p>
         <p style="margin:0 0 24px;font-size:15px;line-height:24px;color:${INK_MUTE};">
           The link works once and expires shortly, so open it on the device you want to fish from.

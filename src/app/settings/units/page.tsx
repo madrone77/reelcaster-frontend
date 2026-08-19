@@ -92,7 +92,7 @@ export default function UnitsSettingsPage() {
               <div className="rc-label text-[10px] text-rc-brand">Settings</div>
               <h1 className="text-2xl font-bold text-rc-ink mt-1">Units</h1>
               <p className="text-sm text-rc-ink-soft mt-1.5 max-w-prose">
-                How measurements read across the app. Mix freely — metres for tide,
+                How measurements read across the app. Mix freely, metres for tide,
                 feet for depth, knots for wind. Changes apply instantly.
               </p>
             </div>

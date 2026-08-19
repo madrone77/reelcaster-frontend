@@ -141,7 +141,7 @@ export function buildReliefStyle(origin: string): Record<string, unknown> {
   // layers are ODbL and must credit OpenStreetMap contributors. Identical
   // strings are deduped by the control, so all plain-OSM sources share one.
   const ATTR_BATHY =
-    "Bathymetry: CHS NONNA-10 & NRCan — Contains information licensed under the Open Government Licence – Canada";
+    "Bathymetry: CHS NONNA-10 & NRCan. Contains information licensed under the Open Government Licence - Canada";
   const ATTR_OSM = "© OpenStreetMap contributors (ODbL)";
   return {
     version: 8,
@@ -167,12 +167,12 @@ export function buildReliefStyle(origin: string): Record<string, unknown> {
       subareas: {
         type: "geojson",
         data: asset("dfo_subareas_salish.geojson"),
-        attribution: "DFO Pacific Fishery Management Areas — Open Government Licence – Canada",
+        attribution: "DFO Pacific Fishery Management Areas, Open Government Licence - Canada",
       },
       rca: {
         type: "geojson",
         data: asset("rca_salish.geojson"),
-        attribution: "Rockfish Conservation Areas — Fisheries and Oceans Canada, Pacific Region",
+        attribution: "Rockfish Conservation Areas, Fisheries and Oceans Canada, Pacific Region",
       },
       // WA-side counterparts (WDFW): marine-area grid (analog of DFO subareas),
       // MPAs (analog of RCAs). Source: WDFW ArcGIS services.

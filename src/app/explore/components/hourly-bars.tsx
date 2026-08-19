@@ -265,5 +265,5 @@ export function bestWindow(hours: (number | null)[]): {
   }
   if (!best) return { window: null, label: null };
   const fmt = (h: number) => formatHour12(h);
-  return { window: best, label: `${fmt(best[0])}–${fmt(best[1] + 1)}` };
+  return { window: best, label: `${fmt(best[0])}-${fmt(best[1] + 1)}` };
 }

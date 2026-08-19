@@ -44,11 +44,11 @@ export const metadata: Metadata = {
 const FAQS: Array<{ q: string; a: string }> = [
   {
     q: "Do I need a license to fish in Washington?",
-    a: "From age 16, yes. Anglers 15 and younger need no license at all — but they do still need a catch record card for salmon, steelhead, sturgeon, halibut or Puget Sound Dungeness crab, and that trips up a lot of families.",
+    a: "From age 16, yes. Anglers 15 and younger need no license at all, but they do still need a catch record card for salmon, steelhead, sturgeon, halibut or Puget Sound Dungeness crab, and that trips up a lot of families.",
   },
   {
     q: "Does a saltwater license cover crab and clams?",
-    a: "No, and this is the most expensive assumption in Washington. Finfish and shellfish are sold as separate licenses: a saltwater license covers salmon, halibut and bottomfish, while crab, clams, oysters and seaweed need a shellfish/seaweed license. A combination license covers both. If you also want to crab in Puget Sound you need a third thing on top — the Puget Sound Dungeness crab endorsement.",
+    a: "No, and this is the most expensive assumption in Washington. Finfish and shellfish are sold as separate licenses: a saltwater license covers salmon, halibut and bottomfish, while crab, clams, oysters and seaweed need a shellfish/seaweed license. A combination license covers both. If you also want to crab in Puget Sound you need a third thing on top: the Puget Sound Dungeness crab endorsement.",
   },
   {
     q: "Which license should I buy if I do a bit of everything?",
@@ -56,11 +56,11 @@ const FAQS: Array<{ q: string; a: string }> = [
   },
   {
     q: "How long is a Washington fishing license valid?",
-    a: `The license year runs ${LICENCE_YEAR.start} to ${LICENCE_YEAR.end} — not twelve months from purchase. It is the same license year British Columbia uses, so if you fish both sides of the border, both licenses expire on the same night.`,
+    a: `The license year runs ${LICENCE_YEAR.start} to ${LICENCE_YEAR.end}, not twelve months from purchase. It is the same license year British Columbia uses, so if you fish both sides of the border, both licenses expire on the same night.`,
   },
   {
     q: "What is a catch record card and do I need one?",
-    a: "It is a harvest record you must carry and fill in for salmon, steelhead, sturgeon, halibut and Puget Sound Dungeness crab. You record each fish or crab before you carry on fishing or redeploy your gear — not at the end of the day. You must also return the card by its deadline even if you caught nothing, or never went out at all.",
+    a: "It is a harvest record you must carry and fill in for salmon, steelhead, sturgeon, halibut and Puget Sound Dungeness crab. You record each fish or crab before you carry on fishing or redeploy your gear, not at the end of the day. You must also return the card by its deadline even if you caught nothing, or never went out at all.",
   },
   {
     q: "Can I use my phone instead of a paper catch record card?",
@@ -68,11 +68,11 @@ const FAQS: Array<{ q: string; a: string }> = [
   },
   {
     q: "Do I need a Discover Pass to go fishing?",
-    a: "You need something to park on WDFW land. Most annual licenses include a free Vehicle Access Pass covering WDFW wildlife areas and water access sites — but an annual razor clam or shellfish/seaweed license does not include one. A Discover Pass ($51.50 a year, $11.50 a day) covers those sites plus state parks and DNR land.",
+    a: "You need something to park on WDFW land. Most annual licenses include a free Vehicle Access Pass covering WDFW wildlife areas and water access sites, but an annual razor clam or shellfish/seaweed license does not include one. A Discover Pass ($51.50 a year, $11.50 a day) covers those sites plus state parks and DNR land.",
   },
   {
     q: "Is there free fishing in Washington?",
-    a: "One weekend each June — June 6–7 in 2026. The catch is how much it excludes: you still need a license for salmon, steelhead, sturgeon, halibut and all shellfish, and catch record cards are still required. It genuinely covers trout, bass, perch and most bottomfish. Every other rule — seasons, size limits, bag limits, closures — still applies.",
+    a: "One weekend each June, June 6-7 in 2026. The catch is how much it excludes: you still need a license for salmon, steelhead, sturgeon, halibut and all shellfish, and catch record cards are still required. It genuinely covers trout, bass, perch and most bottomfish. Every other rule still applies: seasons, size limits, bag limits, closures.",
   },
   {
     q: "I have a BC licence. Does it work in Washington?",
@@ -118,9 +118,9 @@ const LICENCE_TYPES = [
   },
   {
     icon: Waves,
-    title: "Salt water — finfish",
+    title: "Salt water: finfish",
     covers:
-      "Marine Areas 1–13. Salmon, halibut, lingcod, rockfish and other bottomfish.",
+      "Marine Areas 1-13. Salmon, halibut, lingcod, rockfish and other bottomfish.",
     product: "Saltwater license",
     price: "$40.71/yr resident",
   },
@@ -187,7 +187,7 @@ export default function WaFishingLicensePage() {
               Fees verified {VERIFIED_ON} against WDFW.
             </span>
             <span>
-              License year {LICENCE_YEAR.start} – {LICENCE_YEAR.end}.
+              License year {LICENCE_YEAR.start} to {LICENCE_YEAR.end}.
             </span>
           </p>
 
@@ -256,7 +256,7 @@ export default function WaFishingLicensePage() {
                 </p>
                 <p className="mt-2">
                   If you also fish north of the border, note that BC works the
-                  opposite way — one tidal licence covers finfish and shellfish
+                  opposite way, because one tidal licence covers finfish and shellfish
                   together. See the{" "}
                   <Link
                     href="/fishing-licence/bc"
@@ -314,7 +314,7 @@ export default function WaFishingLicensePage() {
             Washington residents who want all three should compare the total
             against the Fish Washington package ($101.88), which bundles them
             with a combination license.{" "}
-            <Source href={SOURCES.endorsements}>WDFW — endorsements</Source>.
+            <Source href={SOURCES.endorsements}>WDFW: endorsements</Source>.
           </p>
         </section>
 
@@ -324,7 +324,7 @@ export default function WaFishingLicensePage() {
           <p className="mt-4 text-[15px] md:text-base leading-relaxed text-rc-ink-soft">
             Required for salmon, steelhead, sturgeon, halibut and Puget Sound
             Dungeness crab. Two rules do most of the damage: you record a fish{" "}
-            <em>before you carry on fishing</em>, not at the end of the day —
+            <em>before you carry on fishing</em>, not at the end of the day.
             and for crab, before you redeploy your gear.
           </p>
 
@@ -361,7 +361,7 @@ export default function WaFishingLicensePage() {
               no deadline to forget. Paper cards are still valid if you prefer
               them.{" "}
               <Source href={SOURCES.catchRecordCard}>
-                WDFW — catch record cards
+                WDFW: catch record cards
               </Source>
               .
             </p>
@@ -382,17 +382,17 @@ export default function WaFishingLicensePage() {
           <SectionHeading id="parking">Parking: the pass you also need</SectionHeading>
           <p className="mt-4 text-[15px] md:text-base leading-relaxed text-rc-ink-soft">
             A license lets you fish. It does not, on its own, let you leave the
-            car anywhere — and a ticket at a boat ramp is the most avoidable
+            car anywhere, and a ticket at a boat ramp is the most avoidable
             cost in Washington fishing.
           </p>
           <ul className="mt-5 space-y-3">
             {[
               [
-                "Vehicle Access Pass — free with most annual licenses",
-                "Covers WDFW wildlife areas and water access sites, and works on two vehicles. It comes with any annual fishing license EXCEPT an annual razor clam or shellfish/seaweed license — buy only one of those two and you get no pass at all.",
+                "Vehicle Access Pass: free with most annual licenses",
+                "Covers WDFW wildlife areas and water access sites, and works on two vehicles. It comes with any annual fishing license EXCEPT an annual razor clam or shellfish/seaweed license. Buy only one of those two and you get no pass at all.",
               ],
               [
-                "Discover Pass — $51.50 a year, $11.50 a day",
+                "Discover Pass: $51.50 a year, $11.50 a day",
                 "Covers the WDFW sites plus Washington State Parks and DNR land. Both prices include the processing fee. Worth it if you park anywhere beyond WDFW's own sites, or if your license type doesn't include the free pass.",
               ],
             ].map(([term, detail]) => (
@@ -406,7 +406,7 @@ export default function WaFishingLicensePage() {
             ))}
           </ul>
           <p className="mt-4 text-[13px] leading-relaxed text-rc-ink-mute">
-            <Source href={SOURCES.parking}>WDFW — parking and access passes</Source>.
+            <Source href={SOURCES.parking}>WDFW: parking and access passes</Source>.
           </p>
         </section>
 
@@ -423,7 +423,7 @@ export default function WaFishingLicensePage() {
                 takes phone orders on 360-902-2464.
               </>,
               <>
-                Pick your license — combination unless you are certain you only
+                Pick your license, combination unless you are certain you only
                 want one water type. Residency is where you live; there is no
                 senior or youth discount for non-residents.
               </>,
@@ -434,11 +434,11 @@ export default function WaFishingLicensePage() {
               </>,
               <>
                 Add your catch record cards if you will fish salmon, steelhead,
-                sturgeon, halibut or Puget Sound crab — including cards for any
+                sturgeon, halibut or Puget Sound crab, including cards for any
                 under-16s fishing with you.
               </>,
               <>
-                Buying online or by phone can take 10–15 days for the license to
+                Buying online or by phone can take 10-15 days for the license to
                 arrive in the mail, so do not leave it to the night before.
                 Temporary licenses are emailed immediately if your account has
                 an address on file.
@@ -510,19 +510,19 @@ export default function WaFishingLicensePage() {
               <span className="font-medium text-rc-ink">
                 Free Fishing Weekend.
               </span>{" "}
-              One weekend each June — 6–7 June in 2026 — you can fish without a
+              One weekend each June, 6-7 June in 2026, you can fish without a
               license, and the Discover Pass is waived too. It does{" "}
               <em>not</em> cover salmon, steelhead, sturgeon, halibut or any
               shellfish, catch record cards are still required, and every other
               rule still applies.{" "}
-              <Source href={SOURCES.freeFishing}>WDFW — Free Fishing Weekend</Source>
+              <Source href={SOURCES.freeFishing}>WDFW: Free Fishing Weekend</Source>
               .
             </p>
           </div>
 
           <p className="mt-6 rounded-xl border border-rc-rule bg-rc-surface p-5 text-[13px] leading-relaxed text-rc-ink-mute">
             This page is a plain-language reference, not legal advice, and fees
-            and rules change. WDFW is the authority — every figure here links
+            and rules change. WDFW is the authority. Every figure here links
             back to the page it came from. Verified {VERIFIED_ON}.
           </p>
         </section>

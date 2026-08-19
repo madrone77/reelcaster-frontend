@@ -124,7 +124,7 @@ export default function SpotTypeahead({
           autoFocus={autoFocus}
           onChange={(e) => setQuery(e.target.value)}
           onKeyDown={onKeyDown}
-          placeholder="Search a spot — Pedder Bay, Constance Bank…"
+          placeholder="Search a spot: Pedder Bay, Constance Bank…"
           aria-label="Search for your home spot"
           className="w-full min-h-11 rounded-lg border border-rc-rule bg-white pl-9 pr-9 py-2.5 text-sm text-rc-ink placeholder:text-rc-ink-mute focus:outline-none focus:ring-2 focus:ring-rc-brand focus:border-rc-brand"
         />
@@ -139,7 +139,7 @@ export default function SpotTypeahead({
             <li className="px-3 py-3 text-sm text-rc-ink-soft">
               No spots match “{query.trim()}”
               {provinceFilter ? ` in ${provinceFilter}` : ""}. Try a nearby bay
-              or bank — or skip this and pin one from the map later.
+              or bank, or skip this and pin one from the map later.
             </li>
           ) : (
             results.map((r, i) => (

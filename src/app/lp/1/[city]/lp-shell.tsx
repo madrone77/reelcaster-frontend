@@ -308,7 +308,7 @@ export default function LpShell(props: LpShellProps) {
             </h1>
             <p className="lede">
               Reelcaster turns tides, weather, water and regulations into one
-              score — so you know exactly when and where to fish {props.city}.
+              score, so you know exactly when and where to fish {props.city}.
             </p>
             <div className="cta-row">
               <a className="btn btn-primary btn-lg" href="/signup">
@@ -388,7 +388,7 @@ export default function LpShell(props: LpShellProps) {
               Down to the hour.
             </h2>
             <p>
-              See the days worth taking off — and the exact window to be on the
+              See the days worth taking off, and the exact window to be on the
               water.
             </p>
           </div>
@@ -434,7 +434,7 @@ export default function LpShell(props: LpShellProps) {
               don&apos;t have to.
             </h2>
             <p>
-              Bottom structure, live currents, wind — the conditions that
+              Bottom structure, live currents, wind: the conditions that
               actually move fish, on one live map. Pan, zoom, and filter by
               species.
             </p>
@@ -466,7 +466,7 @@ export default function LpShell(props: LpShellProps) {
               <span className="label">Fresh catch · the differentiator</span>
               <h2>They&apos;re already catching. You&apos;ll know where.</h2>
               <p>
-                Fresh reports from the water near you — pulled in daily, pinned
+                Fresh reports from the water near you, pulled in daily, pinned
                 to the spot they belong to.
               </p>
             </div>
@@ -550,7 +550,7 @@ export default function LpShell(props: LpShellProps) {
             <div className="tile">
               <h3>Never miss the window</h3>
               <p>
-                Get an alert when your spot fires — or when a fresh catch lands
+                Get an alert when your spot fires, or when a fresh catch lands
                 nearby.
               </p>
             </div>

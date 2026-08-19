@@ -80,7 +80,7 @@ export default function FirstYearClaim() {
       <p className="mt-1.5 text-sm text-rc-ink-soft">
         We switch these on by hand, so it isn&apos;t instant. You&apos;ll get an
         email the moment your free year is live. Your account works in the
-        meantime — the map, today&apos;s scores, and your catch log are all
+        meantime, the map, today&apos;s scores, and your catch log are all
         open.
       </p>
       <Link

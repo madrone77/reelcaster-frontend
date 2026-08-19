@@ -151,7 +151,7 @@ function BillingSuccessInner() {
           // owning an inbox) or the one-time handoff was already used.
           <div className="mt-6 text-sm leading-relaxed text-rc-ink-soft">
             Your subscription is active. We&apos;ve emailed you a sign-in
-            link — open it and you&apos;re in. No password needed.
+            link. Open it and you&apos;re in. No password needed.
           </div>
         ) : polling ? (
           <div className="mt-6 inline-flex items-center gap-2 text-sm text-rc-ink-mute">

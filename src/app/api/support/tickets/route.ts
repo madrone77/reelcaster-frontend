@@ -177,7 +177,7 @@ export async function POST(request: NextRequest) {
   const subject = typeof raw.subject === 'string' ? raw.subject.trim() : '';
   if (subject.length < SUBJECT_MIN || subject.length > SUBJECT_MAX) {
     return NextResponse.json(
-      { error: `Subject must be ${SUBJECT_MIN}–${SUBJECT_MAX} characters` },
+      { error: `Subject must be ${SUBJECT_MIN}-${SUBJECT_MAX} characters` },
       { status: 400 },
     );
   }

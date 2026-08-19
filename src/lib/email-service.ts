@@ -8,6 +8,12 @@ export interface SendEmailParams {
   subject: string;
   html: string;
   from?: string;
+  /**
+   * Where a reply actually goes. The default From is a noreply address, so any
+   * email whose copy invites a reply has to set this or it is telling the
+   * customer something untrue.
+   */
+  replyTo?: string;
 }
 
 export interface SendEmailResult {
@@ -23,7 +29,7 @@ export interface SendEmailResult {
  */
 export async function sendEmail(params: SendEmailParams): Promise<SendEmailResult> {
   try {
-    const { to, subject, html, from = 'ReelCaster <noreply@reelcaster.com>' } = params;
+    const { to, subject, html, replyTo, from = 'ReelCaster <noreply@reelcaster.com>' } = params;
 
     // If RESEND_API_KEY is not set, log to console (development mode)
     if (!process.env.RESEND_API_KEY) {
@@ -44,6 +50,7 @@ export async function sendEmail(params: SendEmailParams): Promise<SendEmailResul
       to: Array.isArray(to) ? to : [to],
       subject,
       html,
+      ...(replyTo ? { replyTo } : {}),
     });
 
     if (error) {

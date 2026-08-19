@@ -30,7 +30,7 @@ export const VERIFIED_ON = "10 August 2026";
  * expire on the same night.
  */
 export const LICENCE_YEAR = {
-  label: "2026–27",
+  label: "2026-27",
   start: "1 April 2026",
   end: "31 March 2027",
 } as const;
@@ -62,7 +62,7 @@ export const SOURCES = {
  * products on WDFW's page.
  */
 export const ANNUAL_FEES: FeeTable = {
-  columns: ["Resident 16–69", "Non-resident", "Senior 70+", "Disabled"],
+  columns: ["Resident 16-69", "Non-resident", "Senior 70+", "Disabled"],
   rows: [
     { term: "Combination", prices: ["$74.37", "$170.00", "$28.83", "$12.89"] },
     { term: "Freshwater", prices: ["$39.95", "$115.85", "$9.59", "—"] },
@@ -72,7 +72,7 @@ export const ANNUAL_FEES: FeeTable = {
     { term: "Fish Washington", prices: ["$101.88", "—", "$49.85", "$47.98"] },
   ],
   notes: [
-    "Anglers 15 and younger need no license at all — but they still need a catch record card for the species that require one.",
+    "Anglers 15 and younger need no license at all, but they still need a catch record card for the species that require one.",
     "Combination covers freshwater, saltwater and shellfish/seaweed together. Bought separately those three come to $102.24, so the combination saves a resident $27.87.",
     "There is no non-resident senior or youth rate; visitors pay the full non-resident price at every age over 15.",
   ],
@@ -89,7 +89,7 @@ export const SHORT_TERM_FEES: FeeTable = {
   ],
   notes: [
     "Short-term licenses are combinations, so a visitor fishing one weekend does not have to guess between freshwater and saltwater.",
-    "For a non-resident, three separate 3-day licenses ($144.90) cost nearly as much as the annual combination ($170.00) — worth doing the arithmetic if you visit more than twice a year.",
+    "For a non-resident, three separate 3-day licenses ($144.90) cost nearly as much as the annual combination ($170.00). Worth doing the arithmetic if you visit more than twice a year.",
   ],
 };
 
@@ -125,7 +125,7 @@ export const ENDORSEMENTS: Endorsement[] = [
       { label: "Senior 70+", value: "$8.09" },
     ],
     detail:
-      "Required from age 16 to fish two poles at once. Valid on most freshwater lakes and ponds and a handful of river sections and marine areas — but NOT in saltwater generally, and not in rivers, streams or beaver ponds unless that water is specifically listed. Check the regulations for the water you are on before rigging a second rod.",
+      "Required from age 16 to fish two poles at once. Valid on most freshwater lakes and ponds and a handful of river sections and marine areas, but NOT in saltwater generally, and not in rivers, streams or beaver ponds unless that water is specifically listed. Check the regulations for the water you are on before rigging a second rod.",
   },
   {
     name: "Columbia River salmon & steelhead",
@@ -161,13 +161,13 @@ export const CATCH_CARDS: CatchCardRule[] = [
       "One fish card covers all four. Record each retained fish before you carry on fishing. A card endorsed for halibut costs $7.59; without halibut it is free.",
   },
   {
-    species: "Puget Sound Dungeness crab — summer",
+    species: "Puget Sound Dungeness crab, summer",
     deadline: "Return by 1 October",
     detail:
       "A separate card from the fish card, and it needs the crab endorsement alongside it. Record each crab before you redeploy your gear.",
   },
   {
-    species: "Puget Sound Dungeness crab — winter",
+    species: "Puget Sound Dungeness crab, winter",
     deadline: "Return by 1 February",
     detail:
       "The winter season carries its own card and its own deadline. Missing a crab report attracts a $10 penalty on your next license purchase.",

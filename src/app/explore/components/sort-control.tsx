@@ -8,7 +8,7 @@ export type SortKey = "score" | "name";
 
 export const SORT_LABEL: Record<SortKey, string> = {
   score: "Best score",
-  name: "Name A–Z",
+  name: "Name A-Z",
 };
 
 /** Rail-local presentation sort (never reorders the map / forecast anchor). */
