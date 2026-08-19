@@ -39,6 +39,22 @@ export interface Angle {
    * Left undefined on region-neutral angles, which is most of them.
    */
   eyebrowUs?: string;
+  /**
+   * Replacement subhead for American water, applied only by /lp/6.
+   *
+   * The shared subheads were written to work on either side of the border, so
+   * they reach for neutral phrasing like "your local waters". These say the
+   * mechanism out loud instead: exchange, slack, the two-week span. That is
+   * what an experienced Puget Sound boater is actually listening for, and it
+   * is the same argument the instrument treatment makes further down the page.
+   *
+   * Deliberately free of place names. /lp/6 serves Bellingham and Friday
+   * Harbor as well as Seattle, and those are Salish Sea and San Juans rather
+   * than Puget Sound proper, so a hardcoded basin here would be wrong on two
+   * of its three cities. Locality is carried by the line under the subhead,
+   * which is built from the resolved city.
+   */
+  subheadUs?: string;
   /** Split so the second half can carry the accent colour. */
   headline: { lead: string; accent: string };
   subhead: string;
@@ -61,6 +77,8 @@ export const ANGLES: Angle[] = [
     headline: { lead: "Know the exact hours", accent: "to fish." },
     subhead:
       "Tide, current, wind and pressure, combined into one 0-100 score for your local water and updated through the day.",
+    subheadUs:
+      "Tide exchange, current slack, wind and pressure on one 0-100 score. Every spot on your water, every hour, two weeks out.",
     features: [
       "forecast14",
       "alerts",
@@ -80,6 +98,8 @@ export const ANGLES: Angle[] = [
     headline: { lead: "Stop burning Saturdays", accent: "on a dead tide." },
     subhead:
       "Most trips fail before the boat leaves the ramp. One score tells you whether today is worth the fuel, and which day this week actually is.",
+    subheadUs:
+      "A dead tide burns the same fuel as a good one. One score tells you whether today is worth the run, and which day this week actually is.",
     features: [
       "alerts",
       "forecast14",
@@ -100,6 +120,8 @@ export const ANGLES: Angle[] = [
     headline: { lead: "Twenty years of local knowledge,", accent: "on your phone." },
     subhead:
       "The guys who always limit out are reading tide, current, and season. ReelCaster reads all of it for every spot near you, every hour.",
+    subheadUs:
+      "The guys who always limit out are reading the exchange, the current and the season. ReelCaster reads all of it, for every spot near you, every hour.",
     features: [
       "customSpots",
       "regulations",
@@ -119,6 +141,8 @@ export const ANGLES: Angle[] = [
     headline: { lead: "Get a text", accent: "when the bite turns on." },
     subhead:
       "Set your spot and your threshold. We watch tide, weather, and water around the clock and message you when your window opens.",
+    subheadUs:
+      "Set your spot and your number. We watch tide, current and weather around the clock and text you the moment your window opens.",
     features: [
       "alerts",
       "customSpots",
@@ -159,6 +183,10 @@ export function angleFrom(
  * change signed-off copy on pages that are not running this test.
  */
 export function localizeAngle(angle: Angle, region: { isUS: boolean }): Angle {
-  if (!region.isUS || !angle.eyebrowUs) return angle;
-  return { ...angle, eyebrow: angle.eyebrowUs };
+  if (!region.isUS) return angle;
+  return {
+    ...angle,
+    eyebrow: angle.eyebrowUs ?? angle.eyebrow,
+    subhead: angle.subheadUs ?? angle.subhead,
+  };
 }
