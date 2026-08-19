@@ -3,7 +3,8 @@ import { notFound } from "next/navigation";
 import { angleFrom } from "../../_shared/lp-angles";
 import { resolveLpCard } from "../../_shared/lp-spot";
 import LpShell from "../../_shared/lp-shell";
-import { lpCheckoutHref } from "../../_shared/lp-checkout";
+import { PRICE } from "../../_shared/lp-content";
+import { lpCheckoutHref, trialChargeDate } from "../../_shared/lp-checkout";
 import Lp2Hero from "./hero";
 
 /**
@@ -90,6 +91,8 @@ export default async function Lp2CityPage({
       checkoutHref={checkoutHref}
       year={new Date().getFullYear()}
       card={card}
+      from={`lp2-${angle.id}`}
+      chargeDate={trialChargeDate(PRICE.trialDays)}
       hero={<Lp2Hero angle={angle} card={card} />}
     />
   );

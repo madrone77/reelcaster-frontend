@@ -30,3 +30,25 @@ export function lpCheckoutHref(variant: string, angleId: string, card: LpCard): 
   if (card.provinceCode) params.set("region", card.provinceCode);
   return `/plans/checkout?${params.toString()}`;
 }
+
+/**
+ * The date the first charge lands, rendered on the server.
+ *
+ * Computed here rather than in the form because the form is a client
+ * component: reading a clock during a client render is what makes a date a
+ * hydration mismatch. These pages render per request (they read searchParams
+ * for the angle), so this is never served stale.
+ *
+ * en-CA with an explicit Pacific timezone, because every covered city is on
+ * Pacific time and the alternative is a date that flips at the server's
+ * midnight rather than the customer's.
+ */
+export function trialChargeDate(trialDays: number): string {
+  const d = new Date();
+  d.setDate(d.getDate() + trialDays);
+  return d.toLocaleDateString("en-CA", {
+    month: "long",
+    day: "numeric",
+    timeZone: "America/Vancouver",
+  });
+}

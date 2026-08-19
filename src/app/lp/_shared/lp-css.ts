@@ -154,6 +154,32 @@ export const LP_CSS = `
   .lp .price-plain b{font-weight:800;color:var(--navy)}
   .lp .price-anchor{text-align:center;font-size:13px;color:var(--muted);margin-top:4px}
 
+  /* ---------- inline trial form (the CTA is the checkout now) ---------- */
+  .lp .lp-form{display:block}
+  /* The label is for screen readers and autofill. Sighted readers get the
+     placeholder plus the button, which is the whole point of moving this
+     onto the page: one field, not a form. */
+  .lp .lp-form-label{position:absolute;width:1px;height:1px;padding:0;margin:-1px;
+    overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;border:0}
+  /* 16px minimum: anything smaller makes iOS Safari zoom the viewport on
+     focus, which on a paid landing page reads as the page breaking. */
+  .lp .lp-form-input{display:block;width:100%;min-height:52px;margin-bottom:10px;
+    padding:0 16px;font-size:16px;font-family:var(--sans);color:var(--ink);
+    background:#fff;border:1.5px solid var(--line);border-radius:12px;
+    -webkit-appearance:none;appearance:none}
+  .lp .lp-form-input::placeholder{color:#9AA2B4}
+  .lp .lp-form-input:focus{outline:none;border-color:var(--blue);
+    box-shadow:0 0 0 3px rgba(36,71,224,.15)}
+  .lp .lp-form-input:disabled{background:var(--bg);color:var(--muted)}
+  .lp .lp-form .btn:disabled{opacity:.65}
+  .lp .lp-form-terms{margin-top:10px;font-size:12.5px;line-height:1.5;color:var(--muted);
+    text-align:center}
+  .lp .lp-form-error{margin-top:10px;font-size:13px;color:var(--poor);text-align:center}
+  .lp .lp-form-error a{color:var(--poor);text-decoration:underline}
+  /* On the closing band the ground is dark, so the muted greys invert. */
+  .lp .final .lp-form-terms{color:rgba(255,255,255,.72)}
+  .lp .final .lp-form-input{border-color:transparent}
+
   /* ---------- feature stack ---------- */
   .lp .feature{display:flex;gap:16px;padding:20px 0;border-bottom:1px solid var(--line)}
   .lp .feature:last-child{border-bottom:none}
