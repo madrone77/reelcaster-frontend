@@ -96,7 +96,7 @@ We ingest publicly available fishing reports and discussion from public forums a
 | Authentication | Session cookie that keeps you logged in | No. The Service will not work without it. |
 | Preferences | Local storage holding your units, map view, and settings | Yes, by clearing site data. Your preferences will reset. |
 | Analytics | Mixpanel, using local storage and a device identifier | Yes. See Section 11. |
-| Advertising | Google AdSense cookies and identifiers | Yes. See Section 8 and Section 11.2. |
+| Advertising | Google AdSense cookies and identifiers, and Meta pixel cookies (`_fbp`, `_fbc`) | Yes. See Section 8 and Section 11.2. |
 
 We honour the **Global Privacy Control (GPC)** browser signal as a valid opt out of the sale or sharing of personal information where the law requires us to.
 
@@ -153,6 +153,7 @@ We do not sell your personal information. We disclose it in these circumstances 
 | Mixpanel | Product analytics | United States |
 | Anthropic | Automated analysis of catch photos | United States |
 | Google | Advertising, and app store billing where applicable | United States |
+| Meta | Advertising measurement and audiences | United States |
 | Apple | App store billing where applicable | United States |
 
 **To other users**, only what you choose to share, and only with the people you choose to share it with.
@@ -167,9 +168,13 @@ Parts of the Service display advertising served by **Google AdSense**. Google an
 
 **Under the California Consumer Privacy Act, this counts as "sharing" personal information for cross-context behavioural advertising, and in some readings as a "sale."** You have the right to opt out. See Section 11.2.
 
+We also advertise on **Meta** (Facebook and Instagram). To measure whether those ads work, we report two things back to Meta: that a free trial started, and that a subscription was paid for. This happens two ways. A pixel on our site sets cookies (`_fbp`, `_fbc`) in your browser. Separately, our servers send Meta the same two events directly, because the first payment happens a week after the trial begins, when your browser is no longer involved.
+
+**We do not send Meta your name, email address, phone number, catch logs, photos, spot coordinates, or location.** What the server sends is the identifier Meta itself attached to the ad click that brought you here, the amount paid, and the currency.
+
 We do not provide advertisers with your email address, phone number, catch logs, photos, spot coordinates, or precise location.
 
-You can also manage Google's own ad personalization at [google.com/settings/ads](https://google.com/settings/ads).
+You can manage Google's own ad personalization at [google.com/settings/ads](https://google.com/settings/ads), and Meta's at [facebook.com/adpreferences](https://www.facebook.com/adpreferences).
 
 ## 9. Cross-Border Transfer and Storage
 
