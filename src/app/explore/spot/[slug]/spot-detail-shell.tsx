@@ -49,6 +49,7 @@ import CurrentRegulations from "../components/current-regulations";
 import ScoreFactors from "../components/score-factors";
 import { useFavorite } from "../../lib/use-favorite";
 import { useHomeSpot } from "../../lib/use-home-spot";
+import { resolveSea } from "../../lib/sea-state";
 import SpotTerminal from "../components/spot-terminal";
 import SpotMiniMap from "../components/spot-mini-map";
 import ScoreCard from "../components/score-card";
@@ -434,13 +435,23 @@ export default function SpotDetailShell({
         { length: 24 },
         (_, i) => (g[i]?.[key] ?? null) as number | null,
       );
+    // Sea state falls back to a wind-derived estimate hour by hour: the wave grid
+    // has dry-land cells (Point Robinson never gets a wave height at all) and its
+    // wave partition also runs out around day 10, which used to blank the row.
+    // `seaEst` flags which hours are inferred so the chart can say so.
+    const wind = pick("windKt");
+    const gust = pick("windGustKt");
+    const seaRead = Array.from({ length: 24 }, (_, i) =>
+      resolveSea(g[i]?.waveM ?? null, wind[i], gust[i]),
+    );
     return {
       score: hours24,
       tide: pick("tideM"),
-      wind: pick("windKt"),
-      gust: pick("windGustKt"),
+      wind,
+      gust,
       windDir: pick("windDirDeg"),
-      sea: pick("waveM"),
+      sea: seaRead.map((r) => r?.m ?? null),
+      seaEst: seaRead.map((r) => r?.estimated ?? false),
       cloud: pick("cloudPct"),
       precip: pick("precipMm"),
       air: pick("airTempC"),
