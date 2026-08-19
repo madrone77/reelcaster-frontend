@@ -6,20 +6,25 @@ import LpShell from "../../_shared/lp-shell";
 import LpPhotoHero from "../../_shared/lp-photo-hero";
 
 /**
- * /lp/3/[city] — /lp/2/[city] with a photo hero.
+ * /lp/5/[city] — /lp/3 with the instrument treatment.
  *
- * This is a one-variable test against /lp/2: identical copy angles, identical
- * CTA, identical body, identical price and trial terms. The only difference is
- * that the headline sits over a full-bleed photograph instead of over white,
- * with the score card pulled up across the seam.
+ * A one-variable test against /lp/3: same photo hero, same angles, same score
+ * card, same price and trial terms, same city resolution. The only thing that
+ * moves is how the body is dressed, which is what `treatment="instrument"`
+ * selects in lp-shell.
  *
- * Because everything except the hero is the same shared component, a copy edit
- * lands on both pages at once and the pair cannot drift apart mid-flight —
- * which is the usual reason a landing-page A/B ends up unreadable.
+ * The pitch it is testing is that experienced Salish Sea and Puget Sound
+ * boaters read a generic feature list as a beginner's app. They already own
+ * plotters and sounders and already read tide, current and pressure by hand,
+ * so the thing that earns their attention is naming the signals out loud:
+ * current slack rather than "tides", pressure trend, moon phase, and the
+ * rigger depth saved against a logged fish. The glyphs follow the same idea,
+ * drawn as instrument faces rather than as a bell and a calendar.
  *
- * ⚠️ The photo is stock, not fishing photography we own. See the note in
- * heroes.ts before spending on this variant: the hero is the whole point of the
- * test, and stock is probably not the image that wins it.
+ * Everything it claims is a real column (ConditionsV1, migration 093).
+ * Deliberately absent, having been checked rather than assumed: offline
+ * caching, which does not exist in this app, and HRRR, which is not a model we
+ * run. A landing page for this audience survives exactly one false claim.
  *
  * noindex comes from src/app/lp/layout.tsx.
  */
@@ -47,7 +52,7 @@ export async function generateMetadata({
   };
 }
 
-export default async function Lp3CityPage({
+export default async function Lp5CityPage({
   params,
   searchParams,
 }: {
@@ -60,9 +65,9 @@ export default async function Lp3CityPage({
   const card = await resolveLpCard(slug);
   if (!card) notFound();
 
-  // lp3- rather than lp2-, so the hero variant is distinguishable from the
-  // angle in the attribution columns.
-  const checkoutHref = `/plans/checkout?from=lp3-${angle.id}`;
+  // lp5- so the treatment is distinguishable from both the hero variant and
+  // the angle in the attribution columns.
+  const checkoutHref = `/plans/checkout?from=lp5-${angle.id}`;
 
   return (
     <LpShell
@@ -70,6 +75,7 @@ export default async function Lp3CityPage({
       checkoutHref={checkoutHref}
       year={new Date().getFullYear()}
       card={card}
+      treatment="instrument"
       hero={<LpPhotoHero angle={angle} card={card} />}
     />
   );

@@ -3,7 +3,9 @@
 import { useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import type { Angle } from "./lp-angles";
-import { FEATURES, LAYERS, PRICE, PROOF } from "./lp-content";
+import { buildFeatures, buildLayers, PRICE, PROOF, type LpTreatment } from "./lp-content";
+import { lpRegionFor } from "./lp-region";
+import LpFlagUs from "./lp-flag";
 import type { LpCard } from "./lp-spot";
 import { LP_CSS } from "./lp-css";
 
@@ -19,8 +21,11 @@ import { LP_CSS } from "./lp-css";
  * two diverging files.
  */
 
-/** Feature thumbnail art, keyed by feature id. */
-const THUMBS: Record<string, React.ReactElement> = {
+/**
+ * Classic feature art, keyed by feature id. The signed-off /lp/2 and /lp/3
+ * set: light line icons on a white tile.
+ */
+const CLASSIC_THUMBS: Record<string, React.ReactElement> = {
   forecast14: (
     <svg width="40" height="40" viewBox="0 0 40 40" fill="none" aria-hidden="true">
       <rect x="4" y="22" width="4" height="12" rx="1" fill="#D8DCEA" />
@@ -77,12 +82,111 @@ const THUMBS: Record<string, React.ReactElement> = {
   ),
 };
 
+/**
+ * Feature glyphs, keyed by feature id.
+ *
+ * Drawn as marine instrument faces rather than the usual bell / calendar /
+ * pencil set. The audience here runs chartplotters and sounders, and a thin
+ * generic icon row is the fastest way to tell them this is a novelty app for
+ * beginners. Each glyph shows the actual output of its feature: a score
+ * sparkline, a message with a live dot, a management-area shield, a waypoint
+ * reticle over depth contours, a logged data point against a tide curve.
+ *
+ * Set on a dark slate tile (see .f-thumb in lp-css.ts) so they read as
+ * instrument panels at 44px on a phone, which is the only size that matters
+ * for this traffic.
+ */
+const STROKE = "#7FE3D0";
+const DIM = "#4A5A85";
+
+const INSTRUMENT_THUMBS: Record<string, React.ReactElement> = {
+  // Fourteen bars of score, the shape of the outlook itself.
+  forecast14: (
+    <svg width="40" height="40" viewBox="0 0 40 40" fill="none" aria-hidden="true">
+      {[26, 22, 15, 11, 17, 24, 28, 21, 13, 9, 14, 20, 25, 29].map((y, i) => (
+        <rect
+          key={i}
+          x={3 + i * 2.5}
+          y={y}
+          width="1.6"
+          height={34 - y}
+          rx="0.8"
+          fill={y <= 13 ? STROKE : DIM}
+        />
+      ))}
+      <path d="M3 34h34" stroke={DIM} strokeWidth="1" strokeLinecap="round" />
+    </svg>
+  ),
+  // A message with a live dot, not a notification bell.
+  alerts: (
+    <svg width="40" height="40" viewBox="0 0 40 40" fill="none" aria-hidden="true">
+      <path
+        d="M6 12a4 4 0 0 1 4-4h20a4 4 0 0 1 4 4v11a4 4 0 0 1-4 4H17l-7 5v-5a4 4 0 0 1-4-4z"
+        stroke={STROKE}
+        strokeWidth="1.5"
+        strokeLinejoin="round"
+      />
+      <circle cx="13" cy="14.5" r="2" fill="#4ADE80" />
+      <path d="M18 14.5h12M12 21h14" stroke={DIM} strokeWidth="1.5" strokeLinecap="round" />
+    </svg>
+  ),
+  // A management-area shield: the authority, not a generic checkbox.
+  regulations: (
+    <svg width="40" height="40" viewBox="0 0 40 40" fill="none" aria-hidden="true">
+      <path
+        d="M20 5l12 4v11c0 7-5 12.5-12 15-7-2.5-12-8-12-15V9z"
+        stroke={STROKE}
+        strokeWidth="1.5"
+        strokeLinejoin="round"
+      />
+      <path
+        d="M14 20.5l4.5 4.5L27 16"
+        stroke="#4ADE80"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  ),
+  // A waypoint reticle sitting over depth contours.
+  customSpots: (
+    <svg width="40" height="40" viewBox="0 0 40 40" fill="none" aria-hidden="true">
+      <path d="M3 28c6-5 11-5 17 0s11 4 17-1" stroke={DIM} strokeWidth="1.3" strokeLinecap="round" />
+      <path d="M3 34c6-5 11-5 17 0s11 4 17-1" stroke={DIM} strokeWidth="1.3" strokeLinecap="round" />
+      <circle cx="20" cy="16" r="7" stroke={STROKE} strokeWidth="1.5" />
+      <path
+        d="M20 6v4M20 22v4M10 16h4M26 16h4"
+        stroke={STROKE}
+        strokeWidth="1.5"
+        strokeLinecap="round"
+      />
+      <circle cx="20" cy="16" r="2.2" fill="#4ADE80" />
+    </svg>
+  ),
+  // A logged point pinned against the tide curve it was caught on.
+  catchLog: (
+    <svg width="40" height="40" viewBox="0 0 40 40" fill="none" aria-hidden="true">
+      <path
+        d="M3 24c5 0 6-11 11-11s6 15 11 15 6-11 12-11"
+        stroke={DIM}
+        strokeWidth="1.5"
+        strokeLinecap="round"
+      />
+      <path d="M25 28V13" stroke={STROKE} strokeWidth="1.5" strokeLinecap="round" strokeDasharray="2 2.5" />
+      <circle cx="25" cy="28" r="3.2" fill="#4ADE80" />
+      <path d="M3 34h34" stroke={DIM} strokeWidth="1" strokeLinecap="round" />
+    </svg>
+  ),
+};
+
 export default function LpShell({
   angle,
   checkoutHref,
   year,
   hero,
   card,
+  treatment = "classic",
+  showFlag = false,
 }: {
   angle: Angle;
   checkoutHref: string;
@@ -95,6 +199,14 @@ export default function LpShell({
    *  number. Two different scores on one page is the fastest way to make a
    *  visitor stop believing either of them. */
   card: LpCard;
+  /** How the body is dressed. /lp/2 and /lp/3 stay on the signed-off classic
+   *  treatment; /lp/5 opts into the instrument one. Defaults to classic so a
+   *  new variant has to ask for the change rather than inherit it. */
+  treatment?: LpTreatment;
+  /** Show the market flag in the header chip. /lp/6 opts in; the pages that
+   *  serve both sides of the border deliberately do not fly one country's
+   *  flag over water belonging to the other. */
+  showFlag?: boolean;
 }) {
   const heroCtaRef = useRef<HTMLAnchorElement>(null);
   const finalCtaRef = useRef<HTMLAnchorElement>(null);
@@ -134,10 +246,18 @@ export default function LpShell({
     };
   }, []);
 
-  const features = angle.features.map((id) => FEATURES[id]);
+  // Every jurisdiction-dependent string on the page hangs off the card's
+  // province, so a Washington ad set never renders Canadian management areas.
+  // This happens in both treatments: it is a defect fix, not a style choice.
+  const region = lpRegionFor(card.provinceCode);
+  const instrument = treatment === "instrument";
+  const featureCopy = buildFeatures(card, region, treatment);
+  const features = angle.features.map((id) => featureCopy[id]);
+  const layers = buildLayers(card, region, treatment);
+  const thumbs = instrument ? INSTRUMENT_THUMBS : CLASSIC_THUMBS;
 
   return (
-    <div className="lp">
+    <div className={instrument ? "lp lp-instrument" : "lp"}>
       <style dangerouslySetInnerHTML={{ __html: LP_CSS }} />
 
       <div className="page">
@@ -153,7 +273,10 @@ export default function LpShell({
                 priority
               />
             </span>
-            <span className="trust-chip">DFO + NOAA DATA</span>
+            <span className={showFlag ? "trust-chip with-flag" : "trust-chip"}>
+              {showFlag && region.isUS ? <LpFlagUs /> : null}
+              {region.trustChip}
+            </span>
           </div>
         </header>
 
@@ -189,7 +312,7 @@ export default function LpShell({
                 <div className="t-body">
                   <div className="t-day">Day {PRICE.reminderDay}</div>
                   <div className="t-desc">
-                    We email you three days out — <strong>before</strong> anything is charged.
+                    We email you three days out, <strong>before</strong> anything is charged.
                   </div>
                 </div>
               </div>
@@ -198,7 +321,7 @@ export default function LpShell({
                 <div className="t-body">
                   <div className="t-day">Day {PRICE.trialDays}</div>
                   <div className="t-desc">
-                    You&rsquo;re charged <strong>{PRICE.year}</strong> — or cancel in two taps and
+                    You&rsquo;re charged <strong>{PRICE.year}</strong>, or cancel in two taps and
                     pay nothing.
                   </div>
                 </div>
@@ -207,7 +330,7 @@ export default function LpShell({
             <p className="price-plain">
               {PRICE.trialDays} days free, then <b>{PRICE.year}</b> ({PRICE.perMonth})
             </p>
-            <p className="price-anchor">Less than a single litre of boat fuel per month.</p>
+            <p className="price-anchor">{region.fuelAnchor}</p>
           </div>
         </section>
 
@@ -217,13 +340,14 @@ export default function LpShell({
             <div className="section-kicker">Everything Pro unlocks</div>
             {features.map((f) => (
               <div className="feature" key={f.id}>
-                <div className="f-thumb">{THUMBS[f.id]}</div>
+                <div className="f-thumb">{thumbs[f.id]}</div>
                 <div>
                   <div className="f-title">
                     {f.title}
                     {f.tag ? <span className="f-pro">{f.tag}</span> : null}
                   </div>
                   <div className="f-desc">{f.desc}</div>
+                  {f.badge ? <span className="f-badge">{f.badge}</span> : null}
                 </div>
               </div>
             ))}
@@ -263,18 +387,18 @@ export default function LpShell({
               </div>
               <div className="d-line" />
               <div className="d-stack" role="list" aria-label="Signal layers behind the score">
-                {LAYERS.map((l) => (
+                {layers.map((l) => (
                   <div className={l.top ? "d-layer top" : "d-layer"} role="listitem" key={l.label}>
-                    {/* The top layer names the spot's actual driver species
-                        rather than a hardcoded one — it is the row claiming to
-                        describe today. */}
-                    <span className="d-label">{l.top ? `Today · ${card.species}` : l.label}</span>
+                    {/* Both the species on the top row and the agencies on the
+                        bottom two are resolved, not hardcoded: these are the
+                        rows that claim to describe this specific water. */}
+                    <span className="d-label">{l.label}</span>
                     <span className="d-src">{l.src}</span>
                   </div>
                 ))}
               </div>
               <p className="d-caption">
-                Hundreds of signals across five layers, distilled into one number — refreshed
+                Hundreds of signals across five layers, distilled into one number. Refreshed
                 through the day.
               </p>
             </div>
@@ -288,7 +412,7 @@ export default function LpShell({
             <details>
               <summary>Do I need a credit card?</summary>
               <div className="faq-a">
-                Yes — but you won&rsquo;t be charged for {PRICE.trialDays} days, and we email you on
+                Yes, but you won&rsquo;t be charged for {PRICE.trialDays} days, and we email you on
                 day {PRICE.reminderDay} so nothing surprises you. Cancel in two taps from your
                 account, no phone calls, no forms.
               </div>
@@ -296,15 +420,15 @@ export default function LpShell({
             <details>
               <summary>What waters do you cover?</summary>
               <div className="faq-a">
-                Pro covers coastal British Columbia and Washington — reefs, banks, and ledges, plus
-                your own pinned spots inside that coverage. More regions are coming.
+                Pro covers {region.coverageAnswer}: reefs, banks and ledges, plus your own pinned
+                spots inside that coverage. More regions are coming.
               </div>
             </details>
             <details>
               <summary>What happens if I cancel?</summary>
               <div className="faq-a">
                 Cancel during the trial and you pay nothing. Your account, your spots, and your
-                catch log stay — you keep the free 7-day forecast. Cancel later and Pro runs to the
+                catch log stay, and you keep the free 7-day forecast. Cancel later and Pro runs to the
                 end of your paid year.
               </div>
             </details>
@@ -338,7 +462,11 @@ export default function LpShell({
         <div className="sticky-inner">
           <div className="sticky-price">
             <b>{PRICE.trialDays} days free</b>
-            <span>then {PRICE.year}</span>
+            <span>
+              then {PRICE.year}
+              {instrument ? ` (${PRICE.perMonth})` : ""}
+            </span>
+            {instrument ? <span className="sticky-cancel">Cancel in two taps</span> : null}
           </div>
           <a className="btn" href={checkoutHref}>
             Start free trial

@@ -65,6 +65,11 @@ export const LP_CSS = `
     font-size:10px;letter-spacing:.1em;color:var(--muted);
     background:var(--bg);border:1px solid var(--line);border-radius:999px;padding:6px 10px}
   .lp .trust-chip::before{content:'';width:6px;height:6px;border-radius:50%;background:var(--good)}
+  /* With a flag the green status dot goes: two leading marks in a 10px chip is
+     one too many, and the flag is the stronger cue. A hairline keeps the white
+     stripes from bleeding into the chip's own pale background. */
+  .lp .trust-chip.with-flag::before{display:none}
+  .lp .trust-chip.with-flag svg{box-shadow:0 0 0 1px rgba(14,27,71,.16)}
 
   /* ---------- hero ---------- */
   .lp .hero{background:#fff;padding:28px 0 0}
@@ -154,12 +159,25 @@ export const LP_CSS = `
   .lp .feature:last-child{border-bottom:none}
   .lp .f-thumb{width:64px;height:64px;flex-shrink:0;border-radius:12px;border:1px solid var(--line);
     background:#fff;display:flex;align-items:center;justify-content:center;overflow:hidden}
+  /* Instrument treatment (/lp/5): a slate tile, not a white icon chip. The
+     glyphs inside are drawn in teal the way a plotter or sounder draws them,
+     so the stack reads as marine electronics rather than as a generic feature
+     list. The audience runs this hardware; a thin grey icon row tells them the
+     app is a toy. */
+  .lp.lp-instrument .f-thumb{border:1px solid #223154;
+    background:linear-gradient(160deg,#16224A 0%,#0E1B47 100%);
+    box-shadow:inset 0 0 14px rgba(127,227,208,.10), 0 1px 2px rgba(14,27,71,.18)}
   .lp .f-thumb svg{display:block}
   .lp .f-title{font-size:16.5px;font-weight:700;color:var(--navy)}
   .lp .f-desc{font-size:14px;color:var(--muted);margin-top:2px}
   .lp .f-pro{display:inline-block;font-family:var(--mono);font-size:9px;letter-spacing:.14em;
     color:var(--blue);border:1px solid var(--blue);border-radius:4px;padding:2px 6px;
     margin-left:6px;vertical-align:2px}
+  /* Substance chip under the description. Names the concrete thing you get,
+     which on a phone is the line a skimming reader stops on. */
+  .lp .f-badge{display:inline-block;margin-top:8px;font-family:var(--mono);font-size:9px;
+    letter-spacing:.14em;color:#0F3B33;background:#DFF6F0;border:1px solid #B7E6DB;
+    border-radius:4px;padding:3px 7px}
 
   /* ---------- proof ---------- */
   .lp .stat-band{display:flex;gap:12px}
@@ -230,8 +248,22 @@ export const LP_CSS = `
   .lp .sticky-inner{max-width:480px;margin:0 auto;display:flex;align-items:center;gap:12px}
   .lp .sticky-price{flex-shrink:0}
   .lp .sticky-price b{display:block;font-size:14px;font-weight:800;color:var(--navy);line-height:1.2}
-  .lp .sticky-price span{font-size:11px;color:var(--muted)}
+  .lp .sticky-price span{display:block;font-size:11px;color:var(--muted)}
   .lp .sticky-cta .btn{min-height:48px;font-size:15.5px}
+  /* Instrument treatment (/lp/5) carries the full value anchor: trial, price
+     per month, and the cancel reassurance. Fear of a subscription trap is what
+     stops this traffic converting, and the sticky bar is the only thing on
+     screen for most of the scroll.
+     Three short lines need the leftover width, so the price column grows and
+     the button sizes to its own label. Without this the button's width:100%
+     squeezes the price and the per-month figure wraps mid-bracket. */
+  .lp.lp-instrument .sticky-inner{gap:10px}
+  .lp.lp-instrument .sticky-price{flex:1 1 auto;min-width:0}
+  .lp.lp-instrument .sticky-price b{font-size:13.5px;line-height:1.15}
+  .lp.lp-instrument .sticky-price span{font-size:10.5px;line-height:1.3;
+    white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .lp.lp-instrument .sticky-cancel{color:var(--good);font-weight:600}
+  .lp.lp-instrument .sticky-cta .btn{flex:0 0 auto;width:auto;padding:0 20px;white-space:nowrap}
 
   @media (min-width:480px){
     .lp{background:#EDEFF6}

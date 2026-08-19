@@ -1,5 +1,5 @@
 /**
- * /lp/3 hero photography, per angle.
+ * Hero photography for the photo-led variants (/lp/3 and /lp/5), per angle.
  *
  * ⚠️ Do NOT reuse the hero URLs seeded onto city_pages by
  * bluecaster/scripts/seed-demo-content.ts. Both were checked while building

@@ -27,6 +27,13 @@ import { redirect } from 'next/navigation';
  */
 export const DEFAULT_LP_CITY = 'victoria-bc';
 
+/**
+ * Fallback for the US-market variant. A Seattle page must not answer an
+ * untagged link with a Canadian city: the whole variant is built around
+ * American water, down to the flag in the header.
+ */
+export const DEFAULT_US_LP_CITY = 'seattle-wa';
+
 /** City slugs are lowercase kebab, e.g. "victoria-bc", "friday-harbor-wa". */
 const SLUG_SHAPE = /^[a-z0-9]+(-[a-z0-9]+)*$/;
 
@@ -43,10 +50,13 @@ export type LpSearchParams = Record<string, string | string[] | undefined>;
  * throwing. A malformed tag is a mistake in a link we wrote, and the cost of
  * being strict about it is a 404 served to traffic we already paid for.
  */
-export function resolveLpCity(raw: string | string[] | undefined): string {
+export function resolveLpCity(
+  raw: string | string[] | undefined,
+  fallback: string = DEFAULT_LP_CITY,
+): string {
   const first = Array.isArray(raw) ? raw[0] : raw;
   const slug = (first ?? '').trim().toLowerCase();
-  return SLUG_SHAPE.test(slug) ? slug : DEFAULT_LP_CITY;
+  return SLUG_SHAPE.test(slug) ? slug : fallback;
 }
 
 /**
@@ -63,8 +73,18 @@ function forwardedQuery(searchParams: LpSearchParams): string {
   return qs ? `?${qs}` : '';
 }
 
-/** Never returns: always redirects to the cached city page for this variant. */
-export function enterLp(variant: string, searchParams: LpSearchParams): never {
-  const city = resolveLpCity(searchParams.city);
+/**
+ * Never returns: always redirects to the cached city page for this variant.
+ *
+ * `fallbackCity` lets a market-specific variant land somewhere sensible when
+ * the link carries no city. /lp/6 passes the Seattle default; everything else
+ * takes the pilot city.
+ */
+export function enterLp(
+  variant: string,
+  searchParams: LpSearchParams,
+  fallbackCity: string = DEFAULT_LP_CITY,
+): never {
+  const city = resolveLpCity(searchParams.city, fallbackCity);
   redirect(`/lp/${variant}/${city}${forwardedQuery(searchParams)}`);
 }
