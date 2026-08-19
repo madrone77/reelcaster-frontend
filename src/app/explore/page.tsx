@@ -34,9 +34,13 @@ export const metadata: Metadata = {
     "Interactive fishing map: browse covered spots on the BC and Washington coasts with live scores, conditions, and the day's best windows.",
   alternates: { canonical: `${SITE_URL}/explore` },
   openGraph: {
-    title: "Explore the Fishing Map | ReelCaster",
+    // The card is a different channel from the SERP. Search wants the page
+    // described; a person glancing at a link in a text thread wants a reason to
+    // tap. The `description` above keeps the search wording, this replaces only
+    // what a share preview renders.
+    title: "See where the fish are biting today",
     description:
-      "Browse fishing spots on the BC and Washington coasts with live scores, conditions, and the day's best windows, all on one interactive map.",
+      "Every fishing spot on the BC and Washington coasts, scored hour by hour on tides, weather, water conditions, and regulations. Pick your spot, then your window.",
     url: `${SITE_URL}/explore`,
     siteName: "ReelCaster",
     type: "website",

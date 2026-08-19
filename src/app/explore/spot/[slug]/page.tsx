@@ -42,6 +42,27 @@ const DESCRIPTION_BUDGET = 160;
 // The SERP snippet keeps the tighter budget, so this only widens the card.
 const OG_DESCRIPTION_BUDGET = 200;
 
+// The card title is a question, so it has to survive a long spot name without
+// running past what Facebook and iMessage render.
+const OG_TITLE_BUDGET = 65;
+
+/** ["A", "B", "C"] -> "A, B and C" */
+function listSentence(items: string[]): string {
+  if (items.length <= 1) return items[0] ?? "";
+  return `${items.slice(0, -1).join(", ")} and ${items[items.length - 1]}`;
+}
+
+/**
+ * Card-length species label, e.g. "Chinook Salmon" -> "Chinook".
+ *
+ * Only the trailing "Salmon" comes off. "Crab" stays, unlike the catch form's
+ * pill label: a pill sits under a heading that already says crab, while a share
+ * card is read cold by people who would not recognise "Dungeness" alone.
+ */
+function cardSpeciesName(name: string): string {
+  return name.replace(/\s+Salmon$/i, "");
+}
+
 /**
  * Trim `text` to a snippet budget on a sentence boundary.
  *
@@ -117,9 +138,26 @@ export async function generateMetadata({
   const description = page.spot.seoIntro
     ? snippet(page.spot.seoIntro)
     : fallbackDescription;
-  const ogDescription = page.spot.seoIntro
-    ? snippet(page.spot.seoIntro, OG_DESCRIPTION_BUDGET)
-    : fallbackDescription;
+  // The share card deliberately does NOT reuse the SEO prose. The intro
+  // describes the place ("mixed bottom in 15 to 65 feet"), which is what a
+  // search result should say and the least persuasive thing to put in front of
+  // someone deciding whether to tap a link a friend sent them.
+  //
+  // Everything here is evergreen on purpose. Facebook caches a scrape per URL
+  // and does not re-poll, so today's score would freeze at whatever it was the
+  // first time anyone shared the page. A stale 90 on a blown-out day is worse
+  // than no number at all.
+  const roster = page.species.slice(0, 4).map((s) => cardSpeciesName(s.name));
+  const ogDescription = roster.length
+    ? `${listSentence(roster)}, scored hour by hour on tides, weather, water conditions, and regulations. Know before you go.`
+    : "Scored hour by hour on tides, weather, water conditions, and regulations. Know the bite before you go.";
+
+  // Strip the parenthetical qualifier only when the full name blows the budget,
+  // same rule the <title> uses.
+  const askable = `Is ${name} worth fishing today?`.length <= OG_TITLE_BUDGET
+    ? name
+    : name.replace(/\s*\([^)]*\)/g, "");
+  const ogTitle = `Is ${askable} worth fishing today?`;
 
   return {
     // Bare title — the root layout's "%s | ReelCaster" template adds the brand.
@@ -127,8 +165,12 @@ export async function generateMetadata({
     description,
     alternates: { canonical: siteUrl(`/explore/spot/${slug}`) },
     openGraph: {
-      title: `${title} | ReelCaster`,
+      title: ogTitle,
       description: ogDescription,
+      // A page declaring its own `openGraph` block replaces the inherited one
+      // rather than merging into it, so without this the card loses the site
+      // label and Facebook falls back to printing the bare domain.
+      siteName: "ReelCaster",
       url: siteUrl(`/explore/spot/${slug}`),
       // A spot page is a place, not a piece of writing — `article` invited
       // article-shaped expectations (author, published date) it never meets.
