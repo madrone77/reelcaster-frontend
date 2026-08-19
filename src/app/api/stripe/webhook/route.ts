@@ -215,12 +215,20 @@ async function applySubscriptionToUser(subscription: Stripe.Subscription) {
     await handleTrialingSubscription(subscription, resolvedUserId, tier);
     // Value 0: nothing has been charged yet. The week-later payment is a
     // separate conversion with the real amount on it.
+    //
+    // subscription.currency, NOT the price's. Pro is one multi-currency Price
+    // (CAD base with a USD currency_option on the same id, see lib/pricing),
+    // so price.currency reads 'cad' for an American buyer too and every US
+    // trial was reporting as Canadian. The subscription carries what the
+    // customer is actually billed in, which is also what the day-7 purchase
+    // row gets from invoice.currency — read the price here and one customer
+    // lands in two different currencies a week apart.
     await recordConversion(admin, {
       event: 'trial_start',
       subscription,
       userId: resolvedUserId,
       valueCents: 0,
-      currency: subscription.items.data[0]?.price?.currency ?? 'cad',
+      currency: subscription.currency ?? 'cad',
       occurredAt: subscription.start_date
         ? new Date(subscription.start_date * 1000).toISOString()
         : new Date().toISOString(),
