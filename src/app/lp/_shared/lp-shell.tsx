@@ -179,6 +179,65 @@ const INSTRUMENT_THUMBS: Record<string, React.ReactElement> = {
   ),
 };
 
+/**
+ * Miniature of the real 14-day strip.
+ *
+ * A cut-down copy of the product's own forecast row rather than an abstract
+ * chart: the point of this block is that the reader can see the thing they
+ * would be buying, and a generic bar glyph shows them nothing they could not
+ * have guessed. Five cells, not fourteen, because fourteen at this width is a
+ * grey smear on a phone.
+ *
+ * The numbers are illustrative and the block is aria-hidden, the same status
+ * as the glyphs it sits beside. It is a picture of the UI, not a claim about
+ * today: the real, live figure on this page is the score card at the top,
+ * which is resolved per city and is the number the page stands behind.
+ */
+function ForecastStripPreview() {
+  const days = [
+    { d: "WED", n: 86, today: true, best: false },
+    { d: "THU", n: 86, today: false, best: false },
+    { d: "FRI", n: 85, today: false, best: false },
+    { d: "SAT", n: 87, today: false, best: true },
+    { d: "SUN", n: 82, today: false, best: false },
+  ];
+  return (
+    <div className="mini-strip" aria-hidden="true">
+      {days.map((day) => (
+        <div className={day.today ? "ms-cell today" : "ms-cell"} key={day.d}>
+          {day.best ? <span className="ms-best">BEST</span> : null}
+          <span className="ms-day">{day.d}</span>
+          <span className="ms-num">{day.n}</span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+/**
+ * Mock of the alert message itself.
+ *
+ * Carries the city the page resolved, so a Seattle ad shows a Seattle text.
+ * Everything else on this page went to the trouble of naming the reader's own
+ * water; a hardcoded city in the one element that looks like a real message
+ * would undo that at the closest range.
+ *
+ * The timestamp is a fixed string on purpose. Reading a clock during render is
+ * what makes a hydration mismatch, and this one is decoration.
+ */
+function SmsPreview({ cityName }: { cityName: string }) {
+  return (
+    <div className="mini-sms" aria-hidden="true">
+      <div className="ms-bubble">
+        The bite is hot in {cityName} this Saturday. Get your friends ready to fill the boat!
+        {" - "}
+        ReelCaster
+      </div>
+      <div className="ms-time">9:38 AM</div>
+    </div>
+  );
+}
+
 export default function LpShell({
   angle,
   checkoutHref,
@@ -348,6 +407,14 @@ export default function LpShell({
                   </div>
                   <div className="f-desc">{f.desc}</div>
                   {f.badge ? <span className="f-badge">{f.badge}</span> : null}
+                  {/* Only the instrument treatment shows the UI mocks. Classic
+                      stays on its icon-and-text layout, so the A/B still
+                      measures the treatment rather than drifting into a third
+                      design. */}
+                  {instrument && f.id === "forecast14" ? <ForecastStripPreview /> : null}
+                  {instrument && f.id === "alerts" ? (
+                    <SmsPreview cityName={card.cityName} />
+                  ) : null}
                 </div>
               </div>
             ))}
@@ -398,8 +465,9 @@ export default function LpShell({
                 ))}
               </div>
               <p className="d-caption">
-                Hundreds of signals across five layers, distilled into one number. Refreshed
-                through the day.
+                {instrument
+                  ? "One number out of 100 from tides, current, swell, wind, weather and the bite. Refreshed through the day."
+                  : "Hundreds of signals across five layers, distilled into one number. Refreshed through the day."}
               </p>
             </div>
           </div>
