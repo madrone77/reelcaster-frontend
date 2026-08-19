@@ -51,7 +51,7 @@ export const ANGLES: Angle[] = [
     eyebrow: null,
     headline: { lead: "Know the exact hours", accent: "to fish." },
     subhead:
-      "Tides, current, wind, and pressure — combined into one 0–100 score for your local waters, updated through the day.",
+      "Tide, current, wind and pressure, combined into one 0-100 score for your local water and updated through the day.",
     features: [
       "forecast14",
       "alerts",
@@ -70,7 +70,7 @@ export const ANGLES: Angle[] = [
     eyebrow: "Stop guessing",
     headline: { lead: "Stop burning Saturdays", accent: "on a dead tide." },
     subhead:
-      "Most trips fail before the boat leaves the ramp. One score tells you whether today is worth the fuel — and which day this week actually is.",
+      "Most trips fail before the boat leaves the ramp. One score tells you whether today is worth the fuel, and which day this week actually is.",
     features: [
       "alerts",
       "forecast14",

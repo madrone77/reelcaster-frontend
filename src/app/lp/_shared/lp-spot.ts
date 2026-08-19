@@ -37,6 +37,15 @@ import { formatHour12 } from "@/lib/time-format";
 export interface LpCard {
   /** Real city display name, e.g. "Friday Harbor". */
   cityName: string;
+  /**
+   * Province/state code of the spot, e.g. "BC", "WA". Drives every fact on
+   * the page that changes with jurisdiction: the fisheries regulator named in
+   * the score breakdown, the tide authority credited under it, and whether
+   * the price is anchored in litres or gallons. Taken from the spot rather
+   * than the route so a spot sitting over a border still cites the authority
+   * that governs it.
+   */
+  provinceCode: string;
   spotName: string;
   /** Driver species display name, e.g. "Chinook". */
   species: string;
@@ -163,6 +172,7 @@ export async function resolveLpCard(citySlug: string): Promise<LpCard | null> {
 
   return {
     cityName: rep.cityName,
+    provinceCode: rep.provinceCode,
     spotName: rep.name,
     species,
     // Species and city, nothing more. The old card said "NEAR YOU" about a
@@ -174,8 +184,10 @@ export async function resolveLpCard(citySlug: string): Promise<LpCard | null> {
     score: rep.score ?? 0,
     tagWord: tier === "none" ? "" : tier.toUpperCase(),
     tier,
+    // Plain hyphen, not an en dash: house style keeps dashes out of copy, and
+    // a numeric range is the one place a hyphen is the correct mark anyway.
     windowTime: window
-      ? `${formatHour12(window.from)} – ${formatHour12(Math.min(window.to + 1, 23))}`
+      ? `${formatHour12(window.from)}-${formatHour12(Math.min(window.to + 1, 23))}`
       : null,
     windowNote: window ? `Peaks at ${window.peak}` : null,
     hours,

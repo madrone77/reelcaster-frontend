@@ -152,14 +152,26 @@ export const LP_CSS = `
   /* ---------- feature stack ---------- */
   .lp .feature{display:flex;gap:16px;padding:20px 0;border-bottom:1px solid var(--line)}
   .lp .feature:last-child{border-bottom:none}
-  .lp .f-thumb{width:64px;height:64px;flex-shrink:0;border-radius:12px;border:1px solid var(--line);
-    background:#fff;display:flex;align-items:center;justify-content:center;overflow:hidden}
+  /* Instrument tile, not a white icon chip. The glyphs inside are drawn in
+     teal on slate the way a plotter or sounder draws them, so the stack reads
+     as marine electronics rather than as a generic feature list. The audience
+     runs this hardware; a thin grey icon row tells them the app is a toy. */
+  .lp .f-thumb{width:64px;height:64px;flex-shrink:0;border-radius:12px;
+    border:1px solid #223154;
+    background:linear-gradient(160deg,#16224A 0%,#0E1B47 100%);
+    box-shadow:inset 0 0 14px rgba(127,227,208,.10), 0 1px 2px rgba(14,27,71,.18);
+    display:flex;align-items:center;justify-content:center;overflow:hidden}
   .lp .f-thumb svg{display:block}
   .lp .f-title{font-size:16.5px;font-weight:700;color:var(--navy)}
   .lp .f-desc{font-size:14px;color:var(--muted);margin-top:2px}
   .lp .f-pro{display:inline-block;font-family:var(--mono);font-size:9px;letter-spacing:.14em;
     color:var(--blue);border:1px solid var(--blue);border-radius:4px;padding:2px 6px;
     margin-left:6px;vertical-align:2px}
+  /* Substance chip under the description. Names the concrete thing you get,
+     which on a phone is the line a skimming reader stops on. */
+  .lp .f-badge{display:inline-block;margin-top:8px;font-family:var(--mono);font-size:9px;
+    letter-spacing:.14em;color:#0F3B33;background:#DFF6F0;border:1px solid #B7E6DB;
+    border-radius:4px;padding:3px 7px}
 
   /* ---------- proof ---------- */
   .lp .stat-band{display:flex;gap:12px}
@@ -227,11 +239,20 @@ export const LP_CSS = `
     border-top:1px solid var(--line);padding:10px 20px calc(10px + env(safe-area-inset-bottom));
     transform:translateY(110%);transition:transform .25s ease}
   .lp .sticky-cta.show{transform:translateY(0)}
-  .lp .sticky-inner{max-width:480px;margin:0 auto;display:flex;align-items:center;gap:12px}
-  .lp .sticky-price{flex-shrink:0}
-  .lp .sticky-price b{display:block;font-size:14px;font-weight:800;color:var(--navy);line-height:1.2}
-  .lp .sticky-price span{font-size:11px;color:var(--muted)}
-  .lp .sticky-cta .btn{min-height:48px;font-size:15.5px}
+  .lp .sticky-inner{max-width:480px;margin:0 auto;display:flex;align-items:center;gap:10px}
+  /* The value anchor is three short lines, so it takes the leftover width and
+     the button sizes to its own label. Without this the button's width:100%
+     squeezes the price column and the per-month figure wraps mid-bracket. */
+  .lp .sticky-price{flex:1 1 auto;min-width:0}
+  .lp .sticky-price b{display:block;font-size:13.5px;font-weight:800;color:var(--navy);line-height:1.15}
+  .lp .sticky-price span{display:block;font-size:10.5px;color:var(--muted);line-height:1.3;
+    white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  /* Cancel reassurance rides in the sticky bar because fear of a subscription
+     trap is what stops this traffic converting, and the bar is the only thing
+     on screen for most of the scroll. */
+  .lp .sticky-cancel{color:var(--good);font-weight:600}
+  .lp .sticky-cta .btn{flex:0 0 auto;width:auto;padding:0 20px;min-height:48px;font-size:15.5px;
+    white-space:nowrap}
 
   @media (min-width:480px){
     .lp{background:#EDEFF6}
