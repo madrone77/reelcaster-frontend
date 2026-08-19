@@ -414,8 +414,11 @@
   right: 10px;
   bottom: 43px;
 }
+/* The watermark used to sit in this corner and the ⓘ tucked to its left; now
+   the logo is centred, so the ⓘ takes the corner itself, directly under the
+   zoom control. */
 .rc-explore-map .maplibregl-ctrl-bottom-right .maplibregl-ctrl-attrib {
-  right: 66px;
+  right: 10px;
   bottom: 9.5px;
 }
 @media (min-width: 1024px) {
@@ -423,7 +426,7 @@
     bottom: calc(var(--rc-map-inset, 0px) + 47px);
   }
   .rc-explore-map .maplibregl-ctrl-bottom-right .maplibregl-ctrl-attrib {
-    right: 74px;
+    right: 10px;
     bottom: calc(var(--rc-map-inset, 0px) + 11.5px);
   }
 }

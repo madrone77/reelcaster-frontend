@@ -410,22 +410,23 @@ export default function ExploreMap({
 
       </Map>
 
-      {/* Brand watermark — bottom-right corner, with the ⓘ acknowledgments
-          inline to its left on the same vertical midline (the ctrl container
-          is positioned via globals.css, keyed to these logo sizes).
-          Desktop additionally rides above the forecast strip via the inset. */}
+      {/* Brand watermark — a faint mark centred over the map. The zoom control
+          and the ⓘ acknowledgments keep the bottom-right corner to themselves
+          (positioned via globals.css). Desktop shifts the centre up by half the
+          forecast strip's height so it stays optically centred in the visible
+          map, not the strip. */}
       {showBrand && (
-        <>
-          <div className="lg:hidden pointer-events-none absolute bottom-2.5 right-2.5 z-10">
-            <MapBrandLogo width={52} />
-          </div>
-          <div
-            className="hidden lg:block pointer-events-none absolute right-2.5 z-10"
-            style={{ bottom: "calc(var(--rc-map-inset, 0px) + 10px)" }}
-          >
-            <MapBrandLogo width={60} />
-          </div>
-        </>
+        <div
+          className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center"
+          style={{ paddingBottom: "var(--rc-map-inset, 0px)" }}
+        >
+          <MapBrandLogo width={132} opacity={0.28} className="lg:hidden" />
+          <MapBrandLogo
+            width={168}
+            opacity={0.28}
+            className="hidden lg:block"
+          />
+        </div>
       )}
     </div>
   );

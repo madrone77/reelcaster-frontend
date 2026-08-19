@@ -1,7 +1,6 @@
 "use client";
 
 import { Fragment, useMemo, useState } from "react";
-import { MapPinPlus } from "lucide-react";
 import AdSlot from "@/app/components/ads/ad-slot";
 import {
   type CityNode,
@@ -175,9 +174,8 @@ export default function LeftRail({
                   <button
                     type="button"
                     onClick={onCreateCustomSpot}
-                    className="shrink-0 flex items-center gap-1 text-[13px] font-semibold text-rc-brand hover:text-rc-brand-hover hover:underline underline-offset-2 transition-colors"
+                    className="shrink-0 text-[13px] font-semibold text-rc-brand hover:text-rc-brand-hover hover:underline underline-offset-2 transition-colors"
                   >
-                    <MapPinPlus className="h-4 w-4 shrink-0" />
                     Create custom spot
                   </button>
                 )}
