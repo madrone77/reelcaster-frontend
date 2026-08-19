@@ -531,7 +531,11 @@ export default function HomeSpotHero({
           </div>
         ) : days14 && days14.length > 0 ? (
           <div className="mt-4 overflow-hidden rounded bg-rc-panel">
-            <SpotDayStrip days={days14} density="labelled" />
+            <SpotDayStrip
+              days={days14}
+              density="labelled"
+              moreHref={`/explore/spot/${slug}`}
+            />
           </div>
         ) : null}
 

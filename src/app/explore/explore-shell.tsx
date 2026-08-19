@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import dynamic from "next/dynamic";
+import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import type { MapRef } from "react-map-gl/maplibre";
 import type { MapSpotsPayload } from "@/lib/bluecaster";
@@ -90,12 +91,14 @@ const MAP_TZ = "America/Vancouver";
  * it. Keeping them on one line means arming pin-drop mode swaps the chrome in
  * place instead of jumping it.
  *
- * `top` is the whole point of the constant. Mobile floats the 49px location
- * header (Filters button included) over the map's own top edge, so anything
- * pinned near `top-0` lands on it; `top-14` clears it. Desktop has no header
- * there and instead has the left rail at viewport `top-[72px]` — the map box
- * starts at `top-16`, so `lg:top-2` puts these on the rail's top edge, and
- * `right-6` on the button mirrors the rail's `left-6` gutter.
+ * `top` is the whole point of the constant. Mobile floats the location header
+ * (Filters button included) over the map's own top edge, so anything pinned
+ * near `top-0` lands on it and `top-16` clears it. Both are measured from the
+ * map box, which is the element that moves when the top bar comes and goes, so
+ * this offset holds at every tier. Desktop has no header there and instead has the left rail at
+ * viewport `top-[72px]` — the map box starts at `top-16`, so `lg:top-2` puts
+ * these on the rail's top edge, and `right-6` on the button mirrors the rail's
+ * `left-6` gutter.
  *
  * Callers own horizontal placement and colour.
  */
@@ -167,6 +170,11 @@ export default function ExploreShell({
   // an upgrade CTA. The strip renders the days it is sure of and marks the rest
   // pending until the tier lands — see the `stripModel` memo.
   const accessTier: ForecastTier = isPaid ? "pro" : user ? "free" : "anonymous";
+  // Where the phone's map starts. A Pro viewer has no top bar, so the map and
+  // the floating location pill both begin at the screen edge; everyone else
+  // begins under the 64px bar. One value, so the two cannot drift apart, and
+  // every pill measured from the map box keeps its offset at either tier.
+  const mobileTop = isPaid ? "top-0" : "top-16";
   const { citySlug, spotSlug, day, stn, setQuery } = useExploreState();
 
   // ── Return-trip memory ──────────────────────────────────────────────────
@@ -1476,13 +1484,28 @@ export default function ExploreShell({
     // layout is shared with the spot page, which is a long document — so the
     // surface that wants the lock owns it.
     <div className="relative h-[calc(100dvh-3.5rem)] lg:h-dvh lg:min-h-0 overflow-hidden">
-      {/* The one surface that stays off the app gridline: the map runs to both
-          edges, and a centred row would strand the mark in the middle of it. */}
-      <ExploreTopBar containerClassName={BLEED_MEASURE} />
+      {/* Hidden on a phone for Pro, and only for Pro. A phone gives the map
+          about 500px of height, and 64px of that going to a bar carrying a
+          logo and one avatar is the worst trade on the screen: the bottom tab
+          bar already does the navigating, and the avatar moves into the
+          floating header below. Anyone we still have something to sell keeps
+          the bar, because for them it is carrying the offer (the trial signed
+          out, Pro signed in), and that earns the band back. Desktop keeps it
+          for all three, since that is where the nav itself lives. The one
+          surface that stays off the app gridline: the map runs to both edges,
+          and a centred row would strand the mark in the middle of it.
+
+          `isPaid` is false until the tier resolves, so the bar paints first
+          and clears a beat later for a Pro viewer. That is the right way
+          round: the viewers this bar now exists for get it immediately. */}
+      <div className={isPaid ? "hidden lg:block" : undefined}>
+        <ExploreTopBar containerClassName={BLEED_MEASURE} upgradeCta={!isPaid} />
+      </div>
 
       {/* Mobile-only location header — floats over the top of the full-screen
-          map (Zillow-style), just under the fixed top bar. Desktop shows the
-          same selector inside the rail.
+          map (Zillow-style), on the map's own top edge when there is no bar and
+          just under it when there is. Desktop shows the same selector inside
+          the rail.
 
           An inset pill, not an edge-to-edge band: as a band it read as a second
           header stacked under the top bar, and between the two of them a phone
@@ -1493,9 +1516,10 @@ export default function ExploreShell({
           whole band the pill sits in. */}
       <div
         {...{ [MAP_INSET_ATTR]: "top" }}
-        className="lg:hidden pointer-events-none absolute top-16 inset-x-0 z-20 px-3 pt-2"
+        className={`lg:hidden pointer-events-none absolute ${mobileTop} inset-x-0 z-20 px-3 pt-2`}
       >
-        <div className="pointer-events-auto rounded-xl border border-rc-rule bg-rc-panel/95 shadow-rc-panel backdrop-blur">
+        <div className="pointer-events-auto flex items-center rounded-xl border border-rc-rule bg-rc-panel/95 shadow-rc-panel backdrop-blur">
+        <div className="min-w-0 flex-1">
         <LocationSelector
           locations={data.locations}
           selectedCity={labelCity}
@@ -1507,12 +1531,26 @@ export default function ExploreShell({
           onFilterClick={() => setFilterOpen(true)}
         />
         </div>
+        {/* Pro only: the one viewer with no bar above, and so no other way to
+            reach an account from this screen. Everyone else has the bar, which
+            carries both the avatar and the offer, and a 351px pill has no room
+            to say either of those things twice. */}
+        {isPaid && user && (
+          <Link
+            href="/profile"
+            aria-label="Profile"
+            className="mr-2 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-rc-ink font-rc-mono text-[11px] font-bold text-white"
+          >
+            {user.email ? user.email.slice(0, 2).toUpperCase() : "RC"}
+          </Link>
+        )}
+        </div>
       </div>
 
       {/* The single map instance — full-screen on every breakpoint. Mobile
           floats the location header + a pull-up spot sheet over it; desktop
           keeps the rail + docked forecast strip. */}
-      <div className="absolute inset-x-0 top-16 bottom-0">
+      <div className={`absolute inset-x-0 ${mobileTop} lg:top-16 bottom-0`}>
         <ExploreMap
           mapRef={mapRef}
           spots={uniqueSpots}

@@ -648,7 +648,10 @@ export default function SpotDetailShell({
     // Nothing here listened to that scroller anyway (only the 14-day strip
     // scrolls, horizontally, on its own).
     <div className="min-h-dvh bg-rc-panel">
-      <ExploreTopBar />
+      {/* The spot page is a long read on a phone, so the bar rolls away as you
+          head down it and comes back on the first upward flick. `pt-16` below
+          stays put either way — the bar moves, the document does not. */}
+      <ExploreTopBar hideOnScroll />
 
       <div className="pt-16">
         {/* Desktop sub-header: breadcrumb + freshness. Full-bleed rule, inner
