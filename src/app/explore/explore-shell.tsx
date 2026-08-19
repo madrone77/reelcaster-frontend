@@ -100,7 +100,9 @@ const MAP_TZ = "America/Vancouver";
  * Callers own horizontal placement and colour.
  */
 const MAP_ACTION_PILL =
-  "absolute z-20 top-14 lg:top-2 flex items-center rounded-full " +
+  // top-16 on mobile clears the floating location pill (which starts 8px below
+  // the map's top edge and stands ~44px tall).
+  "absolute z-20 top-16 lg:top-2 flex items-center rounded-full " +
   "text-white text-[13px] lg:text-sm font-semibold px-3 lg:px-4 py-1.5 lg:py-2";
 
 function haversineKm(lat1: number, lng1: number, lat2: number, lng2: number): number {
@@ -1471,11 +1473,20 @@ export default function ExploreShell({
 
       {/* Mobile-only location header — floats over the top of the full-screen
           map (Zillow-style), just under the fixed top bar. Desktop shows the
-          same selector inside the rail. */}
+          same selector inside the rail.
+
+          An inset pill, not an edge-to-edge band: as a band it read as a second
+          header stacked under the top bar, and between the two of them a phone
+          gave up its first 110px before any water showed. The map already runs
+          underneath either way — this just lets it be seen. The outer div is
+          click-through so dragging the map beside the pill still works, and it
+          is what carries MAP_INSET_ATTR, so the camera keeps correcting for the
+          whole band the pill sits in. */}
       <div
         {...{ [MAP_INSET_ATTR]: "top" }}
-        className="lg:hidden absolute top-16 inset-x-0 z-20 bg-rc-panel border-b border-rc-rule"
+        className="lg:hidden pointer-events-none absolute top-16 inset-x-0 z-20 px-3 pt-2"
       >
+        <div className="pointer-events-auto rounded-xl border border-rc-rule bg-rc-panel/95 shadow-rc-panel backdrop-blur">
         <LocationSelector
           locations={data.locations}
           selectedCity={labelCity}
@@ -1486,6 +1497,7 @@ export default function ExploreShell({
           near={searchNear}
           onFilterClick={() => setFilterOpen(true)}
         />
+        </div>
       </div>
 
       {/* The single map instance — full-screen on every breakpoint. Mobile
@@ -1642,7 +1654,10 @@ export default function ExploreShell({
       {/* Mobile-only station/buoy sheet — the rail (and its drawer slot) is
           desktop-only, so stations get a bottom sheet on small screens. */}
       {selectedStation && (
-        <div className="lg:hidden fixed inset-x-0 bottom-0 z-40 h-[60dvh] bg-rc-panel border-t border-rc-rule rounded-t-xl shadow-rc-panel overflow-hidden">
+        <div
+          style={{ bottom: "var(--rc-tabbar-clearance)" }}
+          className="lg:hidden fixed inset-x-0 z-40 h-[60dvh] bg-rc-panel border-t border-rc-rule rounded-t-xl shadow-rc-panel overflow-hidden"
+        >
           <StationDrawer
             pick={selectedStation}
             tz={MAP_TZ}
