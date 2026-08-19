@@ -2,8 +2,10 @@ import { Wind, Globe } from 'lucide-react';
 import { CA, US } from 'country-flag-icons/react/3x2';
 
 // "Trusted data sources" strip. The two government agencies carry their real
-// national flag (accurate SVG from country-flag-icons); the two forecast models
-// keep a neutral line-icon. No containers behind the marks.
+// national flag (accurate SVG from country-flag-icons), rendered grayscale so
+// they sit as one muted, monochrome system with the two forecast models'
+// line-icons — one quiet, authoritative treatment across all four, no colour
+// spent and no shadow (flat, a hairline ring just defines the flag's edge).
 
 const FLAG = { ca: CA, us: US } as const;
 
@@ -31,8 +33,8 @@ export default function DataSources() {
           return (
             <div key={s.name} className="flex items-center gap-3">
               {Flag ? (
-                <span className="h-5 w-7 shrink-0 overflow-hidden rounded-[3px] shadow-sm ring-1 ring-rc-ink/10">
-                  <Flag className="h-full w-full object-cover" />
+                <span className="h-5 w-7 shrink-0 overflow-hidden rounded-[3px] ring-1 ring-rc-ink/10">
+                  <Flag className="h-full w-full object-cover grayscale" />
                 </span>
               ) : Icon ? (
                 <span className="flex h-5 w-7 shrink-0 items-center justify-center text-rc-ink-mute">
