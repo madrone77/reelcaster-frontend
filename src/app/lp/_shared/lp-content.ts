@@ -91,17 +91,25 @@ export function buildFeatures(
     return {
       forecast14: {
         id: "forecast14",
-        title: "Fourteen days of tides and windows",
+        title: "Fourteen days, scored",
         tag: null,
         badge: "HOUR BY HOUR",
-        desc: "Every hour for two weeks: tide exchange, current slack, pressure trend and moon phase. Pick the day off that is actually worth taking.",
+        // The score definition, stated plainly. Every input named here is a
+        // real column: swell_height_m and wave_height_m sit in ConditionsV1
+        // beside tide, current, wind and pressure, and "the bite" is the catch
+        // evidence that shrinks a spot's fingerprint toward what is actually
+        // being caught. Six things we compute, not six things that sound good.
+        desc: "One score out of 100 from tides, current, swell, wind, weather and the bite. Every spot, every hour, two weeks out.",
       },
       alerts: {
         id: "alerts",
         title: "A text when it turns on",
         tag: "SMS",
         badge: "UP TO 10 SPOTS",
-        desc: `“${card.spotName} hit 84 for ${card.species}. Best window Saturday 6-9am.” Set the score you care about and we watch the water around the clock.`,
+        // The example message moved out of this sentence and into the mock
+        // beside it, so the copy explains the mechanic instead of repeating
+        // the thing the reader can already see.
+        desc: "Set the score you care about on up to 10 spots. We watch the water around the clock and text you when one of them opens up.",
       },
       regulations: {
         id: "regulations",
@@ -112,10 +120,14 @@ export function buildFeatures(
       },
       customSpots: {
         id: "customSpots",
-        title: "Your own numbers, scored",
+        title: "Your own spots, scored",
         tag: "PRO",
         badge: "PRIVATE TO YOU",
-        desc: "Drop a pin on the ledge or the rip you found yourself, anywhere inside the water we cover. It runs the same model as the spots we list, and the position never leaves your account.",
+        // "anywhere inside the water we cover" stays. The API returns 422
+        // outside_coverage past roughly 50 km of a live city, so an unbounded
+        // "drop a pin anywhere" is a promise the product breaks on the
+        // customer's first try.
+        desc: "Drop a pin on the ledge or the rip you found yourself, anywhere inside the water we cover. Full data on it, tides, currents, wind and weather, always private to only you.",
       },
       catchLog: {
         id: "catchLog",
@@ -198,7 +210,11 @@ export function buildLayers(
         : `${region.tideAuthority} stations`,
       top: false,
     },
-    { label: "Wind & pressure", src: "ECMWF · GFS", top: false },
+    {
+      label: instrument ? "Wind, swell & pressure" : "Wind & pressure",
+      src: "ECMWF · GFS",
+      top: false,
+    },
     { label: "Water temp & sky", src: "Buoys · NOAA", top: false },
     {
       label: "Season & regulations",

@@ -179,6 +179,32 @@ export const LP_CSS = `
     letter-spacing:.14em;color:#0F3B33;background:#DFF6F0;border:1px solid #B7E6DB;
     border-radius:4px;padding:3px 7px}
 
+  /* ---------- UI mocks inside the instrument feature stack ---------- */
+  /* Miniature of the product's own 14-day strip. Scoped to .lp-instrument so
+     the classic pages keep their icon-and-text layout untouched. */
+  .lp.lp-instrument .mini-strip{display:flex;gap:4px;margin-top:10px}
+  .lp.lp-instrument .ms-cell{position:relative;flex:1;min-width:0;border:1px solid var(--line);
+    border-radius:7px;background:#fff;padding:14px 2px 5px;display:flex;flex-direction:column;
+    align-items:center;gap:1px}
+  .lp.lp-instrument .ms-cell.today{background:var(--blue);border-color:var(--blue)}
+  .lp.lp-instrument .ms-day{font-family:var(--mono);font-size:7.5px;letter-spacing:.08em;
+    color:var(--muted)}
+  .lp.lp-instrument .ms-cell.today .ms-day{color:rgba(255,255,255,.82)}
+  .lp.lp-instrument .ms-num{font-size:16px;font-weight:800;color:var(--good);line-height:1.05}
+  .lp.lp-instrument .ms-cell.today .ms-num{color:#fff}
+  /* The BEST tag sits over the cell's top edge, as it does in the product. */
+  .lp.lp-instrument .ms-best{position:absolute;top:-7px;left:50%;transform:translateX(-50%);
+    font-family:var(--mono);font-size:6.5px;letter-spacing:.08em;font-weight:700;
+    color:#7A4A00;background:#FCD34D;border-radius:3px;padding:1.5px 4px;white-space:nowrap}
+
+  /* Mock of the alert text. Deliberately reads as a phone message rather than
+     as a styled callout: the feature IS a text message, and dressing it as
+     marketing furniture would hide the one thing worth showing. */
+  .lp.lp-instrument .mini-sms{margin-top:10px}
+  .lp.lp-instrument .ms-bubble{background:#EDEFF4;color:var(--ink);border-radius:16px;
+    padding:9px 13px;font-size:13px;line-height:1.4;max-width:290px}
+  .lp.lp-instrument .ms-time{font-size:10px;color:var(--muted);margin-top:4px;margin-left:4px}
+
   /* ---------- proof ---------- */
   .lp .stat-band{display:flex;gap:12px}
   /* min-width:0 + a fluid size so a word-length value ("Hourly") or a longer
