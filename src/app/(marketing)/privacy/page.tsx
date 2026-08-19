@@ -8,8 +8,6 @@ import {
 
 // The document body lives in src/content/legal/privacy-policy.md. See the
 // note on the terms page: the markdown is canonical, this is just the frame.
-const markdown = readLegalDocument('privacy-policy');
-
 export const metadata: Metadata = {
   // Bare title, the root layout's "%s | ReelCaster" template adds the brand.
   title: 'Privacy Policy',
@@ -42,6 +40,11 @@ const JSONLD = {
 };
 
 export default function PrivacyPage() {
+  // Read per render, not at module scope: these pages are statically rendered
+  // so in production this runs once at build, but in dev it means editing the
+  // markdown does not need a server restart.
+  const markdown = readLegalDocument('privacy-policy');
+
   return (
     <>
       <script

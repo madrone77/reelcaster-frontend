@@ -18,7 +18,7 @@
  */
 
 /** Flip to `true` once every value below is real. Gates the warning banner. */
-export const LEGAL_DETAILS_COMPLETE = false;
+export const LEGAL_DETAILS_COMPLETE = true;
 
 export const LEGAL_CONTACT = {
   /** Confirmed: already published on the live site. */
@@ -35,11 +35,14 @@ export const LEGAL_CONTACT = {
   /** Must match the agent registered with the US Copyright Office. */
   DMCA_AGENT_EMAIL: 'support@reelcaster.com',
 
-  /** TODO(legal): required by the BPCPA. Street address, not a generic city line. */
-  MAILING_ADDRESS: 'PLACEHOLDER: registered office street address',
+  /**
+   * Street line only. The contact blocks in both documents print
+   * "Victoria, British Columbia, Canada" on the following line, and the
+   * inline supplier disclosure in Terms section 6 spells the city out.
+   */
+  MAILING_ADDRESS: '612 View Street, Suite 302',
 
-  /** TODO(legal): required by the BPCPA. */
-  PHONE: 'PLACEHOLDER: business telephone number',
+  PHONE: '+1 236 857 7771',
 
   EFFECTIVE_DATE: 'August 18, 2026',
 } as const;

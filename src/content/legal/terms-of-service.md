@@ -132,7 +132,7 @@ We are not liable for any loss or damage arising from your failure to safeguard 
 
 ## 6. Subscriptions, Billing, Renewal, and Refunds
 
-**Supplier information.** The supplier of the Service is Copia Digital Incorporated, {{MAILING_ADDRESS}}, telephone {{PHONE}}, email {{CONTACT_EMAIL}}.
+**Supplier information.** The supplier of the Service is Copia Digital Incorporated, {{MAILING_ADDRESS}}, Victoria, British Columbia, Canada, telephone {{PHONE}}, email {{CONTACT_EMAIL}}.
 
 **Subscription tiers.** ReelCaster offers free and paid tiers. The price, billing period, included features, and renewal terms for each paid tier are presented to you before you purchase, in the application or on our website. The total amount you will be charged, including the renewal amount and the renewal date, is disclosed at checkout.
 
@@ -388,12 +388,12 @@ Your continued use of the Service after a change takes effect constitutes accept
 
 ## 22. Contact
 
-**Copia Digital Incorporated**
-{{MAILING_ADDRESS}}
-Victoria, British Columbia, Canada
-Telephone: {{PHONE}}
-General and support: {{CONTACT_EMAIL}}
-Copyright notices: {{DMCA_AGENT_EMAIL}}
+**Copia Digital Incorporated**\
+{{MAILING_ADDRESS}}\
+Victoria, British Columbia, Canada\
+Telephone: {{PHONE}}\
+General and support: {{CONTACT_EMAIL}}\
+Copyright notices: {{DMCA_AGENT_EMAIL}}\
 Privacy requests: {{PRIVACY_EMAIL}}
 
 ---

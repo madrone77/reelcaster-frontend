@@ -9,8 +9,6 @@ import {
 // The document body lives in src/content/legal/terms-of-service.md. That file
 // is the canonical text and the one that goes to counsel; this page is only
 // the frame around it.
-const markdown = readLegalDocument('terms-of-service');
-
 export const metadata: Metadata = {
   // Bare title, the root layout's "%s | ReelCaster" template adds the brand.
   title: 'Terms of Service',
@@ -43,6 +41,11 @@ const JSONLD = {
 };
 
 export default function TermsPage() {
+  // Read per render, not at module scope: these pages are statically rendered
+  // so in production this runs once at build, but in dev it means editing the
+  // markdown does not need a server restart.
+  const markdown = readLegalDocument('terms-of-service');
+
   return (
     <>
       <script

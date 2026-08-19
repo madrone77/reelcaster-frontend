@@ -257,10 +257,10 @@ If you believe a child under 13 has given us personal information, contact {{PRI
 
 **Contact us.**
 
-**Privacy Officer**
-Copia Digital Incorporated
-{{MAILING_ADDRESS}}
-Victoria, British Columbia, Canada
-Telephone: {{PHONE}}
-Privacy requests and questions: {{PRIVACY_EMAIL}}
+**Privacy Officer**\
+Copia Digital Incorporated\
+{{MAILING_ADDRESS}}\
+Victoria, British Columbia, Canada\
+Telephone: {{PHONE}}\
+Privacy requests and questions: {{PRIVACY_EMAIL}}\
 General and support: {{CONTACT_EMAIL}}
