@@ -457,23 +457,23 @@ export default function ExploreMap({
 
       </Map>
 
-      {/* Brand watermark — a faint mark centred over the visible map. The zoom
-          control and the ⓘ acknowledgments keep the bottom-right corner
-          (positioned via globals.css). The centre lifts above whatever floats
-          over the map's bottom edge — the forecast strip on desktop, the spot
-          sheet on a phone (only one inset is ever non-zero) — so it stays
-          optically centred in what's actually visible. */}
+      {/* Brand watermark — a faint mark along the bottom of the visible map,
+          horizontally centred. It rides above whatever floats over the map's
+          bottom edge — the forecast strip on desktop, the spot sheet on a phone
+          (only one inset is ever non-zero) — so it never slides behind them. The
+          zoom control + ⓘ keep the bottom-right corner (positioned via
+          globals.css); the centred mark clears them. */}
       {showBrand && (
         <div
-          className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center"
+          className="pointer-events-none absolute inset-0 z-10 flex items-end justify-center"
           style={{
             paddingBottom:
-              "calc(var(--rc-map-inset, 0px) + var(--rc-map-sheet-inset, 0px))",
+              "calc(var(--rc-map-inset, 0px) + var(--rc-map-sheet-inset, 0px) + 14px)",
           }}
         >
-          <MapBrandLogo width={132} opacity={0.28} className="lg:hidden" />
+          <MapBrandLogo width={104} opacity={0.28} className="lg:hidden" />
           <MapBrandLogo
-            width={168}
+            width={124}
             opacity={0.28}
             className="hidden lg:block"
           />

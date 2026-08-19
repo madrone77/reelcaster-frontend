@@ -11,6 +11,7 @@ import {
   Map as MapIcon,
   MapPin,
   MapPinPlus,
+  PanelLeftClose,
   Search,
   SlidersHorizontal,
 } from "lucide-react";
@@ -76,6 +77,7 @@ export default function LocationSelector({
   onSelectSpecies,
   onFilterClick,
   onAddSpot,
+  onCollapse,
   mapControls,
   near,
 }: {
@@ -94,6 +96,9 @@ export default function LocationSelector({
   /** Mobile only — arms custom-spot placement. Sits beside Filters instead of a
    *  floating pill. Omitted on desktop (the rail header carries this action). */
   onAddSpot?: () => void;
+  /** Desktop rail only — collapses the rail to a reopen button. Rendered on the
+   *  right of the location row (where mobile puts Add spot / Filters). */
+  onCollapse?: () => void;
   /** Desktop only — supplies the "Near me" action. */
   mapControls?: MapControlsProps;
   /** Viewport centre, used only to break ties between equally good matches. */
@@ -400,6 +405,20 @@ export default function LocationSelector({
                 </button>
               )}
             </div>
+          </>
+        )}
+        {mapControls && onCollapse && (
+          <>
+            <div className="flex-1" />
+            <button
+              type="button"
+              aria-label="Hide spot list"
+              title="Hide spot list"
+              onClick={onCollapse}
+              className="shrink-0 flex h-8 w-8 items-center justify-center rounded-md text-rc-ink-mute hover:bg-rc-surface transition-colors"
+            >
+              <PanelLeftClose className="w-4 h-4" />
+            </button>
           </>
         )}
       </div>
