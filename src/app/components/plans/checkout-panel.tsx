@@ -243,7 +243,11 @@ export default function CheckoutPanel({
           </p>
 
           <div className="mt-6">
-            <TrialCta from={fromQuery} theme="light" />
+            {/* region matters here: this is the anonymous pay-first path that
+                cold ad traffic lands on, and without it the Stripe session is
+                priced from IP geo alone and falls back to CAD. The value is
+                already resolved above from ?region= or the edge geo header. */}
+            <TrialCta from={fromQuery} region={region} theme="light" />
           </div>
 
           <p className="mt-5 text-sm text-rc-ink-mute">

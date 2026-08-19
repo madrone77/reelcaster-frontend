@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { angleFrom } from "../../_shared/lp-angles";
 import { resolveLpCard } from "../../_shared/lp-spot";
 import LpShell from "../../_shared/lp-shell";
+import { lpCheckoutHref } from "../../_shared/lp-checkout";
 import Lp2Hero from "./hero";
 
 /**
@@ -81,7 +82,7 @@ export default async function Lp2CityPage({
   // `from` is what /plans/checkout records for attribution. It carries the page
   // variant as well as the angle, so "photo hero or copy hero" and "which
   // pitch" are both answerable from the attr_* columns.
-  const checkoutHref = `/plans/checkout?from=lp2-${angle.id}`;
+  const checkoutHref = lpCheckoutHref("2", angle.id, card);
 
   return (
     <LpShell

@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { angleFrom } from "../../_shared/lp-angles";
 import { resolveLpCard } from "../../_shared/lp-spot";
 import LpShell from "../../_shared/lp-shell";
+import { lpCheckoutHref } from "../../_shared/lp-checkout";
 import LpPhotoHero from "../../_shared/lp-photo-hero";
 
 /**
@@ -67,7 +68,7 @@ export default async function Lp5CityPage({
 
   // lp5- so the treatment is distinguishable from both the hero variant and
   // the angle in the attribution columns.
-  const checkoutHref = `/plans/checkout?from=lp5-${angle.id}`;
+  const checkoutHref = lpCheckoutHref("5", angle.id, card);
 
   return (
     <LpShell

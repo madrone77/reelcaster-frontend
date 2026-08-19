@@ -77,6 +77,8 @@ function shortDate(d: Date): string {
 }
 
 export interface TrialCtaProps {
+  /** Billing region for this checkout; see TrialCtaState.region. */
+  region?: string;
   /** Analytics origin passed to Stripe metadata ('explore', 'paywall', …). */
   from: string;
   /**
@@ -106,6 +108,17 @@ interface TrialCtaState {
   planDown: boolean;
   isLight: boolean;
   from: string;
+  /**
+   * Billing region ('BC' | 'WA' | ...) for this checkout.
+   *
+   * Not cosmetic: /api/stripe/checkout prices the session with
+   * currencyForRegion(), where BC bills CAD and WA bills USD, and with no
+   * region it falls back to the request's IP country and then to CAD. The
+   * anon POST used to omit this entirely, so every cold ad visitor's currency
+   * was decided by geo alone and defaulted to Canadian dollars whenever geo
+   * came up empty. A US landing page cannot leave that to inference.
+   */
+  region: string;
   onActivate?: (method: TrialCtaMethod) => void;
   // buy
   email: string;
@@ -128,11 +141,14 @@ function useTrialCta(): TrialCtaState {
 
 export function TrialCtaProvider({
   from,
+  region = '',
   theme = 'light',
   onActivate,
   children,
 }: {
   from: string;
+  /** Billing region; see TrialCtaState.region for why this matters. */
+  region?: string;
   theme?: 'light' | 'dark';
   onActivate?: (method: TrialCtaMethod) => void;
   children: React.ReactNode;
@@ -199,7 +215,7 @@ export function TrialCtaProvider({
       const res = await fetch('/api/stripe/checkout', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ from, email: email.trim() }),
+        body: JSON.stringify({ from, region, email: email.trim() }),
       });
       let payload: { url?: string; redirect?: string; error?: string } = {};
       try {
@@ -232,6 +248,7 @@ export function TrialCtaProvider({
     planDown: Boolean(status && !status.annual_available),
     isLight: theme === 'light',
     from,
+    region,
     onActivate,
     email,
     setEmail,
@@ -241,7 +258,7 @@ export function TrialCtaProvider({
       (error ? 'We couldn’t start checkout. Please try again in a moment.' : null),
     startAnonCheckout,
     startCheckout: () => {
-      openCheckout({ from }).catch(() => {
+      openCheckout({ from, region }).catch(() => {
         /* surfaced through errorText */
       });
     },
@@ -259,10 +276,15 @@ export function TrialExpress({
   region,
   className,
 }: {
+  /** Overrides the provider's region. Left for callers that render this
+   *  outside a checkout page; the provider value is the default so the
+   *  wallet buttons cannot silently bill in a different currency from the
+   *  card form beside them. */
   region?: string;
   className?: string;
 }) {
   const s = useTrialCta();
+  const effectiveRegion = region ?? s.region;
   // Optimistic: the element itself reports back on ready, and hiding until
   // then would make the buttons pop in under the buyer's cursor.
   const [available, setAvailable] = useState(true);
@@ -280,7 +302,7 @@ export function TrialExpress({
     <div className={cn(available ? 'block' : 'hidden', className)}>
       <ExpressCheckout
         from={s.from}
-        region={region}
+        region={effectiveRegion}
         onAvailabilityChange={handleAvailability}
         onActivate={handleActivate}
       />
@@ -506,6 +528,7 @@ export function TrialTerms({ className }: { className?: string }) {
 /** Wallets + buy + terms in one block, for surfaces that don't split them. */
 export default function TrialCta({
   from,
+  region,
   signupHref,
   signupLabel,
   theme = 'light',
@@ -513,7 +536,7 @@ export default function TrialCta({
   onActivate,
 }: TrialCtaProps) {
   return (
-    <TrialCtaProvider from={from} theme={theme} onActivate={onActivate}>
+    <TrialCtaProvider from={from} region={region} theme={theme} onActivate={onActivate}>
       <div className={cn('flex flex-col gap-3', className)}>
         {!signupHref && <TrialExpress />}
         <TrialBuy signupHref={signupHref} signupLabel={signupLabel} />
