@@ -77,6 +77,42 @@ export function mapInsetOffsetY(): number {
 }
 
 /**
+ * How far the floating bottom panels cover the map pane at their resting
+ * height, in CSS pixels. 0 when nothing covers it (desktop, or a map with no
+ * sheet over it).
+ *
+ * Chrome pinned to the map's bottom edge — the zoom control, the ⓘ, the brand
+ * watermark — renders underneath the spot sheet without this, which is exactly
+ * what happened on phone width: correctly placed inside a band nothing can see.
+ * Desktop has the same problem with the forecast strip and solves it with a
+ * fixed `--rc-map-inset`, but the sheet's height comes from its own measured
+ * header, so this one has to be read off the DOM.
+ *
+ * Resting height, not live height, for the same reason the camera uses it: the
+ * sheet can be dragged up to browse and always comes back to peek, and chrome
+ * that chased the drag would slide around under a panel that already covers it.
+ */
+export function mapBottomPanelInset(pane: Element | null): number {
+  if (typeof document === "undefined" || !pane) return 0;
+  const r = pane.getBoundingClientRect();
+  if (r.height <= 0) return 0;
+
+  let bottom = r.bottom;
+  for (const el of document.querySelectorAll(`[${MAP_INSET_ATTR}="bottom"]`)) {
+    const o = el.getBoundingClientRect();
+    if (o.height <= 0 || o.bottom <= r.top || o.top >= r.bottom) continue;
+    // Pinned by its bottom edge and grown upward, so the resting top is
+    // measured back from there.
+    const resting = Number(el.getAttribute(MAP_INSET_RESTING_ATTR));
+    bottom = Math.min(bottom, resting > 0 ? o.bottom - resting : o.top);
+  }
+
+  // A panel covering all but a sliver would push the chrome off the top of the
+  // pane, which is worse than leaving it under the panel. Keep it on the map.
+  return Math.max(0, Math.min(Math.round(r.bottom - bottom), Math.round(r.height - 120)));
+}
+
+/**
  * The camera centre that renders `lat`/`lng` in the middle of the visible water
  * rather than the middle of the map pane.
  *
