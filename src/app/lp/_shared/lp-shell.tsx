@@ -3,7 +3,8 @@
 import { useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import type { Angle } from "./lp-angles";
-import { FEATURES, LAYERS, PRICE, PROOF } from "./lp-content";
+import { FEATURES, PRICE, PROOF, layersFor, regulationsDesc } from "./lp-content";
+import { regulatorFor } from "@/lib/regions";
 import type { LpCard } from "./lp-spot";
 import { LP_CSS } from "./lp-css";
 
@@ -134,7 +135,14 @@ export default function LpShell({
     };
   }, []);
 
-  const features = angle.features.map((id) => FEATURES[id]);
+  // Which fisheries authority this page may name. A page sold into Washington
+  // that cites DFO is wrong about the one subject the regulations feature
+  // exists to be right about, and the score card sits directly under it.
+  const regulator = regulatorFor(card.provinceCode);
+  const layers = layersFor(regulator);
+  const features = angle.features
+    .map((id) => FEATURES[id])
+    .map((f) => (f.id === "regulations" ? { ...f, desc: regulationsDesc(regulator) } : f));
 
   return (
     <div className="lp">
@@ -153,7 +161,7 @@ export default function LpShell({
                 priority
               />
             </span>
-            <span className="trust-chip">DFO + NOAA DATA</span>
+            <span className="trust-chip">{regulator.name} + NOAA DATA</span>
           </div>
         </header>
 
@@ -263,7 +271,7 @@ export default function LpShell({
               </div>
               <div className="d-line" />
               <div className="d-stack" role="list" aria-label="Signal layers behind the score">
-                {LAYERS.map((l) => (
+                {layers.map((l) => (
                   <div className={l.top ? "d-layer top" : "d-layer"} role="listitem" key={l.label}>
                     {/* The top layer names the spot's actual driver species
                         rather than a hardcoded one — it is the row claiming to

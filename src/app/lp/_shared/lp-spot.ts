@@ -1,6 +1,14 @@
-import { fetchFreshCatches, fetchHierarchy, fetchMapSpots } from "@/lib/bluecaster";
+import {
+  fetchFreshCatches,
+  fetchHierarchy,
+  fetchMapSpots,
+  type FreshCatchesPayload,
+  type MapSpeciesStrip,
+  type MapSpotsPayload,
+} from "@/lib/bluecaster";
 import { buildExploreData, tierFor } from "@/app/explore/lib/explore-data";
 import { formatHour12 } from "@/lib/time-format";
+import { resolveLpSpecies, type LpSpecies } from "./lp-species";
 
 /**
  * The score card's data, resolved per city.
@@ -37,6 +45,13 @@ import { formatHour12 } from "@/lib/time-format";
 export interface LpCard {
   /** Real city display name, e.g. "Friday Harbor". */
   cityName: string;
+  /**
+   * The spot's own province code, e.g. "BC" or "WA". Carried so the page can
+   * name the right fisheries authority: these pages ship in two countries, and
+   * a Seattle page citing DFO tide stations and PFMA areas is wrong about the
+   * one subject a regulations feature exists to be right about.
+   */
+  provinceCode: string;
   spotName: string;
   /** Driver species display name, e.g. "Chinook". */
   species: string;
@@ -56,6 +71,14 @@ export interface LpCard {
   bestTo: number;
   freshCatches: number;
   freshWindowDays: number;
+  /**
+   * The species the ad asked for, when the whole card was built around it.
+   * Null on the untargeted path, which is every variant except /lp/4 and /lp/4
+   * itself whenever the requested species has nothing scored in this city.
+   * The page reads it to decide whether it may name a species in the copy: the
+   * headline and the card have to agree or neither is believed.
+   */
+  targetedSpecies: string | null;
 }
 
 /**
@@ -123,13 +146,98 @@ function bestWindow(hours: number[]): { from: number; to: number; peak: number }
   return { from, to, peak };
 }
 
+/** One entry of the explore build, which is what the ranking works over. */
+type LpCandidate = ReturnType<typeof buildExploreData>["spots"][number];
+
+/**
+ * The card for a species the ad asked for, or null when this city scores
+ * nothing for it today.
+ *
+ * Null is a real answer and the caller falls back to the untargeted card. A
+ * chinook link landing on a city with no chinook water should quietly become
+ * the generic page, not a fabricated chinook card: the number on the card is
+ * the one thing on the page a cold visitor can check.
+ *
+ * Everything here reads the requested species' own strip out of the payload
+ * that has already been fetched, so a targeted card costs no extra round trip.
+ * That matters more than it sounds: the score, the bars, and the best window
+ * all describe the same species the headline names, rather than the spot's
+ * best species with a different label pasted over it.
+ *
+ * Ranking is season, then reports for this species, then the species' own
+ * peak. Season leads because an out-of-season spot is a bad ad even when its
+ * arithmetic is fine, and reports lead score for the reason the untargeted
+ * ranking uses activity: a cold visitor judges the product on whether the spot
+ * name means something to them.
+ */
+function cardForSpecies(
+  species: LpSpecies,
+  candidates: LpCandidate[],
+  payload: MapSpotsPayload,
+  fresh: FreshCatchesPayload | null,
+): LpCard | null {
+  const entries = new Map(payload.spots.map((e) => [e.id, e]));
+  const scored = candidates
+    .map((spot) => ({ spot, strip: entries.get(spot.id)?.scores?.[species.id] }))
+    .filter((c): c is { spot: LpCandidate; strip: MapSpeciesStrip } => Boolean(c.strip));
+  if (!scored.length) return null;
+
+  const seasonRank = (strip: MapSpeciesStrip) =>
+    strip.season === "peak" ? 0 : strip.season === "mid" ? 1 : 2;
+  const reportsFor = (id: string) => fresh?.spots[id]?.species?.[species.id]?.count ?? 0;
+
+  const rep = scored.sort((a, b) => {
+    const bySeason = seasonRank(a.strip) - seasonRank(b.strip);
+    if (bySeason !== 0) return bySeason;
+    const byReports = reportsFor(b.spot.id) - reportsFor(a.spot.id);
+    if (byReports !== 0) return byReports;
+    return b.strip.peak - a.strip.peak;
+  })[0];
+
+  const hours = rep.strip.hours.map((h) => (h ? Math.round(h.s * 100) : 0));
+  const window = bestWindow(hours);
+  const score = Math.round(rep.strip.peak * 100);
+  const tier = tierFor(score);
+
+  return {
+    cityName: rep.spot.cityName,
+    provinceCode: rep.spot.provinceCode,
+    spotName: rep.spot.name,
+    species: species.label,
+    meta: `${species.label} · ${rep.spot.cityName}`.toUpperCase(),
+    score,
+    tagWord: tier === "none" ? "" : tier.toUpperCase(),
+    tier,
+    windowTime: window
+      ? `${formatHour12(window.from)} – ${formatHour12(Math.min(window.to + 1, 23))}`
+      : null,
+    windowNote: window ? `Peaks at ${window.peak}` : null,
+    hours,
+    bestFrom: window?.from ?? -1,
+    bestTo: window?.to ?? -2,
+    // This species' reports, not the spot's. A halibut card claiming the
+    // spot's 40 salmon reports would be the kind of true-but-wrong number that
+    // costs more trust than it buys.
+    freshCatches: reportsFor(rep.spot.id),
+    freshWindowDays: fresh?.days ?? 14,
+    targetedSpecies: species.label,
+  };
+}
+
 /**
  * Returns the card for a city, or null when there is nothing to show — unknown
  * slug, or no published spot with a score. Callers 404 on null rather than
  * falling back to another city: a silent swap would spend one city's ad budget
  * on another city's page and make the campaign read as a success.
+ *
+ * `opts.species` is the ad link's `?species=`. When it resolves and the city
+ * has water scored for it, the card is built around that species; otherwise
+ * this is exactly the function /lp/1 through /lp/3 have always called.
  */
-export async function resolveLpCard(citySlug: string): Promise<LpCard | null> {
+export async function resolveLpCard(
+  citySlug: string,
+  opts?: { species?: string | string[] | null },
+): Promise<LpCard | null> {
   const [hierarchy, payload, fresh] = await Promise.all([
     fetchHierarchy(),
     fetchMapSpots({ city: citySlug }),
@@ -140,6 +248,14 @@ export async function resolveLpCard(citySlug: string): Promise<LpCard | null> {
   const data = buildExploreData(hierarchy, payload);
   const candidates = data.spots.filter((s) => s.citySlug === citySlug && s.score !== null);
   if (!candidates.length) return null;
+
+  const target = opts?.species ? resolveLpSpecies(payload, opts.species) : null;
+  if (target) {
+    const targeted = cardForSpecies(target, candidates, payload, fresh);
+    if (targeted) return targeted;
+    // Nothing scored for that species here today. Fall through to the
+    // untargeted card, and the page drops the species from its copy with it.
+  }
 
   // Target species, then busiest, then best-scoring. Each step falls through to
   // the next, so no city is left without a card.
@@ -163,6 +279,7 @@ export async function resolveLpCard(citySlug: string): Promise<LpCard | null> {
 
   return {
     cityName: rep.cityName,
+    provinceCode: rep.provinceCode,
     spotName: rep.name,
     species,
     // Species and city, nothing more. The old card said "NEAR YOU" about a
@@ -183,5 +300,6 @@ export async function resolveLpCard(citySlug: string): Promise<LpCard | null> {
     bestTo: window?.to ?? -2,
     freshCatches: freshEntry?.count ?? 0,
     freshWindowDays: fresh?.days ?? 14,
+    targetedSpecies: null,
   };
 }
