@@ -256,6 +256,7 @@ export default function SpotCard({
             days={days14}
             density={dayStripDensity}
             onUnlock={() => setForecastUpgradeOpen(true)}
+            moreHref={reportHref}
           />
         ) : null)}
 

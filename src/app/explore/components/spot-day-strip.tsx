@@ -1,6 +1,7 @@
 "use client";
 
-import { Lock } from "lucide-react";
+import Link from "next/link";
+import { ChevronRight, Lock } from "lucide-react";
 import { tierFor, fmtPeak, type Tier } from "../lib/explore-data";
 import type { SpotsOutlook14dPayload } from "@/lib/bluecaster";
 
@@ -67,6 +68,24 @@ function DayLabel({ dow, className }: { dow: string; className: string }) {
   );
 }
 
+/**
+ * How many day cells the labelled density draws before the rest collapses into
+ * a single "+N" tail.
+ *
+ * A card in a list is answering "is this spot worth opening", and it was
+ * spending its whole width on a fortnight to do it: fourteen cells is ~19px
+ * each on a phone, and a screen of saved spots became a screen of grids. Worse
+ * for a visitor on the 2-day horizon, where twelve of the fourteen were
+ * padlocks — a paywall drawn fourteen times per screen.
+ *
+ * Five days is the "this week" answer at phone width; seven once there's room.
+ * The fortnight is not gone, it is one tap away on the spot page, which is the
+ * surface built to read it. Both counts render and CSS picks one, so this stays
+ * a style switch with nothing for hydration to disagree about.
+ */
+const VISIBLE_PHONE = 5;
+const VISIBLE_WIDE = 7;
+
 export interface SpotDay {
   dow: string; // "Wed"
   date: string; // "Aug 16"
@@ -119,11 +138,15 @@ export default function SpotDayStrip({
   days,
   density = "labelled",
   onUnlock,
+  moreHref,
 }: {
   days: SpotDay[];
   density?: "labelled" | "compact";
   /** Fires when a locked day is clicked. Omit to render locks as inert. */
   onUnlock?: () => void;
+  /** Spot page for the days this strip doesn't draw. Omit to render the tail
+   *  as inert. Ignored when the tail is locked — that sells the plan instead. */
+  moreHref?: string;
 }) {
   const scored = days.filter((d) => d.score !== null);
   const best = scored.reduce<SpotDay | null>(
@@ -131,6 +154,10 @@ export default function SpotDayStrip({
     null,
   );
   const lockedCount = days.filter((d) => d.locked).length;
+  // The tail stands for everything past the visible window. Locks arrive as a
+  // suffix, so a locked day anywhere past the phone window means the tail is
+  // locked at either width.
+  const tailLocked = days.slice(VISIBLE_PHONE).some((d) => d.locked);
 
   return (
     <div className="px-3 pt-2 pb-2.5 border-t border-rc-rule">
@@ -200,9 +227,12 @@ export default function SpotDayStrip({
         </div>
       ) : (
         <div className="flex gap-1">
-          {days.map((d, i) => {
+          {days.slice(0, VISIBLE_WIDE).map((d, i) => {
             const t = tierFor(d.score);
             const isBest = best !== null && d.score !== null && d === best;
+            // Cells past the phone window exist at every width and are hidden
+            // by CSS on the narrow one.
+            const show = i >= VISIBLE_PHONE ? "hidden sm:flex" : "flex";
 
             if (d.locked) {
               return (
@@ -219,7 +249,7 @@ export default function SpotDayStrip({
                   }
                   disabled={!onUnlock}
                   aria-label={`${d.dow} ${d.date} — upgrade to see this day`}
-                  className="flex-1 min-w-0 rounded bg-rc-surface border border-rc-rule flex flex-col items-center justify-center gap-0.5 py-1.5 enabled:hover:border-rc-brand transition-colors"
+                  className={`flex-1 min-w-0 rounded bg-rc-surface border border-rc-rule ${show} flex-col items-center justify-center gap-0.5 py-1.5 enabled:hover:border-rc-brand transition-colors`}
                 >
                   <DayLabel
                     dow={d.dow}
@@ -238,7 +268,7 @@ export default function SpotDayStrip({
                     ? `${d.dow} ${d.date} · peaks ${fmtPeak(d.peakHour)}`
                     : `${d.dow} ${d.date}`
                 }
-                className={`relative flex-1 min-w-0 rounded ${TIER_FILL[t]} flex flex-col items-center justify-center gap-0.5 py-1.5 ${
+                className={`relative flex-1 min-w-0 rounded ${TIER_FILL[t]} ${show} flex-col items-center justify-center gap-0.5 py-1.5 ${
                   isBest ? "ring-1 ring-inset ring-rc-badge" : ""
                 }`}
               >
@@ -254,10 +284,91 @@ export default function SpotDayStrip({
               </div>
             );
           })}
+
+          {days.length > VISIBLE_PHONE && (
+            <TailCell
+              total={days.length}
+              locked={tailLocked}
+              onUnlock={onUnlock}
+              href={moreHref}
+            />
+          )}
         </div>
       )}
     </div>
   );
+}
+
+/**
+ * The one cell standing in for every day past the visible window. Locked, it is
+ * the upgrade prompt the twelve padlocks used to be, said once. Unlocked, it is
+ * the way to the spot page, which draws the whole fortnight properly.
+ *
+ * The count differs by breakpoint because the window does, so both render and
+ * CSS picks one, exactly as the day labels do.
+ */
+function TailCell({
+  total,
+  locked,
+  onUnlock,
+  href,
+}: {
+  total: number;
+  locked: boolean;
+  onUnlock?: () => void;
+  href?: string;
+}) {
+  const body = (
+    <>
+      <span className="rc-label text-[9px] leading-none text-rc-ink-mute overflow-hidden">
+        <span className="sm:hidden">+{total - VISIBLE_PHONE}</span>
+        <span className="hidden sm:inline">+{total - VISIBLE_WIDE}</span>
+      </span>
+      {locked ? (
+        <Lock className="w-3 h-3 text-rc-ink-mute" />
+      ) : (
+        <ChevronRight className="w-3 h-3 text-rc-ink-mute" />
+      )}
+    </>
+  );
+  const shell =
+    "flex-1 min-w-0 rounded bg-rc-surface border border-rc-rule border-dashed flex flex-col items-center justify-center gap-0.5 py-1.5 transition-colors";
+
+  if (locked) {
+    return (
+      <button
+        type="button"
+        onClick={
+          onUnlock
+            ? (e) => {
+                e.stopPropagation();
+                onUnlock();
+              }
+            : undefined
+        }
+        disabled={!onUnlock}
+        aria-label="Upgrade to see the rest of the fortnight"
+        className={`${shell} enabled:hover:border-rc-brand`}
+      >
+        {body}
+      </button>
+    );
+  }
+
+  if (href) {
+    return (
+      <Link
+        href={href}
+        onClick={(e) => e.stopPropagation()}
+        aria-label="See the full 14-day forecast"
+        className={`${shell} hover:border-rc-brand`}
+      >
+        {body}
+      </Link>
+    );
+  }
+
+  return <div className={shell}>{body}</div>;
 }
 
 /** Placeholder with the strip's exact height, so a card doesn't jump when the
@@ -273,12 +384,22 @@ export function SpotDayStripSkeleton({
         <span className="rc-label text-[9px]">Next 14 days</span>
       </div>
       <div className={`flex gap-1 ${density === "compact" ? "h-8" : "h-[38px]"}`}>
-        {Array.from({ length: 14 }).map((_, i) => (
-          <div
-            key={i}
-            className="flex-1 rounded bg-rc-surface animate-pulse"
-          />
-        ))}
+        {/* Same shape the real strip settles at — the visible window at this
+            width, plus the tail — so the card holds its height when the 14-day
+            read lands. */}
+        {Array.from({ length: density === "compact" ? 14 : VISIBLE_WIDE }).map(
+          (_, i) => (
+            <div
+              key={i}
+              className={`flex-1 rounded bg-rc-surface animate-pulse ${
+                density === "labelled" && i >= VISIBLE_PHONE ? "hidden sm:block" : ""
+              }`}
+            />
+          ),
+        )}
+        {density === "labelled" && (
+          <div className="flex-1 rounded bg-rc-surface animate-pulse" />
+        )}
       </div>
     </div>
   );
