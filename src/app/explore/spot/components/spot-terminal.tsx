@@ -44,6 +44,8 @@ export type TerminalHours = {
   gust: (number | null)[];
   windDir: (number | null)[];
   sea: (number | null)[];
+  /** Per hour: true when `sea` is a wind-derived estimate, not a modelled wave. */
+  seaEst: boolean[];
   cloud: (number | null)[];
   precip: (number | null)[];
   air: (number | null)[];
@@ -81,6 +83,19 @@ const WNAMES = ["N","NNE","NE","ENE","E","ESE","SE","SSE","S","SSW","SW","WSW","
 const windName = (d: number | null) => (d == null ? "—" : WNAMES[Math.round(d / 22.5) % 16]);
 const seaWord = (m: number | null) =>
   m == null ? "—" : m < 0.2 ? "Calm" : m < 0.35 ? "Rippled" : m < 0.65 ? "Light" : m < 1 ? "Chop" : "Rough";
+// Row note for SEA STATE. Says so when the row is carrying wind-derived hours,
+// so nobody reads an inferred sea as a modelled one. Must fit the 132px label
+// gutter, about 20 chars at 10px mono. The 0/max ticks live in the plot, not here,
+// so dropping the scale from the estimate wording costs no information.
+const seaNote = (hours: TerminalHours, waveUnit: string, maxTick: string) => {
+  let real = 0, est = 0;
+  for (let i = 0; i < 24; i++) {
+    if (num(hours.sea[i]) == null) continue;
+    if (hours.seaEst?.[i]) est++; else real++;
+  }
+  if (est === 0) return `wave ${waveUnit} · 0–${maxTick}`;
+  return real === 0 ? "est. from wind" : "part est. from wind";
+};
 const airWord = (t: number | null) => (t == null ? "—" : t < 11 ? "Cold" : t < 18 ? "Mild" : "Warm");
 const hh = (t: number) => formatFractionalHour12(t);
 // Chart-internal variant: the SVG annotations and axis are pixel-starved, so
@@ -256,7 +271,7 @@ function buildSvg(
     { k: "cur", l: "Current", n: `${cLbl} · +flood −ebb`, h: 128 * base },
     { k: "wind", l: "Wind", n: `${wLbl} · bar+gust`, h: mob ? 84 : 122 },
     { k: "arrow", l: "", n: "", h: mob ? 22 : 32 },
-    { k: "sea", l: "Sea State", n: `wave ${u.waveUnit} · 0–${tickFmt(cvWave(1))}`, h: 70 * base },
+    { k: "sea", l: "Sea State", n: seaNote(hours, u.waveUnit, tickFmt(cvWave(1))), h: 70 * base },
     { k: "air", l: "Air Temp", n: `°${u.tempUnit} · ${Math.round(cvT(5))}–${Math.round(cvT(25))} fixed`, h: mob ? 42 : 56 },
     // Note must fit the 132px label gutter — at 10px mono (~6px/char) that's
     // ~20 chars before it runs out from under the label and into the plot.
@@ -413,7 +428,10 @@ function buildSvg(
   { const r = Y.sea; s += `<line x1="${x0}" y1="${yIn(0.5, r.y0, r.y1, 0, 1).toFixed(1)}" x2="${x1}" y2="${yIn(0.5, r.y0, r.y1, 0, 1).toFixed(1)}" stroke="${C.ruleSoft}" stroke-width="1" stroke-dasharray="3 3"/>`;
     s += `<text class="tm-tick" x="${x0 - 5}" y="${r.y0 + 7}" text-anchor="end">${tickFmt(cvWave(1))}</text><text class="tm-tick" x="${x0 - 5}" y="${r.y1}" text-anchor="end">0</text>`;
     for (let i = 0; i < 24; i++) { const v = num(hours.sea[i]); if (v == null) continue; const cx = xAt(i), bw = hw * 0.56, col = v < 0.35 ? C.faint : v < 0.65 ? C.r[2] : C.r[3], by = yIn(v, r.y0, r.y1, 0, 1);
-      s += `<rect x="${(cx + hw / 2 - bw / 2).toFixed(1)}" y="${by.toFixed(1)}" width="${bw.toFixed(1)}" height="${Math.max(1.5, r.y1 - by).toFixed(1)}" rx="1" fill="${col}"/>`; } }
+      // Wind-derived hours plot at reduced opacity, so a mixed day reads at a
+      // glance as part modelled, part inferred.
+      const op = hours.seaEst?.[i] ? ' fill-opacity="0.5"' : "";
+      s += `<rect x="${(cx + hw / 2 - bw / 2).toFixed(1)}" y="${by.toFixed(1)}" width="${bw.toFixed(1)}" height="${Math.max(1.5, r.y1 - by).toFixed(1)}" rx="1" fill="${col}"${op}/>`; } }
 
   // (Sky is no longer an in-stack row — cloud + precip now render as the
   // weather-icon row beneath the hour axis; see below.)
@@ -578,7 +596,8 @@ export default function SpotTerminal({
       tide: convertHeight(num(hours.tide[hi]) ?? 0, "m", tideUnit).toFixed(1) + tideUnit, tideS: tR ? "Rising ▲" : "Falling ▼",
       curSigned: (cv >= 0 ? "+" : "") + cvC(cv).toFixed(1) + cLbl, curS: cs,
       wind: cvW(num(hours.wind[hi]) ?? 0).toFixed(0) + wLbl, windS: windName(hours.windDir[hi]) + " G" + cvW(num(hours.gust[hi]) ?? 0).toFixed(0),
-      sea: convertHeight(num(hours.sea[hi]) ?? 0, "m", waveUnit).toFixed(1) + waveUnit, seaS: seaWord(num(hours.sea[hi])),
+      sea: hours.seaEst?.[hi] ? "" : convertHeight(num(hours.sea[hi]) ?? 0, "m", waveUnit).toFixed(1) + waveUnit,
+      seaS: seaWord(num(hours.sea[hi])) + (hours.seaEst?.[hi] ? " (est. from wind)" : ""),
       air: convertTemp(num(hours.air[hi]) ?? 0, "C", tempUnit).toFixed(1) + "°", airS: airWord(num(hours.air[hi])),
     };
   };
@@ -747,7 +766,7 @@ export default function SpotTerminal({
 
       {/* Screen-reader live readout of the scrubbed hour. */}
       <div aria-live="polite" className="sr-only">
-        {`Hour ${d.hour}. Score ${d.score} ${d.verd}. Tide ${d.tide} ${d.tideS}. Current ${d.curSigned} ${d.curS}. Wind ${d.wind} ${d.windS}. Sea ${d.sea} ${d.seaS}. Air ${d.air}.`}
+        {`Hour ${d.hour}. Score ${d.score} ${d.verd}. Tide ${d.tide} ${d.tideS}. Current ${d.curSigned} ${d.curS}. Wind ${d.wind} ${d.windS}. Sea ${[d.sea, d.seaS].filter(Boolean).join(" ")}. Air ${d.air}.`}
       </div>
 
       {/* The mobile per-hour readout bar was removed — the "Conditions · now"

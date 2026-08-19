@@ -13,6 +13,7 @@ import {
 import type { LucideIcon } from "lucide-react";
 import type { RightNowSnapshot } from "@/lib/bluecaster/live-spot-types";
 import { TIER_PILL } from "@/app/explore/lib/explore-data";
+import { resolveSea } from "@/app/explore/lib/sea-state";
 import { formatHour12 } from "@/lib/time-format";
 import SpotDayStrip, {
   type SpotDay,
@@ -343,10 +344,14 @@ function ConditionTile({
   Icon,
   label,
   value,
+  note,
 }: {
   Icon: LucideIcon;
   label: string;
   value: string | null;
+  /** Muted qualifier printed after the value. Rides the same line so a tile
+      carrying one stays the same height as its neighbours in the row. */
+  note?: string | null;
 }) {
   return (
     <div className="rounded border border-white/10 bg-white/[0.06] px-3 py-2">
@@ -356,6 +361,9 @@ function ConditionTile({
       </div>
       <div className="mt-1 font-rc-mono text-[12px] font-medium leading-4 tabular-nums">
         {value ?? "—"}
+        {value != null && note ? (
+          <span className="ml-1 text-[9px] font-normal text-white/45">{note}</span>
+        ) : null}
       </div>
     </div>
   );
@@ -555,7 +563,19 @@ export default function HomeSpotHero({
               label="Water"
               value={rn.seaTempC != null ? `${rn.seaTempC.toFixed(1)} °C` : null}
             />
-            <ConditionTile Icon={Sailboat} label="Sea" value={seaState(rn.waveM)} />
+            {/* No wave data at some spots (the wave grid has dry-land cells), so
+                this falls back to a wind-derived sea, marked as an estimate. */}
+            {(() => {
+              const sea = resolveSea(rn.waveM, rn.windKt, rn.windGustKt);
+              return (
+                <ConditionTile
+                  Icon={Sailboat}
+                  label="Sea"
+                  value={seaState(sea?.m ?? null)}
+                  note={sea?.estimated ? "est." : null}
+                />
+              );
+            })()}
           </div>
         )}
 

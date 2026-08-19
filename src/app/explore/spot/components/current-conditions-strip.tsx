@@ -16,6 +16,7 @@ import {
   formatWind,
 } from "@/app/utils/unit-conversions";
 import { formatFractionalHour12 } from "@/lib/time-format";
+import { resolveSea, SEA_ESTIMATE_NOTE } from "../../lib/sea-state";
 import WeatherIcon, {
   weatherFromHour,
   type WeatherCondition,
@@ -179,6 +180,10 @@ export default function CurrentConditionsStrip({
   const gusty =
     rn?.windKt != null && rn?.windGustKt != null && rn.windGustKt - rn.windKt > 8;
 
+  // Falls back to a wind-derived sea at spots the wave grid calls dry land, where
+  // `waveM` is null for every hour of every day. See lib/sea-state.ts.
+  const sea = resolveSea(rn?.waveM, rn?.windKt, rn?.windGustKt);
+
   const scoreTier = tierFor(score);
 
   const cells: Cell[] = [
@@ -237,11 +242,14 @@ export default function CurrentConditionsStrip({
     },
     {
       label: "Sea state",
-      value: seaState(rn?.waveM ?? null) ?? DASH,
-      sub:
-        rn?.waveM != null
-          ? formatHeight(convertHeight(rn.waveM, "m", waveUnit), waveUnit)
-          : null,
+      value: seaState(sea?.m ?? null) ?? DASH,
+      // An estimate wears the word but never a height. A wind-derived number
+      // is not a wave measurement and should not read like one.
+      sub: sea
+        ? sea.estimated
+          ? SEA_ESTIMATE_NOTE
+          : formatHeight(convertHeight(sea.m, "m", waveUnit), waveUnit)
+        : null,
     },
     {
       label: "Air temp",
