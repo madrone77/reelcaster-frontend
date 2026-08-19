@@ -5,6 +5,7 @@ import Image from "next/image";
 import type { Angle } from "./lp-angles";
 import { buildFeatures, buildLayers, PRICE, PROOF, type LpTreatment } from "./lp-content";
 import { lpRegionFor } from "./lp-region";
+import LpTrialForm from "./lp-trial-form";
 import LpFlagUs from "./lp-flag";
 import type { LpCard } from "./lp-spot";
 import { LP_CSS } from "./lp-css";
@@ -246,6 +247,8 @@ export default function LpShell({
   card,
   treatment = "classic",
   showFlag = false,
+  from,
+  chargeDate,
 }: {
   angle: Angle;
   checkoutHref: string;
@@ -266,9 +269,13 @@ export default function LpShell({
    *  serve both sides of the border deliberately do not fly one country's
    *  flag over water belonging to the other. */
   showFlag?: boolean;
+  /** Attribution key for the inline checkout post, e.g. "lp6-window". */
+  from: string;
+  /** First-charge date, formatted on the server. See trialChargeDate. */
+  chargeDate: string;
 }) {
-  const heroCtaRef = useRef<HTMLAnchorElement>(null);
-  const finalCtaRef = useRef<HTMLAnchorElement>(null);
+  const heroCtaRef = useRef<HTMLDivElement>(null);
+  const finalCtaRef = useRef<HTMLDivElement>(null);
   const [showSticky, setShowSticky] = useState(false);
 
   // Sticky CTA rides between the two real CTAs: it appears once the hero button
@@ -343,12 +350,16 @@ export default function LpShell({
 
         <section className="hero-cta-band">
           <div className="wrap">
-            <a ref={heroCtaRef} className="btn" href={checkoutHref}>
-              {angle.cta}
-            </a>
-            <p className="cta-micro">
-              <strong>Cancel anytime.</strong> We remind you before you&rsquo;re charged.
-            </p>
+            <div ref={heroCtaRef}>
+              <LpTrialForm
+                from={from}
+                region={card.provinceCode}
+                chargeDate={chargeDate}
+                ctaLabel={angle.cta}
+                fallbackHref={checkoutHref}
+                inputId="lp-email-hero"
+              />
+            </div>
           </div>
         </section>
 
@@ -507,12 +518,16 @@ export default function LpShell({
         <section className="final">
           <div className="wrap">
             <h2>{angle.closer}</h2>
-            <a ref={finalCtaRef} className="btn" href={checkoutHref}>
-              {angle.cta}
-            </a>
-            <p className="cta-micro">
-              <strong>Cancel anytime.</strong> {PRICE.trialDays} days free, then {PRICE.year}.
-            </p>
+            <div ref={finalCtaRef}>
+              <LpTrialForm
+                from={from}
+                region={card.provinceCode}
+                chargeDate={chargeDate}
+                ctaLabel={angle.cta}
+                fallbackHref={checkoutHref}
+                inputId="lp-email-final"
+              />
+            </div>
           </div>
         </section>
 
@@ -536,9 +551,21 @@ export default function LpShell({
             </span>
             {instrument ? <span className="sticky-cancel">Cancel in two taps</span> : null}
           </div>
-          <a className="btn" href={checkoutHref}>
+          {/* The form is the checkout now, so this scrolls to the nearest one
+              and puts the cursor in it rather than navigating away. */}
+          <button
+            type="button"
+            className="btn"
+            onClick={() => {
+              finalCtaRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+              window.setTimeout(
+                () => document.getElementById("lp-email-final")?.focus(),
+                420,
+              );
+            }}
+          >
             Start free trial
-          </a>
+          </button>
         </div>
       </div>
     </div>

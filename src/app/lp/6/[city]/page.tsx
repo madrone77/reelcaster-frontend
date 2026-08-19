@@ -5,7 +5,8 @@ import { resolveLpCard } from "../../_shared/lp-spot";
 import { lpRegionFor } from "../../_shared/lp-region";
 import { DEFAULT_US_LP_CITY } from "../../lp-entry";
 import LpShell from "../../_shared/lp-shell";
-import { lpCheckoutHref } from "../../_shared/lp-checkout";
+import { PRICE } from "../../_shared/lp-content";
+import { lpCheckoutHref, trialChargeDate } from "../../_shared/lp-checkout";
 import LpPhotoHero from "../../_shared/lp-photo-hero";
 
 /**
@@ -87,6 +88,8 @@ export default async function Lp6CityPage({
       checkoutHref={checkoutHref}
       year={new Date().getFullYear()}
       card={card}
+      from={`lp6-${angle.id}`}
+      chargeDate={trialChargeDate(PRICE.trialDays)}
       treatment="instrument"
       showFlag
       hero={<LpPhotoHero angle={angle} card={card} market="us" />}
