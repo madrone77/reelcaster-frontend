@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import type { Angle } from "./lp-angles";
-import { buildFeatures, buildLayers, PRICE, PROOF } from "./lp-content";
+import { buildFeatures, buildLayers, PRICE, PROOF, type LpTreatment } from "./lp-content";
 import { lpRegionFor } from "./lp-region";
 import type { LpCard } from "./lp-spot";
 import { LP_CSS } from "./lp-css";
@@ -19,6 +19,67 @@ import { LP_CSS } from "./lp-css";
  * lands on both, so the experiment measures the hero and not the drift between
  * two diverging files.
  */
+
+/**
+ * Classic feature art, keyed by feature id. The signed-off /lp/2 and /lp/3
+ * set: light line icons on a white tile.
+ */
+const CLASSIC_THUMBS: Record<string, React.ReactElement> = {
+  forecast14: (
+    <svg width="40" height="40" viewBox="0 0 40 40" fill="none" aria-hidden="true">
+      <rect x="4" y="22" width="4" height="12" rx="1" fill="#D8DCEA" />
+      <rect x="11" y="14" width="4" height="20" rx="1" fill="#16A34A" />
+      <rect x="18" y="8" width="4" height="26" rx="1" fill="#16A34A" />
+      <rect x="25" y="16" width="4" height="18" rx="1" fill="#16A34A" />
+      <rect x="32" y="24" width="4" height="10" rx="1" fill="#D8DCEA" />
+    </svg>
+  ),
+  alerts: (
+    <svg width="40" height="40" viewBox="0 0 40 40" fill="none" aria-hidden="true">
+      <rect x="6" y="4" width="28" height="32" rx="5" stroke="#0E1B47" strokeWidth="2.5" />
+      <rect x="10" y="9" width="20" height="8" rx="2" fill="#DCFCE7" />
+      <circle cx="13.5" cy="13" r="1.5" fill="#16A34A" />
+      <rect x="10" y="20" width="14" height="2.5" rx="1.25" fill="#D8DCEA" />
+      <rect x="10" y="25" width="10" height="2.5" rx="1.25" fill="#D8DCEA" />
+    </svg>
+  ),
+  regulations: (
+    <svg width="40" height="40" viewBox="0 0 40 40" fill="none" aria-hidden="true">
+      <rect x="6" y="6" width="28" height="28" rx="5" stroke="#0E1B47" strokeWidth="2.5" />
+      <path
+        d="M12 20.5l4.5 4.5L28 14"
+        stroke="#16A34A"
+        strokeWidth="3"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  ),
+  customSpots: (
+    <svg width="40" height="40" viewBox="0 0 40 40" fill="none" aria-hidden="true">
+      <path
+        d="M8 30c3-9 7-14 12-14s9 5 12 14"
+        stroke="#2447E0"
+        strokeWidth="2.5"
+        strokeLinecap="round"
+      />
+      <circle cx="20" cy="12" r="5" fill="#DCFCE7" stroke="#16A34A" strokeWidth="2.5" />
+    </svg>
+  ),
+  catchLog: (
+    <svg width="40" height="40" viewBox="0 0 40 40" fill="none" aria-hidden="true">
+      <rect x="7" y="5" width="26" height="30" rx="4" stroke="#0E1B47" strokeWidth="2.5" />
+      <path d="M13 13h14M13 19h14M13 25h9" stroke="#D8DCEA" strokeWidth="2.5" strokeLinecap="round" />
+      <path
+        d="M25 27l3 3 5-6"
+        stroke="#16A34A"
+        strokeWidth="2.5"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  ),
+};
 
 /**
  * Feature glyphs, keyed by feature id.
@@ -37,7 +98,7 @@ import { LP_CSS } from "./lp-css";
 const STROKE = "#7FE3D0";
 const DIM = "#4A5A85";
 
-const THUMBS: Record<string, React.ReactElement> = {
+const INSTRUMENT_THUMBS: Record<string, React.ReactElement> = {
   // Fourteen bars of score, the shape of the outlook itself.
   forecast14: (
     <svg width="40" height="40" viewBox="0 0 40 40" fill="none" aria-hidden="true">
@@ -123,6 +184,7 @@ export default function LpShell({
   year,
   hero,
   card,
+  treatment = "classic",
 }: {
   angle: Angle;
   checkoutHref: string;
@@ -135,6 +197,10 @@ export default function LpShell({
    *  number. Two different scores on one page is the fastest way to make a
    *  visitor stop believing either of them. */
   card: LpCard;
+  /** How the body is dressed. /lp/2 and /lp/3 stay on the signed-off classic
+   *  treatment; /lp/5 opts into the instrument one. Defaults to classic so a
+   *  new variant has to ask for the change rather than inherit it. */
+  treatment?: LpTreatment;
 }) {
   const heroCtaRef = useRef<HTMLAnchorElement>(null);
   const finalCtaRef = useRef<HTMLAnchorElement>(null);
@@ -176,13 +242,16 @@ export default function LpShell({
 
   // Every jurisdiction-dependent string on the page hangs off the card's
   // province, so a Washington ad set never renders Canadian management areas.
+  // This happens in both treatments: it is a defect fix, not a style choice.
   const region = lpRegionFor(card.provinceCode);
-  const featureCopy = buildFeatures(card, region);
+  const instrument = treatment === "instrument";
+  const featureCopy = buildFeatures(card, region, treatment);
   const features = angle.features.map((id) => featureCopy[id]);
-  const layers = buildLayers(card, region);
+  const layers = buildLayers(card, region, treatment);
+  const thumbs = instrument ? INSTRUMENT_THUMBS : CLASSIC_THUMBS;
 
   return (
-    <div className="lp">
+    <div className={instrument ? "lp lp-instrument" : "lp"}>
       <style dangerouslySetInnerHTML={{ __html: LP_CSS }} />
 
       <div className="page">
@@ -262,7 +331,7 @@ export default function LpShell({
             <div className="section-kicker">Everything Pro unlocks</div>
             {features.map((f) => (
               <div className="feature" key={f.id}>
-                <div className="f-thumb">{THUMBS[f.id]}</div>
+                <div className="f-thumb">{thumbs[f.id]}</div>
                 <div>
                   <div className="f-title">
                     {f.title}
@@ -385,9 +454,10 @@ export default function LpShell({
           <div className="sticky-price">
             <b>{PRICE.trialDays} days free</b>
             <span>
-              then {PRICE.year} ({PRICE.perMonth})
+              then {PRICE.year}
+              {instrument ? ` (${PRICE.perMonth})` : ""}
             </span>
-            <span className="sticky-cancel">Cancel in two taps</span>
+            {instrument ? <span className="sticky-cancel">Cancel in two taps</span> : null}
           </div>
           <a className="btn" href={checkoutHref}>
             Start free trial
