@@ -44,6 +44,8 @@ export default function ExploreTopBar({
   variant = "brand",
   preview,
   containerClassName = PAGE_MEASURE,
+  hideOnScroll = false,
+  upgradeCta = false,
 }: {
   /** "brand" (the default) is a blue bar with a white mark/links; "default"
    *  is the light bar, kept available for any surface that needs it. */
@@ -56,6 +58,18 @@ export default function ExploreTopBar({
    *  it exists. Explore passes BLEED_MEASURE — it's the one surface where a
    *  centred row would leave the mark floating over the middle of a map. */
   containerClassName?: string;
+  /** Phones and tablets only: roll the bar out of the way while the reader is
+   *  heading down a long document, and bring it back the moment they scroll
+   *  up. Desktop keeps it pinned. Off by default, and it must stay off on any
+   *  surface that scrolls inside its own container rather than the document
+   *  (Explore) — the window never scrolls there, so the bar would simply
+   *  never move. */
+  hideOnScroll?: boolean;
+  /** Offer Pro to a signed-in viewer who does not have it. Off by default, so
+   *  the bar stays what it is on every other surface; Explore turns it on
+   *  because on a phone this bar now exists mainly to make that offer. It has
+   *  no effect signed out, where the trial CTA already fills the same slot. */
+  upgradeCta?: boolean;
 } = {}) {
   const { user, session, loading } = useAuth();
   const pathname = usePathname();
@@ -86,6 +100,34 @@ export default function ExploreTopBar({
     };
   }, [session?.access_token]);
 
+  // Roll-away. Hides once the reader is past the bar's own height and still
+  // heading down; any upward move brings it straight back, so the nav is one
+  // flick away instead of a scroll to the top. The 4px deadband ignores the
+  // jitter a rubber-band overscroll produces at either end of the document,
+  // and the rAF gate keeps a fast flick to one state change per frame.
+  const [rolledAway, setRolledAway] = useState(false);
+  useEffect(() => {
+    if (!hideOnScroll) return;
+    let lastY = window.scrollY;
+    let frame = 0;
+    const onScroll = () => {
+      if (frame) return;
+      frame = requestAnimationFrame(() => {
+        frame = 0;
+        const y = window.scrollY;
+        const dy = y - lastY;
+        if (Math.abs(dy) < 4) return;
+        lastY = y;
+        setRolledAway(dy > 0 && y > 64);
+      });
+    };
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => {
+      window.removeEventListener("scroll", onScroll);
+      if (frame) cancelAnimationFrame(frame);
+    };
+  }, [hideOnScroll]);
+
   // "/" would match every path under startsWith, so the home link compares
   // exactly and only the sub-path links use the prefix test.
   const isActive = (href: string) =>
@@ -99,9 +141,9 @@ export default function ExploreTopBar({
     // such band here. Opaque, so there's no backdrop to blur. Keeps its rule:
     // this bar floats over the map and needs the edge.
     <header
-      className={`fixed top-0 inset-x-0 h-16 z-40 border-b ${
-        brand ? "bg-rc-brand border-white/15" : "bg-rc-panel border-rc-rule"
-      }`}
+      className={`fixed top-0 inset-x-0 h-16 z-40 border-b transition-transform duration-200 ${
+        rolledAway ? "-translate-y-full lg:translate-y-0" : "translate-y-0"
+      } ${brand ? "bg-rc-brand border-white/15" : "bg-rc-panel border-rc-rule"}`}
     >
       <div className={`h-full flex items-center gap-8 ${containerClassName}`}>
         <Link href="/" className="shrink-0 flex items-center" aria-label="ReelCaster home">
@@ -158,6 +200,17 @@ export default function ExploreTopBar({
         <div className="flex items-center gap-2 sm:gap-3 ml-auto">
           {loading && !preview ? null : signedIn && avatarLabel ? (
             <>
+              {upgradeCta && (
+                <TrialModalButton
+                  from="explore-topbar-upgrade"
+                  className={brand ? btn.navOnBrand : btn.nav}
+                >
+                  {/* 375px of bar, less a 104px mark and a 32px avatar, does
+                      not hold the full label. It fits from 640 up. */}
+                  <span className="sm:hidden">Upgrade</span>
+                  <span className="hidden sm:inline">Upgrade to Pro</span>
+                </TrialModalButton>
+              )}
               <Link
                 href={SUPPORT_HREF}
                 aria-label="Support"

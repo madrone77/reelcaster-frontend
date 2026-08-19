@@ -1,8 +1,10 @@
 "use client";
 
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
+import { CalendarDays, ChevronDown } from "lucide-react";
 import AdSlot from "@/app/components/ads/ad-slot";
-import type { RailSpot } from "../lib/explore-data";
+import type { RailSpot, Tier } from "../lib/explore-data";
 import { MAP_INSET_ATTR, MAP_INSET_RESTING_ATTR } from "../lib/sheet-safe-center";
 import type { ForecastStripModel, ForecastDay } from "../lib/forecast-strip";
 import type { FreshCatchesResponse } from "../lib/fresh-catch-types";
@@ -12,7 +14,14 @@ import SheetForecast from "./sheet-forecast";
 import ExploreFooter from "./explore-footer";
 
 type Detent = "peek" | "half" | "full";
-type SheetView = "spots" | "forecast";
+
+/** Score colour on the day pill — the tier tokens the day cells already use. */
+const DAY_PILL_SCORE: Record<Tier, string> = {
+  good: "text-rc-good",
+  fair: "text-rc-fair-ink",
+  poor: "text-rc-poor",
+  none: "text-rc-ink-mute",
+};
 
 /**
  * Zillow-style mobile bottom sheet over the full-screen Explore map. Three
@@ -52,9 +61,23 @@ export default function MobileMapSheet({
    *  Pro-gated by the route: a free viewer's entries carry `locked: true`. */
   freshCatches?: FreshCatchesResponse | null;
 }) {
-  const [view, setView] = useState<SheetView>("spots");
+  const [pickerOpen, setPickerOpen] = useState(false);
   const [sort, setSort] = useState<SortKey>("score");
   const sorted = useMemo(() => sortSpots(spots, sort), [spots, sort]);
+  const selectedDay = useMemo(
+    () => forecastModel?.days.find((d) => d.iso === selectedIso) ?? null,
+    [forecastModel, selectedIso],
+  );
+
+  // Escape closes the picker, matching the location and filter sheets.
+  useEffect(() => {
+    if (!pickerOpen) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setPickerOpen(false);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [pickerOpen]);
 
   // Detent visible-heights (px) derived from the viewport height.
   const [vh, setVh] = useState(0);
@@ -189,7 +212,7 @@ export default function MobileMapSheet({
               {spots.length} spot{spots.length === 1 ? "" : "s"}
             </div>
           </div>
-          {view === "spots" && spots.length > 1 && (
+          {spots.length > 1 && (
             // Keep taps on the sort control from starting a sheet drag.
             <div onPointerDown={(e) => e.stopPropagation()}>
               <SortControl sort={sort} onSort={setSort} />
@@ -197,59 +220,43 @@ export default function MobileMapSheet({
           )}
         </div>
 
-        {/* All spots ⇄ 14-day — the two lenses on the same water. Tap-only
-            (a swipe toggle was UX-vetoed for colliding with day-scroll). */}
-        <div
-          className="mt-2.5"
-          onPointerDown={(e) => e.stopPropagation()}
-        >
-          <div
-            role="group"
-            aria-label="Sheet view"
-            className="inline-flex rounded-full border border-rc-rule bg-rc-surface p-0.5"
+        {/* The day the map is showing. It was a segmented "All spots ⇄ 14-day"
+            toggle, which made the fortnight a mode you entered by giving up the
+            spot list — the two things an angler compares could never be on
+            screen together, and the map's own day was invisible state while the
+            list was up. As a pill it states the day at all times and opens the
+            ledger on demand. */}
+        <div className="mt-2.5" onPointerDown={(e) => e.stopPropagation()}>
+          <button
+            type="button"
+            onClick={() => setPickerOpen(true)}
+            disabled={!selectedDay}
+            aria-haspopup="dialog"
+            aria-expanded={pickerOpen}
+            className="inline-flex items-center gap-2 rounded-full border border-rc-rule bg-rc-surface px-3 py-1.5 transition-colors enabled:hover:border-rc-brand disabled:opacity-60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rc-brand"
           >
-            <button
-              type="button"
-              aria-pressed={view === "spots"}
-              onClick={() => setView("spots")}
-              className={`rounded-full px-3.5 py-1.5 text-[13px] font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rc-brand ${
-                view === "spots"
-                  ? "bg-rc-brand text-white shadow-sm"
-                  : "text-rc-ink-soft hover:text-rc-ink"
-              }`}
-            >
-              All spots
-            </button>
-            <button
-              type="button"
-              aria-pressed={view === "forecast"}
-              onClick={() => setView("forecast")}
-              className={`rounded-full px-3.5 py-1.5 text-[13px] font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rc-brand ${
-                view === "forecast"
-                  ? "bg-rc-brand text-white shadow-sm"
-                  : "text-rc-ink-soft hover:text-rc-ink"
-              }`}
-            >
-              14-day
-            </button>
-          </div>
+            <CalendarDays className="h-3.5 w-3.5 shrink-0 text-rc-ink-mute" />
+            <span className="text-[13px] font-semibold text-rc-ink">
+              {selectedDay
+                ? `${selectedDay.index === 0 ? "Today" : selectedDay.dow} · ${selectedDay.date}`
+                : "14-day forecast"}
+            </span>
+            {selectedDay?.score != null && (
+              <span
+                className={`font-rc-mono text-[12px] font-bold ${DAY_PILL_SCORE[selectedDay.tier]}`}
+              >
+                {selectedDay.score}
+              </span>
+            )}
+            <ChevronDown className="h-3.5 w-3.5 shrink-0 text-rc-ink-mute" />
+          </button>
         </div>
       </div>
 
-      {/* Body — swaps between the spot list and the 14-day forecast. */}
+      {/* Body — always the spots in view. The fortnight is a picker now, not a
+          second tenant of this space. */}
       <div className="flex-1 overflow-y-auto overscroll-contain">
-        {view === "forecast" ? (
-          <SheetForecast
-            model={forecastModel}
-            selectedIso={selectedIso}
-            hours={selectedDayHours}
-            scrubHour={scrubHour}
-            onScrubHour={onScrubHour}
-            onSelectDay={onSelectDay}
-            signedIn={signedIn}
-          />
-        ) : (
-          <div className="px-4 pb-4">
+        <div className="px-4 pb-4">
             <div className="mx-auto max-w-[392px] space-y-3 pt-1">
               {sorted.map((spot, i) => (
                 <Fragment key={spot.id}>
@@ -280,16 +287,15 @@ export default function MobileMapSheet({
               )}
             </div>
 
-            <ExploreFooter />
-          </div>
-        )}
+          <ExploreFooter />
+        </div>
       </div>
 
       {/* The list runs right up to the sheet's bottom edge, so whatever card
           the edge lands on gets cut mid-row. Fade the last few pixels into the
           panel so that reads as "keep scrolling" rather than a broken row.
           Only once the sheet is open — at peek the body has no height and the
-          gradient would sit on the view toggle instead. */}
+          gradient would sit on the day pill instead. */}
       {height > detents.peek + 8 && (
         <div
           aria-hidden
@@ -297,6 +303,50 @@ export default function MobileMapSheet({
         />
       )}
       </div>
+
+      {/* Day picker — the 14-day ledger, on demand. A portaled bottom sheet
+          like the location and filter pickers, so the three things you can
+          change about the map all open the same way. It stays open on a pick:
+          the row you tapped expands into its 24-hour scrub lane, and dragging
+          that is the reason to still be here. */}
+      {pickerOpen &&
+        createPortal(
+          <>
+            <div
+              className="fixed inset-0 z-[60] bg-black/25"
+              onClick={() => setPickerOpen(false)}
+            />
+            <div
+              role="dialog"
+              aria-label="Pick a day"
+              className="fixed inset-x-0 bottom-0 z-[61] max-h-[75vh] overflow-y-auto rounded-t-2xl bg-rc-panel shadow-rc-panel animate-slide-up pb-[calc(0.5rem+env(safe-area-inset-bottom))]"
+            >
+              <div className="flex justify-center pt-2.5 pb-1">
+                <div className="h-1 w-9 rounded-full bg-rc-rule" />
+              </div>
+              <div className="flex items-center justify-between px-4 pb-1">
+                <span className="rc-label text-[9px]">Next 14 days</span>
+                <button
+                  type="button"
+                  onClick={() => setPickerOpen(false)}
+                  className="text-[13px] font-semibold text-rc-brand"
+                >
+                  Done
+                </button>
+              </div>
+              <SheetForecast
+                model={forecastModel}
+                selectedIso={selectedIso}
+                hours={selectedDayHours}
+                scrubHour={scrubHour}
+                onScrubHour={onScrubHour}
+                onSelectDay={onSelectDay}
+                signedIn={signedIn}
+              />
+            </div>
+          </>,
+          document.body,
+        )}
     </>
   );
 }
