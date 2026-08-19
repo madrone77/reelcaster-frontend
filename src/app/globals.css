@@ -397,10 +397,14 @@
    Offsets are keyed to the MapBrandLogo widths in explore-map.tsx (52px mobile
    → 23px tall, 60px desktop → 27px tall) and its 10px inset from the map edge:
    the zoom group clears logo + inset (10 + 23 + 10 = 43), and the 24px ⓘ is
-   centred on the logo ((23 - 24) / 2 off its 10px bottom). On desktop the
-   forecast strip (128px, fixed bottom) also covers the map's bottom edge —
-   --rc-map-inset (set by ExploreMap from the strip's visibility) lifts
-   everything above it, exactly as it lifts the logo. */
+   centred on the logo ((23 - 24) / 2 off its 10px bottom).
+
+   Two things float over the map's bottom edge and would bury the whole stack,
+   so each offset is measured from above them rather than from the pane edge:
+   the forecast strip on desktop (128px, fixed) via --rc-map-inset, and the spot
+   sheet on a phone via --rc-map-sheet-inset. Both are set by ExploreMap; the
+   sheet's is measured off the DOM at its resting detent, since its height comes
+   from its own header rather than a constant. */
 .rc-explore-map .maplibregl-ctrl-bottom-right {
   bottom: 0;
   right: 0;
@@ -412,11 +416,11 @@
 }
 .rc-explore-map .maplibregl-ctrl-bottom-right .maplibregl-ctrl-group {
   right: 10px;
-  bottom: 43px;
+  bottom: calc(var(--rc-map-sheet-inset, 0px) + 43px);
 }
 .rc-explore-map .maplibregl-ctrl-bottom-right .maplibregl-ctrl-attrib {
   right: 66px;
-  bottom: 9.5px;
+  bottom: calc(var(--rc-map-sheet-inset, 0px) + 9.5px);
 }
 @media (min-width: 1024px) {
   .rc-explore-map .maplibregl-ctrl-bottom-right .maplibregl-ctrl-group {

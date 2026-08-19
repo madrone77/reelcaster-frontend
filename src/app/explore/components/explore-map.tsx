@@ -21,6 +21,7 @@ import { buildReliefStyle, buildSummaryStyle } from "@/lib/map/relief-style";
 import { attachRcaHatch } from "@/lib/map/rca-hatch";
 import { attachScorePucks, PUCK_TIP_OFFSET } from "../lib/score-puck";
 import { MAP_CUSTOM_ATTRIBUTION, MapBrandLogo } from "@/lib/map/map-brand";
+import { MAP_INSET_ATTR, mapBottomPanelInset } from "../lib/sheet-safe-center";
 import { spotsToFeatureCollection, declutterHiddenSlugs } from "../lib/spot-geojson";
 import { useCurrentsFlow } from "../lib/use-currents-flow";
 
@@ -182,6 +183,47 @@ export default function ExploreMap({
   // briefly (late attribution updates re-open it) until the user taps the ⓘ,
   // after which their choice wins.
   const wrapRef = useRef<HTMLDivElement | null>(null);
+
+  // On a phone the spot sheet floats over the map's bottom edge, so the chrome
+  // anchored there (zoom, ⓘ, watermark) sits underneath it. Measure how much of
+  // the pane the sheet covers at rest and hand it to CSS, the mobile twin of the
+  // fixed --rc-map-inset the desktop forecast strip uses.
+  const [sheetInset, setSheetInset] = useState(0);
+  useEffect(() => {
+    const root = wrapRef.current;
+    if (!root) return;
+    let ro: ResizeObserver | null = null;
+    let raf = 0;
+    let tries = 0;
+
+    const measure = () => {
+      setSheetInset(mapBottomPanelInset(root.querySelector(".maplibregl-map") ?? root));
+    };
+
+    // The sheet mounts, then measures its own header before it settles on a
+    // resting height, so the first frame's answer is not the final one. Watch it
+    // once it exists and keep looking for a second or so until it does — on a
+    // slow first paint the map is ready well before the sheet is.
+    const attach = () => {
+      measure();
+      const panel = document.querySelector(`[${MAP_INSET_ATTR}="bottom"]`);
+      if (panel && typeof ResizeObserver !== "undefined") {
+        ro = new ResizeObserver(measure);
+        ro.observe(panel);
+        return;
+      }
+      if (tries++ < 60) raf = requestAnimationFrame(attach);
+    };
+    attach();
+
+    window.addEventListener("resize", measure);
+    return () => {
+      cancelAnimationFrame(raf);
+      ro?.disconnect();
+      window.removeEventListener("resize", measure);
+    };
+  }, []);
+
   useEffect(() => {
     const root = wrapRef.current;
     if (!root) return;
@@ -349,7 +391,12 @@ export default function ExploreMap({
     <div
       ref={wrapRef}
       className="rc-explore-map absolute inset-0"
-      style={{ "--rc-map-inset": stripVisible ? "128px" : "0px" } as CSSProperties}
+      style={
+        {
+          "--rc-map-inset": stripVisible ? "128px" : "0px",
+          "--rc-map-sheet-inset": `${sheetInset}px`,
+        } as CSSProperties
+      }
     >
       <Map
         ref={mapRef}
@@ -413,10 +460,14 @@ export default function ExploreMap({
       {/* Brand watermark — bottom-right corner, with the ⓘ acknowledgments
           inline to its left on the same vertical midline (the ctrl container
           is positioned via globals.css, keyed to these logo sizes).
-          Desktop additionally rides above the forecast strip via the inset. */}
+          Both ride above whatever floats over the map's bottom edge: the
+          forecast strip on desktop, the spot sheet on a phone. */}
       {showBrand && (
         <>
-          <div className="lg:hidden pointer-events-none absolute bottom-2.5 right-2.5 z-10">
+          <div
+            className="lg:hidden pointer-events-none absolute right-2.5 z-10"
+            style={{ bottom: "calc(var(--rc-map-sheet-inset, 0px) + 10px)" }}
+          >
             <MapBrandLogo width={52} />
           </div>
           <div
