@@ -410,6 +410,33 @@ async function sendTrialEndingNotice(subscription: Stripe.Subscription) {
   await sendEmail({ to: email, subject, html });
 }
 
+/**
+ * The subscription an invoice belongs to.
+ *
+ * Stripe MOVED this field. It used to be `invoice.subscription`; it now lives
+ * at `invoice.parent.subscription_details.subscription`, and the top-level one
+ * is gone from the payload at the API version this integration pins
+ * (2026-04-22.dahlia — see src/lib/stripe.ts, and the webhook destination is
+ * pinned to the same). `Stripe.Invoice` in the installed SDK has no
+ * `subscription` property at all; the two call sites below were casting it back
+ * on with an intersection type, which compiled fine and read `undefined` at
+ * runtime, so both invoice handlers silently did nothing.
+ *
+ * Reads the new location first and falls back to the legacy one, so this is
+ * correct whether or not the destination's API version is ever rolled back.
+ */
+function subscriptionIdFromInvoice(invoice: Stripe.Invoice): string | null {
+  const current = invoice.parent?.subscription_details?.subscription;
+  if (current) return typeof current === 'string' ? current : current.id;
+
+  const legacy = (invoice as Stripe.Invoice & {
+    subscription?: string | Stripe.Subscription;
+  }).subscription;
+  if (legacy) return typeof legacy === 'string' ? legacy : legacy.id;
+
+  return null;
+}
+
 export async function POST(request: Request) {
   if (!webhookSecret) {
     return NextResponse.json(
@@ -456,11 +483,9 @@ export async function POST(request: Request) {
         break;
       }
       case 'invoice.payment_failed': {
-        const invoice = event.data.object as Stripe.Invoice & { subscription?: string | Stripe.Subscription };
-        if (invoice.subscription) {
-          const subId = typeof invoice.subscription === 'string'
-            ? invoice.subscription
-            : invoice.subscription.id;
+        const invoice = event.data.object as Stripe.Invoice;
+        const subId = subscriptionIdFromInvoice(invoice);
+        if (subId) {
           const sub = await stripe.subscriptions.retrieve(subId);
           await applySubscriptionToUser(sub);
           await openGraceWindow(sub);
@@ -468,11 +493,9 @@ export async function POST(request: Request) {
         break;
       }
       case 'invoice.payment_succeeded': {
-        const invoice = event.data.object as Stripe.Invoice & { subscription?: string | Stripe.Subscription };
-        if (invoice.subscription) {
-          const subId = typeof invoice.subscription === 'string'
-            ? invoice.subscription
-            : invoice.subscription.id;
+        const invoice = event.data.object as Stripe.Invoice;
+        const subId = subscriptionIdFromInvoice(invoice);
+        if (subId) {
           // applySubscriptionToUser clears grace_until once the status is no
           // longer a payment problem.
           const sub = await stripe.subscriptions.retrieve(subId);
