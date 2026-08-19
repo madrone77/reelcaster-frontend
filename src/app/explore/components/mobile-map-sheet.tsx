@@ -2,7 +2,7 @@
 
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { CalendarDays, ChevronDown } from "lucide-react";
+import { CalendarDays, ChevronDown, ChevronUp } from "lucide-react";
 import AdSlot from "@/app/components/ads/ad-slot";
 import type { RailSpot, Tier } from "../lib/explore-data";
 import { MAP_INSET_ATTR, MAP_INSET_RESTING_ATTR } from "../lib/sheet-safe-center";
@@ -118,7 +118,13 @@ export default function MobileMapSheet({
   const [dragHeight, setDragHeight] = useState<number | null>(null);
   const dragRef = useRef<{ startY: number; startH: number } | null>(null);
 
-  const height = dragHeight ?? detents[detent];
+  // Collapsed folds the sheet down to a slim bar (handle + count + reopen
+  // chevron), clearing the map. A tap on the chevron toggles it; a tap or drag
+  // anywhere on the bar reopens to peek.
+  const [collapsed, setCollapsed] = useState(false);
+  const COLLAPSED_H = 52;
+
+  const height = collapsed ? COLLAPSED_H : dragHeight ?? detents[detent];
 
   const onPointerDown = useCallback(
     (e: React.PointerEvent) => {
@@ -180,7 +186,7 @@ export default function MobileMapSheet({
         // The resting height is what gets measured, not `height`: the sheet can
         // be dragged up to browse, but it always comes back at peek, and that is
         // the frame the return trip will be seen in.
-        {...{ [MAP_INSET_ATTR]: "bottom", [MAP_INSET_RESTING_ATTR]: String(detents.peek) }}
+        {...{ [MAP_INSET_ATTR]: "bottom", [MAP_INSET_RESTING_ATTR]: String(collapsed ? COLLAPSED_H : detents.peek) }}
         className="lg:hidden fixed inset-x-0 z-30 flex flex-col rounded-t-2xl border-t border-rc-rule bg-rc-panel shadow-[0_-8px_30px_rgba(15,23,42,0.12)]"
         style={{
           // Sit above the floating bottom tab bar (see --rc-tabbar-clearance).
@@ -192,10 +198,29 @@ export default function MobileMapSheet({
         role="dialog"
         aria-label="Spots in view"
       >
+      {/* Collapsed — a slim bar. Tap anywhere on it to reopen to peek. */}
+      {collapsed && (
+        <button
+          type="button"
+          onClick={() => setCollapsed(false)}
+          aria-label="Show spot list"
+          className="shrink-0 px-4 pt-2.5 pb-2 text-left"
+        >
+          <div className="mx-auto mb-2 h-1 w-9 rounded-full bg-rc-rule" />
+          <div className="flex items-center justify-between gap-3">
+            <span className="truncate text-[15px] font-semibold text-rc-ink">
+              {locationName ? `${locationName} · ` : ""}
+              {spots.length} spot{spots.length === 1 ? "" : "s"}
+            </span>
+            <ChevronUp className="h-4 w-4 shrink-0 text-rc-ink-mute" />
+          </div>
+        </button>
+      )}
+
       {/* Drag handle + count — owns the drag gesture. */}
       <div
         ref={headerRef}
-        className="shrink-0 cursor-grab touch-none select-none px-4 pt-2.5 pb-2"
+        className={`shrink-0 cursor-grab touch-none select-none px-4 pt-2.5 pb-2 ${collapsed ? "hidden" : ""}`}
         onPointerDown={onPointerDown}
         onPointerMove={onPointerMove}
         onPointerUp={onPointerUp}
@@ -212,12 +237,22 @@ export default function MobileMapSheet({
               {spots.length} spot{spots.length === 1 ? "" : "s"}
             </div>
           </div>
-          {spots.length > 1 && (
-            // Keep taps on the sort control from starting a sheet drag.
-            <div onPointerDown={(e) => e.stopPropagation()}>
-              <SortControl sort={sort} onSort={setSort} />
-            </div>
-          )}
+          {/* Sort + a collapse chevron. Both must swallow the pointer so a tap
+              doesn't start a sheet drag. */}
+          <div
+            className="flex items-center gap-1.5"
+            onPointerDown={(e) => e.stopPropagation()}
+          >
+            {spots.length > 1 && <SortControl sort={sort} onSort={setSort} />}
+            <button
+              type="button"
+              onClick={() => setCollapsed(true)}
+              aria-label="Collapse spot list"
+              className="flex h-8 w-8 items-center justify-center rounded-md text-rc-ink-mute transition-colors hover:bg-rc-surface"
+            >
+              <ChevronDown className="h-4 w-4" />
+            </button>
+          </div>
         </div>
 
         {/* The day the map is showing. It was a segmented "All spots ⇄ 14-day"
@@ -253,9 +288,11 @@ export default function MobileMapSheet({
         </div>
       </div>
 
-      {/* Body — always the spots in view. The fortnight is a picker now, not a
-          second tenant of this space. */}
-      <div className="flex-1 overflow-y-auto overscroll-contain">
+      {/* Body — the spots in view (hidden while the sheet is collapsed). The
+          fortnight is a picker now, not a second tenant of this space. */}
+      <div
+        className={`flex-1 overflow-y-auto overscroll-contain ${collapsed ? "hidden" : ""}`}
+      >
         <div className="px-4 pb-4">
             <div className="mx-auto max-w-[392px] space-y-3 pt-1">
               {sorted.map((spot, i) => (

@@ -1,6 +1,7 @@
 "use client";
 
 import { Fragment, useMemo, useState } from "react";
+import { PanelLeftOpen } from "lucide-react";
 import AdSlot from "@/app/components/ads/ad-slot";
 import {
   type CityNode,
@@ -115,6 +116,23 @@ export default function LeftRail({
   // the drawer instead of anchoring it, so it ends where its content ends and
   // still scrolls if the viewport is too short to hold it.
   const drawerOpen = Boolean(selectedSpot || selectedStation);
+  const [collapsed, setCollapsed] = useState(false);
+
+  // Collapsed → the whole rail folds to a single reopen button at its own top
+  // corner, and the full-bleed map (already drawn underneath) is uncovered.
+  if (collapsed) {
+    return (
+      <button
+        type="button"
+        onClick={() => setCollapsed(false)}
+        aria-label="Show spot list"
+        className="hidden lg:flex fixed left-6 top-[72px] z-30 items-center gap-2 rounded-xl border border-rc-rule bg-rc-panel/88 px-3 py-2.5 text-[13px] font-semibold text-rc-ink shadow-rc-panel backdrop-blur-md transition-colors hover:bg-rc-panel"
+      >
+        <PanelLeftOpen className="h-4 w-4 shrink-0 text-rc-ink-mute" />
+        {spots.length} spot{spots.length === 1 ? "" : "s"}
+      </button>
+    );
+  }
 
   return (
     <aside
@@ -161,6 +179,7 @@ export default function LeftRail({
               onSelectSpecies={onSearchSelectSpecies}
               near={searchNear}
               mapControls={mapControls}
+              onCollapse={() => setCollapsed(true)}
             />
             <div className="px-3 pt-1 pb-2.5">
               <div className="pb-2 flex items-center justify-between gap-2">
