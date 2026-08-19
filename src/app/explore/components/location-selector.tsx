@@ -374,7 +374,9 @@ export default function LocationSelector({
               type="button"
               aria-label="Filters"
               onClick={onFilterClick}
-              className="flex items-center justify-center w-8 h-8 rounded border border-rc-rule text-rc-ink-soft hover:bg-rc-surface transition-colors shrink-0"
+              // Mobile-only (desktop passes mapControls instead), so it can be
+              // sized for a thumb rather than a cursor.
+              className="flex items-center justify-center w-10 h-10 rounded-lg border border-rc-rule text-rc-ink-soft hover:bg-rc-surface transition-colors shrink-0"
             >
               <SlidersHorizontal className="w-4 h-4" />
             </button>
@@ -400,7 +402,13 @@ export default function LocationSelector({
               className="fixed inset-0 z-[60] bg-black/30"
               onClick={() => setOpen(false)}
             />
-            <div className="fixed inset-x-0 bottom-0 z-[61] max-h-[75vh] overflow-y-auto bg-rc-panel rounded-t-2xl shadow-rc-panel animate-slide-up pb-[calc(0.5rem+env(safe-area-inset-bottom))]">
+            {/* Rides above the floating tab bar, like the filter sheet it sits
+                beside in the header. The clearance already carries the safe
+                area, so the sheet's own padding does not repeat it. */}
+            <div
+              style={{ bottom: "var(--rc-tabbar-clearance)" }}
+              className="fixed inset-x-0 z-[61] max-h-[75vh] overflow-y-auto bg-rc-panel rounded-t-2xl shadow-rc-panel animate-slide-up pb-2"
+            >
               <div className="flex justify-center pt-2.5 pb-1">
                 <div className="h-1 w-9 rounded-full bg-rc-rule" />
               </div>
