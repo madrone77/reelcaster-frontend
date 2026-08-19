@@ -7,6 +7,7 @@ import { CheckCircle2, Loader2 } from 'lucide-react'
 import { apiFetch } from '@/lib/api-client'
 import { useSubscription } from '@/hooks/use-subscription'
 import { useAuth } from '@/contexts/auth-context'
+import MetaStartTrial from '@/app/components/analytics/meta-start-trial'
 
 interface CheckoutStatus {
   tier: string
@@ -117,6 +118,10 @@ function BillingSuccessInner() {
 
   return (
     <div className="mx-auto flex max-w-lg flex-col px-6 py-12 md:py-16">
+      {/* Renders null. Mounted first so the conversion request is in flight
+          before the two-second bounce to /explore, and before a signed-out
+          buyer is redirected out through their magic link. */}
+      <MetaStartTrial sessionId={sessionId} />
       <p className="font-rc-mono text-[10px] uppercase tracking-[0.14em] text-rc-ink-mute">
         ReelCaster Pro
       </p>

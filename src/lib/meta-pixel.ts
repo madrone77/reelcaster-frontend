@@ -1,0 +1,87 @@
+/**
+ * The browser half of Meta conversion tracking.
+ *
+ * The server half already exists and is the reliable one: the Stripe webhook
+ * writes `marketing_conversions` rows and `src/lib/conversion-upload.ts` posts
+ * them to the Conversions API as `StartTrial` and `Purchase`. That leg survives
+ * ad blockers, and it is the ONLY way the day-7 `Purchase` can ever be
+ * reported, because by then no browser is left to fire a tag.
+ *
+ * So why a pixel at all? Two things the server leg cannot do:
+ *
+ *   1. `uploadToMeta` skips every row whose click_type is not `fbclid`. That is
+ *      correct for ad attribution and useless for optimisation — Meta only ever
+ *      learns from trials it already knew it sold. The pixel reports all of
+ *      them.
+ *   2. The browser carries `_fbp`, `_fbc`, a real user agent and IP. The CAPI
+ *      payload carries `fbc` alone. Match quality is not close.
+ *
+ * The two streams describe the same conversions, so every event fired here MUST
+ * carry an `eventID` that matches the server's `event_id`
+ * (`<stripe_subscription_id>:<event_type>`, see conversion-upload.ts). Without
+ * it Meta counts one trial twice and bids on a number that is double the truth.
+ */
+
+export const META_PIXEL_ID = process.env.NEXT_PUBLIC_META_PIXEL_ID ?? ''
+
+/**
+ * Standard events only. Meta's optimisation models are pre-trained on these
+ * names; a custom event starts cold and needs volume we do not have. Custom
+ * CONVERSIONS are a different thing and need no code — they are built in Events
+ * Manager on top of these same events.
+ */
+export type MetaStandardEvent = 'PageView' | 'StartTrial' | 'Purchase'
+
+type Fbq = ((...args: unknown[]) => void) & { queue?: unknown[] }
+
+declare global {
+  interface Window {
+    fbq?: Fbq
+  }
+}
+
+/**
+ * The base snippet, verbatim from Events Manager apart from the id.
+ *
+ * It defines `fbq` as a queueing stub BEFORE fbevents.js arrives, which is why
+ * callers never have to wait for the script: a `metaTrack` that runs early is
+ * queued and flushed on load rather than dropped.
+ */
+export function metaPixelSnippet(pixelId: string): string {
+  return `!function(f,b,e,v,n,t,s)
+{if(f.fbq)return;n=f.fbq=function(){n.callMethod?
+n.callMethod.apply(n,arguments):n.queue.push(arguments)};
+if(!f._fbq)f._fbq=n;n.push=n;n.loaded=!0;n.version='2.0';
+n.queue=[];t=b.createElement(e);t.async=!0;
+t.src=v;s=b.getElementsByTagName(e)[0];
+s.parentNode.insertBefore(t,s)}(window,document,'script',
+'https://connect.facebook.net/en_US/fbevents.js');
+fbq('init', ${JSON.stringify(pixelId)});
+fbq('track', 'PageView');`
+}
+
+/**
+ * Fire a standard event. No-ops when the pixel is not configured or the stub
+ * has not been defined yet, so nothing here can throw into a render.
+ *
+ * `customData` is deliberately optional and deliberately unused for
+ * `StartTrial`: the server sends that event with no value, and two deduplicated
+ * halves of one conversion must not disagree about what it was worth. If a
+ * value is ever added, add it on BOTH sides in the same change, and read
+ * `subscription.currency` for the currency — the one multi-currency Price
+ * always reports `cad`, including for American buyers.
+ */
+export function metaTrack(
+  event: MetaStandardEvent,
+  options?: { eventId?: string; customData?: Record<string, unknown> },
+): void {
+  if (!META_PIXEL_ID) return
+  if (typeof window === 'undefined' || typeof window.fbq !== 'function') return
+
+  window.fbq(
+    'track',
+    event,
+    options?.customData ?? {},
+    options?.eventId ? { eventID: options.eventId } : {},
+  )
+}
