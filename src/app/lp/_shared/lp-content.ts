@@ -211,28 +211,49 @@ export function buildLayers(
 /**
  * Proof band.
  *
- * ⚠️ Every value below is a placeholder. `showProof` is false in production
- * for exactly that reason; replace the figures before turning it back on. The testimonial in particular needs a real, permissioned quote with
- * a real attribution — a fabricated customer voice is not a copy problem, it is
- * a claim we cannot stand behind.
+ * The quote is real, permissioned, and reproduced verbatim. It is a customer's
+ * own words about his own experience, so it is not edited for length or
+ * house style: trimming a testimonial to fit a layout is how a real quote
+ * starts sounding like copy we wrote. In particular the em dash rule does not
+ * apply to it, and neither does the plain-language rule. It is his sentence.
+ *
+ * Attributed by region rather than by city, at the customer's direction. He
+ * fishes out of Victoria, which is Pacific Northwest, so this is accurate at a
+ * coarser grain rather than relocated. That distinction is the whole point: a
+ * broader true attribution travels to the Washington pages honestly, whereas
+ * moving him to Seattle to suit the page he sits on would be a fabrication no
+ * matter how true the sentence itself is.
+ *
+ * The stats are counted from the production database rather than estimated.
+ * Each one below records what it counts and when it was checked, because a
+ * number with no provenance is indistinguishable from a number someone made
+ * up, which is exactly how the previous set got here.
+ *
+ * ⚠️ These are point-in-time counts, not live values. Re-check them before
+ * quoting them anywhere else, and re-run the queries in the comments rather
+ * than nudging the figures.
  */
 export const PROOF: {
   showProof: boolean;
   stats: ReadonlyArray<{ num: string; label: string }>;
   quote: { text: string; attr: string };
 } = {
-  // OFF in production, deliberately. The two counts below are invented and the
-  // quote is not from a real customer, so the band stayed hidden when these
-  // pages shipped rather than putting unverifiable claims under the brand.
-  // Flip to true once the numbers are real and the quote is permissioned.
-  showProof: false,
+  // ON. The quote is real and permissioned, and every figure below is counted
+  // from production rather than estimated, which were the two conditions this
+  // flag was waiting on.
+  showProof: true,
   stats: [
-    { num: "2,400+", label: "Catches logged" }, // TODO real count
-    { num: "180+", label: "Spots scored" }, // TODO real count
+    // select count(distinct spot_id) from session_scores  ->  184 (2026-08-19)
+    { num: "180+", label: "Spots scored" },
+    // select count(*) from cities where lifecycle='published'  ->  9 (2026-08-19)
+    { num: "9", label: "Cities covered" },
+    // Scoring is a per-city fan-out on an hourly cadence, which is the same
+    // claim the score card's freshness chip makes.
     { num: "Hourly", label: "Refresh rate" },
   ],
   quote: {
-    text: "Checked the score Saturday morning, saw the window closing at noon, launched at six instead of nine. Two chinook by ten.",
-    attr: "PLACEHOLDER · REAL QUOTE REQUIRED",
+    // Given by the customer 2026-08-19. Verbatim.
+    text: "ReelCaster has completely changed how I plan my fishing trips. It brings together tides, currents, wind, swell, and water temperature in one place, then pinpoints the best times and locations to fish. It saves me time and gives me real confidence I\u2019m on the water when conditions are ideal.",
+    attr: "Bob N., PNW Fisherman",
   },
 };
