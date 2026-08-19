@@ -65,15 +65,31 @@ export default function MobileMapSheet({
     return () => window.removeEventListener("resize", read);
   }, []);
 
+  // Peek is the measured height of the header block (handle + count + view
+  // toggle), not a guessed number. A hardcoded one left the top of the first
+  // spot card sticking into the peek and guillotined mid-row, which read as a
+  // rendering fault rather than a list you can drag open.
+  const headerRef = useRef<HTMLDivElement | null>(null);
+  const [headerH, setHeaderH] = useState(0);
+  useEffect(() => {
+    const el = headerRef.current;
+    if (!el || typeof ResizeObserver === "undefined") return;
+    const measure = () => setHeaderH(el.offsetHeight);
+    measure();
+    const ro = new ResizeObserver(measure);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+
   const detents = useMemo(() => {
     const h = vh || 800;
     return {
-      peek: 132,
-      half: Math.round(h * 0.5),
+      peek: headerH || 132,
       // Leave ~132px of map (+ the floating location header) visible up top.
+      half: Math.round(h * 0.5),
       full: Math.max(240, h - 132),
     };
-  }, [vh]);
+  }, [vh, headerH]);
 
   const [detent, setDetent] = useState<Detent>("peek");
   const [dragHeight, setDragHeight] = useState<number | null>(null);
@@ -133,7 +149,7 @@ export default function MobileMapSheet({
       <div
         aria-hidden
         className="lg:hidden pointer-events-none fixed inset-x-0 bottom-0 z-20 bg-rc-panel"
-        style={{ height: "calc(5.25rem + env(safe-area-inset-bottom))" }}
+        style={{ height: "var(--rc-tabbar-clearance)" }}
       />
       <div
         // Tells the camera how much of the map this covers, so a spot the angler
@@ -144,8 +160,8 @@ export default function MobileMapSheet({
         {...{ [MAP_INSET_ATTR]: "bottom", [MAP_INSET_RESTING_ATTR]: String(detents.peek) }}
         className="lg:hidden fixed inset-x-0 z-30 flex flex-col rounded-t-2xl border-t border-rc-rule bg-rc-panel shadow-[0_-8px_30px_rgba(15,23,42,0.12)]"
         style={{
-          // Sit above the floating bottom tab bar (pill h-16 + its 0.75rem gap).
-          bottom: "calc(5.25rem + env(safe-area-inset-bottom))",
+          // Sit above the floating bottom tab bar (see --rc-tabbar-clearance).
+          bottom: "var(--rc-tabbar-clearance)",
           height,
           transition:
             dragHeight == null ? "height 0.3s cubic-bezier(0.32,0.72,0,1)" : "none",
@@ -155,6 +171,7 @@ export default function MobileMapSheet({
       >
       {/* Drag handle + count — owns the drag gesture. */}
       <div
+        ref={headerRef}
         className="shrink-0 cursor-grab touch-none select-none px-4 pt-2.5 pb-2"
         onPointerDown={onPointerDown}
         onPointerMove={onPointerMove}
@@ -267,6 +284,18 @@ export default function MobileMapSheet({
           </div>
         )}
       </div>
+
+      {/* The list runs right up to the sheet's bottom edge, so whatever card
+          the edge lands on gets cut mid-row. Fade the last few pixels into the
+          panel so that reads as "keep scrolling" rather than a broken row.
+          Only once the sheet is open — at peek the body has no height and the
+          gradient would sit on the view toggle instead. */}
+      {height > detents.peek + 8 && (
+        <div
+          aria-hidden
+          className="pointer-events-none absolute inset-x-0 bottom-0 h-6 bg-gradient-to-t from-rc-panel to-transparent"
+        />
+      )}
       </div>
     </>
   );

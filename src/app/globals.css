@@ -239,6 +239,23 @@
   padding-bottom: env(safe-area-inset-bottom, 0);
 }
 
+/* How much room the floating mobile tab bar takes at the bottom of a phone
+   screen: the pill itself (h-16 = 4rem) plus the 0.75rem it is lifted off the
+   edge, plus a 0.5rem breathing gap, plus the device safe area. Anything
+   pinned to the bottom on mobile — bottom sheets, sticky action footers — must
+   sit at `bottom: var(--rc-tabbar-clearance)` or the tab bar covers it. Keep
+   this in step with the pill geometry in components/mobile-bottom-nav.tsx.
+   The bar is lg:hidden, so the clearance collapses to zero on desktop and the
+   same rule can be written once for both. */
+:root {
+  --rc-tabbar-clearance: calc(5.25rem + env(safe-area-inset-bottom, 0));
+}
+@media (min-width: 1024px) {
+  :root {
+    --rc-tabbar-clearance: 0px;
+  }
+}
+
 .pb-safe {
   padding-bottom: calc(1rem + env(safe-area-inset-bottom, 0));
 }

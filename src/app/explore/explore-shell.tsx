@@ -1642,7 +1642,10 @@ export default function ExploreShell({
       {/* Mobile-only station/buoy sheet — the rail (and its drawer slot) is
           desktop-only, so stations get a bottom sheet on small screens. */}
       {selectedStation && (
-        <div className="lg:hidden fixed inset-x-0 bottom-0 z-40 h-[60dvh] bg-rc-panel border-t border-rc-rule rounded-t-xl shadow-rc-panel overflow-hidden">
+        <div
+          style={{ bottom: "var(--rc-tabbar-clearance)" }}
+          className="lg:hidden fixed inset-x-0 z-40 h-[60dvh] bg-rc-panel border-t border-rc-rule rounded-t-xl shadow-rc-panel overflow-hidden"
+        >
           <StationDrawer
             pick={selectedStation}
             tz={MAP_TZ}

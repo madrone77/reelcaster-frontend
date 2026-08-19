@@ -79,11 +79,20 @@ export default function MobileFilterSheet({
 
   return (
     <>
+      {/* Backdrop and sheet both clear the floating tab bar's z-50: the bar is
+          part of what this sheet covers, so it dims with everything else
+          instead of floating lit on top of the scrim. */}
       <div
-        className="lg:hidden fixed inset-0 bg-black/30 z-40"
+        className="lg:hidden fixed inset-0 bg-black/30 z-[60]"
         onClick={onClose}
       />
-      <div className="lg:hidden fixed bottom-0 inset-x-0 z-50 bg-rc-panel rounded-t-2xl shadow-rc-panel animate-slide-up safe-area-bottom">
+      {/* Sits above the tab bar rather than under it — at bottom-0 the pill
+          swallowed the whole bottom of this sheet, "Find spots near me"
+          included. */}
+      <div
+        style={{ bottom: "var(--rc-tabbar-clearance)" }}
+        className="lg:hidden fixed inset-x-0 z-[61] bg-rc-panel rounded-t-2xl shadow-rc-panel animate-slide-up"
+      >
         <div className="flex items-center justify-between px-4 pt-4 pb-2">
           <span className="rc-label text-[10px]">Map filters</span>
           <button

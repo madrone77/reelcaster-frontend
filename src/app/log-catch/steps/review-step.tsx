@@ -270,8 +270,13 @@ export default function ReviewStep({
         />
       </div>
 
-      {/* Sticky footer */}
-      <div className="fixed bottom-0 inset-x-0 z-40 border-t border-rc-rule bg-rc-panel/95 backdrop-blur">
+      {/* Sticky footer. On phones it rides above the floating tab bar, which
+          otherwise sits on top of the save buttons; the clearance is 0 on
+          desktop, where the bar is hidden. */}
+      <div
+        style={{ bottom: "var(--rc-tabbar-clearance)" }}
+        className="fixed inset-x-0 z-40 border-t border-rc-rule bg-rc-panel/95 backdrop-blur"
+      >
         <div className="max-w-3xl mx-auto flex items-center justify-between gap-4 px-4 sm:px-6 py-4">
           <div className="min-w-0">
             <div className="text-[15px] text-rc-ink truncate">
