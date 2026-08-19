@@ -3,7 +3,7 @@ import { Suspense } from 'react';
 import { headers } from 'next/headers';
 import CheckoutPanel from '@/app/components/plans/checkout-panel';
 import { siteUrl } from '@/lib/site';
-import { isCovered } from '@/lib/regions';
+import { isCovered, regulatorFor } from '@/lib/regions';
 
 export const metadata: Metadata = {
   title: 'Checkout | ReelCaster Pro',
@@ -33,6 +33,17 @@ async function detectRegion(): Promise<string | null> {
 export default async function PlansCheckoutPage() {
   const defaultRegion = await detectRegion();
 
+  // Name the authority that actually governs this reader's water. The footer
+  // said "verify with DFO" for everyone, which is another country's regulator
+  // to the Washington half of our coverage, and reads as a Canadian product
+  // at the exact moment someone is deciding whether to hand over a card.
+  //
+  // Deliberately NOT a bare regulatorFor(defaultRegion): that helper falls
+  // back to DFO for anything unmapped, and an unknown geo is precisely the
+  // case where naming a specific country's agency is a guess. Unknown gets the
+  // neutral phrase instead, which is true everywhere.
+  const regulator = defaultRegion ? regulatorFor(defaultRegion).name : null;
+
   return (
     <article className="mx-auto max-w-5xl px-6 py-12 md:py-16">
       <p className="font-rc-mono text-[10px] uppercase tracking-[0.14em] text-rc-ink-mute">
@@ -53,7 +64,8 @@ export default async function PlansCheckoutPage() {
       <footer className="mt-14 border-t border-rc-rule pt-8 text-center">
         <p className="text-xs leading-relaxed text-rc-ink-mute">
           Billing handled by Stripe. Regulations shown in ReelCaster are
-          reference only; always verify with DFO before you fish.
+          reference only; always verify with {regulator ?? 'your local regulator'}{' '}
+          before you fish.
         </p>
       </footer>
     </article>
