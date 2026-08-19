@@ -457,26 +457,27 @@ export default function ExploreMap({
 
       </Map>
 
-      {/* Brand watermark — bottom-right corner, with the ⓘ acknowledgments
-          inline to its left on the same vertical midline (the ctrl container
-          is positioned via globals.css, keyed to these logo sizes).
-          Both ride above whatever floats over the map's bottom edge: the
-          forecast strip on desktop, the spot sheet on a phone. */}
+      {/* Brand watermark — a faint mark centred over the visible map. The zoom
+          control and the ⓘ acknowledgments keep the bottom-right corner
+          (positioned via globals.css). The centre lifts above whatever floats
+          over the map's bottom edge — the forecast strip on desktop, the spot
+          sheet on a phone (only one inset is ever non-zero) — so it stays
+          optically centred in what's actually visible. */}
       {showBrand && (
-        <>
-          <div
-            className="lg:hidden pointer-events-none absolute right-2.5 z-10"
-            style={{ bottom: "calc(var(--rc-map-sheet-inset, 0px) + 10px)" }}
-          >
-            <MapBrandLogo width={52} />
-          </div>
-          <div
-            className="hidden lg:block pointer-events-none absolute right-2.5 z-10"
-            style={{ bottom: "calc(var(--rc-map-inset, 0px) + 10px)" }}
-          >
-            <MapBrandLogo width={60} />
-          </div>
-        </>
+        <div
+          className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center"
+          style={{
+            paddingBottom:
+              "calc(var(--rc-map-inset, 0px) + var(--rc-map-sheet-inset, 0px))",
+          }}
+        >
+          <MapBrandLogo width={132} opacity={0.28} className="lg:hidden" />
+          <MapBrandLogo
+            width={168}
+            opacity={0.28}
+            className="hidden lg:block"
+          />
+        </div>
       )}
     </div>
   );

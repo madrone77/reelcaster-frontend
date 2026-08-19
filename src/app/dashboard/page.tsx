@@ -878,7 +878,7 @@ export default function DashboardPage() {
             The 360px rail this used to carry only existed on desktop, so the
             phone — where the dashboard is actually read — got a pile of cards
             in an order nobody chose. */}
-        <div className="mx-auto max-w-[860px]">
+        <div>
           <div>
             {/* `heroLoading` rather than `spotsLoading && homeSlug`: a null slug
                 is ambiguous until the server copy lands, so gating on it flashed

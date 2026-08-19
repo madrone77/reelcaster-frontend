@@ -385,19 +385,14 @@
 .scrollbar-hide::-webkit-scrollbar {
   display: none;
 }
-/* Explore map: the brand watermark owns the bottom-right corner. The zoom
-   control sits directly above it, one logo-inset clear of it, so the two read
-   as one right-aligned stack; the attribution ⓘ sits inline just left of the
-   R, on the logo's vertical midline.
+/* Explore map: the watermark is centred over the map now, so the bottom-right
+   corner belongs to the map chrome — the zoom control with the attribution ⓘ
+   tucked directly beneath it, both hard against the corner.
 
    Maplibre floats every control in a corner into one column, which is what put
-   the ⓘ on top of the zoom buttons and both of them off to the logo's left. So
-   each control is placed on its own against the corner instead.
-
-   Offsets are keyed to the MapBrandLogo widths in explore-map.tsx (52px mobile
-   → 23px tall, 60px desktop → 27px tall) and its 10px inset from the map edge:
-   the zoom group clears logo + inset (10 + 23 + 10 = 43), and the 24px ⓘ is
-   centred on the logo ((23 - 24) / 2 off its 10px bottom).
+   the ⓘ on top of the zoom buttons. So each control is placed on its own
+   against the corner instead: the zoom group sits a 24px ⓘ + a small gap clear
+   of the edge (≈43px), the ⓘ at the edge below it.
 
    Two things float over the map's bottom edge and would bury the whole stack,
    so each offset is measured from above them rather than from the pane edge:
@@ -418,8 +413,11 @@
   right: 10px;
   bottom: calc(var(--rc-map-sheet-inset, 0px) + 43px);
 }
+/* The watermark used to sit in this corner and the ⓘ tucked to its left; now
+   the logo is centred, so the ⓘ takes the corner itself, directly under the
+   zoom control. */
 .rc-explore-map .maplibregl-ctrl-bottom-right .maplibregl-ctrl-attrib {
-  right: 66px;
+  right: 10px;
   bottom: calc(var(--rc-map-sheet-inset, 0px) + 9.5px);
 }
 @media (min-width: 1024px) {
@@ -427,7 +425,7 @@
     bottom: calc(var(--rc-map-inset, 0px) + 47px);
   }
   .rc-explore-map .maplibregl-ctrl-bottom-right .maplibregl-ctrl-attrib {
-    right: 74px;
+    right: 10px;
     bottom: calc(var(--rc-map-inset, 0px) + 11.5px);
   }
 }

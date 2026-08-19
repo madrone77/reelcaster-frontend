@@ -46,7 +46,7 @@ import { BLEED_MEASURE } from "@/app/components/layout/page-measure";
 import ExploreMap, { type StationPick, type CustomSpotPin } from "./components/explore-map";
 
 import { setFavorite } from "./lib/use-favorite";
-import { MapPinPlus, X } from "lucide-react";
+import { X } from "lucide-react";
 import LeftRail from "./components/left-rail";
 import LocationSelector from "./components/location-selector";
 import MobileMapSheet from "./components/mobile-map-sheet";
@@ -1529,6 +1529,9 @@ export default function ExploreShell({
           onSelectSpecies={handleSearchSelectSpecies}
           near={searchNear}
           onFilterClick={() => setFilterOpen(true)}
+          onAddSpot={
+            !customMode && !tierLoading ? handleCreateCustomSpot : undefined
+          }
         />
         </div>
         {/* Pro only: the one viewer with no bar above, and so no other way to
@@ -1577,28 +1580,10 @@ export default function ExploreShell({
           showReports={isPaid}
         />
 
-        {/* "Create custom spot" action, top-right of the map. Everyone sees it:
-            Pro arms pin-drop mode, anyone else gets the Pro wall for it.
-            Mobile has to clear the floating location header, which owns the
-            map's top band and puts the Filters button in this same corner;
-            desktop has no header there, so it rides at the rail's top edge
-            and mirrors the rail's 24px gutter on the other side. */}
-        {!customMode && (
-          <button
-            type="button"
-            onClick={handleCreateCustomSpot}
-            // Until the tier lands, a Pro account still reads as free, and a
-            // Pro angler would be sold what they already pay for.
-            disabled={tierLoading}
-            className={`${MAP_ACTION_PILL} right-3 lg:right-6 gap-1.5 bg-rc-brand hover:bg-rc-brand-hover shadow-md transition-colors disabled:opacity-70`}
-          >
-            <MapPinPlus className="w-4 h-4 shrink-0" />
-            {/* The map band on a phone is only ~335px tall, so the full label
-                would sit over an eighth of it. Same action, shorter name. */}
-            <span className="lg:hidden">Add spot</span>
-            <span className="hidden lg:inline">Create custom spot</span>
-          </button>
-        )}
+        {/* The "Create custom spot" action no longer floats over the map: on
+            desktop it lives in the rail header, and on mobile/tablet it sits
+            beside the Filters button in the floating location header. Only the
+            placement banner remains over the map, while pin-drop is armed. */}
 
         {/* Placement banner while pin-drop mode is armed. It takes the button's
             exact slot rather than centring: the map box runs the full width,
@@ -1685,6 +1670,9 @@ export default function ExploreShell({
         onCloseStation={handleCloseStation}
         onSpotHourHover={setScrubHour}
         onSetAlert={handleSetAlert}
+        onCreateCustomSpot={
+          !customMode && !tierLoading ? handleCreateCustomSpot : undefined
+        }
         mapControls={{
           relief,
           labels,

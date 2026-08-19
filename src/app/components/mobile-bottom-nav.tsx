@@ -95,7 +95,7 @@ export default function MobileBottomNav() {
             className="lg:hidden fixed inset-0 z-40 bg-rc-ink/25"
           />
           <div className="lg:hidden fixed inset-x-0 z-50 px-4 bottom-[calc(5.75rem+env(safe-area-inset-bottom))]">
-            <div className="mx-auto max-w-md overflow-hidden rounded-2xl border border-rc-rule bg-rc-panel/95 shadow-[0_6px_24px_rgba(15,23,42,0.18)] backdrop-blur-md">
+            <div className="mx-auto max-w-lg overflow-hidden rounded-2xl border border-rc-rule bg-rc-panel/95 shadow-[0_6px_24px_rgba(15,23,42,0.18)] backdrop-blur-md">
               {MORE_LINKS.map(({ href, label }) => (
                 <Link
                   key={href}
@@ -122,7 +122,7 @@ export default function MobileBottomNav() {
         aria-label="Primary"
         className="lg:hidden pointer-events-none fixed inset-x-0 bottom-0 z-50 px-4 pb-[calc(0.75rem+env(safe-area-inset-bottom))]"
       >
-        <div className="pointer-events-auto mx-auto grid h-16 max-w-md grid-cols-4 rounded-2xl border border-rc-rule bg-rc-panel/95 shadow-[0_6px_24px_rgba(15,23,42,0.18)] backdrop-blur-md">
+        <div className="pointer-events-auto mx-auto grid h-16 max-w-lg grid-cols-4 rounded-2xl border border-rc-rule bg-rc-panel/95 shadow-[0_6px_24px_rgba(15,23,42,0.18)] backdrop-blur-md">
           {TABS.map(({ href, label, Icon, alsoActiveFor }) => {
             const active =
               isActive(href) || !!alsoActiveFor?.some((h) => isActive(h));

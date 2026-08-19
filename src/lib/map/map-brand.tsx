@@ -20,7 +20,15 @@ export const MAP_CUSTOM_ATTRIBUTION = [
  * -3.64 units so it centers under REEL (bbox centers 56.95 vs 53.31 in the
  * original) — paths untouched, never re-typeset.
  */
-export function MapBrandLogo({ width = 88, className = "" }: { width?: number; className?: string }) {
+export function MapBrandLogo({
+  width = 88,
+  opacity = 0.65,
+  className = "",
+}: {
+  width?: number;
+  opacity?: number;
+  className?: string;
+}) {
   return (
     <img
       src="/reelcaster-logo-map.svg"
@@ -29,7 +37,7 @@ export function MapBrandLogo({ width = 88, className = "" }: { width?: number; c
       height={Math.round(width * (49 / 109))}
       draggable={false}
       className={`pointer-events-none select-none ${className}`}
-      style={{ filter: "brightness(0) invert(1)", opacity: 0.65 }}
+      style={{ filter: "brightness(0) invert(1)", opacity }}
     />
   );
 }

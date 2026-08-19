@@ -60,6 +60,7 @@ export default function LeftRail({
   onSetAlert,
   freshCatches,
   mapControls,
+  onCreateCustomSpot,
 }: {
   locations: ProvinceNode[];
   selectedCity: CityNode | null;
@@ -92,6 +93,9 @@ export default function LeftRail({
    *  a free viewer's entries carry `locked: true` and no numbers. */
   freshCatches?: FreshCatchesResponse | null;
   mapControls: MapControlsProps;
+  /** Arms map pin-drop for a new custom spot (Pro). Absent → the action is
+   *  hidden (free viewers, or while placement is already armed). */
+  onCreateCustomSpot?: () => void;
 }) {
   const [sort, setSort] = useState<SortKey>("score");
   const sortedSpots = useMemo(() => sortSpots(spots, sort), [spots, sort]);
@@ -159,11 +163,22 @@ export default function LeftRail({
               mapControls={mapControls}
             />
             <div className="px-3 pt-1 pb-2.5">
-              <div className="pb-2">
-                <div className="rc-label text-[9px]">Viewing all spots</div>
-                <div className="text-[15px] font-semibold text-rc-ink mt-0.5">
-                  {spots.length} spot{spots.length === 1 ? "" : "s"}
+              <div className="pb-2 flex items-center justify-between gap-2">
+                <div>
+                  <div className="rc-label text-[9px]">Viewing all spots</div>
+                  <div className="text-[15px] font-semibold text-rc-ink mt-0.5">
+                    {spots.length} spot{spots.length === 1 ? "" : "s"}
+                  </div>
                 </div>
+                {onCreateCustomSpot && (
+                  <button
+                    type="button"
+                    onClick={onCreateCustomSpot}
+                    className="shrink-0 text-[13px] font-semibold text-rc-brand hover:text-rc-brand-hover hover:underline underline-offset-2 transition-colors"
+                  >
+                    Create custom spot
+                  </button>
+                )}
               </div>
               <div className="flex items-center gap-1.5">
                 <MapFilterChips
