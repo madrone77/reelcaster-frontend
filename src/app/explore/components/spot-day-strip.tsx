@@ -248,7 +248,7 @@ export default function SpotDayStrip({
                       : undefined
                   }
                   disabled={!onUnlock}
-                  aria-label={`${d.dow} ${d.date} — upgrade to see this day`}
+                  aria-label={`${d.dow} ${d.date}, upgrade to see this day`}
                   className={`flex-1 min-w-0 rounded bg-rc-surface border border-rc-rule ${show} flex-col items-center justify-center gap-0.5 py-1.5 enabled:hover:border-rc-brand transition-colors`}
                 >
                   <DayLabel

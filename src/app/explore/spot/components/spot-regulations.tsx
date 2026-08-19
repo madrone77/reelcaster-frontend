@@ -32,7 +32,7 @@ function oneLiner(r: LiveRegulation): string {
   const parts: string[] = [];
   if (r.dailyLimit != null) parts.push(`${r.dailyLimit} / day`);
   if (r.sizeLimitCm != null && r.sizeLimitMaxCm != null)
-    parts.push(`${r.sizeLimitCm}–${r.sizeLimitMaxCm} cm`);
+    parts.push(`${r.sizeLimitCm}-${r.sizeLimitMaxCm} cm`);
   else if (r.sizeLimitCm != null) parts.push(`min ${r.sizeLimitCm} cm`);
   else if (r.sizeLimitMaxCm != null) parts.push(`max ${r.sizeLimitMaxCm} cm`);
   if (r.gearRestrictions) parts.push(r.gearRestrictions);

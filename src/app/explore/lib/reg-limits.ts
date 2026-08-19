@@ -27,7 +27,7 @@ export function fmtMD(iso: string | null): string | null {
 export function sizeText(r: LiveRegulation): string | null {
   const min = r.sizeLimitCm;
   const max = r.sizeLimitMaxCm;
-  if (min != null && max != null) return `${min}–${max} cm slot`;
+  if (min != null && max != null) return `${min}-${max} cm slot`;
   if (min != null) return `Minimum ${min} cm`;
   if (max != null) return `Maximum ${max} cm`;
   return null;
@@ -37,7 +37,7 @@ export function sizeText(r: LiveRegulation): string | null {
 export function sizeTextShort(r: LiveRegulation): string | null {
   const min = r.sizeLimitCm;
   const max = r.sizeLimitMaxCm;
-  if (min != null && max != null) return `${min}–${max} cm slot`;
+  if (min != null && max != null) return `${min}-${max} cm slot`;
   if (min != null) return `min ${min} cm`;
   if (max != null) return `max ${max} cm`;
   return null;

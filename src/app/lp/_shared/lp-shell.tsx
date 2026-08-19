@@ -369,7 +369,7 @@ export default function LpShell({
               </div>
               <div className="quote">
                 <p>&ldquo;{PROOF.quote.text}&rdquo;</p>
-                <div className="quote-attr">— {PROOF.quote.attr}</div>
+                <div className="quote-attr">{PROOF.quote.attr}</div>
               </div>
             </div>
           </section>

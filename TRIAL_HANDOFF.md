@@ -111,13 +111,20 @@ All additive, no destructive statements, safe to run on the live DB.
 
 The webhook endpoint needs two events it isn't currently subscribed to:
 
-- `customer.subscription.trial_will_end` — fires 3 days out and sends the
-  "your trial ends Thursday, we'll charge $33" email. **This one is not
-  optional.** A card-required trial that auto-charges needs clear advance
-  notice of the date and amount under Canadian consumer-protection rules and
-  the US FTC negative-option rule.
-- `invoice.payment_succeeded` — closes the past-due grace window when a
+- `customer.subscription.trial_will_end`, fires 3 days out and sends the
+  "your trial ends Thursday, we'll charge $33" email. Still worth subscribing,
+  but **no longer the only thing sending it**: `/api/cron/trial-reminders`
+  sweeps for the same accounts every 6 hours and both paths claim the send
+  through `user_settings.trial_reminder_sent_at`, so exactly one email goes
+  out. That notice is required for a card-required trial that auto-charges
+  (Canadian consumer-protection rules, US FTC negative-option rule), which is
+  why it is no longer left to a dashboard checkbox.
+- `invoice.payment_succeeded`, closes the past-due grace window when a
   retry succeeds.
+
+`CRON_SECRET` must be set on the Vercel project or `/api/cron/trial-reminders`
+returns 401 and nothing is ever sent. It is the same secret the other crons
+already use.
 
 Existing subscribed events stay as they are.
 

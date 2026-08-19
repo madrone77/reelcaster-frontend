@@ -93,7 +93,7 @@ const seaNote = (hours: TerminalHours, waveUnit: string, maxTick: string) => {
     if (num(hours.sea[i]) == null) continue;
     if (hours.seaEst?.[i]) est++; else real++;
   }
-  if (est === 0) return `wave ${waveUnit} · 0–${maxTick}`;
+  if (est === 0) return `wave ${waveUnit} · 0-${maxTick}`;
   return real === 0 ? "est. from wind" : "part est. from wind";
 };
 const airWord = (t: number | null) => (t == null ? "—" : t < 11 ? "Cold" : t < 18 ? "Mild" : "Warm");
@@ -267,12 +267,12 @@ function buildSvg(
   const base = mob ? 0.62 : 1;
   const rows = [
     { k: "score", l: "Score", n: "colour = rating", h: mob ? 20 : 34 },
-    { k: "tide", l: "Tide", n: `${u.tideUnit} · ${tickFmt(cvTide(ts.mn))}–${tickFmt(cvTide(ts.mx))} fixed`, h: 116 * base },
+    { k: "tide", l: "Tide", n: `${u.tideUnit} · ${tickFmt(cvTide(ts.mn))}-${tickFmt(cvTide(ts.mx))} fixed`, h: 116 * base },
     { k: "cur", l: "Current", n: `${cLbl} · +flood −ebb`, h: 128 * base },
     { k: "wind", l: "Wind", n: `${wLbl} · bar+gust`, h: mob ? 84 : 122 },
     { k: "arrow", l: "", n: "", h: mob ? 22 : 32 },
     { k: "sea", l: "Sea State", n: seaNote(hours, u.waveUnit, tickFmt(cvWave(1))), h: 70 * base },
-    { k: "air", l: "Air Temp", n: `°${u.tempUnit} · ${Math.round(cvT(5))}–${Math.round(cvT(25))} fixed`, h: mob ? 42 : 56 },
+    { k: "air", l: "Air Temp", n: `°${u.tempUnit} · ${Math.round(cvT(5))}-${Math.round(cvT(25))} fixed`, h: mob ? 42 : 56 },
     // Note must fit the 132px label gutter — at 10px mono (~6px/char) that's
     // ~20 chars before it runs out from under the label and into the plot.
     { k: "wx", l: "Weather", n: mob ? "6-hour blocks" : "3-hour blocks", h: mob ? 28 : 34 },

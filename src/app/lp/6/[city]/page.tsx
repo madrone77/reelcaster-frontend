@@ -49,7 +49,7 @@ export async function generateMetadata({
   const card = await resolveLpCard(slug);
   const angle = localizeAngle(angleFrom(sp), lpRegionFor(card?.provinceCode));
   return {
-    title: { absolute: `${angle.title} — ReelCaster` },
+    title: { absolute: `${angle.title} | ReelCaster` },
     description: card ? `${angle.subhead} Covering ${card.cityName}.` : angle.subhead,
     robots: { index: false, follow: true },
   };

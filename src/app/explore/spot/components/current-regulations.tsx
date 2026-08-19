@@ -115,7 +115,7 @@ export default function CurrentRegulations({
   const size = sizeText(active);
   const season =
     active.seasonOpenDate && active.seasonCloseDate
-      ? `${fmtMD(active.seasonOpenDate)} – ${fmtMD(active.seasonCloseDate)}`
+      ? `${fmtMD(active.seasonOpenDate)} to ${fmtMD(active.seasonCloseDate)}`
       : null;
   const reopen =
     active.status !== "Open" && active.nextOpenDate

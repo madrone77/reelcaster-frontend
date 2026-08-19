@@ -69,7 +69,7 @@ export async function generateMetadata({
       : null;
   const bare = titleCaseSlug((prov ? parts.slice(0, -1) : parts).join("-"));
   const cityLabel = prov ? `${bare}, ${prov}` : bare;
-  const title = `${bare} fishing — know the bite before you go`;
+  const title = `${bare} fishing: know the bite before you go`;
   return {
     title: { absolute: title },
     description: `See this week's best fishing windows for every spot around ${cityLabel}. One score from tides, weather, water and regulations. Free 7-day trial.`,
@@ -139,7 +139,7 @@ export default async function LpCityPage({
     bestIdx >= 0 ? `${days[bestIdx].dow} ${days[bestIdx].date}` : null;
   const bestWindowTime =
     bestPeakHour != null
-      ? `${formatHour12(bestPeakHour)} – ${formatHour12(Math.min(bestPeakHour + 4, 23))}`
+      ? `${formatHour12(bestPeakHour)} to ${formatHour12(Math.min(bestPeakHour + 4, 23))}`
       : null;
   const bestWindowSub = bestScore >= 0 ? `Peaks at ${bestScore}` : null;
 
@@ -176,8 +176,8 @@ export default async function LpCityPage({
   });
   const seasonPeakMonth = seasonPeakIdx >= 0 ? MONTHS[seasonPeakIdx] : null;
   const seasonNote = seasonPeakMonth
-    ? `${species} peak in ${seasonPeakMonth} — a window that recurs every season, not a one-off.`
-    : `${species} runs recur every season — this window is not a one-off.`;
+    ? `${species} peak in ${seasonPeakMonth}, a window that recurs every season, not a one-off.`
+    : `${species} runs recur every season. This window is not a one-off.`;
 
   // ── Fresh catch ─────────────────────────────────────────────────────
   const freshEntry = fresh?.spots[rep.id] ?? null;

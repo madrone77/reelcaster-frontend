@@ -238,7 +238,7 @@ export default function CheckoutPanel({
             Start your {TRIAL_DAYS}-day free trial
           </h2>
           <p className="mt-2 text-sm leading-relaxed text-rc-ink-soft">
-            No account needed to start — we&apos;ll set one up from the email
+            No account needed to start. We&apos;ll set one up from the email
             you check out with, and sign you in when you land back here.
           </p>
 
@@ -337,7 +337,7 @@ export default function CheckoutPanel({
             </>
           ) : (
             <>
-              Every Pro feature, billed yearly at {dollars(priceCents)} —{' '}
+              Every Pro feature, billed yearly at {dollars(priceCents)},{' '}
               {dollars(ANNUAL_PER_MONTH_CENTS)} a month.
             </>
           )}

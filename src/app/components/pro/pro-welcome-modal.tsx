@@ -273,7 +273,7 @@ export default function ProWelcomeModal() {
     });
     if (!res.ok) {
       const body = await res.json().catch(() => ({}));
-      setError(body.error ?? "Couldn't create that alert — you can add one from the spot page later.");
+      setError(body.error ?? "Couldn't create that alert. You can add one from the spot page later.");
       return false;
     }
     return true;

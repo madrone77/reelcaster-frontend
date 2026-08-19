@@ -55,7 +55,7 @@ export default function SpotProfile({
   const depthVal = (m: number) => Math.round(convertDepth(m, "m", depthUnit));
   const depth =
     spot.depthMinM != null && spot.depthMaxM != null
-      ? `${depthVal(spot.depthMinM)}–${depthVal(spot.depthMaxM)} ${depthLbl}`
+      ? `${depthVal(spot.depthMinM)}-${depthVal(spot.depthMaxM)} ${depthLbl}`
       : spot.depthMeanM != null
         ? `~${depthVal(spot.depthMeanM)} ${depthLbl}`
         : "—";

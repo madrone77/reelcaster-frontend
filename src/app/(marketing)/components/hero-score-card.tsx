@@ -13,7 +13,7 @@ const DEMO_HOURS = [
   74, 58, 44, 36, 30,
 ];
 
-// 4 PM – 7 PM bars render solid green ("Best window 5:30 – 7:30 PM").
+// 4 PM – 7 PM bars render solid green ("Best window 5:30-7:30 PM").
 const WINDOW_START = 16;
 const WINDOW_END = 19;
 
@@ -73,7 +73,7 @@ export default function HeroScoreCard() {
             9 fresh catches logged in the last 14 days
           </p>
           <p className="mt-1.5 font-rc-mono text-[11px] text-rc-ink-mute">
-            Best window 5:30 – 7:30 PM · Flood tide
+            Best window 5:30-7:30 PM · Flood tide
           </p>
         </div>
 

@@ -56,7 +56,7 @@ const HOW = [
   {
     n: '01',
     title: 'One score',
-    body: 'Tides, weather, water, and regulations distilled into a single 0–100 number for each spot and species.',
+    body: 'Tides, weather, water, and regulations distilled into a single 0-100 number for each spot and species.',
   },
   {
     n: '02',

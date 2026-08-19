@@ -253,7 +253,7 @@ function SpotRow({
       <button
         type="button"
         onClick={onUnlock}
-        aria-label={`Locked spot scoring ${spot.score} — unlock with Pro`}
+        aria-label={`Locked spot scoring ${spot.score}, unlock with Pro`}
         className={rowClass}
       >
         {body}

@@ -77,7 +77,7 @@ export default function StepWater({
           provinceFilter={region}
         />
         <p className="mt-1.5 text-xs text-rc-ink-mute">
-          Your dashboard opens on it — today&rsquo;s conditions, its
+          Your dashboard opens on it, showing today&rsquo;s conditions, its
           regulations, and the 14-day run. You can change it from any spot page.
         </p>
       </div>

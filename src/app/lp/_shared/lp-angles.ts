@@ -136,7 +136,7 @@ export const ANGLES: Angle[] = [
   {
     id: "alerts",
     rationale:
-      "Single-feature pitch. Sells the text message alone — the one thing that needs no explaining in a Meta feed.",
+      "Single-feature pitch. Sells the text message alone, the one thing that needs no explaining in a Meta feed.",
     eyebrow: "Text alerts",
     headline: { lead: "Get a text", accent: "when the bite turns on." },
     subhead:

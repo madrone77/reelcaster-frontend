@@ -56,6 +56,19 @@ export function dollars(cents: number): string {
 }
 
 /**
+ * The amount to quote a subscriber in a billing email, by the tier they are
+ * actually on.
+ *
+ * Lives here rather than in the Stripe webhook because the trial reminder is
+ * now also sent by a cron, and two copies of "what does this person pay" is
+ * exactly the drift that would have one of them quoting the wrong number on a
+ * legally required notice.
+ */
+export function amountLabelForTier(tier: string | null | undefined): string {
+  return dollars(tier === 'pro_annual' ? ANNUAL_PRICE_CENTS : LEGACY_MONTHLY_PRICE_CENTS);
+}
+
+/**
  * Region → billing currency. BC buys in CAD; WA/OR in USD. When no region is
  * known (paywall CTAs post region '') the caller may pass the request's
  * x-vercel-ip-country header; a Canadian IP gets CAD, any other known country

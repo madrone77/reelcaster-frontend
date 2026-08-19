@@ -2,21 +2,17 @@ import { NextResponse } from 'next/server';
 import type Stripe from 'stripe';
 import { createClient } from '@supabase/supabase-js';
 import { getStripe } from '@/lib/stripe';
-import {
-  ANNUAL_PRICE_ID,
-  ANNUAL_PRICE_CENTS,
-  LEGACY_MONTHLY_PRICE_CENTS,
-} from '@/lib/pricing';
+import { ANNUAL_PRICE_ID, amountLabelForTier } from '@/lib/pricing';
 import { recordTrialGrant, recordTrialCardFingerprint } from '@/lib/trial';
 import { recordConversion } from '@/lib/conversions';
 import { uploadPendingConversions } from '@/lib/conversion-upload';
 import { findOrCreateUserForCheckout } from '@/lib/checkout-account';
 import { sendEmail } from '@/lib/email-service';
 import {
-  trialEndingEmail,
   paymentFailedEmail,
   trialUnavailableEmail,
 } from '@/lib/email-templates/billing';
+import { sendTrialReminder } from '@/lib/trial-reminder';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -40,12 +36,6 @@ const admin = createClient(supabaseUrl, supabaseServiceKey, {
  */
 function tierFromPriceId(priceId: string | null | undefined): 'pro_annual' | 'pro_monthly' {
   return priceId === ANNUAL_PRICE_ID ? 'pro_annual' : 'pro_monthly';
-}
-
-function amountLabelForTier(tier: string): string {
-  const cents =
-    tier === 'pro_annual' ? ANNUAL_PRICE_CENTS : LEGACY_MONTHLY_PRICE_CENTS;
-  return `$${(cents / 100).toFixed(2).replace(/\.00$/, '')}`;
 }
 
 /**
@@ -392,22 +382,25 @@ async function openGraceWindow(subscription: Stripe.Subscription) {
 
 /**
  * Fires 3 days before a trial converts. Required notice for a card-required
- * trial that auto-charges — see src/lib/email-templates/billing.ts.
+ * trial that auto-charges. See src/lib/email-templates/billing.ts.
+ *
+ * This is the backstop, not the owner: /api/cron/trial-reminders sweeps for the
+ * same accounts every 6 hours, because this event only arrives if it is
+ * subscribed on the live webhook endpoint and nothing in the code can make sure
+ * of that. Both go through sendTrialReminder, which claims the send, so the
+ * customer gets one email no matter how many times either path runs. That also
+ * covers Stripe retrying an event it thinks failed.
  */
 async function sendTrialEndingNotice(subscription: Stripe.Subscription) {
   const userId = await resolveUserId(subscription);
   if (!userId || !subscription.trial_end) return;
 
-  const email = await emailForUser(userId);
-  if (!email) return;
-
   const priceId = subscription.items.data[0]?.price?.id ?? null;
-  const { subject, html } = trialEndingEmail({
+  await sendTrialReminder(admin, {
+    userId,
     trialEndsAt: new Date(subscription.trial_end * 1000).toISOString(),
     amountLabel: amountLabelForTier(tierFromPriceId(priceId)),
   });
-
-  await sendEmail({ to: email, subject, html });
 }
 
 /**

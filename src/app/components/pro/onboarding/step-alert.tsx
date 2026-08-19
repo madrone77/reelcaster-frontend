@@ -120,7 +120,7 @@ export default function StepAlert({
         ) : species.length === 0 ? (
           <p className="text-sm text-rc-ink-soft">
             We don&rsquo;t have a scored species roster for this spot yet, so
-            there&rsquo;s nothing to alert on. Skip this — you can add an alert
+            there&rsquo;s nothing to alert on. Skip this, you can add an alert
             from any spot page once it&rsquo;s scored.
           </p>
         ) : (
@@ -186,7 +186,7 @@ export default function StepAlert({
               {daysPerWeek === null
                 ? "We'll check every forecast run and let you know."
                 : daysPerWeek === 0
-                  ? "Nothing in the next two weeks reaches this — try a lower score."
+                  ? "Nothing in the next two weeks reaches this. Try a lower score."
                   : `About ${daysPerWeek} day${daysPerWeek === 1 ? "" : "s"} a week at this spot lately.`}
             </p>
           </div>

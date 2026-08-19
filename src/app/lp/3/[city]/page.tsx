@@ -41,7 +41,7 @@ export async function generateMetadata({
   const angle = angleFrom(sp);
   const card = await resolveLpCard(slug);
   return {
-    title: { absolute: `${angle.title} — ReelCaster` },
+    title: { absolute: `${angle.title} | ReelCaster` },
     description: card ? `${angle.subhead} Covering ${card.cityName}.` : angle.subhead,
     robots: { index: false, follow: true },
   };
