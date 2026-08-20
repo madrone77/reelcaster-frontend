@@ -81,9 +81,9 @@ export function mapInsetOffsetY(): number {
  * height, in CSS pixels. 0 when nothing covers it (desktop, or a map with no
  * sheet over it).
  *
- * Chrome pinned to the map's bottom edge — the zoom control, the ⓘ, the brand
- * watermark — renders underneath the spot sheet without this, which is exactly
- * what happened on phone width: correctly placed inside a band nothing can see.
+ * Chrome pinned to the map's bottom edge, the zoom control and the ⓘ, renders
+ * underneath the spot sheet without this, which is exactly what happened on
+ * phone width: correctly placed inside a band nothing can see.
  * Desktop has the same problem with the forecast strip and solves it with a
  * fixed `--rc-map-inset`, but the sheet's height comes from its own measured
  * header, so this one has to be read off the DOM.

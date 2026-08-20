@@ -20,7 +20,7 @@ import type { RailSpot } from "../lib/explore-data";
 import { buildReliefStyle, buildSummaryStyle } from "@/lib/map/relief-style";
 import { attachRcaHatch } from "@/lib/map/rca-hatch";
 import { attachScorePucks, PUCK_TIP_OFFSET } from "../lib/score-puck";
-import { MAP_CUSTOM_ATTRIBUTION, MapBrandLogo } from "@/lib/map/map-brand";
+import { MAP_CUSTOM_ATTRIBUTION } from "@/lib/map/map-brand";
 import { MAP_INSET_ATTR, mapBottomPanelInset } from "../lib/sheet-safe-center";
 import { spotsToFeatureCollection, declutterHiddenSlugs } from "../lib/spot-geojson";
 import { useCurrentsFlow } from "../lib/use-currents-flow";
@@ -108,7 +108,6 @@ export default function ExploreMap({
   onViewportChange,
   pinDropMode = false,
   onMapPick,
-  showBrand = true,
   summary = false,
   showReports = false,
 }: {
@@ -121,8 +120,6 @@ export default function ExploreMap({
    *  selecting features — the "create custom spot" placement mode. */
   pinDropMode?: boolean;
   onMapPick?: (coords: { lat: number; lng: number }) => void;
-  /** Show the ReelCaster brand watermark. Off for summary maps (dashboard). */
-  showBrand?: boolean;
   /** Summary mode: land + labels only, no chart substrate and no station
    *  markers. Skips ~2.8 MB of GeoJSON parsing that a "where are my spots"
    *  overview never draws. Implies relief/contours off. */
@@ -143,7 +140,7 @@ export default function ExploreMap({
   hour?: number | null;
   /** UTC instant for the currents flow field; null = model "now". */
   flowTimeIso?: string | null;
-  /** Desktop forecast strip visible → raise attribution/watermark above it. */
+  /** Desktop forecast strip visible → raise the attribution above it. */
   stripVisible?: boolean;
   /** Show the WDFW marine-area grid + MPAs (active city is in Washington). */
   wdfwRegs?: boolean;
@@ -176,18 +173,12 @@ export default function ExploreMap({
   // white particle ribbons) as a MapLibre custom layer clipped at the coastline.
   useCurrentsFlow({ map: mapObj, enabled: currents, timeIso: flowTimeIso ?? null });
 
-  // The compact attribution renders expanded on load, spilling a wall of source
-  // text over the map. Collapse it back to the ⓘ. This runs off the DOM from
-  // mount — NOT off the map 'load' event, which waits on the relief-tile CDN
-  // and can take 20s+, leaving the wall up the whole time. Keep re-collapsing
-  // briefly (late attribution updates re-open it) until the user taps the ⓘ,
-  // after which their choice wins.
   const wrapRef = useRef<HTMLDivElement | null>(null);
 
   // On a phone the spot sheet floats over the map's bottom edge, so the chrome
-  // anchored there (zoom, ⓘ, watermark) sits underneath it. Measure how much of
-  // the pane the sheet covers at rest and hand it to CSS, the mobile twin of the
-  // fixed --rc-map-inset the desktop forecast strip uses.
+  // anchored there (zoom, ⓘ) sits underneath it. Measure how much of the pane
+  // the sheet covers at rest and hand it to CSS, the mobile twin of the fixed
+  // --rc-map-inset the desktop forecast strip uses.
   const [sheetInset, setSheetInset] = useState(0);
   useEffect(() => {
     const root = wrapRef.current;
@@ -224,28 +215,62 @@ export default function ExploreMap({
     };
   }, []);
 
+  // A tap on the ⓘ is the only thing that may open the acknowledgements.
+  // MapLibre opens its compact attribution ITSELF the first time the panel
+  // turns compact, which is whenever the real source list finally arrives, and
+  // on a cold load that is seconds in: a wall of source text drops over the map
+  // nobody asked for. So put it back the moment MapLibre opens it on its own.
+  //
+  // `maplibregl-compact-show` is MapLibre's whole expanded/collapsed state (see
+  // its _toggleAttribution), so removing that one class is the entire collapse.
+  // The `open` attribute is left alone deliberately: on the <details> MapLibre
+  // renders, it means the opposite of what it reads like, and writing it fights
+  // the control's own bookkeeping.
+  //
+  // A MutationObserver, not a poll: it runs in the microtask right after the
+  // class lands, so the panel is never painted open, and unlike the timed poll
+  // this replaces, it has no window to expire out of.
   useEffect(() => {
     const root = wrapRef.current;
     if (!root) return;
-    let userToggled = false;
+    let userOpened = false;
+
+    // The `contains` guard is load-bearing, not a nicety: classList.remove()
+    // re-serializes the class attribute even when the class was already gone,
+    // and that write is itself a mutation the observer sees. Without the guard
+    // the callback re-triggers itself forever and the tab locks up.
     const collapse = () => {
-      if (userToggled) return;
+      if (userOpened) return;
       const el = root.querySelector(".maplibregl-ctrl-attrib");
-      if (el) {
+      if (el?.classList.contains("maplibregl-compact-show")) {
         el.classList.remove("maplibregl-compact-show");
-        el.removeAttribute("open");
       }
     };
+
+    // Capture phase, so this reads the state BEFORE MapLibre's own handler
+    // flips it: a tap on a closed ⓘ is the reader opening it, a tap on an open
+    // one is them closing it and handing control back. Click, not pointerdown,
+    // so keyboard activation counts too.
     const onClickCapture = (e: Event) => {
-      if ((e.target as HTMLElement).closest?.(".maplibregl-ctrl-attrib")) userToggled = true;
+      const el = (e.target as HTMLElement).closest?.(".maplibregl-ctrl-attrib");
+      if (el) userOpened = !el.classList.contains("maplibregl-compact-show");
     };
-    root.addEventListener("click", onClickCapture, true);
+
+    // Watch the pane, not the panel: MapLibre builds the control whenever the
+    // style is ready, which on a cold load is seconds away, and it builds a
+    // fresh one every time a style change replaces it.
     collapse();
-    const iv = setInterval(collapse, 500);
-    const stop = setTimeout(() => clearInterval(iv), 30_000);
+    const obs = new MutationObserver(collapse);
+    obs.observe(root, {
+      subtree: true,
+      childList: true,
+      attributes: true,
+      attributeFilter: ["class"],
+    });
+
+    root.addEventListener("click", onClickCapture, true);
     return () => {
-      clearInterval(iv);
-      clearTimeout(stop);
+      obs.disconnect();
       root.removeEventListener("click", onClickCapture, true);
     };
   }, []);
@@ -454,31 +479,7 @@ export default function ExploreMap({
         <Source id={SOURCE_ID} type="geojson" data={data}>
           <Layer {...spotPuckLayer} />
         </Source>
-
       </Map>
-
-      {/* Brand watermark — a faint mark along the bottom of the visible map,
-          horizontally centred. It rides above whatever floats over the map's
-          bottom edge — the forecast strip on desktop, the spot sheet on a phone
-          (only one inset is ever non-zero) — so it never slides behind them. The
-          zoom control + ⓘ keep the bottom-right corner (positioned via
-          globals.css); the centred mark clears them. */}
-      {showBrand && (
-        <div
-          className="pointer-events-none absolute inset-0 z-10 flex items-end justify-center"
-          style={{
-            paddingBottom:
-              "calc(var(--rc-map-inset, 0px) + var(--rc-map-sheet-inset, 0px) + 14px)",
-          }}
-        >
-          <MapBrandLogo width={104} opacity={0.28} className="lg:hidden" />
-          <MapBrandLogo
-            width={124}
-            opacity={0.28}
-            className="hidden lg:block"
-          />
-        </div>
-      )}
     </div>
   );
 }

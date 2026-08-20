@@ -208,17 +208,16 @@
   .maplibregl-ctrl-attrib-button {
     @apply bg-rc-bg-dark/80!;
   }
-  /* Explore's collapsed ⓘ drops the dark chip and becomes the watermark's
-     twin instead — see the .rc-explore-map block further down for the white
-     recolor and the placement. It has to be written in here, next to the rule
-     it overrides: both are !important, and for important declarations the
-     cascade REVERSES layer order, so an unlayered copy of this would lose to
-     the layered rule above however specific it was. Expanded, the ⓘ is part of
-     the panel again and keeps the dark background. */
+  /* Explore's collapsed ⓘ drops the dark chip and rides bare on the map: see
+     the .rc-explore-map block further down for the white recolor and the
+     placement. It has to be written in here, next to the rule it overrides:
+     both are !important, and for important declarations the cascade REVERSES
+     layer order, so an unlayered copy of this would lose to the layered rule
+     above however specific it was. Expanded, the ⓘ is part of the panel again
+     and keeps the dark background. */
+  .rc-explore-map .maplibregl-ctrl-attrib:not(.maplibregl-compact-show),
   .rc-explore-map
-    .maplibregl-ctrl-attrib:not([open]):not(.maplibregl-compact-show),
-  .rc-explore-map
-    .maplibregl-ctrl-attrib:not([open]):not(.maplibregl-compact-show)
+    .maplibregl-ctrl-attrib:not(.maplibregl-compact-show)
     .maplibregl-ctrl-attrib-button {
     background-color: transparent !important;
   }
@@ -391,14 +390,15 @@
 .scrollbar-hide::-webkit-scrollbar {
   display: none;
 }
-/* Explore map: the watermark is centred over the map now, so the bottom-right
-   corner belongs to the map chrome — the zoom control with the attribution ⓘ
-   tucked directly beneath it, both hard against the corner.
+/* Explore map: the bottom-right corner is the map chrome, and the only map
+   chrome. The zoom control takes the corner with the attribution ⓘ stacked
+   directly above it, the two centred on the same axis (the ⓘ is 24px against
+   the zoom group's 29px, so it is nudged 2.5px in to line up).
 
-   Maplibre floats every control in a corner into one column, which is what put
-   the ⓘ on top of the zoom buttons. So each control is placed on its own
-   against the corner instead: the zoom group sits a 24px ⓘ + a small gap clear
-   of the edge (≈43px), the ⓘ at the edge below it.
+   Maplibre floats every control in a corner into one column and picks the
+   order itself, which is how the ⓘ ended up under the zoom buttons. So each
+   control is placed on its own against the corner instead: the zoom group at
+   the edge, the ⓘ a zoom group (58px) + a small gap above it.
 
    Two things float over the map's bottom edge and would bury the whole stack,
    so each offset is measured from above them rather than from the pane edge:
@@ -417,41 +417,56 @@
 }
 .rc-explore-map .maplibregl-ctrl-bottom-right .maplibregl-ctrl-group {
   right: 10px;
-  bottom: calc(var(--rc-map-sheet-inset, 0px) + 43px);
+  bottom: calc(var(--rc-map-sheet-inset, 0px) + 9.5px);
 }
-/* The watermark used to sit in this corner and the ⓘ tucked to its left; now
-   the logo is centred, so the ⓘ takes the corner itself, directly under the
-   zoom control. */
 .rc-explore-map .maplibregl-ctrl-bottom-right .maplibregl-ctrl-attrib {
   right: 10px;
-  bottom: calc(var(--rc-map-sheet-inset, 0px) + 9.5px);
+  bottom: calc(var(--rc-map-sheet-inset, 0px) + 77px);
+}
+/* Collapsed, the ⓘ is a 24px square and centres over the 29px zoom group.
+   Expanded it is a wide text panel, which stays flush at 10px. */
+.rc-explore-map
+  .maplibregl-ctrl-bottom-right
+  .maplibregl-ctrl-attrib:not(.maplibregl-compact-show) {
+  right: 12.5px;
+}
+/* Expanded, the panel needs a width and a ceiling of its own. MapLibre's
+   control column shrink-to-fits its widest control, so the acknowledgements
+   wrapped into a 107px ribbon a thousand pixels tall, most of it above the top
+   of the screen with the close button up there with it. */
+.rc-explore-map
+  .maplibregl-ctrl-bottom-right
+  .maplibregl-ctrl-attrib.maplibregl-compact-show {
+  box-sizing: border-box;
+  width: min(300px, calc(100vw - 24px));
+  max-height: min(45vh, 300px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
 }
 @media (min-width: 1024px) {
   .rc-explore-map .maplibregl-ctrl-bottom-right .maplibregl-ctrl-group {
-    bottom: calc(var(--rc-map-inset, 0px) + 47px);
+    bottom: calc(var(--rc-map-inset, 0px) + 11.5px);
   }
   .rc-explore-map .maplibregl-ctrl-bottom-right .maplibregl-ctrl-attrib {
-    right: 10px;
-    bottom: calc(var(--rc-map-inset, 0px) + 11.5px);
+    bottom: calc(var(--rc-map-inset, 0px) + 81px);
   }
 }
 
-/* Collapsed ⓘ matches the watermark's 65% opacity; full opacity when the
-   acknowledgments panel is expanded so the text stays readable. */
+/* Collapsed, the ⓘ sits back at 65%; full opacity when the acknowledgments
+   panel is expanded so the text stays readable. */
 .rc-explore-map .maplibregl-ctrl-attrib {
   opacity: 0.65;
 }
-.rc-explore-map .maplibregl-ctrl-attrib[open],
 .rc-explore-map .maplibregl-ctrl-attrib.maplibregl-compact-show {
   opacity: 1;
 }
 
-/* Collapsed, the ⓘ is the watermark's twin: the same white recolor at the same
-   65% (MapBrandLogo), so the pair reads as one mark. Expanded, it goes back to
-   the dark panel the acknowledgments text is readable on. The chip behind it is
-   cleared up in @layer base, where the rule it overrides lives. */
+/* Collapsed, the ⓘ is recolored white so it reads over the dark ocean as well
+   as over the pale chart. Expanded, it goes back to the dark panel the
+   acknowledgments text is readable on. The chip behind it is cleared up in
+   @layer base, where the rule it overrides lives. */
 .rc-explore-map
-  .maplibregl-ctrl-attrib:not([open]):not(.maplibregl-compact-show)
+  .maplibregl-ctrl-attrib:not(.maplibregl-compact-show)
   .maplibregl-ctrl-attrib-button {
   filter: brightness(0) invert(1);
 }
