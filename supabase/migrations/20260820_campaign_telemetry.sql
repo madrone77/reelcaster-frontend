@@ -208,3 +208,219 @@ comment on column public.marketing_conversions.os is
   'Platform of the checkout request (ios/android/windows/macos/linux/chromeos). Null for conversions predating 2026-08-20.';
 comment on column public.marketing_conversions.geo_city is
   'Coarse edge-resolved location of the checkout request. No IP is stored. Null for conversions predating 2026-08-20.';
+
+-- ── Reporting ────────────────────────────────────────────────────────────
+--
+-- Aggregated in Postgres rather than in the admin page. PostgREST silently
+-- truncates at 1000 rows, and this table is deliberately wide-keyed, so a page
+-- that selected rows and grouped them in TypeScript would start quietly
+-- under-reporting the day traffic grew, with no error to notice.
+
+-- One vocabulary for "where did this come from", used by BOTH the counters and
+-- the conversions, so a slice cannot say facebook on one side of a join and
+-- something else on the other. A UTM tag wins; otherwise the network that
+-- stamped the click id speaks for itself; otherwise it is untagged, which is
+-- its own honest answer and not a source.
+create or replace function public.campaign_source_label(p_utm_source text, p_click_type text)
+returns text
+language sql
+immutable
+as $$
+  select coalesce(
+    nullif(lower(trim(coalesce(p_utm_source, ''))), ''),
+    case lower(coalesce(p_click_type, ''))
+      when 'gclid'  then 'google'
+      when 'gbraid' then 'google'
+      when 'wbraid' then 'google'
+      when 'fbclid' then 'facebook'
+      when 'msclkid' then 'bing'
+      else null
+    end,
+    'untagged'
+  );
+$$;
+
+-- Which landing page a conversion came in on. The counters know their own
+-- landing key; a conversion only has the paths it was carrying, so the key is
+-- recovered from them. The PAID landing path wins over the first-touch entry
+-- path for the same reason the attribution model prefers it: it is the click
+-- that was bought. Anything not arriving on /lp/<n> returns empty and is
+-- reported as its own row rather than being forced into a landing page it
+-- never touched.
+create or replace function public.campaign_landing_key(p_landing_path text, p_entry_path text)
+returns text
+language sql
+immutable
+as $$
+  select case
+    when coalesce(p_landing_path, '') ~ '^/lp/[0-9]{1,2}(/|$)'
+      then 'lp' || (regexp_match(p_landing_path, '^/lp/([0-9]{1,2})'))[1]
+    when coalesce(p_entry_path, '') ~ '^/lp/[0-9]{1,2}(/|$)'
+      then 'lp' || (regexp_match(p_entry_path, '^/lp/([0-9]{1,2})'))[1]
+    else ''
+  end;
+$$;
+
+-- The top table: one row per landing page, source and campaign, carrying both
+-- halves of the funnel. FULL OUTER JOIN on purpose. A landing page with hits
+-- and no conversions is the most important row on the page, and a conversion
+-- whose clicks predate this table (or arrived without JavaScript) must not
+-- vanish because there is no counter row to hang it on.
+create or replace function public.campaign_summary(since_date date)
+returns table (
+  landing       text,
+  source        text,
+  campaign      text,
+  hits          bigint,
+  cta_clicks    bigint,
+  trials        bigint,
+  purchases     bigint,
+  revenue_cents bigint
+)
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  with ev as (
+    select
+      e.landing,
+      campaign_source_label(e.utm_source, e.click_type) as source,
+      e.utm_campaign                                    as campaign,
+      sum(e.hits)                                       as hits,
+      sum(e.cta_clicks)                                 as cta_clicks
+    from campaign_events_daily e
+    where e.day >= since_date
+    group by 1, 2, 3
+  ),
+  cv as (
+    select
+      campaign_landing_key(c.landing_path, c.entry_path)  as landing,
+      campaign_source_label(c.utm_source, c.click_type)   as source,
+      coalesce(c.utm_campaign, '')                        as campaign,
+      count(*) filter (where c.event_type = 'trial_start') as trials,
+      count(*) filter (where c.event_type = 'purchase')    as purchases,
+      coalesce(sum(c.value_cents) filter (where c.event_type = 'purchase'), 0) as revenue_cents
+    from marketing_conversions c
+    where c.occurred_at >= since_date::timestamptz
+    group by 1, 2, 3
+  )
+  select
+    coalesce(ev.landing, cv.landing)   as landing,
+    coalesce(ev.source, cv.source)     as source,
+    coalesce(ev.campaign, cv.campaign) as campaign,
+    coalesce(ev.hits, 0)               as hits,
+    coalesce(ev.cta_clicks, 0)         as cta_clicks,
+    coalesce(cv.trials, 0)             as trials,
+    coalesce(cv.purchases, 0)          as purchases,
+    coalesce(cv.revenue_cents, 0)      as revenue_cents
+  from ev
+  full outer join cv
+    on ev.landing = cv.landing
+   and ev.source = cv.source
+   and ev.campaign = cv.campaign
+  order by coalesce(ev.hits, 0) desc, coalesce(cv.purchases, 0) desc;
+$$;
+
+comment on function public.campaign_summary is
+  'Per landing page, source and campaign: hits, CTA clicks, trials, purchases and revenue since a date. CTR is cta_clicks/hits.';
+
+-- The drill-down: every axis of one slice, in one round trip.
+--
+-- Four dimensions in one result set rather than four functions, because they
+-- are always read together and a page that fires four queries to fill four
+-- panels is four chances to time out for no gain.
+--
+-- Conversions join on location, device and OS, which they now carry, and never
+-- on CTA, which they cannot: Stripe knows nothing about which button was
+-- pressed. Those rows return zero rather than null so the page renders a
+-- column of dashes instead of a hole.
+create or replace function public.campaign_breakdown(
+  since_date date,
+  p_landing  text,
+  p_source   text,
+  p_campaign text default null
+)
+returns table (
+  dimension  text,
+  value      text,
+  hits       bigint,
+  cta_clicks bigint,
+  trials     bigint,
+  purchases  bigint
+)
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  with ev_rows as (
+    select *
+    from campaign_events_daily e
+    where e.day >= since_date
+      and e.landing = p_landing
+      and campaign_source_label(e.utm_source, e.click_type) = p_source
+      and (p_campaign is null or e.utm_campaign = p_campaign)
+  ),
+  ev as (
+    select 'location' as dimension,
+           coalesce(nullif(concat_ws(' · ', nullif(geo_country, ''), nullif(geo_region, ''), nullif(geo_city, '')), ''), 'unknown') as value,
+           sum(hits) as hits, sum(cta_clicks) as cta_clicks
+    from ev_rows group by 2
+    union all
+    -- Hit rows carry no button, so they are excluded here rather than filed
+    -- under a blank one. This panel answers "which button", and the hits it
+    -- would otherwise swallow are already the denominator on every other panel.
+    select 'cta', cta, sum(hits), sum(cta_clicks)
+    from ev_rows where cta <> '' group by 2
+    union all
+    select 'device', coalesce(nullif(device, ''), 'unknown'), sum(hits), sum(cta_clicks)
+    from ev_rows group by 2
+    union all
+    select 'os', coalesce(nullif(os, ''), 'unknown'), sum(hits), sum(cta_clicks)
+    from ev_rows group by 2
+  ),
+  cv_rows as (
+    select *
+    from marketing_conversions c
+    where c.occurred_at >= since_date::timestamptz
+      and campaign_landing_key(c.landing_path, c.entry_path) = p_landing
+      and campaign_source_label(c.utm_source, c.click_type) = p_source
+      and (p_campaign is null or coalesce(c.utm_campaign, '') = p_campaign)
+  ),
+  cv as (
+    select 'location' as dimension,
+           coalesce(nullif(concat_ws(' · ', nullif(geo_country, ''), nullif(geo_region, ''), nullif(geo_city, '')), ''), 'unknown') as value,
+           count(*) filter (where event_type = 'trial_start') as trials,
+           count(*) filter (where event_type = 'purchase') as purchases
+    from cv_rows group by 2
+    union all
+    select 'device', coalesce(nullif(device, ''), 'unknown'),
+           count(*) filter (where event_type = 'trial_start'),
+           count(*) filter (where event_type = 'purchase')
+    from cv_rows group by 2
+    union all
+    select 'os', coalesce(nullif(os, ''), 'unknown'),
+           count(*) filter (where event_type = 'trial_start'),
+           count(*) filter (where event_type = 'purchase')
+    from cv_rows group by 2
+  )
+  select
+    coalesce(ev.dimension, cv.dimension) as dimension,
+    coalesce(ev.value, cv.value)         as value,
+    coalesce(ev.hits, 0)                 as hits,
+    coalesce(ev.cta_clicks, 0)           as cta_clicks,
+    coalesce(cv.trials, 0)               as trials,
+    coalesce(cv.purchases, 0)            as purchases
+  from ev
+  full outer join cv
+    on ev.dimension = cv.dimension
+   and ev.value = cv.value
+  order by 1, coalesce(ev.hits, 0) desc, coalesce(cv.trials, 0) desc;
+$$;
+
+comment on function public.campaign_breakdown is
+  'One campaign slice broken down by location, CTA, device and OS. Conversions join on every axis except CTA, which Stripe cannot know.';
+
+revoke all on function public.campaign_summary(date) from public, anon, authenticated;
+revoke all on function public.campaign_breakdown(date, text, text, text) from public, anon, authenticated;
