@@ -27,6 +27,15 @@
 
 export interface Hero {
   url: string;
+  /**
+   * Same photograph, same crop, more pixels — for the desktop layout, whose
+   * photo column is roughly twice the phone one. Next's optimizer can only
+   * shrink what the remote URL gives it, so a source cut for a 375px column
+   * comes out soft on a 560px one at 2x. Identical crop and focal-point
+   * parameters, because a second URL is a second chance to reframe the picture
+   * by accident. Optional: falls back to `url`.
+   */
+  urlWide?: string;
   /** Describes the photo for screen readers; never repeats the headline. */
   alt: string;
 }
@@ -34,6 +43,8 @@ export interface Hero {
 /** Downrigger and loaded rod against first light over open saltwater. */
 const DEFAULT: Hero = {
   url: "https://images.unsplash.com/photo-1541742425281-c1d3fc8aff96?w=1200&q=80&auto=format&fit=crop",
+  urlWide:
+    "https://images.unsplash.com/photo-1541742425281-c1d3fc8aff96?w=1800&q=80&auto=format&fit=crop",
   alt: "A downrigger and a loaded fishing rod silhouetted against sunrise over open water",
 };
 
@@ -71,6 +82,8 @@ const DEFAULT: Hero = {
  */
 const PUGET_SOUND: Hero = {
   url: "https://images.unsplash.com/photo-1656906121782-915466b8f68f?w=900&h=1000&q=80&auto=format&fit=crop&crop=focalpoint&fp-x=0.72&fp-y=0.63",
+  urlWide:
+    "https://images.unsplash.com/photo-1656906121782-915466b8f68f?w=1440&h=1600&q=80&auto=format&fit=crop&crop=focalpoint&fp-x=0.72&fp-y=0.63",
   alt: "Mount Rainier catching the last light at dusk beyond a marina full of moored boats",
 };
 

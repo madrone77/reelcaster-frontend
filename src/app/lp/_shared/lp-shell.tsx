@@ -247,6 +247,7 @@ export default function LpShell({
   card,
   treatment = "classic",
   showFlag = false,
+  wide = false,
   from,
   chargeDate,
 }: {
@@ -269,6 +270,11 @@ export default function LpShell({
    *  serve both sides of the border deliberately do not fly one country's
    *  flag over water belonging to the other. */
   showFlag?: boolean;
+  /** Lay the page out for a desktop window above 900px, instead of centring
+   *  the 480px phone column on a grey ground. Opt-in, and off by default: the
+   *  other variants were signed off as a phone page and are mid-test, so this
+   *  is /lp/6 only until it has numbers behind it. */
+  wide?: boolean;
   /** Attribution key for the inline checkout post, e.g. "lp6-window". */
   from: string;
   /** First-charge date, formatted on the server. See trialChargeDate. */
@@ -322,8 +328,12 @@ export default function LpShell({
   const layers = buildLayers(card, region, treatment);
   const thumbs = instrument ? INSTRUMENT_THUMBS : CLASSIC_THUMBS;
 
+  const rootClass = ["lp", instrument ? "lp-instrument" : null, wide ? "lp-wide" : null]
+    .filter(Boolean)
+    .join(" ");
+
   return (
-    <div className={instrument ? "lp lp-instrument" : "lp"}>
+    <div className={rootClass}>
       <style dangerouslySetInnerHTML={{ __html: LP_CSS }} />
 
       <div className="page">
@@ -405,30 +415,35 @@ export default function LpShell({
         </section>
 
         {/* FEATURE STACK — order set by the angle. */}
-        <section className="section white">
+        <section className="section white features">
           <div className="wrap">
             <div className="section-kicker">Everything Pro unlocks</div>
-            {features.map((f) => (
-              <div className="feature" key={f.id}>
-                <div className="f-thumb">{thumbs[f.id]}</div>
-                <div>
-                  <div className="f-title">
-                    {f.title}
-                    {f.tag ? <span className="f-pro">{f.tag}</span> : null}
+            {/* The wrapper carries no styling on a phone. It exists so the
+                desktop layout can make the features a grid without the section
+                kicker becoming a cell in it. */}
+            <div className="feature-grid">
+              {features.map((f) => (
+                <div className="feature" key={f.id}>
+                  <div className="f-thumb">{thumbs[f.id]}</div>
+                  <div>
+                    <div className="f-title">
+                      {f.title}
+                      {f.tag ? <span className="f-pro">{f.tag}</span> : null}
+                    </div>
+                    <div className="f-desc">{f.desc}</div>
+                    {f.badge ? <span className="f-badge">{f.badge}</span> : null}
+                    {/* Only the instrument treatment shows the UI mocks. Classic
+                        stays on its icon-and-text layout, so the A/B still
+                        measures the treatment rather than drifting into a third
+                        design. */}
+                    {instrument && f.id === "forecast14" ? <ForecastStripPreview /> : null}
+                    {instrument && f.id === "alerts" ? (
+                      <SmsPreview cityName={card.cityName} />
+                    ) : null}
                   </div>
-                  <div className="f-desc">{f.desc}</div>
-                  {f.badge ? <span className="f-badge">{f.badge}</span> : null}
-                  {/* Only the instrument treatment shows the UI mocks. Classic
-                      stays on its icon-and-text layout, so the A/B still
-                      measures the treatment rather than drifting into a third
-                      design. */}
-                  {instrument && f.id === "forecast14" ? <ForecastStripPreview /> : null}
-                  {instrument && f.id === "alerts" ? (
-                    <SmsPreview cityName={card.cityName} />
-                  ) : null}
                 </div>
-              </div>
-            ))}
+              ))}
+            </div>
           </div>
         </section>
 
