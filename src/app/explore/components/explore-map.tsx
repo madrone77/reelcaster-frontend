@@ -140,7 +140,7 @@ export default function ExploreMap({
   wind?: boolean;
   /** 0–23 hour override — pins recolor to that hour; null = day peak. */
   hour?: number | null;
-  /** UTC instant for the currents flow field; null = model "now". */
+  /** UTC instant the flow fields are drawn at; null = model "now". */
   flowTimeIso?: string | null;
   /** Desktop forecast strip visible → raise the attribution above it. */
   stripVisible?: boolean;
@@ -176,7 +176,7 @@ export default function ExploreMap({
   // wind blows over land. Summary mode draws neither: it is a "where are my
   // spots" overview with no chart substrate to lay them over.
   useFlow({ map: mapObj, kind: "currents", enabled: currents && !summary, timeIso: flowTimeIso ?? null });
-  useFlow({ map: mapObj, kind: "wind", enabled: !!wind && !summary, timeIso: null });
+  useFlow({ map: mapObj, kind: "wind", enabled: !!wind && !summary, timeIso: flowTimeIso ?? null });
 
   const wrapRef = useRef<HTMLDivElement | null>(null);
 

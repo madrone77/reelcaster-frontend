@@ -1,14 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 
 /**
- * GET /api/bluecaster/wind/field?bbox=w,s,e,n&cols=&rows=
+ * GET /api/bluecaster/wind/field?bbox=w,s,e,n&cols=&rows=&time=
  *
  * Same-origin proxy to BlueCaster's animated surface-wind grid
  * (`/api/map/wind/field` — auth-free, not under /api/v1). Sibling of the
- * currents proxy next door; same payload shape, same reason to exist (keeps the
- * overlay a same-origin fetch and shields the upstream origin). No `time`: the
- * upstream field is the current instant only. Cached a little longer than
- * currents because the wind field is a slow, hourly-model "now" snapshot.
+ * currents proxy next door; same payload shape and same params, so the day/hour
+ * scrubber drives both overlays identically. Cached a little longer than
+ * currents because wind is hourly-model data, not a continuous tidal prediction.
  */
 export async function GET(req: NextRequest) {
   const base = process.env.BLUECASTER_API_URL;
@@ -16,7 +15,7 @@ export async function GET(req: NextRequest) {
 
   const src = new URL(req.url).searchParams;
   const qs = new URLSearchParams();
-  for (const k of ["bbox", "cols", "rows"]) {
+  for (const k of ["bbox", "cols", "rows", "time"]) {
     const v = src.get(k);
     if (v) qs.set(k, v);
   }
