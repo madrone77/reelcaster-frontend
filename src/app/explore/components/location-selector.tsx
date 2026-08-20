@@ -28,6 +28,7 @@ import {
   useSearch,
   type SearchResult,
 } from "../lib/use-search";
+import { useVisualViewport } from "../lib/use-visual-viewport";
 
 interface MapControlsProps {
   relief: boolean;
@@ -126,6 +127,12 @@ export default function LocationSelector({
     return () => mq.removeEventListener("change", on);
   }, []);
 
+  // The mobile sheet is bottom-pinned, so it has to know where the keyboard's
+  // top edge is. Only live while that sheet is up.
+  const { keyboard, height: visibleHeight } = useVisualViewport(
+    open && isMobile,
+  );
+
   // Close on outside click (desktop) / Escape (both).
   useEffect(() => {
     if (!open) return;
@@ -145,10 +152,15 @@ export default function LocationSelector({
   }, [open, isMobile]);
 
   useEffect(() => {
-    if (open) {
-      setQuery("");
-      inputRef.current?.focus();
-    }
+    if (!open) return;
+    setQuery("");
+    // Desktop only. On a phone this panel opens on the browse list, and
+    // autofocus would throw the keyboard over two thirds of it before the
+    // viewer has asked to type anything. Tapping the field still searches.
+    if (!isMobile) inputRef.current?.focus();
+    // `isMobile` is settled before a tap can open the panel, and must not
+    // re-run this on a rotation — that would wipe a query mid-search.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
 
   // Keep the keyboard-selected row in view as arrows walk past the fold.
@@ -444,9 +456,24 @@ export default function LocationSelector({
             {/* Rides above the floating tab bar, like the filter sheet it sits
                 beside in the header. The clearance already carries the safe
                 area, so the sheet's own padding does not repeat it. */}
+            {/* With the keyboard up the sheet sits on top of it and takes the
+                whole visible area, so the search field it is anchored to stays
+                on screen. Without it, the sheet is the same bottom sheet as
+                before. Both numbers are measured, never `vh`: `vh` on iOS is
+                the tall-viewport height, which is larger than what the viewer
+                can see the moment any browser chrome or keyboard is up. */}
             <div
-              style={{ bottom: "var(--rc-tabbar-clearance)" }}
-              className="fixed inset-x-0 z-[61] max-h-[75vh] overflow-y-auto bg-rc-panel rounded-t-2xl shadow-rc-panel animate-slide-up pb-2"
+              style={
+                keyboard > 0
+                  ? {
+                      bottom: keyboard,
+                      maxHeight: Math.max(visibleHeight - 12, 160),
+                    }
+                  : { bottom: "var(--rc-tabbar-clearance)" }
+              }
+              className={`fixed inset-x-0 z-[61] overflow-y-auto overscroll-contain bg-rc-panel rounded-t-2xl shadow-rc-panel animate-slide-up pb-2 ${
+                keyboard > 0 ? "" : "max-h-[75vh]"
+              }`}
             >
               <div className="flex justify-center pt-2.5 pb-1">
                 <div className="h-1 w-9 rounded-full bg-rc-rule" />

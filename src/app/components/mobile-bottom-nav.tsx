@@ -82,8 +82,16 @@ export default function MobileBottomNav() {
 
   return (
     <>
-      {/* Reserve scroll space so content clears the floating bar. */}
-      <div className="lg:hidden h-[calc(5.5rem+env(safe-area-inset-bottom))]" />
+      {/* Reserve scroll space so content clears the floating bar — but only on
+          the pages that scroll. Explore pins itself to the viewport and is
+          sized to leave the bar its room already, so this spacer only handed
+          the document 88px of slack to scroll into: a stray drag, or a browser
+          scrolling a focused field into view, would shove the whole map up and
+          strand the header off the top of the screen. Its spot pages
+          (/explore/spot/...) are ordinary long documents and keep the space. */}
+      {pathname !== "/explore" && (
+        <div className="lg:hidden h-[calc(5.5rem+env(safe-area-inset-bottom))]" />
+      )}
 
       {/* More sheet + backdrop. */}
       {moreOpen && (
