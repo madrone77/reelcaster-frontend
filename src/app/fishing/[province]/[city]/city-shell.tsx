@@ -36,6 +36,7 @@ import {
 import { spotDaysFrom } from "../../../explore/components/spot-day-strip";
 import { useAuth } from "@/contexts/auth-context";
 import type { BlueCasterGuideLink } from "@/lib/bluecaster";
+import { activityPhrase } from "../../lib/activity";
 import type { FishingCity } from "../../lib/fishing-data";
 
 const MAP_TZ = "America/Vancouver";
@@ -276,7 +277,7 @@ export default function CityShell({
                     className="group flex items-baseline gap-2 rounded-full border border-rc-rule bg-rc-panel px-3 py-1.5 hover:border-rc-brand transition-colors"
                   >
                     <span className="text-[13px] font-medium text-rc-ink group-hover:text-rc-brand transition-colors">
-                      {g.species_name} fishing
+                      {activityPhrase(g.activity)}
                     </span>
                     {g.peak_label && (
                       <span className="font-rc-mono text-[10px] text-rc-ink-mute">

@@ -6,6 +6,7 @@ import { fetchCityGuides, fetchHierarchy } from "@/lib/bluecaster";
 import { COVERED_PROVINCES } from "@/lib/regions";
 import { breadcrumbJsonLd, DEFAULT_OG, siteUrl } from "@/lib/site";
 import { getFishingProvince } from "../lib/fishing-data";
+import { activityPhrase } from "../lib/activity";
 
 // Hierarchy is cached 1h upstream (bcGet revalidate) — match it here so the
 // page regenerates on the same cadence.
@@ -203,7 +204,7 @@ export default async function ProvincePage({
                         href={`${provPath}/${city.slug}/${g.species_slug}`}
                         className="text-[13px] text-rc-ink-soft hover:text-rc-brand transition-colors"
                       >
-                        {city.name} {g.species_name} fishing
+                        {city.name} {activityPhrase(g.activity)}
                       </Link>
                     </li>
                   ))}

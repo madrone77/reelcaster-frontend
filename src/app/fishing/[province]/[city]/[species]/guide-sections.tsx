@@ -71,7 +71,7 @@ export function RegulationBanner({
         )}
         {r.regulator ? `${r.regulator} sets the rules for ` : "The rules for "}
         {citySpeciesLabel}, and they change through the season. Check the
-        current notice before you keep a fish.
+        current notice before you keep your catch.
       </p>
     </aside>
   );

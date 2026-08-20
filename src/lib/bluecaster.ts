@@ -1333,10 +1333,22 @@ export async function resolveHomeCity(
 // tables that drive the map, so a guide can't advertise a spot or a season
 // the product disagrees with.
 
+/**
+ * What to call the activity. Crab is "crabbing" and prawn is "prawning",
+ * never "crab fishing" — `subject` is the species name with the gear noun
+ * already removed, so it reads "Dungeness crabbing". Empty subject means the
+ * verb stands alone ("Prawning").
+ */
+export interface BlueCasterActivity {
+  verb: "fishing" | "crabbing" | "prawning";
+  subject: string;
+}
+
 export interface BlueCasterGuideLink {
   species_id: string;
   species_slug: string;
   species_name: string;
+  activity: BlueCasterActivity;
   spot_count: number;
   /** "Jul-Aug", or null when the curve has no distinct peak. */
   peak_label: string | null;
@@ -1367,6 +1379,7 @@ export interface BlueCasterSpeciesGuide {
     scientific_name: string | null;
     family: string | null;
   };
+  activity: BlueCasterActivity;
   intro: string | null;
   season: {
     peak_label: string | null;

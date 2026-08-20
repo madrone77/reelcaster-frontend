@@ -12,6 +12,12 @@ import { breadcrumbJsonLd, DEFAULT_OG, siteUrl } from "@/lib/site";
 import { COVERED_PROVINCES } from "@/lib/regions";
 import { getFishingCity, getFishingProvince } from "../../../lib/fishing-data";
 import {
+  activityPhrase,
+  activityTitle,
+  howHeading,
+  whereHeading,
+} from "../../../lib/activity";
+import {
   ConditionCard,
   MethodCard,
   RegulationBanner,
@@ -78,8 +84,9 @@ export async function generateMetadata({
   const { city, guide } = loaded;
 
   // "Chinook Salmon Fishing in Vancouver, BC" is the phrase people search,
-  // and it fits the ~60 characters Google renders.
-  const title = `${guide.species.name} Fishing in ${city.name}, ${city.provinceCode}`;
+  // and it fits the ~60 characters Google renders. Crab and prawn take their
+  // own verb: nobody searches "dungeness crab fishing", they search crabbing.
+  const title = `${activityTitle(guide.activity)} in ${city.name}, ${city.provinceCode}`;
   const description = descriptionFor(guide, city.name, city.provinceCode);
   const canonical = siteUrl(
     `/fishing/${provinceParam.toLowerCase()}/${citySlug}/${speciesSlug}`,
@@ -107,7 +114,9 @@ function descriptionFor(
   provinceCode: string,
 ): string {
   const parts: string[] = [
-    `Where and how to catch ${guide.species.name.toLowerCase()} around ${cityName}, ${provinceCode}`,
+    guide.activity.verb === "fishing"
+      ? `Where and how to catch ${guide.species.name.toLowerCase()} around ${cityName}, ${provinceCode}`
+      : `Where and how to go ${guide.activity.verb} around ${cityName}, ${provinceCode}`,
   ];
   if (guide.season.peak_label) parts.push(`peak season ${guide.season.peak_label}`);
   if (guide.methods.length) {
@@ -171,13 +180,13 @@ export default async function SpeciesGuidePage({
     { name: "Home", path: "/" },
     { name: `Fishing in ${city.provinceName}`, path: provincePath },
     { name: city.name, path: cityPath },
-    { name: `${guide.species.name} fishing`, path: `${cityPath}/${speciesSlug}` },
+    { name: activityPhrase(guide.activity), path: `${cityPath}/${speciesSlug}` },
   ]);
 
   const spotList = {
     "@context": "https://schema.org",
     "@type": "ItemList",
-    name: `${guide.species.name} fishing spots near ${cityLabel}`,
+    name: `${activityPhrase(guide.activity)} spots near ${cityLabel}`,
     numberOfItems: spots.length,
     itemListElement: spots.map((spot, i) => ({
       "@type": "ListItem",
@@ -229,7 +238,7 @@ export default async function SpeciesGuidePage({
       </nav>
 
       <h1 className="text-3xl sm:text-4xl font-bold text-rc-ink mt-3">
-        {guide.species.name} Fishing in {cityLabel}
+        {activityTitle(guide.activity)} in {cityLabel}
       </h1>
       <p className="font-rc-mono text-[12px] text-rc-ink-soft mt-1.5">
         {guide.regulations.spot_count} spot
@@ -274,9 +283,7 @@ export default async function SpeciesGuidePage({
 
       {guide.methods.length > 0 && (
         <section className="mt-10">
-          <SectionHeading id="how">
-            How anglers fish it around {city.name}
-          </SectionHeading>
+          <SectionHeading id="how">{howHeading(guide.activity, city.name)}</SectionHeading>
           <div className="mt-4 space-y-3">
             {guide.methods.map((m) => (
               <MethodCard key={m.name} method={m} />
@@ -309,7 +316,7 @@ export default async function SpeciesGuidePage({
       {spots.length > 0 && (
         <section className="mt-10">
           <SectionHeading id="where">
-            Where to fish for {guide.species.name.toLowerCase()}
+            {whereHeading(guide.activity, guide.species.name)}
           </SectionHeading>
           <p className="text-[15px] leading-relaxed text-rc-ink-soft mt-4">
             Every spot we cover around {city.name} that holds{" "}
@@ -341,7 +348,7 @@ export default async function SpeciesGuidePage({
                   className="group flex items-baseline gap-2 py-1"
                 >
                   <span className="text-[15px] font-medium text-rc-ink group-hover:text-rc-brand transition-colors">
-                    {g.species_name} fishing
+                    {activityPhrase(g.activity)}
                   </span>
                   <span className="font-rc-mono text-[11px] text-rc-ink-mute">
                     {g.spot_count} spot{g.spot_count === 1 ? "" : "s"}
