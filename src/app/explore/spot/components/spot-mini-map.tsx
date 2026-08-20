@@ -8,7 +8,7 @@ import type { Map as MlMap, StyleSpecification } from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
 import { buildReliefStyle } from "@/lib/map/relief-style";
 import { attachRcaHatch } from "@/lib/map/rca-hatch";
-import { useCurrentsFlow } from "../../lib/use-currents-flow";
+import { useFlow } from "../../lib/use-flow";
 import {
   attachScorePucks,
   ensureScorePuck,
@@ -23,13 +23,8 @@ const PUCK_LAYER = "spot-puck";
 
 type Layer = "bathy" | "satellite" | "currents" | "winds";
 
-const OWM_KEY = process.env.NEXT_PUBLIC_OPENWEATHERMAP_API_KEY;
-
-// All four surface unconditionally. Bathymetry, Satellite, and Currents need
-// no key (Satellite runs on Esri's free World Imagery tiles, not Mapbox);
-// Winds needs an OpenWeatherMap key and shows the base map with no overlay
-// until NEXT_PUBLIC_OPENWEATHERMAP_API_KEY is set — a quiet no-op, not a
-// blank/broken map.
+// None of the four needs an API key. Satellite runs on Esri's free World
+// Imagery tiles; Currents and Winds are our own animated flow fields.
 const TABS: [Layer, string][] = [
   ["bathy", "Bathymetry"],
   ["satellite", "Satellite"],
@@ -38,15 +33,14 @@ const TABS: [Layer, string][] = [
 ];
 
 const SAT_LAYER = "spot-sat";
-const WIND_LAYER = "spot-wind";
 
 /**
- * Compact spot map. Reuses the bathymetric relief style, the WebGL currents
- * flow AND the score puck from the Explore map, framed on a single spot.
+ * Compact spot map. Reuses the bathymetric relief style, the WebGL flow engine
+ * AND the score puck from the Explore map, framed on a single spot.
  * Four tabs: Bathymetry / Satellite (Esri World Imagery, keyless) / Currents /
- * Winds (OWM raster). Satellite & Winds are added to the live map object (not
- * the style) and toggled by visibility; Winds degrades to the base map with
- * no overlay when NEXT_PUBLIC_OPENWEATHERMAP_API_KEY is unset.
+ * Winds. Currents and Winds are the same animated field overlay on two
+ * different sources; Satellite is a raster declared in the style and toggled
+ * by visibility.
  */
 export default function SpotMiniMap({
   spot,
@@ -63,7 +57,8 @@ export default function SpotMiniMap({
   const [layer, setLayer] = useState<Layer>("bathy");
   const [expanded, setExpanded] = useState(false);
 
-  useCurrentsFlow({ map: mapObj, enabled: layer === "currents", timeIso: timeIso ?? null });
+  useFlow({ map: mapObj, kind: "currents", enabled: layer === "currents", timeIso: timeIso ?? null });
+  useFlow({ map: mapObj, kind: "wind", enabled: layer === "winds", timeIso: null });
 
   // Resize the map when it toggles to/from fullscreen so it fills the container.
   useEffect(() => {
@@ -196,10 +191,10 @@ export default function SpotMiniMap({
         }}
         style={{ width: "100%", height: "100%" }}
       >
-        {/* Satellite / Winds rasters — declared so react-map-gl manages them (it
-            reconciles the style and would wipe imperatively-added layers). Layers
-            render above the relief base; visibility follows the active tab.
-            Satellite is Esri's free World Imagery service — no key required. */}
+        {/* Satellite raster — declared so react-map-gl manages it (it reconciles
+            the style and would wipe an imperatively-added layer). Renders above
+            the relief base; visibility follows the active tab. Esri's free World
+            Imagery service — no key required. */}
         <Source
           id={SAT_LAYER}
           type="raster"
@@ -215,27 +210,10 @@ export default function SpotMiniMap({
             layout={{ visibility: layer === "satellite" ? "visible" : "none" }}
           />
         </Source>
-        {OWM_KEY && (
-          <Source
-            id={WIND_LAYER}
-            type="raster"
-            tiles={[
-              `https://tile.openweathermap.org/map/wind_new/{z}/{x}/{y}.png?appid=${OWM_KEY}`,
-            ]}
-            tileSize={256}
-          >
-            <Layer
-              id={WIND_LAYER}
-              type="raster"
-              paint={{ "raster-opacity": 0.6 }}
-              layout={{ visibility: layer === "winds" ? "visible" : "none" }}
-            />
-          </Source>
-        )}
 
         {/* The same puck Explore draws: pill body, tail on the coordinate,
             score baked into the sprite. Declared last so it paints over the
-            satellite and wind rasters. */}
+            satellite raster. */}
         <Source id={PUCK_SOURCE} type="geojson" data={puckData}>
           <Layer
             id={PUCK_LAYER}

@@ -12,8 +12,6 @@ import {
 export interface MapFilterChipsProps {
   relief: boolean;
   currents: boolean;
-  /** Accepted for call-site compat; the Wind chip was dropped from the row
-   *  to keep it compact (the OWM overlay stays reachable elsewhere). */
   wind?: boolean;
   onToggleRelief: () => void;
   onToggleCurrents: () => void;
@@ -36,8 +34,10 @@ const PANEL_W = 192; // w-48
 export default function MapFilterChips({
   relief,
   currents,
+  wind,
   onToggleRelief,
   onToggleCurrents,
+  onToggleWind,
   species,
   speciesFilter,
   onSpeciesChange,
@@ -81,9 +81,13 @@ export default function MapFilterChips({
     };
   }, [bestOpen]);
 
+  // Wind only appears when the caller wired a handler for it. It sat here
+  // unrendered for a while — the state, the prop and the map layer all existed,
+  // so the overlay was reachable by nothing at all.
   const toggles: Array<[string, boolean, () => void]> = [
     ["Bathymetry", relief, onToggleRelief],
     ["Currents", currents, onToggleCurrents],
+    ...(onToggleWind ? ([["Wind", !!wind, onToggleWind]] as Array<[string, boolean, () => void]>) : []),
   ];
 
   const selected = species.find((s) => s.id === speciesFilter);

@@ -23,7 +23,7 @@ import { attachScorePucks, PUCK_TIP_OFFSET } from "../lib/score-puck";
 import { MAP_CUSTOM_ATTRIBUTION } from "@/lib/map/map-brand";
 import { MAP_INSET_ATTR, mapBottomPanelInset } from "../lib/sheet-safe-center";
 import { spotsToFeatureCollection, declutterHiddenSlugs } from "../lib/spot-geojson";
-import { useCurrentsFlow } from "../lib/use-currents-flow";
+import { useFlow } from "../lib/use-flow";
 
 const SOURCE_ID = "bc-spots";
 // One layer for every spot now: the body, tail, numeral and ring are all baked
@@ -74,10 +74,6 @@ const WDFW_LAYERS = [
   "wdfw-mpa-outline",
   "wdfw-mpa-labels",
 ];
-
-// OpenWeatherMap wind raster overlay (same tiles as the spot detail map).
-const OWM_KEY = process.env.NEXT_PUBLIC_OPENWEATHERMAP_API_KEY;
-const WIND_LAYER = "explore-wind";
 
 // MapLibre's expression/filter unions don't infer from array literals — these
 // keep the layer defs readable while staying typed.
@@ -169,9 +165,12 @@ export default function ExploreMap({
     );
   };
 
-  // Animated tidal-current overlay — bathy-relief WebGL flow (heatmap field +
-  // white particle ribbons) as a MapLibre custom layer clipped at the coastline.
-  useCurrentsFlow({ map: mapObj, enabled: currents, timeIso: flowTimeIso ?? null });
+  // Animated overlays — the same bathy-relief WebGL flow (heatmap field + white
+  // particle ribbons) on two sources. Currents are clipped at the coastline;
+  // wind blows over land. Summary mode draws neither: it is a "where are my
+  // spots" overview with no chart substrate to lay them over.
+  useFlow({ map: mapObj, kind: "currents", enabled: currents && !summary, timeIso: flowTimeIso ?? null });
+  useFlow({ map: mapObj, kind: "wind", enabled: !!wind && !summary, timeIso: null });
 
   const wrapRef = useRef<HTMLDivElement | null>(null);
 
@@ -456,25 +455,6 @@ export default function ExploreMap({
       >
         <NavigationControl position="bottom-right" showCompass={false} />
         <AttributionControl compact position="bottom-right" customAttribution={MAP_CUSTOM_ATTRIBUTION} />
-
-        {OWM_KEY && !summary && (
-          <Source
-            id={WIND_LAYER}
-            type="raster"
-            tiles={[
-              `https://tile.openweathermap.org/map/wind_new/{z}/{x}/{y}.png?appid=${OWM_KEY}`,
-            ]}
-            tileSize={256}
-            attribution="Wind tiles © OpenWeatherMap"
-          >
-            <Layer
-              id={WIND_LAYER}
-              type="raster"
-              paint={{ "raster-opacity": 0.6 }}
-              layout={{ visibility: wind ? "visible" : "none" }}
-            />
-          </Source>
-        )}
 
         <Source id={SOURCE_ID} type="geojson" data={data}>
           <Layer {...spotPuckLayer} />
