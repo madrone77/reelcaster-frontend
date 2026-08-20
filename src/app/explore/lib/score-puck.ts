@@ -17,8 +17,10 @@
  *     recoloured per feature, but an SDF carries a single alpha channel and so
  *     can hold neither the gradient nor the two-tone ring this needs.
  *
- * Sprites are drawn on demand: MapLibre asks for any icon id it can't resolve,
- * so only the combinations actually on screen are ever rasterised.
+ * Sprites are rasterised on demand — only the combinations actually on screen
+ * are ever drawn — but they are registered from the feature list rather than
+ * from MapLibre's `styleimagemissing`, which fires too late to be relied on.
+ * See ensureScorePucks.
  *
  * SHAPE still carries ownership, exactly as the old square did: curated spots
  * get a wide rounded pill, spots the viewer created get a square one. Colour is
@@ -263,28 +265,96 @@ function registerPuck(map: MapLike, id: string | undefined): void {
 }
 
 /**
- * Draw score pucks on demand for a map. Safe to call once per map load; the
- * handler also covers style reloads, which drop every registered image.
+ * Draw score pucks on demand for a map. Safe to call more than once — the
+ * listener is idempotent per map — and it also covers style reloads, which
+ * drop every registered image.
  *
- * This alone is enough for a map whose spots arrive AFTER the style has
- * loaded, which is every case on Explore: the first icon is asked for long
- * after the listener is in place. A map that already knows its spots on the
- * first render needs ensureScorePuck as well. See the note there.
+ * ⚠ This is a FALLBACK, not the main path. `styleimagemissing` is fired while
+ * a symbol tile is being laid out, and a listener attached after that moment
+ * arrives too late: the tile is laid out with no icon and stays that way until
+ * something makes it reload. Register the ids you know you need with
+ * `ensureScorePucks` instead, and keep this for ids you could not predict.
  */
 export function attachScorePucks(map: MapLike): void {
   map.on("styleimagemissing", (e) => registerPuck(map, e.id));
 }
 
 /**
- * Register one specific puck id up front, rather than waiting to be asked.
+ * Register specific puck ids up front, rather than waiting to be asked.
  *
- * MapLibre fires `styleimagemissing` ONCE per id and never again, and
- * react-map-gl mounts declared `<Layer>` children before the map emits
- * `load`. So on a map that renders a spot immediately, the icon is requested
- * while onLoad has not run yet, the one event goes to nobody, and the puck
- * silently never draws. Calling this for the id the layer references closes
- * that window; the listener above still covers every later id.
+ * This is the path that actually keeps pins on the map, for two reasons:
+ *
+ *  - **It runs before the layout.** The icon for a feature is requested when
+ *    its tile is laid out in the worker, which happens as soon as the source
+ *    has data — long before `load` fires on a cold visit, since `load` waits
+ *    on every source in the relief style. A `styleimagemissing` listener
+ *    attached in `onLoad` misses that first request entirely, and the pucks
+ *    are then absent until a zoom retiles the source. That was the Explore
+ *    bug: the map opened with no pins and a wiggle brought them back.
+ *  - **It repairs a layout that already missed.** `map.addImage` marks the
+ *    image changed, and MapLibre reloads any tile that asked for it, so
+ *    registering late still puts the pins back without the angler touching
+ *    anything.
+ *
+ * Ids already on the map are skipped, so calling this on every spot change is
+ * cheap: only genuinely new pucks are rasterised.
  */
+export function ensureScorePucks(map: MapLike, ids: Iterable<string>): void {
+  for (const id of ids) registerPuck(map, id);
+}
+
+/** Register one puck id. Thin wrapper over {@link ensureScorePucks}. */
 export function ensureScorePuck(map: MapLike, id: string): void {
   registerPuck(map, id);
+}
+
+/** The feature properties the icon id is built from. */
+export interface PuckFeatureProps {
+  label: string;
+  slug: string;
+  fresh: number;
+  hot: number;
+  isCustom: number;
+}
+
+/**
+ * The icon id one feature asks for.
+ *
+ * ⚠ This and {@link puckIconImageExpr} are the same rule written twice — once
+ * in JS so we can register the sprites ahead of time, once as a MapLibre
+ * expression because that is the only thing the symbol layer can read. They
+ * live side by side so a change to one is a visible change to the other; if
+ * they drift, the layer asks for an id nothing ever draws and the pins vanish.
+ */
+export function puckIconId(
+  p: PuckFeatureProps,
+  selectedSlug: string | null,
+): string {
+  const ring: PuckRing =
+    p.slug === selectedSlug ? "sel" : p.fresh === 1 ? "fresh" : "base";
+  const shape: PuckShape = p.isCustom === 1 ? "sq" : "rd";
+  return `${PREFIX}:${p.label}:${ring}:${p.hot}:${shape}`;
+}
+
+/**
+ * `icon-image` for the spot layer: the same id {@link puckIconId} builds,
+ * evaluated per feature by the symbol engine.
+ *
+ * Hover is deliberately absent. `icon-image` is a LAYOUT property, so swapping
+ * it on every mouse move would relayout the whole symbol layer; the rail card
+ * and the cursor carry the hover feedback instead.
+ */
+export function puckIconImageExpr(selectedSlug: string | null): unknown[] {
+  return [
+    "concat",
+    `${PREFIX}:`, ["get", "label"], ":",
+    [
+      "case",
+      ["==", ["get", "slug"], selectedSlug ?? "__none__"], "sel",
+      ["==", ["get", "fresh"], 1], "fresh",
+      "base",
+    ],
+    ":", ["to-string", ["get", "hot"]],
+    ":", ["case", ["==", ["get", "isCustom"], 1], "sq", "rd"],
+  ];
 }

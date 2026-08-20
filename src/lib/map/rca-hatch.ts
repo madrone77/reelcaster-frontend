@@ -63,18 +63,30 @@ function drawHatchTile(): { width: number; height: number; data: Uint8ClampedArr
 }
 
 /**
+ * Register the hatch image if the map does not already carry it. Cheap enough
+ * to call on every style event; no-ops server-side or where a 2D canvas
+ * context is unavailable.
+ */
+export function ensureRcaHatch(map: MapLike): void {
+  if (map.hasImage?.(RCA_HATCH_IMAGE_ID)) return;
+  const tile = drawHatchTile();
+  if (tile) map.addImage(RCA_HATCH_IMAGE_ID, tile, { pixelRatio: RATIO });
+}
+
+/**
  * Idempotently register the RCA hatch pattern on a map, and re-register it
- * whenever a style (re)load drops it. Safe to call on every map load; no-ops
- * server-side or where a 2D canvas context is unavailable.
+ * whenever a style (re)load drops it.
+ *
+ * ⚠ Call this from `styledata`, not `load`. The fill is laid out as soon as
+ * the RCA source has data, and an image missing at that moment is left off the
+ * tile until something reloads it — on Explore `load` waits on every source in
+ * the relief style, which is seconds later. The `styleimagemissing` listener
+ * is a backstop for exactly that case (adding the image reloads the tiles that
+ * wanted it), not the main path.
  */
 export function attachRcaHatch(map: MapLike): void {
-  const ensure = () => {
-    if (map.hasImage?.(RCA_HATCH_IMAGE_ID)) return;
-    const tile = drawHatchTile();
-    if (tile) map.addImage(RCA_HATCH_IMAGE_ID, tile, { pixelRatio: RATIO });
-  };
-  ensure();
+  ensureRcaHatch(map);
   map.on("styleimagemissing", (e) => {
-    if (e.id === RCA_HATCH_IMAGE_ID) ensure();
+    if (e.id === RCA_HATCH_IMAGE_ID) ensureRcaHatch(map);
   });
 }

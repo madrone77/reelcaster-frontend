@@ -1,11 +1,24 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
-import Map, { Marker, Source, Layer, type LayerProps } from "react-map-gl/maplibre";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import Map, {
+  Marker,
+  Source,
+  Layer,
+  type LayerProps,
+  type MapRef,
+} from "react-map-gl/maplibre";
 import type { ExpressionSpecification, Map as MlMap, StyleSpecification } from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
 import { buildReliefStyle } from "@/lib/map/relief-style";
-import { attachScorePucks, PUCK_TIP_OFFSET, NO_DATA_LABEL } from "@/app/explore/lib/score-puck";
+import {
+  attachScorePucks,
+  ensureScorePucks,
+  puckIconId,
+  puckIconImageExpr,
+  PUCK_TIP_OFFSET,
+  NO_DATA_LABEL,
+} from "@/app/explore/lib/score-puck";
 import { tierFor } from "@/app/explore/lib/explore-data";
 
 const SOURCE_ID = "mk-spots";
@@ -80,6 +93,7 @@ export default function MarketingMap({
   zoom: number;
 }) {
   const [mapObj, setMapObj] = useState<MlMap | null>(null);
+  const mapRef = useRef<MapRef | null>(null);
 
   // Absolute origin is REQUIRED — MapLibre resolves vector-tile URLs inside a
   // Web Worker that can't expand root-relative paths, so contour + land tiles
@@ -91,11 +105,6 @@ export default function MarketingMap({
       ) as unknown as StyleSpecification,
     [],
   );
-
-  // Puck sprites are drawn on demand, exactly as on Explore.
-  useEffect(() => {
-    if (mapObj) attachScorePucks(mapObj);
-  }, [mapObj]);
 
   // Strip the style back to depth + land. Guarded per id: the style evolves,
   // and a layer that has been renamed should quietly not hide rather than throw
@@ -156,19 +165,43 @@ export default function MarketingMap({
     [spots],
   );
 
-  // The featured spot wears the same selected ring Explore gives a chosen spot.
+  // The featured spot wears the same selected ring Explore gives a chosen spot,
+  // built by the same rule so the ids cannot drift from the sprites we draw.
   // Memoised on the slug alone: `icon-image` is a layout property, so rebuilding
   // it every render would relayout every puck on each tick of the rotation.
   const iconImage = useMemo(
-    () =>
-      expr([
-        "concat",
-        "rcp:", ["get", "label"], ":",
-        ["case", ["==", ["get", "slug"], activeSlug], "sel", "base"],
-        ":0:rd",
-      ]),
+    () => expr(puckIconImageExpr(activeSlug)),
     [activeSlug],
   );
+
+  // Draw the sprites before the layer asks for them. A `styleimagemissing`
+  // listener alone is too late: the pucks are laid out as soon as the source
+  // has data, which on a cold homepage is well before `load` fires, and an
+  // icon that was missing then leaves the map bare. Same fix, same reason, as
+  // ExploreMap. See ensureScorePucks.
+  const puckIds = useMemo(() => {
+    const ids = new Set<string>();
+    for (const f of data.features) ids.add(puckIconId(f.properties, activeSlug));
+    return [...ids];
+  }, [data, activeSlug]);
+
+  const attachedTo = useRef<MlMap | null>(null);
+  const attachMapImages = useCallback(
+    (map: MlMap) => {
+      if (attachedTo.current !== map) {
+        attachedTo.current = map;
+        attachScorePucks(map); // backstop for anything unpredicted
+      }
+      ensureScorePucks(map, puckIds);
+    },
+    [puckIds],
+  );
+
+  useEffect(() => {
+    // `mapObj` is not read — it is here so this re-runs once the map exists.
+    const map = mapRef.current?.getMap();
+    if (map) attachMapImages(map);
+  }, [attachMapImages, mapObj]);
 
   const puckLayer: LayerProps = useMemo(
     () => ({
@@ -206,7 +239,12 @@ export default function MarketingMap({
         // A picture, not an instrument: no drag, scroll, keyboard or dblclick.
         interactive={false}
         attributionControl={false}
-        onLoad={(e) => setMapObj(e.target)}
+        ref={mapRef}
+        onStyleData={(e) => attachMapImages(e.target)}
+        onLoad={(e) => {
+          attachMapImages(e.target);
+          setMapObj(e.target);
+        }}
         style={{ width: "100%", height: "100%" }}
       >
         <Source id={SOURCE_ID} type="geojson" data={data}>
