@@ -1,59 +1,67 @@
 /* ════════════════════════════════════════════════════════════════
-   Reelcaster — Color & Type Foundations
-   Canonical design-system tokens, ported from bluecaster
-   app/reelcaster-tokens.css (source of truth: Figma Explore + Spot).
-   Values reconciled from the Figma source and snapped to an 8pt grid.
+   Reelcaster — Design System v1.0 · Color & Type Foundations
+   (R. Gelb Creative — see bluecaster /admin/design/design-system)
+
+   The rc-* utility names are UNCHANGED; their VALUES are remapped to the
+   v1.0 palette so the whole app adopts the new skin without renaming the
+   3,500+ existing `rc-*` class usages. Canonical v1.0 names in the doc are
+   --color-brand / --color-ink / --color-line / --color-score-* etc.
    ════════════════════════════════════════════════════════════════ */
 
 :root {
-  /* ─── BRAND ─────────────────────────────────────────────── */
-  --rc-brand:        #1E40E0;   /* primary · links · selected · CTA */
-  --rc-brand-hover:  #1A38C8;   /* button hover (≈8% darker) */
-  --rc-brand-soft:   #E8ECFD;   /* nav active · selected card fill */
-  --rc-brand-soft2:  #DBEAFE;   /* badge bg · soft borders */
-  --rc-badge:        #FFCB1F;   /* notification badge · ★BEST tag */
-  --rc-lemon:        #F0E6A8;   /* CTA fill on the brand-blue bar */
-  --rc-lemon-hover:  #E6DA93;   /* ≈6% deeper, for the press */
+  /* ─── BRAND (mark · primary CTA · focus · links — never data) ─── */
+  --rc-brand:        #2536D9;   /* v1.0 brand blue */
+  --rc-brand-hover:  #1C29A8;   /* brand-press · hover/active */
+  --rc-brand-soft:   #EDEFFE;   /* brand-tint · selected nav/filter */
+  --rc-brand-soft2:  #DBEAFE;   /* legacy soft border */
+  --rc-badge:        #FFCB1F;   /* notification badge (legacy extra) */
+  --rc-lemon:        #F0E6A8;   /* CTA fill on the brand-blue bar (legacy) */
+  --rc-lemon-hover:  #E6DA93;
 
   /* ─── INK (text) ────────────────────────────────────────── */
-  --rc-ink:          #0B1220;   /* primary text · avatar fill */
-  --rc-ink-soft:     #2A3344;   /* secondary text */
-  --rc-ink-mute:     #8A92A4;   /* labels · captions · disabled */
+  --rc-ink:          #12151A;   /* all primary text · not pure black */
+  --rc-ink-soft:     #5A616B;   /* ink-muted · secondary text, mono labels */
+  --rc-ink-mute:     #8A919C;   /* ink-faint · placeholders, captions ≥13px */
 
   /* ─── SURFACES ──────────────────────────────────────────── */
-  --rc-panel:        #FFFFFF;   /* cards · top bar · drawer */
-  --rc-surface:      #F7F8FA;   /* inset fields · sub-cards */
-  --rc-bg:           #F0EFED;   /* app background */
-  --rc-band:         #F3F3F5;   /* light marketing band (signals section) */
-  --rc-rule:         #DEE2EA;   /* borders · dividers */
-  --rc-rule-soft:    #ECEEF3;   /* internal cell dividers */
+  --rc-panel:        #FFFFFF;   /* surface · cards, bars, drawers, inputs */
+  --rc-surface:      #EDEFF1;   /* sunk · insets, wells, row hover, skeletons */
+  --rc-bg:           #F5F6F7;   /* paper · app background (never white) */
+  --rc-band:         #EDEFF1;   /* light marketing section band */
+  --rc-rule:         #E2E5E9;   /* line · default 1px hairline */
+  --rc-rule-soft:    #EDEFF1;   /* internal cell dividers */
+  --rc-line-strong:  #C8CDD4;   /* interactive edges — inputs, 2ndary buttons */
 
-  /* dark navy marketing bands (landing ticker · pricing section) */
+  /* dark navy marketing bands (legacy · landing ticker · pricing) */
   --rc-navy:         #16234E;
   --rc-navy-deep:    #0F1B3D;
 
-  /* ─── SCORE TIERS ───────────────────────────────────────── */
-  /* GOOD ≥ 75 */
-  --rc-good:         #16A34A;   /* number · pin · bar fill */
+  /* ─── SCORE SPECTRUM (data only · never chrome) ─────────── */
+  /* GOOD 60–84 */
+  --rc-good:         #3D8B4F;   /* number · pin · bar fill */
   --rc-good-bg:      #DCFCE7;   /* pill background */
-  --rc-good-ink:     #166534;   /* pill text */
+  --rc-good-ink:     #1B6B41;   /* pill text · prime green */
   --rc-good-soft:    #F0FDF4;   /* tint blocks (best window) */
   --rc-good-border:  #BBF7D0;
-  /* FAIR 55–74 */
-  --rc-fair:         #D78711;
+  /* FAIR 40–59 */
+  --rc-fair:         #C97A1C;
   --rc-fair-bg:      #FEF3C7;
   --rc-fair-ink:     #92400E;
   --rc-fair-border:  #FDE68A;
-  /* POOR < 55 */
-  --rc-poor:         #DC2626;
+  /* POOR 0–39 */
+  --rc-poor:         #B23A2F;
   --rc-poor-bg:      #FEE2E2;
   --rc-poor-ink:     #991B1B;
+  /* PRIME 85–100 (new v1.0 band — wired into tierFor in phase 2) */
+  --rc-prime:        #1B6B41;
+  --rc-prime-bg:     #DCFCE7;
+  --rc-prime-ink:    #14532D;
 
   /* map-only accent for the topo direction (secondary, rarely used) */
   --rc-topo-accent:  #C96442;
 
   /* ─── TYPE ──────────────────────────────────────────────── */
-  --rc-font-sans: var(--font-inter, 'Inter'), system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --rc-font-sans: var(--font-inter, 'Archivo'), system-ui, -apple-system, 'Segoe UI', sans-serif;
   --rc-font-mono: var(--font-plex-mono, 'IBM Plex Mono'), 'Geist Mono', ui-monospace, 'SFMono-Regular', monospace;
 
   /* type scale — sizes step on a 4px rhythm; line-heights are ×4 */
@@ -79,16 +87,16 @@
   --rc-space-6:   48px;
   --rc-space-8:   64px;
 
-  /* ─── RADIUS ────────────────────────────────────────────── */
-  --rc-radius-xs:    4px;
-  --rc-radius-sm:    4px;
-  --rc-radius-md:    4px;
-  --rc-radius-lg:    4px;
+  /* ─── RADIUS (v1.0 · 2px on every rectangle) ────────────── */
+  --rc-radius-xs:    2px;
+  --rc-radius-sm:    2px;
+  --rc-radius-md:    2px;
+  --rc-radius-lg:    2px;
   --rc-radius-full: 999px;
 
-  /* ─── ELEVATION ─────────────────────────────────────────── */
-  --rc-shadow-panel: 0 8px 24px rgba(15,23,42,.06), 0 2px 6px rgba(15,23,42,.04);
-  --rc-shadow-bar:   0 2px 12px rgba(15,23,42,.05);
+  /* ─── ELEVATION (v1.0 · one float, lines otherwise) ─────── */
+  --rc-shadow-panel: 0 8px 24px rgba(18,21,26,.10);
+  --rc-shadow-bar:   0 2px 12px rgba(18,21,26,.05);
   --rc-shadow-pin:   0 2px 6px rgba(0,0,0,.18);
 
   /* ─── MAP (nautical-chart base) ─────────────────────────── */

@@ -96,14 +96,16 @@
   --color-popover: var(--popover);
   --color-card-foreground: var(--card-foreground);
   --color-card: var(--card);
-  --radius-sm: 4px;
-  --radius-md: 4px;
-  --radius-lg: 4px;
-  --radius-xl: 4px;
+  /* Design system v1.0: 2px on every rectangle. rounded-full stays for genuine
+     circles (dots, pins, avatars); squaring the last pills is a phase-2 pass. */
+  --radius-sm: 2px;
+  --radius-md: 2px;
+  --radius-lg: 2px;
+  --radius-xl: 2px;
 }
 
 :root {
-  --radius: 4px;
+  --radius: 2px;
   --background: oklch(1 0 0);
   --foreground: oklch(0.145 0 0);
   --card: oklch(1 0 0);
