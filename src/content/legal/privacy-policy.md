@@ -96,6 +96,7 @@ We ingest publicly available fishing reports and discussion from public forums a
 | Authentication | Session cookie that keeps you logged in | No. The Service will not work without it. |
 | Preferences | Local storage holding your units, map view, and settings | Yes, by clearing site data. Your preferences will reset. |
 | Analytics | Mixpanel, using local storage and a device identifier | Yes. See Section 11. |
+| Campaign measurement | A session-storage marker on advertising landing pages, so one visit is counted once. It holds no identifier and is erased when you close the tab. | Yes, by disabling storage for this site. |
 | Advertising | Google AdSense cookies and identifiers, and Meta pixel cookies (`_fbp`, `_fbc`) | Yes. See Section 8 and Section 11.2. |
 
 We honour the **Global Privacy Control (GPC)** browser signal as a valid opt out of the sale or sharing of personal information where the law requires us to.

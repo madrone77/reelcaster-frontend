@@ -53,6 +53,21 @@ export interface SubscriptionAcquisition {
   entry_path: string | null;
   /** When the ad click happened. See acq_click_at in the checkout route. */
   click_at: string | null;
+  /**
+   * The machine checkout was started on, and roughly where it was. Stamped
+   * from the request headers by the checkout route, so these describe the
+   * PURCHASE, not the ad click: a phone click closed on a laptop is recorded
+   * as a laptop here and as a phone in campaign_events_daily.
+   *
+   * Null on every conversion recorded before 2026-08-20, and on any bought
+   * through a path that does not stamp them. Nothing derives a default; an
+   * unknown device stays unknown rather than becoming a desktop.
+   */
+  device: string | null;
+  os: string | null;
+  geo_country: string | null;
+  geo_region: string | null;
+  geo_city: string | null;
   params: Record<string, string> | null;
 }
 
@@ -94,6 +109,11 @@ export function acquisitionFromSubscription(
     landing_path: str(m.acq_landing),
     entry_path: str(m.acq_entry_path),
     click_at: str(m.acq_click_at),
+    device: str(m.acq_device),
+    os: str(m.acq_os),
+    geo_country: str(m.acq_country),
+    geo_region: str(m.acq_region),
+    geo_city: str(m.acq_city),
     params,
   };
 }
