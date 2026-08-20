@@ -13,6 +13,8 @@ import {
 } from '@/lib/trial';
 import { resolveEntitlement } from '@/lib/entitlement';
 import { readEntry, readPaid, readWall, type CampaignParams } from '@/lib/attribution';
+import { classifyUserAgent } from '@/lib/device';
+import { readEdgeGeo } from '@/lib/edge-geo';
 
 /** Stripe caps metadata values at 500 chars. Stay well inside it. */
 const META_MAX = 400;
@@ -86,6 +88,28 @@ function attributionMetadata(request: NextRequest): Record<string, string> {
   // Entry path is worth keeping even when the paid touch won, because it says
   // which landing page variant started the relationship.
   if (entry?.entry_path) out.acq_entry_path = meta(entry.entry_path);
+
+  // Device and coarse location of THIS request, so the campaign report can
+  // carry its device and location split all the way through to the sale
+  // instead of stopping at the click. Read from headers rather than a cookie:
+  // these describe the machine the purchase is being made on, which is the
+  // only device Stripe will ever be able to tell us about.
+  //
+  // Honest about what it is not. This is the checkout device, not the ad-click
+  // device. Someone who taps an ad on a phone and buys on a laptop is recorded
+  // as a laptop here, and correctly as a phone in campaign_events_daily. The
+  // two columns answer different questions and the report labels them as such.
+  //
+  // No IP is stored: the edge resolves the address to a place before this code
+  // runs, and only the place is kept.
+  const ua = classifyUserAgent(request.headers.get('user-agent'));
+  if (ua.device !== 'unknown') out.acq_device = ua.device;
+  if (ua.os !== 'unknown') out.acq_os = ua.os;
+
+  const geo = readEdgeGeo(request.headers);
+  if (geo.country) out.acq_country = meta(geo.country);
+  if (geo.region) out.acq_region = meta(geo.region);
+  if (geo.city) out.acq_city = meta(geo.city);
 
   return out;
 }

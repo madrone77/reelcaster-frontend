@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef } from "react";
+import { reportLpCta, useLpHit } from "@/app/lp/_shared/lp-telemetry";
 import Image from "next/image";
 import MarketingMap from "@/app/(marketing)/components/marketing-map";
 import type { LpShellProps, LpTier } from "./lp-types";
@@ -211,6 +212,12 @@ function dayScoreClass(tier: LpTier): string {
 export default function LpShell(props: LpShellProps) {
   const barsRef = useRef<HTMLDivElement>(null);
 
+  // Count the visit, once per tab. /lp/1 runs no angles, so it counts under
+  // the empty one and its rows sit beside the angled variants rather than
+  // claiming a pitch it does not have.
+  useLpHit("");
+
+
   // Port of the prototype's bottom <script>: cascade the 24h bars in from a
   // seed of hourly scores. Map-layer/overlay JS is gone — MarketingMap owns
   // its own layers now. Reduced-motion falls straight to final heights.
@@ -288,7 +295,11 @@ export default function LpShell(props: LpShellProps) {
           <a className="logo" href="#top" aria-label="ReelCaster home">
             <Image src="/reelcaster-mark-white.svg" alt="ReelCaster" width={104} height={48} priority />
           </a>
-          <a className="btn btn-nav" href="/signup">
+          <a
+            className="btn btn-nav"
+            href="/signup"
+            onClick={() => reportLpCta("nav", "")}
+          >
             Start free trial
           </a>
         </div>
@@ -311,10 +322,18 @@ export default function LpShell(props: LpShellProps) {
               score, so you know exactly when and where to fish {props.city}.
             </p>
             <div className="cta-row">
-              <a className="btn btn-primary btn-lg" href="/signup">
+              <a
+                className="btn btn-primary btn-lg"
+                href="/signup"
+                onClick={() => reportLpCta("hero", "")}
+              >
                 Start Free
               </a>
-              <a className="btn btn-secondary btn-lg" href="/signup">
+              <a
+                className="btn btn-secondary btn-lg"
+                href="/signup"
+                onClick={() => reportLpCta("secondary", "")}
+              >
                 See this week free
               </a>
             </div>
@@ -567,7 +586,11 @@ export default function LpShell(props: LpShellProps) {
             Before you go.
           </h2>
           <p>Start free and see this week&apos;s best windows for every spot near you.</p>
-          <a className="btn btn-primary btn-lg" href="/signup">
+          <a
+            className="btn btn-primary btn-lg"
+            href="/signup"
+            onClick={() => reportLpCta("final", "")}
+          >
             Start Free
           </a>
           <div className="trust" style={{ marginTop: "16px" }}>
@@ -585,7 +608,11 @@ export default function LpShell(props: LpShellProps) {
           <br />
           this week&apos;s bite windows
         </div>
-        <a className="btn btn-primary" href="/signup">
+        <a
+          className="btn btn-primary"
+          href="/signup"
+          onClick={() => reportLpCta("sticky", "")}
+        >
           Start Free
         </a>
       </div>

@@ -1,0 +1,189 @@
+"use client";
+
+import { useEffect } from "react";
+import { CLICK_TYPES } from "@/lib/attribution";
+
+/**
+ * Counting what happens on a landing page before anyone converts.
+ *
+ * Two numbers, and they only mean anything together: how many people the ad
+ * put on this page, and how many of them reached for the button. A conversion
+ * table alone cannot tell a page that nobody visited from a page that everyone
+ * bounced off, and those two failures have opposite fixes.
+ *
+ * Fired from the client rather than the server for one reason that decides it:
+ * `/lp/<variant>/[city]` is ISR-cached (revalidate 900), so server code in the
+ * page render runs once per fifteen minutes, not once per visitor. The only
+ * server places that see every request are middleware and the doorway
+ * redirect, and the doorway is skipped entirely by anyone landing on the city
+ * path directly.
+ *
+ * The cost is that a visitor with JavaScript off is invisible here. That is
+ * survivable because BOTH counters are fired by this same code under the same
+ * conditions: whoever is missing from the numerator is missing from the
+ * denominator too, so the CTR stays honest even where the absolute counts are
+ * low. Nothing on this page is ever described as "visitors".
+ *
+ * No identifier is issued or sent. The request carries dimensions only, and
+ * the server adds the coarse location and the device class from headers it
+ * already has. See supabase/migrations/20260820_campaign_telemetry.sql for why
+ * this is a counter and not an event log.
+ */
+
+const ENDPOINT = "/api/attribution/campaign";
+
+/**
+ * Which button was pressed. Deliberately about POSITION rather than label,
+ * because the labels are what the angles vary: "Start free trial" and "See my
+ * window" are the same button in the same place, and folding them together is
+ * what makes the hero comparable across variants.
+ */
+export type LpCtaId = "hero" | "final" | "sticky" | "nav" | "secondary";
+
+interface CampaignDims {
+  utm_source: string;
+  utm_medium: string;
+  utm_campaign: string;
+  click_type: string;
+}
+
+/**
+ * `/lp/6/seattle-wa` → { landing: "lp6", target_city: "seattle-wa" }.
+ *
+ * Read from the path rather than passed down as props on purpose: the path is
+ * already the authority on which variant and which city are being served, and
+ * a prop would be a second copy of that fact for every variant page to get
+ * right. A new /lp/7 starts counting the day it exists, with no edit here.
+ */
+function parseLpPath(pathname: string): { landing: string; target_city: string } {
+  const parts = pathname.split("/").filter(Boolean); // ["lp", "6", "seattle-wa"]
+  const variant = parts[0] === "lp" ? (parts[1] ?? "") : "";
+  return {
+    landing: /^[0-9]{1,2}$/.test(variant) ? `lp${variant}` : "",
+    target_city: parts[2] ?? "",
+  };
+}
+
+/**
+ * The campaign parameters on the URL that brought us here.
+ *
+ * Only the three UTM fields the report groups by, plus WHICH network stamped a
+ * click id. The click id itself is never sent: it identifies one person, and
+ * putting it in a counter would quietly turn the counter into an event log.
+ * Attribution keeps the id, in a cookie, where it is already disclosed.
+ */
+function campaignDims(): CampaignDims {
+  const params = new URLSearchParams(window.location.search);
+  const clickType = CLICK_TYPES.find((key) => params.get(key)) ?? "";
+  const norm = (key: string) => (params.get(key) ?? "").trim().toLowerCase().slice(0, 80);
+  return {
+    utm_source: norm("utm_source"),
+    utm_medium: norm("utm_medium"),
+    utm_campaign: norm("utm_campaign"),
+    click_type: clickType,
+  };
+}
+
+/**
+ * Post one event.
+ *
+ * `sendBeacon` first, because every CTA on these pages navigates away
+ * immediately: a plain fetch racing `window.location` loses often enough to
+ * put a visible dent in the click count, and a dent in the numerator alone
+ * makes a working page look broken. keepalive fetch is the fallback for
+ * browsers where sendBeacon is unavailable or refuses the payload.
+ *
+ * Fire and forget in both directions. A failed count must never be visible to
+ * someone trying to buy something.
+ */
+function post(payload: Record<string, string>): void {
+  const body = JSON.stringify(payload);
+  try {
+    if (typeof navigator !== "undefined" && typeof navigator.sendBeacon === "function") {
+      const blob = new Blob([body], { type: "application/json" });
+      if (navigator.sendBeacon(ENDPOINT, blob)) return;
+    }
+  } catch {
+    // Fall through to fetch.
+  }
+  try {
+    void fetch(ENDPOINT, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body,
+      keepalive: true,
+    });
+  } catch {
+    // Counting is not worth an error on a page someone is buying from.
+  }
+}
+
+/**
+ * A hit is per VISIT, not per render.
+ *
+ * React re-mounts, the back-forward cache, and a plain reload would each add a
+ * hit for a visitor who arrived once, and every one of those inflates the CTR
+ * denominator without any chance of a matching click. sessionStorage is the
+ * right scope: it survives a reload and the back button, and it dies with the
+ * tab, so tomorrow's visit from the same person counts again as it should.
+ *
+ * Wrapped in try/catch rather than guarded by a capability check, because on
+ * iOS with "Block All Cookies" the storage GETTER itself throws (the whole
+ * point of src/lib/safe-storage.ts). Failing open means those visitors may be
+ * counted twice on a reload, which is a far better failure than the page
+ * throwing on mount.
+ */
+function firstTimeThisVisit(key: string): boolean {
+  try {
+    if (window.sessionStorage.getItem(key)) return false;
+    window.sessionStorage.setItem(key, "1");
+  } catch {
+    // Storage is blocked. Count it and move on.
+  }
+  return true;
+}
+
+/**
+ * Count this landing-page view, once per tab.
+ *
+ * `angle` is the pitch the link asked for (?a=), which the page has already
+ * resolved. Empty on /lp/1, which has no angles.
+ */
+export function useLpHit(angle: string): void {
+  useEffect(() => {
+    const { landing, target_city } = parseLpPath(window.location.pathname);
+    if (!landing) return; // Not a landing page. Nothing to count.
+    if (!firstTimeThisVisit(`rc_lp_hit:${landing}:${target_city}`)) return;
+
+    post({
+      kind: "hit",
+      landing,
+      angle,
+      target_city,
+      cta: "",
+      ...campaignDims(),
+    });
+  }, [angle]);
+}
+
+/**
+ * Count a CTA press. Safe to call from an onClick that is about to navigate.
+ *
+ * Every press counts, including a second one from someone who came back and
+ * tried again, because that is a genuine second reach for the button. Only the
+ * hit is deduplicated.
+ */
+export function reportLpCta(cta: LpCtaId, angle: string): void {
+  if (typeof window === "undefined") return;
+  const { landing, target_city } = parseLpPath(window.location.pathname);
+  if (!landing) return;
+
+  post({
+    kind: "cta_click",
+    landing,
+    angle,
+    target_city,
+    cta,
+    ...campaignDims(),
+  });
+}

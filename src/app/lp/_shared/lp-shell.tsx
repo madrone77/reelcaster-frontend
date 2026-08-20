@@ -6,6 +6,7 @@ import type { Angle } from "./lp-angles";
 import { buildFeatures, buildLayers, PRICE, PROOF, type LpTreatment } from "./lp-content";
 import { lpRegionFor } from "./lp-region";
 import LpTrialForm from "./lp-trial-form";
+import { reportLpCta, useLpHit } from "./lp-telemetry";
 import LpFlagUs from "./lp-flag";
 import type { LpCard } from "./lp-spot";
 import { LP_CSS } from "./lp-css";
@@ -284,6 +285,11 @@ export default function LpShell({
   const finalCtaRef = useRef<HTMLDivElement>(null);
   const [showSticky, setShowSticky] = useState(false);
 
+  // Count the visit, once per tab. Every CTA below counts its own press, and
+  // the two together are the only measure of whether this page works that
+  // exists before somebody buys something.
+  useLpHit(angle.id);
+
   // Sticky CTA rides between the two real CTAs: it appears once the hero button
   // has scrolled away and hides again at the closing button, so there are never
   // two competing buttons on screen at once.
@@ -368,6 +374,8 @@ export default function LpShell({
                 ctaLabel={angle.cta}
                 fallbackHref={checkoutHref}
                 inputId="lp-email-hero"
+                cta="hero"
+                angle={angle.id}
               />
             </div>
           </div>
@@ -541,6 +549,8 @@ export default function LpShell({
                 ctaLabel={angle.cta}
                 fallbackHref={checkoutHref}
                 inputId="lp-email-final"
+                cta="final"
+                angle={angle.id}
               />
             </div>
           </div>
@@ -572,6 +582,12 @@ export default function LpShell({
             type="button"
             className="btn"
             onClick={() => {
+              // Counts as a press even though it scrolls rather than
+              // navigates: the visitor reached for the button, which is the
+              // thing being measured. The form they land in counts its own
+              // submit separately, so a scroll that goes nowhere is visible as
+              // sticky clicks with no matching final clicks.
+              reportLpCta("sticky", angle.id);
               finalCtaRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
               window.setTimeout(
                 () => document.getElementById("lp-email-final")?.focus(),

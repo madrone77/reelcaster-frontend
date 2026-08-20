@@ -2,6 +2,7 @@
 
 import { useRef, useState } from "react";
 import { PRICE } from "./lp-content";
+import { reportLpCta, type LpCtaId } from "./lp-telemetry";
 
 /**
  * The email field and the button that starts checkout, on the landing page
@@ -41,6 +42,8 @@ export default function LpTrialForm({
   ctaLabel,
   fallbackHref,
   inputId,
+  cta,
+  angle,
 }: {
   /** Attribution key, e.g. "lp6-window". Rides through to the conversion row. */
   from: string;
@@ -54,6 +57,10 @@ export default function LpTrialForm({
   fallbackHref: string;
   /** Ids must differ between the two copies of this form on one page. */
   inputId: string;
+  /** Which of the two copies this is, for the CTA counter: "hero" or "final". */
+  cta: LpCtaId;
+  /** The pitch this page is running, so a press can be read per angle. */
+  angle: string;
 }) {
   const [email, setEmail] = useState("");
   const [submitting, setSubmitting] = useState(false);
@@ -63,6 +70,13 @@ export default function LpTrialForm({
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (submitting) return;
+
+    // Counted here rather than on the button's onClick, so a press that the
+    // browser rejects for an empty or malformed email never reaches the
+    // counter. What this measures is a real attempt to buy, which is the only
+    // version of a CTA click worth putting a CTR on.
+    reportLpCta(cta, angle);
+
     setSubmitting(true);
     setError(null);
     try {
