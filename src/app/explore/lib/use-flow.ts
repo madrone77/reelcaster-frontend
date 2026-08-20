@@ -4,7 +4,7 @@ import { useEffect, useRef } from "react";
 import type { CustomLayerInterface, Map as MlMap } from "maplibre-gl";
 
 // Faithful port of bluecaster's bathy-relief flow engine (app/bathy-relief/
-// relief.html `startFlow`) — the richer, dual-layer Windy-style currents seen on
+// relief.html `startFlow`) — the richer, dual-layer Windy-style overlay seen on
 // https://www.bluecaster.co/bathy-relief, NOT the simpler DOM-canvas hook
 // (useCurrentsArrows / our old use-currents). It renders as a MapLibre custom
 // (WebGL) layer composed of TWO offscreen 2D canvases blitted as fullscreen
@@ -14,51 +14,135 @@ import type { CustomLayerInterface, Map as MlMap } from "maplibre-gl";
 //      smoothing. This is "the area changing colour gradiently."
 //   2. PARTICLE canvas — WHITE streaks (with a faint dark shadow) advected by the
 //      U/V field, leaving fading trails, drawn on top of the colour field.
-// Inserted just below the regulatory grid (`subarea-lines-casing`) so land + regs
-// render after and mask the flow — currents stop at the coastline. The land mask
-// is forced into the translucent pass (fill-opacity 0.999) while currents are on
-// so it draws AFTER the custom layer; reset to 1 when off.
 //
-// Data comes from the same-origin proxy /api/bluecaster/currents/field
-// (→ bluecaster's auth-free /api/map/currents/field), returning
+// ONE engine drives both overlays, exactly as relief.html does — currents and
+// wind differ only in their source endpoint, their speed→colour ramp, and how
+// the coastline treats them. Data comes from the same-origin proxies
+// /api/bluecaster/currents/field and /api/bluecaster/wind/field (→ bluecaster's
+// auth-free /api/map/*/field), both returning
 // { cols, rows, bbox:[w,s,e,n], u, v, max_speed_kn }.
 
 const FLOW_BEFORE_ID = "subarea-lines-casing";
 
-// Currents config — verbatim from relief.html FLOW_CFG.currents. ramp is
-// ABSOLUTE knots breakpoints (red always = fast), not normalized to the field max.
-const CFG = {
-  endpoint: "/api/bluecaster/currents/field",
-  cols: 64,
-  rows: 48,
-  pad: 0.2,
-  // Particle count follows the map's on-screen AREA rather than being fixed, so
-  // every map renders at the same streak density. A fixed 3800 spread over the
-  // full-screen Explore map is a sparse drift of hairlines; the same 3800 packed
-  // into the spot page's ~378x286 mini-map is 11x denser — a bold white mat that
-  // reads as a different animation. `density` is calibrated so a full-viewport
-  // Explore map (~1440x840) still gets ~3800, i.e. Explore is unchanged.
-  density: 3800 / (1440 * 840),
-  minParticles: 250,
-  maxParticles: 6000,
-  maxAge: 180,
-  trailFade: 0.96,
-  pxPerKt: 0.175,
-  defaultMax: 1.5,
-  fieldOpacity: 0.5,
-  particleOpacity: 0.85,
-  line: 0.9,
-  shadow: "rgba(40,55,80,0.16)",
-  shadowW: 1.5,
-  // tidal speeds are slow (kn): blue(slack)->cyan->green->yellow->orange->red
-  ramp: [
-    [0, [40, 96, 175]],
-    [0.4, [50, 155, 205]],
-    [0.9, [70, 190, 120]],
-    [1.6, [205, 205, 60]],
-    [2.4, [238, 140, 42]],
-    [3.5, [216, 55, 45]],
-  ] as Array<[number, [number, number, number]]>,
+export type FlowKind = "currents" | "wind";
+
+/** Ascending [speed_kn, [r,g,b]] stops. ABSOLUTE — red always means fast. */
+type Ramp = Array<[number, [number, number, number]]>;
+
+interface FlowCfg {
+  layerId: string;
+  endpoint: string;
+  /** Field grid resolution requested from the API. */
+  cols: number;
+  rows: number;
+  /** Over-fetch beyond the viewport, as a fraction of its span. */
+  pad: number;
+  density: number;
+  minParticles: number;
+  maxParticles: number;
+  maxAge: number;
+  trailFade: number;
+  pxPerKt: number;
+  defaultMax: number;
+  fieldOpacity: number;
+  particleOpacity: number;
+  line: number;
+  shadow: string;
+  shadowW: number;
+  ramp: Ramp;
+  /** Send the scrubber instant upstream. Wind is a live "now" snapshot only. */
+  usesTime: boolean;
+  /**
+   * Push the land mask into the translucent pass so it paints AFTER the custom
+   * layer and clips the flow at the coastline. True for currents, which must
+   * stop at the shore; false for wind, which blows over land.
+   */
+  clipAtCoast: boolean;
+}
+
+// Both configs are verbatim from relief.html FLOW_CFG, except that the fixed
+// particle counts became an area-based `density`.
+const CFGS: Record<FlowKind, FlowCfg> = {
+  currents: {
+    layerId: "flow-currents",
+    endpoint: "/api/bluecaster/currents/field",
+    cols: 64,
+    rows: 48,
+    pad: 0.2,
+    // Particle count follows the map's on-screen AREA rather than being fixed, so
+    // every map renders at the same streak density. A fixed 3800 spread over the
+    // full-screen Explore map is a sparse drift of hairlines; the same 3800 packed
+    // into the spot page's ~378x286 mini-map is 11x denser — a bold white mat that
+    // reads as a different animation. `density` is calibrated so a full-viewport
+    // Explore map (~1440x840) still gets ~3800, i.e. Explore is unchanged.
+    density: 3800 / (1440 * 840),
+    minParticles: 250,
+    maxParticles: 6000,
+    maxAge: 180,
+    trailFade: 0.96,
+    pxPerKt: 0.175,
+    defaultMax: 1.5,
+    fieldOpacity: 0.5,
+    particleOpacity: 0.85,
+    line: 0.9,
+    shadow: "rgba(40,55,80,0.16)",
+    shadowW: 1.5,
+    // tidal speeds are slow (kn): blue(slack)->cyan->green->yellow->orange->red
+    ramp: [
+      [0, [40, 96, 175]],
+      [0.4, [50, 155, 205]],
+      [0.9, [70, 190, 120]],
+      [1.6, [205, 205, 60]],
+      [2.4, [238, 140, 42]],
+      [3.5, [216, 55, 45]],
+    ],
+    usesTime: true,
+    clipAtCoast: true,
+  },
+  wind: {
+    layerId: "flow-wind",
+    endpoint: "/api/bluecaster/wind/field",
+    // Wind is smooth and large-scale, so a coarse grid interpolates cleanly and
+    // each node costs one upstream forecast point. 12x9 = 108 cells, inside the
+    // endpoint's 300-cell budget at any viewport.
+    cols: 12,
+    rows: 9,
+    pad: 0.35,
+    // Denser and longer-lived than relief.html's 1200/0.90/0.028, which were
+    // tuned for a full-screen regional view. At the spot mini-map's size, in the
+    // 2-6 kn air that BC summer mornings actually deliver, those numbers advance
+    // a streak ~0.08 px per frame and fade it inside 10 frames — a mat of static
+    // white dots, which is exactly the "the toggle does nothing" reading this
+    // layer is here to fix. Speed still scales with the real wind; a calm day is
+    // a slow drift, a 25 kn day tears across.
+    density: 2600 / (1440 * 840),
+    minParticles: 180,
+    maxParticles: 3200,
+    maxAge: 140,
+    trailFade: 0.95,
+    // Wind runs an order of magnitude faster than tide (25 kn vs 1.5 kn), so the
+    // px-per-knot step is scaled well down to keep streak LENGTH comparable.
+    pxPerKt: 0.09,
+    defaultMax: 25,
+    fieldOpacity: 0.6,
+    particleOpacity: 0.85,
+    line: 0.9,
+    shadow: "rgba(30,30,40,0.18)",
+    shadowW: 1.5,
+    // Windy's knot ramp: blue(calm)->cyan->green->yellow->orange->red->magenta
+    ramp: [
+      [0, [58, 110, 190]],
+      [6, [60, 175, 205]],
+      [11, [70, 190, 120]],
+      [15, [170, 205, 70]],
+      [19, [240, 205, 60]],
+      [24, [240, 140, 45]],
+      [30, [222, 60, 45]],
+      [40, [150, 35, 80]],
+    ],
+    usesTime: false,
+    clipAtCoast: false,
+  },
 };
 
 interface Field {
@@ -74,7 +158,7 @@ interface Field {
 }
 
 // Speed (kn) → RGB via the absolute ramp, linearly interpolated between stops.
-function rampRGB(sp: number, ramp: typeof CFG.ramp): [number, number, number] {
+function rampRGB(sp: number, ramp: Ramp): [number, number, number] {
   if (sp <= ramp[0][0]) return ramp[0][1];
   for (let i = 1; i < ramp.length; i++) {
     if (sp <= ramp[i][0]) {
@@ -98,7 +182,11 @@ interface FlowController {
 
 // Build the flow controller for a given map. Mirrors relief.html `startFlow`;
 // only adapted for TS + the proxy endpoint + an optional `time` param.
-function startFlow(map: MlMap, getTime: () => string | null): FlowController {
+function startFlow(
+  map: MlMap,
+  cfg: FlowCfg,
+  getTime: () => string | null,
+): FlowController {
   const container = map.getContainer();
   const fieldCanvas = document.createElement("canvas");
   const partCanvas = document.createElement("canvas");
@@ -121,8 +209,8 @@ function startFlow(map: MlMap, getTime: () => string | null): FlowController {
     fctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     nParticles = Math.min(
-      CFG.maxParticles,
-      Math.max(CFG.minParticles, Math.round(W * H * CFG.density)),
+      cfg.maxParticles,
+      Math.max(cfg.minParticles, Math.round(W * H * cfg.density)),
     );
   };
   resize();
@@ -132,7 +220,7 @@ function startFlow(map: MlMap, getTime: () => string | null): FlowController {
   let retries = 0;
   let stopped = false;
   // Allocated once at the cap; only the first `nParticles` slots are simulated.
-  const P = new Float64Array(CFG.maxParticles * 3);
+  const P = new Float64Array(cfg.maxParticles * 3);
   // High-water mark of initialised slots. Growing the count seeds the new slots;
   // shrinking drops the mark so they get fresh positions if the map grows again.
   let seededUpTo = 0;
@@ -145,7 +233,7 @@ function startFlow(map: MlMap, getTime: () => string | null): FlowController {
     const n = field ? Math.min(field.n, b.getNorth()) : b.getNorth();
     P[i * 3] = w + Math.random() * (e - w);
     P[i * 3 + 1] = s + Math.random() * (n - s);
-    P[i * 3 + 2] = Math.random() * CFG.maxAge;
+    P[i * 3 + 2] = Math.random() * cfg.maxAge;
   };
 
   // Bring the live slot count in line with `nParticles` after a resize (or the
@@ -202,7 +290,7 @@ function startFlow(map: MlMap, getTime: () => string | null): FlowController {
           im.data[p + 3] = 0;
           continue;
         }
-        const col = rampRGB(Math.hypot(uu, vv), CFG.ramp);
+        const col = rampRGB(Math.hypot(uu, vv), cfg.ramp);
         im.data[p] = col[0];
         im.data[p + 1] = col[1];
         im.data[p + 2] = col[2];
@@ -227,17 +315,19 @@ function startFlow(map: MlMap, getTime: () => string | null): FlowController {
     // Over-fetch beyond the viewport so the colour field always OVERFILLS the
     // screen — hard rectangle edges stay off-screen during pan/zoom and the
     // field never reads as a floating tile.
-    const padX = (b.getEast() - b.getWest()) * CFG.pad;
-    const padY = (b.getNorth() - b.getSouth()) * CFG.pad;
+    const padX = (b.getEast() - b.getWest()) * cfg.pad;
+    const padY = (b.getNorth() - b.getSouth()) * cfg.pad;
     const qs = new URLSearchParams({
       bbox: `${b.getWest() - padX},${b.getSouth() - padY},${b.getEast() + padX},${b.getNorth() + padY}`,
-      cols: String(CFG.cols),
-      rows: String(CFG.rows),
+      cols: String(cfg.cols),
+      rows: String(cfg.rows),
     });
-    const time = getTime();
+    // Wind is a live "now" snapshot upstream, so scrubbing to another hour has
+    // nothing to ask for — sending `time` would only bust the server's cache.
+    const time = cfg.usesTime ? getTime() : null;
     if (time) qs.set("time", time);
     try {
-      const g = await fetch(`${CFG.endpoint}?${qs}`).then((r) => (r.ok ? r.json() : null));
+      const g = await fetch(`${cfg.endpoint}?${qs}`).then((r) => (r.ok ? r.json() : null));
       if (!g) throw new Error("no field");
       field = {
         cols: g.cols,
@@ -248,7 +338,7 @@ function startFlow(map: MlMap, getTime: () => string | null): FlowController {
         n: g.bbox[3],
         u: g.u,
         v: g.v,
-        max: g.max_speed_kn || CFG.defaultMax,
+        max: g.max_speed_kn || cfg.defaultMax,
       };
       buildFieldImg();
       retries = 0;
@@ -283,18 +373,18 @@ function startFlow(map: MlMap, getTime: () => string | null): FlowController {
     drawField(); // colour heatmap (own canvas)
     // particle canvas: fade old trails, then draw fresh WHITE streaks
     ctx.globalCompositeOperation = "destination-in";
-    ctx.fillStyle = `rgba(0,0,0,${CFG.trailFade})`;
+    ctx.fillStyle = `rgba(0,0,0,${cfg.trailFade})`;
     ctx.fillRect(0, 0, W, H);
     ctx.globalCompositeOperation = "source-over";
     ctx.lineCap = "round";
     const pxPerDeg = (256 * Math.pow(2, map.getZoom())) / 360;
-    const scale = CFG.pxPerKt / pxPerDeg;
+    const scale = cfg.pxPerKt / pxPerDeg;
     for (let i = 0; i < nParticles; i++) {
       const lng = P[i * 3];
       const lat = P[i * 3 + 1];
       const age = P[i * 3 + 2];
       const uv = sampleUV(lng, lat);
-      if (!uv || age > CFG.maxAge) {
+      if (!uv || age > cfg.maxAge) {
         spawn(i);
         continue;
       }
@@ -304,14 +394,14 @@ function startFlow(map: MlMap, getTime: () => string | null): FlowController {
       const p0 = map.project([lng, lat]);
       const p1 = map.project([nlng, nlat]);
       // faint dark shadow then a white streak -> ribbons lift off the field.
-      ctx.strokeStyle = CFG.shadow;
-      ctx.lineWidth = CFG.shadowW;
+      ctx.strokeStyle = cfg.shadow;
+      ctx.lineWidth = cfg.shadowW;
       ctx.beginPath();
       ctx.moveTo(p0.x + 0.4, p0.y + 0.5);
       ctx.lineTo(p1.x + 0.4, p1.y + 0.5);
       ctx.stroke();
       ctx.strokeStyle = "rgb(255,255,255)";
-      ctx.lineWidth = CFG.line;
+      ctx.lineWidth = cfg.line;
       ctx.beginPath();
       ctx.moveTo(p0.x, p0.y);
       ctx.lineTo(p1.x, p1.y);
@@ -354,7 +444,7 @@ function startFlow(map: MlMap, getTime: () => string | null): FlowController {
   };
 
   const layer: CustomLayerInterface = {
-    id: "flow",
+    id: cfg.layerId,
     type: "custom",
     onAdd(_m, gl) {
       glRef = gl;
@@ -407,8 +497,8 @@ function startFlow(map: MlMap, getTime: () => string | null): FlowController {
         gl.uniform1f(uOp, op);
         gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
       };
-      blit(texField, fieldCanvas, CFG.fieldOpacity);
-      blit(texPart, partCanvas, CFG.particleOpacity);
+      blit(texField, fieldCanvas, cfg.fieldOpacity);
+      blit(texPart, partCanvas, cfg.particleOpacity);
       map.triggerRepaint();
     },
     onRemove() {
@@ -430,17 +520,22 @@ function startFlow(map: MlMap, getTime: () => string | null): FlowController {
 }
 
 /**
- * Mounts the bathy-relief WebGL currents flow on the map while `enabled`.
- * Inserts the custom layer below the regulatory grid and forces the land mask
- * into the translucent pass so currents stop at the coastline.
+ * Mounts the bathy-relief WebGL flow overlay on the map while `enabled`,
+ * rendering either the tidal-current field or the surface-wind field. The
+ * custom layer goes below the regulatory grid so land and regs paint over it;
+ * for currents the land mask is additionally pushed into the translucent pass
+ * so the flow stops at the coastline, which wind deliberately does not do.
  */
-export function useCurrentsFlow({
+export function useFlow({
   map,
+  kind,
   enabled,
   timeIso,
 }: {
   map: MlMap | null;
+  kind: FlowKind;
   enabled: boolean;
+  /** Scrubber instant for the currents field; ignored by wind. */
   timeIso: string | null;
 }) {
   const timeRef = useRef<string | null>(timeIso);
@@ -449,21 +544,27 @@ export function useCurrentsFlow({
 
   useEffect(() => {
     if (!map || !enabled) return;
+    const cfg = CFGS[kind];
 
-    const { layer, fetchField } = startFlow(map, () => timeRef.current);
+    const { layer, fetchField } = startFlow(map, cfg, () => timeRef.current);
     fetchRef.current = fetchField;
 
     // Land mask → translucent pass so it renders AFTER the custom layer and
-    // clips the currents at the coastline.
-    if (map.getLayer("land")) map.setPaintProperty("land", "fill-opacity", 0.999);
+    // clips the currents at the coastline. Wind is allowed over land, so it
+    // leaves the mask in the opaque pass, where it paints BEFORE the flow.
+    if (cfg.clipAtCoast && map.getLayer("land")) {
+      map.setPaintProperty("land", "fill-opacity", 0.999);
+    }
     map.addLayer(layer, map.getLayer(FLOW_BEFORE_ID) ? FLOW_BEFORE_ID : undefined);
 
     return () => {
-      if (map.getLayer("flow")) map.removeLayer("flow");
-      if (map.getLayer("land")) map.setPaintProperty("land", "fill-opacity", 1);
+      if (map.getLayer(cfg.layerId)) map.removeLayer(cfg.layerId);
+      if (cfg.clipAtCoast && map.getLayer("land")) {
+        map.setPaintProperty("land", "fill-opacity", 1);
+      }
       fetchRef.current = () => {};
     };
-  }, [map, enabled]);
+  }, [map, kind, enabled]);
 
   // Re-fetch the field when the scrubber time changes (no rebuild). Debounced
   // so dragging across hours coalesces into one fetch per pause, not 24.
