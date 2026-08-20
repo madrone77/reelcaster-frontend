@@ -40,10 +40,18 @@ export default function DayCell({
   day,
   selected,
   onSelect,
+  showWeather = true,
 }: {
   day: ForecastDay;
   selected: boolean;
   onSelect: () => void;
+  /**
+   * Whether this strip reserves the weather-icon row (`ForecastStripModel
+   * .hasWeather`). The viewport strip has no conditions grid, so every icon
+   * would be blank, and the docked strip has no height to spend on an empty
+   * row. Strip-level, so all cells keep the same stack.
+   */
+  showWeather?: boolean;
 }) {
   // Non-retention day: the selected species can't be kept on this date, so a
   // score would mislead. Show the regulatory label instead (takes precedence
@@ -112,7 +120,7 @@ export default function DayCell({
     <button
       type="button"
       onClick={onSelect}
-      className={`relative flex-1 min-w-0 h-full rounded border flex flex-col items-center justify-between py-2 transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-rc-brand ${
+      className={`relative flex-1 min-w-0 h-full rounded border flex flex-col items-center justify-between py-1.5 transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-rc-brand ${
         selected
           ? "border-rc-brand bg-rc-brand text-white"
           : "border-rc-rule bg-rc-panel hover:border-rc-brand hover:bg-rc-brand-soft/40"
@@ -131,7 +139,7 @@ export default function DayCell({
           {day.dow}
         </div>
         <div
-          className={`font-rc-mono text-[10px] ${selected ? "text-white/85" : "text-rc-ink-soft"}`}
+          className={`font-rc-mono text-[10px] leading-none ${selected ? "text-white/85" : "text-rc-ink-soft"}`}
         >
           {day.date}
         </div>
@@ -146,13 +154,19 @@ export default function DayCell({
       </div>
 
       {/* Dominant daylight weather — a small icon between the score and the
-          peak chip. Inherits the cell's text color (white when selected). */}
-      <div className={`h-3.5 flex items-center ${selected ? "text-white" : "text-rc-ink-mute"}`}>
-        <WeatherIcon condition={day.weather} size={14} />
-      </div>
+          peak chip. Inherits the cell's text color (white when selected).
+          Dropped whole when the strip has no conditions grid: an 86px cell
+          cannot afford 14px of reserved nothing. */}
+      {showWeather && (
+        <div
+          className={`h-3.5 shrink-0 flex items-center ${selected ? "text-white" : "text-rc-ink-mute"}`}
+        >
+          <WeatherIcon condition={day.weather} size={14} />
+        </div>
+      )}
 
       <div
-        className={`h-[18px] flex items-center font-rc-mono text-[9px] px-1.5 rounded ${
+        className={`h-[18px] shrink-0 flex items-center font-rc-mono text-[9px] px-1.5 rounded ${
           !day.peakLabel
             ? "opacity-0"
             : selected

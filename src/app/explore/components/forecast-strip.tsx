@@ -86,7 +86,7 @@ export default function ForecastStrip({
     <>
       <div className="hidden lg:flex flex-col h-[128px] fixed inset-x-0 bottom-0 z-30 bg-rc-panel/88 backdrop-blur-md border-t border-rc-rule shadow-rc-bar px-6 py-2.5">
         {/* Header — single compact row */}
-        <div className="flex items-center justify-between gap-4 mb-2 shrink-0">
+        <div className="flex items-center justify-between gap-4 mb-1 shrink-0">
           <div className="flex items-center gap-3 min-w-0">
             <div className="flex items-center gap-1.5 shrink-0">
               <CloudSun className="w-4 h-4 text-rc-ink-mute" />
@@ -158,6 +158,7 @@ export default function ForecastStrip({
                   day={day}
                   selected={isSel}
                   onSelect={() => handleDay(day)}
+                  showWeather={model.hasWeather}
                 />
               );
             })}
@@ -215,6 +216,7 @@ export function MobileForecastStrip({
               day={day}
               selected={day.iso === selectedIso}
               onSelect={() => handleDay(day)}
+              showWeather={model.hasWeather}
             />
           </div>
         ))}

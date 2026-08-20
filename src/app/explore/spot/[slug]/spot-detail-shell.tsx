@@ -898,6 +898,7 @@ export default function SpotDetailShell({
                       day={day}
                       selected={day.iso === activeIso}
                       onSelect={() => handleDay(day)}
+                      showWeather={stripModel?.hasWeather ?? false}
                     />
                   </div>
                 ))}
