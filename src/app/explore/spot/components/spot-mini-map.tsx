@@ -49,7 +49,7 @@ export default function SpotMiniMap({
 }: {
   spot: LiveSpot;
   score: number | null;
-  /** UTC instant for the Currents tab's flow field; null = model "now". */
+  /** UTC instant both flow tabs are drawn at; null = model "now". */
   timeIso?: string | null;
 }) {
   const mapRef = useRef<MapRef | null>(null);
@@ -60,7 +60,7 @@ export default function SpotMiniMap({
   const [expanded, setExpanded] = useState(false);
 
   useFlow({ map: mapObj, kind: "currents", enabled: layer === "currents", timeIso: timeIso ?? null });
-  useFlow({ map: mapObj, kind: "wind", enabled: layer === "winds", timeIso: null });
+  useFlow({ map: mapObj, kind: "wind", enabled: layer === "winds", timeIso: timeIso ?? null });
 
   // Resize the map when it toggles to/from fullscreen so it fills the container.
   useEffect(() => {

@@ -20,7 +20,8 @@ import type { CustomLayerInterface, Map as MlMap } from "maplibre-gl";
 // the coastline treats them. Data comes from the same-origin proxies
 // /api/bluecaster/currents/field and /api/bluecaster/wind/field (→ bluecaster's
 // auth-free /api/map/*/field), both returning
-// { cols, rows, bbox:[w,s,e,n], u, v, max_speed_kn }.
+// { cols, rows, bbox:[w,s,e,n], u, v, max_speed_kn } for the instant asked for,
+// so the day/hour scrubber moves either field the same way.
 
 const FLOW_BEFORE_ID = "subarea-lines-casing";
 
@@ -50,8 +51,6 @@ interface FlowCfg {
   shadow: string;
   shadowW: number;
   ramp: Ramp;
-  /** Send the scrubber instant upstream. Wind is a live "now" snapshot only. */
-  usesTime: boolean;
   /**
    * Push the land mask into the translucent pass so it paints AFTER the custom
    * layer and clips the flow at the coastline. True for currents, which must
@@ -96,7 +95,6 @@ const CFGS: Record<FlowKind, FlowCfg> = {
       [2.4, [238, 140, 42]],
       [3.5, [216, 55, 45]],
     ],
-    usesTime: true,
     clipAtCoast: true,
   },
   wind: {
@@ -140,7 +138,6 @@ const CFGS: Record<FlowKind, FlowCfg> = {
       [30, [222, 60, 45]],
       [40, [150, 35, 80]],
     ],
-    usesTime: false,
     clipAtCoast: false,
   },
 };
@@ -322,9 +319,7 @@ function startFlow(
       cols: String(cfg.cols),
       rows: String(cfg.rows),
     });
-    // Wind is a live "now" snapshot upstream, so scrubbing to another hour has
-    // nothing to ask for — sending `time` would only bust the server's cache.
-    const time = cfg.usesTime ? getTime() : null;
+    const time = getTime();
     if (time) qs.set("time", time);
     try {
       const g = await fetch(`${cfg.endpoint}?${qs}`).then((r) => (r.ok ? r.json() : null));
@@ -535,7 +530,7 @@ export function useFlow({
   map: MlMap | null;
   kind: FlowKind;
   enabled: boolean;
-  /** Scrubber instant for the currents field; ignored by wind. */
+  /** Scrubber instant the field is sampled at; null = model "now". */
   timeIso: string | null;
 }) {
   const timeRef = useRef<string | null>(timeIso);
