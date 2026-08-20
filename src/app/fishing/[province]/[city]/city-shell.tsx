@@ -35,6 +35,8 @@ import {
 } from "@/lib/bluecaster-client";
 import { spotDaysFrom } from "../../../explore/components/spot-day-strip";
 import { useAuth } from "@/contexts/auth-context";
+import type { BlueCasterGuideLink } from "@/lib/bluecaster";
+import { activityPhrase } from "../../lib/activity";
 import type { FishingCity } from "../../lib/fishing-data";
 
 const MAP_TZ = "America/Vancouver";
@@ -46,6 +48,7 @@ export default function CityShell({
   species,
   date,
   intro,
+  guides,
 }: {
   city: FishingCity;
   provincePath: string;
@@ -53,6 +56,8 @@ export default function CityShell({
   species: SpeciesOption[];
   date: string;
   intro: string | null;
+  /** Published species guides for this city, empty when it has none. */
+  guides: BlueCasterGuideLink[];
 }) {
   const mapRef = useRef<MapRef>(null);
   const router = useRouter();
@@ -253,6 +258,37 @@ export default function CityShell({
 
         {intro && (
           <p className="text-rc-ink-soft mt-3 max-w-3xl text-[15px]">{intro}</p>
+        )}
+
+        {/* Species guides. Above the split because the split is a full-height
+            map: anything below it is off the bottom of the page on desktop,
+            and these are the pages a crawler and a planning angler both want
+            to find from here. */}
+        {guides.length > 0 && (
+          <nav aria-label={`${city.name} species guides`} className="mt-4">
+            <div className="rc-label text-[9px] text-rc-ink-mute">
+              Species guides
+            </div>
+            <ul className="flex flex-wrap gap-2 mt-1.5">
+              {guides.map((g) => (
+                <li key={g.species_slug}>
+                  <Link
+                    href={`${provincePath}/${city.slug}/${g.species_slug}`}
+                    className="group flex items-baseline gap-2 rounded-full border border-rc-rule bg-rc-panel px-3 py-1.5 hover:border-rc-brand transition-colors"
+                  >
+                    <span className="text-[13px] font-medium text-rc-ink group-hover:text-rc-brand transition-colors">
+                      {activityPhrase(g.activity)}
+                    </span>
+                    {g.peak_label && (
+                      <span className="font-rc-mono text-[10px] text-rc-ink-mute">
+                        peak {g.peak_label}
+                      </span>
+                    )}
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          </nav>
         )}
       </div>
 

@@ -1325,3 +1325,135 @@ export async function resolveHomeCity(
   }
   return null;
 }
+
+// ── City × species fishing guides ──────────────────────────────────
+//
+// The editorial pages at /fishing/<province>/<city>/<species>. BlueCaster
+// derives everything except the intro prose at request time from the same
+// tables that drive the map, so a guide can't advertise a spot or a season
+// the product disagrees with.
+
+/**
+ * What to call the activity. Crab is "crabbing" and prawn is "prawning",
+ * never "crab fishing" — `subject` is the species name with the gear noun
+ * already removed, so it reads "Dungeness crabbing". Empty subject means the
+ * verb stands alone ("Prawning").
+ */
+export interface BlueCasterActivity {
+  verb: "fishing" | "crabbing" | "prawning";
+  subject: string;
+}
+
+export interface BlueCasterGuideLink {
+  species_id: string;
+  species_slug: string;
+  species_name: string;
+  activity: BlueCasterActivity;
+  spot_count: number;
+  /** "Jul-Aug", or null when the curve has no distinct peak. */
+  peak_label: string | null;
+  method_count: number;
+}
+
+export interface BlueCasterCityGuides {
+  city: { slug: string; name: string };
+  guides: BlueCasterGuideLink[];
+  meta: { count: number };
+}
+
+export interface BlueCasterSpeciesGuide {
+  city: {
+    slug: string;
+    name: string;
+    lat: number;
+    lng: number;
+    region_name: string | null;
+    province_code: string | null;
+    province_name: string | null;
+    country_code: string | null;
+  };
+  species: {
+    id: string;
+    slug: string;
+    name: string;
+    scientific_name: string | null;
+    family: string | null;
+  };
+  activity: BlueCasterActivity;
+  intro: string | null;
+  season: {
+    peak_label: string | null;
+    notes: string | null;
+    months: Array<{ month: number; label: string; level: number }>;
+  };
+  methods: Array<{
+    name: string;
+    role: string;
+    baits: string[];
+    notes: string | null;
+  }>;
+  conditions: Array<{
+    factor: string;
+    label: string;
+    weight: number;
+    headline: string;
+    detail: string;
+    rationale: string | null;
+  }>;
+  tide_stations: string[];
+  regulations: {
+    spot_count: number;
+    open_spot_count: number;
+    headline_state: "retention_open" | "release_only" | "closed" | "mixed" | null;
+    daily_limit: number | null;
+    notice_summary: string | null;
+    next_open_date: string | null;
+    regulator: string | null;
+  };
+  spots: Array<{
+    id: string;
+    slug: string;
+    name: string;
+    lat: number;
+    lng: number;
+    regulatory_state: "retention_open" | "release_only" | "closed" | null;
+    daily_limit: number | null;
+    next_open_date: string | null;
+  }>;
+  meta: {
+    intro_generated_at: string | null;
+    admin_edited: boolean;
+    generated_at: string;
+  };
+}
+
+/** Every published guide for a city. Empty array for a city with none. */
+export async function fetchCityGuides(
+  citySlug: string,
+): Promise<BlueCasterCityGuides | null> {
+  return bcGet<BlueCasterCityGuides>(
+    `/api/v1/cities/${encodeURIComponent(citySlug)}/species-guides`,
+    {},
+    3600,
+  );
+}
+
+/**
+ * One guide. Null for an unknown pairing or an unpublished one, which the
+ * page turns into a 404.
+ *
+ * Revalidates on the quarter hour rather than the hour: the regulation block
+ * moves with fishery notices, and a guide page that still says "open at 12
+ * spots" the day after a closure is the one thing here that can be wrong in a
+ * way that matters.
+ */
+export async function fetchSpeciesGuide(
+  citySlug: string,
+  speciesSlug: string,
+): Promise<BlueCasterSpeciesGuide | null> {
+  return bcGet<BlueCasterSpeciesGuide>(
+    `/api/v1/cities/${encodeURIComponent(citySlug)}/species-guides/${encodeURIComponent(speciesSlug)}`,
+    {},
+    900,
+  );
+}

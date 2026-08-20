@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import {
+  fetchCityGuides,
   fetchCityPage,
   fetchHierarchy,
   fetchMapSpots,
@@ -95,10 +96,13 @@ export default async function CityPage({
 }) {
   const { province: provinceParam, city: citySlug } = await params;
 
-  const [hierarchy, payload, cityPage] = await Promise.all([
+  const [hierarchy, payload, cityPage, cityGuides] = await Promise.all([
     fetchHierarchy(),
     fetchMapSpots({ city: citySlug }),
     fetchCityPage(citySlug),
+    // Published species guides for this city. Additive: a city with none
+    // renders exactly as it did before.
+    fetchCityGuides(citySlug),
   ]);
 
   const province = getFishingProvince(hierarchy, provinceParam);
@@ -159,6 +163,7 @@ export default async function CityPage({
         species={data.species}
         date={data.date}
         intro={cityPage?.page.seo.meta_description ?? null}
+        guides={cityGuides?.guides ?? []}
       />
     </>
   );
