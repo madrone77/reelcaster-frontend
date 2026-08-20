@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from 'next'
-import { Geist, Geist_Mono, Inter, IBM_Plex_Mono } from 'next/font/google'
+import { Geist, Geist_Mono, Archivo, IBM_Plex_Mono } from 'next/font/google'
 import './globals.css'
 import { AuthProvider } from '@/contexts/auth-context'
 import { MixpanelProvider } from '@/contexts/mixpanel-context'
@@ -27,8 +27,14 @@ const geistMono = Geist_Mono({
 
 // rc light design system fonts (font-rc-sans / font-rc-mono). Loaded at the
 // root so marketing chrome + landing render correctly everywhere; the
-// explore layout keeps its own (identical) loaders.
-const inter = Inter({ subsets: ['latin'], variable: '--font-inter' })
+// explore layout keeps its own (identical) loaders. Archivo fills the
+// `--font-inter` slot (design system v1.0) — the variable name is kept so the
+// token binding in rc-tokens.css doesn't have to change everywhere.
+const archivo = Archivo({
+  subsets: ['latin'],
+  weight: ['400', '500', '600', '700'],
+  variable: '--font-inter',
+})
 const plexMono = IBM_Plex_Mono({
   subsets: ['latin'],
   weight: ['400', '500', '600', '700'],
@@ -118,7 +124,7 @@ export default function RootLayout({
         />
       </head>
       <body
-        className={`${geistSans.variable} ${geistMono.variable} ${inter.variable} ${plexMono.variable} antialiased`}
+        className={`${geistSans.variable} ${geistMono.variable} ${archivo.variable} ${plexMono.variable} antialiased`}
       >
         {/* Publisher identity, emitted once site-wide. Page-level graphs
             (Product, Place, BreadcrumbList) reference it by @id. */}

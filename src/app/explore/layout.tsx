@@ -1,9 +1,13 @@
-import { Inter, IBM_Plex_Mono } from "next/font/google";
+import { Archivo, IBM_Plex_Mono } from "next/font/google";
 
 // The Explore page is the first consumer of the light rc-* design system
-// (see src/styles/rc-tokens.css). Inter + IBM Plex Mono load only on this
-// route; hoist to the root layout when the rest of the app migrates.
-const inter = Inter({ subsets: ["latin"], variable: "--font-inter" });
+// (see src/styles/rc-tokens.css). Archivo (design system v1.0) + IBM Plex Mono
+// load here; it fills the `--font-inter` slot so the token binding is unchanged.
+const archivo = Archivo({
+  subsets: ["latin"],
+  weight: ["400", "500", "600", "700"],
+  variable: "--font-inter",
+});
 const plexMono = IBM_Plex_Mono({
   subsets: ["latin"],
   weight: ["400", "500", "600", "700"],
@@ -31,7 +35,7 @@ export default function ExploreLayout({
     // The lock now lives on ExploreShell, the surface that actually wants it.
     <div
       data-theme="rc-light"
-      className={`${inter.variable} ${plexMono.variable} min-h-dvh bg-rc-page text-rc-ink font-rc-sans`}
+      className={`${archivo.variable} ${plexMono.variable} min-h-dvh bg-rc-page text-rc-ink font-rc-sans`}
     >
       {children}
     </div>
