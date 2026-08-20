@@ -1,13 +1,13 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { Maximize2, Minimize2, ChevronLeft } from "lucide-react";
 import Map, { Source, Layer, type MapRef } from "react-map-gl/maplibre";
 import type { Map as MlMap, StyleSpecification } from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
 import { buildReliefStyle } from "@/lib/map/relief-style";
-import { attachRcaHatch } from "@/lib/map/rca-hatch";
+import { attachRcaHatch, ensureRcaHatch } from "@/lib/map/rca-hatch";
 import { useFlow } from "../../lib/use-flow";
 import {
   attachScorePucks,
@@ -54,6 +54,8 @@ export default function SpotMiniMap({
 }) {
   const mapRef = useRef<MapRef | null>(null);
   const [mapObj, setMapObj] = useState<MlMap | null>(null);
+  /** The map the styleimagemissing listeners are already on. */
+  const imagesAttachedTo = useRef<MlMap | null>(null);
   const [layer, setLayer] = useState<Layer>("bathy");
   const [expanded, setExpanded] = useState(false);
 
@@ -109,12 +111,39 @@ export default function SpotMiniMap({
     [spot.lng, spot.lat],
   );
 
-  // The icon id carries the score, so scrubbing to another hour asks for an id
-  // that has never been drawn. The listener would catch it, but registering it
-  // here keeps the first paint after a scrub from flashing an empty pin.
+  // Draw the puck before the layer asks for it, both on the way in and on
+  // every hour scrub (the icon id carries the score, so scrubbing asks for an
+  // id that has never been drawn).
+  //
+  // Waiting to be asked does not work. The symbol tile is laid out as soon as
+  // the source has data, and an icon missing at that instant is left off the
+  // tile; `load` is later still, because it waits on every source in the
+  // relief style. Registering from `onLoad` did put the pin back, since
+  // `addImage` reloads the tiles that wanted the image, but only once `load`
+  // arrived: measured on prod, the map was up at 5.1s on a throttled
+  // connection and the pin did not appear until 8.1s.
+  const attachMapImages = useCallback(
+    (map: MlMap) => {
+      if (imagesAttachedTo.current !== map) {
+        imagesAttachedTo.current = map;
+        // Listeners, once per map. They cover a style reload and any id these
+        // two passes could not predict.
+        attachScorePucks(map);
+        attachRcaHatch(map);
+      } else {
+        ensureRcaHatch(map); // a style reload drops every registered image
+      }
+      ensureScorePuck(map, puckIcon);
+    },
+    [puckIcon],
+  );
+
   useEffect(() => {
-    if (mapObj) ensureScorePuck(mapObj, puckIcon);
-  }, [mapObj, puckIcon]);
+    // `mapObj` is not read — it is here so this re-runs once the map exists,
+    // since `mapRef` is a ref and changing it re-renders nothing.
+    const map = mapRef.current?.getMap();
+    if (map) attachMapImages(map);
+  }, [attachMapImages, mapObj]);
 
   return (
     <div
@@ -179,14 +208,12 @@ export default function SpotMiniMap({
         minZoom={6}
         maxZoom={15}
         attributionControl={false}
+        // `styledata`, not `load`: the images have to exist before the first
+        // symbol tile is laid out, and `load` waits on every source in the
+        // relief style. See the note on attachMapImages.
+        onStyleData={(e) => attachMapImages(e.target)}
         onLoad={(e) => {
-          // All three run here, synchronously. A listener registered from a
-          // useEffect on mapObj arrives a tick too late: MapLibre fires
-          // styleimagemissing once per id and never again, and react-map-gl
-          // has already mounted the symbol layer by then.
-          attachRcaHatch(e.target); // RCA fill-pattern image
-          attachScorePucks(e.target); // covers every later id
-          ensureScorePuck(e.target, puckIcon); // covers the id on screen now
+          attachMapImages(e.target); // no-op if styledata already did it
           setMapObj(e.target);
         }}
         style={{ width: "100%", height: "100%" }}
