@@ -31,6 +31,15 @@ import LpPhotoHero from "../../_shared/lp-photo-hero";
  * underneath, which is worse than any 404. Non-US cities are sent to Seattle
  * rather than 404'd, because the click is already paid for.
  *
+ * It is also the only variant laid out for a desktop window. The /lp pages
+ * were built for phone traffic, and above 480px they simply centre the phone
+ * column on a grey ground; the American ad sets turned out to draw a real
+ * share of desktop clicks out of Seattle, and that centred strip reads as a
+ * broken page on a 1440px screen. `wide` turns on the desktop layout in
+ * lp-css.ts above 900px. The other variants are mid-test and stay untouched,
+ * so this is one more thing /lp/6 is measuring rather than a redesign applied
+ * underneath a running experiment.
+ *
  * noindex comes from src/app/lp/layout.tsx.
  */
 
@@ -92,7 +101,8 @@ export default async function Lp6CityPage({
       chargeDate={trialChargeDate(PRICE.trialDays)}
       treatment="instrument"
       showFlag
-      hero={<LpPhotoHero angle={angle} card={card} market="us" />}
+      wide
+      hero={<LpPhotoHero angle={angle} card={card} market="us" wide />}
     />
   );
 }

@@ -322,6 +322,116 @@ export const LP_CSS = `
     .lp .page{max-width:480px;margin:0 auto;background:var(--bg);box-shadow:0 0 60px rgba(14,27,71,.08)}
   }
 
+  /* ---------- desktop layout (opt-in, /lp/6) ---------- */
+  /* Everything above this block is a 480px phone column, and past that width
+     the page simply centres that column on a grey ground. That is the right
+     call for the traffic these pages were bought for, but /lp/6 also takes
+     real desktop clicks out of Seattle, and a phone-width strip down the
+     middle of a 1440px screen reads as a page that failed to load rather than
+     as a focused one.
+     Scoped to .lp-wide, and gated at 900px, for the same reason the instrument
+     treatment is scoped: below 900px nothing here applies, so the signed-off
+     phone layout is untouched, and a variant that does not ask for the desktop
+     layout cannot inherit it. */
+  @media (min-width:900px){
+    .lp.lp-wide{background:var(--bg);font-size:17px}
+    .lp.lp-wide .page{max-width:none;margin:0;background:var(--bg);box-shadow:none}
+    .lp.lp-wide .wrap{max-width:1080px;padding:0 32px}
+    .lp.lp-wide .header-row{max-width:1080px;margin:0 auto;padding:18px 32px}
+    .lp.lp-wide .logo img{height:46px}
+    .lp.lp-wide .trust-chip{font-size:11px}
+    .lp.lp-wide .section{padding:52px 0}
+    /* Kickers sit over their own block. Everything below the hero except the
+       feature grid is a centred column narrower than the page, so a kicker
+       pinned to the far-left gutter would label empty space. */
+    .lp.lp-wide .section-kicker{font-size:11.5px;margin-bottom:18px;text-align:center}
+    .lp.lp-wide .features .section-kicker{text-align:left}
+
+    /* Hero: the photograph and the live score card sit side by side. The card
+       is the one live thing on the page, and on a wide screen it should be at
+       eye level beside the headline rather than a scroll below it. Keeping the
+       photo column portrait also protects the crop — the Puget Sound source is
+       framed near-square around Rainier (see lp-heroes.ts), and stretching it
+       into a full-width banner would cut the mountain out of the top and
+       bottom instead of the sides. */
+    .lp.lp-wide .hero.photo{display:grid;grid-template-columns:minmax(0,1.06fr) minmax(0,1fr);
+      align-items:stretch;max-width:1080px;margin:0 auto;padding:36px 32px 0;background:transparent}
+    .lp.lp-wide .hero-photo{height:auto;min-height:540px;border-radius:18px 0 0 18px}
+    .lp.lp-wide .hero-cap{padding-bottom:36px}
+    .lp.lp-wide .hero-cap .wrap{max-width:none;padding:0 34px}
+    .lp.lp-wide .hero-cap h1{font-size:44px}
+    .lp.lp-wide .hero-cap .subhead{font-size:17px;max-width:30ch}
+    /* Direct child only: the caption inside the photo carries a .wrap too, and
+       without the combinator it takes the white panel as well. */
+    .lp.lp-wide .hero.photo > .wrap{max-width:none;display:flex;align-items:center;
+      background:#fff;border:1px solid var(--line);border-left:none;
+      border-radius:0 18px 18px 0;padding:32px}
+    /* The card is the right-hand panel now, so it drops its own frame and the
+       lift that made it read as a card floating over the photo on a phone. */
+    .lp.lp-wide .hero.photo > .wrap .score-card{margin-top:0;width:100%;border:none;box-shadow:none;border-radius:0}
+    .lp.lp-wide .hero.photo > .wrap .score-card-top{padding-left:0;padding-right:0}
+    .lp.lp-wide .hero.photo > .wrap .score-card-body{padding:16px 0 0}
+    .lp.lp-wide .score-num{font-size:54px}
+    .lp.lp-wide .hours{height:64px}
+
+    /* One field and one button on a line, which is what a desktop reader
+       expects a signup to be. The disclosure and the error span both columns:
+       the terms have to stay directly under the button (see lp-trial-form). */
+    .lp.lp-wide .hero-cta-band{background:transparent;padding:26px 0 42px}
+    .lp.lp-wide .hero-cta-band .wrap{max-width:620px}
+    .lp.lp-wide .lp-form{display:grid;grid-template-columns:minmax(0,1fr) auto;
+      gap:10px;align-items:start}
+    .lp.lp-wide .lp-form-input{margin-bottom:0;min-height:56px}
+    .lp.lp-wide .lp-form .btn{width:auto;padding:0 30px;white-space:nowrap}
+    .lp.lp-wide .lp-form-terms,.lp.lp-wide .lp-form-error{grid-column:1/-1;margin-top:0}
+    /* The closing band stacks its button under a headline on a phone, which is
+       where that 20px top margin comes from. On one row it just drops the
+       button below the field it sits beside. */
+    .lp.lp-wide .final .lp-form .btn{margin-top:0}
+
+    /* Trial timeline runs left to right, so the connector that was a vertical
+       rail between the icons becomes a horizontal one. */
+    .lp.lp-wide .timeline{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));
+      gap:28px;padding:28px;max-width:900px;margin:0 auto}
+    .lp.lp-wide .t-step{flex-direction:column;gap:12px;padding-bottom:0}
+    .lp.lp-wide .t-step:not(:last-child)::before{left:44px;right:-28px;top:15px;
+      bottom:auto;width:auto;height:2px}
+    .lp.lp-wide .t-body{padding-top:0}
+    .lp.lp-wide .price-plain{font-size:16.5px}
+
+    /* Feature stack becomes two columns of cards. A single 1080px-wide row per
+       feature would run the description to about 140 characters a line, which
+       is unreadable, and padding the column to a readable width would leave
+       the same phone strip with a wider gutter. */
+    .lp.lp-wide .feature-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:18px}
+    .lp.lp-wide .feature-grid .feature{border-bottom:none;padding:22px;
+      background:var(--bg);border:1px solid var(--line);border-radius:14px}
+    /* Five features is what every angle ships, so the last card would sit
+       alone in the left column. Only widen it when the count really is odd. */
+    .lp.lp-wide .feature-grid .feature:last-child:nth-child(odd){grid-column:1/-1}
+
+    .lp.lp-wide .stat-band{gap:20px;max-width:900px;margin:0 auto}
+    .lp.lp-wide .stat{padding:22px 16px}
+    .lp.lp-wide .quote{max-width:900px;margin-left:auto;margin-right:auto;padding:22px}
+    .lp.lp-wide .distill{max-width:620px;margin:0 auto}
+    .lp.lp-wide details{max-width:760px;margin-left:auto;margin-right:auto}
+
+    .lp.lp-wide .final{padding:60px 0 66px}
+    .lp.lp-wide .final .wrap{max-width:620px}
+    .lp.lp-wide .final h2{font-size:34px}
+
+    /* The sticky bar stays: the page is long, and the reader is as likely to
+       be mid-scroll here as on a phone. It just stops being a phone-width bar
+       stuck to the bottom of a wide screen. */
+    /* Narrower than the page, not the full 1080px: stretched to the content
+       width the price ends up at one edge of the screen and the button at the
+       other, which reads as two unrelated controls rather than as one offer. */
+    .lp.lp-wide .sticky-inner{max-width:720px;gap:24px;justify-content:center}
+    .lp.lp-wide .sticky-price b{font-size:15px}
+    .lp.lp-wide .sticky-price span{font-size:12px}
+    .lp.lp-wide .sticky-cta .btn{width:auto;padding:0 28px;white-space:nowrap}
+  }
+
   /* ---------- image hero (/lp/3 only) ---------- */
   /* Navy underneath the photo, not white: the caption is white text, and the
      seeded Unsplash heroes are documented as able to 404. On a white ground a

@@ -10,20 +10,25 @@ import { heroFor, type HeroMarket } from "./lp-heroes";
  * attached to the photograph instead of floating below it.
  *
  * `priority` + `sizes` because this image is the LCP element on a paid landing
- * page: it is the one asset worth blocking on, and the column never exceeds
- * 480px, so asking for a viewport-width source above that would ship pixels
- * nobody sees.
+ * page: it is the one asset worth blocking on, and on the phone layout the
+ * column never exceeds 480px, so asking for a viewport-width source above that
+ * would ship pixels nobody sees. `wide` raises that ceiling for the desktop
+ * layout, where the photo is a 560px-ish column rather than the page width.
  */
 export default function LpPhotoHero({
   angle,
   card,
   market = "default",
+  wide = false,
 }: {
   angle: Angle;
   card: LpCard;
   /** Which photography this page gets. /lp/6 asks for "us"; the variants that
    *  serve both sides of the border stay on the neutral shot. */
   market?: HeroMarket;
+  /** Page uses the desktop layout above 900px, so ask for the larger source
+   *  and let the browser pick. Must match LpShell's `wide`. */
+  wide?: boolean;
 }) {
   const hero = heroFor(angle.id, market);
 
@@ -31,11 +36,11 @@ export default function LpPhotoHero({
     <section className="hero photo">
       <div className="hero-photo">
         <Image
-          src={hero.url}
+          src={wide ? hero.urlWide ?? hero.url : hero.url}
           alt={hero.alt}
           fill
           priority
-          sizes="(max-width: 480px) 100vw, 480px"
+          sizes={wide ? "(max-width: 899px) 100vw, 560px" : "(max-width: 480px) 100vw, 480px"}
         />
         <div className="hero-cap">
           <div className="wrap">
