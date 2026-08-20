@@ -33,14 +33,14 @@ const SPOT_PUCK = "mk-spot-puck";
  * dots that a visitor cannot interpret and did not ask about. Hidden here so
  * the picture says one thing — depth, and where the fish are.
  */
-const CLUTTER_LAYERS = [
+const CLUTTER_LAYERS = new Set([
   "subarea-lines-casing", "subarea-lines", "subarea-labels",
   "wdfw-ma-casing", "wdfw-ma-lines", "wdfw-ma-labels",
   "rca-fill", "rca-outline", "rca-labels",
   "wdfw-mpa-fill", "wdfw-mpa-outline", "wdfw-mpa-labels",
   "tide-station", "tide-label", "buoy-marker", "buoy-label",
   "border-casing", "border-line", "country-ca", "country-us",
-];
+]);
 
 /** How many of the best spots the highlight card cycles through, and how long
  *  each one holds. Slow enough to read the card, quick enough to feel alive. */
@@ -98,23 +98,33 @@ export default function MarketingMap({
   // Absolute origin is REQUIRED — MapLibre resolves vector-tile URLs inside a
   // Web Worker that can't expand root-relative paths, so contour + land tiles
   // would silently load zero features. Same reason as ExploreMap.
-  const mapStyle = useMemo(
-    () =>
-      buildReliefStyle(
-        typeof window !== "undefined" ? window.location.origin : "",
-      ) as unknown as StyleSpecification,
-    [],
-  );
-
-  // Strip the style back to depth + land. Guarded per id: the style evolves,
-  // and a layer that has been renamed should quietly not hide rather than throw
-  // and take the homepage's map down with it.
-  useEffect(() => {
-    if (!mapObj) return;
-    for (const id of CLUTTER_LAYERS) {
-      if (mapObj.getLayer(id)) mapObj.setLayoutProperty(id, "visibility", "none");
+  const mapStyle = useMemo(() => {
+    const style = buildReliefStyle(
+      typeof window !== "undefined" ? window.location.origin : "",
+    );
+    // Strip the style back to depth + land in the STYLE ITSELF, rather than
+    // hiding the layers once the map has loaded.
+    //
+    // A layer that is already hidden when the style is parsed is never laid
+    // out at all, which buys two things. The red polygons and station dots
+    // cannot flash on screen for the second before an effect could hide them.
+    // And `rca-fill` never asks for the hatch pattern, which this map has no
+    // reason to register: it was the one "could not be loaded" warning left on
+    // the homepage console.
+    //
+    // Unknown ids are simply not found: the style evolves, and a layer that
+    // has been renamed should quietly not hide rather than throw and take the
+    // homepage's map down with it.
+    for (const layer of style.layers as Array<{
+      id: string;
+      layout?: Record<string, unknown>;
+    }>) {
+      if (CLUTTER_LAYERS.has(layer.id)) {
+        layer.layout = { ...layer.layout, visibility: "none" };
+      }
     }
-  }, [mapObj]);
+    return style as unknown as StyleSpecification;
+  }, []);
 
   /** The best few, high to low — what the card cycles through. */
   const featured = useMemo(
