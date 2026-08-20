@@ -79,6 +79,17 @@ export const metadata: Metadata = {
 export const viewport: Viewport = {
   width: 'device-width',
   initialScale: 1,
+  // Lock the page size against the on-screen keyboard. `resizes-visual` says:
+  // when the keyboard opens, shrink only the visual viewport and leave the
+  // document's layout alone — nothing reflows, `dvh` does not change, and the
+  // map does not re-measure itself mid-tap. It is already what mobile Safari
+  // and Chrome do; stating it stops the browsers that would otherwise reflow
+  // (Firefox Android, some Android WebViews) from being the odd one out.
+  // The trade is that a bottom-pinned element can be covered by the keyboard,
+  // so anything pinned to the bottom *with a field in it* has to measure
+  // `window.visualViewport` and sit above it — see
+  // `src/app/explore/lib/use-visual-viewport.ts`.
+  interactiveWidget: 'resizes-visual',
 }
 
 export default function RootLayout({
