@@ -18,8 +18,14 @@ import type {
 import "maplibre-gl/dist/maplibre-gl.css";
 import type { RailSpot } from "../lib/explore-data";
 import { buildReliefStyle, buildSummaryStyle } from "@/lib/map/relief-style";
-import { attachRcaHatch } from "@/lib/map/rca-hatch";
-import { attachScorePucks, PUCK_TIP_OFFSET } from "../lib/score-puck";
+import { attachRcaHatch, ensureRcaHatch } from "@/lib/map/rca-hatch";
+import {
+  attachScorePucks,
+  ensureScorePucks,
+  puckIconId,
+  puckIconImageExpr,
+  PUCK_TIP_OFFSET,
+} from "../lib/score-puck";
 import { MAP_CUSTOM_ATTRIBUTION } from "@/lib/map/map-brand";
 import { MAP_INSET_ATTR, mapBottomPanelInset } from "../lib/sheet-safe-center";
 import { spotsToFeatureCollection, declutterHiddenSlugs } from "../lib/spot-geojson";
@@ -319,11 +325,58 @@ export default function ExploreMap({
     ["in", ["get", "slug"], ["literal", hiddenSlugs]],
   ]);
 
-  // Selection drives which puck sprite a feature asks for. Hover is deliberately
-  // absent: `icon-image` is a LAYOUT property, so swapping it on every mouse
-  // move would relayout the whole symbol layer, and the hover already reads
-  // through the rail card and the cursor change.
-  const sel = selectedSlug ?? "__none__";
+  // Selection drives which puck sprite a feature asks for.
+  const sel = selectedSlug ?? null;
+
+  // ── Draw the pucks the map is about to ask for, BEFORE it asks ──────────
+  //
+  // A symbol tile is laid out the moment its source has data, and any icon
+  // missing at that instant is simply left off the tile. On a cold Explore
+  // that happens about a second in, while `load` — which waits on every source
+  // in the relief style — is still seconds away, so registering the sprites
+  // from `onLoad` handed MapLibre nothing to draw and the map opened bare. The
+  // pins only came back when a zoom retiled the source, which is exactly the
+  // "wiggle it and they appear" this fixes.
+  //
+  // Registering from the feature list has no such window: the ids come from
+  // the same `data` the <Source> is handed, and `addImage` also makes MapLibre
+  // reload any tile that had already gone out without the icon, so a pass that
+  // does land late still repairs the map on its own.
+  const puckIds = useMemo(() => {
+    const ids = new Set<string>();
+    for (const f of data.features) ids.add(puckIconId(f.properties, sel));
+    return [...ids];
+  }, [data, sel]);
+
+  useEffect(() => {
+    // `mapObj` is not read — it is here so this re-runs once the map exists,
+    // since `mapRef` is a ref and changing it re-renders nothing.
+    const map = mapRef.current?.getMap();
+    if (!map) return;
+    ensureScorePucks(map, puckIds);
+  }, [puckIds, mapRef, mapObj]);
+
+  // Every runtime image the style and the spot layer need, registered as early
+  // as the map will let us and again on any style reload (which drops them
+  // all). The `styleimagemissing` listeners inside `attachScorePucks` /
+  // `attachRcaHatch` are only a backstop for ids nothing predicted, so they go
+  // on once per map; the images themselves are re-ensured each time.
+  const imagesAttachedTo = useRef<MlMap | null>(null);
+  const attachMapImages = useCallback(
+    (map: MlMap) => {
+      if (imagesAttachedTo.current !== map) {
+        imagesAttachedTo.current = map;
+        attachScorePucks(map);
+        // The hatch is only referenced by rca-fill, which the summary style
+        // omits entirely.
+        if (!summary) attachRcaHatch(map);
+      } else if (!summary) {
+        ensureRcaHatch(map);
+      }
+      ensureScorePucks(map, puckIds);
+    },
+    [summary, puckIds],
+  );
 
   // One symbol layer for every spot, curated or custom. The pill, its tail, the
   // score numeral and the ring are all baked into the sprite (see
@@ -342,18 +395,7 @@ export default function ExploreMap({
     type: "symbol",
     filter: expr(declutterFilter),
     layout: {
-      "icon-image": expr([
-        "concat",
-        "rcp:", ["get", "label"], ":",
-        [
-          "case",
-          ["==", ["get", "slug"], sel], "sel",
-          ["==", ["get", "fresh"], 1], "fresh",
-          "base",
-        ],
-        ":", ["to-string", ["get", "hot"]],
-        ":", ["case", ["==", ["get", "isCustom"], 1], "sq", "rd"],
-      ]),
+      "icon-image": expr(puckIconImageExpr(sel)),
       "icon-anchor": "bottom",
       "icon-offset": [0, PUCK_TIP_OFFSET],
       "icon-allow-overlap": true,
@@ -436,11 +478,14 @@ export default function ExploreMap({
         interactiveLayerIds={summary ? INTERACTIVE_SUMMARY : INTERACTIVE}
         cursor={pinDropMode ? "crosshair" : cursor}
         onClick={handleClick}
+        // `styledata`, not `load`: the style is what the image registry hangs
+        // off, and it is ready long before `load`, which waits on every source
+        // in the relief style. Registering the RCA hatch here is the
+        // difference between the closures drawing on the first frame and
+        // drawing a few seconds later.
+        onStyleData={(e) => attachMapImages(e.target)}
         onLoad={(e) => {
-          // The hatch is only referenced by rca-fill, which the summary style
-          // omits entirely.
-          if (!summary) attachRcaHatch(e.target); // RCA fill-pattern image
-          attachScorePucks(e.target); // draw puck sprites on demand
+          attachMapImages(e.target); // no-op if styledata already did it
           setMapObj(e.target);
           reportViewport(e.target);
         }}
