@@ -111,6 +111,14 @@ export interface ForecastStripModel {
   /** ISO of the highest-scoring unlocked day — drives the "best window" line. */
   bestIso: string | null;
   bestDay: ForecastDay | null;
+  /**
+   * True when any day in this strip carries a weather condition. Cells reserve
+   * the weather-icon row only then: the viewport strip has no conditions grid
+   * at all, and on a short cell that empty row is height it cannot spare. It
+   * is a strip-level answer, not a per-day one, so every cell in a strip keeps
+   * the same row stack and stays aligned with its neighbours.
+   */
+  hasWeather: boolean;
 }
 
 function peakOf(series: (number | null)[] | undefined): {
@@ -250,5 +258,10 @@ function finishModel(days: ForecastDay[]): ForecastStripModel {
   }
   if (bestDay) bestDay.isBest = true;
 
-  return { days, bestIso: bestDay?.iso ?? null, bestDay };
+  return {
+    days,
+    bestIso: bestDay?.iso ?? null,
+    bestDay,
+    hasWeather: days.some((d) => d.weather !== null),
+  };
 }

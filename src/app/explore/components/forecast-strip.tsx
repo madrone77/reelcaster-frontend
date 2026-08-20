@@ -18,6 +18,11 @@ const CONFIDENCE_NOTE = "confidence fades past day 7 · ECMWF + GFS";
  * pinned to the bottom edge (square, no card chrome), the map sitting above
  * it. Day cells pick the day (drives the map); every cell shows the day's
  * peak score. Per-hour exploration lives on the spot drawer's 24h chart.
+ *
+ * Desktop only, on purpose. A phone gets the same 14 days as a full-height
+ * list inside the map sheet (`sheet-forecast.tsx` + `day-row.tsx`), which
+ * has room for a score and a peak time on one row. There is no mobile
+ * variant of this strip to keep in step.
  */
 export default function ForecastStrip({
   model,
@@ -86,7 +91,7 @@ export default function ForecastStrip({
     <>
       <div className="hidden lg:flex flex-col h-[128px] fixed inset-x-0 bottom-0 z-30 bg-rc-panel/88 backdrop-blur-md border-t border-rc-rule shadow-rc-bar px-6 py-2.5">
         {/* Header — single compact row */}
-        <div className="flex items-center justify-between gap-4 mb-2 shrink-0">
+        <div className="flex items-center justify-between gap-4 mb-1 shrink-0">
           <div className="flex items-center gap-3 min-w-0">
             <div className="flex items-center gap-1.5 shrink-0">
               <CloudSun className="w-4 h-4 text-rc-ink-mute" />
@@ -158,6 +163,7 @@ export default function ForecastStrip({
                   day={day}
                   selected={isSel}
                   onSelect={() => handleDay(day)}
+                  showWeather={model.hasWeather}
                 />
               );
             })}
@@ -165,60 +171,6 @@ export default function ForecastStrip({
         )}
       </div>
 
-      <UpgradeDialog
-        open={upgradeOpen}
-        onOpenChange={setUpgradeOpen}
-        variant={!signedIn && lockTier === "free" ? "signup" : "pro"}
-      />
-    </>
-  );
-}
-
-/**
- * Compact mobile variant — a horizontal day scroller docked under the top
- * bar. Same selection + lock semantics.
- */
-export function MobileForecastStrip({
-  model,
-  selectedIso,
-  onSelectDay,
-  signedIn,
-}: {
-  model: ForecastStripModel | null;
-  selectedIso: string;
-  onSelectDay: (day: ForecastDay) => void;
-  /** Signed-out visitors get the sign-up dialog on locked days instead of pricing. */
-  signedIn: boolean;
-}) {
-  const [upgradeOpen, setUpgradeOpen] = useState(false);
-  // Which plan the tapped day needs. A "Sign up free" day (3-7) sells the
-  // account; an "Upgrade to Pro" day (8-14) sells Pro even to a signed-out
-  // visitor, who would otherwise get a sign-up form after a Pro promise.
-  const [lockTier, setLockTier] = useState<LockTier>("pro");
-  if (!model) return null;
-
-  const handleDay = (day: ForecastDay) => {
-    if (day.locked) {
-      setLockTier(day.lockTier ?? "pro");
-      setUpgradeOpen(true);
-      return;
-    }
-    onSelectDay(day);
-  };
-
-  return (
-    <>
-      <div className="lg:hidden fixed top-16 inset-x-2 z-20 flex gap-1.5 overflow-x-auto scrollbar-hide bg-rc-panel/95 backdrop-blur border border-rc-rule rounded-xl shadow-rc-bar px-1.5 pb-1.5 pt-3">
-        {model.days.map((day) => (
-          <div key={day.index} className="w-14 shrink-0">
-            <DayCell
-              day={day}
-              selected={day.iso === selectedIso}
-              onSelect={() => handleDay(day)}
-            />
-          </div>
-        ))}
-      </div>
       <UpgradeDialog
         open={upgradeOpen}
         onOpenChange={setUpgradeOpen}
