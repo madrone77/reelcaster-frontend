@@ -1,4 +1,4 @@
-import { fetchHierarchy, fetchMapSpots } from "@/lib/bluecaster";
+import { fetchCityGuides, fetchHierarchy, fetchMapSpots } from "@/lib/bluecaster";
 import { COVERED_PROVINCES } from "@/lib/regions";
 import { siteUrl } from "@/lib/site";
 import { getFishingProvince } from "./fishing/lib/fishing-data";
@@ -122,6 +122,20 @@ export default async function sitemap(): Promise<SitemapEntry[]> {
           changeFrequency: "daily",
           priority: 0.8,
         });
+        // Species guides. Only published ones come back, and only for species
+        // that still have spots behind them, so this matches the links the
+        // city page renders.
+        const guides = await fetchCityGuides(city.slug);
+        for (const guide of guides?.guides ?? []) {
+          entries.push({
+            url: siteUrl(`${provPath}/${city.slug}/${guide.species_slug}`),
+            // The prose is stable; the regulation block and per-spot scores
+            // move with the scoring day, same as the city page.
+            lastModified: scoredAt,
+            changeFrequency: "weekly",
+            priority: 0.7,
+          });
+        }
         for (const spot of city.spots) {
           if (spot.slug) linkedSpotSlugs.add(spot.slug);
         }

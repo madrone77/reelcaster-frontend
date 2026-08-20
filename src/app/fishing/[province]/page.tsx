@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { MapPin } from "lucide-react";
-import { fetchHierarchy } from "@/lib/bluecaster";
+import { fetchCityGuides, fetchHierarchy } from "@/lib/bluecaster";
 import { COVERED_PROVINCES } from "@/lib/regions";
 import { breadcrumbJsonLd, DEFAULT_OG, siteUrl } from "@/lib/site";
 import { getFishingProvince } from "../lib/fishing-data";
@@ -67,6 +67,19 @@ export default async function ProvincePage({
   const provPath = `/fishing/${provinceParam.toLowerCase()}`;
   const spotCount = province.cities.reduce((n, c) => n + c.spots.length, 0);
 
+  // Published species guides per city. One cached read each, on the same
+  // hourly cadence as the hierarchy behind this page. A city with no guides
+  // renders exactly as it did before.
+  const guidesByCity = new Map(
+    await Promise.all(
+      province.cities.map(async (city) => {
+        const res = await fetchCityGuides(city.slug);
+        return [city.slug, res?.guides ?? []] as const;
+      }),
+    ),
+  );
+  const guideCount = [...guidesByCity.values()].reduce((n, g) => n + g.length, 0);
+
   // Mirrors the visible breadcrumb below.
   const breadcrumbs = breadcrumbJsonLd([
     { name: "Home", path: "/" },
@@ -119,7 +132,14 @@ export default async function ProvincePage({
       <p className="text-rc-ink-soft mt-2 max-w-2xl">
         {spotCount} saltwater fishing spots across {province.cities.length}{" "}
         {province.cities.length === 1 ? "city" : "cities"}, each with live RC
-        scores, wind, sea, and tide conditions, and a 14-day outlook.
+        scores, wind, sea, and tide conditions, and a 14-day outlook
+        {guideCount > 0 ? (
+          <>
+            , plus {guideCount} species guides covering the tactics, bait and
+            tides that work locally
+          </>
+        ) : null}
+        .
       </p>
 
       <div className="mt-8 space-y-10">
@@ -167,6 +187,29 @@ export default async function ProvincePage({
                 </li>
               ))}
             </ul>
+
+            {(guidesByCity.get(city.slug) ?? []).length > 0 && (
+              <nav
+                aria-label={`${city.name} species guides`}
+                className="mt-4 pt-3 border-t border-rc-rule-soft"
+              >
+                <span className="rc-label text-[9px] text-rc-ink-mute">
+                  Guides
+                </span>
+                <ul className="inline-flex flex-wrap gap-x-2 gap-y-1.5 ml-2 align-middle">
+                  {(guidesByCity.get(city.slug) ?? []).map((g) => (
+                    <li key={g.species_slug}>
+                      <Link
+                        href={`${provPath}/${city.slug}/${g.species_slug}`}
+                        className="text-[13px] text-rc-ink-soft hover:text-rc-brand transition-colors"
+                      >
+                        {city.name} {g.species_name} fishing
+                      </Link>
+                    </li>
+                  ))}
+                </ul>
+              </nav>
+            )}
           </section>
         ))}
       </div>
