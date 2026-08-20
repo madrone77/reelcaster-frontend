@@ -1,4 +1,4 @@
-import type { Metadata } from 'next'
+import type { Metadata, Viewport } from 'next'
 import { Geist, Geist_Mono, Inter, IBM_Plex_Mono } from 'next/font/google'
 import './globals.css'
 import { AuthProvider } from '@/contexts/auth-context'
@@ -69,6 +69,16 @@ export const metadata: Metadata = {
   other: {
     'google-adsense-account': ADSENSE_CLIENT,
   },
+}
+
+// This fork does not auto-inject the mobile viewport meta — a page gets it only
+// if a layout in its tree exports `viewport`. Only explore/layout did, so every
+// other route rendered at the 980px desktop fallback width and shrank on phones.
+// Declaring it at the root gives `width=device-width` to the whole app; the
+// explore layout still adds its own `viewportFit: cover` on top.
+export const viewport: Viewport = {
+  width: 'device-width',
+  initialScale: 1,
 }
 
 export default function RootLayout({
