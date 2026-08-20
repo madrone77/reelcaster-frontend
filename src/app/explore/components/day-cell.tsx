@@ -83,16 +83,24 @@ export default function DayCell({
     );
   }
 
+  // The padlock carries the whole meaning of a locked cell, so it gets
+  // `shrink-0`. The desktop strip gives every cell a fixed 83px, and when a
+  // flex column asks for more, the browser takes it from the one child that
+  // can be squeezed to nothing: an SVG. That is how the lock vanished while
+  // the "Sign up free" line under it stayed put. The tighter gap, padding
+  // and icon size keep the stack inside 83px so nothing gets squeezed.
   if (day.locked) {
     return (
       <button
         type="button"
         onClick={onSelect}
-        className="flex-1 min-w-0 h-full rounded border border-rc-rule bg-rc-surface flex flex-col items-center justify-center gap-1 py-2 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-rc-brand"
+        className="flex-1 min-w-0 h-full rounded border border-rc-rule bg-rc-surface flex flex-col items-center justify-center gap-0.5 py-1.5 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-rc-brand"
       >
         <div className="rc-label text-[9px] leading-none text-center">{day.dow}</div>
-        <div className="font-rc-mono text-[10px] text-rc-ink-soft">{day.date}</div>
-        <Lock className="w-5 h-5 text-rc-ink-soft my-0.5" />
+        <div className="font-rc-mono text-[10px] leading-none text-rc-ink-soft">
+          {day.date}
+        </div>
+        <Lock className="w-3.5 h-3.5 shrink-0 text-rc-ink-soft" />
         <div className="font-rc-mono text-[9px] text-rc-ink-soft text-center leading-tight px-0.5">
           {day.lockTier === "free" ? "Sign up free" : "Upgrade to Pro"}
         </div>
