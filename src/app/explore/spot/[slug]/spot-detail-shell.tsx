@@ -612,9 +612,10 @@ export default function SpotDetailShell({
   // mounted — the two only differ if a DST boundary fell between the moment
   // this HTML was cached and the moment it was loaded.
   const tzAbbrev = useMemo(() => zoneAbbrev(TZ, nowAt), [nowAt, TZ]);
-  // Driver species lives only in the status chip up top — keep it out of the
-  // NOW label to avoid repeating it across the panel.
-  const nowLabel = `NOW · ${formatHour12(nowHour)}${tzAbbrev ? ` ${tzAbbrev}` : ""}`;
+  // Driver species lives only in the status chip up top — keep it out of this
+  // label to avoid repeating it across the panel. The card composes its own
+  // wording around the time; what it needs from here is the clock.
+  const nowTime = `${formatHour12(nowHour)}${tzAbbrev ? ` ${tzAbbrev}` : ""}`;
   const subtitle = spot.region ?? spot.city ?? spot.country ?? "";
 
   // ── Log-catch context (current spot + live conditions) ─────────────────
@@ -972,7 +973,7 @@ export default function SpotDetailShell({
                   so this card is now purely the score verdict. */}
               <div className="order-1">
                 <ScoreCard
-                  nowLabel={nowLabel}
+                  nowTime={nowTime}
                   score={nowScore}
                   peak={peakScore ?? todayScore}
                   peakTime={fmtPeak(peakHourNum)}

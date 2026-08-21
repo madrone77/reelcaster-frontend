@@ -7,13 +7,22 @@ import type { LiveRegulation } from "@/lib/bluecaster/live-spot-types";
 import { regulatorFor } from "@/lib/regions";
 
 /**
- * Consolidated headline score card (per the Pedder Bay mockup): the live "NOW"
- * score for the driver species, today's peak, the best contiguous window, and
- * the two primary CTAs — all in one white panel so it reads as a single unit on
+ * Consolidated headline score card: today's PEAK score for the driver species,
+ * the live score as a secondary reading, the best contiguous window, and the
+ * regulatory strip — all in one white panel so it reads as a single unit on
  * mobile and as the rail header on desktop.
+ *
+ * The peak leads, and the live hour sits under it. It used to be the other way
+ * round, which meant the loudest thing on the page was whatever the score
+ * happened to be at the moment someone opened it. Read at 9pm, a spot that
+ * peaks at 89 at 7am opened on a red 33 and the word POOR: true, useless, and
+ * the opposite of what the reader came to find out. Nobody is deciding whether
+ * to fish in the next sixty seconds; they are deciding whether to go, which is
+ * a question about the day. The live number still matters once you are on the
+ * water, so it keeps its place, just not the headline.
  */
 export default function ScoreCard({
-  nowLabel,
+  nowTime,
   score,
   peak,
   peakTime,
@@ -27,11 +36,11 @@ export default function ScoreCard({
   onSetAlert,
   children,
 }: {
-  /** e.g. "NOW · CHINOOK · 7 AM PDT" */
-  nowLabel: string;
+  /** The current hour with its zone, e.g. "9 PM PDT". */
+  nowTime: string;
   /** Score at the current hour (0–100), null if unavailable. */
   score: number | null;
-  /** Today's peak score. */
+  /** Today's peak score. The headline number. */
   peak: number | null;
   /** Today's peak time, e.g. "11 AM". */
   peakTime: string | null;
@@ -58,7 +67,13 @@ export default function ScoreCard({
    *  (e.g. the fresh-catch evidence). */
   children?: React.ReactNode;
 }) {
-  const tier = tierFor(score ?? peak);
+  // The pill describes the numeral beside it, so it follows the peak.
+  const tier = tierFor(peak ?? score);
+  // Falling back to the live hour when there is no peak keeps the card honest
+  // rather than empty: a spot with a partial grid still has a number worth
+  // printing, it just isn't a day's best.
+  const headline = peak ?? score;
+  const leadingWithPeak = peak != null;
   const regulator = regulatorFor(region);
   // Release-only used to render as "closed" here, because this strip took a
   // boolean. It's a third state: the fishery is on, you just can't keep one.
@@ -71,8 +86,12 @@ export default function ScoreCard({
           ? "release only"
           : "closed";
   const highlights = regulation ? regHighlights(regulation) : [];
+  // "Peaks at 89" while the headline above reads 89 is the same number twice,
+  // eight lines apart. The window box is drawn from the same day grid, so its
+  // peak IS the headline peak by construction; what it adds is WHEN and what
+  // the tide is doing. Kept only when it somehow differs.
   const windowSub = [
-    windowPeak != null ? `Peaks at ${windowPeak}` : null,
+    windowPeak != null && windowPeak !== peak ? `Peaks at ${windowPeak}` : null,
     tidePhase,
   ]
     .filter(Boolean)
@@ -98,26 +117,40 @@ export default function ScoreCard({
         }
       >
         <div>
-          <div className="rc-label text-[9px] text-rc-ink-mute">{nowLabel}</div>
+          <div className="rc-label text-[9px] text-rc-ink-mute">
+            {leadingWithPeak
+              ? `Best score for the day${peakTime ? ` · ${peakTime}` : ""}`
+              : `Now · ${nowTime}`}
+          </div>
 
           <div className="flex items-end gap-4 mt-2">
+            {/* "/100" rather than a bare numeral: an 89 means nothing to a
+                first-time reader who does not know the scale, and an ad can
+                land one on this page cold. Set small and muted so it reads as
+                the unit on the number rather than as a second number. */}
             <span
-              className={`text-[64px] leading-[0.8] font-bold tracking-[-0.04em] ${
+              className={`flex items-end ${
                 tier === "fair" ? "text-rc-fair-ink" : TIER_TEXT[tier]
               }`}
             >
-              {score ?? peak ?? "—"}
+              <span className="text-[64px] leading-[0.8] font-bold tracking-[-0.04em]">
+                {headline ?? "—"}
+              </span>
+              {headline != null && (
+                <span className="text-[22px] leading-none font-semibold tracking-[-0.02em] opacity-45 pb-[3px]">
+                  /100
+                </span>
+              )}
             </span>
             <div className="pb-1.5 space-y-1.5">
               <span
                 className={`inline-block px-2 py-0.5 rounded font-rc-mono text-[11px] font-bold ${TIER_PILL[tier]}`}
               >
-                {score != null || peak != null ? tier.toUpperCase() : "NO SCORE"}
+                {headline != null ? tier.toUpperCase() : "NO SCORE"}
               </span>
-              {peak != null && (
+              {leadingWithPeak && score != null && (
                 <p className="font-rc-mono text-xs text-rc-ink-soft">
-                  Best today {peak}
-                  {peakTime ? ` · ${peakTime}` : ""}
+                  Now {score} · {nowTime}
                 </p>
               )}
             </div>
