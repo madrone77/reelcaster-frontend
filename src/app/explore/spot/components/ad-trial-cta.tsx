@@ -118,18 +118,23 @@ function SourceRow({ provinceCode }: { provinceCode: string }) {
  * verbatim, and cannot be edited for length here. `PROOF.showProof` is
  * honoured too: if the band is ever switched off it goes off everywhere.
  *
- * ⚠️ The five stars are NOT part of that record. The quote was given as
- * sentences, not as a score, so the stars assert a rating nobody collected.
- * They are here because they were asked for and the sentiment is plainly a
- * five, but a rating shown to a customer deciding whether to pay should be one
- * the reviewer actually gave. Either get the rating from Bob or delete this
- * component's `<Stars />` line.
+ * The rating is `PROOF.quote.rating`, which the customer gave, and is read
+ * rather than hardcoded so the stars cannot outlive it. Drawing five filled
+ * stars in markup would be a second copy of a claim about a real person, free
+ * to disagree with the record the moment either changed.
  */
-function Stars() {
+function Stars({ rating }: { rating: number }) {
+  const filled = Math.max(0, Math.min(5, Math.round(rating)));
   return (
-    <div className="flex gap-0.5" aria-label="Five out of five">
+    <div className="flex gap-0.5" aria-label={`${filled} out of 5 stars`}>
       {[0, 1, 2, 3, 4].map((i) => (
-        <Star key={i} className="h-3.5 w-3.5 fill-rc-badge text-rc-badge" aria-hidden />
+        <Star
+          key={i}
+          className={`h-3.5 w-3.5 ${
+            i < filled ? "fill-rc-badge text-rc-badge" : "fill-none text-rc-rule"
+          }`}
+          aria-hidden
+        />
       ))}
     </div>
   );
@@ -139,7 +144,7 @@ function Testimonial() {
   if (!PROOF.showProof) return null;
   return (
     <figure className="mt-5 rounded border border-rc-rule bg-rc-panel/70 p-4">
-      <Stars />
+      <Stars rating={PROOF.quote.rating} />
       <blockquote className="rc-body mt-2 text-[13px] leading-relaxed text-rc-ink-soft">
         {PROOF.quote.text}
       </blockquote>
