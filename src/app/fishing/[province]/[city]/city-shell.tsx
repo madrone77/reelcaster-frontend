@@ -28,6 +28,7 @@ import {
   type SpeciesOption,
 } from "../../../explore/lib/explore-data";
 import type { FreshCatchesResponse } from "../../../explore/lib/fresh-catch-types";
+import { useFlowLayer } from "../../../explore/lib/use-flow";
 import {
   fetchFreshCatches,
   fetchSpotsOutlook14d,
@@ -69,8 +70,8 @@ export default function CityShell({
   const [sort, setSort] = useState<SortKey>("score");
   const [speciesFilter, setSpeciesFilter] = useState<string | null>(null);
   const [relief, setRelief] = useState(true);
-  const [currents, setCurrents] = useState(false);
-  const [wind, setWind] = useState(false);
+  // Currents and Wind share one piece of state, so only ever one of them draws.
+  const { currents, wind, toggleCurrents, toggleWind } = useFlowLayer();
   const [freshCatches, setFreshCatches] = useState<FreshCatchesResponse | null>(
     null,
   );
@@ -340,8 +341,8 @@ export default function CityShell({
                   currents={currents}
                   wind={wind}
                   onToggleRelief={() => setRelief((v) => !v)}
-                  onToggleCurrents={() => setCurrents((v) => !v)}
-                  onToggleWind={() => setWind((v) => !v)}
+                  onToggleCurrents={toggleCurrents}
+                  onToggleWind={toggleWind}
                   species={species}
                   speciesFilter={speciesFilter}
                   onSpeciesChange={setSpeciesFilter}

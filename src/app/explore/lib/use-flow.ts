@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type { CustomLayerInterface, Map as MlMap } from "maplibre-gl";
 
 // Faithful port of bluecaster's bathy-relief flow engine (app/bathy-relief/
@@ -512,6 +512,36 @@ function startFlow(
   };
 
   return { layer, fetchField };
+}
+
+/**
+ * The one-flow-at-a-time rule, shared by every surface that offers both
+ * controls.
+ *
+ * Currents and Wind used to be two independent booleans per surface, so a map
+ * could run both engines over the same water: two sets of white streaks moving
+ * at different speeds, reading as one field that belongs to neither dataset.
+ * They are one choice, so they get one piece of state. Picking either turns the
+ * other off, and picking the one already running turns it off.
+ */
+export function useFlowLayer(initial: FlowKind | null = null) {
+  const [flow, setFlow] = useState<FlowKind | null>(initial);
+  const toggleCurrents = useCallback(
+    () => setFlow((f) => (f === "currents" ? null : "currents")),
+    [],
+  );
+  const toggleWind = useCallback(
+    () => setFlow((f) => (f === "wind" ? null : "wind")),
+    [],
+  );
+  return {
+    flow,
+    currents: flow === "currents",
+    wind: flow === "wind",
+    toggleCurrents,
+    toggleWind,
+    setFlow,
+  };
 }
 
 /**
