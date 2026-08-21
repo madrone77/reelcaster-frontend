@@ -1,6 +1,7 @@
 import { ImageResponse } from "next/og";
 import { fetchSpotLivePage } from "@/lib/bluecaster";
 import { provinceCodeFromName } from "@/lib/regions";
+import { BRAND, FOOT, INK, MUTED, cardSpeciesName, nameSize } from "@/lib/creative";
 
 // Per-spot social card.
 //
@@ -16,25 +17,8 @@ export const alt = "ReelCaster fishing forecast";
 export const size = { width: 1200, height: 630 };
 export const contentType = "image/png";
 
-const BRAND = "#1F40E0";
-const INK = "#F5F7FF";
-const MUTED = "#A8B4D8";
-const FOOT = "#7C8AB5";
-
-/** Card-length species label, matching the card copy in page.tsx. */
-function cardSpeciesName(name: string): string {
-  return name.replace(/\s+Salmon$/i, "");
-}
-
-/**
- * Long names have to shrink or they wrap into the species row. Measured against
- * the real roster: "Colburne Passage (Moresby Island)" is about the worst case.
- */
-function nameSize(name: string): number {
-  if (name.length > 34) return 58;
-  if (name.length > 22) return 72;
-  return 86;
-}
+// Palette and text-fitting live in @/lib/creative, shared with the paid-ad
+// creative route so the two cannot drift apart.
 
 function Shell({ children }: { children: React.ReactNode }) {
   return (
@@ -159,7 +143,7 @@ export default async function SpotOpengraphImage({
           </div>
           <div
             style={{
-              fontSize: nameSize(name),
+              fontSize: nameSize(name, 86),
               fontWeight: 800,
               lineHeight: 1.04,
               letterSpacing: "-0.03em",
