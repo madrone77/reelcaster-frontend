@@ -46,6 +46,29 @@ export function middleware(req: NextRequest) {
     return NextResponse.redirect(url, 308)
   }
 
+  // Paid traffic on a spot page renders the ad frame at ./ad — same payload,
+  // same components, no navigation out and the trial ask inline. See
+  // src/app/explore/spot/[slug]/ad-mode.ts.
+  //
+  // A rewrite rather than a branch inside the page, because reading
+  // `searchParams` in /explore/spot/[slug]/page.tsx would opt that route out of
+  // static generation for every visitor, organic ones included, and the
+  // prerender is what puts its <title> and canonical in <head> rather than
+  // streaming them into the body.
+  //
+  // The URL the visitor sees is unchanged, which is the point: the ad points at
+  // the real spot page, and the frame is our business rather than something the
+  // reader is made to look at in their address bar.
+  if (
+    pathname.startsWith('/explore/spot/') &&
+    !pathname.endsWith('/ad') &&
+    req.nextUrl.searchParams.has('ad')
+  ) {
+    const url = req.nextUrl.clone()
+    url.pathname = `${pathname.replace(/\/$/, '')}/ad`
+    return NextResponse.rewrite(url)
+  }
+
   const walled = WALLED_PREFIXES.some(
     (p) => pathname === p || pathname.startsWith(p + '/'),
   )

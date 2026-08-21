@@ -80,6 +80,20 @@ export default function MobileBottomNav() {
     return null;
   }
 
+  // The other cold-traffic surface is the ad frame of a spot page
+  // (/explore/spot/<slug>?ad=…), which wants the same silence. It cannot be
+  // detected here: the frame is reached by a middleware REWRITE, so
+  // `usePathname` reports the public spot path, and the query is only
+  // readable through `useSearchParams`, which in a root-layout client
+  // component would opt every statically rendered page on the site into
+  // client-side rendering. That is a real cost paid on every organic visit to
+  // buy a rule that matters on ad clicks alone.
+  //
+  // So the ad frame hides this from the outside instead: it marks its root
+  // `data-ad-frame`, and one rule in globals.css keyed off `data-mobile-nav`
+  // takes the bar out. Same effect, no render-mode change, and the elements
+  // below stay tagged so that rule keeps working if this markup moves.
+
   return (
     <>
       {/* Reserve scroll space so content clears the floating bar — but only on
@@ -90,7 +104,10 @@ export default function MobileBottomNav() {
           strand the header off the top of the screen. Its spot pages
           (/explore/spot/...) are ordinary long documents and keep the space. */}
       {pathname !== "/explore" && (
-        <div className="lg:hidden h-[calc(5.5rem+env(safe-area-inset-bottom))]" />
+        <div
+          data-mobile-nav
+          className="lg:hidden h-[calc(5.5rem+env(safe-area-inset-bottom))]"
+        />
       )}
 
       {/* More sheet + backdrop. */}
@@ -127,6 +144,7 @@ export default function MobileBottomNav() {
       {/* Outer strip is click-through (pointer-events-none) so the transparent
           margins beside the pill don't swallow taps on the content behind. */}
       <nav
+        data-mobile-nav
         aria-label="Primary"
         className="lg:hidden pointer-events-none fixed inset-x-0 bottom-0 z-50 px-4 pb-[calc(0.75rem+env(safe-area-inset-bottom))]"
       >
