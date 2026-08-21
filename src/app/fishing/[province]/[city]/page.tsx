@@ -3,9 +3,11 @@ import { notFound } from "next/navigation";
 import {
   fetchCityGuides,
   fetchCityPage,
+  fetchCityToday,
   fetchHierarchy,
   fetchMapSpots,
 } from "@/lib/bluecaster";
+import { ANON_FORECAST_DAYS } from "@/lib/forecast-horizon";
 import { COVERED_PROVINCES } from "@/lib/regions";
 import { breadcrumbJsonLd, siteUrl } from "@/lib/site";
 import { buildExploreData } from "../../../explore/lib/explore-data";
@@ -13,6 +15,7 @@ import { getFishingCity, getFishingProvince } from "../../lib/fishing-data";
 import MarketingFooter from "@/app/components/marketing/marketing-footer";
 import CityShell from "./city-shell";
 import CityHeader from "./city-header";
+import CityLive from "./city-live";
 import { SpeciesCards } from "./species-cards";
 import {
   BeforeYouGo,
@@ -22,6 +25,7 @@ import {
   SeasonMatrix,
 } from "./city-sections";
 import { licenceFor } from "./city-licence";
+import CityTides from "./city-tides";
 
 // Scores refresh through the day — keep the page fresh-ish without going
 // fully dynamic (the hierarchy behind it is cached 1h regardless).
@@ -114,13 +118,18 @@ export default async function CityPage({
 }) {
   const { province: provinceParam, city: citySlug } = await params;
 
-  const [hierarchy, payload, cityPage, cityGuides] = await Promise.all([
+  const [hierarchy, payload, cityPage, cityGuides, cityToday] = await Promise.all([
     fetchHierarchy(),
     fetchMapSpots({ city: citySlug }),
     fetchCityPage(citySlug),
     // Published species guides for this city. Additive: a city with none
     // renders exactly as it did before.
     fetchCityGuides(citySlug),
+    // At the ANON horizon on purpose. This page is prerendered, so the static
+    // render is always the signed-out state; the band upgrades its forward
+    // line client-side once entitlement resolves. Asking for 14 here would
+    // bake a day 9 answer into HTML served to everyone.
+    fetchCityToday(citySlug, ANON_FORECAST_DAYS).catch(() => null),
   ]);
 
   const province = getFishingProvince(hierarchy, provinceParam);
@@ -246,6 +255,12 @@ export default async function CityPage({
           spotCount={spots.length}
         />
 
+        <CityLive
+          today={cityToday}
+          cityName={city.name}
+          citySlug={citySlug}
+        />
+
         {/* Conclusion first: what is here and whether you may keep it, then
             where it is, then the reference material. */}
         <SpeciesCards
@@ -260,6 +275,15 @@ export default async function CityPage({
           species={data.species}
           date={data.date}
         />
+
+        {cityToday?.tide_station && (
+          <CityTides
+            station={cityToday.tide_station}
+            tz={cityToday.city.tz}
+            date={cityToday.date}
+            cityName={city.name}
+          />
+        )}
 
         <SeasonMatrix rows={seasonRows} cityName={city.name} />
 
