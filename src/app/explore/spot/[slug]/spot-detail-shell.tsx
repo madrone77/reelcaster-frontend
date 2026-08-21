@@ -974,6 +974,7 @@ export default function SpotDetailShell({
               <div className="order-1">
                 <ScoreCard
                   nowTime={nowTime}
+                  nowIsPeak={peakHourNum === nowHour}
                   score={nowScore}
                   peak={peakScore ?? todayScore}
                   peakTime={fmtPeak(peakHourNum)}

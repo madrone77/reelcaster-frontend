@@ -23,6 +23,7 @@ import { regulatorFor } from "@/lib/regions";
  */
 export default function ScoreCard({
   nowTime,
+  nowIsPeak = false,
   score,
   peak,
   peakTime,
@@ -38,6 +39,9 @@ export default function ScoreCard({
 }: {
   /** The current hour with its zone, e.g. "9 PM PDT". */
   nowTime: string;
+  /** Is the live hour the day's peak hour? Then the secondary line would be
+   *  the same number at the same time as the headline, printed twice. */
+  nowIsPeak?: boolean;
   /** Score at the current hour (0–100), null if unavailable. */
   score: number | null;
   /** Today's peak score. The headline number. */
@@ -148,7 +152,7 @@ export default function ScoreCard({
               >
                 {headline != null ? tier.toUpperCase() : "NO SCORE"}
               </span>
-              {leadingWithPeak && score != null && (
+              {leadingWithPeak && score != null && !nowIsPeak && (
                 <p className="font-rc-mono text-xs text-rc-ink-soft">
                   Now {score} · {nowTime}
                 </p>
