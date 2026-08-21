@@ -34,9 +34,16 @@ import type { AdWall } from "../[slug]/ad-mode";
 
 /** What the wall is holding back, in the reader's terms. */
 function pitchFor(wall: AdWall, spotName: string): { head: string; sub: string } {
+  // "All 14 days" rather than "the next 13", on every wall.
+  //
+  // The arithmetic was right — a reader at the `today` wall has day one and is
+  // being sold the thirteen after it — and it read like arithmetic. What they
+  // get is the whole fortnight, which is also what the `day2` wall says, and
+  // one headline across both walls means the wall test measures the WALL
+  // rather than two different promises.
   if (wall === "today") {
     return {
-      head: `See the next 13 days at ${spotName}`,
+      head: `See all 14 days at ${spotName}`,
       sub: "Today is above. The rest of the fortnight, every hour scored, is on the other side of this.",
     };
   }
