@@ -1731,9 +1731,11 @@ export default function ExploreShell({
         relief={relief}
         labels={labels}
         currents={currents}
+        wind={wind}
         onToggleRelief={() => setRelief((v) => !v)}
         onToggleLabels={() => setLabels((v) => !v)}
         onToggleCurrents={toggleCurrents}
+        onToggleWind={toggleWind}
         species={allSpecies}
         speciesFilter={speciesFilter}
         onSpeciesChange={setSpeciesFilter}
