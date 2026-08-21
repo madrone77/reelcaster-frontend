@@ -28,11 +28,27 @@ export default function TideChart({
   // 5% padding top and bottom so peaks/troughs aren't clipped.
   const y = (v: number) => 100 - (((v - min) / span) * 90 + 5);
 
-  const pts = series.map(
-    (v, i) => `${x(i).toFixed(2)},${(v == null ? 50 : y(v)).toFixed(2)}`,
-  );
+  // Missing hours are SKIPPED, not plotted.
+  //
+  // They used to be drawn at y=50, the vertical middle, which is a fabricated
+  // tide height rather than a gap: the curve dipped to mid-range and back for
+  // every hour with no reading. Omitting the point lets the polyline bridge
+  // the gap in a straight line, which is an honest interpolation between the
+  // two real readings on either side. Visible on the city pages, where the
+  // station feed starts six hours before now, so the small hours of today have
+  // no data at all once it is past dawn.
+  const covered = series
+    .map((v, i) => (v == null ? null : { i, v }))
+    .filter((p): p is { i: number; v: number } => p !== null);
+  if (covered.length < 2) return null;
+
+  const pts = covered.map((p) => `${x(p.i).toFixed(2)},${y(p.v).toFixed(2)}`);
   const line = pts.join(" ");
-  const area = `0,100 ${line} 100,100`;
+  // The fill follows the data rather than stretching to the frame, so a
+  // partly-covered day does not imply readings it does not have.
+  const area = `${x(covered[0].i).toFixed(2)},100 ${line} ${x(
+    covered[covered.length - 1].i,
+  ).toFixed(2)},100`;
   const marker = selectedHour != null ? x(selectedHour) : null;
 
   return (
