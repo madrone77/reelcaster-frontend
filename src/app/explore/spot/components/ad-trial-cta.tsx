@@ -45,7 +45,7 @@ function pitchFor(wall: AdWall, spotName: string): { head: string; sub: string }
   if (wall === "today") {
     return {
       head: `See all 14 days at ${spotName}`,
-      sub: "Today is above. The rest of the fortnight, every hour scored, is on the other side of this.",
+      sub: "Today is above. The other thirteen, every hour scored, are on the other side of this.",
     };
   }
   if (wall === "day2") {
@@ -54,7 +54,10 @@ function pitchFor(wall: AdWall, spotName: string): { head: string; sub: string }
       // Not "this weekend": the two open days are today and tomorrow, which on
       // a Tuesday is not a weekend and reads as a page that does not know what
       // day it is.
-      sub: "You have today and tomorrow. Pro has the next fortnight, hour by hour, plus a text when a good window opens.",
+      // Twelve, not thirteen: this wall has already given away two days. The
+      // count in each sub-line is the number that reader has left to buy, so
+      // it has to move with the wall.
+      sub: "You have today and tomorrow. Pro has the other twelve, hour by hour, plus a text when a good window opens.",
     };
   }
   return {
