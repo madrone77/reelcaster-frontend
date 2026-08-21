@@ -633,13 +633,33 @@ export type BlueCasterHierarchyLight = HierarchyTree<HierarchyCityLight>;
 // city landing page renders. 404 (no published city_page yet) → null;
 // the page falls back to generated copy.
 
+/** One species' year in a city, plus what you may keep. */
+export interface BlueCasterCitySeasonRow {
+  species_id: string;
+  species_name: string;
+  species_slug: string;
+  /** Keys "1".."12". `peak` | `excellent` | `good` | `fair` | `poor` | `none`.
+   *  Relative to THIS species' own year, so `peak` means peak for Chinook,
+   *  not that Chinook outfishes Halibut. Compare along a row, never down a
+   *  column. */
+  months: Record<string, string | null>;
+  /** Ensemble of 2 to 3 explanations joined by " | ". Render the first only. */
+  season_notes: string | null;
+  daily_limit: number | null;
+  size_limit_cm: number | null;
+  status: "open" | "non_retention" | "closed" | null;
+}
+
 export interface BlueCasterCityPage {
   page: {
     slug: string;
     hero: { image_url: string | null; image_alt: string | null };
     seo: {
-      title: string;
-      meta_description: string;
+      /** Null when nobody authored one. Guard before using: the page marks
+       *  any value here `absolute`, so rendering a stand-in would replace
+       *  our own derived title rather than compete with it. */
+      title: string | null;
+      meta_description: string | null;
       canonical_url: string | null;
       og_image_url: string | null;
     };
@@ -651,6 +671,10 @@ export interface BlueCasterCityPage {
     province: { name: string; code: string };
     city: { name: string; slug: string; lat: number; lng: number };
   };
+  /** One row per species with a city-level seasonality curve. A species
+   *  nobody has profiled is absent, not present with twelve blank months. */
+  species_table: BlueCasterCitySeasonRow[];
+  regulatory_areas: Array<{ body: string; area_number: string; name: string }>;
 }
 
 export async function fetchCityPage(
@@ -1274,9 +1298,87 @@ export interface BlueCasterCityDailyReport {
     reports_window_days: number;
     outlook_md: string | null;
     outlook_horizon_days: number;
+    /** Distinct posts (by excerpt hash) behind the reports half over the
+     *  window. Zero means there is nothing current to say, which is a reason
+     *  to hide the section rather than to print a stale briefing. Treat it as
+     *  a floor: it truncates at PostgREST's 1,000-row ceiling. */
+    reports_signal_count: number;
     tips: Array<{ text: string }>;
     generated_at: string;
   } | null;
+}
+
+/** Today's verdict for a city. See BlueCaster endpoints/cities.md. */
+export interface BlueCasterCityTodaySpecies {
+  species_id: string;
+  species_name: string;
+  is_target: boolean;
+  /** Post-rescale every healthy day peaks 89 to 92, so this separates
+   *  nothing on its own. Lead with `day_avg` and `good_hours`. */
+  peak: number;
+  peak_hour: number;
+  /** The level: how good the day is on this species' best water. */
+  day_avg: number;
+  /** The width: hours within 5 points of the peak. A COUNT, not a run. */
+  good_hours: number;
+  /** The contiguous run around the peak. Use this for clock times: a species
+   *  can hold good hours split across a dawn bite and an evening one. */
+  window: { start_hour: number; end_hour: number } | null;
+  leading_spot: { id: string; name: string; slug: string } | null;
+}
+
+export interface BlueCasterCityToday {
+  city: { slug: string; name: string; tz: string };
+  date: string;
+  /** The station most of the city's spots read. Name it on screen: a city has
+   *  no gauge of its own and for an outlying city this is a real distance
+   *  away (Cowichan reads Victoria Harbour). */
+  tide_station: {
+    sid: string;
+    source: "chs" | "noaa";
+    name: string;
+    lat: number;
+    lng: number;
+  } | null;
+  /** `scored_spots` can be lower than `member_spots`. Show the denominator:
+   *  "best in the city" across a third of it overclaims. */
+  coverage: { scored_spots: number; member_spots: number };
+  verdict: "excellent" | "good" | "fair" | "slow" | null;
+  /** The city's top-ranked roster target, NOT its highest scorer. Ranking by
+   *  score surfaces the flattest species: crab and bottomfish hold a wide
+   *  all-day plateau while salmon spike around the exchange. */
+  headline: BlueCasterCityTodaySpecies | null;
+  species: BlueCasterCityTodaySpecies[];
+  ahead: {
+    horizon_days: number;
+    best: {
+      date: string;
+      days_out: number;
+      species_name: string;
+      day_avg: number;
+      good_hours: number;
+    } | null;
+  };
+}
+
+/**
+ * Today's verdict band.
+ *
+ * `days` is the CALLER's forecast entitlement and must be passed: `ahead.best`
+ * is a forward summary, so leaving it at the upstream default of 14 hands a
+ * signed-out reader the identity of a day 9 whose cell the strip draws locked.
+ */
+export async function fetchCityToday(
+  citySlug: string,
+  visibleDays: number,
+): Promise<BlueCasterCityToday | null> {
+  return bcGet<BlueCasterCityToday>(
+    `/api/v1/cities/${encodeURIComponent(citySlug)}/today?days=${visibleDays}`,
+    {},
+    // Scores move through the day; a verdict band is the one thing here that
+    // should not be an hour stale.
+    300,
+  );
 }
 
 export async function fetchCityDailyReport(
@@ -1353,6 +1455,14 @@ export interface BlueCasterGuideLink {
   /** "Jul-Aug", or null when the curve has no distinct peak. */
   peak_label: string | null;
   method_count: number;
+  /** Today's legality folded across the city. `mixed` is the common case:
+   *  Vancouver Chinook is open at 3 of its 31 spots, so always render
+   *  `open_spot_count` beside the word. */
+  headline_state: "retention_open" | "release_only" | "closed" | "mixed" | null;
+  /** Published spots where you may keep one today. */
+  open_spot_count: number;
+  /** Set when shut everywhere today but opening later in the season. */
+  next_open_date: string | null;
 }
 
 export interface BlueCasterCityGuides {
