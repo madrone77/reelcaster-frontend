@@ -43,6 +43,7 @@ export default function MobileMapSheet({
   onScrubHour,
   onSelectDay,
   signedIn,
+  onLockedAdDay,
   freshCatches,
 }: {
   spots: RailSpot[];
@@ -56,6 +57,9 @@ export default function MobileMapSheet({
   onScrubHour: (h: number) => void;
   onSelectDay: (day: ForecastDay) => void;
   signedIn: boolean;
+  /** Ad frame: focus the offer already on the page instead of opening a
+   *  dialog. Passed straight through to the sheet's forecast rows. */
+  onLockedAdDay?: () => void;
   /** Scraped catch reports keyed by spot id — the same payload the desktop
    *  rail joins on, so a spot wears the same badge on both surfaces. Already
    *  Pro-gated by the route: a free viewer's entries carry `locked: true`. */
@@ -379,6 +383,7 @@ export default function MobileMapSheet({
                 onScrubHour={onScrubHour}
                 onSelectDay={onSelectDay}
                 signedIn={signedIn}
+                onLockedAdDay={onLockedAdDay}
               />
             </div>
           </>,

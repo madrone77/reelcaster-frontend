@@ -32,6 +32,7 @@ export default function ForecastStrip({
   hidden,
   onHide,
   onShow,
+  onLockedAdDay,
 }: {
   model: ForecastStripModel | null;
   speciesName: string | null;
@@ -46,6 +47,17 @@ export default function ForecastStrip({
   onScrubHour: (h: number) => void;
   /** Signed-out visitors get the sign-up dialog on locked days instead of pricing. */
   signedIn: boolean;
+  /**
+   * The ad frame's handler for a locked day: focus the one offer already on
+   * the page instead of opening a dialog.
+   *
+   * Set only on `/explore?ad=…`. A modal there would be a SECOND way to buy,
+   * attributed to a different `from` than the bar under the map, which is
+   * exactly the comparison a wall test is trying to make. It also drops the
+   * plan name from the tiles, because "Sign up free" beside a form asking for
+   * a card is a cheaper offer winning by being cheaper.
+   */
+  onLockedAdDay?: () => void;
   /** Whole-strip hide/show. */
   hidden?: boolean;
   onHide?: () => void;
@@ -60,6 +72,10 @@ export default function ForecastStrip({
 
   const handleDay = (day: ForecastDay) => {
     if (day.locked) {
+      if (onLockedAdDay) {
+        onLockedAdDay();
+        return;
+      }
       setLockTier(day.lockTier ?? "pro");
       setUpgradeOpen(true);
       return;
@@ -73,7 +89,11 @@ export default function ForecastStrip({
       <button
         type="button"
         onClick={onShow}
-        className="hidden lg:flex fixed bottom-4 left-6 z-30 items-center gap-2 px-3 py-2 rounded bg-rc-panel/88 backdrop-blur-md border border-rc-rule shadow-rc-panel hover:border-rc-ink-mute transition-colors"
+        /* Clears whatever is pinned to the bottom of the viewport. That is
+           nothing on the product, where the variable is 0 on desktop, and the
+           ad frame's bar when one is on screen. */
+        style={{ bottom: "calc(1rem + var(--rc-tabbar-clearance))" }}
+        className="hidden lg:flex fixed left-6 z-30 items-center gap-2 px-3 py-2 rounded bg-rc-panel/88 backdrop-blur-md border border-rc-rule shadow-rc-panel hover:border-rc-ink-mute transition-colors"
       >
         <CloudSun className="w-4 h-4 text-rc-ink-mute" />
         <span className="rc-label text-[9px]">14-Day Forecast</span>
@@ -84,7 +104,14 @@ export default function ForecastStrip({
 
   return (
     <>
-      <div className="hidden lg:flex flex-col h-[128px] fixed inset-x-0 bottom-0 z-30 bg-rc-panel/88 backdrop-blur-md border-t border-rc-rule shadow-rc-bar px-6 py-2.5">
+      {/* Pinned to the viewport, so it needs the same bottom clearance every
+          other pinned thing takes: 0 on desktop normally, the ad frame's bar
+          when there is one. Without it the strip's day cells render underneath
+          that bar. */}
+      <div
+        style={{ bottom: "var(--rc-tabbar-clearance)" }}
+        className="hidden lg:flex flex-col h-[128px] fixed inset-x-0 z-30 bg-rc-panel/88 backdrop-blur-md border-t border-rc-rule shadow-rc-bar px-6 py-2.5"
+      >
         {/* Header — single compact row */}
         <div className="flex items-center justify-between gap-4 mb-2 shrink-0">
           <div className="flex items-center gap-3 min-w-0">
@@ -154,6 +181,7 @@ export default function ForecastStrip({
               }
               return (
                 <DayCell
+                  neutralLock={!!onLockedAdDay}
                   key={day.index}
                   day={day}
                   selected={isSel}
@@ -183,12 +211,24 @@ export function MobileForecastStrip({
   selectedIso,
   onSelectDay,
   signedIn,
+  onLockedAdDay,
 }: {
   model: ForecastStripModel | null;
   selectedIso: string;
   onSelectDay: (day: ForecastDay) => void;
   /** Signed-out visitors get the sign-up dialog on locked days instead of pricing. */
   signedIn: boolean;
+  /**
+   * The ad frame's handler for a locked day: focus the one offer already on
+   * the page instead of opening a dialog.
+   *
+   * Set only on `/explore?ad=…`. A modal there would be a SECOND way to buy,
+   * attributed to a different `from` than the bar under the map, which is
+   * exactly the comparison a wall test is trying to make. It also drops the
+   * plan name from the tiles, because "Sign up free" beside a form asking for
+   * a card is a cheaper offer winning by being cheaper.
+   */
+  onLockedAdDay?: () => void;
 }) {
   const [upgradeOpen, setUpgradeOpen] = useState(false);
   // Which plan the tapped day needs. A "Sign up free" day (3-7) sells the
@@ -199,6 +239,10 @@ export function MobileForecastStrip({
 
   const handleDay = (day: ForecastDay) => {
     if (day.locked) {
+      if (onLockedAdDay) {
+        onLockedAdDay();
+        return;
+      }
       setLockTier(day.lockTier ?? "pro");
       setUpgradeOpen(true);
       return;
@@ -212,6 +256,7 @@ export function MobileForecastStrip({
         {model.days.map((day) => (
           <div key={day.index} className="w-14 shrink-0">
             <DayCell
+              neutralLock={!!onLockedAdDay}
               day={day}
               selected={day.iso === selectedIso}
               onSelect={() => handleDay(day)}

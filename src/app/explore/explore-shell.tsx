@@ -43,6 +43,12 @@ import { useFlowLayer } from "./lib/use-flow";
 import { readExploreView, writeExploreView, type ExploreView } from "./lib/view-memory";
 import { MAP_INSET_ATTR, mapInsetOffsetY, sheetSafeCenter } from "./lib/sheet-safe-center";
 import ExploreTopBar from "./components/explore-top-bar";
+import ExploreAdBar, { ANCHOR_ID as AD_ANCHOR } from "./components/explore-ad-bar";
+import {
+  useCampaignHit,
+  type CampaignTarget,
+} from "@/app/lp/_shared/lp-telemetry";
+import type { AdWall } from "./spot/[slug]/ad-mode";
 import { BLEED_MEASURE } from "@/app/components/layout/page-measure";
 import ExploreMap, { type StationPick, type CustomSpotPin } from "./components/explore-map";
 
@@ -131,6 +137,7 @@ export default function ExploreShell({
   initialSpot,
   initialForecast,
   initialForecastBbox,
+  ad = null,
 }: {
   data: ExploreData;
   bbox: string;
@@ -157,6 +164,14 @@ export default function ExploreShell({
   initialForecast?: MapForecast14dPayload | null;
   /** The box `initialForecast` covers; matches the shell's own mount-time seed. */
   initialForecastBbox?: string | null;
+  /**
+   * Set when this render is the destination of a paid ad (`?ad=<wall>`).
+   *
+   * Null is the product, and every branch below is `ad && …` or `!ad && …`,
+   * so the map renders exactly what it rendered before this prop existed. Same
+   * split rule the spot page's ad frame uses.
+   */
+  ad?: { wall: AdWall; angle: string; chargeDate: string } | null;
 }) {
   const mapRef = useRef<MapRef>(null);
   const router = useRouter();
@@ -170,12 +185,25 @@ export default function ExploreShell({
   // `false`, so a Pro account would render as "free" and lock days 8–14 behind
   // an upgrade CTA. The strip renders the days it is sure of and marks the rest
   // pending until the tier lands — see the `stripModel` memo.
-  const accessTier: ForecastTier = isPaid ? "pro" : user ? "free" : "anonymous";
+  // A signed-in viewer keeps the tier they paid for, ad link or not: nobody is
+  // shown less than their account entitles them to because they clicked their
+  // own ad. The wall applies to cold traffic, which is what an ad buys.
+  const accessTier: ForecastTier = isPaid
+    ? "pro"
+    : user
+      ? "free"
+      : ad
+        ? ad.wall === "today"
+          ? "today"
+          : "anonymous"
+        : "anonymous";
   // Where the phone's map starts. A Pro viewer has no top bar, so the map and
   // the floating location pill both begin at the screen edge; everyone else
   // begins under the 64px bar. One value, so the two cannot drift apart, and
   // every pill measured from the map box keeps its offset at either tier.
-  const mobileTop = isPaid ? "top-0" : "top-16";
+  // The ad frame drops the top bar for everyone, so its map starts at the
+  // screen edge exactly as a Pro viewer's does.
+  const mobileTop = isPaid || ad ? "top-0" : "top-16";
   const { citySlug, spotSlug, day, stn, setQuery } = useExploreState();
 
   // ── Return-trip memory ──────────────────────────────────────────────────
@@ -743,6 +771,43 @@ export default function ExploreShell({
   }, [data.locations, viewCenter, viewBounds, displaySpots]);
 
   const labelCity = nearestCity ?? selectedCity;
+
+  // ── Ad frame bookkeeping ─────────────────────────────────────────────────
+  //
+  // `target_city` is the city the SERVER framed, not wherever the map has been
+  // panned to since: it is the city the ad chose, and it is fixed for the
+  // visit. The hit fires once per tab at mount, when the two are the same
+  // anyway; taking it from the live camera would make a report about targeting
+  // into a report about browsing.
+  const adTarget: CampaignTarget | null = ad
+    ? {
+        landing: "explore",
+        target_city: initialCitySlug ?? data.defaultCitySlug ?? "",
+        target_spot: "",
+        wall: ad.wall,
+        angle: ad.angle,
+      }
+    : null;
+  useCampaignHit(adTarget);
+
+  // Currency follows the framed city too, for the same reason: a Seattle ad
+  // bills in USD even if the reader has panned across the border by the time
+  // they reach for the button.
+  const adRegion = selectedCity?.provinceCode ?? "";
+
+  // What a locked day does on the ad frame. The bar is fixed and already on
+  // screen, so there is nothing to scroll to: put the cursor in the field.
+  // Only defined under `ad`, and it is that undefined-ness that every locked
+  // surface checks to decide between "one offer" and the product's dialogs.
+  const focusAdOffer = ad
+    ? () => {
+        const el = document.getElementById(AD_ANCHOR)?.querySelector("input");
+        if (el instanceof HTMLInputElement) {
+          el.focus();
+          el.scrollIntoView({ block: "nearest" });
+        }
+      }
+    : undefined;
 
   // Per-species best scores across the spots in view (and for the viewed
   // date) so the filter chips reflect the water the user is looking at.
@@ -1487,7 +1552,19 @@ export default function ExploreShell({
     // scrolls. This height + clip used to come from ExploreLayout, but that
     // layout is shared with the spot page, which is a long document — so the
     // surface that wants the lock owns it.
-    <div className="relative h-[calc(100dvh-3.5rem)] lg:h-dvh lg:min-h-0 overflow-hidden">
+    <div
+      /* The ad frame shortens the map's box by exactly the bar's height so the
+         bar never overlays water. On a phone the 3.5rem it replaces was the
+         app's tab bar, which the frame hides (see globals.css). */
+      className={`relative overflow-hidden lg:min-h-0 ${
+        ad
+          ? "h-[calc(100dvh_-_var(--rc-ad-bar-h))]"
+          : "h-[calc(100dvh-3.5rem)] lg:h-dvh"
+      }`}
+      /* Marks this render as the ad frame for the one piece of chrome outside
+         this tree: the mobile tab bar in the root layout. */
+      data-ad-frame={ad ? "" : undefined}
+    >
       {/* Hidden on a phone for Pro, and only for Pro. A phone gives the map
           about 500px of height, and 64px of that going to a bar carrying a
           logo and one avatar is the worst trade on the screen: the bottom tab
@@ -1502,9 +1579,14 @@ export default function ExploreShell({
           `isPaid` is false until the tier resolves, so the bar paints first
           and clears a beat later for a Pro viewer. That is the right way
           round: the viewers this bar now exists for get it immediately. */}
-      <div className={isPaid ? "hidden lg:block" : undefined}>
-        <ExploreTopBar containerClassName={BLEED_MEASURE} upgradeCta={!isPaid} />
-      </div>
+      {/* The ad frame has no top bar at any width. Every link in it is a way
+          off a page that cost money to land on, the offer it would carry is
+          already pinned under the map, and the mark rides in that bar. */}
+      {!ad && (
+        <div className={isPaid ? "hidden lg:block" : undefined}>
+          <ExploreTopBar containerClassName={BLEED_MEASURE} upgradeCta={!isPaid} />
+        </div>
+      )}
 
       {/* Mobile-only location header — floats over the top of the full-screen
           map (Zillow-style), on the map's own top edge when there is no bar and
@@ -1557,7 +1639,14 @@ export default function ExploreShell({
       {/* The single map instance — full-screen on every breakpoint. Mobile
           floats the location header + a pull-up spot sheet over it; desktop
           keeps the rail + docked forecast strip. */}
-      <div className={`absolute inset-x-0 ${mobileTop} lg:top-16 bottom-0`}>
+      {/* `lg:top-16` is the desktop top bar's band. The ad frame has no top bar
+          at any width, so leaving the offset in place left an empty grey strip
+          across the top of a desktop window with nothing in it. */}
+      <div
+        className={`absolute inset-x-0 bottom-0 ${mobileTop} ${
+          ad ? "lg:top-0" : "lg:top-16"
+        }`}
+      >
         <ExploreMap
           mapRef={mapRef}
           spots={uniqueSpots}
@@ -1649,6 +1738,7 @@ export default function ExploreShell({
         onScrubHour={setScrubHour}
         onSelectDay={handleSelectDay}
         signedIn={!!user}
+        onLockedAdDay={focusAdOffer}
         freshCatches={freshCatches}
       />
 
@@ -1718,6 +1808,7 @@ export default function ExploreShell({
         scrubHour={scrubHour}
         onScrubHour={setScrubHour}
         signedIn={!!user}
+        onLockedAdDay={focusAdOffer}
         hidden={stripHidden}
         onHide={() => setStripHidden(true)}
         onShow={() => setStripHidden(false)}
@@ -1782,6 +1873,27 @@ export default function ExploreShell({
         feature="custom-spots"
         from="explore-map"
       />
+      )}
+
+      {/* Rendered for cold traffic and hidden once the tier resolves to Pro.
+          Not held until it resolves, unlike the upgrade CTAs: the ask IS the
+          page here, `useSubscription` has been seen taking seconds, and a paid
+          click that lands on a page with no visible offer is the whole ad
+          wasted. Ad traffic is signed out by definition, so the flash costs
+          almost nobody anything. */}
+      {ad && adTarget && !isPaid && (
+        <ExploreAdBar
+          wall={ad.wall}
+          region={adRegion}
+          chargeDate={ad.chargeDate}
+          /* The city the ad FRAMED, not the one nearest the camera. `labelCity`
+             follows the map, so a Victoria ad whose reader has not touched
+             anything still ended up saying "every spot in Friday Harbor" once
+             the wide view settled. The counter already reports the framed
+             city; the copy has to agree with it. */
+          cityName={selectedCity?.name ?? null}
+          dims={adTarget}
+        />
       )}
     </div>
   );

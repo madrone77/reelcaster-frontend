@@ -29,6 +29,7 @@ export default function SheetForecast({
   onScrubHour,
   onSelectDay,
   signedIn,
+  onLockedAdDay,
 }: {
   model: ForecastStripModel | null;
   selectedIso: string;
@@ -37,6 +38,9 @@ export default function SheetForecast({
   onScrubHour: (h: number) => void;
   onSelectDay: (day: ForecastDay) => void;
   signedIn: boolean;
+  /** Ad frame: focus the one offer already on the page rather than opening a
+   *  second way to buy. See ForecastStrip for the full note. */
+  onLockedAdDay?: () => void;
 }) {
   const [upgradeOpen, setUpgradeOpen] = useState(false);
   // Which plan the tapped day needs. A "Sign up free" day (3-7) sells the
@@ -64,6 +68,10 @@ export default function SheetForecast({
 
   const handleDay = (day: ForecastDay) => {
     if (day.locked) {
+      if (onLockedAdDay) {
+        onLockedAdDay();
+        return;
+      }
       setLockTier(day.lockTier ?? "pro");
       setUpgradeOpen(true);
       return;
@@ -124,6 +132,7 @@ export default function SheetForecast({
                 </div>
               ) : (
                 <DayRow
+                  neutralLock={!!onLockedAdDay}
                   day={day}
                   selected={isSel}
                   onSelect={() => handleDay(day)}
