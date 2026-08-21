@@ -882,7 +882,7 @@ export default function SpotDetailShell({
             <div className="flex items-baseline justify-between gap-3 mb-3">
               <div className="rc-label text-[9px]">14-Day Forecast</div>
               <span className="font-rc-mono text-[10px] text-rc-ink-mute italic shrink-0">
-                confidence fades past day 7 · ECMWF + GFS
+                Data from: ECMWF + GFS + BlueCaster
               </span>
             </div>
             <div className="relative">
