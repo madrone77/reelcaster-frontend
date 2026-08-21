@@ -20,12 +20,10 @@ import { useEffect, useState } from "react";
 import type { StationConditions } from "@/lib/bluecaster/station-types";
 import { fetchStationConditions } from "@/lib/bluecaster-client";
 import { formatHour12 } from "@/lib/time-format";
+import TideChart from "@/app/explore/spot/components/tide-chart";
+import { useUnitPreferences } from "@/contexts/unit-preferences-context";
+import { convertHeight, formatHeight } from "@/app/utils/unit-conversions";
 import { SectionHeading } from "./[species]/guide-sections";
-
-/** Metres to feet. BC and Washington anglers read tides in feet. */
-function feet(m: number): string {
-  return `${(m * 3.28084).toFixed(1)} ft`;
-}
 
 function localHourMinute(iso: string, tz: string): string {
   const parts = new Intl.DateTimeFormat("en-US", {
@@ -47,6 +45,37 @@ function localDate(iso: string, tz: string): string {
   return new Intl.DateTimeFormat("en-CA", { timeZone: tz }).format(new Date(iso));
 }
 
+function localHour(iso: string, tz: string): number {
+  return Number(
+    new Intl.DateTimeFormat("en-US", {
+      timeZone: tz,
+      hour: "numeric",
+      hour12: false,
+    }).format(new Date(iso)),
+  );
+}
+
+/**
+ * The station series, windowed to one local day as 24 hourly heights.
+ *
+ * The feed runs from six hours back to thirty ahead, so it covers parts of
+ * three local days and cannot be plotted as-is. `TideChart` wants exactly 24
+ * slots indexed by local hour and bridges the nulls itself, which is also how
+ * the spot page feeds it, so both pages draw the same curve the same way.
+ */
+function dayCurve(
+  series: StationConditions["series"],
+  tz: string,
+  date: string,
+): (number | null)[] {
+  const hours: (number | null)[] = new Array(24).fill(null);
+  for (const point of series) {
+    if (localDate(point.time_utc, tz) !== date) continue;
+    hours[localHour(point.time_utc, tz)] = point.height_m;
+  }
+  return hours;
+}
+
 export default function CityTides({
   station,
   tz,
@@ -60,6 +89,12 @@ export default function CityTides({
   cityName: string;
 }) {
   const [data, setData] = useState<StationConditions | null>(null);
+  // The same preference the chart reads, so the curve's own label and the
+  // tiles beside it can never disagree. Hard-coding feet here put "1.5 m to
+  // 4.0 m" on the chart and "4.8 ft" in the tile underneath it.
+  const { tideUnit } = useUnitPreferences();
+  const height = (m: number) =>
+    formatHeight(convertHeight(m, "m", tideUnit), tideUnit);
 
   useEffect(() => {
     if (!station) return;
@@ -81,6 +116,12 @@ export default function CityTides({
   const todays = data.extremes.filter((e) => localDate(e.time_utc, tz) === date);
   if (!todays.length) return null;
 
+  const curve = dayCurve(data.series, tz, date);
+  // The chart needs two real points to draw a line; the tiles stand alone if
+  // the day is only partly covered.
+  const hasCurve = curve.filter((v) => v != null).length >= 2;
+  const nowHour = data.now ? localHour(data.now.time_utc, tz) : null;
+
   return (
     <section className="space-y-3">
       <SectionHeading id="tides">Tides in {cityName} today</SectionHeading>
@@ -92,10 +133,16 @@ export default function CityTides({
           </div>
           {data.now && (
             <div className="font-rc-mono text-[11px] text-rc-ink-soft">
-              Now {feet(data.now.height_m)}
+              Now {height(data.now.height_m)}
             </div>
           )}
         </div>
+
+        {hasCurve && (
+          <div className="mt-3">
+            <TideChart series={curve} selectedHour={nowHour} />
+          </div>
+        )}
 
         <ul className="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-3">
           {todays.map((e) => (
@@ -110,7 +157,7 @@ export default function CityTides({
                 {localHourMinute(e.time_utc, tz)}
               </div>
               <div className="font-rc-mono text-[11px] text-rc-ink-soft">
-                {feet(e.height_m)}
+                {height(e.height_m)}
               </div>
             </li>
           ))}

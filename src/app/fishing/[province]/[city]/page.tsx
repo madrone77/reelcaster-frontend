@@ -12,7 +12,6 @@ import { COVERED_PROVINCES } from "@/lib/regions";
 import { breadcrumbJsonLd, siteUrl } from "@/lib/site";
 import { buildExploreData } from "../../../explore/lib/explore-data";
 import { getFishingCity, getFishingProvince } from "../../lib/fishing-data";
-import MarketingFooter from "@/app/components/marketing/marketing-footer";
 import CityShell from "./city-shell";
 import CityHeader from "./city-header";
 import CityLive from "./city-live";
@@ -306,8 +305,6 @@ export default async function CityPage({
 
         <NearbyCities cities={nearby} provincePath={provincePath} />
       </div>
-
-      <MarketingFooter />
     </>
   );
 }
