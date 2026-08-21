@@ -347,7 +347,7 @@ function TailCell({
             : undefined
         }
         disabled={!onUnlock}
-        aria-label="Upgrade to see the rest of the fortnight"
+        aria-label="Upgrade to see the rest of the 14 days"
         className={`${shell} enabled:hover:border-rc-brand`}
       >
         {body}

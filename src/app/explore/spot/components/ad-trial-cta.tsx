@@ -34,7 +34,17 @@ import type { AdWall } from "../[slug]/ad-mode";
  */
 
 /** What the wall is holding back, in the reader's terms. */
-function pitchFor(wall: AdWall, spotName: string): { head: string; sub: string } {
+function pitchFor(
+  wall: AdWall,
+  spotName: string,
+  cityName: string | null,
+): { head: string; sub: string } {
+  // "every other spot in Victoria and beyond" only works when we know the
+  // city. A custom spot, or one whose city is not published, has no name to
+  // put there, and "in null and beyond" is worse than the shorter sentence.
+  const beyond = cityName
+    ? `every other spot in ${cityName} and beyond`
+    : "every other spot we track";
   // "All 14 days" rather than "the next 13", on every wall.
   //
   // The arithmetic was right — a reader at the `today` wall has day one and is
@@ -45,7 +55,7 @@ function pitchFor(wall: AdWall, spotName: string): { head: string; sub: string }
   if (wall === "today") {
     return {
       head: `See all 14 days at ${spotName}`,
-      sub: "Today is above. The rest of the fortnight, every hour scored, is on the other side of this.",
+      sub: `Today is above. Sign up to see all 14 here and ${beyond}.`,
     };
   }
   if (wall === "day2") {
@@ -54,7 +64,10 @@ function pitchFor(wall: AdWall, spotName: string): { head: string; sub: string }
       // Not "this weekend": the two open days are today and tomorrow, which on
       // a Tuesday is not a weekend and reads as a page that does not know what
       // day it is.
-      sub: "You have today and tomorrow. Pro has the next fortnight, hour by hour, plus a text when a good window opens.",
+      // Twelve, not thirteen: this wall has already given away two days. The
+      // count in each sub-line is the number that reader has left to buy, so
+      // it has to move with the wall.
+      sub: "You have today and tomorrow. Pro has the other twelve, hour by hour, plus a text when a good window opens.",
     };
   }
   return {
@@ -88,25 +101,38 @@ function pitchFor(wall: AdWall, spotName: string): { head: string; sub: string }
  */
 function SourceRow({ provinceCode }: { provinceCode: string }) {
   const region = lpRegionFor(provinceCode);
-  const tides = region.tideAuthority;
-  const regs = region.regulator.name;
+
+  // One line each, because they are three separate claims about three
+  // different agencies and a single run-on row read as one long credit that
+  // the eye skips. A reader checking whether we use their tide authority
+  // should find that in its own line rather than in the middle of a sentence.
+  const sources = [
+    `Tides and currents from ${region.tideAuthority}`,
+    `Regulations from ${region.regulator.name}`,
+    "Weather from ECMWF and GFS",
+  ];
 
   return (
-    /* items-start, not items-center: the text wraps to three lines on a phone
-       and a flag floating in the middle of them reads as a bullet in the wrong
-       place. Pinned to the first line it reads as what it is, a marker on the
-       front of the row. */
-    <p className="mt-4 flex items-start gap-2 font-rc-mono text-[10px] uppercase tracking-[0.07em] text-rc-ink-mute">
+    <div className="flex items-start gap-2.5">
       {region.isUS && (
-        <span className="mt-[1px] shrink-0 grayscale opacity-70">
-          <LpFlagUs size={12} />
+        /* Sized to stand beside the list rather than sit inside a line of
+           type: at 12px it read as punctuation. mt-[2px] lands its top edge on
+           the first bullet's cap height. */
+        <span className="mt-[2px] shrink-0 grayscale opacity-75">
+          <LpFlagUs size={20} />
         </span>
       )}
-      <span>
-        Tides and currents from {tides} · Regulations from {regs} · Weather from
-        ECMWF and GFS
-      </span>
-    </p>
+      <ul className="space-y-1 font-rc-mono text-[10px] uppercase tracking-[0.07em] text-rc-ink-mute">
+        {sources.map((line) => (
+          <li key={line} className="flex gap-1.5">
+            <span aria-hidden className="text-rc-ink-mute/60">
+              ·
+            </span>
+            <span>{line}</span>
+          </li>
+        ))}
+      </ul>
+    </div>
   );
 }
 
@@ -157,6 +183,7 @@ function Testimonial() {
 
 export default function AdTrialCta({
   spotName,
+  cityName,
   region,
   chargeDate,
   wall,
@@ -166,6 +193,9 @@ export default function AdTrialCta({
   withProof = false,
 }: {
   spotName: string;
+  /** The city this spot belongs to, for the "and every other spot in X" line.
+   *  Null for a custom spot or one whose city is not published. */
+  cityName: string | null;
   /** Billing region, e.g. "WA". Decides the currency: BC bills CAD, WA USD.
    *  Empty is allowed; the route falls back to edge geo. */
   region: string;
@@ -188,7 +218,7 @@ export default function AdTrialCta({
    */
   withProof?: boolean;
 }) {
-  const { head, sub } = pitchFor(wall, spotName);
+  const { head, sub } = pitchFor(wall, spotName, cityName);
   const { email, setEmail, submitting, error, submit, from } = useAdCheckout({
     wall,
     region,
@@ -196,19 +226,26 @@ export default function AdTrialCta({
     dims,
   });
 
-  return (
-    <section className="rounded-lg border border-rc-brand/30 bg-rc-brand-soft/40 p-5 lg:p-6">
+  const ask = (
+    <>
       <h2 className="rc-title-lg text-xl lg:text-2xl">{head}</h2>
-      <p className="rc-body text-sm text-rc-ink-soft mt-2 max-w-[52ch]">{sub}</p>
+      {/* 52ch is the reading measure for a phone. In the desktop column it
+          was breaking a two-clause sentence after the word "in", which reads
+          as a layout accident rather than a line break. The column is already
+          bounded by the grid, so it can have the whole of it. */}
+      <p className="rc-body text-sm text-rc-ink-soft mt-2 max-w-[52ch] lg:max-w-none">
+        {sub}
+      </p>
 
-      <form className="mt-5 max-w-[34rem]" onSubmit={submit}>
-        <label
-          className="rc-label text-[9px] block mb-1.5"
-          htmlFor={inputId}
-        >
+      <form className="mt-5" onSubmit={submit}>
+        <label className="rc-label text-[9px] block mb-1.5" htmlFor={inputId}>
           Your email
         </label>
-        <div className="flex flex-col sm:flex-row gap-2">
+        {/* Capped: an email field is a short input, and 734px of it inside a
+            desktop column looks like a mistake rather than a generous target.
+            The disclosure under it keeps the full column width, since that is
+            a sentence and wants the room. */}
+        <div className="flex flex-col sm:flex-row gap-2 lg:max-w-[32rem]">
           <input
             id={inputId}
             className="flex-1 min-w-0 rounded border border-rc-rule bg-rc-panel px-3 py-3 text-[15px] text-rc-ink placeholder:text-rc-ink-mute focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-rc-brand"
@@ -239,9 +276,6 @@ export default function AdTrialCta({
           account needed, we make one from this email.
         </p>
 
-        {withProof && <SourceRow provinceCode={region} />}
-        {withProof && <Testimonial />}
-
         {error ? (
           <p className="text-[13px] text-rc-poor-ink mt-2" role="alert">
             {error}{" "}
@@ -251,6 +285,40 @@ export default function AdTrialCta({
           </p>
         ) : null}
       </form>
+    </>
+  );
+
+  return (
+    /**
+     * Two columns from lg, and the reason is what the one column was doing at
+     * that width: a phone layout held at a 34rem measure inside a 1345px card,
+     * with the whole right half empty and the sub-line wrapping after three
+     * words because it had nowhere to go. A card that wide has to either use
+     * the space or stop being that wide.
+     *
+     * It uses it. The ask on the left, the proof beside it on the right, so a
+     * reader deciding whether to type an email can see who supplies the data
+     * and what a customer said without scrolling past the button. Below lg it
+     * stacks in the same order it always did: ask, sources, quote.
+     *
+     * The proof column is capped rather than fluid — a 400px quote is a
+     * paragraph, an 800px one is a wall — and the ask column takes whatever is
+     * left.
+     */
+    <section className="rounded-lg border border-rc-brand/30 bg-rc-brand-soft/40 p-5 lg:p-6">
+      {withProof ? (
+        <div className="lg:grid lg:grid-cols-[minmax(0,1fr)_minmax(0,21rem)] lg:gap-8 lg:items-start">
+          <div>{ask}</div>
+          <div className="mt-6 lg:mt-0">
+            <SourceRow provinceCode={region} />
+            <Testimonial />
+          </div>
+        </div>
+      ) : (
+        /* The closing copy of the form carries no proof, so it has one column
+           and a reading measure rather than a stretched one. */
+        <div className="max-w-[42rem]">{ask}</div>
+      )}
     </section>
   );
 }

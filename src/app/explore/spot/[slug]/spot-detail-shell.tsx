@@ -710,6 +710,7 @@ export default function SpotDetailShell({
     ad && adTarget && !isPaid ? (
       <AdTrialCta
         spotName={spot.name}
+        cityName={cityLink?.cityName ?? spot.city ?? null}
         region={adRegion}
         chargeDate={ad.chargeDate}
         wall={ad.wall}
