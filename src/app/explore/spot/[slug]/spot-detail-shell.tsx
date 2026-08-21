@@ -716,6 +716,7 @@ export default function SpotDetailShell({
         cta={cta}
         inputId={`ad-email-${cta}`}
         dims={adTarget}
+        withProof={cta === "hero"}
       />
     ) : null;
 

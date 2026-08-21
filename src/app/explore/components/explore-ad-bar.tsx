@@ -42,7 +42,7 @@ function pitchFor(
   if (wall === "today") {
     return {
       short: "Today is free",
-      full: `Today is on the map. See the next 13 days at every spot in ${where}.`,
+      full: `Today is on the map. See all 14 days at every spot in ${where}.`,
     };
   }
   if (wall === "day2") {

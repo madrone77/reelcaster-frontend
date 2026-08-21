@@ -1,6 +1,9 @@
 "use client";
 
-import { PRICE } from "@/app/lp/_shared/lp-content";
+import { Star } from "lucide-react";
+import { PRICE, PROOF } from "@/app/lp/_shared/lp-content";
+import { lpRegionFor } from "@/app/lp/_shared/lp-region";
+import LpFlagUs from "@/app/lp/_shared/lp-flag";
 import type { CampaignTarget, LpCtaId } from "@/app/lp/_shared/lp-telemetry";
 import { useAdCheckout } from "@/app/components/paywall/use-ad-checkout";
 import type { AdWall } from "../[slug]/ad-mode";
@@ -32,9 +35,16 @@ import type { AdWall } from "../[slug]/ad-mode";
 
 /** What the wall is holding back, in the reader's terms. */
 function pitchFor(wall: AdWall, spotName: string): { head: string; sub: string } {
+  // "All 14 days" rather than "the next 13", on every wall.
+  //
+  // The arithmetic was right — a reader at the `today` wall has day one and is
+  // being sold the thirteen after it — and it read like arithmetic. What they
+  // get is the whole fortnight, which is also what the `day2` wall says, and
+  // one headline across both walls means the wall test measures the WALL
+  // rather than two different promises.
   if (wall === "today") {
     return {
-      head: `See the next 13 days at ${spotName}`,
+      head: `See all 14 days at ${spotName}`,
       sub: "Today is above. The rest of the fortnight, every hour scored, is on the other side of this.",
     };
   }
@@ -53,6 +63,98 @@ function pitchFor(wall: AdWall, spotName: string): { head: string; sub: string }
   };
 }
 
+/**
+ * Who the numbers come from, named by agency.
+ *
+ * Agency NAMES, and on American water a flag.
+ *
+ * The flag is the market cue — this page runs on American data for American
+ * water — and it is the same inline SVG /lp/6 flies, desaturated so it sits
+ * with the type instead of shouting over the offer beside it. Drawn inline
+ * rather than set as the 🇺🇸 emoji, which has no glyph on most Windows builds
+ * and falls back to the letters "US" in a box.
+ *
+ * ⚠️ US WATER ONLY, and this is the one thing here that must never be wrong.
+ * American chrome over Canadian water with DFO regulations printed underneath
+ * is exactly the error /lp/6 redirects non-US cities to avoid, and this frame
+ * has no redirect to lean on: it serves whatever spot the ad names. So the
+ * flag hangs off `region.isUS`, resolved from the spot's own province, and a
+ * BC spot renders the same row with no flag on it.
+ *
+ * Each line says what its agency SUPPLIES, because "NOAA" alone is a badge
+ * while "tides and currents from NOAA" is a checkable claim. Agency emblems
+ * are deliberately absent — see the note in the pull request; a flag is not a
+ * trademark and carries none of that question.
+ */
+function SourceRow({ provinceCode }: { provinceCode: string }) {
+  const region = lpRegionFor(provinceCode);
+  const tides = region.tideAuthority;
+  const regs = region.regulator.name;
+
+  return (
+    /* items-start, not items-center: the text wraps to three lines on a phone
+       and a flag floating in the middle of them reads as a bullet in the wrong
+       place. Pinned to the first line it reads as what it is, a marker on the
+       front of the row. */
+    <p className="mt-4 flex items-start gap-2 font-rc-mono text-[10px] uppercase tracking-[0.07em] text-rc-ink-mute">
+      {region.isUS && (
+        <span className="mt-[1px] shrink-0 grayscale opacity-70">
+          <LpFlagUs size={12} />
+        </span>
+      )}
+      <span>
+        Tides and currents from {tides} · Regulations from {regs} · Weather from
+        ECMWF and GFS
+      </span>
+    </p>
+  );
+}
+
+/**
+ * The customer quote, with its rating.
+ *
+ * The words are `PROOF.quote`, imported rather than copied so this page cannot
+ * drift from the one place that records the quote is real, permissioned and
+ * verbatim, and cannot be edited for length here. `PROOF.showProof` is
+ * honoured too: if the band is ever switched off it goes off everywhere.
+ *
+ * The rating is `PROOF.quote.rating`, which the customer gave, and is read
+ * rather than hardcoded so the stars cannot outlive it. Drawing five filled
+ * stars in markup would be a second copy of a claim about a real person, free
+ * to disagree with the record the moment either changed.
+ */
+function Stars({ rating }: { rating: number }) {
+  const filled = Math.max(0, Math.min(5, Math.round(rating)));
+  return (
+    <div className="flex gap-0.5" aria-label={`${filled} out of 5 stars`}>
+      {[0, 1, 2, 3, 4].map((i) => (
+        <Star
+          key={i}
+          className={`h-3.5 w-3.5 ${
+            i < filled ? "fill-rc-badge text-rc-badge" : "fill-none text-rc-rule"
+          }`}
+          aria-hidden
+        />
+      ))}
+    </div>
+  );
+}
+
+function Testimonial() {
+  if (!PROOF.showProof) return null;
+  return (
+    <figure className="mt-5 rounded border border-rc-rule bg-rc-panel/70 p-4">
+      <Stars rating={PROOF.quote.rating} />
+      <blockquote className="rc-body mt-2 text-[13px] leading-relaxed text-rc-ink-soft">
+        {PROOF.quote.text}
+      </blockquote>
+      <figcaption className="mt-2 font-rc-mono text-[11px] text-rc-ink-mute">
+        {PROOF.quote.attr}
+      </figcaption>
+    </figure>
+  );
+}
+
 export default function AdTrialCta({
   spotName,
   region,
@@ -61,6 +163,7 @@ export default function AdTrialCta({
   cta,
   inputId,
   dims,
+  withProof = false,
 }: {
   spotName: string;
   /** Billing region, e.g. "WA". Decides the currency: BC bills CAD, WA USD.
@@ -76,6 +179,14 @@ export default function AdTrialCta({
   /** Ids must differ between the copies of this form on one page. */
   inputId: string;
   dims: CampaignTarget;
+  /**
+   * Show the sources and the customer quote with this copy of the form.
+   *
+   * Set on the one at the wall, where the decision is actually made, and not
+   * on the closing one: the same quote twice on a page this short reads as
+   * padding rather than as proof.
+   */
+  withProof?: boolean;
 }) {
   const { head, sub } = pitchFor(wall, spotName);
   const { email, setEmail, submitting, error, submit, from } = useAdCheckout({
@@ -127,6 +238,9 @@ export default function AdTrialCta({
           you cancel. Cancel any time before then and you pay nothing. No
           account needed, we make one from this email.
         </p>
+
+        {withProof && <SourceRow provinceCode={region} />}
+        {withProof && <Testimonial />}
 
         {error ? (
           <p className="text-[13px] text-rc-poor-ink mt-2" role="alert">
