@@ -113,15 +113,29 @@ function SourceRow({ provinceCode }: { provinceCode: string }) {
   ];
 
   return (
-    <div className="flex items-start gap-2.5">
+    <div className="flex items-start gap-3">
       {region.isUS && (
-        /* Sized to stand beside the list rather than sit inside a line of
-           type: at 12px it read as punctuation. mt-[2px] lands its top edge on
-           the first bullet's cap height. */
-        <span className="mt-[2px] shrink-0 grayscale opacity-75">
-          <LpFlagUs size={20} />
+        /*
+         * As tall as the three bullets beside it: 52px, which is what those
+         * three 10px lines plus their 4px gaps measure at both breakpoints.
+         *
+         * A number, not a stretch, after trying the clever version twice.
+         * `self-stretch` alone gave the span the row's height while its WIDTH
+         * stayed at the SVG's intrinsic 30px, so the image overflowed to the
+         * right and printed over the first two bullets; adding `aspect-[3/2]`
+         * fixed the overflow by squashing the flag to 30x52 instead, because a
+         * flex item's width is content-derived and the ratio had nothing to
+         * compute from. Height and width both have to come from the same
+         * place, and that place is this number.
+         *
+         * ⚠️ It is coupled to the list having three single lines. Add a fourth
+         * source, or let one wrap, and this needs to move with it.
+         */
+        <span className="shrink-0 grayscale opacity-75">
+          <LpFlagUs size={52} />
         </span>
       )}
+
       <ul className="space-y-1 font-rc-mono text-[10px] uppercase tracking-[0.07em] text-rc-ink-mute">
         {sources.map((line) => (
           <li key={line} className="flex gap-1.5">
@@ -308,9 +322,19 @@ export default function AdTrialCta({
     <section className="rounded-lg border border-rc-brand/30 bg-rc-brand-soft/40 p-5 lg:p-6">
       {withProof ? (
         <div className="lg:grid lg:grid-cols-[minmax(0,1fr)_minmax(0,21rem)] lg:gap-8 lg:items-start">
-          <div>{ask}</div>
+          {/* The sources belong under the price, not beside the quote. They
+              are part of the same argument the form is making — here is what
+              you are paying for and here is where the numbers come from — so
+              they read as the last line of it rather than as a caption on
+              somebody else's words. It also leaves the right column carrying
+              one thing, which is what makes the two sides balance. */}
+          <div>
+            {ask}
+            <div className="mt-4">
+              <SourceRow provinceCode={region} />
+            </div>
+          </div>
           <div className="mt-6 lg:mt-0">
-            <SourceRow provinceCode={region} />
             <Testimonial />
           </div>
         </div>

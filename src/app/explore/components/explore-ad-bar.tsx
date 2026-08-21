@@ -39,21 +39,27 @@ function pitchFor(
   cityName: string | null,
 ): { short: string; full: string } {
   const where = cityName ?? "here";
+  // The long forms used to open by saying which days were free, and on this
+  // surface that clause is redundant: the day strip directly above the bar is
+  // already showing the reader exactly which cells are open and which are
+  // locked. It also cost the sentence its ending — at 1440 the line truncated
+  // at "SEE ALL 14 DAYS AT EVER…", which is the offer itself getting cut.
+  // What is left is the offer, which fits.
   if (wall === "today") {
     return {
       short: "Today is free",
-      full: `Today is on the map. See all 14 days at every spot in ${where}.`,
+      full: `See all 14 days at every spot in ${where}.`,
     };
   }
   if (wall === "day2") {
     return {
       short: "Two days free",
-      full: `You have today and tomorrow. See all 14 days at every spot in ${where}.`,
+      full: `See all 14 days at every spot in ${where}.`,
     };
   }
   return {
     short: "Get a text when it turns on",
-    full: `Get a text when a spot in ${where} comes good, and keep the full 14-day outlook.`,
+    full: `Get a text when a spot in ${where} comes good.`,
   };
 }
 
@@ -93,14 +99,31 @@ export default function ExploreAdBar({
       data-ad-bar
       className="fixed inset-x-0 bottom-0 z-50 border-t border-rc-rule bg-rc-panel/97 backdrop-blur"
     >
-      <div className="mx-auto flex h-[var(--rc-ad-bar-h)] max-w-[1200px] flex-col justify-center gap-2 px-4 pb-[calc(0.5rem+env(safe-area-inset-bottom,0px))] sm:px-6 lg:flex-row lg:items-center lg:gap-4 lg:pb-0">
-        <div className="flex min-w-0 items-baseline gap-2 lg:shrink-0">
+      {/*
+        A grid on lg, not a flex row, and that is a bug fix rather than taste.
+        Three flex children were competing for one line with the pitch marked
+        shrink-0, so the pitch took 614px whatever the window was and the form
+        got the remainder: at 1440 the email field was 130px, and at 1024 it
+        was TWENTY-SIX. The bar was unusable across a whole band of laptop
+        widths, and nothing about it looked broken enough to notice.
+
+        Fixed columns for the two that have a job to do — the form and the
+        disclosure — and the flexible one goes to the pitch, which is the only
+        piece that can lose words without losing meaning. Below lg it is the
+        same three stacked rows it always was.
+      */}
+      <div className="mx-auto flex h-[var(--rc-ad-bar-h)] max-w-[1200px] flex-col justify-center gap-2 px-4 pb-[calc(0.5rem+env(safe-area-inset-bottom,0px))] sm:px-6 lg:grid lg:grid-cols-[minmax(0,1fr)_22rem_17rem] lg:items-center lg:gap-4 lg:pb-0">
+        <div className="flex min-w-0 items-baseline gap-2">
           <span className="rc-title-lg text-[15px] tracking-tight text-rc-ink">
             ReelCaster
           </span>
           <span className="truncate font-rc-mono text-[10px] uppercase tracking-[0.08em] text-rc-ink-mute">
-            <span className="lg:hidden">{pitch.short}</span>
-            <span className="hidden lg:inline">{pitch.full}</span>
+              {/* The long form needs about 290px and the pitch column only has
+                that from xl. Below it the short form says the same thing in
+                three words rather than the long one arriving with its ending
+                cut off. */}
+            <span className="xl:hidden">{pitch.short}</span>
+            <span className="hidden xl:inline">{pitch.full}</span>
           </span>
         </div>
 
@@ -110,7 +133,9 @@ export default function ExploreAdBar({
           </label>
           <input
             id="explore-ad-email"
-            className="min-w-0 flex-1 rounded border border-rc-rule bg-rc-panel px-3 py-2 text-[14px] text-rc-ink placeholder:text-rc-ink-mute focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-rc-brand"
+            /* A floor as well as a share: a field narrower than its own
+               placeholder tells the reader nothing about what goes in it. */
+            className="min-w-[9rem] flex-1 rounded border border-rc-rule bg-rc-panel px-3 py-2 text-[14px] text-rc-ink placeholder:text-rc-ink-mute focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-rc-brand"
             type="email"
             name="email"
             required
@@ -135,7 +160,7 @@ export default function ExploreAdBar({
             consents, and "clear and conspicuous" means beside the button they
             are pressing. In a bar this tight that is the line directly under
             it, which is why the phone layout is three rows rather than one. */}
-        <p className="font-rc-mono text-[10px] leading-tight text-rc-ink-mute lg:max-w-[15rem] lg:shrink-0">
+        <p className="font-rc-mono text-[10px] leading-tight text-rc-ink-mute">
           {error ? (
             <span className="text-rc-poor-ink" role="alert">
               {error}{" "}
