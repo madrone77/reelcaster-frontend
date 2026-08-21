@@ -12,6 +12,7 @@ import { GoogleAnalytics } from '@next/third-parties/google'
 import { ADSENSE_CLIENT } from '@/lib/adsense'
 import AdSenseLoader from '@/app/components/ads/adsense-loader'
 import MetaPixel from '@/app/components/analytics/meta-pixel'
+import GoogleAdsTag from '@/app/components/analytics/google-ads-tag'
 import { ORGANIZATION_JSONLD, SITE_NAME, SITE_URL } from '@/lib/site'
 import { clientDiagSnippet } from '@/lib/client-diag'
 
@@ -156,6 +157,10 @@ export default function RootLayout({
             hydration and Auto-ads constraints it still has to honour. */}
         <AdSenseLoader />
         <GoogleAnalytics gaId="G-HLHG768MWJ" />
+        {/* Google Ads. Configures the AW- id on the gtag queue that
+            <GoogleAnalytics> above loads, so keep the two together and in this
+            order. The conversion it exists for fires on /billing/success. */}
+        <GoogleAdsTag />
         {/* Meta pixel. Renders null unless NEXT_PUBLIC_META_PIXEL_ID is set, so
             an unconfigured environment ships no tag at all. The conversion it
             exists for is fired separately on /billing/success. */}
