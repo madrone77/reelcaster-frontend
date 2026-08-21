@@ -113,7 +113,7 @@ function SourceRow({ provinceCode }: { provinceCode: string }) {
   ];
 
   return (
-    <div className="mt-4 flex items-start gap-2.5">
+    <div className="flex items-start gap-2.5">
       {region.isUS && (
         /* Sized to stand beside the list rather than sit inside a line of
            type: at 12px it read as punctuation. mt-[2px] lands its top edge on
@@ -226,19 +226,26 @@ export default function AdTrialCta({
     dims,
   });
 
-  return (
-    <section className="rounded-lg border border-rc-brand/30 bg-rc-brand-soft/40 p-5 lg:p-6">
+  const ask = (
+    <>
       <h2 className="rc-title-lg text-xl lg:text-2xl">{head}</h2>
-      <p className="rc-body text-sm text-rc-ink-soft mt-2 max-w-[52ch]">{sub}</p>
+      {/* 52ch is the reading measure for a phone. In the desktop column it
+          was breaking a two-clause sentence after the word "in", which reads
+          as a layout accident rather than a line break. The column is already
+          bounded by the grid, so it can have the whole of it. */}
+      <p className="rc-body text-sm text-rc-ink-soft mt-2 max-w-[52ch] lg:max-w-none">
+        {sub}
+      </p>
 
-      <form className="mt-5 max-w-[34rem]" onSubmit={submit}>
-        <label
-          className="rc-label text-[9px] block mb-1.5"
-          htmlFor={inputId}
-        >
+      <form className="mt-5" onSubmit={submit}>
+        <label className="rc-label text-[9px] block mb-1.5" htmlFor={inputId}>
           Your email
         </label>
-        <div className="flex flex-col sm:flex-row gap-2">
+        {/* Capped: an email field is a short input, and 734px of it inside a
+            desktop column looks like a mistake rather than a generous target.
+            The disclosure under it keeps the full column width, since that is
+            a sentence and wants the room. */}
+        <div className="flex flex-col sm:flex-row gap-2 lg:max-w-[32rem]">
           <input
             id={inputId}
             className="flex-1 min-w-0 rounded border border-rc-rule bg-rc-panel px-3 py-3 text-[15px] text-rc-ink placeholder:text-rc-ink-mute focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-rc-brand"
@@ -269,9 +276,6 @@ export default function AdTrialCta({
           account needed, we make one from this email.
         </p>
 
-        {withProof && <SourceRow provinceCode={region} />}
-        {withProof && <Testimonial />}
-
         {error ? (
           <p className="text-[13px] text-rc-poor-ink mt-2" role="alert">
             {error}{" "}
@@ -281,6 +285,40 @@ export default function AdTrialCta({
           </p>
         ) : null}
       </form>
+    </>
+  );
+
+  return (
+    /**
+     * Two columns from lg, and the reason is what the one column was doing at
+     * that width: a phone layout held at a 34rem measure inside a 1345px card,
+     * with the whole right half empty and the sub-line wrapping after three
+     * words because it had nowhere to go. A card that wide has to either use
+     * the space or stop being that wide.
+     *
+     * It uses it. The ask on the left, the proof beside it on the right, so a
+     * reader deciding whether to type an email can see who supplies the data
+     * and what a customer said without scrolling past the button. Below lg it
+     * stacks in the same order it always did: ask, sources, quote.
+     *
+     * The proof column is capped rather than fluid — a 400px quote is a
+     * paragraph, an 800px one is a wall — and the ask column takes whatever is
+     * left.
+     */
+    <section className="rounded-lg border border-rc-brand/30 bg-rc-brand-soft/40 p-5 lg:p-6">
+      {withProof ? (
+        <div className="lg:grid lg:grid-cols-[minmax(0,1fr)_minmax(0,21rem)] lg:gap-8 lg:items-start">
+          <div>{ask}</div>
+          <div className="mt-6 lg:mt-0">
+            <SourceRow provinceCode={region} />
+            <Testimonial />
+          </div>
+        </div>
+      ) : (
+        /* The closing copy of the form carries no proof, so it has one column
+           and a reading measure rather than a stretched one. */
+        <div className="max-w-[42rem]">{ask}</div>
+      )}
     </section>
   );
 }
