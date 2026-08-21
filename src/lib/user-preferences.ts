@@ -104,12 +104,12 @@ const DEFAULT_PREFERENCES: UserPreferences = {
   timezone: 'America/Vancouver',
   // BC marine-convention defaults — match what the product surfaces render when
   // no preference is set (keep in step with DEFAULT_UNITS in
-  // contexts/unit-preferences-context.tsx). Tide + wave in metres, depth in feet.
+  // contexts/unit-preferences-context.tsx). Tide + depth in feet, wave in metres.
   windUnit: 'knots',
   currentUnit: 'knots',
   tempUnit: 'C',
   precipUnit: 'mm',
-  tideUnit: 'm',
+  tideUnit: 'ft',
   waveUnit: 'm',
   depthUnit: 'ft',
   distanceUnit: 'km',
