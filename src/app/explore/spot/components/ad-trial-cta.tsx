@@ -1,6 +1,8 @@
 "use client";
 
-import { PRICE } from "@/app/lp/_shared/lp-content";
+import { Star } from "lucide-react";
+import { PRICE, PROOF } from "@/app/lp/_shared/lp-content";
+import { lpRegionFor } from "@/app/lp/_shared/lp-region";
 import type { CampaignTarget, LpCtaId } from "@/app/lp/_shared/lp-telemetry";
 import { useAdCheckout } from "@/app/components/paywall/use-ad-checkout";
 import type { AdWall } from "../[slug]/ad-mode";
@@ -53,6 +55,73 @@ function pitchFor(wall: AdWall, spotName: string): { head: string; sub: string }
   };
 }
 
+/**
+ * Who the numbers come from, named by agency.
+ *
+ * Names, not logos, and that is a deliberate line rather than a shortcut. NOAA
+ * and WDFW emblems are federal and state marks whose use is restricted
+ * precisely because putting one on a commercial page implies the agency
+ * endorses what is being sold — which is not true here, and is not a claim we
+ * can make on a page that takes a card. Naming them as sources is accurate,
+ * carries the same credibility, and is what every other surface on the site
+ * already does.
+ *
+ * Each line says what that agency supplies, because "NOAA" alone is a badge
+ * while "tides and currents from NOAA" is a checkable claim.
+ */
+function SourceRow({ provinceCode }: { provinceCode: string }) {
+  const region = lpRegionFor(provinceCode);
+  const tides = region.tideAuthority;
+  const regs = region.regulator.name;
+
+  return (
+    <p className="mt-4 font-rc-mono text-[10px] uppercase tracking-[0.07em] text-rc-ink-mute">
+      Tides and currents from {tides} · Regulations from {regs} · Weather from
+      ECMWF and GFS
+    </p>
+  );
+}
+
+/**
+ * The customer quote, with its rating.
+ *
+ * The words are `PROOF.quote`, imported rather than copied so this page cannot
+ * drift from the one place that records the quote is real, permissioned and
+ * verbatim, and cannot be edited for length here. `PROOF.showProof` is
+ * honoured too: if the band is ever switched off it goes off everywhere.
+ *
+ * ⚠️ The five stars are NOT part of that record. The quote was given as
+ * sentences, not as a score, so the stars assert a rating nobody collected.
+ * They are here because they were asked for and the sentiment is plainly a
+ * five, but a rating shown to a customer deciding whether to pay should be one
+ * the reviewer actually gave. Either get the rating from Bob or delete this
+ * component's `<Stars />` line.
+ */
+function Stars() {
+  return (
+    <div className="flex gap-0.5" aria-label="Five out of five">
+      {[0, 1, 2, 3, 4].map((i) => (
+        <Star key={i} className="h-3.5 w-3.5 fill-rc-badge text-rc-badge" aria-hidden />
+      ))}
+    </div>
+  );
+}
+
+function Testimonial() {
+  if (!PROOF.showProof) return null;
+  return (
+    <figure className="mt-5 rounded border border-rc-rule bg-rc-panel/70 p-4">
+      <Stars />
+      <blockquote className="rc-body mt-2 text-[13px] leading-relaxed text-rc-ink-soft">
+        {PROOF.quote.text}
+      </blockquote>
+      <figcaption className="mt-2 font-rc-mono text-[11px] text-rc-ink-mute">
+        {PROOF.quote.attr}
+      </figcaption>
+    </figure>
+  );
+}
+
 export default function AdTrialCta({
   spotName,
   region,
@@ -61,6 +130,7 @@ export default function AdTrialCta({
   cta,
   inputId,
   dims,
+  withProof = false,
 }: {
   spotName: string;
   /** Billing region, e.g. "WA". Decides the currency: BC bills CAD, WA USD.
@@ -76,6 +146,14 @@ export default function AdTrialCta({
   /** Ids must differ between the copies of this form on one page. */
   inputId: string;
   dims: CampaignTarget;
+  /**
+   * Show the sources and the customer quote with this copy of the form.
+   *
+   * Set on the one at the wall, where the decision is actually made, and not
+   * on the closing one: the same quote twice on a page this short reads as
+   * padding rather than as proof.
+   */
+  withProof?: boolean;
 }) {
   const { head, sub } = pitchFor(wall, spotName);
   const { email, setEmail, submitting, error, submit, from } = useAdCheckout({
@@ -127,6 +205,9 @@ export default function AdTrialCta({
           you cancel. Cancel any time before then and you pay nothing. No
           account needed, we make one from this email.
         </p>
+
+        {withProof && <SourceRow provinceCode={region} />}
+        {withProof && <Testimonial />}
 
         {error ? (
           <p className="text-[13px] text-rc-poor-ink mt-2" role="alert">
