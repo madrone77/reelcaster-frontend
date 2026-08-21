@@ -940,7 +940,7 @@ export default function SpotDetailShell({
                 <div className="flex items-baseline justify-between mb-3">
                   <div className="rc-label text-[9px]">Species</div>
                   <div className="font-rc-mono text-[10px] text-rc-ink-mute italic">
-                    tap to switch driver
+                    tap to switch species
                   </div>
                 </div>
                 <SpeciesCardRow
