@@ -308,9 +308,19 @@ export default function AdTrialCta({
     <section className="rounded-lg border border-rc-brand/30 bg-rc-brand-soft/40 p-5 lg:p-6">
       {withProof ? (
         <div className="lg:grid lg:grid-cols-[minmax(0,1fr)_minmax(0,21rem)] lg:gap-8 lg:items-start">
-          <div>{ask}</div>
+          {/* The sources belong under the price, not beside the quote. They
+              are part of the same argument the form is making — here is what
+              you are paying for and here is where the numbers come from — so
+              they read as the last line of it rather than as a caption on
+              somebody else's words. It also leaves the right column carrying
+              one thing, which is what makes the two sides balance. */}
+          <div>
+            {ask}
+            <div className="mt-4">
+              <SourceRow provinceCode={region} />
+            </div>
+          </div>
           <div className="mt-6 lg:mt-0">
-            <SourceRow provinceCode={region} />
             <Testimonial />
           </div>
         </div>
