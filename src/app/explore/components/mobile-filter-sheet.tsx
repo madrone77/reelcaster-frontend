@@ -5,6 +5,7 @@ import {
   Mountain,
   Tag,
   Waves,
+  Wind,
   Target,
   LocateFixed,
   Loader2,
@@ -21,9 +22,11 @@ interface MobileFilterSheetProps {
   relief: boolean;
   labels: boolean;
   currents: boolean;
+  wind: boolean;
   onToggleRelief: () => void;
   onToggleLabels: () => void;
   onToggleCurrents: () => void;
+  onToggleWind: () => void;
   species: SpeciesOption[];
   speciesFilter: string | null;
   onSpeciesChange: (id: string | null) => void;
@@ -132,9 +135,11 @@ export default function MobileFilterSheet({
   relief,
   labels,
   currents,
+  wind,
   onToggleRelief,
   onToggleLabels,
   onToggleCurrents,
+  onToggleWind,
   species,
   speciesFilter,
   onSpeciesChange,
@@ -252,6 +257,11 @@ export default function MobileFilterSheet({
                 <LayerChip active={relief} onClick={onToggleRelief} icon={Mountain} label="Relief" />
                 <LayerChip active={labels} onClick={onToggleLabels} icon={Tag} label="Labels" />
                 <LayerChip active={currents} onClick={onToggleCurrents} icon={Waves} label="Currents" />
+                {/* Wind was on the desktop rail and nowhere else, so a phone
+                    could not reach the layer at all. It shares Currents' state:
+                    turning one on turns the other off, and turning the lit one
+                    off leaves the map bare. */}
+                <LayerChip active={wind} onClick={onToggleWind} icon={Wind} label="Wind" />
               </div>
             </div>
 

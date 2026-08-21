@@ -131,3 +131,31 @@ test('a city map runs one flow at a time', async ({ page }) => {
   await wind.click();
   await expect.poll(() => flowLayers(page), { timeout: 20_000 }).toEqual([]);
 });
+
+test('the phone filter sheet can reach both flow layers', async ({ page }) => {
+  // The chips this sheet holds were the only way to a flow layer on a phone,
+  // and it carried Currents alone: the wind field existed and nothing on a
+  // small screen could ask for it.
+  await page.setViewportSize({ width: 390, height: 844 });
+  await installMapProbe(page);
+  await page.goto('/explore');
+
+  const openSheet = page.getByRole('button', { name: 'Filters' });
+  await expect(openSheet).toBeVisible({ timeout: 20_000 });
+  await openSheet.click();
+
+  const sheet = page.getByRole('dialog', { name: 'Map filters' });
+  const wind = sheet.getByRole('button', { name: /^Wind$/ });
+  const currents = sheet.getByRole('button', { name: /^Currents$/ });
+  await expect(wind).toBeVisible();
+
+  await wind.click();
+  await expect.poll(() => flowLayers(page), { timeout: 20_000 }).toEqual(['flow-wind']);
+
+  await currents.click();
+  await expect.poll(() => flowLayers(page), { timeout: 20_000 }).toEqual(['flow-currents']);
+  await expect(wind).toHaveAttribute('aria-pressed', 'false');
+
+  await currents.click();
+  await expect.poll(() => flowLayers(page), { timeout: 20_000 }).toEqual([]);
+});
