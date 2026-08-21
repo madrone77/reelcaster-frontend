@@ -34,7 +34,17 @@ import type { AdWall } from "../[slug]/ad-mode";
  */
 
 /** What the wall is holding back, in the reader's terms. */
-function pitchFor(wall: AdWall, spotName: string): { head: string; sub: string } {
+function pitchFor(
+  wall: AdWall,
+  spotName: string,
+  cityName: string | null,
+): { head: string; sub: string } {
+  // "every other spot in Victoria and beyond" only works when we know the
+  // city. A custom spot, or one whose city is not published, has no name to
+  // put there, and "in null and beyond" is worse than the shorter sentence.
+  const beyond = cityName
+    ? `every other spot in ${cityName} and beyond`
+    : "every other spot we track";
   // "All 14 days" rather than "the next 13", on every wall.
   //
   // The arithmetic was right — a reader at the `today` wall has day one and is
@@ -45,7 +55,7 @@ function pitchFor(wall: AdWall, spotName: string): { head: string; sub: string }
   if (wall === "today") {
     return {
       head: `See all 14 days at ${spotName}`,
-      sub: "Today is above. The other thirteen, every hour scored, are on the other side of this.",
+      sub: `Today is above. Sign up to see all 14 here and ${beyond}.`,
     };
   }
   if (wall === "day2") {
@@ -173,6 +183,7 @@ function Testimonial() {
 
 export default function AdTrialCta({
   spotName,
+  cityName,
   region,
   chargeDate,
   wall,
@@ -182,6 +193,9 @@ export default function AdTrialCta({
   withProof = false,
 }: {
   spotName: string;
+  /** The city this spot belongs to, for the "and every other spot in X" line.
+   *  Null for a custom spot or one whose city is not published. */
+  cityName: string | null;
   /** Billing region, e.g. "WA". Decides the currency: BC bills CAD, WA USD.
    *  Empty is allowed; the route falls back to edge geo. */
   region: string;
@@ -204,7 +218,7 @@ export default function AdTrialCta({
    */
   withProof?: boolean;
 }) {
-  const { head, sub } = pitchFor(wall, spotName);
+  const { head, sub } = pitchFor(wall, spotName, cityName);
   const { email, setEmail, submitting, error, submit, from } = useAdCheckout({
     wall,
     region,
