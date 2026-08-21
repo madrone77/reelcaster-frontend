@@ -47,7 +47,8 @@ interface UnitPreferencesContextType extends UnitPrefs {
 
 // Defaults: BC marine convention. Wind + current in knots and pressure in mb
 // (marine standard); tide + wave heights in METRES (how DFO tide tables and
-// marine forecasts quote them); DEPTH in FEET (how BC anglers sound bottom);
+// marine forecasts quote them); TIDE and DEPTH in FEET (how BC anglers talk
+// about both — the charts are metric but nobody says "the tide is 1.5 metres");
 // distance in km. Each variable is independent — a mixed screen (km + ft + m)
 // is the intended default, not an accident. Keep in step with
 // DEFAULT_PREFERENCES in lib/user-preferences.ts.
@@ -56,7 +57,7 @@ const DEFAULT_UNITS: UnitPrefs = {
   currentUnit: 'knots',
   tempUnit: 'C',
   precipUnit: 'mm',
-  tideUnit: 'm',
+  tideUnit: 'ft',
   waveUnit: 'm',
   depthUnit: 'ft',
   distanceUnit: 'km',
