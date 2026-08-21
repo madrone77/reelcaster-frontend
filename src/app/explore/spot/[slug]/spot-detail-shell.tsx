@@ -960,7 +960,12 @@ export default function SpotDetailShell({
               <div className="order-2">
                 <SpotMiniMap
                   spot={spot}
-                  score={nowScore ?? todayScore}
+                  /* The day's best, matching the headline above it and the
+                     day strip below it. It used to be the live hour, so a
+                     page reading "Best score for the day 89" carried a puck
+                     reading 33, and the two numbers were about different
+                     questions with nothing on screen saying so. */
+                  score={peakScore ?? todayScore}
                   timeIso={
                     activeIso ? zonedHourToUtcIso(activeIso, selectedHour, TZ) : null
                   }
@@ -1004,6 +1009,7 @@ export default function SpotDetailShell({
               fresh={fresh}
               days={FRESH_DAYS}
               onUpgrade={ad ? scrollToOffer : () => setReportsUpgradeOpen(true)}
+              neutralLock={!!ad}
             />
           </div>
           {/* end identity + score cluster (items 1–3) */}
@@ -1029,6 +1035,7 @@ export default function SpotDetailShell({
                       day={day}
                       selected={day.iso === activeIso}
                       onSelect={() => handleDay(day)}
+                      neutralLock={!!ad}
                     />
                   </div>
                 ))}

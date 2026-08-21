@@ -148,6 +148,7 @@ export function RecentReportsBand({
   days,
   locked,
   onUpgrade,
+  neutralLock = false,
   className = "",
 }: {
   /** Truncated headline. Present for everyone, including crawlers, and the only
@@ -168,6 +169,10 @@ export function RecentReportsBand({
    *  it". */
   locked: boolean | null;
   onUpgrade?: () => void;
+  /** Drop the plan name from the locked panels, same rule as the day tiles:
+   *  on the ad frame of the spot page there is one offer, and it is the form
+   *  further down that these panels scroll to. */
+  neutralLock?: boolean;
   className?: string;
 }) {
   const [expanded, setExpanded] = useState(false);
@@ -204,7 +209,7 @@ export function RecentReportsBand({
             <Lock className="h-4 w-4 shrink-0 text-rc-brand" />
             <span className="min-w-0 flex-1">
               <span className="block text-[14px] font-semibold text-rc-ink">
-                Upgrade to Pro for the full report
+                {neutralLock ? "Read the full report" : "Upgrade to Pro for the full report"}
               </span>
               <span className="block font-rc-mono text-[11px] text-rc-ink-mute">
                 What is being caught here, what worked, and what is going nearby
@@ -230,7 +235,9 @@ export function RecentReportsBand({
           <span className="min-w-0 flex-1">
             <span className="block text-[14px] text-rc-ink">Anglers have been reporting here</span>
             <span className="block font-rc-mono text-[11px] text-rc-ink-mute">
-              See what they caught, what worked, and when, with Pro
+              {neutralLock
+                ? "See what they caught, what worked, and when"
+                : "See what they caught, what worked, and when, with Pro"}
             </span>
           </span>
           <span className="shrink-0 font-rc-mono text-[11px] font-bold text-rc-brand">→</span>

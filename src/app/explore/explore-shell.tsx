@@ -1566,7 +1566,6 @@ export default function ExploreShell({
           labels={labels}
           currents={currents}
           wind={wind}
-          hour={scrubHour}
           flowTimeIso={flowTimeIso}
           stripVisible={!stripHidden}
           wdfwRegs={wdfwRegs}
