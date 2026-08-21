@@ -39,6 +39,7 @@ import type { FreshCatchesResponse } from "./lib/fresh-catch-types";
 import { useSubscription } from "@/hooks/use-subscription";
 import { useAuth } from "@/contexts/auth-context";
 import { useExploreState } from "./lib/use-explore-state";
+import { useFlowLayer } from "./lib/use-flow";
 import { readExploreView, writeExploreView, type ExploreView } from "./lib/view-memory";
 import { MAP_INSET_ATTR, mapInsetOffsetY, sheetSafeCenter } from "./lib/sheet-safe-center";
 import ExploreTopBar from "./components/explore-top-bar";
@@ -334,8 +335,8 @@ export default function ExploreShell({
   // ── Map-layer toggles + species filter (MapControls) ────────────────
   const [relief, setRelief] = useState(true);
   const [labels, setLabels] = useState(true);
-  const [currents, setCurrents] = useState(false);
-  const [wind, setWind] = useState(false);
+  // Currents and Wind share one piece of state, so only ever one of them draws.
+  const { currents, wind, toggleCurrents, toggleWind, setFlow } = useFlowLayer();
   const [speciesFilter, setSpeciesFilter] = useState<string | null>(null);
   // Label fallback for a species pinned from search that no in-view spot
   // carries, so the strip header can still name it.
@@ -1445,8 +1446,11 @@ export default function ExploreShell({
     if (restored.species != null) setSpeciesFilter(restored.species);
     if (restored.relief != null) setRelief(restored.relief);
     if (restored.labels != null) setLabels(restored.labels);
-    if (restored.currents != null) setCurrents(restored.currents);
-    if (restored.wind != null) setWind(restored.wind);
+    // A view saved before the single-flow rule can carry both layers on.
+    // Currents wins that tie — it is the layer the rail has always led with.
+    if (restored.currents != null || restored.wind != null) {
+      setFlow(restored.currents ? "currents" : restored.wind ? "wind" : null);
+    }
     if (restored.bounds) {
       setViewBounds(restored.bounds);
       setVpBbox(paddedBbox(restored.bounds));
@@ -1679,8 +1683,8 @@ export default function ExploreShell({
           wind,
           onToggleRelief: () => setRelief((v) => !v),
           onToggleLabels: () => setLabels((v) => !v),
-          onToggleCurrents: () => setCurrents((v) => !v),
-          onToggleWind: () => setWind((v) => !v),
+          onToggleCurrents: toggleCurrents,
+          onToggleWind: toggleWind,
           species: speciesWithScores,
           speciesFilter,
           onSpeciesChange: setSpeciesFilter,
@@ -1729,7 +1733,7 @@ export default function ExploreShell({
         currents={currents}
         onToggleRelief={() => setRelief((v) => !v)}
         onToggleLabels={() => setLabels((v) => !v)}
-        onToggleCurrents={() => setCurrents((v) => !v)}
+        onToggleCurrents={toggleCurrents}
         species={allSpecies}
         speciesFilter={speciesFilter}
         onSpeciesChange={setSpeciesFilter}

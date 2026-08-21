@@ -8,7 +8,7 @@ import type { Map as MlMap, StyleSpecification } from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
 import { buildReliefStyle } from "@/lib/map/relief-style";
 import { attachRcaHatch, ensureRcaHatch } from "@/lib/map/rca-hatch";
-import { useFlow } from "../../lib/use-flow";
+import { useFlow, useFlowLayer, type FlowKind } from "../../lib/use-flow";
 import {
   attachScorePucks,
   ensureScorePuck,
@@ -21,18 +21,31 @@ import type { LiveSpot } from "@/lib/bluecaster/live-spot-types";
 const PUCK_SOURCE = "spot-puck-src";
 const PUCK_LAYER = "spot-puck";
 
-type Layer = "bathy" | "satellite" | "currents" | "winds";
+/** The base map under everything. Exactly one of these is always showing. */
+type Base = "bathy" | "satellite";
 
-// None of the four needs an API key. Satellite runs on Esri's free World
-// Imagery tiles; Currents and Winds are our own animated flow fields.
-const TABS: [Layer, string][] = [
+// Neither needs an API key: satellite runs on Esri's free World Imagery tiles.
+const BASE_TABS: [Base, string][] = [
   ["bathy", "Bathymetry"],
   ["satellite", "Satellite"],
+];
+
+// Currents and Winds are our own animated flow fields, and they behave
+// differently from the two above: at most one runs at a time, and clicking the
+// one already running turns it off and hands the map back to whichever base
+// tab was chosen before. All four used to be one radio group, so "stop the
+// animation" was impossible to ask for, and a reader who had picked Satellite
+// lost it for good the moment they looked at the tide.
+const FLOW_TABS: [FlowKind, string][] = [
   ["currents", "Currents"],
-  ["winds", "Winds"],
+  ["wind", "Winds"],
 ];
 
 const SAT_LAYER = "spot-sat";
+
+const TAB = "px-2 py-1 rounded text-[10px] font-semibold transition-colors";
+const TAB_ON = "bg-rc-brand text-white";
+const TAB_OFF = "bg-rc-panel/90 text-rc-ink-soft hover:bg-rc-panel";
 
 /**
  * Compact spot map. Reuses the bathymetric relief style, the WebGL flow engine
@@ -61,11 +74,12 @@ export default function SpotMiniMap({
   const [mapObj, setMapObj] = useState<MlMap | null>(null);
   /** The map the styleimagemissing listeners are already on. */
   const imagesAttachedTo = useRef<MlMap | null>(null);
-  const [layer, setLayer] = useState<Layer>("bathy");
+  const [base, setBase] = useState<Base>("bathy");
+  const { flow, currents, wind, toggleCurrents, toggleWind } = useFlowLayer();
   const [expanded, setExpanded] = useState(false);
 
-  useFlow({ map: mapObj, kind: "currents", enabled: layer === "currents", timeIso: timeIso ?? null });
-  useFlow({ map: mapObj, kind: "wind", enabled: layer === "winds", timeIso: timeIso ?? null });
+  useFlow({ map: mapObj, kind: "currents", enabled: currents, timeIso: timeIso ?? null });
+  useFlow({ map: mapObj, kind: "wind", enabled: wind, timeIso: timeIso ?? null });
 
   // Resize the map when it toggles to/from fullscreen so it fills the container.
   useEffect(() => {
@@ -158,18 +172,32 @@ export default function SpotMiniMap({
           : "relative h-72 rounded overflow-hidden border border-rc-rule bg-rc-surface"
       }
     >
-      {/* Layer tabs */}
+      {/* Layer tabs: base map first, then the two flow overlays. */}
       <div className="absolute top-2 left-2 right-2 z-10 flex flex-wrap gap-1">
-        {TABS.map(([key, label]) => (
+        {BASE_TABS.map(([key, label]) => {
+          // Lit only when it is what the map is actually showing. A running
+          // flow covers the base, so nothing here claims to be on until the
+          // flow is switched off and the remembered base comes back.
+          const on = !flow && base === key;
+          return (
+            <button
+              key={key}
+              type="button"
+              onClick={() => setBase(key)}
+              aria-pressed={on}
+              className={`${TAB} ${on ? TAB_ON : TAB_OFF}`}
+            >
+              {label}
+            </button>
+          );
+        })}
+        {FLOW_TABS.map(([key, label]) => (
           <button
             key={key}
             type="button"
-            onClick={() => setLayer(key)}
-            className={`px-2 py-1 rounded text-[10px] font-semibold transition-colors ${
-              layer === key
-                ? "bg-rc-brand text-white"
-                : "bg-rc-panel/90 text-rc-ink-soft hover:bg-rc-panel"
-            }`}
+            onClick={key === "currents" ? toggleCurrents : toggleWind}
+            aria-pressed={flow === key}
+            className={`${TAB} ${flow === key ? TAB_ON : TAB_OFF}`}
           >
             {label}
           </button>
@@ -239,7 +267,14 @@ export default function SpotMiniMap({
           <Layer
             id={SAT_LAYER}
             type="raster"
-            layout={{ visibility: layer === "satellite" ? "visible" : "none" }}
+            // Hidden while a flow runs. The raster sits on top of the whole
+            // style, so leaving it up would bury the flow, and dropping it
+            // below the flow instead would put the land mask over the imagery
+            // at every shoreline. A flow therefore shows over the relief base,
+            // and the chosen base comes back the moment the flow is off.
+            layout={{
+              visibility: base === "satellite" && !flow ? "visible" : "none",
+            }}
           />
         </Source>
 
