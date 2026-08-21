@@ -3,6 +3,7 @@
 import { Star } from "lucide-react";
 import { PRICE, PROOF } from "@/app/lp/_shared/lp-content";
 import { lpRegionFor } from "@/app/lp/_shared/lp-region";
+import LpFlagUs from "@/app/lp/_shared/lp-flag";
 import type { CampaignTarget, LpCtaId } from "@/app/lp/_shared/lp-telemetry";
 import { useAdCheckout } from "@/app/components/paywall/use-ad-checkout";
 import type { AdWall } from "../[slug]/ad-mode";
@@ -65,16 +66,25 @@ function pitchFor(wall: AdWall, spotName: string): { head: string; sub: string }
 /**
  * Who the numbers come from, named by agency.
  *
- * Names, not logos, and that is a deliberate line rather than a shortcut. NOAA
- * and WDFW emblems are federal and state marks whose use is restricted
- * precisely because putting one on a commercial page implies the agency
- * endorses what is being sold — which is not true here, and is not a claim we
- * can make on a page that takes a card. Naming them as sources is accurate,
- * carries the same credibility, and is what every other surface on the site
- * already does.
+ * Agency NAMES, and on American water a flag.
  *
- * Each line says what that agency supplies, because "NOAA" alone is a badge
- * while "tides and currents from NOAA" is a checkable claim.
+ * The flag is the market cue — this page runs on American data for American
+ * water — and it is the same inline SVG /lp/6 flies, desaturated so it sits
+ * with the type instead of shouting over the offer beside it. Drawn inline
+ * rather than set as the 🇺🇸 emoji, which has no glyph on most Windows builds
+ * and falls back to the letters "US" in a box.
+ *
+ * ⚠️ US WATER ONLY, and this is the one thing here that must never be wrong.
+ * American chrome over Canadian water with DFO regulations printed underneath
+ * is exactly the error /lp/6 redirects non-US cities to avoid, and this frame
+ * has no redirect to lean on: it serves whatever spot the ad names. So the
+ * flag hangs off `region.isUS`, resolved from the spot's own province, and a
+ * BC spot renders the same row with no flag on it.
+ *
+ * Each line says what its agency SUPPLIES, because "NOAA" alone is a badge
+ * while "tides and currents from NOAA" is a checkable claim. Agency emblems
+ * are deliberately absent — see the note in the pull request; a flag is not a
+ * trademark and carries none of that question.
  */
 function SourceRow({ provinceCode }: { provinceCode: string }) {
   const region = lpRegionFor(provinceCode);
@@ -82,9 +92,20 @@ function SourceRow({ provinceCode }: { provinceCode: string }) {
   const regs = region.regulator.name;
 
   return (
-    <p className="mt-4 font-rc-mono text-[10px] uppercase tracking-[0.07em] text-rc-ink-mute">
-      Tides and currents from {tides} · Regulations from {regs} · Weather from
-      ECMWF and GFS
+    /* items-start, not items-center: the text wraps to three lines on a phone
+       and a flag floating in the middle of them reads as a bullet in the wrong
+       place. Pinned to the first line it reads as what it is, a marker on the
+       front of the row. */
+    <p className="mt-4 flex items-start gap-2 font-rc-mono text-[10px] uppercase tracking-[0.07em] text-rc-ink-mute">
+      {region.isUS && (
+        <span className="mt-[1px] shrink-0 grayscale opacity-70">
+          <LpFlagUs size={12} />
+        </span>
+      )}
+      <span>
+        Tides and currents from {tides} · Regulations from {regs} · Weather from
+        ECMWF and GFS
+      </span>
     </p>
   );
 }
