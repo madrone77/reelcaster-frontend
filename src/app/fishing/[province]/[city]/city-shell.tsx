@@ -388,7 +388,6 @@ export default function CityShell({
             labels={true}
             currents={currents}
             wind={wind}
-            hour={null}
             flowTimeIso={flowTimeIso}
             wdfwRegs={city.provinceCode === "WA"}
           />

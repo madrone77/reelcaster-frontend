@@ -33,6 +33,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { ANGLES } from '@/app/lp/_shared/lp-angles';
+import { AD_WALLS } from '@/app/explore/spot/[slug]/ad-mode';
 import { CLICK_TYPES } from '@/lib/attribution';
 import { classifyUserAgent, isBotUserAgent } from '@/lib/device';
 import { readEdgeGeo } from '@/lib/edge-geo';
@@ -66,8 +67,18 @@ const CLICK_TYPE_SET = new Set<string>(CLICK_TYPES);
  * same reason the paywall route validates against the live enum: a variant
  * that ships on Friday should be in Monday's report without anyone
  * remembering this file exists.
+ *
+ * `spot` is the other kind: the product's own spot page in an ad frame
+ * (/explore/spot/<slug>?ad=…). One key for all of them rather than one per
+ * spot, because WHICH spot is a column of its own — see `target_spot`. Folding
+ * it into the landing key instead would make every spot look like a separate
+ * landing page in a report whose whole top-level question is which KIND of
+ * page works.
  */
-const LANDING_SHAPE = /^lp[0-9]{1,2}$/;
+const LANDING_SHAPE = /^(lp[0-9]{1,2}|spot)$/;
+
+/** Which paywall the ad frame was running. Read from the live list. */
+const WALL_SET = new Set<string>(AD_WALLS);
 
 /** City slugs are lowercase kebab, e.g. "victoria-bc". */
 const SLUG_SHAPE = /^[a-z0-9]+(-[a-z0-9]+)*$/;
@@ -117,6 +128,14 @@ export async function POST(request: NextRequest) {
   const cityRaw = tag(body.target_city);
   const targetCity = SLUG_SHAPE.test(cityRaw) ? cityRaw : '';
 
+  // Spot slugs are the same lowercase-kebab shape as city slugs, with a short
+  // hex suffix ("constance-bank-7615cc"). Only ad-framed spot pages send one.
+  const spotRaw = tag(body.target_spot);
+  const targetSpot = SLUG_SHAPE.test(spotRaw) ? spotRaw : '';
+
+  const wallRaw = tag(body.wall);
+  const wall = WALL_SET.has(wallRaw) ? wallRaw : '';
+
   const clickTypeRaw = tag(body.click_type);
   const clickType = CLICK_TYPE_SET.has(clickTypeRaw) ? clickTypeRaw : '';
 
@@ -151,6 +170,8 @@ export async function POST(request: NextRequest) {
     p_os: os,
     p_cta: kind === 'cta_click' ? cta : '',
     p_kind: kind,
+    p_target_spot: targetSpot,
+    p_wall: wall,
   });
 
   if (error) {

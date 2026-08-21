@@ -1,15 +1,10 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
-import { fetchHierarchy, fetchMapSpots, fetchSpotLivePage } from "@/lib/bluecaster";
+import { fetchMapSpots, fetchSpotLivePage } from "@/lib/bluecaster";
 import { breadcrumbJsonLd, SITE_URL, siteUrl } from "@/lib/site";
-import { findCityForSpot } from "@/app/fishing/lib/fishing-data";
-import { provinceCodeFromName, timezoneFor } from "@/lib/regions";
+import { provinceCodeFromName } from "@/lib/regions";
 import SpotDetailShell from "./spot-detail-shell";
-import { stripPaidIntel } from "./strip-paid-intel";
-import { spotHasFreshReports } from "@/app/explore/lib/fresh-catch-types";
-
-/** Catch-report window. Must match FRESH_DAYS in the fresh-catches route. */
-const FRESH_DAYS = 21;
+import { loadSpotPage } from "./load-spot-page";
 
 type PageProps = { params: Promise<{ slug: string }> };
 
@@ -182,49 +177,17 @@ export async function generateMetadata({
 
 export default async function SpotDetailPage({ params }: PageProps) {
   const { slug } = await params;
-  const page = await fetchSpotLivePage(slug);
-
-  // No server-side read doesn't mean "gone". A PRIVATE custom spot is 404 to
-  // the anonymous server render even for its owner, whose session lives in the
-  // browser as a Bearer token.
-  //
-  // Serving that case as a 200 made every unknown slug a soft 404: an
-  // unpublished or deleted spot kept answering 200 forever, so Search Console
-  // reported the whole route as soft-404 and stale URLs never left the index.
-  // notFound() sends a real 404 and renders this segment's not-found.tsx —
-  // which still hands off to OwnerSpotFallback, so an owner recovers their
-  // private spot client-side. The status is honest for crawlers either way,
-  // because no crawler carries the token that would turn it into a hit.
-  if (!page) notFound();
-  // Scraped catch reports. The raw `catchSignals` carry verbatim third-party
-  // forum text and per-report detail — neither may reach the browser, and this
-  // page is prerendered, so everything below the paywall is stripped here and
-  // only a boolean survives. A Pro viewer's numbers are fetched client-side
-  // from the gated route; keeping the static render locked is what lets this
-  // page stay prerendered for search.
-  const freshTracked = spotHasFreshReports(page.catchSignals, FRESH_DAYS);
-
-  const pageForClient = stripPaidIntel(page);
-
-  // Where this spot sits in the public directory, so the page can link back up
-  // to its city and province. Null for custom spots and unpublished cities.
-  const place = findCityForSpot(await fetchHierarchy().catch(() => null), slug);
-
-  // The spot's own clock. Derived from the region the same way the regulator
-  // is, and resolved here so the server and the client cannot disagree about
-  // which timezone the page is talking about.
-  const tz = timezoneFor(place?.city.provinceName ?? page.spot.region);
-  // One instant, baked into the cached HTML, from which every time-dependent
-  // string on the page is derived. The client's first render uses the same
-  // number, so hydration matches no matter how old the cached copy is; the
-  // live clock is adopted in an effect immediately after mount.
-  const serverNowMs = Date.now();
+  // Shared with the ad frame at ./ad — see ad-mode.ts. Both renderers load
+  // through one function so a gate can never be applied to only one of them.
+  const { page, freshTracked, cityLink, tz, serverNowMs } =
+    await loadSpotPage(slug);
+  const place = cityLink;
 
   const crumbs = place
     ? breadcrumbJsonLd([
         { name: "Home", path: "/" },
-        { name: `Fishing in ${place.city.provinceName}`, path: place.provincePath },
-        { name: place.city.name, path: place.cityPath },
+        { name: `Fishing in ${place.provinceName}`, path: place.provincePath },
+        { name: place.cityName, path: place.cityPath },
         { name: page.spot.name, path: `/explore/spot/${slug}` },
       ])
     : null;
@@ -257,7 +220,7 @@ export default async function SpotDetailPage({ params }: PageProps) {
       ? {
           containedInPlace: {
             "@type": "City",
-            name: place.city.name,
+            name: place.cityName,
             url: siteUrl(place.cityPath),
           },
         }
@@ -280,25 +243,12 @@ export default async function SpotDetailPage({ params }: PageProps) {
         dangerouslySetInnerHTML={{ __html: JSON.stringify(spotJsonLd) }}
       />
       <SpotDetailShell
-        page={pageForClient}
+        page={page}
         freshTracked={freshTracked}
         slug={slug}
         tz={tz}
         serverNowMs={serverNowMs}
-        // Narrowed to the five strings the breadcrumb needs — `place.city`
-        // carries the city's whole spot roster, which has no business crossing
-        // the server/client boundary on every spot page.
-        cityLink={
-          place
-            ? {
-                cityName: place.city.name,
-                cityPath: place.cityPath,
-                provinceName: place.city.provinceName,
-                provincePath: place.provincePath,
-                countryName: place.city.countryName,
-              }
-            : null
-        }
+        cityLink={cityLink}
       />
     </>
   );

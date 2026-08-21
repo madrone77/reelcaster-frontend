@@ -22,14 +22,26 @@ export const ANON_STRIP_DAYS = 2;
 /** Free accounts see the first 7 days; days 8–14 are Pro. */
 export const FREE_STRIP_DAYS = 7;
 
-/** The caller's access level — decides how many strip days are unlocked. */
-export type ForecastTier = "anonymous" | "free" | "pro";
+/**
+ * The caller's access level, which decides how many strip days are unlocked.
+ *
+ * "today" is not a plan. It is the tightest ad-page wall (see ad-mode.ts):
+ * one day open, everything after it locked. The three real tiers still say
+ * what a locked day COSTS, so a day-3 tile on an ad page reads "free account"
+ * and a day-9 tile reads "Pro", which is what those days actually cost. The
+ * wall changes what this visitor is shown, never what the product charges.
+ */
+export type ForecastTier = "anonymous" | "free" | "pro" | "today";
 
 /** Which plan a locked day belongs to — drives the tile label + tap action. */
 export type LockTier = "free" | "pro";
 
+/** The ad page's tightest wall: today only. */
+export const AD_TODAY_STRIP_DAYS = 1;
+
 export function stripDaysFor(tier: ForecastTier): number {
   if (tier === "pro") return 14;
+  if (tier === "today") return AD_TODAY_STRIP_DAYS;
   return tier === "free" ? FREE_STRIP_DAYS : ANON_STRIP_DAYS;
 }
 

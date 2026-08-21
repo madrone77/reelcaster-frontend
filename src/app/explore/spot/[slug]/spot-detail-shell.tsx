@@ -7,7 +7,7 @@ import { ArrowUpCircle, ChevronLeft, ChevronRight, Home, Bell } from "lucide-rea
 import { useAuth } from "@/contexts/auth-context";
 import { useSubscription } from "@/hooks/use-subscription";
 import AdSlot from "@/app/components/ads/ad-slot";
-import { countryDisplayName, regulatorFor } from "@/lib/regions";
+import { countryDisplayName, provinceCodeFromName, regulatorFor } from "@/lib/regions";
 import ExploreTopBar from "../../components/explore-top-bar";
 import DayCell from "../../components/day-cell";
 import { bestWindow } from "../../components/hourly-bars";
@@ -57,6 +57,13 @@ import { RecentReportsBand } from "@/app/explore/components/recent-reports";
 import type { RecentReports as RecentReportsData } from "@/lib/bluecaster/live-spot-types";
 import type { RailFreshCatch } from "@/app/explore/lib/fresh-catch-types";
 import CustomAlertCta from "../components/custom-alert-cta";
+import AdTrialCta from "../components/ad-trial-cta";
+import { AdBrandBar, AdFooter } from "../components/ad-brand-bar";
+import {
+  useCampaignHit,
+  type CampaignTarget,
+} from "@/app/lp/_shared/lp-telemetry";
+import type { AdMode, AdWall } from "./ad-mode";
 import MarketingFooter from "@/app/components/marketing/marketing-footer";
 import { PAGE_MEASURE } from "@/app/components/layout/page-measure";
 import LogCatchDialog from "../components/log-catch-dialog";
@@ -69,6 +76,21 @@ const ProTrialModal = dynamic(
 
 /** Catch-report window. Matches FRESH_DAYS in the fresh-catches route. */
 const FRESH_DAYS = 21;
+
+/**
+ * How far an ad page's wall opens the forecast strip, for a visitor with no
+ * account. See ad-mode.ts.
+ *
+ * `day2` and `open` both land on "anonymous" because two days is what an
+ * anonymous visitor is ENTITLED to: the horizon is enforced server-side in
+ * /api/bluecaster/spots/[slug]/forecast-14d, which nulls out every day past
+ * it before the payload leaves the server. A wall here can tighten what is
+ * shown; it can never widen what was sent. What `open` opens is the rest of
+ * the page.
+ */
+function tierForWall(wall: AdWall): ForecastTier {
+  return wall === "today" ? "today" : "anonymous";
+}
 
 /**
  * What actually crosses into the client. `catchSignals` carries verbatim
@@ -123,6 +145,7 @@ export default function SpotDetailShell({
   freshTracked = false,
   tz: TZ,
   serverNowMs,
+  ad = null,
 }: {
   page: SpotPageForClient;
   slug: string;
@@ -136,6 +159,15 @@ export default function SpotDetailShell({
    *  on the page derives from it until the component mounts. See
    *  `useSpotClock`. */
   serverNowMs: number;
+  /**
+   * Set when this render is the destination of a paid ad (see ad-mode.ts).
+   *
+   * Null is the product. Every branch below is `ad && …` or `!ad && …`, never
+   * a rewrite of the shared path, so the public page renders exactly what it
+   * rendered before this prop existed. Same split rule as LpShell's
+   * `treatment`: the frame varies, the substance does not.
+   */
+  ad?: AdMode | null;
 }) {
   const { spot } = page;
   // Which fisheries authority governs this spot. `spot.region` is the
@@ -189,7 +221,16 @@ export default function SpotDetailShell({
   const { user, loading: authLoading } = useAuth();
   // Until `tierLoading` clears, `isPaid` is still its initial `false` — the
   // strip holds off rather than briefly locking a Pro account's days 8–14.
-  const accessTier: ForecastTier = isPaid ? "pro" : user ? "free" : "anonymous";
+  // A signed-in viewer keeps the tier they paid for, ad link or not: someone
+  // who clicks their own ad while logged in must never be shown less than
+  // their account entitles them to. The wall only applies to cold traffic.
+  const accessTier: ForecastTier = isPaid
+    ? "pro"
+    : user
+      ? "free"
+      : ad
+        ? tierForWall(ad.wall)
+        : "anonymous";
   const [favUpgradeOpen, setFavUpgradeOpen] = useState(false);
   const [reportsUpgradeOpen, setReportsUpgradeOpen] = useState(false);
   // One-shot "pop" when favoriting (not on un-favorite or load) — mirrors the
@@ -315,6 +356,13 @@ export default function SpotDetailShell({
 
   const [selectedIso, setSelectedIso] = useState<string | null>(null);
   const [upgradeOpen, setUpgradeOpen] = useState(false);
+
+  /** Ad frame: send every "unlock this" gesture to the one offer on the page. */
+  const scrollToOffer = () => {
+    document
+      .getElementById("ad-offer")
+      ?.scrollIntoView({ behavior: "smooth", block: "center" });
+  };
   // Which wall the tapped tile belongs to — highlights the matching matrix row.
   const [lockedTier, setLockedTier] = useState<"free" | "pro">("pro");
   const [alertUpgradeOpen, setAlertUpgradeOpen] = useState(false);
@@ -505,6 +553,14 @@ export default function SpotDetailShell({
 
   const handleDay = (day: ForecastDay) => {
     if (day.locked) {
+      // On an ad page the offer is already on the page, in a form that takes
+      // an email. Opening a modal instead would put a SECOND way to buy in
+      // front of the reader, attributed to a different `from`, which is
+      // exactly the comparison the wall test is trying to make.
+      if (ad) {
+        scrollToOffer();
+        return;
+      }
       setLockedTier(day.lockTier ?? "pro");
       // Every locked day opens the same modal, including the "Sign up free"
       // days 3–7: the free account they unlock is offered by the link at the
@@ -556,9 +612,10 @@ export default function SpotDetailShell({
   // mounted — the two only differ if a DST boundary fell between the moment
   // this HTML was cached and the moment it was loaded.
   const tzAbbrev = useMemo(() => zoneAbbrev(TZ, nowAt), [nowAt, TZ]);
-  // Driver species lives only in the status chip up top — keep it out of the
-  // NOW label to avoid repeating it across the panel.
-  const nowLabel = `NOW · ${formatHour12(nowHour)}${tzAbbrev ? ` ${tzAbbrev}` : ""}`;
+  // Driver species lives only in the status chip up top — keep it out of this
+  // label to avoid repeating it across the panel. The card composes its own
+  // wording around the time; what it needs from here is the clock.
+  const nowTime = `${formatHour12(nowHour)}${tzAbbrev ? ` ${tzAbbrev}` : ""}`;
   const subtitle = spot.region ?? spot.city ?? spot.country ?? "";
 
   // ── Log-catch context (current spot + live conditions) ─────────────────
@@ -614,6 +671,54 @@ export default function SpotDetailShell({
   };
   const dailyScores = stripModel?.days?.map((d) => d.score ?? null) ?? [];
 
+  // What this ad view is counted as. City comes from the published directory
+  // link (`/fishing/bc/victoria-bc` → `victoria-bc`), which is the same slug
+  // the /lp pages report, so a spot ad and a landing-page ad land in
+  // comparable rows.
+  const adTarget: CampaignTarget | null = ad
+    ? {
+        landing: "spot",
+        target_city: cityLink?.cityPath.split("/").filter(Boolean).pop() ?? "",
+        target_spot: slug,
+        wall: ad.wall,
+        angle: ad.angle,
+      }
+    : null;
+  useCampaignHit(adTarget);
+
+  // The billing region decides the currency (BC bills CAD, WA bills USD), and
+  // comes from the same province that decides the regulator printed above it,
+  // so the price and the copy cannot disagree about which country the reader
+  // is in.
+  const adRegion = ad
+    ? (provinceCodeFromName(cityLink?.provinceName ?? spot.region ?? "") ?? "")
+    : "";
+
+  // Rendered twice: once at the wall, where the locked days are visible and
+  // the ask is obvious, and once at the foot for a reader who scrolled past
+  // it.
+  //
+  // NOT held until the tier resolves, which is the opposite of the upgrade
+  // button below. That button waits so a Pro account never sees a flash of the
+  // thing it already bought. Here the ask IS the page, and `useSubscription`
+  // has been observed taking seconds under load — a paid click that lands on a
+  // page with no visible offer for the first few seconds is the whole ad
+  // wasted. So it renders on the server and disappears if the viewer turns out
+  // to be Pro, rather than the other way round. Cold ad traffic is signed out
+  // by definition, so the flash costs almost nobody anything.
+  const adCta = (cta: "hero" | "final") =>
+    ad && adTarget && !isPaid ? (
+      <AdTrialCta
+        spotName={spot.name}
+        region={adRegion}
+        chargeDate={ad.chargeDate}
+        wall={ad.wall}
+        cta={cta}
+        inputId={`ad-email-${cta}`}
+        dims={adTarget}
+      />
+    ) : null;
+
   const pills = (
     <div className="flex flex-wrap items-center gap-2">
       {/* Neutral area label — no open/closed claim. Area-level status isn't
@@ -647,17 +752,31 @@ export default function SpotDetailShell({
     // measures against — the mark landing a few px right of the spot name.
     // Nothing here listened to that scroller anyway (only the 14-day strip
     // scrolls, horizontally, on its own).
-    <div className="min-h-dvh bg-rc-panel">
+    <div
+      className="min-h-dvh bg-rc-panel"
+      /* Marks this render as the ad frame for the one piece of app chrome that
+         lives OUTSIDE this tree: the mobile tab bar in the root layout. See
+         the note in src/app/components/mobile-bottom-nav.tsx for why it is
+         done with an attribute and a CSS rule rather than a prop. */
+      data-ad-frame={ad ? "" : undefined}
+    >
       {/* The spot page is a long read on a phone, so the bar rolls away as you
           head down it and comes back on the first upward flick. `pt-16` below
           stays put either way — the bar moves, the document does not. */}
-      <ExploreTopBar hideOnScroll />
+      {/* Paid traffic gets a bar with nowhere to go. Every link in the real
+          top bar (map, login, pricing, nav) is a way out of a page that cost
+          money to land on, and none of them is the thing the ad promised. */}
+      {ad ? <AdBrandBar /> : <ExploreTopBar hideOnScroll />}
 
       <div className="pt-16">
         {/* Desktop sub-header: breadcrumb + freshness. Full-bleed rule, inner
             row on the page measure — so "Back to map" starts on the same
             gridline as the spot name below it, and the freshness stamp ends on
             the same one as the map's right edge. */}
+        {/* Not merely hidden: a display:none link is still in the document,
+            still a tab stop, and still an exit. On an ad page it does not
+            exist. */}
+        {!ad && (
         <div className="hidden lg:block border-b border-rc-rule">
           <div
             className={`${PAGE_MEASURE} flex flex-wrap items-center justify-between gap-2 py-3`}
@@ -726,6 +845,7 @@ export default function SpotDetailShell({
             </div>
           </div>
         </div>
+        )}
 
         {/* Body: single stack on mobile, two columns on desktop */}
         {/* Single top-to-bottom reading order (conclusion-first). A desktop-
@@ -742,59 +862,68 @@ export default function SpotDetailShell({
                   <h1 className="rc-title-lg text-3xl lg:text-4xl min-w-0">
                     {spot.name}
                   </h1>
-                  <button
-                    type="button"
-                    onClick={handleToggleSaved}
-                    aria-pressed={saved}
-                    aria-label={saved ? "Remove from saved spots" : "Save spot"}
-                    className="group shrink-0 p-1.5 rounded hover:bg-rc-badge/10 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-rc-brand transition-colors"
-                  >
-                    <svg
-                      viewBox="0 0 42 40"
-                      aria-hidden
-                      className={`w-[22px] h-[21px] origin-center transition-[fill] duration-200 ${
-                        saved
-                          ? "fill-rc-badge"
-                          : "fill-rc-ink-mute group-hover:fill-rc-badge"
-                      } ${savePop ? "animate-fav-pop" : ""}`}
+                  {/* Save, home spot and alerts all act on an ACCOUNT. On a
+                      cold ad click there is no account, so each one is a
+                      modal in front of someone who has not yet seen what
+                      they would be signing up for. The page's single ask is
+                      the form at the wall. */}
+                  {!ad && (
+                    <>
+                    <button
+                      type="button"
+                      onClick={handleToggleSaved}
+                      aria-pressed={saved}
+                      aria-label={saved ? "Remove from saved spots" : "Save spot"}
+                      className="group shrink-0 p-1.5 rounded hover:bg-rc-badge/10 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-rc-brand transition-colors"
                     >
-                      <path d="M21,34 L10.4346982,39.5545079 C8.47875732,40.5828068 7.19697214,39.6450119 7.56952871,37.4728404 L9.5873218,25.7082039 L1.03981311,17.3764421 C-0.542576313,15.8339937 -0.0467737017,14.3251489 2.13421047,14.0082334 L13.946577,12.2917961 L19.2292279,1.58797623 C20.2071983,-0.393608322 21.7954064,-0.388330682 22.7707721,1.58797623 L28.053423,12.2917961 L39.8657895,14.0082334 C42.0525979,14.3259953 42.5383619,15.8381017 40.9601869,17.3764421 L32.4126782,25.7082039 L34.4304713,37.4728404 C34.8040228,39.6508126 33.5160333,40.5800681 31.5653018,39.5545079 L21,34 Z" />
-                    </svg>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={toggleHome}
-                    aria-pressed={isHome}
-                    aria-label={isHome ? "Remove as home spot" : "Set as home spot"}
-                    title={isHome ? "Your home spot" : "Set as home spot"}
-                    className="group shrink-0 p-1.5 rounded hover:bg-rc-brand-soft focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-rc-brand transition-colors"
-                  >
-                    <Home
-                      className={`w-5 h-5 transition-colors ${
-                        isHome
-                          ? "text-rc-brand fill-rc-brand/15"
-                          : "text-rc-ink-mute group-hover:text-rc-brand"
-                      }`}
-                      strokeWidth={isHome ? 2.4 : 2}
-                    />
-                  </button>
-                  {/* Alerts are a page-level action on the spot, not a
-                      property of the score, so the CTA sits with the identity
-                      row rather than buried under the score card. ml-auto keeps
-                      it hard right without disturbing the name/star/home group. */}
-                  <button
-                    type="button"
-                    onClick={handleSetAlert}
-                    /* The label collapses to the bell on narrow screens, so the
-                       button needs its own accessible name or it announces as
-                       nothing to a screen reader. */
-                    aria-label="Set alert"
-                    title="Set alert"
-                    className="ml-auto shrink-0 flex items-center gap-2 rounded border border-rc-brand px-3 py-2 text-rc-brand hover:bg-rc-brand-soft text-[13px] font-semibold focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-rc-brand transition-colors"
-                  >
-                    <Bell className="w-4 h-4" aria-hidden />
-                    <span className="hidden sm:inline">Set alert</span>
-                  </button>
+                      <svg
+                        viewBox="0 0 42 40"
+                        aria-hidden
+                        className={`w-[22px] h-[21px] origin-center transition-[fill] duration-200 ${
+                          saved
+                            ? "fill-rc-badge"
+                            : "fill-rc-ink-mute group-hover:fill-rc-badge"
+                        } ${savePop ? "animate-fav-pop" : ""}`}
+                      >
+                        <path d="M21,34 L10.4346982,39.5545079 C8.47875732,40.5828068 7.19697214,39.6450119 7.56952871,37.4728404 L9.5873218,25.7082039 L1.03981311,17.3764421 C-0.542576313,15.8339937 -0.0467737017,14.3251489 2.13421047,14.0082334 L13.946577,12.2917961 L19.2292279,1.58797623 C20.2071983,-0.393608322 21.7954064,-0.388330682 22.7707721,1.58797623 L28.053423,12.2917961 L39.8657895,14.0082334 C42.0525979,14.3259953 42.5383619,15.8381017 40.9601869,17.3764421 L32.4126782,25.7082039 L34.4304713,37.4728404 C34.8040228,39.6508126 33.5160333,40.5800681 31.5653018,39.5545079 L21,34 Z" />
+                      </svg>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={toggleHome}
+                      aria-pressed={isHome}
+                      aria-label={isHome ? "Remove as home spot" : "Set as home spot"}
+                      title={isHome ? "Your home spot" : "Set as home spot"}
+                      className="group shrink-0 p-1.5 rounded hover:bg-rc-brand-soft focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-rc-brand transition-colors"
+                    >
+                      <Home
+                        className={`w-5 h-5 transition-colors ${
+                          isHome
+                            ? "text-rc-brand fill-rc-brand/15"
+                            : "text-rc-ink-mute group-hover:text-rc-brand"
+                        }`}
+                        strokeWidth={isHome ? 2.4 : 2}
+                      />
+                    </button>
+                    {/* Alerts are a page-level action on the spot, not a
+                        property of the score, so the CTA sits with the identity
+                        row rather than buried under the score card. ml-auto keeps
+                        it hard right without disturbing the name/star/home group. */}
+                    <button
+                      type="button"
+                      onClick={handleSetAlert}
+                      /* The label collapses to the bell on narrow screens, so the
+                         button needs its own accessible name or it announces as
+                         nothing to a screen reader. */
+                      aria-label="Set alert"
+                      title="Set alert"
+                      className="ml-auto shrink-0 flex items-center gap-2 rounded border border-rc-brand px-3 py-2 text-rc-brand hover:bg-rc-brand-soft text-[13px] font-semibold focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-rc-brand transition-colors"
+                    >
+                      <Bell className="w-4 h-4" aria-hidden />
+                      <span className="hidden sm:inline">Set alert</span>
+                    </button>
+                    </>
+                  )}
                 </div>
                 <p className="font-rc-mono text-xs text-rc-ink-mute mt-1.5">
                   {`${Math.abs(spot.lat).toFixed(2)}°${
@@ -831,10 +960,16 @@ export default function SpotDetailShell({
               <div className="order-2">
                 <SpotMiniMap
                   spot={spot}
-                  score={nowScore ?? todayScore}
+                  /* The day's best, matching the headline above it and the
+                     day strip below it. It used to be the live hour, so a
+                     page reading "Best score for the day 89" carried a puck
+                     reading 33, and the two numbers were about different
+                     questions with nothing on screen saying so. */
+                  score={peakScore ?? todayScore}
                   timeIso={
                     activeIso ? zonedHourToUtcIso(activeIso, selectedHour, TZ) : null
                   }
+                  hideExploreLink={!!ad}
                 />
               </div>
               {/* 2 · Best Window + 3 · DFO reg strip. The fresh-catch evidence
@@ -843,7 +978,8 @@ export default function SpotDetailShell({
                   so this card is now purely the score verdict. */}
               <div className="order-1">
                 <ScoreCard
-                  nowLabel={nowLabel}
+                  nowTime={nowTime}
+                  nowIsPeak={peakHourNum === nowHour}
                   score={nowScore}
                   peak={peakScore ?? todayScore}
                   peakTime={fmtPeak(peakHourNum)}
@@ -872,7 +1008,8 @@ export default function SpotDetailShell({
               reports={reports}
               fresh={fresh}
               days={FRESH_DAYS}
-              onUpgrade={() => setReportsUpgradeOpen(true)}
+              onUpgrade={ad ? scrollToOffer : () => setReportsUpgradeOpen(true)}
+              neutralLock={!!ad}
             />
           </div>
           {/* end identity + score cluster (items 1–3) */}
@@ -898,6 +1035,7 @@ export default function SpotDetailShell({
                       day={day}
                       selected={day.iso === activeIso}
                       onSelect={() => handleDay(day)}
+                      neutralLock={!!ad}
                     />
                   </div>
                 ))}
@@ -919,6 +1057,14 @@ export default function SpotDetailShell({
                 <ChevronLeft className="w-4 h-4 text-rc-ink-mute" />
               </div>
             </div>
+            {/* The ask, directly under the locked days it is asking for. Also
+                the scroll target for every locked tile and locked panel on the
+                page, so there is one offer and one place it lives. */}
+            {adCta("hero") && (
+              <div id="ad-offer" className="mt-5 scroll-mt-20">
+                {adCta("hero")}
+              </div>
+            )}
           </div>
 
           {/* 5 · 24-hour graph, with the conditions strip as its readout */}
@@ -973,7 +1119,10 @@ export default function SpotDetailShell({
                 Pro account, which already has all 14. Held until `tierLoading`
                 clears (isPaid starts `false`), same as the day strip, so a Pro
                 viewer never gets a flash of the upsell they already bought. */}
-            {scoreEntry && !tierLoading && !isPaid && (
+            {/* The ad page already carries the ask twice, in a form that
+                takes an email rather than opening a dialog, so a third
+                button into a modal is a competing offer on the same page. */}
+            {!ad && scoreEntry && !tierLoading && !isPaid && (
               <button
                 type="button"
                 onClick={() => setUpgradeOpen(true)}
@@ -993,7 +1142,10 @@ export default function SpotDetailShell({
           {/* Renders nothing for Pro, and nothing until tier resolves. Placed
               after the forecast reasoning rather than among it — everything
               above this line is what the reader came for. */}
-          <AdSlot placement="spotMid" className="border-t border-rc-rule pt-8" />
+          {/* Never on paid traffic. Paying for a click and then showing that
+              visitor somebody else's ad is renting out the attention we just
+              bought, at a fraction of what it cost. */}
+          {!ad && <AdSlot placement="spotMid" className="border-t border-rc-rule pt-8" />}
 
           {/* Current regulations — the limits in effect for the active species
               (daily limit / size / gear), broken out. */}
@@ -1031,13 +1183,16 @@ export default function SpotDetailShell({
             <SpotProfile spot={spot} seasonState={seasonState} />
           </div>
 
-          {/* 10 · Neighbouring spots */}
-          <div className="border-t border-rc-rule pt-8">
-            <NeighbourSpots
-              spots={page.nearbySpots}
-              region={cityLink?.provinceName ?? spot.region}
-            />
-          </div>
+          {/* 10 · Neighbouring spots. A list of ways off the page the ad paid
+              for, and off the spot the ad named. */}
+          {!ad && (
+            <div className="border-t border-rc-rule pt-8">
+              <NeighbourSpots
+                spots={page.nearbySpots}
+                region={cityLink?.provinceName ?? spot.region}
+              />
+            </div>
+          )}
 
           {/* 11 · Description + the SEO/hierarchy trail. */}
           <div className="border-t border-rc-rule pt-8 space-y-6">
@@ -1046,11 +1201,16 @@ export default function SpotDetailShell({
                 {spot.seoIntro}
               </p>
             )}
-            <CustomAlertCta spotName={spot.name} onCreateAlert={handleSetAlert} />
+            {!ad && (
+              <CustomAlertCta spotName={spot.name} onCreateAlert={handleSetAlert} />
+            )}
+            {/* Second copy of the ask, for a reader who came all the way down
+                the page rather than stopping at the wall. */}
+            {adCta("final")}
             {/* Runs in the document flow at every width (the desktop breadcrumb
                 is hidden on mobile), keeping the spot → city → province edges
                 present for readers and crawlers. */}
-            {cityLink && (
+            {!ad && cityLink && (
               <p className="text-sm text-rc-ink-soft">
                 {spot.name} is one of the spots we track around{" "}
                 <Link
@@ -1069,23 +1229,28 @@ export default function SpotDetailShell({
                 .
               </p>
             )}
-            <p className="text-sm text-rc-ink-soft">
-              Looking for the full interactive map?{" "}
-              <Link href="/explore" className="text-rc-brand font-medium hover:underline">
-                Open Explore
-              </Link>
-              .
-            </p>
+            {!ad && (
+              <p className="text-sm text-rc-ink-soft">
+                Looking for the full interactive map?{" "}
+                <Link href="/explore" className="text-rc-brand font-medium hover:underline">
+                  Open Explore
+                </Link>
+                .
+              </p>
+            )}
           </div>
 
           {/* Last thing above the footer — after the description and the
               hierarchy trail, so the crawlable copy and the outbound city /
               province links stay ahead of it. */}
-          <AdSlot placement="spotFoot" className="border-t border-rc-rule pt-8" />
+          {!ad && <AdSlot placement="spotFoot" className="border-t border-rc-rule pt-8" />}
         </div>
       </div>
 
-      <MarketingFooter />
+      {/* The marketing footer is a sitemap. On an ad page it is forty ways to
+          leave, printed under the one thing we asked the reader to do. What
+          survives is what has to: the legal pages. */}
+      {ad ? <AdFooter /> : <MarketingFooter />}
 
       <UpgradeDialog
         open={upgradeOpen}

@@ -46,11 +46,16 @@ export default function SpotMiniMap({
   spot,
   score,
   timeIso,
+  hideExploreLink = false,
 }: {
   spot: LiveSpot;
   score: number | null;
   /** UTC instant both flow tabs are drawn at; null = model "now". */
   timeIso?: string | null;
+  /** Drop the corner link out to /explore. Set on the ad frame of the spot
+   *  page, where it is an exit sitting on top of the most tappable element on
+   *  the page, pointing at a map that sells nothing in particular. */
+  hideExploreLink?: boolean;
 }) {
   const mapRef = useRef<MapRef | null>(null);
   const [mapObj, setMapObj] = useState<MlMap | null>(null);
@@ -172,7 +177,7 @@ export default function SpotMiniMap({
       </div>
 
       {/* Back to the Explore map — only in the compact view */}
-      {!expanded && (
+      {!expanded && !hideExploreLink && (
         <Link
           href="/explore"
           aria-label="Back to map"

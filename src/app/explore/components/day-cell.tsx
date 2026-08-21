@@ -40,10 +40,25 @@ export default function DayCell({
   day,
   selected,
   onSelect,
+  neutralLock = false,
 }: {
   day: ForecastDay;
   selected: boolean;
   onSelect: () => void;
+  /**
+   * Drop the plan name from a locked tile, leaving the lock alone.
+   *
+   * Set on the ad frame of the spot page, where "Sign up free" would sit four
+   * tiles wide directly above a form asking for a card. Two offers on one
+   * screen is one too many, and the cheaper one wins by being cheaper rather
+   * than by being what the visit was bought for. The tile still says there is
+   * more here and still leads to the same place; it just stops naming a
+   * second price.
+   *
+   * Everywhere else the plan name stays, because on the product a locked day
+   * SHOULD say what unlocks it.
+   */
+  neutralLock?: boolean;
 }) {
   // Non-retention day: the selected species can't be kept on this date, so a
   // score would mislead. Show the regulatory label instead (takes precedence
@@ -94,7 +109,11 @@ export default function DayCell({
         <div className="font-rc-mono text-[10px] text-rc-ink-soft">{day.date}</div>
         <Lock className="w-5 h-5 text-rc-ink-soft my-0.5" />
         <div className="font-rc-mono text-[9px] text-rc-ink-soft text-center leading-tight px-0.5">
-          {day.lockTier === "free" ? "Sign up free" : "Upgrade to Pro"}
+          {neutralLock
+            ? "Locked"
+            : day.lockTier === "free"
+              ? "Sign up free"
+              : "Upgrade to Pro"}
         </div>
       </button>
     );

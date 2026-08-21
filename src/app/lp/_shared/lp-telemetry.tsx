@@ -150,20 +150,62 @@ function firstTimeThisVisit(key: string): boolean {
  * resolved. Empty on /lp/1, which has no angles.
  */
 export function useLpHit(angle: string): void {
+  const { landing, target_city } = parseLpPath(
+    typeof window === "undefined" ? "" : window.location.pathname,
+  );
+  useCampaignHit(
+    landing ? { landing, target_city, target_spot: "", wall: "", angle } : null,
+  );
+}
+
+/**
+ * What is being counted, for surfaces that are not /lp/<n>/<city>.
+ *
+ * The /lp pages read this off their own path, which is the authority there and
+ * costs a new variant no edit. An ad-framed spot page has no such path: the
+ * URL is the product's own `/explore/spot/<slug>`, and which city it belongs
+ * to and which wall it is running are facts only the server knows. So those
+ * surfaces pass the dimensions in.
+ *
+ * `target_spot` and `wall` exist for exactly one reason: without them every
+ * Seattle spot at every wall setting folds into one row, and "which spot, at
+ * which wall, earned the click" is unanswerable in a table that has already
+ * thrown the distinction away. The counter is forward-only.
+ */
+export interface CampaignTarget {
+  /** "lp6", or "spot" for an ad-framed spot page. */
+  landing: string;
+  target_city: string;
+  /** Spot slug on a spot ad page, empty on a landing page. */
+  target_spot: string;
+  /** Paywall position on a spot ad page ("today"), empty elsewhere. */
+  wall: string;
+  angle: string;
+}
+
+/** Count this view, once per tab. Pass null when there is nothing to count. */
+export function useCampaignHit(target: CampaignTarget | null): void {
+  const key = target
+    ? `${target.landing}:${target.target_city}:${target.target_spot}:${target.wall}`
+    : "";
+  const angle = target?.angle ?? "";
   useEffect(() => {
-    const { landing, target_city } = parseLpPath(window.location.pathname);
-    if (!landing) return; // Not a landing page. Nothing to count.
-    if (!firstTimeThisVisit(`rc_lp_hit:${landing}:${target_city}`)) return;
+    if (!key) return;
+    const [landing, target_city, target_spot, wall] = key.split(":");
+    if (!landing) return;
+    if (!firstTimeThisVisit(`rc_lp_hit:${key}`)) return;
 
     post({
       kind: "hit",
       landing,
       angle,
       target_city,
+      target_spot,
+      wall,
       cta: "",
       ...campaignDims(),
     });
-  }, [angle]);
+  }, [key, angle]);
 }
 
 /**
@@ -177,12 +219,28 @@ export function reportLpCta(cta: LpCtaId, angle: string): void {
   if (typeof window === "undefined") return;
   const { landing, target_city } = parseLpPath(window.location.pathname);
   if (!landing) return;
+  reportCampaignCta(cta, {
+    landing,
+    target_city,
+    target_spot: "",
+    wall: "",
+    angle,
+  });
+}
+
+/** Count a CTA press on any campaign surface. Safe to call from an onClick
+ *  that is about to navigate. */
+export function reportCampaignCta(cta: LpCtaId, target: CampaignTarget): void {
+  if (typeof window === "undefined") return;
+  if (!target.landing) return;
 
   post({
     kind: "cta_click",
-    landing,
-    angle,
-    target_city,
+    landing: target.landing,
+    angle: target.angle,
+    target_city: target.target_city,
+    target_spot: target.target_spot,
+    wall: target.wall,
     cta,
     ...campaignDims(),
   });

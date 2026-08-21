@@ -479,3 +479,20 @@
 ins.adsbygoogle[data-ad-status='unfilled'] {
   display: none !important;
 }
+
+/*
+ * The ad frame of a spot page (src/app/explore/spot/[slug]/ad-mode.ts) takes
+ * out the mobile tab bar, which is rendered by the root layout and so is a
+ * sibling of the page rather than part of it.
+ *
+ * A CSS rule rather than a prop or a hook because the alternatives all cost
+ * something the frame is not worth: reading the query in the nav would opt
+ * every statically rendered page into client-side rendering, and reading a
+ * header in the root layout would make every route dynamic. `:has()` on the
+ * body costs nothing and applies before first paint. `display: none` also
+ * takes the four links out of the tab order, which a visibility trick would
+ * not.
+ */
+body:has([data-ad-frame]) [data-mobile-nav] {
+  display: none;
+}

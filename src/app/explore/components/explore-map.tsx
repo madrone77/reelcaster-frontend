@@ -103,7 +103,6 @@ export default function ExploreMap({
   labels,
   currents,
   wind,
-  hour,
   flowTimeIso,
   stripVisible = false,
   wdfwRegs,
@@ -138,8 +137,6 @@ export default function ExploreMap({
   labels: boolean;
   currents: boolean;
   wind?: boolean;
-  /** 0–23 hour override — pins recolor to that hour; null = day peak. */
-  hour?: number | null;
   /** UTC instant the flow fields are drawn at; null = model "now". */
   flowTimeIso?: string | null;
   /** Desktop forecast strip visible → raise the attribution above it. */
@@ -306,16 +303,33 @@ export default function ExploreMap({
   }, [summary]);
 
   const data = useMemo(
-    () => spotsToFeatureCollection(spots, hour, showReports),
-    [spots, hour, showReports],
+    /**
+     * The puck is always the DAY's best score, at every hour.
+     *
+     * This used to take the scrubbed hour, so the number on a pin, the number
+     * on that day's strip cell, and the headline on the spot page were three
+     * different numbers about three different questions with nothing on
+     * screen saying so. A spot advertised at 89 that showed 33 on its own map
+     * was the version of that a customer saw first.
+     *
+     * The cost is real and worth naming: dragging the drawer's 24-hour chart
+     * no longer repaints the map hour by hour, which was a good way to watch
+     * the bite move through a day. The chart, the conditions strip and the
+     * current field all still follow the scrub; only the pins hold still.
+     * Restoring it means threading `scrubHour` back into these two calls.
+     */
+    () => spotsToFeatureCollection(spots, null, showReports),
+    [spots, showReports],
   );
 
   // Overlapping pins: hide the lower-scored one at this zoom (it reappears on
   // zoom-in). The selected spot is immune. Applied as a layer filter so the
   // GeoJSON source (and the strip/rail fed from `spots`) is untouched.
   const hiddenSlugs = useMemo(
-    () => declutterHiddenSlugs(spots, hour, declutterZoom, selectedSlug),
-    [spots, hour, declutterZoom, selectedSlug],
+    // Ranked by the same number the pucks are drawing, or the pin that wins a
+    // collision would not be the pin showing the higher score.
+    () => declutterHiddenSlugs(spots, null, declutterZoom, selectedSlug),
+    [spots, declutterZoom, selectedSlug],
   );
   // Always a filter (empty list = keep all) so react-map-gl diffs a filter
   // change rather than toggling the property on and off.
