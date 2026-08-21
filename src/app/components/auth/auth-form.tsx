@@ -207,7 +207,7 @@ export function AuthForm({ defaultMode = 'signin', onSuccess, source = 'auth-for
                 autoComplete="given-name"
                 value={firstName}
                 onChange={e => setFirstName(e.target.value)}
-                placeholder="Casey"
+                placeholder="Your first name"
                 required
                 disabled={loading}
                 className="pl-10 bg-rc-panel border-rc-rule text-rc-ink placeholder:text-rc-ink-mute focus-visible:border-rc-brand focus-visible:ring-rc-brand/25"
