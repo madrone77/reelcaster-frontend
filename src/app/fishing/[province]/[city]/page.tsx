@@ -7,10 +7,21 @@ import {
   fetchMapSpots,
 } from "@/lib/bluecaster";
 import { COVERED_PROVINCES } from "@/lib/regions";
-import { breadcrumbJsonLd, DEFAULT_OG, siteUrl } from "@/lib/site";
+import { breadcrumbJsonLd, siteUrl } from "@/lib/site";
 import { buildExploreData } from "../../../explore/lib/explore-data";
 import { getFishingCity, getFishingProvince } from "../../lib/fishing-data";
+import MarketingFooter from "@/app/components/marketing/marketing-footer";
 import CityShell from "./city-shell";
+import CityHeader from "./city-header";
+import { SpeciesCards } from "./species-cards";
+import {
+  BeforeYouGo,
+  CityFaq,
+  CityProse,
+  NearbyCities,
+  SeasonMatrix,
+} from "./city-sections";
+import { licenceFor } from "./city-licence";
 
 // Scores refresh through the day — keep the page fresh-ish without going
 // fully dynamic (the hierarchy behind it is cached 1h regardless).
@@ -54,7 +65,12 @@ export async function generateMetadata({
   // A CMS-authored title already carries its own brand suffix, so it opts out
   // of the layout template via `absolute`; the generated fallback is bare and
   // lets the template append.
-  const cmsTitle = cityPage?.page.seo.title;
+  //
+  // BlueCaster returns null here when nobody authored one, rather than a
+  // generic stand-in. That matters precisely BECAUSE this is `absolute`: a
+  // stand-in would not compete with the fallback below, it would replace it,
+  // and the fallback counts today's published spots and cannot go stale.
+  const cmsTitle = cityPage?.page.seo.title ?? null;
   // "Victoria, BC Fishing — 17 Spots". Leading with the place puts the words
   // someone actually searched at the front of the result, and dropping the old
   // "with Live Scores" tail brings every city inside the ~60 characters Google
@@ -67,7 +83,6 @@ export async function generateMetadata({
   const canonical = siteUrl(
     `/fishing/${provinceParam.toLowerCase()}/${citySlug}`,
   );
-  const ogImage = cityPage?.page.seo.og_image_url ?? undefined;
   return {
     title: cmsTitle ? { absolute: cmsTitle } : fallbackTitle,
     description,
@@ -75,15 +90,18 @@ export async function generateMetadata({
     openGraph: {
       title: cmsTitle ?? `${fallbackTitle} | ReelCaster`,
       description,
+      // A page declaring its own `openGraph` block replaces the inherited one
+      // rather than merging into it, so without this the card loses the site
+      // label and Facebook falls back to printing the bare domain.
+      siteName: "ReelCaster",
       url: canonical,
       type: "website",
-      // The CMS hero when the city has one, otherwise the site-wide generated
-      // card (src/app/opengraph-image.tsx). A page-level `openGraph` block
-      // REPLACES the inherited one, so the fallback has to be named here —
-      // omitting it left these pages with no og:image at all.
-      ...(ogImage
-        ? { images: [{ url: ogImage, width: 1200, height: 630 }] }
-        : DEFAULT_OG),
+      // No `images` here on purpose. This route has its own
+      // `opengraph-image.tsx`, and an explicit `images` entry beats the file
+      // convention, so naming one would pin every city back to the single
+      // site-wide card the per-city one exists to replace. The old code
+      // spread DEFAULT_OG whenever the CMS had no hero, which is now every
+      // city, so it would have done exactly that on all nine.
     },
     robots: { index: true, follow: true },
   };
@@ -110,9 +128,17 @@ export default async function CityPage({
   if (!province || !city) notFound();
 
   // Same derivation Explore uses (scores joined onto the hierarchy tree),
-  // narrowed to this city's members.
+  // narrowed to what the API returned for THIS city.
+  //
+  // Narrowed by id, not by `citySlug`. A spot has one home city but can be a
+  // member of another, and `citySlug` carries the home — so filtering on it
+  // silently dropped every shared spot from the page that asked for them.
+  // Victoria rendered 15 of its 18 while the title, the guide cards and the
+  // map all said 18, which is three different counts of the same thing on one
+  // screen. The request was already scoped to this city; trust it.
   const data = buildExploreData(hierarchy, payload);
-  const spots = data.spots.filter((s) => s.citySlug === citySlug);
+  const inCity = new Set((payload?.spots ?? []).map((s) => s.id));
+  const spots = data.spots.filter((s) => inCity.has(s.id));
 
   const provincePath = `/fishing/${provinceParam.toLowerCase()}`;
 
@@ -146,6 +172,56 @@ export default async function CityPage({
     })),
   };
 
+  // Other published cities in the same province, so a reader who is in the
+  // wrong place has somewhere to go. Ordered by how much we cover.
+  const nearby = (province.cities ?? [])
+    .filter((c) => c.slug !== citySlug)
+    .map((c) => ({ slug: c.slug, name: c.name, spotCount: c.spots.length }))
+    .sort((a, b) => b.spotCount - a.spotCount)
+    .slice(0, 6);
+
+  const guides = cityGuides?.guides ?? [];
+  const seasonRows = cityPage?.species_table ?? [];
+  const faq = cityPage?.page.faq ?? [];
+  const licence = licenceFor(city.provinceCode);
+
+  // FAQPage, with a licence question appended from our own licence data.
+  //
+  // The generated FAQ is forbidden from touching licences, because a fee
+  // frozen into prose goes stale on 1 April in every city at once. But "do I
+  // need a licence to fish here" is the question people actually type, so it
+  // is answered here from the same table the licence guide renders, and it
+  // cannot drift.
+  const licenceQuestion =
+    licence && licence.residentAnnual
+      ? {
+          q: `Do I need a fishing licence in ${city.name}?`,
+          a:
+            `Yes. Saltwater fishing around ${city.name} needs the ` +
+            `${licence.name} from ${licence.regulator}, ` +
+            `${licence.residentAnnual} a year for a ${licence.residentLabel.toLowerCase()} ` +
+            `in ${licence.yearLabel}.` +
+            (licence.addOn
+              ? ` The ${licence.addOn.name} (${licence.addOn.fee}) is ${licence.addOn.when}`
+              : "") +
+            ` ${licence.caveat}`,
+        }
+      : null;
+
+  const faqForSchema = licenceQuestion ? [...faq, licenceQuestion] : faq;
+
+  const faqJsonLd = faqForSchema.length
+    ? {
+        "@context": "https://schema.org",
+        "@type": "FAQPage",
+        mainEntity: faqForSchema.map((item) => ({
+          "@type": "Question",
+          name: item.q,
+          acceptedAnswer: { "@type": "Answer", text: item.a },
+        })),
+      }
+    : null;
+
   return (
     <>
       <script
@@ -156,15 +232,58 @@ export default async function CityPage({
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(spotList) }}
       />
-      <CityShell
-        city={city}
-        provincePath={provincePath}
-        spots={spots}
-        species={data.species}
-        date={data.date}
-        intro={cityPage?.page.seo.meta_description ?? null}
-        guides={cityGuides?.guides ?? []}
-      />
+      {faqJsonLd && (
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(faqJsonLd) }}
+        />
+      )}
+
+      <div className="max-w-6xl mx-auto px-6 pt-6 pb-16 space-y-10">
+        <CityHeader
+          city={city}
+          provincePath={provincePath}
+          spotCount={spots.length}
+        />
+
+        {/* Conclusion first: what is here and whether you may keep it, then
+            where it is, then the reference material. */}
+        <SpeciesCards
+          guides={guides}
+          cityName={city.name}
+          cityPath={`${provincePath}/${citySlug}`}
+        />
+
+        <CityShell
+          city={city}
+          spots={spots}
+          species={data.species}
+          date={data.date}
+        />
+
+        <SeasonMatrix rows={seasonRows} cityName={city.name} />
+
+        <BeforeYouGo
+          areas={cityPage?.regulatory_areas ?? []}
+          provinceCode={city.provinceCode}
+          cityName={city.name}
+        />
+
+        <CityProse
+          aboutMd={cityPage?.page.about_md ?? null}
+          localIntelMd={cityPage?.page.local_intel_md ?? null}
+          cityName={city.name}
+        />
+
+        {/* The visible FAQ stays as authored; only the schema above carries
+            the appended licence question, which the licence panel already
+            answers on screen. */}
+        <CityFaq faq={faq} cityName={city.name} />
+
+        <NearbyCities cities={nearby} provincePath={provincePath} />
+      </div>
+
+      <MarketingFooter />
     </>
   );
 }

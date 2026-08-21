@@ -1,13 +1,19 @@
 "use client";
 
-// AllTrails-style city explorer: breadcrumb + H1 header, a scrollable rail of
-// the same SpotCards Explore renders, and a big city map filling the rest.
-// Desktop is a side-by-side split (rail | map) under the sticky marketing
-// header; mobile stacks map-then-list in the document flow. Card and pin
-// selection reuse Explore's drawers so the page stays fully interactive.
+// The interactive half of a city page: a ranked spot rail beside a map.
+//
+// This used to be the WHOLE page — a header above a `calc(100dvh-64px)` split
+// — and that height was the reason the page had nothing else on it. Anything
+// placed after a viewport-tall map is off the bottom of the screen on desktop,
+// which is why the species guides had been pushed ABOVE the split rather than
+// below it, where they belong. Bounding the map to a fixed band turns the page
+// back into a page: this is now one section in a scroll, not the destination.
+//
+// Everything else about the interaction is unchanged and still shares
+// Explore's components, so a card, a pin and a drawer behave here exactly as
+// they do there.
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import type { MapRef } from "react-map-gl/maplibre";
 import ExploreMap, {
@@ -36,29 +42,20 @@ import {
 } from "@/lib/bluecaster-client";
 import { spotDaysFrom } from "../../../explore/components/spot-day-strip";
 import { useAuth } from "@/contexts/auth-context";
-import type { BlueCasterGuideLink } from "@/lib/bluecaster";
-import { activityPhrase } from "../../lib/activity";
 import type { FishingCity } from "../../lib/fishing-data";
 
 const MAP_TZ = "America/Vancouver";
 
 export default function CityShell({
   city,
-  provincePath,
   spots,
   species,
   date,
-  intro,
-  guides,
 }: {
   city: FishingCity;
-  provincePath: string;
   spots: RailSpot[];
   species: SpeciesOption[];
   date: string;
-  intro: string | null;
-  /** Published species guides for this city, empty when it has none. */
-  guides: BlueCasterGuideLink[];
 }) {
   const mapRef = useRef<MapRef>(null);
   const router = useRouter();
@@ -75,19 +72,16 @@ export default function CityShell({
   const [freshCatches, setFreshCatches] = useState<FreshCatchesResponse | null>(
     null,
   );
-  // Every card's next 14 days for this city, in one read. undefined = still
-  // loading, so the strip holds its space instead of the rail reflowing.
-  const [outlook, setOutlook] = useState<SpotsOutlook14dPayload | null | undefined>(
-    undefined,
-  );
+  // Every card's next 14 days in one read. undefined = still loading, so the
+  // strip holds its space instead of the rail reflowing.
+  const [outlook, setOutlook] = useState<
+    SpotsOutlook14dPayload | null | undefined
+  >(undefined);
 
-  // Scraped catch reports, keyed by spot id — the same payload Explore's rail
-  // joins on, so a spot wears the same badge here as it does there. This page
-  // is server-rendered for crawlers; the badge is a client-side additive layer
-  // on top, so a failed fetch (or a bot that never runs it) still gets the
-  // whole page. Re-runs when the session resolves: the Pro gate lives in the
-  // route and reads the access token, so a pass fired before Supabase
-  // rehydrates would leave a Pro angler holding the locked payload.
+  // Scraped catch reports, keyed by spot id, so a spot wears the same badge
+  // here as it does on Explore. Additive: the page renders whole without it,
+  // which is what a crawler gets. Re-runs when the session resolves, because
+  // the Pro gate lives in the route and reads the access token.
   useEffect(() => {
     let cancelled = false;
     fetchFreshCatches()
@@ -100,10 +94,9 @@ export default function CityShell({
     };
   }, [userId]);
 
-  // Per-spot 14-day outlook for the whole city, scoped by slug so it is one
-  // request for the rail rather than one per card. Same additive contract as
-  // the badge above — the page renders whole without it — and re-run on the
-  // session for the same plan-gate reason.
+  // One request for the whole rail rather than one per card. The horizon is
+  // applied by the proxy (anon 2 days, free 7, Pro 14), so days past the
+  // caller's tier arrive as nulls and each cell draws its own lock.
   useEffect(() => {
     let cancelled = false;
     setOutlook(undefined);
@@ -119,15 +112,19 @@ export default function CityShell({
     };
   }, [city.slug, userId]);
 
-  // Species filter re-scores every card/pin to the chosen species (same
-  // mapping Explore applies); "Best bet" (null) = best species per spot.
+  // Species filter re-scores every card and pin; null = best species per spot.
   const displaySpots = useMemo(() => {
     if (!speciesFilter) return spots;
     const name = species.find((s) => s.id === speciesFilter)?.name ?? null;
     return spots
       .map((s) => {
         const score = s.scoresBySpecies[speciesFilter] ?? null;
-        return { ...s, score, bestSpeciesId: speciesFilter, driverSpecies: name };
+        return {
+          ...s,
+          score,
+          bestSpeciesId: speciesFilter,
+          driverSpecies: name,
+        };
       })
       .sort((a, b) => (b.score ?? -1) - (a.score ?? -1));
   }, [spots, speciesFilter, species]);
@@ -161,7 +158,7 @@ export default function CityShell({
 
   const handleSelectSpot = useCallback(
     (slug: string) => {
-      // Mobile has no rail/drawer — go straight to the spot page.
+      // Mobile has no rail or drawer, so go straight to the spot page.
       if (
         typeof window !== "undefined" &&
         !window.matchMedia("(min-width:1024px)").matches
@@ -193,8 +190,8 @@ export default function CityShell({
     });
   }, []);
 
-  // One map instance flips between the mobile in-flow block and the desktop
-  // split pane — nudge GL on the breakpoint cross so tiles don't stay blank.
+  // One map instance flips between the mobile block and the desktop pane, so
+  // nudge GL on the breakpoint cross or tiles stay blank.
   useEffect(() => {
     if (typeof window === "undefined") return;
     const mql = window.matchMedia("(min-width:1024px)");
@@ -204,98 +201,23 @@ export default function CityShell({
     return () => mql.removeEventListener("change", onChange);
   }, []);
 
-  const scored = spots.filter((s) => s.score !== null);
-  const best = scored.length
-    ? scored.reduce((a, b) => ((b.score ?? -1) > (a.score ?? -1) ? b : a))
-    : null;
-
   return (
-    <div>
-      {/* ── Header ─────────────────────────────────────────────────── */}
-      <div className="max-w-6xl mx-auto px-6 pt-6 pb-5">
-        <nav
-          aria-label="Breadcrumb"
-          className="font-rc-mono text-[11px] text-rc-ink-mute"
+    <section className="space-y-4">
+      <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
+        <h2
+          id="spots"
+          className="text-xl font-semibold text-rc-ink"
         >
-          <ol className="flex items-center gap-1.5">
-            <li>
-              <Link href="/" className="hover:text-rc-ink transition-colors">
-                Home
-              </Link>
-            </li>
-            <li aria-hidden>/</li>
-            <li>
-              <Link
-                href={provincePath}
-                className="hover:text-rc-ink transition-colors"
-              >
-                Fishing in {city.provinceName}
-              </Link>
-            </li>
-            <li aria-hidden>/</li>
-            <li className="text-rc-ink-soft" aria-current="page">
-              {city.name}
-            </li>
-          </ol>
-        </nav>
-
-        <div className="flex flex-wrap items-end justify-between gap-x-6 gap-y-2 mt-2">
-          <div className="min-w-0">
-            <h1 className="text-3xl sm:text-4xl font-bold text-rc-ink">
-              Fishing in {city.name}, {city.provinceCode}
-            </h1>
-            <p className="font-rc-mono text-[12px] text-rc-ink-soft mt-1.5">
-              {spots.length} spot{spots.length === 1 ? "" : "s"} ·{" "}
-              {city.regionName}
-              {best?.driverSpecies ? (
-                <>
-                  {" "}
-                  · best today: {best.driverSpecies} {best.score}
-                </>
-              ) : null}
-            </p>
-          </div>
-        </div>
-
-        {intro && (
-          <p className="text-rc-ink-soft mt-3 max-w-3xl text-[15px]">{intro}</p>
-        )}
-
-        {/* Species guides. Above the split because the split is a full-height
-            map: anything below it is off the bottom of the page on desktop,
-            and these are the pages a crawler and a planning angler both want
-            to find from here. */}
-        {guides.length > 0 && (
-          <nav aria-label={`${city.name} species guides`} className="mt-4">
-            <div className="rc-label text-[9px] text-rc-ink-mute">
-              Species guides
-            </div>
-            <ul className="flex flex-wrap gap-2 mt-1.5">
-              {guides.map((g) => (
-                <li key={g.species_slug}>
-                  <Link
-                    href={`${provincePath}/${city.slug}/${g.species_slug}`}
-                    className="group flex items-baseline gap-2 rounded-full border border-rc-rule bg-rc-panel px-3 py-1.5 hover:border-rc-brand transition-colors"
-                  >
-                    <span className="text-[13px] font-medium text-rc-ink group-hover:text-rc-brand transition-colors">
-                      {activityPhrase(g.activity)}
-                    </span>
-                    {g.peak_label && (
-                      <span className="font-rc-mono text-[10px] text-rc-ink-mute">
-                        peak {g.peak_label}
-                      </span>
-                    )}
-                  </Link>
-                </li>
-              ))}
-            </ul>
-          </nav>
-        )}
+          {spots.length} spot{spots.length === 1 ? "" : "s"} around {city.name}
+        </h2>
+        <p className="font-rc-mono text-[11px] text-rc-ink-mute">
+          Scores update through the day
+        </p>
       </div>
 
-      {/* ── Split: rail | map ──────────────────────────────────────── */}
-      <div className="border-t border-rc-rule lg:flex">
-        <aside className="hidden lg:flex h-[calc(100dvh-64px)] flex-col w-[400px] shrink-0 border-r border-rc-rule bg-rc-panel">
+      {/* Bounded band, not a viewport. See the note at the top of the file. */}
+      <div className="rounded-lg border border-rc-rule overflow-hidden lg:flex">
+        <aside className="hidden lg:flex h-[560px] flex-col w-[380px] shrink-0 border-r border-rc-rule bg-rc-panel">
           {selectedSpot ? (
             <div
               key={selectedSpot.id}
@@ -323,15 +245,7 @@ export default function CityShell({
             <div className="flex flex-col h-full min-h-0 animate-fade-in">
               <div className="border-b border-rc-rule px-3 pt-3 pb-2.5">
                 <div className="flex items-end justify-between pb-2">
-                  <div>
-                    <div className="rc-label text-[9px]">
-                      Viewing all spots
-                    </div>
-                    <div className="text-[15px] font-semibold text-rc-ink mt-0.5">
-                      {railSpots.length} spot
-                      {railSpots.length === 1 ? "" : "s"}
-                    </div>
-                  </div>
+                  <div className="rc-label text-[9px]">Ranked for today</div>
                   {railSpots.length > 1 && (
                     <SortControl sort={sort} onSort={setSort} />
                   )}
@@ -359,9 +273,9 @@ export default function CityShell({
                       onSelect={() => handleSelectSpot(spot.slug)}
                       fresh={freshCatches?.spots[spot.id]}
                       showDayStrip
-                      // The rail is 400px. Fourteen labelled day cells would
-                      // be ~26px each here, so this density draws the shape of
-                      // the fortnight and leaves the numbers to the spot page.
+                      // The rail is under 400px. Fourteen labelled cells would
+                      // be ~26px each, so this draws the shape of the
+                      // fortnight and leaves the numbers to the spot page.
                       dayStripDensity="compact"
                       days14={
                         outlook === undefined
@@ -376,7 +290,7 @@ export default function CityShell({
           )}
         </aside>
 
-        <div className="relative h-[45dvh] min-h-[280px] lg:h-[calc(100dvh-64px)] lg:flex-1">
+        <div className="relative h-[380px] sm:h-[440px] lg:h-[560px] lg:flex-1">
           <ExploreMap
             mapRef={mapRef}
             spots={displaySpots}
@@ -395,13 +309,13 @@ export default function CityShell({
         </div>
       </div>
 
-      {/* Mobile list (component is lg:hidden internally). */}
+      {/* Mobile list (the component is lg:hidden internally). */}
       <MobileSpotList
         spots={displaySpots}
         tz={MAP_TZ}
         onSelectSpot={handleSelectSpot}
         freshCatches={freshCatches}
       />
-    </div>
+    </section>
   );
 }

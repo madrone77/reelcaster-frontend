@@ -633,13 +633,33 @@ export type BlueCasterHierarchyLight = HierarchyTree<HierarchyCityLight>;
 // city landing page renders. 404 (no published city_page yet) → null;
 // the page falls back to generated copy.
 
+/** One species' year in a city, plus what you may keep. */
+export interface BlueCasterCitySeasonRow {
+  species_id: string;
+  species_name: string;
+  species_slug: string;
+  /** Keys "1".."12". `peak` | `excellent` | `good` | `fair` | `poor` | `none`.
+   *  Relative to THIS species' own year, so `peak` means peak for Chinook,
+   *  not that Chinook outfishes Halibut. Compare along a row, never down a
+   *  column. */
+  months: Record<string, string | null>;
+  /** Ensemble of 2 to 3 explanations joined by " | ". Render the first only. */
+  season_notes: string | null;
+  daily_limit: number | null;
+  size_limit_cm: number | null;
+  status: "open" | "non_retention" | "closed" | null;
+}
+
 export interface BlueCasterCityPage {
   page: {
     slug: string;
     hero: { image_url: string | null; image_alt: string | null };
     seo: {
-      title: string;
-      meta_description: string;
+      /** Null when nobody authored one. Guard before using: the page marks
+       *  any value here `absolute`, so rendering a stand-in would replace
+       *  our own derived title rather than compete with it. */
+      title: string | null;
+      meta_description: string | null;
       canonical_url: string | null;
       og_image_url: string | null;
     };
@@ -651,6 +671,10 @@ export interface BlueCasterCityPage {
     province: { name: string; code: string };
     city: { name: string; slug: string; lat: number; lng: number };
   };
+  /** One row per species with a city-level seasonality curve. A species
+   *  nobody has profiled is absent, not present with twelve blank months. */
+  species_table: BlueCasterCitySeasonRow[];
+  regulatory_areas: Array<{ body: string; area_number: string; name: string }>;
 }
 
 export async function fetchCityPage(
@@ -1353,6 +1377,14 @@ export interface BlueCasterGuideLink {
   /** "Jul-Aug", or null when the curve has no distinct peak. */
   peak_label: string | null;
   method_count: number;
+  /** Today's legality folded across the city. `mixed` is the common case:
+   *  Vancouver Chinook is open at 3 of its 31 spots, so always render
+   *  `open_spot_count` beside the word. */
+  headline_state: "retention_open" | "release_only" | "closed" | "mixed" | null;
+  /** Published spots where you may keep one today. */
+  open_spot_count: number;
+  /** Set when shut everywhere today but opening later in the season. */
+  next_open_date: string | null;
 }
 
 export interface BlueCasterCityGuides {
