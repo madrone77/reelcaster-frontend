@@ -88,25 +88,38 @@ function pitchFor(wall: AdWall, spotName: string): { head: string; sub: string }
  */
 function SourceRow({ provinceCode }: { provinceCode: string }) {
   const region = lpRegionFor(provinceCode);
-  const tides = region.tideAuthority;
-  const regs = region.regulator.name;
+
+  // One line each, because they are three separate claims about three
+  // different agencies and a single run-on row read as one long credit that
+  // the eye skips. A reader checking whether we use their tide authority
+  // should find that in its own line rather than in the middle of a sentence.
+  const sources = [
+    `Tides and currents from ${region.tideAuthority}`,
+    `Regulations from ${region.regulator.name}`,
+    "Weather from ECMWF and GFS",
+  ];
 
   return (
-    /* items-start, not items-center: the text wraps to three lines on a phone
-       and a flag floating in the middle of them reads as a bullet in the wrong
-       place. Pinned to the first line it reads as what it is, a marker on the
-       front of the row. */
-    <p className="mt-4 flex items-start gap-2 font-rc-mono text-[10px] uppercase tracking-[0.07em] text-rc-ink-mute">
+    <div className="mt-4 flex items-start gap-2.5">
       {region.isUS && (
-        <span className="mt-[1px] shrink-0 grayscale opacity-70">
-          <LpFlagUs size={12} />
+        /* Sized to stand beside the list rather than sit inside a line of
+           type: at 12px it read as punctuation. mt-[2px] lands its top edge on
+           the first bullet's cap height. */
+        <span className="mt-[2px] shrink-0 grayscale opacity-75">
+          <LpFlagUs size={20} />
         </span>
       )}
-      <span>
-        Tides and currents from {tides} · Regulations from {regs} · Weather from
-        ECMWF and GFS
-      </span>
-    </p>
+      <ul className="space-y-1 font-rc-mono text-[10px] uppercase tracking-[0.07em] text-rc-ink-mute">
+        {sources.map((line) => (
+          <li key={line} className="flex gap-1.5">
+            <span aria-hidden className="text-rc-ink-mute/60">
+              ·
+            </span>
+            <span>{line}</span>
+          </li>
+        ))}
+      </ul>
+    </div>
   );
 }
 
