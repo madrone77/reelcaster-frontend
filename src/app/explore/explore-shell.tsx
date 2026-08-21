@@ -334,7 +334,11 @@ export default function ExploreShell({
 
   // ── Map-layer toggles + species filter (MapControls) ────────────────
   const [relief, setRelief] = useState(true);
-  const [labels, setLabels] = useState(true);
+  // Labels are always on. They were a toggle in the phone filter sheet and
+  // nowhere else, which made them a setting one surface could turn off and no
+  // other surface could turn back on. A saved view that still carries
+  // `labels: false` is ignored for the same reason.
+  const labels = true;
   // Currents and Wind share one piece of state, so only ever one of them draws.
   const { currents, wind, toggleCurrents, toggleWind, setFlow } = useFlowLayer();
   const [speciesFilter, setSpeciesFilter] = useState<string | null>(null);
@@ -1445,7 +1449,6 @@ export default function ExploreShell({
     if (!restored) return;
     if (restored.species != null) setSpeciesFilter(restored.species);
     if (restored.relief != null) setRelief(restored.relief);
-    if (restored.labels != null) setLabels(restored.labels);
     // A view saved before the single-flow rule can carry both layers on.
     // Currents wins that tie — it is the layer the rail has always led with.
     if (restored.currents != null || restored.wind != null) {
@@ -1678,11 +1681,9 @@ export default function ExploreShell({
         }
         mapControls={{
           relief,
-          labels,
           currents,
           wind,
           onToggleRelief: () => setRelief((v) => !v),
-          onToggleLabels: () => setLabels((v) => !v),
           onToggleCurrents: toggleCurrents,
           onToggleWind: toggleWind,
           species: speciesWithScores,
@@ -1729,11 +1730,9 @@ export default function ExploreShell({
         open={filterOpen}
         onClose={() => setFilterOpen(false)}
         relief={relief}
-        labels={labels}
         currents={currents}
         wind={wind}
         onToggleRelief={() => setRelief((v) => !v)}
-        onToggleLabels={() => setLabels((v) => !v)}
         onToggleCurrents={toggleCurrents}
         onToggleWind={toggleWind}
         species={allSpecies}

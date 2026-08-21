@@ -148,6 +148,8 @@ test('the phone filter sheet can reach both flow layers', async ({ page }) => {
   const wind = sheet.getByRole('button', { name: /^Wind$/ });
   const currents = sheet.getByRole('button', { name: /^Currents$/ });
   await expect(wind).toBeVisible();
+  // Labels are always on now, so the sheet no longer offers to turn them off.
+  await expect(sheet.getByRole('button', { name: /^Labels$/ })).toHaveCount(0);
 
   await wind.click();
   await expect.poll(() => flowLayers(page), { timeout: 20_000 }).toEqual(['flow-wind']);

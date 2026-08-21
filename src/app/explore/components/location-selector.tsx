@@ -32,10 +32,8 @@ import { useVisualViewport } from "../lib/use-visual-viewport";
 
 interface MapControlsProps {
   relief: boolean;
-  labels: boolean;
   currents: boolean;
   onToggleRelief: () => void;
-  onToggleLabels: () => void;
   onToggleCurrents: () => void;
   species: SpeciesOption[];
   speciesFilter: string | null;

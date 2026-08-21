@@ -3,7 +3,6 @@
 import { useEffect, useMemo, useState } from "react";
 import {
   Mountain,
-  Tag,
   Waves,
   Wind,
   Target,
@@ -20,11 +19,9 @@ interface MobileFilterSheetProps {
   open: boolean;
   onClose: () => void;
   relief: boolean;
-  labels: boolean;
   currents: boolean;
   wind: boolean;
   onToggleRelief: () => void;
-  onToggleLabels: () => void;
   onToggleCurrents: () => void;
   onToggleWind: () => void;
   species: SpeciesOption[];
@@ -33,6 +30,18 @@ interface MobileFilterSheetProps {
   onNearMe: () => void;
   locating: boolean;
 }
+
+// The desktop rail's filter chip, at thumb size. Same two states in the same
+// colours, so the two surfaces read as one control rather than two designs:
+// brand tint with a brand hairline when on, panel with a rule hairline when
+// off. Type stays ink either way, which keeps the blue inside its budget with
+// three chips lit at once. 44px minimum height and the 180ms chip transition
+// are the system's, not this file's.
+const CHIP =
+  "flex min-h-11 items-center gap-2 rounded-sm px-3 text-sm transition-colors duration-[180ms]";
+const CHIP_ON = "bg-rc-brand-soft border border-rc-brand text-rc-ink font-semibold";
+const CHIP_OFF =
+  "bg-rc-panel border border-rc-rule text-rc-ink-soft font-medium hover:bg-rc-surface";
 
 function LayerChip({
   active,
@@ -50,13 +59,9 @@ function LayerChip({
       type="button"
       onClick={onClick}
       aria-pressed={active}
-      className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-semibold transition-colors ${
-        active
-          ? "bg-rc-brand-soft text-rc-brand"
-          : "bg-rc-surface text-rc-ink-mute hover:text-rc-ink-soft"
-      }`}
+      className={`${CHIP} ${active ? CHIP_ON : CHIP_OFF}`}
     >
-      <Icon className="w-4 h-4" />
+      <Icon className="w-4 h-4 shrink-0" aria-hidden />
       {label}
     </button>
   );
@@ -82,7 +87,7 @@ function SpeciesRow({
       type="button"
       onClick={onClick}
       aria-pressed={active}
-      className={`flex w-full items-center gap-3 rounded-lg px-3 py-3 text-left transition-colors ${
+      className={`flex min-h-11 w-full items-center gap-3 rounded-sm px-3 py-3 text-left transition-colors duration-[180ms] ${
         active ? "bg-rc-brand-soft" : "hover:bg-rc-surface"
       }`}
     >
@@ -133,11 +138,9 @@ export default function MobileFilterSheet({
   open,
   onClose,
   relief,
-  labels,
   currents,
   wind,
   onToggleRelief,
-  onToggleLabels,
   onToggleCurrents,
   onToggleWind,
   species,
@@ -186,7 +189,7 @@ export default function MobileFilterSheet({
           included. */}
       <div
         style={{ bottom: "var(--rc-tabbar-clearance)" }}
-        className="lg:hidden fixed inset-x-0 z-[61] bg-rc-panel rounded-t-2xl shadow-rc-panel animate-slide-up"
+        className="lg:hidden fixed inset-x-0 z-[61] bg-rc-panel rounded-t-sm shadow-rc-panel animate-slide-up"
         role="dialog"
         aria-label={pane === "species" ? "Filter by species" : "Map filters"}
       >
@@ -201,7 +204,7 @@ export default function MobileFilterSheet({
               <ChevronLeft className="w-4 h-4" />
             </button>
           )}
-          <span className="rc-label text-[10px] flex-1">
+          <span className="rc-label flex-1">
             {pane === "species" ? "Species" : "Map filters"}
           </span>
           <button
@@ -236,11 +239,11 @@ export default function MobileFilterSheet({
           <div className="px-4 pb-6 space-y-5">
             {species.length > 0 && (
               <div>
-                <div className="rc-label text-[9px] mb-1.5">Species</div>
+                <div className="rc-label mb-1.5">Species</div>
                 <button
                   type="button"
                   onClick={() => setPane("species")}
-                  className="flex w-full items-center gap-2 rounded-lg bg-rc-surface px-3 py-3 text-left"
+                  className="flex min-h-11 w-full items-center gap-2 rounded-sm bg-rc-surface px-3 py-3 text-left"
                 >
                   <Target className="w-4 h-4 shrink-0 text-rc-ink-mute" />
                   <span className="flex-1 truncate text-sm font-semibold text-rc-ink-soft">
@@ -252,15 +255,14 @@ export default function MobileFilterSheet({
             )}
 
             <div>
-              <div className="rc-label text-[9px] mb-1.5">Chart layers</div>
+              <div className="rc-label mb-1.5">Chart layers</div>
               <div className="flex flex-wrap gap-2">
                 <LayerChip active={relief} onClick={onToggleRelief} icon={Mountain} label="Relief" />
-                <LayerChip active={labels} onClick={onToggleLabels} icon={Tag} label="Labels" />
-                <LayerChip active={currents} onClick={onToggleCurrents} icon={Waves} label="Currents" />
                 {/* Wind was on the desktop rail and nowhere else, so a phone
                     could not reach the layer at all. It shares Currents' state:
                     turning one on turns the other off, and turning the lit one
                     off leaves the map bare. */}
+                <LayerChip active={currents} onClick={onToggleCurrents} icon={Waves} label="Currents" />
                 <LayerChip active={wind} onClick={onToggleWind} icon={Wind} label="Wind" />
               </div>
             </div>
@@ -272,7 +274,7 @@ export default function MobileFilterSheet({
                 onClose();
               }}
               disabled={locating}
-              className="w-full flex items-center justify-center gap-2 px-3 py-3 rounded-lg border border-rc-rule text-sm font-semibold text-rc-ink-soft hover:bg-rc-surface transition-colors disabled:opacity-60"
+              className="w-full flex min-h-11 items-center justify-center gap-2 px-3 py-3 rounded-sm border border-rc-rule text-sm font-semibold text-rc-ink-soft hover:bg-rc-surface transition-colors duration-[180ms] disabled:opacity-60"
             >
               {locating ? (
                 <Loader2 className="w-4 h-4 animate-spin" />
