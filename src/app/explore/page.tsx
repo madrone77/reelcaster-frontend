@@ -19,6 +19,10 @@ import {
   PREFERRED_DEFAULT_CITY,
 } from "./lib/explore-data";
 import { nearestOpeningCity, readVisitorPoint } from "./lib/opening-city";
+import { parseWall } from "./spot/[slug]/ad-mode";
+import { trialChargeDate } from "@/app/lp/_shared/lp-checkout";
+import { PRICE } from "@/app/lp/_shared/lp-content";
+import { ANGLES } from "@/app/lp/_shared/lp-angles";
 import { openingBbox, spotViewBox } from "./lib/viewport-bbox";
 import ExploreShell from "./explore-shell";
 
@@ -83,7 +87,30 @@ export default async function ExplorePage({
   // Reading it here costs the route its static render — see the note above the
   // return. The client behaviour is unchanged for every URL this cannot
   // resolve.
-  const loc = typeof params.loc === "string" ? params.loc : null;
+  // ── The ad frame ─────────────────────────────────────────────────────────
+  //
+  // `?ad=<wall>` turns this into a paid-traffic landing page: no top bar, no
+  // way off the page, and the card ask pinned under the map. See
+  // ./spot/[slug]/ad-mode.ts, which owns the wall vocabulary both frames share.
+  //
+  // Read straight off searchParams here, with none of the ceremony the spot
+  // page needed. That page is prerendered and a searchParams read would have
+  // cost it its head tags, so the frame had to arrive by rewrite. This route
+  // already reads searchParams (`?loc`, `?spot`), already bails out of static
+  // rendering, and is already `robots: { index: false }` — there is nothing
+  // left here for an ad parameter to spend.
+  const adParam = typeof params.ad === "string" ? params.ad : null;
+  const ad = adParam ? { wall: parseWall(adParam) } : null;
+
+  // `?city=` is what every /lp link carries, and an ad link for this page will
+  // be written by the same hand on the same afternoon. On a paid link it means
+  // `?loc`. Accepted ONLY under `ad`, so the canvas's own vocabulary is
+  // untouched everywhere else, and so a habit does not silently cost a
+  // campaign its targeting: without this, `?ad=today&city=seattle-wa` opens on
+  // the visitor's geo and reports a city the ad never chose.
+  const locParam = typeof params.loc === "string" ? params.loc : null;
+  const cityAlias = ad && typeof params.city === "string" ? params.city : null;
+  const loc = locParam ?? cityAlias;
   const spot = typeof params.spot === "string" ? params.spot : null;
 
   // ── The spot the URL asked for, which outranks the city ──────────────────
@@ -243,6 +270,21 @@ export default async function ExplorePage({
         initialSpot={spotCoords}
         initialForecast={initialForecast}
         initialForecastBbox={initialBbox}
+        ad={
+          ad
+            ? {
+                wall: ad.wall,
+                // Shared with the /lp angles so the two kinds of ad can be
+                // compared on one axis. An unknown value counts as no angle
+                // rather than inventing one, matching how the campaign
+                // counter validates it.
+                angle: ANGLES.some((a) => a.id === params.a)
+                  ? (params.a as string)
+                  : "",
+                chargeDate: trialChargeDate(PRICE.trialDays),
+              }
+            : null
+        }
       />
     </Suspense>
   );

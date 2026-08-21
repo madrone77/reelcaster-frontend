@@ -31,10 +31,14 @@ export default function DayRow({
   day,
   selected,
   onSelect,
+  neutralLock = false,
 }: {
   day: ForecastDay;
   selected: boolean;
   onSelect: () => void;
+  /** Drop the plan name from a locked row. Set on the ad frame, where naming
+   *  a cheaper plan beside a form asking for a card is a second offer. */
+  neutralLock?: boolean;
 }) {
   if (day.locked) {
     return (
@@ -51,7 +55,11 @@ export default function DayRow({
         </div>
         <Lock className="h-3.5 w-3.5 shrink-0 text-rc-ink-mute" />
         <span className="text-[13px] text-rc-ink-mute">
-          {day.lockTier === "free" ? "Sign up free" : "Upgrade to Pro"}
+          {neutralLock
+            ? "Locked"
+            : day.lockTier === "free"
+              ? "Sign up free"
+              : "Upgrade to Pro"}
         </span>
       </button>
     );

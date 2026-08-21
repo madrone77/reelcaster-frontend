@@ -1,9 +1,8 @@
 "use client";
 
-import { useState } from "react";
 import { PRICE } from "@/app/lp/_shared/lp-content";
-import { reportCampaignCta, type CampaignTarget } from "@/app/lp/_shared/lp-telemetry";
-import type { LpCtaId } from "@/app/lp/_shared/lp-telemetry";
+import type { CampaignTarget, LpCtaId } from "@/app/lp/_shared/lp-telemetry";
+import { useAdCheckout } from "@/app/components/paywall/use-ad-checkout";
 import type { AdWall } from "../[slug]/ad-mode";
 
 /**
@@ -78,52 +77,20 @@ export default function AdTrialCta({
   inputId: string;
   dims: CampaignTarget;
 }) {
-  const [email, setEmail] = useState("");
-  const [submitting, setSubmitting] = useState(false);
-  const [error, setError] = useState<string | null>(null);
   const { head, sub } = pitchFor(wall, spotName);
-
-  // The attribution key that rides to Stripe and lands in the conversion
-  // columns. Keyed by WALL, not just "spot-ad": which wall earned the card is
-  // the whole question this page exists to answer.
-  const from = `spot-ad-${wall}`;
-
-  async function onSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    if (submitting) return;
-
-    // Counted here rather than on the button, so a press the browser rejects
-    // for a malformed email never reaches the counter. What this measures is a
-    // real attempt to buy.
-    reportCampaignCta(cta, dims);
-
-    setSubmitting(true);
-    setError(null);
-    try {
-      const res = await fetch("/api/stripe/checkout", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ from, region, email: email.trim() }),
-      });
-      const body = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(body.error ?? "checkout_failed");
-      // Uncovered regions come back as a redirect to the waitlist rather than a
-      // Stripe URL. Follow whichever we are given.
-      const dest = body.url ?? body.redirect;
-      if (!dest) throw new Error("no_url");
-      window.location.href = dest;
-    } catch {
-      setError("We couldn’t start checkout. Please try again.");
-      setSubmitting(false);
-    }
-  }
+  const { email, setEmail, submitting, error, submit, from } = useAdCheckout({
+    wall,
+    region,
+    cta,
+    dims,
+  });
 
   return (
     <section className="rounded-lg border border-rc-brand/30 bg-rc-brand-soft/40 p-5 lg:p-6">
       <h2 className="rc-title-lg text-xl lg:text-2xl">{head}</h2>
       <p className="rc-body text-sm text-rc-ink-soft mt-2 max-w-[52ch]">{sub}</p>
 
-      <form className="mt-5 max-w-[34rem]" onSubmit={onSubmit}>
+      <form className="mt-5 max-w-[34rem]" onSubmit={submit}>
         <label
           className="rc-label text-[9px] block mb-1.5"
           htmlFor={inputId}

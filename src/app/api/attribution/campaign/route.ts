@@ -74,8 +74,14 @@ const CLICK_TYPE_SET = new Set<string>(CLICK_TYPES);
  * it into the landing key instead would make every spot look like a separate
  * landing page in a report whose whole top-level question is which KIND of
  * page works.
+ *
+ * `explore` is the third: the map itself in an ad frame (/explore?ad=…). It
+ * carries a city and no spot, which is exactly the difference between it and
+ * `spot` — one ad sells a named piece of water, the other sells the whole
+ * roster — and keeping them as separate landing keys is what makes that
+ * comparison the top line of the report rather than something to derive.
  */
-const LANDING_SHAPE = /^(lp[0-9]{1,2}|spot)$/;
+const LANDING_SHAPE = /^(lp[0-9]{1,2}|spot|explore)$/;
 
 /** Which paywall the ad frame was running. Read from the live list. */
 const WALL_SET = new Set<string>(AD_WALLS);
