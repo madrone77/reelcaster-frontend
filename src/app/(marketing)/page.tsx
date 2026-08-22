@@ -15,15 +15,15 @@ import SignedInRedirect from './components/signed-in-redirect';
 // boundaries (see src/lib/pricing.ts).
 export const revalidate = 3600;
 
-// The tagline is the H1's job. The <title> has to carry the query people
-// actually type ("bc fishing forecast"), so it leads with that and keeps the
-// tagline out of the 60 characters search results will show.
+// The tagline is the H1's job. The <title> has to carry the terms people
+// actually type (forecast, reports, tides, wind, currents), and it stays
+// region-neutral because coverage now spans BC and Washington.
 //
 // `title.absolute` opts out of the root layout's "%s | ReelCaster" template —
 // the brand is already in the string.
 export const metadata: Metadata = {
   title: {
-    absolute: 'BC Fishing Forecast & Tide Conditions | ReelCaster',
+    absolute: 'Accurate Fishing Forecast, Reports, Tides, Wind and Currents | ReelCaster',
   },
   description:
     'ReelCaster turns tides, weather, water conditions, and regulations into one fishing score, so you know when and where to fish on the BC and Washington coasts.',
