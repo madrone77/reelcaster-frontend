@@ -3,6 +3,7 @@ import Link from 'next/link';
 import { fetchHierarchyLight, fetchMapSpots } from '@/lib/bluecaster';
 import { buildExploreData } from '@/app/explore/lib/explore-data';
 import MarketingMap, { type MapSpot } from './marketing-map';
+import ClientErrorBoundary from '@/app/components/client-error-boundary';
 import { btn } from '@/app/components/ui/button';
 
 // Salish Sea — South Vancouver Island through Vancouver. Wider than the
@@ -12,6 +13,21 @@ import { btn } from '@/app/components/ui/button';
 const BBOX = '-125.60,48.00,-122.60,49.60';
 const CENTER = { lat: 48.45, lng: -123.55 };
 const ZOOM = 9.1;
+
+/**
+ * What the map slot shows when there is no map to show: the API returned
+ * nothing scored, or the live map failed and its boundary caught it. Declared
+ * once because both paths render the identical thing.
+ */
+const CHART_FALLBACK = (
+  <Image
+    src="/landing/chart-illustration.svg"
+    alt="Nautical chart with depth contours and scored fishing spots"
+    width={620}
+    height={340}
+    className="h-full w-full object-cover"
+  />
+);
 
 export default async function MapSection() {
   // The map is a nice-to-have on the landing page, not load-bearing — a bad
@@ -48,18 +64,25 @@ export default async function MapSection() {
         <div className="order-2 lg:order-1">
           <div className="h-[340px] w-full overflow-hidden rounded border border-rc-rule/60 shadow-rc-bar">
             {spots.length > 0 ? (
-              <MarketingMap spots={spots} center={CENTER} zoom={ZOOM} />
+              // The map is the one thing on this page that needs a GPU, and a
+              // renderer can take the GPU away mid-session — a crawler under
+              // memory pressure does it routinely. When that happens MapLibre
+              // tears its own internals down and the next React update walks
+              // into a null style, which without this boundary took the entire
+              // document with it. See client-error-boundary.tsx.
+              <ClientErrorBoundary label="MarketingMap" fallback={CHART_FALLBACK}>
+                <MarketingMap
+                  spots={spots}
+                  center={CENTER}
+                  zoom={ZOOM}
+                  fallback={CHART_FALLBACK}
+                />
+              </ClientErrorBoundary>
             ) : (
               // The API is the one dependency here we don't control. If it's
               // down or returns nothing scored, fall back to the chart
               // illustration rather than shipping an empty grey box.
-              <Image
-                src="/landing/chart-illustration.svg"
-                alt="Nautical chart with depth contours and scored fishing spots"
-                width={620}
-                height={340}
-                className="h-full w-full object-cover"
-              />
+              CHART_FALLBACK
             )}
           </div>
         </div>

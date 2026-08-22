@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import Map, {
   Marker,
   Source,
@@ -87,13 +87,38 @@ export default function MarketingMap({
   spots,
   center,
   zoom,
+  fallback = null,
 }: {
   spots: MapSpot[];
   center: { lat: number; lng: number };
   zoom: number;
+  /** Drawn instead of the map once the GPU context is gone. */
+  fallback?: ReactNode;
 }) {
   const [mapObj, setMapObj] = useState<MlMap | null>(null);
   const mapRef = useRef<MapRef | null>(null);
+
+  /**
+   * The GPU can be taken away mid-session.
+   *
+   * A browser drops a WebGL context whenever it needs the memory back, and a
+   * headless crawler rendering on software GL does it routinely. MapLibre
+   * responds by tearing its own internals down, so the map object survives as
+   * a shell whose style is null. The next React update then hands that shell
+   * to react-map-gl's `setProps`, which reads `style._loaded` and throws —
+   * and the rotation below guarantees an update every few seconds, so the
+   * throw is not merely possible, it is scheduled.
+   *
+   * Uncaught, that throw reaches Next's global error page, which replaces the
+   * document head and turns the whole page into "Application error: a
+   * client-side exception has occurred". Google rendered the homepage during
+   * one of those windows and indexed the error as the page's description.
+   *
+   * So the loss is watched for directly: once the context is gone the map is
+   * unmounted and the still illustration takes the slot. The boundary in
+   * map-section.tsx stays as the backstop for whatever this does not predict.
+   */
+  const [gpuLost, setGpuLost] = useState(false);
 
   // Absolute origin is REQUIRED — MapLibre resolves vector-tile URLs inside a
   // Web Worker that can't expand root-relative paths, so contour + land tiles
@@ -139,13 +164,13 @@ export default function MarketingMap({
   const [activeIdx, setActiveIdx] = useState(0);
   const featuredCount = featured.length;
   useEffect(() => {
-    if (featuredCount < 2) return;
+    if (featuredCount < 2 || gpuLost) return;
     const id = window.setInterval(
       () => setActiveIdx((i) => (i + 1) % featuredCount),
       ROTATE_MS,
     );
     return () => window.clearInterval(id);
-  }, [featuredCount]);
+  }, [featuredCount, gpuLost]);
 
   const active = featured[activeIdx] ?? null;
   const activeSlug = active?.slug ?? "__none__";
@@ -233,13 +258,38 @@ export default function MarketingMap({
   // ease as the card moves on, rather than a jump.
   const first = useRef(true);
   useEffect(() => {
-    if (!mapObj || !active) return;
+    if (!mapObj || !active || gpuLost) return;
     if (first.current) {
       first.current = false;
       return;
     }
-    mapObj.easeTo({ center: [active.lng, active.lat], duration: 1600 });
-  }, [mapObj, active]);
+    try {
+      mapObj.easeTo({ center: [active.lng, active.lat], duration: 1600 });
+    } catch {
+      // The map went away between the render and this effect. Nothing to
+      // animate, and nothing worth reporting.
+      setGpuLost(true);
+    }
+  }, [mapObj, active, gpuLost]);
+
+  // `webglcontextlost` fires on the canvas itself, ahead of anything MapLibre
+  // reports, which is the whole point: React must stop rendering the map
+  // before the next update reaches it.
+  useEffect(() => {
+    if (!mapObj) return;
+    let canvas: HTMLCanvasElement | null = null;
+    try {
+      canvas = mapObj.getCanvas();
+    } catch {
+      setGpuLost(true);
+      return;
+    }
+    const onLost = () => setGpuLost(true);
+    canvas.addEventListener("webglcontextlost", onLost);
+    return () => canvas?.removeEventListener("webglcontextlost", onLost);
+  }, [mapObj]);
+
+  if (gpuLost) return <>{fallback}</>;
 
   return (
     <div className="relative h-full w-full">
@@ -250,6 +300,12 @@ export default function MarketingMap({
         interactive={false}
         attributionControl={false}
         ref={mapRef}
+        onError={(e) => {
+          // MapLibre reports "Failed to initialize WebGL" here when the
+          // context could never be created at all, which is the same outcome
+          // as losing one: no map, show the still.
+          if (/webgl/i.test(String(e?.error?.message ?? ""))) setGpuLost(true);
+        }}
         onStyleData={(e) => attachMapImages(e.target)}
         onLoad={(e) => {
           attachMapImages(e.target);
