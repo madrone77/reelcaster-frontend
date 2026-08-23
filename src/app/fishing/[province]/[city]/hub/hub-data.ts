@@ -58,6 +58,10 @@ export interface HubSpeciesEntry {
    *  hold six good hours split across a dawn bite and an evening one, which
    *  is why `window` exists separately. */
   good_hours: number;
+  /** All 24 hours, 0–100, null where unscored. Already in the map payload, so
+   *  charting it costs no request — which is the only reason a landing page
+   *  built to a 1.2s budget can afford to draw one. */
+  hours24: (number | null)[];
 }
 
 export interface HubSpot {
@@ -258,6 +262,10 @@ export function buildHubData(
         day_mean: daylightMean(strip),
         window: bestWindow(strip),
         good_hours: goodHours(strip),
+        hours24: Array.from({ length: 24 }, (_, h) => {
+          const v = strip.hours[h]?.s;
+          return typeof v === "number" ? pct(v) : null;
+        }),
       };
       if (peak > bestPeak) {
         bestPeak = peak;

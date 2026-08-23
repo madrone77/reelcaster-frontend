@@ -1,40 +1,44 @@
-// Today's top water, as one card that does not look like the four under it.
+// Today's top water, as one card that does not look like the four under it,
+// and the only place on the page that shows the product working.
 //
 // White with an emerald edge, NOT navy. It was navy first, directly beneath a
 // navy hero, and two dark blocks stacked with a chip bar between them read as
-// one slab through the middle of a phone screen — which loses the separation
-// the spotlight existed to create. Sharing the accent instead of the fill
-// links the two without merging them.
+// one slab through the middle of a phone screen.
 //
-// No topographic watermark, though one was asked for: a contour texture under
-// a named mark reads as that mark's actual bathymetry, and we would be
-// drawing a decorative pattern. The relief tiles are real but belong on the
-// map, where they are the data rather than a backdrop, and fetching them for
-// a card would spend the FCP budget this page is built around.
+// ── Why the card is not one big link any more ────────────────────────────
+//
+// It used to be. Then it grew a scrubbable chart, and interactive content
+// nested inside an <a> is both an accessibility violation and unusable in
+// practice: dragging across the track would navigate away mid-scrub. The
+// title and the footer are the links now, which is also the more honest
+// affordance — two deliberate exits rather than a card that swallows every
+// tap.
 //
 // ── What it says, and what it cannot ─────────────────────────────────────
 //
-// It carries the score, the window, the tide phase that window opens on, the
-// seabed, and the city's method. It carries NO target depth and no rig size,
-// because neither exists: `depth_avg_m` is null on all 164 published spots,
-// `depth_profiles` holds 7 rows product-wide, and `catch_signals.depth_ft` 2.
-// A card reading "110 to 130 ft" would be inventing that number on every spot
-// in the product.
+// The score, the window, the tide phase, the wind, the seabed and the city's
+// method. NO target depth and no rig size, because neither exists:
+// `depth_avg_m` is null on all 164 published spots, `depth_profiles` holds 7
+// rows product-wide, and `catch_signals.depth_ft` 2.
 
 "use client";
 
+import { useState } from "react";
 import Link from "next/link";
-import { bottomLabel, type HubSpeciesEntry, type HubSpot } from "./hub-data";
-import { windowLabel } from "./bite-radar";
+import HourlyBars from "../../../../explore/components/hourly-bars";
+import { formatHour12 } from "@/lib/time-format";
+import {
+  bottomLabel,
+  cellAt,
+  chopLabel,
+  phaseAt,
+  type HubSpeciesEntry,
+  type HubSpot,
+} from "./hub-data";
 import { Chip, Label, PAD, PANEL, TYPE } from "./ui";
 
-/**
- * One fact per box.
- *
- * Labels carry no icon. They used to have one each, and four different
- * pictograms on one card is decoration competing with the four values it is
- * meant to be introducing.
- */
+/** One fact per box. No icons: four pictograms on one card is decoration
+ *  competing with the four values it is meant to introduce. */
 function Fact({
   label,
   value,
@@ -42,9 +46,6 @@ function Fact({
 }: {
   label: string;
   value: string;
-  /** Spans the grid. The method is the only fact that needs it: its label
-   *  wraps to two lines and its value runs to a clause, so in a half-width
-   *  cell it stretched its neighbour to match. */
   wide?: boolean;
 }) {
   return (
@@ -63,85 +64,131 @@ export default function SpotSpotlight({
   spot,
   entry,
   rankLine,
-  phase,
   tactic,
   cityName,
+  tz,
 }: {
   spot: HubSpot;
   entry: HubSpeciesEntry;
-  /**
-   * Why this mark is the one being featured, in a sentence — built by the
-   * caller, because only the caller knows whether a species filter is on.
-   *
-   * It is load-bearing because the scores tie: since the midday rescale a
-   * good Victoria day puts eighteen marks within a point or two of each
-   * other, so a lone "82" gives a reader no reason to believe this spot beat
-   * the rest. The ranking is real but the badge cannot show it, and the
-   * denominator turns the number back into a choice.
-   */
+  /** Why this mark is featured. Load-bearing because the scores tie: a lone
+   *  "84" gives no reason to believe it beat the rest. */
   rankLine: string;
-  /** "Late ebb" at the window's opening hour, or null. */
-  phase: string | null;
   /** The city's method for this species. City grain — the label says so. */
   tactic: string | null;
   cityName: string;
+  tz: string;
 }) {
-  const win = windowLabel(entry.window);
+  /**
+   * The hour the reader is scrubbing, or null when they are not.
+   *
+   * Everything below reads at `readHour`, so dragging the chart moves the
+   * tide and the wind with it. That is the product's actual argument — the
+   * day is not one number, it has a shape — and this is the only place a
+   * cold visitor gets to see it before being asked for anything.
+   */
+  const [scrubHour, setScrubHour] = useState<number | null>(null);
+  const readHour = scrubHour ?? entry.window?.start_hour ?? entry.peak_hour;
+
   const bottom = bottomLabel(spot.bottom);
+  const phase = phaseAt(spot, readHour);
+  const cell = cellAt(spot, readHour);
+  const chop = chopLabel(cell);
+  const wind =
+    typeof cell?.wkt === "number"
+      ? `${Math.round(cell.wkt)} kt${chop ? ` · ${chop}` : ""}`
+      : chop;
 
   return (
-    <section aria-labelledby="spotlight">
-      <Link
-        href={`/explore/spot/${spot.slug}`}
-        className={`group block overflow-hidden border-2 border-rc-emerald bg-rc-panel ${PANEL}`}
-      >
-        <div className="flex items-center justify-between gap-3 bg-rc-emerald px-4 py-2">
-          <Label tone="onAccent">Today&apos;s top water</Label>
-          {/* Band, never a number, and never a quote. The counts behind it
-              are Pro-gated and the reports themselves are never rendered. */}
-          {spot.trackRecord === "popular" && (
-            <Label tone="onAccent">Popular spot</Label>
-          )}
-        </div>
+    <section
+      aria-labelledby="spotlight"
+      className={`overflow-hidden border-2 border-rc-emerald bg-rc-panel ${PANEL}`}
+    >
+      <div className="flex items-center justify-between gap-3 bg-rc-emerald px-4 py-2">
+        <Label tone="onAccent">Today&apos;s top water</Label>
+        {/* Band, never a number, and never a quote. */}
+        {spot.trackRecord === "popular" && (
+          <Label tone="onAccent">Popular spot</Label>
+        )}
+      </div>
 
-        <div className={PAD}>
-          <div className="flex items-start gap-3.5">
-            <span className="shrink-0 rounded-lg bg-rc-emerald-deep px-3 py-2 font-rc-mono text-[26px] font-bold leading-none tabular-nums text-white">
-              {entry.peak}
-            </span>
-            <span className="min-w-0 flex-1">
-              <h2
-                id="spotlight"
-                className={`${TYPE.title} text-rc-ink group-hover:text-rc-emerald-deep transition-colors`}
+      <div className={PAD}>
+        <div className="flex items-start gap-3.5">
+          <span className="shrink-0 rounded-lg bg-rc-emerald-deep px-3 py-2 font-rc-mono text-[26px] font-bold leading-none tabular-nums text-white">
+            {entry.peak}
+          </span>
+          <span className="min-w-0 flex-1">
+            <h2 id="spotlight" className={`${TYPE.title} text-rc-ink`}>
+              <Link
+                href={`/explore/spot/${spot.slug}`}
+                className="hover:text-rc-emerald-deep transition-colors"
               >
                 {spot.name}
-              </h2>
-              <p className={`${TYPE.meta} text-rc-ink-soft mt-1`}>{rankLine}</p>
-              {/* The seabed is a chip beside the name rather than a fourth
-                  box. Three boxes in a two-column grid leaves a hole, and it
-                  is the one fact here that describes the PLACE rather than
-                  today — which is also how the cards below render it. */}
-              {bottom && (
-                <span className="mt-2 inline-flex">
-                  <Chip>{bottom}</Chip>
-                </span>
-              )}
+              </Link>
+            </h2>
+            <p className={`${TYPE.meta} text-rc-ink-soft mt-1`}>{rankLine}</p>
+            {bottom && (
+              <span className="mt-2 inline-flex">
+                <Chip>{bottom}</Chip>
+              </span>
+            )}
+          </span>
+        </div>
+
+        {/* The 24-hour shape, scrubbable. `HourlyBars` is Explore's own chart
+            — the same bars, best-window highlight and detents a subscriber
+            sees — rather than a landing-page mock of it. The series is
+            already in the map payload, so it costs no request. */}
+        <div className="mt-4 rounded-lg bg-rc-surface px-3 pt-2.5 pb-1.5">
+          <div className="flex items-baseline justify-between gap-3">
+            <Label>Hour by hour</Label>
+            <span className="font-rc-mono text-[11px] text-rc-ink-soft">
+              {scrubHour == null
+                ? "Drag to scrub"
+                : `${formatHour12(scrubHour)} · ${entry.hours24[scrubHour] ?? "no score"}`}
             </span>
           </div>
-
-          <div className="mt-4 grid grid-cols-2 items-stretch gap-2">
-            {win && <Fact label="Window" value={win} />}
-            {phase && <Fact label="Tide" value={phase} wide={!win} />}
-            {tactic && (
-              <Fact label={`How ${cityName} fishes it`} value={tactic} wide />
-            )}
-          </div>
+          <HourlyBars
+            hours={entry.hours24}
+            tz={tz}
+            selectedHour={scrubHour}
+            onHoverHour={setScrubHour}
+            hideLabel
+            dense
+          />
         </div>
 
-        <div className="border-t border-rc-rule px-4 py-3 text-[13px] font-semibold text-rc-emerald-deep">
-          See the full day at {spot.name}
-          <span aria-hidden> &rarr;</span>
+        {/* No "best window" box. The hero states it in 38px directly above
+            this card and both now read the same row, so repeating it here
+            was the same sentence twice — and with four facts in a two-column
+            grid the odd one out left a hole. Tide and wind pair; the method
+            takes its own row because its value runs to a clause. */}
+        <div className="mt-3 grid grid-cols-2 items-stretch gap-2">
+          {phase && (
+            <Fact
+              label={scrubHour == null ? "Tide" : `Tide at ${formatHour12(scrubHour)}`}
+              value={phase}
+              wide={!wind}
+            />
+          )}
+          {wind && (
+            <Fact
+              label={scrubHour == null ? "Wind" : `Wind at ${formatHour12(scrubHour)}`}
+              value={wind}
+              wide={!phase}
+            />
+          )}
+          {tactic && (
+            <Fact label={`How ${cityName} fishes it`} value={tactic} wide />
+          )}
         </div>
+      </div>
+
+      <Link
+        href={`/explore/spot/${spot.slug}`}
+        className="block border-t border-rc-rule px-4 py-3 text-[13px] font-semibold text-rc-emerald-deep hover:bg-rc-surface transition-colors"
+      >
+        See the full day at {spot.name}
+        <span aria-hidden> &rarr;</span>
       </Link>
     </section>
   );

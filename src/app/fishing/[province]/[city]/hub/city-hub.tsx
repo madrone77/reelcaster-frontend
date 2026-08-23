@@ -190,6 +190,12 @@ export default function CityHub({
 
   const tactic = tacticLine(heroSpecies?.tactic ?? null);
 
+  // The city's own clock, so the chart's "now" marker sits on the reader's
+  // hour rather than the server's. Every covered city is Pacific today, but
+  // taking it from the payload means adding one east of the divide is a data
+  // change rather than a code change.
+  const tz = today?.city.tz ?? "America/Vancouver";
+
   /**
    * Why the featured mark leads, said in the reader's terms.
    *
@@ -278,9 +284,9 @@ export default function CityHub({
           spot={featured.spot}
           entry={featured.entry}
           rankLine={rankLine}
-          phase={featuredPhase}
           tactic={tactic}
           cityName={cityName}
+          tz={tz}
         />
       )}
 
