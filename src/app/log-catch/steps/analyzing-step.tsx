@@ -61,7 +61,7 @@ export default function AnalyzingStep({
           return (
             <li key={label} className="flex items-center gap-3">
               {state === "done" ? (
-                <span className="flex w-6 h-6 items-center justify-center rounded-full bg-emerald-500">
+                <span className="flex w-6 h-6 items-center justify-center rounded-full bg-rc-good">
                   <Check className="w-3.5 h-3.5 text-white" strokeWidth={3} />
                 </span>
               ) : state === "active" ? (
