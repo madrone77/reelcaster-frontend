@@ -293,6 +293,7 @@ export default function CityHub({
         badges={badges}
         speciesName={selectedSpecies?.name ?? null}
         cityName={cityName}
+        citySlug={citySlug}
       />
 
       {children}

@@ -23,6 +23,7 @@ export default function SpotLeaderboard({
   badges,
   speciesName,
   cityName,
+  citySlug,
 }: {
   rows: Array<{ spot: HubSpot; entry: HubSpeciesEntry; speciesName: string }>;
   badges: Map<string, HubBadge>;
@@ -30,6 +31,7 @@ export default function SpotLeaderboard({
    *  species. The heading has to say which, or a score has no units. */
   speciesName: string | null;
   cityName: string;
+  citySlug: string;
 }) {
   if (!rows.length) return null;
 
@@ -120,6 +122,37 @@ export default function SpotLeaderboard({
           );
         })}
       </ul>
+
+      {/*
+        Out to the map, framed on this city.
+
+        `?loc=<citySlug>` is Explore's own city param — `useExploreState`
+        reads it straight off the query — so the canvas opens on this water
+        rather than on the reader's geo, which is what it falls back to. That
+        fallback is the whole reason this carries the slug: a bare /explore
+        link from a Victoria ad can land a Seattle reader in Seattle.
+
+        The leaderboard is deliberately short, so this is where somebody who
+        wants the other marks goes. The pool filter keeps unreported spots out
+        of the list above but the map carries the full roster, which makes
+        this the honest counterweight to that filter rather than just a link.
+      */}
+      <Link
+        href={`/explore?loc=${encodeURIComponent(citySlug)}`}
+        className={`flex items-center justify-between gap-3 ${CARD} ${PAD} hover:border-rc-brand transition-colors`}
+      >
+        <span>
+          <span className={`block ${TYPE.item} text-rc-ink`}>
+            See every spot around {cityName}
+          </span>
+          <span className={`block ${TYPE.meta} text-rc-ink-soft mt-0.5`}>
+            Open the map on {cityName} water
+          </span>
+        </span>
+        <span aria-hidden className="shrink-0 text-rc-brand">
+          &rarr;
+        </span>
+      </Link>
     </section>
   );
 }

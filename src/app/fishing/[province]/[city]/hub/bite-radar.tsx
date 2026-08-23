@@ -30,6 +30,18 @@ import { Label, PAD, PANEL, Stat, TYPE } from "./ui";
  * here. "Prime" is a label on `excellent`, not a fifth state invented to make
  * more days sound good.
  */
+/**
+ * Below this, the pulse states the fact without the figure.
+ *
+ * The number is proof at 48 and an apology at 2. Seattle reads 2 today, and
+ * "2 recent catches reported" in the first line of a paid landing page argues
+ * against the product more effectively than any competitor could. The claim
+ * itself stays true either way — catches WERE reported — so dropping the
+ * count is a matter of which true sentence to lead with, not of hiding
+ * anything. Above the threshold the number is doing work and it stays.
+ */
+const CATCH_COUNT_MIN = 15;
+
 const VERDICT: Record<string, { label: string; dot: string; text: string }> = {
   excellent: { label: "Prime conditions", dot: "bg-rc-emerald", text: "text-rc-emerald" },
   good: { label: "Good windows", dot: "bg-rc-emerald", text: "text-rc-emerald" },
@@ -175,8 +187,9 @@ export default function BiteRadar({
           <span className="relative inline-flex h-2 w-2 rounded-full bg-rc-emerald" />
         </span>
         <span className="min-w-0 font-rc-mono text-[12px] font-medium tracking-[0.01em] text-rc-emerald">
-          {catches} recent catch{catches === 1 ? "" : "es"} reported in{" "}
-          {cityName}
+          {catches >= CATCH_COUNT_MIN
+            ? `${catches} recent catches reported in ${cityName}`
+            : `Recent catches reported in ${cityName}`}
         </span>
       </div>
       )}
