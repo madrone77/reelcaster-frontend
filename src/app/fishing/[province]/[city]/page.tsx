@@ -267,13 +267,16 @@ export default async function CityPage({
         />
       )}
 
-      {/* ── The conversion column ───────────────────────────────────────
-          A 768px measure, centred, because everything in it is a phone-first
-          card and stretching a verdict across a 1152px desktop window puts
-          the number and the words it qualifies at opposite ends of the
-          screen. The reference material below goes back to the full width,
-          where a map and a twelve-month matrix genuinely need it. */}
-      <div className="max-w-3xl mx-auto px-6 pt-6 space-y-6">
+      {/* ── The conversion block ────────────────────────────────────────
+          Full width, same as the reference material below it, because the
+          block lays itself out: one column on a phone, and past `lg` a wide
+          main column beside a rail (see city-hub.tsx). It was capped at
+          768px and centred at every width, which is right for a phone and,
+          on a 1440px desktop, a phone screenshot on a field of grey.
+
+          The measure is still protected — it is protected by the split and
+          by each card's own max-width, not by squeezing the whole page. */}
+      <div className="max-w-6xl mx-auto px-6 pt-6 space-y-6">
         <CityHeader provincePath={provincePath} city={city} />
 
         {/* The chips read `?species=` so an ad can land pre-filtered, and
@@ -316,6 +319,19 @@ export default async function CityPage({
           spots={spots}
           species={data.species}
           date={data.date}
+        />
+
+        {/* The second ask, and the only one below the fold.
+            The map is where the page stops selling and starts giving depth
+            away: every spot, scored, on real bathymetry. Somebody who has
+            scrolled through it and is still reading has shown more intent
+            than anyone the first CTA caught, and until now the page never
+            asked them again. Same component as the block above, so the trial
+            length and the price cannot drift apart between the two. */}
+        <ProGate
+          variant="banner"
+          provinceCode={city.provinceCode}
+          citySlug={citySlug}
         />
 
         {cityToday?.tide_station && (

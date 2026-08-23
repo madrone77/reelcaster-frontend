@@ -172,7 +172,11 @@ export default function KeepToday({
     <section aria-labelledby="keep" className="space-y-3">
       <SectionHeading id="keep">What you can keep in {cityName} today</SectionHeading>
 
-      <ul className="grid gap-2 sm:grid-cols-2">
+      {/* One column at every width. This used to go two-up past `sm`, which
+          was right when it spanned the page and wrong now that desktop puts
+          it in a rail: `sm:` keys off the VIEWPORT, not the container, so a
+          1440px screen would have crammed two cards into a 430px column. */}
+      <ul className="grid gap-2">
         {sorted.map((row, i) => {
           const state = stateOf(row)!;
           // Terms only where you may keep one. A minimum size printed beside

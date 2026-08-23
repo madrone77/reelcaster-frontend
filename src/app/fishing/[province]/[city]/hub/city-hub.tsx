@@ -238,6 +238,19 @@ export default function CityHub({
 
   return (
     <div className="space-y-5">
+      {/* ── Layout ──────────────────────────────────────────────────────
+          The radar and the chips run the full width because they describe
+          the whole city. Below them the block splits: the answer to "where
+          do I go" on the left, the answers to "may I keep it" and "tell me
+          next week" on the right.
+
+          It was a single 768px column at every width, which is the correct
+          shape for a phone and, on a 1440px desktop, a phone screenshot
+          centred on a field of grey. The split is `lg:` only, so nothing
+          below that breakpoint moves at all, and the DOM order is unchanged
+          — the rail simply stops being below the fold once there is room
+          beside it, which puts the signup and the regulations in view while
+          a reader is still reading spots. */}
       <BiteRadar
         cityName={cityName}
         provinceCode={provinceCode}
@@ -279,37 +292,43 @@ export default function CityHub({
         </p>
       )}
 
-      {featured && (
-        <SpotSpotlight
-          spot={featured.spot}
-          entry={featured.entry}
-          rankLine={rankLine}
-          tactic={tactic}
-          cityName={cityName}
-          tz={tz}
-        />
-      )}
+      <div className="space-y-5 lg:grid lg:grid-cols-[minmax(0,1.7fr)_minmax(0,1fr)] lg:items-start lg:gap-6 lg:space-y-0">
+        <div className="space-y-5">
+          {featured && (
+            <SpotSpotlight
+              spot={featured.spot}
+              entry={featured.entry}
+              rankLine={rankLine}
+              tactic={tactic}
+              cityName={cityName}
+              tz={tz}
+            />
+          )}
 
-      {/* Directly under the first score the reader meets, and above the four
-          more in the list. */}
-      {featured && <ScoreNote />}
+          {/* Directly under the first score the reader meets, and above the
+              four more in the list. */}
+          {featured && <ScoreNote />}
 
-      <SpotLeaderboard
-        rows={rest}
-        badges={badges}
-        speciesName={selectedSpecies?.name ?? null}
-        cityName={cityName}
-        citySlug={citySlug}
-      />
+          <SpotLeaderboard
+            rows={rest}
+            badges={badges}
+            speciesName={selectedSpecies?.name ?? null}
+            cityName={cityName}
+            citySlug={citySlug}
+          />
+        </div>
 
-      {children}
+        <aside className="space-y-5">
+          {children}
 
-      <WeekendAlert
-        citySlug={citySlug}
-        cityName={cityName}
-        provinceCode={provinceCode}
-        speciesSlug={selectedSpecies?.slug ?? null}
-      />
+          <WeekendAlert
+            citySlug={citySlug}
+            cityName={cityName}
+            provinceCode={provinceCode}
+            speciesSlug={selectedSpecies?.slug ?? null}
+          />
+        </aside>
+      </div>
     </div>
   );
 }

@@ -194,7 +194,13 @@ export default function BiteRadar({
       </div>
       )}
 
-      <div className={PAD}>
+      {/* Past `lg` the verdict and the readings sit side by side rather than
+          stacked. Stacked is right on a phone, where width is the scarce
+          thing; on a 1440px card it left the headline in the left 40% with
+          the rest of the band empty, and pushed four short readings onto a
+          row of their own for no reason. */}
+      <div className={`${PAD} lg:grid lg:grid-cols-[1.5fr_1fr] lg:items-center lg:gap-8`}>
+        <div>
         <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
           <Label tone="onDark">
             {cityName}
@@ -251,7 +257,9 @@ export default function BiteRadar({
           </p>
         )}
 
-        <div className="mt-5 grid grid-cols-2 gap-x-4 gap-y-3 border-t border-white/10 pt-4 sm:grid-cols-4">
+        </div>
+
+        <div className="mt-5 grid grid-cols-2 gap-x-4 gap-y-3 border-t border-white/10 pt-4 sm:grid-cols-4 lg:mt-0 lg:grid-cols-2 lg:gap-y-5 lg:border-l lg:border-t-0 lg:pl-8 lg:pt-0">
           <Stat tone="dark" label="Water" value={water ?? "No reading"} />
           <Stat tone="dark" label="Wind" value={wind ?? "No reading"} />
           <Stat tone="dark" label="Sea" value={chop ?? "No reading"} />

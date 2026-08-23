@@ -40,12 +40,60 @@ const FEATURES = [
 export default function ProGate({
   provinceCode,
   citySlug,
+  variant = "full",
 }: {
   provinceCode: string;
   citySlug: string;
+  /**
+   * `full` is the feature block that closes the conversion column. `banner`
+   * is the second ask, after the map.
+   *
+   * One component rather than two, because the terms line and the checkout
+   * href are the parts that must never diverge between them — two CTAs
+   * quoting different trial lengths on one page is the kind of thing nobody
+   * notices until a customer does.
+   */
+  variant?: "full" | "banner";
 }) {
-  const params = new URLSearchParams({ from: `city-${citySlug}` });
+  const params = new URLSearchParams({
+    // Distinct attribution per placement, so the second ask can be judged on
+    // its own rather than being credited to the first.
+    from: `city-${citySlug}${variant === "banner" ? "-map" : ""}`,
+  });
   if (provinceCode) params.set("region", provinceCode);
+
+  const terms = (
+    <>
+      {dollars(0)} today, then {dollars(ANNUAL_PRICE_CENTS)}{" "}
+      {currencyLabelForRegion(provinceCode)} a year, which is{" "}
+      {dollars(ANNUAL_PER_MONTH_CENTS)} a month. Card required, cancel any time.
+    </>
+  );
+
+  if (variant === "banner") {
+    return (
+      <section className={`bg-rc-navy p-5 text-white sm:p-6 ${PANEL}`}>
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <div className="min-w-0">
+            <h2 className="text-[19px] font-bold">
+              That was one day. Pro opens the next fourteen.
+            </h2>
+            <p className={`${TYPE.body} text-slate-300 mt-1.5 max-w-[46ch]`}>
+              Every spot on this map, hour by hour, two weeks out, with alerts
+              when your water crosses the score you set.
+            </p>
+          </div>
+          <Link
+            href={`/plans/checkout?${params.toString()}`}
+            className="shrink-0 rounded-lg bg-rc-emerald px-5 py-3.5 text-center text-[15px] font-bold text-rc-navy-deep hover:brightness-110 transition-all"
+          >
+            Start your {TRIAL_DAYS}-day free trial
+          </Link>
+        </div>
+        <p className="mt-3 font-rc-mono text-[11px] text-slate-400">{terms}</p>
+      </section>
+    );
+  }
 
   return (
     <section className={`bg-rc-navy p-5 text-white ${PANEL}`}>
@@ -77,10 +125,7 @@ export default function ProGate({
           a trial CTA that implies otherwise converts worse the moment the
           form loads and costs the goodwill on the way out. */}
       <p className="mt-2.5 text-center font-rc-mono text-[11px] text-slate-400">
-        {dollars(0)} today, then {dollars(ANNUAL_PRICE_CENTS)}{" "}
-        {currencyLabelForRegion(provinceCode)} a year, which is{" "}
-        {dollars(ANNUAL_PER_MONTH_CENTS)} a month. Card required, cancel any
-        time.
+        {terms}
       </p>
     </section>
   );
