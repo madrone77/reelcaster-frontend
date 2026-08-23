@@ -22,7 +22,6 @@ import CityHub from "./hub/city-hub";
 import KeepToday from "./hub/keep-today";
 import ProGate from "./hub/pro-gate";
 import { buildHubData } from "./hub/hub-data";
-import { tidePhraseFor } from "./hub/tide-phrase";
 import {
   BeforeYouGo,
   CityFaq,
@@ -168,11 +167,6 @@ export default async function CityPage({
     // it.
     .sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
 
-  const tidePhrase = tidePhraseFor(
-    payload,
-    cityToday?.headline?.leading_spot?.id,
-    cityToday?.headline?.peak_hour,
-  );
 
   const provincePath = `/fishing/${provinceParam.toLowerCase()}`;
 
@@ -295,7 +289,6 @@ export default async function CityPage({
             provinceCode={city.provinceCode}
             areaLabel={regulator.areaLabel}
             areaNumbers={areaNumbers}
-            tidePhrase={tidePhrase}
           >
             <KeepToday
               rows={seasonRows}

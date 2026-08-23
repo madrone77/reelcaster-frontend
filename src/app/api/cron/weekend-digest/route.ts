@@ -133,12 +133,18 @@ export async function GET(request: Request) {
     const headlineId = today.headline?.species_id ?? null;
     const top = rankSpots(hub.spots, headlineId, DIGEST_SPOTS);
 
+    // The headline number and the window come off the SAME row the digest
+    // leads with, for the reason the page had to be fixed for: BlueCaster
+    // computes `headline.window` at whichever spot leads the city on daily
+    // mean, this ranks on peak and then track record, and quoting one above
+    // a list ordered by the other put "best 6 AM to 8 AM" directly above a
+    // first entry reading 7 PM to 9 PM.
+    const lead = top[0];
     const speciesName = today.headline?.species_name ?? null;
-    const win = today.headline?.window;
+    const win = lead?.entry.window ?? today.headline?.window ?? null;
+    const hours = lead?.entry.good_hours ?? today.headline?.good_hours ?? 0;
     const verdictLine = speciesName
-      ? `${today.headline!.good_hours} fishable hour${
-          today.headline!.good_hours === 1 ? "" : "s"
-        } for ${speciesName}${
+      ? `${hours} fishable hour${hours === 1 ? "" : "s"} for ${speciesName}${
           win
             ? `, best ${formatHour12(win.start_hour)} to ${formatHour12((win.end_hour + 1) % 24)}`
             : ""
@@ -185,7 +191,6 @@ export async function GET(request: Request) {
         const res = await sendEmail({ to: sub.email, subject, html });
         ok = res.success;
       } else if (sub.channel === "sms" && sub.phone && isTwilioConfigured()) {
-        const lead = top[0];
         const body =
           `${today.city.name}: ${verdictLine}.` +
           (lead ? ` Leading at ${lead.spot.name} (${lead.entry.peak}).` : "") +

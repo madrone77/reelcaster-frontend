@@ -98,7 +98,6 @@ export default function CityHub({
   provinceCode,
   areaLabel,
   areaNumbers,
-  tidePhrase,
   children,
 }: {
   today: BlueCasterCityToday | null;
@@ -108,7 +107,6 @@ export default function CityHub({
   provinceCode: string;
   areaLabel: string;
   areaNumbers: string[];
-  tidePhrase: string | null;
   /** The regulations section, which belongs between the leaderboard and the
    *  signup form. Passed through as children rather than rebuilt here so the
    *  page keeps deciding what goes in that slot; it owns its own collapse
@@ -217,6 +215,20 @@ export default function CityHub({
     ? chopLabel(cellAt(featured.spot, featured.entry.peak_hour))
     : null;
 
+  /**
+   * "on the late ebb" for the hero, from the SAME hour the hero's window
+   * opens at the SAME mark.
+   *
+   * It used to be computed on the server against BlueCaster's leading spot
+   * and its peak hour, which made it a third source of truth about one
+   * sentence: the window came from one mark, the phase from another, and the
+   * card underneath showed a third.
+   */
+  const featuredPhase = featured
+    ? phaseAt(featured.spot, featured.entry.window?.start_hour ?? null)
+    : null;
+  const heroPhrase = featuredPhase ? `on the ${featuredPhase.toLowerCase()}` : null;
+
   return (
     <div className="space-y-5">
       <BiteRadar
@@ -226,6 +238,10 @@ export default function CityHub({
         areaNumbers={areaNumbers}
         verdict={today?.verdict ?? null}
         species={heroSpecies}
+        // One window on the page, not two. Both the hero and the spotlight
+        // describe TODAY'S TOP WATER, so both read it off the same row.
+        window={featured?.entry.window ?? heroSpecies?.window ?? null}
+        goodHours={featured?.entry.good_hours ?? heroSpecies?.good_hours ?? 0}
         conditions={today?.conditions ?? null}
         chop={chop}
         scoredSpots={today?.coverage.scored_spots ?? hub.spots.length}
@@ -233,7 +249,7 @@ export default function CityHub({
         reports={today?.intel?.reports ?? 0}
         reportWindowDays={today?.intel?.window_days ?? 21}
         tideStationName={today?.tide_station?.name ?? null}
-        tidePhrase={tidePhrase}
+        tidePhrase={heroPhrase}
       />
 
       <SpeciesChips
@@ -262,7 +278,7 @@ export default function CityHub({
           spot={featured.spot}
           entry={featured.entry}
           rankLine={rankLine}
-          phase={phaseAt(featured.spot, featured.entry.window?.start_hour ?? null)}
+          phase={featuredPhase}
           tactic={tactic}
           cityName={cityName}
         />

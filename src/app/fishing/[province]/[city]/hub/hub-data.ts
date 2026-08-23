@@ -54,6 +54,10 @@ export interface HubSpeciesEntry {
   /** Contiguous good run around the peak, or null if the peak sits outside
    *  daylight. */
   window: HubWindow | null;
+  /** Daylight hours within the good band. A COUNT, not a run: a species can
+   *  hold six good hours split across a dawn bite and an evening one, which
+   *  is why `window` exists separately. */
+  good_hours: number;
 }
 
 export interface HubSpot {
@@ -123,6 +127,17 @@ function pct(score: number): number {
   return Math.round(score * 100);
 }
 
+/** Daylight hours scoring within GOOD_BAND of this spot's own peak. */
+function goodHours(strip: MapSpeciesStrip): number {
+  const floor = strip.peak - GOOD_BAND;
+  let n = 0;
+  for (let h = DAY_START_HOUR; h <= DAY_END_HOUR; h++) {
+    const v = strip.hours[h]?.s;
+    if (typeof v === "number" && v >= floor) n += 1;
+  }
+  return n;
+}
+
 /** Mean of the daylight hours that scored. Hours with no score are skipped
  *  rather than counted as zero, which would punish a spot for a gap in the
  *  feed instead of for the fishing. */
@@ -189,6 +204,7 @@ export function buildHubData(
         peak_hour: strip.peak_hour,
         day_mean: daylightMean(strip),
         window: windowAround(strip),
+        good_hours: goodHours(strip),
       };
       if (peak > bestPeak) {
         bestPeak = peak;

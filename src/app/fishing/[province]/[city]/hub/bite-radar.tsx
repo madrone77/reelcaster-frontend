@@ -64,6 +64,8 @@ export default function BiteRadar({
   areaNumbers,
   verdict,
   species,
+  window,
+  goodHours,
   conditions,
   chop,
   scoredSpots,
@@ -80,8 +82,26 @@ export default function BiteRadar({
   areaNumbers: string[];
   verdict: string | null;
   /** The species the radar is pointed at — the roster headline by default, or
-   *  whatever chip the reader picked. */
+   *  whatever chip the reader picked. Used for its NAME; the numbers below
+   *  come from the featured mark instead, see `window`. */
   species: BlueCasterCityTodaySpecies | null;
+  /**
+   * The window, and the count beside it, read off TODAY'S TOP WATER — the
+   * same mark the spotlight names directly below this card.
+   *
+   * They used to come from `species.window`, which BlueCaster computes at
+   * whichever spot leads the city on daily MEAN. This page ranks on peak and
+   * then on track record, so after the evidence change those were reliably
+   * different marks — and the page said "Best window 6 AM to 8 AM" in 38px
+   * directly above a card whose own window read 7 PM to 9 PM. Both were
+   * true of different water and the reader has no way to know that.
+   *
+   * The upstream number is not more "regional" for being someone else's: it
+   * is one spot's window either way. Making it the featured spot's is the
+   * only version where the two agree.
+   */
+  window: HubWindow | null;
+  goodHours: number;
   conditions: BlueCasterCityConditions | null;
   /** "Light ripple", from wave height where the model has it. */
   chop: string | null;
@@ -96,7 +116,7 @@ export default function BiteRadar({
   tidePhrase: string | null;
 }) {
   const v = verdict ? (VERDICT[verdict] ?? VERDICT.fair) : null;
-  const win = windowLabel(species?.window ?? null);
+  const win = windowLabel(window);
   const water = tempLabel(conditions?.water_temp_c ?? null, provinceCode);
 
   const wind =
@@ -181,7 +201,7 @@ export default function BiteRadar({
                 </>
               ) : (
                 <span className="text-rc-emerald">
-                  {species.good_hours} fishable hours
+                  {goodHours} fishable hours
                 </span>
               )}
             </p>
@@ -189,8 +209,7 @@ export default function BiteRadar({
               {/* No leading spot named here. The spotlight directly below is
                   the answer to "where", and two rankings on one screen only
                   ever get to disagree. */}
-              {species.good_hours} fishable hour
-              {species.good_hours === 1 ? "" : "s"} for{" "}
+              {goodHours} fishable hour{goodHours === 1 ? "" : "s"} for{" "}
               <span className="text-white font-medium">{species.species_name}</span>
               {tidePhrase ? ` ${tidePhrase}` : ""}.
               {tideStationName ? ` Tides read from ${tideStationName}.` : ""}
