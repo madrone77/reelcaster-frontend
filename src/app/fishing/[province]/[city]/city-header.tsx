@@ -29,13 +29,19 @@ import type { FishingCity } from "../../lib/fishing-data";
 export default function CityHeader({
   city,
   provincePath,
-  spotCount,
+  window,
 }: {
   city: FishingCity;
   provincePath: string;
-  /** Published spots the page is showing. Rendered beside the region so the
-   *  H1 block states the page's scope without waiting on any client data. */
-  spotCount: number;
+  /**
+   * Today's best window at the top-ranked mark, already formatted, or null.
+   *
+   * Computed on the SERVER and deliberately not re-pointed by the species
+   * chips. The block below re-ranks on every chip tap; an H1 that moved with
+   * it would rewrite the page's title under the reader, and the H1 is the one
+   * line that has to be stable for search.
+   */
+  window: string | null;
 }) {
   return (
     <header>
@@ -65,13 +71,24 @@ export default function CityHeader({
         </ol>
       </nav>
 
-      {/* Carries the phrase people search AND the promise the ad made, for
-          the same reason the radar's version did. */}
-      <h1 className="mt-2 text-[26px] sm:text-[30px] font-bold leading-tight text-rc-ink">
-        Fishing in {city.name}, {city.provinceCode}: today&apos;s forecast
+      {/* Leads with the answer, and still carries the phrase people search.
+          Falls back to the plain form on a day with nothing scored, because
+          "Today's best fishing in Seattle:" with no time after it is worse
+          than a title that promises less. */}
+      <h1 className="mt-2 text-[26px] sm:text-[32px] font-bold leading-tight text-rc-ink">
+        {window
+          ? `Today's best fishing in ${city.name}: ${window}`
+          : `Fishing in ${city.name}, ${city.provinceCode}`}
       </h1>
-      <p className="mt-1.5 font-rc-mono text-[12px] text-rc-ink-soft">
-        {spotCount} spot{spotCount === 1 ? "" : "s"} · {city.regionName}
+      <p className="mt-2 text-[15px] leading-relaxed text-rc-ink-soft max-w-[54ch]">
+        {/* Casey's wording, kept after review. Worth knowing rather than
+            re-litigating: the hero a few lines below reads "14 of 16 spots
+            scored", so "every fishing spot" is the marketing claim and the
+            card is the precise one. "14 days ahead" is what we score; the
+            page shows today and the CTA sells the rest, which is why it says
+            "ahead" rather than implying the reader already has it. */}
+        We score every fishing spot in {city.name}, every hour for 14 days
+        ahead, so you always know when to go.
       </p>
     </header>
   );

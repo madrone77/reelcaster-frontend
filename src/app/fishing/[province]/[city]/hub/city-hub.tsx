@@ -34,6 +34,7 @@ import SpeciesChips from "./species-chips";
 import SpotSpotlight from "./spot-spotlight";
 import SpotLeaderboard from "./spot-leaderboard";
 import WeekendAlert from "./weekend-alert";
+import ProGate from "./pro-gate";
 import { ScoreNote } from "./ui";
 import {
   assignBadges,
@@ -309,6 +310,13 @@ export default function CityHub({
               four more in the list. */}
           {featured && <ScoreNote />}
 
+          {/* The trial ask sits on the explainer rather than at the foot of
+              the page. Somebody who has just been told what the number means
+              is the reader most likely to want thirteen more days of it, and
+              the old placement made them scroll past the whole leaderboard
+              and the regulations first. */}
+          <ProGate provinceCode={provinceCode} citySlug={citySlug} />
+
           <SpotLeaderboard
             rows={rest}
             badges={badges}
@@ -316,18 +324,19 @@ export default function CityHub({
             cityName={cityName}
             citySlug={citySlug}
           />
-        </div>
 
-        <aside className="space-y-5">
-          {children}
-
+          {/* And the free ask closes the list. The two are deliberately not
+              adjacent: back to back they read as one wall of asks, and the
+              leaderboard between them is the thing that earns the second. */}
           <WeekendAlert
             citySlug={citySlug}
             cityName={cityName}
             provinceCode={provinceCode}
             speciesSlug={selectedSpecies?.slug ?? null}
           />
-        </aside>
+        </div>
+
+        <aside className="space-y-5">{children}</aside>
       </div>
     </div>
   );
