@@ -6,7 +6,11 @@
 // picked. The raw payload carries every species' full strip, so the derivation
 // happens here instead of being reconstructed from a lossy intermediate.
 
-import type { MapSpeciesStrip, MapSpotsPayload } from "@/lib/bluecaster";
+import type {
+  MapCondStrip,
+  MapSpeciesStrip,
+  MapSpotsPayload,
+} from "@/lib/bluecaster";
 
 /**
  * Hours within this fraction of the peak count as "good".
@@ -56,6 +60,15 @@ export interface HubSpot {
   id: string;
   slug: string;
   name: string;
+  /** "Rock reef", "Sand flat"… or null. See MapSpotEntry.bottom for why this
+   *  is the only physical descriptor a card gets. */
+  bottom: string | null;
+  /** Scraped reports exist here in the intel window. Presence only — the
+   *  counts are Pro-gated. */
+  hasReports: boolean;
+  /** Tide phase at this spot's peak hour, for the "on the late ebb" clause
+   *  and the best-current-window badge. */
+  condStrip: MapCondStrip | null;
   /** Keyed by species id. Absent species simply did not score here today. */
   bySpecies: Record<string, HubSpeciesEntry>;
   /** Highest-peaking species at this spot, for the unfiltered ranking. */
@@ -168,6 +181,9 @@ export function buildHubData(
       id: entry.id,
       slug: entry.slug,
       name: entry.name,
+      bottom: entry.bottom ?? null,
+      hasReports: entry.has_reports === true,
+      condStrip: entry.conditions ?? null,
       bySpecies,
       bestSpeciesId: bestId,
     });
@@ -222,4 +238,127 @@ export function rankSpots(
       b.entry.peak - a.entry.peak || b.entry.day_mean - a.entry.day_mean,
   );
   return rows.slice(0, limit);
+}
+
+// ── Reader-facing vocabulary ────────────────────────────────────────────
+
+/** Seabed, as a phrase rather than a database enum. */
+export function bottomLabel(bottom: string | null): string | null {
+  switch (bottom) {
+    case "rock":
+      return "Rock reef";
+    case "mixed":
+      return "Mixed bottom";
+    case "sand":
+      return "Sand flat";
+    case "mud":
+      return "Mud bottom";
+    case "kelp":
+      return "Kelp";
+    default:
+      return null;
+  }
+}
+
+const PHASE_LABEL: Record<string, string> = {
+  flood_early: "Early flood",
+  flood_mid: "Mid flood",
+  flood_late: "Late flood",
+  slack_high: "High slack",
+  ebb_early: "Early ebb",
+  ebb_mid: "Mid ebb",
+  ebb_late: "Late ebb",
+  slack_low: "Low slack",
+};
+
+/** The tide phase a spot's window opens on. Null when the strip has no phase
+ *  at that hour — there is no generic fallback, because "on the tide" is
+ *  filler and a wrong phase is worse than a shorter card. */
+export function phaseAt(spot: HubSpot, hour: number | null): string | null {
+  if (hour == null) return null;
+  const phase = spot.condStrip?.[hour]?.tph ?? null;
+  return phase ? (PHASE_LABEL[phase] ?? null) : null;
+}
+
+/**
+ * Sea state in the words someone uses looking out of the window.
+ *
+ * Derived from wave height where the model has it and wind speed where it
+ * does not, because the two disagree in a way worth respecting: a 15 kt wind
+ * that has just come up has not built a sea yet. Height wins when present.
+ */
+export function chopLabel(cell: { wkt: number | null; wav: number | null } | null): string | null {
+  if (!cell) return null;
+  const { wav, wkt } = cell;
+  if (typeof wav === "number") {
+    if (wav < 0.2) return "Flat";
+    if (wav < 0.5) return "Light ripple";
+    if (wav < 1.0) return "Chop";
+    if (wav < 2.0) return "Lumpy";
+    return "Rough";
+  }
+  if (typeof wkt === "number") {
+    if (wkt < 5) return "Flat";
+    if (wkt < 12) return "Light ripple";
+    if (wkt < 20) return "Chop";
+    return "Lumpy";
+  }
+  return null;
+}
+
+/** The conditions cell at a spot's peak hour. */
+export function cellAt(spot: HubSpot, hour: number | null) {
+  if (hour == null) return null;
+  return spot.condStrip?.[hour] ?? null;
+}
+
+export interface HubBadge {
+  label: string;
+  /** `accent` is the one badge per list that earns emerald; everything else
+   *  is quiet. More than one accent and there is no focal point again. */
+  tone: "accent" | "quiet";
+}
+
+/**
+ * One distinguishing badge per card, so six marks stop reading as six
+ * numbers.
+ *
+ * Assigned across the SET rather than per card, because these are
+ * superlatives: "calmest water" is only true once. A card that earns nothing
+ * gets nothing rather than a filler badge, which is what made the original
+ * six white boxes interchangeable in the first place.
+ */
+export function assignBadges(
+  rows: Array<{ spot: HubSpot; entry: HubSpeciesEntry }>,
+): Map<string, HubBadge> {
+  const out = new Map<string, HubBadge>();
+  if (!rows.length) return out;
+
+  // The tide phase the top-scoring window opens on. Named rather than
+  // "best window", which the score already says.
+  const lead = rows[0];
+  const leadPhase = phaseAt(lead.spot, lead.entry.window?.start_hour ?? null);
+  if (leadPhase) out.set(lead.spot.id, { label: `${leadPhase} bite`, tone: "accent" });
+
+  // Calmest water across the set, at each spot's own peak hour. Only worth
+  // saying when there is a real spread — on a glassy morning every mark is
+  // calm and the badge means nothing.
+  let calmest: { id: string; kt: number } | null = null;
+  let windiest = -1;
+  for (const { spot, entry } of rows) {
+    const kt = cellAt(spot, entry.peak_hour)?.wkt;
+    if (typeof kt !== "number") continue;
+    if (kt > windiest) windiest = kt;
+    if (!calmest || kt < calmest.kt) calmest = { id: spot.id, kt };
+  }
+  if (calmest && windiest - calmest.kt >= 3 && !out.has(calmest.id)) {
+    out.set(calmest.id, { label: "Calmest water", tone: "quiet" });
+  }
+
+  // Most-reported mark in the set. Presence is public; the counts are not,
+  // so this says "reported", never how many times.
+  const reported = rows.find((r) => r.spot.hasReports && !out.has(r.spot.id));
+  if (reported) out.set(reported.spot.id, { label: "Recent reports", tone: "quiet" });
+
+  return out;
 }

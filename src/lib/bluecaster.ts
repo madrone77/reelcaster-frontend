@@ -316,6 +316,11 @@ export interface MapSpotEntry {
   lat: number;
   lng: number;
   city_slug: string | null;
+  /** Seabed at the mark: "rock" | "mixed" | "sand" | "mud" | "kelp", or null.
+   *  The ONLY physical character a spot card can carry — there is no depth
+   *  anywhere in the product (`depth_avg_m` is null on all 164 published
+   *  spots, `depth_profiles` holds 7 rows, `catch_signals.depth_ft` 2). */
+  bottom?: string | null;
   best_species_id: string | null;
   scores: Record<string, MapSpeciesStrip>;
   conditions: MapCondStrip | null;
@@ -1375,6 +1380,14 @@ export interface BlueCasterCityToday {
   coverage: { scored_spots: number; member_spots: number };
   /** Null when the city has no stored forecast conditions for today. */
   conditions: BlueCasterCityConditions | null;
+  /** Catch-report VOLUME, and nothing else. Counts are cleared for consumer
+   *  use; the audit trail behind them never is. Optional so a cached
+   *  pre-`intel` body still parses. */
+  intel?: {
+    reports: number;
+    spots_with_reports: number;
+    window_days: number;
+  };
   verdict: "excellent" | "good" | "fair" | "slow" | null;
   /** The city's top-ranked roster target, NOT its highest scorer. Ranking by
    *  score surfaces the flattest species: crab and bottomfish hold a wide

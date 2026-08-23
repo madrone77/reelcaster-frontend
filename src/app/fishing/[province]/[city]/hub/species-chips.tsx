@@ -9,6 +9,7 @@
 "use client";
 
 import type { HubSpecies } from "./hub-data";
+import SpeciesIcon from "./species-icon";
 
 export default function SpeciesChips({
   species,
@@ -24,7 +25,7 @@ export default function SpeciesChips({
   if (species.length < 2) return null;
 
   const chip = (active: boolean) =>
-    `shrink-0 rounded-full border px-3.5 py-1.5 text-[13px] font-medium transition-colors ${
+    `shrink-0 inline-flex items-center gap-1.5 rounded-full border px-3.5 py-2 text-[13px] font-medium transition-colors ${
       active
         ? "border-rc-brand bg-rc-brand text-white"
         : "border-rc-rule bg-rc-panel text-rc-ink-soft hover:border-rc-brand hover:text-rc-ink"
@@ -54,6 +55,7 @@ export default function SpeciesChips({
           aria-pressed={selected === s.id}
           onClick={() => onSelect(s.id)}
         >
+          <SpeciesIcon name={s.name} className="h-4 w-4 shrink-0" />
           {s.name} ({s.spotCount})
         </button>
       ))}

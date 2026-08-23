@@ -23,18 +23,31 @@ export default function ProGate({
   if (provinceCode) params.set("region", provinceCode);
 
   return (
-    <section className="rounded-xl border border-rc-rule bg-rc-panel p-5 sm:p-6">
-      <h2 className="text-[17px] font-semibold text-rc-ink">
-        Planning past this weekend?
+    <section className="rounded-2xl bg-rc-navy text-white p-5 sm:p-6 shadow-rc-panel">
+      <span className="rc-label text-[9px] text-rc-emerald">
+        Planning past this weekend
+      </span>
+      <h2 className="text-[19px] font-bold mt-1.5">
+        Unlock the full 14-day radar
       </h2>
-      <p className="text-[14px] text-rc-ink-soft mt-2 max-w-[54ch]">
-        Pro opens the full 14 days hour by hour, every spot rather than the top
-        six, alerts when your water crosses the score you set, and the depth
-        contours under the map.
-      </p>
+      <ul className="mt-3 space-y-1.5 text-[14px] text-slate-300">
+        {[
+          "Every hour of the next 14 days, not just today",
+          "Every spot in the city, not the top five",
+          "Alerts by email or text when your water crosses the score you set",
+          "Depth contours under the map",
+        ].map((line) => (
+          <li key={line} className="flex gap-2">
+            <span className="text-rc-emerald shrink-0" aria-hidden>
+              &#8226;
+            </span>
+            <span>{line}</span>
+          </li>
+        ))}
+      </ul>
       <Link
         href={`/plans/checkout?${params.toString()}`}
-        className="inline-block mt-4 rounded-lg bg-rc-brand px-5 py-3 text-[15px] font-semibold text-white hover:bg-rc-brand-hover transition-colors"
+        className="inline-block mt-4 rounded-lg bg-rc-emerald px-5 py-3 text-[15px] font-semibold text-rc-navy-deep hover:brightness-110 transition-all"
       >
         Start the free trial
       </Link>

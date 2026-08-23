@@ -95,11 +95,16 @@ export default function WeekendAlert({
       className="rounded-xl border border-rc-brand/30 bg-rc-brand/[0.04] p-5 sm:p-6"
     >
       <h2 id="weekend-alert" className="text-[19px] font-bold text-rc-ink">
-        Get the {cityName} weekend report every Thursday
+        Never miss a {cityName} slack tide window
       </h2>
       <p className="text-[14px] text-rc-ink-soft mt-2 max-w-[54ch]">
-        Every Thursday afternoon: the windows worth fishing, which water is
-        scoring, and anything the regulator has changed since last week.
+        {/* Describes the Thursday digest and nothing else. Score-threshold
+            alerts are the Pro product below; promising them on a form that
+            takes an address and creates no account would be selling the
+            wrong thing. */}
+        Every Thursday afternoon: the windows worth fishing this weekend, which
+        water is scoring, and anything the regulator has changed since last
+        week.
       </p>
 
       {done ? (
