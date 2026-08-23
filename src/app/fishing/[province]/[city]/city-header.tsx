@@ -81,14 +81,14 @@ export default function CityHeader({
           : `Fishing in ${city.name}, ${city.provinceCode}`}
       </h1>
       <p className="mt-2 text-[15px] leading-relaxed text-rc-ink-soft max-w-[54ch]">
-        {/* "every spot we cover", not "every spot in Seattle" — we do not
-            cover every spot, and the hero says "14 of 16 scored" a few lines
-            below, so the stronger claim would be contradicted on the same
-            screen. The 14 days is what we SCORE; the page shows today and
-            the CTA sells the rest, which is why this says "ahead" rather
-            than implying they already have it. */}
-        We score every spot we cover around {city.name}, every hour for 14
-        days ahead, so you always know when to go.
+        {/* Casey's wording, kept after review. Worth knowing rather than
+            re-litigating: the hero a few lines below reads "14 of 16 spots
+            scored", so "every fishing spot" is the marketing claim and the
+            card is the precise one. "14 days ahead" is what we score; the
+            page shows today and the CTA sells the rest, which is why it says
+            "ahead" rather than implying the reader already has it. */}
+        We score every fishing spot in {city.name}, every hour for 14 days
+        ahead, so you always know when to go.
       </p>
     </header>
   );
