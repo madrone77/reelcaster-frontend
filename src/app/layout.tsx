@@ -12,6 +12,7 @@ import { GoogleAnalytics } from '@next/third-parties/google'
 import { ADSENSE_CLIENT } from '@/lib/adsense'
 import AdSenseLoader from '@/app/components/ads/adsense-loader'
 import MetaPixel from '@/app/components/analytics/meta-pixel'
+import Plausible from '@/app/components/analytics/plausible'
 import GoogleAdsTag from '@/app/components/analytics/google-ads-tag'
 import { ORGANIZATION_JSONLD, SITE_NAME, SITE_URL } from '@/lib/site'
 import { clientDiagSnippet } from '@/lib/client-diag'
@@ -165,6 +166,10 @@ export default function RootLayout({
             an unconfigured environment ships no tag at all. The conversion it
             exists for is fired separately on /billing/success. */}
         <MetaPixel />
+        {/* Plausible. Independent of the three tags above: they report to ad
+            platforms, this one just counts pageviews. Renders null off the
+            reelcaster.com hosts so preview traffic stays out of the numbers. */}
+        <Plausible />
       </body>
     </html>
   )
