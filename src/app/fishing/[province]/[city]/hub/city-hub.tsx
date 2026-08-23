@@ -247,8 +247,7 @@ export default function CityHub({
         chop={chop}
         scoredSpots={today?.coverage.scored_spots ?? hub.spots.length}
         memberSpots={today?.coverage.member_spots ?? hub.spots.length}
-        reports={today?.intel?.reports ?? 0}
-        reportWindowDays={today?.intel?.window_days ?? 21}
+        catches={today?.intel?.catches ?? 0}
         tideStationName={today?.tide_station?.name ?? null}
         tidePhrase={heroPhrase}
       />

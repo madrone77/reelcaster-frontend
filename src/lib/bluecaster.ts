@@ -1401,7 +1401,13 @@ export interface BlueCasterCityToday {
    *  use; the audit trail behind them never is. Optional so a cached
    *  pre-`intel` body still parses. */
   intel?: {
+    /** Distinct POSTS, deduped on excerpt hash — not rows. A post naming one
+     *  mark for two species is two rows and one report. */
     reports: number;
+    /** Distinct posts that reported LANDING something. The number to quote if
+     *  the words say "catches": of Victoria's 79 posts in the window, 31
+     *  report not catching, so `reports` is not a count of fish. */
+    catches: number;
     spots_with_reports: number;
     window_days: number;
   };

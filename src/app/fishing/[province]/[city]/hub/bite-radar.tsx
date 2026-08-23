@@ -70,8 +70,7 @@ export default function BiteRadar({
   chop,
   scoredSpots,
   memberSpots,
-  reports,
-  reportWindowDays,
+  catches,
   tideStationName,
   tidePhrase,
 }: {
@@ -107,10 +106,16 @@ export default function BiteRadar({
   chop: string | null;
   scoredSpots: number;
   memberSpots: number;
-  /** Catch reports in the trailing window. Volume only; nothing about this
-   *  number can be traced to a source, which is why it is publishable. */
-  reports: number;
-  reportWindowDays: number;
+  /**
+   * Recent posts that reported LANDING something, deduped on the post.
+   *
+   * Volume only; nothing about it can be traced to a source, which is why it
+   * is publishable. It is specifically NOT the report count: the banner says
+   * "catches", and of Victoria's 79 posts in the window 31 report not
+   * catching, so quoting reports here would claim 79 fish where there were
+   * 48 successful trips.
+   */
+  catches: number;
   tideStationName: string | null;
   /** "on the late ebb", from the leading spot's tide phase at the peak hour. */
   tidePhrase: string | null;
@@ -153,16 +158,28 @@ export default function BiteRadar({
           sat on a green ground, which is the one background that stops green
           text looking like an accent. Neutral ground, a size up and a real
           weight fix what the colour could not. */}
-      <div className="flex flex-wrap items-center gap-x-2 gap-y-1 border-b border-white/10 bg-white/[0.07] px-4 py-2.5">
-        <span className="relative flex h-2 w-2" aria-hidden>
+      {/* Hidden at zero rather than reading "0 recent catches reported".
+          A city where nobody has landed anything in three weeks has no
+          momentum to claim, and saying so in the first line of a paid
+          landing page is worse than saying nothing. */}
+      {catches > 0 && (
+      <div className="flex items-baseline gap-2 border-b border-white/10 bg-white/[0.07] px-4 py-2.5">
+        {/* `flex-wrap` put the dot on a line of its own: the text is wider
+            than the row at 390px, so it became a second flex line and left
+            the dot stranded above it. Without wrapping, the dot holds its
+            place and the sentence wraps inside its own span, which is where
+            a wrap belongs. `items-baseline` sits the dot on the first line's
+            baseline rather than centring it against a two-line block. */}
+        <span className="relative flex h-2 w-2 shrink-0 translate-y-[-1px]" aria-hidden>
           <span className="absolute inline-flex h-full w-full rounded-full bg-rc-emerald opacity-70 animate-ping" />
           <span className="relative inline-flex h-2 w-2 rounded-full bg-rc-emerald" />
         </span>
-        <span className="font-rc-mono text-[12px] font-medium tracking-[0.01em] text-rc-emerald">
-          {reports} catch report{reports === 1 ? "" : "s"} read around{" "}
-          {cityName} in {reportWindowDays} days
+        <span className="min-w-0 font-rc-mono text-[12px] font-medium tracking-[0.01em] text-rc-emerald">
+          {catches} recent catch{catches === 1 ? "" : "es"} reported in{" "}
+          {cityName}
         </span>
       </div>
+      )}
 
       <div className={PAD}>
         <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
