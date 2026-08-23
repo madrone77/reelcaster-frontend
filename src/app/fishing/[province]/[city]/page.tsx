@@ -306,7 +306,6 @@ export default async function CityPage({
           </CityHub>
         </Suspense>
 
-        <ProGate provinceCode={city.provinceCode} citySlug={citySlug} />
       </div>
 
       <div className="max-w-6xl mx-auto px-6 pt-10 pb-16 space-y-10">
