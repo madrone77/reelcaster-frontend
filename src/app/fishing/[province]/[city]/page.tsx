@@ -277,7 +277,11 @@ export default async function CityPage({
           The measure is still protected — it is protected by the split and
           by each card's own max-width, not by squeezing the whole page. */}
       <div className="max-w-6xl mx-auto px-6 pt-6 space-y-6">
-        <CityHeader provincePath={provincePath} city={city} />
+        <CityHeader
+          provincePath={provincePath}
+          city={city}
+          spotCount={spots.length}
+        />
 
         {/* The chips read `?species=` so an ad can land pre-filtered, and
             `useSearchParams` needs a boundary to keep this route
