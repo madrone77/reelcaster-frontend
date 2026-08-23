@@ -9,6 +9,18 @@
 // than useless when someone drives to the one spot in the city where it is
 // shut. So the badge is the state and the line under it is the count, always.
 //
+// ── Why only three are open ──────────────────────────────────────────────
+//
+// Five stacked cards ran to nearly two phone screens, which put the Thursday
+// signup — the thing a cold visitor is most likely to convert on — below the
+// point most of them stop scrolling. The retainable species lead (the list is
+// already sorted that way) and the rest sit behind a toggle.
+//
+// Every row is RENDERED either way and the collapsed ones are hidden with
+// `hidden`, not dropped from the tree. This is an indexed page whose whole
+// regulatory answer is one of the reasons it ranks, and a crawler that only
+// sees three species is a crawler that thinks we only cover three.
+//
 // ── What this section does not do ────────────────────────────────────────
 //
 // It does not paraphrase. The stored `notes` behind these rows carry things
@@ -19,6 +31,9 @@
 // wrong water, so the section states what rolls up safely and sends the
 // reader to the authority for the rest.
 
+"use client";
+
+import { useState } from "react";
 import type { BlueCasterCitySeasonRow } from "@/lib/bluecaster";
 import type { Regulator } from "@/lib/regions";
 import SpeciesIcon from "./species-icon";
@@ -115,6 +130,16 @@ function stateOf(row: BlueCasterCitySeasonRow): {
   };
 }
 
+/** "Halibut and Dungeness Crab", "A, B and C". */
+function listNames(names: string[]): string {
+  if (names.length <= 1) return names[0] ?? "";
+  return `${names.slice(0, -1).join(", ")} and ${names[names.length - 1]}`;
+}
+
+/** Rows open on arrival. Three is the most that fits above the fold on a
+ *  390px screen alongside the heading. */
+const VISIBLE = 3;
+
 export default function KeepToday({
   rows,
   cityName,
@@ -126,6 +151,8 @@ export default function KeepToday({
   provinceCode: string;
   regulator: Regulator;
 }) {
+  const [expanded, setExpanded] = useState(false);
+
   // A species with no resolved state is not rendered as a blank row: an
   // unanswered legality question looks identical to "no rules apply".
   const known = rows.filter((r) => r.status !== null);
@@ -138,12 +165,14 @@ export default function KeepToday({
     (a, b) => order[a.status!] - order[b.status!],
   );
 
+  const hiddenRows = sorted.slice(VISIBLE);
+
   return (
     <section aria-labelledby="keep" className="space-y-3">
       <SectionHeading id="keep">What you can keep in {cityName} today</SectionHeading>
 
       <ul className="grid gap-2 sm:grid-cols-2">
-        {sorted.map((row) => {
+        {sorted.map((row, i) => {
           const state = stateOf(row)!;
           // Terms only where you may keep one. A minimum size printed beside
           // "Release" reads as permission with a condition attached, and
@@ -159,6 +188,7 @@ export default function KeepToday({
           return (
             <li
               key={row.species_id}
+              hidden={!expanded && i >= VISIBLE}
               className="flex overflow-hidden rounded-xl border border-rc-rule bg-rc-panel"
             >
               <span className={`w-1 shrink-0 ${state.rail}`} aria-hidden />
@@ -182,7 +212,7 @@ export default function KeepToday({
                     {terms}
                   </span>
                 )}
-                <span className="block font-rc-mono text-[10px] text-rc-ink-mute mt-1">
+                <span className="block text-[11px] text-rc-ink-soft mt-1">
                   {state.detail}
                 </span>
               </span>
@@ -190,6 +220,18 @@ export default function KeepToday({
           );
         })}
       </ul>
+
+      {hiddenRows.length > 0 && !expanded && (
+        <button
+          type="button"
+          onClick={() => setExpanded(true)}
+          className="w-full rounded-xl border border-dashed border-rc-rule px-4 py-2.5 text-[13px] font-medium text-rc-ink-soft hover:border-rc-brand hover:text-rc-ink transition-colors"
+        >
+          {/* Named, not counted. "Show 2 more" makes someone open a drawer
+              to find out whether their fish is behind it. */}
+          Show {listNames(hiddenRows.map((r) => r.species_name))}
+        </button>
+      )}
 
       <p className="text-[12px] text-rc-ink-soft">
         {/* Named, not implied. The rules genuinely differ between areas in

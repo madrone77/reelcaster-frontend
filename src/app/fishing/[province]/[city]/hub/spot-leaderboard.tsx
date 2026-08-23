@@ -39,7 +39,7 @@ export default function SpotLeaderboard({
             ? `Next best ${speciesName} water`
             : `Next best water around ${cityName}`}
         </h2>
-        <span className="font-rc-mono text-[10px] text-rc-ink-mute">
+        <span className="text-[11px] text-rc-ink-soft">
           Scores update through the day
         </span>
       </div>
@@ -67,7 +67,7 @@ export default function SpotLeaderboard({
                     <span className="block text-[15px] font-semibold text-rc-ink group-hover:text-rc-brand transition-colors">
                       {spot.name}
                     </span>
-                    <span className="block font-rc-mono text-[11px] text-rc-ink-mute mt-0.5">
+                    <span className="block text-[12px] font-medium text-rc-ink-soft mt-0.5">
                       {/* "Good", not "peak". The span is every hour within 5
                           points of this spot's best, which on a plateau
                           species is most of the day — calling eleven hours a
@@ -105,9 +105,7 @@ export default function SpotLeaderboard({
                     </span>
                   )}
                   {bottom && (
-                    <span className="font-rc-mono text-[10px] text-rc-ink-mute">
-                      {bottom}
-                    </span>
+                    <span className="text-[11px] text-rc-ink-soft">{bottom}</span>
                   )}
                 </div>
                 )}

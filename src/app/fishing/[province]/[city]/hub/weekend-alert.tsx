@@ -126,7 +126,7 @@ export default function WeekendAlert({
               inputMode="numeric"
               autoComplete="one-time-code"
               placeholder="123456"
-              className="flex-1 rounded-lg border border-rc-rule bg-white px-4 py-3 text-[16px] text-rc-ink placeholder:text-rc-ink-mute focus:border-rc-brand focus:outline-none"
+              className="flex-1 rounded-lg border border-rc-rule bg-white px-4 py-3 text-[16px] text-rc-ink placeholder:text-rc-ink-soft focus:border-rc-brand focus:outline-none"
             />
             <button
               type="submit"
@@ -150,7 +150,7 @@ export default function WeekendAlert({
               required
               // 16px, because anything smaller makes iOS Safari zoom the
               // whole page on focus and the reader loses the form.
-              className="flex-1 rounded-lg border border-rc-rule bg-white px-4 py-3 text-[16px] text-rc-ink placeholder:text-rc-ink-mute focus:border-rc-brand focus:outline-none"
+              className="flex-1 rounded-lg border border-rc-rule bg-white px-4 py-3 text-[16px] text-rc-ink placeholder:text-rc-ink-soft focus:border-rc-brand focus:outline-none"
               placeholder="Email or mobile number"
               autoComplete="email"
             />
@@ -163,7 +163,7 @@ export default function WeekendAlert({
             </button>
           </div>
           {error && <p className="text-[13px] text-rc-poor-ink">{error}</p>}
-          <p className="font-rc-mono text-[10px] text-rc-ink-mute">
+          <p className="text-[11px] text-rc-ink-soft">
             One email a week, or one text. Unsubscribe from any of them. Message
             and data rates may apply for texts.
           </p>

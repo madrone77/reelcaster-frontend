@@ -110,8 +110,9 @@ export default function CityHub({
   areaNumbers: string[];
   tidePhrase: string | null;
   /** The regulations section, which belongs between the leaderboard and the
-   *  signup form. A server component passed through rather than rebuilt
-   *  here, so none of that markup ships as JavaScript. */
+   *  signup form. Passed through as children rather than rebuilt here so the
+   *  page keeps deciding what goes in that slot; it owns its own collapse
+   *  state and does not need anything from this component's. */
   children?: React.ReactNode;
 }) {
   const params = useSearchParams();

@@ -1,4 +1,17 @@
-// Today's top water, as one card that does not look like the five under it.
+// Today's top water, as one card that does not look like the four under it.
+//
+// White with an emerald edge, NOT navy. It was navy first, directly beneath a
+// navy hero, and two dark blocks stacked with a chip bar between them read as
+// one slab through the middle of a phone screen — which loses the separation
+// the spotlight existed to create. Sharing the accent instead of the fill
+// links the two without merging them.
+//
+// No topographic watermark behind it either, though it was asked for: a
+// contour texture under a named mark reads as that mark's actual bathymetry,
+// and we would be drawing a decorative pattern. The relief tiles are real but
+// belong on the map, where they are the data rather than a backdrop, and
+// fetching them for a card would spend the FCP budget this page is built
+// around.
 //
 // The original leaderboard was six identical white boxes carrying 85, 84, 84,
 // 83, 83, 82 — a spread of three points rendered as six equal choices, which
@@ -20,6 +33,19 @@ import Link from "next/link";
 import { bottomLabel, type HubSpeciesEntry, type HubSpot } from "./hub-data";
 import { windowLabel } from "./bite-radar";
 
+/**
+ * The rc-label look, without rc-label's colour.
+ *
+ * `.rc-label` sets `color: var(--rc-ink-mute)` and rc-tokens.css is imported
+ * AFTER Tailwind, so a `text-*` utility beside it has equal specificity and
+ * loses on source order. On the dark hero that is harmless — ink-mute is
+ * 5.3:1 on navy — but on this card's light surfaces it pins every small label
+ * to 2.8:1, under the 4.5:1 floor. Spelling the type out is clearer than
+ * fighting the cascade with `!`.
+ */
+const LABEL =
+  "font-rc-mono text-[10px] font-semibold uppercase leading-3 text-rc-ink-soft";
+
 function Pill({
   icon,
   label,
@@ -30,11 +56,11 @@ function Pill({
   value: string;
 }) {
   return (
-    <div className="rounded-lg bg-white/[0.06] border border-white/10 px-3 py-2">
-      <div className="rc-label text-[9px] text-slate-400">
+    <div className="rounded-lg bg-rc-surface px-3 py-2">
+      <div className={LABEL}>
         <span aria-hidden>{icon}</span> {label}
       </div>
-      <div className="text-[13px] text-white font-medium mt-0.5">{value}</div>
+      <div className="text-[13px] text-rc-ink font-semibold mt-0.5">{value}</div>
     </div>
   );
 }
@@ -74,15 +100,15 @@ export default function SpotSpotlight({
     <section aria-labelledby="spotlight">
       <Link
         href={`/explore/spot/${spot.slug}`}
-        className="group block rounded-2xl bg-rc-navy text-white overflow-hidden shadow-rc-panel"
+        className="group block rounded-2xl border-2 border-rc-emerald bg-rc-panel overflow-hidden shadow-rc-panel"
       >
-        <div className="flex items-center gap-2 px-5 pt-4">
-          <span className="rc-label text-[9px] text-rc-emerald">
+        <div className="flex items-center gap-2 bg-rc-emerald px-5 py-1.5">
+          <span className="font-rc-mono text-[10px] font-bold uppercase leading-3 text-rc-navy-deep">
             Today&apos;s top water
           </span>
-          <span className="h-px flex-1 bg-rc-emerald/30" aria-hidden />
+          <span className="flex-1" aria-hidden />
           {spot.hasReports && (
-            <span className="font-rc-mono text-[10px] text-slate-400">
+            <span className="text-[10px] font-semibold text-rc-navy-deep">
               {/* Presence only. The counts behind this are Pro-gated, and the
                   reports themselves are never quoted anywhere. */}
               Recent reports
@@ -90,8 +116,8 @@ export default function SpotSpotlight({
           )}
         </div>
 
-        <div className="flex items-start gap-4 px-5 pt-2.5">
-          <span className="shrink-0 rounded-xl bg-rc-emerald px-3 py-2 text-rc-navy-deep">
+        <div className="flex items-start gap-4 px-5 pt-4">
+          <span className="shrink-0 rounded-xl bg-rc-emerald-deep px-3 py-2 text-white">
             <span className="block font-rc-mono text-[26px] font-bold leading-none tabular-nums">
               {entry.peak}
             </span>
@@ -99,11 +125,11 @@ export default function SpotSpotlight({
           <span className="min-w-0 flex-1">
             <h2
               id="spotlight"
-              className="text-[21px] sm:text-[24px] font-bold leading-tight group-hover:text-rc-emerald transition-colors"
+              className="text-[21px] sm:text-[24px] font-bold leading-tight text-rc-ink group-hover:text-rc-emerald-deep transition-colors"
             >
               {spot.name}
             </h2>
-            <p className="font-rc-mono text-[11px] text-slate-400 mt-1">
+            <p className="text-[12px] font-medium text-rc-ink-soft mt-1">
               {rankLine}
             </p>
           </span>
@@ -116,7 +142,7 @@ export default function SpotSpotlight({
           {tactic && <Pill icon="🎯" label={`How ${cityName} fishes it`} value={tactic} />}
         </div>
 
-        <div className="mt-4 border-t border-white/10 px-5 py-3 text-[13px] font-semibold text-rc-emerald">
+        <div className="mt-4 border-t border-rc-rule px-5 py-3 text-[13px] font-semibold text-rc-emerald-deep">
           See the full day at {spot.name}
           <span aria-hidden> →</span>
         </div>

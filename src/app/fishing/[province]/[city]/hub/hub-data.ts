@@ -320,13 +320,24 @@ export interface HubBadge {
 }
 
 /**
- * One distinguishing badge per card, so six marks stop reading as six
+ * One distinguishing badge per card, so marks stop reading as repeated
  * numbers.
  *
- * Assigned across the SET rather than per card, because these are
- * superlatives: "calmest water" is only true once. A card that earns nothing
- * gets nothing rather than a filler badge, which is what made the original
- * six white boxes interchangeable in the first place.
+ * ── Why these four and not the obvious fifth ─────────────────────────────
+ *
+ * "Best depth drop-off" is the tag this list most wants and cannot have.
+ * Depth is absent from the product at every grain — `depth_avg_m` is null on
+ * all 164 published spots, `depth_profiles` holds 7 rows, and the scraped
+ * `catch_signals.depth_ft` 2 of 1,860 — so a drop-off badge would be a guess
+ * printed in the same typeface as four measurements.
+ *
+ * ── Why they are assigned across the set ─────────────────────────────────
+ *
+ * They are superlatives. "Calmest drift" is true once, and a badge every card
+ * carries is a badge no card is distinguished by — which is the state this
+ * exists to fix. Each is also guarded on a real spread: on a glassy morning
+ * every mark is calm and the word means nothing, so it is withheld rather
+ * than printed on an arbitrary winner.
  */
 export function assignBadges(
   rows: Array<{ spot: HubSpot; entry: HubSpeciesEntry }>,
@@ -334,29 +345,70 @@ export function assignBadges(
   const out = new Map<string, HubBadge>();
   if (!rows.length) return out;
 
-  // The tide phase the top-scoring window opens on. Named rather than
-  // "best window", which the score already says.
+  /** Best row by some measure, skipping any already badged. */
+  const claim = (
+    pick: (spot: HubSpot, entry: HubSpeciesEntry) => number | null,
+    better: (a: number, b: number) => boolean,
+    spread: number,
+    label: (v: number) => string,
+    tone: HubBadge["tone"],
+  ) => {
+    let best: { id: string; v: number } | null = null;
+    let lo = Infinity;
+    let hi = -Infinity;
+    for (const { spot, entry } of rows) {
+      const v = pick(spot, entry);
+      if (typeof v !== "number") continue;
+      lo = Math.min(lo, v);
+      hi = Math.max(hi, v);
+      if (!out.has(spot.id) && (!best || better(v, best.v))) best = { id: spot.id, v };
+    }
+    // No spread, no superlative. Naming the "calmest" of five identical marks
+    // invents a distinction the reader will act on.
+    if (!best || hi - lo < spread) return;
+    out.set(best.id, { label: label(best.v), tone });
+  };
+
+  // The tide phase the top window opens on. First claim, and the only accent:
+  // more than one accent and there is no focal point again.
   const lead = rows[0];
   const leadPhase = phaseAt(lead.spot, lead.entry.window?.start_hour ?? null);
-  if (leadPhase) out.set(lead.spot.id, { label: `${leadPhase} bite`, tone: "accent" });
-
-  // Calmest water across the set, at each spot's own peak hour. Only worth
-  // saying when there is a real spread — on a glassy morning every mark is
-  // calm and the badge means nothing.
-  let calmest: { id: string; kt: number } | null = null;
-  let windiest = -1;
-  for (const { spot, entry } of rows) {
-    const kt = cellAt(spot, entry.peak_hour)?.wkt;
-    if (typeof kt !== "number") continue;
-    if (kt > windiest) windiest = kt;
-    if (!calmest || kt < calmest.kt) calmest = { id: spot.id, kt };
-  }
-  if (calmest && windiest - calmest.kt >= 3 && !out.has(calmest.id)) {
-    out.set(calmest.id, { label: "Calmest water", tone: "quiet" });
+  if (leadPhase) {
+    out.set(lead.spot.id, { label: `${leadPhase} window`, tone: "accent" });
   }
 
-  // Most-reported mark in the set. Presence is public; the counts are not,
-  // so this says "reported", never how many times.
+  // Strongest tidal current at its own peak hour. The seam is where the bait
+  // stacks, and it is a genuinely different reason to pick a mark than "calm".
+  claim(
+    (spot, entry) => cellAt(spot, entry.peak_hour)?.cur ?? null,
+    (a, b) => a > b,
+    0.4,
+    () => "Peak current seam",
+    "quiet",
+  );
+
+  // Calmest wind at its own peak hour.
+  claim(
+    (spot, entry) => cellAt(spot, entry.peak_hour)?.wkt ?? null,
+    (a, b) => a < b,
+    3,
+    () => "Calmest drift",
+    "quiet",
+  );
+
+  // Longest good run. "Widest window" is the honest way to say a plateau, and
+  // it is a real reason to choose a mark when you cannot leave at dawn.
+  claim(
+    (_spot, entry) =>
+      entry.window ? entry.window.end_hour - entry.window.start_hour + 1 : null,
+    (a, b) => a > b,
+    3,
+    (v) => `Widest window, ${v}h`,
+    "quiet",
+  );
+
+  // Presence only. The counts behind this are Pro-gated and the reports are
+  // never quoted, so this says "reported", never how many times.
   const reported = rows.find((r) => r.spot.hasReports && !out.has(r.spot.id));
   if (reported) out.set(reported.spot.id, { label: "Recent reports", tone: "quiet" });
 

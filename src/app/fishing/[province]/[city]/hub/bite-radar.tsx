@@ -138,12 +138,17 @@ export default function BiteRadar({
       {/* Live pulse. A count of reports read, never a count of people — there
           is no user-activity metric behind this page, and inventing one on a
           page that sells a subscription is not a design choice. */}
-      <div className="flex flex-wrap items-center gap-x-2 gap-y-1 bg-rc-emerald-dim/60 px-5 py-2.5 border-b border-white/10">
+      {/* The emerald here already measures 10.9:1 on the band, so this was
+          never a contrast defect — it read faint because 11px of light mono
+          sat on a green ground, which is the one background that stops green
+          text looking like an accent. Neutral ground, a size up and a real
+          weight fix what the colour could not. */}
+      <div className="flex flex-wrap items-center gap-x-2 gap-y-1 bg-white/[0.07] px-5 py-3 border-b border-white/10">
         <span className="relative flex h-2 w-2" aria-hidden>
           <span className="absolute inline-flex h-full w-full rounded-full bg-rc-emerald opacity-70 animate-ping" />
           <span className="relative inline-flex h-2 w-2 rounded-full bg-rc-emerald" />
         </span>
-        <span className="font-rc-mono text-[11px] text-rc-emerald">
+        <span className="font-rc-mono text-[12px] font-medium text-rc-emerald">
           {reports} catch report{reports === 1 ? "" : "s"} read around{" "}
           {cityName} in {reportWindowDays} days
         </span>
