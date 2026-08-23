@@ -6,6 +6,7 @@ import type {
 } from "@/lib/bluecaster/live-spot-types";
 import type { CurrentSample } from "@/lib/bluecaster-client";
 import { niceCurrentScale, nextSlackHour } from "../../lib/current-series";
+import { windCardinal } from "../../lib/wind-rose";
 import { tierFor, type Tier } from "../../lib/explore-data";
 import { useUnitPreferences } from "@/contexts/unit-preferences-context";
 import {
@@ -179,6 +180,7 @@ export default function CurrentConditionsStrip({
 
   const gusty =
     rn?.windKt != null && rn?.windGustKt != null && rn.windGustKt - rn.windKt > 8;
+  const windName = windCardinal(rn?.windDirDeg) ?? rn?.windDir ?? null;
 
   // Falls back to a wind-derived sea at spots the wave grid calls dry land, where
   // `waveM` is null for every hour of every day. See lib/sea-state.ts.
@@ -238,7 +240,13 @@ export default function CurrentConditionsStrip({
         rn?.windKt != null
           ? formatWind(convertWind(rn.windKt, "knots", windUnit), windUnit)
           : DASH,
-      sub: rn?.windDir ? `${rn.windDir} · ${gusty ? "gusty" : "steady"}` : null,
+      // Named from DEGREES, not from the API's `windDir` string: that string is
+      // rounded to an 8-point rose upstream, so the same hour read "W" here and
+      // "WSW" under the chart's arrow a few pixels below. Falls back to the
+      // string on the older payloads that carry no degrees.
+      sub: windName
+        ? `${windName} · ${gusty ? "gusty" : "steady"}`
+        : null,
     },
     {
       label: "Sea state",

@@ -191,6 +191,16 @@ export default function SpotDetailShell({
     setScrubbed(true);
     setSelectedHour(hour);
   }, []);
+  // The way back to the live hour, and the only one. The chart used to do this
+  // implicitly whenever a mouse left it, which made a pinned hour impossible to
+  // carry anywhere: the map sits a thousand pixels above the chart, so scrolling
+  // up to see the wind field at the hour you just picked passed the pointer out
+  // of the chart and reset it on the way. It is an explicit "Now" button on the
+  // map's time bar instead, and it behaves the same under touch and mouse.
+  const clearScrub = useCallback(() => {
+    setScrubbed(false);
+    setSelectedHour(nowHour);
+  }, [nowHour]);
 
   const species = useMemo(
     () => [...page.species].sort((a, b) => a.rank - b.rank),
@@ -962,15 +972,43 @@ export default function SpotDetailShell({
               <div className="order-2">
                 <SpotMiniMap
                   spot={spot}
-                  /* The day's best, matching the headline above it and the
-                     day strip below it. It used to be the live hour, so a
-                     page reading "Best score for the day 89" carried a puck
+                  /* Unscrubbed, the day's best — matching the headline above it
+                     and the day strip below it. It used to be the live hour, so
+                     a page reading "Best score for the day 89" carried a puck
                      reading 33, and the two numbers were about different
-                     questions with nothing on screen saying so. */
-                  score={peakScore ?? todayScore}
+                     questions with nothing on screen saying so.
+
+                     Once the angler pins an hour it follows that hour instead,
+                     because the map's time bar is then on screen naming it. The
+                     old mismatch was an unlabelled number disagreeing with the
+                     headline; this one is answering the question the reader
+                     just asked, with the clock right underneath it. */
+                  score={
+                    scrubbed
+                      ? (hours24?.[selectedHour] ?? null)
+                      : (peakScore ?? todayScore)
+                  }
                   timeIso={
                     activeIso ? zonedHourToUtcIso(activeIso, selectedHour, TZ) : null
                   }
+                  hours={{
+                    hour: selectedHour,
+                    onSelectHour: selectHour,
+                    nowHour,
+                    isToday: dayIndex === 0,
+                    scrubbed,
+                    onNow: clearScrub,
+                    dayLabel:
+                      dayIndex === 0
+                        ? null
+                        : (stripModel?.days[dayIndex]?.dow ?? null),
+                    scores: hours24,
+                    wind: terminalHours.wind,
+                    gust: terminalHours.gust,
+                    windDir: terminalHours.windDir,
+                    current: chartCurrent,
+                    sun: page.sun,
+                  }}
                   hideExploreLink={!!ad}
                 />
               </div>
@@ -1078,10 +1116,27 @@ export default function SpotDetailShell({
                   {tzAbbrev ? `All times ${tzAbbrev}` : "Local time"}
                 </p>
               </div>
-              <p className="font-rc-mono text-[10px] text-rc-ink-mute italic">
-                <span className="lg:hidden">Tap or drag to read any hour</span>
-                <span className="hidden lg:inline">Hover or drag to read any hour</span>
-              </p>
+              <div className="flex items-center gap-2">
+                <p className="font-rc-mono text-[10px] text-rc-ink-mute italic">
+                  <span className="lg:hidden">Tap or drag to read any hour</span>
+                  <span className="hidden lg:inline">Hover or drag to read any hour</span>
+                </p>
+                {/* The chart's own way back. A picked hour now survives the
+                    pointer leaving the chart — that is what lets it drive the
+                    map — so the reset has to be something you press. Mirrors
+                    the button on the map's time bar; both call the same
+                    handler, and it is only offered on today, where "now" is a
+                    point on this axis. */}
+                {scrubbed && dayIndex === 0 && selectedHour !== nowHour && (
+                  <button
+                    type="button"
+                    onClick={clearScrub}
+                    className="rounded px-2 py-0.5 bg-rc-brand-soft text-rc-brand font-rc-mono text-[10px] font-semibold hover:bg-rc-brand-soft/70 transition-colors focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-rc-brand"
+                  >
+                    Back to now
+                  </button>
+                )}
+              </div>
             </div>
             {/* The graph's readout. Every prop is the SELECTED day + hour and
                 comes from the same series the chart draws, so scrubbing moves
@@ -1112,7 +1167,8 @@ export default function SpotDetailShell({
               realCurrent={chartCurrent}
               tideRange={tideRange}
               sun={page.sun}
-              nowHour={nowHour}
+              /* Only today has a "now" on its axis. */
+              nowHour={dayIndex === 0 ? nowHour : null}
               selectedHour={selectedHour}
               onSelectHour={selectHour}
               bestWindow={win.window}

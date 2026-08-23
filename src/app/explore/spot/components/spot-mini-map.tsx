@@ -15,7 +15,8 @@ import {
   PUCK_TIP_OFFSET,
   NO_DATA_LABEL,
 } from "../../lib/score-puck";
-import type { LiveSpot } from "@/lib/bluecaster/live-spot-types";
+import MapHourBar from "./map-hour-bar";
+import type { LiveSpot, SunHours } from "@/lib/bluecaster/live-spot-types";
 
 /** GeoJSON source + symbol layer that carry this spot's score puck. */
 const PUCK_SOURCE = "spot-puck-src";
@@ -55,16 +56,42 @@ const TAB_OFF = "bg-rc-panel/90 text-rc-ink-soft hover:bg-rc-panel";
  * different sources; Satellite is a raster declared in the style and toggled
  * by visibility.
  */
+/**
+ * The scrubber's half of the props. Optional as a group: the ad frame and any
+ * other caller that has no hourly series still gets the map, just without the
+ * time bar (and so without a flow field that claims an hour it can't name).
+ */
+export type SpotMapHours = {
+  hour: number;
+  onSelectHour: (hour: number) => void;
+  nowHour: number;
+  isToday: boolean;
+  scrubbed: boolean;
+  onNow: () => void;
+  /** "Wed" when the strip is on another day, null on today. */
+  dayLabel: string | null;
+  scores: (number | null)[] | null;
+  wind: (number | null)[];
+  gust: (number | null)[];
+  windDir: (number | null)[];
+  /** Signed knots, +flood / −ebb. */
+  current: (number | null)[] | null;
+  sun: SunHours;
+};
+
 export default function SpotMiniMap({
   spot,
   score,
   timeIso,
+  hours,
   hideExploreLink = false,
 }: {
   spot: LiveSpot;
   score: number | null;
   /** UTC instant both flow tabs are drawn at; null = model "now". */
   timeIso?: string | null;
+  /** Hourly series + scrub wiring for the time bar. Omit to hide the bar. */
+  hours?: SpotMapHours;
   /** Drop the corner link out to /explore. Set on the ad frame of the spot
    *  page, where it is an exit sitting on top of the most tappable element on
    *  the page, pointing at a map that sells nothing in particular. */
@@ -164,6 +191,14 @@ export default function SpotMiniMap({
     if (map) attachMapImages(map);
   }, [attachMapImages, mapObj]);
 
+  // The time bar only makes sense over a field that HAS a time. Bathymetry and
+  // satellite are the same picture at 4am and 4pm, and a clock over them would
+  // be an instrument reading nothing.
+  const barOn = flow != null && !!hours;
+  // The corner controls sit on the map's bottom edge, which is where the bar
+  // docks. Lift them clear rather than letting the bar cover them.
+  const cornerBottom = barOn ? "bottom-[74px]" : "bottom-2";
+
   return (
     <div
       className={
@@ -209,7 +244,7 @@ export default function SpotMiniMap({
         <Link
           href="/explore"
           aria-label="Back to map"
-          className="absolute bottom-2 left-2 z-10 flex items-center justify-center w-8 h-8 rounded-full bg-rc-panel/90 text-rc-ink-soft hover:bg-rc-panel transition-colors"
+          className={`absolute ${cornerBottom} left-2 z-10 flex items-center justify-center w-8 h-8 rounded-full bg-rc-panel/90 text-rc-ink-soft hover:bg-rc-panel transition-colors`}
         >
           <ChevronLeft className="w-4 h-4" />
         </Link>
@@ -220,7 +255,7 @@ export default function SpotMiniMap({
         type="button"
         onClick={() => setExpanded((v) => !v)}
         aria-label={expanded ? "Collapse map" : "Expand map"}
-        className="absolute bottom-2 right-2 z-10 flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-rc-panel/90 text-rc-ink-soft text-[11px] font-semibold hover:bg-rc-panel transition-colors"
+        className={`absolute ${cornerBottom} right-2 z-10 flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-rc-panel/90 text-rc-ink-soft text-[11px] font-semibold hover:bg-rc-panel transition-colors`}
       >
         {expanded ? (
           <Minimize2 className="w-3 h-3" />
@@ -297,6 +332,30 @@ export default function SpotMiniMap({
           />
         </Source>
       </Map>
+
+      {/* The hour the two flow fields are drawn at, and the control for it.
+          Docked inside the map rather than under it so the field, its reading
+          and its clock are one instrument — and so the reader never has to
+          scroll a thousand pixels to the 24h chart to change what the map is
+          showing. Same component and same shared hour on both breakpoints. */}
+      {barOn && hours && flow && (
+        <MapHourBar
+          kind={flow}
+          hour={hours.hour}
+          onSelectHour={hours.onSelectHour}
+          nowHour={hours.nowHour}
+          isToday={hours.isToday}
+          scrubbed={hours.scrubbed}
+          onNow={hours.onNow}
+          dayLabel={hours.dayLabel}
+          scores={hours.scores}
+          wind={hours.wind}
+          gust={hours.gust}
+          windDir={hours.windDir}
+          current={hours.current}
+          sun={hours.sun}
+        />
+      )}
     </div>
   );
 }
