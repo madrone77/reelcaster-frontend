@@ -159,7 +159,8 @@ export default function BiteRadar({
 
   return (
     <section
-      aria-labelledby="radar"
+      id="radar"
+      aria-label={`Today's fishing forecast for ${cityName}`}
       className={`overflow-hidden bg-rc-navy-deep text-white ${PANEL}`}
     >
       {/* Live pulse. A count of reports read, never a count of people — there
@@ -218,12 +219,15 @@ export default function BiteRadar({
           )}
         </div>
 
-        {/* The page's only H1. Two jobs at once — carry the phrase people
-            search ("fishing in Seattle, WA") and confirm the promise in the ad
-            that sent them ("today") — so it says both rather than picking. */}
-        <h1 id="radar" className="mt-2 text-[15px] font-semibold text-slate-300">
-          Fishing in {cityName}, {provinceCode}: today&apos;s forecast
-        </h1>
+        {/* Not an H1 any more, and not a heading at all. The page's H1 is in
+            CityHeader, a server component outside this subtree — this one sat
+            inside a Suspense boundary that does not prerender, so it was
+            absent from the shipped markup and the page went out with no H1 at
+            all. Kept as a plain line because the card still reads better with
+            the city named above the number. */}
+        <p className="mt-2 text-[15px] font-semibold text-slate-300">
+          {cityName}, {provinceCode} today
+        </p>
 
         {species ? (
           <>
