@@ -21,7 +21,8 @@ import { SpeciesCards } from "./species-cards";
 import CityHub from "./hub/city-hub";
 import KeepToday from "./hub/keep-today";
 import ProGate from "./hub/pro-gate";
-import { buildHubData } from "./hub/hub-data";
+import { buildHubData, rankSpots } from "./hub/hub-data";
+import { formatHour12 } from "@/lib/time-format";
 import {
   BeforeYouGo,
   CityFaq,
@@ -158,6 +159,23 @@ export default async function CityPage({
   // hub/hub-data.ts for why this is not derived from Explore's RailSpot.
   const hub = buildHubData(payload, inCity);
 
+  /**
+   * Today's best window at the city's top-ranked mark, for the H1.
+   *
+   * Ranked here on the server with the same function the block below uses, so
+   * the title and the spotlight name the same water. It follows the city's
+   * ROSTER species rather than a chip, because the H1 must not move when a
+   * reader taps a filter.
+   *
+   * `end_hour` names the last good hour, so the label closes an hour later.
+   */
+  const headlineWindow = (() => {
+    const top = rankSpots(hub.spots, cityToday?.headline?.species_id ?? null, 1)[0];
+    const w = top?.entry.window;
+    if (!w) return null;
+    return `${formatHour12(w.start_hour)} to ${formatHour12((w.end_hour + 1) % 24)}`;
+  })();
+
   const regulator = regulatorFor(city.provinceCode);
   const areaNumbers = (cityPage?.regulatory_areas ?? [])
     .map((a) => a.area_number)
@@ -280,7 +298,7 @@ export default async function CityPage({
         <CityHeader
           provincePath={provincePath}
           city={city}
-          spotCount={spots.length}
+          window={headlineWindow}
         />
 
         {/* The chips read `?species=` so an ad can land pre-filtered, and
