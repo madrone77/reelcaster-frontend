@@ -31,3 +31,49 @@ export const PLAUSIBLE_SRC = 'https://plausible.io/js/pa-OrsqKLODABP7zwGw1EOxe.j
 export function plausibleReports(hostname: string): boolean {
   return hostname === 'reelcaster.com' || hostname.endsWith('.reelcaster.com')
 }
+
+/**
+ * The custom event fired when a Pro trial starts.
+ *
+ * The name is the whole contract with the dashboard: Plausible matches a goal
+ * to an event by exact string, case included, so a rename here is a rename in
+ * Site Settings → Goals or the goal quietly stops counting. Events keep
+ * arriving either way; an unmatched one just has nowhere to show up.
+ */
+export const PLAUSIBLE_TRIAL_EVENT = 'Trial Start'
+
+type PlausibleProps = Record<string, string | number | boolean>
+
+type PlausibleFn = ((
+  event: string,
+  options?: { props?: PlausibleProps },
+) => void) & { q?: unknown[]; l?: boolean }
+
+declare global {
+  interface Window {
+    plausible?: PlausibleFn
+  }
+}
+
+/**
+ * Report a custom event.
+ *
+ * Installs the queueing stub if the tracker has not landed yet, rather than
+ * dropping the call. `<Plausible>` loads `afterInteractive`, so on a slow
+ * connection there is a window where `window.plausible` does not exist, and the
+ * one event worth firing on the checkout return page is exactly the kind that
+ * arrives during it. The loader drains `plausible.q` on arrival.
+ *
+ * Silently does nothing useful off the reporting hosts, where the loader never
+ * mounts: the call queues and no request is ever made.
+ */
+export function plausibleTrack(event: string, props?: PlausibleProps): void {
+  if (typeof window === 'undefined') return
+  if (!window.plausible) {
+    const stub: PlausibleFn = function (...args: unknown[]) {
+      ;(stub.q = stub.q || []).push(args)
+    } as unknown as PlausibleFn
+    window.plausible = stub
+  }
+  window.plausible(event, props ? { props } : undefined)
+}
