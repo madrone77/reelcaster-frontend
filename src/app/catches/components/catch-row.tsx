@@ -5,11 +5,13 @@ import type { CatchLogRow } from "@/lib/catch-log-types";
 import { readSnapshot } from "@/lib/catch-log-types";
 import { kgToLb, cmToIn } from "@/lib/units";
 
-/** Stable accent color per species (mock: chinook blue, coho green, …). */
+/** Stable accent color per species. A categorical palette (species are distinct
+ *  buckets, not scores); the first three align to the v2 brand/score values so
+ *  no stale old-brand hexes remain. */
 const SPECIES_DOT: Record<string, string> = {
-  "chinook-salmon": "#1E40E0",
-  "coho-salmon": "#16A34A",
-  "sockeye-salmon": "#DC2626",
+  "chinook-salmon": "#2536D9",
+  "coho-salmon": "#3D8B4F",
+  "sockeye-salmon": "#B23A2F",
   "pink-salmon": "#EC4899",
   "chum-salmon": "#0891B2",
   "pacific-halibut": "#EA580C",
@@ -17,7 +19,7 @@ const SPECIES_DOT: Record<string, string> = {
   lingcod: "#7C3AED",
   rockfish: "#B45309",
 };
-const DOT_FALLBACK = ["#1E40E0", "#16A34A", "#EA580C", "#7C3AED", "#0891B2", "#B45309"];
+const DOT_FALLBACK = ["#2536D9", "#3D8B4F", "#EA580C", "#7C3AED", "#0891B2", "#B45309"];
 
 export function speciesDotColor(row: CatchLogRow): string {
   const key = row.species_id ?? row.species_name ?? "";

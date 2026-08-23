@@ -520,7 +520,7 @@ export default function CatchDetailShell({ catchId }: { catchId: string }) {
 function SavedState() {
   return (
     <div className="rounded-2xl border border-rc-rule bg-rc-panel p-10 text-center">
-      <div className="mx-auto flex w-12 h-12 items-center justify-center rounded-full bg-emerald-500">
+      <div className="mx-auto flex w-12 h-12 items-center justify-center rounded-full bg-rc-good">
         <Check className="w-6 h-6 text-white" strokeWidth={3} />
       </div>
       <div className="mt-4 text-xl font-bold text-rc-ink">Saved</div>
