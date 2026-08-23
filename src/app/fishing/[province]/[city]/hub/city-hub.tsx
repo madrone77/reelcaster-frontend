@@ -34,6 +34,7 @@ import SpeciesChips from "./species-chips";
 import SpotSpotlight from "./spot-spotlight";
 import SpotLeaderboard from "./spot-leaderboard";
 import WeekendAlert from "./weekend-alert";
+import { ScoreNote } from "./ui";
 import {
   assignBadges,
   cellAt,
@@ -283,6 +284,10 @@ export default function CityHub({
           cityName={cityName}
         />
       )}
+
+      {/* Directly under the first score the reader meets, and above the four
+          more in the list. */}
+      {featured && <ScoreNote />}
 
       <SpotLeaderboard
         rows={rest}

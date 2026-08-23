@@ -98,28 +98,76 @@ export interface HubData {
   species: HubSpecies[];
 }
 
-/**
- * The contiguous run of good hours around the peak.
- *
- * Walks outward and stops at the first hour that drops out of the band, for
- * the same reason BlueCaster does: `good_hours` as a count can be a dawn bite
- * plus an evening one, and printing that as one span is a lie about the
- * middle of the day.
- */
-function windowAround(
-  strip: MapSpeciesStrip,
-): HubWindow | null {
-  const { peak, peak_hour, hours } = strip;
-  if (peak_hour < DAY_START_HOUR || peak_hour > DAY_END_HOUR) return null;
-  const floor = peak - GOOD_BAND;
-  const at = (h: number): number | null => hours[h]?.s ?? null;
-  if (at(peak_hour) == null) return null;
+/** A window is a session, not a plateau. Three hours is what somebody
+ *  actually plans around, and it is the length the day strip and the spot
+ *  page already talk in. */
+const WINDOW_HOURS = 3;
 
-  let start = peak_hour;
-  let end = peak_hour;
-  while (start - 1 >= DAY_START_HOUR && (at(start - 1) ?? -1) >= floor) start--;
-  while (end + 1 <= DAY_END_HOUR && (at(end + 1) ?? -1) >= floor) end++;
-  return { start_hour: start, end_hour: end };
+/**
+ * How far behind the best run a run may sit and still be preferred for
+ * starting earlier, in score points.
+ *
+ * This is a guard over a known gap in the model, not a claim that mornings
+ * always fish better. Scoring gives dawn and dusk near-identical light credit
+ * — "dawn/dusk monotony" is an open item — and the post-rescale band is
+ * narrow, so the two ends of a day routinely land within a point or two of
+ * each other. Oak Bay Flats today: 08:00 reads 80.6 and 20:00 reads 82.3, and
+ * on that 1.7 the page was sending a reader out at sunset, with 21:00 already
+ * collapsed to 38. The difference between those two answers matters far more
+ * to the reader than the difference between the numbers.
+ *
+ * A genuinely better evening still wins: a run has to be within this margin
+ * to be overtaken, not merely later.
+ */
+const PREFER_EARLIER_MARGIN = 3;
+
+/**
+ * The best few hours to be on the water.
+ *
+ * Every contiguous daylight run of `WINDOW_HOURS` is scored by its mean, and
+ * the earliest run within `PREFER_EARLIER_MARGIN` of the best one wins.
+ *
+ * This replaces walking outward from the peak while hours stayed within five
+ * points of it. That definition broke in both directions at once. On a
+ * plateau it ran away: Apple Tree Point halibut holds 85 to 91 all day, so it
+ * returned 06:00 to 16:00 and called eleven hours a window. And on a
+ * two-ended day it took whichever end held the maximum by a hair and threw
+ * the other away entirely, which is how a morning fishery came to be
+ * advertised as an evening one.
+ */
+function bestWindow(strip: MapSpeciesStrip): HubWindow | null {
+  const at = (h: number): number | null => strip.hours[h]?.s ?? null;
+
+  const runs: Array<{ start: number; end: number; mean: number }> = [];
+  for (let start = DAY_START_HOUR; start + WINDOW_HOURS - 1 <= DAY_END_HOUR; start++) {
+    let sum = 0;
+    let n = 0;
+    for (let h = start; h < start + WINDOW_HOURS; h++) {
+      const v = at(h);
+      // A run with an unscored hour in it is not a session anyone can plan;
+      // drop it rather than averaging over the gap.
+      if (v == null) { n = 0; break; }
+      sum += v;
+      n += 1;
+    }
+    if (n === WINDOW_HOURS) {
+      runs.push({ start, end: start + WINDOW_HOURS - 1, mean: sum / n });
+    }
+  }
+
+  if (!runs.length) {
+    // Too few scored daylight hours to form a run. Fall back to the peak hour
+    // alone rather than inventing a span around it.
+    const { peak_hour } = strip;
+    if (peak_hour < DAY_START_HOUR || peak_hour > DAY_END_HOUR) return null;
+    if (at(peak_hour) == null) return null;
+    return { start_hour: peak_hour, end_hour: peak_hour };
+  }
+
+  const best = runs.reduce((a, b) => (b.mean > a.mean ? b : a));
+  const floor = best.mean - PREFER_EARLIER_MARGIN / 100;
+  const chosen = runs.find((r) => r.mean >= floor) ?? best;
+  return { start_hour: chosen.start, end_hour: chosen.end };
 }
 
 /** Scores arrive 0..1 and are multiplied by 100 exactly once, here. */
@@ -182,16 +230,21 @@ export function buildHubData(
 ): HubData {
   if (!payload) return { date: "", spots: [], species: [] };
 
+  // Does the payload know about track records at all? Absent everywhere is a
+  // version signal; absent on SOME spots is real data about those spots.
+  const inScope = payload.spots.filter((s) => inCity.has(s.id));
+  const trackRecordKnown = inScope.some((s) => !!s.track_record);
+
   const spotCountBySpecies = new Map<string, number>();
   const bestPeakBySpecies = new Map<string, number>();
 
   const spots: HubSpot[] = [];
 
-  for (const entry of payload.spots) {
-    if (!inCity.has(entry.id)) continue;
+  for (const entry of inScope) {
     // The pool. See the note above — an unreported mark is not ranked last,
-    // it is not ranked.
-    if (!entry.track_record) continue;
+    // it is not ranked. Unless nothing in the payload has a track record, in
+    // which case there is no pool to apply and every spot stands.
+    if (trackRecordKnown && !entry.track_record) continue;
 
     const bySpecies: Record<string, HubSpeciesEntry> = {};
     let bestId: string | null = null;
@@ -203,7 +256,7 @@ export function buildHubData(
         peak,
         peak_hour: strip.peak_hour,
         day_mean: daylightMean(strip),
-        window: windowAround(strip),
+        window: bestWindow(strip),
         good_hours: goodHours(strip),
       };
       if (peak > bestPeak) {
@@ -224,7 +277,10 @@ export function buildHubData(
       name: entry.name,
       bottom: entry.bottom ?? null,
       hasReports: entry.has_reports === true,
-      trackRecord: entry.track_record!,
+      // "known" is the neutral middle band, so a payload without the field
+      // ranks on score alone rather than having every spot promoted or
+      // demoted together.
+      trackRecord: entry.track_record ?? "known",
       condStrip: entry.conditions ?? null,
       bySpecies,
       bestSpeciesId: bestId,

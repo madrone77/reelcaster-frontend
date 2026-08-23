@@ -257,7 +257,7 @@ export function BeforeYouGo({
             <p className="text-[15px] font-semibold text-rc-ink mt-1">
               {licence.name}
             </p>
-            <p className="font-rc-mono text-[11px] text-rc-ink-mute mt-0.5">
+            <p className="font-rc-mono text-[11px] text-rc-ink-soft mt-0.5">
               {licence.regulator} · {licence.yearLabel}
             </p>
             {licence.residentAnnual && (

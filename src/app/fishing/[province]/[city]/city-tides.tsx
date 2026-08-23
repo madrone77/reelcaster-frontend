@@ -163,7 +163,7 @@ export default function CityTides({
           ))}
         </ul>
 
-        <p className="font-rc-mono text-[10px] text-rc-ink-mute mt-3">
+        <p className="font-rc-mono text-[10px] text-rc-ink-soft mt-3">
           Predictions from {station.name}, the station most spots around{" "}
           {cityName} are read against.
         </p>

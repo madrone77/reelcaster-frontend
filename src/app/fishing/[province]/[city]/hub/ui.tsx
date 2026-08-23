@@ -132,3 +132,35 @@ export function Stat({
     </div>
   );
 }
+
+/**
+ * What the number on every card actually means.
+ *
+ * A bare "82" on a landing page is a number a cold reader has no way to
+ * interpret, and the page shows five of them before it explains anything.
+ *
+ * The wording is checked against the real fingerprint weights rather than
+ * assumed. Victoria Chinook, for example, is tide phase ~30%, light ~14%,
+ * wind ~13%, minutes-to-slack, water temperature ~10%, then sea, cloud,
+ * pressure and moon. So the factors named here are the factors that carry
+ * the weight, in that order.
+ *
+ * The last sentence is the one worth keeping. It is tempting to write
+ * "higher means calmer water", and that is wrong: wind enters as an ideal
+ * RANGE, not a downward slope — Victoria Chinook wants 1 to 13.5 kt, and the
+ * profile's own rationale is that a light chop gives predators cover and
+ * masks the boat. A flat calm scores WORSE than a ripple, so promising calm
+ * water would misdescribe the product and disappoint on the water.
+ */
+export function ScoreNote() {
+  return (
+    <p className="rounded-xl border border-rc-rule bg-rc-surface px-4 py-3 text-[12px] leading-relaxed text-rc-ink-soft">
+      <span className="font-semibold text-rc-ink">What the score means.</span>{" "}
+      Out of 100, for one species at one spot, hour by hour: how closely the
+      tide stage and current, the light, the wind and sea, and the water
+      temperature match what that fish feeds in here. 80 and above means the
+      big factors line up at the same time. It rates fit rather than comfort,
+      so a light chop usually scores better than flat calm.
+    </p>
+  );
+}
