@@ -24,11 +24,26 @@ interface MarketingHeaderProps {
    *   made or a door the claim flow is about to open for them.
    */
   signedOutActions?: 'full' | 'cta' | 'none';
+  /**
+   * Label for the trial CTA, when a surface can name the outcome better than
+   * the default can.
+   *
+   * "Start free trial" is honest and generic; a city page arriving from a
+   * fishing ad can say what the trial actually opens. Per-surface rather than
+   * a global rename because this bar is also the homepage's, the licence
+   * guides' and the province index's, and changing their button is a
+   * marketing decision, not a side effect of restyling one page.
+   *
+   * The `from` attribution key is unchanged either way, so a relabelled
+   * button still reports as the same entry point.
+   */
+  ctaLabel?: string;
 }
 
 export default function MarketingHeader({
   variant = 'default',
   signedOutActions = 'full',
+  ctaLabel = 'Start free trial',
 }: MarketingHeaderProps = {}) {
   const { user, loading, signOut } = useAuth();
   const pathname = usePathname();
@@ -115,7 +130,7 @@ export default function MarketingHeader({
                 from="marketing-header"
                 className={brand ? btn.navOnBrand : btn.nav}
               >
-                Start free trial
+                {ctaLabel}
               </TrialModalButton>
             </>
           )}

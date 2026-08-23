@@ -32,6 +32,9 @@
   --color-rc-rule-soft: var(--rc-rule-soft);
   --color-rc-navy: var(--rc-navy);
   --color-rc-navy-deep: var(--rc-navy-deep);
+  --color-rc-emerald: var(--rc-emerald);
+  --color-rc-emerald-deep: var(--rc-emerald-deep);
+  --color-rc-emerald-dim: var(--rc-emerald-dim);
   --color-rc-good: var(--rc-good);
   --color-rc-good-bg: var(--rc-good-bg);
   --color-rc-good-ink: var(--rc-good-ink);

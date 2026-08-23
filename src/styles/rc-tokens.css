@@ -36,6 +36,18 @@
   --rc-navy:         #16234E;
   --rc-navy-deep:    #0F1B3D;
 
+  /* ─── EMERALD (accent on navy ONLY — never on paper) ───
+     A second green, deliberately distinct from --rc-good. They mean
+     different things and are never adjacent: --rc-good is DATA (a score,
+     an open retention state) and always sits on a light surface; emerald is
+     ACCENT (the live pulse, the spotlight rule, a CTA on the dark hero) and
+     only ever sits on navy. Reusing --rc-good on navy would fail contrast
+     at #3D8B4F and would also quietly teach that the score green and the
+     chrome green are the same signal. */
+  --rc-emerald:      #34D399;   /* accent text · rules · dots on navy (8.1:1) */
+  --rc-emerald-deep: #047857;   /* the same accent when it must sit on paper */
+  --rc-emerald-dim:  #1C4B45;   /* filled chips inside a navy card */
+
   /* ─── SCORE SPECTRUM (data only · never chrome) ─────────── */
   /* GOOD 60–84 */
   --rc-good:         #3D8B4F;   /* number · pin · bar fill */

@@ -1,7 +1,12 @@
-// Breadcrumb and H1 for a city page. Server component: it was inside the
+// The breadcrumb above a city page. Server component: it was inside the
 // client shell purely because the shell used to be the whole page, and the
 // one thing a crawler most needs in the markup has no reason to wait on
 // hydration.
+//
+// The H1 and the spot count used to live here. They moved into the bite
+// radar directly below, which is now the first card on the page and states
+// the same facts with today's answer attached. A page has one H1, and it
+// belongs on the thing the reader came for.
 //
 // No photo. There is deliberately no hero image on these pages, and the
 // social card is generated rather than photographed: a generic harbour shot
@@ -14,11 +19,9 @@ import type { FishingCity } from "../../lib/fishing-data";
 export default function CityHeader({
   city,
   provincePath,
-  spotCount,
 }: {
   city: FishingCity;
   provincePath: string;
-  spotCount: number;
 }) {
   return (
     <header>
@@ -47,13 +50,6 @@ export default function CityHeader({
           </li>
         </ol>
       </nav>
-
-      <h1 className="text-3xl sm:text-4xl font-bold text-rc-ink mt-2">
-        Fishing in {city.name}, {city.provinceCode}
-      </h1>
-      <p className="font-rc-mono text-[12px] text-rc-ink-soft mt-1.5">
-        {spotCount} spot{spotCount === 1 ? "" : "s"} · {city.regionName}
-      </p>
     </header>
   );
 }

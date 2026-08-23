@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import {
@@ -10,12 +11,17 @@ import {
 import { ANON_FORECAST_DAYS } from "@/lib/forecast-horizon";
 import { COVERED_PROVINCES } from "@/lib/regions";
 import { breadcrumbJsonLd, siteUrl } from "@/lib/site";
+import { regulatorFor } from "@/lib/regions";
 import { buildExploreData } from "../../../explore/lib/explore-data";
 import { getFishingCity, getFishingProvince } from "../../lib/fishing-data";
 import CityShell from "./city-shell";
 import CityHeader from "./city-header";
 import CityLive from "./city-live";
 import { SpeciesCards } from "./species-cards";
+import CityHub from "./hub/city-hub";
+import KeepToday from "./hub/keep-today";
+import ProGate from "./hub/pro-gate";
+import { buildHubData } from "./hub/hub-data";
 import {
   BeforeYouGo,
   CityFaq,
@@ -148,6 +154,20 @@ export default async function CityPage({
   const inCity = new Set((payload?.spots ?? []).map((s) => s.id));
   const spots = data.spots.filter((s) => inCity.has(s.id));
 
+  // The leaderboard's own view of the same payload the map draws from. See
+  // hub/hub-data.ts for why this is not derived from Explore's RailSpot.
+  const hub = buildHubData(payload, inCity);
+
+  const regulator = regulatorFor(city.provinceCode);
+  const areaNumbers = (cityPage?.regulatory_areas ?? [])
+    .map((a) => a.area_number)
+    .filter((n): n is string => !!n && n.trim() !== "")
+    // Numeric where they are numbers, lexical where they are not: WDFW's
+    // "8-1" and "10" have to sort together and neither comparator alone does
+    // it.
+    .sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
+
+
   const provincePath = `/fishing/${provinceParam.toLowerCase()}`;
 
   // Mirrors the visible breadcrumb CityShell renders.
@@ -247,21 +267,47 @@ export default async function CityPage({
         />
       )}
 
-      <div className="max-w-6xl mx-auto px-6 pt-6 pb-16 space-y-10">
-        <CityHeader
-          city={city}
-          provincePath={provincePath}
-          spotCount={spots.length}
-        />
+      {/* ── The conversion block ────────────────────────────────────────
+          Full width, same as the reference material below it, because the
+          block lays itself out: one column on a phone, and past `lg` a wide
+          main column beside a rail (see city-hub.tsx). It was capped at
+          768px and centred at every width, which is right for a phone and,
+          on a 1440px desktop, a phone screenshot on a field of grey.
 
-        <CityLive
-          today={cityToday}
-          cityName={city.name}
-          citySlug={citySlug}
-        />
+          The measure is still protected — it is protected by the split and
+          by each card's own max-width, not by squeezing the whole page. */}
+      <div className="max-w-6xl mx-auto px-6 pt-6 space-y-6">
+        <CityHeader provincePath={provincePath} city={city} />
 
-        {/* Conclusion first: what is here and whether you may keep it, then
-            where it is, then the reference material. */}
+        {/* The chips read `?species=` so an ad can land pre-filtered, and
+            `useSearchParams` needs a boundary to keep this route
+            prerendered. Without it the whole page would render on demand and
+            lose the edge-cached first paint that is the point of it. */}
+        <Suspense fallback={null}>
+          <CityHub
+            today={cityToday}
+            hub={hub}
+            citySlug={citySlug}
+            cityName={city.name}
+            provinceCode={city.provinceCode}
+            areaLabel={regulator.areaLabel}
+            areaNumbers={areaNumbers}
+          >
+            <KeepToday
+              rows={seasonRows}
+              cityName={city.name}
+              provinceCode={city.provinceCode}
+              regulator={regulator}
+            />
+          </CityHub>
+        </Suspense>
+
+        <ProGate provinceCode={city.provinceCode} citySlug={citySlug} />
+      </div>
+
+      <div className="max-w-6xl mx-auto px-6 pt-10 pb-16 space-y-10">
+        <CityLive cityName={city.name} citySlug={citySlug} />
+
         <SpeciesCards
           guides={guides}
           cityName={city.name}
@@ -273,6 +319,19 @@ export default async function CityPage({
           spots={spots}
           species={data.species}
           date={data.date}
+        />
+
+        {/* The second ask, and the only one below the fold.
+            The map is where the page stops selling and starts giving depth
+            away: every spot, scored, on real bathymetry. Somebody who has
+            scrolled through it and is still reading has shown more intent
+            than anyone the first CTA caught, and until now the page never
+            asked them again. Same component as the block above, so the trial
+            length and the price cannot drift apart between the two. */}
+        <ProGate
+          variant="banner"
+          provinceCode={city.provinceCode}
+          citySlug={citySlug}
         />
 
         {cityToday?.tide_station && (
