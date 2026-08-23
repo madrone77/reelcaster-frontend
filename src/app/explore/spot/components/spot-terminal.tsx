@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import type { SunHours } from "@/lib/bluecaster/live-spot-types";
 import { niceCurrentScale } from "../../lib/current-series";
+import { windCardinal } from "../../lib/wind-rose";
 import { monoInterp as interp } from "../../lib/curve";
 import {
   weatherFromHour,
@@ -79,8 +80,7 @@ const ratingInk = (s: number | null) =>
   s == null ? "#8A92A4" : s >= 75 ? "#166534" : s >= 55 ? "#92400E" : "#991B1B";
 const verdict = (s: number | null) =>
   s == null ? "—" : ["Good", "Good", "Fair", "Slow", "Poor"][ratingIdx(s)];
-const WNAMES = ["N","NNE","NE","ENE","E","ESE","SE","SSE","S","SSW","SW","WSW","W","WNW","NW","NNW"];
-const windName = (d: number | null) => (d == null ? "—" : WNAMES[Math.round(d / 22.5) % 16]);
+const windName = (d: number | null) => windCardinal(d) ?? "—";
 const seaWord = (m: number | null) =>
   m == null ? "—" : m < 0.2 ? "Calm" : m < 0.35 ? "Rippled" : m < 0.65 ? "Light" : m < 1 ? "Chop" : "Rough";
 // Row note for SEA STATE. Says so when the row is carrying wind-derived hours,
@@ -229,7 +229,9 @@ function extremes(arr: (number | null)[]): Extreme[] {
   return ex;
 }
 
-type Dims = { w: number; LABEL: number; READ: number; mobile: boolean; id: string };
+type Dims = { w: number; LABEL: number; READ: number; mobile: boolean; id: string;
+  /** Live hour on this axis, or null when the day being drawn is not today. */
+  now: number | null };
 
 // Hover-pill geometry (desktop). TAG_PAD is the horizontal breathing room on
 // each side of the label — the pill used to be a fixed 104px box that the
@@ -251,7 +253,7 @@ function buildSvg(
   u: TerminalUnits,
 ): string {
   const current = cur.v;
-  const { LABEL, READ, w: W, mobile: mob, id } = d;
+  const { LABEL, READ, w: W, mobile: mob, id, now } = d;
   // Display-only conversions — every scale/threshold below stays in source
   // units (kn/m/°C); only tick labels, captions and annotations convert.
   const cvW = (v: number) => convertWind(v, "knots", u.windUnit);
@@ -370,6 +372,17 @@ function buildSvg(
   // plot are visibly one unit; mobile labels sit above their box.
   const bandX = mob ? 0.5 : 6;
   bands.forEach((b) => { s += `<rect x="${bandX}" y="${b.y0.toFixed(1)}" width="${(x1 - bandX).toFixed(1)}" height="${(b.y1 - b.y0).toFixed(1)}" rx="3" fill="none" stroke="${C.rule}" stroke-width="1"/>`; });
+  // The live hour, marked once down the whole stack. The cursor used to be the
+  // only thing saying where "now" was, because it snapped back here whenever a
+  // mouse left the chart. It no longer does — a picked hour is kept, so it can
+  // drive the map's flow field — which leaves nothing to say how far from now
+  // the reader has scrubbed. Dashed and grey: this is a reference line, and the
+  // cobalt cursor is the thing being moved.
+  if (now != null && bands.length) {
+    const nx = xAt(now + 0.5).toFixed(1);
+    const ny0 = bands[0].y0.toFixed(1), ny1 = bands[bands.length - 1].y1.toFixed(1);
+    s += `<line x1="${nx}" y1="${ny0}" x2="${nx}" y2="${ny1}" stroke="${C.muted}" stroke-width="1" stroke-dasharray="2 3" opacity=".55"/>`;
+  }
 
   // SCORE — cells carry only their tier tint; the selected hour is outlined by
   // the movable cursor group (below), so no static range highlight here.
@@ -536,7 +549,9 @@ export default function SpotTerminal({
   /** Multi-day tide min/max (m) so the row scale holds steady across day flips. */
   tideRange?: { min: number; max: number } | null;
   sun: SunHours;
-  nowHour: number;
+  /** Live hour, or null when the day being drawn is not today — the chart marks
+   *  "now" on its axis, and a Wednesday axis has no now on it. */
+  nowHour: number | null;
   selectedHour: number;
   onSelectHour: (h: number) => void;
   bestWindow: [number, number] | null;
@@ -661,8 +676,8 @@ export default function SpotTerminal({
 
   // Build both SVGs when data changes.
   useEffect(() => {
-    if (deskRef.current && deskW > 400) deskRef.current.innerHTML = buildSvg(hours, cur, ts, sun, bestWindow, { w: deskW, ...gutters(false), mobile: false, id: "tmd" }, units);
-    if (mobRef.current) mobRef.current.innerHTML = buildSvg(hours, cur, ts, sun, bestWindow, { w: mobW, ...gutters(true), mobile: true, id: "tmm" }, units);
+    if (deskRef.current && deskW > 400) deskRef.current.innerHTML = buildSvg(hours, cur, ts, sun, bestWindow, { w: deskW, ...gutters(false), mobile: false, id: "tmd", now: nowHour }, units);
+    if (mobRef.current) mobRef.current.innerHTML = buildSvg(hours, cur, ts, sun, bestWindow, { w: mobW, ...gutters(true), mobile: true, id: "tmm", now: nowHour }, units);
     const wire = (host: HTMLDivElement | null, id: string, mob: boolean) => {
       const svg = host?.querySelector("svg") as SVGSVGElement | null; if (!svg) return;
       // Fractional curve-time under the pointer (0–24), clamped to scored cells.
@@ -700,18 +715,19 @@ export default function SpotTerminal({
         move(e);
       });
       svg.addEventListener("pointermove", (e) => { if (downRef.current || e.pointerType === "mouse") move(e); });
-      // Keep the scrubbed hour after release (touch can park); only mouse-hover snaps back to now.
+      // A picked hour is kept, under mouse as well as touch. This used to snap
+      // back to now on mouse-leave, which read as polite until the same hour
+      // started driving the map's flow field a thousand pixels up the page:
+      // scrolling up to look at the wind at 6 AM took the pointer out of the
+      // chart, and the pick was gone before the map came into view. The way
+      // back to the live hour is the "Now" button on the map's time bar, which
+      // works the same on both input types.
       svg.addEventListener("pointerup", () => { downRef.current = false; });
       svg.addEventListener("pointercancel", () => { downRef.current = false; });
       svg.addEventListener("pointerleave", (e) => {
         // Touch fires leave when a captured drag's element is rebuilt or the
         // finger drifts — never mid-gesture reset; up/cancel end the drag.
-        if (e.pointerType === "mouse") {
-          downRef.current = false;
-          const nh = clampH(nowHour);
-          paint(host, id, mob, nh + 0.5);
-          onSelectHour(nh);
-        }
+        if (e.pointerType === "mouse") downRef.current = false;
       });
       // Keyboard: arrow keys move the hour; Home/End jump to the ends.
       svg.addEventListener("keydown", (e) => {
@@ -733,7 +749,7 @@ export default function SpotTerminal({
     // passing a fresh [start, end] each render must not rebuild the SVG (and
     // tear down an in-flight scrub gesture).
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [hours, realCurrent, tideRange, sun, bestWindow?.[0], bestWindow?.[1], deskW, mobW, windUnit, currentUnit, tempUnit, precipUnit, tideUnit, waveUnit]);
+  }, [hours, realCurrent, tideRange, sun, nowHour, bestWindow?.[0], bestWindow?.[1], deskW, mobW, windUnit, currentUnit, tempUnit, precipUnit, tideUnit, waveUnit]);
 
   // Move cursor + refresh readouts when the selected hour changes (pointer,
   // keyboard, parent, or a data refresh) — always the selected hour's centre.
