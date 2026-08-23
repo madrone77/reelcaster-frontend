@@ -21,6 +21,7 @@ import type {
 } from "@/lib/bluecaster";
 import { formatHour12 } from "@/lib/time-format";
 import type { HubWindow } from "./hub-data";
+import { Label, PAD, PANEL, Stat, TYPE } from "./ui";
 
 /**
  * Verdict → the pill.
@@ -54,17 +55,6 @@ export function tempLabel(c: number | null, provinceCode: string): string | null
   return provinceCode === "BC"
     ? `${Math.round(c)}°C`
     : `${Math.round((c * 9) / 5 + 32)}°F`;
-}
-
-function Metric({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="min-w-0">
-      <div className="rc-label text-[9px] text-slate-400">{label}</div>
-      <div className="font-rc-mono text-[15px] text-white mt-0.5 truncate">
-        {value}
-      </div>
-    </div>
-  );
 }
 
 export default function BiteRadar({
@@ -133,7 +123,7 @@ export default function BiteRadar({
   return (
     <section
       aria-labelledby="radar"
-      className="rounded-2xl bg-rc-navy-deep text-white overflow-hidden shadow-rc-panel"
+      className={`overflow-hidden bg-rc-navy-deep text-white ${PANEL}`}
     >
       {/* Live pulse. A count of reports read, never a count of people — there
           is no user-activity metric behind this page, and inventing one on a
@@ -143,28 +133,28 @@ export default function BiteRadar({
           sat on a green ground, which is the one background that stops green
           text looking like an accent. Neutral ground, a size up and a real
           weight fix what the colour could not. */}
-      <div className="flex flex-wrap items-center gap-x-2 gap-y-1 bg-white/[0.07] px-5 py-3 border-b border-white/10">
+      <div className="flex flex-wrap items-center gap-x-2 gap-y-1 border-b border-white/10 bg-white/[0.07] px-4 py-2.5">
         <span className="relative flex h-2 w-2" aria-hidden>
           <span className="absolute inline-flex h-full w-full rounded-full bg-rc-emerald opacity-70 animate-ping" />
           <span className="relative inline-flex h-2 w-2 rounded-full bg-rc-emerald" />
         </span>
-        <span className="font-rc-mono text-[12px] font-medium text-rc-emerald">
+        <span className="font-rc-mono text-[12px] font-medium tracking-[0.01em] text-rc-emerald">
           {reports} catch report{reports === 1 ? "" : "s"} read around{" "}
           {cityName} in {reportWindowDays} days
         </span>
       </div>
 
-      <div className="p-5 sm:p-6">
+      <div className={PAD}>
         <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
-          <span className="rc-label text-[9px] text-slate-400">
+          <Label tone="onDark">
             {cityName}
             {areaBadge ? ` · ${areaBadge}` : ""}
-          </span>
+          </Label>
           {v && (
             <span className="inline-flex items-center gap-1.5">
               <span className={`h-1.5 w-1.5 rounded-full ${v.dot}`} aria-hidden />
               <span
-                className={`font-rc-mono text-[10px] uppercase tracking-wider ${v.text}`}
+                className={`font-rc-mono text-[10px] font-semibold uppercase leading-3 tracking-[0.08em] ${v.text}`}
               >
                 {v.label}
               </span>
@@ -175,19 +165,16 @@ export default function BiteRadar({
         {/* The page's only H1. Two jobs at once — carry the phrase people
             search ("fishing in Seattle, WA") and confirm the promise in the ad
             that sent them ("today") — so it says both rather than picking. */}
-        <h1
-          id="radar"
-          className="text-[15px] font-semibold text-slate-300 mt-2"
-        >
+        <h1 id="radar" className="mt-2 text-[15px] font-semibold text-slate-300">
           Fishing in {cityName}, {provinceCode}: today&apos;s forecast
         </h1>
 
         {species ? (
           <>
-            <p className="text-[30px] sm:text-[38px] font-bold mt-2 leading-[1.05] tracking-tight">
+            <p className={`${TYPE.display} mt-2`}>
               {win ? (
                 <>
-                  <span className="text-slate-400 text-[20px] sm:text-[24px] font-semibold block">
+                  <span className="block text-[19px] font-semibold text-slate-400 sm:text-[22px]">
                     Best window
                   </span>
                   <span className="text-rc-emerald">{win}</span>
@@ -198,7 +185,7 @@ export default function BiteRadar({
                 </span>
               )}
             </p>
-            <p className="text-[14px] text-slate-300 mt-2.5 max-w-[52ch]">
+            <p className={`${TYPE.body} text-slate-300 mt-2.5 max-w-[52ch]`}>
               {/* No leading spot named here. The spotlight directly below is
                   the answer to "where", and two rankings on one screen only
                   ever get to disagree. */}
@@ -210,16 +197,20 @@ export default function BiteRadar({
             </p>
           </>
         ) : (
-          <p className="text-[15px] text-slate-300 mt-3">
+          <p className={`${TYPE.body} text-slate-300 mt-3`}>
             Nothing is scored around {cityName} today.
           </p>
         )}
 
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-x-4 gap-y-3 mt-5 pt-4 border-t border-white/10">
-          <Metric label="Water" value={water ?? "No reading"} />
-          <Metric label="Wind" value={wind ?? "No reading"} />
-          <Metric label="Sea" value={chop ?? "No reading"} />
-          <Metric label="Spots scored" value={`${scoredSpots} of ${memberSpots}`} />
+        <div className="mt-5 grid grid-cols-2 gap-x-4 gap-y-3 border-t border-white/10 pt-4 sm:grid-cols-4">
+          <Stat tone="dark" label="Water" value={water ?? "No reading"} />
+          <Stat tone="dark" label="Wind" value={wind ?? "No reading"} />
+          <Stat tone="dark" label="Sea" value={chop ?? "No reading"} />
+          <Stat
+            tone="dark"
+            label="Spots scored"
+            value={`${scoredSpots} of ${memberSpots}`}
+          />
         </div>
       </div>
     </section>

@@ -151,7 +151,7 @@ function daylightMean(strip: MapSpeciesStrip): number {
  * (116) and Constance Bank (96) placed fourth, second and nowhere. Every one
  * of those numbers was already in the database.
  *
- * ⚠️ This bites unevenly, because the intel coverage does. Victoria keeps 17
+ * This bites unevenly, because the intel coverage does. Victoria keeps 17
  * of 18 spots and Vancouver 22 of 32, but Seattle keeps 3 of 16 and
  * Bellingham 1 of 7 — the Washington forums we read are thin, which is a
  * coverage fact rather than a bug in this filter. The map further down the

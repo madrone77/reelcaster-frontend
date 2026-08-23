@@ -37,6 +37,7 @@ import { useState } from "react";
 import type { BlueCasterCitySeasonRow } from "@/lib/bluecaster";
 import type { Regulator } from "@/lib/regions";
 import SpeciesIcon from "./species-icon";
+import { CARD, TYPE } from "./ui";
 import { SectionHeading } from "../[species]/guide-sections";
 
 /** cm → the unit the reader's own regulations are written in. */
@@ -189,30 +190,30 @@ export default function KeepToday({
             <li
               key={row.species_id}
               hidden={!expanded && i >= VISIBLE}
-              className="flex overflow-hidden rounded-xl border border-rc-rule bg-rc-panel"
+              className={`flex overflow-hidden ${CARD}`}
             >
               <span className={`w-1 shrink-0 ${state.rail}`} aria-hidden />
-              <span className="min-w-0 flex-1 p-3.5">
+              <span className="min-w-0 flex-1 p-4">
                 <span className="flex flex-wrap items-center gap-2">
                   <SpeciesIcon
                     name={row.species_name}
                     className="h-4 w-4 shrink-0 text-rc-ink-soft"
                   />
-                  <span className="text-[15px] font-semibold text-rc-ink">
+                  <span className={`${TYPE.item} text-rc-ink`}>
                     {row.species_name}
                   </span>
                   <span
-                    className={`rounded-full px-2 py-0.5 font-rc-mono text-[10px] font-semibold uppercase tracking-wider ${state.tone}`}
+                    className={`rounded-full px-2.5 py-1 font-rc-mono text-[10px] font-semibold uppercase tracking-[0.08em] ${state.tone}`}
                   >
                     {state.label}
                   </span>
                 </span>
                 {terms && (
-                  <span className="block font-rc-mono text-[12px] text-rc-ink mt-1.5">
+                  <span className={`block ${TYPE.value} text-rc-ink mt-1.5`}>
                     {terms}
                   </span>
                 )}
-                <span className="block text-[11px] text-rc-ink-soft mt-1">
+                <span className={`block ${TYPE.meta} text-rc-ink-soft mt-1`}>
                   {state.detail}
                 </span>
               </span>
@@ -225,7 +226,7 @@ export default function KeepToday({
         <button
           type="button"
           onClick={() => setExpanded(true)}
-          className="w-full rounded-xl border border-dashed border-rc-rule px-4 py-2.5 text-[13px] font-medium text-rc-ink-soft hover:border-rc-brand hover:text-rc-ink transition-colors"
+          className="w-full rounded-xl border border-dashed border-rc-rule px-4 py-3 text-[13px] font-medium text-rc-ink-soft hover:border-rc-brand hover:text-rc-ink transition-colors"
         >
           {/* Named, not counted. "Show 2 more" makes someone open a drawer
               to find out whether their fish is behind it. */}
@@ -233,7 +234,7 @@ export default function KeepToday({
         </button>
       )}
 
-      <p className="text-[12px] text-rc-ink-soft">
+      <p className={`${TYPE.meta} text-rc-ink-soft`}>
         {/* Named, not implied. The rules genuinely differ between areas in
             one city, and the reader has to check the area they are launching
             into rather than the city they are driving from. */}

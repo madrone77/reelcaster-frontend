@@ -11,6 +11,7 @@
 // trial started here is distinguishable from one started on an /lp page.
 
 import Link from "next/link";
+import { PANEL, TYPE } from "./ui";
 
 export default function ProGate({
   provinceCode,
@@ -23,14 +24,14 @@ export default function ProGate({
   if (provinceCode) params.set("region", provinceCode);
 
   return (
-    <section className="rounded-2xl bg-rc-navy text-white p-5 sm:p-6 shadow-rc-panel">
-      <span className="rc-label text-[9px] text-rc-emerald">
+    <section className={`bg-rc-navy p-5 text-white ${PANEL}`}>
+      <span className="font-rc-mono text-[10px] font-semibold uppercase leading-3 tracking-[0.08em] text-rc-emerald">
         Planning past this weekend
       </span>
-      <h2 className="text-[19px] font-bold mt-1.5">
+      <h2 className="mt-1.5 text-[19px] font-bold">
         Unlock the full 14-day radar
       </h2>
-      <ul className="mt-3 space-y-1.5 text-[14px] text-slate-300">
+      <ul className={`mt-3 space-y-1.5 ${TYPE.body} text-slate-300`}>
         {[
           "Every hour of the next 14 days, not just today",
           "Every spot in the city, not the top five",

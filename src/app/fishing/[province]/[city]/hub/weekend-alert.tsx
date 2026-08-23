@@ -13,6 +13,7 @@
 "use client";
 
 import { useState } from "react";
+import { PANEL, TYPE } from "./ui";
 
 type Phase = "idle" | "sending" | "check-email" | "code-sent" | "confirmed";
 
@@ -92,12 +93,12 @@ export default function WeekendAlert({
   return (
     <section
       aria-labelledby="weekend-alert"
-      className="rounded-xl border border-rc-brand/30 bg-rc-brand/[0.04] p-5 sm:p-6"
+      className={`border border-rc-brand/20 bg-rc-brand/[0.04] p-5 ${PANEL}`}
     >
       <h2 id="weekend-alert" className="text-[19px] font-bold text-rc-ink">
         Never miss a {cityName} slack tide window
       </h2>
-      <p className="text-[14px] text-rc-ink-soft mt-2 max-w-[54ch]">
+      <p className={`${TYPE.body} text-rc-ink-soft mt-2 max-w-[54ch]`}>
         {/* Describes the Thursday digest and nothing else. Score-threshold
             alerts are the Pro product below; promising them on a form that
             takes an address and creates no account would be selling the
@@ -108,7 +109,7 @@ export default function WeekendAlert({
       </p>
 
       {done ? (
-        <p className="mt-4 rounded-lg border border-rc-good-border bg-rc-good-bg px-4 py-3 text-[14px] text-rc-good-ink">
+        <p className={`mt-4 rounded-lg border border-rc-good-border bg-rc-good-bg px-4 py-3 ${TYPE.body} text-rc-good-ink`}>
           {phase === "confirmed"
             ? `You are on the list. The first ${cityName} report lands Thursday.`
             : "Check your inbox and tap the link to confirm. Nothing is sent until you do."}

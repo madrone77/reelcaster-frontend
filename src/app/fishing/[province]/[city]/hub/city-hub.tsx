@@ -246,7 +246,7 @@ export default function CityHub({
       />
 
       {!featured && (
-        <p className="rounded-xl border border-dashed border-rc-rule px-4 py-6 text-center text-[14px] text-rc-ink-soft">
+        <p className="rounded-xl border border-dashed border-rc-rule px-4 py-6 text-center text-[14px] leading-relaxed text-rc-ink-soft">
           {/* Honest rather than empty. The alternative is back-filling with
               marks nobody has reported from, which is the exact thing this
               pool exists to keep off the page. The map below still carries
