@@ -63,9 +63,12 @@ export interface HubSpot {
   /** "Rock reef", "Sand flat"… or null. See MapSpotEntry.bottom for why this
    *  is the only physical descriptor a card gets. */
   bottom: string | null;
-  /** Scraped reports exist here in the intel window. Presence only — the
-   *  counts are Pro-gated. */
+  /** Scraped reports exist here in the 21-day intel window. Presence only —
+   *  the counts are Pro-gated. */
   hasReports: boolean;
+  /** Track record over the trailing year. A spot without one never appears
+   *  here at all; see the pool note on `buildHubData`. */
+  trackRecord: "popular" | "known" | "sparse";
   /** Tide phase at this spot's peak hour, for the "on the late ebb" clause
    *  and the best-current-window badge. */
   condStrip: MapCondStrip | null;
@@ -136,6 +139,25 @@ function daylightMean(strip: MapSpeciesStrip): number {
   return n === 0 ? pct(strip.peak) : pct(sum / n);
 }
 
+/**
+ * The leaderboard's pool is spots people actually fish.
+ *
+ * A spot with no catch report in the trailing year is excluded outright
+ * rather than ranked last. The reason is that the scores do not separate:
+ * a healthy Victoria day puts eighteen marks within a point of each other, so
+ * the ordering fell to a tie-break on the daylight mean and produced a
+ * leaderboard led by Trial Islands (15 reports all time) with Brodie Rock
+ * (ONE report, ever) second — while Victoria Waterfront (150), Oak Bay Flats
+ * (116) and Constance Bank (96) placed fourth, second and nowhere. Every one
+ * of those numbers was already in the database.
+ *
+ * ⚠️ This bites unevenly, because the intel coverage does. Victoria keeps 17
+ * of 18 spots and Vancouver 22 of 32, but Seattle keeps 3 of 16 and
+ * Bellingham 1 of 7 — the Washington forums we read are thin, which is a
+ * coverage fact rather than a bug in this filter. The map further down the
+ * page still carries the full roster, so nothing is hidden from a reader who
+ * wants it; this is only about which marks the page RECOMMENDS.
+ */
 export function buildHubData(
   payload: MapSpotsPayload | null,
   /** Spot ids the page is actually rendering. The payload is already scoped
@@ -152,6 +174,9 @@ export function buildHubData(
 
   for (const entry of payload.spots) {
     if (!inCity.has(entry.id)) continue;
+    // The pool. See the note above — an unreported mark is not ranked last,
+    // it is not ranked.
+    if (!entry.track_record) continue;
 
     const bySpecies: Record<string, HubSpeciesEntry> = {};
     let bestId: string | null = null;
@@ -183,6 +208,7 @@ export function buildHubData(
       name: entry.name,
       bottom: entry.bottom ?? null,
       hasReports: entry.has_reports === true,
+      trackRecord: entry.track_record!,
       condStrip: entry.conditions ?? null,
       bySpecies,
       bestSpeciesId: bestId,
@@ -215,6 +241,8 @@ export function buildHubData(
  * "Coho (7)" and then lists sixteen cards, nine of them blank, is worse than
  * one that lists seven.
  */
+const TRACK_RANK: Record<string, number> = { popular: 0, known: 1, sparse: 2 };
+
 export function rankSpots(
   spots: HubSpot[],
   speciesId: string | null,
@@ -230,12 +258,27 @@ export function rankSpots(
     rows.push({ spot, speciesId: id, entry });
   }
 
-  // Peak first so the badges descend and the number on the card is the
-  // number that ordered it; mean second so the ties peak leaves behind are
-  // broken by the shape of the day rather than by array order.
+  // Peak first, so the badges descend and the number on the card is the
+  // number that ordered it.
+  //
+  // TRACK RECORD second, and this is the part that matters. Peak does not
+  // separate these: every Victoria mark reads 82 today, so the tie-break was
+  // deciding the whole order — and it was the daylight mean, which put Brodie
+  // Rock (one report, ever) above Victoria Waterfront (150). Restricting the
+  // pool to fished spots was not enough on its own, because both are in it.
+  // A hundredth of a point of modelled mean is a worse reason to rank one
+  // mark over another than a year of people actually catching fish there.
+  //
+  // It only ever breaks a TIE. A better-scoring quiet spot still outranks a
+  // popular one, so this stays a forecast rather than becoming a popularity
+  // chart — which is the thing the whole product is an alternative to.
+  //
+  // Mean third, for the ties still left inside a band.
   rows.sort(
     (a, b) =>
-      b.entry.peak - a.entry.peak || b.entry.day_mean - a.entry.day_mean,
+      b.entry.peak - a.entry.peak ||
+      (TRACK_RANK[a.spot.trackRecord] ?? 9) - (TRACK_RANK[b.spot.trackRecord] ?? 9) ||
+      b.entry.day_mean - a.entry.day_mean,
   );
   return rows.slice(0, limit);
 }

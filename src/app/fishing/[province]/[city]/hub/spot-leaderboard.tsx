@@ -82,8 +82,18 @@ export default function SpotLeaderboard({
                     superlatives, so a card can legitimately earn neither —
                     and an empty row still reserved its margin, leaving a
                     ragged column of cards at two different heights. */}
-                {(badge || (!speciesName && driver) || bottom) && (
+                {(badge || (!speciesName && driver) || bottom ||
+                  spot.trackRecord === "popular") && (
                 <div className="flex flex-wrap items-center gap-1.5 mt-3">
+                  {/* The track record is its own chip, not one of the
+                      superlative badges. Those are a one-per-card contest
+                      and this is a standing fact about the mark, so making
+                      them compete would hide whichever lost. */}
+                  {spot.trackRecord === "popular" && (
+                    <span className="rounded-full bg-rc-brand-soft px-2 py-0.5 text-[10px] font-semibold text-rc-brand">
+                      Popular spot
+                    </span>
+                  )}
                   {badge && (
                     <span
                       className={

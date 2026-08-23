@@ -107,11 +107,11 @@ export default function SpotSpotlight({
             Today&apos;s top water
           </span>
           <span className="flex-1" aria-hidden />
-          {spot.hasReports && (
-            <span className="text-[10px] font-semibold text-rc-navy-deep">
-              {/* Presence only. The counts behind this are Pro-gated, and the
-                  reports themselves are never quoted anywhere. */}
-              Recent reports
+          {/* Band, never a number, and never a quote. The counts behind it are
+              Pro-gated and the reports themselves are never rendered. */}
+          {spot.trackRecord === "popular" && (
+            <span className="text-[10px] font-bold uppercase tracking-wide text-rc-navy-deep">
+              Popular spot
             </span>
           )}
         </div>

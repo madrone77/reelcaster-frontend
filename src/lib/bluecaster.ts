@@ -324,6 +324,23 @@ export interface MapSpotEntry {
   best_species_id: string | null;
   scores: Record<string, MapSpeciesStrip>;
   conditions: MapCondStrip | null;
+  /**
+   * How well fished the mark is over the trailing YEAR: `"popular"` (roughly
+   * one report a month or better), `"known"`, or `"sparse"`. Absent means no
+   * catch report resolved to it in that year at all.
+   *
+   * Only `popular` is ever worth showing a reader. The lower two bands exist
+   * so a consumer can ORDER on this, which two bands could not do: with every
+   * Victoria mark tied on score, one band lumped a spot with one report in a
+   * year together with one that had seven.
+   *
+   * A band, never a count — the numbers stay behind the Pro gate. Distinct
+   * from `has_reports`, which is a 21-day "is anything happening now" flag:
+   * half of Victoria's roster reads zero in any given three weeks, Constance
+   * Bank included, so the short window cannot answer "is this a mark people
+   * actually fish".
+   */
+  track_record?: "popular" | "known" | "sparse";
   /** Scraped catch reports exist for this spot in the 21-day intel window.
    *  Presence only — the counts and the verdict are Pro-gated on
    *  /map/fresh-catches. Riding in this payload is what lets the reports badge

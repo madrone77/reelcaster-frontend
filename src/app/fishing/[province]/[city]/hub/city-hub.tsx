@@ -203,10 +203,10 @@ export default function CityHub({
    */
   const rankLine = featured
     ? selectedSpecies
-      ? `Top of ${selectedSpecies.spotCount} ${selectedSpecies.name} spot${
+      ? `Top of ${selectedSpecies.spotCount} fished ${selectedSpecies.name} spot${
           selectedSpecies.spotCount === 1 ? "" : "s"
         } around ${cityName} today`
-      : `Top of ${hub.spots.length} spot${
+      : `Top of ${hub.spots.length} fished spot${
           hub.spots.length === 1 ? "" : "s"
         } around ${cityName} today, on ${featured.speciesName}`
     : "";
@@ -244,6 +244,18 @@ export default function CityHub({
           select(id, id ? (hub.species.find((s) => s.id === id)?.slug ?? null) : null)
         }
       />
+
+      {!featured && (
+        <p className="rounded-xl border border-dashed border-rc-rule px-4 py-6 text-center text-[14px] text-rc-ink-soft">
+          {/* Honest rather than empty. The alternative is back-filling with
+              marks nobody has reported from, which is the exact thing this
+              pool exists to keep off the page. The map below still carries
+              the whole roster. */}
+          No catch reports have come in from{" "}
+          {selectedSpecies ? `${selectedSpecies.name} water` : "spots"} around{" "}
+          {cityName} this year. The map below shows every spot we score.
+        </p>
+      )}
 
       {featured && (
         <SpotSpotlight
