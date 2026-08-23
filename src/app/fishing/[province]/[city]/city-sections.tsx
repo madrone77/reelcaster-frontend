@@ -73,6 +73,12 @@ export function CityProse({
 /**
  * Twelve cells per species, shaded by that species' own year.
  *
+ * Seasons only. The "today" status column that used to close each row moved
+ * to the What You Can Keep section above, which states the same legality with
+ * the denominator attached ("open at 7 of 8 spots") rather than as a bare
+ * word. Two renderings of legality on one page invite the reader to reconcile
+ * them, and the shorter one always loses.
+ *
  * The comparison is deliberately WITHIN a row and never down a column: the
  * curves are weekly multipliers around each species' own annual mean, so a
  * dark August cell means "good for Chinook", not "Chinook beats Halibut".
@@ -96,8 +102,21 @@ export function SeasonMatrix({
         between them.
       </p>
 
-      {/* Wide content scrolls inside its own box rather than the page. */}
-      <div className="overflow-x-auto">
+      {/*
+        Wide content scrolls inside its own box rather than the page.
+
+        `relative` is load-bearing, not decoration. A static `overflow-x-auto`
+        element does NOT clip absolutely positioned descendants — their
+        containing block is the nearest POSITIONED ancestor, which without
+        this is the page itself. Every month header carries an `sr-only`
+        span, `sr-only` is `position:absolute`, and the December one sits at
+        x≈560. So the screen-reader labels escaped the scroll box and dragged
+        the document 180px wide on a phone: the whole page scrolled sideways,
+        and the table it came from looked innocent because it was correctly
+        clipped. Positioning the wrapper makes it the containing block and the
+        clip applies.
+      */}
+      <div className="relative overflow-x-auto">
         <table className="w-full min-w-[560px] border-collapse">
           <caption className="sr-only">
             Relative abundance by month for each species around {cityName}
@@ -117,9 +136,6 @@ export function SeasonMatrix({
                   <span className="sr-only">{MONTH_NAMES[i]}</span>
                 </th>
               ))}
-              <th scope="col" className="text-left rc-label text-[9px] pb-2 pl-3">
-                Today
-              </th>
             </tr>
           </thead>
           <tbody>
@@ -148,9 +164,6 @@ export function SeasonMatrix({
                     </td>
                   );
                 })}
-                <td className="py-1.5 pl-3 whitespace-nowrap">
-                  <StatusPill status={row.status} limit={row.daily_limit} />
-                </td>
               </tr>
             ))}
           </tbody>
@@ -185,39 +198,6 @@ export function SeasonMatrix({
         </ul>
       )}
     </section>
-  );
-}
-
-function StatusPill({
-  status,
-  limit,
-}: {
-  status: BlueCasterCitySeasonRow["status"];
-  limit: number | null;
-}) {
-  if (!status) {
-    return <span className="font-rc-mono text-[10px] text-rc-ink-mute">-</span>;
-  }
-  const tone =
-    status === "open"
-      ? "border-rc-good-border bg-rc-good-bg text-rc-good-ink"
-      : status === "non_retention"
-        ? "border-rc-fair-border bg-rc-fair-bg text-rc-fair-ink"
-        : "border-rc-poor-border bg-rc-poor-bg text-rc-poor-ink";
-  const label =
-    status === "open"
-      ? limit != null
-        ? `Keep ${limit}`
-        : "Open"
-      : status === "non_retention"
-        ? "Release"
-        : "Closed";
-  return (
-    <span
-      className={`inline-block rounded-full border px-2 py-0.5 font-rc-mono text-[10px] ${tone}`}
-    >
-      {label}
-    </span>
   );
 }
 

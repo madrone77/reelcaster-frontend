@@ -646,8 +646,19 @@ export interface BlueCasterCitySeasonRow {
   /** Ensemble of 2 to 3 explanations joined by " | ". Render the first only. */
   season_notes: string | null;
   daily_limit: number | null;
+  /** The STRICTEST minimum size in the city — the only roll-up that cannot
+   *  advise someone to keep an undersized fish. Centimetres; render inches
+   *  in Washington. */
   size_limit_cm: number | null;
+  /** The city's BEST state. Never render it without the counts below: "open"
+   *  can mean open at 2 spots of 31, and a reader told "Open" who meets a
+   *  closure at the ramp was misled by a roll-up that was arithmetically
+   *  correct. */
   status: "open" | "non_retention" | "closed" | null;
+  /** Spots where retention is open today. */
+  open_spots: number;
+  /** Spots carrying any effective rule for this species. */
+  total_spots: number;
 }
 
 export interface BlueCasterCityPage {
@@ -1325,6 +1336,25 @@ export interface BlueCasterCityTodaySpecies {
    *  can hold good hours split across a dawn bite and an evening one. */
   window: { start_hour: number; end_hour: number } | null;
   leading_spot: { id: string; name: string; slug: string } | null;
+  /** The city's dominant method for this species, off the wizard's technique
+   *  profile. CITY grain, not spot grain: there is no per-spot technique
+   *  data, and `depth_profiles` holds 7 rows product-wide, so no spot card
+   *  can name a target depth. Null when the species was never profiled. */
+  tactic: { method: string; baits: string[] } | null;
+}
+
+/** Water and wind across the city today, daylight hours only. */
+export interface BlueCasterCityConditions {
+  /** °C. Convert at the edge: WA reads Fahrenheit, BC reads Celsius. */
+  water_temp_c: number | null;
+  /** Daylight MEAN, knots — not the max. The max is what rules a day out and
+   *  reads as alarming beside a verdict that says the day is fine. */
+  wind_speed_kt: number | null;
+  /** 8-way compass point the wind blows FROM. Null when the sample has no
+   *  prevailing direction; render the speed alone rather than inventing one.
+   *  Puget Sound in light air genuinely spans all eight points. */
+  wind_from: string | null;
+  spot_sample: number;
 }
 
 export interface BlueCasterCityToday {
@@ -1343,6 +1373,8 @@ export interface BlueCasterCityToday {
   /** `scored_spots` can be lower than `member_spots`. Show the denominator:
    *  "best in the city" across a third of it overclaims. */
   coverage: { scored_spots: number; member_spots: number };
+  /** Null when the city has no stored forecast conditions for today. */
+  conditions: BlueCasterCityConditions | null;
   verdict: "excellent" | "good" | "fair" | "slow" | null;
   /** The city's top-ranked roster target, NOT its highest scorer. Ranking by
    *  score surfaces the flattest species: crab and bottomfish hold a wide

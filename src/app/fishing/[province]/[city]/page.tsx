@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import {
@@ -10,12 +11,18 @@ import {
 import { ANON_FORECAST_DAYS } from "@/lib/forecast-horizon";
 import { COVERED_PROVINCES } from "@/lib/regions";
 import { breadcrumbJsonLd, siteUrl } from "@/lib/site";
+import { regulatorFor } from "@/lib/regions";
 import { buildExploreData } from "../../../explore/lib/explore-data";
 import { getFishingCity, getFishingProvince } from "../../lib/fishing-data";
 import CityShell from "./city-shell";
 import CityHeader from "./city-header";
 import CityLive from "./city-live";
 import { SpeciesCards } from "./species-cards";
+import CityHub from "./hub/city-hub";
+import KeepToday from "./hub/keep-today";
+import ProGate from "./hub/pro-gate";
+import { buildHubData } from "./hub/hub-data";
+import { tidePhraseFor } from "./hub/tide-phrase";
 import {
   BeforeYouGo,
   CityFaq,
@@ -148,6 +155,25 @@ export default async function CityPage({
   const inCity = new Set((payload?.spots ?? []).map((s) => s.id));
   const spots = data.spots.filter((s) => inCity.has(s.id));
 
+  // The leaderboard's own view of the same payload the map draws from. See
+  // hub/hub-data.ts for why this is not derived from Explore's RailSpot.
+  const hub = buildHubData(payload, inCity);
+
+  const regulator = regulatorFor(city.provinceCode);
+  const areaNumbers = (cityPage?.regulatory_areas ?? [])
+    .map((a) => a.area_number)
+    .filter((n): n is string => !!n && n.trim() !== "")
+    // Numeric where they are numbers, lexical where they are not: WDFW's
+    // "8-1" and "10" have to sort together and neither comparator alone does
+    // it.
+    .sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
+
+  const tidePhrase = tidePhraseFor(
+    payload,
+    cityToday?.headline?.leading_spot?.id,
+    cityToday?.headline?.peak_hour,
+  );
+
   const provincePath = `/fishing/${provinceParam.toLowerCase()}`;
 
   // Mirrors the visible breadcrumb CityShell renders.
@@ -247,21 +273,45 @@ export default async function CityPage({
         />
       )}
 
-      <div className="max-w-6xl mx-auto px-6 pt-6 pb-16 space-y-10">
-        <CityHeader
-          city={city}
-          provincePath={provincePath}
-          spotCount={spots.length}
-        />
+      {/* ── The conversion column ───────────────────────────────────────
+          A 768px measure, centred, because everything in it is a phone-first
+          card and stretching a verdict across a 1152px desktop window puts
+          the number and the words it qualifies at opposite ends of the
+          screen. The reference material below goes back to the full width,
+          where a map and a twelve-month matrix genuinely need it. */}
+      <div className="max-w-3xl mx-auto px-6 pt-6 space-y-6">
+        <CityHeader provincePath={provincePath} city={city} />
 
-        <CityLive
-          today={cityToday}
-          cityName={city.name}
-          citySlug={citySlug}
-        />
+        {/* The chips read `?species=` so an ad can land pre-filtered, and
+            `useSearchParams` needs a boundary to keep this route
+            prerendered. Without it the whole page would render on demand and
+            lose the edge-cached first paint that is the point of it. */}
+        <Suspense fallback={null}>
+          <CityHub
+            today={cityToday}
+            hub={hub}
+            citySlug={citySlug}
+            cityName={city.name}
+            provinceCode={city.provinceCode}
+            areaLabel={regulator.areaLabel}
+            areaNumbers={areaNumbers}
+            tidePhrase={tidePhrase}
+          >
+            <KeepToday
+              rows={seasonRows}
+              cityName={city.name}
+              provinceCode={city.provinceCode}
+              regulator={regulator}
+            />
+          </CityHub>
+        </Suspense>
 
-        {/* Conclusion first: what is here and whether you may keep it, then
-            where it is, then the reference material. */}
+        <ProGate provinceCode={city.provinceCode} citySlug={citySlug} />
+      </div>
+
+      <div className="max-w-6xl mx-auto px-6 pt-10 pb-16 space-y-10">
+        <CityLive cityName={city.name} citySlug={citySlug} />
+
         <SpeciesCards
           guides={guides}
           cityName={city.name}
