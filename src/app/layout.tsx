@@ -14,7 +14,7 @@ import AdSenseLoader from '@/app/components/ads/adsense-loader'
 import MetaPixel from '@/app/components/analytics/meta-pixel'
 import Plausible from '@/app/components/analytics/plausible'
 import GoogleAdsTag from '@/app/components/analytics/google-ads-tag'
-import { ORGANIZATION_JSONLD, SITE_NAME, SITE_URL } from '@/lib/site'
+import { ORGANIZATION_JSONLD, SITE_NAME, SITE_URL, WEBSITE_JSONLD } from '@/lib/site'
 import { clientDiagSnippet } from '@/lib/client-diag'
 
 const geistSans = Geist({
@@ -52,7 +52,7 @@ export const metadata: Metadata = {
     // `default` is what a page inherits when it declares no title of its own —
     // it must still read as a real page title, since it leaks onto any route
     // whose own metadata fails to resolve.
-    default: 'BC Fishing Forecast & Tide Conditions | ReelCaster',
+    default: 'Accurate Fishing Forecast, Reports, Tides, Wind and Currents | ReelCaster',
     // Pages set a bare title ('Pricing'); the brand suffix is appended here so
     // it can never drift or be forgotten.
     template: `%s | ${SITE_NAME}`,
@@ -133,6 +133,13 @@ export default function RootLayout({
         <script
           type="application/ld+json"
           dangerouslySetInnerHTML={{ __html: JSON.stringify(ORGANIZATION_JSONLD) }}
+        />
+        {/* Names the site "ReelCaster" for the line Google prints above the
+            URL in a search result. Google only reads this off the home page,
+            which this layout wraps. */}
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(WEBSITE_JSONLD) }}
         />
         <AuthProvider>
           {/* Renders null. Outside AuthGate so first-touch capture runs on the

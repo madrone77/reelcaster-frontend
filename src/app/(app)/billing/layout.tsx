@@ -3,9 +3,9 @@ import BillingHeader from './billing-header'
 import MarketingFooter from '@/app/components/marketing/marketing-footer'
 
 // Both pages are client components and so can't export metadata themselves;
-// without this they inherited the marketing default ("BC Fishing Forecast &
-// Tide Conditions"). Checkout return pages have nothing to offer search, same
-// reasoning as /plans/checkout.
+// without this they inherited the marketing default ("Accurate Fishing
+// Forecast, Reports, Tides, Wind and Currents"). Checkout return pages have
+// nothing to offer search, same reasoning as /plans/checkout.
 export const metadata: Metadata = {
   title: 'Checkout | ReelCaster Pro',
   robots: { index: false, follow: true },

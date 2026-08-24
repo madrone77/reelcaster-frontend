@@ -56,6 +56,23 @@ export function breadcrumbJsonLd(crumbs: Crumb[]) {
 }
 
 /** Site-wide publisher identity, referenced by `publisher`/`provider` nodes. */
+/**
+ * The node Google reads to decide the site name it prints above the URL in a
+ * result. Without it the crawler falls back to the bare domain
+ * ("reelcaster.com"). It has to be on the home page to count, so it is emitted
+ * from the root layout alongside the Organization node, and `name` must match
+ * `og:site_name` and the brand in the home page <title> or Google treats the
+ * signals as conflicting and keeps the domain.
+ */
+export const WEBSITE_JSONLD = {
+  "@context": "https://schema.org",
+  "@type": "WebSite",
+  "@id": `${SITE_URL}/#website`,
+  name: SITE_NAME,
+  url: SITE_URL,
+  publisher: { "@id": `${SITE_URL}/#organization` },
+};
+
 export const ORGANIZATION_JSONLD = {
   "@context": "https://schema.org",
   "@type": "Organization",
