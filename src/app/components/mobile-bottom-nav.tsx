@@ -74,9 +74,16 @@ export default function MobileBottomNav() {
   const moreActive =
     moreOpen || MORE_LINKS.some((l) => isActive(l.href));
 
-  // Cold-traffic ad landing pages (/lp/*) are deliberately distraction-free —
-  // one CTA, no app navigation competing with the free-trial conversion.
-  if (pathname.startsWith("/lp/") || pathname === "/lp") {
+  // Single-job funnels carry no tab bar. Cold-traffic ad landing pages (/lp/*)
+  // are distraction-free by design; the auth pages (/signup, /login) are the
+  // same category — the tab bar's four tabs are signed-in destinations that
+  // compete with the one action (create the account / sign in) and, per the
+  // canon, don't earn their place on a focused funnel. It also removed a real
+  // inconsistency: the bar showed on a phone / iPad-portrait but vanished at
+  // ≥1024 (lg:hidden), so an iPad in landscape had no bar at all. The logo
+  // links home on these pages, which is the only way out they need.
+  const FOCUSED_FUNNELS = ["/lp", "/signup", "/login"];
+  if (FOCUSED_FUNNELS.some((p) => pathname === p || pathname.startsWith(`${p}/`))) {
     return null;
   }
 
