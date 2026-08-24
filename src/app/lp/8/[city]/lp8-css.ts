@@ -142,6 +142,25 @@ export const LP8_CSS = `
   text-align:center;margin-top:14px;max-width:46ch;margin-inline:auto;
 }
 
+/* Bob's review. Sits on paper, so the stars take the badge yellow rather than
+   anything from the score spectrum, which is data and must not be spent on
+   chrome. */
+.l8 .quote{
+  margin:28px 0 0;max-width:62ch;background:var(--l8-panel);
+  border:1px solid var(--l8-rule);border-radius:14px;padding:22px 24px;
+  box-shadow:var(--l8-shadow-bar,0 2px 12px rgba(18,21,26,.05));
+}
+.l8 .stars{display:flex;gap:3px;margin-bottom:12px}
+.l8 .stars span{color:var(--l8-rule);font-size:15px;line-height:1}
+.l8 .stars span.on{color:#FFCB1F}
+.l8 .quote blockquote{
+  margin:0;font-size:17px;line-height:1.6;color:var(--l8-ink);font-weight:500;
+}
+.l8 .quote figcaption{
+  margin-top:14px;font-family:var(--l8-mono);font-size:12px;
+  letter-spacing:.06em;color:var(--l8-ink-soft);
+}
+
 /* proof strip */
 .l8 .strip{background:var(--l8-panel);border-block:1px solid var(--l8-rule)}
 .l8 .stripin{display:grid;grid-template-columns:repeat(2,1fr);gap:clamp(20px,3vw,40px);padding-block:clamp(28px,3.5vw,40px)}

@@ -5,7 +5,7 @@ import { angleFrom } from "../../_shared/lp-angles";
 import { resolveLpCard } from "../../_shared/lp-spot";
 import { lpRegionFor } from "../../_shared/lp-region";
 import { lpCheckoutHref, trialChargeDate } from "../../_shared/lp-checkout";
-import { PRICE } from "../../_shared/lp-content";
+import { PRICE, PROOF } from "../../_shared/lp-content";
 import { fetchMapSpots } from "@/lib/bluecaster";
 import { formatHour12 } from "@/lib/time-format";
 import { LP8_CSS } from "./lp8-css";
@@ -431,7 +431,42 @@ export default async function Lp8CityPage({
             <span>Forum thread</span>
             <span>Your notebook</span>
           </div>
-          <div className="one">One number, per hour, per mark.</div>
+          <div className="one">One number, per hour, per spot.</div>
+
+          {/* Bob's review.
+              Words, rating and attribution all come from PROOF rather than
+              being retyped here, so this page cannot drift from the one record
+              that says the quote is real, permissioned and verbatim. The stars
+              are drawn from PROOF.quote.rating for the same reason: hardcoding
+              five would be a second copy of a claim about a real person, free
+              to disagree with the record the moment either changed. showProof
+              is honoured, so switching the band off switches it off here too.
+
+              His sentence is not edited for length or house style. It names
+              tides, currents, wind, swell and water temperature in one breath,
+              which is the "six tabs, one answer" claim above it made by
+              somebody who is not us. */}
+          {PROOF.showProof ? (
+            <figure className="quote">
+              <div
+                className="stars"
+                role="img"
+                aria-label={`${PROOF.quote.rating} out of 5 stars`}
+              >
+                {Array.from({ length: 5 }, (_, i) => (
+                  <span
+                    key={i}
+                    className={i < Math.round(PROOF.quote.rating) ? "on" : ""}
+                    aria-hidden
+                  >
+                    {"\u2605"}
+                  </span>
+                ))}
+              </div>
+              <blockquote>{PROOF.quote.text}</blockquote>
+              <figcaption>{PROOF.quote.attr}</figcaption>
+            </figure>
+          ) : null}
         </div>
       </section>
 
