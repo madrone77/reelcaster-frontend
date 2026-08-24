@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Loader2, Pause, Pencil, Play, Plus, Trash2 } from "lucide-react";
+import { Pause, Pencil, Play, Plus, Trash2 } from "lucide-react";
 import ExploreTopBar from "@/app/explore/components/explore-top-bar";
 import { PAGE_MEASURE } from "@/app/components/layout/page-measure";
 import { useAuth } from "@/contexts/auth-context";
@@ -334,9 +334,7 @@ export default function NotificationsShell() {
           </div>
 
           {loading ? (
-            <div className="mt-10 flex items-center gap-2 text-rc-ink-mute">
-              <Loader2 className="w-4 h-4 animate-spin" /> Loading alerts…
-            </div>
+            <AlertsSkeleton />
           ) : rows.length === 0 ? (
             <EmptyState tab={tab} />
           ) : (
@@ -710,6 +708,28 @@ function EmptyState({ tab }: { tab: Tab }) {
       >
         Pick a spot to create an alert →
       </Link>
+    </div>
+  );
+}
+
+/** Loading — skeleton alert rows in a sunk fill that match the real table
+ *  layout (design system v2: skeletons, not a spinner). */
+function AlertsSkeleton() {
+  return (
+    <div className="mt-6 space-y-3">
+      {Array.from({ length: 4 }, (_, i) => i).map((k) => (
+        <div
+          key={k}
+          className="flex animate-pulse items-center gap-4 rounded-2xl border border-rc-rule bg-rc-panel p-4"
+        >
+          <div className="h-9 w-9 shrink-0 rounded-full bg-rc-surface" />
+          <div className="flex-1 space-y-2">
+            <div className="h-4 w-1/3 rounded bg-rc-surface" />
+            <div className="h-3 w-1/2 rounded bg-rc-surface" />
+          </div>
+          <div className="h-6 w-16 shrink-0 rounded-full bg-rc-surface" />
+        </div>
+      ))}
     </div>
   );
 }
