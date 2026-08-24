@@ -106,82 +106,40 @@ export const LP8_CSS = `
 .l8 .onpaper .form input::placeholder{color:var(--l8-ink-mute)}
 .l8 .onpaper .form label,.l8 .onpaper .terms{color:var(--l8-ink-soft)}
 
-/* THE PHONE.
-   The hero is a picture of the real product, not an illustration of it: the
-   conditions grid and the hour strip are the app's own, filled with this
-   city's numbers. The bezel is drawn rather than an image so it stays sharp
-   at any width and costs no bytes. */
-.l8 .stage{position:relative;display:flex;justify-content:center;padding-block:8px}
-.l8 .phone{
-  position:relative;width:min(340px,86vw);border-radius:44px;padding:11px;
-  background:linear-gradient(160deg,#2A2F3A,#0B0D12);
-  box-shadow:0 26px 60px rgba(0,0,0,.45),0 0 0 1px rgba(255,255,255,.06) inset;
+/* THE PRODUCT SHOTS.
+   Both heroes are real marketing renders with their callouts baked in, so the
+   page cannot drift away from the app the way a hand-drawn approximation
+   does. They carry their own transparent margin, hence the negative insets:
+   without them the arrow's empty gutter reads as a layout mistake. */
+.l8 .stage{position:relative;display:flex;justify-content:center}
+.l8 .shot{
+  width:100%;height:auto;display:block;
+  max-width:520px;
+  /* The renders are 1820px tall. Unbounded, the hero grows past a laptop
+     viewport and pushes everything under it off the first screen, so the
+     height is what gets capped and the width follows. */
+  max-height:min(600px,62vh);width:auto;margin-inline:auto;
+  filter:drop-shadow(0 24px 50px rgba(0,0,0,.34));
 }
-.l8 .screen{
-  position:relative;border-radius:34px;overflow:hidden;background:#fff;
-  /* A light surface inside a dark section has to set its own ink. Without
-     this every value in the conditions grid inherits the hero's white and
-     renders invisible on white, which innerText will happily tell you is
-     present. */
-  color:var(--l8-ink);
-}
-.l8 .notch{position:absolute;top:9px;left:50%;transform:translateX(-50%);width:96px;height:22px;border-radius:999px;background:#0B0D12;z-index:3}
-.l8 .phonetop{background:var(--l8-brand);padding:30px 16px 14px;display:flex;align-items:center;justify-content:space-between}
-.l8 .wordmark{border:2px solid #fff;padding:4px 8px 3px;line-height:1}
-.l8 .wordmark b{display:block;color:#fff;font-size:17px;font-weight:700;letter-spacing:.06em}
-.l8 .wordmark i{display:block;color:#fff;font-style:normal;font-family:var(--l8-mono);font-size:7px;letter-spacing:.42em;text-align:center;margin-top:1px}
-.l8 .avatar{width:26px;height:26px;border-radius:999px;background:#fff;color:var(--l8-brand);font-size:10px;font-weight:700;display:flex;align-items:center;justify-content:center}
-.l8 .screenbody{padding:12px 12px 14px}
-.l8 .condlab{font-family:var(--l8-mono);font-size:8.5px;font-weight:600;letter-spacing:.16em;color:var(--l8-ink-mute);margin:0 0 7px}
-.l8 .condgrid{display:grid;grid-template-columns:repeat(4,1fr);border:1px solid var(--l8-rule);border-radius:4px;overflow:hidden}
-.l8 .cell{padding:6px 6px 7px;border-right:1px solid var(--l8-rule);border-bottom:1px solid var(--l8-rule);min-width:0}
-.l8 .cell:nth-child(4n){border-right:0}
-.l8 .cell:nth-last-child(-n+4){border-bottom:0}
-.l8 .cell .k{display:block;font-family:var(--l8-mono);font-size:7px;font-weight:600;letter-spacing:.13em;color:var(--l8-ink-mute);text-transform:uppercase}
-.l8 .cell .v{display:block;font-size:13px;font-weight:700;letter-spacing:-.02em;margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.l8 .cell .v.sc{color:var(--l8-fair)}
-.l8 .cell .v.sc.good{color:var(--l8-good)}
-.l8 .cell small{display:block;text-decoration:none;font-family:var(--l8-mono);font-size:7.5px;color:var(--l8-ink-mute);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.l8 .shotfig .shot{max-height:min(660px,70vh)}
 
-/* the strip the arrow points at */
-.l8 .stripwrap{margin-top:13px}
-.l8 .striprow{display:flex;gap:2px;border:1px solid var(--l8-rule);border-radius:4px;padding:4px;background:#fff}
-.l8 .striprow i{flex:1;height:26px;border-radius:2px;background:var(--l8-surface);position:relative}
-.l8 .striprow i.good{background:var(--l8-good-bg)}
-.l8 .striprow i.fair{background:var(--l8-fair-bg)}
-.l8 .striprow i.poor{background:var(--l8-poor-bg)}
-.l8 .striprow i.now{box-shadow:0 0 0 2px var(--l8-brand) inset;border-radius:3px}
-.l8 .striphours{display:flex;justify-content:space-between;font-family:var(--l8-mono);font-size:7.5px;color:var(--l8-ink-mute);margin-top:5px}
-
-/* the chart stack below, drawn only far enough to read as the real page */
-.l8 .mini{margin-top:12px}
-.l8 .mini b{display:block;font-family:var(--l8-mono);font-size:8px;font-weight:600;letter-spacing:.15em;color:var(--l8-ink-soft);margin-bottom:5px}
-.l8 .minibox{height:52px;border:1px solid var(--l8-rule);border-radius:4px;padding:5px;background:#fff}
-.l8 .minibars{display:flex;align-items:flex-end;gap:1.5px;height:100%}
-.l8 .minibars i{flex:1;background:#A5B4FC;border-radius:1px}
-.l8 .fade{position:absolute;left:0;right:0;bottom:0;height:56px;background:linear-gradient(180deg,rgba(255,255,255,0),#fff);pointer-events:none}
-
-/* THE CALLOUT. Deliberately the loudest object on the page: it is the one
-   thing a cold reader must understand, and three words do it. */
-.l8 .callout{
-  /* Aligned on the STRIP, not guessed. Everything above it inside the phone
-     is fixed height (bezel, header, label, two grid rows), so once the phone
-     reaches its 340px cap this offset is stable; below 940px the callout drops
-     under the phone anyway. Measured at 1280 and checked at 1024 and 1440. */
-  position:absolute;left:-4px;top:240px;z-index:4;
-  display:flex;align-items:center;pointer-events:none;
+/* where / what / when */
+.l8 .wwwsec{background:var(--l8-panel);border-block:1px solid var(--l8-rule)}
+.l8 .www{display:grid;grid-template-columns:1fr;gap:clamp(28px,4vw,56px);align-items:center}
+@media(min-width:940px){.l8 .www{grid-template-columns:1fr 1fr}}
+.l8 .wwwlist{list-style:none;margin:24px 0 0;padding:0;display:flex;flex-direction:column;gap:0}
+.l8 .wwwlist li{
+  display:grid;grid-template-columns:76px 1fr;gap:16px;align-items:baseline;
+  padding:14px 0;border-bottom:1px solid var(--l8-rule);
 }
-.l8 .callout span{
-  background:#2E3138;color:#fff;font-weight:700;letter-spacing:-.01em;
-  font-size:clamp(17px,2.4vw,22px);padding:14px 8px 14px 18px;
-  border-radius:6px 0 0 6px;white-space:nowrap;
-  box-shadow:0 10px 30px rgba(0,0,0,.3);
-}
-.l8 .callout svg{display:block;filter:drop-shadow(0 10px 22px rgba(0,0,0,.3))}
-@media(max-width:939px){
-  .l8 .callout{left:50%;transform:translateX(-50%);top:auto;bottom:-14px}
-  .l8 .callout span{border-radius:6px;padding:11px 16px;font-size:17px}
-  .l8 .callout svg{display:none}
+.l8 .wwwlist li:last-child{border-bottom:0}
+.l8 .wwwlist b{font-size:17px;font-weight:700;letter-spacing:-.02em}
+.l8 .wwwlist span{font-size:15px;line-height:1.55;color:var(--l8-ink-soft)}
+.l8 .shotfig{margin:0}
+.l8 .shotfig .shot{filter:drop-shadow(0 18px 40px rgba(18,21,26,.16))}
+.l8 .shotfig figcaption{
+  font-family:var(--l8-mono);font-size:11.5px;line-height:1.6;color:var(--l8-ink-mute);
+  text-align:center;margin-top:14px;max-width:46ch;margin-inline:auto;
 }
 
 /* proof strip */

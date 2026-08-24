@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Image from "next/image";
 import { notFound } from "next/navigation";
 import { angleFrom } from "../../_shared/lp-angles";
 import { resolveLpCard } from "../../_shared/lp-spot";
@@ -103,12 +104,6 @@ export default async function Lp8CityPage({
     bestFrom: card.bestFrom,
     bestTo: card.bestTo,
     peakHour: card.bestFrom >= 0 ? card.bestFrom : 12,
-    // Same bands the product uses, so the fallback strip cannot be a
-    // different picture of the day from the one buildCityProof draws.
-    tiers: card.hours.map((v) =>
-      v <= 0 ? "none" : v >= 60 ? "good" : v >= 40 ? "fair" : "poor",
-    ),
-    conditions: null,
   };
 
   const windowLabel =
@@ -117,7 +112,6 @@ export default async function Lp8CityPage({
       : card.windowTime;
 
   const peakHourLabel = formatHour12(hero.peakHour);
-  const cond = proof?.hero?.conditions ?? null;
 
   return (
     <div className="l8">
@@ -188,117 +182,85 @@ export default async function Lp8CityPage({
             </div>
           </div>
 
-          {/* The product itself, with the one instruction a cold reader
-              needs pointed at the one control that carries it. */}
+          {/* The real product shot, callout and all. This replaces a drawn
+              approximation of the same screen: the marketing image IS the app,
+              so there is no risk of the page teaching a UI that does not exist.
+              Priority because it is the LCP element on every viewport. */}
           <div className="stage">
-            <div className="phone">
-              <div className="screen">
-                <div className="notch" />
-                <div className="phonetop">
-                  <span className="wordmark">
-                    <b>REEL</b>
-                    <i>CASTER</i>
-                  </span>
-                  <span className="avatar">
-                    {card.provinceCode || "RC"}
-                  </span>
-                </div>
-
-                <div className="screenbody">
-                  <p className="condlab">CONDITIONS</p>
-                  <div className="condgrid">
-                    <div className="cell">
-                      <span className="k">Time</span>
-                      <span className="v">{cond?.hourLabel ?? peakHourLabel}</span>
-                    </div>
-                    <div className="cell">
-                      <span className="k">Score</span>
-                      <span className={`v sc${hero.score >= 60 ? " good" : ""}`}>
-                        {hero.score}
-                      </span>
-                      <small>{hero.score >= 60 ? "Good" : "Fair"}</small>
-                    </div>
-                    <div className="cell">
-                      <span className="k">Tide</span>
-                      <span className="v">{cond?.tideFt != null ? `${cond.tideFt} ft` : "--"}</span>
-                      <small>{cond?.tidePhase ?? ""}</small>
-                    </div>
-                    <div className="cell">
-                      <span className="k">Current</span>
-                      <span className="v">
-                        {cond?.currentKn != null ? `${cond.currentKn} kn` : "--"}
-                      </span>
-                    </div>
-                    <div className="cell">
-                      <span className="k">Wind</span>
-                      <span className="v">{cond?.windKt != null ? `${cond.windKt} kn` : "--"}</span>
-                      <small>{cond?.windDir ?? ""}</small>
-                    </div>
-                    <div className="cell">
-                      <span className="k">Sea</span>
-                      <span className="v">{cond?.seaM != null ? `${cond.seaM} m` : "--"}</span>
-                    </div>
-                    <div className="cell">
-                      <span className="k">Air</span>
-                      <span className="v">{cond?.airC != null ? `${cond.airC}\u00B0` : "--"}</span>
-                    </div>
-                    <div className="cell">
-                      <span className="k">Cloud</span>
-                      <span className="v">
-                        {cond?.cloudPct != null ? `${cond.cloudPct}%` : "--"}
-                      </span>
-                    </div>
-                  </div>
-
-                  <div className="stripwrap">
-                    <div
-                      className="striprow"
-                      role="img"
-                      aria-label={`Today at ${hero.name}, hour by hour: green is worth going, amber is marginal, red is not.`}
-                    >
-                      {hero.tiers.map((t, h) => (
-                        <i
-                          key={h}
-                          className={`${t}${h === hero.peakHour ? " now" : ""}`}
-                        />
-                      ))}
-                    </div>
-                    <div className="striphours">
-                      <span>12a</span>
-                      <span>6a</span>
-                      <span>noon</span>
-                      <span>6p</span>
-                      <span>11p</span>
-                    </div>
-                  </div>
-
-                  <div className="mini">
-                    <b>WIND</b>
-                    <div className="minibox">
-                      <div className="minibars">
-                        {hero.hours.map((v, h) => (
-                          <i
-                            key={h}
-                            style={{ height: `${28 + ((v * 7 + h * 13) % 55)}%` }}
-                          />
-                        ))}
-                      </div>
-                    </div>
-                  </div>
-                </div>
-                <div className="fade" />
-              </div>
-            </div>
-
-            <div className="callout" aria-hidden="true">
-              <span>Green Means Go!</span>
-              <svg width="54" height="86" viewBox="0 0 54 86" fill="none">
-                <path d="M0 22h26V0l28 43-28 43V64H0V22z" fill="#2E3138" />
-              </svg>
-            </div>
+            <Image
+              src="/marketing/green-means-go.png"
+              alt="The ReelCaster conditions screen. An arrow labelled Green Means Go points at the hour strip, where each hour of the day is coloured green, amber or red."
+              width={1112}
+              height={1820}
+              priority
+              sizes="(min-width: 940px) 46vw, 92vw"
+              className="shot"
+            />
           </div>
         </div>
       </div>
+
+      {/* WHERE / WHAT / WHEN.
+          The second marketing shot carries its own three-beat explainer, so
+          the copy beside it names the three questions rather than restating
+          the arrows. The screen is a Washington mark (Marine Area 10), which
+          is why the caption calls it an example rather than implying it is the
+          reader's own water: jurisdiction correctness is shared by every
+          variant, and a WDFW area label over a DFO city is exactly the mistake
+          [[project_lp_landing_variants]] warns about. */}
+      <section className="wwwsec">
+        <div className="shell www">
+          <div>
+            <span className="lab">One screen, three answers</span>
+            <h2>Where, what, and when.</h2>
+            <p className="sub">
+              Pick a mark and the app tells you which species is worth
+              targeting there, what it scores out of 100, and the window that
+              score falls in. The regulations for that species sit underneath
+              it, so you find out it is closed before you tow the boat, not
+              after.
+            </p>
+            <ul className="wwwlist">
+              <li>
+                <b>Where</b>
+                <span>
+                  {proof ? `${proof.spotCount} marks around ${card.cityName}` : `Every mark around ${card.cityName}`}, each scored on its own
+                </span>
+              </li>
+              <li>
+                <b>What</b>
+                <span>
+                  {/* Deliberately not proof.speciesCount. That counts species
+                      scoring TODAY in the map payload, which is 2 for Seattle
+                      against an eighteen-species roster, and "2 species" beside
+                      a sentence that names two of them reads as the whole
+                      product. */}
+                  Every species at that mark, because a good Halibut hour is not
+                  a good Coho hour
+                </span>
+              </li>
+              <li>
+                <b>When</b>
+                <span>The hours inside the day that actually carry the score</span>
+              </li>
+            </ul>
+          </div>
+          <figure className="shotfig">
+            <Image
+              src="/marketing/where-what-when.png"
+              alt="A ReelCaster spot page for Jefferson Head. Arrows label the spot name as Where, the species score card as What, and the best window as When."
+              width={1453}
+              height={1820}
+              sizes="(min-width: 940px) 46vw, 92vw"
+              className="shot"
+            />
+            <figcaption>
+              An example spot page. Yours shows {card.cityName} marks and the
+              {" "}{region.regulator.name} rules that apply to them.
+            </figcaption>
+          </figure>
+        </div>
+      </section>
 
       {/* PROOF STRIP */}
       {proof ? (

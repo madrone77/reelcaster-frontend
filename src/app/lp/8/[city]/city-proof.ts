@@ -50,27 +50,6 @@ export interface CityProof {
   conditionNote: string | null;
 }
 
-/**
- * The eight readings across the top of a real spot page.
- *
- * Mirrors what the app itself shows at the selected hour, because the hero on
- * this page is a picture of the product rather than an illustration of it. A
- * value we cannot resolve is left null and its cell is dropped, never filled
- * with a plausible-looking number.
- */
-export interface HeroConditions {
-  hourLabel: string;
-  score: number;
-  tideFt: number | null;
-  tidePhase: string | null;
-  currentKn: number | null;
-  windKt: number | null;
-  windDir: string | null;
-  seaM: number | null;
-  airC: number | null;
-  cloudPct: number | null;
-}
-
 export interface HeroMark {
   name: string;
   score: number;
@@ -80,9 +59,6 @@ export interface HeroMark {
   bestFrom: number;
   bestTo: number;
   peakHour: number;
-  conditions: HeroConditions | null;
-  /** Per-hour tier for the colour strip: the app's own score bands. */
-  tiers: Array<"poor" | "fair" | "good" | "none">;
 }
 
 /**
@@ -105,27 +81,6 @@ function toScore(v: number): number {
   return Math.round(v * 100);
 }
 
-/** The app's own score bands, so the strip on the landing page and the strip
- *  in the product are never two different pictures of the same day. */
-function tierFor(score: number): "poor" | "fair" | "good" | "none" {
-  if (score <= 0) return "none";
-  if (score >= 60) return "good";
-  if (score >= 40) return "fair";
-  return "poor";
-}
-
-const COMPASS = ["N","NNE","NE","ENE","E","ESE","SE","SSE","S","SSW","SW","WSW","W","WNW","NW","NNW"];
-
-function compass(deg: number | null | undefined): string | null {
-  if (typeof deg !== "number") return null;
-  return COMPASS[Math.round(((deg % 360) + 360) % 360 / 22.5) % 16];
-}
-
-function hour12(h: number): string {
-  const suffix = h < 12 ? "AM" : "PM";
-  const twelve = h % 12 === 0 ? 12 : h % 12;
-  return `${twelve} ${suffix}`;
-}
 
 /** Widen from the peak while the score holds within PEAK_BAND, then cap. */
 function windowAround(
@@ -185,7 +140,6 @@ export function buildCityProof(
             h && typeof h.s === "number" ? toScore(h.s) : 0,
           );
           const win = windowAround(hours, strip.peak_hour);
-          const cell = spot.conditions?.[strip.peak_hour] ?? null;
           heroMark = {
             name: spot.name,
             score,
@@ -193,35 +147,6 @@ export function buildCityProof(
             bestFrom: win?.from ?? -1,
             bestTo: win?.to ?? -1,
             peakHour: strip.peak_hour,
-            tiers: hours.map(tierFor),
-            conditions: cell
-              ? {
-                  hourLabel: hour12(strip.peak_hour),
-                  score,
-                  // Tide arrives in metres and every covered angler reads it
-                  // in feet. See the units note in lib/units.ts.
-                  tideFt:
-                    typeof cell.tide === "number"
-                      ? Math.round(cell.tide * 3.28084 * 10) / 10
-                      : null,
-                  tidePhase: cell.tph ? cell.tph.replace(/_/g, " ") : null,
-                  currentKn:
-                    typeof cell.cur === "number"
-                      ? Math.round(Math.abs(cell.cur) * 10) / 10
-                      : null,
-                  windKt:
-                    typeof cell.wkt === "number" ? Math.round(cell.wkt) : null,
-                  windDir: compass(cell.wdir),
-                  seaM:
-                    typeof cell.wav === "number"
-                      ? Math.round(cell.wav * 10) / 10
-                      : null,
-                  airC:
-                    typeof cell.air === "number" ? Math.round(cell.air) : null,
-                  cloudPct:
-                    typeof cell.cld === "number" ? Math.round(cell.cld) : null,
-                }
-              : null,
           };
         }
       }
