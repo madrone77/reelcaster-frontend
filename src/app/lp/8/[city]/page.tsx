@@ -232,25 +232,21 @@ export default async function Lp8CityPage({
             <ul className="wwwlist">
               <li>
                 <b>Where</b>
-                <span>
-                  {proof ? `${proof.spotCount} marks around ${card.cityName}` : `Every mark around ${card.cityName}`}, each scored on its own
-                </span>
+                <span>All spots around {card.cityName} scored on their own</span>
               </li>
               <li>
                 <b>What</b>
                 <span>
-                  {/* Deliberately not proof.speciesCount. That counts species
-                      scoring TODAY in the map payload, which is 2 for Seattle
-                      against an eighteen-species roster, and "2 species" beside
-                      a sentence that names two of them reads as the whole
-                      product. */}
-                  Every species at that mark, because a good Halibut hour is not
-                  a good Coho hour
+                  Every species at that spot, because a great Halibut hour
+                  isn&rsquo;t always a great Coho hour.
                 </span>
               </li>
               <li>
                 <b>When</b>
-                <span>The hours inside the day that actually carry the score</span>
+                <span>
+                  We highlight the best times so you don&rsquo;t need to scan 5
+                  apps anymore
+                </span>
               </li>
             </ul>
           </div>
