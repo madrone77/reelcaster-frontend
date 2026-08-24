@@ -82,6 +82,7 @@ export default async function Lp8CityPage({
 
   const angle = angleFrom(sp);
   const region = lpRegionFor(card.provinceCode);
+
   const from = `lp8-${angle.id}`;
   const checkoutHref = lpCheckoutHref("8", angle.id, card);
   const chargeDate = trialChargeDate(PRICE.trialDays);
@@ -91,6 +92,23 @@ export default async function Lp8CityPage({
   // roster around it. A failure here costs the two proof bands, not the page.
   const payload = await fetchMapSpots({ city: slug }).catch(() => null);
   const proof: CityProof | null = payload ? buildCityProof(payload, card) : null;
+
+  /**
+   * The where/what/when render is a photograph of one real spot page: Jefferson
+   * Head, in WDFW Marine Area 10.
+   *
+   * On Seattle that is not an illustration, it is the reader's own water, and
+   * captioning it "an example" throws away the strongest thing the image has.
+   * Anywhere else it is a Washington mark, and the caption has to say so rather
+   * than let a WDFW area label imply it governs Canadian water.
+   *
+   * Tested against the city's own roster instead of the province code, so a
+   * future render of a different mark keeps working without touching this.
+   */
+  const SHOT_MARK = "Jefferson Head";
+  const shotIsLocal = Boolean(
+    proof?.marks.some((m) => m.name === SHOT_MARK),
+  );
 
   // The hero reads off the SAME ranking as the marks band below it. Taking
   // the card's spot instead put Constance Bank at 88 above a list topped by
@@ -212,7 +230,11 @@ export default async function Lp8CityPage({
         <div className="shell www">
           <div>
             <span className="lab">One screen, three answers</span>
-            <h2>Where, what, and when.</h2>
+            <h2>
+              {shotIsLocal
+                ? `Where, what, and when, on ${card.cityName} water.`
+                : "Where, what, and when."}
+            </h2>
             <p className="sub">
               Pick a mark and the app tells you which species is worth
               targeting there, what it scores out of 100, and the window that
@@ -255,8 +277,19 @@ export default async function Lp8CityPage({
               className="shot"
             />
             <figcaption>
-              An example spot page. Yours shows {card.cityName} marks and the
-              {" "}{region.regulator.name} rules that apply to them.
+              {shotIsLocal ? (
+                <>
+                  {SHOT_MARK}, one of the{" "}
+                  {proof ? proof.spotCount : ""} marks we score around{" "}
+                  {card.cityName}, with its {region.regulator.name} rules
+                  underneath it.
+                </>
+              ) : (
+                <>
+                  A spot page from Washington. Yours shows {card.cityName} marks
+                  and the {region.regulator.name} rules that apply to them.
+                </>
+              )}
             </figcaption>
           </figure>
         </div>
