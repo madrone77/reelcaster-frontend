@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
-import { Loader2, Plus } from "lucide-react";
+import { Plus } from "lucide-react";
 import ExploreTopBar from "@/app/explore/components/explore-top-bar";
 import { PAGE_MEASURE } from "@/app/components/layout/page-measure";
 import { useAuth } from "@/contexts/auth-context";
@@ -36,6 +36,7 @@ export default function CatchesShell() {
   const [total, setTotal] = useState(0);
   const [stats, setStats] = useState<SeasonStats | null>(null);
   const [fetching, setFetching] = useState(true);
+  const [error, setError] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
 
   const [speciesFilter, setSpeciesFilter] = useState<string | null>(null);
@@ -57,7 +58,10 @@ export default function CatchesShell() {
     async (offset: number, append: boolean) => {
       if (!session?.access_token) return;
       const seq = ++seqRef.current;
-      if (!append) setFetching(true);
+      if (!append) {
+        setFetching(true);
+        setError(false);
+      }
       const { sort: sortCol, order } = SORT_PARAMS[sort];
       const params = new URLSearchParams({
         limit: String(PAGE_SIZE),
@@ -67,18 +71,31 @@ export default function CatchesShell() {
         order,
       });
       if (debouncedQuery) params.set("q", debouncedQuery);
-      const res = await fetch(`/api/catches?${params}`, {
-        headers: { Authorization: `Bearer ${session.access_token}` },
-        cache: "no-store",
-      });
-      if (seq !== seqRef.current) return;
-      if (res.ok) {
-        const data = (await res.json()) as { catches: CatchLogRow[]; total: number };
-        setRows((prev) => (append ? [...prev, ...data.catches] : data.catches));
-        setTotal(data.total ?? data.catches.length);
+      try {
+        const res = await fetch(`/api/catches?${params}`, {
+          headers: { Authorization: `Bearer ${session.access_token}` },
+          cache: "no-store",
+        });
+        if (seq !== seqRef.current) return;
+        if (res.ok) {
+          const data = (await res.json()) as { catches: CatchLogRow[]; total: number };
+          setRows((prev) => (append ? [...prev, ...data.catches] : data.catches));
+          setTotal(data.total ?? data.catches.length);
+        } else if (!append) {
+          // A failed fetch is not an empty log — say so rather than showing
+          // "No catches yet" over data that exists but didn't load.
+          setError(true);
+        }
+      } catch {
+        // Network error: without this, the await rejects and the loading flag
+        // below never clears — the spinner spun forever.
+        if (seq === seqRef.current && !append) setError(true);
+      } finally {
+        if (seq === seqRef.current) {
+          setFetching(false);
+          setLoadingMore(false);
+        }
       }
-      setFetching(false);
-      setLoadingMore(false);
     },
     [session, sort, debouncedQuery],
   );
@@ -211,9 +228,9 @@ export default function CatchesShell() {
               {/* List */}
               <div className="mt-6">
                 {fetching ? (
-                  <div className="flex items-center justify-center py-20 text-rc-ink-mute">
-                    <Loader2 className="w-6 h-6 animate-spin" />
-                  </div>
+                  <CatchListSkeleton view={view} />
+                ) : error ? (
+                  <ErrorState onRetry={() => fetchPage(0, false)} />
                 ) : visible.length === 0 ? (
                   <EmptyState searched={!!debouncedQuery || !!speciesFilter} />
                 ) : (
@@ -314,6 +331,68 @@ function SignedOut() {
       >
         Sign in
       </Link>
+    </div>
+  );
+}
+
+/** Loading — skeletons that match the real row/card box for box (design system
+ *  v2: skeletons in a sunk fill, never a spinner). Mirrors the active view. */
+function CatchListSkeleton({ view }: { view: "list" | "grid" }) {
+  const keys = Array.from({ length: 6 }, (_, i) => i);
+  if (view === "grid") {
+    return (
+      <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
+        {keys.map((k) => (
+          <div
+            key={k}
+            className="animate-pulse overflow-hidden rounded-2xl border border-rc-rule bg-rc-panel"
+          >
+            <div className="aspect-square bg-rc-surface" />
+            <div className="space-y-2 p-3">
+              <div className="h-3.5 w-2/3 rounded bg-rc-surface" />
+              <div className="h-3 w-1/2 rounded bg-rc-surface" />
+            </div>
+          </div>
+        ))}
+      </div>
+    );
+  }
+  return (
+    <div className="space-y-3">
+      {keys.map((k) => (
+        <div
+          key={k}
+          className="flex animate-pulse items-center gap-4 rounded-2xl border border-rc-rule bg-rc-panel p-3"
+        >
+          <div className="h-14 w-14 shrink-0 rounded-xl bg-rc-surface" />
+          <div className="flex-1 space-y-2">
+            <div className="h-4 w-1/3 rounded bg-rc-surface" />
+            <div className="h-3 w-1/2 rounded bg-rc-surface" />
+          </div>
+          <div className="h-6 w-12 shrink-0 rounded bg-rc-surface" />
+        </div>
+      ))}
+    </div>
+  );
+}
+
+/** Degraded — a failed fetch names the failure and offers the way out, instead
+ *  of the empty state pretending there are no catches (design system v2). */
+function ErrorState({ onRetry }: { onRetry: () => void }) {
+  return (
+    <div className="rounded-2xl border border-rc-rule bg-rc-panel py-16 text-center">
+      <div className="text-lg font-bold text-rc-ink">Couldn&apos;t load your catches</div>
+      <p className="mx-auto mt-1 max-w-sm text-sm text-rc-ink-soft">
+        The catch log didn&apos;t respond. Your catches are safe — this is the
+        connection, not your data.
+      </p>
+      <button
+        type="button"
+        onClick={onRetry}
+        className="mt-4 rounded-xl border border-rc-rule bg-rc-panel px-5 py-2.5 font-semibold text-rc-ink transition-colors hover:bg-rc-surface"
+      >
+        Try again
+      </button>
     </div>
   );
 }
