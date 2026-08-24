@@ -47,7 +47,7 @@ export const ENTRY_COOKIE = 'rc_entry';
 export const WALL_COOKIE = 'rc_wall';
 export const PAID_COOKIE = 'rc_paid';
 
-const ENTRY_MAX_AGE = 60 * 60 * 24 * 90; // 90 days
+export const ENTRY_MAX_AGE = 60 * 60 * 24 * 90; // 90 days
 const WALL_MAX_AGE = 60 * 30; // 30 minutes
 
 /**
@@ -56,7 +56,7 @@ const WALL_MAX_AGE = 60 * 30; // 30 minutes
  * back to the network that sold it, so holding it longer would only produce
  * credit we can act on in our own dashboard and nowhere else.
  */
-const PAID_MAX_AGE = 60 * 60 * 24 * 90;
+export const PAID_MAX_AGE = 60 * 60 * 24 * 90;
 
 /**
  * Click ids, in priority order. One visit is one click, so at most one of
@@ -217,13 +217,14 @@ function isPaid(campaign: CampaignParams): boolean {
  * A referrer pointing at our own host is a page transition, not an entry
  * point. Recording it would make "reelcaster.com" the top acquisition source,
  * which is true and useless.
+ *
+ * `selfHost` is passed rather than read, because the same test has to run in
+ * middleware, where there is no `window` and the host comes off the request.
  */
-function externalReferrer(): string {
-  if (typeof document === 'undefined') return '';
-  const raw = document.referrer;
+function externalReferrer(raw: string, selfHost: string): string {
   if (!raw) return '';
   try {
-    if (new URL(raw).host === window.location.host) return '';
+    if (new URL(raw).host === selfHost) return '';
   } catch {
     return '';
   }
@@ -231,22 +232,89 @@ function externalReferrer(): string {
 }
 
 /**
+ * Paths that must never become a first touch.
+ *
+ * `/billing/success` is the return leg from Stripe. A browser that reaches
+ * checkout with no rc_entry — storage blocked, an in-app webview, a session
+ * that started before this code shipped — would otherwise write its first
+ * touch there, WRITE-ONCE, for ninety days: entry path `/billing/success`,
+ * referrer `checkout.stripe.com`. That is not a weak record, it is a fossil
+ * that blocks the real one from ever landing, and it has already happened to
+ * one paying customer.
+ *
+ * `/api` and `/auth` are the same argument in a smaller way: neither is
+ * somewhere a person arrives from an ad, and both can be the first request a
+ * browser makes.
+ */
+const NEVER_ENTRY = ['/billing', '/api', '/auth', '/_vercel'];
+
+function isEntryPath(pathname: string): boolean {
+  return !NEVER_ENTRY.some((p) => pathname === p || pathname.startsWith(`${p}/`));
+}
+
+/**
+ * Build the first-touch record for one visit, from values the caller has read
+ * off either `window` or an incoming request.
+ *
+ * Returns null when the path is one that must not become a first touch. The
+ * caller writes nothing in that case rather than writing a blank, because a
+ * blank is still write-once and still blocks the real record.
+ */
+export function buildEntry(input: {
+  pathname: string;
+  search: string;
+  referrer: string;
+  host: string;
+}): EntryAttribution | null {
+  if (!isEntryPath(input.pathname)) return null;
+  return {
+    ...readCampaign(new URLSearchParams(input.search)),
+    entry_path: clamp(input.pathname),
+    referrer: externalReferrer(input.referrer, input.host),
+    raw_query: clampQuery(input.search),
+    ts: new Date().toISOString(),
+  };
+}
+
+/**
+ * Build the paid-touch record, or null when this visit carries no marker that
+ * we bought it.
+ */
+export function buildPaid(input: {
+  pathname: string;
+  search: string;
+}): PaidAttribution | null {
+  const campaign = readCampaign(new URLSearchParams(input.search));
+  if (!isPaid(campaign)) return null;
+  return {
+    ...campaign,
+    landing_path: clamp(input.pathname),
+    ts: new Date().toISOString(),
+  };
+}
+
+/**
  * Record first touch. Safe to call on every page view: it returns early once
  * the cookie exists, so a visitor's fifth page does not overwrite the landing
  * page they actually arrived on.
+ *
+ * Middleware has usually written this cookie already, on the very first
+ * request, before any of this file reached the browser. This stays as the
+ * backstop for the cases middleware cannot see: a visitor whose first page is
+ * a client-side navigation off a prefetched link, and any route the matcher
+ * skips.
  */
 export function captureEntry(): void {
   if (typeof window === 'undefined') return;
   if (readJsonCookie<EntryAttribution>(ENTRY_COOKIE)) return;
 
-  const params = new URLSearchParams(window.location.search);
-  const entry: EntryAttribution = {
-    ...readCampaign(params),
-    entry_path: clamp(window.location.pathname),
-    referrer: externalReferrer(),
-    raw_query: clampQuery(window.location.search),
-    ts: new Date().toISOString(),
-  };
+  const entry = buildEntry({
+    pathname: window.location.pathname,
+    search: window.location.search,
+    referrer: typeof document === 'undefined' ? '' : document.referrer,
+    host: window.location.host,
+  });
+  if (!entry) return;
 
   // Cookies get a 4KB budget and a silently truncated one decodes to nothing,
   // taking the whole record with it. raw_query is the only field here that is
@@ -267,16 +335,11 @@ export function captureEntry(): void {
  */
 export function capturePaidTouch(): void {
   if (typeof window === 'undefined') return;
-
-  const params = new URLSearchParams(window.location.search);
-  const campaign = readCampaign(params);
-  if (!isPaid(campaign)) return;
-
-  const paid: PaidAttribution = {
-    ...campaign,
-    landing_path: clamp(window.location.pathname),
-    ts: new Date().toISOString(),
-  };
+  const paid = buildPaid({
+    pathname: window.location.pathname,
+    search: window.location.search,
+  });
+  if (!paid) return;
   writeJsonCookie(PAID_COOKIE, paid, PAID_MAX_AGE);
 }
 
