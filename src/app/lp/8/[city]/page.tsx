@@ -9,7 +9,7 @@ import { fetchMapSpots } from "@/lib/bluecaster";
 import { formatHour12 } from "@/lib/time-format";
 import { LP8_CSS } from "./lp8-css";
 import Lp8TrialForm from "./trial-form";
-import { buildCityProof, type CityProof } from "./city-proof";
+import { buildCityProof, type CityProof, type HeroMark } from "./city-proof";
 
 /**
  * /lp/8/[city] — the wide, city-led variant.
@@ -96,13 +96,19 @@ export default async function Lp8CityPage({
   // Victoria Waterfront at 91, which is a page disagreeing with itself in the
   // reader's first screen. The card still supplies everything that is not a
   // score: the city, the species, the region and the checkout.
-  const hero = proof?.hero ?? {
+  const hero: HeroMark = proof?.hero ?? {
     name: card.spotName,
     score: card.score,
     hours: card.hours,
     bestFrom: card.bestFrom,
     bestTo: card.bestTo,
     peakHour: card.bestFrom >= 0 ? card.bestFrom : 12,
+    // Same bands the product uses, so the fallback strip cannot be a
+    // different picture of the day from the one buildCityProof draws.
+    tiers: card.hours.map((v) =>
+      v <= 0 ? "none" : v >= 60 ? "good" : v >= 40 ? "fair" : "poor",
+    ),
+    conditions: null,
   };
 
   const windowLabel =
@@ -111,6 +117,7 @@ export default async function Lp8CityPage({
       : card.windowTime;
 
   const peakHourLabel = formatHour12(hero.peakHour);
+  const cond = proof?.hero?.conditions ?? null;
 
   return (
     <div className="l8">
@@ -144,18 +151,18 @@ export default async function Lp8CityPage({
               {region.areaBadge ? ` · ${region.areaBadge}` : ""}
             </p>
             <h1>
-              The bite has a schedule.{" "}
-              <em>Here is {card.cityName}&rsquo;s.</em>
+              Green means <em>go</em>.
             </h1>
             <p className="herosub">
               {windowLabel ? (
                 <>
-                  {card.species} are on at {hero.name} from{" "}
+                  Every hour at every {card.cityName} mark, coloured by whether
+                  it is worth going. {card.species} at {hero.name} run green
+                  from{" "}
                   <strong style={{ color: "#fff", fontWeight: 600 }}>
                     {windowLabel}
-                  </strong>
-                  . Every other hour today is worth less, and we scored all of
-                  them.
+                  </strong>{" "}
+                  today.
                 </>
               ) : (
                 <>
@@ -181,53 +188,113 @@ export default async function Lp8CityPage({
             </div>
           </div>
 
-          <div className="day">
-            <div className="dayhead">
-              <div>
-                <div className="dayspot">{hero.name}</div>
-                <div className="daymeta">{card.meta || card.species}</div>
-              </div>
-              <div className="daynum">
-                {hero.score}
-                <small>OF 100</small>
+          {/* The product itself, with the one instruction a cold reader
+              needs pointed at the one control that carries it. */}
+          <div className="stage">
+            <div className="phone">
+              <div className="screen">
+                <div className="notch" />
+                <div className="phonetop">
+                  <span className="wordmark">
+                    <b>REEL</b>
+                    <i>CASTER</i>
+                  </span>
+                  <span className="avatar">
+                    {card.provinceCode || "RC"}
+                  </span>
+                </div>
+
+                <div className="screenbody">
+                  <p className="condlab">CONDITIONS</p>
+                  <div className="condgrid">
+                    <div className="cell">
+                      <span className="k">Time</span>
+                      <span className="v">{cond?.hourLabel ?? peakHourLabel}</span>
+                    </div>
+                    <div className="cell">
+                      <span className="k">Score</span>
+                      <span className={`v sc${hero.score >= 60 ? " good" : ""}`}>
+                        {hero.score}
+                      </span>
+                      <small>{hero.score >= 60 ? "Good" : "Fair"}</small>
+                    </div>
+                    <div className="cell">
+                      <span className="k">Tide</span>
+                      <span className="v">{cond?.tideFt != null ? `${cond.tideFt} ft` : "--"}</span>
+                      <small>{cond?.tidePhase ?? ""}</small>
+                    </div>
+                    <div className="cell">
+                      <span className="k">Current</span>
+                      <span className="v">
+                        {cond?.currentKn != null ? `${cond.currentKn} kn` : "--"}
+                      </span>
+                    </div>
+                    <div className="cell">
+                      <span className="k">Wind</span>
+                      <span className="v">{cond?.windKt != null ? `${cond.windKt} kn` : "--"}</span>
+                      <small>{cond?.windDir ?? ""}</small>
+                    </div>
+                    <div className="cell">
+                      <span className="k">Sea</span>
+                      <span className="v">{cond?.seaM != null ? `${cond.seaM} m` : "--"}</span>
+                    </div>
+                    <div className="cell">
+                      <span className="k">Air</span>
+                      <span className="v">{cond?.airC != null ? `${cond.airC}\u00B0` : "--"}</span>
+                    </div>
+                    <div className="cell">
+                      <span className="k">Cloud</span>
+                      <span className="v">
+                        {cond?.cloudPct != null ? `${cond.cloudPct}%` : "--"}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="stripwrap">
+                    <div
+                      className="striprow"
+                      role="img"
+                      aria-label={`Today at ${hero.name}, hour by hour: green is worth going, amber is marginal, red is not.`}
+                    >
+                      {hero.tiers.map((t, h) => (
+                        <i
+                          key={h}
+                          className={`${t}${h === hero.peakHour ? " now" : ""}`}
+                        />
+                      ))}
+                    </div>
+                    <div className="striphours">
+                      <span>12a</span>
+                      <span>6a</span>
+                      <span>noon</span>
+                      <span>6p</span>
+                      <span>11p</span>
+                    </div>
+                  </div>
+
+                  <div className="mini">
+                    <b>WIND</b>
+                    <div className="minibox">
+                      <div className="minibars">
+                        {hero.hours.map((v, h) => (
+                          <i
+                            key={h}
+                            style={{ height: `${28 + ((v * 7 + h * 13) % 55)}%` }}
+                          />
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                <div className="fade" />
               </div>
             </div>
 
-            <div
-              className="bars"
-              role="img"
-              aria-label={`Hourly score today at ${hero.name}, peaking at ${hero.score}${
-                windowLabel ? ` between ${windowLabel}` : ""
-              }`}
-            >
-              {hero.hours.map((v, h) => {
-                const inWindow =
-                  hero.bestFrom >= 0 && h >= hero.bestFrom && h <= hero.bestTo;
-                return (
-                  <i
-                    key={h}
-                    className={inWindow ? "on" : v < 40 ? "dim" : undefined}
-                    style={{
-                      height: `${Math.max(4, ((v - 15) / 75) * 100)}%`,
-                      animationDelay: `${h * 16}ms`,
-                    }}
-                  />
-                );
-              })}
-            </div>
-            <div className="hrs">
-              <span>12a</span>
-              <span>6a</span>
-              <span>noon</span>
-              <span>6p</span>
-              <span>11p</span>
-            </div>
-
-            <div className="bracket">
-              {windowLabel ? <span className="tag">{windowLabel}</span> : null}
-              {proof?.conditionNote ? (
-                <span className="tag plain">{proof.conditionNote}</span>
-              ) : null}
+            <div className="callout" aria-hidden="true">
+              <span>Green Means Go!</span>
+              <svg width="54" height="86" viewBox="0 0 54 86" fill="none">
+                <path d="M0 22h26V0l28 43-28 43V64H0V22z" fill="#2E3138" />
+              </svg>
             </div>
           </div>
         </div>
