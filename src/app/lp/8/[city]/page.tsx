@@ -124,11 +124,6 @@ export default async function Lp8CityPage({
     peakHour: card.bestFrom >= 0 ? card.bestFrom : 12,
   };
 
-  const windowLabel =
-    hero.bestFrom >= 0
-      ? `${formatHour12(hero.bestFrom)} to ${formatHour12(hero.bestTo + 1)}`
-      : card.windowTime;
-
   const peakHourLabel = formatHour12(hero.peakHour);
 
   return (
@@ -165,24 +160,16 @@ export default async function Lp8CityPage({
             <h1>
               Green means <em>go</em>.
             </h1>
+            {/* Casey's copy, verbatim apart from the city name, which is
+                templated so the other eight cities do not advertise Seattle.
+                US spelling ("colored") is deliberate: this page's paid traffic
+                is Puget Sound. */}
             <p className="herosub">
-              {windowLabel ? (
-                <>
-                  Every hour at every {card.cityName} mark, coloured by whether
-                  it is worth going. {card.species} at {hero.name} run green
-                  from{" "}
-                  <strong style={{ color: "#fff", fontWeight: 600 }}>
-                    {windowLabel}
-                  </strong>{" "}
-                  today.
-                </>
-              ) : (
-                <>
-                  Every hour at every {card.cityName} mark, scored against how
-                  each species actually feeds there. Not a tide table with an
-                  opinion.
-                </>
-              )}
+              Every hour at every {card.cityName} fishing spot. Scored and
+              colored by whether it&rsquo;s worth heading out. Quickly scan up
+              to 2 weeks ahead for the best fishing times for Halibut, Coho,
+              Kings or Lings when they&rsquo;re open! Now you can even score
+              your own custom spots.
             </p>
 
             <div id="start">
