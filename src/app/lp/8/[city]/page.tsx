@@ -232,20 +232,17 @@ export default async function Lp8CityPage({
             <ul className="wwwlist">
               <li>
                 <b>Where</b>
-                <span>All spots around {card.cityName} scored on their own</span>
+                <span>All the best spots around {card.cityName}</span>
               </li>
               <li>
                 <b>What</b>
-                <span>
-                  Every species at that spot, because a great Halibut hour
-                  isn&rsquo;t always a great Coho hour.
-                </span>
+                <span>Every species at that spot</span>
               </li>
               <li>
                 <b>When</b>
                 <span>
                   We highlight the best times so you don&rsquo;t need to scan 5
-                  apps anymore
+                  apps
                 </span>
               </li>
             </ul>
@@ -262,10 +259,10 @@ export default async function Lp8CityPage({
             <figcaption>
               {shotIsLocal ? (
                 <>
-                  {SHOT_MARK}, one of the{" "}
-                  {proof ? proof.spotCount : ""} marks we score around{" "}
-                  {card.cityName}, with its {region.regulator.name} rules
-                  underneath it.
+                  {SHOT_MARK}, one of the spots we score around{" "}
+                  {card.cityName}, with its {region.regulator.name} regulations
+                  underneath it and a full interactive bathymetry map of the
+                  spot.
                 </>
               ) : (
                 <>
