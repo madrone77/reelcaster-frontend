@@ -13,7 +13,7 @@ import Lp8TrialForm from "./trial-form";
 import { buildCityProof, type CityProof, type HeroMark } from "./city-proof";
 
 /**
- * /lp/8/[city] — the wide, city-led variant.
+ * /lp/seattle/1 — the wide, Seattle-led variant.
  *
  * Every other variant sells the product and then proves it with the city's
  * data. This one opens with the city's actual day and lets the product be the
@@ -43,16 +43,23 @@ import { buildCityProof, type CityProof, type HeroMark } from "./city-proof";
 export const revalidate = 900;
 
 type SearchParams = Promise<Record<string, string | string[] | undefined>>;
-type Params = Promise<{ city: string }>;
+/**
+ * The city is the route, not a parameter.
+ *
+ * This page was /lp/8/[city] and served all nine cities. It is now Seattle
+ * only: the copy names Seattle species in Puget Sound terms, the where/what/
+ * when render is a WDFW mark, and the paid traffic behind it is American. A
+ * second city gets its own /lp/<city>/<n> rather than a branch in here.
+ */
+const CITY_SLUG = "seattle-wa";
 
 export async function generateMetadata({
-  params,
   searchParams,
 }: {
-  params: Params;
   searchParams: SearchParams;
 }): Promise<Metadata> {
-  const [{ city: slug }, sp] = await Promise.all([params, searchParams]);
+  const slug = CITY_SLUG;
+  const sp = await searchParams;
   const card = await resolveLpCard(slug);
   const angle = angleFrom(sp);
   return {
@@ -69,13 +76,12 @@ export async function generateMetadata({
 }
 
 export default async function Lp8CityPage({
-  params,
   searchParams,
 }: {
-  params: Params;
   searchParams: SearchParams;
 }) {
-  const [{ city: slug }, sp] = await Promise.all([params, searchParams]);
+  const slug = CITY_SLUG;
+  const sp = await searchParams;
 
   const card = await resolveLpCard(slug);
   if (!card) notFound();
