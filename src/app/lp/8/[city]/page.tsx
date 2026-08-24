@@ -223,11 +223,11 @@ export default async function Lp8CityPage({
                 : "Where, what, and when."}
             </h2>
             <p className="sub">
-              Pick a mark and the app tells you which species is worth
-              targeting there, what it scores out of 100, and the window that
-              score falls in. The regulations for that species sit underneath
-              it, so you find out it is closed before you tow the boat, not
-              after.
+              Pick a spot and ReelCaster will tell you what&rsquo;s open,
+              what&rsquo;s worth targeting, it&rsquo;s hourly score out of 100,
+              and the best window to get the rods in. Even create your own
+              custom spots and get alerted when the score is high. No more
+              missing the best times and days.
             </p>
             <ul className="wwwlist">
               <li>
