@@ -89,8 +89,16 @@ export default async function Lp8CityPage({
   const angle = angleFrom(sp);
   const region = lpRegionFor(card.provinceCode);
 
-  const from = `lp8-${angle.id}`;
-  const checkoutHref = lpCheckoutHref("8", angle.id, card);
+  /**
+   * Attribution key. Must name the URL that actually bought the click.
+   *
+   * This was `lp8-<angle>`, left behind when the route moved from /lp/8/[city]
+   * to /lp/seattle/1. A key that matches no live URL is worse than a missing
+   * one: it reports spend against a page nobody can visit, and the conversions
+   * panel has no way to tell that from a real result.
+   */
+  const from = `lpseattle1-${angle.id}`;
+  const checkoutHref = lpCheckoutHref("seattle1", angle.id, card);
   const chargeDate = trialChargeDate(PRICE.trialDays);
 
   // The city-wide numbers and the marks band. Separate from the card because
@@ -186,7 +194,7 @@ export default async function Lp8CityPage({
                 price={PRICE.year}
                 trialDays={PRICE.trialDays}
                 fallbackHref={checkoutHref}
-                inputId="lp8-email-hero"
+                inputId="lpseattle1-email-hero"
                 cta="hero"
                 angle={angle.id}
               />
@@ -569,7 +577,7 @@ export default async function Lp8CityPage({
             price={PRICE.year}
             trialDays={PRICE.trialDays}
             fallbackHref={checkoutHref}
-            inputId="lp8-email-final"
+            inputId="lpseattle1-email-final"
             cta="final"
             angle={angle.id}
           />
