@@ -57,7 +57,16 @@ export const LP8_CSS = `
 /* hero */
 .l8 .hero{background:var(--l8-navy);color:#fff;padding-block:clamp(44px,6vw,80px);overflow:hidden}
 .l8 .herogrid{display:grid;grid-template-columns:1fr;gap:clamp(32px,4vw,56px);align-items:center}
-@media(min-width:940px){.l8 .herogrid{grid-template-columns:1.02fr .98fr}}
+/* Phone on the LEFT at desktop, copy on the right.
+   Done with the order property rather than by reordering the markup, because
+   the DOM order is also the reading order: stacked on a phone the headline
+   has to come first, or a screenshot buries the pitch. So the columns swap
+   only where there are two of them. Widths swap with the content so the copy
+   keeps the slightly wider column. */
+@media(min-width:940px){
+  .l8 .herogrid{grid-template-columns:.98fr 1.02fr}
+  .l8 .herogrid .stage{order:-1}
+}
 .l8 .pin{display:inline-flex;align-items:center;gap:9px;font-family:var(--l8-mono);font-size:11px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:#8FA3BC;margin:0 0 20px}
 .l8 .pin i{width:7px;height:7px;border-radius:999px;background:var(--l8-emerald);box-shadow:0 0 0 4px rgba(52,211,153,.16)}
 .l8 h1{font-size:clamp(34px,5.4vw,58px);font-weight:700;line-height:1.03;letter-spacing:-.033em;margin:0 0 20px;color:#fff;text-wrap:balance}
