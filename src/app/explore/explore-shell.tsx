@@ -135,6 +135,7 @@ export default function ExploreShell({
   bbox,
   initialCitySlug,
   initialSpot,
+  initialZoomOverride = null,
   initialForecast,
   initialForecastBbox,
   ad = null,
@@ -156,6 +157,9 @@ export default function ExploreShell({
    * around it and the camera should open on it rather than on a city.
    */
   initialSpot?: { slug: string; lat: number; lng: number } | null;
+  /** Opening zoom from `?z`. Loses to a restored view and to a
+   *  server-framed spot, so only a cold arrival is framed by it. */
+  initialZoomOverride?: number | null;
   /**
    * The 14-day viewport strip for `initialForecastBbox`, fetched by the page so
    * the strip can paint from the first response instead of waiting out the JS
@@ -1455,9 +1459,8 @@ export default function ExploreShell({
     ? restored.zoom
     : serverFramedSpot
       ? SPOT_LINK_ZOOM
-      : selectedCity
-        ? 9
-        : 4.5;
+      : (initialZoomOverride ??
+        (selectedCity ? 9 : 4.5));
 
   // ── Writing the return-trip memory ──────────────────────────────────────
   //
