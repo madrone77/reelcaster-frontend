@@ -54,7 +54,7 @@ export interface LpCard {
   score: number;
   /** GOOD · FAIR · POOR, matching the card's colour token. */
   tagWord: string;
-  tier: "good" | "fair" | "poor" | "none";
+  tier: "prime" | "good" | "fair" | "poor" | "none";
   /** "6 AM – 1 PM", or null when the day has no usable peak. */
   windowTime: string | null;
   windowNote: string | null;

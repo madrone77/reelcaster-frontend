@@ -11,6 +11,7 @@ import WeatherIcon from "../spot/components/weather-icon";
  * variant (#D78711 fails 3:1 at 28px; #92400E passes).
  */
 const TIER_NUMERAL: Record<Tier, string> = {
+  prime: "text-rc-prime",
   good: "text-rc-good",
   fair: "text-rc-fair-ink",
   poor: "text-rc-poor",
@@ -23,6 +24,7 @@ const TIER_NUMERAL: Record<Tier, string> = {
  * contradict state).
  */
 const TIER_CHIP: Record<Tier, string> = {
+  prime: "bg-rc-prime-bg text-rc-prime-ink",
   good: "bg-rc-good-soft text-rc-good-ink",
   fair: "bg-rc-fair-bg text-rc-fair-ink",
   poor: "bg-rc-poor-bg text-rc-poor-ink",

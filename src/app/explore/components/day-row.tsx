@@ -7,6 +7,7 @@ import type { ForecastDay } from "../lib/forecast-strip";
 // Right-aligned score numeral, tier-colored (fair drops to its -ink variant to
 // clear contrast). Matches the spot-card score language.
 const NUMERAL: Record<Tier, string> = {
+  prime: "text-rc-prime",
   good: "text-rc-good",
   fair: "text-rc-fair-ink",
   poor: "text-rc-poor",
@@ -14,6 +15,7 @@ const NUMERAL: Record<Tier, string> = {
 };
 
 const CHIP: Record<Tier, string> = {
+  prime: "bg-rc-prime-bg text-rc-prime-ink",
   good: "bg-rc-good-soft text-rc-good-ink",
   fair: "bg-rc-fair-bg text-rc-fair-ink",
   poor: "bg-rc-poor-bg text-rc-poor-ink",

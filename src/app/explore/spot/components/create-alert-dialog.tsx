@@ -267,11 +267,13 @@ export default function CreateAlertDialog({
               style={{
                 left: `${threshold}%`,
                 color:
-                  tier === "good"
-                    ? "var(--rc-good)"
-                    : tier === "fair"
-                      ? "var(--rc-fair)"
-                      : "var(--rc-poor)",
+                  tier === "prime"
+                    ? "var(--rc-prime)"
+                    : tier === "good"
+                      ? "var(--rc-good)"
+                      : tier === "fair"
+                        ? "var(--rc-fair)"
+                        : "var(--rc-poor)",
                 // ring-2 uses currentColor via ring; emulate with border
                 borderColor: "currentColor",
                 borderWidth: 3,

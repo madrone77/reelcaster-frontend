@@ -17,6 +17,7 @@ type Detent = "peek" | "half" | "full";
 
 /** Score colour on the day pill — the tier tokens the day cells already use. */
 const DAY_PILL_SCORE: Record<Tier, string> = {
+  prime: "text-rc-prime",
   good: "text-rc-good",
   fair: "text-rc-fair-ink",
   poor: "text-rc-poor",

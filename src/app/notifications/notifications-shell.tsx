@@ -54,6 +54,7 @@ const TZ = "America/Vancouver";
 
 /** Solid tier dot color for the score gauge knob. */
 const TIER_DOT: Record<Tier, string> = {
+  prime: "bg-rc-prime",
   good: "bg-rc-good",
   fair: "bg-rc-fair",
   poor: "bg-rc-poor",
