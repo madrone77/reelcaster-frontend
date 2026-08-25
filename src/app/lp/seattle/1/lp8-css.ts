@@ -57,16 +57,7 @@ export const LP8_CSS = `
 /* hero */
 .l8 .hero{background:var(--l8-navy);color:#fff;padding-block:clamp(44px,6vw,80px);overflow:hidden}
 .l8 .herogrid{display:grid;grid-template-columns:1fr;gap:clamp(32px,4vw,56px);align-items:center}
-/* Phone on the LEFT at desktop, copy on the right.
-   Done with the order property rather than by reordering the markup, because
-   the DOM order is also the reading order: stacked on a phone the headline
-   has to come first, or a screenshot buries the pitch. So the columns swap
-   only where there are two of them. Widths swap with the content so the copy
-   keeps the slightly wider column. */
-@media(min-width:940px){
-  .l8 .herogrid{grid-template-columns:.98fr 1.02fr}
-  .l8 .herogrid .stage{order:-1}
-}
+@media(min-width:940px){.l8 .herogrid{grid-template-columns:1.02fr .98fr}}
 .l8 .pin{display:inline-flex;align-items:center;gap:9px;font-family:var(--l8-mono);font-size:11px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:#8FA3BC;margin:0 0 20px}
 .l8 .pin i{width:7px;height:7px;border-radius:999px;background:var(--l8-emerald);box-shadow:0 0 0 4px rgba(52,211,153,.16)}
 .l8 h1{font-size:clamp(34px,5.4vw,58px);font-weight:700;line-height:1.03;letter-spacing:-.033em;margin:0 0 20px;color:#fff;text-wrap:balance}
@@ -122,20 +113,33 @@ export const LP8_CSS = `
    without them the arrow's empty gutter reads as a layout mistake. */
 .l8 .stage{position:relative;display:flex;justify-content:center}
 .l8 .shot{
-  width:100%;height:auto;display:block;
-  max-width:520px;
+  height:auto;display:block;margin-inline:auto;
   /* The renders are 1820px tall. Unbounded, the hero grows past a laptop
      viewport and pushes everything under it off the first screen, so the
-     height is what gets capped and the width follows. */
-  max-height:min(600px,62vh);width:auto;margin-inline:auto;
+     HEIGHT is what gets capped and the width follows from it.
+     max-width must therefore include 100%: with width:auto the width is
+     derived from the height, so on a narrow phone the image computes ~527px,
+     and because a grid item defaults to min-width:auto that widens the whole
+     track and pushes the text column off screen with it. A bare 520px cap
+     never bites, because 520 is already wider than the phone. */
+  width:auto;max-width:min(520px,100%);
+  max-height:min(600px,62vh);
   filter:drop-shadow(0 24px 50px rgba(0,0,0,.34));
 }
-.l8 .shotfig .shot{max-height:min(660px,70vh)}
+.l8 .shotfig .shot{max-height:min(660px,70vh);max-width:min(560px,100%)}
 
 /* where / what / when */
 .l8 .wwwsec{background:var(--l8-panel);border-block:1px solid var(--l8-rule)}
 .l8 .www{display:grid;grid-template-columns:1fr;gap:clamp(28px,4vw,56px);align-items:center}
-@media(min-width:940px){.l8 .www{grid-template-columns:1fr 1fr}}
+/* Screenshot LEFT here, which is the mirror of the hero above it.
+   Two identical two-column blocks stacked read as one long column of text with
+   pictures beside it; alternating gives the eye somewhere new to land. Done
+   with the order property, not by moving the markup: stacked on a phone the
+   heading still has to introduce the image it describes. */
+@media(min-width:940px){
+  .l8 .www{grid-template-columns:1fr 1fr}
+  .l8 .www .shotfig{order:-1}
+}
 .l8 .wwwlist{list-style:none;margin:24px 0 0;padding:0;display:flex;flex-direction:column;gap:0}
 .l8 .wwwlist li{
   display:grid;grid-template-columns:76px 1fr;gap:16px;align-items:baseline;
