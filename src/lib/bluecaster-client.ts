@@ -43,6 +43,7 @@ import type {
   SpotSnapshotResponse,
   BlueCasterSpeciesItem,
   CreateCustomSpotResponse,
+  ScorableSpeciesResponse,
   PoolCommitPayload,
   PoolCommitResponse,
   SpotScoreHourResponse,
@@ -246,6 +247,26 @@ export type CreateCustomSpotClientResult =
 /** Create a custom spot (requires a signed-in session; Pro-only — free
  *  accounts get `pro_required`, coordinates outside covered waters get
  *  `outside_coverage`, both with a user-facing `message`). */
+/** The species the create-spot picker should offer for this pin.
+ *
+ *  Scoped to the city the spot will file under, not to what happens to be in
+ *  the map viewport. Returns null on any failure so the caller can fall back
+ *  rather than block the create. */
+export async function fetchScorableSpecies(
+  lat: number,
+  lng: number,
+): Promise<ScorableSpeciesResponse | null> {
+  try {
+    const res = await fetch(
+      `/api/bluecaster/species/scorable?lat=${lat}&lng=${lng}`,
+    );
+    if (!res.ok) return null;
+    return (await res.json()) as ScorableSpeciesResponse;
+  } catch {
+    return null;
+  }
+}
+
 export async function createCustomSpot(
   input: {
     name: string;

@@ -161,9 +161,38 @@ export interface CreateCustomSpotResponse {
     visibility?: CustomSpotVisibility;
     tidal_station: { id: string; name: string } | null;
   };
-  /** One entry per owner-picked species: "scored" once its fingerprint is
-   *  seeded, "pending" until the home city has one. */
-  scored_species?: { species_id: string; scoring: "scored" | "pending" }[];
+  /** The headline for the angler. BlueCaster scores the spot right after it
+   *  answers, so this is either "we are building its forecast now" or the
+   *  reason there will not be one. Always show it. */
+  message?: string;
+  /** in_progress — a forecast is on its way. skipped — nothing to score, and
+   *  `message` plus `warnings` say why. */
+  scoring?: {
+    status: "in_progress" | "skipped";
+    estimated_seconds: number | null;
+  };
+  /** Customer-ready copy for anything the angler should know: every species
+   *  closed by regulation, no species picked, no forecast model yet. */
+  warnings?: {
+    code:
+      | "no_species_selected"
+      | "regulations_closed"
+      | "regulations_closed_partial"
+      | "no_fingerprint"
+      | "conditions_unavailable";
+    message: string;
+    species_ids?: string[];
+  }[];
+  /** One entry per owner-picked species. "scoring" means a forecast is being
+   *  built for it now; "closed" means regulations shut it for the whole
+   *  14-day horizon; "pending" means no model or no tide series yet. */
+  scored_species?: {
+    species_id: string;
+    name?: string;
+    scoring: "scoring" | "pending" | "closed";
+    /** Set when the season opens partway through the horizon (YYYY-MM-DD). */
+    open_from?: string;
+  }[];
   seeded_from?: unknown;
   similar_spots?: unknown[];
   confidence: number;
@@ -226,4 +255,17 @@ export interface SpotScoreHourResponse {
     score: number; // 0..1
     regulatory_state?: string;
   }>;
+}
+
+// ── GET /api/v1/species/scorable ──────────────────────────────────────
+
+/** The species a new custom spot at these coordinates can be scored for.
+ *  `basis: "scored"` means the list is what the city is actually producing
+ *  forecasts for, so every option is a real one. `"fingerprint"` is the
+ *  provisional fallback for a city with nothing scored yet. */
+export interface ScorableSpeciesResponse {
+  city: { id: string; name: string; slug: string };
+  distance_km: number;
+  basis: "scored" | "fingerprint";
+  species: { id: string; name: string }[];
 }

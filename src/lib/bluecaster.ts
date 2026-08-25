@@ -19,6 +19,7 @@ import type {
   SpotSnapshotResponse,
   BlueCasterSpeciesItem,
   CreateCustomSpotResponse,
+  ScorableSpeciesResponse,
   PoolCommitPayload,
   PoolCommitResponse,
   SpotScoreHourResponse,
@@ -1193,6 +1194,49 @@ export async function createCustomSpot(
     };
   }
   return { ok: true, data: (await res.json()) as CreateCustomSpotResponse };
+}
+
+export type ScorableSpeciesResult =
+  | { ok: true; data: ScorableSpeciesResponse }
+  | { ok: false; status: number; error: string; message?: string };
+
+/** The species a new custom spot at these coordinates can be scored for.
+ *
+ *  This is what the create-spot picker must read. It used to build its options
+ *  from the species that already had scores on the spots in the map viewport,
+ *  which is circular: a species nothing nearby is scoring could never be added
+ *  to a new spot, and the list changed as the angler panned. In Vancouver that
+ *  offered 3 of the city's 5.
+ *
+ *  BlueCaster resolves the city through the same 50 km fence the create uses,
+ *  so the picker cannot offer a species the create will not seed. Outside the
+ *  fence it answers 422 `outside_coverage`, passed through rather than thrown:
+ *  the dialog already has copy for that case. */
+export async function getScorableSpecies(
+  lat: number,
+  lng: number,
+): Promise<ScorableSpeciesResult> {
+  const baseUrl = process.env.BLUECASTER_API_URL;
+  const apiKey = process.env.BLUECASTER_API_KEY;
+  if (!baseUrl || !apiKey) throw new Error("BlueCaster env vars not set");
+
+  const res = await fetch(
+    `${baseUrl}/api/v1/species/scorable?lat=${lat}&lng=${lng}`,
+    { headers: { "x-api-key": apiKey }, cache: "no-store" },
+  );
+  if (!res.ok) {
+    const body = (await res.json().catch(() => null)) as {
+      error?: string;
+      message?: string;
+    } | null;
+    return {
+      ok: false,
+      status: res.status,
+      error: body?.error ?? "scorable_species_failed",
+      message: body?.message,
+    };
+  }
+  return { ok: true, data: (await res.json()) as ScorableSpeciesResponse };
 }
 
 export interface OwnedCustomSpot {

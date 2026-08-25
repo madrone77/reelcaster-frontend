@@ -9,7 +9,7 @@ import {
   DialogDescription,
 } from "@/components/ui/dialog";
 import { useAuth } from "@/contexts/auth-context";
-import { createCustomSpot } from "@/lib/bluecaster-client";
+import { createCustomSpot, fetchScorableSpecies } from "@/lib/bluecaster-client";
 import type { CreateCustomSpotResponse } from "@/lib/bluecaster/catch-ingest-types";
 import TrialModalButton from "@/app/components/paywall/trial-modal-button";
 
@@ -47,6 +47,17 @@ export default function CreateCustomSpotDialog({
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [upsell, setUpsell] = useState(false);
+  // Species the CITY can score, fetched per pin. `speciesOptions` (derived
+  // from the map viewport) is only the fallback now: it offers whatever
+  // happens to be scoring on the spots currently loaded, which shrinks as the
+  // angler pans and can never include a species no nearby spot scores.
+  const [citySpecies, setCitySpecies] = useState<CustomSpotSpeciesOption[] | null>(
+    null,
+  );
+  const [loadingSpecies, setLoadingSpecies] = useState(false);
+  // Set once the spot exists. Holds the heads-up the angler needs: a forecast
+  // is being built, or the reason there will not be one.
+  const [created, setCreated] = useState<CreateCustomSpotResponse | null>(null);
 
   // Fresh state each time the modal opens for a new pin.
   useEffect(() => {
@@ -56,7 +67,31 @@ export default function CreateCustomSpotDialog({
     setPicked(new Set());
     setError(null);
     setUpsell(false);
+    setCreated(null);
+    setCitySpecies(null);
   }, [open, coords?.lat, coords?.lng]);
+
+  // Load the city's scorable species for this pin. Failure is not fatal: the
+  // viewport list still stands in, so a picker that is too short beats one
+  // that will not open.
+  useEffect(() => {
+    if (!open || !coords) return;
+    let cancelled = false;
+    setLoadingSpecies(true);
+    fetchScorableSpecies(coords.lat, coords.lng)
+      .then((res) => {
+        if (cancelled) return;
+        if (res) setCitySpecies(res.species.map((sp) => ({ id: sp.id, name: sp.name })));
+      })
+      .finally(() => {
+        if (!cancelled) setLoadingSpecies(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [open, coords]);
+
+  const options = citySpecies ?? speciesOptions;
 
   const toggle = (id: string) =>
     setPicked((prev) => {
@@ -102,8 +137,12 @@ export default function CreateCustomSpotDialog({
       );
       return;
     }
+    // Keep the dialog open on the heads-up. BlueCaster answers before the
+    // forecast exists, so closing here is what left an angler staring at a
+    // spot with no explanation. It also has to carry the "everything you
+    // picked is closed" case, which a toast makes far too easy to miss.
+    setCreated(result.data);
     onCreated?.(result.data.spot);
-    onOpenChange(false);
   };
 
   return (
@@ -133,7 +172,53 @@ export default function CreateCustomSpotDialog({
           </div>
         </div>
 
-        {upsell ? (
+        {created ? (
+          <div className="mt-6">
+            <div className="rounded-xl border border-rc-rule bg-rc-surface px-4 py-4">
+              <div className="font-bold text-rc-ink">{created.spot.name}</div>
+              <p className="mt-1 text-sm text-rc-ink-soft">
+                {created.message ?? "Your spot is saved."}
+              </p>
+
+              {(created.scored_species?.length ?? 0) > 0 && (
+                <div className="mt-3 flex flex-wrap gap-1.5">
+                  {created.scored_species!.map((sp) => (
+                    <span
+                      key={sp.species_id}
+                      className={`px-2.5 py-1 rounded-lg text-[12px] font-semibold ${
+                        sp.scoring === "scoring"
+                          ? "bg-rc-brand-soft text-rc-brand"
+                          : "bg-rc-surface border border-rc-rule text-rc-ink-mute"
+                      }`}
+                    >
+                      {sp.name ? shortName(sp.name) : "Species"}
+                      {sp.scoring === "closed" && " · closed"}
+                      {sp.scoring === "pending" && " · not yet"}
+                    </span>
+                  ))}
+                </div>
+              )}
+
+              {(created.warnings ?? [])
+                .filter((w) => w.code !== "regulations_closed")
+                .map((w) => (
+                  <p key={w.code} className="mt-3 text-[13px] text-rc-ink-soft">
+                    {w.message}
+                  </p>
+                ))}
+            </div>
+
+            <div className="mt-4 flex justify-end">
+              <button
+                type="button"
+                onClick={() => onOpenChange(false)}
+                className="px-5 py-2.5 rounded-xl bg-rc-brand hover:bg-rc-brand-hover text-white text-sm font-semibold transition-colors"
+              >
+                Done
+              </button>
+            </div>
+          </div>
+        ) : upsell ? (
           <div className="mt-6">
             <div className="rounded-xl border border-rc-rule bg-rc-surface px-4 py-4">
               <div className="font-bold text-rc-ink">Custom spots are a Pro feature</div>
@@ -204,12 +289,18 @@ export default function CreateCustomSpotDialog({
                 Which species should we score here
               </div>
               <div className="mt-2 flex flex-wrap gap-2">
-                {speciesOptions.length === 0 && (
+                {loadingSpecies && options.length === 0 && (
+                  <div className="flex items-center gap-2 text-sm text-rc-ink-mute">
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                    Loading species for this area
+                  </div>
+                )}
+                {!loadingSpecies && options.length === 0 && (
                   <div className="text-sm text-rc-ink-mute">
                     No species available for this area yet.
                   </div>
                 )}
-                {speciesOptions.map((s) => {
+                {options.map((s) => {
                   const sel = picked.has(s.id);
                   return (
                     <button
