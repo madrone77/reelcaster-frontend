@@ -32,7 +32,8 @@ export interface CityProof {
   /** Local hour of the featured card's peak, for the score-explainer caption. */
   peakHour: number;
   /** Today's peak per mark for the card's species, best first. */
-  marks: Array<{ name: string; score: number }>;
+  /** Today's peak per mark, best first. `slug` deep-links to the spot page. */
+  marks: Array<{ name: string; score: number; slug: string }>;
   /**
    * The highest-scoring mark for the hero species today, rebuilt from its own
    * strip.
@@ -118,7 +119,7 @@ export function buildCityProof(
     Object.values(payload.species).find((s) => norm(s.name).includes(wanted))
       ?.id ?? null;
 
-  const marks: Array<{ name: string; score: number }> = [];
+  const marks: Array<{ name: string; score: number; slug: string }> = [];
   let heroMark: HeroMark | null = null;
   let peakHour = card.bestFrom >= 0 ? card.bestFrom : 12;
   let conditionNote: string | null = null;
@@ -134,7 +135,7 @@ export function buildCityProof(
       const strip = spot.scores[heroSpeciesId];
       if (strip) {
         const score = toScore(strip.peak);
-        marks.push({ name: spot.name, score });
+        marks.push({ name: spot.name, score, slug: spot.slug });
         if (!heroMark || score > heroMark.score) {
           const hours = strip.hours.map((h) =>
             h && typeof h.s === "number" ? toScore(h.s) : 0,
