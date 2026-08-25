@@ -376,11 +376,12 @@ export default function DashboardPage() {
   // paint now waits. Only the scores arrive on a slightly later tick, and they
   // arrive from a request that is an order of magnitude smaller.
   //
-  // `payloadSettled` is what the 14-day outlook waits on, so it has to flip on
-  // EVERY terminal branch here, including the "nothing to score" one. It used
-  // to be set by the anonymous whole-coast read, which always fired; this read
-  // does not fire at all until the ids resolve, so leaving any branch unset
-  // strands the outlook on skeletons forever.
+  // `payloadSettled` gates the reports rail below, so it has to flip on EVERY
+  // terminal branch here, including the "nothing to score" one. It used to be
+  // set by the anonymous whole-coast read, which always fired; this read does
+  // not fire at all until the ids resolve, so leaving any branch unset strands
+  // that rail on skeletons forever. The 14-day outlook used to wait on this
+  // too and no longer does.
   useEffect(() => {
     if (scopedIdsKey === null) return; // still resolving, hold what we have
     if (scopedIdsKey === "") {
@@ -651,19 +652,41 @@ export default function DashboardPage() {
   // and a PINNED-but-unsaved home spot is in neither `custom` nor the saved
   // list, so keying only on `railSpots` would leave the one card at the top of
   // the page as the only one without a fortnight.
+  //
+  // The id comes off `homeLive`, NOT off the map payload. Both carry it, but
+  // `homeLive` is fetched on `homeSlug` alone, while the map payload cannot
+  // start until the saved list and the custom list have both resolved. Taking
+  // the id from the earlier of the two is the whole point of this: it lets the
+  // outlook request go out BESIDE the map payload instead of behind it.
+  const homeId = homeLive?.spot.id ?? null;
   const outlookIdsKey = useMemo(
     () =>
-      [...(railSpots ?? []).map((s) => s.id), homeStrip?.id]
+      [...(railSpots ?? []).map((s) => s.id), homeId]
         .filter((id): id is string => !!id && UUID_RE.test(id))
         .filter((id, i, all) => all.indexOf(id) === i)
         .sort()
         .join(","),
-    [railSpots, homeStrip?.id],
+    [railSpots, homeId],
   );
-  // The home spot's id only exists once the map payload has landed, and
-  // `railSpots` is non-null well before that. Firing on `railSpots` alone sent
-  // the request once without the home spot and again with it.
-  const outlookWaiting = railSpots === null || (!!homeSlug && !payloadSettled);
+  // Hold only while an INPUT is still resolving.
+  //
+  // This used to wait on `payloadSettled`, which made the outlook the last leg
+  // of a four-deep chain: the session, then the saved and custom lists, then
+  // the map payload, then this. Measured cold against production, the last two
+  // legs alone were 0.88s and 1.28s of strictly serial time. It waited purely
+  // to learn the home spot's id, and `homeLive` already has that id a whole
+  // level earlier, so the wait bought latency and nothing else.
+  //
+  // `homeLive` is `undefined` while in flight and `null` once it has failed or
+  // there is no home spot, so only `undefined` is a reason to hold.
+  //
+  // Residual: a saved spot whose id is missing from the coords read has no id
+  // until the map payload fills it in, which re-keys this and sends a second
+  // request. /api/saved-spots resolves ids server-side so that is rare, and one
+  // extra request in the rare case beats every angler waiting in the common
+  // one.
+  const outlookWaiting =
+    railSpots === null || (!!homeSlug && homeLive === undefined);
   useEffect(() => {
     if (outlookWaiting || !outlookIdsKey) {
       // Either an input is still resolving (hold the skeletons) or there is
