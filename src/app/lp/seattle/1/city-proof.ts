@@ -32,8 +32,10 @@ export interface CityProof {
   /** Local hour of the featured card's peak, for the score-explainer caption. */
   peakHour: number;
   /** Today's peak per mark for the card's species, best first. */
-  /** Today's peak per mark, best first. `slug` deep-links to the spot page. */
+  /** Today's peak per spot, best first. `slug` deep-links to the spot page. */
   marks: Array<{ name: string; score: number; slug: string }>;
+  /** The species `marks` is ranked on, which is not always the card's. */
+  marksSpecies: string;
   /**
    * The highest-scoring mark for the hero species today, rebuilt from its own
    * strip.
@@ -115,9 +117,34 @@ export function buildCityProof(
   // "Pacific" at display time, so compare on a letters-only form.
   const norm = (s: string) => s.toLowerCase().replace(/[^a-z]/g, "");
   const wanted = norm(card.species);
-  const heroSpeciesId =
+  /**
+   * The species the spot band ranks on.
+   *
+   * NOT simply the card's species. `resolveLpCard` picks the city's headline
+   * species, and on 2026-08-25 that was Halibut for Seattle: scored at 2 spots
+   * out of 16, against Coho at 15. Ranking on it produced a two-row band, the
+   * section's own `length > 2` guard hid the whole thing, and the page silently
+   * lost its spot list on a day when 15 spots were scored perfectly well.
+   *
+   * So the card's species wins only if it is scored at most of the spots that
+   * carry any score at all; otherwise the widest-covered species does. A band
+   * that claims to have scored every spot has to be ranked on something most
+   * of them actually have.
+   */
+  const coverage = new Map<string, number>();
+  for (const spot of payload.spots) {
+    for (const id of Object.keys(spot.scores ?? {})) {
+      coverage.set(id, (coverage.get(id) ?? 0) + 1);
+    }
+  }
+  const widest = [...coverage.entries()].sort((a, b) => b[1] - a[1])[0]?.[0] ?? null;
+  const cardSpeciesId =
     Object.values(payload.species).find((s) => norm(s.name).includes(wanted))
       ?.id ?? null;
+  const bestCount = widest ? (coverage.get(widest) ?? 0) : 0;
+  const cardCount = cardSpeciesId ? (coverage.get(cardSpeciesId) ?? 0) : 0;
+  const heroSpeciesId =
+    cardSpeciesId && cardCount >= bestCount * 0.6 ? cardSpeciesId : widest;
 
   const marks: Array<{ name: string; score: number; slug: string }> = [];
   let heroMark: HeroMark | null = null;
@@ -168,6 +195,9 @@ export function buildCityProof(
   return {
     hero: heroMark,
     spotCount,
+    marksSpecies:
+      (heroSpeciesId ? payload.species[heroSpeciesId]?.name : null) ??
+      card.species,
     speciesCount: speciesIds.size,
     hoursScored: spotCount * 24 * FORECAST_HORIZON_DAYS,
     peakHour,

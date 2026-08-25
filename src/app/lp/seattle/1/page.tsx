@@ -69,7 +69,7 @@ export async function generateMetadata({
         : `${angle.title} | ReelCaster`,
     },
     description: card
-      ? `Every hour at every ${card.cityName} mark, scored. ${angle.subhead}`
+      ? `Every hour at every ${card.cityName} fishing spot, scored. ${angle.subhead}`
       : angle.subhead,
     robots: { index: false, follow: true },
   };
@@ -280,7 +280,7 @@ export default async function Lp8CityPage({
                 </>
               ) : (
                 <>
-                  A spot page from Washington. Yours shows {card.cityName} marks
+                  A spot page from Washington. Yours shows {card.cityName} spots
                   and the {region.regulator.name} rules that apply to them.
                 </>
               )}
@@ -302,7 +302,7 @@ export default async function Lp8CityPage({
             <div className="stat">
               <div className="n">{proof.spotCount}</div>
               <div className="t">
-                marks, every one of them scored separately
+                spots, every one of them scored separately
               </div>
             </div>
             <div className="stat">
@@ -327,7 +327,7 @@ export default async function Lp8CityPage({
               A tide table tells you the water is moving. It cannot tell you
               that the same current at first light and at noon are worth
               completely different things to the fish you are after. Every hour
-              at every mark is scored against how that species actually feeds
+              at every spot is scored against how that species actually feeds
               there, then checked against whether a person can fish it.
             </p>
           </div>
@@ -402,7 +402,7 @@ export default async function Lp8CityPage({
         <section>
           <div className="shell">
             <span className="lab">
-              {card.species} today, mark by mark
+              {proof.marksSpecies} today, spot by spot
             </span>
             {/* Counts the marks actually LISTED, not the city's roster. The
                 map payload carries only the species scoring today, so Seattle
@@ -439,8 +439,12 @@ export default async function Lp8CityPage({
               ))}
             </div>
 
-            <a className="mapcta" href="/explore?loc=seattle-wa">
-              Explore Seattle Map
+            {/* z=10 frames the city the way the app's own Seattle view does.
+                Without it Explore opens a city at zoom 9, which on Puget Sound
+                pulls back far enough to show water nobody in this ad is
+                launching into. */}
+            <a className="mapcta" href="/explore?loc=seattle-wa&z=10">
+              Explore Live Seattle Map
               <svg width="15" height="15" viewBox="0 0 16 16" fill="none" aria-hidden="true">
                 <path d="M3 8h9M8.5 4l4 4-4 4" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" />
               </svg>
@@ -513,7 +517,7 @@ export default async function Lp8CityPage({
               <b>Today</b>
               <p>
                 Card on file, <strong>charged nothing</strong>. All 14 days open
-                across every {card.cityName} mark, straight away.
+                across every {card.cityName} spot, straight away.
               </p>
             </div>
             <div className="step">
@@ -547,7 +551,7 @@ export default async function Lp8CityPage({
               <h3>Does it tell me where the fish are?</h3>
               <p>
                 No, and be careful with anything that claims to. It tells you
-                when conditions at a mark line up with how that species feeds
+                when conditions at a spot line up with how that species feeds
                 there, which is the part you can plan a morning around.
               </p>
             </div>
@@ -584,7 +588,7 @@ export default async function Lp8CityPage({
         <div className="shell">
           <h2>Fish the three hours, not the whole day.</h2>
           <p className="sub">
-            Open all 14 days across every {card.cityName} mark. Free for{" "}
+            Open all 14 days across every {card.cityName} spot. Free for{" "}
             {PRICE.trialDays} days.
           </p>
           <Lp8TrialForm

@@ -113,6 +113,21 @@ export default async function ExplorePage({
   const loc = locParam ?? cityAlias;
   const spot = typeof params.spot === "string" ? params.spot : null;
 
+  /**
+   * `?z` — an opening zoom, for links that know the frame they want.
+   *
+   * A city opens at zoom 9, which is the right default when the visitor picked
+   * the city themselves. It is too wide for an ad link into Puget Sound, where
+   * it pulls back past the water the ad is about. Clamped to the map's own
+   * range so a typo cannot strand somebody in orbit or inside a sand grain.
+   *
+   * Deliberately loses to a restored view: somebody returning to Explore keeps
+   * where they were, and only a cold arrival is framed by the URL.
+   */
+  const zParam = typeof params.z === "string" ? Number(params.z) : NaN;
+  const initialZoomOverride =
+    Number.isFinite(zParam) ? Math.min(16, Math.max(4, zParam)) : null;
+
   // ── The spot the URL asked for, which outranks the city ──────────────────
   //
   // `?spot` is the more specific frame — an "open in map" from a spot page, a
@@ -268,6 +283,7 @@ export default async function ExplorePage({
         bbox={COVERED_BBOX_ALL}
         initialCitySlug={framedCity}
         initialSpot={spotCoords}
+        initialZoomOverride={initialZoomOverride}
         initialForecast={initialForecast}
         initialForecastBbox={initialBbox}
         ad={
