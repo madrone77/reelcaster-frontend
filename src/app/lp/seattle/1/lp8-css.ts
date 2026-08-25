@@ -190,7 +190,7 @@ export const LP8_CSS = `
 /* marks */
 .l8 .marks{display:grid;grid-template-columns:1fr;gap:0 clamp(24px,4vw,56px)}
 @media(min-width:720px){.l8 .marks{grid-template-columns:1fr 1fr}}
-.l8 .mrow{display:grid;grid-template-columns:1fr 64px 30px;gap:12px;align-items:center;padding:11px 0;border-bottom:1px solid var(--l8-rule)}
+.l8 .mrow{text-decoration:none;color:inherit;display:grid;grid-template-columns:1fr 64px 30px;gap:12px;align-items:center;padding:11px 0;border-bottom:1px solid var(--l8-rule)}
 .l8 .mn{font-size:14px;font-weight:500;color:var(--l8-ink-soft);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .l8 .mb{height:6px;background:var(--l8-surface);border-radius:999px;overflow:hidden}
 .l8 .mb i{display:block;height:100%;background:var(--l8-good);border-radius:999px;opacity:.5}
@@ -198,6 +198,23 @@ export const LP8_CSS = `
 .l8 .mrow.top .mn{color:var(--l8-ink);font-weight:600}
 .l8 .mrow.top .mb i{opacity:1}
 .l8 .mrow.top .mv{color:var(--l8-good-ink)}
+
+/* A mark row is a link now, so it needs a hover and a focus ring. The row is
+   the target rather than the name alone: a 14px name is a small tap area on a
+   phone, and the score beside it is part of the same thought. */
+.l8 .mrow{border-radius:6px;transition:background .12s ease;margin-inline:-8px;padding-inline:8px}
+.l8 .mrow:hover{background:var(--l8-surface)}
+.l8 .mrow:hover .mn{color:var(--l8-brand)}
+.l8 .mrow:focus-visible{outline:2px solid var(--l8-brand);outline-offset:1px}
+
+.l8 .mapcta{
+  display:inline-flex;align-items:center;gap:9px;margin-top:28px;
+  background:var(--l8-brand);color:#fff;text-decoration:none;
+  font-size:16px;font-weight:600;padding:13px 22px;border-radius:10px;
+  transition:background .15s ease;
+}
+.l8 .mapcta:hover{background:var(--l8-brand-hover)}
+.l8 .mapcta:focus-visible{outline:2px solid var(--l8-brand);outline-offset:3px}
 
 /* replaces */
 .l8 .chips{display:flex;flex-wrap:wrap;gap:9px;margin-top:8px}

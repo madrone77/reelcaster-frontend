@@ -413,21 +413,38 @@ export default async function Lp8CityPage({
               We scored all {proof.marks.length} so you can skip{" "}
               {proof.marks.length - 1}.
             </h2>
+            {/* Every row deep-links to the spot's own page.
+                A reader who has scrolled this far has stopped being sold to
+                and started shopping, and the anon spot page is the product's
+                own free tier: two days of hourly scores, no account. Sending
+                them to a signup wall instead would waste the one moment they
+                asked to see more. */}
             <div className="marks">
               {proof.marks.map((m) => (
-                <div className={`mrow${m.name === hero.name ? " top" : ""}`} key={m.name}>
-                  <div className="mn">{m.name}</div>
-                  <div className="mb">
+                <a
+                  className={`mrow${m.name === hero.name ? " top" : ""}`}
+                  key={m.slug}
+                  href={`/explore/spot/${m.slug}`}
+                >
+                  <span className="mn">{m.name}</span>
+                  <span className="mb">
                     <i
                       style={{
                         width: `${Math.max(8, Math.min(100, ((m.score - 60) / 35) * 100))}%`,
                       }}
                     />
-                  </div>
-                  <div className="mv">{m.score}</div>
-                </div>
+                  </span>
+                  <span className="mv">{m.score}</span>
+                </a>
               ))}
             </div>
+
+            <a className="mapcta" href="/explore?loc=seattle-wa">
+              Explore Seattle Map
+              <svg width="15" height="15" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+                <path d="M3 8h9M8.5 4l4 4-4 4" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+            </a>
           </div>
         </section>
       ) : null}
