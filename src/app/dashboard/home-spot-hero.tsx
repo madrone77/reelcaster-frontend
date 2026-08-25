@@ -28,14 +28,16 @@ import {
 // --rc-good / --rc-fair / --rc-poor values the pins, the bars and the score
 // ticker use, and the ticker already runs them straight onto navy — so a dark
 // surface is no reason to invent a second palette, which is what the lighter
-// greens here used to be. Cuts are the system's: 75 / 55.
+// greens here used to be. Cuts are the system's v2 bands: 85 / 60 / 40.
 const TIER = {
+  prime: { line: "var(--rc-prime)", pill: TIER_PILL.prime },
   good: { line: "var(--rc-good)", pill: TIER_PILL.good },
   fair: { line: "var(--rc-fair)", pill: TIER_PILL.fair },
   poor: { line: "var(--rc-poor)", pill: TIER_PILL.poor },
 } as const;
 type Tier = keyof typeof TIER;
-const tierOf = (s: number): Tier => (s >= 75 ? "good" : s >= 55 ? "fair" : "poor");
+const tierOf = (s: number): Tier =>
+  s >= 85 ? "prime" : s >= 60 ? "good" : s >= 40 ? "fair" : "poor";
 
 function seaState(waveM: number | null | undefined): string | null {
   if (typeof waveM !== "number") return null;

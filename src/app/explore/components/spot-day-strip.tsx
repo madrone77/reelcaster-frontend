@@ -11,6 +11,7 @@ import type { SpotsOutlook14dPayload } from "@/lib/bluecaster";
  * contrast floor on a white cell.
  */
 const TIER_NUMERAL: Record<Tier, string> = {
+  prime: "text-rc-prime",
   good: "text-rc-good",
   fair: "text-rc-fair-ink",
   poor: "text-rc-poor",
@@ -19,6 +20,7 @@ const TIER_NUMERAL: Record<Tier, string> = {
 
 /** Cell fill, one step up from the numeral — a wash, not a block of color. */
 const TIER_FILL: Record<Tier, string> = {
+  prime: "bg-rc-prime-bg",
   good: "bg-rc-good-bg",
   fair: "bg-rc-fair-bg",
   poor: "bg-rc-poor-bg",
@@ -27,6 +29,7 @@ const TIER_FILL: Record<Tier, string> = {
 
 /** Bar color for the compact density, where there's no room for a numeral. */
 const TIER_BAR: Record<Tier, string> = {
+  prime: "bg-rc-prime",
   good: "bg-rc-good",
   fair: "bg-rc-fair",
   poor: "bg-rc-poor",

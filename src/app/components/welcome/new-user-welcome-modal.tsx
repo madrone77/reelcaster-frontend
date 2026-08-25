@@ -62,12 +62,13 @@ const SCORE_EXAMPLES = [
   { value: 34, label: 'Sit it out' },
 ];
 
-type Tier = 'good' | 'fair' | 'poor';
+type Tier = 'prime' | 'good' | 'fair' | 'poor';
 
-/** The same cut points the map, the pins, and the spot pages use. */
+/** The same cut points the map, the pins, and the spot pages use (v2 bands). */
 function tierOf(value: number): Tier {
-  if (value >= 75) return 'good';
-  if (value >= 55) return 'fair';
+  if (value >= 85) return 'prime';
+  if (value >= 60) return 'good';
+  if (value >= 40) return 'fair';
   return 'poor';
 }
 
@@ -104,6 +105,7 @@ const MAKE_IT_YOURS = [
 
 /** Pill treatment: tinted background, matching darker ink. */
 const PILL: Record<Tier, string> = {
+  prime: 'bg-rc-prime-bg text-rc-prime-ink border-rc-good-border',
   good: 'bg-rc-good-bg text-rc-good-ink border-rc-good-border',
   fair: 'bg-rc-fair-bg text-rc-fair-ink border-rc-fair-border',
   poor: 'bg-rc-poor-bg text-rc-poor-ink border-rc-poor/25',
@@ -111,12 +113,14 @@ const PILL: Record<Tier, string> = {
 
 /** Bar treatment: the solid tier fill, same as a score pin on the map. */
 const BAR: Record<Tier, string> = {
+  prime: 'bg-rc-prime',
   good: 'bg-rc-good',
   fair: 'bg-rc-fair',
   poor: 'bg-rc-poor',
 };
 
 const BAR_INK: Record<Tier, string> = {
+  prime: 'text-rc-prime',
   good: 'text-rc-good',
   fair: 'text-rc-fair',
   poor: 'text-rc-poor',

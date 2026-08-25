@@ -1,7 +1,7 @@
 import type { MapSpot } from "@/app/(marketing)/components/marketing-map";
 import type { SpeciesOption } from "@/app/explore/lib/explore-data";
 
-export type LpTier = "good" | "fair" | "poor" | "none";
+export type LpTier = "prime" | "good" | "fair" | "poor" | "none";
 
 /** One cell of the 14-day strip. Weather glyphs are intentionally absent in v1
  *  — the outlook payload carries scores, not per-day weather. */

@@ -11,6 +11,7 @@ const num = (v: number | null | undefined) =>
 // Score-numeral color for the live hour reading — fair drops to its -ink
 // variant so it clears the contrast floor at 26px on a white cell.
 const NUMERAL: Record<Tier, string> = {
+  prime: "text-rc-prime",
   good: "text-rc-good",
   fair: "text-rc-fair-ink",
   poor: "text-rc-poor",
@@ -19,15 +20,17 @@ const NUMERAL: Record<Tier, string> = {
 
 // Lane segment soft-tint fills + the 2px tier cap that gives the day its shape.
 const SEG_BG: Record<Tier, string> = {
+  prime: "bg-rc-prime-bg",
   good: "bg-rc-good-bg",
   fair: "bg-rc-fair-bg",
   poor: "bg-rc-poor-bg",
   none: "bg-rc-surface",
 };
 const SEG_CAP: Record<Tier, string> = {
-  good: "#16A34A",
-  fair: "#D78711",
-  poor: "#DC2626",
+  prime: "#1B6B41",
+  good: "#3D8B4F",
+  fair: "#C97A1C",
+  poor: "#B23A2F",
   none: "#CBD5E1",
 };
 
