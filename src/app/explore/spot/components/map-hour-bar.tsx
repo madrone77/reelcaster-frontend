@@ -2,6 +2,7 @@
 
 import { useCallback, useMemo, useRef } from "react";
 import type { SunHours } from "@/lib/bluecaster/live-spot-types";
+import { haptic } from "@/lib/haptics";
 import type { FlowKind } from "../../lib/use-flow";
 import { useUnitPreferences } from "@/contexts/unit-preferences-context";
 import { convertWind, formatWind } from "@/app/utils/unit-conversions";
@@ -196,7 +197,7 @@ export default function MapHourBar({
         h !== lastHourRef.current &&
         e.pointerType !== "mouse"
       ) {
-        try { navigator.vibrate?.(8); } catch {}
+        haptic();
       }
       lastHourRef.current = h;
       if (h !== hour) onSelectHour(h);
