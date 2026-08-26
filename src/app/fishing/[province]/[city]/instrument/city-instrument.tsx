@@ -353,7 +353,7 @@ export default function CityInstrument({
     setScrubbed(true);
     setSelectedHour(hour);
   }, []);
-  // No "Back to now" control here, unlike the spot page.
+  // No "Back to now" control here.
   //
   // A picked hour stays picked until the page is reloaded, and that is the
   // right trade on this page: the reader is on it for a couple of minutes, so
