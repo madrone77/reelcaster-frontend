@@ -534,25 +534,44 @@ function buildSvg(
   //
   // The drop test is in PIXELS, not hours. A fixed 0.8h window doesn't know how
   // wide the label it's protecting is, and hour cells shrink with the viewport:
-  // at 375px "6p" and "☀8:37p" clear each other by 8px, but at 320px the same
-  // 2.6h separation is only ~2px and they touch. Measure the two half-widths
-  // instead (mono, ~0.6em/char) and keep 5px of air. The widths are the worst
-  // case each label reaches on a 12-hour clock: "☀12:37p" is 7 glyphs, "12a"
-  // is 3.
+  // at 375px "6p" and an 8:37p sun label clear each other by 8px, but at 320px
+  // the same 2.6h separation is only ~2px and they touch. Measure the two
+  // half-widths instead (mono, ~0.6em/char) and keep 5px of air.
+  //
+  // ⚠ SUN_GLYPHS is the worst case the sun label reaches, and it has to be
+  // updated with the label. It read 7 for "☀12:37p"; spelling the event out
+  // ("12:37am sunrise") makes the worst case 15, which is more than twice as
+  // wide and therefore drops roughly twice as many hour ticks around dawn and
+  // dusk. That is the intended trade: a reader who cannot tell what the orange
+  // mark means gets nothing from a 3a tick beside it.
+  const SUN_GLYPHS = 15;
+  const HOUR_GLYPHS = 3; // "12a"
   const sunTimes = [sun.sunrise, sun.sunset];
   const sunFS = mob ? 10 : 11;
-  const minSep = (sunFS * 0.6 * 7) / 2 + (sunFS * 0.6 * 3) / 2 + 5;
+  const minSep =
+    (sunFS * 0.6 * SUN_GLYPHS) / 2 + (sunFS * 0.6 * HOUR_GLYPHS) / 2 + 5;
   for (let a = 0; a <= 24; a += mob ? 6 : 3) {
     if (sunTimes.some((t) => Math.abs(xAt(t) - xAt(a)) < minSep)) continue;
     s += `<text class="tm-ax" x="${xAt(a).toFixed(1)}" y="${axisY + 12}" text-anchor="middle">${formatHourCompact(a)}</text>`;
   }
-  // sunrise / sunset — glyph + time, on both variants. This is the mark the
-  // night shading's edge now lands on, so it has to be legible: mobile drew a
-  // bare 8px ☀ with no time, which read as a stray orange dot rather than the
-  // boundary the texture stops at. The label fits — even at a 320px viewport
-  // it clears the neighbouring noon hour label by ~40px.
-  [sun.sunrise, sun.sunset].forEach((t) => {
-    s += `<text x="${xAt(t).toFixed(1)}" y="${axisY + 12}" text-anchor="middle" style="font-size:${sunFS}px;fill:${C.r[2]};font-family:var(--rc-font-mono)">☀${hhTight(t)}</text>`;
+  // sunrise / sunset — time then the event, named. This is the mark the night
+  // shading's edge lands on, so it has to be legible AND self-explanatory: a
+  // ☀ glyph beside a time says "something solar happens here" and leaves the
+  // reader to work out which end of the day they are looking at. Two orange
+  // marks on one axis, one at each end, is exactly the case where the glyph
+  // carries the least and the word carries the most.
+  //
+  // The times keep the compact 12-hour form ("6:24am", not "6:24 AM") because
+  // the word is already paying for the width. See SUN_GLYPHS above: widening
+  // this label costs hour ticks either side of it.
+  [
+    [sun.sunrise, "sunrise"],
+    [sun.sunset, "sunset"],
+  ].forEach(([t, event]) => {
+    const time = formatFractionalHour12(t as number)
+      .toLowerCase()
+      .replace(" ", "");
+    s += `<text x="${xAt(t as number).toFixed(1)}" y="${axisY + 12}" text-anchor="middle" style="font-size:${sunFS}px;fill:${C.r[2]};font-family:var(--rc-font-mono)">${time} ${event}</text>`;
   });
 
   // WEATHER — one icon per hour-axis tick, showing the dominant condition over
