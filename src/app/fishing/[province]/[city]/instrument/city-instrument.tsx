@@ -84,6 +84,36 @@ export interface FeaturedFeed {
   rightNow: RightNowSnapshot | null;
 }
 
+const WEEKDAY_LONG: Record<string, string> = {
+  Mon: "Monday",
+  Tue: "Tuesday",
+  Wed: "Wednesday",
+  Thu: "Thursday",
+  Fri: "Friday",
+  Sat: "Saturday",
+  Sun: "Sunday",
+};
+
+/**
+ * "Thu" → "Thursday", for a heading that is prose rather than a data cell.
+ *
+ * The day CELLS keep the short form: they are 54px wide and read as a strip of
+ * dates. A sentence does not, and "Hour by hour on Thu" reads like a cell that
+ * escaped into the copy.
+ *
+ * A lookup, not date arithmetic. `ForecastDay.iso` is a calendar date in the
+ * CITY's timezone, and `new Date("2026-08-27")` parses as UTC midnight — so
+ * formatting it in the viewer's own zone names the day BEFORE for anyone west
+ * of UTC, which is every reader this page has. The payload already resolved
+ * the weekday in the right zone; this only spells it out.
+ *
+ * Falls back to what it was given, so an unexpected value renders short rather
+ * than blank.
+ */
+function weekdayLong(dow: string): string {
+  return WEEKDAY_LONG[dow] ?? dow;
+}
+
 export default function CityInstrument({
   citySlug,
   cityName,
@@ -453,7 +483,7 @@ export default function CityInstrument({
         <Section
           title={
             activeDay && !isToday
-              ? `Hour by hour on ${activeDay.dow} at ${featured.name}`
+              ? `Hour by hour on ${weekdayLong(activeDay.dow)} at ${featured.name}`
               : `Hour by hour today at ${featured.name}`
           }
           aside={tzAbbrev ? `All times ${tzAbbrev}` : undefined}
