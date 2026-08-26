@@ -53,6 +53,7 @@ import type {
   SunHours,
 } from "@/lib/bluecaster/live-spot-types";
 import type { RankedSpot } from "./featured";
+import Section from "./section";
 import CitySpotMap from "./city-spot-map";
 import CityTopSpots from "./city-top-spots";
 
@@ -349,26 +350,27 @@ export default function CityInstrument({
           is what the ad promised and what the account unlocks, so it leads;
           the twelve locked tiles are not an afterthought on this page, they
           are the offer. */}
-      <section className="rounded border border-rc-rule bg-rc-panel px-4 py-5 lg:px-6 lg:py-6">
-        <div className="flex items-baseline justify-between gap-3 mb-1">
-          <h2 className="rc-label text-[10px] text-rc-ink">
-            14-Day Forecast · {cityName}
-          </h2>
-          <span className="font-rc-mono text-[10px] text-rc-ink-mute italic shrink-0 hidden sm:inline">
-            Data from: ECMWF + GFS + BlueCaster
-          </span>
-        </div>
-        <p className="font-rc-mono text-[11px] text-rc-ink-soft mb-4">
-          {/* The honest description of what this row is: the best score any
-              mark on the roster reaches that day, not a city average and not
-              one spot's fortnight. */}
-          Best score across {rosterCount}{" "}
-          {rosterCount === 1 ? "mark" : "marks"} each day
-          {stripModel?.bestDay
-            ? ` · best so far ${stripModel.bestDay.dow} ${stripModel.bestDay.date}`
-            : ""}
-        </p>
-
+      <Section
+        title={`The next 14 days in ${cityName}`}
+        aside="Data from: ECMWF + GFS + BlueCaster"
+        how={
+          <>
+            {/* Says what the row IS (best across the roster, not an average and
+                not one spot's fortnight), what the number means, and what to
+                do with it. A stranger has to be able to use this. */}
+            Each box is one day. The big number is the best score any of the{" "}
+            {rosterCount} {rosterCount === 1 ? "spot" : "spots"} we cover in{" "}
+            {cityName} reaches that day, out of 100. Higher is better, and the
+            colour says the same thing: green is good, amber is fair, red is
+            slow. Tap a day to load its hours into the chart below.{" "}
+            {stripModel?.bestDay
+              ? `The best day you can see right now is ${stripModel.bestDay.dow} ${stripModel.bestDay.date}. `
+              : ""}
+            The locked days are the rest of the fortnight; a free account opens
+            the first week and Pro opens all 14.
+          </>
+        }
+      >
         <div className="relative">
           {/* pt-2 keeps the BEST badge, which sits at -top-1.5, inside the
               box that overflow-x-auto would otherwise clip. */}
@@ -410,52 +412,59 @@ export default function CityInstrument({
             <ChevronLeft className="w-4 h-4 text-rc-ink-mute" />
           </div>
         </div>
-      </section>
+      </Section>
 
       {/* ── 2 · The 24-hour chart, read at one named mark ─────────────────── */}
       {featured && (
-        <section className="rounded border border-rc-rule bg-rc-panel px-4 py-5 lg:px-6 lg:py-6">
-          <div className="flex flex-wrap items-end justify-between gap-x-4 gap-y-1">
-            <div className="min-w-0">
-              <h2 className="rc-label text-[10px] text-rc-ink">
-                24-Hour Conditions
-              </h2>
-              {/* Which water this is. The chart, the strip of numbers above it
-                  and this line all read the SAME row, so the page can never
-                  describe three different marks in one breath. */}
-              <p className="font-rc-mono text-[11px] text-rc-ink-soft mt-1">
-                Read at{" "}
-                <Link
-                  href={`/explore/spot/${featured.slug}`}
-                  className="text-rc-brand font-semibold hover:underline"
-                >
-                  {featured.name}
-                </Link>
-                {featured.speciesName ? ` · ${featured.speciesName}` : ""}
-                {activeDay && !isToday
-                  ? ` · ${activeDay.dow} ${activeDay.date}`
-                  : ""}
-                {tzAbbrev ? ` · all times ${tzAbbrev}` : ""}
-              </p>
+        <Section
+          title={
+            activeDay && !isToday
+              ? `Hour by hour on ${activeDay.dow} at ${featured.name}`
+              : `Hour by hour today at ${featured.name}`
+          }
+          aside={tzAbbrev ? `All times ${tzAbbrev}` : undefined}
+          how={
+            <>
+              {/* The one thing a reader cannot guess and will otherwise get
+                  wrong: this is not "Victoria's weather". A city has no wind.
+                  Naming the mark and saying WHY it was picked is the whole
+                  job of this sentence. */}
+              A city does not have its own tide or wind, so this chart is one
+              real spot:{" "}
+              <Link
+                href={`/explore/spot/${featured.slug}`}
+                className="text-rc-brand font-semibold hover:underline"
+              >
+                {featured.name}
+              </Link>
+              , the most fished mark in {cityName}
+              {featured.speciesName
+                ? `, scored for ${featured.speciesName}`
+                : ""}
+              . The top row is the score for each hour of the day. Everything
+              under it is what drives that score at the same hour: the tide,
+              the current, the wind, the sea, the air and the sky.{" "}
+              <span className="lg:hidden">
+                Tap or drag across the chart to read any hour.
+              </span>
+              <span className="hidden lg:inline">
+                Hover or drag across the chart to read any hour.
+              </span>{" "}
+              The row of boxes just above it always shows the hour you are on.
+            </>
+          }
+        >
+          {scrubbed && isToday && selectedHour !== nowHour && (
+            <div className="flex justify-end -mt-2 mb-2">
+              <button
+                type="button"
+                onClick={clearScrub}
+                className="rounded px-2 py-0.5 bg-rc-brand-soft text-rc-brand font-rc-mono text-[10px] font-semibold hover:bg-rc-brand-soft/70 transition-colors focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-rc-brand"
+              >
+                Back to now
+              </button>
             </div>
-            <div className="flex items-center gap-2">
-              <p className="font-rc-mono text-[10px] text-rc-ink-mute italic">
-                <span className="lg:hidden">Tap or drag to read any hour</span>
-                <span className="hidden lg:inline">
-                  Hover or drag to read any hour
-                </span>
-              </p>
-              {scrubbed && isToday && selectedHour !== nowHour && (
-                <button
-                  type="button"
-                  onClick={clearScrub}
-                  className="rounded px-2 py-0.5 bg-rc-brand-soft text-rc-brand font-rc-mono text-[10px] font-semibold hover:bg-rc-brand-soft/70 transition-colors focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-rc-brand"
-                >
-                  Back to now
-                </button>
-              )}
-            </div>
-          </div>
+          )}
 
           {/* Inset to the chart's band boxes so the strip's edges land on
               theirs. The terminal renders its SVG 1:1, so its gutters are
@@ -463,7 +472,7 @@ export default function CityInstrument({
               variant, and lg is exactly where the two SVGs swap. Measured on
               the spot page, not guessed — same numbers here because it is the
               same component. */}
-          <div className="mt-5 ml-[0.5px] mr-[10px] lg:ml-[6px] lg:mr-[20px]">
+          <div className="ml-[0.5px] mr-[10px] lg:ml-[6px] lg:mr-[20px]">
             <CurrentConditionsStrip
               rightNow={tilesSnapshot}
               score={hours24?.[selectedHour] ?? null}
@@ -486,22 +495,31 @@ export default function CityInstrument({
             onSelectHour={selectHour}
             bestWindow={win.window}
           />
-        </section>
+        </Section>
       )}
 
       {/* ── 3 · The marks people actually fish ───────────────────────────── */}
       <CityTopSpots rows={rows} cityName={cityName} />
 
       {/* ── 4 · All of them, on the water ────────────────────────────────── */}
-      <section>
-        <div className="flex items-baseline justify-between gap-3 mb-3">
-          <h2 className="rc-label text-[10px] text-rc-ink">
-            {cityName} on the water
-          </h2>
-          <span className="font-rc-mono text-[10px] text-rc-ink-mute italic shrink-0">
-            Bathymetry: NONNA-10 + NRCan
-          </span>
-        </div>
+      <Section
+        title={`Every spot we score in ${cityName}`}
+        aside="Bathymetry: NONNA-10 + NRCan"
+        how={
+          <>
+            {/* Two facts a stranger needs: the dot IS the score, and the map is
+                real depth rather than a decorative background. Then the one
+                interaction. */}
+            The seabed here is real depth data, not a picture. Each dot is a
+            fishing spot and the number inside it is that spot&apos;s best score
+            today, coloured the same way as the days above.{" "}
+            <span className="lg:hidden">Tap a dot</span>
+            <span className="hidden lg:inline">Hover a dot</span> to see its
+            name, how busy a mark it is, and the tide, sea and seabed at its
+            best hour. Click it to open the full page for that spot.
+          </>
+        }
+      >
         <CitySpotMap
           rows={rows}
           rosterCount={rosterCount}
@@ -509,7 +527,7 @@ export default function CityInstrument({
           cityLat={cityLat}
           cityLng={cityLng}
         />
-      </section>
+      </Section>
 
       <UpgradeDialog
         open={upgradeOpen}

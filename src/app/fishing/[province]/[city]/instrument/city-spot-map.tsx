@@ -290,7 +290,7 @@ export default function CitySpotMap({
             {hover.name}
           </div>
           {hover.recognition && (
-            <div className="rc-label text-[8px] text-rc-ink-soft mt-0.5">
+            <div className="text-[9px] font-semibold uppercase tracking-[0.08em] text-rc-ink-soft mt-0.5">
               {hover.recognition}
             </div>
           )}
@@ -317,15 +317,12 @@ export default function CitySpotMap({
       )}
 
       <div className="absolute top-3 left-3 rounded bg-rc-panel/90 px-2.5 py-1.5 pointer-events-none">
-        <div className="rc-label text-[8px] text-rc-ink-soft">
+        <div className="text-[10px] font-semibold uppercase tracking-[0.08em] text-rc-ink-soft">
           {rows.length < rosterCount
             ? `${rows.length} of ${rosterCount} marks scored today`
             : `${rows.length} ${rows.length === 1 ? "mark" : "marks"} · ${cityName}`}
         </div>
-        <div className="font-rc-mono text-[10px] text-rc-ink-mute italic">
-          <span className="lg:hidden">Tap a pin to open it</span>
-          <span className="hidden lg:inline">Hover a pin · click to open it</span>
-        </div>
+
       </div>
     </div>
   );

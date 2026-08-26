@@ -23,6 +23,7 @@ import { tierFor, type Tier } from "@/app/explore/lib/explore-data";
 import { formatHour12 } from "@/lib/time-format";
 import { bottomLabel, cellAt, chopLabel, phaseAt } from "../hub/hub-data";
 import { recognitionLabel, type RankedSpot } from "./featured";
+import Section from "./section";
 
 /** How many marks the list names. The map below it carries the rest. */
 const SHOWN = 6;
@@ -54,26 +55,24 @@ export default function CityTopSpots({
   if (!shown.length) return null;
 
   return (
-    <section className="rounded border border-rc-rule bg-rc-panel px-4 py-5 lg:px-6 lg:py-6">
-      <div className="flex items-baseline justify-between gap-3 mb-1">
-        <h2 className="rc-label text-[10px] text-rc-ink">
-          Top spots in {cityName}
-        </h2>
-        {rows.length > SHOWN && (
-          <span className="font-rc-mono text-[10px] text-rc-ink-mute italic shrink-0">
-            {rows.length - SHOWN} more on the map
-          </span>
-        )}
-      </div>
-      {/* Says what ordered the list, because the order is NOT the scores: the
-          column reads 86, 86, 83, 89, 87 on a normal Victoria day, and a reader
-          comparing those numbers down the page would otherwise conclude the
-          sort was broken. */}
-      <p className="font-rc-mono text-[11px] text-rc-ink-soft mb-4">
-        Ordered by how much each mark is actually fished, not by score. The
-        number is today&apos;s peak.
-      </p>
-
+    <Section
+      title={`The spots people actually fish in ${cityName}`}
+      aside={rows.length > SHOWN ? `${rows.length - SHOWN} more on the map` : undefined}
+      how={
+        <>
+          {/* Has to say what ordered the list, because the order is NOT the
+              scores: the column reads 86, 86, 83, 89, 87 on a normal Victoria
+              day, and a reader comparing those numbers down the page would
+              otherwise conclude the sort was broken. */}
+          These are in order of how much each spot gets fished, worked out from
+          catch reports over the past year. That is why the numbers do not count
+          down the page: the number beside each name is the best score that spot
+          reaches today, and the order is a separate thing. &quot;Regularly
+          fished&quot; means roughly a report a month or more. Click any name to
+          open its full page.
+        </>
+      }
+    >
       <ul className="divide-y divide-rc-rule border-t border-rc-rule">
         {shown.map((row) => {
           const { spot, entry } = row;
@@ -122,6 +121,6 @@ export default function CityTopSpots({
           );
         })}
       </ul>
-    </section>
+    </Section>
   );
 }
