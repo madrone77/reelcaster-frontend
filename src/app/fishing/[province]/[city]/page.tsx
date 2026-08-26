@@ -211,20 +211,35 @@ export default async function CityPage({
       ? {
           slug: featured.spot.slug,
           name: featured.spot.name,
+          speciesId: featured.speciesId,
           speciesName:
             featuredPage.species.find((sp) => sp.id === featured.speciesId)
               ?.name ?? null,
           lat: featured.spot.lat,
           lng: featured.spot.lng,
-          scoreGrid:
+          /**
+           * Sliced to the ANONYMOUS horizon, because this route is
+           * prerendered: whatever is in here is served to every visitor, and
+           * days past that horizon are not an anonymous reader's to have. The
+           * client widens both from the entitlement-gated per-spot proxy.
+           *
+           * It costs nothing to render: an anonymous reader can only SELECT
+           * the unlocked days anyway, so days 2..13 would have been carried in
+           * the HTML and never drawn.
+           */
+          scoreGrid: (
             featuredPage.hourlyScoreGrid[featured.speciesId] ??
             // The city payload and the spot payload are scored independently,
             // so a species that leads the mark on one can be missing from the
             // other after a re-bake. Fall back to whatever grid that spot does
             // have rather than drawing an empty chart.
             Object.values(featuredPage.hourlyScoreGrid)[0] ??
-            [],
-          conditionsGrid: featuredPage.hourlyConditionsGrid ?? [],
+            []
+          ).slice(0, ANON_FORECAST_DAYS),
+          conditionsGrid: (featuredPage.hourlyConditionsGrid ?? []).slice(
+            0,
+            ANON_FORECAST_DAYS,
+          ),
           isos: (featuredPage.daily14 ?? []).map((d) => d.iso),
           sun: featuredPage.sun,
           rightNow: featuredPage.rightNow,

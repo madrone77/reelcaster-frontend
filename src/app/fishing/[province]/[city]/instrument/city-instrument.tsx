@@ -44,11 +44,13 @@ import {
 } from "@/app/explore/lib/forecast-strip";
 import {
   fetchCurrentsPoint,
+  fetchForecast14d,
   fetchMapForecast14d,
   type CurrentSample,
 } from "@/lib/bluecaster-client";
 import type { MapForecast14dPayload } from "@/lib/bluecaster";
 import type {
+  Forecast14dPayload,
   HourlyConditions,
   RightNowSnapshot,
   SunHours,
@@ -57,6 +59,7 @@ import type { RankedSpot } from "./featured";
 import Section from "./section";
 import CitySpotMap from "./city-spot-map";
 import CityTopSpots from "./city-top-spots";
+import CustomSpots from "./custom-spots";
 
 /**
  * The same paywall /explore and the spot page open, loaded on the tap that
@@ -90,13 +93,21 @@ const ProTrialModal = dynamic(
 export interface FeaturedFeed {
   slug: string;
   name: string;
-  /** Species the chart is drawn for — the mark's best today. */
+  /** Species the chart is drawn for. Carried as well as named, because the
+   *  refetched 14-day grid below is keyed by id. */
+  speciesId: string;
   speciesName: string | null;
   lat: number;
   lng: number;
-  /** 14 × 24 scores for that species, 0–100. */
+  /**
+   * Hourly scores for that species, 0–100, and the conditions beside them.
+   *
+   * Only the ANONYMOUS horizon: this route is prerendered, so whatever is in
+   * here is served to everyone, and days past that horizon are not the
+   * anonymous reader's to have. The client widens both from the entitlement-
+   * gated proxy below.
+   */
   scoreGrid: (number | null)[][];
-  /** 14 × 24 conditions. */
   conditionsGrid: HourlyConditions[][];
   /** ISO date per grid row, so a strip day can find its row. */
   isos: string[];
@@ -278,6 +289,40 @@ export default function CityInstrument({
   }, [stripModel]);
 
   // ── 24-hour chart, read at the featured mark ──────────────────────────
+  //
+  // The spot-page payload the server sliced this from carries ONE day of
+  // conditions — that is its documented shape, not a bug — so day 2 drew a
+  // full score row above five empty instrument rows. The spot page solves
+  // this by lazy-fetching the spot's own 14-day grid and preferring it; so
+  // does this. The proxy strips scores AND conditions past the caller's
+  // horizon, so an anonymous reader gets exactly the two days they can select.
+  const [fc, setFc] = useState<Forecast14dPayload | null>(null);
+  useEffect(() => {
+    if (!featured) return;
+    let cancelled = false;
+    fetchForecast14d(featured.slug)
+      .then((d) => {
+        if (!cancelled) setFc(d);
+      })
+      // Leaves the server's day-0 grid on screen. Fewer days than this reader
+      // is owed, never more, and day 1 stays whatever the strip says it is.
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [featured]);
+
+  /** The deeper grid once it lands, the server's day-0 slice until then. */
+  const grids = useMemo(() => {
+    const scores =
+      fc?.hourlyScoreGrid?.[featured?.speciesId ?? ""] ??
+      featured?.scoreGrid ??
+      [];
+    const conditions =
+      fc?.hourlyConditionsGrid ?? featured?.conditionsGrid ?? [];
+    return { scores, conditions };
+  }, [fc, featured]);
+
   const [selectedHour, setSelectedHour] = useState<number>(() => nowHour);
   const [scrubbed, setScrubbed] = useState(false);
   useEffect(() => {
@@ -301,8 +346,8 @@ export default function CityInstrument({
   // an explicit button rather than a leave handler.
 
   const hours24 = useMemo(
-    () => featured?.scoreGrid?.[dayIndex] ?? new Array(24).fill(null),
-    [featured, dayIndex],
+    () => grids.scores[dayIndex] ?? new Array(24).fill(null),
+    [grids, dayIndex],
   );
 
   // Memoized so the tuple keeps its identity across renders: it feeds the
@@ -311,7 +356,7 @@ export default function CityInstrument({
   const win = useMemo(() => bestWindow(hours24 ?? []), [hours24]);
 
   const terminalHours = useMemo(() => {
-    const g = featured?.conditionsGrid?.[dayIndex] ?? [];
+    const g = grids.conditions[dayIndex] ?? [];
     const pick = (
       key:
         | "tideM"
@@ -348,14 +393,14 @@ export default function CityInstrument({
       precip: pick("precipMm"),
       air: pick("airTempC"),
     };
-  }, [featured, dayIndex, hours24]);
+  }, [grids, dayIndex, hours24]);
 
   // Tide scale fixed across every forecast day, so flipping days moves the
   // curve rather than re-fitting the axis under it.
   const tideRange = useMemo(() => {
     let min = Infinity;
     let max = -Infinity;
-    for (const day of featured?.conditionsGrid ?? []) {
+    for (const day of grids.conditions) {
       for (const h of day ?? []) {
         const t = h?.tideM;
         if (typeof t === "number" && Number.isFinite(t)) {
@@ -365,7 +410,7 @@ export default function CityInstrument({
       }
     }
     return min <= max ? { min, max } : null;
-  }, [featured]);
+  }, [grids]);
 
   // Real predicted current at the featured mark, for the day on screen.
   // Fetched after mount and never blocking: without it the chart draws its
@@ -401,8 +446,8 @@ export default function CityInstrument({
   }, [curByIso, activeIso, terminalHours.tide]);
 
   const condCell =
-    featured?.conditionsGrid?.[dayIndex]?.[selectedHour] ??
-    featured?.conditionsGrid?.[0]?.[selectedHour] ??
+    grids.conditions[dayIndex]?.[selectedHour] ??
+    grids.conditions[0]?.[selectedHour] ??
     null;
   const tilesSnapshot: RightNowSnapshot | null = condCell
     ? { ...condCell, hourLocal: "" }
@@ -647,6 +692,11 @@ export default function CityInstrument({
       >
         <CitySpotMap rows={rows} cityLat={cityLat} cityLng={cityLng} />
       </Section>
+
+      {/* Placed directly under the map, because the map is what raises the
+          question it answers: a reader who has just scrolled every mark we
+          cover is wondering about the one we don't. */}
+      <CustomSpots cityName={cityName} citySlug={citySlug} />
 
       {/* `from` names the wall AND the city, matching what ProGate already
           writes for the banner below the map (`city-<slug>`, `city-<slug>-map`).
