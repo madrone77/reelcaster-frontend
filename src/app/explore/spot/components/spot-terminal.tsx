@@ -361,7 +361,10 @@ function buildSvg(
   let cy = top;
   rows.forEach((r) => { r.y0 = cy; r.y1 = cy + r.h; Y[r.k] = { y0: r.y0, y1: r.y1 }; cy += r.h + (r.k === "wind" ? 2 : gap); });
   const axisY = cy + 2;
-  const H = axisY + (mob ? 20 : 24);
+  // Room under the axis for TWO lines, because the sun marks stack their time
+  // over the event ("6:24am" / "sunrise"). One line of hour ticks needs 20/24;
+  // the second line's baseline sits ~11px lower and wants ~4px of descender.
+  const H = axisY + (mob ? 31 : 34);
   // The bordered groups, top to bottom. Each spans its rows plus PAD.
   const bands = ([["score"], ["tide"], ["cur"], ["wind", "arrow"], ["sea"], ["air"], ["wx"]] as string[][]).map(
     (ks) => ({ k: ks[0], y0: Y[ks[0]].y0 - PAD, y1: Y[ks[ks.length - 1]].y1 + PAD }),
@@ -539,12 +542,12 @@ function buildSvg(
   // half-widths instead (mono, ~0.6em/char) and keep 5px of air.
   //
   // ⚠ SUN_GLYPHS is the worst case the sun label reaches, and it has to be
-  // updated with the label. It read 7 for "☀12:37p"; spelling the event out
-  // ("12:37am sunrise") makes the worst case 15, which is more than twice as
-  // wide and therefore drops roughly twice as many hour ticks around dawn and
-  // dusk. That is the intended trade: a reader who cannot tell what the orange
-  // mark means gets nothing from a 3a tick beside it.
-  const SUN_GLYPHS = 15;
+  // updated with the label. Stacking the time over the event keeps it at 7 —
+  // the longer of "12:37am" and "sunrise" — which is what the old "☀12:37p"
+  // measured, so the hour ticks around dawn and dusk survive exactly as they
+  // did. Setting the two on ONE line would make it 15 and cost about half of
+  // them; that is the reason for the stack, not a preference about shape.
+  const SUN_GLYPHS = 7;
   const HOUR_GLYPHS = 3; // "12a"
   const sunTimes = [sun.sunrise, sun.sunset];
   const sunFS = mob ? 10 : 11;
@@ -554,24 +557,30 @@ function buildSvg(
     if (sunTimes.some((t) => Math.abs(xAt(t) - xAt(a)) < minSep)) continue;
     s += `<text class="tm-ax" x="${xAt(a).toFixed(1)}" y="${axisY + 12}" text-anchor="middle">${formatHourCompact(a)}</text>`;
   }
-  // sunrise / sunset — time then the event, named. This is the mark the night
-  // shading's edge lands on, so it has to be legible AND self-explanatory: a
-  // ☀ glyph beside a time says "something solar happens here" and leaves the
-  // reader to work out which end of the day they are looking at. Two orange
-  // marks on one axis, one at each end, is exactly the case where the glyph
-  // carries the least and the word carries the most.
+  // sunrise / sunset — the time, and under it the event, named. This is the
+  // mark the night shading's edge lands on, so it has to be legible AND
+  // self-explanatory: a ☀ glyph beside a time says "something solar happens
+  // here" and leaves the reader to work out which end of the day they are
+  // looking at. Two orange marks on one axis, one at each end, is exactly the
+  // case where the glyph carries least and the word carries most.
   //
-  // The times keep the compact 12-hour form ("6:24am", not "6:24 AM") because
-  // the word is already paying for the width. See SUN_GLYPHS above: widening
-  // this label costs hour ticks either side of it.
+  // Stacked rather than run together on one line, and that is a WIDTH
+  // decision: see SUN_GLYPHS. The stack is 7 glyphs wide, the same as the old
+  // glyph-and-time, so the hour ticks either side survive; one line would be
+  // 15 and clear about half of them.
+  //
+  // Times keep the compact 12-hour form ("6:24am", not "6:24 AM"). `x` is
+  // repeated on the second tspan because `text-anchor` centres each line
+  // independently and a tspan inherits the CURSOR, not the anchor x.
   [
     [sun.sunrise, "sunrise"],
     [sun.sunset, "sunset"],
   ].forEach(([t, event]) => {
+    const cx = xAt(t as number).toFixed(1);
     const time = formatFractionalHour12(t as number)
       .toLowerCase()
       .replace(" ", "");
-    s += `<text x="${xAt(t as number).toFixed(1)}" y="${axisY + 12}" text-anchor="middle" style="font-size:${sunFS}px;fill:${C.r[2]};font-family:var(--rc-font-mono)">${time} ${event}</text>`;
+    s += `<text x="${cx}" y="${axisY + 12}" text-anchor="middle" style="font-size:${sunFS}px;fill:${C.r[2]};font-family:var(--rc-font-mono)"><tspan x="${cx}">${time}</tspan><tspan x="${cx}" dy="${sunFS + 1}">${event}</tspan></text>`;
   });
 
   // WEATHER — one icon per hour-axis tick, showing the dominant condition over
