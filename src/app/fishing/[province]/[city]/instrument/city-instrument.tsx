@@ -21,6 +21,20 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { useAuth } from "@/contexts/auth-context";
+/**
+ * Campaign counting, imported from /lp because that is where it lives.
+ *
+ * Both calls read the PATH to decide whether there is anything to count,
+ * and `parseLpPath` yields an empty landing key for any path that is not
+ * /lp/<n>/<city>. So on this component's own route, /fishing/<prov>/<city>,
+ * they are inert: no request, no row. They wake up only under the ad frame
+ * at /lp/7/<city>, which renders this same component.
+ *
+ * Path-derived rather than a prop on purpose, matching the note in
+ * lp-telemetry: a future /lp/9 that reuses this component starts counting
+ * the day it exists, with no edit here.
+ */
+import { reportLpCta, useLpHit } from "@/app/lp/_shared/lp-telemetry";
 import { useSubscription } from "@/hooks/use-subscription";
 import { zoneAbbrev } from "@/app/explore/lib/explore-data";
 import { useSpotClock } from "@/app/explore/lib/use-spot-clock";
@@ -243,6 +257,9 @@ export default function CityInstrument({
     return i >= 0 ? i : 0;
   }, [featured, activeIso]);
 
+  // Counts this view once per tab when the ad frame is what rendered us.
+  useLpHit("");
+
   const [upgradeOpen, setUpgradeOpen] = useState(false);
   /**
    * Which wall the reader hit, which decides both what the modal SAYS and what
@@ -261,6 +278,10 @@ export default function CityInstrument({
     if (day.pending) return;
     if (day.locked) {
       setLockedTier(day.lockTier ?? "pro");
+      // The primary ask on this page: the reader reached for a day they cannot
+      // open. "hero" rather than a truer name because the CTA vocabulary is
+      // POSITION, and this is the ask the page is built around.
+      reportLpCta("hero", "");
       setUpgradeOpen(true);
       return;
     }
