@@ -122,13 +122,30 @@ function ensureIosSwitch(): HTMLLabelElement | null {
  *
  * Clicking a label focuses its control, which would quietly steal focus from
  * the chart's SVG mid-drag and kill its arrow-key scrubbing for anyone who
- * then reaches for the keyboard. So we put focus back where it was, in the
- * same tick, before anything can observe the difference.
+ * then reaches for the keyboard. So we get off the switch in the same tick,
+ * before anything can observe the difference.
+ *
+ * Getting off it is two steps, not one, and the second is the one that is easy
+ * to miss. Restoring the previous element only works when a real element held
+ * focus. A finger on a page nobody has tabbed through leaves `activeElement`
+ * as `<body>`, and `body.focus()` is a no-op in Chromium when body has no
+ * tabindex — it does not blur what is focused now. Focus would stay on the
+ * switch, which is `aria-hidden`: focus inside aria-hidden content is exactly
+ * what ARIA forbids, and it also means the next Tab starts from the end of the
+ * document instead of from the chart. So blur unconditionally first, and treat
+ * restoring as the optional half.
  */
 function iosTick(label: HTMLLabelElement) {
   const previouslyFocused = document.activeElement as HTMLElement | null;
   label.click();
-  if (document.activeElement === iosSwitch && previouslyFocused?.focus) {
+  if (document.activeElement !== iosSwitch) return;
+  iosSwitch?.blur();
+  if (
+    previouslyFocused &&
+    previouslyFocused !== document.body &&
+    previouslyFocused.isConnected &&
+    typeof previouslyFocused.focus === "function"
+  ) {
     previouslyFocused.focus({ preventScroll: true });
   }
 }
