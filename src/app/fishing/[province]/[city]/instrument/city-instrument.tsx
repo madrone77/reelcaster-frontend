@@ -226,10 +226,18 @@ export default function CityInstrument({
     setScrubbed(true);
     setSelectedHour(hour);
   }, []);
-  const clearScrub = useCallback(() => {
-    setScrubbed(false);
-    setSelectedHour(nowHour);
-  }, [nowHour]);
+  // No "Back to now" control here, unlike the spot page.
+  //
+  // A picked hour stays picked until the page is reloaded, and that is the
+  // right trade on this page: the reader is on it for a couple of minutes, so
+  // the only thing the button could undo is the minute ticker moving the hour
+  // out from under them, which it no longer does once they have scrubbed.
+  //
+  // ⚠ Do NOT reach for the obvious alternative and clear the scrub on pointer
+  // leave. The chart's readout sits directly ABOVE the chart, so moving up to
+  // read the numbers you just scrubbed to takes the pointer out of it and
+  // would reset the hour on the way. That exact bug is why the spot page has
+  // an explicit button rather than a leave handler.
 
   const hours24 = useMemo(
     () => featured?.scoreGrid?.[dayIndex] ?? new Array(24).fill(null),
@@ -496,18 +504,6 @@ export default function CityInstrument({
             },
           ]}
         >
-          {scrubbed && isToday && selectedHour !== nowHour && (
-            <div className="flex justify-end -mt-2 mb-2">
-              <button
-                type="button"
-                onClick={clearScrub}
-                className="rounded px-2 py-0.5 bg-rc-brand-soft text-rc-brand font-rc-mono text-[10px] font-semibold hover:bg-rc-brand-soft/70 transition-colors focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-rc-brand"
-              >
-                Back to now
-              </button>
-            </div>
-          )}
-
           {/* Inset to the chart's band boxes so the strip's edges land on
               theirs. The terminal renders its SVG 1:1, so its gutters are
               constant CSS px: 6px/20px on desktop, 0.5px/10px on the mobile

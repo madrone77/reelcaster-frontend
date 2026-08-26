@@ -181,6 +181,29 @@ export default function CitySpotMap({
     [bySlug],
   );
 
+  /**
+   * Collapse the attribution to its (i) button.
+   *
+   * MapLibre's `compact` attribution renders EXPANDED on first paint and only
+   * closes once something interacts with the map, so a visitor's first sight
+   * of this map is four lines of licence text over the water it is meant to be
+   * showing. That is fine on Explore, where somebody is already working the
+   * map; it is the wrong first impression on a page bought with an ad click.
+   *
+   * The control is a `<details>`, so dropping `open` collapses it and fires
+   * the toggle handler that clears MapLibre's own `-show` class. Clicking the
+   * (i) still opens it, which is what keeps the attribution honoured: it is
+   * one tap away, not removed.
+   */
+  const collapseAttribution = useCallback((container: HTMLElement) => {
+    const el = container.querySelector<HTMLDetailsElement>(
+      ".maplibregl-ctrl-attrib.maplibregl-compact",
+    );
+    if (!el) return;
+    el.removeAttribute("open");
+    el.classList.remove("maplibregl-compact-show");
+  }, []);
+
   const onClick = useCallback(
     (ev: MapLayerMouseEvent) => {
       const slug = ev.features?.[0]?.properties?.slug as string | undefined;
@@ -212,6 +235,7 @@ export default function CitySpotMap({
         onMouseLeave={() => setHover(null)}
         onClick={onClick}
         onLoad={(e) => {
+          collapseAttribution(e.target.getContainer());
           if (bounds) {
             e.target.fitBounds(bounds, {
               padding: { top: 56, bottom: 40, left: 40, right: 40 },

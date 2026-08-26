@@ -203,6 +203,58 @@ function extremes(arr: (number | null)[]): Extreme[] {
     if (c > p && c >= nx) raw.push({ i, v: c, hi: true });
     else if (c < p && c <= nx) raw.push({ i, v: c, hi: false });
   }
+
+  // ── Boundary extremes ─────────────────────────────────────────────────
+  //
+  // A turning point needs a neighbour on both sides, so the loop above can
+  // never see hour 0 or hour 23. That is usually right: the window is a
+  // 24-hour cut of a continuous curve, and a tide still climbing at midnight
+  // has its real peak outside the frame, which is not ours to name.
+  //
+  // It is wrong when the edge holds the highest or lowest water ON SCREEN.
+  // Victoria Waterfront on 2026-08-26 ran 8.3 ft at midnight down to 2.0 ft at
+  // 09:00 and back to 7.5 ft at 18:00, so the only interior high was the 7.5 —
+  // and the chart printed "H 7.5ft 6p" underneath a curve visibly drawn at 8.3
+  // above it. A high-water label that the picture contradicts is worse than no
+  // label, and a reader who notices stops trusting the other rows too.
+  //
+  // So an edge is admitted ONLY when it beats every interior turn: at most one
+  // high and one low, added exactly in the case that produced the
+  // contradiction. An edge that merely continues past a bigger interior peak
+  // still says nothing, because there the interior label is already the
+  // honest answer.
+  //
+  // The time is the edge's own hour, which is the moment the reader is looking
+  // at. It is not a claim about where the true peak sits outside the window,
+  // and no copy anywhere may upgrade it into one.
+  {
+    const first = num(arr[0]);
+    const last = num(arr[arr.length - 1]);
+    const edges: Array<{ i: number; v: number }> = [];
+    if (first != null) edges.push({ i: 0, v: first });
+    if (last != null) edges.push({ i: arr.length - 1, v: last });
+
+    for (const hi of [true, false]) {
+      const interior = raw.filter((e) => e.hi === hi);
+      // Best edge in this direction.
+      let best: { i: number; v: number } | null = null;
+      for (const e of edges) {
+        if (!best || (hi ? e.v > best.v : e.v < best.v)) best = e;
+      }
+      if (!best) continue;
+      // Only if it beats every interior turn of the same kind. A day with no
+      // interior turn of this kind is not a special case: `every` is true over
+      // an empty list, which is right — a monotonic day's extreme IS its edge.
+      const beatsAll = interior.every((e) => (hi ? best!.v > e.v : best!.v < e.v));
+      if (!beatsAll) continue;
+      // Never both kinds on the same edge: a single point cannot be the day's
+      // high and its low, and on a flat series it would qualify as each.
+      if (raw.some((e) => e.i === best!.i)) continue;
+      raw.push({ i: best.i, v: best.v, hi });
+    }
+    raw.sort((a, b) => a.i - b.i);
+  }
+
   if (raw.length < 2) return raw;
 
   const vals = arr.map(num).filter((v): v is number => v != null);
