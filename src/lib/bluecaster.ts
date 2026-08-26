@@ -342,6 +342,21 @@ export interface MapSpotEntry {
    * actually fish".
    */
   track_record?: "popular" | "known" | "sparse";
+  /**
+   * Where this mark sits by report volume among the spots in THIS response,
+   * 1-based, most fished first. Absent when the spot has no report in the
+   * trailing year. Ties share a number.
+   *
+   * The band alone cannot order its own members: seven Victoria marks are
+   * `popular`, and the busiest has twelve times the reports of the quietest.
+   *
+   * ⚠ An ORDINAL, never a count — it cannot be turned back into a report
+   * number, which is what keeps the Pro gate over those intact. It is also
+   * scoped to the request, so it only means anything within one payload:
+   * never store it, and never compare it across two calls made with different
+   * spot sets.
+   */
+  track_rank?: number;
   /** Scraped catch reports exist for this spot in the 21-day intel window.
    *  Presence only — the counts and the verdict are Pro-gated on
    *  /map/fresh-catches. Riding in this payload is what lets the reports badge
@@ -450,12 +465,26 @@ export interface MapForecast14dPayload {
   meta?: { spots: number };
 }
 
-/** Per-day best scores across every published spot in a bbox — the
- *  viewport-driven forecast strip re-fetches this as the map moves. */
+/**
+ * Per-day best scores across every published spot in a scope.
+ *
+ * Two callers, two scopes. The Explore map re-fetches by `bbox` as the
+ * viewport moves; a city page asks by `city`, because a city is a roster of
+ * marks rather than a rectangle — its member spots include shared ones that
+ * a box drawn around the city centre would miss, and a box tight enough to
+ * exclude the neighbouring city's water would miss them too. Upstream already
+ * accepts both and gives `city` precedence.
+ */
 export async function fetchMapForecast14d(
-  bbox: string,
+  scope: string | { bbox?: string; city?: string },
 ): Promise<MapForecast14dPayload | null> {
-  return bcGet<MapForecast14dPayload>("/api/v1/map/forecast-14d", { bbox }, 120);
+  // A bare string is the original bbox signature, kept so the Explore map's
+  // call sites do not have to change.
+  const query =
+    typeof scope === "string"
+      ? { bbox: scope }
+      : { bbox: scope.bbox, city: scope.city };
+  return bcGet<MapForecast14dPayload>("/api/v1/map/forecast-14d", query, 120);
 }
 
 // ── Per-spot 14-day outlook (map/spot-forecast-14d) ─────────────────

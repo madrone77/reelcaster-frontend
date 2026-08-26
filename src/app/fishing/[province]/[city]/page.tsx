@@ -1,4 +1,3 @@
-import { Suspense } from "react";
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import {
@@ -6,22 +5,26 @@ import {
   fetchCityPage,
   fetchCityToday,
   fetchHierarchy,
+  fetchMapForecast14d,
   fetchMapSpots,
+  fetchSpotLivePage,
 } from "@/lib/bluecaster";
 import { ANON_FORECAST_DAYS } from "@/lib/forecast-horizon";
-import { COVERED_PROVINCES } from "@/lib/regions";
+import { COVERED_PROVINCES, timezoneFor } from "@/lib/regions";
 import { breadcrumbJsonLd, siteUrl } from "@/lib/site";
 import { regulatorFor } from "@/lib/regions";
 import { buildExploreData } from "../../../explore/lib/explore-data";
 import { getFishingCity, getFishingProvince } from "../../lib/fishing-data";
-import CityShell from "./city-shell";
 import CityHeader from "./city-header";
 import CityLive from "./city-live";
 import { SpeciesCards } from "./species-cards";
-import CityHub from "./hub/city-hub";
-import KeepToday from "./hub/keep-today";
 import ProGate from "./hub/pro-gate";
-import { buildHubData, rankSpots } from "./hub/hub-data";
+import { buildHubData } from "./hub/hub-data";
+import CityInstrument, {
+  type FeaturedFeed,
+} from "./instrument/city-instrument";
+import { featuredSpot, rankByRecognition } from "./instrument/featured";
+import KeepToday from "./hub/keep-today";
 import { formatHour12 } from "@/lib/time-format";
 import {
   BeforeYouGo,
@@ -155,35 +158,97 @@ export default async function CityPage({
   const inCity = new Set((payload?.spots ?? []).map((s) => s.id));
   const spots = data.spots.filter((s) => inCity.has(s.id));
 
-  // The leaderboard's own view of the same payload the map draws from. See
+  // The instrument's own view of the same payload the map draws from. See
   // hub/hub-data.ts for why this is not derived from Explore's RailSpot.
-  const hub = buildHubData(payload, inCity);
+  //
+  // `"all"`, not the default pool: this page ORDERS every mark it draws rather
+  // than recommending a handful, and the map carries the full roster. Dropping
+  // unreported spots would have left Seattle's map showing sixteen marks under
+  // a list that admitted to three.
+  const hub = buildHubData(payload, inCity, "all");
+
+  // Best-known first — popularity leads, today's score breaks its ties. The
+  // mirror of the hub's old ranking, and the reason is in instrument/featured.ts:
+  // bought traffic reads the names before it reads the numbers.
+  const rankedRows = rankByRecognition(hub.spots, null, hub.spots.length);
+  // The chart follows the city's headline species where the featured mark
+  // scored it, so an August Victoria page leads with salmon rather than with
+  // whatever peaked highest there that morning. It does not move which MARK
+  // is featured.
+  const featured = featuredSpot(
+    hub.spots,
+    cityToday?.headline?.species_id ?? null,
+  );
 
   /**
-   * Today's best window at the city's top-ranked mark, for the H1.
+   * The 24-hour chart's data, and the city's 14-day peaks.
    *
-   * Ranked here on the server with the same function the block below uses, so
-   * the title and the spotlight name the same water. It follows the city's
-   * ROSTER species rather than a chip, because the H1 must not move when a
-   * reader taps a filter.
+   * The forecast is asked for at the ANONYMOUS horizon by construction — this
+   * request carries no session — which is what the prerendered body is allowed
+   * to contain. The client refetches under the reader's own session.
+   *
+   * Both are `.catch(() => null)`: the chart and the strip each render their
+   * own empty state, and neither is worth 500ing a page whose reference
+   * sections below are entirely independent of them.
+   */
+  const [cityForecast, featuredPage] = await Promise.all([
+    fetchMapForecast14d({ city: citySlug }).catch(() => null),
+    featured
+      ? fetchSpotLivePage(featured.spot.slug).catch(() => null)
+      : Promise.resolve(null),
+  ]);
+
+  /**
+   * The featured mark's hourly grids, sliced down to what the chart draws.
+   *
+   * Species is fixed to the mark's best TODAY and does not follow a filter:
+   * the chart, the line naming it and the strip of numbers above it all read
+   * this one row, so they cannot end up describing different water. Same rule
+   * the hub's one-window fix established.
+   */
+  const featuredFeed: FeaturedFeed | null =
+    featured && featuredPage
+      ? {
+          slug: featured.spot.slug,
+          name: featured.spot.name,
+          speciesName:
+            featuredPage.species.find((sp) => sp.id === featured.speciesId)
+              ?.name ?? null,
+          lat: featured.spot.lat,
+          lng: featured.spot.lng,
+          scoreGrid:
+            featuredPage.hourlyScoreGrid[featured.speciesId] ??
+            // The city payload and the spot payload are scored independently,
+            // so a species that leads the mark on one can be missing from the
+            // other after a re-bake. Fall back to whatever grid that spot does
+            // have rather than drawing an empty chart.
+            Object.values(featuredPage.hourlyScoreGrid)[0] ??
+            [],
+          conditionsGrid: featuredPage.hourlyConditionsGrid ?? [],
+          isos: (featuredPage.daily14 ?? []).map((d) => d.iso),
+          sun: featuredPage.sun,
+          rightNow: featuredPage.rightNow,
+        }
+      : null;
+
+  /**
+   * Today's best window at the mark the page leads with, for the H1.
+   *
+   * Read off `featured` — the SAME row the 24-hour chart draws and the line
+   * under it names — so the headline and the chart can never advertise
+   * different hours at different water. It follows the mark's own best species
+   * rather than a chip, because the H1 must not move when a reader taps a
+   * filter.
    *
    * `end_hour` names the last good hour, so the label closes an hour later.
    */
   const headlineWindow = (() => {
-    const top = rankSpots(hub.spots, cityToday?.headline?.species_id ?? null, 1)[0];
-    const w = top?.entry.window;
+    const w = featured?.entry.window;
     if (!w) return null;
     return `${formatHour12(w.start_hour)} to ${formatHour12((w.end_hour + 1) % 24)}`;
   })();
 
   const regulator = regulatorFor(city.provinceCode);
-  const areaNumbers = (cityPage?.regulatory_areas ?? [])
-    .map((a) => a.area_number)
-    .filter((n): n is string => !!n && n.trim() !== "")
-    // Numeric where they are numbers, lexical where they are not: WDFW's
-    // "8-1" and "10" have to sort together and neither comparator alone does
-    // it.
-    .sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
 
 
   const provincePath = `/fishing/${provinceParam.toLowerCase()}`;
@@ -301,29 +366,36 @@ export default async function CityPage({
           window={headlineWindow}
         />
 
-        {/* The chips read `?species=` so an ad can land pre-filtered, and
-            `useSearchParams` needs a boundary to keep this route
-            prerendered. Without it the whole page would render on demand and
-            lose the edge-cached first paint that is the point of it. */}
-        <Suspense fallback={null}>
-          <CityHub
-            today={cityToday}
-            hub={hub}
-            citySlug={citySlug}
-            cityName={city.name}
-            provinceCode={city.provinceCode}
-            areaLabel={regulator.areaLabel}
-            areaNumbers={areaNumbers}
-          >
-            <KeepToday
-              rows={seasonRows}
-              cityName={city.name}
-              provinceCode={city.provinceCode}
-              regulator={regulator}
-            />
-          </CityHub>
-        </Suspense>
+        {/* The instrument: 14-day strip → 24-hour chart → the marks people
+            fish → all of them on the water. It replaces the conversion stack
+            (bite radar, spotlight, leaderboard, weekend signup) that stood
+            here — see instrument/city-instrument.tsx for why. */}
+        <CityInstrument
+          citySlug={citySlug}
+          cityName={city.name}
+          cityLat={city.lat}
+          cityLng={city.lng}
+          tz={timezoneFor(city.provinceName)}
+          serverNowMs={Date.now()}
+          initialForecast={cityForecast}
+          featured={featuredFeed}
+          rows={rankedRows}
+          /* The roster, which is what the <title> and the JSON-LD count. A
+             mark with no species scored today is absent from `rankedRows`,
+             so the two can differ and the map's caption has to reconcile
+             them rather than quietly report the smaller one. */
+          rosterCount={spots.length}
+        />
 
+        {/* What is legal to keep today. It was a child of the hub block; the
+            instrument does not take children, and this is the one piece of
+            that stack a reader still needs before they act on a score. */}
+        <KeepToday
+          rows={seasonRows}
+          cityName={city.name}
+          provinceCode={city.provinceCode}
+          regulator={regulator}
+        />
       </div>
 
       <div className="max-w-6xl mx-auto px-6 pt-10 pb-16 space-y-10">
@@ -333,13 +405,6 @@ export default async function CityPage({
           guides={guides}
           cityName={city.name}
           cityPath={`${provincePath}/${citySlug}`}
-        />
-
-        <CityShell
-          city={city}
-          spots={spots}
-          species={data.species}
-          date={data.date}
         />
 
         {/* The second ask, and the only one below the fold.

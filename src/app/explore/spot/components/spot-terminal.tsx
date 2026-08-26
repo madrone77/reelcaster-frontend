@@ -72,12 +72,26 @@ const ratingIdx = (s: number) =>
 // Score-cell colors match the 14-day report tiers exactly (rc-good / rc-fair / rc-poor).
 const ratingCol = (s: number | null) =>
   s == null ? "#CBD5E1" : s >= 75 ? "#16A34A" : s >= 55 ? "#D78711" : "#DC2626";
-// Score STRIP cells use the soft-tint paradigm — pale tier fill + dark tier ink,
-// same as the BEST WINDOW callout and DFO notice (not solid saturated blocks).
+// Score STRIP cells: tinted tier fill + dark tier ink, not solid saturated
+// blocks — the same soft-tint paradigm as the BEST WINDOW callout.
+//
+// The greens are two steps brighter than the rest of the paper UI, and only
+// here. This row is the one place on the page where a reader is meant to see
+// the shape of a whole day at a glance, and #DCFCE7 (the pill background used
+// everywhere else) is a 6%-saturation wash that reads as white at strip
+// height — a good day and a blank day looked the same from a foot away. Amber
+// and red are unchanged: they were already carrying their bands.
+//
+// The bands themselves now match `tierFor` — prime at 85, good at 60. They
+// used to cut at 75/55 under a comment claiming they matched the report tiers
+// exactly, which stopped being true when the prime tier landed; a cell could
+// read amber beside a day cell reading green for the same score.
+//
+// Ink stays green-900 on both greens: 8.9:1 on prime, 11.4:1 on good.
 const ratingBg = (s: number | null) =>
-  s == null ? "#F1F5F9" : s >= 75 ? "#DCFCE7" : s >= 55 ? "#FEF3C7" : "#FEE2E2";
+  s == null ? "#F1F5F9" : s >= 85 ? "#4ADE80" : s >= 60 ? "#86EFAC" : s >= 40 ? "#FEF3C7" : "#FEE2E2";
 const ratingInk = (s: number | null) =>
-  s == null ? "#8A92A4" : s >= 75 ? "#166534" : s >= 55 ? "#92400E" : "#991B1B";
+  s == null ? "#8A92A4" : s >= 60 ? "#14532D" : s >= 40 ? "#92400E" : "#991B1B";
 const verdict = (s: number | null) =>
   s == null ? "—" : ["Good", "Good", "Fair", "Slow", "Poor"][ratingIdx(s)];
 const windName = (d: number | null) => windCardinal(d) ?? "—";
