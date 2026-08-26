@@ -645,17 +645,30 @@ export async function fetchBuoyConditions(
   return (await res.json()) as BuoyConditions;
 }
 
-/** Viewport 14-day forecast — per-day best across the spots in a bbox. */
+/**
+ * 14-day forecast — per-day best across a set of spots.
+ *
+ * Scoped by `bbox` (the Explore viewport, which re-fetches as the map moves)
+ * or by `city` (a city page, whose roster includes shared marks no rectangle
+ * around the city centre would catch). A bare string stays a bbox so the
+ * Explore call sites are unchanged.
+ */
 export async function fetchMapForecast14d(
-  bbox: string
+  scope: string | { bbox?: string; city?: string }
 ): Promise<MapForecast14dPayload> {
   // The proxy gates days past the caller's horizon server-side (anon 2,
   // free 7, Pro 14) — attach the session token so signed-in callers get
   // their full horizon.
   const { data } = await supabase.auth.getSession();
   const token = data.session?.access_token;
+  const qs = new URLSearchParams();
+  if (typeof scope === "string") qs.set("bbox", scope);
+  else {
+    if (scope.city) qs.set("city", scope.city);
+    if (scope.bbox) qs.set("bbox", scope.bbox);
+  }
   const res = await fetch(
-    `/api/bluecaster/map/forecast-14d?bbox=${encodeURIComponent(bbox)}`,
+    `/api/bluecaster/map/forecast-14d?${qs}`,
     {
       cache: "no-store",
       headers: token ? { Authorization: `Bearer ${token}` } : undefined,
