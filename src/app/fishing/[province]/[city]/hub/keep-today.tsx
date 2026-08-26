@@ -9,17 +9,17 @@
 // than useless when someone drives to the one spot in the city where it is
 // shut. So the badge is the state and the line under it is the count, always.
 //
-// ── Why only three are open ──────────────────────────────────────────────
+// ── Why all of them are open ─────────────────────────────────────────────
 //
-// Five stacked cards ran to nearly two phone screens, which put the Thursday
-// signup — the thing a cold visitor is most likely to convert on — below the
-// point most of them stop scrolling. The retainable species lead (the list is
-// already sorted that way) and the rest sit behind a toggle.
+// Three were open and the rest sat behind a toggle, to keep the Thursday
+// signup above the point most phone readers stop scrolling. That signup is no
+// longer on this page — the instrument rebuild replaced the conversion stack
+// it belonged to — so the collapse was protecting something that had already
+// left, at the cost of hiding two of the five answers the section exists to
+// give.
 //
-// Every row is RENDERED either way and the collapsed ones are hidden with
-// `hidden`, not dropped from the tree. This is an indexed page whose whole
-// regulatory answer is one of the reasons it ranks, and a crawler that only
-// sees three species is a crawler that thinks we only cover three.
+// Rows stay sorted retainable-first, which is the order somebody deciding
+// what to put in the box reads in.
 //
 // ── What this section does not do ────────────────────────────────────────
 //
@@ -31,9 +31,6 @@
 // wrong water, so the section states what rolls up safely and sends the
 // reader to the authority for the rest.
 
-"use client";
-
-import { useState } from "react";
 import type { BlueCasterCitySeasonRow } from "@/lib/bluecaster";
 import type { Regulator } from "@/lib/regions";
 import SpeciesIcon from "./species-icon";
@@ -131,16 +128,6 @@ function stateOf(row: BlueCasterCitySeasonRow): {
   };
 }
 
-/** "Halibut and Dungeness Crab", "A, B and C". */
-function listNames(names: string[]): string {
-  if (names.length <= 1) return names[0] ?? "";
-  return `${names.slice(0, -1).join(", ")} and ${names[names.length - 1]}`;
-}
-
-/** Rows open on arrival. Three is the most that fits above the fold on a
- *  390px screen alongside the heading. */
-const VISIBLE = 3;
-
 export default function KeepToday({
   rows,
   cityName,
@@ -152,8 +139,6 @@ export default function KeepToday({
   provinceCode: string;
   regulator: Regulator;
 }) {
-  const [expanded, setExpanded] = useState(false);
-
   // A species with no resolved state is not rendered as a blank row: an
   // unanswered legality question looks identical to "no rules apply".
   const known = rows.filter((r) => r.status !== null);
@@ -166,8 +151,6 @@ export default function KeepToday({
     (a, b) => order[a.status!] - order[b.status!],
   );
 
-  const hiddenRows = sorted.slice(VISIBLE);
-
   return (
     <section aria-labelledby="keep" className="space-y-3">
       <SectionHeading id="keep">What you can keep in {cityName} today</SectionHeading>
@@ -177,7 +160,7 @@ export default function KeepToday({
           it in a rail: `sm:` keys off the VIEWPORT, not the container, so a
           1440px screen would have crammed two cards into a 430px column. */}
       <ul className="grid gap-2">
-        {sorted.map((row, i) => {
+        {sorted.map((row) => {
           const state = stateOf(row)!;
           // Terms only where you may keep one. A minimum size printed beside
           // "Release" reads as permission with a condition attached, and
@@ -193,7 +176,6 @@ export default function KeepToday({
           return (
             <li
               key={row.species_id}
-              hidden={!expanded && i >= VISIBLE}
               className={`flex overflow-hidden ${CARD}`}
             >
               <span className={`w-1 shrink-0 ${state.rail}`} aria-hidden />
@@ -225,18 +207,6 @@ export default function KeepToday({
           );
         })}
       </ul>
-
-      {hiddenRows.length > 0 && !expanded && (
-        <button
-          type="button"
-          onClick={() => setExpanded(true)}
-          className="w-full rounded-xl border border-dashed border-rc-rule px-4 py-3 text-[13px] font-medium text-rc-ink-soft hover:border-rc-brand hover:text-rc-ink transition-colors"
-        >
-          {/* Named, not counted. "Show 2 more" makes someone open a drawer
-              to find out whether their fish is behind it. */}
-          Show {listNames(hiddenRows.map((r) => r.species_name))}
-        </button>
-      )}
 
       <p className={`${TYPE.meta} text-rc-ink-soft`}>
         {/* Named, not implied. The rules genuinely differ between areas in
