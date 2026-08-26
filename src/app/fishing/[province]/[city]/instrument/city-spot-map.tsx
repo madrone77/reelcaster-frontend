@@ -80,26 +80,12 @@ type HoverCard = {
 
 export default function CitySpotMap({
   rows,
-  rosterCount,
-  cityName,
   cityLat,
   cityLng,
 }: {
   /** Every mark that SCORED today, best-known first. The list above shows a
    *  handful; the map shows all of these, which is the point of it. */
   rows: RankedSpot[];
-  /**
-   * How many marks the city has in total.
-   *
-   * Not the same number as `rows.length`, and the badge has to say so when
-   * they differ: a spot with no species scored today has nothing to draw and
-   * is not on this map. Seattle has 16 marks and 15 scored, and a map captioned
-   * "15 marks" under a title reading "16 Spots" is two counts of the same
-   * thing on one screen — the exact defect that made a Victoria page claim 15,
-   * 18 and 18 in three places at once.
-   */
-  rosterCount: number;
-  cityName: string;
   cityLat: number;
   cityLng: number;
 }) {
@@ -316,14 +302,6 @@ export default function CitySpotMap({
         </div>
       )}
 
-      <div className="absolute top-3 left-3 rounded bg-rc-panel/90 px-2.5 py-1.5 pointer-events-none">
-        <div className="text-[10px] font-semibold uppercase tracking-[0.08em] text-rc-ink-soft">
-          {rows.length < rosterCount
-            ? `${rows.length} of ${rosterCount} marks scored today`
-            : `${rows.length} ${rows.length === 1 ? "mark" : "marks"} · ${cityName}`}
-        </div>
-
-      </div>
     </div>
   );
 }

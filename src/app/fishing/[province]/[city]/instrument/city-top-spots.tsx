@@ -58,20 +58,40 @@ export default function CityTopSpots({
     <Section
       title={`The spots people actually fish in ${cityName}`}
       aside={rows.length > SHOWN ? `${rows.length - SHOWN} more on the map` : undefined}
-      how={
-        <>
-          {/* Has to say what ordered the list, because the order is NOT the
-              scores: the column reads 86, 86, 83, 89, 87 on a normal Victoria
-              day, and a reader comparing those numbers down the page would
-              otherwise conclude the sort was broken. */}
-          These are in order of how much each spot gets fished, worked out from
-          catch reports over the past year. That is why the numbers do not count
-          down the page: the number beside each name is the best score that spot
-          reaches today, and the order is a separate thing. &quot;Regularly
-          fished&quot; means roughly a report a month or more. Click any name to
-          open its full page.
-        </>
-      }
+      claims={[
+        {
+          head: "A year of catch reports",
+          body: (
+            <>
+              The order here is how much each mark actually gets fished, not
+              today&apos;s guess. The busiest water in {cityName} comes first.
+            </>
+          ),
+        },
+        {
+          /* Carries the load the old paragraph did: the scores do NOT count
+             down the page (Victoria reads 86, 86, 83, 89, 87), and a reader
+             comparing them would otherwise think the sort was broken. Saying
+             the two are different measures is enough; explaining the sort is
+             not. */
+          head: "Today's number too",
+          body: (
+            <>
+              Beside each name is the best score that spot reaches today, so you
+              can weigh a proven mark against a good forecast.
+            </>
+          ),
+        },
+        {
+          head: "Every mark has a page",
+          body: (
+            <>
+              Its own chart, its own species and its own rules, worked out the
+              same way as everything above.
+            </>
+          ),
+        },
+      ]}
     >
       <ul className="divide-y divide-rc-rule border-t border-rc-rule">
         {shown.map((row) => {

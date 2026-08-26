@@ -339,6 +339,15 @@ export default function CityInstrument({
     ? { ...condCell, hourLocal: "" }
     : (featured?.rightNow ?? null);
 
+  /**
+   * How many hourly scores stand behind the 14-day row, for the claim above.
+   *
+   * A FLOOR, not a total: the engine scores each spot per species per hour,
+   * and this counts a single species. Understating it is the safe direction —
+   * every one of these is a number the page could show if asked.
+   */
+  const gridSize = rosterCount * 24 * 14;
+
   const tzAbbrev = zoneAbbrev(tz);
   const isToday = dayIndex === 0;
   const activeDay = stripModel?.days[dayIndex] ?? null;
@@ -353,23 +362,40 @@ export default function CityInstrument({
       <Section
         title={`The next 14 days in ${cityName}`}
         aside="Data from: ECMWF + GFS + BlueCaster"
-        how={
-          <>
-            {/* Says what the row IS (best across the roster, not an average and
-                not one spot's fortnight), what the number means, and what to
-                do with it. A stranger has to be able to use this. */}
-            Each box is one day. The big number is the best score any of the{" "}
-            {rosterCount} {rosterCount === 1 ? "spot" : "spots"} we cover in{" "}
-            {cityName} reaches that day, out of 100. Higher is better, and the
-            colour says the same thing: green is good, amber is fair, red is
-            slow. Tap a day to load its hours into the chart below.{" "}
-            {stripModel?.bestDay
-              ? `The best day you can see right now is ${stripModel.bestDay.dow} ${stripModel.bestDay.date}. `
-              : ""}
-            The locked days are the rest of the fortnight; a free account opens
-            the first week and Pro opens all 14.
-          </>
-        }
+        claims={[
+          {
+            head: "Two weeks ahead",
+            body: (
+              <>
+                Most forecasts stop at the weekend. This one runs a full 14
+                days, so you can pick the day before you book the time off.
+              </>
+            ),
+          },
+          {
+            head: "One number, out of 100",
+            body: (
+              <>
+                The best score anything in {cityName} reaches that day. Green is
+                good, amber is fair, red is slow, and you can read it from
+                across the room.
+              </>
+            ),
+          },
+          {
+            /* The arithmetic is spelled out in the body because a bare
+               "6,048" invites the reader to wonder whether we made it up. It
+               is also a floor, not a total: the grid is per species, and this
+               counts one. Never round it up into something we cannot show. */
+            head: `${gridSize.toLocaleString()} scores behind it`,
+            body: (
+              <>
+                {rosterCount} {rosterCount === 1 ? "spot" : "spots"}, every hour
+                of every day, out to 14. This row is the best of them.
+              </>
+            ),
+          },
+        ]}
       >
         <div className="relative">
           {/* pt-2 keeps the BEST badge, which sits at -top-1.5, inside the
@@ -423,36 +449,52 @@ export default function CityInstrument({
               : `Hour by hour today at ${featured.name}`
           }
           aside={tzAbbrev ? `All times ${tzAbbrev}` : undefined}
-          how={
-            <>
-              {/* The one thing a reader cannot guess and will otherwise get
-                  wrong: this is not "Victoria's weather". A city has no wind.
-                  Naming the mark and saying WHY it was picked is the whole
-                  job of this sentence. */}
-              A city does not have its own tide or wind, so this chart is one
-              real spot:{" "}
-              <Link
-                href={`/explore/spot/${featured.slug}`}
-                className="text-rc-brand font-semibold hover:underline"
-              >
-                {featured.name}
-              </Link>
-              , the most fished mark in {cityName}
-              {featured.speciesName
-                ? `, scored for ${featured.speciesName}`
-                : ""}
-              . The top row is the score for each hour of the day. Everything
-              under it is what drives that score at the same hour: the tide,
-              the current, the wind, the sea, the air and the sky.{" "}
-              <span className="lg:hidden">
-                Tap or drag across the chart to read any hour.
-              </span>
-              <span className="hidden lg:inline">
-                Hover or drag across the chart to read any hour.
-              </span>{" "}
-              The row of boxes just above it always shows the hour you are on.
-            </>
-          }
+          claims={[
+            {
+              /* The one thing a reader cannot guess and will otherwise get
+                 wrong: this is not "Victoria's weather". A city has no wind.
+                 Naming the mark, and saying it was picked on a year of catch
+                 reports, turns that caveat into the strongest claim here. */
+              head: "One real spot",
+              body: (
+                <>
+                  A city has no tide or wind of its own, so this is{" "}
+                  <Link
+                    href={`/explore/spot/${featured.slug}`}
+                    className="text-rc-brand font-semibold hover:underline"
+                  >
+                    {featured.name}
+                  </Link>
+                  , the most fished mark in {cityName}
+                  {featured.speciesName
+                    ? `, scored for ${featured.speciesName}`
+                    : ""}
+                  .
+                </>
+              ),
+            },
+            {
+              head: "Six readings, one clock",
+              body: (
+                <>
+                  Tide, current, wind, sea, air and sky, all lined up on the
+                  same hour, so you can see what is actually driving the score.
+                </>
+              ),
+            },
+            {
+              /* Safe to name: tidal current speed and slack are real columns,
+                 modelled for the Salish Sea. Do not upgrade this into a claim
+                 about depth or about models we do not run. */
+              head: "Currents, not just tides",
+              body: (
+                <>
+                  Modelled flow for the water off {cityName}, so you can see
+                  slack coming before you leave the dock.
+                </>
+              ),
+            },
+          ]}
         >
           {scrubbed && isToday && selectedHour !== nowHour && (
             <div className="flex justify-end -mt-2 mb-2">
@@ -505,28 +547,48 @@ export default function CityInstrument({
       <Section
         title={`Every spot we score in ${cityName}`}
         aside="Bathymetry: NONNA-10 + NRCan"
-        how={
-          <>
-            {/* Two facts a stranger needs: the dot IS the score, and the map is
-                real depth rather than a decorative background. Then the one
-                interaction. */}
-            The seabed here is real depth data, not a picture. Each dot is a
-            fishing spot and the number inside it is that spot&apos;s best score
-            today, coloured the same way as the days above.{" "}
-            <span className="lg:hidden">Tap a dot</span>
-            <span className="hidden lg:inline">Hover a dot</span> to see its
-            name, how busy a mark it is, and the tide, sea and seabed at its
-            best hour. Click it to open the full page for that spot.
-          </>
-        }
+        claims={[
+          {
+            /* Charted soundings, which is true and is the map's whole appeal.
+               ⚠ Never upgrade this into a navigation claim: the attribution
+               on the map itself reads "not for navigation". */
+            head: "Real charted seabed",
+            body: (
+              <>
+                Depth soundings, not a stock map. The banks, reefs and drop-offs
+                are where you can see them.
+              </>
+            ),
+          },
+          {
+            /* Reconciles its own count with the page title's, which counts the
+               ROSTER. A mark with no species scored today has nothing to draw,
+               so Seattle is 15 of 16 — and a map captioned "15 marks" under a
+               title reading "16 Spots" is two counts of the same thing on one
+               screen. */
+            head:
+              rows.length < rosterCount
+                ? `${rows.length} of ${rosterCount} marks scored`
+                : `${rosterCount} marks, all scored`,
+            body: (
+              <>
+                Every spot we cover around {cityName}, each one carrying its own
+                number for today.
+              </>
+            ),
+          },
+          {
+            head: "Point at any of them",
+            body: (
+              <>
+                The name, how busy a mark it is, and the tide, sea and seabed at
+                its best hour.
+              </>
+            ),
+          },
+        ]}
       >
-        <CitySpotMap
-          rows={rows}
-          rosterCount={rosterCount}
-          cityName={cityName}
-          cityLat={cityLat}
-          cityLng={cityLng}
-        />
+        <CitySpotMap rows={rows} cityLat={cityLat} cityLng={cityLng} />
       </Section>
 
       <UpgradeDialog
