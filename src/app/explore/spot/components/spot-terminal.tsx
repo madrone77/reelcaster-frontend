@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import type { SunHours } from "@/lib/bluecaster/live-spot-types";
+import { haptic } from "@/lib/haptics";
 import { niceCurrentScale } from "../../lib/current-series";
 import { windCardinal } from "../../lib/wind-rose";
 import { monoInterp as interp } from "../../lib/curve";
@@ -780,9 +781,6 @@ export default function SpotTerminal({
         const vx = (e.clientX - r.left) * scale; const { LABEL: x0, READ } = gutters(mob), hw = (svg.viewBox.baseVal.width - x0 - READ) / 24;
         return clampTf((vx - x0) / hw);
       };
-      // Light haptic tick while touch-scrubbing; no-op where the vibration
-      // API is missing (iOS Safari).
-      const haptic = () => { try { navigator.vibrate?.(8); } catch {} };
       const move = (e: PointerEvent) => {
         const tf = tfFromEvt(e);
         // A zero-width svg (hidden across a breakpoint, mid-resize) yields a
@@ -790,6 +788,9 @@ export default function SpotTerminal({
         // which would crash the day/hour → ISO conversion downstream.
         if (!Number.isFinite(tf)) return;
         const idx = clampH(Math.floor(tf));
+        // Light tick per hour crossed, finger only. See @/lib/haptics — it is
+        // inert on a mouse-only desktop and takes a different route on iOS
+        // than on Android.
         if (lastHRef.current != null && idx !== lastHRef.current && e.pointerType !== "mouse") haptic();
         lastHRef.current = idx;
         // Magnetic to the hour: the cursor parks at the centre of whichever hour
