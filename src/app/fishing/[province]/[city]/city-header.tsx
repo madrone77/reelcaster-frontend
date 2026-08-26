@@ -80,15 +80,22 @@ export default function CityHeader({
           ? `Today's best fishing in ${city.name}: ${window}`
           : `Fishing in ${city.name}, ${city.provinceCode}`}
       </h1>
-      <p className="mt-2 text-[15px] leading-relaxed text-rc-ink-soft max-w-[54ch]">
-        {/* Casey's wording, kept after review. Worth knowing rather than
-            re-litigating: the hero a few lines below reads "14 of 16 spots
-            scored", so "every fishing spot" is the marketing claim and the
-            card is the precise one. "14 days ahead" is what we score; the
-            page shows today and the CTA sells the rest, which is why it says
-            "ahead" rather than implying the reader already has it. */}
-        We score every fishing spot in {city.name}, every hour for 14 days
-        ahead, so you always know when to go.
+      {/* No measure cap and no balancing: this is ONE line. At 15px the
+          sentence runs about 600px, well inside the 1152px container, so it
+          fits unbroken on any desktop width. The old 54ch cap was sized for
+          the previous two-clause lede and forced this one to wrap mid-phrase.
+          A phone still wraps it, which is the width doing it rather than us. */}
+      <p className="mt-2 text-[15px] leading-relaxed text-rc-ink-soft">
+        {/* Casey's wording, kept verbatim. It frames the page as a sample of
+            the product rather than a description of it, which is what the
+            page now IS: every number below is live, and the locked days are
+            the only thing held back.
+
+            It replaced "We score every fishing spot in {city}, every hour for
+            14 days ahead, so you always know when to go." That line described
+            the service; this one points at the evidence underneath it. */}
+        This page is full of real data to show you what you can see with
+        ReelCaster in {city.name}.
       </p>
     </header>
   );
