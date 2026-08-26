@@ -26,7 +26,8 @@ import { zoneAbbrev } from "@/app/explore/lib/explore-data";
 import { useSpotClock } from "@/app/explore/lib/use-spot-clock";
 import DayCell from "@/app/explore/components/day-cell";
 import { bestWindow } from "@/app/explore/components/hourly-bars";
-import UpgradeDialog from "@/app/explore/components/upgrade-dialog";
+import dynamic from "next/dynamic";
+import { useMountedOnce } from "@/hooks/use-mounted-once";
 import CurrentConditionsStrip from "@/app/explore/spot/components/current-conditions-strip";
 import SpotTerminal from "@/app/explore/spot/components/spot-terminal";
 import { resolveSea } from "@/app/explore/lib/sea-state";
@@ -56,6 +57,25 @@ import type { RankedSpot } from "./featured";
 import Section from "./section";
 import CitySpotMap from "./city-spot-map";
 import CityTopSpots from "./city-top-spots";
+
+/**
+ * The same paywall /explore and the spot page open, loaded on the tap that
+ * opens it rather than with the page.
+ *
+ * Not the `UpgradeDialog` wrapper beside it: that is a thin shim over this
+ * component which hardcodes `from="explore-forecast"`, so every locked day on
+ * a CITY page was being credited to Explore's strip. This page has its own
+ * walls and needs its own names for them.
+ *
+ * Static-importing it would put the plan matrix, the pricing tables and the
+ * Stripe checkout client into the chunks this page parses before it can
+ * hydrate — on a page bought with an ad click, where first paint is the whole
+ * game.
+ */
+const ProTrialModal = dynamic(
+  () => import("@/app/components/paywall/pro-trial-modal"),
+  { ssr: false },
+);
 
 /**
  * Everything the 24-hour chart needs from the featured mark, sliced on the
@@ -213,7 +233,18 @@ export default function CityInstrument({
   }, [featured, activeIso]);
 
   const [upgradeOpen, setUpgradeOpen] = useState(false);
+  /**
+   * Which wall the reader hit, which decides both what the modal SAYS and what
+   * the conversion is credited to.
+   *
+   * "free" is a day 3–7 tile, which a free account opens; "pro" is a day 8–14
+   * tile. They are different asks at different prices, so crediting them to
+   * one name would make the cheaper one look like it converts worse than it
+   * does.
+   */
   const [lockedTier, setLockedTier] = useState<"free" | "pro">("pro");
+  // Latched, so closing doesn't rip the modal out mid-animation.
+  const upgradeMounted = useMountedOnce(upgradeOpen);
 
   const handleDay = useCallback((day: ForecastDay) => {
     if (day.pending) return;
@@ -617,11 +648,25 @@ export default function CityInstrument({
         <CitySpotMap rows={rows} cityLat={cityLat} cityLng={cityLng} />
       </Section>
 
-      <UpgradeDialog
-        open={upgradeOpen}
-        onOpenChange={setUpgradeOpen}
-        variant={!user && lockedTier === "free" ? "signup" : "pro"}
-      />
+      {/* `from` names the wall AND the city, matching what ProGate already
+          writes for the banner below the map (`city-<slug>`, `city-<slug>-map`).
+          Per-city because the ads are bought per city, and per-wall because a
+          day-3 tile and a day-9 tile are different asks — a shared name would
+          let the cheaper one be credited to the dearer one.
+
+          The modal writes this into the wall cookie on open, so it survives
+          the trip out to Stripe and whatever the visitor converts into knows
+          which tile sent them. */}
+      {upgradeMounted && (
+        <ProTrialModal
+          open={upgradeOpen}
+          onOpenChange={setUpgradeOpen}
+          feature={lockedTier === "free" ? "forecast-week" : "forecast-14d"}
+          from={`city-${citySlug}-${
+            lockedTier === "free" ? "forecast-week" : "forecast-14d"
+          }`}
+        />
+      )}
     </>
   );
 }
