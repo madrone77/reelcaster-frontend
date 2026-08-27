@@ -21,57 +21,24 @@
 
 import { redirect } from 'next/navigation';
 
-/**
- * Where an untagged or unroutable link goes. Victoria is the pilot city and
- * the one guaranteed to have scored spots to show.
- */
-export const DEFAULT_LP_CITY = 'victoria-bc';
+import {
+  forwardedQuery,
+  resolveLpCity,
+  DEFAULT_LP_CITY,
+  type LpSearchParams,
+} from '@/lib/lp-routing';
 
-/**
- * Fallback for the US-market variant. A Seattle page must not answer an
- * untagged link with a Canadian city: the whole variant is built around
- * American water, down to the flag in the header.
- */
-export const DEFAULT_US_LP_CITY = 'seattle-wa';
-
-/** City slugs are lowercase kebab, e.g. "victoria-bc", "friday-harbor-wa". */
-const SLUG_SHAPE = /^[a-z0-9]+(-[a-z0-9]+)*$/;
-
-export type LpSearchParams = Record<string, string | string[] | undefined>;
-
-/**
- * Reduce `?city=` to a routable slug.
- *
- * Lower-cased before matching because Vercel resolves paths case-insensitively:
- * left alone, `?city=Victoria-BC` would produce a second URL for the same page
- * and split its cache entry and its analytics.
- *
- * Anything that isn't slug-shaped falls back to the default rather than
- * throwing. A malformed tag is a mistake in a link we wrote, and the cost of
- * being strict about it is a 404 served to traffic we already paid for.
- */
-export function resolveLpCity(
-  raw: string | string[] | undefined,
-  fallback: string = DEFAULT_LP_CITY,
-): string {
-  const first = Array.isArray(raw) ? raw[0] : raw;
-  const slug = (first ?? '').trim().toLowerCase();
-  return SLUG_SHAPE.test(slug) ? slug : fallback;
-}
-
-/**
- * Rebuild the query string minus `city`, which has been promoted into the path
- * and would otherwise appear twice.
- */
-function forwardedQuery(searchParams: LpSearchParams): string {
-  const out = new URLSearchParams();
-  for (const [key, value] of Object.entries(searchParams)) {
-    if (key === 'city' || value === undefined) continue;
-    for (const v of Array.isArray(value) ? value : [value]) out.append(key, v);
-  }
-  const qs = out.toString();
-  return qs ? `?${qs}` : '';
-}
+// The pure half of this file now lives in src/lib/lp-routing.ts, because
+// middleware answers this same doorway on the landing host and cannot import
+// `next/navigation`. Re-exported so the pages that already import these names
+// from here keep working, and so there is one obvious place to look.
+export {
+  resolveLpCity,
+  DEFAULT_LP_CITY,
+  DEFAULT_US_LP_CITY,
+  LP_FALLBACK_CITY,
+  type LpSearchParams,
+} from '@/lib/lp-routing';
 
 /**
  * Never returns: always redirects to the cached city page for this variant.
@@ -79,6 +46,13 @@ function forwardedQuery(searchParams: LpSearchParams): string {
  * `fallbackCity` lets a market-specific variant land somewhere sensible when
  * the link carries no city. /lp/6 passes the Seattle default; everything else
  * takes the pilot city.
+ *
+ * Only ever runs on www. On try.reelcaster.com middleware answers the doorway
+ * before this route is reached, because a `redirect()` inside a rewritten
+ * request is not sent as a 307 at all: Next serialises it into the RSC payload
+ * and answers 200, so the reader would get an empty page and a client-side hop
+ * on the one navigation every single ad click has to make. See
+ * src/lib/landing-host.ts.
  */
 export function enterLp(
   variant: string,
