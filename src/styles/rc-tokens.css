@@ -49,25 +49,26 @@
   --rc-emerald-dim:  #1C4B45;   /* filled chips inside a navy card */
 
   /* ─── SCORE SPECTRUM (data only · never chrome) ─────────── */
-  /* GOOD 60–84 */
+  /* Three bands, cut at 75 and 55. `tierFor` in explore-data.ts is the only
+     place those numbers are written down; everything here is just paint.
+     A fourth PRIME band at 85 was tried and removed: it was a second green
+     one shade off --rc-good, which is not a difference a reader resolves at
+     a glance, and half the surfaces mapped it back onto good regardless. */
+  /* GOOD 75–100 */
   --rc-good:         #3D8B4F;   /* number · pin · bar fill */
   --rc-good-bg:      #DCFCE7;   /* pill background */
-  --rc-good-ink:     #1B6B41;   /* pill text · prime green */
+  --rc-good-ink:     #1B6B41;   /* pill text */
   --rc-good-soft:    #F0FDF4;   /* tint blocks (best window) */
   --rc-good-border:  #BBF7D0;
-  /* FAIR 40–59 */
+  /* FAIR 55–74 */
   --rc-fair:         #C97A1C;
   --rc-fair-bg:      #FEF3C7;
   --rc-fair-ink:     #92400E;
   --rc-fair-border:  #FDE68A;
-  /* POOR 0–39 */
+  /* POOR 0–54 */
   --rc-poor:         #B23A2F;
   --rc-poor-bg:      #FEE2E2;
   --rc-poor-ink:     #991B1B;
-  /* PRIME 85–100 (new v1.0 band — wired into tierFor in phase 2) */
-  --rc-prime:        #1B6B41;
-  --rc-prime-bg:     #DCFCE7;
-  --rc-prime-ink:    #14532D;
 
   /* map-only accent for the topo direction (secondary, rarely used) */
   --rc-topo-accent:  #C96442;

@@ -6,7 +6,7 @@ import { formatHour12 } from '@/lib/time-format'
 // Same Salish Sea extent the marketing map uses — the region with scored spots.
 const SALISH_BBOX = '-125.60,48.00,-122.60,49.60'
 
-type State = 'Prime' | 'Good' | 'Fair' | 'Poor'
+type State = 'Good' | 'Fair' | 'Poor'
 type Spot = {
   name: string
   species: string | null
@@ -16,9 +16,9 @@ type Spot = {
   peakHour: number | null
 }
 
-// Same thresholds as explore-data's tierFor (v2 bands: 85 / 60 / 40).
+// Same thresholds as explore-data's tierFor (75 / 55).
 function tier(score: number): State {
-  return score >= 85 ? 'Prime' : score >= 60 ? 'Good' : score >= 40 ? 'Fair' : 'Poor'
+  return score >= 75 ? 'Good' : score >= 55 ? 'Fair' : 'Poor'
 }
 
 function fmt12(h: number | null): string | null {
@@ -26,13 +26,11 @@ function fmt12(h: number | null): string | null {
 }
 
 const CHIP: Record<State, string> = {
-  Prime: 'bg-rc-prime-bg text-rc-prime-ink',
   Good: 'bg-rc-good-bg text-rc-good-ink',
   Fair: 'bg-rc-fair-bg text-rc-fair-ink',
   Poor: 'bg-rc-poor-bg text-rc-poor-ink',
 }
 const NUM: Record<State, string> = {
-  Prime: 'text-rc-prime-ink',
   Good: 'text-rc-good-ink',
   Fair: 'text-rc-fair-ink',
   Poor: 'text-rc-ink-soft',

@@ -43,7 +43,6 @@ const INTERACTIVE = [SPOT_DOT, SPOT_LABEL];
  * against a blue-grey seabed.
  */
 const TIER_FILL: Record<Tier, string> = {
-  prime: "#15803D",
   good: "#3D8B4F",
   fair: "#C97A1C",
   poor: "#B23A2F",
@@ -52,7 +51,6 @@ const TIER_FILL: Record<Tier, string> = {
 
 /** Tier word under the score in the tooltip. Same vocabulary as the strip. */
 const TIER_WORD: Record<Tier, string> = {
-  prime: "Prime",
   good: "Good",
   fair: "Fair",
   poor: "Tough",

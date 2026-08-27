@@ -11,9 +11,8 @@ import {
 
 function scoreTone(score: number | null): string {
   if (score === null) return "text-rc-ink-mute";
-  if (score >= 85) return "text-rc-prime-ink";
-  if (score >= 60) return "text-rc-good-ink";
-  if (score >= 40) return "text-rc-fair-ink";
+  if (score >= 75) return "text-rc-good-ink";
+  if (score >= 55) return "text-rc-fair-ink";
   return "text-rc-poor-ink";
 }
 

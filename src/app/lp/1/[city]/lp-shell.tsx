@@ -78,9 +78,9 @@ const CSS_STRING = `
   .card-head .t{margin-top:4px;font-family:var(--mono);font-size:18px;letter-spacing:.3em;text-transform:uppercase;color:var(--ink-mute)}
   .verdict{margin-top:22px;display:flex;align-items:flex-start;justify-content:space-between;gap:20px}
   .pill{display:inline-block;border-radius:var(--r);padding:4px 9px;font-family:var(--mono);font-size:10px;font-weight:700;letter-spacing:.14em;text-transform:uppercase}
-  .pill-good,.pill-prime{background:var(--good-bg);color:var(--good-ink)}
+  .pill-good{background:var(--good-bg);color:var(--good-ink)}
   .num{font-weight:700;font-size:82px;line-height:.82;letter-spacing:-.04em;margin-top:8px}
-  .num-good,.num-prime{color:var(--good)}
+  .num-good{color:var(--good)}
   .verdict .sub{font-family:var(--mono);font-size:12px;color:var(--ink-soft);margin-top:8px}
   .win{margin-top:20px;background:var(--good-soft);border:1px solid var(--good-border);border-radius:var(--r);padding:14px;text-align:center}
   .win .wl{font-family:var(--mono);font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--good-ink)}
@@ -203,9 +203,7 @@ const CSS_STRING = `
 
 /** Tier → `.s` class on a 14-day cell (sg/sf/sp; bare for unscored). */
 function dayScoreClass(tier: LpTier): string {
-  // This landing page keeps its own embedded (v1) theme with no distinct prime
-  // colour, so the top band renders green like good — never uncoloured.
-  if (tier === "prime" || tier === "good") return "s sg";
+  if (tier === "good") return "s sg";
   if (tier === "fair") return "s sf";
   if (tier === "poor") return "s sp";
   return "s";

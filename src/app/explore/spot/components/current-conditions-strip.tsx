@@ -51,14 +51,12 @@ const WEATHER_WORD: Record<WeatherCondition, string> = {
 
 // Score numeral color by tier — matches the day cells / terminal.
 const TIER_INK: Record<Tier, string> = {
-  prime: "text-rc-prime",
   good: "text-rc-good",
   fair: "text-rc-fair-ink",
   poor: "text-rc-poor",
   none: "text-rc-ink-mute",
 };
 const TIER_WORD: Record<Tier, string> = {
-  prime: "Prime",
   good: "Good",
   fair: "Fair",
   poor: "Tough",
