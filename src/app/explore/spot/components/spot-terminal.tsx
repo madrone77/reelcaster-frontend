@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import type { SunHours } from "@/lib/bluecaster/live-spot-types";
 import { haptic } from "@/lib/haptics";
 import { niceCurrentScale } from "../../lib/current-series";
+import { tierFor } from "../../lib/explore-data";
 import { windCardinal } from "../../lib/wind-rose";
 import { monoInterp as interp } from "../../lib/curve";
 import {
@@ -68,11 +69,6 @@ const C = {
 
 const num = (v: number | null | undefined) =>
   typeof v === "number" && Number.isFinite(v) ? v : null;
-const ratingIdx = (s: number) =>
-  s >= 75 ? 0 : s >= 55 ? 2 : 4;
-// Score-cell colors match the 14-day report tiers exactly (rc-good / rc-fair / rc-poor).
-const ratingCol = (s: number | null) =>
-  s == null ? "#CBD5E1" : s >= 75 ? "#16A34A" : s >= 55 ? "#D78711" : "#DC2626";
 // Score STRIP cells: tinted tier fill + dark tier ink, not solid saturated
 // blocks — the same soft-tint paradigm as the BEST WINDOW callout.
 //
@@ -93,8 +89,17 @@ const ratingBg = (s: number | null) =>
   s == null ? "#F1F5F9" : s >= 85 ? "#4ADE80" : s >= 60 ? "#86EFAC" : s >= 40 ? "#FEF3C7" : "#FEE2E2";
 const ratingInk = (s: number | null) =>
   s == null ? "#8A92A4" : s >= 60 ? "#14532D" : s >= 40 ? "#92400E" : "#991B1B";
+// The word beside the number, in the hover pill and the a11y readout. It reads
+// off `tierFor`, the same four bands `ratingBg` paints the cells with and the
+// same ones the CONDITIONS card and the 14-day cells use, so one score cannot
+// get two answers on one screen.
+//
+// This used to carry its own two-cut 75/55 table with the words
+// Good/Fair/Slow/Poor. That drifted when the prime tier landed: a 61 sat in a
+// green cell under a card reading "Good" while this pill read "Fair", and a 45
+// read "Poor" inside an amber cell.
 const verdict = (s: number | null) =>
-  s == null ? "—" : ["Good", "Good", "Fair", "Slow", "Poor"][ratingIdx(s)];
+  ({ prime: "Prime", good: "Good", fair: "Fair", poor: "Tough", none: "—" })[tierFor(s)];
 const windName = (d: number | null) => windCardinal(d) ?? "—";
 const seaWord = (m: number | null) =>
   m == null ? "—" : m < 0.2 ? "Calm" : m < 0.35 ? "Rippled" : m < 0.65 ? "Light" : m < 1 ? "Chop" : "Rough";
@@ -702,7 +707,7 @@ export default function SpotTerminal({
     const cvC = (v: number) => convertWind(v, "knots", currentUnit);
     const cLbl = WIND_LABELS[currentUnit];
     return {
-      hour: hh(hi), score: sc == null ? "—" : String(sc), verd: verdict(sc), col: ratingCol(sc), scoreDeltaTxt,
+      hour: hh(hi), score: sc == null ? "—" : String(sc), verd: verdict(sc), scoreDeltaTxt,
       tide: convertHeight(num(hours.tide[hi]) ?? 0, "m", tideUnit).toFixed(1) + tideUnit, tideS: tR ? "Rising ▲" : "Falling ▼",
       curSigned: (cv >= 0 ? "+" : "") + cvC(cv).toFixed(1) + cLbl, curS: cs,
       wind: cvW(num(hours.wind[hi]) ?? 0).toFixed(0) + wLbl, windS: windName(hours.windDir[hi]) + " G" + cvW(num(hours.gust[hi]) ?? 0).toFixed(0),
