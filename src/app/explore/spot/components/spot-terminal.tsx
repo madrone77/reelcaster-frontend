@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import type { SunHours } from "@/lib/bluecaster/live-spot-types";
 import { haptic } from "@/lib/haptics";
 import { niceCurrentScale } from "../../lib/current-series";
+import { tierFor, type Tier } from "../../lib/explore-data";
 import { windCardinal } from "../../lib/wind-rose";
 import { monoInterp as interp } from "../../lib/curve";
 import {
@@ -68,33 +69,42 @@ const C = {
 
 const num = (v: number | null | undefined) =>
   typeof v === "number" && Number.isFinite(v) ? v : null;
-const ratingIdx = (s: number) =>
-  s >= 75 ? 0 : s >= 55 ? 2 : 4;
-// Score-cell colors match the 14-day report tiers exactly (rc-good / rc-fair / rc-poor).
-const ratingCol = (s: number | null) =>
-  s == null ? "#CBD5E1" : s >= 75 ? "#16A34A" : s >= 55 ? "#D78711" : "#DC2626";
 // Score STRIP cells: tinted tier fill + dark tier ink, not solid saturated
-// blocks — the same soft-tint paradigm as the BEST WINDOW callout.
+// blocks, the same soft-tint paradigm as the BEST WINDOW callout.
 //
-// The greens are two steps brighter than the rest of the paper UI, and only
+// The green is two steps brighter than the rest of the paper UI, and only
 // here. This row is the one place on the page where a reader is meant to see
 // the shape of a whole day at a glance, and #DCFCE7 (the pill background used
 // everywhere else) is a 6%-saturation wash that reads as white at strip
-// height — a good day and a blank day looked the same from a foot away. Amber
-// and red are unchanged: they were already carrying their bands.
+// height, so a good day and a blank day looked the same from a foot away.
+// Amber and red are the shared tier backgrounds.
 //
-// The bands themselves now match `tierFor` — prime at 85, good at 60. They
-// used to cut at 75/55 under a comment claiming they matched the report tiers
-// exactly, which stopped being true when the prime tier landed; a cell could
-// read amber beside a day cell reading green for the same score.
+// Green-900 ink on green-400 is 8.9:1.
 //
-// Ink stays green-900 on both greens: 8.9:1 on prime, 11.4:1 on good.
-const ratingBg = (s: number | null) =>
-  s == null ? "#F1F5F9" : s >= 85 ? "#4ADE80" : s >= 60 ? "#86EFAC" : s >= 40 ? "#FEF3C7" : "#FEE2E2";
-const ratingInk = (s: number | null) =>
-  s == null ? "#8A92A4" : s >= 60 ? "#14532D" : s >= 40 ? "#92400E" : "#991B1B";
-const verdict = (s: number | null) =>
-  s == null ? "—" : ["Good", "Good", "Fair", "Slow", "Poor"][ratingIdx(s)];
+// Fill, ink and word all key off `tierFor`, so this file holds no cut points
+// of its own. It used to hold two sets that disagreed: cells at 85/60/40 and
+// the word at 75/55, which put a 61 in a green cell labelled "Fair".
+const TIER_FILL: Record<Tier, string> = {
+  good: "#4ADE80",
+  fair: "#FEF3C7",
+  poor: "#FEE2E2",
+  none: "#F1F5F9",
+};
+const TIER_INK: Record<Tier, string> = {
+  good: "#14532D",
+  fair: "#92400E",
+  poor: "#991B1B",
+  none: "#8A92A4",
+};
+const TIER_WORD: Record<Tier, string> = {
+  good: "Good",
+  fair: "Fair",
+  poor: "Tough",
+  none: "—",
+};
+const ratingBg = (s: number | null) => TIER_FILL[tierFor(s)];
+const ratingInk = (s: number | null) => TIER_INK[tierFor(s)];
+const verdict = (s: number | null) => TIER_WORD[tierFor(s)];
 const windName = (d: number | null) => windCardinal(d) ?? "—";
 const seaWord = (m: number | null) =>
   m == null ? "—" : m < 0.2 ? "Calm" : m < 0.35 ? "Rippled" : m < 0.65 ? "Light" : m < 1 ? "Chop" : "Rough";
@@ -702,7 +712,7 @@ export default function SpotTerminal({
     const cvC = (v: number) => convertWind(v, "knots", currentUnit);
     const cLbl = WIND_LABELS[currentUnit];
     return {
-      hour: hh(hi), score: sc == null ? "—" : String(sc), verd: verdict(sc), col: ratingCol(sc), scoreDeltaTxt,
+      hour: hh(hi), score: sc == null ? "—" : String(sc), verd: verdict(sc), scoreDeltaTxt,
       tide: convertHeight(num(hours.tide[hi]) ?? 0, "m", tideUnit).toFixed(1) + tideUnit, tideS: tR ? "Rising ▲" : "Falling ▼",
       curSigned: (cv >= 0 ? "+" : "") + cvC(cv).toFixed(1) + cLbl, curS: cs,
       wind: cvW(num(hours.wind[hi]) ?? 0).toFixed(0) + wLbl, windS: windName(hours.windDir[hi]) + " G" + cvW(num(hours.gust[hi]) ?? 0).toFixed(0),

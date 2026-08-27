@@ -47,9 +47,6 @@
   --color-rc-poor: var(--rc-poor);
   --color-rc-poor-bg: var(--rc-poor-bg);
   --color-rc-poor-ink: var(--rc-poor-ink);
-  --color-rc-prime: var(--rc-prime);
-  --color-rc-prime-bg: var(--rc-prime-bg);
-  --color-rc-prime-ink: var(--rc-prime-ink);
   --font-rc-sans: var(--rc-font-sans);
   --font-rc-mono: var(--rc-font-mono);
   --animate-rc-marquee: rc-marquee 32s linear infinite;

@@ -29,7 +29,6 @@ import Section from "./section";
 const SHOWN = 6;
 
 const TIER_NUMERAL: Record<Tier, string> = {
-  prime: "text-rc-prime",
   good: "text-rc-good",
   fair: "text-rc-fair-ink",
   poor: "text-rc-poor",

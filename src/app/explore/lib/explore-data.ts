@@ -18,21 +18,27 @@ import { formatHour12 } from "@/lib/time-format";
 
 // ── Score tiers ─────────────────────────────────────────────────────
 
-// Design system v2 four-band spectrum. Cut points from the v2 doc:
-// poor 0–39 · fair 40–59 · good 60–84 · prime 85–100.
-export type Tier = "prime" | "good" | "fair" | "poor" | "none";
+// Three bands. Cut points: poor 0–54 · fair 55–74 · good 75–100.
+//
+// This is the whole score vocabulary. Every surface that puts a colour or a
+// word next to a score reads it from here, so a number cannot be Good in one
+// place and Fair in another. The email templates cut at the same 75/55.
+//
+// There used to be a fourth "prime" band at 85, splitting good into two
+// greens. It was retired: two greens a shade apart is not a distinction a
+// reader makes at a glance, and every surface that only had three colours to
+// spend kept mapping prime back onto good anyway.
+export type Tier = "good" | "fair" | "poor" | "none";
 
 export function tierFor(score: number | null): Tier {
   if (score === null) return "none";
-  if (score >= 85) return "prime";
-  if (score >= 60) return "good";
-  if (score >= 40) return "fair";
+  if (score >= 75) return "good";
+  if (score >= 55) return "fair";
   return "poor";
 }
 
-/** Tailwind classes for the tier pill ("85 GOOD") on cards and the drawer. */
+/** Tailwind classes for the tier pill ("82 GOOD") on cards and the drawer. */
 export const TIER_PILL: Record<Tier, string> = {
-  prime: "bg-rc-prime-bg text-rc-prime-ink",
   good: "bg-rc-good-bg text-rc-good-ink",
   fair: "bg-rc-fair-bg text-rc-fair-ink",
   poor: "bg-rc-poor-bg text-rc-poor-ink",
@@ -41,16 +47,31 @@ export const TIER_PILL: Record<Tier, string> = {
 
 /** Tier-colored text (numerals, bars). */
 export const TIER_TEXT: Record<Tier, string> = {
-  prime: "text-rc-prime",
   good: "text-rc-good",
   fair: "text-rc-fair",
   poor: "text-rc-poor",
   none: "text-rc-ink-mute",
 };
 
-// Map pins do NOT use these three tiers. They carry the continuous score ramp
-// baked into the puck sprite. See src/app/explore/lib/spot-geojson.ts
-// (`scoreColor`) and src/app/explore/lib/score-puck.ts.
+/**
+ * Solid tier fills as literal hex, for the surfaces that cannot read a CSS
+ * variable: canvas-rasterised map pucks and MapLibre paint expressions. Same
+ * three colours as --rc-good / --rc-fair / --rc-poor, kept in sync by hand
+ * because there is no way to resolve a custom property at those call sites.
+ *
+ * White numerals sit on these: 4.20:1 on good, 3.34:1 on fair, 5.93:1 on poor.
+ *
+ * Map pins used to run a separate five-stop ramp (78/62/46/30) inherited from
+ * bluecaster's scoring-ui.ts, so the same spot could draw a lime pin while
+ * every reading surface beside it said Fair. They are on the tiers now, and
+ * bluecaster's consumer map carries the matching three stops on its 0–1 scale.
+ */
+export const TIER_PIN: Record<Tier, string> = {
+  good: "#3D8B4F",
+  fair: "#C97A1C",
+  poor: "#B23A2F",
+  none: "#94A3B8",
+};
 
 // ── Rail spot ───────────────────────────────────────────────────────
 
@@ -178,7 +199,6 @@ export interface SpeciesOption {
 
 /** Tier text colors safe for use on white/rc-panel backgrounds (ink variants, all pass 4.5:1). */
 export const TIER_SCORE_TEXT: Record<Tier, string> = {
-  prime: "text-rc-prime-ink",
   good: "text-rc-good-ink",
   fair: "text-rc-fair-ink",
   poor: "text-rc-poor-ink",
