@@ -46,13 +46,52 @@ export function clampQuery(value: string | null | undefined): string {
  *   retrying with fewer fields would not change that, and the caller's only
  *   fallback is to write less.
  */
+/**
+ * The scope these cookies are written at.
+ *
+ * They MUST outlive the hostname they were set on. Paid traffic lands on
+ * try.reelcaster.com (see src/lib/landing-host.ts) and converts on
+ * www.reelcaster.com, so a cookie left at its default host scope is invisible
+ * by the time checkout reads it: every bought click would file as untagged,
+ * and an offer claim made on a landing page would evaporate on the way to
+ * /signup. That is not hypothetical, it is the failure mode this project has
+ * already had once when capture and conversion disagreed about where the
+ * record lived.
+ *
+ * Widened to the registrable domain rather than listing hosts, so a future
+ * subdomain inherits it. Anything not under reelcaster.com (localhost, a
+ * *.vercel.app preview) gets no domain attribute at all: naming a domain the
+ * browser is not on makes it reject the cookie outright, which would take
+ * local development and every preview down with it.
+ */
+const COOKIE_DOMAIN = '.reelcaster.com';
+
+function domainAttribute(hostname: string): string {
+  const onSite =
+    hostname === 'reelcaster.com' || hostname.endsWith(COOKIE_DOMAIN);
+  return onSite ? `; domain=${COOKIE_DOMAIN}` : '';
+}
+
 export function writeJsonCookie(name: string, value: object, maxAge: number): boolean {
   if (typeof document === 'undefined') return false;
   try {
     const encoded = encodeURIComponent(JSON.stringify(value));
     if (encoded.length + name.length > MAX_COOKIE_BYTES) return false;
     const secure = window.location.protocol === 'https:' ? '; Secure' : '';
-    document.cookie = `${name}=${encoded}; path=/; max-age=${maxAge}; SameSite=Lax${secure}`;
+    const domain = domainAttribute(window.location.hostname);
+    // Clear the host-scoped twin before writing the domain-scoped one.
+    //
+    // Scope is part of a cookie's identity, so the two coexist under one name
+    // and the browser sends BOTH in the same header. Nothing downstream can
+    // tell them apart: readJsonCookie takes the first match, and the order is
+    // the browser's business, not ours. On a rolling cookie like rc_paid that
+    // is a stale value winning forever over the one just written. Deleting
+    // first matches only the host-scoped record, because this line names no
+    // domain, and leaves exactly one cookie behind.
+    //
+    // A no-op for anyone who never had one, which is everybody eventually.
+    if (domain) document.cookie = `${name}=; path=/; max-age=0${secure}`;
+    document.cookie = `${name}=${encoded}; path=/; max-age=${maxAge}; SameSite=Lax${secure}${domain}`;
     return true;
   } catch {
     // Safari with "Block All Cookies" throws on storage access rather than

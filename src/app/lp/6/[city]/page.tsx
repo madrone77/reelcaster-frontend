@@ -1,5 +1,7 @@
 import type { Metadata } from "next";
+import { headers } from "next/headers";
 import { notFound, redirect } from "next/navigation";
+import { lpPrefix } from "@/lib/landing-host";
 import { angleFrom, localizeAngle } from "../../_shared/lp-angles";
 import { resolveLpCard } from "../../_shared/lp-spot";
 import { lpRegionFor } from "../../_shared/lp-region";
@@ -82,7 +84,8 @@ export default async function Lp6CityPage({
   // American chrome over Canadian water is the one outcome this page must
   // never produce. Send it to Seattle instead of rendering a contradiction.
   if (!region.isUS && slug !== DEFAULT_US_LP_CITY) {
-    redirect(`/lp/6/${DEFAULT_US_LP_CITY}`);
+    // Same host-shaped prefix as the doorway. See src/lib/landing-host.ts.
+    redirect(`${lpPrefix((await headers()).get("host"))}/6/${DEFAULT_US_LP_CITY}`);
   }
 
   const angle = localizeAngle(angleFrom(sp), region);
