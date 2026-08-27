@@ -53,9 +53,25 @@ export const TIER_TEXT: Record<Tier, string> = {
   none: "text-rc-ink-mute",
 };
 
-// Map pins do NOT use these three tiers. They carry the continuous score ramp
-// baked into the puck sprite. See src/app/explore/lib/spot-geojson.ts
-// (`scoreColor`) and src/app/explore/lib/score-puck.ts.
+/**
+ * Solid tier fills as literal hex, for the surfaces that cannot read a CSS
+ * variable: canvas-rasterised map pucks and MapLibre paint expressions. Same
+ * three colours as --rc-good / --rc-fair / --rc-poor, kept in sync by hand
+ * because there is no way to resolve a custom property at those call sites.
+ *
+ * White numerals sit on these: 4.20:1 on good, 3.34:1 on fair, 5.93:1 on poor.
+ *
+ * Map pins used to run a separate five-stop ramp (78/62/46/30) inherited from
+ * bluecaster's scoring-ui.ts, so the same spot could draw a lime pin while
+ * every reading surface beside it said Fair. They are on the tiers now, and
+ * bluecaster's consumer map carries the matching three stops on its 0–1 scale.
+ */
+export const TIER_PIN: Record<Tier, string> = {
+  good: "#3D8B4F",
+  fair: "#C97A1C",
+  poor: "#B23A2F",
+  none: "#94A3B8",
+};
 
 // ── Rail spot ───────────────────────────────────────────────────────
 

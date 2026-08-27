@@ -27,7 +27,7 @@ import type { LngLatBoundsLike, StyleSpecification } from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
 import { buildReliefStyle } from "@/lib/map/relief-style";
 import { MAP_CUSTOM_ATTRIBUTION } from "@/lib/map/map-brand";
-import { tierFor, type Tier } from "@/app/explore/lib/explore-data";
+import { TIER_PIN, tierFor, type Tier } from "@/app/explore/lib/explore-data";
 import { formatHour12 } from "@/lib/time-format";
 import { bottomLabel, cellAt, chopLabel, phaseAt } from "../hub/hub-data";
 import { recognitionLabel, type RankedSpot } from "./featured";
@@ -36,18 +36,6 @@ const SPOT_SOURCE = "city-spots";
 const SPOT_DOT = "city-spot-dot";
 const SPOT_LABEL = "city-spot-label";
 const INTERACTIVE = [SPOT_DOT, SPOT_LABEL];
-
-/**
- * Pin fill by tier. Solid, not the soft tint the paper UI uses — a 3% mint
- * wash is invisible over bathymetry, and these dots have to read at a glance
- * against a blue-grey seabed.
- */
-const TIER_FILL: Record<Tier, string> = {
-  good: "#3D8B4F",
-  fair: "#C97A1C",
-  poor: "#B23A2F",
-  none: "#94A3B8",
-};
 
 /** Tier word under the score in the tooltip. Same vocabulary as the strip. */
 const TIER_WORD: Record<Tier, string> = {
@@ -122,7 +110,7 @@ export default function CitySpotMap({
           properties: {
             slug: r.spot.slug,
             label: String(r.entry.peak),
-            fill: TIER_FILL[tierFor(r.entry.peak)],
+            fill: TIER_PIN[tierFor(r.entry.peak)],
             // Popular marks draw a touch larger. The dot is the only place on
             // this page where a reader can see, without reading anything, that
             // some of these names carry more history than others.
@@ -305,7 +293,7 @@ export default function CitySpotMap({
           <div className="flex items-baseline gap-2 mt-1.5">
             <span
               className="text-[24px] font-bold leading-none tracking-[-0.04em]"
-              style={{ color: TIER_FILL[hover.tier] }}
+              style={{ color: TIER_PIN[hover.tier] }}
             >
               {hover.score ?? "—"}
             </span>
