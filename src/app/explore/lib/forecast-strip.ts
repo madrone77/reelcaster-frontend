@@ -158,10 +158,16 @@ function isNonRetentionOn(reg: StripRegulation | null | undefined, iso: string):
  * how it could be wrong in one place and right in the others; they now all
  * read this.
  *
- * Budget: py-2.5 (20) + header (17) + mb-2 (8) + cells (93) = 138, plus 2 of
+ * Budget: py-2.5 (20) + header (17) + mb-2 (8) + cells (101) = 146, plus 2 of
  * slack. Raise it if DayCell grows.
+ *
+ * The cells figure is 101, not the 93 a DayCell's children measure: at 93 the
+ * children ended exactly on the padding box and ate the cell's own `py-2`, so
+ * the peak-time chip sat 1px off the border with no air under it. 8 more gives
+ * that padding back, landing the chip ~9px inside the cell — the breathing
+ * room the scrub cell's time already had.
  */
-export const DESKTOP_STRIP_H = 140;
+export const DESKTOP_STRIP_H = 148;
 
 export interface ForecastStripModel {
   days: ForecastDay[];
