@@ -68,15 +68,28 @@ export interface HubSpot {
   id: string;
   slug: string;
   name: string;
+  lat: number;
+  lng: number;
   /** "Rock reef", "Sand flat"… or null. See MapSpotEntry.bottom for why this
    *  is the only physical descriptor a card gets. */
   bottom: string | null;
   /** Scraped reports exist here in the 21-day intel window. Presence only —
    *  the counts are Pro-gated. */
   hasReports: boolean;
-  /** Track record over the trailing year. A spot without one never appears
-   *  here at all; see the pool note on `buildHubData`. */
-  trackRecord: "popular" | "known" | "sparse";
+  /**
+   * Track record over the trailing year.
+   *
+   * `"unfished"` — no catch report resolved to this mark in that year — only
+   * ever appears under `pool: "all"`; the default pool drops those spots
+   * before they get here. See the pool note on `buildHubData`.
+   */
+  trackRecord: "popular" | "known" | "sparse" | "unfished";
+  /**
+   * Position by report volume among the spots in the payload, 1-based, most
+   * fished first. `Infinity` when the mark has no reports in the trailing
+   * year, so it sorts last without a special case at every call site.
+   */
+  trackRank: number;
   /** Tide phase at this spot's peak hour, for the "on the late ebb" clause
    *  and the best-current-window badge. */
   condStrip: MapCondStrip | null;
@@ -231,6 +244,20 @@ export function buildHubData(
    *  to the city, but a shared spot can be a member of another city too, so
    *  the caller's set is what decides. */
   inCity: Set<string>,
+  /**
+   * Which marks are eligible.
+   *
+   * `"fished"` is the note above: an unreported mark is not ranked last, it is
+   * not ranked. That is right for a list that RECOMMENDS a handful.
+   *
+   * `"all"` keeps the whole roster, for a surface that orders every mark it
+   * draws rather than picking a few. The instrument page's map carries all of
+   * them and its list ranks all of them, so a pool that hid thirteen of
+   * Seattle's sixteen would leave the map answering a question the list
+   * refused to. Popularity still leads that order (see `rankByRecognition`);
+   * an unreported mark sorts last rather than vanishing.
+   */
+  pool: "fished" | "all" = "fished",
 ): HubData {
   if (!payload) return { date: "", spots: [], species: [] };
 
@@ -248,7 +275,7 @@ export function buildHubData(
     // The pool. See the note above — an unreported mark is not ranked last,
     // it is not ranked. Unless nothing in the payload has a track record, in
     // which case there is no pool to apply and every spot stands.
-    if (trackRecordKnown && !entry.track_record) continue;
+    if (pool === "fished" && trackRecordKnown && !entry.track_record) continue;
 
     const bySpecies: Record<string, HubSpeciesEntry> = {};
     let bestId: string | null = null;
@@ -283,12 +310,21 @@ export function buildHubData(
       id: entry.id,
       slug: entry.slug,
       name: entry.name,
+      lat: entry.lat,
+      lng: entry.lng,
       bottom: entry.bottom ?? null,
       hasReports: entry.has_reports === true,
       // "known" is the neutral middle band, so a payload without the field
       // ranks on score alone rather than having every spot promoted or
       // demoted together.
-      trackRecord: entry.track_record ?? "known",
+      //
+      // Only when the payload has no track records AT ALL, though. Once some
+      // spots carry one, an absent value is real data about that mark — it has
+      // no report in the trailing year — and defaulting it into the middle
+      // band would rank thirteen unfished Seattle marks above the two people
+      // actually fish. `"unfished"` is that state said out loud.
+      trackRecord: entry.track_record ?? (trackRecordKnown ? "unfished" : "known"),
+      trackRank: entry.track_rank ?? Infinity,
       condStrip: entry.conditions ?? null,
       bySpecies,
       bestSpeciesId: bestId,
@@ -321,7 +357,12 @@ export function buildHubData(
  * "Coho (7)" and then lists sixteen cards, nine of them blank, is worse than
  * one that lists seven.
  */
-const TRACK_RANK: Record<string, number> = { popular: 0, known: 1, sparse: 2 };
+export const TRACK_RANK: Record<string, number> = {
+  popular: 0,
+  known: 1,
+  sparse: 2,
+  unfished: 3,
+};
 
 export function rankSpots(
   spots: HubSpot[],

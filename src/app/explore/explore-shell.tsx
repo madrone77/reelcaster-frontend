@@ -21,6 +21,7 @@ import {
   ANON_STRIP_DAYS,
   buildViewportForecastDays,
   type ForecastDay,
+  DESKTOP_STRIP_H,
   type ForecastStripModel,
   type ForecastTier,
 } from "./lib/forecast-strip";
@@ -52,7 +53,8 @@ import type { AdWall } from "./spot/[slug]/ad-mode";
 import { BLEED_MEASURE } from "@/app/components/layout/page-measure";
 import ExploreMap, { type StationPick, type CustomSpotPin } from "./components/explore-map";
 
-import { setFavorite } from "./lib/use-favorite";
+import { setFavorite, useSavedSpots } from "./lib/use-favorite";
+import type { ScoreFloor } from "./components/mobile-filter-sheet";
 import { X } from "lucide-react";
 import LeftRail from "./components/left-rail";
 import LocationSelector from "./components/location-selector";
@@ -135,6 +137,7 @@ export default function ExploreShell({
   bbox,
   initialCitySlug,
   initialSpot,
+  initialZoomOverride = null,
   initialForecast,
   initialForecastBbox,
   ad = null,
@@ -156,6 +159,9 @@ export default function ExploreShell({
    * around it and the camera should open on it rather than on a city.
    */
   initialSpot?: { slug: string; lat: number; lng: number } | null;
+  /** Opening zoom from `?z`. Loses to a restored view and to a
+   *  server-framed spot, so only a cold arrival is framed by it. */
+  initialZoomOverride?: number | null;
   /**
    * The 14-day viewport strip for `initialForecastBbox`, fetched by the page so
    * the strip can paint from the first response instead of waiting out the JS
@@ -362,10 +368,25 @@ export default function ExploreShell({
 
   // ── Map-layer toggles + species filter (MapControls) ────────────────
   const [relief, setRelief] = useState(true);
-  const [labels, setLabels] = useState(true);
+  // Labels are always on. They were a toggle in the phone filter sheet and
+  // nowhere else, which made them a setting one surface could turn off and no
+  // other surface could turn back on. A saved view that still carries
+  // `labels: false` is ignored for the same reason.
+  const labels = true;
   // Currents and Wind share one piece of state, so only ever one of them draws.
   const { currents, wind, toggleCurrents, toggleWind, setFlow } = useFlowLayer();
   const [speciesFilter, setSpeciesFilter] = useState<string | null>(null);
+
+  // ── Map filters (the phone filter sheet) ────────────────────────────
+  // Deliberately NOT part of the saved view. Layers and species persist
+  // because they describe how you like to read the map; a score floor
+  // describes one search. Restoring it a week later would open Explore on an
+  // empty map with nothing on screen explaining why.
+  const [scoreFloor, setScoreFloor] = useState<ScoreFloor>(0);
+  const [reportsOnly, setReportsOnly] = useState(false);
+  const [savedOnly, setSavedOnly] = useState(false);
+  const { slugs: savedSlugs } = useSavedSpots();
+  const savedSet = useMemo(() => new Set(savedSlugs), [savedSlugs]);
   // Label fallback for a species pinned from search that no in-view spot
   // carries, so the strip header can still name it.
   const [pickedSpeciesName, setPickedSpeciesName] = useState<string | null>(null);
@@ -698,7 +719,7 @@ export default function ExploreShell({
   // current viewport. Until the map reports its first viewport (SSR, map
   // still booting) fall back to the selected city's spots so the first paint
   // isn't empty.
-  const railSpots = useMemo(() => {
+  const viewportSpots = useMemo(() => {
     if (viewBounds) {
       return uniqueSpots.filter(
         (s) =>
@@ -718,6 +739,75 @@ export default function ExploreShell({
       return true;
     });
   }, [displaySpots, uniqueSpots, viewBounds, selectedCity]);
+
+  // ── Map filters ──────────────────────────────────────────────────────
+  // Every one of these runs on a RailSpot the shell already holds, so
+  // narrowing the map costs no request. The open spot is always kept: a
+  // `?spot=` link, or a card you are reading, must not vanish underneath you
+  // because a filter you set afterwards excludes it.
+  const filtersActive = scoreFloor > 0 || reportsOnly || savedOnly;
+
+  const keepSpot = useCallback(
+    (s: RailSpot) => {
+      if (s.slug === spotSlug) return true;
+      if (scoreFloor > 0 && (s.score ?? -1) < scoreFloor) return false;
+      if (reportsOnly && !s.hasReports) return false;
+      if (savedOnly && !savedSet.has(s.slug)) return false;
+      return true;
+    },
+    [scoreFloor, reportsOnly, savedOnly, savedSet, spotSlug],
+  );
+
+  /** Everything loaded, filtered — what the map draws pins for. */
+  const filteredSpots = useMemo(
+    () => (filtersActive ? uniqueSpots.filter(keepSpot) : uniqueSpots),
+    [uniqueSpots, filtersActive, keepSpot],
+  );
+
+  /** In view AND surviving the filters — the rail, the strip, the count. */
+  const railSpots = useMemo(
+    () => (filtersActive ? viewportSpots.filter(keepSpot) : viewportSpots),
+    [viewportSpots, filtersActive, keepSpot],
+  );
+
+  // What each switch would leave, given everything else that is on. Shown
+  // beside the switch so its cost is visible before it is paid.
+  const reportsAvailable = useMemo(
+    () =>
+      viewportSpots.filter(
+        (s) =>
+          (scoreFloor === 0 || (s.score ?? -1) >= scoreFloor) &&
+          (!savedOnly || savedSet.has(s.slug)) &&
+          s.hasReports,
+      ).length,
+    [viewportSpots, scoreFloor, savedOnly, savedSet],
+  );
+  const savedAvailable = useMemo(
+    () =>
+      viewportSpots.filter(
+        (s) =>
+          (scoreFloor === 0 || (s.score ?? -1) >= scoreFloor) &&
+          (!reportsOnly || s.hasReports) &&
+          savedSet.has(s.slug),
+      ).length,
+    [viewportSpots, scoreFloor, reportsOnly, savedSet],
+  );
+
+  // Species counts as an active filter here even though it lives in its own
+  // row: it is the one that has always narrowed the map, and the badge would
+  // read as a lie if picking a species left it at zero.
+  const activeFilters =
+    (speciesFilter ? 1 : 0) +
+    (scoreFloor > 0 ? 1 : 0) +
+    (reportsOnly ? 1 : 0) +
+    (savedOnly ? 1 : 0);
+
+  const resetFilters = useCallback(() => {
+    setSpeciesFilter(null);
+    setScoreFloor(0);
+    setReportsOnly(false);
+    setSavedOnly(false);
+  }, []);
 
   // City the viewport "is" — labels the location pill ("Victoria · South
   // Vancouver Island" → pan → "Vancouver · Lower Mainland") and anchors
@@ -813,7 +903,10 @@ export default function ExploreShell({
   // date) so the filter chips reflect the water the user is looking at.
   const speciesWithScores = useMemo<SpeciesOption[]>(() => {
     const best: Record<string, number> = {};
-    for (const spot of railSpots) {
+    // The unfiltered viewport on purpose: this list answers "what is worth
+    // chasing in this water", and a score floor must not hide the species it
+    // is currently filtering out.
+    for (const spot of viewportSpots) {
       for (const [sid, score] of Object.entries(spot.scoresBySpecies)) {
         if (!(sid in best) || score > best[sid]) best[sid] = score;
       }
@@ -821,13 +914,13 @@ export default function ExploreShell({
     return allSpecies
       .map((s) => ({ ...s, bestScore: best[s.id] ?? null }))
       .sort((a, b) => (b.bestScore ?? -1) - (a.bestScore ?? -1));
-  }, [railSpots, allSpecies]);
+  }, [viewportSpots, allSpecies]);
 
   // Jurisdiction auto-switch: the WDFW marine-area grid + MPAs (shipped hidden
   // in the relief style, Canada-first) turn on when the viewport sits in
   // Washington. DFO layers stay on — each grid only covers its own waters.
   const wdfwRegs =
-    (labelCity?.provinceCode ?? railSpots[0]?.provinceCode) === "WA";
+    (labelCity?.provinceCode ?? viewportSpots[0]?.provinceCode) === "WA";
 
   // Whole 14-day strip hide/show (collapses to a "Show" chip).
   const [stripHidden, setStripHidden] = useState(false);
@@ -1280,6 +1373,60 @@ export default function ExploreShell({
     [speciesFilter, relief, labels, currents, wind, day],
   );
 
+  /**
+   * A tap on a MAP PIN. Desktop opens the rail drawer; mobile opens the
+   * preview card docked in the sheet — it does NOT navigate.
+   *
+   * It used to route straight to `/explore/spot/<slug>`, which meant the only
+   * way to find out what a pin was worth was to leave the map, and the only
+   * way back was the back button. Comparing two pins cost four navigations.
+   * Selection is a URL param either way, so the card paints from the spot
+   * already in hand (see `selectedSpot`) with nothing to wait for.
+   */
+  const focusSpotOnMap = useCallback(
+    (slug: string) => {
+      setQuery({ spot: slug, stn: null });
+      const spot = displaySpots.find((s) => s.slug === slug);
+      if (!spot) return;
+      const map = mapRef.current;
+      if (!map) return;
+      // Desktop's flyTo zooms in on the pick. Mobile keeps the zoom it has:
+      // the preview card is a browsing surface, and pulling the camera in a
+      // notch on every pin tap walks the viewport away from the water the
+      // angler was reading. `sheet-safe-center` still lifts the pin clear of
+      // the card.
+      const phone = !window.matchMedia("(min-width:1024px)").matches;
+      map.flyTo({
+        center: [spot.lng, spot.lat],
+        zoom: phone
+          ? (map.getZoom() ?? 9)
+          : Math.max(map.getZoom() ?? 9, 11),
+        duration: phone ? 450 : 700,
+      });
+    },
+    [setQuery, displaySpots],
+  );
+
+  /**
+   * Which spot the mobile preview carousel measures distance from — the pin
+   * the angler actually tapped, held still while they swipe.
+   *
+   * Only a MAP tap sets it. If swiping re-anchored, the deck would re-sort
+   * around whatever card you had just landed on: the card in hand would always
+   * be "1 of n", and swiping back would walk a different list than the one you
+   * came down. The anchor is the question ("what else is near THIS?"), and the
+   * question can't move every time you look at an answer.
+   */
+  const [previewAnchor, setPreviewAnchor] = useState<string | null>(null);
+
+  const handleMapSelectSpot = useCallback(
+    (slug: string) => {
+      setPreviewAnchor(slug);
+      focusSpotOnMap(slug);
+    },
+    [focusSpotOnMap],
+  );
+
   const handleSelectSpot = useCallback(
     (slug: string) => {
       // Mobile (<lg) has no rail/drawer — go straight to the responsive spot
@@ -1373,6 +1520,7 @@ export default function ExploreShell({
   );
 
   const handleCloseSpot = useCallback(() => {
+    setPreviewAnchor(null);
     setQuery({ spot: null });
   }, [setQuery]);
 
@@ -1455,9 +1603,8 @@ export default function ExploreShell({
     ? restored.zoom
     : serverFramedSpot
       ? SPOT_LINK_ZOOM
-      : selectedCity
-        ? 9
-        : 4.5;
+      : (initialZoomOverride ??
+        (selectedCity ? 9 : 4.5));
 
   // ── Writing the return-trip memory ──────────────────────────────────────
   //
@@ -1510,7 +1657,6 @@ export default function ExploreShell({
     if (!restored) return;
     if (restored.species != null) setSpeciesFilter(restored.species);
     if (restored.relief != null) setRelief(restored.relief);
-    if (restored.labels != null) setLabels(restored.labels);
     // A view saved before the single-flow rule can carry both layers on.
     // Currents wins that tie — it is the layer the rail has always led with.
     if (restored.currents != null || restored.wind != null) {
@@ -1554,12 +1700,19 @@ export default function ExploreShell({
     // surface that wants the lock owns it.
     <div
       /* The ad frame shortens the map's box by exactly the bar's height so the
-         bar never overlays water. On a phone the 3.5rem it replaces was the
-         app's tab bar, which the frame hides (see globals.css). */
+         bar never overlays water.
+
+         Everything else runs the map the full height of the viewport, phone
+         included. It used to stop 3.5rem short to hold a strip open for the
+         floating tab bar, and that strip was dead space: page background under
+         a bar that is already translucent and already floats. Tapping a pin
+         made it obvious — the preview card lifts off the bottom edge, and
+         behind it sat a white band instead of the water the card is about. The
+         bar keeps its own room via `--rc-tabbar-clearance`, which is what the
+         sheet and the preview dock sit above; nothing needs the map to be
+         short as well. */
       className={`relative overflow-hidden lg:min-h-0 ${
-        ad
-          ? "h-[calc(100dvh_-_var(--rc-ad-bar-h))]"
-          : "h-[calc(100dvh-3.5rem)] lg:h-dvh"
+        ad ? "h-[calc(100dvh_-_var(--rc-ad-bar-h))]" : "h-dvh"
       }`}
       /* Marks this render as the ad frame for the one piece of chrome outside
          this tree: the mobile tab bar in the root layout. */
@@ -1615,6 +1768,9 @@ export default function ExploreShell({
           onSelectSpecies={handleSearchSelectSpecies}
           near={searchNear}
           onFilterClick={() => setFilterOpen(true)}
+          activeFilters={activeFilters}
+          onNearMe={handleNearMe}
+          locating={locating}
           onAddSpot={
             !customMode && !tierLoading ? handleCreateCustomSpot : undefined
           }
@@ -1649,9 +1805,9 @@ export default function ExploreShell({
       >
         <ExploreMap
           mapRef={mapRef}
-          spots={uniqueSpots}
+          spots={filteredSpots}
           selectedSlug={selectedSpot?.slug ?? null}
-          onSelect={handleSelectSpot}
+          onSelect={handleMapSelectSpot}
           onSelectStation={handleSelectStation}
           initialCenter={initialCenter}
           initialZoom={initialZoom}
@@ -1733,13 +1889,16 @@ export default function ExploreShell({
         onSelectSpot={handleSelectSpot}
         forecastModel={stripModel}
         selectedIso={selectedIso}
-        selectedDayHours={selectedDayHours}
-        scrubHour={scrubHour}
-        onScrubHour={setScrubHour}
         onSelectDay={handleSelectDay}
         signedIn={!!user}
         onLockedAdDay={focusAdOffer}
         freshCatches={freshCatches}
+        selectedSlug={selectedSpot?.slug ?? null}
+        /* A deep link to `?spot=` never went through a pin tap, so the spot in
+           the URL is the anchor by default. */
+        previewAnchorSlug={previewAnchor ?? selectedSpot?.slug ?? null}
+        onPreviewSlug={focusSpotOnMap}
+        onClosePreview={handleCloseSpot}
       />
 
       <LeftRail
@@ -1752,7 +1911,7 @@ export default function ExploreShell({
         tz={MAP_TZ}
         scrubHour={scrubHour}
         freshCatches={freshCatches}
-        bottomInset={stripHidden ? 64 : 152}
+        bottomInset={stripHidden ? 64 : DESKTOP_STRIP_H + 24}
         onSelectCity={handleSelectCity}
         onSelectSpot={handleSelectSpot}
         onSearchSelectSpot={handleSearchSelectSpot}
@@ -1768,11 +1927,9 @@ export default function ExploreShell({
         }
         mapControls={{
           relief,
-          labels,
           currents,
           wind,
           onToggleRelief: () => setRelief((v) => !v),
-          onToggleLabels: () => setLabels((v) => !v),
           onToggleCurrents: toggleCurrents,
           onToggleWind: toggleWind,
           species: speciesWithScores,
@@ -1820,18 +1977,32 @@ export default function ExploreShell({
         open={filterOpen}
         onClose={() => setFilterOpen(false)}
         relief={relief}
-        labels={labels}
         currents={currents}
         wind={wind}
         onToggleRelief={() => setRelief((v) => !v)}
-        onToggleLabels={() => setLabels((v) => !v)}
         onToggleCurrents={toggleCurrents}
         onToggleWind={toggleWind}
-        species={allSpecies}
+        // The in-view scores, like the desktop chips — the sheet's species rows
+        // exist to say which fish is worth chasing HERE, and `allSpecies`
+        // carries the opening payload's seed scores for water that may be a
+        // province away by now.
+        species={speciesWithScores}
         speciesFilter={speciesFilter}
         onSpeciesChange={setSpeciesFilter}
-        onNearMe={handleNearMe}
-        locating={locating}
+        scoreFloor={scoreFloor}
+        onScoreFloorChange={setScoreFloor}
+        reportsOnly={reportsOnly}
+        onToggleReports={() => setReportsOnly((v) => !v)}
+        reportsCount={reportsAvailable}
+        savedOnly={savedOnly}
+        onToggleSaved={() => setSavedOnly((v) => !v)}
+        savedCount={savedAvailable}
+        // Offered only to someone with saved spots in view to find. For
+        // everyone else the row is a switch whose only outcome is an empty map.
+        savedAvailable={savedSet.size > 0}
+        matchCount={railSpots.length}
+        activeFilters={activeFilters}
+        onReset={resetFilters}
       />
       )}
 

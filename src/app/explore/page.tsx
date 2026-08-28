@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { headers } from "next/headers";
+import { cookies, headers } from "next/headers";
 import { Suspense } from "react";
 import { DEFAULT_OG, SITE_URL } from '@/lib/site';
 import {
@@ -7,6 +7,7 @@ import {
   fetchMapForecast14d,
   fetchMapSpots,
   fetchSpotCoords,
+  resolveHomeCity,
 } from "@/lib/bluecaster";
 import {
   stripViewportForecast,
@@ -19,6 +20,7 @@ import {
   PREFERRED_DEFAULT_CITY,
 } from "./lib/explore-data";
 import { nearestOpeningCity, readVisitorPoint } from "./lib/opening-city";
+import { HOME_SPOT_COOKIE, sanitizeHomeSpotSlug } from "./lib/home-spot-cookie";
 import { parseWall } from "./spot/[slug]/ad-mode";
 import { trialChargeDate } from "@/app/lp/_shared/lp-checkout";
 import { PRICE } from "@/app/lp/_shared/lp-content";
@@ -67,10 +69,11 @@ export default async function ExplorePage({
 }: {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
-  const [hierarchy, params, headerList] = await Promise.all([
+  const [hierarchy, params, headerList, cookieStore] = await Promise.all([
     fetchHierarchyLight(),
     searchParams,
     headers(),
+    cookies(),
   ]);
 
   // ── The city the URL asked for ───────────────────────────────────────────
@@ -113,6 +116,21 @@ export default async function ExplorePage({
   const loc = locParam ?? cityAlias;
   const spot = typeof params.spot === "string" ? params.spot : null;
 
+  /**
+   * `?z` — an opening zoom, for links that know the frame they want.
+   *
+   * A city opens at zoom 9, which is the right default when the visitor picked
+   * the city themselves. It is too wide for an ad link into Puget Sound, where
+   * it pulls back past the water the ad is about. Clamped to the map's own
+   * range so a typo cannot strand somebody in orbit or inside a sand grain.
+   *
+   * Deliberately loses to a restored view: somebody returning to Explore keeps
+   * where they were, and only a cold arrival is framed by the URL.
+   */
+  const zParam = typeof params.z === "string" ? Number(params.z) : NaN;
+  const initialZoomOverride =
+    Number.isFinite(zParam) ? Math.min(16, Math.max(4, zParam)) : null;
+
   // ── The spot the URL asked for, which outranks the city ──────────────────
   //
   // `?spot` is the more specific frame — an "open in map" from a spot page, a
@@ -133,10 +151,42 @@ export default async function ExplorePage({
   // An unknown or unpublished slug resolves to nothing and simply falls through
   // to the `?loc` / default-city path below, which is where the client would
   // have ended up anyway.
+  // ── The angler's own home city ───────────────────────────────────────────
+  //
+  // A pinned home spot is the strongest statement about where somebody fishes
+  // that this product holds: they chose one piece of water out of every spot
+  // we cover and pinned it. "Explore" from the dashboard, the bottom nav, or
+  // anywhere else is a bare /explore, so before this the map answered that
+  // statement with an IP guess — and an angler in Sooke whose phone exits
+  // through Vancouver opened two hours up the coast from their own dock.
+  //
+  // Read from a cookie because it has to be answered here, in the first
+  // render. The Supabase session lives in localStorage, so this route has no
+  // way to ask who is asking; ./lib/home-spot-cookie mirrors the pin into a
+  // cookie for exactly this read. A missing or malformed cookie is simply no
+  // pin, and the geo tier below runs as before.
+  //
+  // Skipped outright when the URL names a destination — `?loc` and `?spot`
+  // are somebody asking for a specific frame right now, which outranks a
+  // standing preference — so the extra fetch only happens on the arrivals it
+  // can actually change.
+  const homeSpotSlug =
+    loc || spot
+      ? null
+      : sanitizeHomeSpotSlug(cookieStore.get(HOME_SPOT_COOKIE)?.value);
+  // Started before the spot-coords await below so the two overlap; both are
+  // Data Cache reads on all but the first request (the place tree is cached
+  // for an hour and shared by every visitor, so this adds no upstream load).
+  const homeCityPromise = homeSpotSlug ? resolveHomeCity(homeSpotSlug) : null;
+
   const spotCoords = spot
     ? (await fetchSpotCoords([spot]))?.find((s) => s.slug === spot) ?? null
     : null;
   const spotBox = spotCoords ? spotViewBox(spotCoords) : null;
+
+  // Null when the pin no longer resolves — an unpublished or deleted spot —
+  // which reads as no pin rather than as an error.
+  const homeCity = homeCityPromise ? await homeCityPromise : null;
 
   // ── Ship the opening city's spots, not three provinces' worth ────────────
   //
@@ -154,16 +204,19 @@ export default async function ExplorePage({
   //
   // ── Open on the visitor's nearest city, not on Victoria ──────────────────
   //
-  // Three tiers, most specific first:
+  // Four tiers, most specific first:
   //   1. `?loc`, which is somebody naming a destination.
-  //   2. The covered city the visitor's IP would send them to — the nearest one
+  //   2. The city of the angler's own pinned home spot — a standing statement
+  //      about where they fish, which beats any guess made from their IP. See
+  //      the home-city block above.
+  //   3. The covered city the visitor's IP would send them to — the nearest one
   //      when they are near any of them, the nearest hub when they are not.
   //      Seattle for an arrival from Seattle or from New York, Vancouver for
   //      one from Calgary, Prince Rupert for one from Anchorage.
-  //   3. Victoria, for the arrivals that carry no position at all: `next dev`,
+  //   4. Victoria, for the arrivals that carry no position at all: `next dev`,
   //      crawlers, uptime checks, anything on a data-centre IP.
   //
-  // Tier 2 is the new one. Everyone used to get tier 3, so a Seattle angler's
+  // Tier 3 replaced a world where everyone got tier 4, so a Seattle angler's
   // first frame was water in another country and the product's opening move was
   // to make them pan out of it. See ./lib/opening-city.ts for why this reads an
   // IP header rather than asking the browser, and why it carries no distance
@@ -173,7 +226,10 @@ export default async function ExplorePage({
   // the request, and the snap runs against the hierarchy this page fetches
   // anyway. It costs nothing at the CDN either — the route is already `ƒ` for
   // reading `searchParams` (see the note above the return), so there is no
-  // shared cache entry here for one visitor's city to leak into another's.
+  // shared cache entry here for one visitor's city to leak into another's,
+  // which is what makes the cookie tier safe too: Vercel's CDN keys on the URL
+  // and ignores cookies, so a per-angler opening frame would leak straight
+  // into the next visitor's HTML on any route that WAS shared-cached.
   // The fetches below stay keyed by city in the Data Cache, where Seattle's
   // payload being shared between everyone who lands on Seattle is the point.
   const visitor = readVisitorPoint(headerList, {
@@ -183,6 +239,7 @@ export default async function ExplorePage({
 
   const openingCity =
     coveredCitySlug(hierarchy, loc) ??
+    coveredCitySlug(hierarchy, homeCity?.slug) ??
     nearestOpeningCity(hierarchy, visitor) ??
     (hasPreferredDefaultCity(hierarchy) ? PREFERRED_DEFAULT_CITY : null);
 
@@ -211,8 +268,9 @@ export default async function ExplorePage({
   // the bundle landed.
   //
   // Stripped to the ANONYMOUS horizon before it goes into the HTML. This page
-  // reads no session — it renders per request now, but off `?loc`/`?spot`
-  // alone, which is not identity — so it has no business carrying paid days:
+  // still reads no session: the home-spot cookie names a piece of water, not a
+  // tier, and nothing here verifies who anybody is — so it has no business
+  // carrying paid days:
   // putting all 14 in the markup is precisely the leak `resolveEntitlement` was
   // written to close. The shell renders days past this horizon as pending
   // rather than locked until the client learns the real tier — nothing is
@@ -268,6 +326,7 @@ export default async function ExplorePage({
         bbox={COVERED_BBOX_ALL}
         initialCitySlug={framedCity}
         initialSpot={spotCoords}
+        initialZoomOverride={initialZoomOverride}
         initialForecast={initialForecast}
         initialForecastBbox={initialBbox}
         ad={

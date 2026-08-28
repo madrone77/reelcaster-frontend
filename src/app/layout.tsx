@@ -82,11 +82,25 @@ export const metadata: Metadata = {
 // This fork does not auto-inject the mobile viewport meta — a page gets it only
 // if a layout in its tree exports `viewport`. Only explore/layout did, so every
 // other route rendered at the 980px desktop fallback width and shrank on phones.
-// Declaring it at the root gives `width=device-width` to the whole app; the
-// explore layout still adds its own `viewportFit: cover` on top.
+// Declaring it at the root gives `width=device-width` to the whole app.
 export const viewport: Viewport = {
   width: 'device-width',
   initialScale: 1,
+  // Draw into the notch and the home-indicator band instead of letting iOS
+  // letterbox the page inside them, and make `env(safe-area-inset-*)` report
+  // real numbers. Those two go together: without `cover` every inset reads 0,
+  // so the padding the floating tab bar already carries
+  // (`pb-[calc(0.75rem+env(safe-area-inset-bottom))]`, and
+  // `--rc-tabbar-clearance` behind it) quietly does nothing and the bar sits on
+  // a strip of letterbox rather than on the page.
+  //
+  // This used to live on explore/layout alone, which is why the app looked
+  // right on the map and wrong on every other tab: the same bar, floating on
+  // content on Explore and on a blank band on Home. It belongs at the root
+  // because the bar is at the root. Anything pinned to the bottom of a page
+  // has to pad for `env(safe-area-inset-bottom)` itself — with `cover` set,
+  // that inset is finally non-zero and the home indicator really is over it.
+  viewportFit: 'cover',
   // Lock the page size against the on-screen keyboard. `resizes-visual` says:
   // when the keyboard opens, shrink only the visual viewport and leave the
   // document's layout alone — nothing reflows, `dvh` does not change, and the

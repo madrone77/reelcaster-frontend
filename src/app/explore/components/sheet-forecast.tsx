@@ -1,41 +1,37 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
-import { CloudSun } from "lucide-react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
+import { ChevronLeft, ChevronRight } from "lucide-react";
 import type {
   ForecastStripModel,
   ForecastDay,
   LockTier,
 } from "../lib/forecast-strip";
-import DayRow from "./day-row";
-import DayScrubCell from "./day-scrub-cell";
+import DayCell from "./day-cell";
 import UpgradeDialog from "./upgrade-dialog";
 
 /**
- * The "14-day" body of the mobile spot sheet — a VERTICAL ledger of 14 day
- * rows (same visual language as the "all spots" cards it toggles against, so
- * the toggle swaps content within one frame, not one axis for another). All 14
- * peak scores are scannable at once. Tapping a day expands its row downward
- * (accordion) to reveal the full-width 24-hour "Drillspan" scrub lane
- * (DayScrubCell, shared with desktop); dragging its playhead recolors the map
- * pins + re-ranks the spots to that hour. The scrub lane's horizontal drag is
- * orthogonal to the sheet's vertical scroll — no gesture collision.
+ * The "change date" body of the mobile Explore sheet.
+ *
+ * Deliberately the SAME instrument as the spot page's 14-day section
+ * (`spot-detail-shell.tsx`, item 4): identical `DayCell` tiles at the same
+ * `flex-1 min-w-[54px]` in the same `h-[124px] pt-2` rail, the same 1.5 gap,
+ * the same edge gradients, the same attribution line underneath. An angler who
+ * has read the fortnight on a spot page should not have to re-learn it here —
+ * only the surface around it changes.
+ *
+ * Tapping a tile picks the day, which recolors the map pins and re-ranks the
+ * spots behind the sheet. Hour-by-hour detail is the spot page's job.
  */
 export default function SheetForecast({
   model,
   selectedIso,
-  hours,
-  scrubHour,
-  onScrubHour,
   onSelectDay,
   signedIn,
   onLockedAdDay,
 }: {
   model: ForecastStripModel | null;
   selectedIso: string;
-  hours: (number | null)[];
-  scrubHour: number | null;
-  onScrubHour: (h: number) => void;
   onSelectDay: (day: ForecastDay) => void;
   signedIn: boolean;
   /** Ad frame: focus the one offer already on the page rather than opening a
@@ -47,16 +43,38 @@ export default function SheetForecast({
   // account; an "Upgrade to Pro" day (8-14) sells Pro even to a signed-out
   // visitor, who would otherwise get a sign-up form after a Pro promise.
   const [lockTier, setLockTier] = useState<LockTier>("pro");
-  const rowRefs = useRef<Record<string, HTMLDivElement | null>>({});
 
-  // Bring the freshly-expanded day into view so its scrub lane isn't below the
-  // fold after the accordion opens.
+  // Edge affordances, same treatment as the spot page: a gradient + chevron on
+  // whichever side still has tiles behind it.
+  const railRef = useRef<HTMLDivElement | null>(null);
+  const [atStart, setAtStart] = useState(true);
+  const [atEnd, setAtEnd] = useState(false);
+  const readEdges = useCallback(() => {
+    const el = railRef.current;
+    if (!el) return;
+    setAtStart(el.scrollLeft <= 1);
+    setAtEnd(el.scrollLeft >= el.scrollWidth - el.clientWidth - 1);
+  }, []);
   useEffect(() => {
-    rowRefs.current[selectedIso]?.scrollIntoView({
-      behavior: "smooth",
-      block: "nearest",
-    });
-  }, [selectedIso]);
+    readEdges();
+    const el = railRef.current;
+    if (!el) return;
+    el.addEventListener("scroll", readEdges, { passive: true });
+    return () => el.removeEventListener("scroll", readEdges);
+  }, [readEdges, model]);
+
+  // Open on the day the map is already showing. `selectedIso` can be day 9 of
+  // 14, which is off screen at rest — without this the sheet opens looking
+  // like nothing is selected. Layout effect so it lands before the first
+  // paint rather than as a visible jump.
+  const selRef = useRef<HTMLDivElement | null>(null);
+  const didCenter = useRef(false);
+  useLayoutEffect(() => {
+    if (didCenter.current || !model) return;
+    didCenter.current = true;
+    selRef.current?.scrollIntoView({ block: "nearest", inline: "center" });
+    readEdges();
+  }, [model, readEdges]);
 
   if (!model) {
     return (
@@ -79,68 +97,56 @@ export default function SheetForecast({
     onSelectDay(day);
   };
 
-  const best = model.bestDay;
-  const hasHours = hours.some((v) => typeof v === "number");
-
   return (
     <div className="px-4 pb-4">
-      {/* Best-window readout */}
-      <div className="flex items-center gap-2 border-b border-rc-rule py-3">
-        <CloudSun className="h-4 w-4 shrink-0 text-rc-ink-mute" />
-        {best ? (
-          <div className="flex min-w-0 items-center gap-1.5">
-            <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-rc-good" />
-            <span className="truncate font-rc-mono text-[12px] text-rc-ink">
-              Best window {best.dow} {best.date}
-            </span>
-            {best.peakLabel && (
-              <span className="shrink-0 font-rc-mono text-[12px] font-bold text-rc-ink">
-                {best.peakLabel}
-              </span>
-            )}
-          </div>
-        ) : (
-          <span className="rc-label text-[9px]">14-day forecast</span>
-        )}
-      </div>
-
-      {/* Vertical day ledger — one row per day; the selected day expands into
-          the 24h scrub lane beneath it. */}
-      <div>
-        {model.days.map((day) => {
-          const isSel = day.iso === selectedIso;
-          const open = isSel && !day.locked && hasHours;
-          return (
-            <div
-              key={day.index}
-              ref={(el) => {
-                rowRefs.current[day.iso] = el;
-              }}
-              className="border-b border-rc-rule"
-            >
-              {open ? (
-                // The selected day IS the scrub lane — its own anchor (with the
-                // live scrubbed hour) serves as the row header, so there's no
-                // duplicate day summary above it.
-                <div className="flex h-[92px] py-1.5">
-                  <DayScrubCell
-                    day={day}
-                    hours={hours}
-                    scrubHour={scrubHour}
-                    onScrubHour={onScrubHour}
-                  />
-                </div>
-              ) : (
-                <DayRow
+      <div className="relative">
+        {/* pt-2: the BEST badge sits at -top-1.5, and overflow-x-auto clips the
+            y-axis — the top padding keeps it inside the box. */}
+        <div
+          ref={railRef}
+          className="flex gap-1.5 h-[124px] pt-2 overflow-x-auto scrollbar-hide"
+        >
+          {model.days.map((day) => {
+            const isSel = day.iso === selectedIso;
+            return (
+              <div
+                key={day.index}
+                ref={isSel ? selRef : undefined}
+                className="flex-1 min-w-[54px] flex"
+              >
+                <DayCell
                   neutralLock={!!onLockedAdDay}
                   day={day}
                   selected={isSel}
                   onSelect={() => handleDay(day)}
                 />
-              )}
-            </div>
-          );
-        })}
+              </div>
+            );
+          })}
+        </div>
+        <div
+          aria-hidden
+          className={`pointer-events-none absolute right-0 top-2 bottom-0 flex w-10 items-center justify-end pr-0.5 bg-gradient-to-l from-rc-panel to-transparent transition-opacity duration-200 ${
+            atEnd ? "opacity-0" : "opacity-100"
+          }`}
+        >
+          <ChevronRight className="w-4 h-4 text-rc-ink-mute" />
+        </div>
+        <div
+          aria-hidden
+          className={`pointer-events-none absolute left-0 top-2 bottom-0 flex w-10 items-center justify-start pl-0.5 bg-gradient-to-r from-rc-panel to-transparent transition-opacity duration-200 ${
+            atStart ? "opacity-0" : "opacity-100"
+          }`}
+        >
+          <ChevronLeft className="w-4 h-4 text-rc-ink-mute" />
+        </div>
+      </div>
+
+      {/* The spot page carries this on the header's right edge. Here that slot
+          is Done — a sheet needs a way out, a page does not — so the line sits
+          under the rail instead, same words and same type. */}
+      <div className="mt-2 text-right font-rc-mono text-[10px] text-rc-ink-mute italic">
+        Data from: ECMWF + GFS + BlueCaster
       </div>
 
       <UpgradeDialog

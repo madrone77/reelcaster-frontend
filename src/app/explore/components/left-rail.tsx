@@ -20,11 +20,9 @@ import type { FreshCatchesResponse } from "../lib/fresh-catch-types";
 
 interface MapControlsProps {
   relief: boolean;
-  labels: boolean;
   currents: boolean;
   wind: boolean;
   onToggleRelief: () => void;
-  onToggleLabels: () => void;
   onToggleCurrents: () => void;
   onToggleWind: () => void;
   species: SpeciesOption[];

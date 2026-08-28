@@ -863,7 +863,14 @@ export default function SpotDetailShell({
         {/* Single top-to-bottom reading order (conclusion-first). A desktop-
             width column (not a narrow prose measure — this is a data page);
             list/prose sub-content caps its own width so it doesn't stretch. */}
-        <div className={`${PAGE_MEASURE} py-4 lg:py-6 space-y-8`}>
+        {/* `overflow-x-clip` is what lets the phone map bleed past this
+            gridline. It hangs off the grid cell with a negative margin, and a
+            grid item is `min-width: auto`, so without the clip the extra width
+            grows the track and the whole document picks up a horizontal
+            scrollbar — the top bar's CTA drifting off the right edge is how it
+            shows up. `clip`, not `hidden`: `hidden` would make this a scroll
+            container and break `position: sticky` for everything inside it. */}
+        <div className={`${PAGE_MEASURE} overflow-x-clip py-4 lg:py-6 space-y-8`}>
           {/* 1–3 · Identity + score cluster. ScoreCard already carries the
               Best Window callout (item 2) and the DFO reg strip (item 3). */}
           <div className="space-y-5">
@@ -1116,27 +1123,10 @@ export default function SpotDetailShell({
                   {tzAbbrev ? `All times ${tzAbbrev}` : "Local time"}
                 </p>
               </div>
-              <div className="flex items-center gap-2">
-                <p className="font-rc-mono text-[10px] text-rc-ink-mute italic">
-                  <span className="lg:hidden">Tap or drag to read any hour</span>
-                  <span className="hidden lg:inline">Hover or drag to read any hour</span>
-                </p>
-                {/* The chart's own way back. A picked hour now survives the
-                    pointer leaving the chart — that is what lets it drive the
-                    map — so the reset has to be something you press. Mirrors
-                    the button on the map's time bar; both call the same
-                    handler, and it is only offered on today, where "now" is a
-                    point on this axis. */}
-                {scrubbed && dayIndex === 0 && selectedHour !== nowHour && (
-                  <button
-                    type="button"
-                    onClick={clearScrub}
-                    className="rounded px-2 py-0.5 bg-rc-brand-soft text-rc-brand font-rc-mono text-[10px] font-semibold hover:bg-rc-brand-soft/70 transition-colors focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-rc-brand"
-                  >
-                    Back to now
-                  </button>
-                )}
-              </div>
+              <p className="font-rc-mono text-[10px] text-rc-ink-mute italic">
+                <span className="lg:hidden">Tap or drag to read any hour</span>
+                <span className="hidden lg:inline">Hover or drag to read any hour</span>
+              </p>
             </div>
             {/* The graph's readout. Every prop is the SELECTED day + hour and
                 comes from the same series the chart draws, so scrubbing moves

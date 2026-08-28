@@ -1,28 +1,20 @@
-import { Suspense } from "react";
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import {
   fetchCityGuides,
   fetchCityPage,
-  fetchCityToday,
   fetchHierarchy,
-  fetchMapSpots,
 } from "@/lib/bluecaster";
-import { ANON_FORECAST_DAYS } from "@/lib/forecast-horizon";
 import { COVERED_PROVINCES } from "@/lib/regions";
 import { breadcrumbJsonLd, siteUrl } from "@/lib/site";
-import { regulatorFor } from "@/lib/regions";
-import { buildExploreData } from "../../../explore/lib/explore-data";
 import { getFishingCity, getFishingProvince } from "../../lib/fishing-data";
-import CityShell from "./city-shell";
 import CityHeader from "./city-header";
 import CityLive from "./city-live";
 import { SpeciesCards } from "./species-cards";
-import CityHub from "./hub/city-hub";
-import KeepToday from "./hub/keep-today";
 import ProGate from "./hub/pro-gate";
-import { buildHubData, rankSpots } from "./hub/hub-data";
-import { formatHour12 } from "@/lib/time-format";
+import CityInstrument from "./instrument/city-instrument";
+import { loadCity } from "./instrument/load-city";
+import KeepToday from "./hub/keep-today";
 import {
   BeforeYouGo,
   CityFaq,
@@ -124,69 +116,28 @@ export default async function CityPage({
 }) {
   const { province: provinceParam, city: citySlug } = await params;
 
-  const [hierarchy, payload, cityPage, cityGuides, cityToday] = await Promise.all([
-    fetchHierarchy(),
-    fetchMapSpots({ city: citySlug }),
-    fetchCityPage(citySlug),
-    // Published species guides for this city. Additive: a city with none
-    // renders exactly as it did before.
-    fetchCityGuides(citySlug),
-    // At the ANON horizon on purpose. This page is prerendered, so the static
-    // render is always the signed-out state; the band upgrades its forward
-    // line client-side once entitlement resolves. Asking for 14 here would
-    // bake a day 9 answer into HTML served to everyone.
-    fetchCityToday(citySlug, ANON_FORECAST_DAYS).catch(() => null),
-  ]);
+  // Loaded through the shared loader, which the ad frame at /lp7/<city> also
+  // uses — see instrument/load-city.ts for why these must not be two loaders.
+  const {
+    province,
+    city,
+    provincePath,
+    tz,
+    regulator,
+    spots,
+    rankedRows,
+    featured: featuredFeed,
+    cityForecast,
+    seasonRows,
+    headlineWindow,
+    cityPage,
+    cityToday,
+  } = await loadCity(provinceParam, citySlug);
 
-  const province = getFishingProvince(hierarchy, provinceParam);
-  const city = getFishingCity(province, citySlug);
-  if (!province || !city) notFound();
+  // Published species guides for this city. Additive: a city with none
+  // renders exactly as it did before. Only the SEO renderer shows them.
+  const cityGuides = await fetchCityGuides(citySlug);
 
-  // Same derivation Explore uses (scores joined onto the hierarchy tree),
-  // narrowed to what the API returned for THIS city.
-  //
-  // Narrowed by id, not by `citySlug`. A spot has one home city but can be a
-  // member of another, and `citySlug` carries the home — so filtering on it
-  // silently dropped every shared spot from the page that asked for them.
-  // Victoria rendered 15 of its 18 while the title, the guide cards and the
-  // map all said 18, which is three different counts of the same thing on one
-  // screen. The request was already scoped to this city; trust it.
-  const data = buildExploreData(hierarchy, payload);
-  const inCity = new Set((payload?.spots ?? []).map((s) => s.id));
-  const spots = data.spots.filter((s) => inCity.has(s.id));
-
-  // The leaderboard's own view of the same payload the map draws from. See
-  // hub/hub-data.ts for why this is not derived from Explore's RailSpot.
-  const hub = buildHubData(payload, inCity);
-
-  /**
-   * Today's best window at the city's top-ranked mark, for the H1.
-   *
-   * Ranked here on the server with the same function the block below uses, so
-   * the title and the spotlight name the same water. It follows the city's
-   * ROSTER species rather than a chip, because the H1 must not move when a
-   * reader taps a filter.
-   *
-   * `end_hour` names the last good hour, so the label closes an hour later.
-   */
-  const headlineWindow = (() => {
-    const top = rankSpots(hub.spots, cityToday?.headline?.species_id ?? null, 1)[0];
-    const w = top?.entry.window;
-    if (!w) return null;
-    return `${formatHour12(w.start_hour)} to ${formatHour12((w.end_hour + 1) % 24)}`;
-  })();
-
-  const regulator = regulatorFor(city.provinceCode);
-  const areaNumbers = (cityPage?.regulatory_areas ?? [])
-    .map((a) => a.area_number)
-    .filter((n): n is string => !!n && n.trim() !== "")
-    // Numeric where they are numbers, lexical where they are not: WDFW's
-    // "8-1" and "10" have to sort together and neither comparator alone does
-    // it.
-    .sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
-
-
-  const provincePath = `/fishing/${provinceParam.toLowerCase()}`;
 
   // Mirrors the visible breadcrumb CityShell renders.
   const breadcrumbs = breadcrumbJsonLd([
@@ -227,7 +178,6 @@ export default async function CityPage({
     .slice(0, 6);
 
   const guides = cityGuides?.guides ?? [];
-  const seasonRows = cityPage?.species_table ?? [];
   const faq = cityPage?.page.faq ?? [];
   const licence = licenceFor(city.provinceCode);
 
@@ -301,29 +251,36 @@ export default async function CityPage({
           window={headlineWindow}
         />
 
-        {/* The chips read `?species=` so an ad can land pre-filtered, and
-            `useSearchParams` needs a boundary to keep this route
-            prerendered. Without it the whole page would render on demand and
-            lose the edge-cached first paint that is the point of it. */}
-        <Suspense fallback={null}>
-          <CityHub
-            today={cityToday}
-            hub={hub}
-            citySlug={citySlug}
-            cityName={city.name}
-            provinceCode={city.provinceCode}
-            areaLabel={regulator.areaLabel}
-            areaNumbers={areaNumbers}
-          >
-            <KeepToday
-              rows={seasonRows}
-              cityName={city.name}
-              provinceCode={city.provinceCode}
-              regulator={regulator}
-            />
-          </CityHub>
-        </Suspense>
+        {/* The instrument: 14-day strip → 24-hour chart → the marks people
+            fish → all of them on the water. It replaces the conversion stack
+            (bite radar, spotlight, leaderboard, weekend signup) that stood
+            here — see instrument/city-instrument.tsx for why. */}
+        <CityInstrument
+          citySlug={citySlug}
+          cityName={city.name}
+          cityLat={city.lat}
+          cityLng={city.lng}
+          tz={tz}
+          serverNowMs={Date.now()}
+          initialForecast={cityForecast}
+          featured={featuredFeed}
+          rows={rankedRows}
+          /* The roster, which is what the <title> and the JSON-LD count. A
+             mark with no species scored today is absent from `rankedRows`,
+             so the two can differ and the map's caption has to reconcile
+             them rather than quietly report the smaller one. */
+          rosterCount={spots.length}
+        />
 
+        {/* What is legal to keep today. It was a child of the hub block; the
+            instrument does not take children, and this is the one piece of
+            that stack a reader still needs before they act on a score. */}
+        <KeepToday
+          rows={seasonRows}
+          cityName={city.name}
+          provinceCode={city.provinceCode}
+          regulator={regulator}
+        />
       </div>
 
       <div className="max-w-6xl mx-auto px-6 pt-10 pb-16 space-y-10">
@@ -333,13 +290,6 @@ export default async function CityPage({
           guides={guides}
           cityName={city.name}
           cityPath={`${provincePath}/${citySlug}`}
-        />
-
-        <CityShell
-          city={city}
-          spots={spots}
-          species={data.species}
-          date={data.date}
         />
 
         {/* The second ask, and the only one below the fold.

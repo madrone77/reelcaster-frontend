@@ -19,6 +19,7 @@ import type {
   SpotSnapshotResponse,
   BlueCasterSpeciesItem,
   CreateCustomSpotResponse,
+  ScorableSpeciesResponse,
   PoolCommitPayload,
   PoolCommitResponse,
   SpotScoreHourResponse,
@@ -341,6 +342,21 @@ export interface MapSpotEntry {
    * actually fish".
    */
   track_record?: "popular" | "known" | "sparse";
+  /**
+   * Where this mark sits by report volume among the spots in THIS response,
+   * 1-based, most fished first. Absent when the spot has no report in the
+   * trailing year. Ties share a number.
+   *
+   * The band alone cannot order its own members: seven Victoria marks are
+   * `popular`, and the busiest has twelve times the reports of the quietest.
+   *
+   * ⚠ An ORDINAL, never a count — it cannot be turned back into a report
+   * number, which is what keeps the Pro gate over those intact. It is also
+   * scoped to the request, so it only means anything within one payload:
+   * never store it, and never compare it across two calls made with different
+   * spot sets.
+   */
+  track_rank?: number;
   /** Scraped catch reports exist for this spot in the 21-day intel window.
    *  Presence only — the counts and the verdict are Pro-gated on
    *  /map/fresh-catches. Riding in this payload is what lets the reports badge
@@ -446,15 +462,39 @@ export interface MapForecast14dPayload {
   species: Record<string, { id: string; slug: string; name: string }>;
   by_species: Record<string, (MapForecastDayPeak | null)[]>;
   best: (MapForecastBestDay | null)[]; // max across species per day
-  meta?: { spots: number };
+  /** 14 entries — cloud cover + precipitation, hour 0..23, at ONE
+   *  representative in-scope spot (`meta.weather_spot_id`). Enough for the
+   *  strip's per-day weather icon; NOT a per-spot conditions grid. Optional so
+   *  a cached pre-change payload still parses. */
+  hourly_conditions?: (MapForecastDayConditions | null)[];
+  meta?: { spots: number; weather_spot_id?: string | null };
 }
 
-/** Per-day best scores across every published spot in a bbox — the
- *  viewport-driven forecast strip re-fetches this as the map moves. */
+export interface MapForecastDayConditions {
+  cloud_pct: (number | null)[]; // 24
+  precip_mm: (number | null)[]; // 24
+}
+
+/**
+ * Per-day best scores across every published spot in a scope.
+ *
+ * Two callers, two scopes. The Explore map re-fetches by `bbox` as the
+ * viewport moves; a city page asks by `city`, because a city is a roster of
+ * marks rather than a rectangle — its member spots include shared ones that
+ * a box drawn around the city centre would miss, and a box tight enough to
+ * exclude the neighbouring city's water would miss them too. Upstream already
+ * accepts both and gives `city` precedence.
+ */
 export async function fetchMapForecast14d(
-  bbox: string,
+  scope: string | { bbox?: string; city?: string },
 ): Promise<MapForecast14dPayload | null> {
-  return bcGet<MapForecast14dPayload>("/api/v1/map/forecast-14d", { bbox }, 120);
+  // A bare string is the original bbox signature, kept so the Explore map's
+  // call sites do not have to change.
+  const query =
+    typeof scope === "string"
+      ? { bbox: scope }
+      : { bbox: scope.bbox, city: scope.city };
+  return bcGet<MapForecast14dPayload>("/api/v1/map/forecast-14d", query, 120);
 }
 
 // ── Per-spot 14-day outlook (map/spot-forecast-14d) ─────────────────
@@ -1193,6 +1233,49 @@ export async function createCustomSpot(
     };
   }
   return { ok: true, data: (await res.json()) as CreateCustomSpotResponse };
+}
+
+export type ScorableSpeciesResult =
+  | { ok: true; data: ScorableSpeciesResponse }
+  | { ok: false; status: number; error: string; message?: string };
+
+/** The species a new custom spot at these coordinates can be scored for.
+ *
+ *  This is what the create-spot picker must read. It used to build its options
+ *  from the species that already had scores on the spots in the map viewport,
+ *  which is circular: a species nothing nearby is scoring could never be added
+ *  to a new spot, and the list changed as the angler panned. In Vancouver that
+ *  offered 3 of the city's 5.
+ *
+ *  BlueCaster resolves the city through the same 50 km fence the create uses,
+ *  so the picker cannot offer a species the create will not seed. Outside the
+ *  fence it answers 422 `outside_coverage`, passed through rather than thrown:
+ *  the dialog already has copy for that case. */
+export async function getScorableSpecies(
+  lat: number,
+  lng: number,
+): Promise<ScorableSpeciesResult> {
+  const baseUrl = process.env.BLUECASTER_API_URL;
+  const apiKey = process.env.BLUECASTER_API_KEY;
+  if (!baseUrl || !apiKey) throw new Error("BlueCaster env vars not set");
+
+  const res = await fetch(
+    `${baseUrl}/api/v1/species/scorable?lat=${lat}&lng=${lng}`,
+    { headers: { "x-api-key": apiKey }, cache: "no-store" },
+  );
+  if (!res.ok) {
+    const body = (await res.json().catch(() => null)) as {
+      error?: string;
+      message?: string;
+    } | null;
+    return {
+      ok: false,
+      status: res.status,
+      error: body?.error ?? "scorable_species_failed",
+      message: body?.message,
+    };
+  }
+  return { ok: true, data: (await res.json()) as ScorableSpeciesResponse };
 }
 
 export interface OwnedCustomSpot {

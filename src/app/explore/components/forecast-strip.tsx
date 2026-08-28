@@ -2,10 +2,11 @@
 
 import { useState } from "react";
 import { CloudSun } from "lucide-react";
-import type {
-  ForecastStripModel,
-  ForecastDay,
-  LockTier,
+import {
+  DESKTOP_STRIP_H,
+  type ForecastStripModel,
+  type ForecastDay,
+  type LockTier,
 } from "../lib/forecast-strip";
 import DayCell from "./day-cell";
 import DayScrubCell from "./day-scrub-cell";
@@ -109,9 +110,23 @@ export default function ForecastStrip({
           when there is one. Without it the strip's day cells render underneath
           that bar. */}
       <div
-        style={{ bottom: "var(--rc-tabbar-clearance)" }}
-        className="hidden lg:flex flex-col h-[128px] fixed inset-x-0 z-30 bg-rc-panel/88 backdrop-blur-md border-t border-rc-rule shadow-rc-bar px-6 py-2.5"
+        style={{ bottom: "var(--rc-tabbar-clearance)", height: DESKTOP_STRIP_H }}
+        className="hidden lg:flex flex-col fixed inset-x-0 z-30 bg-rc-panel/88 backdrop-blur-md border-t border-rc-rule shadow-rc-bar px-6 py-2.5"
       >
+      {/* Content column, capped and centred. The bar itself still spans the
+          window — it is the instrument's ground — but its CONTENTS stop
+          growing.
+
+          The cells are flex-1 against the scrub cell's flex-[5] with no
+          ceiling, so on a wide display they simply kept stretching: at 2200px
+          each day became a 116px box holding a 28px numeral and the scrub lane
+          reached 571px, and at 2560px 135px and 666px. Eight mostly-empty
+          boxes stretched across a third of the screen read as padding rather
+          than as an instrument. Capping the column keeps the density the thing
+          was designed at, and capping BOTH rows together (rather than the cells
+          alone) keeps "Hide" and the attribution over the ends of the row they
+          label. Below 1600px nothing changes. */}
+      <div className="mx-auto flex w-full max-w-[1600px] flex-1 flex-col min-h-0">
         {/* Header — single compact row */}
         <div className="flex items-center justify-between gap-4 mb-2 shrink-0">
           <div className="flex items-center gap-3 min-w-0">
@@ -191,6 +206,7 @@ export default function ForecastStrip({
             })}
           </div>
         )}
+      </div>
       </div>
 
       <UpgradeDialog

@@ -32,10 +32,8 @@ import { useVisualViewport } from "../lib/use-visual-viewport";
 
 interface MapControlsProps {
   relief: boolean;
-  labels: boolean;
   currents: boolean;
   onToggleRelief: () => void;
-  onToggleLabels: () => void;
   onToggleCurrents: () => void;
   species: SpeciesOption[];
   speciesFilter: string | null;
@@ -77,6 +75,9 @@ export default function LocationSelector({
   onSelectRegion,
   onSelectSpecies,
   onFilterClick,
+  activeFilters = 0,
+  onNearMe,
+  locating = false,
   onAddSpot,
   onCollapse,
   mapControls,
@@ -94,6 +95,14 @@ export default function LocationSelector({
   onSelectSpecies: (id: string, name: string) => void;
   /** Mobile only — opens the map-filter sheet. Omitted on desktop (inert). */
   onFilterClick?: () => void;
+  /** Mobile only — how many map filters are off their default. Badges the
+   *  Filters button, so a narrowed map says so from the outside. */
+  activeFilters?: number;
+  /** Mobile only — recentres on the viewer. Desktop reaches this through
+   *  `mapControls`; on a phone it sits in the header with the other map moves,
+   *  because it is a camera action and not a filter. */
+  onNearMe?: () => void;
+  locating?: boolean;
   /** Mobile only — arms custom-spot placement. Sits beside Filters instead of a
    *  floating pill. Omitted on desktop (the rail header carries this action). */
   onAddSpot?: () => void;
@@ -406,14 +415,41 @@ export default function LocationSelector({
                   Add spot
                 </button>
               )}
+              {onNearMe && (
+                <button
+                  type="button"
+                  aria-label="Find spots near me"
+                  onClick={onNearMe}
+                  disabled={locating}
+                  className="flex items-center justify-center w-10 h-10 rounded-lg border border-rc-rule text-rc-ink-soft hover:bg-rc-surface transition-colors disabled:opacity-60"
+                >
+                  {locating ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <LocateFixed className="w-4 h-4" />
+                  )}
+                </button>
+              )}
               {onFilterClick && (
                 <button
                   type="button"
-                  aria-label="Filters"
+                  aria-label={
+                    activeFilters > 0
+                      ? `Filters (${activeFilters} on)`
+                      : "Filters"
+                  }
                   onClick={onFilterClick}
-                  className="flex items-center justify-center w-10 h-10 rounded-lg border border-rc-rule text-rc-ink-soft hover:bg-rc-surface transition-colors"
+                  className="relative flex items-center justify-center w-10 h-10 rounded-lg border border-rc-rule text-rc-ink-soft hover:bg-rc-surface transition-colors"
                 >
                   <SlidersHorizontal className="w-4 h-4" />
+                  {/* The only thing on this screen that says the map is
+                      narrowed. Without it a filtered map and an empty stretch
+                      of water look the same. */}
+                  {activeFilters > 0 && (
+                    <span className="absolute -top-1 -right-1 flex h-4 min-w-4 items-center justify-center rounded-full border-2 border-rc-panel bg-rc-brand px-1 font-rc-mono text-[9px] font-bold leading-none text-white">
+                      {activeFilters}
+                    </span>
+                  )}
                 </button>
               )}
             </div>

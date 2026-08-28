@@ -12,7 +12,7 @@ import {
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import type { RightNowSnapshot } from "@/lib/bluecaster/live-spot-types";
-import { TIER_PILL } from "@/app/explore/lib/explore-data";
+import { TIER_PILL, tierFor, type Tier } from "@/app/explore/lib/explore-data";
 import { resolveSea } from "@/app/explore/lib/sea-state";
 import { formatHour12 } from "@/lib/time-format";
 import SpotDayStrip, {
@@ -28,14 +28,18 @@ import {
 // --rc-good / --rc-fair / --rc-poor values the pins, the bars and the score
 // ticker use, and the ticker already runs them straight onto navy — so a dark
 // surface is no reason to invent a second palette, which is what the lighter
-// greens here used to be. Cuts are the system's: 75 / 55.
-const TIER = {
+// greens here used to be.
+//
+// The band itself comes from `tierFor`, not a copy of its cut points. This
+// file used to hold its own 85/60/40 chain, which is exactly how the hero and
+// the spot page ended up disagreeing about what a 61 was.
+const TIER: Record<Tier, { line: string; pill: string }> = {
   good: { line: "var(--rc-good)", pill: TIER_PILL.good },
   fair: { line: "var(--rc-fair)", pill: TIER_PILL.fair },
   poor: { line: "var(--rc-poor)", pill: TIER_PILL.poor },
-} as const;
-type Tier = keyof typeof TIER;
-const tierOf = (s: number): Tier => (s >= 75 ? "good" : s >= 55 ? "fair" : "poor");
+  none: { line: "var(--rc-ink-mute)", pill: TIER_PILL.none },
+};
+const tierOf = (s: number): Tier => tierFor(s);
 
 function seaState(waveM: number | null | undefined): string | null {
   if (typeof waveM !== "number") return null;

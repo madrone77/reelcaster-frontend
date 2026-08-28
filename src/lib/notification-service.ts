@@ -276,11 +276,12 @@ export function calculateDailyScores(
       dataPoints.reduce((sum, dp) => sum + dp.windSpeed, 0) / dataPoints.length;
     const totalPrecip = dataPoints.reduce((sum, dp) => sum + (dp.precipitation || 0), 0);
 
-    // Determine conditions
+    // Determine conditions. Same three bands and the same 75/55 cuts as
+    // `tierFor`, so a digest and the spot page it links to cannot use
+    // different words for the same number.
     let conditions = 'Good';
-    if (avgScore >= 75) conditions = 'Excellent';
-    else if (avgScore >= 60) conditions = 'Good';
-    else if (avgScore >= 40) conditions = 'Fair';
+    if (avgScore >= 75) conditions = 'Good';
+    else if (avgScore >= 55) conditions = 'Fair';
     else conditions = 'Poor';
 
     dailyScores.push({

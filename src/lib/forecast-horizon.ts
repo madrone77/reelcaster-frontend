@@ -46,6 +46,12 @@ export function stripViewportForecast(
         cells.map((cell, i) => (locked(i) ? null : cell)),
       ]),
     ),
+    // A locked tile draws a padlock, never an icon, so past the horizon this
+    // is bytes nobody renders. Strip it on the same line as the scores so
+    // "past the horizon" keeps meaning exactly one thing.
+    hourly_conditions: data.hourly_conditions?.map((cell, i) =>
+      locked(i) ? null : cell,
+    ),
   };
 }
 

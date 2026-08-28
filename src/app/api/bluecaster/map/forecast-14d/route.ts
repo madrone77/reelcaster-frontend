@@ -10,8 +10,9 @@ import {
 
 /**
  * Same-origin proxy → BlueCaster GET /api/v1/map/forecast-14d.
- * Keeps BLUECASTER_API_KEY server-side; the explore shell's viewport
- * forecast strip calls this with the current map bbox.
+ * Keeps BLUECASTER_API_KEY server-side. The Explore shell's viewport strip
+ * calls this with the current map bbox; a city page calls it with `city`, and
+ * gets that city's whole roster rather than whatever a rectangle caught.
  *
  * Day peaks past the caller's horizon are stripped server-side (anon 2
  * days, free account 7, Pro 14 — see @/lib/forecast-horizon, which the
@@ -36,12 +37,18 @@ async function callerVisibleDays(request: NextRequest): Promise<number> {
 }
 
 export async function GET(request: NextRequest) {
-  const bbox = request.nextUrl.searchParams.get("bbox");
-  if (!bbox) {
-    return NextResponse.json({ error: "bbox required" }, { status: 400 });
+  const sp = request.nextUrl.searchParams;
+  const bbox = sp.get("bbox");
+  // A city page asks by roster, not by rectangle — see fetchMapForecast14d.
+  // Upstream gives `city` precedence over `bbox`; this route only requires
+  // that one of them is present, because with neither the answer would be
+  // every published spot in the product.
+  const city = sp.get("city");
+  if (!bbox && !city) {
+    return NextResponse.json({ error: "bbox or city required" }, { status: 400 });
   }
   const [data, visibleDays] = await Promise.all([
-    fetchMapForecast14d(bbox),
+    fetchMapForecast14d({ bbox: bbox ?? undefined, city: city ?? undefined }),
     callerVisibleDays(request),
   ]);
   if (!data) {

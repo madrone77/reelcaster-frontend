@@ -101,7 +101,9 @@ export default function MapFilterChips({
     null,
   );
 
-  const chipBase = "px-2.5 py-1 rounded text-[11px] transition-colors shrink-0";
+  // rounded-sm, not rounded: bare `rounded` is Tailwind's 4px default, and
+  // the system puts 2px on every rectangle.
+  const chipBase = "px-2.5 py-1 rounded-sm text-[11px] transition-colors duration-[180ms] shrink-0";
   const chipOn = "bg-rc-brand-soft border border-rc-brand text-rc-ink font-semibold";
   // Explicitly white, not transparent: in the rail these sit on a white panel
   // so a bare outline looked fine, but the chips also overlay the map on the

@@ -117,11 +117,33 @@ export interface NearestSpotHit {
   score_status: "scored" | "pending";
 }
 
+/** The management area at a queried point.
+ *
+ *  Named `dfo_area` on the wire for history only. It resolves WDFW Marine
+ *  Areas and CDFW areas as well as DFO subareas, so the regulator is NOT
+ *  implied by the field name.
+ *
+ *  ⚠️ Render `mgmt_label`. Do not rebuild it as `DFO ${subarea_label}`: area
+ *  numbers repeat across regulators (there is a DFO Area 7 and a WDFW Area 7),
+ *  so the prefix is the only thing telling them apart, and a Puget Sound point
+ *  labelled that way names a regulator that does not manage that water.
+ *
+ *  body_label / mgmt_label are additive (BlueCaster, 2026-08-28) and optional
+ *  so a response from an older deploy still type-checks. */
+export interface MgmtArea {
+  subarea_label: string;
+  official_name: string | null;
+  body_label?: string | null;
+  /** "DFO 19-3", "WDFW 9". Falls back to the bare number if the body is
+   *  unknown. Prefer this over composing the string. */
+  mgmt_label?: string | null;
+}
+
 export interface NearestSpotsResponse {
   query: { lat: number; lng: number; radius_m: number };
   match: NearestSpotHit | null;
   candidates: NearestSpotHit[];
-  dfo_area: { subarea_label: string; official_name: string | null } | null;
+  dfo_area: MgmtArea | null;
 }
 
 // ── GET /api/v1/fishing-spots/[id]/snapshot ───────────────────────────
@@ -161,18 +183,47 @@ export interface CreateCustomSpotResponse {
     visibility?: CustomSpotVisibility;
     tidal_station: { id: string; name: string } | null;
   };
-  /** One entry per owner-picked species: "scored" once its fingerprint is
-   *  seeded, "pending" until the home city has one. */
-  scored_species?: { species_id: string; scoring: "scored" | "pending" }[];
+  /** The headline for the angler. BlueCaster scores the spot right after it
+   *  answers, so this is either "we are building its forecast now" or the
+   *  reason there will not be one. Always show it. */
+  message?: string;
+  /** in_progress — a forecast is on its way. skipped — nothing to score, and
+   *  `message` plus `warnings` say why. */
+  scoring?: {
+    status: "in_progress" | "skipped";
+    estimated_seconds: number | null;
+  };
+  /** Customer-ready copy for anything the angler should know: every species
+   *  closed by regulation, no species picked, no forecast model yet. */
+  warnings?: {
+    code:
+      | "no_species_selected"
+      | "regulations_closed"
+      | "regulations_closed_partial"
+      | "no_fingerprint"
+      | "conditions_unavailable";
+    message: string;
+    species_ids?: string[];
+  }[];
+  /** One entry per owner-picked species. "scoring" means a forecast is being
+   *  built for it now; "closed" means regulations shut it for the whole
+   *  14-day horizon; "pending" means no model or no tide series yet. */
+  scored_species?: {
+    species_id: string;
+    name?: string;
+    scoring: "scoring" | "pending" | "closed";
+    /** Set when the season opens partway through the horizon (YYYY-MM-DD). */
+    open_from?: string;
+  }[];
   seeded_from?: unknown;
   similar_spots?: unknown[];
   confidence: number;
   confidence_label: string;
-  /** Legacy/optional — the DFO management subarea at the point. BlueCaster
-   *  does not currently emit this from the create endpoint (always undefined
-   *  at runtime); kept optional so existing catch-logging callers that read
-   *  `mgmt_area?.subarea_label ?? fallback` still type-check. */
-  mgmt_area?: { subarea_label: string; official_name: string | null } | null;
+  /** Legacy/optional — the management area at the point. BlueCaster does not
+   *  currently emit this from the create endpoint (always undefined at
+   *  runtime); kept optional so existing catch-logging callers that read
+   *  `mgmt_area?.mgmt_label ?? fallback` still type-check. */
+  mgmt_area?: MgmtArea | null;
 }
 
 // ── POST /api/v1/ingest/catch (intelligence-pool commit) ──────────────
@@ -226,4 +277,17 @@ export interface SpotScoreHourResponse {
     score: number; // 0..1
     regulatory_state?: string;
   }>;
+}
+
+// ── GET /api/v1/species/scorable ──────────────────────────────────────
+
+/** The species a new custom spot at these coordinates can be scored for.
+ *  `basis: "scored"` means the list is what the city is actually producing
+ *  forecasts for, so every option is a real one. `"fingerprint"` is the
+ *  provisional fallback for a city with nothing scored yet. */
+export interface ScorableSpeciesResponse {
+  city: { id: string; name: string; slug: string };
+  distance_km: number;
+  basis: "scored" | "fingerprint";
+  species: { id: string; name: string }[];
 }

@@ -63,7 +63,7 @@ export interface MapSpot {
 /** Plain-English verdict under the score, so the card explains the number. */
 function verdictOf(score: number | null): string {
   const t = tierFor(score);
-  if (t === "good") return "Prime conditions";
+  if (t === "good") return "Good conditions";
   if (t === "fair") return "Worth a look";
   if (t === "poor") return "Slow today";
   return "No live score";
