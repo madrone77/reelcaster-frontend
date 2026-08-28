@@ -272,7 +272,11 @@ const NotificationPreferencesForm: React.FC = () => {
       )}
 
       {/* Save Button */}
-      <div className="sticky bottom-0 bg-rc-panel border-t border-rc-rule pt-4 pb-2 -mx-4 px-4 sm:-mx-6 sm:px-6">
+      {/* The only bottom-pinned control in the app outside Explore, so it is
+          the one thing `viewportFit: cover` at the root can put under the iOS
+          home indicator. Pad for the inset rather than let the indicator sit
+          on the button. */}
+      <div className="sticky bottom-0 bg-rc-panel border-t border-rc-rule pt-4 pb-[calc(0.5rem+env(safe-area-inset-bottom))] -mx-4 px-4 sm:-mx-6 sm:px-6">
         {error && (
           <div className="mb-4 p-3 bg-rc-poor-bg border border-rc-poor/40 rounded-lg">
             <p className="text-sm text-rc-poor-ink">{error}</p>
