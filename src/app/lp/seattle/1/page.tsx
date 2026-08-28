@@ -191,16 +191,19 @@ export default async function Lp8CityPage() {
 
       <div className="nav">
         <div className="navin">
-          <span
-            style={{
-              fontWeight: 700,
-              fontSize: 15,
-              letterSpacing: ".13em",
-              color: "var(--l8-brand)",
-            }}
-          >
-            REELCASTER
-          </span>
+          {/* Swapped with the blend's, so this family does not run a typed
+              wordmark in the bar above a phone that carries the real mark.
+              Blue knockout, the default on a light surface. Not a link: a
+              logo that goes to the homepage is the most-pressed way off a
+              landing page. */}
+          <Image
+            className="navmark"
+            src="/reelcaster-mark-blue.svg"
+            alt="ReelCaster"
+            width={104}
+            height={48}
+            priority
+          />
           <TrackedCta cta="nav" className="navcta" href={EXPLORE_HREF}>
             {CTA_LABEL}
           </TrackedCta>

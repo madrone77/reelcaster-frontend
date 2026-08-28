@@ -53,6 +53,12 @@ export const LP8_CSS = `
 /* nav */
 .l8 .nav{position:sticky;top:0;z-index:20;background:rgba(255,255,255,.93);backdrop-filter:blur(8px);border-bottom:1px solid var(--l8-rule)}
 .l8 .navin{max-width:1180px;margin:0 auto;padding:0 var(--l8-gut);height:60px;display:flex;align-items:center;justify-content:space-between;gap:16px}
+/* The mark, not the word set in the body face. Height-driven with width
+   auto, so the 144x66 box keeps its aspect whatever next/image writes into
+   the width/height attributes. 36px in a 60px bar puts the knockout letters
+   at about the 15px the typed wordmark ran at, which is why the bar did not
+   have to change height. */
+.l8 .navmark{height:36px;width:auto;display:block}
 .l8 .navcta{
   font-size:14px;font-weight:600;color:#fff;background:var(--l8-brand);border:0;border-radius:8px;
   padding:9px 16px;cursor:pointer;text-decoration:none;transition:background .15s;white-space:nowrap;
@@ -248,7 +254,12 @@ export const LP8_CSS = `
   width:calc(96 * var(--sp));height:calc(28 * var(--sp));
   border-radius:999px;background:#0A0C10;
 }
-.l8 .reelwm{font-weight:800;font-size:calc(15 * var(--sp));letter-spacing:.1em}
+/* The mark, sized in sp like everything else in the phone, so it scales with
+   the container rather than the viewport. 34sp tall puts its knockout letters
+   at roughly the 15sp the typed wordmark ran at, and keeps the box clear of
+   the dynamic island above it (which ends at 40sp; this row is bottom-aligned
+   and starts at 68sp). */
+.l8 .reelwm{height:calc(34 * var(--sp));width:auto;display:block}
 .l8 .reelnavcta{
   background:#fff;color:var(--l8-brand);border-radius:calc(7 * var(--sp));
   padding:calc(6 * var(--sp)) calc(10 * var(--sp));

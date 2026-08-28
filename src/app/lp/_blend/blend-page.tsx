@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Image from "next/image";
 import { notFound } from "next/navigation";
 import { angleFrom } from "../_shared/lp-angles";
 import { resolveLpCard } from "../_shared/lp-spot";
@@ -202,16 +203,22 @@ export default async function BlendPage({
 
         <div className="nav">
           <div className="navin">
-            <span
-              style={{
-                fontWeight: 700,
-                fontSize: 15,
-                letterSpacing: ".13em",
-                color: "var(--l8-brand)",
-              }}
-            >
-              REELCASTER
-            </span>
+            {/* The mark, not the word set in the body face. The blue
+                knockout is the default on a light surface (the numbered
+                variants' shell uses the same file), and it is drawn at 36px
+                so the letters inside the box land at the optical weight the
+                typed wordmark had here before. Not a link: a logo that goes
+                to the homepage is the most-pressed way off a landing page,
+                and the homepage sells this less specifically than the page it
+                would be leaving. */}
+            <Image
+              className="navmark"
+              src="/reelcaster-mark-blue.svg"
+              alt="ReelCaster"
+              width={104}
+              height={48}
+              priority
+            />
             <TrackedCta
               landing={landing}
               citySlug={cfg.slug}
