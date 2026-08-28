@@ -1,10 +1,10 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
-import { angleFrom } from "../../_shared/lp-angles";
-import { resolveLpCard } from "../../_shared/lp-spot";
-import { lpRegionFor } from "../../_shared/lp-region";
-import { PRICE } from "../../_shared/lp-content";
-import { trialChargeDate } from "../../_shared/lp-checkout";
+import { angleFrom } from "../_shared/lp-angles";
+import { resolveLpCard } from "../_shared/lp-spot";
+import { lpRegionFor } from "../_shared/lp-region";
+import { PRICE } from "../_shared/lp-content";
+import { trialChargeDate } from "../_shared/lp-checkout";
 import { fetchMapSpots } from "@/lib/bluecaster";
 import { loadCityBySlug } from "@/app/fishing/[province]/[city]/instrument/load-city";
 import KeepToday from "@/app/fishing/[province]/[city]/hub/keep-today";
@@ -13,8 +13,9 @@ import {
   FREE_FORECAST_DAYS,
   PRO_FORECAST_DAYS,
 } from "@/lib/forecast-horizon";
-import ExploreReel from "../1/explore-reel";
-import { buildCityProof, type CityProof } from "../1/city-proof";
+import ExploreReel from "../_reel/explore-reel";
+import { buildCityProof, type CityProof } from "../_reel/city-proof";
+import type { BlendCity } from "./blend-city";
 import { BLEND_CSS } from "./blend-css";
 import BlendInstrument from "./blend-instrument";
 import { BlendHit, BlendTrialForm, TrackedCta } from "./blend-track";
@@ -76,20 +77,21 @@ import { BlendHit, BlendTrialForm, TrackedCta } from "./blend-track";
  */
 
 /**
- * The city is the route, not a parameter.
+ * The city is the route, not a route PARAMETER.
  *
- * Seattle only, like /lp/seattle/1: the reel is drawn on a baked still of the
- * Seattle map (see ../1/reel-frame.ts), so this page cannot serve a second
- * city without a second capture. A different city gets its own
- * /lp/<city>/<n>.
+ * `/lp/<city>/<n>` rather than `/lp/<n>/[city]` like the numbered variants,
+ * because this page cannot serve an arbitrary city: the reel is drawn on a
+ * baked still of that city's own water, and a still is a capture somebody has
+ * to make and a frame somebody has to solve. A city with no capture would
+ * render a phone showing the wrong bay, which is worse than rendering no phone
+ * at all. See ../_reel/reel-frame.ts and blend-city.ts.
  */
-export const CITY_SLUG = "seattle-wa";
 
 /** Where a reader goes when the ask is a link rather than a form. z=10 frames
- *  the city the way the app's own Seattle view does; without it Explore opens
- *  at zoom 9, which on Puget Sound shows water nobody in this ad is launching
- *  into. */
-const EXPLORE_HREF = `/explore?loc=${CITY_SLUG}&z=10`;
+ *  a city the way the app's own city view does; without it Explore opens at
+ *  zoom 9, which on either of these inlets shows water nobody in this ad is
+ *  launching into. */
+const exploreHref = (slug: string) => `/explore?loc=${slug}&z=10`;
 
 export type BlendAsk = "explore" | "trial";
 
@@ -114,11 +116,11 @@ const EXPLORE_NOTE = "No account and no card to start.";
  * The title and description, and NOTHING read off the query string.
  *
  * /lp/seattle/1 and the numbered variants vary these by `?a=`, which is what
- * makes them `ƒ` in the build output: reading searchParams anywhere in a route
- *, `generateMetadata` counts, opts the whole thing out of static generation,
- * so every ad click pays for a cold render of three upstream calls before it
- * sees anything. `export const revalidate` does not save it; that caches the
- * fetches, not the render.
+ * makes them `ƒ` in the build output. Reading searchParams anywhere in a route
+ * opts the whole thing out of static generation, and `generateMetadata`
+ * counts, so every ad click pays for a cold render of three upstream calls
+ * before it sees anything. `export const revalidate` does not save it; that
+ * caches the fetches, not the render.
  *
  * The angle buys almost nothing here to set against that. These pages are
  * noindex, so the description is never read by anyone, and the title is a
@@ -130,8 +132,8 @@ const EXPLORE_NOTE = "No account and no card to start.";
  * turns both variants dynamic again, and the build output is the only place
  * that would say so.
  */
-export async function blendMetadata(): Promise<Metadata> {
-  const card = await resolveLpCard(CITY_SLUG);
+export async function blendMetadata(city: BlendCity): Promise<Metadata> {
+  const card = await resolveLpCard(city.slug);
   const fallback = angleFrom({});
   return {
     title: {
@@ -147,9 +149,12 @@ export async function blendMetadata(): Promise<Metadata> {
 }
 
 export default async function BlendPage({
+  city: cfg,
   ask,
   landing,
 }: {
+  /** Which city, which capture, and how it bills. See blend-city.ts. */
+  city: BlendCity;
   ask: BlendAsk;
   /** The campaign key this variant records under, e.g. "lpseattle2". */
   landing: string;
@@ -164,9 +169,9 @@ export default async function BlendPage({
    * reel's proof is built against, and the payload the reel walks.
    */
   const [city, card, payload] = await Promise.all([
-    loadCityBySlug(CITY_SLUG),
-    resolveLpCard(CITY_SLUG),
-    fetchMapSpots({ city: CITY_SLUG }).catch(() => null),
+    loadCityBySlug(cfg.slug),
+    resolveLpCard(cfg.slug),
+    fetchMapSpots({ city: cfg.slug }).catch(() => null),
   ]);
   if (!card) notFound();
 
@@ -193,7 +198,7 @@ export default async function BlendPage({
       {/* ── The hero, from /lp/seattle/1 ─────────────────────────────── */}
       <div className="l8">
         <style dangerouslySetInnerHTML={{ __html: BLEND_CSS }} />
-        <BlendHit landing={landing} />
+        <BlendHit landing={landing} citySlug={cfg.slug} />
 
         <div className="nav">
           <div className="navin">
@@ -209,9 +214,10 @@ export default async function BlendPage({
             </span>
             <TrackedCta
               landing={landing}
+              citySlug={cfg.slug}
               cta="nav"
               className="navcta"
-              href={ask === "trial" ? "#start" : EXPLORE_HREF}
+              href={ask === "trial" ? "#start" : exploreHref(cfg.slug)}
             >
               {LABEL[ask]}
             </TrackedCta>
@@ -263,6 +269,8 @@ export default async function BlendPage({
                 {ask === "trial" ? (
                   <BlendTrialForm
                     landing={landing}
+                    citySlug={cfg.slug}
+                    region={cfg.billingRegion}
                     cta="hero"
                     inputId="blend-hero-email"
                     chargeDate={chargeDate}
@@ -273,9 +281,10 @@ export default async function BlendPage({
                   <>
                     <TrackedCta
                       landing={landing}
+                      citySlug={cfg.slug}
                       cta="hero"
                       className="go"
-                      href={EXPLORE_HREF}
+                      href={exploreHref(cfg.slug)}
                     >
                       {LABEL.explore}
                       <Arrow />
@@ -292,7 +301,11 @@ export default async function BlendPage({
                 failed the hero simply becomes a one-column text block. */}
             {proof && proof.pins.length > 1 ? (
               <div className="stage">
-                <ExploreReel cityName={city.city.name} pins={proof.pins} />
+                <ExploreReel
+                  cityName={city.city.name}
+                  pins={proof.pins}
+                  frame={cfg.frame}
+                />
               </div>
             ) : null}
           </div>
@@ -307,7 +320,7 @@ export default async function BlendPage({
       <div className="max-w-6xl mx-auto px-6 pt-10 pb-12 space-y-6">
         <BlendInstrument
           landing={landing}
-          citySlug={CITY_SLUG}
+          citySlug={cfg.slug}
           cityName={city.city.name}
           cityLat={city.city.lat}
           cityLng={city.city.lng}
@@ -379,6 +392,8 @@ export default async function BlendPage({
             {ask === "trial" ? (
               <BlendTrialForm
                 landing={landing}
+                citySlug={cfg.slug}
+                region={cfg.billingRegion}
                 cta="final"
                 inputId="blend-final-email"
                 chargeDate={chargeDate}
@@ -389,9 +404,10 @@ export default async function BlendPage({
               <>
                 <TrackedCta
                   landing={landing}
+                  citySlug={cfg.slug}
                   cta="final"
                   className="go"
-                  href={EXPLORE_HREF}
+                  href={exploreHref(cfg.slug)}
                 >
                   {LABEL.explore}
                   <Arrow />
@@ -403,7 +419,7 @@ export default async function BlendPage({
         </section>
 
         <div className="foot">
-          ReelCaster {"·"} {city.city.name} and Puget Sound
+          ReelCaster {"·"} {city.city.name} and {cfg.water}
           <br />
           Forecasts are guidance, not a guarantee. Always check current{" "}
           {city.regulator.name} regulations before you keep a fish.

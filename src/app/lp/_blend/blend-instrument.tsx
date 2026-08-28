@@ -23,6 +23,8 @@ type Props = Omit<ComponentProps<typeof CityInstrument>, "campaign"> & {
 };
 
 export default function BlendInstrument({ landing, ...rest }: Props) {
-  const campaign = useBlendTarget(landing);
+  // The slug the counter files under is the same one the instrument loads
+  // from, so there is nothing to keep in step here.
+  const campaign = useBlendTarget(landing, rest.citySlug);
   return <CityInstrument {...rest} campaign={campaign} />;
 }

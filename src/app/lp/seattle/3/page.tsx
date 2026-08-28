@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
-import BlendPage, { blendMetadata } from "../_blend/blend-page";
+import BlendPage, { blendMetadata } from "@/app/lp/_blend/blend-page";
+import { SEATTLE } from "@/app/lp/_blend/blend-city";
 
 /**
  * `/lp/seattle/3`, the same blend as /lp/seattle/2, asking for a card.
@@ -19,9 +20,9 @@ import BlendPage, { blendMetadata } from "../_blend/blend-page";
 export const revalidate = 900;
 
 export function generateMetadata(): Promise<Metadata> {
-  return blendMetadata();
+  return blendMetadata(SEATTLE);
 }
 
 export default function LpSeattle3() {
-  return <BlendPage ask="trial" landing="lpseattle3" />;
+  return <BlendPage city={SEATTLE} ask="trial" landing="lpseattle3" />;
 }

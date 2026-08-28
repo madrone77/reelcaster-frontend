@@ -13,9 +13,14 @@ import {
 } from "@/lib/forecast-horizon";
 import { formatHour12 } from "@/lib/time-format";
 import { LP8_CSS } from "./lp8-css";
-import ExploreReel from "./explore-reel";
+import ExploreReel from "../../_reel/explore-reel";
+import { SEATTLE_FRAME } from "../../_reel/reel-frame";
 import { LpSeattleHit, TrackedCta } from "./lp-track";
-import { buildCityProof, type CityProof, type HeroMark } from "./city-proof";
+import {
+  buildCityProof,
+  type CityProof,
+  type HeroMark,
+} from "../../_reel/city-proof";
 
 /**
  * /lp/seattle/1 — the wide, Seattle-led variant.
@@ -250,7 +255,11 @@ export default async function Lp8CityPage() {
               the hero simply becomes a one-column text block. */}
           {proof && proof.pins.length > 1 ? (
             <div className="stage">
-              <ExploreReel cityName={card.cityName} pins={proof.pins} />
+              <ExploreReel
+                cityName={card.cityName}
+                pins={proof.pins}
+                frame={SEATTLE_FRAME}
+              />
             </div>
           ) : null}
         </div>

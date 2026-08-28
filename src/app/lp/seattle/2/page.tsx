@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
-import BlendPage, { blendMetadata } from "../_blend/blend-page";
+import BlendPage, { blendMetadata } from "@/app/lp/_blend/blend-page";
+import { SEATTLE } from "@/app/lp/_blend/blend-city";
 
 /**
  * `/lp/seattle/2`, /lp/seattle/1's animated hero over /lp/7's live city
@@ -20,9 +21,9 @@ import BlendPage, { blendMetadata } from "../_blend/blend-page";
 export const revalidate = 900;
 
 export function generateMetadata(): Promise<Metadata> {
-  return blendMetadata();
+  return blendMetadata(SEATTLE);
 }
 
 export default function LpSeattle2() {
-  return <BlendPage ask="explore" landing="lpseattle2" />;
+  return <BlendPage city={SEATTLE} ask="explore" landing="lpseattle2" />;
 }

@@ -1,13 +1,13 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { angleFrom } from "../../_shared/lp-angles";
+import { angleFrom } from "../_shared/lp-angles";
 import {
   reportCampaignCta,
   useCampaignHit,
   type CampaignTarget,
   type LpCtaId,
-} from "../../_shared/lp-telemetry";
+} from "../_shared/lp-telemetry";
 
 /**
  * Counting a city-first landing page.
@@ -23,16 +23,14 @@ import {
  * variants and is not worth widening, and it could not get the city right here
  * anyway, this route's segment is `seattle`, while every row in the table
  * carries a full slug like `seattle-wa`, so reading it would split one city
- * across two values of the column the report groups by.
+ * across two values of the column the report groups by. That is also why the
+ * slug is threaded through as a prop rather than read back off the path.
  *
  * The same target is handed to `CityInstrument` further down the page, which
  * is where the locked-day wall and the custom-spot wall are. Those are the two
  * asks the instrument half of this page actually makes, and they were the
  * reason the prop exists.
  */
-
-/** The full slug, not the `seattle` in the path. See above. */
-export const TARGET_CITY = "seattle-wa";
 
 /**
  * The angle is read from the URL on the client, not passed down.
@@ -51,10 +49,14 @@ function currentAngle(): string {
   }).id;
 }
 
-function targetFor(landing: string, angle: string): CampaignTarget {
+function targetFor(
+  landing: string,
+  citySlug: string,
+  angle: string,
+): CampaignTarget {
   return {
     landing,
-    target_city: TARGET_CITY,
+    target_city: citySlug,
     target_spot: "",
     wall: "",
     angle,
@@ -62,9 +64,15 @@ function targetFor(landing: string, angle: string): CampaignTarget {
 }
 
 /** Count this visit, once per tab. Renders nothing. */
-export function BlendHit({ landing }: { landing: string }) {
+export function BlendHit({
+  landing,
+  citySlug,
+}: {
+  landing: string;
+  citySlug: string;
+}) {
   const angle = useMemo(currentAngle, []);
-  useCampaignHit(targetFor(landing, angle));
+  useCampaignHit(targetFor(landing, citySlug, angle));
   return null;
 }
 
@@ -75,9 +83,15 @@ export function BlendHit({ landing }: { landing: string }) {
  * memo keeps the object identity stable so the instrument's own callbacks are
  * not rebuilt on every render.
  */
-export function useBlendTarget(landing: string): CampaignTarget {
+export function useBlendTarget(
+  landing: string,
+  citySlug: string,
+): CampaignTarget {
   const angle = useMemo(currentAngle, []);
-  return useMemo(() => targetFor(landing, angle), [landing, angle]);
+  return useMemo(
+    () => targetFor(landing, citySlug, angle),
+    [landing, citySlug, angle],
+  );
 }
 
 /**
@@ -89,12 +103,14 @@ export function useBlendTarget(landing: string): CampaignTarget {
  */
 export function TrackedCta({
   landing,
+  citySlug,
   cta,
   href,
   className,
   children,
 }: {
   landing: string;
+  citySlug: string;
   cta: LpCtaId;
   href: string;
   className: string;
@@ -104,7 +120,9 @@ export function TrackedCta({
     <a
       className={className}
       href={href}
-      onClick={() => reportCampaignCta(cta, targetFor(landing, currentAngle()))}
+      onClick={() =>
+        reportCampaignCta(cta, targetFor(landing, citySlug, currentAngle()))
+      }
     >
       {children}
     </a>
@@ -130,9 +148,11 @@ export function TrackedCta({
  *     Posting without it hands a repeat customer a fresh trial and leaves the
  *     webhook to claw it back.
  *
- * `region` decides the currency. This page is Seattle, so it is always WA and
- * always USD; sending it removes the geo guess that otherwise bills a reader
- * in CAD whenever the inference comes up empty.
+ * `region` decides the currency, and comes from the city config rather than
+ * being inferred. BC bills CAD and WA bills USD, and left to guess the route
+ * falls back to geo and then to BC, which on the American page means a reader
+ * quoted Canadian dollars under WDFW regulations whenever the lookup comes up
+ * empty.
  *
  * Not a reuse of `LpTrialForm` for one reason: that component is styled by
  * _shared/lp-css.ts, which this page does not inject, so it would render as
@@ -141,6 +161,8 @@ export function TrackedCta({
  */
 export function BlendTrialForm({
   landing,
+  citySlug,
+  region,
   cta,
   inputId,
   chargeDate,
@@ -148,6 +170,9 @@ export function BlendTrialForm({
   ctaLabel,
 }: {
   landing: string;
+  citySlug: string;
+  /** Billing region, e.g. "WA". See the note above. */
+  region: string;
   /** Which copy of the form this is: "hero" or "final". */
   cta: LpCtaId;
   /** Ids must differ between the two copies on one page. */
@@ -171,7 +196,7 @@ export function BlendTrialForm({
     // rejects for an empty or malformed email never reaches the counter. What
     // this measures is a real attempt to buy, which is the only version of a
     // CTA click worth putting a CTR on.
-    reportCampaignCta(cta, targetFor(landing, currentAngle()));
+    reportCampaignCta(cta, targetFor(landing, citySlug, currentAngle()));
 
     setSubmitting(true);
     setError(null);
@@ -181,7 +206,7 @@ export function BlendTrialForm({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           from: `${landing}-trial`,
-          region: "WA",
+          region,
           email: email.trim(),
         }),
       });
@@ -227,7 +252,7 @@ export function BlendTrialForm({
       {error ? (
         <p className="askerr" role="alert">
           {error}{" "}
-          <a href="/plans/checkout?from=lpseattle-blend&region=WA">
+          <a href={`/plans/checkout?from=${landing}-trial&region=${region}`}>
             Continue on the checkout page instead.
           </a>
         </p>
