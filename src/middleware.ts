@@ -1,4 +1,12 @@
 import { NextResponse, type NextRequest } from 'next/server'
+import {
+  ENTRY_COOKIE,
+  ENTRY_MAX_AGE,
+  PAID_COOKIE,
+  PAID_MAX_AGE,
+  buildEntry,
+  buildPaid,
+} from '@/lib/attribution'
 
 // Legacy coming-soon wall, now scoped to nothing.
 //
@@ -18,6 +26,94 @@ import { NextResponse, type NextRequest } from 'next/server'
 // To wall a future surface, add its prefix to WALLED_PREFIXES — an explicit
 // opt-in list, so it can never silently swallow 404s again.
 const WALLED_PREFIXES: string[] = []
+
+/**
+ * Is this request a person arriving at a page?
+ *
+ * Attribution is written here, on the edge, and the edge sees far more than
+ * navigations: RSC payload fetches, router prefetches, and the odd
+ * same-origin data request all pass through this matcher. Writing first touch
+ * from any of those is worse than writing nothing, because rc_entry is
+ * write-once: a link the visitor never followed, prefetched while they read
+ * the page they are actually on, would claim the credit for ninety days and
+ * lock the real landing page out.
+ *
+ * `sec-fetch-dest` answers this directly and is present on every browser we
+ * care about. The accept-header fallback is for the few that are not, and for
+ * local curl during development.
+ */
+function isPageView(req: NextRequest): boolean {
+  if (req.headers.get('rsc')) return false
+  if (req.headers.get('next-router-prefetch')) return false
+  const purpose = req.headers.get('sec-purpose') ?? req.headers.get('purpose') ?? ''
+  if (purpose.includes('prefetch')) return false
+  const dest = req.headers.get('sec-fetch-dest')
+  if (dest) return dest === 'document'
+  return (req.headers.get('accept') ?? '').includes('text/html')
+}
+
+/**
+ * Write first touch and paid touch from the request itself, before any of our
+ * JavaScript has reached the browser.
+ *
+ * This used to be client-only, in a useEffect (src/lib/attribution.ts), and
+ * the cost of that showed up in the numbers: half the trials we have taken
+ * arrived with no campaign on them at all. Every reason for that is a browser
+ * that never ran the effect with the ad's query string still in front of it —
+ * storage blocked, an in-app webview, a bounce before hydration, a script
+ * error somewhere else on the page. The request, by contrast, always carries
+ * the URL the ad was pointed at and the referrer that sent it, and it carries
+ * them on the very first byte.
+ *
+ * The client code stays as the backstop rather than being removed. It sees one
+ * case this cannot: a visitor whose first page is a client-side navigation off
+ * a link someone else's page prefetched.
+ *
+ * Both halves write the SAME cookie shape, so nothing downstream has to know
+ * or care which one got there first. `NextResponse.cookies.set` URL-encodes
+ * the value exactly as `document.cookie` does in src/lib/cookies.ts.
+ */
+function stampAttribution(req: NextRequest, res: NextResponse): NextResponse {
+  if (!isPageView(req)) return res
+
+  const { pathname, search } = req.nextUrl
+  const options = {
+    path: '/',
+    sameSite: 'lax' as const,
+    secure: req.nextUrl.protocol === 'https:',
+  }
+
+  // First touch is write-once, so an existing cookie always wins. Note this
+  // reads the REQUEST jar: a cookie set on an earlier response is already
+  // here, and a second write in the same visit is impossible.
+  if (!req.cookies.has(ENTRY_COOKIE)) {
+    const entry = buildEntry({
+      pathname,
+      search,
+      referrer: req.headers.get('referer') ?? '',
+      host: req.nextUrl.host,
+    })
+    if (entry) {
+      res.cookies.set(ENTRY_COOKIE, JSON.stringify(entry), {
+        ...options,
+        maxAge: ENTRY_MAX_AGE,
+      })
+    }
+  }
+
+  // Paid touch overwrites, because the newest bought click is the one that
+  // closed the sale. It writes only on a URL that carries a marker, so the
+  // organic pages in between leave the record alone.
+  const paid = buildPaid({ pathname, search })
+  if (paid) {
+    res.cookies.set(PAID_COOKIE, JSON.stringify(paid), {
+      ...options,
+      maxAge: PAID_MAX_AGE,
+    })
+  }
+
+  return res
+}
 
 export function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl
@@ -66,17 +162,19 @@ export function middleware(req: NextRequest) {
   ) {
     const url = req.nextUrl.clone()
     url.pathname = `${pathname.replace(/\/$/, '')}/ad`
-    return NextResponse.rewrite(url)
+    // Stamped, not skipped: this IS the ad landing, and its query string is
+    // the only place the click id will ever appear.
+    return stampAttribution(req, NextResponse.rewrite(url))
   }
 
   const walled = WALLED_PREFIXES.some(
     (p) => pathname === p || pathname.startsWith(p + '/'),
   )
-  if (!walled) return NextResponse.next()
+  if (!walled) return stampAttribution(req, NextResponse.next())
 
   const url = req.nextUrl.clone()
   url.pathname = '/coming-soon'
-  return NextResponse.rewrite(url)
+  return stampAttribution(req, NextResponse.rewrite(url))
 }
 
 export const config = {
