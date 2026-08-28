@@ -4,7 +4,7 @@ import Image from "next/image";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { tierFor, TIER_PIN } from "@/app/explore/lib/explore-data";
 import type { ReelPin } from "./city-proof";
-import { REEL_FRAME, REEL_MAP_SRC, placePin, inSafeArea } from "./reel-frame";
+import { placePin, inSafeArea, type ReelFrame } from "./reel-frame";
 
 /**
  * The hero: Explore, on a phone, walking its own spots.
@@ -15,20 +15,20 @@ import { REEL_FRAME, REEL_MAP_SRC, placePin, inSafeArea } from "./reel-frame";
  * from watching the answer change spot to spot than from a sentence saying so.
  *
  * HOW IT IS BUILT, AND WHY THIS WAY
- * The map is a still of the real Explore map with its pin layer switched off
- * (see reel-frame.ts). Everything above it -- pins, counter, preview card,
- * chrome -- is markup, so the active pin can grow and the card can change
- * without a second image per spot and without a video that goes stale the
- * next time a score moves. It also stays sharp on any display, which a
- * screen-recorded MP4 at a fixed resolution does not.
+ * The map is a still of the real Explore map with its pin layer switched off,
+ * chosen by the `frame` prop (see reel-frame.ts). Everything above it -- pins,
+ * counter, preview card, chrome -- is markup, so the active pin can grow and
+ * the card can change without a second image per spot and without a video that
+ * goes stale the next time a score moves. It also stays sharp on any display,
+ * which a screen-recorded MP4 at a fixed resolution does not.
  *
  * The spots, the scores and the three readings on the card are the SAME
  * payload the marks band further down the page is built from, so the phone
  * cannot advertise a spot at 88 above a list that has it at 84.
  *
  * COST
- * One 80 KB image and this component. No map engine, no tile requests, no
- * video. The image keeps `priority` because it is still the hero's LCP
+ * One image of well under 100 KB per city, and this component. No map engine,
+ * no tile requests, no video. The image keeps `priority` because it is still the hero's LCP
  * element, and nothing here blocks it: the pins are absolutely positioned over
  * it and the first card is rendered on the server.
  */
@@ -92,13 +92,18 @@ function TrendBars({
 export default function ExploreReel({
   cityName,
   pins,
+  frame,
 }: {
   cityName: string;
   pins: ReelPin[];
+  /** Which capture this reel is drawn on, and the geometry that placed it.
+   *  A parameter rather than a module constant, so a second city costs a
+   *  capture rather than a fork of this file. See reel-frame.ts. */
+  frame: ReelFrame;
 }) {
   /**
    * The stops, in the order the eye should travel: north to south down the
-   * sound, not best-score-first. A reel that jumps top, bottom, middle reads
+   * water, not best-score-first. A reel that jumps top, bottom, middle reads
    * as a slideshow; one that walks the channel reads as somebody scanning the
    * water, which is the thing being sold.
    *
@@ -108,7 +113,7 @@ export default function ExploreReel({
    */
   const stops = useMemo(() => {
     const visible = pins
-      .map((p) => ({ pin: p, at: placePin(p.lng, p.lat) }))
+      .map((p) => ({ pin: p, at: placePin(frame, p.lng, p.lat) }))
       .filter(({ at }) => inSafeArea(at.x, at.y));
     // Best first, decluttered, cut to length, THEN ordered by latitude: taking
     // the top of a latitude-sorted list would hand the reel whichever marks
@@ -122,7 +127,7 @@ export default function ExploreReel({
       if (kept.length === MAX_STOPS) break;
     }
     return kept.sort((a, b) => a.at.y - b.at.y);
-  }, [pins]);
+  }, [pins, frame]);
 
   const [i, setI] = useState(0);
   const hostRef = useRef<HTMLDivElement>(null);
@@ -194,10 +199,10 @@ export default function ExploreReel({
 
           <div className="reelmap">
             <Image
-              src={REEL_MAP_SRC}
+              src={frame.src}
               alt=""
-              width={REEL_FRAME.width * 2}
-              height={REEL_FRAME.height * 2}
+              width={frame.width * 2}
+              height={frame.height * 2}
               priority
               sizes="(min-width: 940px) 46vw, 92vw"
               className="reelmapimg"
@@ -224,7 +229,10 @@ export default function ExploreReel({
             })}
 
             <div className="reelchip">
-              <span className="reelloc">{cityName} · King County</span>
+              {/* City and region, as Explore's own location chip reads them. */}
+              <span className="reelloc">
+                {cityName} · {frame.regionLabel}
+              </span>
               <span className="reeladd">Add spot</span>
             </div>
 

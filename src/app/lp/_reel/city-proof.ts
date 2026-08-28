@@ -1,9 +1,10 @@
-import type { LpCard } from "../../_shared/lp-spot";
+import type { LpCard } from "../_shared/lp-spot";
 import type { MapSpotsPayload } from "@/lib/bluecaster";
 import { formatConditions, speciesDisplayName } from "@/app/explore/lib/explore-data";
 
 /**
- * The city-wide numbers on /lp/8, derived rather than written down.
+ * The city-wide numbers a reel hero and its page are built from, derived
+ * rather than written down.
  *
  * `resolveLpCard` deliberately returns ONE spot, because every other variant
  * shows one score card. This page also shows the roster around it, so the

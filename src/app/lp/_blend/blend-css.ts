@@ -1,4 +1,4 @@
-import { LP8_CSS } from "../1/lp8-css";
+import { LP8_CSS } from "../seattle/1/lp8-css";
 
 /**
  * The blend's stylesheet: /lp/seattle/1's sheet, plus an email form.
@@ -21,8 +21,8 @@ import { LP8_CSS } from "../1/lp8-css";
 export const BLEND_CSS = `${LP8_CSS}
 
 /* ── The email ask, for the variant that makes one ────────────────────────
-   Only /lp/seattle/3 renders this. /lp/seattle/2's hero has a link and
-   nothing else, which is the whole difference being tested.
+   Only the trial variants render this. An explore variant's hero has a link
+   and nothing else, which is the whole difference being tested.
 
    Written here in the l8 vocabulary rather than reusing _shared/lp-css.ts's
    .lp-form: that sheet describes the 480px phone column the numbered variants
