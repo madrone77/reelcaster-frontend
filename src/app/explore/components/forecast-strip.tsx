@@ -2,10 +2,11 @@
 
 import { useState } from "react";
 import { CloudSun } from "lucide-react";
-import type {
-  ForecastStripModel,
-  ForecastDay,
-  LockTier,
+import {
+  DESKTOP_STRIP_H,
+  type ForecastStripModel,
+  type ForecastDay,
+  type LockTier,
 } from "../lib/forecast-strip";
 import DayCell from "./day-cell";
 import DayScrubCell from "./day-scrub-cell";
@@ -109,8 +110,8 @@ export default function ForecastStrip({
           when there is one. Without it the strip's day cells render underneath
           that bar. */}
       <div
-        style={{ bottom: "var(--rc-tabbar-clearance)" }}
-        className="hidden lg:flex flex-col h-[128px] fixed inset-x-0 z-30 bg-rc-panel/88 backdrop-blur-md border-t border-rc-rule shadow-rc-bar px-6 py-2.5"
+        style={{ bottom: "var(--rc-tabbar-clearance)", height: DESKTOP_STRIP_H }}
+        className="hidden lg:flex flex-col fixed inset-x-0 z-30 bg-rc-panel/88 backdrop-blur-md border-t border-rc-rule shadow-rc-bar px-6 py-2.5"
       >
       {/* Content column, capped and centred. The bar itself still spans the
           window — it is the instrument's ground — but its CONTENTS stop

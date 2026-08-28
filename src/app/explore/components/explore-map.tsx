@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type RefObject } from "react";
+import { DESKTOP_STRIP_H } from "../lib/forecast-strip";
 import Map, {
   Source,
   Layer,
@@ -473,7 +474,7 @@ export default function ExploreMap({
       className="rc-explore-map absolute inset-0"
       style={
         {
-          "--rc-map-inset": stripVisible ? "128px" : "0px",
+          "--rc-map-inset": stripVisible ? `${DESKTOP_STRIP_H}px` : "0px",
           "--rc-map-sheet-inset": `${sheetInset}px`,
         } as CSSProperties
       }
