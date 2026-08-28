@@ -74,7 +74,9 @@ export default function LogCatchShell() {
   const [searching, setSearching] = useState(false);
   const [match, setMatch] = useState<NearestSpotHit | null>(null);
   const [candidates, setCandidates] = useState<NearestSpotHit[]>([]);
-  const [dfoArea, setDfoArea] = useState<string | null>(null);
+  // Fully rendered management area, regulator included ("DFO 19-3",
+  // "WDFW 9"). BlueCaster composes it; nothing here adds a prefix.
+  const [mgmtAreaLabel, setMgmtAreaLabel] = useState<string | null>(null);
   const [spot, setSpot] = useState<SelectedSpot | null>(null);
 
   // Review
@@ -242,7 +244,12 @@ export default function LogCatchShell() {
       if (!res) return;
       setMatch(res.match);
       setCandidates(res.candidates);
-      setDfoArea(res.dfo_area?.subarea_label ?? null);
+      // mgmt_label already carries the regulator ("WDFW 9"). subarea_label is
+      // the bare number and is only a fallback for a BlueCaster deploy that
+      // predates it; never prefix it here.
+      setMgmtAreaLabel(
+        res.dfo_area?.mgmt_label ?? res.dfo_area?.subarea_label ?? null,
+      );
     }, delay);
   }, []);
 
@@ -335,7 +342,7 @@ export default function LogCatchShell() {
         score: hit.score,
         scoreStatus: hit.score_status,
         distanceM: hit.distance_m,
-        mgmtArea: mgmt ? `DFO ${mgmt}` : null,
+        mgmtArea: mgmt,
       };
       setSpot(selected);
       setOverrides({});
@@ -348,10 +355,10 @@ export default function LogCatchShell() {
 
   const handleUseSpot = useCallback(
     (hit: NearestSpotHit) => {
-      adoptSpot(hit, dfoArea);
+      adoptSpot(hit, mgmtAreaLabel);
       setStep("review");
     },
-    [adoptSpot, dfoArea],
+    [adoptSpot, mgmtAreaLabel],
   );
 
   const handleCreateSpot = useCallback(
@@ -379,11 +386,16 @@ export default function LogCatchShell() {
       };
       setMatch(hit);
       setCandidates((c) => [hit, ...c]);
-      adoptSpot(hit, res.data.mgmt_area?.subarea_label ?? dfoArea);
+      adoptSpot(
+        hit,
+        res.data.mgmt_area?.mgmt_label ??
+          res.data.mgmt_area?.subarea_label ??
+          mgmtAreaLabel,
+      );
       setStep("review");
       return null;
     },
-    [pin, session, adoptSpot, dfoArea],
+    [pin, session, adoptSpot, mgmtAreaLabel],
   );
 
   // ── Review-screen edits ──────────────────────────────────────────────
@@ -393,7 +405,7 @@ export default function LogCatchShell() {
   useEffect(() => {
     if (step !== "review" || searching) return;
     if (match && match.id !== spot?.id) {
-      adoptSpot(match, dfoArea);
+      adoptSpot(match, mgmtAreaLabel);
     } else if (!match && spot) {
       setSpot(null);
       setSnapshot(null);
@@ -483,7 +495,7 @@ export default function LogCatchShell() {
             moon_phase: finalSnapshot?.moon_phase ?? undefined,
             spot_id: spot?.id ?? undefined,
             spot_slug: spot?.slug ?? undefined,
-            mgmt_area: spot?.mgmtArea ?? (dfoArea ? `DFO ${dfoArea}` : undefined),
+            mgmt_area: spot?.mgmtArea ?? mgmtAreaLabel ?? undefined,
             score: scoreSnapshot.status === "scored" ? scoreSnapshot.score : undefined,
             score_status: scoreSnapshot.status,
           }),
@@ -562,7 +574,7 @@ export default function LogCatchShell() {
       stats,
       species,
       spot,
-      dfoArea,
+      mgmtAreaLabel,
       scoreSnapshot,
       prepared,
       router,
@@ -640,7 +652,7 @@ export default function LogCatchShell() {
                 searching={searching}
                 match={match}
                 candidates={candidates}
-                mgmtArea={dfoArea}
+                mgmtArea={mgmtAreaLabel}
                 onPinMove={handlePinMove}
                 onUseMyLocation={handleUseMyLocation}
                 onUseSpot={handleUseSpot}
@@ -661,7 +673,7 @@ export default function LogCatchShell() {
                 spot={spot}
                 match={match}
                 candidates={candidates}
-                mgmtArea={dfoArea}
+                mgmtArea={mgmtAreaLabel}
                 searching={searching}
                 snapshot={snapshot}
                 snapshotLoading={snapshotLoading}
