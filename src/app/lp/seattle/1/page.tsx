@@ -4,12 +4,16 @@ import { notFound } from "next/navigation";
 import { angleFrom } from "../../_shared/lp-angles";
 import { resolveLpCard } from "../../_shared/lp-spot";
 import { lpRegionFor } from "../../_shared/lp-region";
-import { lpCheckoutHref, trialChargeDate } from "../../_shared/lp-checkout";
 import { PRICE, PROOF } from "../../_shared/lp-content";
 import { fetchMapSpots } from "@/lib/bluecaster";
+import {
+  ANON_FORECAST_DAYS,
+  FREE_FORECAST_DAYS,
+  PRO_FORECAST_DAYS,
+} from "@/lib/forecast-horizon";
 import { formatHour12 } from "@/lib/time-format";
 import { LP8_CSS } from "./lp8-css";
-import Lp8TrialForm from "./trial-form";
+import ExploreReel from "./explore-reel";
 import { buildCityProof, type CityProof, type HeroMark } from "./city-proof";
 
 /**
@@ -31,9 +35,17 @@ import { buildCityProof, type CityProof, type HeroMark } from "./city-proof";
  * The shared shell describes a 480px phone column, and bending it around a
  * two-column hero would put every other running variant at risk.
  *
- * The CTA is the standard card-required 7-day trial. There is no email-capture
- * alternative on this page: two asks for the same promise split the click, and
- * the weekend digest lives on the indexed city page instead.
+ * The CTA is the map itself: every button on the page opens Explore framed on
+ * Seattle, with nothing to fill in. The page has no email field and no card,
+ * because the product's own free tier already answers the question the ad
+ * asked -- is today worth going -- and asking for a card before answering it
+ * is a wall in front of the demo. The trial is sold inside Explore, where the
+ * reader has seen the thing they would be paying for.
+ *
+ * Everything the page promises is therefore a promise about the SIGNED-OUT
+ * product. The day counts are imported from lib/forecast-horizon rather than
+ * typed, so the page cannot go on advertising two days after the horizon
+ * moves.
  *
  * noindex comes from src/app/lp/layout.tsx.
  */
@@ -52,6 +64,32 @@ type SearchParams = Promise<Record<string, string | string[] | undefined>>;
  * second city gets its own /lp/<city>/<n> rather than a branch in here.
  */
 const CITY_SLUG = "seattle-wa";
+
+/**
+ * Where every CTA on this page goes.
+ *
+ * z=10 frames the city the way the app's own Seattle view does. Without it
+ * Explore opens a city at zoom 9, which on Puget Sound pulls back far enough
+ * to show water nobody in this ad is launching into.
+ *
+ * Written once because it was written twice: a link that drops the zoom is
+ * indistinguishable from one that keeps it until somebody lands on it.
+ */
+const EXPLORE_HREF = `/explore?loc=${CITY_SLUG}&z=10`;
+
+/** The one label, so the nav, the hero and the close cannot disagree. */
+const CTA_LABEL = "Start Exploring Free";
+
+/**
+ * The line under the button, and the whole of the qualification on it.
+ *
+ * "to start" is doing real work: what is free is getting in, not everything
+ * past it, and a flat "no account and no card" would be read as a claim about
+ * the whole product by somebody who then meets the day limit on the next
+ * screen. The limits themselves are spelled out further down, where there is
+ * room to be exact about them.
+ */
+const CTA_NOTE = "No account and no card to start.";
 
 export async function generateMetadata({
   searchParams,
@@ -75,31 +113,31 @@ export async function generateMetadata({
   };
 }
 
-export default async function Lp8CityPage({
-  searchParams,
-}: {
-  searchParams: SearchParams;
-}) {
+/**
+ * The body no longer reads searchParams. `?a=` still picks the title and the
+ * subhead in generateMetadata, which is where the angle was always doing most
+ * of its work; the rest of it fed the checkout POST and the CTA counter, and
+ * both of those left with the form.
+ */
+export default async function Lp8CityPage() {
   const slug = CITY_SLUG;
-  const sp = await searchParams;
 
   const card = await resolveLpCard(slug);
   if (!card) notFound();
 
-  const angle = angleFrom(sp);
   const region = lpRegionFor(card.provinceCode);
 
   /**
-   * Attribution key. Must name the URL that actually bought the click.
+   * There is no `from` key here any more, and nothing is lost by that.
    *
-   * This was `lp8-<angle>`, left behind when the route moved from /lp/8/[city]
-   * to /lp/seattle/1. A key that matches no live URL is worse than a missing
-   * one: it reports spend against a page nobody can visit, and the conversions
-   * panel has no way to tell that from a real result.
+   * It existed to ride a checkout POST into the conversion row. This page no
+   * longer starts a checkout, and the visit is already recorded without it:
+   * AttributionCapture in the root layout writes rc_entry on this landing
+   * path, write-once, 90 days, and that cookie survives the hop to Explore and
+   * whatever signup or upgrade follows it. A query parameter carrying the same
+   * fact would be a second copy free to disagree, and lib/attribution is
+   * explicit that we do not put the referrer in a URL.
    */
-  const from = `lpseattle1-${angle.id}`;
-  const checkoutHref = lpCheckoutHref("seattle1", angle.id, card);
-  const chargeDate = trialChargeDate(PRICE.trialDays);
 
   // The city-wide numbers and the marks band. Separate from the card because
   // resolveLpCard deliberately returns ONE spot; this page also wants the
@@ -128,7 +166,7 @@ export default async function Lp8CityPage({
   // the card's spot instead put Constance Bank at 88 above a list topped by
   // Victoria Waterfront at 91, which is a page disagreeing with itself in the
   // reader's first screen. The card still supplies everything that is not a
-  // score: the city, the species, the region and the checkout.
+  // score: the city, the species and the region.
   const hero: HeroMark = proof?.hero ?? {
     name: card.spotName,
     score: card.score,
@@ -156,8 +194,8 @@ export default async function Lp8CityPage({
           >
             REELCASTER
           </span>
-          <a className="navcta" href="#start">
-            Start {PRICE.trialDays}-day free trial
+          <a className="navcta" href={EXPLORE_HREF}>
+            {CTA_LABEL}
           </a>
         </div>
       </div>
@@ -186,36 +224,33 @@ export default async function Lp8CityPage({
               your own custom spots.
             </p>
 
+            {/* One link, no form. */}
             <div id="start">
-              <Lp8TrialForm
-                from={from}
-                region={card.provinceCode}
-                chargeDate={chargeDate}
-                price={PRICE.year}
-                trialDays={PRICE.trialDays}
-                fallbackHref={checkoutHref}
-                inputId="lpseattle1-email-hero"
-                cta="hero"
-                angle={angle.id}
-              />
+              <a className="go" href={EXPLORE_HREF}>
+                {CTA_LABEL}
+                <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+                  <path d="M3 8h9M8.5 4l4 4-4 4" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" />
+                </svg>
+              </a>
+              <p className="gonote">{CTA_NOTE}</p>
             </div>
           </div>
 
-          {/* The real product shot, callout and all. This replaces a drawn
-              approximation of the same screen: the marketing image IS the app,
-              so there is no risk of the page teaching a UI that does not exist.
-              Priority because it is the LCP element on every viewport. */}
-          <div className="stage">
-            <Image
-              src="/marketing/green-means-go.png"
-              alt="The ReelCaster conditions screen. An arrow labelled Green Means Go points at the hour strip, where each hour of the day is coloured green, amber or red."
-              width={1112}
-              height={1820}
-              priority
-              sizes="(min-width: 940px) 46vw, 92vw"
-              className="shot"
-            />
-          </div>
+          {/* Explore, on a phone, walking the city's own marks.
+              This replaces a still of the conditions screen. The still was a
+              real screenshot and honest, but it showed one spot holding
+              still, and the claim beside it is that every mark around the city
+              is scored separately -- which a reader accepts far quicker from
+              watching the answer change spot to spot.
+
+              Falls back to nothing rather than to a broken phone: the reel is
+              built from the same payload as the marks band, and if that failed
+              the hero simply becomes a one-column text block. */}
+          {proof && proof.pins.length > 1 ? (
+            <div className="stage">
+              <ExploreReel cityName={card.cityName} pins={proof.pins} />
+            </div>
+          ) : null}
         </div>
       </div>
 
@@ -439,12 +474,8 @@ export default async function Lp8CityPage({
               ))}
             </div>
 
-            {/* z=10 frames the city the way the app's own Seattle view does.
-                Without it Explore opens a city at zoom 9, which on Puget Sound
-                pulls back far enough to show water nobody in this ad is
-                launching into. */}
-            <a className="mapcta" href="/explore?loc=seattle-wa&z=10">
-              Explore Live Seattle Map
+            <a className="mapcta" href={EXPLORE_HREF}>
+              Explore Live {card.cityName} Map
               <svg width="15" height="15" viewBox="0 0 16 16" fill="none" aria-hidden="true">
                 <path d="M3 8h9M8.5 4l4 4-4 4" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" />
               </svg>
@@ -505,34 +536,40 @@ export default async function Lp8CityPage({
         </div>
       </section>
 
-      {/* THE TRIAL, SPELLED OUT */}
+      {/* WHAT FREE OPENS.
+          This band was "How the trial works", written when the page asked for
+          a card. With the ask gone it described a flow the page no longer
+          offers, which on ad traffic is worse than saying nothing: the button
+          promises free and the section underneath it names a charge date.
+          What replaces it is the same three-beat shape answering the question
+          a free reader actually has, which is how far ahead they can see. */}
       <section>
         <div className="shell">
-          <span className="lab">How the trial works</span>
+          <span className="lab">How far ahead you can see</span>
           <h2 style={{ marginBottom: 24 }}>
-            {PRICE.trialDays} days free, and you will know inside two.
+            Start free. The days are the thing you buy.
           </h2>
           <div className="steps">
             <div className="step">
-              <b>Today</b>
+              <b>No account</b>
               <p>
-                Card on file, <strong>charged nothing</strong>. All 14 days open
-                across every {card.cityName} spot, straight away.
+                The next <strong>{ANON_FORECAST_DAYS} days</strong>, hour by
+                hour, at every {card.cityName} spot. Nothing to fill in.
               </p>
             </div>
             <div className="step">
-              <b>Day {PRICE.reminderDay}</b>
+              <b>Free account</b>
               <p>
-                We email you before the trial ends. Not on the morning it
-                charges, with <strong>three days</strong> still to decide.
+                <strong>{FREE_FORECAST_DAYS} days</strong> ahead instead of{" "}
+                {ANON_FORECAST_DAYS}. An email address, and no card.
               </p>
             </div>
             <div className="step">
-              <b>Day {PRICE.trialDays}</b>
+              <b>Pro</b>
               <p>
-                {PRICE.year} on {chargeDate}, or{" "}
-                <strong>cancel in one click</strong> before then and pay
-                nothing.
+                All <strong>{PRO_FORECAST_DAYS} days</strong>, plus your own
+                custom spots. {PRICE.year}, and you can see the whole product
+                before you decide.
               </p>
             </div>
           </div>
@@ -572,11 +609,12 @@ export default async function Lp8CityPage({
               </p>
             </div>
             <div className="qa">
-              <h3>What if I cancel?</h3>
+              <h3>Do I have to sign up?</h3>
               <p>
-                One click in your account, any time in the {PRICE.trialDays}{" "}
-                days, and you are never charged. No email, no phone call, no
-                retention offer.
+                Not to look. The map opens on {card.cityName} with the next{" "}
+                {ANON_FORECAST_DAYS} days scored and no account at all. An
+                account is how you see further out, and Pro is how you see all{" "}
+                {PRO_FORECAST_DAYS} days and score your own custom spots.
               </p>
             </div>
           </div>
@@ -588,20 +626,16 @@ export default async function Lp8CityPage({
         <div className="shell">
           <h2>Fish the three hours, not the whole day.</h2>
           <p className="sub">
-            Open all 14 days across every {card.cityName} spot. Free for{" "}
-            {PRICE.trialDays} days.
+            Open the live {card.cityName} map and see the next{" "}
+            {ANON_FORECAST_DAYS} days scored, spot by spot and hour by hour.
           </p>
-          <Lp8TrialForm
-            from={from}
-            region={card.provinceCode}
-            chargeDate={chargeDate}
-            price={PRICE.year}
-            trialDays={PRICE.trialDays}
-            fallbackHref={checkoutHref}
-            inputId="lpseattle1-email-final"
-            cta="final"
-            angle={angle.id}
-          />
+          <a className="go" href={EXPLORE_HREF}>
+            {CTA_LABEL}
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+              <path d="M3 8h9M8.5 4l4 4-4 4" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+          </a>
+          <p className="gonote">{CTA_NOTE}</p>
         </div>
       </section>
 

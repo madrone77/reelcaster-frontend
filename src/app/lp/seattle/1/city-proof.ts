@@ -1,5 +1,6 @@
 import type { LpCard } from "../../_shared/lp-spot";
 import type { MapSpotsPayload } from "@/lib/bluecaster";
+import { formatConditions, speciesDisplayName } from "@/app/explore/lib/explore-data";
 
 /**
  * The city-wide numbers on /lp/8, derived rather than written down.
@@ -51,6 +52,46 @@ export interface CityProof {
   hero: HeroMark | null;
   /** "Wind 4 kt" or similar, from the featured spot's own conditions strip. */
   conditionNote: string | null;
+  /**
+   * Everything the animated Explore reel needs to draw one spot: where the pin
+   * goes, and what its preview card says when the reel lands on it.
+   *
+   * Same ranking and same species as `marks`, so the phone in the hero and the
+   * list further down cannot end up talking about different water. Ordered
+   * best first; the reel walks them geographically, which is a display
+   * decision and belongs with the component.
+   */
+  pins: ReelPin[];
+}
+
+export interface ReelPin {
+  name: string;
+  slug: string;
+  score: number;
+  lat: number;
+  lng: number;
+  /** Display name, "Pacific" already stripped. */
+  species: string;
+  /**
+   * The three readings the real Explore preview card shows, formatted by the
+   * product's OWN formatter rather than re-derived here. A landing page that
+   * rounds wind or names a sea state its own way is a second vocabulary that
+   * disagrees with the app the moment either moves.
+   */
+  wind: string | null;
+  sea: string | null;
+  current: string | null;
+  /**
+   * The card's 24-hour sparkline, and the window to light up inside it.
+   *
+   * The real Explore card carries this (see components/spot-trend.tsx) and the
+   * reel's card looked wrong without it -- the meta row ended in dead space
+   * where the product puts the shape of the day. Same 24 values and the same
+   * window function the hero bars use, so the two cannot disagree.
+   */
+  hours: number[];
+  bestFrom: number;
+  bestTo: number;
 }
 
 export interface HeroMark {
@@ -147,6 +188,7 @@ export function buildCityProof(
     cardSpeciesId && cardCount >= bestCount * 0.6 ? cardSpeciesId : widest;
 
   const marks: Array<{ name: string; score: number; slug: string }> = [];
+  const pins: ReelPin[] = [];
   let heroMark: HeroMark | null = null;
   let peakHour = card.bestFrom >= 0 ? card.bestFrom : 12;
   let conditionNote: string | null = null;
@@ -163,6 +205,29 @@ export function buildCityProof(
       if (strip) {
         const score = toScore(strip.peak);
         marks.push({ name: spot.name, score, slug: spot.slug });
+        // Conditions AT THE PEAK, which is the hour the score is about. The
+        // card would otherwise quote midnight's wind beside a 6 AM number.
+        const cond = formatConditions(spot.conditions?.[strip.peak_hour] ?? null);
+        const pinHours = strip.hours.map((h) =>
+          h && typeof h.s === "number" ? toScore(h.s) : 0,
+        );
+        const pinWin = windowAround(pinHours, strip.peak_hour);
+        pins.push({
+          name: spot.name,
+          slug: spot.slug,
+          score,
+          lat: spot.lat,
+          lng: spot.lng,
+          species: speciesDisplayName(
+            payload.species[heroSpeciesId]?.name ?? card.species,
+          ),
+          wind: cond.wind,
+          sea: cond.sea,
+          current: cond.current,
+          hours: pinHours,
+          bestFrom: pinWin?.from ?? -1,
+          bestTo: pinWin?.to ?? -1,
+        });
         if (!heroMark || score > heroMark.score) {
           const hours = strip.hours.map((h) =>
             h && typeof h.s === "number" ? toScore(h.s) : 0,
@@ -191,6 +256,7 @@ export function buildCityProof(
   }
 
   marks.sort((a, b) => b.score - a.score);
+  pins.sort((a, b) => b.score - a.score);
 
   return {
     hero: heroMark,
@@ -203,5 +269,6 @@ export function buildCityProof(
     peakHour,
     marks,
     conditionNote,
+    pins,
   };
 }
