@@ -153,6 +153,41 @@ function testGeminiIsAiNotSearch() {
   assert.equal(r.kind, 'ai');
 }
 
+/**
+ * Android in-app referrers name a PACKAGE, not a site, and land on the wrong
+ * source kind entirely if left unmapped.
+ *
+ * The Google case is real: a live trial on 2026-08-28 arrived from the Google
+ * app and would have counted as `referral` rather than `search`. The Meta cases
+ * are the expensive ones -- Meta's Android in-app browser sends its package
+ * where its iOS one sends nothing, and about half our Meta ads carry no URL
+ * parameters, so on those visits this referrer is the only evidence of Meta at
+ * all.
+ */
+function testAndroidAppReferrers() {
+  const from = (referrer: string) =>
+    classifySource({ referrer, selfHost: HOST, isPaid: false });
+
+  assert.deepEqual(from('android-app://com.google.android.googlequicksearchbox/'), {
+    kind: 'search',
+    host: 'google.com',
+  });
+  assert.deepEqual(from('android-app://com.instagram.android/'), {
+    kind: 'social',
+    host: 'instagram.com',
+  });
+  assert.deepEqual(from('android-app://com.facebook.katana/'), {
+    kind: 'social',
+    host: 'facebook.com',
+  });
+  // An unmapped package degrades to a plain referral under its own name, which
+  // is what "we have not seen this app before" should look like.
+  assert.deepEqual(from('android-app://com.example.unknown/'), {
+    kind: 'referral',
+    host: 'com.example.unknown',
+  });
+}
+
 function testUnparseableReferrerIsDirect() {
   assert.deepEqual(
     classifySource({ referrer: 'not a url', selfHost: HOST, isPaid: false }),
@@ -173,6 +208,7 @@ const tests = [
   testOwnHostIsInternalNotDirect,
   testPaidBeatsTheReferrer,
   testGeminiIsAiNotSearch,
+  testAndroidAppReferrers,
   testUnparseableReferrerIsDirect,
 ];
 

@@ -229,6 +229,46 @@ const HOST_ALIASES = [
 ];
 
 /**
+ * Android app packages, mapped to the network they are.
+ *
+ * On Android a link opened from inside an app arrives with an `android-app://`
+ * referrer naming the PACKAGE rather than the site. Unmapped it parses to a
+ * host like `com.instagram.android`, which matches no alias and no source list,
+ * so the visit is filed as an unremarkable `referral` from an unknown site.
+ *
+ * Not theoretical: a real trial on 2026-08-28 arrived from
+ * `android-app://com.google.android.googlequicksearchbox/` (the Google app) and
+ * would have counted as `referral` instead of `search`.
+ *
+ * The Meta packages are the ones that decide money. Meta's Android in-app
+ * browser sends its package where its iOS one sends nothing at all, and roughly
+ * half our Meta ads carry no URL parameters, so on those visits this referrer
+ * is the ONLY evidence the visit came from Meta. Dropping it is how a
+ * conversion Meta reports becomes a conversion we call unattributed.
+ *
+ * NOTE this changes the referrer host, NOT `isPaid`. An organic Instagram share
+ * opens in the same app as a paid one, so the package cannot tell them apart
+ * and must not be allowed to claim it can.
+ */
+const APP_PACKAGE_HOSTS: Record<string, string> = {
+  'com.google.android.googlequicksearchbox': 'google.com',
+  'com.google.android.youtube': 'youtube.com',
+  'com.instagram.android': 'instagram.com',
+  'com.facebook.katana': 'facebook.com',
+  'com.facebook.lite': 'facebook.com',
+  'com.facebook.orca': 'facebook.com',
+  'com.zhiliaoapp.musically': 'tiktok.com',
+  'com.ss.android.ugc.trill': 'tiktok.com',
+  'com.reddit.frontpage': 'reddit.com',
+  'com.twitter.android': 'x.com',
+  'com.linkedin.android': 'linkedin.com',
+  'com.snapchat.android': 'snapchat.com',
+  'com.pinterest': 'pinterest.com',
+  'com.microsoft.bing': 'bing.com',
+  'com.duckduckgo.mobile.android': 'duckduckgo.com',
+};
+
+/**
  * The host that sent them, collapsed through the alias list. Empty string when
  * there is no referrer or it cannot be parsed, which the caller reads as
  * direct.
@@ -241,6 +281,9 @@ export function referrerHost(referrer: string): string {
   } catch {
     return '';
   }
+  // An android-app:// referrer parses to the package name as its host.
+  const app = APP_PACKAGE_HOSTS[host];
+  if (app) return app;
   // Longest alias first, so `news.google.com` is not eaten by `google.com`.
   const alias = [...HOST_ALIASES]
     .sort((a, b) => b.length - a.length)
