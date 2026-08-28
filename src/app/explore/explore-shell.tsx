@@ -1284,6 +1284,60 @@ export default function ExploreShell({
     [speciesFilter, relief, labels, currents, wind, day],
   );
 
+  /**
+   * A tap on a MAP PIN. Desktop opens the rail drawer; mobile opens the
+   * preview card docked in the sheet — it does NOT navigate.
+   *
+   * It used to route straight to `/explore/spot/<slug>`, which meant the only
+   * way to find out what a pin was worth was to leave the map, and the only
+   * way back was the back button. Comparing two pins cost four navigations.
+   * Selection is a URL param either way, so the card paints from the spot
+   * already in hand (see `selectedSpot`) with nothing to wait for.
+   */
+  const focusSpotOnMap = useCallback(
+    (slug: string) => {
+      setQuery({ spot: slug, stn: null });
+      const spot = displaySpots.find((s) => s.slug === slug);
+      if (!spot) return;
+      const map = mapRef.current;
+      if (!map) return;
+      // Desktop's flyTo zooms in on the pick. Mobile keeps the zoom it has:
+      // the preview card is a browsing surface, and pulling the camera in a
+      // notch on every pin tap walks the viewport away from the water the
+      // angler was reading. `sheet-safe-center` still lifts the pin clear of
+      // the card.
+      const phone = !window.matchMedia("(min-width:1024px)").matches;
+      map.flyTo({
+        center: [spot.lng, spot.lat],
+        zoom: phone
+          ? (map.getZoom() ?? 9)
+          : Math.max(map.getZoom() ?? 9, 11),
+        duration: phone ? 450 : 700,
+      });
+    },
+    [setQuery, displaySpots],
+  );
+
+  /**
+   * Which spot the mobile preview carousel measures distance from — the pin
+   * the angler actually tapped, held still while they swipe.
+   *
+   * Only a MAP tap sets it. If swiping re-anchored, the deck would re-sort
+   * around whatever card you had just landed on: the card in hand would always
+   * be "1 of n", and swiping back would walk a different list than the one you
+   * came down. The anchor is the question ("what else is near THIS?"), and the
+   * question can't move every time you look at an answer.
+   */
+  const [previewAnchor, setPreviewAnchor] = useState<string | null>(null);
+
+  const handleMapSelectSpot = useCallback(
+    (slug: string) => {
+      setPreviewAnchor(slug);
+      focusSpotOnMap(slug);
+    },
+    [focusSpotOnMap],
+  );
+
   const handleSelectSpot = useCallback(
     (slug: string) => {
       // Mobile (<lg) has no rail/drawer — go straight to the responsive spot
@@ -1377,6 +1431,7 @@ export default function ExploreShell({
   );
 
   const handleCloseSpot = useCallback(() => {
+    setPreviewAnchor(null);
     setQuery({ spot: null });
   }, [setQuery]);
 
@@ -1654,7 +1709,7 @@ export default function ExploreShell({
           mapRef={mapRef}
           spots={uniqueSpots}
           selectedSlug={selectedSpot?.slug ?? null}
-          onSelect={handleSelectSpot}
+          onSelect={handleMapSelectSpot}
           onSelectStation={handleSelectStation}
           initialCenter={initialCenter}
           initialZoom={initialZoom}
@@ -1736,13 +1791,16 @@ export default function ExploreShell({
         onSelectSpot={handleSelectSpot}
         forecastModel={stripModel}
         selectedIso={selectedIso}
-        selectedDayHours={selectedDayHours}
-        scrubHour={scrubHour}
-        onScrubHour={setScrubHour}
         onSelectDay={handleSelectDay}
         signedIn={!!user}
         onLockedAdDay={focusAdOffer}
         freshCatches={freshCatches}
+        selectedSlug={selectedSpot?.slug ?? null}
+        /* A deep link to `?spot=` never went through a pin tap, so the spot in
+           the URL is the anchor by default. */
+        previewAnchorSlug={previewAnchor ?? selectedSpot?.slug ?? null}
+        onPreviewSlug={focusSpotOnMap}
+        onClosePreview={handleCloseSpot}
       />
 
       <LeftRail
