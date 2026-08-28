@@ -14,6 +14,7 @@ import {
 import { formatHour12 } from "@/lib/time-format";
 import { LP8_CSS } from "./lp8-css";
 import ExploreReel from "./explore-reel";
+import { LpSeattleHit, TrackedCta } from "./lp-track";
 import { buildCityProof, type CityProof, type HeroMark } from "./city-proof";
 
 /**
@@ -181,6 +182,7 @@ export default async function Lp8CityPage() {
   return (
     <div className="l8">
       <style dangerouslySetInnerHTML={{ __html: LP8_CSS }} />
+      <LpSeattleHit />
 
       <div className="nav">
         <div className="navin">
@@ -194,9 +196,9 @@ export default async function Lp8CityPage() {
           >
             REELCASTER
           </span>
-          <a className="navcta" href={EXPLORE_HREF}>
+          <TrackedCta cta="nav" className="navcta" href={EXPLORE_HREF}>
             {CTA_LABEL}
-          </a>
+          </TrackedCta>
         </div>
       </div>
 
@@ -226,12 +228,12 @@ export default async function Lp8CityPage() {
 
             {/* One link, no form. */}
             <div id="start">
-              <a className="go" href={EXPLORE_HREF}>
+              <TrackedCta cta="hero" className="go" href={EXPLORE_HREF}>
                 {CTA_LABEL}
                 <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
                   <path d="M3 8h9M8.5 4l4 4-4 4" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" />
                 </svg>
-              </a>
+              </TrackedCta>
               <p className="gonote">{CTA_NOTE}</p>
             </div>
           </div>
@@ -474,12 +476,12 @@ export default async function Lp8CityPage() {
               ))}
             </div>
 
-            <a className="mapcta" href={EXPLORE_HREF}>
+            <TrackedCta cta="secondary" className="mapcta" href={EXPLORE_HREF}>
               Explore Live {card.cityName} Map
               <svg width="15" height="15" viewBox="0 0 16 16" fill="none" aria-hidden="true">
                 <path d="M3 8h9M8.5 4l4 4-4 4" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" />
               </svg>
-            </a>
+            </TrackedCta>
           </div>
         </section>
       ) : null}
@@ -629,12 +631,12 @@ export default async function Lp8CityPage() {
             Open the live {card.cityName} map and see the next{" "}
             {ANON_FORECAST_DAYS} days scored, spot by spot and hour by hour.
           </p>
-          <a className="go" href={EXPLORE_HREF}>
+          <TrackedCta cta="final" className="go" href={EXPLORE_HREF}>
             {CTA_LABEL}
             <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
               <path d="M3 8h9M8.5 4l4 4-4 4" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" />
             </svg>
-          </a>
+          </TrackedCta>
           <p className="gonote">{CTA_NOTE}</p>
         </div>
       </section>
