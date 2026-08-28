@@ -117,11 +117,33 @@ export interface NearestSpotHit {
   score_status: "scored" | "pending";
 }
 
+/** The management area at a queried point.
+ *
+ *  Named `dfo_area` on the wire for history only. It resolves WDFW Marine
+ *  Areas and CDFW areas as well as DFO subareas, so the regulator is NOT
+ *  implied by the field name.
+ *
+ *  ⚠️ Render `mgmt_label`. Do not rebuild it as `DFO ${subarea_label}`: area
+ *  numbers repeat across regulators (there is a DFO Area 7 and a WDFW Area 7),
+ *  so the prefix is the only thing telling them apart, and a Puget Sound point
+ *  labelled that way names a regulator that does not manage that water.
+ *
+ *  body_label / mgmt_label are additive (BlueCaster, 2026-08-28) and optional
+ *  so a response from an older deploy still type-checks. */
+export interface MgmtArea {
+  subarea_label: string;
+  official_name: string | null;
+  body_label?: string | null;
+  /** "DFO 19-3", "WDFW 9". Falls back to the bare number if the body is
+   *  unknown. Prefer this over composing the string. */
+  mgmt_label?: string | null;
+}
+
 export interface NearestSpotsResponse {
   query: { lat: number; lng: number; radius_m: number };
   match: NearestSpotHit | null;
   candidates: NearestSpotHit[];
-  dfo_area: { subarea_label: string; official_name: string | null } | null;
+  dfo_area: MgmtArea | null;
 }
 
 // ── GET /api/v1/fishing-spots/[id]/snapshot ───────────────────────────
@@ -197,11 +219,11 @@ export interface CreateCustomSpotResponse {
   similar_spots?: unknown[];
   confidence: number;
   confidence_label: string;
-  /** Legacy/optional — the DFO management subarea at the point. BlueCaster
-   *  does not currently emit this from the create endpoint (always undefined
-   *  at runtime); kept optional so existing catch-logging callers that read
-   *  `mgmt_area?.subarea_label ?? fallback` still type-check. */
-  mgmt_area?: { subarea_label: string; official_name: string | null } | null;
+  /** Legacy/optional — the management area at the point. BlueCaster does not
+   *  currently emit this from the create endpoint (always undefined at
+   *  runtime); kept optional so existing catch-logging callers that read
+   *  `mgmt_area?.mgmt_label ?? fallback` still type-check. */
+  mgmt_area?: MgmtArea | null;
 }
 
 // ── POST /api/v1/ingest/catch (intelligence-pool commit) ──────────────
