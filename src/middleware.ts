@@ -1,4 +1,4 @@
-import { NextResponse, type NextRequest } from 'next/server'
+import { NextResponse, type NextFetchEvent, type NextRequest } from 'next/server'
 import {
   ENTRY_COOKIE,
   ENTRY_MAX_AGE,
@@ -7,6 +7,9 @@ import {
   buildEntry,
   buildPaid,
 } from '@/lib/attribution'
+import { classifyUserAgent, isBotUserAgent } from '@/lib/device'
+import { readEdgeGeo } from '@/lib/edge-geo'
+import { classifyPage, classifySource } from '@/lib/traffic-source'
 
 // Legacy coming-soon wall, now scoped to nothing.
 //
@@ -115,7 +118,95 @@ function stampAttribution(req: NextRequest, res: NextResponse): NextResponse {
   return res
 }
 
-export function middleware(req: NextRequest) {
+/**
+ * Count one page view into `traffic_events_daily`.
+ *
+ * WHY THIS RUNS HERE AND NOT IN A BEACON. The campaign counter that already
+ * exists is client-side, so an ad-blocked or no-JavaScript reader never reaches
+ * it. That is a tolerable bias when measuring a bought click, because the ad
+ * network reports its own click count as a cross-check. It is not tolerable for
+ * organic search traffic, which is the population most likely to be running a
+ * blocker and the population this table exists to see. Counting here, off the
+ * request, is the same move the attribution cookies above made for the same
+ * reason.
+ *
+ * WHAT IT COSTS. Middleware does not get crawler filtering for free the way a
+ * script tag does. Two guards stand in. `isBotUserAgent` drops the
+ * self-declaring ones, and the `sec-fetch-dest: document` test below is
+ * STRICTER than `isPageView`: no accept-header fallback, because that fallback
+ * exists to be generous to odd clients and here generosity means counting
+ * robots. Real browsers have sent sec-fetch-dest on navigations for years; most
+ * crawlers send it not at all.
+ *
+ * NEVER BLOCKS THE RESPONSE. The write goes out under `waitUntil`, so the
+ * visitor's page is already on its way while this happens, and a failure is
+ * swallowed. A counter that can make the site slow, or down, is not worth
+ * having: every error path here ends in a missing row, which the admin shows as
+ * a smaller number rather than an outage.
+ */
+function countPageView(req: NextRequest, event: NextFetchEvent): void {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY
+  if (!url || !key) return
+
+  // Stricter than isPageView on purpose. See above.
+  if (req.headers.get('sec-fetch-dest') !== 'document') return
+  if (req.headers.get('rsc')) return
+  if (req.headers.get('next-router-prefetch')) return
+
+  const userAgent = req.headers.get('user-agent')
+  if (isBotUserAgent(userAgent)) return
+
+  const { pathname, search } = req.nextUrl
+  const page = classifyPage(pathname)
+  if (!page) return
+
+  // The same builder the rc_paid cookie uses, so a view counted as paid here
+  // and a signup credited as paid downstream cannot disagree about what paid
+  // means.
+  const source = classifySource({
+    referrer: req.headers.get('referer') ?? '',
+    selfHost: req.nextUrl.host,
+    isPaid: Boolean(buildPaid({ pathname, search })),
+  })
+
+  const geo = readEdgeGeo(req.headers)
+  const { device, os } = classifyUserAgent(userAgent)
+
+  const body = JSON.stringify({
+    p_day: new Date().toISOString().slice(0, 10),
+    p_page_kind: page.kind,
+    p_page_slug: page.slug,
+    p_source_kind: source.kind,
+    p_referrer_host: source.host,
+    p_geo_country: geo.country ?? '',
+    p_geo_region: geo.region ?? '',
+    p_device: device,
+    p_os: os,
+  })
+
+  // PostgREST directly rather than through an API route of our own. A route
+  // would have to be told the visitor's geo and User-Agent by us, since its own
+  // request headers would describe this server rather than the reader, and a
+  // route that trusts a caller's description of the visitor needs a shared
+  // secret to stop anyone else describing one. One hop and no new secret beats
+  // two hops and a secret that can silently go unset.
+  event.waitUntil(
+    fetch(`${url}/rest/v1/rpc/bump_traffic_counter`, {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+        apikey: key,
+        authorization: `Bearer ${key}`,
+      },
+      body,
+    }).catch(() => {
+      // A counter is never worth an error page. See the doc comment.
+    }),
+  )
+}
+
+export function middleware(req: NextRequest, event: NextFetchEvent) {
   const { pathname } = req.nextUrl
 
   // Fold mixed-case paths onto their lowercase form.
@@ -141,6 +232,11 @@ export function middleware(req: NextRequest) {
     url.pathname = pathname.toLowerCase()
     return NextResponse.redirect(url, 308)
   }
+
+  // Counted here rather than at the top of this function, so a mixed-case URL
+  // is counted once on the lowercase request the browser follows the 308 to,
+  // not twice.
+  countPageView(req, event)
 
   // Paid traffic on a spot page renders the ad frame at ./ad — same payload,
   // same components, no navigation out and the trial ask inline. See
