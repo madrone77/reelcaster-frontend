@@ -22,7 +22,10 @@ import { MapPin, Tag, Fish } from "lucide-react";
 import { useSubscription } from "@/hooks/use-subscription";
 import { useMountedOnce } from "@/hooks/use-mounted-once";
 // Inert off /lp/<n>/<city>. See the note in city-instrument.tsx.
-import { reportLpCta } from "@/app/lp/_shared/lp-telemetry";
+import {
+  reportCampaignCta,
+  type CampaignTarget,
+} from "@/app/lp/_shared/lp-telemetry";
 
 const ProTrialModal = dynamic(
   () => import("@/app/components/paywall/pro-trial-modal"),
@@ -50,9 +53,14 @@ const STEPS = [
 export default function CustomSpots({
   cityName,
   citySlug,
+  campaign,
 }: {
   cityName: string;
   citySlug: string;
+  /** What to credit a press to. Passed down from CityInstrument, which
+   *  resolves it from the path or from the landing page that rendered it.
+   *  Null on the public city page, where there is nothing to count. */
+  campaign?: CampaignTarget | null;
 }) {
   const { isPaid, loading: tierLoading } = useSubscription();
   const [upgradeOpen, setUpgradeOpen] = useState(false);
@@ -118,7 +126,7 @@ export default function CustomSpots({
             onClick={() => {
               // "secondary": a different reason to buy than the locked day,
               // and the report is only worth reading if the two stay apart.
-              reportLpCta("secondary", "");
+              if (campaign) reportCampaignCta("secondary", campaign);
               setUpgradeOpen(true);
             }}
             className="mt-5 inline-flex items-center rounded bg-rc-brand-soft px-4 py-2.5 text-rc-brand font-rc-mono text-xs font-semibold tracking-[0.04em] hover:bg-rc-brand-soft/70 transition-colors"
