@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { UserPreferencesService } from "@/lib/user-preferences";
+import { writeHomeSpotCookie } from "./home-spot-cookie";
 
 // A single "home spot" — the spot the angler pins as their default, surfaced as
 // the hero on the dashboard. Setting a new one replaces the old.
@@ -14,6 +15,12 @@ import { UserPreferencesService } from "@/lib/user-preferences";
 //     laptop that set it is not a home spot.
 // localStorage is a cache of the server value, never the source of truth for a
 // signed-in user; `hydrateHomeSpot()` reconciles the two on load.
+//
+// A third, thinner copy rides along in a cookie — see ./home-spot-cookie. It
+// exists purely so /explore can open on the home city in its FIRST render
+// instead of flying there after hydration; localStorage is invisible to the
+// server. Every write below keeps it in step, so it is never consulted as a
+// separate opinion.
 const KEY = "rc-home-spot";
 
 /** Read the current home-spot slug (or null). Safe on the server. */
@@ -46,6 +53,10 @@ function writeLocal(slug: string | null) {
     // Private mode / quota — the in-memory notify below still works for the
     // life of the page.
   }
+  // Outside the try: cookies survive the storage block that throws here (see
+  // [[incident-blocked-storage-whitescreen]]), so a browser refusing
+  // localStorage still opens Explore on the right city.
+  writeHomeSpotCookie(slug);
   for (const fn of listeners) fn(slug);
 }
 
@@ -86,6 +97,12 @@ export async function hydrateHomeSpot(): Promise<string | null> {
   } catch {
     // Fall through to whatever is local.
   }
+  // Refresh the mirror even when nothing changed: the pin predates the cookie
+  // for everyone who set one before this shipped, and a cookie expires where
+  // localStorage does not. Only ever refreshed here, never cleared — clearing
+  // is `writeLocal`'s job, and a browser that is refusing localStorage reads
+  // null here while the cookie still holds the real pin.
+  if (local) writeHomeSpotCookie(local);
   return local;
 }
 
@@ -117,7 +134,11 @@ export function useHomeSpotState(hydrate = false): HomeSpotState {
   const [ready, setReady] = useState(false);
 
   useEffect(() => {
-    setSlug(readHomeSpot());
+    const local = readHomeSpot();
+    setSlug(local);
+    // Keep the server-readable mirror alive on every surface that reads the
+    // pin, not just the one that hydrates it. Refresh only — see above.
+    if (local) writeHomeSpotCookie(local);
     // Without a server round trip to wait for, the local read IS the answer.
     if (!hydrate) setReady(true);
     const unsubscribe = subscribe(setSlug);

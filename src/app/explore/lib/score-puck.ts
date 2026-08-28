@@ -80,9 +80,10 @@ const SCORE_Y_FRAC = 0.686;
 
 /**
  * Every puck gets the same white ring, and the flagged states add a colour
- * collar outside it. Colouring the ring itself would put emerald on an emerald
- * fill for a prime spot with reports, which is the one case that needs to read
- * loudest. White always separates the pill from the collar and the water.
+ * collar outside it. Colouring the ring itself would put emerald on a green
+ * fill for a high-scoring spot with reports, which is the one case that needs
+ * to read loudest. White always separates the pill from the collar and the
+ * water.
  */
 const RING_W = 2;
 const COLLAR_W = 5.5; // stroked under the white ring, so ~1.75px shows outside it

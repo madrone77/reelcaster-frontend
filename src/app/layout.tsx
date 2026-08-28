@@ -12,7 +12,9 @@ import { GoogleAnalytics } from '@next/third-parties/google'
 import { ADSENSE_CLIENT } from '@/lib/adsense'
 import AdSenseLoader from '@/app/components/ads/adsense-loader'
 import MetaPixel from '@/app/components/analytics/meta-pixel'
-import { ORGANIZATION_JSONLD, SITE_NAME, SITE_URL } from '@/lib/site'
+import Plausible from '@/app/components/analytics/plausible'
+import GoogleAdsTag from '@/app/components/analytics/google-ads-tag'
+import { ORGANIZATION_JSONLD, SITE_NAME, SITE_URL, WEBSITE_JSONLD } from '@/lib/site'
 import { clientDiagSnippet } from '@/lib/client-diag'
 
 const geistSans = Geist({
@@ -50,7 +52,7 @@ export const metadata: Metadata = {
     // `default` is what a page inherits when it declares no title of its own —
     // it must still read as a real page title, since it leaks onto any route
     // whose own metadata fails to resolve.
-    default: 'BC Fishing Forecast & Tide Conditions | ReelCaster',
+    default: 'Accurate Fishing Forecast, Reports, Tides, Wind and Currents | ReelCaster',
     // Pages set a bare title ('Pricing'); the brand suffix is appended here so
     // it can never drift or be forgotten.
     template: `%s | ${SITE_NAME}`,
@@ -132,6 +134,13 @@ export default function RootLayout({
           type="application/ld+json"
           dangerouslySetInnerHTML={{ __html: JSON.stringify(ORGANIZATION_JSONLD) }}
         />
+        {/* Names the site "ReelCaster" for the line Google prints above the
+            URL in a search result. Google only reads this off the home page,
+            which this layout wraps. */}
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(WEBSITE_JSONLD) }}
+        />
         <AuthProvider>
           {/* Renders null. Outside AuthGate so first-touch capture runs on the
               public marketing and city pages, which is where acquisition
@@ -156,10 +165,18 @@ export default function RootLayout({
             hydration and Auto-ads constraints it still has to honour. */}
         <AdSenseLoader />
         <GoogleAnalytics gaId="G-HLHG768MWJ" />
+        {/* Google Ads. Configures the AW- id on the gtag queue that
+            <GoogleAnalytics> above loads, so keep the two together and in this
+            order. The conversion it exists for fires on /billing/success. */}
+        <GoogleAdsTag />
         {/* Meta pixel. Renders null unless NEXT_PUBLIC_META_PIXEL_ID is set, so
             an unconfigured environment ships no tag at all. The conversion it
             exists for is fired separately on /billing/success. */}
         <MetaPixel />
+        {/* Plausible. Independent of the three tags above: they report to ad
+            platforms, this one just counts pageviews. Renders null off the
+            reelcaster.com hosts so preview traffic stays out of the numbers. */}
+        <Plausible />
       </body>
     </html>
   )

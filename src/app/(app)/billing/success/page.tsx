@@ -8,6 +8,8 @@ import { apiFetch } from '@/lib/api-client'
 import { useSubscription } from '@/hooks/use-subscription'
 import { useAuth } from '@/contexts/auth-context'
 import MetaStartTrial from '@/app/components/analytics/meta-start-trial'
+import GoogleStartTrial from '@/app/components/analytics/google-start-trial'
+import PlausibleStartTrial from '@/app/components/analytics/plausible-start-trial'
 
 interface CheckoutStatus {
   tier: string
@@ -122,6 +124,8 @@ function BillingSuccessInner() {
           before the two-second bounce to /explore, and before a signed-out
           buyer is redirected out through their magic link. */}
       <MetaStartTrial sessionId={sessionId} />
+      <GoogleStartTrial sessionId={sessionId} />
+      <PlausibleStartTrial sessionId={sessionId} />
       <p className="font-rc-mono text-[10px] uppercase tracking-[0.14em] text-rc-ink-mute">
         ReelCaster Pro
       </p>

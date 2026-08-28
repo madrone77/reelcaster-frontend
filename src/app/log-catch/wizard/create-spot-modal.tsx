@@ -18,7 +18,7 @@ export default function CreateSpotModal({
 }: {
   lat: number;
   lng: number;
-  mgmtArea: string | null; // "19-3"-style label
+  mgmtArea: string | null; // "DFO 19-3" / "WDFW 9" — regulator included
   onCreate: (name: string) => Promise<string | null>; // resolves error message or null
   onClose: () => void;
 }) {
@@ -86,7 +86,7 @@ export default function CreateSpotModal({
               <span className="rc-label text-[9px] text-rc-good-ink">AUTO</span>
             </div>
             <div className="mt-1 rounded-lg border border-rc-good-ink/30 bg-rc-good-bg px-3 py-2 font-rc-mono text-[12px] text-rc-ink truncate">
-              {mgmtArea ? `DFO ${mgmtArea}` : "—"}
+              {mgmtArea ?? "—"}
             </div>
           </div>
         </div>

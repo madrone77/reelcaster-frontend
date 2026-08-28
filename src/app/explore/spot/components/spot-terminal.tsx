@@ -2,7 +2,10 @@
 
 import { useEffect, useRef, useState } from "react";
 import type { SunHours } from "@/lib/bluecaster/live-spot-types";
+import { haptic } from "@/lib/haptics";
 import { niceCurrentScale } from "../../lib/current-series";
+import { tierFor, type Tier } from "../../lib/explore-data";
+import { windCardinal } from "../../lib/wind-rose";
 import { monoInterp as interp } from "../../lib/curve";
 import {
   weatherFromHour,
@@ -66,21 +69,43 @@ const C = {
 
 const num = (v: number | null | undefined) =>
   typeof v === "number" && Number.isFinite(v) ? v : null;
-const ratingIdx = (s: number) =>
-  s >= 75 ? 0 : s >= 55 ? 2 : 4;
-// Score-cell colors match the 14-day report tiers exactly (rc-good / rc-fair / rc-poor).
-const ratingCol = (s: number | null) =>
-  s == null ? "#CBD5E1" : s >= 75 ? "#16A34A" : s >= 55 ? "#D78711" : "#DC2626";
-// Score STRIP cells use the soft-tint paradigm — pale tier fill + dark tier ink,
-// same as the BEST WINDOW callout and DFO notice (not solid saturated blocks).
-const ratingBg = (s: number | null) =>
-  s == null ? "#F1F5F9" : s >= 75 ? "#DCFCE7" : s >= 55 ? "#FEF3C7" : "#FEE2E2";
-const ratingInk = (s: number | null) =>
-  s == null ? "#8A92A4" : s >= 75 ? "#166534" : s >= 55 ? "#92400E" : "#991B1B";
-const verdict = (s: number | null) =>
-  s == null ? "—" : ["Good", "Good", "Fair", "Slow", "Poor"][ratingIdx(s)];
-const WNAMES = ["N","NNE","NE","ENE","E","ESE","SE","SSE","S","SSW","SW","WSW","W","WNW","NW","NNW"];
-const windName = (d: number | null) => (d == null ? "—" : WNAMES[Math.round(d / 22.5) % 16]);
+// Score STRIP cells: tinted tier fill + dark tier ink, not solid saturated
+// blocks, the same soft-tint paradigm as the BEST WINDOW callout.
+//
+// The green is two steps brighter than the rest of the paper UI, and only
+// here. This row is the one place on the page where a reader is meant to see
+// the shape of a whole day at a glance, and #DCFCE7 (the pill background used
+// everywhere else) is a 6%-saturation wash that reads as white at strip
+// height, so a good day and a blank day looked the same from a foot away.
+// Amber and red are the shared tier backgrounds.
+//
+// Green-900 ink on green-400 is 8.9:1.
+//
+// Fill, ink and word all key off `tierFor`, so this file holds no cut points
+// of its own. It used to hold two sets that disagreed: cells at 85/60/40 and
+// the word at 75/55, which put a 61 in a green cell labelled "Fair".
+const TIER_FILL: Record<Tier, string> = {
+  good: "#4ADE80",
+  fair: "#FEF3C7",
+  poor: "#FEE2E2",
+  none: "#F1F5F9",
+};
+const TIER_INK: Record<Tier, string> = {
+  good: "#14532D",
+  fair: "#92400E",
+  poor: "#991B1B",
+  none: "#8A92A4",
+};
+const TIER_WORD: Record<Tier, string> = {
+  good: "Good",
+  fair: "Fair",
+  poor: "Tough",
+  none: "—",
+};
+const ratingBg = (s: number | null) => TIER_FILL[tierFor(s)];
+const ratingInk = (s: number | null) => TIER_INK[tierFor(s)];
+const verdict = (s: number | null) => TIER_WORD[tierFor(s)];
+const windName = (d: number | null) => windCardinal(d) ?? "—";
 const seaWord = (m: number | null) =>
   m == null ? "—" : m < 0.2 ? "Calm" : m < 0.35 ? "Rippled" : m < 0.65 ? "Light" : m < 1 ? "Chop" : "Rough";
 // Row note for SEA STATE. Says so when the row is carrying wind-derived hours,
@@ -189,6 +214,58 @@ function extremes(arr: (number | null)[]): Extreme[] {
     if (c > p && c >= nx) raw.push({ i, v: c, hi: true });
     else if (c < p && c <= nx) raw.push({ i, v: c, hi: false });
   }
+
+  // ── Boundary extremes ─────────────────────────────────────────────────
+  //
+  // A turning point needs a neighbour on both sides, so the loop above can
+  // never see hour 0 or hour 23. That is usually right: the window is a
+  // 24-hour cut of a continuous curve, and a tide still climbing at midnight
+  // has its real peak outside the frame, which is not ours to name.
+  //
+  // It is wrong when the edge holds the highest or lowest water ON SCREEN.
+  // Victoria Waterfront on 2026-08-26 ran 8.3 ft at midnight down to 2.0 ft at
+  // 09:00 and back to 7.5 ft at 18:00, so the only interior high was the 7.5 —
+  // and the chart printed "H 7.5ft 6p" underneath a curve visibly drawn at 8.3
+  // above it. A high-water label that the picture contradicts is worse than no
+  // label, and a reader who notices stops trusting the other rows too.
+  //
+  // So an edge is admitted ONLY when it beats every interior turn: at most one
+  // high and one low, added exactly in the case that produced the
+  // contradiction. An edge that merely continues past a bigger interior peak
+  // still says nothing, because there the interior label is already the
+  // honest answer.
+  //
+  // The time is the edge's own hour, which is the moment the reader is looking
+  // at. It is not a claim about where the true peak sits outside the window,
+  // and no copy anywhere may upgrade it into one.
+  {
+    const first = num(arr[0]);
+    const last = num(arr[arr.length - 1]);
+    const edges: Array<{ i: number; v: number }> = [];
+    if (first != null) edges.push({ i: 0, v: first });
+    if (last != null) edges.push({ i: arr.length - 1, v: last });
+
+    for (const hi of [true, false]) {
+      const interior = raw.filter((e) => e.hi === hi);
+      // Best edge in this direction.
+      let best: { i: number; v: number } | null = null;
+      for (const e of edges) {
+        if (!best || (hi ? e.v > best.v : e.v < best.v)) best = e;
+      }
+      if (!best) continue;
+      // Only if it beats every interior turn of the same kind. A day with no
+      // interior turn of this kind is not a special case: `every` is true over
+      // an empty list, which is right — a monotonic day's extreme IS its edge.
+      const beatsAll = interior.every((e) => (hi ? best!.v > e.v : best!.v < e.v));
+      if (!beatsAll) continue;
+      // Never both kinds on the same edge: a single point cannot be the day's
+      // high and its low, and on a flat series it would qualify as each.
+      if (raw.some((e) => e.i === best!.i)) continue;
+      raw.push({ i: best.i, v: best.v, hi });
+    }
+    raw.sort((a, b) => a.i - b.i);
+  }
+
   if (raw.length < 2) return raw;
 
   const vals = arr.map(num).filter((v): v is number => v != null);
@@ -229,7 +306,9 @@ function extremes(arr: (number | null)[]): Extreme[] {
   return ex;
 }
 
-type Dims = { w: number; LABEL: number; READ: number; mobile: boolean; id: string };
+type Dims = { w: number; LABEL: number; READ: number; mobile: boolean; id: string;
+  /** Live hour on this axis, or null when the day being drawn is not today. */
+  now: number | null };
 
 // Hover-pill geometry (desktop). TAG_PAD is the horizontal breathing room on
 // each side of the label — the pill used to be a fixed 104px box that the
@@ -251,7 +330,7 @@ function buildSvg(
   u: TerminalUnits,
 ): string {
   const current = cur.v;
-  const { LABEL, READ, w: W, mobile: mob, id } = d;
+  const { LABEL, READ, w: W, mobile: mob, id, now } = d;
   // Display-only conversions — every scale/threshold below stays in source
   // units (kn/m/°C); only tick labels, captions and annotations convert.
   const cvW = (v: number) => convertWind(v, "knots", u.windUnit);
@@ -293,7 +372,10 @@ function buildSvg(
   let cy = top;
   rows.forEach((r) => { r.y0 = cy; r.y1 = cy + r.h; Y[r.k] = { y0: r.y0, y1: r.y1 }; cy += r.h + (r.k === "wind" ? 2 : gap); });
   const axisY = cy + 2;
-  const H = axisY + (mob ? 20 : 24);
+  // Room under the axis for TWO lines, because the sun marks stack their time
+  // over the event ("6:24am" / "sunrise"). One line of hour ticks needs 20/24;
+  // the second line's baseline sits ~11px lower and wants ~4px of descender.
+  const H = axisY + (mob ? 31 : 34);
   // The bordered groups, top to bottom. Each spans its rows plus PAD.
   const bands = ([["score"], ["tide"], ["cur"], ["wind", "arrow"], ["sea"], ["air"], ["wx"]] as string[][]).map(
     (ks) => ({ k: ks[0], y0: Y[ks[0]].y0 - PAD, y1: Y[ks[ks.length - 1]].y1 + PAD }),
@@ -370,6 +452,17 @@ function buildSvg(
   // plot are visibly one unit; mobile labels sit above their box.
   const bandX = mob ? 0.5 : 6;
   bands.forEach((b) => { s += `<rect x="${bandX}" y="${b.y0.toFixed(1)}" width="${(x1 - bandX).toFixed(1)}" height="${(b.y1 - b.y0).toFixed(1)}" rx="3" fill="none" stroke="${C.rule}" stroke-width="1"/>`; });
+  // The live hour, marked once down the whole stack. The cursor used to be the
+  // only thing saying where "now" was, because it snapped back here whenever a
+  // mouse left the chart. It no longer does — a picked hour is kept, so it can
+  // drive the map's flow field — which leaves nothing to say how far from now
+  // the reader has scrubbed. Dashed and grey: this is a reference line, and the
+  // cobalt cursor is the thing being moved.
+  if (now != null && bands.length) {
+    const nx = xAt(now + 0.5).toFixed(1);
+    const ny0 = bands[0].y0.toFixed(1), ny1 = bands[bands.length - 1].y1.toFixed(1);
+    s += `<line x1="${nx}" y1="${ny0}" x2="${nx}" y2="${ny1}" stroke="${C.muted}" stroke-width="1" stroke-dasharray="2 3" opacity=".55"/>`;
+  }
 
   // SCORE — cells carry only their tier tint; the selected hour is outlined by
   // the movable cursor group (below), so no static range highlight here.
@@ -455,25 +548,50 @@ function buildSvg(
   //
   // The drop test is in PIXELS, not hours. A fixed 0.8h window doesn't know how
   // wide the label it's protecting is, and hour cells shrink with the viewport:
-  // at 375px "6p" and "☀8:37p" clear each other by 8px, but at 320px the same
-  // 2.6h separation is only ~2px and they touch. Measure the two half-widths
-  // instead (mono, ~0.6em/char) and keep 5px of air. The widths are the worst
-  // case each label reaches on a 12-hour clock: "☀12:37p" is 7 glyphs, "12a"
-  // is 3.
+  // at 375px "6p" and an 8:37p sun label clear each other by 8px, but at 320px
+  // the same 2.6h separation is only ~2px and they touch. Measure the two
+  // half-widths instead (mono, ~0.6em/char) and keep 5px of air.
+  //
+  // ⚠ SUN_GLYPHS is the worst case the sun label reaches, and it has to be
+  // updated with the label. Stacking the time over the event keeps it at 7 —
+  // the longer of "12:37am" and "sunrise" — which is what the old "☀12:37p"
+  // measured, so the hour ticks around dawn and dusk survive exactly as they
+  // did. Setting the two on ONE line would make it 15 and cost about half of
+  // them; that is the reason for the stack, not a preference about shape.
+  const SUN_GLYPHS = 7;
+  const HOUR_GLYPHS = 3; // "12a"
   const sunTimes = [sun.sunrise, sun.sunset];
   const sunFS = mob ? 10 : 11;
-  const minSep = (sunFS * 0.6 * 7) / 2 + (sunFS * 0.6 * 3) / 2 + 5;
+  const minSep =
+    (sunFS * 0.6 * SUN_GLYPHS) / 2 + (sunFS * 0.6 * HOUR_GLYPHS) / 2 + 5;
   for (let a = 0; a <= 24; a += mob ? 6 : 3) {
     if (sunTimes.some((t) => Math.abs(xAt(t) - xAt(a)) < minSep)) continue;
     s += `<text class="tm-ax" x="${xAt(a).toFixed(1)}" y="${axisY + 12}" text-anchor="middle">${formatHourCompact(a)}</text>`;
   }
-  // sunrise / sunset — glyph + time, on both variants. This is the mark the
-  // night shading's edge now lands on, so it has to be legible: mobile drew a
-  // bare 8px ☀ with no time, which read as a stray orange dot rather than the
-  // boundary the texture stops at. The label fits — even at a 320px viewport
-  // it clears the neighbouring noon hour label by ~40px.
-  [sun.sunrise, sun.sunset].forEach((t) => {
-    s += `<text x="${xAt(t).toFixed(1)}" y="${axisY + 12}" text-anchor="middle" style="font-size:${sunFS}px;fill:${C.r[2]};font-family:var(--rc-font-mono)">☀${hhTight(t)}</text>`;
+  // sunrise / sunset — the time, and under it the event, named. This is the
+  // mark the night shading's edge lands on, so it has to be legible AND
+  // self-explanatory: a ☀ glyph beside a time says "something solar happens
+  // here" and leaves the reader to work out which end of the day they are
+  // looking at. Two orange marks on one axis, one at each end, is exactly the
+  // case where the glyph carries least and the word carries most.
+  //
+  // Stacked rather than run together on one line, and that is a WIDTH
+  // decision: see SUN_GLYPHS. The stack is 7 glyphs wide, the same as the old
+  // glyph-and-time, so the hour ticks either side survive; one line would be
+  // 15 and clear about half of them.
+  //
+  // Times keep the compact 12-hour form ("6:24am", not "6:24 AM"). `x` is
+  // repeated on the second tspan because `text-anchor` centres each line
+  // independently and a tspan inherits the CURSOR, not the anchor x.
+  [
+    [sun.sunrise, "sunrise"],
+    [sun.sunset, "sunset"],
+  ].forEach(([t, event]) => {
+    const cx = xAt(t as number).toFixed(1);
+    const time = formatFractionalHour12(t as number)
+      .toLowerCase()
+      .replace(" ", "");
+    s += `<text x="${cx}" y="${axisY + 12}" text-anchor="middle" style="font-size:${sunFS}px;fill:${C.r[2]};font-family:var(--rc-font-mono)"><tspan x="${cx}">${time}</tspan><tspan x="${cx}" dy="${sunFS + 1}">${event}</tspan></text>`;
   });
 
   // WEATHER — one icon per hour-axis tick, showing the dominant condition over
@@ -536,7 +654,9 @@ export default function SpotTerminal({
   /** Multi-day tide min/max (m) so the row scale holds steady across day flips. */
   tideRange?: { min: number; max: number } | null;
   sun: SunHours;
-  nowHour: number;
+  /** Live hour, or null when the day being drawn is not today — the chart marks
+   *  "now" on its axis, and a Wednesday axis has no now on it. */
+  nowHour: number | null;
   selectedHour: number;
   onSelectHour: (h: number) => void;
   bestWindow: [number, number] | null;
@@ -592,7 +712,7 @@ export default function SpotTerminal({
     const cvC = (v: number) => convertWind(v, "knots", currentUnit);
     const cLbl = WIND_LABELS[currentUnit];
     return {
-      hour: hh(hi), score: sc == null ? "—" : String(sc), verd: verdict(sc), col: ratingCol(sc), scoreDeltaTxt,
+      hour: hh(hi), score: sc == null ? "—" : String(sc), verd: verdict(sc), scoreDeltaTxt,
       tide: convertHeight(num(hours.tide[hi]) ?? 0, "m", tideUnit).toFixed(1) + tideUnit, tideS: tR ? "Rising ▲" : "Falling ▼",
       curSigned: (cv >= 0 ? "+" : "") + cvC(cv).toFixed(1) + cLbl, curS: cs,
       wind: cvW(num(hours.wind[hi]) ?? 0).toFixed(0) + wLbl, windS: windName(hours.windDir[hi]) + " G" + cvW(num(hours.gust[hi]) ?? 0).toFixed(0),
@@ -661,8 +781,8 @@ export default function SpotTerminal({
 
   // Build both SVGs when data changes.
   useEffect(() => {
-    if (deskRef.current && deskW > 400) deskRef.current.innerHTML = buildSvg(hours, cur, ts, sun, bestWindow, { w: deskW, ...gutters(false), mobile: false, id: "tmd" }, units);
-    if (mobRef.current) mobRef.current.innerHTML = buildSvg(hours, cur, ts, sun, bestWindow, { w: mobW, ...gutters(true), mobile: true, id: "tmm" }, units);
+    if (deskRef.current && deskW > 400) deskRef.current.innerHTML = buildSvg(hours, cur, ts, sun, bestWindow, { w: deskW, ...gutters(false), mobile: false, id: "tmd", now: nowHour }, units);
+    if (mobRef.current) mobRef.current.innerHTML = buildSvg(hours, cur, ts, sun, bestWindow, { w: mobW, ...gutters(true), mobile: true, id: "tmm", now: nowHour }, units);
     const wire = (host: HTMLDivElement | null, id: string, mob: boolean) => {
       const svg = host?.querySelector("svg") as SVGSVGElement | null; if (!svg) return;
       // Fractional curve-time under the pointer (0–24), clamped to scored cells.
@@ -671,9 +791,6 @@ export default function SpotTerminal({
         const vx = (e.clientX - r.left) * scale; const { LABEL: x0, READ } = gutters(mob), hw = (svg.viewBox.baseVal.width - x0 - READ) / 24;
         return clampTf((vx - x0) / hw);
       };
-      // Light haptic tick while touch-scrubbing; no-op where the vibration
-      // API is missing (iOS Safari).
-      const haptic = () => { try { navigator.vibrate?.(8); } catch {} };
       const move = (e: PointerEvent) => {
         const tf = tfFromEvt(e);
         // A zero-width svg (hidden across a breakpoint, mid-resize) yields a
@@ -681,6 +798,9 @@ export default function SpotTerminal({
         // which would crash the day/hour → ISO conversion downstream.
         if (!Number.isFinite(tf)) return;
         const idx = clampH(Math.floor(tf));
+        // Light tick per hour crossed, finger only. See @/lib/haptics — it is
+        // inert on a mouse-only desktop and takes a different route on iOS
+        // than on Android.
         if (lastHRef.current != null && idx !== lastHRef.current && e.pointerType !== "mouse") haptic();
         lastHRef.current = idx;
         // Magnetic to the hour: the cursor parks at the centre of whichever hour
@@ -700,18 +820,19 @@ export default function SpotTerminal({
         move(e);
       });
       svg.addEventListener("pointermove", (e) => { if (downRef.current || e.pointerType === "mouse") move(e); });
-      // Keep the scrubbed hour after release (touch can park); only mouse-hover snaps back to now.
+      // A picked hour is kept, under mouse as well as touch. This used to snap
+      // back to now on mouse-leave, which read as polite until the same hour
+      // started driving the map's flow field a thousand pixels up the page:
+      // scrolling up to look at the wind at 6 AM took the pointer out of the
+      // chart, and the pick was gone before the map came into view. The way
+      // back to the live hour is the "Now" button on the map's time bar, which
+      // works the same on both input types.
       svg.addEventListener("pointerup", () => { downRef.current = false; });
       svg.addEventListener("pointercancel", () => { downRef.current = false; });
       svg.addEventListener("pointerleave", (e) => {
         // Touch fires leave when a captured drag's element is rebuilt or the
         // finger drifts — never mid-gesture reset; up/cancel end the drag.
-        if (e.pointerType === "mouse") {
-          downRef.current = false;
-          const nh = clampH(nowHour);
-          paint(host, id, mob, nh + 0.5);
-          onSelectHour(nh);
-        }
+        if (e.pointerType === "mouse") downRef.current = false;
       });
       // Keyboard: arrow keys move the hour; Home/End jump to the ends.
       svg.addEventListener("keydown", (e) => {
@@ -733,7 +854,7 @@ export default function SpotTerminal({
     // passing a fresh [start, end] each render must not rebuild the SVG (and
     // tear down an in-flight scrub gesture).
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [hours, realCurrent, tideRange, sun, bestWindow?.[0], bestWindow?.[1], deskW, mobW, windUnit, currentUnit, tempUnit, precipUnit, tideUnit, waveUnit]);
+  }, [hours, realCurrent, tideRange, sun, nowHour, bestWindow?.[0], bestWindow?.[1], deskW, mobW, windUnit, currentUnit, tempUnit, precipUnit, tideUnit, waveUnit]);
 
   // Move cursor + refresh readouts when the selected hour changes (pointer,
   // keyboard, parent, or a data refresh) — always the selected hour's centre.

@@ -64,7 +64,11 @@ const SCORE_EXAMPLES = [
 
 type Tier = 'good' | 'fair' | 'poor';
 
-/** The same cut points the map, the pins, and the spot pages use. */
+/**
+ * The same cut points `tierFor` uses (75 / 55). Kept local rather than
+ * imported because every value on this screen is a drawn constant, not a real
+ * score, so the modal must never hold a null tier.
+ */
 function tierOf(value: number): Tier {
   if (value >= 75) return 'good';
   if (value >= 55) return 'fair';

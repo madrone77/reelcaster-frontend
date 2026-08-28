@@ -111,7 +111,7 @@ const NotificationLocationSelector: React.FC<NotificationLocationSelectorProps> 
     id: 'radius-fill',
     type: 'fill' as const,
     paint: {
-      'fill-color': '#1E40E0',
+      'fill-color': '#2536D9',
       'fill-opacity': 0.1,
     },
   }
@@ -120,7 +120,7 @@ const NotificationLocationSelector: React.FC<NotificationLocationSelectorProps> 
     id: 'radius-outline',
     type: 'line' as const,
     paint: {
-      'line-color': '#1E40E0',
+      'line-color': '#2536D9',
       'line-width': 2,
       'line-opacity': 0.8,
     },

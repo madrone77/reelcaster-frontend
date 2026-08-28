@@ -1,26 +1,21 @@
 "use client";
 
-// The live band at the top of a city page: today's verdict, then today's
-// report.
+// Today's daily report, with the upgrade modal its locked state opens.
 //
-// They share a wrapper only because the report's locked state opens the
-// upgrade modal, and the modal needs one owner. Keeping that state here rather
-// than in either section means neither has to know the modal exists beyond
-// calling `onUpgrade`.
+// This used to carry the verdict band above the report. The band is now the
+// bite radar at the top of the page, which answers the same question with the
+// window and the conditions attached, so keeping both would have put two
+// verdicts on one screen. The wrapper stays because the report's locked state
+// opens the upgrade modal and the modal needs one owner.
 
 import { useState } from "react";
-import type { BlueCasterCityToday } from "@/lib/bluecaster";
 import UpgradeDialog from "../../../explore/components/upgrade-dialog";
-import CityToday from "./city-today";
 import CityReport from "./city-report";
 
 export default function CityLive({
-  today,
   cityName,
   citySlug,
 }: {
-  /** Server-rendered at the anon horizon; the band upgrades it in place. */
-  today: BlueCasterCityToday | null;
   cityName: string;
   citySlug: string;
 }) {
@@ -28,9 +23,6 @@ export default function CityLive({
 
   return (
     <div className="space-y-4">
-      {today && (
-        <CityToday initial={today} cityName={cityName} citySlug={citySlug} />
-      )}
       <CityReport
         citySlug={citySlug}
         cityName={cityName}

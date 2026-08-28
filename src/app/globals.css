@@ -32,6 +32,9 @@
   --color-rc-rule-soft: var(--rc-rule-soft);
   --color-rc-navy: var(--rc-navy);
   --color-rc-navy-deep: var(--rc-navy-deep);
+  --color-rc-emerald: var(--rc-emerald);
+  --color-rc-emerald-deep: var(--rc-emerald-deep);
+  --color-rc-emerald-dim: var(--rc-emerald-dim);
   --color-rc-good: var(--rc-good);
   --color-rc-good-bg: var(--rc-good-bg);
   --color-rc-good-ink: var(--rc-good-ink);
@@ -495,4 +498,28 @@ ins.adsbygoogle[data-ad-status='unfilled'] {
  */
 body:has([data-ad-frame]) [data-mobile-nav] {
   display: none;
+}
+
+/*
+ * The ad frame's bottom bar, as one number.
+ *
+ * Three things have to agree about how tall it is: the bar itself, the map box
+ * above it (shortened by exactly this so the bar never overlays water), and
+ * everything that clears the mobile tab bar, which the bar replaces. They were
+ * three literals and would have drifted the first time the copy changed
+ * height. The safe-area inset is INSIDE the variable, so a notched phone
+ * shortens the map by the same amount the bar actually grows.
+ *
+ * Three rows on a phone (mark, form, disclosure), one on a desktop.
+ */
+:root {
+  --rc-ad-bar-h: calc(9.25rem + env(safe-area-inset-bottom, 0px));
+}
+@media (min-width: 1024px) {
+  :root {
+    --rc-ad-bar-h: 4.5rem;
+  }
+}
+body:has([data-ad-bar]) {
+  --rc-tabbar-clearance: var(--rc-ad-bar-h);
 }

@@ -232,7 +232,12 @@ export default function HourlyBars({
         </div>
       </div>
 
-      <div className="flex justify-between font-rc-mono text-[9px] text-rc-ink-mute mt-1.5">
+      {/* ink-soft, not ink-mute. At 9px these are the smallest text on the
+          chart and ink-mute measures 2.8:1 on the surface this now sits on
+          (3.2:1 even on white), under the 4.5:1 floor. The axis is how a
+          reader locates the window in the day, so it is not decoration that
+          can be allowed to fade. */}
+      <div className="flex justify-between font-rc-mono text-[9px] text-rc-ink-soft mt-1.5">
         <span>00</span>
         <span>06</span>
         <span>12</span>

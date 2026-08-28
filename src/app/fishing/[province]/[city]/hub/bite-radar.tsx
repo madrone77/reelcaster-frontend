@@ -1,0 +1,279 @@
+// The hero: today's bite radar.
+//
+// Dark on a light page, and that is the whole design argument. Everything
+// below it is white cards on paper, so the one band that has to be read in
+// three seconds by somebody arriving from an ad is the one band that does not
+// look like the others. Emerald is the accent because it reads at 8:1 on
+// navy; --rc-good, the score green, would not, and means something else.
+//
+// It states a verdict, a clock window and four numbers, and it draws no
+// charts. Everything on it is computed upstream — nothing here re-ranks or
+// re-scores, because a hero that disagreed with the list under it would be
+// worse than no hero.
+//
+// Client component so the chips can re-point it, but it takes the server's
+// payload as props and renders whole on the server, so the words are in the
+// HTML rather than a hydration away.
+
+import type {
+  BlueCasterCityConditions,
+  BlueCasterCityTodaySpecies,
+} from "@/lib/bluecaster";
+import { formatHour12 } from "@/lib/time-format";
+import type { HubWindow } from "./hub-data";
+import { Label, PAD, PANEL, Stat, TYPE } from "./ui";
+
+/**
+ * Verdict → the pill.
+ *
+ * The upstream vocabulary is excellent/good/fair/slow and it is not re-banded
+ * here. "Prime" is a label on `excellent`, not a fifth state invented to make
+ * more days sound good.
+ */
+/**
+ * Below this, the pulse states the fact without the figure.
+ *
+ * The number is proof at 48 and an apology at 2. Seattle reads 2 today, and
+ * "2 recent catches reported" in the first line of a paid landing page argues
+ * against the product more effectively than any competitor could. The claim
+ * itself stays true either way — catches WERE reported — so dropping the
+ * count is a matter of which true sentence to lead with, not of hiding
+ * anything. Above the threshold the number is doing work and it stays.
+ */
+const CATCH_COUNT_MIN = 15;
+
+const VERDICT: Record<string, { label: string; dot: string; text: string }> = {
+  excellent: { label: "Prime conditions", dot: "bg-rc-emerald", text: "text-rc-emerald" },
+  good: { label: "Good windows", dot: "bg-rc-emerald", text: "text-rc-emerald" },
+  fair: { label: "Fair windows", dot: "bg-amber-300", text: "text-amber-300" },
+  slow: { label: "Slow day", dot: "bg-slate-400", text: "text-slate-300" },
+};
+
+/**
+ * A window as a span someone can read off a clock.
+ *
+ * `end_hour` names the last GOOD hour, so a window of 6..8 is good through
+ * 08:59 and closes at 9. Printing "6 AM to 8 AM" would quietly shorten every
+ * window on the page by an hour.
+ */
+export function windowLabel(w: HubWindow | null): string | null {
+  if (!w) return null;
+  return `${formatHour12(w.start_hour)} to ${formatHour12((w.end_hour + 1) % 24)}`;
+}
+
+/** °C in Canada, °F in the States. The number is stored in °C either way. */
+export function tempLabel(c: number | null, provinceCode: string): string | null {
+  if (c == null) return null;
+  return provinceCode === "BC"
+    ? `${Math.round(c)}°C`
+    : `${Math.round((c * 9) / 5 + 32)}°F`;
+}
+
+export default function BiteRadar({
+  cityName,
+  provinceCode,
+  areaLabel,
+  areaNumbers,
+  verdict,
+  species,
+  window,
+  goodHours,
+  conditions,
+  chop,
+  scoredSpots,
+  memberSpots,
+  catches,
+  tideStationName,
+  tidePhrase,
+}: {
+  cityName: string;
+  provinceCode: string;
+  /** "Marine Area" in WA, "PFMA" in BC. Never hardcode one. */
+  areaLabel: string;
+  areaNumbers: string[];
+  verdict: string | null;
+  /** The species the radar is pointed at — the roster headline by default, or
+   *  whatever chip the reader picked. Used for its NAME; the numbers below
+   *  come from the featured mark instead, see `window`. */
+  species: BlueCasterCityTodaySpecies | null;
+  /**
+   * The window, and the count beside it, read off TODAY'S TOP WATER — the
+   * same mark the spotlight names directly below this card.
+   *
+   * They used to come from `species.window`, which BlueCaster computes at
+   * whichever spot leads the city on daily MEAN. This page ranks on peak and
+   * then on track record, so after the evidence change those were reliably
+   * different marks — and the page said "Best window 6 AM to 8 AM" in 38px
+   * directly above a card whose own window read 7 PM to 9 PM. Both were
+   * true of different water and the reader has no way to know that.
+   *
+   * The upstream number is not more "regional" for being someone else's: it
+   * is one spot's window either way. Making it the featured spot's is the
+   * only version where the two agree.
+   */
+  window: HubWindow | null;
+  goodHours: number;
+  conditions: BlueCasterCityConditions | null;
+  /** "Light ripple", from wave height where the model has it. */
+  chop: string | null;
+  scoredSpots: number;
+  memberSpots: number;
+  /**
+   * Recent posts that reported LANDING something, deduped on the post.
+   *
+   * Volume only; nothing about it can be traced to a source, which is why it
+   * is publishable. It is specifically NOT the report count: the banner says
+   * "catches", and of Victoria's 79 posts in the window 31 report not
+   * catching, so quoting reports here would claim 79 fish where there were
+   * 48 successful trips.
+   */
+  catches: number;
+  tideStationName: string | null;
+  /** "on the late ebb", from the leading spot's tide phase at the peak hour. */
+  tidePhrase: string | null;
+}) {
+  const v = verdict ? (VERDICT[verdict] ?? VERDICT.fair) : null;
+  const win = windowLabel(window);
+  const water = tempLabel(conditions?.water_temp_c ?? null, provinceCode);
+
+  const wind =
+    conditions?.wind_speed_kt == null
+      ? null
+      : conditions.wind_from
+        ? `${conditions.wind_speed_kt} kt ${conditions.wind_from}`
+        : // No prevailing direction in the sample. Light scattered air is the
+          // normal cause and naming a point would be invention.
+          `${conditions.wind_speed_kt} kt`;
+
+  // Seattle's spots span five WDFW areas. Either name them all or count them:
+  // a truncated list showed 8-1, 8-2 and 9 while hiding 10 and 11, the two
+  // areas the city is actually named for.
+  const areaBadge = !areaNumbers.length
+    ? null
+    : areaNumbers.length <= 3
+      ? `${areaLabel}${areaNumbers.length > 1 ? "s" : ""} ${areaNumbers.join(", ")}`
+      : // Same acronym trap as the regulations note: "5 pfmas" is wrong and
+        // "5 marine areas" is right, and the difference is whether the label
+        // is a phrase.
+        `${areaNumbers.length} ${areaLabel.includes(" ") ? areaLabel.toLowerCase() : areaLabel}s`;
+
+  return (
+    <section
+      id="radar"
+      aria-label={`Today's fishing forecast for ${cityName}`}
+      className={`overflow-hidden bg-rc-navy-deep text-white ${PANEL}`}
+    >
+      {/* Live pulse. A count of reports read, never a count of people — there
+          is no user-activity metric behind this page, and inventing one on a
+          page that sells a subscription is not a design choice. */}
+      {/* The emerald here already measures 10.9:1 on the band, so this was
+          never a contrast defect — it read faint because 11px of light mono
+          sat on a green ground, which is the one background that stops green
+          text looking like an accent. Neutral ground, a size up and a real
+          weight fix what the colour could not. */}
+      {/* Hidden at zero rather than reading "0 recent catches reported".
+          A city where nobody has landed anything in three weeks has no
+          momentum to claim, and saying so in the first line of a paid
+          landing page is worse than saying nothing. */}
+      {catches > 0 && (
+      <div className="flex items-baseline gap-2 border-b border-white/10 bg-white/[0.07] px-4 py-2.5">
+        {/* `flex-wrap` put the dot on a line of its own: the text is wider
+            than the row at 390px, so it became a second flex line and left
+            the dot stranded above it. Without wrapping, the dot holds its
+            place and the sentence wraps inside its own span, which is where
+            a wrap belongs. `items-baseline` sits the dot on the first line's
+            baseline rather than centring it against a two-line block. */}
+        <span className="relative flex h-2 w-2 shrink-0 translate-y-[-1px]" aria-hidden>
+          <span className="absolute inline-flex h-full w-full rounded-full bg-rc-emerald opacity-70 animate-ping" />
+          <span className="relative inline-flex h-2 w-2 rounded-full bg-rc-emerald" />
+        </span>
+        <span className="min-w-0 font-rc-mono text-[12px] font-medium tracking-[0.01em] text-rc-emerald">
+          {catches >= CATCH_COUNT_MIN
+            ? `${catches} recent catches reported in ${cityName}`
+            : `Recent catches reported in ${cityName}`}
+        </span>
+      </div>
+      )}
+
+      {/* Past `lg` the verdict and the readings sit side by side rather than
+          stacked. Stacked is right on a phone, where width is the scarce
+          thing; on a 1440px card it left the headline in the left 40% with
+          the rest of the band empty, and pushed four short readings onto a
+          row of their own for no reason. */}
+      <div className={`${PAD} lg:grid lg:grid-cols-[1.5fr_1fr] lg:items-center lg:gap-8`}>
+        <div>
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
+          <Label tone="onDark">
+            {cityName}
+            {areaBadge ? ` · ${areaBadge}` : ""}
+          </Label>
+          {v && (
+            <span className="inline-flex items-center gap-1.5">
+              <span className={`h-1.5 w-1.5 rounded-full ${v.dot}`} aria-hidden />
+              <span
+                className={`font-rc-mono text-[10px] font-semibold uppercase leading-3 tracking-[0.08em] ${v.text}`}
+              >
+                {v.label}
+              </span>
+            </span>
+          )}
+        </div>
+
+        {/* Not an H1 any more, and not a heading at all. The page's H1 is in
+            CityHeader, a server component outside this subtree — this one sat
+            inside a Suspense boundary that does not prerender, so it was
+            absent from the shipped markup and the page went out with no H1 at
+            all. Kept as a plain line because the card still reads better with
+            the city named above the number. */}
+        <p className="mt-2 text-[15px] font-semibold text-slate-300">
+          {cityName}, {provinceCode} today
+        </p>
+
+        {species ? (
+          <>
+            <p className={`${TYPE.display} mt-2`}>
+              {win ? (
+                <>
+                  <span className="block text-[19px] font-semibold text-slate-400 sm:text-[22px]">
+                    Best window
+                  </span>
+                  <span className="text-rc-emerald">{win}</span>
+                </>
+              ) : (
+                <span className="text-rc-emerald">
+                  {goodHours} fishable hours
+                </span>
+              )}
+            </p>
+            <p className={`${TYPE.body} text-slate-300 mt-2.5 max-w-[52ch]`}>
+              {/* No leading spot named here. The spotlight directly below is
+                  the answer to "where", and two rankings on one screen only
+                  ever get to disagree. */}
+              {goodHours} fishable hour{goodHours === 1 ? "" : "s"} for{" "}
+              <span className="text-white font-medium">{species.species_name}</span>
+              {tidePhrase ? ` ${tidePhrase}` : ""}.
+              {tideStationName ? ` Tides read from ${tideStationName}.` : ""}
+            </p>
+          </>
+        ) : (
+          <p className={`${TYPE.body} text-slate-300 mt-3`}>
+            Nothing is scored around {cityName} today.
+          </p>
+        )}
+
+        </div>
+
+        <div className="mt-5 grid grid-cols-2 gap-x-4 gap-y-3 border-t border-white/10 pt-4 sm:grid-cols-4 lg:mt-0 lg:grid-cols-2 lg:gap-y-5 lg:border-l lg:border-t-0 lg:pl-8 lg:pt-0">
+          <Stat tone="dark" label="Water" value={water ?? "No reading"} />
+          <Stat tone="dark" label="Wind" value={wind ?? "No reading"} />
+          <Stat tone="dark" label="Sea" value={chop ?? "No reading"} />
+          <Stat
+            tone="dark"
+            label="Spots scored"
+            value={`${scoredSpots} of ${memberSpots}`}
+          />
+        </div>
+      </div>
+    </section>
+  );
+}

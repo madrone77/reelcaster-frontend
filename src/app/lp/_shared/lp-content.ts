@@ -252,7 +252,7 @@ export function buildLayers(
 export const PROOF: {
   showProof: boolean;
   stats: ReadonlyArray<{ num: string; label: string }>;
-  quote: { text: string; attr: string };
+  quote: { text: string; attr: string; rating: number };
 } = {
   // ON. The quote is real and permissioned, and every figure below is counted
   // from production rather than estimated, which were the two conditions this
@@ -268,6 +268,20 @@ export const PROOF: {
     { num: "Hourly", label: "Refresh rate" },
   ],
   quote: {
+    /**
+     * Out of five, and given by the customer rather than inferred from how
+     * warm the sentence sounds.
+     *
+     * Recorded here for the same reason every stat above records its query:
+     * a rating is a number, and a number with no provenance is
+     * indistinguishable from one somebody made up. A surface that wants to
+     * draw stars reads this rather than hardcoding five, so if it were ever a
+     * four the stars would follow instead of the record and the display
+     * disagreeing.
+     *
+     * Confirmed by the customer 2026-08-21, two days after the quote itself.
+     */
+    rating: 5,
     // Given by the customer 2026-08-19. Verbatim.
     text: "ReelCaster has completely changed how I plan my fishing trips. It brings together tides, currents, wind, swell, and water temperature in one place, then pinpoints the best times and locations to fish. It saves me time and gives me real confidence I\u2019m on the water when conditions are ideal.",
     attr: "Bob N., PNW Fisherman",

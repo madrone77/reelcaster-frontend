@@ -210,7 +210,7 @@ export default function CityShell({
         >
           {spots.length} spot{spots.length === 1 ? "" : "s"} around {city.name}
         </h2>
-        <p className="font-rc-mono text-[11px] text-rc-ink-mute">
+        <p className="font-rc-mono text-[11px] text-rc-ink-soft">
           Scores update through the day
         </p>
       </div>

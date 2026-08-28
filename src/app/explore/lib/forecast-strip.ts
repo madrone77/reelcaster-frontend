@@ -10,7 +10,10 @@ import type {
   HourlyConditions,
   SunHours,
 } from "@/lib/bluecaster/live-spot-types";
-import type { MapForecast14dPayload } from "@/lib/bluecaster";
+import type {
+  MapForecast14dPayload,
+  MapForecastDayConditions,
+} from "@/lib/bluecaster";
 import { tierFor, fmtPeak, type Tier } from "./explore-data";
 import {
   dominantWeather,
@@ -87,6 +90,32 @@ export interface ForecastDay {
   pending: boolean;
 }
 
+/**
+ * One viewport day's cloud/precip arrays → the `HourlyConditions` shape
+ * `dominantWeather` reads. The map payload carries only the two fields the
+ * classifier actually looks at (see `MapForecastDayConditions`), so the rest
+ * are filled null rather than invented — this feeds an icon, not a readout.
+ */
+function viewportHours(
+  day: MapForecastDayConditions | null | undefined,
+): (HourlyConditions | null)[] | undefined {
+  if (!day) return undefined;
+  return Array.from({ length: 24 }, (_, h) => ({
+    windKt: null,
+    windGustKt: null,
+    windDir: null,
+    windDirDeg: null,
+    cloudPct: day.cloud_pct[h] ?? null,
+    airTempC: null,
+    precipMm: day.precip_mm[h] ?? null,
+    seaTempC: null,
+    swellM: null,
+    waveM: null,
+    tideM: null,
+    tideTrend: null,
+  })) as HourlyConditions[];
+}
+
 /** Per-day dominant weather — daylight hours, weighted toward the day's best
  *  window (its peak hour). Falls back to a 06–20 band when sun isn't available. */
 function dayWeather(
@@ -117,6 +146,28 @@ function isNonRetentionOn(reg: StripRegulation | null | undefined, iso: string):
   if (reg.status !== "Release" && reg.status !== "Closed") return false;
   return reg.nextOpenDate == null || iso < reg.nextOpenDate;
 }
+
+/**
+ * Height of the desktop docked strip, in px.
+ *
+ * Sized to the tallest thing it has to contain — a whole `DayCell` — rather
+ * than picked. It was 128, which left the cells row 83px for a cell whose
+ * content measures 93, so every collapsed day hung its peak-time chip 11px
+ * below its own border and 1px below the bar. Three files encoded 128
+ * independently (the bar, the map inset, the rail's bottom inset), which is
+ * how it could be wrong in one place and right in the others; they now all
+ * read this.
+ *
+ * Budget: py-2.5 (20) + header (17) + mb-2 (8) + cells (101) = 146, plus 2 of
+ * slack. Raise it if DayCell grows.
+ *
+ * The cells figure is 101, not the 93 a DayCell's children measure: at 93 the
+ * children ended exactly on the padding box and ate the cell's own `py-2`, so
+ * the peak-time chip sat 1px off the border with no air under it. 8 more gives
+ * that padding back, landing the chip ~9px inside the cell — the breathing
+ * room the scrub cell's time already had.
+ */
+export const DESKTOP_STRIP_H = 148;
 
 export interface ForecastStripModel {
   days: ForecastDay[];
@@ -241,8 +292,15 @@ export function buildViewportForecastDays(
       // Viewport strip is the best-across-spots score, not a single species'
       // legality — no per-day non-retention concept here.
       nonRetention: false,
-      // Map/viewport payload carries no conditions grid — no weather icon.
-      weather: null,
+      // Same classifier the spot page's tiles use, over the fortnight's sky at
+      // the payload's representative in-scope spot (`meta.weather_spot_id`).
+      // Sun times are per-spot and the viewport has no single one, so this
+      // falls back to `dayWeather`'s 06–20 daylight band.
+      weather: dayWeather(
+        viewportHours(payload.hourly_conditions?.[i]),
+        null,
+        cell?.peak_hour ?? null,
+      ),
       pending,
     };
   });

@@ -1,9 +1,11 @@
 "use client";
 
-import { useState } from "react";
-import { PRICE } from "@/app/lp/_shared/lp-content";
-import { reportCampaignCta, type CampaignTarget } from "@/app/lp/_shared/lp-telemetry";
-import type { LpCtaId } from "@/app/lp/_shared/lp-telemetry";
+import { Star } from "lucide-react";
+import { PRICE, PROOF } from "@/app/lp/_shared/lp-content";
+import { lpRegionFor } from "@/app/lp/_shared/lp-region";
+import LpFlagUs from "@/app/lp/_shared/lp-flag";
+import type { CampaignTarget, LpCtaId } from "@/app/lp/_shared/lp-telemetry";
+import { useAdCheckout } from "@/app/components/paywall/use-ad-checkout";
 import type { AdWall } from "../[slug]/ad-mode";
 
 /**
@@ -32,11 +34,28 @@ import type { AdWall } from "../[slug]/ad-mode";
  */
 
 /** What the wall is holding back, in the reader's terms. */
-function pitchFor(wall: AdWall, spotName: string): { head: string; sub: string } {
+function pitchFor(
+  wall: AdWall,
+  spotName: string,
+  cityName: string | null,
+): { head: string; sub: string } {
+  // "every other spot in Victoria and beyond" only works when we know the
+  // city. A custom spot, or one whose city is not published, has no name to
+  // put there, and "in null and beyond" is worse than the shorter sentence.
+  const beyond = cityName
+    ? `every other spot in ${cityName} and beyond`
+    : "every other spot we track";
+  // "All 14 days" rather than "the next 13", on every wall.
+  //
+  // The arithmetic was right — a reader at the `today` wall has day one and is
+  // being sold the thirteen after it — and it read like arithmetic. What they
+  // get is the whole fortnight, which is also what the `day2` wall says, and
+  // one headline across both walls means the wall test measures the WALL
+  // rather than two different promises.
   if (wall === "today") {
     return {
-      head: `See the next 13 days at ${spotName}`,
-      sub: "Today is above. The rest of the fortnight, every hour scored, is on the other side of this.",
+      head: `See all 14 days at ${spotName}`,
+      sub: `Today is above. Sign up to see all 14 here and ${beyond}.`,
     };
   }
   if (wall === "day2") {
@@ -45,7 +64,10 @@ function pitchFor(wall: AdWall, spotName: string): { head: string; sub: string }
       // Not "this weekend": the two open days are today and tomorrow, which on
       // a Tuesday is not a weekend and reads as a page that does not know what
       // day it is.
-      sub: "You have today and tomorrow. Pro has the next fortnight, hour by hour, plus a text when a good window opens.",
+      // Twelve, not thirteen: this wall has already given away two days. The
+      // count in each sub-line is the number that reader has left to buy, so
+      // it has to move with the wall.
+      sub: "You have today and tomorrow. Pro has the other twelve, hour by hour, plus a text when a good window opens.",
     };
   }
   return {
@@ -54,16 +76,140 @@ function pitchFor(wall: AdWall, spotName: string): { head: string; sub: string }
   };
 }
 
+/**
+ * Who the numbers come from, named by agency.
+ *
+ * Agency NAMES, and on American water a flag.
+ *
+ * The flag is the market cue — this page runs on American data for American
+ * water — and it is the same inline SVG /lp/6 flies, desaturated so it sits
+ * with the type instead of shouting over the offer beside it. Drawn inline
+ * rather than set as the 🇺🇸 emoji, which has no glyph on most Windows builds
+ * and falls back to the letters "US" in a box.
+ *
+ * ⚠️ US WATER ONLY, and this is the one thing here that must never be wrong.
+ * American chrome over Canadian water with DFO regulations printed underneath
+ * is exactly the error /lp/6 redirects non-US cities to avoid, and this frame
+ * has no redirect to lean on: it serves whatever spot the ad names. So the
+ * flag hangs off `region.isUS`, resolved from the spot's own province, and a
+ * BC spot renders the same row with no flag on it.
+ *
+ * Each line says what its agency SUPPLIES, because "NOAA" alone is a badge
+ * while "tides and currents from NOAA" is a checkable claim. Agency emblems
+ * are deliberately absent — see the note in the pull request; a flag is not a
+ * trademark and carries none of that question.
+ */
+function SourceRow({ provinceCode }: { provinceCode: string }) {
+  const region = lpRegionFor(provinceCode);
+
+  // One line each, because they are three separate claims about three
+  // different agencies and a single run-on row read as one long credit that
+  // the eye skips. A reader checking whether we use their tide authority
+  // should find that in its own line rather than in the middle of a sentence.
+  const sources = [
+    `Tides and currents from ${region.tideAuthority}`,
+    `Regulations from ${region.regulator.name}`,
+    "Weather from ECMWF and GFS",
+  ];
+
+  return (
+    <div className="flex items-start gap-3">
+      {region.isUS && (
+        /*
+         * As tall as the three bullets beside it: 52px, which is what those
+         * three 10px lines plus their 4px gaps measure at both breakpoints.
+         *
+         * A number, not a stretch, after trying the clever version twice.
+         * `self-stretch` alone gave the span the row's height while its WIDTH
+         * stayed at the SVG's intrinsic 30px, so the image overflowed to the
+         * right and printed over the first two bullets; adding `aspect-[3/2]`
+         * fixed the overflow by squashing the flag to 30x52 instead, because a
+         * flex item's width is content-derived and the ratio had nothing to
+         * compute from. Height and width both have to come from the same
+         * place, and that place is this number.
+         *
+         * ⚠️ It is coupled to the list having three single lines. Add a fourth
+         * source, or let one wrap, and this needs to move with it.
+         */
+        <span className="shrink-0 grayscale opacity-75">
+          <LpFlagUs size={52} />
+        </span>
+      )}
+
+      <ul className="space-y-1 font-rc-mono text-[10px] uppercase tracking-[0.07em] text-rc-ink-mute">
+        {sources.map((line) => (
+          <li key={line} className="flex gap-1.5">
+            <span aria-hidden className="text-rc-ink-mute/60">
+              ·
+            </span>
+            <span>{line}</span>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+/**
+ * The customer quote, with its rating.
+ *
+ * The words are `PROOF.quote`, imported rather than copied so this page cannot
+ * drift from the one place that records the quote is real, permissioned and
+ * verbatim, and cannot be edited for length here. `PROOF.showProof` is
+ * honoured too: if the band is ever switched off it goes off everywhere.
+ *
+ * The rating is `PROOF.quote.rating`, which the customer gave, and is read
+ * rather than hardcoded so the stars cannot outlive it. Drawing five filled
+ * stars in markup would be a second copy of a claim about a real person, free
+ * to disagree with the record the moment either changed.
+ */
+function Stars({ rating }: { rating: number }) {
+  const filled = Math.max(0, Math.min(5, Math.round(rating)));
+  return (
+    <div className="flex gap-0.5" aria-label={`${filled} out of 5 stars`}>
+      {[0, 1, 2, 3, 4].map((i) => (
+        <Star
+          key={i}
+          className={`h-3.5 w-3.5 ${
+            i < filled ? "fill-rc-badge text-rc-badge" : "fill-none text-rc-rule"
+          }`}
+          aria-hidden
+        />
+      ))}
+    </div>
+  );
+}
+
+function Testimonial() {
+  if (!PROOF.showProof) return null;
+  return (
+    <figure className="mt-5 rounded border border-rc-rule bg-rc-panel/70 p-4">
+      <Stars rating={PROOF.quote.rating} />
+      <blockquote className="rc-body mt-2 text-[13px] leading-relaxed text-rc-ink-soft">
+        {PROOF.quote.text}
+      </blockquote>
+      <figcaption className="mt-2 font-rc-mono text-[11px] text-rc-ink-mute">
+        {PROOF.quote.attr}
+      </figcaption>
+    </figure>
+  );
+}
+
 export default function AdTrialCta({
   spotName,
+  cityName,
   region,
   chargeDate,
   wall,
   cta,
   inputId,
   dims,
+  withProof = false,
 }: {
   spotName: string;
+  /** The city this spot belongs to, for the "and every other spot in X" line.
+   *  Null for a custom spot or one whose city is not published. */
+  cityName: string | null;
   /** Billing region, e.g. "WA". Decides the currency: BC bills CAD, WA USD.
    *  Empty is allowed; the route falls back to edge geo. */
   region: string;
@@ -77,60 +223,43 @@ export default function AdTrialCta({
   /** Ids must differ between the copies of this form on one page. */
   inputId: string;
   dims: CampaignTarget;
+  /**
+   * Show the sources and the customer quote with this copy of the form.
+   *
+   * Set on the one at the wall, where the decision is actually made, and not
+   * on the closing one: the same quote twice on a page this short reads as
+   * padding rather than as proof.
+   */
+  withProof?: boolean;
 }) {
-  const [email, setEmail] = useState("");
-  const [submitting, setSubmitting] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const { head, sub } = pitchFor(wall, spotName);
+  const { head, sub } = pitchFor(wall, spotName, cityName);
+  const { email, setEmail, submitting, error, submit, from } = useAdCheckout({
+    wall,
+    region,
+    cta,
+    dims,
+  });
 
-  // The attribution key that rides to Stripe and lands in the conversion
-  // columns. Keyed by WALL, not just "spot-ad": which wall earned the card is
-  // the whole question this page exists to answer.
-  const from = `spot-ad-${wall}`;
-
-  async function onSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    if (submitting) return;
-
-    // Counted here rather than on the button, so a press the browser rejects
-    // for a malformed email never reaches the counter. What this measures is a
-    // real attempt to buy.
-    reportCampaignCta(cta, dims);
-
-    setSubmitting(true);
-    setError(null);
-    try {
-      const res = await fetch("/api/stripe/checkout", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ from, region, email: email.trim() }),
-      });
-      const body = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(body.error ?? "checkout_failed");
-      // Uncovered regions come back as a redirect to the waitlist rather than a
-      // Stripe URL. Follow whichever we are given.
-      const dest = body.url ?? body.redirect;
-      if (!dest) throw new Error("no_url");
-      window.location.href = dest;
-    } catch {
-      setError("We couldn’t start checkout. Please try again.");
-      setSubmitting(false);
-    }
-  }
-
-  return (
-    <section className="rounded-lg border border-rc-brand/30 bg-rc-brand-soft/40 p-5 lg:p-6">
+  const ask = (
+    <>
       <h2 className="rc-title-lg text-xl lg:text-2xl">{head}</h2>
-      <p className="rc-body text-sm text-rc-ink-soft mt-2 max-w-[52ch]">{sub}</p>
+      {/* 52ch is the reading measure for a phone. In the desktop column it
+          was breaking a two-clause sentence after the word "in", which reads
+          as a layout accident rather than a line break. The column is already
+          bounded by the grid, so it can have the whole of it. */}
+      <p className="rc-body text-sm text-rc-ink-soft mt-2 max-w-[52ch] lg:max-w-none">
+        {sub}
+      </p>
 
-      <form className="mt-5 max-w-[34rem]" onSubmit={onSubmit}>
-        <label
-          className="rc-label text-[9px] block mb-1.5"
-          htmlFor={inputId}
-        >
+      <form className="mt-5" onSubmit={submit}>
+        <label className="rc-label text-[9px] block mb-1.5" htmlFor={inputId}>
           Your email
         </label>
-        <div className="flex flex-col sm:flex-row gap-2">
+        {/* Capped: an email field is a short input, and 734px of it inside a
+            desktop column looks like a mistake rather than a generous target.
+            The disclosure under it keeps the full column width, since that is
+            a sentence and wants the room. */}
+        <div className="flex flex-col sm:flex-row gap-2 lg:max-w-[32rem]">
           <input
             id={inputId}
             className="flex-1 min-w-0 rounded border border-rc-rule bg-rc-panel px-3 py-3 text-[15px] text-rc-ink placeholder:text-rc-ink-mute focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-rc-brand"
@@ -170,6 +299,50 @@ export default function AdTrialCta({
           </p>
         ) : null}
       </form>
+    </>
+  );
+
+  return (
+    /**
+     * Two columns from lg, and the reason is what the one column was doing at
+     * that width: a phone layout held at a 34rem measure inside a 1345px card,
+     * with the whole right half empty and the sub-line wrapping after three
+     * words because it had nowhere to go. A card that wide has to either use
+     * the space or stop being that wide.
+     *
+     * It uses it. The ask on the left, the proof beside it on the right, so a
+     * reader deciding whether to type an email can see who supplies the data
+     * and what a customer said without scrolling past the button. Below lg it
+     * stacks in the same order it always did: ask, sources, quote.
+     *
+     * The proof column is capped rather than fluid — a 400px quote is a
+     * paragraph, an 800px one is a wall — and the ask column takes whatever is
+     * left.
+     */
+    <section className="rounded-lg border border-rc-brand/30 bg-rc-brand-soft/40 p-5 lg:p-6">
+      {withProof ? (
+        <div className="lg:grid lg:grid-cols-[minmax(0,1fr)_minmax(0,21rem)] lg:gap-8 lg:items-start">
+          {/* The sources belong under the price, not beside the quote. They
+              are part of the same argument the form is making — here is what
+              you are paying for and here is where the numbers come from — so
+              they read as the last line of it rather than as a caption on
+              somebody else's words. It also leaves the right column carrying
+              one thing, which is what makes the two sides balance. */}
+          <div>
+            {ask}
+            <div className="mt-4">
+              <SourceRow provinceCode={region} />
+            </div>
+          </div>
+          <div className="mt-6 lg:mt-0">
+            <Testimonial />
+          </div>
+        </div>
+      ) : (
+        /* The closing copy of the form carries no proof, so it has one column
+           and a reading measure rather than a stretched one. */
+        <div className="max-w-[42rem]">{ask}</div>
+      )}
     </section>
   );
 }

@@ -3,20 +3,18 @@ import { notFound } from "next/navigation";
 import {
   fetchCityGuides,
   fetchCityPage,
-  fetchCityToday,
   fetchHierarchy,
-  fetchMapSpots,
 } from "@/lib/bluecaster";
-import { ANON_FORECAST_DAYS } from "@/lib/forecast-horizon";
 import { COVERED_PROVINCES } from "@/lib/regions";
 import { breadcrumbJsonLd, siteUrl } from "@/lib/site";
-import { buildExploreData } from "../../../explore/lib/explore-data";
 import { getFishingCity, getFishingProvince } from "../../lib/fishing-data";
-import MarketingFooter from "@/app/components/marketing/marketing-footer";
-import CityShell from "./city-shell";
 import CityHeader from "./city-header";
 import CityLive from "./city-live";
 import { SpeciesCards } from "./species-cards";
+import ProGate from "./hub/pro-gate";
+import CityInstrument from "./instrument/city-instrument";
+import { loadCity } from "./instrument/load-city";
+import KeepToday from "./hub/keep-today";
 import {
   BeforeYouGo,
   CityFaq,
@@ -118,38 +116,28 @@ export default async function CityPage({
 }) {
   const { province: provinceParam, city: citySlug } = await params;
 
-  const [hierarchy, payload, cityPage, cityGuides, cityToday] = await Promise.all([
-    fetchHierarchy(),
-    fetchMapSpots({ city: citySlug }),
-    fetchCityPage(citySlug),
-    // Published species guides for this city. Additive: a city with none
-    // renders exactly as it did before.
-    fetchCityGuides(citySlug),
-    // At the ANON horizon on purpose. This page is prerendered, so the static
-    // render is always the signed-out state; the band upgrades its forward
-    // line client-side once entitlement resolves. Asking for 14 here would
-    // bake a day 9 answer into HTML served to everyone.
-    fetchCityToday(citySlug, ANON_FORECAST_DAYS).catch(() => null),
-  ]);
+  // Loaded through the shared loader, which the ad frame at /lp7/<city> also
+  // uses — see instrument/load-city.ts for why these must not be two loaders.
+  const {
+    province,
+    city,
+    provincePath,
+    tz,
+    regulator,
+    spots,
+    rankedRows,
+    featured: featuredFeed,
+    cityForecast,
+    seasonRows,
+    headlineWindow,
+    cityPage,
+    cityToday,
+  } = await loadCity(provinceParam, citySlug);
 
-  const province = getFishingProvince(hierarchy, provinceParam);
-  const city = getFishingCity(province, citySlug);
-  if (!province || !city) notFound();
+  // Published species guides for this city. Additive: a city with none
+  // renders exactly as it did before. Only the SEO renderer shows them.
+  const cityGuides = await fetchCityGuides(citySlug);
 
-  // Same derivation Explore uses (scores joined onto the hierarchy tree),
-  // narrowed to what the API returned for THIS city.
-  //
-  // Narrowed by id, not by `citySlug`. A spot has one home city but can be a
-  // member of another, and `citySlug` carries the home — so filtering on it
-  // silently dropped every shared spot from the page that asked for them.
-  // Victoria rendered 15 of its 18 while the title, the guide cards and the
-  // map all said 18, which is three different counts of the same thing on one
-  // screen. The request was already scoped to this city; trust it.
-  const data = buildExploreData(hierarchy, payload);
-  const inCity = new Set((payload?.spots ?? []).map((s) => s.id));
-  const spots = data.spots.filter((s) => inCity.has(s.id));
-
-  const provincePath = `/fishing/${provinceParam.toLowerCase()}`;
 
   // Mirrors the visible breadcrumb CityShell renders.
   const breadcrumbs = breadcrumbJsonLd([
@@ -190,7 +178,6 @@ export default async function CityPage({
     .slice(0, 6);
 
   const guides = cityGuides?.guides ?? [];
-  const seasonRows = cityPage?.species_table ?? [];
   const faq = cityPage?.page.faq ?? [];
   const licence = licenceFor(city.provinceCode);
 
@@ -248,32 +235,74 @@ export default async function CityPage({
         />
       )}
 
-      <div className="max-w-6xl mx-auto px-6 pt-6 pb-16 space-y-10">
+      {/* ── The conversion block ────────────────────────────────────────
+          Full width, same as the reference material below it, because the
+          block lays itself out: one column on a phone, and past `lg` a wide
+          main column beside a rail (see city-hub.tsx). It was capped at
+          768px and centred at every width, which is right for a phone and,
+          on a 1440px desktop, a phone screenshot on a field of grey.
+
+          The measure is still protected — it is protected by the split and
+          by each card's own max-width, not by squeezing the whole page. */}
+      <div className="max-w-6xl mx-auto px-6 pt-6 space-y-6">
         <CityHeader
-          city={city}
           provincePath={provincePath}
-          spotCount={spots.length}
+          city={city}
+          window={headlineWindow}
         />
 
-        <CityLive
-          today={cityToday}
-          cityName={city.name}
+        {/* The instrument: 14-day strip → 24-hour chart → the marks people
+            fish → all of them on the water. It replaces the conversion stack
+            (bite radar, spotlight, leaderboard, weekend signup) that stood
+            here — see instrument/city-instrument.tsx for why. */}
+        <CityInstrument
           citySlug={citySlug}
+          cityName={city.name}
+          cityLat={city.lat}
+          cityLng={city.lng}
+          tz={tz}
+          serverNowMs={Date.now()}
+          initialForecast={cityForecast}
+          featured={featuredFeed}
+          rows={rankedRows}
+          /* The roster, which is what the <title> and the JSON-LD count. A
+             mark with no species scored today is absent from `rankedRows`,
+             so the two can differ and the map's caption has to reconcile
+             them rather than quietly report the smaller one. */
+          rosterCount={spots.length}
         />
 
-        {/* Conclusion first: what is here and whether you may keep it, then
-            where it is, then the reference material. */}
+        {/* What is legal to keep today. It was a child of the hub block; the
+            instrument does not take children, and this is the one piece of
+            that stack a reader still needs before they act on a score. */}
+        <KeepToday
+          rows={seasonRows}
+          cityName={city.name}
+          provinceCode={city.provinceCode}
+          regulator={regulator}
+        />
+      </div>
+
+      <div className="max-w-6xl mx-auto px-6 pt-10 pb-16 space-y-10">
+        <CityLive cityName={city.name} citySlug={citySlug} />
+
         <SpeciesCards
           guides={guides}
           cityName={city.name}
           cityPath={`${provincePath}/${citySlug}`}
         />
 
-        <CityShell
-          city={city}
-          spots={spots}
-          species={data.species}
-          date={data.date}
+        {/* The second ask, and the only one below the fold.
+            The map is where the page stops selling and starts giving depth
+            away: every spot, scored, on real bathymetry. Somebody who has
+            scrolled through it and is still reading has shown more intent
+            than anyone the first CTA caught, and until now the page never
+            asked them again. Same component as the block above, so the trial
+            length and the price cannot drift apart between the two. */}
+        <ProGate
+          variant="banner"
+          provinceCode={city.provinceCode}
+          citySlug={citySlug}
         />
 
         {cityToday?.tide_station && (
@@ -306,8 +335,6 @@ export default async function CityPage({
 
         <NearbyCities cities={nearby} provincePath={provincePath} />
       </div>
-
-      <MarketingFooter />
     </>
   );
 }

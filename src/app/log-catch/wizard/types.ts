@@ -11,7 +11,7 @@ export interface SelectedSpot {
   score: number | null; // 0-100
   scoreStatus: "scored" | "pending" | "none";
   distanceM: number | null; // pin → spot
-  mgmtArea: string | null; // "DFO 19-3"
+  mgmtArea: string | null; // "DFO 19-3" / "WDFW 9" — regulator included
 }
 
 export interface SpeciesChoice {

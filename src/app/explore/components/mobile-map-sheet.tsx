@@ -2,7 +2,7 @@
 
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { CalendarDays, ChevronDown, ChevronUp } from "lucide-react";
+import { CalendarDays, ChevronDown, ChevronUp, X } from "lucide-react";
 import AdSlot from "@/app/components/ads/ad-slot";
 import type { RailSpot, Tier } from "../lib/explore-data";
 import { MAP_INSET_ATTR, MAP_INSET_RESTING_ATTR } from "../lib/sheet-safe-center";
@@ -14,6 +14,18 @@ import SheetForecast from "./sheet-forecast";
 import ExploreFooter from "./explore-footer";
 
 type Detent = "peek" | "half" | "full";
+
+/**
+ * Squared distance between two spots in degrees, longitude corrected for
+ * latitude. Only ever compared against another of the same, so the square root
+ * and the earth radius both cancel out — this is an ordering, not a readout.
+ */
+function spotDist2(a: RailSpot, b: RailSpot): number {
+  const dx =
+    (a.lng - b.lng) * Math.cos((((a.lat + b.lat) / 2) * Math.PI) / 180);
+  const dy = a.lat - b.lat;
+  return dx * dx + dy * dy;
+}
 
 /** Score colour on the day pill — the tier tokens the day cells already use. */
 const DAY_PILL_SCORE: Record<Tier, string> = {
@@ -38,12 +50,14 @@ export default function MobileMapSheet({
   onSelectSpot,
   forecastModel,
   selectedIso,
-  selectedDayHours,
-  scrubHour,
-  onScrubHour,
   onSelectDay,
   signedIn,
+  onLockedAdDay,
   freshCatches,
+  selectedSlug = null,
+  previewAnchorSlug = null,
+  onPreviewSlug,
+  onClosePreview,
 }: {
   spots: RailSpot[];
   tz: string;
@@ -51,15 +65,26 @@ export default function MobileMapSheet({
   onSelectSpot: (slug: string) => void;
   forecastModel: ForecastStripModel | null;
   selectedIso: string;
-  selectedDayHours: (number | null)[];
-  scrubHour: number | null;
-  onScrubHour: (h: number) => void;
   onSelectDay: (day: ForecastDay) => void;
   signedIn: boolean;
+  /** Ad frame: focus the offer already on the page instead of opening a
+   *  dialog. Passed straight through to the sheet's forecast rows. */
+  onLockedAdDay?: () => void;
   /** Scraped catch reports keyed by spot id — the same payload the desktop
    *  rail joins on, so a spot wears the same badge on both surfaces. Already
    *  Pro-gated by the route: a free viewer's entries carry `locked: true`. */
   freshCatches?: FreshCatchesResponse | null;
+  /** The spot the map has selected (`?spot=`), or null for the browse list.
+   *  Non-null swaps this dock from the spot list to the preview carousel. */
+  selectedSlug?: string | null;
+  /** The pin that opened the preview. The carousel is ordered by distance from
+   *  it, so swiping walks outward from the spot actually tapped. */
+  previewAnchorSlug?: string | null;
+  /** The carousel was swiped onto a different spot — move the map selection
+   *  to match. Distinct from `onSelectSpot`, which OPENS the spot page. */
+  onPreviewSlug?: (slug: string) => void;
+  /** Dismiss the preview and go back to the browse list. */
+  onClosePreview?: () => void;
 }) {
   const [pickerOpen, setPickerOpen] = useState(false);
   const [sort, setSort] = useState<SortKey>("score");
@@ -169,6 +194,178 @@ export default function MobileMapSheet({
     setDetent(best);
   }, [dragHeight, detent, detents]);
 
+  // ── Preview carousel ────────────────────────────────────────────────
+  // A tap on a map pin docks ONE spot card here instead of routing away, and
+  // swiping the dock walks the spots in view. Selection is the same `?spot=`
+  // param the desktop drawer reads, so a deep link lands on the card too.
+  // Nearest-first from the tapped pin, NOT the list's sort. Ordering the deck
+  // by score meant tapping one pin opened at "41 of 53" and swiping walked the
+  // regional ranking — the two cards either side of a spot had nothing to do
+  // with the water around it. Nearest-first makes a swipe mean "and what's
+  // next to it", which is the question a map pin asks.
+  const previewOrder = useMemo(() => {
+    const anchor = spots.find((sp) => sp.slug === previewAnchorSlug);
+    if (!anchor) return sorted;
+    return [...spots].sort((a, b) => spotDist2(anchor, a) - spotDist2(anchor, b));
+  }, [spots, sorted, previewAnchorSlug]);
+
+  const previewIndex = previewOrder.findIndex((sp) => sp.slug === selectedSlug);
+  const previewing = selectedSlug != null && previewIndex >= 0;
+
+  const railRef = useRef<HTMLDivElement | null>(null);
+  // What the dock actually covers, measured. The camera reads this to frame
+  // the tapped pin in the water still visible above the card, and a card's
+  // height varies with its content (a reports badge, a wrapped spot name), so
+  // a guessed constant would aim the flyTo at the wrong water.
+  const [dockH, setDockH] = useState(232);
+  const dockRO = useRef<ResizeObserver | null>(null);
+  // Callback ref, not an effect: the dock mounts and unmounts as the angler
+  // taps in and out of pins, so there is no stable dependency to key an effect
+  // on — the ref firing IS the event.
+  const dockRef = useCallback((el: HTMLDivElement | null) => {
+    dockRO.current?.disconnect();
+    dockRO.current = null;
+    if (!el || typeof ResizeObserver === "undefined") return;
+    setDockH(Math.round(el.offsetHeight));
+    const ro = new ResizeObserver(() => setDockH(Math.round(el.offsetHeight)));
+    ro.observe(el);
+    dockRO.current = ro;
+  }, []);
+  const centredIndex = useCallback(() => {
+    const el = railRef.current;
+    if (!el) return -1;
+    const centre = el.scrollLeft + el.clientWidth / 2;
+    let best = -1;
+    let bestD = Infinity;
+    Array.from(el.children).forEach((child, i) => {
+      const c = child as HTMLElement;
+      const d = Math.abs(c.offsetLeft + c.offsetWidth / 2 - centre);
+      if (d < bestD) {
+        bestD = d;
+        best = i;
+      }
+    });
+    return best;
+  }, []);
+
+  // Snap settled on a new card → move the map's selection to it.
+  const settleTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const onRailScroll = useCallback(() => {
+    if (settleTimer.current) clearTimeout(settleTimer.current);
+    settleTimer.current = setTimeout(() => {
+      const i = centredIndex();
+      const next = previewOrder[i];
+      if (!next || next.slug === selectedSlug) return;
+      onPreviewSlug?.(next.slug);
+    }, 90);
+  }, [centredIndex, previewOrder, selectedSlug, onPreviewSlug]);
+
+  useEffect(
+    () => () => {
+      if (settleTimer.current) clearTimeout(settleTimer.current);
+    },
+    [],
+  );
+
+  // Selection changed from the map → bring that card into view. Instant on the
+  // first paint of a dock (there is nothing to animate from), smooth after.
+  //
+  // The two directions are told apart by where the rail already sits, not by a
+  // "who moved last" flag: a flag that is set but never consumed (the settle
+  // fired, the slug did not change) stays set, and swallows the scroll for the
+  // NEXT pin the angler taps. The rail's own position can't go stale.
+  const wasPreviewing = useRef(false);
+  useEffect(() => {
+    if (!previewing) {
+      wasPreviewing.current = false;
+      return;
+    }
+    const el = railRef.current;
+    const card = el?.children[previewIndex] as HTMLElement | undefined;
+    if (!el || !card) return;
+    if (centredIndex() === previewIndex) {
+      // Already the card in hand — this is the swipe that set the slug.
+      wasPreviewing.current = true;
+      return;
+    }
+    el.scrollTo({
+      left: card.offsetLeft - (el.clientWidth - card.offsetWidth) / 2,
+      behavior: wasPreviewing.current ? "smooth" : "auto",
+    });
+    wasPreviewing.current = true;
+  }, [previewing, previewIndex, centredIndex]);
+
+  if (previewing) {
+    const spot = previewOrder[previewIndex];
+    return (
+      <>
+        <div
+          aria-hidden
+          className="lg:hidden pointer-events-none fixed inset-x-0 bottom-0 z-20 bg-rc-panel"
+          style={{ height: "var(--rc-tabbar-clearance)" }}
+        />
+        <div
+          // Same contract as the sheet: tell the camera how much map this
+          // covers so `sheet-safe-center` frames the tapped pin in the water
+          // still visible above it.
+          {...{
+            [MAP_INSET_ATTR]: "bottom",
+            [MAP_INSET_RESTING_ATTR]: String(dockH),
+          }}
+          ref={dockRef}
+          role="dialog"
+          aria-label={`${spot.name} preview`}
+          className="lg:hidden fixed inset-x-0 z-30 pt-1"
+          style={{ bottom: "var(--rc-tabbar-clearance)" }}
+        >
+          {/* Both controls hug the LEFT edge: the map's zoom buttons live at
+              the right, and a close button under them is a 44px target sharing
+              an edge with "zoom out". */}
+          <div className="mb-1.5 flex items-center gap-2 px-4">
+            <button
+              type="button"
+              onClick={onClosePreview}
+              aria-label="Close spot preview"
+              className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-rc-ink/70 text-white backdrop-blur"
+            >
+              <X className="h-4 w-4" />
+            </button>
+            <span className="rounded-full bg-rc-ink/70 px-2.5 py-1 font-rc-mono text-[11px] font-semibold text-white backdrop-blur">
+              {previewIndex + 1} of {previewOrder.length}
+            </span>
+          </div>
+
+          {/* One card per spot in view, snapped. Only the card in hand and its
+              two neighbours actually mount — every SpotCard runs its own
+              subscription + favourite reads, and 40 of them behind a swipe is
+              a request storm for cards nobody has scrolled to yet. The rest
+              hold their width so the snap offsets stay honest. */}
+          <div
+            ref={railRef}
+            onScroll={onRailScroll}
+            className="flex snap-x snap-mandatory gap-3 overflow-x-auto scrollbar-hide px-[7vw] pb-2"
+          >
+            {previewOrder.map((sp, i) => (
+              <div
+                key={sp.id}
+                className="w-[86vw] shrink-0 snap-center"
+              >
+                {Math.abs(i - previewIndex) <= 1 && (
+                  <SpotCard
+                    spot={sp}
+                    tz={tz}
+                    onSelect={() => onSelectSpot(sp.slug)}
+                    fresh={freshCatches?.spots[sp.id]}
+                  />
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      </>
+    );
+  }
+
   return (
     <>
       {/* White base filling the strip the floating nav pill floats over, so the
@@ -255,23 +452,18 @@ export default function MobileMapSheet({
           </div>
         </div>
 
-        {/* The day the map is showing. It was a segmented "All spots ⇄ 14-day"
-            toggle, which made the fortnight a mode you entered by giving up the
-            spot list — the two things an angler compares could never be on
-            screen together, and the map's own day was invisible state while the
-            list was up. As a pill it states the day at all times and opens the
-            ledger on demand. */}
-        <div className="mt-2.5" onPointerDown={(e) => e.stopPropagation()}>
-          <button
-            type="button"
-            onClick={() => setPickerOpen(true)}
-            disabled={!selectedDay}
-            aria-haspopup="dialog"
-            aria-expanded={pickerOpen}
-            className="inline-flex items-center gap-2 rounded-full border border-rc-rule bg-rc-surface px-3 py-1.5 transition-colors enabled:hover:border-rc-brand disabled:opacity-60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rc-brand"
-          >
-            <CalendarDays className="h-3.5 w-3.5 shrink-0 text-rc-ink-mute" />
-            <span className="text-[13px] font-semibold text-rc-ink">
+        {/* The day the map is showing, stated as text, with the picker
+            behind a button that says what it does. It was a single pill whose
+            label was the date — which read as a status line, so the way to
+            change the day was invisible unless you happened to tap it. Saying
+            the day and offering the change are two jobs; they get two
+            elements. */}
+        <div
+          className="mt-2.5 flex items-center justify-between gap-3"
+          onPointerDown={(e) => e.stopPropagation()}
+        >
+          <div className="flex min-w-0 items-baseline gap-1.5">
+            <span className="truncate text-[13px] font-semibold text-rc-ink">
               {selectedDay
                 ? `${selectedDay.index === 0 ? "Today" : selectedDay.dow} · ${selectedDay.date}`
                 : "14-day forecast"}
@@ -283,7 +475,17 @@ export default function MobileMapSheet({
                 {selectedDay.score}
               </span>
             )}
-            <ChevronDown className="h-3.5 w-3.5 shrink-0 text-rc-ink-mute" />
+          </div>
+          <button
+            type="button"
+            onClick={() => setPickerOpen(true)}
+            disabled={!selectedDay}
+            aria-haspopup="dialog"
+            aria-expanded={pickerOpen}
+            className="inline-flex shrink-0 items-center gap-1.5 rounded-full border border-rc-rule bg-rc-surface px-3 py-1.5 text-[13px] font-semibold text-rc-brand transition-colors enabled:hover:border-rc-brand disabled:opacity-60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rc-brand"
+          >
+            <CalendarDays className="h-3.5 w-3.5 shrink-0" />
+            Change date
           </button>
         </div>
       </div>
@@ -356,13 +558,15 @@ export default function MobileMapSheet({
             <div
               role="dialog"
               aria-label="Pick a day"
-              className="fixed inset-x-0 bottom-0 z-[61] max-h-[75vh] overflow-y-auto rounded-t-2xl bg-rc-panel shadow-rc-panel animate-slide-up pb-[calc(0.5rem+env(safe-area-inset-bottom))]"
+              className="fixed inset-x-0 bottom-0 z-[61] max-h-[75vh] overflow-y-auto overscroll-contain rounded-t-2xl bg-rc-panel shadow-rc-panel animate-slide-up pb-[calc(0.5rem+env(safe-area-inset-bottom))]"
             >
               <div className="flex justify-center pt-2.5 pb-1">
                 <div className="h-1 w-9 rounded-full bg-rc-rule" />
               </div>
-              <div className="flex items-center justify-between px-4 pb-1">
-                <span className="rc-label text-[9px]">Next 14 days</span>
+              {/* Names the instrument the same way the spot page's section
+                  does, so the fortnight reads as one thing across surfaces. */}
+              <div className="flex items-baseline justify-between gap-3 px-4 pb-3">
+                <span className="rc-label text-[9px]">14-Day Forecast</span>
                 <button
                   type="button"
                   onClick={() => setPickerOpen(false)}
@@ -374,11 +578,9 @@ export default function MobileMapSheet({
               <SheetForecast
                 model={forecastModel}
                 selectedIso={selectedIso}
-                hours={selectedDayHours}
-                scrubHour={scrubHour}
-                onScrubHour={onScrubHour}
                 onSelectDay={onSelectDay}
                 signedIn={signedIn}
+                onLockedAdDay={onLockedAdDay}
               />
             </div>
           </>,

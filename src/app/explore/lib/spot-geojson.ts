@@ -3,26 +3,30 @@
 // paint expressions stay cheap. Matches BlueCaster's MapExplorer pins 1:1
 // (app/map/MapExplorer.tsx + scoring-ui.ts).
 
-import type { RailSpot } from "./explore-data";
+import { TIER_PIN, tierFor, type RailSpot } from "./explore-data";
 import { PUCK_HALF_W } from "./score-puck";
 
-// BlueCaster's continuous score→color scale (scoring-ui.ts). Scores are 0–100
-// here (RailSpot.score), so thresholds are ×100 of BlueCaster's 0..1 stops.
-const SCALE: Array<[number, string]> = [
-  [78, "#059669"], // emerald-600 — Prime
-  [62, "#65a30d"], // lime-600 — Good
-  [46, "#ca8a04"], // amber-600 — Fair
-  [30, "#ea580c"], // orange-600 — Slow
-  [0, "#e11d48"], //  rose-600 — Poor
-];
 export const NO_DATA_COLOR = "#9ca3af"; // zinc-400 — unscored dot
 export const SELECT_HEX = "#1F40E0"; // cobalt — selected stroke
 export const FRESH_HEX = "#10b981"; // emerald-500 — (reserved; no fresh data yet)
 
+/**
+ * Pin fill: the score tiers, cut at 75/55 like everything else that puts a
+ * colour next to a score.
+ *
+ * This was a five-stop ramp (78/62/46/30) mirrored from bluecaster's
+ * scoring-ui.ts, which is now on the same three stops. The two extra stops
+ * were shade pairs, prime-vs-good and slow-vs-poor, and at pin size over
+ * bathymetry nobody resolves which green they are looking at. What they did do
+ * was disagree with the rest of the page: a 76 drew a lime pin and read "Good"
+ * everywhere else.
+ *
+ * `null` keeps its own grey rather than the tier's `none`, because an unscored
+ * pin is a different statement from a badly scored one.
+ */
 export function scoreColor(score: number | null): string {
   if (score === null) return NO_DATA_COLOR;
-  for (const [t, c] of SCALE) if (score >= t) return c;
-  return SCALE[SCALE.length - 1][1];
+  return TIER_PIN[tierFor(score)];
 }
 
 export interface SpotFeatureProps {

@@ -19,6 +19,7 @@ import type {
   SpotSnapshotResponse,
   BlueCasterSpeciesItem,
   CreateCustomSpotResponse,
+  ScorableSpeciesResponse,
   PoolCommitPayload,
   PoolCommitResponse,
   SpotScoreHourResponse,
@@ -316,9 +317,46 @@ export interface MapSpotEntry {
   lat: number;
   lng: number;
   city_slug: string | null;
+  /** Seabed at the mark: "rock" | "mixed" | "sand" | "mud" | "kelp", or null.
+   *  The ONLY physical character a spot card can carry — there is no depth
+   *  anywhere in the product (`depth_avg_m` is null on all 164 published
+   *  spots, `depth_profiles` holds 7 rows, `catch_signals.depth_ft` 2). */
+  bottom?: string | null;
   best_species_id: string | null;
   scores: Record<string, MapSpeciesStrip>;
   conditions: MapCondStrip | null;
+  /**
+   * How well fished the mark is over the trailing YEAR: `"popular"` (roughly
+   * one report a month or better), `"known"`, or `"sparse"`. Absent means no
+   * catch report resolved to it in that year at all.
+   *
+   * Only `popular` is ever worth showing a reader. The lower two bands exist
+   * so a consumer can ORDER on this, which two bands could not do: with every
+   * Victoria mark tied on score, one band lumped a spot with one report in a
+   * year together with one that had seven.
+   *
+   * A band, never a count — the numbers stay behind the Pro gate. Distinct
+   * from `has_reports`, which is a 21-day "is anything happening now" flag:
+   * half of Victoria's roster reads zero in any given three weeks, Constance
+   * Bank included, so the short window cannot answer "is this a mark people
+   * actually fish".
+   */
+  track_record?: "popular" | "known" | "sparse";
+  /**
+   * Where this mark sits by report volume among the spots in THIS response,
+   * 1-based, most fished first. Absent when the spot has no report in the
+   * trailing year. Ties share a number.
+   *
+   * The band alone cannot order its own members: seven Victoria marks are
+   * `popular`, and the busiest has twelve times the reports of the quietest.
+   *
+   * ⚠ An ORDINAL, never a count — it cannot be turned back into a report
+   * number, which is what keeps the Pro gate over those intact. It is also
+   * scoped to the request, so it only means anything within one payload:
+   * never store it, and never compare it across two calls made with different
+   * spot sets.
+   */
+  track_rank?: number;
   /** Scraped catch reports exist for this spot in the 21-day intel window.
    *  Presence only — the counts and the verdict are Pro-gated on
    *  /map/fresh-catches. Riding in this payload is what lets the reports badge
@@ -424,15 +462,39 @@ export interface MapForecast14dPayload {
   species: Record<string, { id: string; slug: string; name: string }>;
   by_species: Record<string, (MapForecastDayPeak | null)[]>;
   best: (MapForecastBestDay | null)[]; // max across species per day
-  meta?: { spots: number };
+  /** 14 entries — cloud cover + precipitation, hour 0..23, at ONE
+   *  representative in-scope spot (`meta.weather_spot_id`). Enough for the
+   *  strip's per-day weather icon; NOT a per-spot conditions grid. Optional so
+   *  a cached pre-change payload still parses. */
+  hourly_conditions?: (MapForecastDayConditions | null)[];
+  meta?: { spots: number; weather_spot_id?: string | null };
 }
 
-/** Per-day best scores across every published spot in a bbox — the
- *  viewport-driven forecast strip re-fetches this as the map moves. */
+export interface MapForecastDayConditions {
+  cloud_pct: (number | null)[]; // 24
+  precip_mm: (number | null)[]; // 24
+}
+
+/**
+ * Per-day best scores across every published spot in a scope.
+ *
+ * Two callers, two scopes. The Explore map re-fetches by `bbox` as the
+ * viewport moves; a city page asks by `city`, because a city is a roster of
+ * marks rather than a rectangle — its member spots include shared ones that
+ * a box drawn around the city centre would miss, and a box tight enough to
+ * exclude the neighbouring city's water would miss them too. Upstream already
+ * accepts both and gives `city` precedence.
+ */
 export async function fetchMapForecast14d(
-  bbox: string,
+  scope: string | { bbox?: string; city?: string },
 ): Promise<MapForecast14dPayload | null> {
-  return bcGet<MapForecast14dPayload>("/api/v1/map/forecast-14d", { bbox }, 120);
+  // A bare string is the original bbox signature, kept so the Explore map's
+  // call sites do not have to change.
+  const query =
+    typeof scope === "string"
+      ? { bbox: scope }
+      : { bbox: scope.bbox, city: scope.city };
+  return bcGet<MapForecast14dPayload>("/api/v1/map/forecast-14d", query, 120);
 }
 
 // ── Per-spot 14-day outlook (map/spot-forecast-14d) ─────────────────
@@ -646,8 +708,19 @@ export interface BlueCasterCitySeasonRow {
   /** Ensemble of 2 to 3 explanations joined by " | ". Render the first only. */
   season_notes: string | null;
   daily_limit: number | null;
+  /** The STRICTEST minimum size in the city — the only roll-up that cannot
+   *  advise someone to keep an undersized fish. Centimetres; render inches
+   *  in Washington. */
   size_limit_cm: number | null;
+  /** The city's BEST state. Never render it without the counts below: "open"
+   *  can mean open at 2 spots of 31, and a reader told "Open" who meets a
+   *  closure at the ramp was misled by a roll-up that was arithmetically
+   *  correct. */
   status: "open" | "non_retention" | "closed" | null;
+  /** Spots where retention is open today. */
+  open_spots: number;
+  /** Spots carrying any effective rule for this species. */
+  total_spots: number;
 }
 
 export interface BlueCasterCityPage {
@@ -1162,6 +1235,49 @@ export async function createCustomSpot(
   return { ok: true, data: (await res.json()) as CreateCustomSpotResponse };
 }
 
+export type ScorableSpeciesResult =
+  | { ok: true; data: ScorableSpeciesResponse }
+  | { ok: false; status: number; error: string; message?: string };
+
+/** The species a new custom spot at these coordinates can be scored for.
+ *
+ *  This is what the create-spot picker must read. It used to build its options
+ *  from the species that already had scores on the spots in the map viewport,
+ *  which is circular: a species nothing nearby is scoring could never be added
+ *  to a new spot, and the list changed as the angler panned. In Vancouver that
+ *  offered 3 of the city's 5.
+ *
+ *  BlueCaster resolves the city through the same 50 km fence the create uses,
+ *  so the picker cannot offer a species the create will not seed. Outside the
+ *  fence it answers 422 `outside_coverage`, passed through rather than thrown:
+ *  the dialog already has copy for that case. */
+export async function getScorableSpecies(
+  lat: number,
+  lng: number,
+): Promise<ScorableSpeciesResult> {
+  const baseUrl = process.env.BLUECASTER_API_URL;
+  const apiKey = process.env.BLUECASTER_API_KEY;
+  if (!baseUrl || !apiKey) throw new Error("BlueCaster env vars not set");
+
+  const res = await fetch(
+    `${baseUrl}/api/v1/species/scorable?lat=${lat}&lng=${lng}`,
+    { headers: { "x-api-key": apiKey }, cache: "no-store" },
+  );
+  if (!res.ok) {
+    const body = (await res.json().catch(() => null)) as {
+      error?: string;
+      message?: string;
+    } | null;
+    return {
+      ok: false,
+      status: res.status,
+      error: body?.error ?? "scorable_species_failed",
+      message: body?.message,
+    };
+  }
+  return { ok: true, data: (await res.json()) as ScorableSpeciesResponse };
+}
+
 export interface OwnedCustomSpot {
   id: string;
   name: string;
@@ -1325,6 +1441,25 @@ export interface BlueCasterCityTodaySpecies {
    *  can hold good hours split across a dawn bite and an evening one. */
   window: { start_hour: number; end_hour: number } | null;
   leading_spot: { id: string; name: string; slug: string } | null;
+  /** The city's dominant method for this species, off the wizard's technique
+   *  profile. CITY grain, not spot grain: there is no per-spot technique
+   *  data, and `depth_profiles` holds 7 rows product-wide, so no spot card
+   *  can name a target depth. Null when the species was never profiled. */
+  tactic: { method: string; baits: string[] } | null;
+}
+
+/** Water and wind across the city today, daylight hours only. */
+export interface BlueCasterCityConditions {
+  /** °C. Convert at the edge: WA reads Fahrenheit, BC reads Celsius. */
+  water_temp_c: number | null;
+  /** Daylight MEAN, knots — not the max. The max is what rules a day out and
+   *  reads as alarming beside a verdict that says the day is fine. */
+  wind_speed_kt: number | null;
+  /** 8-way compass point the wind blows FROM. Null when the sample has no
+   *  prevailing direction; render the speed alone rather than inventing one.
+   *  Puget Sound in light air genuinely spans all eight points. */
+  wind_from: string | null;
+  spot_sample: number;
 }
 
 export interface BlueCasterCityToday {
@@ -1343,6 +1478,22 @@ export interface BlueCasterCityToday {
   /** `scored_spots` can be lower than `member_spots`. Show the denominator:
    *  "best in the city" across a third of it overclaims. */
   coverage: { scored_spots: number; member_spots: number };
+  /** Null when the city has no stored forecast conditions for today. */
+  conditions: BlueCasterCityConditions | null;
+  /** Catch-report VOLUME, and nothing else. Counts are cleared for consumer
+   *  use; the audit trail behind them never is. Optional so a cached
+   *  pre-`intel` body still parses. */
+  intel?: {
+    /** Distinct POSTS, deduped on excerpt hash — not rows. A post naming one
+     *  mark for two species is two rows and one report. */
+    reports: number;
+    /** Distinct posts that reported LANDING something. The number to quote if
+     *  the words say "catches": of Victoria's 79 posts in the window, 31
+     *  report not catching, so `reports` is not a count of fish. */
+    catches: number;
+    spots_with_reports: number;
+    window_days: number;
+  };
   verdict: "excellent" | "good" | "fair" | "slow" | null;
   /** The city's top-ranked roster target, NOT its highest scorer. Ranking by
    *  score surfaces the flattest species: crab and bottomfish hold a wide

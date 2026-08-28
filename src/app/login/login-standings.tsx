@@ -16,7 +16,7 @@ type Spot = {
   peakHour: number | null
 }
 
-// Same thresholds as explore-data's tierFor.
+// Same thresholds as explore-data's tierFor (75 / 55).
 function tier(score: number): State {
   return score >= 75 ? 'Good' : score >= 55 ? 'Fair' : 'Poor'
 }

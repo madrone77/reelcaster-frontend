@@ -57,7 +57,9 @@ export default function CatchDetailShell({ catchId }: { catchId: string }) {
   const [spot, setSpot] = useState<SelectedSpot | null>(null);
   const [match, setMatch] = useState<NearestSpotHit | null>(null);
   const [candidates, setCandidates] = useState<NearestSpotHit[]>([]);
-  const [dfoArea, setDfoArea] = useState<string | null>(null);
+  // Fully rendered management area, regulator included ("DFO 19-3",
+  // "WDFW 9"). BlueCaster composes it; nothing here adds a prefix.
+  const [mgmtAreaLabel, setMgmtAreaLabel] = useState<string | null>(null);
   const [searching, setSearching] = useState(false);
   const [snapshot, setSnapshot] = useState<CatchSnapshot | null>(null);
   const [snapshotLoading, setSnapshotLoading] = useState(false);
@@ -168,7 +170,12 @@ export default function CatchDetailShell({ catchId }: { catchId: string }) {
       if (!res) return;
       setMatch(res.match);
       setCandidates(res.candidates);
-      setDfoArea(res.dfo_area?.subarea_label ?? null);
+      // mgmt_label already carries the regulator ("WDFW 9"). subarea_label is
+      // the bare number and is only a fallback for a BlueCaster deploy that
+      // predates it; never prefix it here.
+      setMgmtAreaLabel(
+        res.dfo_area?.mgmt_label ?? res.dfo_area?.subarea_label ?? null,
+      );
     }, delay);
   }, []);
 
@@ -228,7 +235,7 @@ export default function CatchDetailShell({ catchId }: { catchId: string }) {
         score: hit.score,
         scoreStatus: hit.score_status,
         distanceM: hit.distance_m,
-        mgmtArea: mgmt ? `DFO ${mgmt}` : null,
+        mgmtArea: mgmt,
       });
       setOverrides({});
       refreshSnapshot(hit.id, caughtAtUtcIso);
@@ -241,7 +248,7 @@ export default function CatchDetailShell({ catchId }: { catchId: string }) {
   useEffect(() => {
     if (!pinDirtyRef.current || searching) return;
     if (match && match.id !== spot?.id) {
-      adoptSpot(match, dfoArea);
+      adoptSpot(match, mgmtAreaLabel);
     } else if (!match && spot) {
       setSpot(null);
       setScoreSnapshot({ score: null, status: "none" });
@@ -295,10 +302,15 @@ export default function CatchDetailShell({ catchId }: { catchId: string }) {
       pinDirtyRef.current = true;
       setMatch(hit);
       setCandidates((c) => [hit, ...c]);
-      adoptSpot(hit, res.data.mgmt_area?.subarea_label ?? dfoArea);
+      adoptSpot(
+        hit,
+        res.data.mgmt_area?.mgmt_label ??
+          res.data.mgmt_area?.subarea_label ??
+          mgmtAreaLabel,
+      );
       return null;
     },
-    [pin, session, adoptSpot, dfoArea],
+    [pin, session, adoptSpot, mgmtAreaLabel],
   );
 
   const handleOverride = useCallback(
@@ -357,7 +369,7 @@ export default function CatchDetailShell({ catchId }: { catchId: string }) {
             moon_phase: finalSnapshot?.moon_phase ?? null,
             spot_id: spot?.id ?? null,
             spot_slug: spot?.slug ?? null,
-            mgmt_area: spot?.mgmtArea ?? (dfoArea ? `DFO ${dfoArea}` : null),
+            mgmt_area: spot?.mgmtArea ?? mgmtAreaLabel,
             score: scoreSnapshot.status === "scored" ? scoreSnapshot.score : null,
             score_status: scoreSnapshot.status,
           }),
@@ -440,7 +452,7 @@ export default function CatchDetailShell({ catchId }: { catchId: string }) {
       stats,
       species,
       spot,
-      dfoArea,
+      mgmtAreaLabel,
       scoreSnapshot,
       router,
     ],
@@ -490,7 +502,7 @@ export default function CatchDetailShell({ catchId }: { catchId: string }) {
                   spot={spot}
                   match={match}
                   candidates={candidates}
-                  mgmtArea={dfoArea}
+                  mgmtArea={mgmtAreaLabel}
                   searching={searching}
                   snapshot={snapshot}
                   snapshotLoading={snapshotLoading}
@@ -520,7 +532,7 @@ export default function CatchDetailShell({ catchId }: { catchId: string }) {
 function SavedState() {
   return (
     <div className="rounded-2xl border border-rc-rule bg-rc-panel p-10 text-center">
-      <div className="mx-auto flex w-12 h-12 items-center justify-center rounded-full bg-emerald-500">
+      <div className="mx-auto flex w-12 h-12 items-center justify-center rounded-full bg-rc-good">
         <Check className="w-6 h-6 text-white" strokeWidth={3} />
       </div>
       <div className="mt-4 text-xl font-bold text-rc-ink">Saved</div>

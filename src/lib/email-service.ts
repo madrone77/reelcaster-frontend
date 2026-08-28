@@ -1,7 +1,20 @@
 import { Resend } from 'resend';
 
-// Initialize Resend with API key from environment
-const resend = new Resend(process.env.RESEND_API_KEY);
+/**
+ * Built on first send, not on import.
+ *
+ * `new Resend(undefined)` THROWS, and at module scope that turns a missing
+ * key into a module that cannot be imported at all: every route that touches
+ * this file answers 500, including the ones that only wanted the dev-mode
+ * console fallback below. The guard for "no key" is a few lines down and was
+ * unreachable, because the constructor above it had already brought the
+ * module down.
+ */
+let client: Resend | null = null;
+function resendClient(): Resend {
+  if (!client) client = new Resend(process.env.RESEND_API_KEY);
+  return client;
+}
 
 export interface SendEmailParams {
   to: string | string[];
@@ -45,7 +58,7 @@ export async function sendEmail(params: SendEmailParams): Promise<SendEmailResul
       };
     }
 
-    const { data, error } = await resend.emails.send({
+    const { data, error } = await resendClient().emails.send({
       from,
       to: Array.isArray(to) ? to : [to],
       subject,

@@ -1,4 +1,4 @@
-import MarketingHeader from "@/app/components/marketing/marketing-header";
+import FishingHeader from "./fishing-header";
 import MarketingFooter from "@/app/components/marketing/marketing-footer";
 
 // /fishing/* — public, indexable directory pages (province index + city
@@ -15,7 +15,7 @@ export default function FishingLayout({
       data-theme="rc-light"
       className="min-h-dvh bg-rc-page text-rc-ink font-rc-sans antialiased flex flex-col"
     >
-      <MarketingHeader />
+      <FishingHeader />
       <main className="flex-1">{children}</main>
       <MarketingFooter />
     </div>

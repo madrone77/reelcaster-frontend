@@ -1,6 +1,6 @@
 # ReelCaster Privacy Policy
 
-**Effective Date:** {{EFFECTIVE_DATE}} · **Last Updated:** {{EFFECTIVE_DATE}} · **Version:** 2.0
+**Effective Date:** {{EFFECTIVE_DATE}} · **Last Updated:** {{EFFECTIVE_DATE}} · **Version:** 2.1
 
 This Privacy Policy explains how Copia Digital Incorporated ("Copia," "we," "us," or "our") collects, uses, discloses, and protects personal information when you use ReelCaster (the "Service"). It forms part of, and should be read with, our [Terms of Service](/terms).
 
@@ -97,7 +97,7 @@ We ingest publicly available fishing reports and discussion from public forums a
 | Preferences | Local storage holding your units, map view, and settings | Yes, by clearing site data. Your preferences will reset. |
 | Analytics | Mixpanel, using local storage and a device identifier | Yes. See Section 11. |
 | Campaign measurement | A session-storage marker on advertising landing pages, so one visit is counted once. It holds no identifier and is erased when you close the tab. | Yes, by disabling storage for this site. |
-| Advertising | Google AdSense cookies and identifiers, and Meta pixel cookies (`_fbp`, `_fbc`) | Yes. See Section 8 and Section 11.2. |
+| Advertising | Google AdSense cookies and identifiers, Google Ads conversion cookies (`_gcl_*`), and Meta pixel cookies (`_fbp`, `_fbc`) | Yes. See Section 8 and Section 11.2. |
 
 We honour the **Global Privacy Control (GPC)** browser signal as a valid opt out of the sale or sharing of personal information where the law requires us to.
 
@@ -173,7 +173,11 @@ We also advertise on **Meta** (Facebook and Instagram). To measure whether those
 
 **We do not send Meta your name, email address, phone number, catch logs, photos, spot coordinates, or location.** What the server sends is the identifier Meta itself attached to the ad click that brought you here, the amount paid, and the currency.
 
-We do not provide advertisers with your email address, phone number, catch logs, photos, spot coordinates, or precise location.
+We also advertise on **Google Search**. To measure whether those ads work, a tag on our site reports back to Google that a free trial started, together with the identifier Google attached to the ad click that brought you here.
+
+**That report includes a one-way cryptographic hash (SHA-256) of your email address.** Google calls this enhanced conversions. The hash is computed in your browser before anything is sent, so the address itself never leaves your device, and Google uses the hash only to match the trial to the click that produced it. **We do not send Google your name, phone number, catch logs, photos, spot coordinates, or location.**
+
+Apart from that hashed email, we do not provide advertisers with your email address, phone number, catch logs, photos, spot coordinates, or precise location.
 
 You can manage Google's own ad personalization at [google.com/settings/ads](https://google.com/settings/ads), and Meta's at [facebook.com/adpreferences](https://www.facebook.com/adpreferences).
 

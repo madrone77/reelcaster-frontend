@@ -7,7 +7,6 @@ import { Wind, Waves, Navigation, Lock, Globe } from "lucide-react";
 import { TIER_PILL, tierFor, type RailSpot } from "../lib/explore-data";
 import { useFavorite } from "../lib/use-favorite";
 import { useSubscription } from "@/hooks/use-subscription";
-import { bestWindow } from "./hourly-bars";
 import SpotTrend from "./spot-trend";
 import SpotDayStrip, { SpotDayStripSkeleton, type SpotDay } from "./spot-day-strip";
 import { FreshCatchBadge } from "./fresh-catch-reports";
@@ -79,10 +78,12 @@ export default function SpotCard({
   const bt = tierFor(spot.score);
 
   const species = spot.driverSpecies?.replace(/^Pacific\s+/i, "");
-  const { label: windowLabel } = bestWindow(spot.hours24);
-  const conclusion = species
-    ? `${species}${windowLabel ? ` · best ${windowLabel}` : ""}`
-    : "No live score yet";
+  // Species alone. The line used to carry "· best 6 AM-8 PM" as well, which on
+  // a settled day reads 6 AM-8 PM at nearly every spot in view — a whole column
+  // of cards claiming the same fourteen hours, which is not a recommendation.
+  // The peak time is still on the day tiles and on the spot page, where it sits
+  // beside the hours that produced it.
+  const conclusion = species ?? "No live score yet";
 
   const reportHref = `/explore/spot/${spot.slug}`;
 
