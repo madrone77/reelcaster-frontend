@@ -9,22 +9,37 @@ import { btn } from "@/app/components/ui/button";
 import { PAGE_MEASURE } from "@/app/components/layout/page-measure";
 import { useAuth } from "@/contexts/auth-context";
 import TrialModalButton from "@/app/components/paywall/trial-modal-button";
+import type { NagFeatureId } from "@/lib/plan-features";
 import { fetchAlertProfiles } from "@/lib/alerts-client";
 
 // "Catch log" is the single destination for catch logging. The wizard at
 // /log-catch used to sit beside it as its own nav item, which made one feature
 // look like two places; it is now reached from the "Log a catch" button on the
 // log itself, and lights this item up while you're in it (`alsoActiveFor`).
+//
+// `trial` marks an item that only means something once you have an account.
+// Signed out, it opens the trial modal instead of navigating — see the render
+// below for why.
 const NAV: {
   href: string;
   label: string;
   signedInOnly?: boolean;
   alsoActiveFor?: string[];
+  trial?: { feature: NagFeatureId; from: string };
 }[] = [
   { href: "/dashboard", label: "Dashboard", signedInOnly: true },
   { href: "/explore", label: "Explore" },
-  { href: "/catches", label: "Catch log", alsoActiveFor: ["/log-catch"] },
-  { href: "/notifications", label: "Notifications" },
+  {
+    href: "/catches",
+    label: "Catch log",
+    alsoActiveFor: ["/log-catch"],
+    trial: { feature: "catch-log", from: "explore-topbar-catches" },
+  },
+  {
+    href: "/notifications",
+    label: "Notifications",
+    trial: { feature: "alerts", from: "explore-topbar-notifications" },
+  },
 ];
 
 // The Port is Pro-only and lives beside the avatar rather than in NAV: this bar
@@ -167,20 +182,43 @@ export default function ExploreTopBar({
               !!item.alsoActiveFor?.some((href) => isActive(href));
             const showBadge =
               item.href === "/notifications" && !!alertCount && alertCount > 0;
+            const itemClass = `flex items-center gap-1.5 transition-colors ${
+              active
+                ? brand
+                  ? "text-white font-semibold"
+                  : "text-rc-brand font-semibold"
+                : brand
+                  ? "hover:text-white"
+                  : "hover:text-rc-ink"
+            }`;
+
+            // Signed out, these two items used to hand a visitor a surface they
+            // can't use: /notifications bounces straight to /login, and the
+            // catch log is an empty page with a sign-in link on it. Make the
+            // offer at the click instead — the same modal every other CTA in
+            // the product opens, on the row that covers what they reached for.
+            // Held until auth resolves (`loading`) so a returning member is
+            // never shown the paywall on first paint; until then the item stays
+            // an ordinary link.
+            if (item.trial && !loading && !signedIn) {
+              return (
+                <TrialModalButton
+                  key={item.href}
+                  from={item.trial.from}
+                  feature={item.trial.feature}
+                  className={itemClass}
+                >
+                  {item.label}
+                </TrialModalButton>
+              );
+            }
+
             return (
               <Link
                 key={item.href}
                 href={item.href}
                 aria-current={active ? "page" : undefined}
-                className={`flex items-center gap-1.5 transition-colors ${
-                  active
-                    ? brand
-                      ? "text-white font-semibold"
-                      : "text-rc-brand font-semibold"
-                    : brand
-                      ? "hover:text-white"
-                      : "hover:text-rc-ink"
-                }`}
+                className={itemClass}
               >
                 {item.label}
                 {showBadge && (
