@@ -204,7 +204,21 @@ export default function SpotMiniMap({
       className={
         expanded
           ? "fixed inset-0 z-[60] bg-rc-panel"
-          : "relative h-72 rounded overflow-hidden border border-rc-rule bg-rc-surface"
+          : // On a phone the map breaks the page gridline and runs to both
+            // edges, at 60svh rather than the boxed 288px. As a card it was a
+            // thumbnail with a white gutter down either side, and the floating
+            // tab bar spent its life sitting on that gutter — the one thing on
+            // the page that read as a hole rather than as water. Full width, it
+            // is a surface the rest of the page scrolls over, and the bar
+            // floats on the map the way it does on Explore.
+            //
+            // `svh`, not `dvh`: the map must not re-measure itself every time
+            // mobile Safari collapses its URL bar mid-scroll. The small
+            // viewport unit is the one height that holds still.
+            //
+            // Desktop is untouched — it sits in a two-column band beside the
+            // score, where a full-bleed map would have nothing to be beside.
+            "relative -mx-4 h-[60svh] overflow-hidden border-y border-rc-rule bg-rc-surface sm:-mx-6 lg:mx-0 lg:h-72 lg:rounded lg:border"
       }
     >
       {/* Layer tabs: base map first, then the two flow overlays. */}

@@ -299,11 +299,12 @@ export default function MobileMapSheet({
     const spot = previewOrder[previewIndex];
     return (
       <>
-        <div
-          aria-hidden
-          className="lg:hidden pointer-events-none fixed inset-x-0 bottom-0 z-20 bg-rc-panel"
-          style={{ height: "var(--rc-tabbar-clearance)" }}
-        />
+        {/* No white base under this dock, unlike the browse sheet below. A
+            preview card is a card floating on the map, not a panel attached to
+            the bottom edge, so the strip the tab bar floats over stays water.
+            Filling it painted a band of panel white across the bottom of the
+            screen with nothing in it — the one thing on this surface that did
+            not read like a map. */}
         <div
           // Same contract as the sheet: tell the camera how much map this
           // covers so `sheet-safe-center` frames the tapped pin in the water

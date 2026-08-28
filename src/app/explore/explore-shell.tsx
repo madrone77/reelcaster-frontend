@@ -1700,12 +1700,19 @@ export default function ExploreShell({
     // surface that wants the lock owns it.
     <div
       /* The ad frame shortens the map's box by exactly the bar's height so the
-         bar never overlays water. On a phone the 3.5rem it replaces was the
-         app's tab bar, which the frame hides (see globals.css). */
+         bar never overlays water.
+
+         Everything else runs the map the full height of the viewport, phone
+         included. It used to stop 3.5rem short to hold a strip open for the
+         floating tab bar, and that strip was dead space: page background under
+         a bar that is already translucent and already floats. Tapping a pin
+         made it obvious — the preview card lifts off the bottom edge, and
+         behind it sat a white band instead of the water the card is about. The
+         bar keeps its own room via `--rc-tabbar-clearance`, which is what the
+         sheet and the preview dock sit above; nothing needs the map to be
+         short as well. */
       className={`relative overflow-hidden lg:min-h-0 ${
-        ad
-          ? "h-[calc(100dvh_-_var(--rc-ad-bar-h))]"
-          : "h-[calc(100dvh-3.5rem)] lg:h-dvh"
+        ad ? "h-[calc(100dvh_-_var(--rc-ad-bar-h))]" : "h-dvh"
       }`}
       /* Marks this render as the ad frame for the one piece of chrome outside
          this tree: the mobile tab bar in the root layout. */
