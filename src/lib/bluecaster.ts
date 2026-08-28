@@ -462,7 +462,17 @@ export interface MapForecast14dPayload {
   species: Record<string, { id: string; slug: string; name: string }>;
   by_species: Record<string, (MapForecastDayPeak | null)[]>;
   best: (MapForecastBestDay | null)[]; // max across species per day
-  meta?: { spots: number };
+  /** 14 entries — cloud cover + precipitation, hour 0..23, at ONE
+   *  representative in-scope spot (`meta.weather_spot_id`). Enough for the
+   *  strip's per-day weather icon; NOT a per-spot conditions grid. Optional so
+   *  a cached pre-change payload still parses. */
+  hourly_conditions?: (MapForecastDayConditions | null)[];
+  meta?: { spots: number; weather_spot_id?: string | null };
+}
+
+export interface MapForecastDayConditions {
+  cloud_pct: (number | null)[]; // 24
+  precip_mm: (number | null)[]; // 24
 }
 
 /**

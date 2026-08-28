@@ -10,7 +10,10 @@ import type {
   HourlyConditions,
   SunHours,
 } from "@/lib/bluecaster/live-spot-types";
-import type { MapForecast14dPayload } from "@/lib/bluecaster";
+import type {
+  MapForecast14dPayload,
+  MapForecastDayConditions,
+} from "@/lib/bluecaster";
 import { tierFor, fmtPeak, type Tier } from "./explore-data";
 import {
   dominantWeather,
@@ -85,6 +88,32 @@ export interface ForecastDay {
    * payload lands (they fill in).
    */
   pending: boolean;
+}
+
+/**
+ * One viewport day's cloud/precip arrays → the `HourlyConditions` shape
+ * `dominantWeather` reads. The map payload carries only the two fields the
+ * classifier actually looks at (see `MapForecastDayConditions`), so the rest
+ * are filled null rather than invented — this feeds an icon, not a readout.
+ */
+function viewportHours(
+  day: MapForecastDayConditions | null | undefined,
+): (HourlyConditions | null)[] | undefined {
+  if (!day) return undefined;
+  return Array.from({ length: 24 }, (_, h) => ({
+    windKt: null,
+    windGustKt: null,
+    windDir: null,
+    windDirDeg: null,
+    cloudPct: day.cloud_pct[h] ?? null,
+    airTempC: null,
+    precipMm: day.precip_mm[h] ?? null,
+    seaTempC: null,
+    swellM: null,
+    waveM: null,
+    tideM: null,
+    tideTrend: null,
+  })) as HourlyConditions[];
 }
 
 /** Per-day dominant weather — daylight hours, weighted toward the day's best
@@ -241,8 +270,15 @@ export function buildViewportForecastDays(
       // Viewport strip is the best-across-spots score, not a single species'
       // legality — no per-day non-retention concept here.
       nonRetention: false,
-      // Map/viewport payload carries no conditions grid — no weather icon.
-      weather: null,
+      // Same classifier the spot page's tiles use, over the fortnight's sky at
+      // the payload's representative in-scope spot (`meta.weather_spot_id`).
+      // Sun times are per-spot and the viewport has no single one, so this
+      // falls back to `dayWeather`'s 06–20 daylight band.
+      weather: dayWeather(
+        viewportHours(payload.hourly_conditions?.[i]),
+        null,
+        cell?.peak_hour ?? null,
+      ),
       pending,
     };
   });
