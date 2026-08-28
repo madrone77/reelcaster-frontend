@@ -150,12 +150,31 @@ function firstTimeThisVisit(key: string): boolean {
  * resolved. Empty on /lp/1, which has no angles.
  */
 export function useLpHit(angle: string): void {
+  useCampaignHit(lpPathTarget(angle));
+}
+
+/**
+ * What the CURRENT path says is being counted, or null if it says nothing.
+ *
+ * Split out of `useLpHit` so a component that is shared between a /lp/<n>/
+ * route and something else can ask the path first and fall back to dimensions
+ * handed to it. `CityInstrument` is that component: it renders at
+ * /fishing/<prov>/<city> (nothing to count), at /lp/7/<city> (the path is the
+ * authority) and now under a city-first landing page like /lp/seattle/2, where
+ * the path parser returns an empty landing and the page has to say what it is.
+ *
+ * Not a hook. Reading `window.location` during render is safe here for the
+ * same reason it was inside `useLpHit`: the value only feeds an effect and an
+ * onClick, never the markup, so a server render returning null cannot produce
+ * a hydration mismatch.
+ */
+export function lpPathTarget(angle: string): CampaignTarget | null {
   const { landing, target_city } = parseLpPath(
     typeof window === "undefined" ? "" : window.location.pathname,
   );
-  useCampaignHit(
-    landing ? { landing, target_city, target_spot: "", wall: "", angle } : null,
-  );
+  return landing
+    ? { landing, target_city, target_spot: "", wall: "", angle }
+    : null;
 }
 
 /**

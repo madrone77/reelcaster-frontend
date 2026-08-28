@@ -68,6 +68,19 @@ const CLICK_TYPE_SET = new Set<string>(CLICK_TYPES);
  * that ships on Friday should be in Monday's report without anyone
  * remembering this file exists.
  *
+ * The digits used to be the whole of it, which quietly threw away every hit
+ * and every press from the city-first variants: /lp/seattle/1 counts under
+ * `lpseattle1` (see src/app/lp/seattle/1/lp-track.tsx, and the report's own
+ * name for it in bluecaster), and this route answered 400 invalid_landing to
+ * all of it. The page had already been fixed once on the client for the same
+ * class of mistake, a shape test that did not know about a route naming
+ * itself after its city, and it stayed silent anyway, because the second copy
+ * of the shape lived here.
+ *
+ * So the tail is now letters as well as digits. It is still a shape and not a
+ * list, and it is still anchored and capped, so the worst an inflated counter
+ * can produce is a wrong number on an internal dashboard.
+ *
  * `spot` is the other kind: the product's own spot page in an ad frame
  * (/explore/spot/<slug>?ad=…). One key for all of them rather than one per
  * spot, because WHICH spot is a column of its own — see `target_spot`. Folding
@@ -81,7 +94,7 @@ const CLICK_TYPE_SET = new Set<string>(CLICK_TYPES);
  * roster — and keeping them as separate landing keys is what makes that
  * comparison the top line of the report rather than something to derive.
  */
-const LANDING_SHAPE = /^(lp[0-9]{1,2}|spot|explore)$/;
+const LANDING_SHAPE = /^(lp[a-z0-9]{1,24}|spot|explore)$/;
 
 /** Which paywall the ad frame was running. Read from the live list. */
 const WALL_SET = new Set<string>(AD_WALLS);

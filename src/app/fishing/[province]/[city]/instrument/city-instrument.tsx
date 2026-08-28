@@ -34,7 +34,12 @@ import { useAuth } from "@/contexts/auth-context";
  * lp-telemetry: a future /lp/9 that reuses this component starts counting
  * the day it exists, with no edit here.
  */
-import { reportLpCta, useLpHit } from "@/app/lp/_shared/lp-telemetry";
+import {
+  lpPathTarget,
+  reportCampaignCta,
+  useCampaignHit,
+  type CampaignTarget,
+} from "@/app/lp/_shared/lp-telemetry";
 import { useSubscription } from "@/hooks/use-subscription";
 import { zoneAbbrev } from "@/app/explore/lib/explore-data";
 import { useSpotClock } from "@/app/explore/lib/use-spot-clock";
@@ -170,6 +175,7 @@ export default function CityInstrument({
   featured,
   rows,
   rosterCount,
+  campaign,
 }: {
   citySlug: string;
   cityName: string;
@@ -194,6 +200,23 @@ export default function CityInstrument({
   /** The city's full roster size — what the page title counts. `rows` can be
    *  shorter, and the map's caption says so when it is. */
   rosterCount: number;
+  /**
+   * What to credit this instrument's views and CTA presses to, for a landing
+   * page whose PATH cannot say.
+   *
+   * The counters below read /lp/<n>/<city> off the URL, which is the authority
+   * on /lp/7/<city> and costs a future /lp/9 no edit here. It is silent on two
+   * other routes this same component renders on: the public city page, where
+   * there is correctly nothing to count, and a city-first landing page like
+   * /lp/seattle/2, where `parseLpPath` returns an empty landing and drops
+   * every hit and every press on the floor. That is exactly the silence
+   * /lp/seattle/1 shipped in. See lp/seattle/_blend/blend-track.tsx.
+   *
+   * So a page with a path the parser does not speak passes its own dimensions
+   * in, which is what `CampaignTarget` exists for. Omitted, nothing changes:
+   * the path still decides, and the public page still counts nothing.
+   */
+  campaign?: CampaignTarget | null;
 }) {
   const { isPaid, loading: tierLoading } = useSubscription();
   const { user } = useAuth();
@@ -257,8 +280,15 @@ export default function CityInstrument({
     return i >= 0 ? i : 0;
   }, [featured, activeIso]);
 
-  // Counts this view once per tab when the ad frame is what rendered us.
-  useLpHit("");
+  // Counts this view once per tab when an ad frame is what rendered us. The
+  // path answers on /lp/<n>/<city>; a city-first landing page hands us
+  // `campaign` because its path cannot. Null on the public page, which counts
+  // nothing.
+  // Memoised because it is read off `window.location` and so is a fresh
+  // object every render, which would rebuild `handleDay` on each one.
+  const pathTarget = useMemo(() => lpPathTarget(""), []);
+  const campaignTarget = campaign ?? pathTarget;
+  useCampaignHit(campaignTarget);
 
   const [upgradeOpen, setUpgradeOpen] = useState(false);
   /**
@@ -281,12 +311,12 @@ export default function CityInstrument({
       // The primary ask on this page: the reader reached for a day they cannot
       // open. "hero" rather than a truer name because the CTA vocabulary is
       // POSITION, and this is the ask the page is built around.
-      reportLpCta("hero", "");
+      if (campaignTarget) reportCampaignCta("hero", campaignTarget);
       setUpgradeOpen(true);
       return;
     }
     setSelectedIso(day.iso);
-  }, []);
+  }, [campaignTarget]);
 
   // Scroll affordance on the strip — the same overlaid arrows the spot page
   // uses, so a phone reader knows there are days off the right edge.
@@ -717,7 +747,11 @@ export default function CityInstrument({
       {/* Placed directly under the map, because the map is what raises the
           question it answers: a reader who has just scrolled every mark we
           cover is wondering about the one we don't. */}
-      <CustomSpots cityName={cityName} citySlug={citySlug} />
+      <CustomSpots
+        cityName={cityName}
+        citySlug={citySlug}
+        campaign={campaignTarget}
+      />
 
       {/* `from` names the wall AND the city, matching what ProGate already
           writes for the banner below the map (`city-<slug>`, `city-<slug>-map`).
