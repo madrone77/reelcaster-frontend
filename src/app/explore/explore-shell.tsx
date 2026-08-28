@@ -21,6 +21,7 @@ import {
   ANON_STRIP_DAYS,
   buildViewportForecastDays,
   type ForecastDay,
+  DESKTOP_STRIP_H,
   type ForecastStripModel,
   type ForecastTier,
 } from "./lib/forecast-strip";
@@ -1813,7 +1814,7 @@ export default function ExploreShell({
         tz={MAP_TZ}
         scrubHour={scrubHour}
         freshCatches={freshCatches}
-        bottomInset={stripHidden ? 64 : 152}
+        bottomInset={stripHidden ? 64 : DESKTOP_STRIP_H + 24}
         onSelectCity={handleSelectCity}
         onSelectSpot={handleSelectSpot}
         onSearchSelectSpot={handleSearchSelectSpot}

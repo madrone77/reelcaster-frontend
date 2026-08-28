@@ -147,6 +147,22 @@ function isNonRetentionOn(reg: StripRegulation | null | undefined, iso: string):
   return reg.nextOpenDate == null || iso < reg.nextOpenDate;
 }
 
+/**
+ * Height of the desktop docked strip, in px.
+ *
+ * Sized to the tallest thing it has to contain — a whole `DayCell` — rather
+ * than picked. It was 128, which left the cells row 83px for a cell whose
+ * content measures 93, so every collapsed day hung its peak-time chip 11px
+ * below its own border and 1px below the bar. Three files encoded 128
+ * independently (the bar, the map inset, the rail's bottom inset), which is
+ * how it could be wrong in one place and right in the others; they now all
+ * read this.
+ *
+ * Budget: py-2.5 (20) + header (17) + mb-2 (8) + cells (93) = 138, plus 2 of
+ * slack. Raise it if DayCell grows.
+ */
+export const DESKTOP_STRIP_H = 140;
+
 export interface ForecastStripModel {
   days: ForecastDay[];
   /** ISO of the highest-scoring unlocked day — drives the "best window" line. */
