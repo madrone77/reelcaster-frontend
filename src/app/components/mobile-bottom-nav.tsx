@@ -5,16 +5,23 @@ import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import { Home, Map, NotebookPen, MoreHorizontal, ChevronRight } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
+import { useAuth } from "@/contexts/auth-context";
+import TrialModalButton from "@/app/components/paywall/trial-modal-button";
+import type { NagFeatureId } from "@/lib/plan-features";
 
 // Home is the dashboard (the angler's saved/favorite spots) and sits far left.
 // Catch log owns the wizard at /log-catch too. It's one destination with a
 // "Log a catch" button on it, so the tab stays lit while you're logging instead
 // of leaving no tab active at all.
+// `trial` marks a tab that needs an account to mean anything: signed out it
+// opens the trial modal rather than landing the visitor on a page that only
+// asks them to sign in. Matches ExploreTopBar, which does the same on desktop.
 const TABS: {
   href: string;
   label: string;
   Icon: LucideIcon;
   alsoActiveFor?: string[];
+  trial?: { feature: NagFeatureId; from: string };
 }[] = [
   { href: "/dashboard", label: "Home", Icon: Home },
   { href: "/explore", label: "Explore", Icon: Map },
@@ -23,6 +30,7 @@ const TABS: {
     label: "Catch log",
     Icon: NotebookPen,
     alsoActiveFor: ["/log-catch"],
+    trial: { feature: "catch-log", from: "mobile-nav-catches" },
   },
 ];
 
@@ -61,6 +69,7 @@ const MORE_LINKS = [
  */
 export default function MobileBottomNav() {
   const pathname = usePathname();
+  const { user, loading } = useAuth();
   const [moreOpen, setMoreOpen] = useState(false);
 
   const isActive = (href: string) =>
@@ -156,18 +165,14 @@ export default function MobileBottomNav() {
         className="lg:hidden pointer-events-none fixed inset-x-0 bottom-0 z-50 px-4 pb-[calc(0.75rem+env(safe-area-inset-bottom))]"
       >
         <div className="pointer-events-auto mx-auto grid h-16 max-w-lg grid-cols-4 rounded-2xl border border-rc-rule bg-rc-panel/95 shadow-[0_6px_24px_rgba(15,23,42,0.18)] backdrop-blur-md">
-          {TABS.map(({ href, label, Icon, alsoActiveFor }) => {
+          {TABS.map(({ href, label, Icon, alsoActiveFor, trial }) => {
             const active =
               isActive(href) || !!alsoActiveFor?.some((h) => isActive(h));
-            return (
-              <Link
-                key={href}
-                href={href}
-                aria-current={active ? "page" : undefined}
-                className={`flex flex-col items-center justify-center gap-0.5 transition-colors ${
-                  active ? "text-rc-brand" : "text-rc-ink-mute hover:text-rc-ink"
-                }`}
-              >
+            const tabClass = `flex flex-col items-center justify-center gap-0.5 transition-colors ${
+              active ? "text-rc-brand" : "text-rc-ink-mute hover:text-rc-ink"
+            }`;
+            const face = (
+              <>
                 <Icon
                   className="w-5 h-5"
                   fill="none"
@@ -176,6 +181,33 @@ export default function MobileBottomNav() {
                 <span className="whitespace-nowrap text-[10px] font-medium tracking-[0.01em]">
                   {label}
                 </span>
+              </>
+            );
+
+            // Wait for auth before swapping the tab for the offer, so a member
+            // arriving on a cold load never taps their own catch log and gets
+            // sold a trial.
+            if (trial && !loading && !user) {
+              return (
+                <TrialModalButton
+                  key={href}
+                  from={trial.from}
+                  feature={trial.feature}
+                  className={tabClass}
+                >
+                  {face}
+                </TrialModalButton>
+              );
+            }
+
+            return (
+              <Link
+                key={href}
+                href={href}
+                aria-current={active ? "page" : undefined}
+                className={tabClass}
+              >
+                {face}
               </Link>
             );
           })}
