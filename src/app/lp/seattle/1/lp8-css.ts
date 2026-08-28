@@ -147,6 +147,15 @@ export const LP8_CSS = `
    part of the offer, and an offer qualified further down the page is a
    qualification the reader meets after deciding. */
 .l8 .gonote{font-family:var(--l8-mono);font-size:12px;line-height:1.65;color:var(--l8-ink-soft);margin:14px 0 0;max-width:46ch}
+/* Stacked layout only: the ask and its qualifier centre over the phone.
+   Below 940px the hero is one column with the phone centred under it, so a
+   left-hung button sat off the axis everything else in that column shares.
+   The two-column hero keeps them left, where the button belongs to the text
+   column beside the phone rather than to the page. */
+@media(max-width:939px){
+  .l8 #start{text-align:center}
+  .l8 #start .gonote{margin-inline:auto}
+}
 /* The close is still navy, so its copy of this line keeps the navy colour. */
 .l8 .close .gonote{color:#8FA3BC;margin-inline:auto}
 
