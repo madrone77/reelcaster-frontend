@@ -144,18 +144,65 @@ test('the phone filter sheet can reach both flow layers', async ({ page }) => {
   await expect(openSheet).toBeVisible({ timeout: 20_000 });
   await openSheet.click();
 
+  // One exclusive choice, so one radiogroup — two chips claimed the layers
+  // were independent when useFlowLayer has always made them one.
   const sheet = page.getByRole('dialog', { name: 'Map filters' });
-  const wind = sheet.getByRole('button', { name: /^Wind$/ });
-  const currents = sheet.getByRole('button', { name: /^Currents$/ });
+  const wind = sheet.getByRole('radio', { name: /^Wind$/ });
+  const currents = sheet.getByRole('radio', { name: /^Currents$/ });
+  const noFlow = sheet.getByRole('radio', { name: /^No flow$/ });
   await expect(wind).toBeVisible();
+  // Labels are always on now, so the sheet no longer offers to turn them off.
+  await expect(sheet.getByRole('button', { name: /^Labels$/ })).toHaveCount(0);
+  // Near me moved to the location header; it moves the camera, it never filtered.
+  await expect(sheet.getByRole('button', { name: /near me/i })).toHaveCount(0);
 
   await wind.click();
   await expect.poll(() => flowLayers(page), { timeout: 20_000 }).toEqual(['flow-wind']);
 
   await currents.click();
   await expect.poll(() => flowLayers(page), { timeout: 20_000 }).toEqual(['flow-currents']);
-  await expect(wind).toHaveAttribute('aria-pressed', 'false');
+  await expect(wind).toHaveAttribute('aria-checked', 'false');
 
-  await currents.click();
+  await noFlow.click();
   await expect.poll(() => flowLayers(page), { timeout: 20_000 }).toEqual([]);
+});
+
+test('the score floor narrows the map, and says so', async ({ page }) => {
+  // The sheet was called Map filters while only species filtered anything.
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto('/explore');
+
+  const openSheet = page.getByRole('button', { name: 'Filters' });
+  await expect(openSheet).toBeVisible({ timeout: 20_000 });
+  await openSheet.click();
+
+  const sheet = page.getByRole('dialog', { name: 'Map filters' });
+  const cta = sheet.getByRole('button', { name: /^(Show \d+ spots?|No spots match)$/ });
+  await expect(cta).toBeVisible();
+
+  // Spots stream in with the viewport, so the count climbs for a few seconds
+  // after the sheet opens. Read it only once it stops moving — comparing an
+  // early number against a later one measures the loader, not the filter.
+  const count = async () => Number((await cta.innerText()).match(/\d+/)?.[0] ?? '0');
+  let settled = -1;
+  for (let i = 0; i < 25; i++) {
+    const now = await count();
+    if (now > 0 && now === settled) break;
+    settled = now;
+    await page.waitForTimeout(1_000);
+  }
+  expect(settled).toBeGreaterThan(0);
+
+  await sheet.getByRole('radio', { name: '75+' }).click();
+  await expect.poll(count, { timeout: 10_000 }).toBeLessThanOrEqual(settled);
+
+  // A narrowed map has to say so from the outside, or it reads as empty water.
+  await expect(page.getByRole('button', { name: /^Filters \(1 on\)$/ })).toBeVisible();
+
+  await sheet.getByRole('button', { name: 'Reset' }).click();
+  await expect(sheet.getByRole('radio', { name: 'Any score' })).toHaveAttribute(
+    'aria-checked',
+    'true',
+  );
+  await expect(page.getByRole('button', { name: 'Filters' })).toBeVisible();
 });
