@@ -53,7 +53,8 @@ import type { AdWall } from "./spot/[slug]/ad-mode";
 import { BLEED_MEASURE } from "@/app/components/layout/page-measure";
 import ExploreMap, { type StationPick, type CustomSpotPin } from "./components/explore-map";
 
-import { setFavorite } from "./lib/use-favorite";
+import { setFavorite, useSavedSpots } from "./lib/use-favorite";
+import type { ScoreFloor } from "./components/mobile-filter-sheet";
 import { X } from "lucide-react";
 import LeftRail from "./components/left-rail";
 import LocationSelector from "./components/location-selector";
@@ -375,6 +376,17 @@ export default function ExploreShell({
   // Currents and Wind share one piece of state, so only ever one of them draws.
   const { currents, wind, toggleCurrents, toggleWind, setFlow } = useFlowLayer();
   const [speciesFilter, setSpeciesFilter] = useState<string | null>(null);
+
+  // ── Map filters (the phone filter sheet) ────────────────────────────
+  // Deliberately NOT part of the saved view. Layers and species persist
+  // because they describe how you like to read the map; a score floor
+  // describes one search. Restoring it a week later would open Explore on an
+  // empty map with nothing on screen explaining why.
+  const [scoreFloor, setScoreFloor] = useState<ScoreFloor>(0);
+  const [reportsOnly, setReportsOnly] = useState(false);
+  const [savedOnly, setSavedOnly] = useState(false);
+  const { slugs: savedSlugs } = useSavedSpots();
+  const savedSet = useMemo(() => new Set(savedSlugs), [savedSlugs]);
   // Label fallback for a species pinned from search that no in-view spot
   // carries, so the strip header can still name it.
   const [pickedSpeciesName, setPickedSpeciesName] = useState<string | null>(null);
@@ -707,7 +719,7 @@ export default function ExploreShell({
   // current viewport. Until the map reports its first viewport (SSR, map
   // still booting) fall back to the selected city's spots so the first paint
   // isn't empty.
-  const railSpots = useMemo(() => {
+  const viewportSpots = useMemo(() => {
     if (viewBounds) {
       return uniqueSpots.filter(
         (s) =>
@@ -727,6 +739,75 @@ export default function ExploreShell({
       return true;
     });
   }, [displaySpots, uniqueSpots, viewBounds, selectedCity]);
+
+  // ── Map filters ──────────────────────────────────────────────────────
+  // Every one of these runs on a RailSpot the shell already holds, so
+  // narrowing the map costs no request. The open spot is always kept: a
+  // `?spot=` link, or a card you are reading, must not vanish underneath you
+  // because a filter you set afterwards excludes it.
+  const filtersActive = scoreFloor > 0 || reportsOnly || savedOnly;
+
+  const keepSpot = useCallback(
+    (s: RailSpot) => {
+      if (s.slug === spotSlug) return true;
+      if (scoreFloor > 0 && (s.score ?? -1) < scoreFloor) return false;
+      if (reportsOnly && !s.hasReports) return false;
+      if (savedOnly && !savedSet.has(s.slug)) return false;
+      return true;
+    },
+    [scoreFloor, reportsOnly, savedOnly, savedSet, spotSlug],
+  );
+
+  /** Everything loaded, filtered — what the map draws pins for. */
+  const filteredSpots = useMemo(
+    () => (filtersActive ? uniqueSpots.filter(keepSpot) : uniqueSpots),
+    [uniqueSpots, filtersActive, keepSpot],
+  );
+
+  /** In view AND surviving the filters — the rail, the strip, the count. */
+  const railSpots = useMemo(
+    () => (filtersActive ? viewportSpots.filter(keepSpot) : viewportSpots),
+    [viewportSpots, filtersActive, keepSpot],
+  );
+
+  // What each switch would leave, given everything else that is on. Shown
+  // beside the switch so its cost is visible before it is paid.
+  const reportsAvailable = useMemo(
+    () =>
+      viewportSpots.filter(
+        (s) =>
+          (scoreFloor === 0 || (s.score ?? -1) >= scoreFloor) &&
+          (!savedOnly || savedSet.has(s.slug)) &&
+          s.hasReports,
+      ).length,
+    [viewportSpots, scoreFloor, savedOnly, savedSet],
+  );
+  const savedAvailable = useMemo(
+    () =>
+      viewportSpots.filter(
+        (s) =>
+          (scoreFloor === 0 || (s.score ?? -1) >= scoreFloor) &&
+          (!reportsOnly || s.hasReports) &&
+          savedSet.has(s.slug),
+      ).length,
+    [viewportSpots, scoreFloor, reportsOnly, savedSet],
+  );
+
+  // Species counts as an active filter here even though it lives in its own
+  // row: it is the one that has always narrowed the map, and the badge would
+  // read as a lie if picking a species left it at zero.
+  const activeFilters =
+    (speciesFilter ? 1 : 0) +
+    (scoreFloor > 0 ? 1 : 0) +
+    (reportsOnly ? 1 : 0) +
+    (savedOnly ? 1 : 0);
+
+  const resetFilters = useCallback(() => {
+    setSpeciesFilter(null);
+    setScoreFloor(0);
+    setReportsOnly(false);
+    setSavedOnly(false);
+  }, []);
 
   // City the viewport "is" — labels the location pill ("Victoria · South
   // Vancouver Island" → pan → "Vancouver · Lower Mainland") and anchors
@@ -822,7 +903,10 @@ export default function ExploreShell({
   // date) so the filter chips reflect the water the user is looking at.
   const speciesWithScores = useMemo<SpeciesOption[]>(() => {
     const best: Record<string, number> = {};
-    for (const spot of railSpots) {
+    // The unfiltered viewport on purpose: this list answers "what is worth
+    // chasing in this water", and a score floor must not hide the species it
+    // is currently filtering out.
+    for (const spot of viewportSpots) {
       for (const [sid, score] of Object.entries(spot.scoresBySpecies)) {
         if (!(sid in best) || score > best[sid]) best[sid] = score;
       }
@@ -830,13 +914,13 @@ export default function ExploreShell({
     return allSpecies
       .map((s) => ({ ...s, bestScore: best[s.id] ?? null }))
       .sort((a, b) => (b.bestScore ?? -1) - (a.bestScore ?? -1));
-  }, [railSpots, allSpecies]);
+  }, [viewportSpots, allSpecies]);
 
   // Jurisdiction auto-switch: the WDFW marine-area grid + MPAs (shipped hidden
   // in the relief style, Canada-first) turn on when the viewport sits in
   // Washington. DFO layers stay on — each grid only covers its own waters.
   const wdfwRegs =
-    (labelCity?.provinceCode ?? railSpots[0]?.provinceCode) === "WA";
+    (labelCity?.provinceCode ?? viewportSpots[0]?.provinceCode) === "WA";
 
   // Whole 14-day strip hide/show (collapses to a "Show" chip).
   const [stripHidden, setStripHidden] = useState(false);
@@ -1677,6 +1761,9 @@ export default function ExploreShell({
           onSelectSpecies={handleSearchSelectSpecies}
           near={searchNear}
           onFilterClick={() => setFilterOpen(true)}
+          activeFilters={activeFilters}
+          onNearMe={handleNearMe}
+          locating={locating}
           onAddSpot={
             !customMode && !tierLoading ? handleCreateCustomSpot : undefined
           }
@@ -1711,7 +1798,7 @@ export default function ExploreShell({
       >
         <ExploreMap
           mapRef={mapRef}
-          spots={uniqueSpots}
+          spots={filteredSpots}
           selectedSlug={selectedSpot?.slug ?? null}
           onSelect={handleMapSelectSpot}
           onSelectStation={handleSelectStation}
@@ -1888,11 +1975,27 @@ export default function ExploreShell({
         onToggleRelief={() => setRelief((v) => !v)}
         onToggleCurrents={toggleCurrents}
         onToggleWind={toggleWind}
-        species={allSpecies}
+        // The in-view scores, like the desktop chips — the sheet's species rows
+        // exist to say which fish is worth chasing HERE, and `allSpecies`
+        // carries the opening payload's seed scores for water that may be a
+        // province away by now.
+        species={speciesWithScores}
         speciesFilter={speciesFilter}
         onSpeciesChange={setSpeciesFilter}
-        onNearMe={handleNearMe}
-        locating={locating}
+        scoreFloor={scoreFloor}
+        onScoreFloorChange={setScoreFloor}
+        reportsOnly={reportsOnly}
+        onToggleReports={() => setReportsOnly((v) => !v)}
+        reportsCount={reportsAvailable}
+        savedOnly={savedOnly}
+        onToggleSaved={() => setSavedOnly((v) => !v)}
+        savedCount={savedAvailable}
+        // Offered only to someone with saved spots in view to find. For
+        // everyone else the row is a switch whose only outcome is an empty map.
+        savedAvailable={savedSet.size > 0}
+        matchCount={railSpots.length}
+        activeFilters={activeFilters}
+        onReset={resetFilters}
       />
       )}
 
