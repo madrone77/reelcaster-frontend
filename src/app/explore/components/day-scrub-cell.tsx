@@ -4,6 +4,7 @@ import { useMemo, useRef } from "react";
 import { tierFor, type Tier } from "../lib/explore-data";
 import type { ForecastDay } from "../lib/forecast-strip";
 import { formatHour12 } from "@/lib/time-format";
+import WeatherIcon from "../spot/components/weather-icon";
 
 const num = (v: number | null | undefined) =>
   typeof v === "number" && Number.isFinite(v) ? v : null;
@@ -97,7 +98,10 @@ export default function DayScrubCell({
 
       {/* Left anchor — day identity over the live hour reading. The day-peak
           number morphs to the scrubbed hour; nothing new appears. */}
-      <div className="shrink-0 w-[62px] flex flex-col justify-between px-2.5 py-2 border-r border-rc-rule-soft">
+      {/* w-[78px] and py-1.5, not 62 and py-2: the glyph needs the width, and
+          this column was already 1px taller than its box before it arrived —
+          the lane beside it is 350-420px, so it can spare the room. */}
+      <div className="shrink-0 w-[78px] flex flex-col justify-between px-2.5 py-1.5 border-r border-rc-rule-soft">
         <div>
           <div className="rc-label text-[9px] leading-none">{day.dow}</div>
           <div className="font-rc-mono text-[10px] text-rc-ink-soft mt-0.5">
@@ -110,8 +114,22 @@ export default function DayScrubCell({
           >
             {liveScore ?? "—"}
           </div>
-          <div className="font-rc-mono text-[11px] text-rc-ink mt-0.5">
-            {formatHour12(activeHour)}
+          {/* The same glyph the collapsed tiles carry. Without it the SELECTED
+              day was the one cell in the strip with no weather on it, which
+              reads as the cell having failed rather than as the cell being
+              open.
+
+              Inline with the time rather than on its own row above it, as
+              DayCell has it: this column is 81px of box and its content
+              already filled it, so a 14px row of its own pushed the time out
+              through the bottom border. Sideways is free. */}
+          <div className="mt-0.5 flex items-center gap-1">
+            <span className="flex items-center text-rc-ink-mute">
+              <WeatherIcon condition={day.weather} size={13} />
+            </span>
+            <span className="font-rc-mono text-[11px] text-rc-ink">
+              {formatHour12(activeHour)}
+            </span>
           </div>
         </div>
       </div>
