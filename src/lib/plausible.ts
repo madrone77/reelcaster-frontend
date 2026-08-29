@@ -42,6 +42,17 @@ export function plausibleReports(hostname: string): boolean {
  */
 export const PLAUSIBLE_TRIAL_EVENT = 'Trial Start'
 
+/**
+ * The custom event fired when a free account is created.
+ *
+ * Same contract as the trial event: the goal in Site Settings has to be named
+ * `Signup`, exactly, or the events arrive and match nothing. It carries a
+ * `path` prop, `free` or `checkout`, because an account the Stripe webhook
+ * created on the buy-first flow is a signup too, and counting those beside the
+ * free ones would make the free front door look better than it is.
+ */
+export const PLAUSIBLE_SIGNUP_EVENT = 'Signup'
+
 type PlausibleProps = Record<string, string | number | boolean>
 
 type PlausibleFn = ((
