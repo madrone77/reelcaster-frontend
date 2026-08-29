@@ -1,4 +1,4 @@
-import { LP8_CSS } from "../seattle/1/lp8-css";
+import { LP8_CSS } from "../_city1/city1-css";
 
 /**
  * The blend's stylesheet: /lp/seattle/1's sheet, plus an email form.

@@ -1,18 +1,19 @@
 "use client";
 
 import { useMemo } from "react";
-import { angleFrom } from "../../_shared/lp-angles";
+import { angleFrom } from "../_shared/lp-angles";
 import {
   reportCampaignCta,
   useCampaignHit,
   type CampaignTarget,
   type LpCtaId,
-} from "../../_shared/lp-telemetry";
+} from "../_shared/lp-telemetry";
+import type { City1City } from "./city1-city";
 
 /**
- * Counting /lp/seattle/1.
+ * Counting the city-first landing pages.
  *
- * This page recorded NOTHING -- not a view, not a click -- from the day it
+ * /lp/seattle/1 recorded NOTHING -- not a view, not a click -- from the day it
  * shipped. `useLpHit` and `reportLpCta` read the variant off the path with
  * `/^[0-9]{1,2}$/`, which is true of `/lp/6/seattle-wa` and false of
  * `/lp/seattle/1`: `parseLpPath` returned an empty landing, and both counters
@@ -28,19 +29,17 @@ import {
  * `seattle-wa`. Reading the segment would quietly split this city across two
  * values of the column the report groups by.
  *
- * Anything else with a city-first path will need its own call like this one.
- * That is a real cost and it is written down in the PR.
+ * Both dimensions now come off the page's City1City, so a new city-first page
+ * cannot ship silent the way /lp/seattle/1 did: it gets the counter by
+ * rendering the shared page at all, rather than by remembering to hand-write a
+ * second copy of this file.
+ *
+ * There is a SECOND copy of the landing-key shape test server-side, in
+ * src/app/api/attribution/campaign/route.ts. It answered 400 to `lpseattle1`
+ * for four days after the client fix landed. It now accepts `lp[a-z0-9]{1,24}`,
+ * which covers `lpvancouver1`, but when a landing key records nothing, check
+ * BOTH copies.
  */
-
-/**
- * The landing key. Matches the `from=` key the page used while it had a
- * checkout, so the campaign counters and any historic conversion rows line up
- * on one name for this page.
- */
-const LANDING = "lpseattle1";
-
-/** The full slug, not the `seattle` in the path. See above. */
-const TARGET_CITY = "seattle-wa";
 
 /**
  * The angle is read from the URL on the client, not passed down from the
@@ -61,10 +60,10 @@ function currentAngle(): string {
   }).id;
 }
 
-function targetFor(angle: string): CampaignTarget {
+function targetFor(city: City1City, angle: string): CampaignTarget {
   return {
-    landing: LANDING,
-    target_city: TARGET_CITY,
+    landing: city.landing,
+    target_city: city.slug,
     target_spot: "",
     wall: "",
     angle,
@@ -72,9 +71,9 @@ function targetFor(angle: string): CampaignTarget {
 }
 
 /** Count this visit, once per tab. Renders nothing. */
-export function LpSeattleHit() {
+export function City1Hit({ city }: { city: City1City }) {
   const angle = useMemo(currentAngle, []);
-  useCampaignHit(targetFor(angle));
+  useCampaignHit(targetFor(city, angle));
   return null;
 }
 
@@ -90,11 +89,13 @@ export function LpSeattleHit() {
  * so a navigation cannot race the count away.
  */
 export function TrackedCta({
+  city,
   cta,
   href,
   className,
   children,
 }: {
+  city: City1City;
   cta: LpCtaId;
   href: string;
   className: string;
@@ -104,7 +105,7 @@ export function TrackedCta({
     <a
       className={className}
       href={href}
-      onClick={() => reportCampaignCta(cta, targetFor(currentAngle()))}
+      onClick={() => reportCampaignCta(cta, targetFor(city, currentAngle()))}
     >
       {children}
     </a>

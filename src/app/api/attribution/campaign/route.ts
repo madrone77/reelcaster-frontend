@@ -70,7 +70,7 @@ const CLICK_TYPE_SET = new Set<string>(CLICK_TYPES);
  *
  * The digits used to be the whole of it, which quietly threw away every hit
  * and every press from the city-first variants: /lp/seattle/1 counts under
- * `lpseattle1` (see src/app/lp/seattle/1/lp-track.tsx, and the report's own
+ * `lpseattle1` (see src/app/lp/_city1/city1-track.tsx, and the report's own
  * name for it in bluecaster), and this route answered 400 invalid_landing to
  * all of it. The page had already been fixed once on the client for the same
  * class of mistake, a shape test that did not know about a route naming
