@@ -153,23 +153,6 @@ export default async function City1Page({ city }: { city: City1City }) {
   const payload = await fetchMapSpots({ city: slug }).catch(() => null);
   const proof: CityProof | null = payload ? buildCityProof(payload, card) : null;
 
-  /**
-   * The where/what/when render is a photograph of one real spot page: Jefferson
-   * Head, in WDFW Marine Area 10.
-   *
-   * On Seattle that is not an illustration, it is the reader's own water, and
-   * captioning it "an example" throws away the strongest thing the image has.
-   * Anywhere else it is a Washington mark, and the caption has to say so rather
-   * than let a WDFW area label imply it governs Canadian water.
-   *
-   * Tested against the city's own roster instead of the province code, so a
-   * future render of a different mark keeps working without touching this.
-   */
-  const SHOT_MARK = "Jefferson Head";
-  const shotIsLocal = Boolean(
-    proof?.marks.some((m) => m.name === SHOT_MARK),
-  );
-
   // The hero reads off the SAME ranking as the marks band below it. Taking
   // the card's spot instead put Constance Bank at 88 above a list topped by
   // Victoria Waterfront at 91, which is a page disagreeing with itself in the
@@ -274,22 +257,22 @@ export default async function City1Page({ city }: { city: City1City }) {
       </div>
 
       {/* WHERE / WHAT / WHEN.
-          The second marketing shot carries its own three-beat explainer, so
-          the copy beside it names the three questions rather than restating
-          the arrows. The screen is a Washington mark (Marine Area 10), which
-          is why the caption calls it an example rather than implying it is the
-          reader's own water: jurisdiction correctness is shared by every
-          variant, and a WDFW area label over a DFO city is exactly the mistake
-          [[project_lp_landing_variants]] warns about. */}
+          The marketing shot carries its own three-beat explainer, so the copy
+          beside it names the three questions rather than restating the arrows.
+
+          The screen is THIS city's own water now (city1-city.ts), which is
+          what retired the "an example from Washington" caption this section
+          used to need. That caption was the honest way to stop a WDFW area
+          label implying it governs Canadian water while one screenshot served
+          every city; a shot per city removes the hazard instead of labelling
+          it. Jurisdiction correctness is shared by every variant, so if a city
+          is ever added without its own capture, give it one rather than
+          pointing this at another jurisdiction's mark. */}
       <section className="wwwsec">
         <div className="shell www">
           <div>
             <span className="lab">One screen, three answers</span>
-            <h2>
-              {shotIsLocal
-                ? `Where, what, and when, on ${card.cityName} water.`
-                : "Where, what, and when."}
-            </h2>
+            <h2>Where, what, and when, on {card.cityName} water.</h2>
             <p className="sub">
               Pick a spot and ReelCaster will tell you what&rsquo;s open,
               what&rsquo;s worth targeting, it&rsquo;s hourly score out of 100,
@@ -317,27 +300,17 @@ export default async function City1Page({ city }: { city: City1City }) {
           </div>
           <figure className="shotfig">
             <Image
-              src="/marketing/where-what-when.png"
-              alt="A ReelCaster spot page for Jefferson Head. Arrows label the spot name as Where, the species score card as What, and the best window as When."
-              width={1453}
-              height={1820}
+              src={city.shot.src}
+              alt={`A ReelCaster spot page for ${city.shot.mark}. Arrows label the spot name as Where, the species score card as What, and the best window as When.`}
+              width={city.shot.width}
+              height={city.shot.height}
               sizes="(min-width: 940px) 46vw, 92vw"
               className="shot"
             />
             <figcaption>
-              {shotIsLocal ? (
-                <>
-                  {SHOT_MARK}, one of the spots we score around{" "}
-                  {card.cityName}, with its {region.regulator.name} regulations
-                  underneath it and a full interactive bathymetry map of the
-                  spot.
-                </>
-              ) : (
-                <>
-                  A spot page from Washington. Yours shows {card.cityName} spots
-                  and the {region.regulator.name} rules that apply to them.
-                </>
-              )}
+              {city.shot.mark}, one of the spots we score around{" "}
+              {card.cityName}, with its {region.regulator.name} regulations
+              underneath it and a full interactive bathymetry map of the spot.
             </figcaption>
           </figure>
         </div>
