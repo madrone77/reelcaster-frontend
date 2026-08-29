@@ -2,11 +2,7 @@
 
 import { useEffect } from 'react'
 import { META_PIXEL_ID, metaTrack } from '@/lib/meta-pixel'
-
-interface ConversionEventResponse {
-  event: 'StartTrial' | null
-  event_id: string | null
-}
+import type { TrialConversion } from './use-trial-conversion'
 
 /**
  * Fires the browser `StartTrial` on the checkout return page.
@@ -22,53 +18,34 @@ interface ConversionEventResponse {
  * other, and answers `event: null` for a plain monthly purchase, which is
  * charged immediately and starts no trial.
  *
- * Best-effort by design. The page redirects to /explore about two seconds after
- * the subscription goes active, and a signed-out buyer is bounced through a
- * magic link before that, so this request can be cut off mid-flight. That is
- * survivable precisely because it is the second reporting leg: the webhook has
- * already queued the same conversion server-side.
+ * The answer is resolved once for all three tags and handed down as a prop.
+ * The page now holds its redirect until that resolves, so the common case is
+ * no longer a race. A signed-out buyer can still be bounced out through their
+ * magic link first, and that remains survivable precisely because this is the
+ * second reporting leg: the webhook has already queued the same conversion
+ * server-side.
  */
-export default function MetaStartTrial({ sessionId }: { sessionId: string | null }) {
+export default function MetaStartTrial({ conversion }: { conversion: TrialConversion }) {
+  const { event, eventId } = conversion
+
   useEffect(() => {
-    if (!sessionId || !META_PIXEL_ID) return
+    if (!META_PIXEL_ID) return
+    if (event !== 'StartTrial' || !eventId) return
 
-    let cancelled = false
-
-    const run = async () => {
-      let body: ConversionEventResponse
-      try {
-        const res = await fetch(
-          `/api/stripe/conversion-event?session_id=${encodeURIComponent(sessionId)}`,
-        )
-        if (!res.ok) return
-        body = (await res.json()) as ConversionEventResponse
-      } catch {
-        // Never let conversion reporting break the page a customer just paid on.
-        return
-      }
-
-      if (cancelled || body.event !== 'StartTrial' || !body.event_id) return
-
-      // A refresh must not report a second trial. Meta also dedupes on the
-      // event id, so this guard is belt and braces — which is why a browser
-      // that refuses storage (iOS with cookies blocked makes this THROW, not
-      // return null) falls through and fires anyway rather than going silent.
-      const key = `rc_meta_fired:${body.event_id}`
-      try {
-        if (window.sessionStorage.getItem(key)) return
-        window.sessionStorage.setItem(key, '1')
-      } catch {
-        // Storage unavailable. Fire and let Meta deduplicate.
-      }
-
-      metaTrack('StartTrial', { eventId: body.event_id })
+    // A refresh must not report a second trial. Meta also dedupes on the
+    // event id, so this guard is belt and braces, which is why a browser that
+    // refuses storage (iOS with cookies blocked makes this THROW, not return
+    // null) falls through and fires anyway rather than going silent.
+    const key = `rc_meta_fired:${eventId}`
+    try {
+      if (window.sessionStorage.getItem(key)) return
+      window.sessionStorage.setItem(key, '1')
+    } catch {
+      // Storage unavailable. Fire and let Meta deduplicate.
     }
 
-    run()
-    return () => {
-      cancelled = true
-    }
-  }, [sessionId])
+    metaTrack('StartTrial', { eventId })
+  }, [event, eventId])
 
   return null
 }

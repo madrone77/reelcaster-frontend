@@ -10,6 +10,7 @@ import { useAuth } from '@/contexts/auth-context'
 import MetaStartTrial from '@/app/components/analytics/meta-start-trial'
 import GoogleStartTrial from '@/app/components/analytics/google-start-trial'
 import PlausibleStartTrial from '@/app/components/analytics/plausible-start-trial'
+import { useTrialConversion } from '@/app/components/analytics/use-trial-conversion'
 
 interface CheckoutStatus {
   tier: string
@@ -26,6 +27,12 @@ function BillingSuccessInner() {
   const { user, loading: authLoading } = useAuth()
   const [status, setStatus] = useState<CheckoutStatus | null>(null)
   const [polling, setPolling] = useState(true)
+  // Resolved once and handed to all three tags. Asked separately, it was three
+  // requests racing the bounce below, and the tag that lost reported nothing.
+  const conversion = useTrialConversion(sessionId)
+  // Set when the subscription goes active. The redirect waits on this AND on
+  // the conversion answer, so the tags always get their moment to fire.
+  const [activated, setActivated] = useState(false)
   // Pay-first purchases land here with no session at all: the account was
   // created from the email Stripe billed, and this is where it gets claimed.
   const [claimState, setClaimState] = useState<'idle' | 'working' | 'emailed'>(
@@ -96,8 +103,7 @@ function BillingSuccessInner() {
         if (data.is_active) {
           setPolling(false)
           subscription.refresh()
-          // Give the user a moment to read the success state, then bounce.
-          setTimeout(() => router.replace('/explore'), 2000)
+          setActivated(true)
           return
         }
       } catch {
@@ -118,14 +124,29 @@ function BillingSuccessInner() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sessionId])
 
+  // The bounce to /explore, held until the conversion question is answered.
+  //
+  // It used to fire two seconds after activation regardless, which cut off
+  // whichever tag was still waiting on its own request. `settled` is guaranteed
+  // to arrive within the hook's hard cap even if Stripe hangs or an ad blocker
+  // eats the call, so this can delay the redirect but never prevent it.
+  useEffect(() => {
+    if (!activated || !conversion.settled) return
+    // Still a moment to read the success state before leaving.
+    const t = setTimeout(() => router.replace('/explore'), 2000)
+    return () => clearTimeout(t)
+    // router is a stable ref.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activated, conversion.settled])
+
   return (
     <div className="mx-auto flex max-w-lg flex-col px-6 py-12 md:py-16">
-      {/* Renders null. Mounted first so the conversion request is in flight
-          before the two-second bounce to /explore, and before a signed-out
-          buyer is redirected out through their magic link. */}
-      <MetaStartTrial sessionId={sessionId} />
-      <GoogleStartTrial sessionId={sessionId} />
-      <PlausibleStartTrial sessionId={sessionId} />
+      {/* All render null. They share one resolved answer (useTrialConversion)
+          and fire independently off it, so one network's config or failure
+          cannot take another's reporting down. */}
+      <MetaStartTrial conversion={conversion} />
+      <GoogleStartTrial conversion={conversion} />
+      <PlausibleStartTrial conversion={conversion} />
       <p className="font-rc-mono text-[10px] uppercase tracking-[0.14em] text-rc-ink-mute">
         ReelCaster Pro
       </p>
