@@ -673,6 +673,34 @@ export default function ExploreShell({
       .sort((a, b) => (b.score ?? -1) - (a.score ?? -1));
   }, [effectiveSpots, speciesFilter, allSpecies]);
 
+  // A spot with no score has nothing to say. The grey puck reads as a place
+  // that exists rather than as an answer, and the card under it says "No live
+  // score yet", which is a sentence about our data and not about the water.
+  // Most of them are dark for reasons an angler cannot act on: the only
+  // species on the roster is legally shut, a fingerprint has not been built
+  // yet, or a regulation was mis-scoped upstream. So they come off the map.
+  //
+  // Two exceptions, both about not pulling something out from under the
+  // viewer:
+  //   - the spot they have open, so a `?spot=` link always resolves;
+  //   - their own custom spots, which are theirs whether or not the scorer has
+  //     reached them yet — creating a spot and watching it disappear would
+  //     read as the save having failed.
+  //
+  // Note this also hides a spot that does not carry the species being filtered
+  // on, since that filter re-derives `score` per species. That is the same
+  // rule, not a second one: "no score for what you asked about".
+  //
+  // This is presentation only. The spots stay published, stay in the payload,
+  // stay reachable by search and by their own page, and the admin
+  // notifications are what watch for a subarea going dark — the grey pin was
+  // never a good alarm, and after 2026-08-29 it is not the only one.
+  const isShowable = useCallback(
+    (s: RailSpot) =>
+      s.score !== null || s.isCustom === true || s.slug === spotSlug,
+    [spotSlug],
+  );
+
   // Belt-and-braces dedupe by slug. buildExploreData now builds RailSpots from
   // the map payload, which carries one entry per spot, so this should be a
   // no-op — it used to walk city memberships and emit a shared spot (Race
@@ -682,11 +710,12 @@ export default function ExploreShell({
   const uniqueSpots = useMemo(() => {
     const seen = new Set<string>();
     return displaySpots.filter((s) => {
+      if (!isShowable(s)) return false;
       if (seen.has(s.slug)) return false;
       seen.add(s.slug);
       return true;
     });
-  }, [displaySpots]);
+  }, [displaySpots, isShowable]);
 
   // `initialCitySlug` sits between the two on a `?spot` link: the URL names no
   // city, but the payload is not the default city's either — it is the box
@@ -734,11 +763,12 @@ export default function ExploreShell({
     // hierarchy can list a shared spot under several cities.
     const seen = new Set<string>();
     return displaySpots.filter((s) => {
+      if (!isShowable(s)) return false;
       if (s.citySlug !== selectedCity.slug || seen.has(s.slug)) return false;
       seen.add(s.slug);
       return true;
     });
-  }, [displaySpots, uniqueSpots, viewBounds, selectedCity]);
+  }, [displaySpots, uniqueSpots, viewBounds, selectedCity, isShowable]);
 
   // ── Map filters ──────────────────────────────────────────────────────
   // Every one of these runs on a RailSpot the shell already holds, so
