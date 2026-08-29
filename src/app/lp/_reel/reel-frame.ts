@@ -57,21 +57,54 @@ export interface ReelFrame {
  *
  * Explore opens the city on its centroid, which on a portrait phone fills two
  * thirds of the screen with inland King County and pushes the sound to a strip
- * down the left. This centre and zoom were searched for instead, maximising
- * how many scored marks land inside REEL_SAFE AFTER decluttering: seven,
- * spread over 330 of the 332 usable rows and 220 of the columns, which is a
- * reel that travels rather than a cluster that blinks.
+ * down the left. This centre and zoom were searched for instead.
  *
- * What it costs: the "Seattle" place label sits at y 576, behind the preview
- * card. Every frame that keeps the label visible drops to five or six stops,
- * because this city's marks are almost all NORTH of its downtown. The chip row
- * says Seattle in words, so the label was the cheaper of the two to lose.
+ * ── Why z10.5 and not z8.7 ───────────────────────────────────────────────
+ *
+ * The first frame was solved for stops alone and landed at z8.7, which showed
+ * the whole sound from Admiralty Inlet to Renton and seven marks on it. At
+ * that scale the seabed is a blue smear: the relief raster is overzoomed and
+ * `contour-line` does not draw at all below z10, so the one thing this phone
+ * is meant to prove — that the water has shape, and the marks sit on it — was
+ * the thing the reader could not see. The hero was a map of a coastline, which
+ * every fishing app has.
+ *
+ * z10.5 crosses the contour threshold with room to spare. Possession Bar, the
+ * Edmonds shelf and the drop into the main basin all read as structure, the
+ * frame is mostly water rather than mostly Kitsap, and the style's own
+ * "WDFW Marine Area 10" label lands mid-frame, which is the same jurisdiction
+ * the page's eyebrow names in words.
+ *
+ * What it costs, and it is a real cost: five stops instead of seven. Half the
+ * city's scored marks are now outside the frame. The five that remain
+ * (Kingston Reef, Edmonds Oil Tanks, Jefferson Head, Shilshole, Meadow Point)
+ * walk 131 to 458 down the safe box with no two closer than 38px, so the reel
+ * still travels; it just travels over less water. The marks band further down
+ * the page still lists every one of them, so nothing is hidden, only unpinned.
+ *
+ * Also lost, as before, is the "Seattle" place label. It was already behind
+ * the preview card at z8.7 and is off-frame now. The chip row says Seattle in
+ * words, which is the cheaper of the two to lose.
+ *
+ * ── Two things this frame is constrained by ──────────────────────────────
+ *
+ * `buoy-label` draws NDBC station names at this zoom and the reel does not
+ * redraw them, so the centre also had to place Pt Wells and West Point with
+ * their two-line labels either wholly inside the frame or wholly out of it. A
+ * label sliced by the phone bezel is the one artefact a still cannot explain.
+ * They are kept rather than switched off: they are real stations feeding real
+ * readings, and the preview card quotes those readings.
+ *
+ * The asset is `-v2` rather than a new file at the old path on purpose. Next's
+ * image optimizer keys its cache on the URL, so replacing bytes underneath
+ * `seattle-explore-map.webp` would have served the old wide frame from the
+ * edge for as long as that entry lived.
  */
 export const SEATTLE_FRAME: ReelFrame = {
-  src: "/marketing/seattle-explore-map.webp",
-  centerLng: -122.45,
-  centerLat: 47.85,
-  zoom: 8.7,
+  src: "/marketing/seattle-explore-map-v2.webp",
+  centerLng: -122.4415,
+  centerLat: 47.7141,
+  zoom: 10.5,
   width: 375,
   height: 724,
   regionLabel: "King County",
