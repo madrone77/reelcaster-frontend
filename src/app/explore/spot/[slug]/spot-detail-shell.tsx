@@ -67,6 +67,7 @@ import type { AdMode, AdWall } from "./ad-mode";
 import MarketingFooter from "@/app/components/marketing/marketing-footer";
 import { PAGE_MEASURE } from "@/app/components/layout/page-measure";
 import LogCatchDialog from "../components/log-catch-dialog";
+import PullToRefresh from "../components/pull-to-refresh";
 import CreateAlertDialog from "../components/create-alert-dialog";
 
 const ProTrialModal = dynamic(
@@ -258,23 +259,40 @@ export default function SpotDetailShell({
     }
   };
 
-  useEffect(() => {
-    let cancelled = false;
-    fetchForecast14d(slug)
-      .then((d) => !cancelled && setFc(d))
-      .catch(() => {});
-    fetchPointConditions(spot.lat, spot.lng)
-      .then((d) => !cancelled && setPoint(d))
-      .catch(() => {});
-    return () => {
-      cancelled = true;
-    };
+  // ── loaders ─────────────────────────────────────────────────────────────────
+  //
+  // Each live block is fetched by a named loader rather than inline in its
+  // effect, so the same code runs on mount AND on a pull-to-refresh, and the
+  // gesture can await the real request instead of guessing at a duration.
+  //
+  // Staleness is guarded by comparing the key a request was made for against
+  // the one on screen when it lands, rather than by a per-effect `cancelled`
+  // flag. A refresh re-enters the same loader, so "has this effect been torn
+  // down" was never the question — "is this still the spot and species being
+  // read" is.
+  const liveKey = useRef({ slug, selId });
+  liveKey.current = { slug, selId };
+
+  const loadForecast = useCallback(async () => {
+    const forSlug = slug;
+    await Promise.allSettled([
+      fetchForecast14d(forSlug).then((d) => {
+        if (liveKey.current.slug === forSlug) setFc(d);
+      }),
+      fetchPointConditions(spot.lat, spot.lng).then((d) => {
+        if (liveKey.current.slug === forSlug) setPoint(d);
+      }),
+    ]);
   }, [slug, spot.lat, spot.lng]);
+
+  useEffect(() => {
+    void loadForecast();
+  }, [loadForecast]);
 
   // Pro-only upgrade of the locked block. The route re-checks entitlement
   // server-side (and unlike the client's `isPaid`, it honours the grace
   // window), so this call is a request, not the gate.
-  useEffect(() => {
+  const loadFresh = useCallback(async () => {
     if (!freshTracked) return;
     // Not paying, and we now know it: show the locked state.
     if (!tierLoading && !isPaid) {
@@ -282,19 +300,19 @@ export default function SpotDetailShell({
       return;
     }
     if (!isPaid) return; // still resolving — show nothing rather than a lock
-    let cancelled = false;
-    fetchFreshCatches(spot.id)
-      .then((d) => {
-        const mine = d?.spots?.[spot.id];
-        if (!cancelled && mine) setFresh(mine);
-      })
-      .catch(() => {
-        // Stays locked — additive, never blocking.
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [freshTracked, isPaid, tierLoading, spot.id]);
+    const forSlug = slug;
+    try {
+      const d = await fetchFreshCatches(spot.id);
+      const mine = d?.spots?.[spot.id];
+      if (mine && liveKey.current.slug === forSlug) setFresh(mine);
+    } catch {
+      // Stays locked — additive, never blocking.
+    }
+  }, [freshTracked, isPaid, tierLoading, spot.id, slug]);
+
+  useEffect(() => {
+    void loadFresh();
+  }, [loadFresh]);
 
   // The written report. Three states, driven by the REQUEST, not by the client
   // tier: "asking" / "not allowed" / "here it is".
@@ -311,40 +329,52 @@ export default function SpotDetailShell({
   // free caller gets {locked:true} and no prose.
   const [reports, setReports] = useState<RecentReportsData | null>(null);
   const [reportsLocked, setReportsLocked] = useState<boolean | null>(null);
-  useEffect(() => {
+  const loadReports = useCallback(async () => {
     if (!page.recentReportsTeaser) {
       setReports(null);
       setReportsLocked(null);
       return;
     }
-    let cancelled = false;
-    fetchSpotRecentReports(spot.slug)
-      .then(({ locked, reports: r }) => {
-        if (cancelled) return;
-        setReportsLocked(locked);
-        setReports((r as RecentReportsData | null) ?? null);
-      })
-      .catch(() => {
-        if (!cancelled) setReportsLocked(true);
-      });
-    return () => {
-      cancelled = true;
-    };
+    const forSlug = spot.slug;
+    try {
+      const { locked, reports: r } = await fetchSpotRecentReports(forSlug);
+      if (liveKey.current.slug !== forSlug) return;
+      setReportsLocked(locked);
+      setReports((r as RecentReportsData | null) ?? null);
+    } catch {
+      if (liveKey.current.slug === forSlug) setReportsLocked(true);
+    }
   }, [page.recentReportsTeaser, spot.slug]);
 
   useEffect(() => {
+    void loadReports();
+  }, [loadReports]);
+
+  // Which species the chart on screen is drawn from, so a refresh can refetch
+  // without blanking it. Clearing is for a species SWITCH — showing one
+  // species' chart under another's name is the thing being avoided, and a
+  // refresh of the same species never risks it.
+  const scoredSpecies = useRef<string | null>(null);
+  const loadScore = useCallback(async () => {
     if (!selId) return;
-    let cancelled = false;
-    setScore(null);
-    // days=2: /score keys on UTC days, so the spot's local evening lives in the
-    // *next* UTC day. Fetch two and let the chart window a full local day.
-    fetchSpotScore(spot.id, selId, 2)
-      .then((d) => !cancelled && setScore(d))
-      .catch(() => {});
-    return () => {
-      cancelled = true;
-    };
+    const forSpecies = selId;
+    if (scoredSpecies.current !== forSpecies) {
+      setScore(null);
+      scoredSpecies.current = forSpecies;
+    }
+    try {
+      // days=2: /score keys on UTC days, so the spot's local evening lives in
+      // the *next* UTC day. Fetch two and let the chart window a full local day.
+      const d = await fetchSpotScore(spot.id, forSpecies, 2);
+      if (liveKey.current.selId === forSpecies) setScore(d);
+    } catch {
+      // The chart keeps whatever it had.
+    }
   }, [spot.id, selId]);
+
+  useEffect(() => {
+    void loadScore();
+  }, [loadScore]);
 
   // ── derived ───────────────────────────────────────────────────────────
   const todayScore = selId ? (page.topScoreTodayBySpecies[selId] ?? null) : null;
@@ -444,28 +474,58 @@ export default function SpotDetailShell({
   // Ref-guarded (not state-guarded): effect re-runs land before setCurByIso
   // commits, so a state check would re-fetch the same day.
   const curRequested = useRef<Set<string>>(new Set());
-  useEffect(() => {
-    for (const iso of new Set([todayIso, activeIso])) {
-      if (!iso || curRequested.current.has(iso)) continue;
-      curRequested.current.add(iso);
-      const fromMs = localDayStartUtcMs(iso, TZ);
-      // An unparseable day would make every Date below invalid, and
-      // `toISOString()` throws RangeError on those.
-      if (!Number.isFinite(fromMs)) continue;
-      const from = new Date(fromMs).toISOString();
-      const to = new Date(fromMs + 23 * 3_600_000).toISOString();
-      fetchCurrentsPoint(spot.lat, spot.lng, from, to)
-        .then((d) => {
+  const loadCurrents = useCallback(async () => {
+    await Promise.allSettled(
+      [...new Set([todayIso, activeIso])].map(async (iso) => {
+        if (!iso || curRequested.current.has(iso)) return;
+        curRequested.current.add(iso);
+        const fromMs = localDayStartUtcMs(iso, TZ);
+        // An unparseable day would make every Date below invalid, and
+        // `toISOString()` throws RangeError on those.
+        if (!Number.isFinite(fromMs)) return;
+        const from = new Date(fromMs).toISOString();
+        const to = new Date(fromMs + 23 * 3_600_000).toISOString();
+        try {
+          const d = await fetchCurrentsPoint(spot.lat, spot.lng, from, to);
           const byHour: (CurrentSample | null)[] = new Array(24).fill(null);
           for (const s of d?.series ?? []) {
             const h = Math.round((Date.parse(s.t) - fromMs) / 3_600_000);
             if (h >= 0 && h < 24) byHour[h] = s;
           }
           setCurByIso((m) => ({ ...m, [iso]: byHour }));
-        })
-        .catch(() => {});
-    }
+        } catch {
+          // A day with no currents draws from the tide-derived fallback.
+        }
+      }),
+    );
   }, [todayIso, activeIso, spot.lat, spot.lng, TZ]);
+
+  useEffect(() => {
+    void loadCurrents();
+  }, [loadCurrents]);
+
+  /**
+   * Pull-to-refresh: refetch everything on this page that moves.
+   *
+   * The prerendered half (the write-up, the species roster, the seasonality
+   * bands) is not refetched — it changes on the scale of weeks, and re-running
+   * the server render would repaint the whole page to show the same words. The
+   * numbers an angler pulls for — score, forecast, conditions, currents,
+   * reports, fresh catches — all arrive through these loaders.
+   *
+   * `curRequested` is the currents cache; it exists so a day is fetched once,
+   * which is exactly what a refresh is asking to undo.
+   */
+  const refresh = useCallback(async () => {
+    curRequested.current.clear();
+    await Promise.allSettled([
+      loadForecast(),
+      loadScore(),
+      loadCurrents(),
+      loadReports(),
+      loadFresh(),
+    ]);
+  }, [loadForecast, loadScore, loadCurrents, loadReports, loadFresh]);
 
   const hours24 = useMemo(() => {
     const grid = selId ? fcSource.hourlyScoreGrid[selId] : undefined;
@@ -779,6 +839,11 @@ export default function SpotDetailShell({
           top bar (map, login, pricing, nav) is a way out of a page that cost
           money to land on, and none of them is the thing the ad promised. */}
       {ad ? <AdBrandBar /> : <ExploreTopBar hideOnScroll />}
+
+      {/* Pull down from the top of the page to refetch the live numbers. Sits
+          outside the flow — it draws a floating indicator and nothing else, so
+          nothing below it shifts. */}
+      <PullToRefresh onRefresh={refresh} />
 
       <div className="pt-16">
         {/* Desktop sub-header: breadcrumb + freshness. Full-bleed rule, inner
