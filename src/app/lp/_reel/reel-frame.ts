@@ -154,25 +154,44 @@ export const SEATTLE_FRAME: ReelFrame = {
 };
 
 /**
- * Vancouver. Solved before the sheet existed: 8 stops on a single screen, so
- * its sheet IS the screen and its reel does not pan. Re-capturing it as a
- * sheet at a Seattle-like zoom is the same afternoon's work as a new city,
- * and worth doing next time this page is opened.
+ * Vancouver, framed at the zoom Casey reads the real map at.
  *
- * What it costs: the "Vancouver" place label sits at y 495, right on the top
- * edge of the preview card. Frames that clear the label lose Howe Sound, which
- * is where most of this city's scored marks are. The chip row says Vancouver
- * in words, so the label was the cheaper of the two to lose.
+ * Solved from a screenshot of Explore on his phone rather than chosen: two
+ * anchors in it -- the Entrance To English Bay buoy at (-123.36, 49.30) and
+ * the First Narrows mark -- put 0.288 degrees of longitude across a 390pt
+ * screen, which is z9.89. A second pair, the buoy against the Vancouver place
+ * label, gave 9.78. z9.85 sits between them.
+ *
+ * One 375x724 screen, so nothing pans: at this zoom eight marks are already
+ * inside the chrome-free box at once, from Comet Point down Queen Charlotte
+ * Channel to First Narrows, and the reel lights them one at a time. That is
+ * also why this is 37 KB, the smallest frame in the file.
+ *
+ * ── What the earlier attempts got wrong ──────────────────────────────────
+ *
+ * Three frames before this one chased zoom, on the reading that the hero
+ * should show the seabed the way a chart does: z11 over the harbour, z12.4
+ * per mark, a twelve-sheet pan-and-cut rig for the whole roster. All of them
+ * traded away the thing that makes this screen legible, which is seeing a
+ * dozen scored marks on one piece of recognisable water. The zoom that reads
+ * best is the zoom the product is actually used at.
+ *
+ * The closures across the top are Howe Sound's and they stay: they are real,
+ * the product draws them, and quietly deleting a regulatory layer from a
+ * marketing still of a fishing app is the wrong kind of edit.
+ *
+ * The asset is `-v2` because Next's image optimizer keys its cache on the URL.
  */
 export const VANCOUVER_FRAME: ReelFrame = {
-  src: "/marketing/vancouver-explore-map.webp",
-  centerLng: -123.24,
-  centerLat: 49.38,
-  zoom: 9,
+  src: "/marketing/vancouver-explore-map-v2.webp",
+  centerLng: -123.27,
+  centerLat: 49.315,
+  zoom: 9.85,
   width: 375,
   height: 724,
   regionLabel: "Lower Mainland",
 };
+
 
 /**
  * Chrome-free box, in the WINDOW's pixels. Shared by every city, and it has to

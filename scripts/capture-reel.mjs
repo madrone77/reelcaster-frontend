@@ -71,7 +71,17 @@ window.__rcFindMap = function () {
   return null;
 };`);
 
-await page.goto(`${BASE}/explore?city=seattle-wa`, { waitUntil: "domcontentloaded" });
+/**
+ * Open Explore on the frame's OWN city, not a hardcoded one.
+ *
+ * Not cosmetic: Explore auto-shows the wdfw-* layers for a Washington city,
+ * so capturing BC water from a Seattle-opened map bakes another regulator's
+ * boundaries onto it. The pin layer is switched off either way, so the city
+ * decides nothing else here.
+ */
+const city = frames[0].city;
+if (!city) throw new Error("each frame needs a `city` slug — the map opens on it");
+await page.goto(`${BASE}/explore?city=${city}`, { waitUntil: "domcontentloaded" });
 await page.waitForSelector(".maplibregl-canvas", { timeout: 60_000 });
 await page.waitForFunction("!!window.__rcFindMap()", null, { timeout: 60_000 });
 
