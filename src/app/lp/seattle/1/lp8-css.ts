@@ -455,6 +455,15 @@ export const LP8_CSS = `
 .l8 .reelmeta em{
   font-style:normal;font-family:var(--l8-mono);font-size:calc(8.5 * var(--sp));
   font-weight:600;letter-spacing:.09em;color:var(--l8-ink-mute);
+  display:flex;align-items:center;gap:calc(4 * var(--sp));
+}
+/* The reading's glyph, at the card's own 12px against its 9px label — the
+   same ratio SpotCard draws (w-3 h-3 on a text-[9px] row), so the icons carry
+   the labels rather than crowding them. Muted with the label, not with the
+   value: the glyph names the reading, the number is the reading. */
+.l8 .reelmeta em svg{
+  width:calc(12 * var(--sp));height:calc(12 * var(--sp));
+  flex:0 0 auto;stroke-width:2;
 }
 
 /* The card's last row, as the product draws it: the way on, and the save. */

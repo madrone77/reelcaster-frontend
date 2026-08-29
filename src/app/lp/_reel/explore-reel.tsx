@@ -1,7 +1,7 @@
 "use client";
 
 import Image from "next/image";
-import { Home, Map, NotebookPen, MoreHorizontal } from "lucide-react";
+import { Home, Map, NotebookPen, MoreHorizontal, Wind, Waves, Navigation } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { tierFor, TIER_PIN } from "@/app/explore/lib/explore-data";
@@ -315,18 +315,21 @@ export default function ExploreReel({
                   real card lays them out. */}
               <div className="reelmetarow">
                 <div className="reelmeta">
-                  <span>
-                    <em>WIND</em>
-                    {card.wind ?? "—"}
-                  </span>
-                  <span>
-                    <em>SEA</em>
-                    {card.sea ?? "—"}
-                  </span>
-                  <span>
-                    <em>CURRENT</em>
-                    {card.current ?? "—"}
-                  </span>
+                  {(
+                    [
+                      [Wind, "WIND", card.wind],
+                      [Waves, "SEA", card.sea],
+                      [Navigation, "CURRENT", card.current],
+                    ] as const
+                  ).map(([Icon, label, value]) => (
+                    <span key={label}>
+                      <em>
+                        <Icon aria-hidden />
+                        {label}
+                      </em>
+                      {value ?? "—"}
+                    </span>
+                  ))}
                 </div>
                 <TrendBars hours={card.hours} from={card.bestFrom} to={card.bestTo} />
               </div>
