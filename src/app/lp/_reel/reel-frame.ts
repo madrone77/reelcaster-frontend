@@ -154,44 +154,61 @@ export const SEATTLE_FRAME: ReelFrame = {
 };
 
 /**
- * Vancouver, framed at the zoom Casey reads the real map at.
+ * Vancouver, on a panning sheet at z11.
  *
- * Solved from a screenshot of Explore on his phone rather than chosen: two
- * anchors in it -- the Entrance To English Bay buoy at (-123.36, 49.30) and
- * the First Narrows mark -- put 0.288 degrees of longitude across a 390pt
- * screen, which is z9.89. A second pair, the buoy against the Vancouver place
- * label, gave 9.78. z9.85 sits between them.
+ * ── This reverses #443, on purpose ───────────────────────────────────────
  *
- * One 375x724 screen, so nothing pans: at this zoom eight marks are already
- * inside the chrome-free box at once, from Comet Point down Queen Charlotte
- * Channel to First Narrows, and the reel lights them one at a time. That is
- * also why this is 37 KB, the smallest frame in the file.
+ * #443 framed this city at z9.85 on one still screen, solved off a screenshot
+ * of Explore on Casey's own phone, and argued the case against exactly this
+ * frame: that three earlier attempts had chased zoom and traded away the thing
+ * that makes the screen legible, which is a dozen scored marks on one piece of
+ * recognisable water.
  *
- * ── What the earlier attempts got wrong ──────────────────────────────────
+ * That argument was made about a SCREEN and this is a SHEET, which is the part
+ * that changed. A single screen has to hold every mark at once, so its zoom is
+ * capped by how far the marks are spread; a sheet only has to hold each mark
+ * somewhere, so the window can sit at the zoom the seabed reads at and travel
+ * between them. Seattle took that trade in #440 and this is the same trade.
  *
- * Three frames before this one chased zoom, on the reading that the hero
- * should show the seabed the way a chart does: z11 over the harbour, z12.4
- * per mark, a twelve-sheet pan-and-cut rig for the whole roster. All of them
- * traded away the thing that makes this screen legible, which is seeing a
- * dozen scored marks on one piece of recognisable water. The zoom that reads
- * best is the zoom the product is actually used at.
+ * Casey chose it knowing what it costs, so do not "fix" it back on the
+ * strength of #443's comment alone. What would justify reverting is the thing
+ * #443 was actually protecting: if a reader stops recognising the water.
  *
- * The closures across the top are Howe Sound's and they stay: they are real,
- * the product draws them, and quietly deleting a regulatory layer from a
- * marketing still of a fishing app is the wrong kind of edit.
+ * ── What it costs ────────────────────────────────────────────────────────
  *
- * The asset is `-v2` because Next's image optimizer keys its cache on the URL.
+ * 190 KB against 37, and this is the hero's LCP element. The bytes track the
+ * area almost exactly (971x934 is 1.22x Seattle's sheet, 190 KB is 1.24x its
+ * 153) so there is no encoding win hiding here: q65 only reaches 166 KB and
+ * spends the contour hairlines, which are the whole reason for the zoom.
+ *
+ * You also stop seeing all eight marks at once. They are still all there, one
+ * stop at a time, and the marks band further down the page lists the roster
+ * either way.
+ *
+ * ── The frame ────────────────────────────────────────────────────────────
+ *
+ * Solved by scripts/solve-reel-frame.mjs at z11: eight stops from Pam Rocks
+ * down Queen Charlotte Channel to Plumper Cove, the best contiguous run the
+ * 1000k-px budget holds. Captured by scripts/capture-reel.mjs, whose
+ * projection check put project() against map.project() at 1.1e-10 px across
+ * all eight.
+ *
+ * The closures across Howe Sound stay: they are real, the product draws them,
+ * and quietly deleting a regulatory layer from a marketing still of a fishing
+ * app is the wrong kind of edit.
+ *
+ * The asset is `-v3` because Next's image optimizer keys its cache on the URL,
+ * so new bytes at the old path would serve the old frame from the edge.
  */
 export const VANCOUVER_FRAME: ReelFrame = {
-  src: "/marketing/vancouver-explore-map-v2.webp",
-  centerLng: -123.27,
-  centerLat: 49.315,
-  zoom: 9.85,
-  width: 375,
-  height: 724,
+  src: "/marketing/vancouver-explore-map-v3.webp",
+  centerLng: -123.3757,
+  centerLat: 49.42989,
+  zoom: 11,
+  width: 971,
+  height: 934,
   regionLabel: "Lower Mainland",
 };
-
 
 /**
  * Chrome-free box, in the WINDOW's pixels. Shared by every city, and it has to
