@@ -1,23 +1,24 @@
 /**
- * Solve the frame for an /lp/<city>/<n> reel hero.
+ * Solve the sheet for an /lp/<city>/<n> reel hero.
  *
- * The four numbers in a `ReelFrame` describe a capture, not a preference, and
- * they were searched for rather than eyeballed. This is that search, kept so
- * the next city costs a run rather than an afternoon.
+ * The reel shows a 375x724 window onto a larger baked still and slides it
+ * from mark to mark at a fixed zoom (see src/app/lp/_reel/reel-frame.ts). So
+ * what has to be solved is not "which single screen holds the most marks" but
+ * "which run of marks is worth carrying, and how big is the sheet that holds
+ * them" -- because the sheet is the hero's LCP image and its area is the bill.
  *
- *   node scripts/solve-reel-frame.mjs seattle-wa 10.1 10.7
+ *   node scripts/solve-reel-frame.mjs seattle-wa 11
  *
- * What it optimises, in order:
- *   1. Stops — marks that land inside REEL_SAFE and survive the reel's own
- *      declutter at PIN_GAP. A reel with three stops is a slideshow.
- *   2. Even travel — the largest minimum gap between consecutive stops down
- *      the frame. Two clumps with a hole between them score badly here even
- *      when the raw spread looks wide.
- * And what it refuses outright: any frame that slices an NDBC buoy label on
- * the bezel. See the notes on SEATTLE_FRAME in src/app/lp/_reel/reel-frame.ts.
+ * Prints, for a range of sheet-area budgets, the best contiguous run of marks
+ * at that zoom: the frame numbers to paste into a `ReelFrame`, and where each
+ * stop lands once the window has panned to it.
+ *
+ * What it refuses outright: any sheet that slices an NDBC buoy label on its
+ * edge (`buoy-label` draws from z9.5 up and the reel does not redraw it), and
+ * any stop the window cannot bring clear of the reel's own chrome.
  *
  * Marks come from the same payload and the same widest-coverage species rule
- * the page itself ranks on (city-proof.ts), so the frame is solved against the
+ * the page itself ranks on (city-proof.ts), so the sheet is solved against the
  * marks the reel will actually be handed.
  */
 import { readFileSync } from "node:fs";
@@ -26,28 +27,24 @@ const API = process.env.BLUECASTER_API_URL ?? "https://www.bluecaster.co";
 const KEY = process.env.BLUECASTER_API_KEY;
 
 const city = process.argv[2] ?? "seattle-wa";
-const zLo = Number(process.argv[3] ?? 8.5);
-const zHi = Number(process.argv[4] ?? 11);
+const zoom = Number(process.argv[3] ?? 11);
 
 // Mirrors reel-frame.ts and explore-reel.tsx. Kept as literals rather than
 // imported: this is a plain node script and those are TS modules in the app.
-const TILE = 512, W = 375, H = 724;
+const TILE = 512, VW = 375, VH = 724;
 const SAFE = { x0: 28, y0: 130, x1: 347, y1: 462 };
+const FOCUS = { x: VW / 2, y: 316 };
 const PIN_GAP = 26, MAX_STOPS = 8;
 /** Half-width and drop of a two-line buoy label, measured off a capture. */
 const LABEL_HALF = 82, LABEL_DROP = 44;
+/** Sheet areas to report, in map px. 375x724 = 272k is one screen. */
+const BUDGETS = [500_000, 750_000, 1_000_000];
 
 const mercX = (lng) => (lng + 180) / 360;
 const mercY = (lat) => 0.5 - Math.log(Math.tan(Math.PI / 4 + (lat * Math.PI) / 360)) / (2 * Math.PI);
 const unmercY = (y) => (Math.atan(Math.exp((0.5 - y) * 2 * Math.PI)) - Math.PI / 4) * 360 / Math.PI;
-const project = (f, lng, lat) => {
-  const world = TILE * 2 ** f.zoom;
-  return {
-    x: (mercX(lng) - mercX(f.centerLng)) * world + W / 2,
-    y: (mercY(lat) - mercY(f.centerLat)) * world + H / 2,
-  };
-};
-const inSafe = (x, y) => x >= SAFE.x0 && x <= SAFE.x1 && y >= SAFE.y0 && y <= SAFE.y1;
+const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
+const world = TILE * 2 ** zoom;
 
 const res = await fetch(`${API}/api/v1/map/spots?city=${city}`, {
   headers: KEY ? { "x-api-key": KEY } : {},
@@ -63,72 +60,88 @@ for (const s of payload.spots) {
 const widest = [...coverage.entries()].sort((a, b) => b[1] - a[1])[0][0];
 const marks = payload.spots
   .filter((s) => s.scores?.[widest])
-  .map((s) => ({ name: s.name, lat: s.lat, lng: s.lng, score: Math.round(s.scores[widest].peak * 100) }))
-  .sort((a, b) => b.score - a.score);
-console.log(`${city}: ranking on ${payload.species[widest].name}, ${marks.length} scored marks\n`);
+  .map((s) => ({
+    name: s.name,
+    score: Math.round(s.scores[widest].peak * 100),
+    X: mercX(s.lng) * world,
+    Y: mercY(s.lat) * world,
+  }))
+  .sort((a, b) => a.Y - b.Y);
+console.log(`${city} at z${zoom}: ranking on ${payload.species[widest].name}, ${marks.length} scored marks\n`);
 
-/**
- * Buoys, read from the very GeoJSON the map style hands MapLibre. Their labels
- * draw from z9.5 up (`buoy-label` in src/lib/map/relief-style.ts) and the reel
- * does not redraw them, so they constrain the frame.
- */
+/** Buoys, read from the very GeoJSON the map style hands MapLibre. */
 const buoys = JSON.parse(
   readFileSync(new URL("../public/buoy_stations_salish.geojson", import.meta.url), "utf8"),
 ).features.map((f) => ({
-  name: f.properties.name,
-  lng: f.geometry.coordinates[0],
-  lat: f.geometry.coordinates[1],
+  X: mercX(f.geometry.coordinates[0]) * world,
+  Y: mercY(f.geometry.coordinates[1]) * world,
 }));
 
-const labelsClean = (f) =>
-  buoys.every((b) => {
-    const { x, y } = project(f, b.lng, b.lat);
-    const out = x < -LABEL_HALF || x > W + LABEL_HALF || y < -LABEL_DROP || y > H + LABEL_DROP;
-    const whole = x - LABEL_HALF >= 0 && x + LABEL_HALF <= W && y >= 0 && y + LABEL_DROP <= H;
-    return out || whole;
-  });
-
-function evaluate(f) {
-  const visible = marks.map((p) => ({ p, at: project(f, p.lng, p.lat) })).filter(({ at }) => inSafe(at.x, at.y));
+/** A candidate sheet from one contiguous run of marks, north to south. */
+function sheetFor(run) {
+  // Declutter best-first, as the reel does, then keep what is left.
   const kept = [];
-  for (const v of visible) {
-    const clash = kept.some((k) => Math.abs(k.at.x - v.at.x) < PIN_GAP && Math.abs(k.at.y - v.at.y) < PIN_GAP);
-    if (!clash) kept.push(v);
+  for (const m of [...run].sort((a, b) => b.score - a.score)) {
+    const clash = kept.some((k) => Math.abs(k.X - m.X) < PIN_GAP && Math.abs(k.Y - m.Y) < PIN_GAP);
+    if (!clash) kept.push(m);
     if (kept.length === MAX_STOPS) break;
   }
-  const ordered = [...kept].sort((a, b) => a.at.y - b.at.y);
-  let minGap = Infinity;
-  for (let i = 1; i < ordered.length; i++) {
-    minGap = Math.min(minGap, Math.hypot(ordered[i].at.x - ordered[i - 1].at.x, ordered[i].at.y - ordered[i - 1].at.y));
+  const xs = kept.map((k) => k.X), ys = kept.map((k) => k.Y);
+  const width = Math.ceil(Math.max(...xs) - Math.min(...xs)) + VW;
+  const height = Math.ceil(Math.max(...ys) - Math.min(...ys)) + VH;
+  const cX = (Math.min(...xs) + Math.max(...xs)) / 2;
+  const cY = (Math.min(...ys) + Math.max(...ys)) / 2;
+  const toSheet = (m) => ({ x: m.X - cX + width / 2, y: m.Y - cY + height / 2 });
+
+  // Every buoy label must be wholly on the sheet or wholly off it.
+  for (const b of buoys) {
+    const { x, y } = toSheet(b);
+    const off = x < -LABEL_HALF || x > width + LABEL_HALF || y < -LABEL_DROP || y > height + LABEL_DROP;
+    const whole = x - LABEL_HALF >= 0 && x + LABEL_HALF <= width && y >= 0 && y + LABEL_DROP <= height;
+    if (!off && !whole) return null;
   }
-  return { stops: kept.length, minGap: Number.isFinite(minGap) ? minGap : 0, kept: ordered };
+
+  // Every stop must be reachable: pan the window to it, then check the chrome.
+  const stops = [];
+  for (const m of kept.sort((a, b) => a.Y - b.Y)) {
+    const { x, y } = toSheet(m);
+    const tx = clamp(x - FOCUS.x, 0, width - VW);
+    const ty = clamp(y - FOCUS.y, 0, height - VH);
+    const vx = x - tx, vy = y - ty;
+    if (vx < SAFE.x0 || vx > SAFE.x1 || vy < SAFE.y0 || vy > SAFE.y1) return null;
+    stops.push({ name: m.name, score: m.score, x, y, tx, ty, vx, vy });
+  }
+  return {
+    width, height, stops,
+    centerLng: (cX / world) * 360 - 180,
+    centerLat: unmercY(cY / world),
+  };
 }
 
-const lats = marks.map((p) => p.lat), lngs = marks.map((p) => p.lng);
-const latMid = (Math.min(...lats) + Math.max(...lats)) / 2;
-const lngMid = (Math.min(...lngs) + Math.max(...lngs)) / 2;
+const candidates = [];
+for (let i = 0; i < marks.length; i++) {
+  for (let j = i + 2; j <= marks.length; j++) {
+    const s = sheetFor(marks.slice(i, j));
+    if (s) candidates.push(s);
+  }
+}
 
-for (let zoom = zLo; zoom <= zHi + 1e-9; zoom = +(zoom + 0.1).toFixed(2)) {
-  const world = TILE * 2 ** zoom;
-  let best = null;
-  for (let dy = -120; dy <= 120; dy++) {
-    for (let dx = -120; dx <= 120; dx++) {
-      const centerLng = lngMid + ((dx * 4) / world) * 360;
-      const centerLat = unmercY(mercY(latMid) + (dy * 4) / world);
-      const f = { zoom, centerLng, centerLat };
-      if (!labelsClean(f)) continue;
-      const r = evaluate(f);
-      if (!best || r.stops > best.r.stops || (r.stops === best.r.stops && r.minGap > best.r.minGap)) {
-        best = { f, r };
-      }
-    }
-  }
-  if (!best) { console.log(`z${zoom}  no frame clears the buoy labels`); continue; }
+for (const budget of BUDGETS) {
+  const best = candidates
+    .filter((c) => c.width * c.height <= budget)
+    .sort((a, b) => b.stops.length - a.stops.length || a.width * a.height - b.width * b.height)[0];
+  console.log(`sheet ≤ ${(budget / 1000).toFixed(0)}k px:`);
+  if (!best) { console.log("  nothing fits\n"); continue; }
   console.log(
-    `z${zoom}  ${best.f.centerLng.toFixed(4)}, ${best.f.centerLat.toFixed(4)}` +
-      `  ${best.r.stops} stops, closest pair ${best.r.minGap.toFixed(0)}px`,
+    `  ${best.stops.length} stops   ${best.width}x${best.height}` +
+      ` (${((best.width * best.height) / 1000).toFixed(0)}k px)` +
+      `   centre ${best.centerLng.toFixed(5)}, ${best.centerLat.toFixed(5)}`,
   );
-  for (const k of best.r.kept) {
-    console.log(`        ${k.p.score}  ${k.p.name.padEnd(36)} x${k.at.x.toFixed(0)} y${k.at.y.toFixed(0)}`);
+  for (const s of best.stops) {
+    console.log(
+      `      ${s.score}  ${s.name.padEnd(36)}` +
+        ` sheet(${s.x.toFixed(0)},${s.y.toFixed(0)}) pan(${s.tx.toFixed(0)},${s.ty.toFixed(0)})`,
+    );
   }
+  console.log();
 }

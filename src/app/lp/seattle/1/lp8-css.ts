@@ -269,6 +269,27 @@ export const LP8_CSS = `
 .l8 .reelmap{
   position:absolute;inset:calc(116 * var(--sp)) 0 0 0;
   height:calc(724 * var(--sp));
+  overflow:hidden;
+}
+/* The sheet. Wider and taller than the screen above, and slid under it one
+   stop at a time -- the map moving beneath a phone, not a slideshow of
+   pictures of a map. --iw/--ih/--tx/--ty come from the frame, in the same map
+   pixels reel-frame.ts projects into, so this rule says nothing about any
+   particular city.
+
+   The transition is the reel's only long animation. 1.1s is slow enough to
+   read as a map being dragged and short enough to leave most of the 2.4s
+   dwell as a rest on the mark; the easing is symmetric because a pan that
+   snaps out of the gate reads as a jump cut. */
+.l8 .reelpan{
+  position:absolute;top:0;left:0;
+  width:calc(var(--iw) * var(--sp));
+  height:calc(var(--ih) * var(--sp));
+  transform:translate3d(
+    calc(var(--tx) * var(--sp) * -1),
+    calc(var(--ty) * var(--sp) * -1), 0);
+  transition:transform 1.1s cubic-bezier(.65,0,.35,1);
+  will-change:transform;
 }
 .l8 .reelmapimg{display:block;width:100%;height:100%;object-fit:cover}
 

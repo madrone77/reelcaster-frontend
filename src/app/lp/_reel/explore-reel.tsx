@@ -4,7 +4,7 @@ import Image from "next/image";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { tierFor, TIER_PIN } from "@/app/explore/lib/explore-data";
 import type { ReelPin } from "./city-proof";
-import { placePin, inSafeArea, type ReelFrame } from "./reel-frame";
+import { placePin, panFor, inSafeArea, type ReelFrame } from "./reel-frame";
 
 /**
  * The hero: Explore, on a phone, walking its own spots.
@@ -113,8 +113,16 @@ export default function ExploreReel({
    */
   const stops = useMemo(() => {
     const visible = pins
-      .map((p) => ({ pin: p, at: placePin(frame, p.lng, p.lat) }))
-      .filter(({ at }) => inSafeArea(at.x, at.y));
+      .map((p) => {
+        const at = placePin(frame, p.lng, p.lat);
+        return { pin: p, at, pan: panFor(frame, at.x, at.y) };
+      })
+      // Eligibility is tested in the WINDOW, after the sheet has slid to the
+      // mark: a stop is fine wherever it sits on the sheet as long as the
+      // window can bring it out from under the chrome. That only fails at the
+      // sheet's own edges, where the pan clamps and the pin cannot be
+      // centred.
+      .filter(({ at, pan }) => inSafeArea(at.x - pan.tx, at.y - pan.ty));
     // Best first, decluttered, cut to length, THEN ordered by latitude: taking
     // the top of a latitude-sorted list would hand the reel whichever marks
     // happen to be furthest north rather than the ones worth showing.
@@ -208,13 +216,26 @@ export default function ExploreReel({
           </div>
 
           <div className="reelmap">
+            {/* The sheet, and everything pinned to it, slide together as one
+                transform. Pins are positioned in percentages of THIS layer,
+                so they cannot drift out of register with the image no matter
+                what the pan is doing -- there is only ever one thing moving. */}
+            <div
+              className="reelpan"
+              style={{
+                ["--iw" as string]: frame.width,
+                ["--ih" as string]: frame.height,
+                ["--tx" as string]: active.pan.tx,
+                ["--ty" as string]: active.pan.ty,
+              }}
+            >
             <Image
               src={frame.src}
               alt=""
               width={frame.width * 2}
               height={frame.height * 2}
               priority
-              sizes="(min-width: 940px) 46vw, 92vw"
+              sizes="(min-width: 420px) 505px, 135vw"
               className="reelmapimg"
             />
 
@@ -237,6 +258,7 @@ export default function ExploreReel({
                 </span>
               );
             })}
+            </div>
 
             <div className="reelchip">
               {/* City and region, as Explore's own location chip reads them. */}
