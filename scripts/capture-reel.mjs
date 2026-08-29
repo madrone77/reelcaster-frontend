@@ -6,6 +6,10 @@
  * numbers. This script prints the projection check it performed.
  *
  *   node scripts/capture-reel.mjs <outDir> '<json frames>'
+ *
+ * The PNG it writes is the master; encode with `cwebp -q 75`. Check a
+ * contour-dense crop against a higher q before trusting a lower one -- the
+ * contours are hairlines and are the first thing a quantizer eats.
  */
 import { chromium } from "@playwright/test";
 import fs from "node:fs";

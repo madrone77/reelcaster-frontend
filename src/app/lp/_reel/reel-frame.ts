@@ -111,10 +111,17 @@ export const REEL_FOCUS = { x: REEL_VIEW.width / 2, y: 316 } as const;
  *
  * ── What the sheet costs ─────────────────────────────────────────────────
  *
- * 605x1232 instead of 375x724, which is 204 KB of WebP instead of 94, and it
+ * 605x1232 instead of 375x724, which is 149 KB of WebP instead of 94, and it
  * is still the hero's LCP element. That is the price of the zoom: at z11 a
  * single screen holds four marks, and this holds six while showing each of
  * them at a scale where the bottom is legible.
+ *
+ * Encoded at cwebp -q 75 rather than the -q 82 the earlier one-screen frames
+ * used, which is 55 KB off a sheet 2.7x their area. Checked rather than
+ * assumed, because the thing at risk is exactly what the zoom was for: the
+ * contour lines are hairlines and they are the first thing a quantizer eats.
+ * They come through whole. What 75 costs is a little banding in the flat deep
+ * water, in a picture that renders about 500 CSS px wide.
  *
  * Six is not all of them. Seattle scores fifteen marks and they run from
  * Point Robinson to Admiralty Inlet, which at this zoom is a sheet four
