@@ -30,7 +30,11 @@ export const META_PIXEL_ID = process.env.NEXT_PUBLIC_META_PIXEL_ID ?? ''
  * CONVERSIONS are a different thing and need no code — they are built in Events
  * Manager on top of these same events.
  */
-export type MetaStandardEvent = 'PageView' | 'StartTrial' | 'Purchase'
+export type MetaStandardEvent =
+  | 'PageView'
+  | 'StartTrial'
+  | 'Purchase'
+  | 'CompleteRegistration'
 
 type Fbq = ((...args: unknown[]) => void) & { queue?: unknown[] }
 
@@ -68,8 +72,14 @@ fbq('track', 'PageView');`
  * `StartTrial`: the server sends that event with no value, and two deduplicated
  * halves of one conversion must not disagree about what it was worth. If a
  * value is ever added, add it on BOTH sides in the same change, and read
- * `subscription.currency` for the currency — the one multi-currency Price
- * always reports `cad`, including for American buyers.
+ * `subscription.currency` for the currency, because the one multi-currency
+ * Price always reports `cad`, including for American buyers.
+ *
+ * `CompleteRegistration` is the exception that proves the rule. It DOES carry a
+ * value, and both halves read it from the same constant in
+ * src/lib/signup-conversion.ts precisely so they cannot disagree. That value is
+ * modeled rather than charged, which is safe here only because it rides on its
+ * own event name and can never be added into Purchase revenue.
  */
 export function metaTrack(
   event: MetaStandardEvent,

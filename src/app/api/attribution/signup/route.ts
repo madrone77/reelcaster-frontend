@@ -1,6 +1,8 @@
 /**
  * POST /api/attribution/signup
- *   → { ok: true, written: boolean, offer_claimed: boolean, geo_written: boolean }
+ *   → { ok: true, written: boolean, new_account: boolean,
+ *       signup_path?: 'free' | 'checkout', offer_claimed: boolean,
+ *       geo_written: boolean }
  *
  * Stamps "which wall earned this account, and how did they find us" onto
  * `user_settings`, reading the rc_wall / rc_entry cookies off the request.
@@ -24,7 +26,14 @@
  * is worse than having none, because it looks like data.
  *
  * This route also stamps the account's coarse LOCATION (`geo_*`), which plays
- * by different rules and is written separately below — see writeGeo().
+ * by different rules and is written separately below, see writeGeo().
+ *
+ * And it is where a free signup BECOMES A CONVERSION. Because this is the one
+ * point every account passes through exactly once, whatever door it came in by,
+ * it is also the only place that can tell a new account from a customer signing
+ * in on a new laptop. So it writes the `marketing_conversions` row and answers
+ * `new_account`, which is the browser's cue to fire the Plausible goal and the
+ * Meta pixel. See src/lib/signup-conversion.ts for why both halves exist.
  */
 
 import { NextRequest, NextResponse } from 'next/server';
@@ -36,9 +45,14 @@ import {
   readPaid,
   readWall,
   type CampaignParams,
+  type EntryAttribution,
+  type PaidAttribution,
 } from '@/lib/attribution';
 import { readOffer } from '@/lib/offers';
 import { NAG_FEATURES } from '@/lib/plan-features';
+import { recordSignupConversion, type SubscriptionAcquisition } from '@/lib/conversions';
+import { classifyUserAgent } from '@/lib/device';
+import { readEdgeGeo } from '@/lib/edge-geo';
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
@@ -189,6 +203,53 @@ async function writeGeo(userId: string, geo: EdgeGeo): Promise<boolean> {
   return (data?.length ?? 0) > 0;
 }
 
+/**
+ * The acquisition context a signup conversion is recorded with.
+ *
+ * Mirrors what `attributionMetadata()` in the checkout route stamps onto a
+ * subscription, down to the choice of touch: last PAID click if there was one,
+ * otherwise first touch. Keeping the two rules identical is what lets a signup
+ * and the trial it later becomes sit in the same rollup and be compared.
+ *
+ * Every value is re-checked rather than trusted. These arrive from cookies the
+ * client can write by hand, and they end up in columns the campaign report
+ * groups on.
+ */
+function signupAcquisition(
+  request: NextRequest,
+  entry: EntryAttribution | null,
+  paid: PaidAttribution | null,
+): SubscriptionAcquisition {
+  const touch = paid ?? entry;
+  const ua = classifyUserAgent(request.headers.get('user-agent'));
+  const geo = readEdgeGeo(request.headers);
+
+  return {
+    attribution_model: touch ? (paid ? 'paid' : 'first') : null,
+    click_id: touch ? clickId(touch) : null,
+    click_type: touch ? clickType(touch) : null,
+    utm_source: touch?.utm_source || null,
+    utm_medium: touch?.utm_medium || null,
+    utm_campaign: touch?.utm_campaign || null,
+    utm_content: touch?.utm_content || null,
+    utm_term: touch?.utm_term || null,
+    landing_path: paid?.landing_path || null,
+    entry_path: entry?.entry_path || null,
+    // When the CLICK happened, not when the account was made. Meta builds fbc
+    // as fb.1.<click_time_ms>.<fbclid> and matches on it.
+    click_at: paid?.ts || null,
+    // The machine the account was made on. Unlike a purchase, this is usually
+    // also the machine that saw the ad, because a signup follows the click by
+    // minutes rather than by days.
+    device: ua.device === 'unknown' ? null : ua.device,
+    os: ua.os === 'unknown' ? null : ua.os,
+    geo_country: geo.country,
+    geo_region: geo.region,
+    geo_city: geo.city,
+    params: touch ? extraParams(touch) : null,
+  };
+}
+
 export async function POST(request: NextRequest) {
   const token = request.headers.get('authorization')?.replace(/^Bearer\s+/i, '');
   if (!token) {
@@ -219,8 +280,19 @@ export async function POST(request: NextRequest) {
   // ones the roster otherwise cannot place at all.
   const geo = readGeo(request);
 
-  if (!wall && !entry && !paid && !offer && !geo) {
-    return NextResponse.json({ ok: true, written: false, reason: 'no_attribution' });
+  // Whether this account is new enough for any of it to be believed. Computed
+  // before the early return below, because a brand new account with no cookies
+  // and no location at all is still a signup worth recording.
+  const accountAge = Date.now() - new Date(user.created_at).getTime();
+  const isNewAccount = accountAge <= ACCOUNT_AGE_GRACE_MS;
+
+  if (!wall && !entry && !paid && !offer && !geo && !isNewAccount) {
+    return NextResponse.json({
+      ok: true,
+      written: false,
+      new_account: false,
+      reason: 'no_attribution',
+    });
   }
 
   // The row may not exist yet for an account created seconds ago. DO NOTHING
@@ -236,6 +308,36 @@ export async function POST(request: NextRequest) {
 
   // Before every guard below, because none of them apply to a location.
   const geoWritten = geo ? await writeGeo(user.id, geo) : false;
+
+  // The conversion itself. Recorded for EVERY new account, including one the
+  // Stripe webhook created on the buy-first flow: that is a signup as well as a
+  // trial, and leaving it out would make the free door look better than it is
+  // by shrinking the denominator. The two are told apart afterwards by whether
+  // the account also has a trial_start row, and in Plausible by `signup_path`.
+  //
+  // Which path is read from the subscription, not guessed from the cookies. A
+  // free account is 'none'; anything else means a card was involved.
+  let signupPath: 'free' | 'checkout' = 'free';
+  if (isNewAccount) {
+    const { data: current } = await admin
+      .from('user_settings')
+      .select('subscription_status, attr_trial_at')
+      .eq('user_id', user.id)
+      .maybeSingle();
+
+    const status = current?.subscription_status ?? null;
+    if ((status && status !== 'none') || current?.attr_trial_at) signupPath = 'checkout';
+
+    await recordSignupConversion(admin, {
+      // The account's own creation time, not now. This runs when a browser
+      // first authenticates, which for a confirmed-by-email signup can be the
+      // next morning, and a conversion dated to the wrong day lands in the
+      // wrong cohort on every report that divides by spend.
+      userId: user.id,
+      occurredAt: user.created_at,
+      acquisition: signupAcquisition(request, entry, paid),
+    });
+  }
 
   // Offer claims are recorded BEFORE the account-age guard, and survive it.
   //
@@ -264,11 +366,11 @@ export async function POST(request: NextRequest) {
     }
   }
 
-  const accountAge = Date.now() - new Date(user.created_at).getTime();
-  if (accountAge > ACCOUNT_AGE_GRACE_MS) {
+  if (!isNewAccount) {
     return NextResponse.json({
       ok: true,
       written: false,
+      new_account: false,
       offer_claimed: offerClaimed,
       geo_written: geoWritten,
       reason: 'account_too_old',
@@ -279,6 +381,8 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({
       ok: true,
       written: false,
+      new_account: true,
+      signup_path: signupPath,
       offer_claimed: offerClaimed,
       geo_written: geoWritten,
       reason: 'no_attribution',
@@ -339,6 +443,11 @@ export async function POST(request: NextRequest) {
   return NextResponse.json({
     ok: true,
     written: (data?.length ?? 0) > 0,
+    // Deliberately independent of `written`, which is false whenever there were
+    // no cookies to write. A signup with no attribution is still a signup, and
+    // the browser fires its conversion events off this field.
+    new_account: true,
+    signup_path: signupPath,
     offer_claimed: offerClaimed,
     geo_written: geoWritten,
   });

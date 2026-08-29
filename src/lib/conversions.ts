@@ -22,8 +22,9 @@
 
 import type Stripe from 'stripe';
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { SIGNUP_MODELED_VALUE_CENTS, SIGNUP_VALUE_CURRENCY } from './signup-conversion';
 
-export type ConversionEvent = 'trial_start' | 'purchase';
+export type ConversionEvent = 'trial_start' | 'purchase' | 'signup';
 
 /** Which network to report a conversion to, given the id type it issued. */
 const NETWORK_BY_CLICK_TYPE: Record<string, string> = {
@@ -39,7 +40,14 @@ export function networkForClickType(clickType: string | null | undefined): strin
   return NETWORK_BY_CLICK_TYPE[clickType] ?? null;
 }
 
-/** The acquisition context the checkout route stamped onto the subscription. */
+/**
+ * The acquisition context the checkout route stamped onto the subscription.
+ *
+ * Also the shape a signup is recorded with, where it comes from the rc_entry
+ * and rc_paid cookies on the request instead of from Stripe metadata. Same
+ * columns, same meanings, so the two events stay comparable in every rollup
+ * that groups them.
+ */
 export interface SubscriptionAcquisition {
   attribution_model: string | null;
   click_id: string | null;
@@ -119,7 +127,11 @@ export function acquisitionFromSubscription(
 }
 
 export interface RecordConversionParams {
-  event: ConversionEvent;
+  /**
+   * Signup is excluded by type, not by convention: it has no subscription to
+   * key on, and every field below assumes one. See recordSignupConversion.
+   */
+  event: Exclude<ConversionEvent, 'signup'>;
   subscription: Stripe.Subscription;
   userId: string | null;
   /** From Stripe, in cents. Never a list-price constant and never client-sent. */
@@ -127,6 +139,70 @@ export interface RecordConversionParams {
   currency: string;
   occurredAt: string;
   invoiceId?: string | null;
+}
+
+/**
+ * Record a free signup as a conversion.
+ *
+ * Separate from `recordConversion` because everything that function relies on
+ * is missing here: there is no subscription to read metadata off, no invoice,
+ * and no money. What is left is an account, the moment it appeared, and the
+ * cookies the browser was carrying, which the caller has already checked
+ * against the enums (they arrive from a cookie the client can write by hand).
+ *
+ * Value is modeled, and it is kept out of `value_cents` on purpose. That column
+ * is Stripe's: the revenue rollups sum it, and a guess in there would turn into
+ * a number on a dashboard that reads as money. `modeled_value_cents` is the
+ * only place a made-up figure is allowed to live.
+ *
+ * No upload is attempted here, unlike the webhook, which drains the queue the
+ * moment it records. A signup has a browser standing right there firing the
+ * pixel, so the server leg is the backstop rather than the fast path, and
+ * making a person wait on a call to Meta to finish loading a page would be a
+ * poor trade. The hourly cron picks it up, and Meta accepts events for 7 days.
+ *
+ * @returns the new row's id, or null when nothing was inserted.
+ */
+export async function recordSignupConversion(
+  admin: SupabaseClient,
+  params: {
+    userId: string;
+    occurredAt: string;
+    acquisition: SubscriptionAcquisition;
+  },
+): Promise<number | null> {
+  const acq = params.acquisition;
+  const network = networkForClickType(acq.click_type);
+  const uploadStatus = acq.click_id && network ? 'pending' : 'skipped';
+
+  const { data, error } = await admin
+    .from('marketing_conversions')
+    .insert({
+      user_id: params.userId,
+      event_type: 'signup' satisfies ConversionEvent,
+      occurred_at: params.occurredAt,
+      value_cents: 0,
+      modeled_value_cents: SIGNUP_MODELED_VALUE_CENTS,
+      currency: SIGNUP_VALUE_CURRENCY,
+      // Null, and the check constraint allows it only for this event type.
+      stripe_subscription_id: null,
+      ...acq,
+      upload_status: uploadStatus,
+      upload_network: network,
+    })
+    .select('id');
+
+  if (error) {
+    // A duplicate is the system working: the caller fires on every page load
+    // for the whole grace window, and the partial unique index is what makes
+    // that safe. Insert rather than upsert because a partial index cannot be an
+    // onConflict target in PostgREST, so the conflict is caught here instead.
+    if (error.code === '23505') return null;
+    console.warn('[conversions] signup record failed', error);
+    return null;
+  }
+
+  return data?.[0]?.id ?? null;
 }
 
 /**

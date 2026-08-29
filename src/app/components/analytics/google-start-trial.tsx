@@ -3,11 +3,7 @@
 import { useEffect, useRef } from 'react'
 import { useAuth } from '@/contexts/auth-context'
 import { googleTrackTrialStart } from '@/lib/google-ads'
-
-interface ConversionEventResponse {
-  event: 'StartTrial' | null
-  event_id: string | null
-}
+import type { TrialConversion } from './use-trial-conversion'
 
 /**
  * Fires the Google Ads trial-start conversion on the checkout return page.
@@ -22,15 +18,17 @@ interface ConversionEventResponse {
  * different failure modes and different config, and the Meta leg has a working
  * server-side backstop where this one has none (see src/lib/google-ads.ts).
  * Coupling them would mean a change for one network can break reporting for
- * the other.
+ * the other. The conversion answer itself IS shared, as a prop, because asking
+ * three times was three requests racing the redirect off this page; see
+ * use-trial-conversion.ts.
  *
  * The email is for enhanced conversions and is genuinely optional. In the
  * pay-first flow the account is still being claimed when this page first
  * renders, so `user` is null for a second or two. Putting `email` in the
  * effect deps would have looked like the fix and was not: the first run fires
  * without an email and claims the dedupe key, so the re-run with the email
- * arrives to find the conversion already reported. Instead the fetch starts
- * immediately, then we give the claim a bounded moment to produce an email
+ * arrives to find the conversion already reported. Instead the conversion is
+ * resolved for us, then we give the claim a bounded moment to produce an email
  * before firing once. If it never does, the conversion fires anyway. Worse
  * match quality beats a missing conversion.
  */
@@ -38,15 +36,16 @@ interface ConversionEventResponse {
 /** How long to wait for the account claim before firing without an email. */
 const EMAIL_GRACE_MS = 2000
 const EMAIL_POLL_MS = 250
-export default function GoogleStartTrial({ sessionId }: { sessionId: string | null }) {
+export default function GoogleStartTrial({ conversion }: { conversion: TrialConversion }) {
   const { user } = useAuth()
+  const { event, eventId } = conversion
   // Read through a ref so the effect can wait on the email without listing it
   // as a dependency and re-running the whole conversion.
   const emailRef = useRef<string | null>(null)
   emailRef.current = user?.email ?? null
 
   useEffect(() => {
-    if (!sessionId) return
+    if (event !== 'StartTrial' || !eventId) return
 
     let cancelled = false
 
@@ -59,41 +58,26 @@ export default function GoogleStartTrial({ sessionId }: { sessionId: string | nu
       return emailRef.current
     }
 
-    const run = async () => {
-      let body: ConversionEventResponse
-      try {
-        const res = await fetch(
-          `/api/stripe/conversion-event?session_id=${encodeURIComponent(sessionId)}`,
-        )
-        if (!res.ok) return
-        body = (await res.json()) as ConversionEventResponse
-      } catch {
-        // Never let conversion reporting break the page a customer just paid on.
-        return
-      }
-
-      if (cancelled || body.event !== 'StartTrial' || !body.event_id) return
-
-      // Google dedupes on transaction_id, so this guard is belt and braces —
-      // which is why a browser that refuses storage (iOS with cookies blocked
-      // makes this THROW, not return null) falls through and fires anyway
-      // rather than going silent.
-      const key = `rc_google_fired:${body.event_id}`
-      try {
-        if (window.sessionStorage.getItem(key)) return
-        window.sessionStorage.setItem(key, '1')
-      } catch {
-        // Storage unavailable. Fire and let Google deduplicate.
-      }
-
-      googleTrackTrialStart(body.event_id, await waitForEmail())
+    // Google dedupes on transaction_id, so this guard is belt and braces,
+    // which is why a browser that refuses storage (iOS with cookies blocked
+    // makes this THROW, not return null) falls through and fires anyway
+    // rather than going silent.
+    const key = `rc_google_fired:${eventId}`
+    try {
+      if (window.sessionStorage.getItem(key)) return
+      window.sessionStorage.setItem(key, '1')
+    } catch {
+      // Storage unavailable. Fire and let Google deduplicate.
     }
 
-    run()
+    void waitForEmail().then((email) => {
+      if (!cancelled) googleTrackTrialStart(eventId, email)
+    })
+
     return () => {
       cancelled = true
     }
-  }, [sessionId])
+  }, [event, eventId])
 
   return null
 }

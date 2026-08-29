@@ -25,23 +25,74 @@
 
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { googleAdsConfig, googleAccessToken, googleAdsHeaders } from './google-ads-auth';
+import { META_SIGNUP_EVENT, signupEventId } from './signup-conversion';
 
 /** Give up after this many tries, so a permanently bad row stops churning. */
 const MAX_ATTEMPTS = 5;
 
 export interface ConversionRow {
   id: number;
-  event_type: 'trial_start' | 'purchase';
+  event_type: 'trial_start' | 'purchase' | 'signup';
   occurred_at: string;
   click_at: string | null;
   value_cents: number;
+  /** Reporting-only worth of a free signup. Zero on the two Stripe events. */
+  modeled_value_cents: number;
   currency: string;
   click_id: string | null;
   click_type: string | null;
   upload_network: string | null;
   upload_attempts: number;
   landing_path: string | null;
-  stripe_subscription_id: string;
+  /** Null on a signup, which is the one event with no subscription behind it. */
+  stripe_subscription_id: string | null;
+  /** Null on the anon buy-first flow until the account exists. */
+  user_id: string | null;
+}
+
+/**
+ * The id a conversion is deduplicated on, shared with whatever browser tag
+ * reports the same event.
+ *
+ * Stripe events key on the subscription, which both halves can see. A signup
+ * has none, so it keys on the account instead, via the same helper the browser
+ * uses. A signup with no user id cannot be deduplicated and is not uploaded at
+ * all; that combination does not occur, because the row is written by the route
+ * that authenticated the user.
+ */
+export function conversionEventId(row: ConversionRow): string | null {
+  if (row.event_type === 'signup') {
+    return row.user_id ? signupEventId(row.user_id) : null;
+  }
+  return row.stripe_subscription_id ? `${row.stripe_subscription_id}:${row.event_type}` : null;
+}
+
+/** The Meta standard event each of ours reports as. */
+export function metaEventName(event: ConversionRow['event_type']): string {
+  if (event === 'purchase') return 'Purchase';
+  if (event === 'signup') return META_SIGNUP_EVENT;
+  return 'StartTrial';
+}
+
+/**
+ * What to tell Meta the conversion was worth, or null to send no value.
+ *
+ * A purchase reports what Stripe actually charged. A signup reports a modeled
+ * figure, which is honest only because it rides on its own event name and can
+ * never be summed into purchase revenue. A trial start reports nothing, because
+ * a free week is worth nothing until it converts and the purchase event says so
+ * seven days later.
+ */
+export function conversionValue(
+  row: ConversionRow,
+): { value: number; currency: string } | null {
+  if (row.event_type === 'purchase') {
+    return { value: row.value_cents / 100, currency: row.currency.toUpperCase() };
+  }
+  if (row.event_type === 'signup' && row.modeled_value_cents > 0) {
+    return { value: row.modeled_value_cents / 100, currency: row.currency.toUpperCase() };
+  }
+  return null;
 }
 
 export type UploadOutcome =
@@ -58,7 +109,9 @@ function googleConversionAction(event: ConversionRow['event_type']): string | nu
   const raw =
     event === 'purchase'
       ? process.env.GOOGLE_ADS_CONVERSION_ACTION_PURCHASE
-      : process.env.GOOGLE_ADS_CONVERSION_ACTION_TRIAL;
+      : event === 'signup'
+        ? process.env.GOOGLE_ADS_CONVERSION_ACTION_SIGNUP
+        : process.env.GOOGLE_ADS_CONVERSION_ACTION_TRIAL;
   return raw?.trim() || null;
 }
 
@@ -110,7 +163,7 @@ async function uploadToGoogle(row: ConversionRow): Promise<UploadOutcome> {
             conversionAction,
             // Click time, not conversion time, is what Google reports against.
             conversionDateTime: googleDateTime(row.click_at ?? row.occurred_at),
-            conversionValue: row.value_cents / 100,
+            conversionValue: conversionValue(row)?.value ?? 0,
             currencyCode: row.currency.toUpperCase(),
           },
         ],
@@ -167,24 +220,25 @@ async function uploadToMeta(row: ConversionRow): Promise<UploadOutcome> {
   const fbc = metaFbc(row);
   if (!fbc) return { status: 'skipped', reason: 'no_click_id' };
 
-  const isPurchase = row.event_type === 'purchase';
+  const eventId = conversionEventId(row);
+  if (!eventId) return { status: 'skipped', reason: 'no_event_id' };
+
   const origin = process.env.NEXT_PUBLIC_SITE_URL || 'https://www.reelcaster.com';
+  const value = conversionValue(row);
 
   const payload: Record<string, unknown> = {
     data: [
       {
-        event_name: isPurchase ? 'Purchase' : 'StartTrial',
+        event_name: metaEventName(row.event_type),
         event_time: Math.floor(new Date(row.occurred_at).getTime() / 1000),
         action_source: 'website',
         event_source_url: `${origin}${row.landing_path ?? '/'}`,
-        // Stable and derived, not random: if a browser pixel is ever added for
-        // the same event, Meta dedupes the pair on this rather than counting
-        // the conversion twice.
-        event_id: `${row.stripe_subscription_id}:${row.event_type}`,
+        // Stable and derived, not random: the browser fires StartTrial and
+        // CompleteRegistration with these same ids, and Meta dedupes the pair
+        // on them rather than counting each conversion twice.
+        event_id: eventId,
         user_data: { fbc },
-        ...(isPurchase
-          ? { custom_data: { value: row.value_cents / 100, currency: row.currency.toUpperCase() } }
-          : {}),
+        ...(value ? { custom_data: value } : {}),
       },
     ],
   };
@@ -245,7 +299,7 @@ export async function uploadPendingConversions(
   const { data, error } = await admin
     .from('marketing_conversions')
     .select(
-      'id, event_type, occurred_at, click_at, value_cents, currency, click_id, click_type, upload_network, upload_attempts, landing_path, stripe_subscription_id',
+      'id, event_type, occurred_at, click_at, value_cents, modeled_value_cents, currency, click_id, click_type, upload_network, upload_attempts, landing_path, stripe_subscription_id, user_id',
     )
     .eq('upload_status', 'pending')
     .lt('upload_attempts', MAX_ATTEMPTS)

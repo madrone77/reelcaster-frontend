@@ -2,11 +2,7 @@
 
 import { useEffect } from 'react'
 import { PLAUSIBLE_TRIAL_EVENT, plausibleTrack } from '@/lib/plausible'
-
-interface ConversionEventResponse {
-  event: 'StartTrial' | null
-  event_id: string | null
-}
+import type { TrialConversion } from './use-trial-conversion'
 
 /**
  * Reports the trial start to Plausible on the checkout return page.
@@ -18,10 +14,13 @@ interface ConversionEventResponse {
  * the session id into an honest answer, and a plain monthly purchase answers
  * `event: null` and reports nothing.
  *
- * Its own request rather than a value shared with the other two. They are kept
- * apart on purpose (see google-start-trial.tsx): one network's config or
- * failure must not be able to take another network's reporting down with it.
- * The cost is a third call to that endpoint on this page.
+ * The answer arrives as a prop rather than from a request of its own. The
+ * three tags used to ask separately, which was three requests racing the
+ * two-second bounce to /explore, and this one lost often enough that the goal
+ * looked broken while the /billing/success pageview goal kept counting. They
+ * are still three separate components firing separately, so one network's
+ * config or failure cannot take another's reporting down; only the question is
+ * shared. See use-trial-conversion.ts.
  *
  * ⚠ Plausible does NOT deduplicate. Meta and Google both discard a repeat with
  * a known event id, which makes their sessionStorage guards belt and braces;
@@ -38,43 +37,26 @@ interface ConversionEventResponse {
  * that has not started yet is simply lost, and that is survivable: this is a
  * pageview counter, not the conversion feed a bidder learns from.
  */
-export default function PlausibleStartTrial({ sessionId }: { sessionId: string | null }) {
+export default function PlausibleStartTrial({
+  conversion,
+}: {
+  conversion: TrialConversion
+}) {
+  const { event, eventId } = conversion
+
   useEffect(() => {
-    if (!sessionId) return
+    if (event !== 'StartTrial' || !eventId) return
 
-    let cancelled = false
-
-    const run = async () => {
-      let body: ConversionEventResponse
-      try {
-        const res = await fetch(
-          `/api/stripe/conversion-event?session_id=${encodeURIComponent(sessionId)}`,
-        )
-        if (!res.ok) return
-        body = (await res.json()) as ConversionEventResponse
-      } catch {
-        // Never let analytics break the page a customer just paid on.
-        return
-      }
-
-      if (cancelled || body.event !== 'StartTrial' || !body.event_id) return
-
-      const key = `rc_plausible_fired:${body.event_id}`
-      try {
-        if (window.sessionStorage.getItem(key)) return
-        window.sessionStorage.setItem(key, '1')
-      } catch {
-        // Storage unavailable. Fire rather than go quiet; see above.
-      }
-
-      plausibleTrack(PLAUSIBLE_TRIAL_EVENT)
+    const key = `rc_plausible_fired:${eventId}`
+    try {
+      if (window.sessionStorage.getItem(key)) return
+      window.sessionStorage.setItem(key, '1')
+    } catch {
+      // Storage unavailable. Fire rather than go quiet; see above.
     }
 
-    run()
-    return () => {
-      cancelled = true
-    }
-  }, [sessionId])
+    plausibleTrack(PLAUSIBLE_TRIAL_EVENT)
+  }, [event, eventId])
 
   return null
 }
