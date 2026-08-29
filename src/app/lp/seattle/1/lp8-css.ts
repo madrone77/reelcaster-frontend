@@ -348,7 +348,7 @@ export const LP8_CSS = `
 .l8 .reeladd{font-size:calc(11.5 * var(--sp));font-weight:600;color:var(--l8-brand)}
 
 .l8 .reelcount{
-  /* Clear of the card, which grew when the VIEW MORE row went in. */
+  /* Clear of the card, which grew when the FULL REPORT row went in. */
   position:absolute;left:calc(14 * var(--sp));bottom:calc(232 * var(--sp));
   background:rgba(18,21,26,.82);color:#fff;
   font-family:var(--l8-mono);font-size:calc(10.5 * var(--sp));font-weight:600;

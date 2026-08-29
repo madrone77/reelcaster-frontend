@@ -299,7 +299,7 @@ function HouseCard({ placement }: { placement: AdPlacement }) {
         </p>
       </div>
 
-      {/* The footer step, exactly where a spot card puts VIEW MORE — so the
+      {/* The footer step, exactly where a spot card puts FULL REPORT — so the
           eye lands on the action in the place it has already learned to. */}
       <div className="flex items-stretch border-t border-rc-rule bg-rc-surface">
         <TrialModalButton
