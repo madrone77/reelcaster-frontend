@@ -283,7 +283,7 @@ export default function ExploreReel({
                 <TrendBars hours={card.hours} from={card.bestFrom} to={card.bestTo} />
               </div>
               <div className="reelmore">
-                <span>VIEW MORE →</span>
+                <span>FULL REPORT →</span>
                 <b aria-hidden>★</b>
               </div>
             </div>
