@@ -1,5 +1,5 @@
 import type { LpCard } from "../_shared/lp-spot";
-import { lpRegionFor } from "../_shared/lp-region";
+import { areaLabelFor } from "@/lib/regions";
 import type { MapSpotsPayload } from "@/lib/bluecaster";
 import { formatConditions, speciesDisplayName } from "@/app/explore/lib/explore-data";
 
@@ -202,7 +202,6 @@ export function buildCityProof(
   const heroSpeciesId =
     cardSpeciesId && cardCount >= bestCount * 0.6 ? cardSpeciesId : widest;
 
-  const region = lpRegionFor(card.provinceCode);
   const marks: Array<{ name: string; score: number; slug: string }> = [];
   const pins: ReelPin[] = [];
   let heroMark: HeroMark | null = null;
@@ -237,7 +236,14 @@ export function buildCityProof(
           species: speciesDisplayName(
             payload.species[heroSpeciesId]?.name ?? card.species,
           ),
-          area: spot.area ? `${region.areaShort} ${spot.area}` : null,
+          // Labelled from the agency the payload names, not from the page's
+          // own province: a mark can sit on a city's roster from the other
+          // side of the border, and this page would then print one
+          // regulator's word over the other's number.
+          area: areaLabelFor(spot.area, {
+            agency: spot.area_agency,
+            region: card.provinceCode,
+          }),
           wind: cond.wind,
           sea: cond.sea,
           current: cond.current,

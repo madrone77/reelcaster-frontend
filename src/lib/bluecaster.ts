@@ -332,6 +332,13 @@ export interface MapSpotEntry {
    * back with no area at all until 2026-08-29.
    */
   area?: string | null;
+  /**
+   * Who numbers that area: "DFO" or "WDFW". Travels with the number because
+   * the number cannot be labelled without it, and a spot's regulator is NOT
+   * reliably its city's — a mark belongs to the nearest city and the nearest
+   * city can be over a border. Optional for the same reason `area` is.
+   */
+  area_agency?: string | null;
   best_species_id: string | null;
   scores: Record<string, MapSpeciesStrip>;
   conditions: MapCondStrip | null;
