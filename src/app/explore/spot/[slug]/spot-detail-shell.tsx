@@ -14,7 +14,8 @@ import { bestWindow } from "../../components/hourly-bars";
 import UpgradeDialog from "../../components/upgrade-dialog";
 import { fmtPeak, zonedHourToUtcIso, zoneAbbrev } from "../../lib/explore-data";
 import { useSpotClock } from "../../lib/use-spot-clock";
-import { formatHour12 } from "@/lib/time-format";
+import { useAutoRefresh } from "../../lib/use-auto-refresh";
+import { formatHour12, formatTime12 } from "@/lib/time-format";
 import {
   buildForecastDays,
   type ForecastDay,
@@ -77,6 +78,39 @@ const ProTrialModal = dynamic(
 
 /** Catch-report window. Matches FRESH_DAYS in the fresh-catches route. */
 const FRESH_DAYS = 21;
+
+/**
+ * How often an open page refetches its live numbers.
+ *
+ * Five minutes because that is what the sub-header has always told readers,
+ * and because it is roughly the resolution of what changes underneath: the
+ * hourly grids move on the hour, the conditions and currents behind them a
+ * good deal slower.
+ */
+const AUTO_REFRESH_MS = 5 * 60_000;
+
+/**
+ * "10:42 AM" in the spot's own timezone, matching every other clock here.
+ *
+ * Built from parts and handed to `formatTime12` rather than formatted by
+ * `Intl` directly: the locale decides the shape of a formatted time, and
+ * `en-CA` renders "10:05 a.m.", which the sub-header's `uppercase` would then
+ * serve as "10:05 A.M." next to a page that says "10 AM" everywhere else.
+ */
+function formatClock(at: Date, tz: string): string {
+  // Matches `currentLocalHour`: an invalid instant would make Intl throw, and
+  // a freshness stamp is not worth taking the page down for.
+  const when = Number.isFinite(at.getTime()) ? at : new Date();
+  const parts = new Intl.DateTimeFormat("en-GB", {
+    timeZone: tz,
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  }).formatToParts(when);
+  const part = (type: string) =>
+    Number(parts.find((p) => p.type === type)?.value ?? 0);
+  return formatTime12(part("hour") % 24, part("minute"));
+}
 
 /**
  * How far an ad page's wall opens the forecast strip, for a visitor with no
@@ -527,6 +561,18 @@ export default function SpotDetailShell({
     ]);
   }, [loadForecast, loadScore, loadCurrents, loadReports, loadFresh]);
 
+  /**
+   * The "auto-refresh 5 min" the sub-header has always claimed.
+   *
+   * Both ways of refreshing this page go through `runRefresh` — the timer and
+   * the pull gesture — so they share one in-flight guard and one clock, and a
+   * pull resets the countdown instead of racing it.
+   */
+  const { run: runRefresh, at: refreshedAt } = useAutoRefresh(
+    refresh,
+    AUTO_REFRESH_MS,
+  );
+
   const hours24 = useMemo(() => {
     const grid = selId ? fcSource.hourlyScoreGrid[selId] : undefined;
     return grid?.[dayIndex] ?? grid?.[0] ?? new Array(24).fill(null);
@@ -843,7 +889,7 @@ export default function SpotDetailShell({
       {/* Pull down from the top of the page to refetch the live numbers. Sits
           outside the flow — it draws a floating indicator and nothing else, so
           nothing below it shifts. */}
-      <PullToRefresh onRefresh={refresh} />
+      <PullToRefresh onRefresh={runRefresh} />
 
       <div className="pt-16">
         {/* Desktop sub-header: breadcrumb + freshness. Full-bleed rule, inner
@@ -919,6 +965,11 @@ export default function SpotDetailShell({
             <div className="flex items-center gap-1.5 font-rc-mono text-[10px] text-rc-ink-mute uppercase tracking-[0.08em]">
               <span className="w-1.5 h-1.5 rounded-full bg-rc-good" />
               Live · auto-refresh 5 min
+              {/* Only after a refresh has actually run. Rendering a time on
+                  first paint would be a hydration mismatch on a page served
+                  from the ISR cache, and a claim about freshness that the
+                  cached HTML is in no position to make. */}
+              {refreshedAt && <> · updated {formatClock(refreshedAt, TZ)}</>}
             </div>
           </div>
         </div>
