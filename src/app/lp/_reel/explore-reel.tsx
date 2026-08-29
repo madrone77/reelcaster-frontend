@@ -193,7 +193,17 @@ export default function ExploreReel({
         <div className="reelbody">
           <div className="reelscreen">
           <div className="reelnav">
-            <span className="reelwm">REELCASTER</span>
+            {/* The app's own bar carries the mark, so the phone does too.
+                White-on-brand variant, because this strip is the brand blue;
+                the blue knockout would put a blue box on a blue bar. */}
+            <Image
+              className="reelwm"
+              src="/reelcaster-mark-white.svg"
+              alt=""
+              width={104}
+              height={48}
+              priority
+            />
             <span className="reelnavcta">START FREE TRIAL</span>
           </div>
 
