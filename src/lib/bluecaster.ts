@@ -322,6 +322,16 @@ export interface MapSpotEntry {
    *  anywhere in the product (`depth_avg_m` is null on all 164 published
    *  spots, `depth_profiles` holds 7 rows, `catch_signals.depth_ft` 2). */
   bottom?: string | null;
+  /**
+   * The management area the mark is regulated under, as the regulator writes
+   * it: "10" for a WDFW Marine Area, "19-3" for a DFO subarea, null where the
+   * spot has never been placed in one.
+   *
+   * Optional because it is newer than the responses the edge may still be
+   * serving, and because a consumer must never depend on it: the payload came
+   * back with no area at all until 2026-08-29.
+   */
+  area?: string | null;
   best_species_id: string | null;
   scores: Record<string, MapSpeciesStrip>;
   conditions: MapCondStrip | null;

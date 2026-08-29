@@ -53,6 +53,14 @@ export interface LpRegion {
    */
   areaBadge: string;
   /**
+   * The badge's short form, for sitting beside a spot name: "MA 10",
+   * "Area 19-3". Same jurisdictional split as `areaBadge` and it has to stay
+   * that way -- WDFW numbers Marine Areas and DFO numbers Areas and Subareas,
+   * and printing one's word over the other's number is the kind of error an
+   * angler spots instantly.
+   */
+  areaShort: string;
+  /**
    * Whether this water is American. Drives the market chrome on /lp/6 (the
    * flag) and the order of the coverage answer below. Kept as a country fact
    * rather than a per-state list so adding another US state is nothing.
@@ -92,6 +100,7 @@ export function lpRegionFor(provinceCode: string | null | undefined): LpRegion {
       : "Less than half a gallon of boat fuel per month.",
     areaModifier: metric ? "DFO subarea" : "WDFW Marine Area",
     areaBadge: metric ? "DFO PFMA" : "WDFW MARINE AREA",
+    areaShort: metric ? "Area" : "MA",
     isUS: !metric,
     coverageAnswer: metric
       ? "coastal British Columbia and Washington"

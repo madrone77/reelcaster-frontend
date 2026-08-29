@@ -1,6 +1,8 @@
 "use client";
 
 import Image from "next/image";
+import { Home, Map, NotebookPen, MoreHorizontal } from "lucide-react";
+import type { LucideIcon } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { tierFor, TIER_PIN } from "@/app/explore/lib/explore-data";
 import type { ReelPin } from "./city-proof";
@@ -32,6 +34,19 @@ import { placePin, panFor, inSafeArea, type ReelFrame } from "./reel-frame";
  * element, and nothing here blocks it: the pins are absolutely positioned over
  * it and the first card is rendered on the server.
  */
+
+/**
+ * The tab bar, matching components/mobile-bottom-nav.tsx tab for tab and icon
+ * for icon. Explore is the lit one because Explore is what the phone is
+ * showing; a hero whose nav highlights a tab other than the screen it is on
+ * is a mistake nobody can name but everybody feels.
+ */
+const REEL_TABS: { label: string; Icon: LucideIcon; on?: boolean }[] = [
+  { label: "Home", Icon: Home },
+  { label: "Explore", Icon: Map, on: true },
+  { label: "Catch log", Icon: NotebookPen },
+  { label: "More", Icon: MoreHorizontal },
+];
 
 /** How long the reel rests on each spot. */
 const DWELL_MS = 2400;
@@ -212,7 +227,10 @@ export default function ExploreReel({
               height={48}
               priority
             />
-            <span className="reelnavcta">START FREE TRIAL</span>
+            {/* Sentence case in the markup and uppercased in CSS, as the
+                real button is: the label a screen reader reads should be the
+                label the product uses. */}
+            <span className="reelnavcta">Start free trial</span>
           </div>
 
           <div className="reelmap">
@@ -284,7 +302,15 @@ export default function ExploreReel({
                   {card.score} {tier.toUpperCase()}
                 </span>
               </div>
-              <div className="reelsp">{card.species}</div>
+              <div className="reelsp">
+                {card.species}
+                {/* The management area, as the regulator numbers it. Muted,
+                    because it is where the mark is rather than what is biting
+                    there -- and it earns its place beside the species because
+                    seasons and limits are set per area, so it is the first
+                    thing an angler checks a spot name against. */}
+                {card.area ? <span className="reelarea">{card.area}</span> : null}
+              </div>
               {/* The three readings and the day's shape, side by side, as the
                   real card lays them out. */}
               <div className="reelmetarow">
@@ -310,11 +336,18 @@ export default function ExploreReel({
               </div>
             </div>
 
+            {/* The app's four tabs, drawn with the app's own icons rather
+                than lookalikes: these are the same lucide glyphs
+                components/mobile-bottom-nav.tsx renders, imported from the
+                same package, so the phone in the hero cannot end up with a
+                tab bar the product does not have. */}
             <div className="reeltabs">
-              <span>Home</span>
-              <span className="on">Explore</span>
-              <span>Catch log</span>
-              <span>More</span>
+              {REEL_TABS.map(({ label, Icon, on }) => (
+                <span key={label} className={on ? "on" : undefined}>
+                  <Icon aria-hidden />
+                  <em>{label}</em>
+                </span>
+              ))}
             </div>
             </div>
           </div>
