@@ -179,7 +179,7 @@ export const VANCOUVER_FRAME: ReelFrame = {
  * where the window runs out of room to centre the pin.
  *
  * y1 is measured from the card, not guessed: the card sits 74 screen-px off
- * the bottom and stands about 221 tall with its VIEW MORE row, which puts its
+ * the bottom and stands about 221 tall with its FULL REPORT row, which puts its
  * top edge at 503. A pin draws its badge some 28px above its own point, so
  * 462 is the last row whose badge clears the card.
  */

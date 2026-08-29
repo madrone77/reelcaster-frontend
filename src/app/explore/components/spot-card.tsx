@@ -22,7 +22,7 @@ const ProTrialModal = dynamic(
 /**
  * Rail spot card. No hover-only actions: header + score badge, a plain-English
  * conclusion line, a WIND/SEA/TIDE meta row, the 24h sparkline, an optional
- * 14-day strip, and a persistent footer (VIEW 14-DAY link + favorite star).
+ * 14-day strip, and a persistent footer (FULL REPORT link + favorite star).
  * The whole body above the footer opens the location report; the strip and the
  * footer controls act on their own.
  */
@@ -290,7 +290,7 @@ export default function SpotCard({
           onClick={(e) => e.stopPropagation()}
           className="flex flex-1 items-center min-h-11 text-left px-3 py-2 font-rc-mono text-[11px] font-semibold tracking-[0.08em] text-rc-brand hover:bg-rc-brand-soft/40 transition-colors"
         >
-          VIEW MORE →
+          FULL REPORT →
         </Link>
         <div className="w-px bg-rc-rule" aria-hidden />
         <button
