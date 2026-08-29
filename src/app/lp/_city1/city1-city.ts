@@ -20,6 +20,24 @@ import {
  * billing region because it can start a checkout; this page never asks for a
  * card, so it does not.
  */
+/**
+ * The where/what/when photograph, and what the caption may claim about it.
+ *
+ * `mark` is the spot's name EXACTLY as `fishing_spots.name` has it, because
+ * the caption prints it and a landing page naming a mark the app does not is
+ * the kind of error a local reader catches instantly. "The Bell Buoy" is a
+ * real published Vancouver spot in DFO subarea 29-3; "Jefferson Head" is a
+ * Seattle one in WDFW Marine Area 10.
+ */
+export interface City1Shot {
+  src: string;
+  /** Intrinsic pixels of the asset, for next/image. */
+  width: number;
+  height: number;
+  /** The mark pictured, spelled as the app spells it. */
+  mark: string;
+}
+
 export interface City1City {
   /**
    * The full slug, e.g. "seattle-wa". Never the path segment.
@@ -64,6 +82,24 @@ export interface City1City {
    */
   colourVerb: string;
   /**
+   * The where/what/when render: a photograph of one real spot page on THIS
+   * city's own water.
+   *
+   * It used to be one shared image of Jefferson Head, in WDFW Marine Area 10,
+   * with a runtime test against the city's roster deciding whether to caption
+   * it as the reader's water or as "an example from Washington". That test
+   * existed only because one screenshot had to serve every city, and the
+   * fallback caption was the honest way to stop a WDFW area label implying it
+   * governs Canadian water.
+   *
+   * Giving each city its own shot removes the question rather than answering
+   * it: every reader now sees a mark they could launch at, under the regulator
+   * that actually governs it, and there is no branch left to get wrong. That
+   * is why this is required rather than optional -- a city added without one
+   * would otherwise silently fall back to another jurisdiction's screen.
+   */
+  shot: City1Shot;
+  /**
    * The water in the footer line, in the words somebody here would use.
    *
    * Seattle says "the Salish Sea" because that is what shipped and this page
@@ -79,6 +115,12 @@ export const SEATTLE_1: City1City = {
   frame: SEATTLE_FRAME,
   heroSpecies: "Halibut, Coho, Kings or Lings",
   colourVerb: "colored",
+  shot: {
+    src: "/marketing/where-what-when-seattle.png",
+    width: 1453,
+    height: 1820,
+    mark: "Jefferson Head",
+  },
   footerWater: "the Salish Sea",
 };
 
@@ -88,5 +130,11 @@ export const VANCOUVER_1: City1City = {
   frame: VANCOUVER_FRAME,
   heroSpecies: "Halibut, Coho, Springs or Lings",
   colourVerb: "coloured",
+  shot: {
+    src: "/marketing/where-what-when-vancouver.png",
+    width: 1394,
+    height: 1820,
+    mark: "The Bell Buoy",
+  },
   footerWater: "the Strait of Georgia",
 };
