@@ -1,4 +1,5 @@
 import type { LpCard } from "../_shared/lp-spot";
+import { areaLabelFor } from "@/lib/regions";
 import type { MapSpotsPayload } from "@/lib/bluecaster";
 import { formatConditions, speciesDisplayName } from "@/app/explore/lib/explore-data";
 
@@ -73,6 +74,19 @@ export interface ReelPin {
   lng: number;
   /** Display name, "Pacific" already stripped. */
   species: string;
+  /**
+   * The management area the mark is regulated under, already labelled for its
+   * jurisdiction: "MA 10" in Washington, "Area 19-3" in BC. Null when the
+   * payload carries no area for the spot.
+   *
+   * Read straight off the map payload, which reads it off the column the
+   * regulatory gate resolves against. Deliberately NOT derived here by testing
+   * the spot's coordinates against the area polygons the map draws: that would
+   * be a second answer to "which area is this mark in", free to disagree with
+   * the one the spot was actually scored under, and a landing page is the
+   * worst place to discover the two had drifted.
+   */
+  area: string | null;
   /**
    * The three readings the real Explore preview card shows, formatted by the
    * product's OWN formatter rather than re-derived here. A landing page that
@@ -222,6 +236,14 @@ export function buildCityProof(
           species: speciesDisplayName(
             payload.species[heroSpeciesId]?.name ?? card.species,
           ),
+          // Labelled from the agency the payload names, not from the page's
+          // own province: a mark can sit on a city's roster from the other
+          // side of the border, and this page would then print one
+          // regulator's word over the other's number.
+          area: areaLabelFor(spot.area, {
+            agency: spot.area_agency,
+            region: card.provinceCode,
+          }),
           wind: cond.wind,
           sea: cond.sea,
           current: cond.current,

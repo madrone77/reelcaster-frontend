@@ -238,12 +238,21 @@ export const LP8_CSS = `
   line-height:1.25;
 }
 
-/* app chrome: the blue header carries the status bar, as it does in the app */
+/* App chrome: the blue header carries the status bar, as it does in the app.
+   116sp is a 52sp status strip and then the app bar, and the app bar's numbers
+   below are not styling decisions -- they are ExploreTopBar's own, measured off
+   it at 375px, which is exactly the width this frame is drawn at:
+
+     bar 64 tall, 16 of side padding, mark 104x48, CTA 40 tall,
+     4 radius, 12/700 uppercase with 0.3 of tracking.
+
+   Anything invented here is the hero quietly disagreeing with the screen it is
+   a picture of, which is the one job this component has. */
 .l8 .reelnav{
   position:absolute;inset:0 0 auto 0;height:calc(116 * var(--sp));
   background:var(--l8-brand);color:#fff;
-  display:flex;align-items:flex-end;justify-content:space-between;
-  padding:0 calc(16 * var(--sp)) calc(14 * var(--sp));
+  display:flex;align-items:center;justify-content:space-between;
+  padding:calc(52 * var(--sp)) calc(16 * var(--sp)) 0;
 }
 /* The dynamic island. Drawn rather than screenshotted so the frame stays
    sharp at any width, and so the phone is not pretending to a battery
@@ -254,21 +263,43 @@ export const LP8_CSS = `
   width:calc(96 * var(--sp));height:calc(28 * var(--sp));
   border-radius:999px;background:#0A0C10;
 }
-/* The mark, sized in sp like everything else in the phone, so it scales with
-   the container rather than the viewport. 34sp tall puts its knockout letters
-   at roughly the 15sp the typed wordmark ran at, and keeps the box clear of
-   the dynamic island above it (which ends at 40sp; this row is bottom-aligned
-   and starts at 68sp). */
-.l8 .reelwm{height:calc(34 * var(--sp));width:auto;display:block}
+/* The mark at the app bar's own 48sp, which the 52sp status strip above
+   leaves room for: the dynamic island ends at 40sp and this row starts at 52. */
+.l8 .reelwm{height:calc(48 * var(--sp));width:auto;display:block}
 .l8 .reelnavcta{
-  background:#fff;color:var(--l8-brand);border-radius:calc(7 * var(--sp));
-  padding:calc(6 * var(--sp)) calc(10 * var(--sp));
-  font-size:calc(9.5 * var(--sp));font-weight:700;letter-spacing:.04em;
+  display:inline-flex;align-items:center;
+  height:calc(40 * var(--sp));padding:0 calc(16 * var(--sp));
+  background:#fff;color:var(--l8-brand);
+  border-radius:calc(4 * var(--sp));
+  font-size:calc(12 * var(--sp));font-weight:700;
+  text-transform:uppercase;letter-spacing:calc(.3 * var(--sp));
+  white-space:nowrap;
 }
 
 .l8 .reelmap{
   position:absolute;inset:calc(116 * var(--sp)) 0 0 0;
   height:calc(724 * var(--sp));
+  overflow:hidden;
+}
+/* The sheet. Wider and taller than the screen above, and slid under it one
+   stop at a time -- the map moving beneath a phone, not a slideshow of
+   pictures of a map. --iw/--ih/--tx/--ty come from the frame, in the same map
+   pixels reel-frame.ts projects into, so this rule says nothing about any
+   particular city.
+
+   The transition is the reel's only long animation. 1.1s is slow enough to
+   read as a map being dragged and short enough to leave most of the 2.4s
+   dwell as a rest on the mark; the easing is symmetric because a pan that
+   snaps out of the gate reads as a jump cut. */
+.l8 .reelpan{
+  position:absolute;top:0;left:0;
+  width:calc(var(--iw) * var(--sp));
+  height:calc(var(--ih) * var(--sp));
+  transform:translate3d(
+    calc(var(--tx) * var(--sp) * -1),
+    calc(var(--ty) * var(--sp) * -1), 0);
+  transition:transform 1.1s cubic-bezier(.65,0,.35,1);
+  will-change:transform;
 }
 .l8 .reelmapimg{display:block;width:100%;height:100%;object-fit:cover}
 
@@ -387,6 +418,15 @@ export const LP8_CSS = `
 .l8 .reelbadge.poor{background:var(--l8-poor-bg);color:var(--l8-poor)}
 .l8 .reelbadge.none{background:var(--l8-surface);color:var(--l8-ink-mute)}
 .l8 .reelsp{font-size:calc(11.5 * var(--sp));color:var(--l8-ink-soft);margin-top:calc(3 * var(--sp))}
+/* The management area, beside the species and quieter than it: the species is
+   what the score is about, the area is only where. A rule rather than a filled
+   chip, so it reads as a second clause of the same line instead of a badge
+   competing with the score badge across the card. */
+.l8 .reelarea{
+  margin-left:calc(7 * var(--sp));padding-left:calc(7 * var(--sp));
+  border-left:1px solid var(--l8-rule);
+  color:var(--l8-ink-mute);font-weight:600;letter-spacing:.02em;
+}
 /* The readings and the sparkline share a row, as they do on the real card. */
 .l8 .reelmetarow{
   display:flex;align-items:flex-end;gap:calc(10 * var(--sp));
@@ -415,6 +455,15 @@ export const LP8_CSS = `
 .l8 .reelmeta em{
   font-style:normal;font-family:var(--l8-mono);font-size:calc(8.5 * var(--sp));
   font-weight:600;letter-spacing:.09em;color:var(--l8-ink-mute);
+  display:flex;align-items:center;gap:calc(4 * var(--sp));
+}
+/* The reading's glyph, at the card's own 12px against its 9px label — the
+   same ratio SpotCard draws (w-3 h-3 on a text-[9px] row), so the icons carry
+   the labels rather than crowding them. Muted with the label, not with the
+   value: the glyph names the reading, the number is the reading. */
+.l8 .reelmeta em svg{
+  width:calc(12 * var(--sp));height:calc(12 * var(--sp));
+  flex:0 0 auto;stroke-width:2;
 }
 
 /* The card's last row, as the product draws it: the way on, and the save. */
@@ -437,6 +486,15 @@ export const LP8_CSS = `
   display:grid;grid-template-columns:repeat(4,1fr);align-items:center;
   font-size:calc(9.5 * var(--sp));font-weight:600;color:var(--l8-ink-mute);text-align:center;
 }
+.l8 .reeltabs span{
+  display:flex;flex-direction:column;align-items:center;
+  gap:calc(3 * var(--sp));
+}
+.l8 .reeltabs svg{
+  width:calc(18 * var(--sp));height:calc(18 * var(--sp));
+  stroke-width:2;
+}
+.l8 .reeltabs em{font-style:normal}
 .l8 .reeltabs .on{color:var(--l8-brand)}
 
 /* Reduced motion: the component stops advancing, so the pulse and the card's

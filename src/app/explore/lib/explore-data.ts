@@ -101,6 +101,17 @@ export interface RailSpot {
   /** Best species id — keys the forecast-14d hourly grid for the strip. */
   bestSpeciesId: string | null;
   driverSpecies: string | null;
+  /**
+   * The management area this mark is regulated under, as a BARE number:
+   * "10", "8-1", "19-3". Optional, and null when the payload carries none.
+   *
+   * Never render it raw — the number does not say who set it, and both
+   * regulators number from single digits. Put it through `areaLabelFor` with
+   * the spot's `provinceCode`.
+   */
+  area?: string | null;
+  /** Who numbers that area: "DFO" | "WDFW". Pass it to `areaLabelFor`. */
+  areaAgency?: string | null;
   /** Local hour (0–23) of the peak. */
   peakHour: number | null;
   /** Distance from the city center, km (drawer sub line). */
@@ -611,6 +622,8 @@ export function railSpotFromEntry(
     lat: entry.lat,
     lng: entry.lng,
     citySlug: entry.city_slug ?? "",
+    area: entry.area ?? null,
+    areaAgency: entry.area_agency ?? null,
     cityName: "",
     regionSlug: "",
     regionName: "",
@@ -691,6 +704,8 @@ export function railSpotsFromPayload(
       lat: entry.lat,
       lng: entry.lng,
       citySlug: place.slug,
+      area: entry.area ?? null,
+      areaAgency: entry.area_agency ?? null,
       cityName: place.name,
       regionSlug: place.regionSlug,
       regionName: place.regionName,
@@ -824,6 +839,8 @@ export function buildExploreData(
       lat: entry.lat,
       lng: entry.lng,
       citySlug: city.slug,
+      area: entry.area ?? null,
+      areaAgency: entry.area_agency ?? null,
       cityName: city.name,
       regionSlug,
       regionName,

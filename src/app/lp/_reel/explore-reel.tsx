@@ -1,10 +1,12 @@
 "use client";
 
 import Image from "next/image";
+import { Home, Map, NotebookPen, MoreHorizontal, Wind, Waves, Navigation } from "lucide-react";
+import type { LucideIcon } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { tierFor, TIER_PIN } from "@/app/explore/lib/explore-data";
 import type { ReelPin } from "./city-proof";
-import { placePin, inSafeArea, type ReelFrame } from "./reel-frame";
+import { placePin, panFor, inSafeArea, type ReelFrame } from "./reel-frame";
 
 /**
  * The hero: Explore, on a phone, walking its own spots.
@@ -32,6 +34,19 @@ import { placePin, inSafeArea, type ReelFrame } from "./reel-frame";
  * element, and nothing here blocks it: the pins are absolutely positioned over
  * it and the first card is rendered on the server.
  */
+
+/**
+ * The tab bar, matching components/mobile-bottom-nav.tsx tab for tab and icon
+ * for icon. Explore is the lit one because Explore is what the phone is
+ * showing; a hero whose nav highlights a tab other than the screen it is on
+ * is a mistake nobody can name but everybody feels.
+ */
+const REEL_TABS: { label: string; Icon: LucideIcon; on?: boolean }[] = [
+  { label: "Home", Icon: Home },
+  { label: "Explore", Icon: Map, on: true },
+  { label: "Catch log", Icon: NotebookPen },
+  { label: "More", Icon: MoreHorizontal },
+];
 
 /** How long the reel rests on each spot. */
 const DWELL_MS = 2400;
@@ -113,8 +128,16 @@ export default function ExploreReel({
    */
   const stops = useMemo(() => {
     const visible = pins
-      .map((p) => ({ pin: p, at: placePin(frame, p.lng, p.lat) }))
-      .filter(({ at }) => inSafeArea(at.x, at.y));
+      .map((p) => {
+        const at = placePin(frame, p.lng, p.lat);
+        return { pin: p, at, pan: panFor(frame, at.x, at.y) };
+      })
+      // Eligibility is tested in the WINDOW, after the sheet has slid to the
+      // mark: a stop is fine wherever it sits on the sheet as long as the
+      // window can bring it out from under the chrome. That only fails at the
+      // sheet's own edges, where the pan clamps and the pin cannot be
+      // centred.
+      .filter(({ at, pan }) => inSafeArea(at.x - pan.tx, at.y - pan.ty));
     // Best first, decluttered, cut to length, THEN ordered by latitude: taking
     // the top of a latitude-sorted list would hand the reel whichever marks
     // happen to be furthest north rather than the ones worth showing.
@@ -204,17 +227,33 @@ export default function ExploreReel({
               height={48}
               priority
             />
-            <span className="reelnavcta">START FREE TRIAL</span>
+            {/* Sentence case in the markup and uppercased in CSS, as the
+                real button is: the label a screen reader reads should be the
+                label the product uses. */}
+            <span className="reelnavcta">Start free trial</span>
           </div>
 
           <div className="reelmap">
+            {/* The sheet, and everything pinned to it, slide together as one
+                transform. Pins are positioned in percentages of THIS layer,
+                so they cannot drift out of register with the image no matter
+                what the pan is doing -- there is only ever one thing moving. */}
+            <div
+              className="reelpan"
+              style={{
+                ["--iw" as string]: frame.width,
+                ["--ih" as string]: frame.height,
+                ["--tx" as string]: active.pan.tx,
+                ["--ty" as string]: active.pan.ty,
+              }}
+            >
             <Image
               src={frame.src}
               alt=""
               width={frame.width * 2}
               height={frame.height * 2}
               priority
-              sizes="(min-width: 940px) 46vw, 92vw"
+              sizes="(min-width: 420px) 505px, 135vw"
               className="reelmapimg"
             />
 
@@ -237,6 +276,7 @@ export default function ExploreReel({
                 </span>
               );
             })}
+            </div>
 
             <div className="reelchip">
               {/* City and region, as Explore's own location chip reads them. */}
@@ -262,23 +302,34 @@ export default function ExploreReel({
                   {card.score} {tier.toUpperCase()}
                 </span>
               </div>
-              <div className="reelsp">{card.species}</div>
+              <div className="reelsp">
+                {card.species}
+                {/* The management area, as the regulator numbers it. Muted,
+                    because it is where the mark is rather than what is biting
+                    there -- and it earns its place beside the species because
+                    seasons and limits are set per area, so it is the first
+                    thing an angler checks a spot name against. */}
+                {card.area ? <span className="reelarea">{card.area}</span> : null}
+              </div>
               {/* The three readings and the day's shape, side by side, as the
                   real card lays them out. */}
               <div className="reelmetarow">
                 <div className="reelmeta">
-                  <span>
-                    <em>WIND</em>
-                    {card.wind ?? "—"}
-                  </span>
-                  <span>
-                    <em>SEA</em>
-                    {card.sea ?? "—"}
-                  </span>
-                  <span>
-                    <em>CURRENT</em>
-                    {card.current ?? "—"}
-                  </span>
+                  {(
+                    [
+                      [Wind, "WIND", card.wind],
+                      [Waves, "SEA", card.sea],
+                      [Navigation, "CURRENT", card.current],
+                    ] as const
+                  ).map(([Icon, label, value]) => (
+                    <span key={label}>
+                      <em>
+                        <Icon aria-hidden />
+                        {label}
+                      </em>
+                      {value ?? "—"}
+                    </span>
+                  ))}
                 </div>
                 <TrendBars hours={card.hours} from={card.bestFrom} to={card.bestTo} />
               </div>
@@ -288,11 +339,18 @@ export default function ExploreReel({
               </div>
             </div>
 
+            {/* The app's four tabs, drawn with the app's own icons rather
+                than lookalikes: these are the same lucide glyphs
+                components/mobile-bottom-nav.tsx renders, imported from the
+                same package, so the phone in the hero cannot end up with a
+                tab bar the product does not have. */}
             <div className="reeltabs">
-              <span>Home</span>
-              <span className="on">Explore</span>
-              <span>Catch log</span>
-              <span>More</span>
+              {REEL_TABS.map(({ label, Icon, on }) => (
+                <span key={label} className={on ? "on" : undefined}>
+                  <Icon aria-hidden />
+                  <em>{label}</em>
+                </span>
+              ))}
             </div>
             </div>
           </div>

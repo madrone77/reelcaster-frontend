@@ -5,6 +5,7 @@ import dynamic from "next/dynamic";
 import { useState } from "react";
 import { Wind, Waves, Navigation, Lock, Globe } from "lucide-react";
 import { TIER_PILL, tierFor, type RailSpot } from "../lib/explore-data";
+import { areaLabelFor } from "@/lib/regions";
 import { useFavorite } from "../lib/use-favorite";
 import { useSubscription } from "@/hooks/use-subscription";
 import SpotTrend from "./spot-trend";
@@ -84,6 +85,13 @@ export default function SpotCard({
   // The peak time is still on the day tiles and on the spot page, where it sits
   // beside the hours that produced it.
   const conclusion = species ?? "No live score yet";
+  // The management area, labelled for whoever set it. Beside the species
+  // rather than under the name because seasons and limits are set per area, so
+  // it belongs with the thing whose season is in question. Null collapses.
+  const area = areaLabelFor(spot.area, {
+    agency: spot.areaAgency,
+    region: spot.provinceCode,
+  });
 
   const reportHref = `/explore/spot/${spot.slug}`;
 
@@ -213,9 +221,14 @@ export default function SpotCard({
             </span>
           </div>
 
-          {/* 2 · conclusion */}
+          {/* 2 · conclusion, and where the rules that govern it are set */}
           <div className="font-rc-mono text-[12px] text-rc-ink-soft mt-0.5 truncate">
             {conclusion}
+            {area && (
+              <span className="ml-1.5 pl-1.5 border-l border-rc-rule text-rc-ink-mute">
+                {area}
+              </span>
+            )}
           </div>
 
           {/* 3 · KPI columns (labels above) + compact trend */}
