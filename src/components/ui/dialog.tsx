@@ -30,6 +30,26 @@ function DialogClose({
   return <DialogPrimitive.Close data-slot="dialog-close" {...props} />
 }
 
+/**
+ * Stacking band. Both the overlay and the content portal to `document.body`,
+ * so they compete with every other body-level layer on raw z-index, and the
+ * one that wins is whichever number is bigger.
+ *
+ * The order the app needs, low to high:
+ *
+ *   z-40/50   page chrome: the explore top bar, the floating tab bar
+ *   z-60/61   the explore bottom sheets: day picker, location, filters
+ *   z-70      this dialog, and `alert-dialog`
+ *   z-80      `select` content, so a picker inside a dialog still opens
+ *   z-9998+   the full screen gates: auth-gate, the welcome modals
+ *
+ * These used to sit at z-50, which put them UNDER the explore sheets. The
+ * sheets are where the locked forecast days live, so tapping one opened the
+ * trial modal behind the sheet's own full screen scrim: the offer was visible
+ * through the dim but the email field and the subscribe button could not be
+ * tapped at all, because the scrim swallowed every click. Keep this above the
+ * sheet band.
+ */
 function DialogOverlay({
   className,
   ...props
@@ -38,7 +58,7 @@ function DialogOverlay({
     <DialogPrimitive.Overlay
       data-slot="dialog-overlay"
       className={cn(
-        "data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 fixed inset-0 z-50 bg-black/50",
+        "data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 fixed inset-0 z-[70] bg-black/50",
         className
       )}
       {...props}
@@ -60,7 +80,7 @@ function DialogContent({
       <DialogPrimitive.Content
         data-slot="dialog-content"
         className={cn(
-          "bg-background data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 fixed top-[50%] left-[50%] z-50 grid w-full max-w-[calc(100%-2rem)] translate-x-[-50%] translate-y-[-50%] gap-4 rounded-lg border p-6 shadow-lg duration-200 sm:max-w-lg",
+          "bg-background data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 fixed top-[50%] left-[50%] z-[70] grid w-full max-w-[calc(100%-2rem)] translate-x-[-50%] translate-y-[-50%] gap-4 rounded-lg border p-6 shadow-lg duration-200 sm:max-w-lg",
           className
         )}
         {...props}
