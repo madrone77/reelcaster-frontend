@@ -54,6 +54,10 @@ const FEATURE_COPY: Record<string, { title: string; body: string }> = {
     title: 'No ads, anywhere',
     body: 'Ads pay for the free map. Pro pays for itself, so there are none: the same spots, the same forecast, nothing sold around the edges.',
   },
+  support: {
+    title: 'Direct support, from the people who built it',
+    body: 'Pro opens The Port: a support queue with a one business day reply target, your ticket history in one place, and the full guide library.',
+  },
   'spot-horizon': {
     title: 'The full forecast on this spot',
     body: 'Pro opens the complete 14-day window with hourly detail and 5-species comparison on every spot page.',

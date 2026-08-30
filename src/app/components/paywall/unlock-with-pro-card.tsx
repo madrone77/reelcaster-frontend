@@ -1,10 +1,16 @@
 'use client';
 
 import Link from 'next/link';
+import { useEffect } from 'react';
 import { cn } from '@/lib/utils';
 import { TRIAL_DAYS } from '@/lib/pricing';
 import { useAnalytics } from '@/hooks/use-analytics';
+import { useAuth } from '@/contexts/auth-context';
+import { useSubscription } from '@/hooks/use-subscription';
 import { ANNUAL_PRICE_CENTS } from '@/lib/pricing';
+import { captureWall } from '@/lib/attribution';
+import { reportPaywall } from '@/lib/paywall-counter';
+import type { NagFeatureId, PlanTierId } from '@/lib/plan-features';
 import TrialCta from './trial-cta';
 
 /**
@@ -53,8 +59,21 @@ export interface UnlockWithProCardProps {
   ctaHref?: string;
   /** CTA label override. */
   ctaLabel?: string;
-  /** Feature id used for analytics + default ctaHref query. */
-  feature?: string;
+  /**
+   * What the visitor is being denied. Drives analytics, the counter, and the
+   * default `?feature=` on the CTA. Typed against the live enum because the
+   * counter validates against that same enum server side: a wall whose feature
+   * is not a member is silently counted nowhere, which is the bug this card
+   * used to have.
+   */
+  feature?: NagFeatureId;
+  /**
+   * Where this card sits, as it should read on the admin's list of surfaces:
+   * "support-portal", "alerts-page". Only used for reporting.
+   */
+  surface?: string;
+  /** Overrides the auto-detected tier. Only for surfaces that already know. */
+  viewerTier?: PlanTierId;
   /** Compact variant (smaller, no headline) for inline placement. */
   compact?: boolean;
   /**
@@ -88,11 +107,44 @@ export function UnlockWithProCard({
   ctaHref,
   ctaLabel = `Try Pro free for ${TRIAL_DAYS} days`,
   feature,
+  surface = 'unlock-card',
+  viewerTier: viewerTierProp,
   compact = false,
   theme = 'auto',
   className,
 }: UnlockWithProCardProps) {
   const { trackEvent } = useAnalytics();
+  const { user } = useAuth();
+  const { isPaid, loading: tierLoading } = useSubscription();
+  const viewerTier: PlanTierId =
+    viewerTierProp ?? (isPaid ? 'pro' : user ? 'free' : 'anon');
+
+  /**
+   * Count the wall, and remember it for whatever the visitor converts into.
+   *
+   * Held until the tier has settled. `useSubscription` reports free while it
+   * loads, and firing on the first render would file some of these views under
+   * the wrong column on /admin/reelcaster/paywalls. The wait is one request,
+   * and none of it moves the day bucket the count lands in.
+   *
+   * Nothing is reported without a feature: the counter validates the id
+   * against NAG_FEATURES and drops what it does not recognise, so an unnamed
+   * wall would post and count nothing.
+   */
+  useEffect(() => {
+    if (!feature || tierLoading) return;
+    reportPaywall('impression', { feature, surface, viewerTier });
+    // The cookie that carries this wall across the navigation to /signup or
+    // out to Stripe, so the account that comes out the far end knows which
+    // wall sent them. Last touch wins, and it expires in 30 minutes.
+    captureWall(feature, surface);
+  }, [feature, surface, viewerTier, tierLoading]);
+
+  const reportCtaClick = () => {
+    if (!feature) return;
+    reportPaywall('cta_click', { feature, surface, viewerTier });
+  };
+
   const href =
     ctaHref ??
     `/plans?from=paywall${feature ? `&feature=${encodeURIComponent(feature)}` : ''}`;
@@ -152,7 +204,10 @@ export function UnlockWithProCard({
       {ctaHref ? (
         <Link
           href={href}
-          onClick={() => trackEvent('Paywall CTA Clicked', { feature, href })}
+          onClick={() => {
+            trackEvent('Paywall CTA Clicked', { feature, viewerTier, href });
+            reportCtaClick();
+          }}
           data-testid="upgrade-cta"
           className="inline-flex items-center justify-center rounded-md bg-rc-brand px-6 py-3 text-sm font-bold text-white transition-colors hover:bg-rc-brand-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rc-brand focus-visible:ring-offset-2"
         >
@@ -164,13 +219,15 @@ export function UnlockWithProCard({
         <TrialCta
           from={feature ? `paywall:${feature}` : 'paywall'}
           theme={isLight ? 'light' : 'dark'}
-          onActivate={(plan) =>
+          onActivate={(plan) => {
             trackEvent('Paywall CTA Clicked', {
               feature,
+              viewerTier,
               plan: plan ?? 'anon',
               destination: 'checkout',
-            })
-          }
+            });
+            reportCtaClick();
+          }}
         />
       )}
     </div>

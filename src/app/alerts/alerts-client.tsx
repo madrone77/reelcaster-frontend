@@ -341,6 +341,7 @@ export default function AlertsClient({ spots }: Props) {
         open={upgradeOpen}
         onClose={() => setUpgradeOpen(false)}
         feature="alerts"
+        surface="alerts-page"
         headline="More alerts with Pro"
         bullets={[
           'Up to 10 alert profiles',
