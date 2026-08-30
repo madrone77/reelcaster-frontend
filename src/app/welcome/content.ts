@@ -73,11 +73,13 @@ export const STEPS: WelcomeStep[] = [
   },
   {
     id: 'custom-spot',
-    title: 'Drop a pin where we have no spot',
-    short: 'Your own coordinates, scored by the same model as a published spot.',
+    title: 'Drop a private pin where we have no spot',
+    short:
+      'Your own coordinates, private to you, scored by the same model as a published spot.',
     detail: [
       'We do not have a pin on every piece of water worth fishing, and the one you care about may be somewhere we have never named. Pro lets you put it on the map yourself.',
-      'Hit Create custom spot in the left rail on a computer, or Add spot on a phone, then tap the map where you fish. Name it, choose private or public, and tick the species you want scored. Private is the default and means nobody else can see it.',
+      'It is private, and private is the default. The dialog marks it with a padlock and the words "Only you", and that is the plain truth of it: your pin does not appear on anyone else\'s map, in anyone else\'s search, or on any public page. If a stranger somehow had the direct link, we tell them the spot does not exist rather than that they are not allowed to see it. Where you fish stays yours.',
+      'Hit Create custom spot in the left rail on a computer, or Add spot on a phone, then tap the map where you fish. Name it and tick the species you want scored. There is a Public option next to Private if you ever do want to share one, but nothing moves off Private unless you move it.',
       'A brand new custom spot draws grey with a dot instead of a number until the next scoring run reaches it. That is normal and needs nothing from you. If the pin is refused it landed outside covered water; our fence runs 50 km from a covered city.',
     ],
     tier: 'pro',
