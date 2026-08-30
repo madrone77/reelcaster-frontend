@@ -17,14 +17,21 @@ interface AuthFormProps {
 }
 
 export function AuthForm({ defaultMode = 'signin', onSuccess, source = 'auth-form', className }: AuthFormProps) {
-  const [mode, setMode] = useState<'signin' | 'signup' | 'forgot'>(defaultMode)
+  const [mode, setMode] = useState<'signin' | 'signup' | 'forgot' | 'magic'>(defaultMode)
   const [firstName, setFirstName] = useState('')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
   const [success, setSuccess] = useState(false)
   const [loading, setLoading] = useState(false)
-  const { signIn, signUp, signInWithGoogle, resetPasswordForEmail, resendConfirmation } = useAuth()
+  const {
+    signIn,
+    signUp,
+    signInWithGoogle,
+    signInWithMagicLink,
+    resetPasswordForEmail,
+    resendConfirmation,
+  } = useAuth()
   const { trackEvent } = useAnalytics()
   const [googleLoading, setGoogleLoading] = useState(false)
   /**
@@ -65,6 +72,46 @@ export function AuthForm({ defaultMode = 'signin', onSuccess, source = 'auth-for
       setError('Could not start Google sign-in')
       setGoogleLoading(false)
     }
+  }
+
+  /**
+   * Wraps the context call with copy a person can act on. `otp_disabled` comes
+   * back when no account matches the address, which on a sign-in screen means
+   * a typo far more often than it means anything else.
+   */
+  const sendMagicLink = async (target: string): Promise<{ error: string | null }> => {
+    const { error } = await signInWithMagicLink(target)
+    if (!error) return { error: null }
+    return {
+      error:
+        error.code === 'otp_disabled'
+          ? 'No ReelCaster account uses that address. Check the spelling, or create an account.'
+          : error.message,
+    }
+  }
+
+  /**
+   * The escape hatch on the locked-out panel. A magic link confirms the address
+   * on the way through, so this both unlocks the account and signs them in,
+   * without them ever finding the original confirmation email.
+   */
+  const handleMagicUnlock = async () => {
+    if (!unconfirmedEmail || resending) return
+    setResending(true)
+    setResendError('')
+    const { error } = await sendMagicLink(unconfirmedEmail)
+    setResending(false)
+    if (error) {
+      setResendError(error)
+      return
+    }
+    trackEvent('Magic Link Requested', {
+      source,
+      timestamp: new Date().toISOString(),
+    })
+    // Reuse the check-your-email screen, in its magic-link wording.
+    setMode('magic')
+    setSuccess(true)
   }
 
   const handleResend = async () => {
@@ -116,6 +163,17 @@ export function AuthForm({ defaultMode = 'signin', onSuccess, source = 'auth-for
         } else {
           setSuccess(true)
           trackEvent('Password Reset Requested', {
+            source,
+            timestamp: new Date().toISOString(),
+          })
+        }
+      } else if (mode === 'magic') {
+        const { error } = await sendMagicLink(email)
+        if (error) {
+          setError(error)
+        } else {
+          setSuccess(true)
+          trackEvent('Magic Link Requested', {
             source,
             timestamp: new Date().toISOString(),
           })
@@ -173,6 +231,9 @@ export function AuthForm({ defaultMode = 'signin', onSuccess, source = 'auth-for
     }
   }
 
+  /** Screens that ask for an address and nothing else. */
+  const emailOnly = mode === 'forgot' || mode === 'magic'
+
   const resetForm = () => {
     setEmail('')
     setPassword('')
@@ -190,14 +251,18 @@ export function AuthForm({ defaultMode = 'signin', onSuccess, source = 'auth-for
           <CheckCircle className="h-12 w-12 text-rc-good" />
           <h3 className="font-semibold text-rc-ink text-lg">Check Your Email!</h3>
           <p className="text-sm text-rc-ink-soft">
-            We&apos;ve sent a {mode === 'forgot' ? 'password reset' : 'confirmation'} link to <span className="font-medium text-rc-ink">{email}</span>
+            We&apos;ve sent a{' '}
+            {mode === 'forgot' ? 'password reset' : mode === 'magic' ? 'sign-in' : 'confirmation'}{' '}
+            link to <span className="font-medium text-rc-ink">{email}</span>
           </p>
           <p className="text-xs text-rc-ink-mute">
             {mode === 'forgot'
               ? 'Click the link in the email to reset your password'
-              : 'Click the link in the email to activate your account'}
+              : mode === 'magic'
+                ? 'Click the link in the email and you are straight in, no password needed'
+                : 'Click the link in the email to activate your account'}
           </p>
-          {mode !== 'forgot' && (
+          {mode === 'signup' && (
             <ResendConfirmation
               onResend={handleResend}
               resending={resending}
@@ -207,7 +272,7 @@ export function AuthForm({ defaultMode = 'signin', onSuccess, source = 'auth-for
               prompt="No email after a few minutes? Check your spam folder, or"
             />
           )}
-          {mode === 'forgot' && (
+          {(mode === 'forgot' || mode === 'magic') && (
             <button
               type="button"
               onClick={() => {
@@ -249,10 +314,22 @@ export function AuthForm({ defaultMode = 'signin', onSuccess, source = 'auth-for
               cooldown={cooldown}
               prompt="Cannot find it? Check your spam folder, or"
             />
+            <p className="text-xs text-rc-ink-mute">
+              Still nothing?{' '}
+              <button
+                type="button"
+                onClick={handleMagicUnlock}
+                disabled={resending}
+                className="text-rc-brand hover:text-rc-brand-hover transition-colors underline underline-offset-2 disabled:text-rc-ink-mute disabled:no-underline"
+              >
+                Email me a sign-in link instead
+              </button>
+              , which gets you in without the confirmation.
+            </p>
           </div>
         )}
 
-        {mode !== 'forgot' && (
+        {!emailOnly && (
           <>
             <button
               type="button"
@@ -325,7 +402,7 @@ export function AuthForm({ defaultMode = 'signin', onSuccess, source = 'auth-for
           </div>
         </div>
 
-        {mode !== 'forgot' && (
+        {!emailOnly && (
           <div className="space-y-2">
             <Label htmlFor={`${source}-password`} className="text-sm font-medium text-rc-ink">
               Password
@@ -344,16 +421,32 @@ export function AuthForm({ defaultMode = 'signin', onSuccess, source = 'auth-for
             <div className="flex items-center justify-between">
               {mode === 'signup' && <p className="text-xs text-rc-ink-mute">Minimum 6 characters</p>}
               {mode === 'signin' && (
-                <button
-                  type="button"
-                  onClick={() => {
-                    setMode('forgot')
-                    resetForm()
-                  }}
-                  className="mr-auto text-xs text-rc-brand hover:text-rc-brand-hover transition-colors"
-                >
-                  Forgot password?
-                </button>
+                <>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setMode('forgot')
+                      resetForm()
+                    }}
+                    className="mr-auto text-xs text-rc-brand hover:text-rc-brand-hover transition-colors"
+                  >
+                    Forgot password?
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const carried = email
+                      setMode('magic')
+                      resetForm()
+                      // Keep whatever they already typed. Making someone retype
+                      // their address to try the other door is a small insult.
+                      setEmail(carried)
+                    }}
+                    className="text-xs text-rc-brand hover:text-rc-brand-hover transition-colors"
+                  >
+                    Email me a link instead
+                  </button>
+                </>
               )}
             </div>
           </div>
@@ -371,6 +464,8 @@ export function AuthForm({ defaultMode = 'signin', onSuccess, source = 'auth-for
             </span>
           ) : mode === 'forgot' ? (
             'Send Reset Link'
+          ) : mode === 'magic' ? (
+            'Send Sign-In Link'
           ) : mode === 'signin' ? (
             'Sign In'
           ) : (
@@ -381,14 +476,16 @@ export function AuthForm({ defaultMode = 'signin', onSuccess, source = 'auth-for
         {/* Mode switching for sign-in ⇄ sign-up is handled by the page-level
             "Already have an account? / Create an account" link, so no switch
             button here. Forgot-password still needs a way back, so keep it. */}
-        {mode === 'forgot' && (
+        {emailOnly && (
           <>
             <div className="relative">
               <div className="absolute inset-0 flex items-center">
                 <div className="w-full border-t border-rc-rule" />
               </div>
               <div className="relative flex justify-center text-xs uppercase">
-                <span className="bg-rc-panel px-2 text-rc-ink-mute">Remember your password?</span>
+                <span className="bg-rc-panel px-2 text-rc-ink-mute">
+                  {mode === 'magic' ? 'Rather use your password?' : 'Remember your password?'}
+                </span>
               </div>
             </div>
 

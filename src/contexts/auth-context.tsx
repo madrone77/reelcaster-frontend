@@ -155,15 +155,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }
 
   const signInWithMagicLink = async (email: string) => {
-    // Passwordless email sign-in / sign-up. Supabase sends a magic link that
-    // lands on /auth/callback; `shouldCreateUser` defaults to true, so this
-    // doubles as sign-up for new anglers.
+    // Passwordless sign-in, and the second way in for an angler whose
+    // confirmation email never landed: clicking a magic link confirms the
+    // address as a side effect, so it unlocks an account that signUp left
+    // sitting unconfirmed.
+    //
+    // `shouldCreateUser` is off on purpose. This runs off the sign-in screen,
+    // where a typo'd address must fail rather than quietly open a second empty
+    // account under the wrong email.
     const redirectUrl = `${window.location.origin}/auth/callback`
 
     const { error } = await supabase.auth.signInWithOtp({
       email,
       options: {
         emailRedirectTo: redirectUrl,
+        shouldCreateUser: false,
       },
     })
     return { error }
