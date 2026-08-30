@@ -12,6 +12,7 @@ import { processAlerts, getUserEmail, markBeatSent } from '@/lib/custom-alert-en
 import { sendEmail } from '@/lib/email-service';
 import { generateCustomAlertEmail } from '@/lib/email-templates/custom-alert';
 import { generateScoreAlertMessage } from '@/lib/email-templates/score-alert';
+import { smsCarriesBeat } from '@/lib/alert-channels';
 import { sendSms, isTwilioConfigured } from '@/lib/twilio';
 import { createClient } from '@supabase/supabase-js';
 
@@ -262,11 +263,9 @@ export async function POST(request: NextRequest) {
           else console.error(`Email dispatch failed for ${job.profileId}:`, sendResult.error);
         }
 
-        // SMS carries the confirm and the stand-down only. A heads-up is a
-        // planning message six days out, and planning happens at a desk. Three
-        // texts per qualifying day is how an alert gets muted.
-        const smsWorthy = job.beat === 'confirm' || job.beat === 'stand_down';
-        if (smsWorthy && channels.includes('sms') && isTwilioConfigured()) {
+        // SMS skips the heads-up for anyone who also gets email, and carries it
+        // for anyone who does not. See lib/alert-channels.ts.
+        if (smsCarriesBeat(job.beat, channels) && isTwilioConfigured()) {
           const { data: settings } = await supabaseAdmin
             .from('user_settings')
             .select('phone_e164, phone_verified')
