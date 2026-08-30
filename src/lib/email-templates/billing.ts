@@ -10,55 +10,7 @@
  */
 
 import { siteUrl } from '@/lib/site';
-
-const SANS =
-  "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif";
-const BRAND = '#1E40E0';
-const INK = '#0F172A';
-const INK_SOFT = '#334155';
-const INK_MUTE = '#64748B';
-const RULE = '#E2E8F0';
-
-function shell(bodyHtml: string, preheader: string): string {
-  return `<!DOCTYPE html>
-<html><body style="margin:0;padding:0;background:#F8FAFC;font-family:${SANS};">
-  <span style="display:none;max-height:0;overflow:hidden;opacity:0;">${preheader}</span>
-  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#F8FAFC;padding:32px 16px;">
-    <tr><td align="center">
-      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:520px;background:#FFFFFF;border:1px solid ${RULE};border-radius:12px;padding:32px;">
-        ${bodyHtml}
-        <tr><td style="padding-top:28px;border-top:1px solid ${RULE};color:${INK_MUTE};font-size:12px;line-height:18px;">
-          ReelCaster · Manage or cancel your subscription anytime from
-          <a href="${siteUrl('/profile')}" style="color:${BRAND};">your account</a>.
-        </td></tr>
-      </table>
-    </td></tr>
-  </table>
-</body></html>`;
-}
-
-function button(href: string, label: string): string {
-  return `<a href="${href}" style="display:inline-block;background:${BRAND};color:#FFFFFF;text-decoration:none;font-weight:600;font-size:15px;padding:12px 24px;border-radius:8px;">${label}</a>`;
-}
-
-/**
- * The charge date, as the customer's calendar shows it.
- *
- * The timezone is pinned. Without it this renders in whatever zone the process
- * happens to be in, which is UTC on Vercel and something else on a laptop, and
- * a trial ending at 00:43 UTC is the previous evening in Vancouver. Getting
- * that wrong by a day on a notice that legally has to state when the card is
- * charged is not a rounding error. Pacific covers the whole customer base
- * (BC and Washington), so it is the honest one to show.
- */
-function formatDate(iso: string): string {
-  return new Date(iso).toLocaleDateString('en-CA', {
-    weekday: 'long',
-    month: 'long',
-    day: 'numeric',
-    timeZone: 'America/Vancouver',
-  });
-}
+import { BRAND, INK, INK_MUTE, INK_SOFT, button, formatDate, shell } from './shell';
 
 /**
  * What the account has actually set up, so the day-4 note can say something
@@ -165,7 +117,7 @@ export function trialEndingEmail(params: {
           Stuck on something, or not sure how to set an alert up? Reply to this email and a person will read it.
         </p>
       </td></tr>`,
-      `We will charge ${params.amountLabel} on ${date} unless you cancel.`,
+      { preheader: `We will charge ${params.amountLabel} on ${date} unless you cancel.` },
     ),
   };
 }
@@ -190,7 +142,7 @@ export function paymentFailedEmail(params: {
         </p>
         <p style="margin:0 0 8px;">${button(siteUrl('/profile'), 'Update payment method')}</p>
       </td></tr>`,
-      `Pro stays on until ${date}. Update your card to keep it.`,
+      { preheader: `Pro stays on until ${date}. Update your card to keep it.` },
     ),
   };
 }
@@ -214,7 +166,7 @@ export function trialUnavailableEmail(params: {
         </p>
         <p style="margin:0 0 8px;">${button(siteUrl('/plans'), 'See Pro pricing')}</p>
       </td></tr>`,
-      'No charge was made.',
+      { preheader: 'No charge was made.' },
     ),
   };
 }
@@ -251,7 +203,7 @@ export function compGrantedEmail(params: {
         </p>
         <p style="margin:0 0 8px;">${button(siteUrl('/explore'), 'Open the map')}</p>
       </td></tr>`,
-      `Pro is on your account until ${date}. No card, nothing to cancel.`,
+      { preheader: `Pro is on your account until ${date}. No card, nothing to cancel.` },
     ),
   };
 }
@@ -282,7 +234,7 @@ export function checkoutSignInEmail(actionLink: string): {
         </p>
         <p style="margin:0 0 8px;">${button(actionLink, 'Sign in to ReelCaster')}</p>
       </td></tr>`,
-      'Your Pro subscription is active. Sign in to start using it.',
+      { preheader: 'Your Pro subscription is active. Sign in to start using it.' },
     ),
     text: `You're on Pro. Sign in here (the link works once and expires shortly): ${actionLink}`,
   };

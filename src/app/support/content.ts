@@ -32,8 +32,30 @@ export interface GuideStep {
   hrefLabel?: string;
 }
 
+/**
+ * Every guide that exists, named as a type.
+ *
+ * A plain `string` id was fine while the only thing that referenced a guide
+ * was the page rendering it. The welcome email now links straight at four of
+ * them, and a link that misses lands a brand new member on a page of guides
+ * that is not the one they were promised. Nothing about that failure is loud:
+ * the URL still resolves, the Port still renders, and the only symptom is
+ * somebody not finding what they clicked for.
+ *
+ * Adding a guide means adding it here first, which is a small tax. Renaming
+ * one breaks WELCOME_GUIDE_IDS below until the email is pointed somewhere
+ * real, which is the whole point.
+ */
+export type GuideId =
+  | 'read-a-score'
+  | 'explore-map'
+  | 'your-spots'
+  | 'alerts'
+  | 'log-catch'
+  | 'pro-features';
+
 export interface Guide {
-  id: string;
+  id: GuideId;
   title: string;
   summary: string;
   /** Rough read/do time, shown as a mono chip. */
@@ -111,6 +133,46 @@ export const GUIDES: Guide[] = [
         title: 'Use Near me to jump regions',
         detail:
           'The Near me button matches your position to the nearest covered city and refits the map. It runs entirely in the browser against the already-loaded city list, so no request is sent anywhere.',
+      },
+    ],
+  },
+  {
+    id: 'your-spots',
+    title: 'Set your home spot and save the water you fish',
+    summary:
+      'The house, the star and the pin drop. How the app learns which water is yours, and what changes once it knows.',
+    minutes: 4,
+    steps: [
+      {
+        title: 'Pin a home spot with the house icon',
+        detail:
+          'Open any spot page and the house sits in the title row, beside the star. Tapping it makes that spot your home spot. There is only one, so setting a new one replaces the old, and it saves to your account rather than to the browser, which means it follows you to your phone.',
+        href: '/explore',
+        hrefLabel: 'Open Explore',
+      },
+      {
+        title: 'Notice what the home spot changes',
+        detail:
+          'Your dashboard leads with it: the score, the hourly bars and the conditions for that water, first thing. Explore also opens on its city instead of guessing from your connection, so you land on your own water rather than being flown there a second later.',
+        href: '/dashboard',
+        hrefLabel: 'Open your dashboard',
+      },
+      {
+        title: 'Star every spot you actually fish',
+        detail:
+          'The star on a spot page or a spot card saves it. Saved spots get their own page, so a morning check is one screen instead of a hunt around the map. A free account saves one spot; Pro saves as many as you like.',
+        href: '/favorites',
+        hrefLabel: 'Saved spots',
+      },
+      {
+        title: 'Drop your own spot where we have no pin',
+        detail:
+          'Pro only. Hit Create custom spot in the left rail on desktop, or Add spot on a phone, then tap the map where you fish. Name it, choose private or public, and tick the species you want scored. Private is the default and means only you can see it.',
+      },
+      {
+        title: 'Expect a grey pin for a while',
+        detail:
+          'A brand new custom spot has no score until the next scoring run reaches it, so it draws grey with a dot rather than a number. That is normal and needs nothing from you. If the pin is refused, it landed outside covered water; our fence is 50 km from a covered city.',
       },
     ],
   },
@@ -227,6 +289,20 @@ export const GUIDES: Guide[] = [
     ],
   },
 ];
+
+/**
+ * The guides the welcome email links straight at, in the order it lists them.
+ *
+ * `satisfies Record<string, GuideId>` is what makes the link safe: rename a
+ * guide in GuideId above and this stops compiling until the email is pointed
+ * somewhere that exists. See src/lib/email-templates/welcome.ts.
+ */
+export const WELCOME_GUIDE_IDS = {
+  readAScore: 'read-a-score',
+  yourSpots: 'your-spots',
+  alerts: 'alerts',
+  logCatch: 'log-catch',
+} as const satisfies Record<string, GuideId>;
 
 /* ------------------------------------------------------- knowledge base */
 

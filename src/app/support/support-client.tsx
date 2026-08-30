@@ -11,6 +11,12 @@ import ExploreTopBar from '@/app/explore/components/explore-top-bar';
 import { PAGE_MEASURE } from '@/app/components/layout/page-measure';
 import UnlockWithProCard from '@/app/components/paywall/unlock-with-pro-card';
 import { SUPPORT_EMAIL } from '@/lib/site';
+import {
+  PORT_FOCUS_PARAM,
+  PORT_SECTION_PARAM,
+  portPath,
+  type PortLinkSection,
+} from '@/lib/port-links';
 
 import type { SectionId } from './content';
 import PortNav from './components/port-nav';
@@ -41,19 +47,61 @@ export default function SupportClient() {
 
   const [section, setSection] = useState<SectionId>('start');
   /**
-   * Set when arriving at a section from a search hit, so the target guide or
-   * answer opens and scrolls itself into view instead of leaving the user to
-   * hunt for the thing they just clicked.
+   * Set when arriving at a section from a search hit or an inbound link, so
+   * the target guide or answer opens and scrolls itself into view instead of
+   * leaving the user to hunt for the thing they just clicked.
    */
   const [focusId, setFocusId] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!authLoading && !user) router.replace('/login?next=/support');
+    // The gate in AuthGate would send them to a bare /login and lose the
+    // guide they were sent here to read; this one keeps the whole path.
+    if (!authLoading && !user) {
+      const here = `${window.location.pathname}${window.location.search}`;
+      router.replace(`/login?next=${encodeURIComponent(here)}`);
+    }
   }, [authLoading, user, router]);
+
+  /**
+   * Open whatever the URL asked for, once, on arrival.
+   *
+   * Read in an effect rather than in the useState initialiser on purpose. This
+   * component is server-rendered before it hydrates, the server has no
+   * `window`, and seeding state from the query string there would hand React
+   * two different first renders to reconcile. Nothing is visible during that
+   * gap anyway: the membership check below is still drawing its spinner.
+   */
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const requested = params.get(PORT_SECTION_PARAM);
+    // Only sections that render without live account state. An inbound link to
+    // billing or tickets is a link to somebody else's spinner.
+    const allowed: PortLinkSection[] = ['start', 'guides', 'answers', 'status'];
+    if (!allowed.includes(requested as PortLinkSection)) return;
+
+    setSection(requested as SectionId);
+    setFocusId(params.get(PORT_FOCUS_PARAM));
+  }, []);
 
   const go = useCallback((next: SectionId, id?: string) => {
     setSection(next);
     setFocusId(id ?? null);
+
+    // Keep the address bar honest, so a reader can send somebody the guide
+    // they are looking at instead of the front door of the portal.
+    //
+    // replaceState, not the router. This is a tab bar: the sections swap in
+    // place and pushing each one would make Back walk through every guide
+    // somebody opened before it left the page. Going through next/navigation
+    // would also re-run the route for what is a purely local state change.
+    if (typeof window !== 'undefined') {
+      const url =
+        next === 'billing' || next === 'tickets'
+          ? '/support'
+          : portPath(next as PortLinkSection, id);
+      window.history.replaceState(null, '', url);
+    }
+
     // Sections swap in place below a fixed bar; without this a jump from the
     // bottom of Answers into Status lands you mid-page in the new section.
     window.scrollTo({ top: 0, behavior: 'smooth' });

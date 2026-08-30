@@ -35,7 +35,7 @@ export default function StartSection({ onNavigate }: Props) {
       icon: BookOpen,
       title: 'Guides',
       blurb:
-        'Walkthroughs for the parts of the app that reward knowing them properly: scores, the map, alerts, catch logging.',
+        'Walkthroughs for the parts of the app that reward knowing them properly: scores, the map, your spots, alerts, catch logging.',
       count: `${GUIDES.length} guides`,
     },
     {

@@ -17,6 +17,7 @@ import {
   trialUnavailableEmail,
 } from '@/lib/email-templates/billing';
 import { sendTrialReminder } from '@/lib/trial-reminder';
+import { sendWelcomeEmail } from '@/lib/welcome-email';
 import {
   PAY_METHOD_KEY,
   resolvePaymentMethodKey,
@@ -217,7 +218,7 @@ async function applySubscriptionToUser(subscription: Stripe.Subscription) {
   }
 
   if (status === 'trialing') {
-    await handleTrialingSubscription(subscription, resolvedUserId, tier);
+    const trialStands = await handleTrialingSubscription(subscription, resolvedUserId, tier);
     // Value 0: nothing has been charged yet. The week-later payment is a
     // separate conversion with the real amount on it.
     //
@@ -238,6 +239,28 @@ async function applySubscriptionToUser(subscription: Stripe.Subscription) {
         ? new Date(subscription.start_date * 1000).toISOString()
         : new Date().toISOString(),
     });
+
+    // The first thing we have ever said to this account. Until now a trial
+    // started in silence and the next word from us was the day-4 charge
+    // notice. Claimed inside, so the redeliveries and the subscription.updated
+    // events that follow this one all no-op.
+    //
+    // Deliberately last in the branch and deliberately unable to throw: every
+    // write above it is entitlement or money, and Stripe reads a 500 here as
+    // "redeliver", which would replay all of it to fix an email.
+    if (trialStands) {
+      await sendWelcomeEmail(admin, {
+        userId: resolvedUserId,
+        variant: 'trial',
+        trialEndsAt: subscription.trial_end
+          ? new Date(subscription.trial_end * 1000).toISOString()
+          : null,
+        // The amount actually on this subscription, not the list price. A
+        // price test can put a buyer on a different arm, and quoting the
+        // control at them here would contradict what their card is charged.
+        amountLabel: amountLabelForSubscription(subscription, tier),
+      });
+    }
   }
 }
 
@@ -329,12 +352,17 @@ async function recordUpgradeAttribution(
  * with no charge — not an immediate bill, because this also fires on a
  * legitimately shared household card, and a surprise charge there costs more
  * in chargebacks than the sale is worth.
+ *
+ * Returns whether the trial STANDS. The caller welcomes the new member on the
+ * strength of that, and a duplicate-card refusal has already told them their
+ * trial did not start; following it thirty seconds later with "Pro is on for
+ * the next 7 days" would be the worst email we send.
  */
 async function handleTrialingSubscription(
   subscription: Stripe.Subscription,
   userId: string,
   tier: string,
-) {
+): Promise<boolean> {
   const email = await emailForUser(userId);
   const trialEndsAt = subscription.trial_end
     ? new Date(subscription.trial_end * 1000).toISOString()
@@ -349,10 +377,11 @@ async function handleTrialingSubscription(
   });
 
   const fingerprint = await cardFingerprintFor(subscription);
-  if (!fingerprint) return;
+  // No card readable yet. The trial stands; nothing here refuses it.
+  if (!fingerprint) return true;
 
   const { duplicate } = await recordTrialCardFingerprint(admin, subscription.id, fingerprint);
-  if (!duplicate) return;
+  if (!duplicate) return true;
 
   console.warn('[stripe webhook] duplicate trial card, cancelling', subscription.id);
 
@@ -365,6 +394,8 @@ async function handleTrialingSubscription(
     });
     await sendEmail({ to: email, subject, html });
   }
+
+  return false;
 }
 
 /**

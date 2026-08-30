@@ -34,6 +34,10 @@
  * in on a new laptop. So it writes the `marketing_conversions` row and answers
  * `new_account`, which is the browser's cue to fire the Plausible goal and the
  * Meta pixel. See src/lib/signup-conversion.ts for why both halves exist.
+ *
+ * That same "exactly once, whatever door" property is why the getting-started
+ * email goes out from here for free signups. Checkout signups are left to the
+ * Stripe webhook, which is the only side that knows the charge date.
  */
 
 import { NextRequest, NextResponse } from 'next/server';
@@ -54,6 +58,7 @@ import { recordSignupConversion, type SubscriptionAcquisition } from '@/lib/conv
 import { classifyUserAgent } from '@/lib/device';
 import { readEdgeGeo } from '@/lib/edge-geo';
 import { armsFromCookieHeader } from '@/lib/split-tests';
+import { sendWelcomeEmail } from '@/lib/welcome-email';
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
@@ -343,6 +348,27 @@ export async function POST(request: NextRequest) {
       occurredAt: user.created_at,
       acquisition: signupAcquisition(request, entry, paid),
     });
+
+    // The getting-started email, for accounts that came in the free door.
+    //
+    // This is the only point every account passes through exactly once,
+    // whatever door it used, which is why the conversion row is written here
+    // too. The Stripe webhook owns the trial version and knows the charge
+    // date; sending from here as well would be a second, thinner welcome, so
+    // 'checkout' is skipped and left to it.
+    //
+    // Racing the webhook is not a real worry. On the buy-first flow the
+    // account does not exist until the webhook creates it, so there is no
+    // session to reach this route with until it has already run. And a free
+    // account that upgrades later has been welcomed once here and is upgraded
+    // to the trial note by the claim in sendWelcomeEmail.
+    //
+    // Claimed and non-throwing inside. The conversion row above is the write
+    // that matters; a failed email must not turn this into a 500 and cost the
+    // browser its Plausible goal and pixel fire.
+    if (signupPath === 'free') {
+      await sendWelcomeEmail(admin, { userId: user.id, variant: 'free' });
+    }
   }
 
   // Offer claims are recorded BEFORE the account-age guard, and survive it.
