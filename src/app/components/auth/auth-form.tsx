@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -24,9 +24,26 @@ export function AuthForm({ defaultMode = 'signin', onSuccess, source = 'auth-for
   const [error, setError] = useState('')
   const [success, setSuccess] = useState(false)
   const [loading, setLoading] = useState(false)
-  const { signIn, signUp, signInWithGoogle, resetPasswordForEmail } = useAuth()
+  const { signIn, signUp, signInWithGoogle, resetPasswordForEmail, resendConfirmation } = useAuth()
   const { trackEvent } = useAnalytics()
   const [googleLoading, setGoogleLoading] = useState(false)
+  /**
+   * Set when sign-in fails with `email_not_confirmed`: the account exists and
+   * the password was right, so this is not a credentials error and must not be
+   * shown as one. It is an angler standing at a locked door holding the key.
+   */
+  const [unconfirmedEmail, setUnconfirmedEmail] = useState('')
+  const [resending, setResending] = useState(false)
+  const [resent, setResent] = useState(false)
+  const [resendError, setResendError] = useState('')
+  /** Seconds until another send is allowed. Supabase rate-limits per address. */
+  const [cooldown, setCooldown] = useState(0)
+
+  useEffect(() => {
+    if (cooldown <= 0) return
+    const timer = setTimeout(() => setCooldown(seconds => seconds - 1), 1000)
+    return () => clearTimeout(timer)
+  }, [cooldown])
 
   const handleGoogle = async () => {
     setError('')
@@ -50,9 +67,44 @@ export function AuthForm({ defaultMode = 'signin', onSuccess, source = 'auth-for
     }
   }
 
+  const handleResend = async () => {
+    // The signup screen keeps the address in `email`; the locked-out screen
+    // parks it in `unconfirmedEmail` so a stray edit to the field cannot send
+    // the link somewhere else.
+    const target = unconfirmedEmail || email
+    if (!target || resending || cooldown > 0) return
+
+    setResending(true)
+    setResendError('')
+    try {
+      const { error } = await resendConfirmation(target)
+      if (error) {
+        setResendError(
+          error.code === 'over_email_send_rate_limit'
+            ? 'We just sent one. Give it a minute, then try again.'
+            : error.message,
+        )
+      } else {
+        setResent(true)
+        trackEvent('Confirmation Resent', {
+          source,
+          timestamp: new Date().toISOString(),
+        })
+      }
+    } catch {
+      setResendError('Could not send the email. Try again in a moment.')
+    } finally {
+      // Cooldown runs either way. A failed send still cost an attempt against
+      // the server-side limit, and hammering the button cannot help.
+      setCooldown(60)
+      setResending(false)
+    }
+  }
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setError('')
+    setUnconfirmedEmail('')
     setSuccess(false)
     setLoading(true)
 
@@ -95,7 +147,13 @@ export function AuthForm({ defaultMode = 'signin', onSuccess, source = 'auth-for
       } else {
         const { error } = await signIn(email, password)
 
-        if (error) {
+        if (error?.code === 'email_not_confirmed') {
+          // Not a bad password. The account was never activated, so offer the
+          // one thing that fixes it instead of a dead-end error string.
+          setUnconfirmedEmail(email)
+          setResent(false)
+          setResendError('')
+        } else if (error) {
           setError(error.message)
         } else {
           trackEvent('Sign In', {
@@ -120,6 +178,9 @@ export function AuthForm({ defaultMode = 'signin', onSuccess, source = 'auth-for
     setPassword('')
     setError('')
     setSuccess(false)
+    setUnconfirmedEmail('')
+    setResent(false)
+    setResendError('')
   }
 
   if (success) {
@@ -136,6 +197,16 @@ export function AuthForm({ defaultMode = 'signin', onSuccess, source = 'auth-for
               ? 'Click the link in the email to reset your password'
               : 'Click the link in the email to activate your account'}
           </p>
+          {mode !== 'forgot' && (
+            <ResendConfirmation
+              onResend={handleResend}
+              resending={resending}
+              resent={resent}
+              error={resendError}
+              cooldown={cooldown}
+              prompt="No email after a few minutes? Check your spam folder, or"
+            />
+          )}
           {mode === 'forgot' && (
             <button
               type="button"
@@ -160,6 +231,25 @@ export function AuthForm({ defaultMode = 'signin', onSuccess, source = 'auth-for
           <Alert variant="destructive" className="border-rc-poor/30 bg-rc-poor-bg text-sm">
             <AlertDescription className="text-rc-poor-ink">{error}</AlertDescription>
           </Alert>
+        )}
+
+        {unconfirmedEmail && (
+          <div className="rounded-md border border-rc-rule bg-rc-surface p-3 space-y-2">
+            <p className="text-sm font-medium text-rc-ink">Confirm your email first</p>
+            <p className="text-xs text-rc-ink-soft">
+              Your account is set up, but the link we sent to{' '}
+              <span className="font-medium text-rc-ink">{unconfirmedEmail}</span> was never opened.
+              Click it and you are in, with the password you already chose.
+            </p>
+            <ResendConfirmation
+              onResend={handleResend}
+              resending={resending}
+              resent={resent}
+              error={resendError}
+              cooldown={cooldown}
+              prompt="Cannot find it? Check your spam folder, or"
+            />
+          </div>
         )}
 
         {mode !== 'forgot' && (
@@ -316,6 +406,52 @@ export function AuthForm({ defaultMode = 'signin', onSuccess, source = 'auth-for
           </>
         )}
       </form>
+    </div>
+  )
+}
+
+/**
+ * "Send it again" for a confirmation link, used both right after signup and
+ * on the locked-out sign-in. Stateless: the parent owns the send and the
+ * cooldown, so both call sites share one rate limit rather than each keeping
+ * their own count of what the server has already been asked to do.
+ */
+function ResendConfirmation({
+  onResend,
+  resending,
+  resent,
+  error,
+  cooldown,
+  prompt,
+}: {
+  onResend: () => void
+  resending: boolean
+  resent: boolean
+  error: string
+  cooldown: number
+  prompt: string
+}) {
+  return (
+    <div className="space-y-1">
+      <p className="text-xs text-rc-ink-mute">
+        {prompt}{' '}
+        <button
+          type="button"
+          onClick={onResend}
+          disabled={resending || cooldown > 0}
+          className="text-rc-brand hover:text-rc-brand-hover transition-colors underline underline-offset-2 disabled:text-rc-ink-mute disabled:no-underline"
+        >
+          {resending
+            ? 'sending...'
+            : cooldown > 0
+              ? `send it again in ${cooldown}s`
+              : 'send it again'}
+        </button>
+      </p>
+      {resent && !error && (
+        <p className="text-xs text-rc-good">Sent. It should land within a minute.</p>
+      )}
+      {error && <p className="text-xs text-rc-poor-ink">{error}</p>}
     </div>
   )
 }
