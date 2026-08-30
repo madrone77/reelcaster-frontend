@@ -211,7 +211,8 @@ export type NagFeatureId =
   | "catch-log"
   | "catch-reports"
   | "remove-ads"
-  | "support-the-map";
+  | "support-the-map"
+  | "support";
 
 export interface NagFeature {
   /** Completes "Start your 7-day Pro trial to ___". Lower case, no period. */
@@ -301,6 +302,17 @@ export const NAG_FEATURES: Record<NagFeatureId, NagFeature> = {
     headline: "Support ReelCaster",
     unlocksAt: "pro",
     pricingFeature: "support-the-map",
+  },
+  // The Port, the Pro-only support portal at /support. The wall there is the
+  // card, not this modal: nothing opens ProTrialModal with this id today. It
+  // is a member of the enum anyway, because the paywall counter validates
+  // every report against this list and a wall whose feature is not on it is
+  // counted nowhere. That is precisely how /support went unmeasured.
+  support: {
+    action: "open the support portal",
+    headline: "Open The Port",
+    unlocksAt: "pro",
+    pricingFeature: "support",
   },
   // Fired by the "remove ads" link under an ad unit, so the reader arrives
   // having just looked at the thing they want gone. Not spot-scoped: ads are a

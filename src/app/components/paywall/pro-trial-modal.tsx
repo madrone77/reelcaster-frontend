@@ -14,6 +14,7 @@ import { useAuth } from "@/contexts/auth-context";
 import { useSubscription } from "@/hooks/use-subscription";
 import { useAnalytics } from "@/hooks/use-analytics";
 import { captureWall } from "@/lib/attribution";
+import { reportPaywall } from "@/lib/paywall-counter";
 import { TrialBuy, TrialCtaProvider, TrialExpress } from "./trial-cta";
 import PlanMatrix from "./plan-matrix";
 import { TRIAL_DAYS } from "@/lib/pricing";
@@ -80,28 +81,17 @@ export default function ProTrialModal({
   const ctaLabel = `Start ${TRIAL_DAYS}-day free trial`;
 
   /**
-   * The server-side counter behind the conversion panels in bluecaster
-   * /admin/reelcaster/analytics. Mixpanel already has these as events; this is
-   * the copy the admin dashboard can actually query, and it is a day-grain
-   * count rather than a log.
+   * The server-side counter behind /admin/reelcaster/paywalls and the
+   * conversion panels on /admin/reelcaster/analytics. Mixpanel already has
+   * these as events; this is the copy the admin dashboard can actually query,
+   * and it is a day-grain count rather than a log.
    *
-   * `keepalive` because a CTA click navigates away — to /signup, to /plans, or
-   * out to Stripe — and an in-flight fetch on a tearing-down document is
-   * dropped without it, which would lose exactly the clicks that converted.
+   * The request itself lives in lib/paywall-counter.ts, shared with the walls
+   * that do not open this modal, so all of them report the same way.
    */
   const bumpCounter = useCallback(
     (kind: "impression" | "cta_click") => {
-      void fetch("/api/attribution/paywall", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          kind,
-          feature,
-          surface: from,
-          viewer_tier: viewerTier,
-        }),
-        keepalive: true,
-      }).catch(() => {});
+      reportPaywall(kind, { feature, surface: from, viewerTier });
     },
     [feature, from, viewerTier],
   );

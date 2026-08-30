@@ -161,6 +161,7 @@ function ProGate() {
           <UnlockWithProCard
             theme="light"
             feature="support"
+            surface="support-portal"
             headline="Open The Port"
             bullets={[
               'Priority support with a one business day reply target',
