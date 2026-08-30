@@ -1,7 +1,8 @@
 "use client";
 
 import { useRef, useState } from "react";
-import { PRICE } from "./lp-content";
+import { priceStrings } from "./lp-content";
+import { usePricing } from "@/app/components/split-test/use-pricing";
 import { reportLpCta, type LpCtaId } from "./lp-telemetry";
 
 /**
@@ -62,6 +63,13 @@ export default function LpTrialForm({
   /** The pitch this page is running, so a press can be read per angle. */
   angle: string;
 }) {
+  // The disclosure under this button states what the card will be charged, so
+  // it reads the reader's own price rather than the build's. This is the one
+  // sentence on a landing page that has to be right: an auto-charging trial
+  // must disclose the amount, and disclosing a different amount than the one
+  // Stripe bills is the failure the whole split-test design guards against.
+  const PRICE = priceStrings(usePricing(region));
+
   const [email, setEmail] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);

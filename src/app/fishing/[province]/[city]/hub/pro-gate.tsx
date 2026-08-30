@@ -21,12 +21,14 @@
 
 import Link from "next/link";
 import {
-  ANNUAL_PER_MONTH_CENTS,
-  ANNUAL_PRICE_CENTS,
   TRIAL_DAYS,
   currencyLabelForRegion,
   dollars,
 } from "@/lib/pricing";
+import {
+  PriceAmount,
+  PricePerMonth,
+} from "@/app/components/split-test/price-text";
 import { PANEL, TYPE } from "./ui";
 
 const FEATURES = [
@@ -64,9 +66,9 @@ export default function ProGate({
 
   const terms = (
     <>
-      {dollars(0)} today, then {dollars(ANNUAL_PRICE_CENTS)}{" "}
+      {dollars(0)} today, then <PriceAmount region={provinceCode} />{" "}
       {currencyLabelForRegion(provinceCode)} a year, which is{" "}
-      {dollars(ANNUAL_PER_MONTH_CENTS)} a month. Card required, cancel any time.
+      <PricePerMonth region={provinceCode} /> a month. Card required, cancel any time.
     </>
   );
 

@@ -23,6 +23,7 @@
 import type Stripe from 'stripe';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { SIGNUP_MODELED_VALUE_CENTS, SIGNUP_VALUE_CURRENCY } from './signup-conversion';
+import { armsFromMetadata, type SplitArms } from './split-tests';
 
 export type ConversionEvent = 'trial_start' | 'purchase' | 'signup';
 
@@ -77,6 +78,20 @@ export interface SubscriptionAcquisition {
   geo_region: string | null;
   geo_city: string | null;
   params: Record<string, string> | null;
+  /**
+   * Which split-test arms this buyer was in, read back off the `split_*` keys
+   * the checkout route stamped on the subscription.
+   *
+   * The join that makes a split test readable. Exposures live in a counter
+   * with no identity in it, so the only way to say "arm b sold four
+   * subscriptions" is for the sale itself to remember which arm it came from,
+   * and Stripe metadata is the only carrier that survives the week between a
+   * trial starting and the first invoice being paid.
+   *
+   * `{}` for every conversion made while no test was running, which is most
+   * of them and is not a gap.
+   */
+  split_tests: SplitArms;
 }
 
 function str(value: string | undefined): string | null {
@@ -123,6 +138,7 @@ export function acquisitionFromSubscription(
     geo_region: str(m.acq_region),
     geo_city: str(m.acq_city),
     params,
+    split_tests: armsFromMetadata(m),
   };
 }
 

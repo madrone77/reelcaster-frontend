@@ -16,7 +16,9 @@ import { supabase } from '@/lib/supabase';
 import { useUpgradeFlow } from '@/hooks/use-upgrade-flow';
 import { cn } from '@/lib/utils';
 import ExpressCheckout from './express-checkout';
-import { ANNUAL_PRICE_CENTS, TRIAL_DAYS, dollars } from '@/lib/pricing';
+import { TRIAL_DAYS, dollars } from '@/lib/pricing';
+import { usePricing } from '@/app/components/split-test/use-pricing';
+import { reportSplitCta } from '@/app/components/split-test/report';
 
 /**
  * The buy control shared by every in-app paywall.
@@ -196,6 +198,11 @@ export function TrialCtaProvider({
     };
   }, [user, authLoading]);
 
+  // Every number this provider hands down comes from one resolved price, so
+  // the button label, the disclosure under it and the summary above it cannot
+  // disagree about what the card is about to be charged.
+  const pricing = usePricing(region);
+
   const anon = !authLoading && !user;
   // Eligibility for a signed-out buyer is checked server-side against the
   // email they give — typed, or handed over by the wallet — so an optimistic
@@ -209,6 +216,7 @@ export function TrialCtaProvider({
   );
 
   async function startAnonCheckout() {
+    reportSplitCta(pricing, 'paywall');
     setAnonSubmitting(true);
     setAnonError(null);
     try {
@@ -242,7 +250,7 @@ export function TrialCtaProvider({
     anon,
     trialOn,
     trialDays,
-    priceCents: ANNUAL_PRICE_CENTS,
+    priceCents: pricing.cents,
     periodWord: 'year',
     chargeDate,
     planDown: Boolean(status && !status.annual_available),
@@ -258,6 +266,7 @@ export function TrialCtaProvider({
       (error ? 'We couldn’t start checkout. Please try again in a moment.' : null),
     startAnonCheckout,
     startCheckout: () => {
+      reportSplitCta(pricing, 'paywall');
       openCheckout({ from, region }).catch(() => {
         /* surfaced through errorText */
       });

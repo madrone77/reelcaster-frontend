@@ -3,13 +3,23 @@ import { createClient } from '@supabase/supabase-js';
 import type Stripe from 'stripe';
 import { getStripe } from '@/lib/stripe';
 import {
-  ANNUAL_PER_MONTH_CENTS,
-  ANNUAL_PRICE_CENTS,
   ANNUAL_PRICE_ID,
   TRIAL_DAYS,
   currencyForRegion,
   type BillingCurrency,
 } from '@/lib/pricing';
+import {
+  priceIdFromEnv,
+  resolveSplitContext,
+  verifiedPriceForCheckout,
+} from '@/lib/split-tests-server';
+import {
+  armsFromMetadata,
+  SPLIT_COOKIE,
+  SPLIT_COOKIE_MAX_AGE,
+  serializeSplitArms,
+  splitMetadata,
+} from '@/lib/split-tests';
 import {
   checkTrialEligibility,
   checkTrialEligibilityByEmail,
@@ -110,7 +120,14 @@ export async function GET(request: NextRequest) {
     request.headers.get('x-vercel-ip-country'),
   );
 
-  return noStore({
+  // The wallet sheet quotes an amount, and Apple renders it in the operating
+  // system's own UI where we cannot correct it afterwards. So the amount comes
+  // from the same per-visitor resolution the subscription will be created
+  // with, rather than from a constant the client might have cached from
+  // before a test started.
+  const ctx = await resolveSplitContext(request.headers.get('cookie'), currency);
+
+  const response = noStore({
     // No annual Price configured means no plan to sell, and the element would
     // only fail at the moment of the tap. Better to never draw it.
     available: Boolean(ANNUAL_PRICE_ID),
@@ -118,9 +135,23 @@ export async function GET(request: NextRequest) {
     anon_available: PAY_FIRST_ENABLED,
     currency,
     trial_days: TRIAL_DAYS,
-    price_cents: ANNUAL_PRICE_CENTS,
-    per_month_cents: ANNUAL_PER_MONTH_CENTS,
+    price_cents: ctx.pricing.cents,
+    per_month_cents: ctx.pricing.perMonthCents,
   });
+
+  // First contact for a visitor whose journey starts at a paywall modal, so
+  // this is where their arm gets recorded.
+  if (ctx.changed) {
+    response.cookies.set(SPLIT_COOKIE, serializeSplitArms(ctx.arms), {
+      maxAge: SPLIT_COOKIE_MAX_AGE,
+      path: '/',
+      sameSite: 'lax',
+      httpOnly: false,
+      secure: process.env.NODE_ENV === 'production',
+    });
+  }
+
+  return response;
 }
 
 export async function POST(request: NextRequest) {
@@ -259,6 +290,20 @@ async function setupStep(
   }
 
   try {
+    // Resolved AFTER the currency is settled, because a customer locked to
+    // the other currency by Stripe has just changed it, and the arm's amount
+    // is per currency.
+    const split = await resolveSplitContext(request.headers.get('cookie'), currency);
+    const priced = await verifiedPriceForCheckout(stripe, split.pricing);
+    if (!priced.ok) {
+      // Refused rather than quietly repriced. The wallet sheet is about to
+      // show the customer an amount in Apple's own UI; opening it against a
+      // price we cannot vouch for is how someone taps to approve one number
+      // and gets billed another.
+      console.error('[stripe express] price refused', priced.reason);
+      return noStore({ error: 'plan_unavailable' }, { status: 503 });
+    }
+
     const setupIntent = await stripe.setupIntents.create({
       customer: customerId,
       // The card is kept to bill the first invoice when the trial ends, with
@@ -275,6 +320,12 @@ async function setupStep(
         // Resolved here, read back in step 2. The browser never gets a say in
         // whether it qualifies for a free week.
         trial: String(trialEligible),
+        // The arm, and the variable naming the price it agreed to. Step 2 runs
+        // as a separate request and must not re-roll either: a visitor who
+        // approved a wallet sheet quoting one amount has to be subscribed at
+        // that amount even if the registry changed in between.
+        price_env: split.pricing.priceEnv,
+        ...splitMetadata(split.arms),
       },
     });
 
@@ -360,10 +411,15 @@ async function subscribeStep(body: ExpressBody) {
       invoice_settings: { default_payment_method: paymentMethodId },
     });
 
+    // The price the wallet sheet quoted, not whatever the registry says now.
+    // Falls back to the control price only when the SetupIntent predates this
+    // field, which is the one case where the two are known to be the same.
+    const armPriceId = priceIdFromEnv(meta.price_env ?? '') || ANNUAL_PRICE_ID;
+
     const subscription = await stripe.subscriptions.create(
       {
         customer: customerId,
-        items: [{ price: ANNUAL_PRICE_ID, quantity: 1 }],
+        items: [{ price: armPriceId, quantity: 1 }],
         currency,
         default_payment_method: paymentMethodId,
         // Without a trial the first invoice is charged now and may need a 3DS
@@ -383,6 +439,10 @@ async function subscribeStep(body: ExpressBody) {
           express: 'true',
           trial: String(trialEligible),
           ...(payMethod ? { [PAY_METHOD_KEY]: payMethod } : {}),
+          // Forwarded from the SetupIntent, because the webhook resolves the
+          // arm from the SUBSCRIPTION and would otherwise see an express sale
+          // as belonging to no test at all.
+          ...splitMetadata(armsFromMetadata(meta)),
         },
         ...(trialEligible
           ? {

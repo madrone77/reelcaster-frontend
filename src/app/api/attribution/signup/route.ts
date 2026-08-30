@@ -53,6 +53,7 @@ import { NAG_FEATURES } from '@/lib/plan-features';
 import { recordSignupConversion, type SubscriptionAcquisition } from '@/lib/conversions';
 import { classifyUserAgent } from '@/lib/device';
 import { readEdgeGeo } from '@/lib/edge-geo';
+import { armsFromCookieHeader } from '@/lib/split-tests';
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
@@ -225,6 +226,11 @@ function signupAcquisition(
   const geo = readEdgeGeo(request.headers);
 
   return {
+    // Read off the same cookie the price surfaces read, so a landing-page or
+    // modal test can be judged on free signups and not only on sales. Parsed
+    // and shape-checked rather than trusted: the cookie is client-writable,
+    // and this lands in a column the split-test report groups on.
+    split_tests: armsFromCookieHeader(request.headers.get('cookie')),
     attribution_model: touch ? (paid ? 'paid' : 'first') : null,
     click_id: touch ? clickId(touch) : null,
     click_type: touch ? clickType(touch) : null,

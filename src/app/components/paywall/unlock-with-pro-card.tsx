@@ -7,7 +7,7 @@ import { TRIAL_DAYS } from '@/lib/pricing';
 import { useAnalytics } from '@/hooks/use-analytics';
 import { useAuth } from '@/contexts/auth-context';
 import { useSubscription } from '@/hooks/use-subscription';
-import { ANNUAL_PRICE_CENTS } from '@/lib/pricing';
+import { usePricing } from '@/app/components/split-test/use-pricing';
 import { captureWall } from '@/lib/attribution';
 import { reportPaywall } from '@/lib/paywall-counter';
 import type { NagFeatureId, PlanTierId } from '@/lib/plan-features';
@@ -41,11 +41,6 @@ const DEFAULT_BULLETS = [
   'Score a spot we don’t cover: your pin, our full model',
   'Alerts when it’s on, by text or email',
 ];
-
-function dollars(cents: number): string {
-  const v = cents / 100;
-  return Number.isInteger(v) ? `$${v}` : `$${v.toFixed(2)}`;
-}
 
 export interface UnlockWithProCardProps {
   /** Headline above the bullets. */
@@ -151,7 +146,9 @@ export function UnlockWithProCard({
 
   // Derived from pricing.ts rather than hardcoded, so the button can't keep
   // advertising $33 after the Price changes.
-  const label = ctaLabel ?? `Upgrade to Pro · ${dollars(ANNUAL_PRICE_CENTS)}/yr`;
+  // The card's own button quotes the reader's price, not the build's.
+  const pricing = usePricing();
+  const label = ctaLabel ?? `Upgrade to Pro · ${pricing.amount}/yr`;
 
   const isLight = theme === 'light';
 

@@ -23,7 +23,7 @@ import type {
 } from '@stripe/stripe-js';
 import { apiFetch } from '@/lib/api-client';
 import { useAuth } from '@/contexts/auth-context';
-import { ANNUAL_PRICE_CENTS, TRIAL_DAYS, dollars } from '@/lib/pricing';
+import { TRIAL_DAYS, dollars } from '@/lib/pricing';
 
 /**
  * Apple Pay / Google Pay, on the page, one tap.
@@ -143,6 +143,7 @@ export default function ExpressCheckout({
           from={from}
           region={region}
           signedIn={signedIn}
+          priceCents={config.price_cents}
           onAvailabilityChange={onAvailabilityChange}
           onActivate={onActivate}
         />
@@ -157,12 +158,21 @@ function WalletButtons({
   from,
   region,
   signedIn,
+  priceCents,
   onAvailabilityChange,
   onActivate,
 }: {
   from: string;
   region?: string;
   signedIn: boolean;
+  /**
+   * The amount THIS visitor's subscription will be created at, resolved by
+   * /api/stripe/express-checkout from their split-test arm. Passed down rather
+   * than imported, because the wallet sheet is drawn by the operating system
+   * and cannot be corrected once it is open: the number here and the number on
+   * the subscription have to come from the same resolution.
+   */
+  priceCents: number;
   onAvailabilityChange?: (available: boolean) => void;
   onActivate?: () => void;
 }) {
@@ -214,7 +224,7 @@ function WalletButtons({
               : `${window.location.origin}/profile`,
           regularBilling: {
             label: 'ReelCaster Pro, yearly',
-            amount: ANNUAL_PRICE_CENTS,
+            amount: priceCents,
             recurringPaymentIntervalUnit: 'year' as const,
             recurringPaymentIntervalCount: 1,
             recurringPaymentStartDate: trialEndsAt,
@@ -226,12 +236,12 @@ function WalletButtons({
             recurringPaymentIntervalCount: TRIAL_DAYS,
           },
           billingAgreement: `Free for ${TRIAL_DAYS} days, then ${dollars(
-            ANNUAL_PRICE_CENTS,
+            priceCents,
           )} a year until you cancel.`,
         },
       },
     }),
-    [signedIn, trialEndsAt],
+    [signedIn, trialEndsAt, priceCents],
   );
 
   const onReady = useCallback(

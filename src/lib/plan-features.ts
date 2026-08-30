@@ -46,12 +46,7 @@
  *   ads               src/app/components/ads/ad-slot.tsx (the `isPaid` gate)
  */
 
-import {
-  ANNUAL_PER_MONTH_CENTS,
-  ANNUAL_PRICE_CENTS,
-  TRIAL_DAYS,
-  dollars,
-} from "./pricing";
+import { TRIAL_DAYS, type PricingView } from "./pricing";
 
 /**
  * How many spots a free account may save. Pro is unlimited, so there is no
@@ -91,13 +86,22 @@ export interface PlanTier {
   price: string;
 }
 
-export const PLAN_TIERS: PlanTier[] = [
-  { id: "free", label: "Free", price: "$0" },
-  // The charged amount, not the $2.75/mo pitch: the headline above the table
-  // already does that division, and the column a customer scans for "what does
-  // this cost me" should be the number that lands on their card.
-  { id: "pro", label: "Pro", price: `${dollars(ANNUAL_PRICE_CENTS)}/yr` },
-];
+/**
+ * The columns of the Free-vs-Pro table.
+ *
+ * A function of the reader's price rather than a constant, because the price
+ * is a function of the reader now: see PricingView in ./pricing. Every caller
+ * is a client component that already has the view in hand.
+ */
+export function planTiers(pricing: PricingView): PlanTier[] {
+  return [
+    { id: "free", label: "Free", price: "$0" },
+    // The charged amount, not the $2.75/mo pitch: the headline above the table
+    // already does that division, and the column a customer scans for "what
+    // does this cost me" should be the number that lands on their card.
+    { id: "pro", label: "Pro", price: `${pricing.amount}/yr` },
+  ];
+}
 
 /**
  * A cell: `true` = included, `false` = not included, string = the actual limit.
@@ -365,10 +369,6 @@ export function nagHeadline(
  * while the yearly number is what they're actually agreeing to, so both appear
  * and the yearly one is the one attached to the verb "billed".
  */
-export function nagSubhead(): string {
-  return `Free for ${TRIAL_DAYS} days, then ${dollars(
-    ANNUAL_PER_MONTH_CENTS,
-  )} a month, billed yearly at ${dollars(
-    ANNUAL_PRICE_CENTS,
-  )}. Cancel anytime before the trial ends and you pay nothing.`;
+export function nagSubhead(pricing: PricingView): string {
+  return `Free for ${TRIAL_DAYS} days, then ${pricing.perMonth} a month, billed yearly at ${pricing.amount}. Cancel anytime before the trial ends and you pay nothing.`;
 }

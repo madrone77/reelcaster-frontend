@@ -2,7 +2,11 @@ import { NextResponse } from 'next/server';
 import type Stripe from 'stripe';
 import { createClient } from '@supabase/supabase-js';
 import { getStripe } from '@/lib/stripe';
-import { ANNUAL_PRICE_ID, amountLabelForTier } from '@/lib/pricing';
+import {
+  ANNUAL_PRICE_ID,
+  amountLabelForStored,
+  amountLabelForSubscription,
+} from '@/lib/pricing';
 import { recordTrialGrant, recordTrialCardFingerprint } from '@/lib/trial';
 import { recordConversion } from '@/lib/conversions';
 import { uploadPendingConversions } from '@/lib/conversion-upload';
@@ -192,6 +196,12 @@ async function applySubscriptionToUser(subscription: Stripe.Subscription) {
     subscription_status: status,
     subscription_tier: nextTier,
     subscription_period_end: periodEnd,
+    // What they actually pay, not what the tier implies. With a price test
+    // running, 'pro_annual' covers more than one amount, and the trial-ending
+    // notice has to name the right one. Taken from the subscription item so it
+    // cannot disagree with the invoice.
+    subscription_amount_cents: item?.price?.unit_amount ?? null,
+    subscription_currency: subscription.currency ?? null,
   };
 
   // Payment is good again (or the subscription ended) — close the window.
@@ -351,7 +361,7 @@ async function handleTrialingSubscription(
 
   if (email) {
     const { subject, html } = trialUnavailableEmail({
-      amountLabel: amountLabelForTier(tier),
+      amountLabel: amountLabelForSubscription(subscription, tier),
     });
     await sendEmail({ to: email, subject, html });
   }
@@ -403,7 +413,7 @@ async function openGraceWindow(subscription: Stripe.Subscription) {
 
   const { data: settings } = await admin
     .from('user_settings')
-    .select('grace_until, subscription_tier')
+    .select('grace_until, subscription_tier, subscription_amount_cents')
     .eq('user_id', userId)
     .maybeSingle();
 
@@ -420,7 +430,10 @@ async function openGraceWindow(subscription: Stripe.Subscription) {
   if (email) {
     const { subject, html } = paymentFailedEmail({
       graceUntil,
-      amountLabel: amountLabelForTier(settings?.subscription_tier ?? 'pro_annual'),
+      amountLabel: amountLabelForStored(
+        settings?.subscription_amount_cents,
+        settings?.subscription_tier ?? 'pro_annual',
+      ),
     });
     await sendEmail({ to: email, subject, html });
   }
@@ -445,7 +458,7 @@ async function sendTrialEndingNotice(subscription: Stripe.Subscription) {
   await sendTrialReminder(admin, {
     userId,
     trialEndsAt: new Date(subscription.trial_end * 1000).toISOString(),
-    amountLabel: amountLabelForTier(tierFromPriceId(priceId)),
+    amountLabel: amountLabelForSubscription(subscription, tierFromPriceId(priceId)),
   });
 }
 
