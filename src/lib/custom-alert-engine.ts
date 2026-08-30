@@ -12,6 +12,15 @@ import { calculateOpenMeteoFishingScore } from '@/app/utils/fishingCalculations'
 import { getMoonPhase } from '@/app/utils/astronomicalCalculations';
 import type { OpenMeteo15MinData } from '@/app/utils/openMeteoApi';
 import { fetchSpotSpeciesOutlook, type SpotSpeciesOutlook } from '@/lib/bluecaster-score';
+import {
+  scoreBeatsFor,
+  scoreThresholdFor,
+  localDateOf,
+  type AlertBeat,
+  type LeadTimeMode,
+  type NoticeState,
+  type ScoreBeatCandidate,
+} from './score-beats';
 
 // =============================================================================
 // Types
@@ -46,54 +55,49 @@ export interface AlertProfile {
   lead_time_mode?: LeadTimeMode | null;
 }
 
-export type LeadTimeMode = 'asap' | 'short' | 'day_of';
+// The cadence rules live in ./score-beats, which is pure and has no
+// `server-only` dependency so it can be unit tested. Re-exported here because
+// this module was their home and callers import them from it.
+export type {
+  LeadTimeMode,
+  AlertBeat,
+  NoticeState,
+  ScoreBeatCandidate,
+} from './score-beats';
+export { scoreBeatsFor, scoreThresholdFor } from './score-beats';
 
-export type AlertBeat = 'heads_up' | 'confirm' | 'stand_down';
-
-/**
- * How many days ahead each mode is willing to look.
- *
- * These live in code, not in the database, so they can be retuned against
- * measured forecast stability without a migration and without changing what an
- * angler's saved alert means. Six is a deliberate ceiling: past roughly a week
- * the weather models sit close to climatology, and an alert that is wrong a
- * third of the time trains people to ignore it.
- */
-const LEAD_CAP_DAYS: Record<LeadTimeMode, number> = {
-  asap: 6,
-  short: 3,
-  day_of: 0,
-};
-
-/**
- * At most one heads-up per alert per rolling week.
- *
- * The threshold alone cannot carry this. Scores live in roughly a 70 to 90
- * band since the 2026-08-03 rescale, so a 75 threshold matches nearly every
- * day: six of the eight live alerts had all seven days in the window
- * qualifying. An alert that fires on every qualifying day would have sent
- * seven messages in an afternoon.
- *
- * `cooldown_hours` used to hide this. It capped a day-of alert at one send per
- * 12 hours no matter how many days were good, so nobody noticed the threshold
- * had stopped discriminating. The create-alert dialog has been saying so all
- * along, in the "~ 7 days a week match this" line under the slider.
- */
-const HEADS_UP_COOLDOWN_DAYS = 7;
-
-/** One message we intend to send, already claimed in the ledger. */
-export interface AlertSendJob {
+/** One thing we have to say, already claimed in the ledger. */
+export interface AlertDigestItem {
   /** alert_day_notices row id, to stamp once the send resolves. */
   noticeId: string;
   profileId: string;
+  spotName: string;
+  spotSlug: string | null;
   beat: AlertBeat;
-  /** The fishing day this message is about, YYYY-MM-DD. */
+  /** The fishing day this item is about, YYYY-MM-DD. */
   targetDate: string;
   leadDays: number;
   score: number;
+  threshold: number;
+  speciesName: string | null;
   /** False when we fell back to the spot's best species. */
   speciesMatched: boolean;
-  scoredSpeciesSlug: string | null;
+}
+
+/**
+ * Everything one angler is owed today, in one message.
+ *
+ * The unit of sending is a person, not an alert. That is the whole change: a
+ * user with alerts on six nearby spots is being told about one weather system,
+ * and six emails about one weather system is how an alert gets filtered to
+ * trash. Items are pre-resolved (spot name, species, threshold) so the sender
+ * does not go back to the database once per line.
+ */
+export interface AlertDigestJob {
+  userId: string;
+  /** Union of the delivery channels across the alerts in this digest. */
+  channels: string[];
+  items: AlertDigestItem[];
 }
 
 export interface AlertTriggers {
@@ -674,173 +678,63 @@ export function isWithinActiveHours(
 /**
  * Evaluate all triggers for an alert profile
  */
-// Daytime window (spot-local) in which a "today's peak" score alert may fire —
-// keeps us from texting "today looks great" at 1am when the day rolls over.
-const SCORE_ALERT_HOUR_START = 6;
-const SCORE_ALERT_HOUR_END = 21;
 
-function currentHourInZone(timezone = 'America/Vancouver'): number {
-  const hh = new Intl.DateTimeFormat('en-US', {
-    timeZone: timezone,
-    hour: '2-digit',
-    hour12: false,
-  }).format(new Date());
-  // '24' can appear for midnight in some environments; normalize to 0.
-  return Number(hh) % 24;
-}
-
-export function scoreThresholdFor(profile: AlertProfile): number {
-  return profile.score_threshold ?? profile.triggers.fishing_score?.min_score ?? 75;
-}
-
-function leadModeFor(profile: AlertProfile): LeadTimeMode {
-  const mode = profile.lead_time_mode;
-  return mode === 'asap' || mode === 'short' || mode === 'day_of' ? mode : 'asap';
-}
-
-/** A message we want to send, before it has been claimed in the ledger. */
-interface ScoreBeatCandidate {
-  beat: AlertBeat;
-  targetDate: string;
-  leadDays: number;
-  score: number;
-}
-
-/** What we have already told this angler, read from the ledger. */
-export interface NoticeState {
-  /** Dates (YYYY-MM-DD) we have already sent a heads-up for. */
-  headsUpDates: Set<string>;
-  /** When the most recent heads-up went out, for the weekly rate limit. */
-  lastHeadsUpAt: Date | null;
-}
 
 /**
- * Work out which messages a score alert owes the angler.
- *
- * The alert answers one question: "is there a day worth taking off?" So it
- * speaks about the BEST day in the window, not about every day that clears the
- * bar. The threshold is a floor, not a trigger. That distinction is the whole
- * reason this is usable: with scores clustered between 70 and 90, "every day
- * over 75" is most of the calendar, while "the best day in your next week" is
- * exactly one day.
- *
- * Beats:
- *
- *   heads_up    the best qualifying day in the window, at most one a week
- *   confirm     a day we already flagged, now here or tomorrow, still good
- *
- * A confirm requires a prior heads-up on purpose. Without that condition, a
- * settled week would confirm today, then confirm tomorrow's today, and so on
- * forever, because each day is a fresh target_date the ledger has never seen.
- *
- * Pure and synchronous. The caller fetches the outlook and the ledger state, so
- * this is trivially testable and several alerts on one spot share a round trip.
- *
- * `stand_down` (a flagged day fell apart) lands with the morning-check job.
+ * How far back to read the ledger. Comfortably longer than the heads-up
+ * cooldown, short enough that the read stays a small index scan forever.
  */
-export function scoreBeatsFor(
-  profile: AlertProfile,
-  outlook: SpotSpeciesOutlook,
-  notices: NoticeState,
-  now: Date = new Date(),
-): ScoreBeatCandidate[] {
-  // The quiet-hours gate is about when we SEND, not what we send about, so it
-  // short-circuits everything. Nobody wants a text about next Saturday at 2am.
-  const hour = currentHourInZone();
-  if (hour < SCORE_ALERT_HOUR_START || hour >= SCORE_ALERT_HOUR_END) return [];
-
-  const threshold = scoreThresholdFor(profile);
-  const mode = leadModeFor(profile);
-  const cap = LEAD_CAP_DAYS[mode];
-
-  // day_of is the angler explicitly asking to be told on the morning itself.
-  // It gets the legacy behaviour: today, if today is good. The per-date ledger
-  // key holds it to one message a day.
-  if (mode === 'day_of') {
-    const today = outlook.days.find((d) => d.dayIndex === 0);
-    if (!today || today.peak < threshold) return [];
-    return [{ beat: 'confirm', targetDate: today.date, leadDays: 0, score: today.peak }];
-  }
-
-  const beats: ScoreBeatCandidate[] = [];
-
-  // 1. Confirm a day we already promised, now that it is here or tomorrow.
-  for (const day of outlook.days) {
-    if (day.dayIndex > 1) continue;
-    if (!notices.headsUpDates.has(day.date)) continue;
-    if (day.peak < threshold) continue;
-    beats.push({
-      beat: 'confirm',
-      targetDate: day.date,
-      leadDays: day.dayIndex,
-      score: day.peak,
-    });
-  }
-
-  // 2. Flag the best day in the window, if we have not spoken recently.
-  const daysSinceHeadsUp = notices.lastHeadsUpAt
-    ? (now.getTime() - notices.lastHeadsUpAt.getTime()) / 86_400_000
-    : Infinity;
-
-  if (daysSinceHeadsUp >= HEADS_UP_COOLDOWN_DAYS) {
-    let best: OutlookDayLike | null = null;
-    for (const day of outlook.days) {
-      if (day.dayIndex > cap) continue;
-      if (day.peak < threshold) continue;
-      if (notices.headsUpDates.has(day.date)) continue;
-      // Strictly greater, so ties go to the nearer day. A tie on score is not
-      // really a tie: the closer day is the one you can still plan around.
-      if (best === null || day.peak > best.peak) best = day;
-    }
-
-    if (best) {
-      beats.push({
-        beat: 'heads_up',
-        targetDate: best.date,
-        leadDays: best.dayIndex,
-        score: best.peak,
-      });
-    }
-  }
-
-  return beats;
-}
-
-type OutlookDayLike = { date: string; dayIndex: number; peak: number };
+const NOTICE_LOOKBACK_DAYS = 30;
 
 /**
  * Read what we have already told this alert's owner.
  *
- * Scoped to target dates from today forward. Days in the past cannot be
- * confirmed and must not hold back this week's heads-up.
+ * ⚠️ Scoped by SEND date, not by target date. The previous version filtered
+ * `target_date >= today`, which is right for the set of days we can still
+ * confirm and catastrophic for the rate limit derived from the same rows: once
+ * a flagged day slid into the past its row stopped being read, `lastHeadsUpAt`
+ * fell back to null, and the "one heads-up a week" cap lifted. The effective
+ * rule became "one heads-up per flagged day, then immediately another", so a
+ * single alert sent 8 heads-ups in 18 days with gaps of 1, 1, 3, 1, 4, 3 and 4
+ * days against a documented cap of 7. Both facts now come from one unfiltered
+ * read and each is narrowed where it is used, rather than sharing a filter that
+ * can only be correct for one of them.
  */
 async function loadNoticeState(profileId: string, today: string): Promise<NoticeState> {
+  const since = new Date(Date.now() - NOTICE_LOOKBACK_DAYS * 86_400_000).toISOString();
+
   const { data, error } = await supabaseAdmin
     .from('alert_day_notices')
     .select('target_date, beat, created_at')
     .eq('alert_profile_id', profileId)
-    .gte('target_date', today);
+    .eq('beat', 'heads_up')
+    .gte('created_at', since);
 
   if (error) {
     console.error(`[score-alert] notice history unavailable for ${profileId}:`, error);
     // Fail closed. An empty state would read as "we have never spoken", and
     // this alert would re-flag a day it already sent. Silence beats repeating
     // ourselves, and the next run gets another go.
-    return { headsUpDates: new Set(), lastHeadsUpAt: new Date() };
+    return { headsUpSentOn: new Map(), lastHeadsUpAt: new Date() };
   }
 
-  const headsUpDates = new Set<string>();
+  const headsUpSentOn = new Map<string, string>();
   let lastHeadsUpAt: Date | null = null;
 
   for (const row of data ?? []) {
-    if (row.beat !== 'heads_up') continue;
-    headsUpDates.add(row.target_date);
     const at = new Date(row.created_at);
+    // Past fishing days cannot be confirmed, so they are dropped from the map.
+    // They still count towards the rate limit below, which is the whole point.
+    if (row.target_date >= today) {
+      headsUpSentOn.set(row.target_date, localDateOf(at));
+    }
     if (!lastHeadsUpAt || at > lastHeadsUpAt) lastHeadsUpAt = at;
   }
 
-  return { headsUpDates, lastHeadsUpAt };
+  return { headsUpSentOn, lastHeadsUpAt };
 }
+
+
 
 /**
  * Claim a beat in the ledger, returning the row id, or null if it was already
@@ -907,18 +801,65 @@ export async function markBeatSent(
 }
 
 /**
- * Run every score alert and return the messages to send.
+ * Has this angler already had their message today?
  *
- * Grouped by spot slug rather than by lat/lng: score alerts read the bluecaster
- * outlook and touch neither Open-Meteo nor CHS, so they have no business in the
- * location loop that fetches both.
+ * The cap that was missing. Every limit in this engine was per alert profile,
+ * and an angler is not a profile: one Pro user with eight alerts across six
+ * Victoria-area spots got 68 messages in 18 days, mail on every single day and
+ * up to nine in one day, each one describing the same regional weather from a
+ * slightly different angle. No per-alert rule can fix that, because each of the
+ * eight alerts was individually behaving.
+ *
+ * Read off the ledger rather than a new column, so there is one source of truth
+ * for what we have said and nothing to keep in sync. Only a delivered message
+ * counts: a digest that failed to send should not cost the angler their day.
+ */
+async function alreadyDigestedToday(userId: string, todayLocal: string): Promise<boolean> {
+  const since = new Date(`${todayLocal}T00:00:00-08:00`).toISOString();
+
+  const { data, error } = await supabaseAdmin
+    .from('alert_day_notices')
+    .select('id')
+    .eq('user_id', userId)
+    .eq('notification_sent', true)
+    .gte('sent_at', since)
+    .limit(1);
+
+  if (error) {
+    console.error(`[score-alert] digest check failed for user ${userId}:`, error);
+    // Fail closed, as everywhere else here. Staying quiet costs one day of
+    // alerts; guessing wrong the other way is the bug this function exists for.
+    return true;
+  }
+
+  return (data ?? []).length > 0;
+}
+
+/** "pacific-halibut" → "Pacific Halibut". */
+function speciesLabel(slug: string | null): string | null {
+  if (!slug) return null;
+  return slug
+    .split('-')
+    .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+    .join(' ');
+}
+
+/**
+ * Run every score alert and return one message per angler.
+ *
+ * Grouped by user, then by spot. It used to group by spot alone, which suited
+ * the fetch (one outlook serves every alert pointed at a spot) and suited
+ * nothing else: the unit of sending is a person, and a person cannot be batched
+ * if their alerts are scattered across the loop. The outlook cache is now
+ * shared across the whole run instead of per spot group, so grouping by user
+ * costs no extra fetches.
  */
 async function processScoreAlerts(profiles: AlertProfile[]): Promise<{
-  sendJobs: AlertSendJob[];
+  digestJobs: AlertDigestJob[];
   results: Array<{ profileId: string; profileName: string; triggered: boolean; reason: string }>;
   errors: number;
 }> {
-  const sendJobs: AlertSendJob[] = [];
+  const digestJobs: AlertDigestJob[] = [];
   const results: Array<{
     profileId: string;
     profileName: string;
@@ -927,28 +868,48 @@ async function processScoreAlerts(profiles: AlertProfile[]): Promise<{
   }> = [];
   let errors = 0;
 
-  const bySlug = new Map<string, AlertProfile[]>();
-  for (const profile of profiles) {
-    const slug = profile.target_bluecaster_spot_slug;
-    if (!slug) continue;
-    if (!bySlug.has(slug)) bySlug.set(slug, []);
-    bySlug.get(slug)!.push(profile);
+  // One outlook per (spot, species) for the entire run, not per spot group.
+  const outlookCache = new Map<string, SpotSpeciesOutlook | null>();
+  async function outlookFor(slug: string, species: string | null) {
+    const key = `${slug}::${species ?? ''}`;
+    if (!outlookCache.has(key)) {
+      outlookCache.set(key, await fetchSpotSpeciesOutlook(slug, species));
+    }
+    return outlookCache.get(key) ?? null;
   }
 
-  for (const [slug, slugProfiles] of bySlug) {
-    // One outlook per spot, shared by every alert pointed at it. The species
-    // resolution inside differs per alert, so the fetch is per (spot, species)
-    // in principle, but the overwhelmingly common case is a handful of alerts
-    // on the same spot and the response carries every species' grid anyway.
-    const outlookCache = new Map<string, SpotSpeciesOutlook | null>();
+  const byUser = new Map<string, AlertProfile[]>();
+  for (const profile of profiles) {
+    if (!profile.target_bluecaster_spot_slug) continue;
+    if (!byUser.has(profile.user_id)) byUser.set(profile.user_id, []);
+    byUser.get(profile.user_id)!.push(profile);
+  }
 
-    for (const profile of slugProfiles) {
+  const todayLocal = localDateOf(new Date());
+
+  for (const [userId, userProfiles] of byUser) {
+    // Checked before anything is claimed. A claim the digest will not carry is
+    // a message silently lost: the ledger key is taken, so tomorrow's run sees
+    // the day as already spoken for and says nothing.
+    if (await alreadyDigestedToday(userId, todayLocal)) {
+      for (const profile of userProfiles) {
+        results.push({
+          profileId: profile.id,
+          profileName: profile.name,
+          triggered: false,
+          reason: 'Already sent this angler their message today',
+        });
+      }
+      continue;
+    }
+
+    const items: AlertDigestItem[] = [];
+    const channels = new Set<string>();
+
+    for (const profile of userProfiles) {
       try {
-        const speciesKey = profile.target_species ?? '';
-        if (!outlookCache.has(speciesKey)) {
-          outlookCache.set(speciesKey, await fetchSpotSpeciesOutlook(slug, profile.target_species ?? null));
-        }
-        const outlook = outlookCache.get(speciesKey) ?? null;
+        const slug = profile.target_bluecaster_spot_slug!;
+        const outlook = await outlookFor(slug, profile.target_species ?? null);
 
         if (!outlook) {
           results.push({
@@ -977,25 +938,30 @@ async function processScoreAlerts(profiles: AlertProfile[]): Promise<{
           continue;
         }
 
-        const channels: string[] = profile.delivery_channels ?? ['email'];
+        const profileChannels: string[] = profile.delivery_channels ?? ['email'];
         let claimed = 0;
 
         for (const candidate of candidates) {
-          const noticeId = await claimBeat(profile, candidate, channels);
+          const noticeId = await claimBeat(profile, candidate, profileChannels);
           // Already sent for this day and beat. The common case on every tick
           // after the first, and entirely uninteresting.
           if (!noticeId) continue;
 
           claimed++;
-          sendJobs.push({
+          for (const c of profileChannels) channels.add(c);
+          items.push({
             noticeId,
             profileId: profile.id,
+            spotName:
+              profile.location_name || profile.target_bluecaster_spot_slug || 'your spot',
+            spotSlug: profile.target_bluecaster_spot_slug ?? null,
             beat: candidate.beat,
             targetDate: candidate.targetDate,
             leadDays: candidate.leadDays,
             score: candidate.score,
+            threshold: scoreThresholdFor(profile),
+            speciesName: speciesLabel(outlook.scoredSpeciesSlug ?? profile.target_species ?? null),
             speciesMatched: outlook.speciesMatched,
-            scoredSpeciesSlug: outlook.scoredSpeciesSlug,
           });
         }
 
@@ -1019,9 +985,31 @@ async function processScoreAlerts(profiles: AlertProfile[]): Promise<{
         errors++;
       }
     }
+
+    if (items.length === 0) continue;
+
+    // Soonest day first, and the better day first within a day. The angler's
+    // question is "what am I doing next", so the calendar is the right spine.
+    items.sort((a, b) =>
+      a.targetDate === b.targetDate
+        ? b.score - a.score
+        : a.targetDate < b.targetDate
+          ? -1
+          : 1,
+    );
+
+    // The union of what their alerts asked for. Channel is a per-alert setting
+    // and this is one message covering several alerts, so the alternative is
+    // picking one alert's preference to speak for the rest. Anyone who asked
+    // for a text about any of these spots gets the text.
+    digestJobs.push({
+      userId,
+      channels: channels.size > 0 ? [...channels] : ['email'],
+      items,
+    });
   }
 
-  return { sendJobs, results, errors };
+  return { digestJobs, results, errors };
 }
 
 export async function evaluateAlertProfile(
@@ -1278,8 +1266,8 @@ export async function processAlerts(): Promise<{
     triggered: boolean;
     reason: string;
   }>;
-  /** Claimed score-alert messages awaiting delivery. */
-  sendJobs: AlertSendJob[];
+  /** One claimed, ready-to-send digest per angler. */
+  digestJobs: AlertDigestJob[];
 }> {
   const results: Array<{
     profileId: string;
@@ -1292,7 +1280,7 @@ export async function processAlerts(): Promise<{
   let triggered = 0;
   let skipped = 0;
   let errors = 0;
-  let sendJobs: AlertSendJob[] = [];
+  let digestJobs: AlertDigestJob[] = [];
 
   try {
     // Fetch all active profiles
@@ -1312,13 +1300,14 @@ export async function processAlerts(): Promise<{
 
     if (scoreProfiles.length > 0) {
       const scoreRun = await processScoreAlerts(scoreProfiles);
-      sendJobs = scoreRun.sendJobs;
+      digestJobs = scoreRun.digestJobs;
       results.push(...scoreRun.results);
       processed += scoreProfiles.length;
       triggered += scoreRun.results.filter((r) => r.triggered).length;
       errors += scoreRun.errors;
       console.log(
-        `Score alerts: ${scoreProfiles.length} profiles, ${sendJobs.length} messages to send`,
+        `Score alerts: ${scoreProfiles.length} profiles, ${digestJobs.length} digests to send ` +
+          `(${digestJobs.reduce((n, j) => n + j.items.length, 0)} items)`,
       );
     }
 
@@ -1496,5 +1485,5 @@ export async function processAlerts(): Promise<{
     throw error;
   }
 
-  return { processed, triggered, skipped, errors, results, sendJobs };
+  return { processed, triggered, skipped, errors, results, digestJobs };
 }
