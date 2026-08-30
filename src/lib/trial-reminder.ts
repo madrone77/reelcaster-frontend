@@ -44,6 +44,12 @@ export interface TrialDue {
   user_id: string;
   trial_ends_at: string;
   subscription_tier: string | null;
+  /**
+   * What this subscriber will actually be charged, stamped by the Stripe
+   * webhook. Null on rows written before the column existed; the caller falls
+   * back to the list price for the tier.
+   */
+  subscription_amount_cents: number | null;
 }
 
 /**
@@ -60,7 +66,7 @@ export async function findDueTrials(
 ): Promise<TrialDue[]> {
   const { data, error } = await admin
     .from('user_settings')
-    .select('user_id, trial_ends_at, subscription_tier')
+    .select('user_id, trial_ends_at, subscription_tier, subscription_amount_cents')
     .eq('subscription_status', 'trialing')
     .is('trial_reminder_sent_at', null)
     .not('trial_ends_at', 'is', null)

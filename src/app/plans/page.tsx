@@ -2,10 +2,14 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import {
   ANNUAL_PRICE_ID,
-  ANNUAL_PRICE_CENTS,
-  ANNUAL_PER_MONTH_CENTS,
+  CONTROL_ANNUAL_CENTS,
   dollars,
+  perMonthCents,
 } from '@/lib/pricing';
+import {
+  PriceAmount,
+  PricePerMonth,
+} from '@/app/components/split-test/price-text';
 import { TRIAL_DAYS } from '@/lib/trial';
 import { PLAN_FEATURES } from '@/lib/plan-features';
 import PlansFeatureCallout from '@/app/components/plans/plans-feature-callout';
@@ -42,7 +46,7 @@ function proOffer(currency: 'CAD' | 'USD') {
   return {
     '@type': 'Offer',
     name: `ReelCaster Pro Annual (${currency})`,
-    price: (ANNUAL_PRICE_CENTS / 100).toFixed(2),
+    price: (CONTROL_ANNUAL_CENTS.cad / 100).toFixed(2),
     priceCurrency: currency,
     availability: 'https://schema.org/InStock',
     url: siteUrl('/plans'),
@@ -68,12 +72,21 @@ const PLANS_BREADCRUMBS = breadcrumbJsonLd([
   { name: 'Plans', path: '/plans' },
 ]);
 
-// Prices come from the same constants the visible table renders, for the same
-// reason the Offer markup does: the description can't promise a number the page
-// doesn't show.
+// THE CONTROL PRICE, deliberately, even while a price test is running.
+//
+// This string is the meta description, and the Offer markup above is what a
+// search engine indexes. Both describe the document, and there is one document
+// for every reader: this page is statically rendered, and the per-reader price
+// arrives after hydration (see the PriceAmount spans below). Quoting an arm
+// here would put a number in the index that half of all readers never see, and
+// would make the structured data disagree with itself between crawls.
+//
+// The control is the list price and the honest answer to "what does this
+// cost". If an arm ever wins and becomes the price, this constant moves with
+// it in the same change.
 const PRICE_SENTENCE = ANNUAL_SELLABLE
-  ? `${dollars(ANNUAL_PRICE_CENTS)} a year, ${dollars(
-      ANNUAL_PER_MONTH_CENTS,
+  ? `${dollars(CONTROL_ANNUAL_CENTS.cad)} a year, ${dollars(
+      perMonthCents(CONTROL_ANNUAL_CENTS.cad),
     )} a month, after a ${TRIAL_DAYS}-day free trial.`
   : 'Pricing is temporarily unavailable.';
 
@@ -107,7 +120,7 @@ const FAQ: { q: string; a: React.ReactNode }[] = [
     q: 'What happens when the trial ends?',
     a: (
       <>
-        We charge {dollars(ANNUAL_PRICE_CENTS)} for the year and Pro keeps
+        We charge <PriceAmount /> for the year and Pro keeps
         running. We email you three days beforehand so the date is never a
         surprise.
       </>
@@ -144,8 +157,8 @@ const FAQ: { q: string; a: React.ReactNode }[] = [
     q: 'Is there a monthly plan?',
     a: (
       <>
-        No. One plan, {dollars(ANNUAL_PRICE_CENTS)} for the year, which works
-        out to {dollars(ANNUAL_PER_MONTH_CENTS)} a month. Splitting that into
+        No. One plan, <PriceAmount /> for the year, which works
+        out to <PricePerMonth /> a month. Splitting that into
         monthly billing would cost you more and cost us more to run, so we
         don’t. Cancel anytime and the rest of the year still works.
       </>
@@ -235,8 +248,8 @@ export default function PlansPage() {
               {trialSellable ? (
                 <>
                   Free for {TRIAL_DAYS} days, then{' '}
-                  {dollars(ANNUAL_PRICE_CENTS)} a year,{' '}
-                  {dollars(ANNUAL_PER_MONTH_CENTS)} a month. Cancel anytime, and
+                  <PriceAmount /> a year,{' '}
+                  <PricePerMonth /> a month. Cancel anytime, and
                   you keep your free account.
                 </>
               ) : (
@@ -320,14 +333,14 @@ export default function PlansPage() {
               </p>
               <div className="mt-2 flex items-baseline gap-1.5">
                 <span className="text-5xl font-black tracking-[-0.03em] text-rc-ink">
-                  {dollars(ANNUAL_PRICE_CENTS)}
+                  <PriceAmount />
                 </span>
                 <span className="text-base font-medium text-rc-ink-mute">
                   / year
                 </span>
               </div>
               <p className="mt-1.5 text-sm text-rc-ink-soft">
-                That’s {dollars(ANNUAL_PER_MONTH_CENTS)} a month. One price,
+                That’s <PricePerMonth /> a month. One price,
                 every city we cover, no tiers to compare.
               </p>
             </div>
@@ -430,8 +443,8 @@ export default function PlansPage() {
           </Link>
           {trialSellable && (
             <p className="mt-4 text-xs text-rc-ink-mute">
-              {dollars(ANNUAL_PRICE_CENTS)} a year,{' '}
-              {dollars(ANNUAL_PER_MONTH_CENTS)} a month, after the trial.
+              <PriceAmount /> a year,{' '}
+              <PricePerMonth /> a month, after the trial.
               Cancel anytime.
             </p>
           )}

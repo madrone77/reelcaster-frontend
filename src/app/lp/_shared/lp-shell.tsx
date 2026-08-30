@@ -3,7 +3,9 @@
 import { useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import type { Angle } from "./lp-angles";
-import { buildFeatures, buildLayers, PRICE, PROOF, type LpTreatment } from "./lp-content";
+import { buildFeatures, buildLayers, priceStrings, PROOF, type LpTreatment } from "./lp-content";
+import { usePricing } from "@/app/components/split-test/use-pricing";
+import { useSplitExposure } from "@/app/components/split-test/report";
 import { lpRegionFor } from "./lp-region";
 import LpTrialForm from "./lp-trial-form";
 import { reportLpCta, useLpHit } from "./lp-telemetry";
@@ -328,6 +330,19 @@ export default function LpShell({
   // province, so a Washington ad set never renders Canadian management areas.
   // This happens in both treatments: it is a defect fix, not a style choice.
   const region = lpRegionFor(card.provinceCode);
+
+  // The reader's own price, not the build's. This page is ISR-cached, so the
+  // server render is the control for everybody; the hook corrects it after
+  // hydration for anyone in a test arm and does nothing at all when no price
+  // test is running, which is the normal state.
+  const pricing = usePricing(card.provinceCode);
+  const PRICE = priceStrings(pricing);
+
+  // Counted here rather than in the CTA, because the ask this page makes is
+  // the price itself: a reader who scrolls past it and leaves was still shown
+  // the arm, and a denominator that only counted button-pressers would make
+  // every arm look identical.
+  useSplitExposure(pricing, "lp");
   const instrument = treatment === "instrument";
   const featureCopy = buildFeatures(card, region, treatment);
   const features = angle.features.map((id) => featureCopy[id]);

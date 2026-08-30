@@ -20,7 +20,7 @@
 
 import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
-import { amountLabelForTier } from '@/lib/pricing';
+import { amountLabelForStored } from '@/lib/pricing';
 import {
   findDueTrials,
   sendTrialReminder,
@@ -60,7 +60,12 @@ export async function GET(request: Request) {
     const outcome = await sendTrialReminder(admin, {
       userId: row.user_id,
       trialEndsAt: row.trial_ends_at,
-      amountLabel: amountLabelForTier(row.subscription_tier),
+      // The amount on THEIR subscription. A price test makes the tier an
+      // ambiguous answer, and this notice is the one that must be exact.
+      amountLabel: amountLabelForStored(
+        row.subscription_amount_cents,
+        row.subscription_tier,
+      ),
     });
     tally[outcome] += 1;
   }

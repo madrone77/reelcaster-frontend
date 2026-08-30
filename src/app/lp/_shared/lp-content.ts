@@ -1,7 +1,7 @@
 import type { FeatureId } from "./lp-angles";
 import type { LpCard } from "./lp-spot";
 import type { LpRegion } from "./lp-region";
-import { ANNUAL_PRICE_CENTS, ANNUAL_PER_MONTH_CENTS, TRIAL_DAYS } from "@/lib/pricing";
+import { controlPricing, TRIAL_DAYS, type PricingView } from "@/lib/pricing";
 
 /**
  * Shared page content for /lp/2, /lp/3 and /lp/5.
@@ -14,18 +14,44 @@ import { ANNUAL_PRICE_CENTS, ANNUAL_PER_MONTH_CENTS, TRIAL_DAYS } from "@/lib/pr
  * knows their water.
  */
 
-/** Price strings derived from the single source of truth, never retyped. */
-export const PRICE = {
-  year: `$${(ANNUAL_PRICE_CENTS / 100).toFixed(0)}/year`,
-  perMonth: `$${(ANNUAL_PER_MONTH_CENTS / 100).toFixed(2)}/month`,
-  trialDays: TRIAL_DAYS,
+export interface LpPrice {
+  /** "$33/year" */
+  year: string;
+  /** "$2.75/month" */
+  perMonth: string;
+  trialDays: number;
   /**
    * Stripe fires `customer.subscription.trial_will_end` three days before the
    * trial ends, and src/lib/email-templates/billing.ts sends off that event. On
    * a 7-day trial that is day 4 — the prototype's "Day 5" was a guess.
    */
-  reminderDay: TRIAL_DAYS - 3,
-} as const;
+  reminderDay: number;
+}
+
+/**
+ * Price strings derived from the reader's own price, never retyped.
+ *
+ * A function of {@link PricingView} rather than a constant, because a price
+ * split test makes "what does this cost" a per-reader question. Landing pages
+ * are ISR-cached, so the server render here is necessarily the control; the
+ * client swap happens in lp-shell via usePricing(). See
+ * src/app/components/split-test/use-pricing.ts for why the flicker is the
+ * accepted trade on these pages and not on /plans/checkout.
+ */
+export function priceStrings(pricing: PricingView): LpPrice {
+  return {
+    year: `${pricing.amount}/year`,
+    perMonth: `${pricing.perMonth}/month`,
+    trialDays: TRIAL_DAYS,
+    reminderDay: TRIAL_DAYS - 3,
+  };
+}
+
+/**
+ * The control price, for the server render and for the handful of callers
+ * that need the trial-day numbers alone (which no arm varies).
+ */
+export const PRICE: LpPrice = priceStrings(controlPricing());
 
 /**
  * How the body of the page is dressed.

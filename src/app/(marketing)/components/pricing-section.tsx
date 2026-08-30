@@ -1,9 +1,8 @@
+import { TRIAL_DAYS } from '@/lib/pricing';
 import {
-  ANNUAL_PER_MONTH_CENTS,
-  ANNUAL_PRICE_CENTS,
-  TRIAL_DAYS,
-  dollars,
-} from '@/lib/pricing';
+  PriceAmount,
+  PricePerMonth,
+} from '@/app/components/split-test/price-text';
 import { btn } from '@/app/components/ui/button';
 import TrialModalButton from '@/app/components/paywall/trial-modal-button';
 
@@ -53,13 +52,13 @@ export default function PricingSection() {
               REELCASTER PRO
             </p>
             <p className="mt-2 text-5xl font-black tracking-[-0.03em] text-rc-ink">
-              {dollars(ANNUAL_PER_MONTH_CENTS)}
+              <PricePerMonth />
               <span className="ml-1 align-baseline font-rc-mono text-xs font-medium tracking-wide text-rc-ink-mute">
                 /mo
               </span>
             </p>
             <p className="mt-1.5 font-rc-mono text-[11px] text-rc-ink-mute">
-              billed yearly at {dollars(ANNUAL_PRICE_CENTS)}
+              billed yearly at <PriceAmount />
             </p>
             <p className="mt-1.5 font-rc-mono text-[11px] font-semibold text-rc-good-ink">
               first {TRIAL_DAYS} days free

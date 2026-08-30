@@ -18,6 +18,8 @@ import { reportPaywall } from "@/lib/paywall-counter";
 import { TrialBuy, TrialCtaProvider, TrialExpress } from "./trial-cta";
 import PlanMatrix from "./plan-matrix";
 import { TRIAL_DAYS } from "@/lib/pricing";
+import { usePricing } from "@/app/components/split-test/use-pricing";
+import { useSplitExposure } from "@/app/components/split-test/report";
 import {
   FREE_FAVORITE_SPOTS,
   NAG_FEATURES,
@@ -79,6 +81,12 @@ export default function ProTrialModal({
   // open. The free tier isn't hidden — it's the link at the foot of the
   // modal, after the matrix has shown what the tiers actually differ on.
   const ctaLabel = `Start ${TRIAL_DAYS}-day free trial`;
+
+  // The price this reader is quoted, and the exposure that quoting it counts
+  // as. The modal is the highest-intent surface a price arm is shown on, so
+  // its denominator is the one the report leans on hardest.
+  const pricing = usePricing();
+  useSplitExposure(pricing, "modal");
 
   /**
    * The server-side counter behind /admin/reelcaster/paywalls and the
@@ -192,7 +200,7 @@ export default function ProTrialModal({
                 Privacy links live here because this is the only place on the
                 modal that carries them. */}
             <DialogDescription className="mt-3 text-sm leading-relaxed text-rc-ink-soft">
-              {nagSubhead()}{" "}
+              {nagSubhead(pricing)}{" "}
               <Link
                 href="/terms"
                 className="text-rc-brand underline underline-offset-2 hover:text-rc-brand-hover"

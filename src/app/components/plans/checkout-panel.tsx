@@ -22,11 +22,12 @@ import { useAuth } from '@/contexts/auth-context';
 import TrialCta from '@/app/components/paywall/trial-cta';
 import { supabase } from '@/lib/supabase';
 import {
-  ANNUAL_PER_MONTH_CENTS,
-  ANNUAL_PRICE_CENTS,
+  currencyForRegion,
   TRIAL_DAYS,
   dollars,
 } from '@/lib/pricing';
+import { usePricingIn } from '@/app/components/split-test/use-pricing';
+import { useSplitExposure } from '@/app/components/split-test/report';
 
 /** Pay-first checkout — see src/app/components/paywall/trial-cta.tsx. */
 const PAY_FIRST = process.env.NEXT_PUBLIC_PAY_FIRST_CHECKOUT === '1';
@@ -202,8 +203,20 @@ export default function CheckoutPanel({
   // into the Stripe Price — see /support, which documents it that way.
   const trialOn = Boolean(status?.trial_available);
   const trialDays = status?.trial_days ?? 7;
-  const priceCents = ANNUAL_PRICE_CENTS;
+
+  // Follows the region dropdown, because the arms are not the same amount in
+  // both currencies any more: a reader who switches from Washington to British
+  // Columbia is switching from one price to another, not merely relabelling
+  // the same one. Every number below reads off this, so the summary, the total
+  // and the button cannot disagree.
+  const pricing = usePricingIn(currencyForRegion(region));
+  const priceCents = pricing.cents;
+  const perMonthCents = pricing.perMonthCents;
   const periodWord = 'year';
+
+  // The order summary is the last surface before Stripe, so its exposure is
+  // the denominator closest to the decision.
+  useSplitExposure(pricing, 'checkout');
   const chargeDate = useMemo(
     () => longDate(trialOn ? addDays(trialDays) : new Date()),
     [trialOn, trialDays],
@@ -342,7 +355,7 @@ export default function CheckoutPanel({
           ) : (
             <>
               Every Pro feature, billed yearly at {dollars(priceCents)},{' '}
-              {dollars(ANNUAL_PER_MONTH_CENTS)} a month.
+              {dollars(perMonthCents)} a month.
             </>
           )}
         </p>
@@ -409,7 +422,7 @@ export default function CheckoutPanel({
           </div>
 
           <div className="mt-2 flex items-baseline justify-between gap-3 text-sm text-rc-ink-mute">
-            <span>Works out to {dollars(ANNUAL_PER_MONTH_CENTS)} a month</span>
+            <span>Works out to {dollars(perMonthCents)} a month</span>
             <span>Renews yearly until you cancel</span>
           </div>
 
@@ -548,7 +561,7 @@ export default function CheckoutPanel({
         </div>
 
         <p className="mt-4 text-center text-xs text-rc-ink-mute">
-          One plan, {dollars(ANNUAL_PRICE_CENTS)} a year. Every city we cover,
+          One plan, {dollars(priceCents)} a year. Every city we cover,
           nothing else to choose.
         </p>
       </div>

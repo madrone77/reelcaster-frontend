@@ -3,11 +3,12 @@
 import { Check, Minus } from "lucide-react";
 import {
   PLAN_FEATURES,
-  PLAN_TIERS,
+  planTiers,
   PRO_ROW_START,
   type PlanCell,
   type PlanTierId,
 } from "@/lib/plan-features";
+import { usePricing } from "@/app/components/split-test/use-pricing";
 
 /**
  * The plan matrix: what each tier gets, one row per capability.
@@ -43,6 +44,11 @@ export default function PlanMatrix({
    */
   stickyHeader?: boolean;
 }) {
+  // The Pro column's price line. Read per reader rather than from a constant,
+  // so a price test does not leave this table quoting one number while the
+  // button above it quotes another.
+  const tiers = planTiers(usePricing());
+
   return (
     <div className="border-t border-rc-rule">
       {/* Column heads — sticky so the tier you're reading stays labelled while
@@ -59,7 +65,7 @@ export default function PlanMatrix({
         <div className="rc-label text-rc-ink-mute self-end">
           What you get
         </div>
-        {PLAN_TIERS.map((t) => {
+        {tiers.map((t) => {
           const current = t.id === viewerTier;
           return (
             <div key={t.id} className="text-center">
@@ -102,7 +108,7 @@ export default function PlanMatrix({
             >
               {row.label}
             </div>
-            {PLAN_TIERS.map((t) => (
+            {tiers.map((t) => (
               <Cell key={t.id} value={row[t.id]} emphasis={t.id === "pro"} />
             ))}
           </div>
