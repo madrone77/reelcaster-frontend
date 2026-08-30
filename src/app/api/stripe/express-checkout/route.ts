@@ -15,6 +15,7 @@ import {
   checkTrialEligibilityByEmail,
 } from '@/lib/trial';
 import { EXPRESS_MARKER } from '@/lib/express-checkout';
+import { PAY_METHOD_KEY, paymentMethodKey } from '@/lib/payment-method';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -300,7 +301,14 @@ async function subscribeStep(body: ExpressBody) {
 
   let setupIntent: Stripe.SetupIntent;
   try {
-    setupIntent = await stripe.setupIntents.retrieve(setupIntentId);
+    // `payment_method` is expanded rather than fetched separately: this route
+    // is the one place that knows how the purchase was made at the instant it
+    // is made, and the wallet brand lives two levels inside the PaymentMethod
+    // (see src/lib/payment-method.ts). The id extraction below already accepts
+    // either form, so expanding costs nothing and changes nothing else.
+    setupIntent = await stripe.setupIntents.retrieve(setupIntentId, {
+      expand: ['payment_method'],
+    });
   } catch {
     return noStore({ error: 'invalid_setup_intent' }, { status: 400 });
   }
@@ -335,6 +343,16 @@ async function subscribeStep(body: ExpressBody) {
   const currency = (meta.currency === 'usd' ? 'usd' : 'cad') as BillingCurrency;
   const trialEligible = meta.trial === 'true';
 
+  // How they paid, recorded while it is still true. A wallet buyer who later
+  // replaces the card on file would otherwise read as an ordinary card
+  // purchase in every report, retroactively. Null when the expand did not come
+  // back with a method, in which case the webhook stamps it on the next
+  // event rather than this route guessing.
+  const payMethod =
+    typeof setupIntent.payment_method === 'object'
+      ? paymentMethodKey(setupIntent.payment_method)
+      : null;
+
   try {
     // Also the card the renewal is billed against, so it has to become the
     // customer's default rather than just sitting on the subscription.
@@ -364,6 +382,7 @@ async function subscribeStep(body: ExpressBody) {
           from: meta.from ?? '',
           express: 'true',
           trial: String(trialEligible),
+          ...(payMethod ? { [PAY_METHOD_KEY]: payMethod } : {}),
         },
         ...(trialEligible
           ? {

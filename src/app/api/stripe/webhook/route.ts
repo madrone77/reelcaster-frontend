@@ -13,6 +13,10 @@ import {
   trialUnavailableEmail,
 } from '@/lib/email-templates/billing';
 import { sendTrialReminder } from '@/lib/trial-reminder';
+import {
+  PAY_METHOD_KEY,
+  resolvePaymentMethodKey,
+} from '@/lib/payment-method';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -199,6 +203,7 @@ async function applySubscriptionToUser(subscription: Stripe.Subscription) {
 
   if (isEntitledStatus) {
     await recordUpgradeAttribution(subscription, resolvedUserId);
+    await stampPaymentMethod(subscription);
   }
 
   if (status === 'trialing') {
@@ -223,6 +228,47 @@ async function applySubscriptionToUser(subscription: Stripe.Subscription) {
         ? new Date(subscription.start_date * 1000).toISOString()
         : new Date().toISOString(),
     });
+  }
+}
+
+/**
+ * Record how this subscription was paid for, once, on the subscription itself.
+ *
+ * The wallet route stamps its own purchases at creation, where the answer is
+ * free (see src/app/api/stripe/express-checkout/route.ts). This is for every
+ * other way in, chiefly hosted Stripe Checkout, where the subscription is
+ * created by Stripe and nobody here gets to set metadata until after the
+ * customer has already chosen how to pay.
+ *
+ * Write-once, deliberately. The stamp answers "how did this person buy",
+ * which does not change when they later replace the card on file; re-reading
+ * the live method on every event would quietly rewrite history into "how are
+ * they paying now", which is the question the admin page already answers for
+ * itself. An existing stamp is never overwritten.
+ *
+ * Entirely best-effort. Failing to stamp costs a row in a report; a webhook
+ * that throws costs Stripe a retry and the customer their entitlement, so
+ * nothing in here is allowed to escape.
+ */
+async function stampPaymentMethod(subscription: Stripe.Subscription) {
+  if (subscription.metadata?.[PAY_METHOD_KEY]) return;
+
+  try {
+    const stripe = await getStripe();
+    const key = await resolvePaymentMethodKey(stripe, subscription);
+    // No method resolvable yet. A trial created before the card is attached
+    // is the normal case, and the subscription.updated that attaches it comes
+    // through this same funnel moments later.
+    if (!key) return;
+
+    // A metadata update MERGES keys rather than replacing the object, so this
+    // cannot clobber the attribution the checkout routes wrote.
+    await stripe.subscriptions.update(subscription.id, {
+      metadata: { [PAY_METHOD_KEY]: key },
+    });
+    console.info('[stripe webhook] stamped payment method', subscription.id, key);
+  } catch (err) {
+    console.warn('[stripe webhook] could not stamp payment method', err);
   }
 }
 
