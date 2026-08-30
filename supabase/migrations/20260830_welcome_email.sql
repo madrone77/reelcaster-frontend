@@ -36,16 +36,31 @@ BEGIN
   END IF;
 END $$;
 
--- Existing accounts are not owed the free welcome. Without this backfill the
--- first deploy would mail the whole base a "here is what you can do now" note:
--- the free branch fires on any first-auth in a new browser, so it would reach
--- people who have been using the product for months.
+-- Nobody who already has an account is owed a welcome. Without this backfill
+-- the first deploy would mail the whole base a "here is what you can do now"
+-- note: the free branch fires on any first-auth in a new browser, so it would
+-- reach people who have been using the product for months.
 --
--- Stamped 'free' rather than a third value on purpose. It reads as a small lie
--- (they never got that email) and it buys the right behaviour: an existing free
--- member who starts a trial later still gets the trial version, which is the
--- one that carries the Pro feature set and their charge date.
+-- The variant is not uniform, and the difference matters.
+--
+-- An account already TRIALING or PAID is stamped 'trial', which closes both
+-- doors and can never send anything. Stamping those 'free' would leave them
+-- matching the free-to-trial upgrade clause above, and a subscription.updated
+-- arriving while they are still trialing (the payment-method stamp mutates
+-- subscription metadata, which raises one) would greet somebody four days into
+-- their trial with "Pro is on for the next 7 days" and a charge date they can
+-- already see coming. There are 7 such accounts on the day this is written.
+--
+-- Everyone else is stamped 'free'. That reads as a small lie, since they never
+-- got that email, and it buys the right behaviour: an existing free member who
+-- starts a trial later still gets the trial version, which is the one carrying
+-- the Pro feature set and their charge date.
 UPDATE public.user_settings
 SET welcome_email_sent_at = now(),
-    welcome_email_variant = 'free'
+    welcome_email_variant = CASE
+      WHEN subscription_status IN ('trialing', 'active', 'past_due', 'unpaid')
+        OR coalesce(subscription_tier, 'free') <> 'free'
+      THEN 'trial'
+      ELSE 'free'
+    END
 WHERE welcome_email_sent_at IS NULL;
