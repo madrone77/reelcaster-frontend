@@ -82,6 +82,15 @@ export interface AlertDigestItem {
   speciesName: string | null;
   /** False when we fell back to the spot's best species. */
   speciesMatched: boolean;
+  /**
+   * The delivery channels this item's own alert asked for.
+   *
+   * Kept per item, not just per digest, because channel is a per-alert setting
+   * and a digest pools several alerts. Someone with an email-only alert on one
+   * spot and a texting alert on another should not get the first spot read out
+   * in a text they never asked for.
+   */
+  channels: string[];
 }
 
 /**
@@ -962,6 +971,7 @@ async function processScoreAlerts(profiles: AlertProfile[]): Promise<{
             threshold: scoreThresholdFor(profile),
             speciesName: speciesLabel(outlook.scoredSpeciesSlug ?? profile.target_species ?? null),
             speciesMatched: outlook.speciesMatched,
+            channels: profileChannels,
           });
         }
 

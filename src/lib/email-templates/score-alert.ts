@@ -42,7 +42,16 @@ export interface ScoreAlertItem {
 }
 
 export interface ScoreAlertDigestParams {
+  /** Everything the angler is owed today. Drives the email. */
   items: ScoreAlertItem[];
+  /**
+   * The subset whose own alert asked for SMS. Drives the text, which is why it
+   * is separate: the email covers every alert, the text covers only the ones
+   * that asked to be texted. Defaults to `items`.
+   */
+  smsItems?: ScoreAlertItem[];
+  /** Whether an email is also going out, which changes where the text points. */
+  alsoEmailing: boolean;
   appBase: string;
   manageAlertsUrl: string;
 }
@@ -181,9 +190,14 @@ function subjectFor(items: ScoreAlertItem[]): string {
  *
  * A digest does not fit a text message, so past a single item the text stops
  * trying to be the message and becomes a pointer to it. Naming the best day and
- * the count is enough to decide whether to open the email now or at lunch.
+ * the count is enough to decide whether to look now or at lunch.
+ *
+ * Where it points depends on whether an email is actually going out. An
+ * angler who picked SMS and nothing else has no email to be sent to, so
+ * "full rundown in your email" would be pointing at a message that does not
+ * exist. They get sent to the app instead.
  */
-function smsFor(items: ScoreAlertItem[]): string {
+function smsFor(items: ScoreAlertItem[], alsoEmailing: boolean): string {
   const top = items[0];
   const rounded = Math.round(top.score);
   const species = top.speciesName ?? 'your species';
@@ -205,7 +219,8 @@ function smsFor(items: ScoreAlertItem[]): string {
       text = `${day} looks strong for ${species} at ${top.spotName}: ${rounded}, ${leadPhrase(top.leadDays)}. Forecast can still move.`;
     }
   } else {
-    text = `${day}: ${top.spotName} ${rounded} for ${species}, plus ${rest} more ${rest === 1 ? 'spot' : 'spots'}. Full rundown in your email.`;
+    const where = alsoEmailing ? 'Full rundown in your email.' : 'See them all at reelcaster.com/alerts';
+    text = `${day}: ${top.spotName} ${rounded} for ${species}, plus ${rest} more ${rest === 1 ? 'spot' : 'spots'}. ${where}`;
   }
 
   return text.length > 160 ? `${text.slice(0, 157)}...` : text;
@@ -250,14 +265,16 @@ function rowHtml(item: ScoreAlertItem, appBase: string): string {
 export function generateScoreAlertDigest(
   params: ScoreAlertDigestParams,
 ): ScoreAlertMessage {
-  const { items, appBase, manageAlertsUrl } = params;
+  const { items, smsItems = items, alsoEmailing, appBase, manageAlertsUrl } = params;
 
   if (items.length === 0) {
     throw new Error('generateScoreAlertDigest called with no items');
   }
 
   const subject = subjectFor(items);
-  const sms = smsFor(items);
+  // Empty when none of today's alerts asked for a text. The caller reads this
+  // as "no SMS to send" rather than sending an empty message.
+  const sms = smsItems.length > 0 ? smsFor(smsItems, alsoEmailing) : '';
   const top = items[0];
   const single = items.length === 1;
 

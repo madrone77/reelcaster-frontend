@@ -226,16 +226,33 @@ export async function POST(request: NextRequest) {
           continue;
         }
 
+        // Channel is a per-alert setting and this is one message covering
+        // several alerts, so each half of the digest is built from the items
+        // that asked for it. The email carries everything; the text carries
+        // only the spots whose own alert asked to be texted.
+        const emailItems = job.items.filter((i) => i.channels.includes('email'));
+        const smsItems = job.items.filter((i) => i.channels.includes('sms'));
+        const willEmail = emailItems.length > 0;
+
+        // Only true when the email actually contains everything the text is
+        // about. A text that says "full rundown in your email" is wrong both
+        // for an angler who gets no email at all and for one whose email omits
+        // the SMS-only spot the text just named.
+        const smsCoveredByEmail =
+          willEmail && smsItems.every((i) => i.channels.includes('email'));
+
         const appBase = process.env.NEXT_PUBLIC_APP_URL || 'https://reelcaster.com';
         const message = generateScoreAlertDigest({
-          items: job.items,
+          items: willEmail ? emailItems : job.items,
+          smsItems,
+          alsoEmailing: smsCoveredByEmail,
           appBase,
           manageAlertsUrl: `${appBase}/alerts`,
         });
 
         const delivered: string[] = [];
 
-        if (job.channels.includes('email')) {
+        if (willEmail) {
           const sendResult = await sendEmail({
             to: email,
             subject: message.subject,
@@ -248,8 +265,7 @@ export async function POST(request: NextRequest) {
         // SMS stays quiet for a heads-ups-only digest when email can carry it,
         // and carries everything for someone who picked no email at all.
         // See lib/alert-channels.ts.
-        const beats = job.items.map((i) => i.beat);
-        if (smsCarriesDigest(beats, job.channels) && isTwilioConfigured()) {
+        if (message.sms && smsCarriesDigest(job.items) && isTwilioConfigured()) {
           const { data: settings } = await supabaseAdmin
             .from('user_settings')
             .select('phone_e164, phone_verified')
