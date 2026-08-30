@@ -184,6 +184,8 @@ export type AnalyticsEventName =
   | 'Sign In'
   | 'Sign Out'
   | 'Auth Dialog Opened'
+  | 'Confirmation Resent'
+  | 'Magic Link Requested'
   // Location
   | 'Location Selected'
   | 'Hotspot Selected'
