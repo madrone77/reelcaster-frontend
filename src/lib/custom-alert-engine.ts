@@ -824,15 +824,19 @@ export async function markBeatSent(
  * counts: a digest that failed to send should not cost the angler their day.
  */
 async function alreadyDigestedToday(userId: string, todayLocal: string): Promise<boolean> {
-  const since = new Date(`${todayLocal}T00:00:00-08:00`).toISOString();
+  // Wide enough to cover any local day whatever the offset, then narrowed in
+  // JS. The obvious version writes the day boundary as a literal `-08:00`,
+  // which is Pacific STANDARD time and silently an hour off for the two thirds
+  // of the year the coast is on daylight time. It would not bite while the
+  // send window sits at 6am, and it would bite the day someone moves it.
+  const since = new Date(Date.now() - 36 * 3_600_000).toISOString();
 
   const { data, error } = await supabaseAdmin
     .from('alert_day_notices')
-    .select('id')
+    .select('sent_at')
     .eq('user_id', userId)
     .eq('notification_sent', true)
-    .gte('sent_at', since)
-    .limit(1);
+    .gte('sent_at', since);
 
   if (error) {
     console.error(`[score-alert] digest check failed for user ${userId}:`, error);
@@ -841,7 +845,9 @@ async function alreadyDigestedToday(userId: string, todayLocal: string): Promise
     return true;
   }
 
-  return (data ?? []).length > 0;
+  return (data ?? []).some(
+    (row) => row.sent_at && localDateOf(new Date(row.sent_at)) === todayLocal,
+  );
 }
 
 /** "pacific-halibut" → "Pacific Halibut". */
