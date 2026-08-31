@@ -1,4 +1,11 @@
-import { SEATTLE_FRAME, VANCOUVER_FRAME, type ReelFrame } from "../_reel/reel-frame";
+import {
+  FRIDAY_HARBOR_FRAME,
+  NANAIMO_FRAME,
+  SEATTLE_FRAME,
+  VANCOUVER_FRAME,
+  VICTORIA_FRAME,
+  type ReelFrame,
+} from "../_reel/reel-frame";
 
 /**
  * Everything the blend needs that changes with the city.
@@ -53,4 +60,33 @@ export const VANCOUVER: BlendCity = {
   frame: VANCOUVER_FRAME,
   water: "the Strait of Georgia",
   billingRegion: "BC",
+};
+
+export const VICTORIA: BlendCity = {
+  slug: "victoria-bc",
+  frame: VICTORIA_FRAME,
+  water: "Juan de Fuca Strait",
+  billingRegion: "BC",
+};
+
+export const NANAIMO: BlendCity = {
+  slug: "nanaimo-bc",
+  frame: NANAIMO_FRAME,
+  water: "the Strait of Georgia",
+  billingRegion: "BC",
+};
+
+/**
+ * Friday Harbor bills in USD, and this is the field that decides it.
+ *
+ * Same trap /lp/seattle/3 documents: left to guess, currencyForRegion() falls
+ * back to geo and then to BC, so an American reader whose geo lookup came up
+ * empty would be quoted Canadian dollars under a page that has just spent nine
+ * screens naming WDFW.
+ */
+export const FRIDAY_HARBOR: BlendCity = {
+  slug: "friday-harbor-wa",
+  frame: FRIDAY_HARBOR_FRAME,
+  water: "the San Juans",
+  billingRegion: "WA",
 };

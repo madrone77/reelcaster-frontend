@@ -211,6 +211,96 @@ export const VANCOUVER_FRAME: ReelFrame = {
 };
 
 /**
+ * Victoria, on a panning sheet at z11.
+ *
+ * The densest of the five and the most expensive, and both facts have the
+ * same cause. Solved by scripts/solve-reel-frame.mjs at z11 into eight stops
+ * -- the most any city has -- running Esquimalt Harbour Entrance to Trial
+ * Islands along the whole Victoria waterfront, with Oak Bay Flats and Trial
+ * Islands, the two best-scoring marks in the roster, both on it.
+ *
+ * 353 KB against Vancouver's 190 on a sheet of almost exactly the same area
+ * (905k px against 907k). That is not slack in the encode: q65 only reaches
+ * 314 KB, an 11% saving that comes straight out of the contour hairlines the
+ * zoom exists to show. The bytes are the picture. Juan de Fuca and Haro
+ * Strait carry far more NONNA detail than Howe Sound, and this is the hero's
+ * LCP element, so it is the one frame here worth re-checking if the paid
+ * numbers ever look slow.
+ *
+ * The sheet cannot usefully be smaller. The eight stops span 667x144 px; the
+ * rest of the 1043x868 is the room the 375x724 window needs to centre on the
+ * outer two, which is also why the Saanich Peninsula fills the top third
+ * carrying no marks. A 743k-px alternative exists at six stops and drops both
+ * Oak Bay Flats and Discovery Island, which is the wrong trade.
+ *
+ * The Race Rocks and Trial Islands closures stay, for the reason they stay
+ * everywhere: they are real, the product draws them, and deleting a
+ * regulatory layer from a marketing still of a fishing app is the wrong kind
+ * of edit.
+ */
+export const VICTORIA_FRAME: ReelFrame = {
+  src: "/marketing/victoria-explore-map-v1.webp",
+  centerLng: -123.32895,
+  centerLat: 48.41124,
+  zoom: 11,
+  width: 1043,
+  height: 868,
+  regionLabel: "South Vancouver Island",
+};
+
+/**
+ * Nanaimo, on a panning sheet at z11.
+ *
+ * Six stops from Neck Point down past Hudson Rocks, Five Finger Island and
+ * Snake Island Reef to Entrance Island and the Gabriola Bluffs: the run an
+ * angler out of Nanaimo actually works, north to south, in that order.
+ *
+ * The cheapest sheet of the five at 171 KB, because the top third is the open
+ * Strait of Georgia, which is deep, flat and nearly featureless. That is
+ * honest rather than lucky -- the strait IS flat there, and the contrast with
+ * the banks and passes the stops sit on is most of what the picture argues.
+ */
+export const NANAIMO_FRAME: ReelFrame = {
+  src: "/marketing/nanaimo-explore-map-v1.webp",
+  centerLng: -123.88128,
+  centerLat: 49.21484,
+  zoom: 11,
+  width: 846,
+  height: 944,
+  regionLabel: "Mid Vancouver Island",
+};
+
+/**
+ * Friday Harbor, on a panning sheet at z11.
+ *
+ * Four stops -- Eagle Point, Cattle Point, Mackaye Harbor and Iceberg Point --
+ * which is the fewest of the five and is the roster's doing, not the solver's:
+ * at z11 the San Juans spread their scored marks across more water than one
+ * affordable sheet holds, and the contiguous run that fits is the south end of
+ * San Juan Island and Lopez. The marks band further down the page still lists
+ * every one of the twenty, so nothing is hidden, only unpinned.
+ *
+ * The picture earns the zoom more than any other city's. Cattle Point, Salmon
+ * Bank and San Juan Channel are drawn as banks, shelves and a tide-scoured
+ * trench, with the style's own "WDFW Marine Area 7" label sitting in the water
+ * the reel spends most of its time over -- naming in the picture the
+ * jurisdiction the page's eyebrow names in words.
+ *
+ * There is a visible horizontal seam in the deep water on the left, where the
+ * bathymetry source changes. It is in the product too. Left alone on the same
+ * principle as the closures: a marketing still of this map should be this map.
+ */
+export const FRIDAY_HARBOR_FRAME: ReelFrame = {
+  src: "/marketing/friday-harbor-explore-map-v1.webp",
+  centerLng: -122.96555,
+  centerLat: 48.4371,
+  zoom: 11,
+  width: 803,
+  height: 885,
+  regionLabel: "San Juan County",
+};
+
+/**
  * Chrome-free box, in the WINDOW's pixels. Shared by every city, and it has to
  * be: the box describes the reel's own chrome, which is the same markup at the
  * same sizes on every page that draws one.

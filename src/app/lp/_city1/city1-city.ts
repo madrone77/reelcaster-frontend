@@ -1,6 +1,9 @@
 import {
+  FRIDAY_HARBOR_FRAME,
+  NANAIMO_FRAME,
   SEATTLE_FRAME,
   VANCOUVER_FRAME,
+  VICTORIA_FRAME,
   type ReelFrame,
 } from "../_reel/reel-frame";
 
@@ -137,4 +140,76 @@ export const VANCOUVER_1: City1City = {
     mark: "The Bell Buoy",
   },
   footerWater: "the Strait of Georgia",
+};
+
+export const VICTORIA_1: City1City = {
+  slug: "victoria-bc",
+  landing: "lpvictoria1",
+  frame: VICTORIA_FRAME,
+  heroSpecies: "Halibut, Coho, Springs or Lings",
+  colourVerb: "coloured",
+  shot: {
+    src: "/marketing/where-what-when-victoria.png",
+    width: 1400,
+    height: 1800,
+    mark: "Trial Islands",
+  },
+  /**
+   * Not "the Salish Sea", and not "the Strait of Georgia" either.
+   *
+   * Every mark this page pins -- Trial Islands, Brodie Rock, Clover Point,
+   * Albert Head -- is on Juan de Fuca or in the mouth of Haro Strait, and a
+   * Victoria angler names the one they launch into. The Canadian chart spelling
+   * is "Juan de Fuca Strait", which is also how a reader here writes it.
+   */
+  footerWater: "Juan de Fuca Strait",
+};
+
+export const NANAIMO_1: City1City = {
+  slug: "nanaimo-bc",
+  landing: "lpnanaimo1",
+  frame: NANAIMO_FRAME,
+  heroSpecies: "Halibut, Coho, Springs or Lings",
+  colourVerb: "coloured",
+  shot: {
+    src: "/marketing/where-what-when-nanaimo.png",
+    width: 1400,
+    height: 1800,
+    mark: "Hudson Rocks",
+  },
+  footerWater: "the Strait of Georgia",
+};
+
+/**
+ * Friday Harbor, and the only American page here that is not Seattle.
+ *
+ * "Kings" rather than "Springs", and "colored" rather than "coloured", for the
+ * same reason Seattle has them: this is Washington traffic, and the roster it
+ * is drawn from is the same four species -- Chinook at 23 of the 24 published
+ * marks, Coho at 22, Lingcod and Halibut at 21.
+ *
+ * The regulator, the area badge and the tide authority are NOT set here and
+ * must not be: they resolve from the spots' own province, which is what makes
+ * WDFW, "MARINE AREA" and NOAA appear on this page and DFO, "DFO PFMA" and CHS
+ * appear on Victoria's without either page being told.
+ */
+export const FRIDAY_HARBOR_1: City1City = {
+  slug: "friday-harbor-wa",
+  landing: "lpfridayharbor1",
+  frame: FRIDAY_HARBOR_FRAME,
+  heroSpecies: "Halibut, Coho, Kings or Lings",
+  colourVerb: "colored",
+  shot: {
+    src: "/marketing/where-what-when-friday-harbor.png",
+    width: 1400,
+    height: 1800,
+    mark: "Salmon Bank",
+  },
+  /**
+   * "The San Juans" is what somebody fishing out of Friday Harbor says, and
+   * it is the archipelago rather than a strait because the water this page
+   * pins is San Juan Channel, Cattle Point and the south end of Lopez, which
+   * spans three of them and belongs to none.
+   */
+  footerWater: "the San Juans",
 };
