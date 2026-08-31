@@ -149,7 +149,7 @@ export default function DatePillRail({
                 <div
                   key={i}
                   aria-hidden
-                  className="w-[52px] shrink-0 animate-pulse rounded-xl border border-rc-rule bg-rc-surface"
+                  className="w-[52px] shrink-0 animate-pulse rounded border border-rc-rule bg-rc-surface"
                 />
               ))
             : model.days.map((day) => {
@@ -178,10 +178,10 @@ export default function DatePillRail({
 
                        The strip's "BEST" tab hangs off the top edge of its
                        cell, and there is nowhere here for it to hang: the pill
-                       is locked to the tab bar's 64px, which leaves a 46px
+                       is locked to the tab bar's 64px, which leaves a 52px
                        tile already holding day, date and score, and a tab
                        floated above that lands on the day name. Two smaller
-                       markers were tried and both failed on the same 46px — a
+                       markers were tried and both failed in the same box — a
                        top-right dot ran under "TODAY", a bottom-right dot read
                        as a decimal point beside the score, and a 3px bar on
                        the top edge read as a rendering fault.
@@ -191,7 +191,7 @@ export default function DatePillRail({
                        thing on the pill. Selected AND best keeps the brand
                        fill and takes the gold border, so picking the best day
                        doesn't erase the fact that it is the best day. */
-                    className={`flex w-[52px] shrink-0 snap-center flex-col items-center justify-center gap-0.5 rounded-xl transition-colors focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-rc-brand ${
+                    className={`flex w-[52px] shrink-0 snap-center flex-col items-center justify-center gap-0.5 rounded transition-colors focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-rc-brand ${
                       day.isBest
                         ? isSel
                           ? "border-2 border-rc-badge bg-rc-brand text-white"
