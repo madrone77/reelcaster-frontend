@@ -11,6 +11,7 @@ import type { FreshCatchesResponse } from "../lib/fresh-catch-types";
 import SpotCard from "./spot-card";
 import SortControl, { type SortKey, sortSpots } from "./sort-control";
 import SheetForecast from "./sheet-forecast";
+import DatePillRail from "./date-pill-rail";
 import ExploreFooter from "./explore-footer";
 
 type Detent = "peek" | "half" | "full";
@@ -403,6 +404,18 @@ export default function MobileMapSheet({
               </div>
             ))}
           </div>
+
+          {/* The fortnight, docked between the card and the tab bar. With a
+              card in hand the day is what gets changed most, and the browse
+              sheet's answer — a picker that covers the card — is the wrong
+              trade here. Sized like the nav pill it sits on. */}
+          <DatePillRail
+            model={forecastModel}
+            selectedIso={selectedIso}
+            onSelectDay={onSelectDay}
+            signedIn={signedIn}
+            onLockedAdDay={onLockedAdDay}
+          />
         </div>
       </>
     );
