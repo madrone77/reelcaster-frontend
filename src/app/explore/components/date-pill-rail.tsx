@@ -73,6 +73,16 @@ export default function DatePillRail({
   variant?: "floating" | "inline";
 }) {
   const floating = variant === "floating";
+
+  // The gold "best day" tile is for people who can see the fortnight it was
+  // picked from. `isBest` is chosen among UNLOCKED days only (see
+  // `finishModel`), so a signed-out visitor — who has two open days and
+  // twelve padlocks — gets a badge announcing the best of two as if it were
+  // the best of fourteen. That is a claim the tile cannot support, sitting
+  // right beside the padlocks that explain why. So anonymous gets plain
+  // tiles, and the fortnight's best day stays one of the things signing in
+  // is for.
+  const showBest = signedIn;
   const [upgradeOpen, setUpgradeOpen] = useState(false);
   const [lockTier, setLockTier] = useState<LockTier>("pro");
 
@@ -191,7 +201,7 @@ export default function DatePillRail({
                           : day.score != null
                             ? `, score ${day.score}`
                             : ""
-                    }${day.isBest ? ", best day" : ""}`}
+                    }${day.isBest && showBest ? ", best day" : ""}`}
                     /* The best day wears the marker on the tile itself — a
                        gold border and a gold wash — rather than carrying a
                        badge.
@@ -212,7 +222,7 @@ export default function DatePillRail({
                        fill and takes the gold border, so picking the best day
                        doesn't erase the fact that it is the best day. */
                     className={`flex w-[52px] shrink-0 snap-center flex-col items-center justify-center gap-0.5 rounded transition-colors focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-rc-brand ${
-                      day.isBest
+                      day.isBest && showBest
                         ? isSel
                           ? "border-2 border-rc-badge bg-rc-brand text-white"
                           : "border-2 border-rc-badge bg-rc-badge/12 text-rc-ink"
