@@ -114,10 +114,11 @@ export default function SpotCard({
     ? (fresh ?? (spot.hasReports ? { locked: true } : undefined))
     : undefined;
 
-  // Which plan a locked day is selling. A signed-out visitor's strip stops at
-  // day 2, so the first lock is inside the week a free account already gets —
-  // pitch the account. A free account's strip stops at day 7, so its locks are
-  // Pro days. Mirrors the forecast strip's lockTier split.
+  // Which wall a locked day counts as. A signed-out visitor's strip stops at
+  // day 2, so the first lock is inside the week a free account already gets. A
+  // free account's strip stops at day 7, so its locks are Pro days. Mirrors the
+  // forecast strip's lockTier split. Both report separately and read the same:
+  // the modal headline is the 14-day one either way.
   const firstLockedDay = days14?.findIndex((d) => d.locked) ?? -1;
   const forecastNag =
     firstLockedDay >= 0 && firstLockedDay < 7 ? "forecast-week" : "forecast-14d";

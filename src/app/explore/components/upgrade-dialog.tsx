@@ -22,8 +22,12 @@ const ProTrialModal = dynamic(
  * `variant` picks WHICH WALL was hit, not who hit it:
  *
  * - "pro" (default): a Pro day (8–14).
- * - "signup": a locked day that a free account unlocks (3–7), so the modal
- *   sells the account rather than the subscription.
+ * - "signup": a locked day that a free account unlocks (3–7).
+ *
+ * Both variants show the same 14-day headline. The split is for reporting, not
+ * for copy: a reader who reached for a date is asking for the whole run of
+ * dates, so no locked tile offers them a week. See NAG_FEATURES in
+ * lib/plan-features.ts.
  *
  * It deliberately does NOT pass `viewerTier`. It used to force "free" for the
  * pro variant, which told a signed-out visitor the matrix's Free column was

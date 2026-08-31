@@ -274,12 +274,22 @@ export const NAG_FEATURES: Record<NagFeatureId, NagFeature> = {
     rowId: "custom-spots",
     pricingFeature: "custom-spots",
   },
+  // A locked day inside the first week, which a free account opens. The id and
+  // the `unlocksAt` still say so, because the paywall counter and the wall
+  // cookie split day-3 taps from day-9 taps and that split is what tells the
+  // two walls apart in the reports.
+  //
+  // The COPY does not split. Every locked day tile, whichever one it is, opens
+  // a modal that asks for the full fourteen: a reader who just reached for a
+  // date wants the whole run of dates, and offering them a week when the tile
+  // beside it is still locked sells them a smaller thing twice. So this shares
+  // the 14-day headline and highlights the same matrix row.
   "forecast-week": {
-    action: "plan a week ahead",
-    headline: "See the week ahead",
+    action: "plan the full two weeks",
+    headline: "View the full 14-day forecast",
     takesSpot: true,
     unlocksAt: "free",
-    rowId: "week-ahead",
+    rowId: "two-weeks",
     pricingFeature: "14-day-forecast",
   },
   "forecast-14d": {
