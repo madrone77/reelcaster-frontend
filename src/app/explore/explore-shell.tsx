@@ -34,6 +34,7 @@ import {
   depthLocked as isDepthLocked,
   stampPreviewGrant,
   writePreviewCookie,
+  PREVIEW_GATE_ENABLED,
   type PreviewState,
 } from "@/lib/preview-gate";
 import DepthGatePrompt from "./components/depth-gate-prompt";
@@ -1909,7 +1910,12 @@ export default function ExploreShell({
     return () => window.clearTimeout(t);
   }, [depthNarrated]);
 
-  const depthAsk = nag.open && marketing && !user && preview !== "declined";
+  const depthAsk =
+    PREVIEW_GATE_ENABLED &&
+    nag.open &&
+    marketing &&
+    !user &&
+    preview !== "declined";
   const proAsk = nag.open && !depthAsk;
 
   /**

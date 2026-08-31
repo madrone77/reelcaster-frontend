@@ -37,6 +37,27 @@
  * never be described internally as protection.
  */
 
+/**
+ * THE GATE IS OFF.
+ *
+ * One switch, off, because "not live yet" has to mean nothing at all reaches a
+ * visitor — including the visitors who already answered. Turning the traffic
+ * off at the landing page stops NEW arrivals, but anyone stamped in the window
+ * it was live still carries `rc_preview=declined`, and without this they would
+ * keep a depthless /explore indefinitely with nothing linking to the route that
+ * explains it.
+ *
+ * So this short-circuits every decision in this module: no grant is stamped, no
+ * cookie already out there locks anything, and the prompt never opens. The
+ * route, the components and the wiring all stay exactly where they are, so
+ * switching this to `true` is the whole of turning it back on.
+ *
+ * Deliberately a constant and not an env var: an env change needs a redeploy on
+ * this project anyway, and a flag you can read in the diff is worth more than
+ * one you have to go and look up in a dashboard.
+ */
+export const PREVIEW_GATE_ENABLED = false;
+
 /** Values the cookie may hold. Anything else reads as no grant at all. */
 export type PreviewState = "active" | "declined";
 
@@ -81,6 +102,8 @@ export function depthLocked({
   state: PreviewState | null;
   signedIn: boolean;
 }): boolean {
+  // Off means off, including for a cookie written while it was on.
+  if (!PREVIEW_GATE_ENABLED) return false;
   if (signedIn) return false;
   return state === "declined";
 }
@@ -133,7 +156,8 @@ export function writePreviewCookie(state: PreviewState): void {
  * Never overwrites a decline. Somebody who said no and clicked a second ad is
  * still somebody who said no.
  */
-export function stampPreviewGrant(): PreviewState {
+export function stampPreviewGrant(): PreviewState | null {
+  if (!PREVIEW_GATE_ENABLED) return null;
   const existing = readPreviewCookie();
   if (existing) return existing;
   writePreviewCookie("active");
