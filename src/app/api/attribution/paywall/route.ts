@@ -21,6 +21,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { NAG_FEATURES } from '@/lib/plan-features';
+import { pacificDay } from '@/lib/pacific-day';
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
@@ -66,7 +67,7 @@ export async function POST(request: NextRequest) {
   }
 
   const { error } = await admin.rpc('bump_paywall_counter', {
-    p_day: new Date().toISOString().slice(0, 10),
+    p_day: pacificDay(),
     p_feature: feature,
     p_surface: surface,
     p_viewer_tier: viewerTier,

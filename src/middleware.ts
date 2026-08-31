@@ -10,6 +10,7 @@ import {
 import { classifyUserAgent, isBotUserAgent } from '@/lib/device'
 import { readEdgeGeo } from '@/lib/edge-geo'
 import { classifyPage, classifySource } from '@/lib/traffic-source'
+import { pacificDay } from '@/lib/pacific-day'
 
 // Legacy coming-soon wall, now scoped to nothing.
 //
@@ -174,7 +175,7 @@ function countPageView(req: NextRequest, event: NextFetchEvent): void {
   const { device, os } = classifyUserAgent(userAgent)
 
   const body = JSON.stringify({
-    p_day: new Date().toISOString().slice(0, 10),
+    p_day: pacificDay(),
     p_page_kind: page.kind,
     p_page_slug: page.slug,
     p_source_kind: source.kind,

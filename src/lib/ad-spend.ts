@@ -17,6 +17,7 @@
  *      like money and is not, which is worse than having no figure at all.
  */
 
+import { pacificDay } from '@/lib/pacific-day';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { googleAdsConfig, googleAccessToken, googleAdsHeaders } from './google-ads-auth';
 
@@ -54,9 +55,16 @@ export interface IngestResult {
   errors: string[];
 }
 
-/** YYYY-MM-DD, UTC. Both APIs want plain dates, not timestamps. */
+/**
+ * YYYY-MM-DD in Pacific. Both APIs want plain dates, not timestamps.
+ *
+ * Pacific rather than UTC because that is the day the ad accounts report on
+ * and the day our own counters now stamp. On a UTC bound the window opened
+ * eight hours early and the oldest day came back part-empty, which read as a
+ * quiet day rather than as a clipped one.
+ */
 function isoDay(daysAgo: number): string {
-  return new Date(Date.now() - daysAgo * 86400_000).toISOString().slice(0, 10);
+  return pacificDay(new Date(Date.now() - daysAgo * 86400_000));
 }
 
 // ── Google Ads ───────────────────────────────────────────────────────
