@@ -15,12 +15,12 @@ export default function MarketingFooter() {
   const year = new Date().getFullYear();
   return (
     <footer data-testid="marketing-footer" className="border-t border-rc-rule bg-rc-surface">
-      {/* Only routes that still exist — unlisted paths now return a real 404
+      {/* Only routes that still exist. Unlisted paths now return a real 404
           (the /coming-soon wall was retired), so a stale link here is a dead
           link. Locations lists the /fishing province directories; add a region
           here once it has lifecycle-published cities. Washington qualified when
           Seattle was promoted; Oregon still has none.
-          "Support" points at /support, which paywalls non-Pro visitors — FAQ
+          "Support" points at /support, which paywalls non-Pro visitors. FAQ
           and Contact directly above it are the open routes.
 
           Tap targets: these links render at 15 to 17px, well under the 44px
@@ -31,23 +31,25 @@ export default function MarketingFooter() {
           link is worse than a small one. Padding separates them for real.
           Mobile only (md:py-0), since a mouse does not need it, and the mobile
           gap moves from `space-y-2` into the padding so the footer does not
-          double in height. */}
-      <div className="max-w-6xl mx-auto px-6 py-12 grid grid-cols-2 md:grid-cols-5 gap-8 text-sm">
-        <div>
-          <h4 className="rc-label text-[10px] mb-3">Product</h4>
-          <ul className="md:space-y-2 text-rc-ink-soft">
-            <li><Link href="/explore" prefetch={false} className="block py-3.5 md:py-0 hover:text-rc-ink">Explore the map</Link></li>
-            <li><Link href="/catches" prefetch={false} className="block py-3.5 md:py-0 hover:text-rc-ink">Catch log</Link></li>
-            <li><Link href="/plans" prefetch={false} className="block py-3.5 md:py-0 hover:text-rc-ink">Pro plans</Link></li>
-          </ul>
-        </div>
+          double in height.
 
+          BLOCK ORDER IS A MOBILE LAYOUT CONSTRAINT, not an editorial one. Below
+          md this is a 2-column grid, and a grid row track is as tall as its
+          taller column, so pairing a 4-link block with a 2-link one leaves the
+          short one padded out with dead space and drops the next header far
+          below its neighbour's. Locations (4) and Company (4) are paired so
+          that row is flush, which also keeps the last link row level and stops
+          a void opening above the ReelCaster block. Product (3) and Account (2)
+          take the ragged step, one link tall, at the bottom where nothing
+          follows it in that column. Reordering these blocks or changing a
+          link count reopens the gap, so re-pair by count if you do. */}
+      <div className="max-w-6xl mx-auto px-6 py-12 grid grid-cols-2 md:grid-cols-5 gap-8 text-sm">
         <div>
           <h4 className="rc-label text-[10px] mb-3">Locations</h4>
           <ul className="md:space-y-2 text-rc-ink-soft">
             <li><Link href="/fishing/bc" prefetch={false} className="block py-3.5 md:py-0 hover:text-rc-ink">British Columbia</Link></li>
             <li><Link href="/fishing/wa" prefetch={false} className="block py-3.5 md:py-0 hover:text-rc-ink">Washington</Link></li>
-            {/* Sitewide links so the guides aren't reachable only from search —
+            {/* Sitewide links so the guides aren't reachable only from search,
                 an indexable page nothing links to reads as low value. They sit
                 under Locations because each is region-specific. Note the
                 spelling split: BC copy says "licence" (DFO), WA says "license"
@@ -64,6 +66,15 @@ export default function MarketingFooter() {
             <li><Link href="/faq" prefetch={false} className="block py-3.5 md:py-0 hover:text-rc-ink">FAQ</Link></li>
             <li><Link href="/contact" prefetch={false} className="block py-3.5 md:py-0 hover:text-rc-ink">Contact</Link></li>
             <li><Link href="/support" prefetch={false} className="block py-3.5 md:py-0 hover:text-rc-ink">Support</Link></li>
+          </ul>
+        </div>
+
+        <div>
+          <h4 className="rc-label text-[10px] mb-3">Product</h4>
+          <ul className="md:space-y-2 text-rc-ink-soft">
+            <li><Link href="/explore" prefetch={false} className="block py-3.5 md:py-0 hover:text-rc-ink">Explore the map</Link></li>
+            <li><Link href="/catches" prefetch={false} className="block py-3.5 md:py-0 hover:text-rc-ink">Catch log</Link></li>
+            <li><Link href="/plans" prefetch={false} className="block py-3.5 md:py-0 hover:text-rc-ink">Pro plans</Link></li>
           </ul>
         </div>
 
