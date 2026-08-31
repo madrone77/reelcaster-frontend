@@ -12,6 +12,7 @@ import { processAlerts, getUserEmail, markBeatSent } from '@/lib/custom-alert-en
 import { sendEmail } from '@/lib/email-service';
 import { generateCustomAlertEmail } from '@/lib/email-templates/custom-alert';
 import { generateScoreAlertDigest } from '@/lib/email-templates/score-alert';
+import { mintShareCard } from '@/lib/share-cards-server';
 import { smsCarriesDigest } from '@/lib/alert-channels';
 import { sendSms, isTwilioConfigured } from '@/lib/twilio';
 import { createClient } from '@supabase/supabase-js';
@@ -242,8 +243,64 @@ export async function POST(request: NextRequest) {
           willEmail && smsItems.every((i) => i.channels.includes('email'));
 
         const appBase = process.env.NEXT_PUBLIC_APP_URL || 'https://reelcaster.com';
+
+        // Mint a share card per day in the digest, so the email itself carries
+        // the link and someone can forward a good day straight out of their
+        // inbox without opening the app. It also has to exist BEFORE the tap:
+        // navigator.share() needs transient activation, and iOS Safari refuses
+        // a handler that first awaits a mint.
+        //
+        // Unique on (alert_profile_id, target_date), so a confirm beat reuses
+        // the heads-up's card rather than minting a second one for the same
+        // day. Every remaining beat is a day worth going out on — the
+        // stand-down beat, which told someone a day had got worse, is gone from
+        // the model — so there is no beat here that should be denied a link.
+        //
+        // Only for the items that will actually render it. A card is a nicety
+        // on top of the alert and must never stop a send, so every failure here
+        // falls back to the item unchanged.
+        const withShareLinks = async (items: typeof job.items) =>
+          Promise.all(
+            items.map(async (item) => {
+              if (!item.spotSlug) return item;
+              try {
+                const card = await mintShareCard({
+                  source: 'alert',
+                  slug: item.spotSlug,
+                  // The engine builds this display name by title-casing the
+                  // species slug, so lower-casing and hyphenating reverses it
+                  // exactly. Without it the card would fall back to the spot's
+                  // best species and could name a different fish than the
+                  // alert did.
+                  speciesSlug: item.speciesName
+                    ? item.speciesName.toLowerCase().replace(/\s+/g, '-')
+                    : null,
+                  targetDate: item.targetDate,
+                  userId: job.userId,
+                  alertProfileId: item.profileId,
+                });
+                return card
+                  ? {
+                      ...item,
+                      shareUrl: `${appBase}/explore/spot/${item.spotSlug}?share=${card.token}`,
+                    }
+                  : item;
+              } catch (mintError) {
+                console.error(
+                  `Share card mint failed for profile ${item.profileId}:`,
+                  mintError,
+                );
+                return item;
+              }
+            }),
+          );
+
+        const digestItems = await withShareLinks(
+          willEmail ? emailItems : job.items,
+        );
+
         const message = generateScoreAlertDigest({
-          items: willEmail ? emailItems : job.items,
+          items: digestItems,
           smsItems,
           alsoEmailing: smsCoveredByEmail,
           appBase,

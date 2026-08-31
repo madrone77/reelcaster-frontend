@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import dynamic from "next/dynamic";
-import { ArrowUpCircle, ChevronLeft, ChevronRight, Home, Bell } from "lucide-react";
+import { ArrowUpCircle, ChevronLeft, ChevronRight, Home, Bell, Share2 } from "lucide-react";
 import { useAuth } from "@/contexts/auth-context";
 import { useSubscription } from "@/hooks/use-subscription";
 import { useUpgradeNag } from "@/hooks/use-upgrade-nag";
@@ -72,6 +72,7 @@ import { PAGE_MEASURE } from "@/app/components/layout/page-measure";
 import LogCatchDialog from "../components/log-catch-dialog";
 import PullToRefresh from "../components/pull-to-refresh";
 import CreateAlertDialog from "../components/create-alert-dialog";
+import ShareCardDialog from "../components/share-card-dialog";
 
 const ProTrialModal = dynamic(
   () => import("@/app/components/paywall/pro-trial-modal"),
@@ -183,6 +184,8 @@ export default function SpotDetailShell({
   tz: TZ,
   serverNowMs,
   ad = null,
+  openOnSpeciesId = null,
+  openOnIso = null,
 }: {
   page: SpotPageForClient;
   slug: string;
@@ -205,6 +208,19 @@ export default function SpotDetailShell({
    * `treatment`: the frame varies, the substance does not.
    */
   ad?: AdMode | null;
+  /**
+   * Open the page on a specific species and day instead of the defaults.
+   *
+   * Set by /s/<token>, so a recipient lands on the fish and the day they were
+   * actually invited to. Without it the page opened on its own best species and
+   * today, and a stranger who was told "Chinook, Sunday" got halibut and Monday
+   * with no way to tell the two apart.
+   *
+   * Both are hints, not commands: an id that is not on this spot's roster, or a
+   * day outside the horizon, is ignored rather than selecting nothing.
+   */
+  openOnSpeciesId?: string | null;
+  openOnIso?: string | null;
 }) {
   const { spot } = page;
   // Which fisheries authority governs this spot. `spot.region` is the
@@ -243,7 +259,14 @@ export default function SpotDetailShell({
     () => [...page.species].sort((a, b) => a.rank - b.rank),
     [page.species],
   );
-  const [selId, setSelId] = useState<string | null>(() => bestSpeciesId(page));
+  const [selId, setSelId] = useState<string | null>(() => {
+    // A shared link's species wins over the spot's own default, but only if the
+    // spot actually carries it — a stale card must not select nothing.
+    if (openOnSpeciesId && page.species.some((s) => s.id === openOnSpeciesId)) {
+      return openOnSpeciesId;
+    }
+    return bestSpeciesId(page);
+  });
   // Names for the per-species report split. The roster is the species this spot
   // is scored for; anglers report others (crab and lingcod at a salmon spot),
   // and those fold into "Other species" rather than being dropped.
@@ -430,7 +453,7 @@ export default function SpotDetailShell({
     [fcSource, selId, tierLoading, accessTier, regulation, page.sun],
   );
 
-  const [selectedIso, setSelectedIso] = useState<string | null>(null);
+  const [selectedIso, setSelectedIso] = useState<string | null>(openOnIso);
   const [upgradeOpen, setUpgradeOpen] = useState(false);
 
   /** Ad frame: send every "unlock this" gesture to the one offer on the page. */
@@ -522,6 +545,28 @@ export default function SpotDetailShell({
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [authLoading]);
+
+  // Sharing is open to everyone, signed in or not, so unlike the alert modal
+  // this one never waits on auth and never gates.
+  const [shareOpen, setShareOpen] = useState(false);
+  const [shareToken, setShareToken] = useState<string | null>(null);
+
+  // Deep-link: `?share=<token>` is what the alert email's "send it to someone"
+  // link carries. The token was minted when the alert fired, so the modal
+  // adopts it instead of creating a second card for a day that already has one.
+  //
+  // Runs ONCE per mount, which is what "open once per alert" means in practice:
+  // the link opens the modal, and a reload or a later visit to the bare spot
+  // page does not nag again.
+  const shareAutoOpened = useRef(false);
+  useEffect(() => {
+    if (shareAutoOpened.current) return;
+    const token = new URLSearchParams(window.location.search).get("share");
+    if (!token) return;
+    shareAutoOpened.current = true;
+    setShareToken(token);
+    setShareOpen(true);
+  }, []);
 
   const activeIso = selectedIso ?? stripModel?.days[0]?.iso ?? null;
   const activeIndex =
@@ -1091,6 +1136,21 @@ export default function SpotDetailShell({
                       <Bell className="w-4 h-4" aria-hidden />
                       <span className="hidden sm:inline">Set alert</span>
                     </button>
+                    {/* Share needs no account, so it sits outside the sign-up
+                        walls the other actions carry. */}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShareToken(null);
+                        setShareOpen(true);
+                      }}
+                      aria-label="Share this spot"
+                      title="Share this spot"
+                      className="shrink-0 flex items-center gap-2 rounded border border-rc-line-strong px-3 py-2 text-rc-ink hover:bg-rc-surface text-[13px] font-semibold focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-rc-brand transition-colors"
+                    >
+                      <Share2 className="w-4 h-4" aria-hidden />
+                      <span className="hidden sm:inline">Share</span>
+                    </button>
                     </>
                   )}
                 </div>
@@ -1473,6 +1533,15 @@ export default function SpotDetailShell({
         initialSpeciesId={selId}
         dailyScores={dailyScores}
         onUpgradeRequired={() => setAlertUpgradeOpen(true)}
+      />
+
+      <ShareCardDialog
+        open={shareOpen}
+        onOpenChange={setShareOpen}
+        slug={slug}
+        speciesId={selId}
+        targetDate={selectedIso}
+        existingToken={shareToken}
       />
 
       <ProTrialModal

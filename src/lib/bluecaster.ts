@@ -279,6 +279,49 @@ export async function fetchPointConditions(
   return res.json();
 }
 
+/** One sample of the predicted tidal-current series at a point. */
+export interface CurrentsSample {
+  t: string; // ISO UTC
+  speed_kn: number;
+  dir_deg: number; // direction the current flows TOWARD (0 = N)
+}
+
+export interface CurrentsSeries {
+  region: string;
+  source: string;
+  count: number;
+  series: CurrentsSample[];
+}
+
+/**
+ * Predicted tidal current at a point over [from, to], server-side.
+ *
+ * The browser reaches this through the same-origin proxy in
+ * `bluecaster-client.ts`; a share card is minted on the server, where there is
+ * no origin to proxy through. Predictions are deterministic per (point, range),
+ * so unlike the now-only `fetchPointConditions` this one works for a day in the
+ * future — which is the only reason a card can name the current on a Saturday
+ * that has not happened yet.
+ *
+ * Coverage is the Salish Sea grid, so a spot outside it answers with an empty
+ * series rather than an error. Callers must treat a missing current as normal
+ * and render the rail without that row.
+ */
+export async function fetchCurrentsSeries(
+  lat: number,
+  lng: number,
+  fromIso: string,
+  toIso: string,
+): Promise<CurrentsSeries | null> {
+  return bcGet<CurrentsSeries>("/api/v1/currents/point", {
+    lat,
+    lng,
+    from: fromIso,
+    to: toIso,
+    step_min: 60,
+  });
+}
+
 // ── Bulk map spots (scores + conditions) ───────────────────────────
 // Shapes mirror bluecaster lib/bluecaster/map/spots-scores.ts and
 // spots-conditions.ts. Hour scores are 0..1 — multiply by 100 exactly

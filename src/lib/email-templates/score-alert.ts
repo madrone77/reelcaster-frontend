@@ -34,6 +34,12 @@ export interface ScoreAlertItem {
   speciesName: string | null;
   /** False when we scored the spot's best species instead of the one chosen. */
   speciesMatched: boolean;
+  /**
+   * Deep link back to the spot with the share card open, when one was minted
+   * for this day. Absent whenever the mint could not resolve a card, which is a
+   * normal outcome — the digest must still send without it.
+   */
+  shareUrl?: string | null;
   /** The fishing day, YYYY-MM-DD. */
   targetDate: string;
   /** 0 = today. */
@@ -251,6 +257,14 @@ function rowHtml(item: ScoreAlertItem, appBase: string): string {
                 // quietly stand in for something it is not about.
                 item.speciesMatched ? '' : ' <span style="font-style: italic;">(spot best, not your species)</span>'
               }</p>
+              ${
+                // One digest can cover several days, so the invitation belongs
+                // on the row rather than on the single footer button — that
+                // button points at whichever spot happens to be first.
+                item.shareUrl
+                  ? `<p style="margin: 6px 0 0;"><a href="${item.shareUrl}" style="font-family: ${MONO}; font-size: 11px; letter-spacing: 0.06em; color: ${BRAND}; text-decoration: none;">SEND IT TO SOMEONE &rarr;</a></p>`
+                  : ''
+              }
             </td>
             <td style="vertical-align: middle; text-align: right; width: 74px;">
               <div style="font-size: 30px; line-height: 1; font-weight: 800; letter-spacing: -0.03em; color: ${tier.num};">${rounded}</div>

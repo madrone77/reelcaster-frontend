@@ -44,6 +44,7 @@ export type PageKind =
   | 'city-species'
   | 'licence'
   | 'lp'
+  | 'share'
   | 'marketing'
   | 'other';
 
@@ -122,6 +123,13 @@ export function classifyPage(pathname: string): PageClass | null {
   // edit here, matching how LANDING_SHAPE treats the counter it feeds.
   const lp = path.match(/^\/lp\/(.+)$/);
   if (lp) return { kind: 'lp', slug: clamp(lp[1]) };
+
+  // Share links. The slug is deliberately EMPTY rather than the token: a token
+  // is the credential that reads a card, and this table is a set of daily
+  // counters with no business holding one. It also keeps every share from
+  // becoming its own primary key. Without this rule they fell through to
+  // `other` and the raw /s/<token> path was written verbatim.
+  if (/^\/s\/[^/]+$/.test(path)) return { kind: 'share', slug: '' };
 
   const licence = path.match(/^\/fishing-licence\/([^/]+)$/);
   if (licence) return { kind: 'licence', slug: clamp(licence[1]) };
