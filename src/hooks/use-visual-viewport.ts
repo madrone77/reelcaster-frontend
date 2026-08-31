@@ -7,6 +7,13 @@ export interface ViewportMetrics {
   keyboard: number;
   /** Height of the area the user can actually see right now, in px. */
   height: number;
+  /**
+   * Where the visible area starts, in layout-viewport px. Non-zero only while
+   * the browser is panning the page up to chase a focused field. A centred
+   * element wants `offsetTop + height / 2`; a bottom-pinned one only needs
+   * `keyboard`.
+   */
+  offsetTop: number;
 }
 
 /**
@@ -18,8 +25,9 @@ const KEYBOARD_MIN = 100;
 
 /**
  * Measures the *visual* viewport — the part of the page a phone is actually
- * showing — so a bottom-pinned sheet can sit on top of the on-screen keyboard
- * instead of underneath it.
+ * showing — so anything floating over the page (a bottom-pinned sheet, a
+ * centred dialog) can sit where the reader can see it instead of behind the
+ * on-screen keyboard.
  *
  * Why this is needed at all: opening the keyboard does not resize the page.
  * Both mobile Safari and Chrome shrink only the visual viewport and leave the
@@ -44,11 +52,12 @@ export function useVisualViewport(active: boolean): ViewportMetrics {
   const [metrics, setMetrics] = useState<ViewportMetrics>({
     keyboard: 0,
     height: 0,
+    offsetTop: 0,
   });
 
   useEffect(() => {
     if (!active) {
-      setMetrics({ keyboard: 0, height: 0 });
+      setMetrics({ keyboard: 0, height: 0, offsetTop: 0 });
       return;
     }
     const vv = window.visualViewport;
@@ -61,6 +70,7 @@ export function useVisualViewport(active: boolean): ViewportMetrics {
       setMetrics({
         keyboard: covered > KEYBOARD_MIN ? Math.round(covered) : 0,
         height: Math.round(vv.height),
+        offsetTop: Math.round(vv.offsetTop),
       });
     };
     // The keyboard animates in, firing a burst of resize + scroll events.

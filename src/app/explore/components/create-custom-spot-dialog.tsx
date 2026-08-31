@@ -147,7 +147,7 @@ export default function CreateCustomSpotDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="bg-rc-panel border-rc-rule text-rc-ink sm:max-w-lg p-6 max-h-[90vh] overflow-y-auto">
+      <DialogContent className="bg-rc-panel border-rc-rule text-rc-ink sm:max-w-lg p-6">
         <DialogTitle className="sr-only">Create a custom spot</DialogTitle>
         <DialogDescription className="sr-only">
           Name your spot, choose who can see it, and pick which species to score.
@@ -249,8 +249,11 @@ export default function CreateCustomSpotDialog({
             {/* Name */}
             <div className="mt-6">
               <div className="rc-label text-[9px] text-rc-ink-mute">NAME</div>
+              {/* No autoFocus. On a phone that raised the keyboard the
+                  instant the pin was dropped, over the coordinates the angler
+                  had just placed and the form below them. The field is the
+                  obvious next tap either way. */}
               <input
-                autoFocus
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 maxLength={80}
