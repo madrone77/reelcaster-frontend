@@ -154,6 +154,39 @@ export function useLpHit(angle: string): void {
 }
 
 /**
+ * Did one of our own landing pages send this visit here?
+ *
+ * The signal is `document.referrer`, and it is trustworthy on this particular
+ * hop for a reason worth stating: every CTA on the /lp pages is a plain `<a>`
+ * (see TrackedCta in _city1/city1-track.tsx and _blend/blend-track.tsx), never
+ * a Next `<Link>`. So LP to Explore is a real document navigation and the
+ * browser sets a referrer. If those CTAs ever become client-side links, this
+ * goes quiet and the arrivals count drops to nothing while the CTA presses
+ * carry on: check here first when those two numbers stop agreeing.
+ *
+ * Same-origin only, and that is not really a policy choice. Under the default
+ * `strict-origin-when-cross-origin` a cross-origin referrer is trimmed to the
+ * bare origin, so a path is only ever visible when the sender was us; the test
+ * below just says so out loud instead of relying on it.
+ *
+ * Deliberately NOT the rc_paid cookie. That cookie is 90-day rolling, so it
+ * would answer yes for someone who saw an ad in June and came back on their
+ * own in September, and count that organic return as an ad arrival.
+ */
+export function cameFromLandingPage(): boolean {
+  if (typeof document === "undefined") return false;
+  const ref = document.referrer;
+  if (!ref) return false;
+  try {
+    const url = new URL(ref);
+    if (url.origin !== window.location.origin) return false;
+    return /^\/lp\//.test(url.pathname);
+  } catch {
+    return false;
+  }
+}
+
+/**
  * What the CURRENT path says is being counted, or null if it says nothing.
  *
  * Split out of `useLpHit` so a component that is shared between a /lp/<n>/
