@@ -4,7 +4,6 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
-import { LifeBuoy } from "lucide-react";
 import { btn } from "@/app/components/ui/button";
 import { PAGE_MEASURE } from "@/app/components/layout/page-measure";
 import { useAuth } from "@/contexts/auth-context";
@@ -42,11 +41,10 @@ const NAV: {
   },
 ];
 
-// The Port is Pro-only and lives beside the avatar rather than in NAV: this bar
-// renders for signed-out visitors too, and a top-level link that greets most of
-// them with a paywall is worse than no link. Signed-in members see it; the page
-// itself handles the free-tier case.
-const SUPPORT_HREF = "/support";
+// The Port is not in this bar at all. It is Pro-only, so a top-level link
+// greets most visitors with a paywall, and it already has a home one tap away:
+// the "Open The Port" card on /settings/account, which the avatar leads to.
+// The mobile "More" sheet lists it for the same reason.
 
 /**
  * Fixed 64px top bar. Deliberately mirrors MarketingHeader's styling (same
@@ -249,22 +247,6 @@ export default function ExploreTopBar({
                   <span className="hidden sm:inline">Upgrade to Pro</span>
                 </TrialModalButton>
               )}
-              <Link
-                href={SUPPORT_HREF}
-                aria-label="Support"
-                aria-current={isActive(SUPPORT_HREF) ? "page" : undefined}
-                title="Support: The Port"
-                className={`hidden sm:inline-flex items-center gap-1.5 text-sm font-medium px-3 py-1.5 transition-colors ${
-                  brand
-                    ? "text-white/80 hover:text-white"
-                    : isActive(SUPPORT_HREF)
-                      ? "text-rc-brand font-semibold"
-                      : "text-rc-ink-soft hover:text-rc-ink"
-                }`}
-              >
-                <LifeBuoy className="w-4 h-4" aria-hidden />
-                Support
-              </Link>
               <Link
                 href="/profile"
                 aria-label="Profile"
