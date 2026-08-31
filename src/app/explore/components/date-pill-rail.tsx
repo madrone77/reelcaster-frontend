@@ -49,6 +49,7 @@ export default function DatePillRail({
   onSelectDay,
   signedIn,
   onLockedAdDay,
+  variant = "floating",
 }: {
   model: ForecastStripModel | null;
   selectedIso: string;
@@ -57,7 +58,21 @@ export default function DatePillRail({
   /** Ad frame: focus the one offer already on the page instead of opening a
    *  second way to buy. Same contract as the strip and the sheet. */
   onLockedAdDay?: () => void;
+  /**
+   * Where this is sitting, which is only a question about chrome — the tiles,
+   * the cap and the arrow are identical either way.
+   *
+   * "floating": on the map, above the tab bar. Takes the bar's exact shape and
+   * its shadow, because it has to hold its own against water underneath.
+   *
+   * "inline": inside the browse sheet's header, which is already a panel. Drops
+   * the shadow, the blur and the click-through gutter — a raised pill inside a
+   * card reads as a card on a card — and keeps the border, which is what still
+   * has to say "this is a control, not a caption".
+   */
+  variant?: "floating" | "inline";
 }) {
+  const floating = variant === "floating";
   const [upgradeOpen, setUpgradeOpen] = useState(false);
   const [lockTier, setLockTier] = useState<LockTier>("pro");
 
@@ -112,13 +127,18 @@ export default function DatePillRail({
 
   return (
     <>
-      {/* Click-through gutter, like the nav strip: the transparent margins
-          beside the pill must not swallow taps on the map behind them. */}
-      <div className="pointer-events-none px-4">
+      {/* Floating only: a click-through gutter, like the nav strip, so the
+          transparent margins beside the pill don't swallow taps on the map
+          behind them. Inline, the sheet header already owns that space. */}
+      <div className={floating ? "pointer-events-none px-4" : ""}>
         <div
           role="group"
           aria-label="Pick a forecast day"
-          className="pointer-events-auto relative mx-auto flex h-16 max-w-lg items-stretch overflow-hidden rounded-2xl border border-rc-rule bg-rc-panel/95 shadow-[0_6px_24px_rgba(15,23,42,0.18)] backdrop-blur-md"
+          className={`relative flex h-16 items-stretch overflow-hidden rounded-2xl border border-rc-rule ${
+            floating
+              ? "pointer-events-auto mx-auto max-w-lg bg-rc-panel/95 shadow-[0_6px_24px_rgba(15,23,42,0.18)] backdrop-blur-md"
+              : "bg-rc-panel"
+          }`}
         >
           {/* Names the instrument, and stays put while the days scroll under
               it — a caption that scrolled away would be gone by the second
