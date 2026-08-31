@@ -31,16 +31,17 @@ export default function MarketingFooter() {
           separates them for real. Mobile only (md:py-0), since a mouse does not
           need it.
 
-          `py-2` makes a 36px box, down from the 48px this shipped with. The
-          footer read as too airy at 48: the links are 7 deep on a phone, so
-          that padding alone was 336px of a 906px footer, and 28px of white
-          between one link and the next is more than three times the 8px the
-          same list uses on desktop. 36px keeps the whole box live (the links
-          are adjacent with no gap, so there is no dead space between targets)
-          and clears the WCAG 2.5.8 AA floor of 24px, while sitting under the
-          44px AAA figure. That was a deliberate call, not an oversight. Do not
-          go below `py-2` without revisiting it; the text line is 20px, so
-          py-1.5 would leave a 32px box and a 12px optical gap.
+          `py-2.5` makes a 40px box. This started at 48px, which read as too
+          airy: the links are 7 deep on a phone, so that padding alone was 336px
+          of a 906px footer, and 28px of white between one link and the next is
+          more than three times the 8px the same list uses on desktop. It went
+          to 36px, then back up to 40px because 36 was tighter than it needed to
+          be to fix the problem. 40px keeps the whole box live (the links are
+          adjacent with no gap, so there is no dead space between targets) and
+          clears the WCAG 2.5.8 AA floor of 24px, while sitting just under the
+          44px AAA figure. That gap is a deliberate call, not an oversight.
+          `py-2` (36px) is the floor; the text line is 20px, so py-1.5 would
+          leave a 32px box and a 12px optical gap, which is too tight to hit.
 
           BLOCK ORDER IS A MOBILE LAYOUT CONSTRAINT, not an editorial one. Below
           md this is a 2-column grid, and a grid row track is as tall as its
@@ -56,34 +57,34 @@ export default function MarketingFooter() {
         <div>
           <h4 className="rc-label text-[10px] mb-3">Locations</h4>
           <ul className="md:space-y-2 text-rc-ink-soft">
-            <li><Link href="/fishing/bc" prefetch={false} className="block py-2 md:py-0 hover:text-rc-ink">British Columbia</Link></li>
-            <li><Link href="/fishing/wa" prefetch={false} className="block py-2 md:py-0 hover:text-rc-ink">Washington</Link></li>
+            <li><Link href="/fishing/bc" prefetch={false} className="block py-2.5 md:py-0 hover:text-rc-ink">British Columbia</Link></li>
+            <li><Link href="/fishing/wa" prefetch={false} className="block py-2.5 md:py-0 hover:text-rc-ink">Washington</Link></li>
             {/* Sitewide links so the guides aren't reachable only from search,
                 an indexable page nothing links to reads as low value. They sit
                 under Locations because each is region-specific. Note the
                 spelling split: BC copy says "licence" (DFO), WA says "license"
                 (WDFW), while both share the /fishing-licence/ route segment. */}
-            <li><Link href="/fishing-licence/bc" prefetch={false} className="block py-2 md:py-0 hover:text-rc-ink">BC fishing licence</Link></li>
-            <li><Link href="/fishing-licence/wa" prefetch={false} className="block py-2 md:py-0 hover:text-rc-ink">WA fishing license</Link></li>
+            <li><Link href="/fishing-licence/bc" prefetch={false} className="block py-2.5 md:py-0 hover:text-rc-ink">BC fishing licence</Link></li>
+            <li><Link href="/fishing-licence/wa" prefetch={false} className="block py-2.5 md:py-0 hover:text-rc-ink">WA fishing license</Link></li>
           </ul>
         </div>
 
         <div>
           <h4 className="rc-label text-[10px] mb-3">Company</h4>
           <ul className="md:space-y-2 text-rc-ink-soft">
-            <li><Link href="/about" prefetch={false} className="block py-2 md:py-0 hover:text-rc-ink">About</Link></li>
-            <li><Link href="/faq" prefetch={false} className="block py-2 md:py-0 hover:text-rc-ink">FAQ</Link></li>
-            <li><Link href="/contact" prefetch={false} className="block py-2 md:py-0 hover:text-rc-ink">Contact</Link></li>
-            <li><Link href="/support" prefetch={false} className="block py-2 md:py-0 hover:text-rc-ink">Support</Link></li>
+            <li><Link href="/about" prefetch={false} className="block py-2.5 md:py-0 hover:text-rc-ink">About</Link></li>
+            <li><Link href="/faq" prefetch={false} className="block py-2.5 md:py-0 hover:text-rc-ink">FAQ</Link></li>
+            <li><Link href="/contact" prefetch={false} className="block py-2.5 md:py-0 hover:text-rc-ink">Contact</Link></li>
+            <li><Link href="/support" prefetch={false} className="block py-2.5 md:py-0 hover:text-rc-ink">Support</Link></li>
           </ul>
         </div>
 
         <div>
           <h4 className="rc-label text-[10px] mb-3">Product</h4>
           <ul className="md:space-y-2 text-rc-ink-soft">
-            <li><Link href="/explore" prefetch={false} className="block py-2 md:py-0 hover:text-rc-ink">Explore the map</Link></li>
-            <li><Link href="/catches" prefetch={false} className="block py-2 md:py-0 hover:text-rc-ink">Catch log</Link></li>
-            <li><Link href="/plans" prefetch={false} className="block py-2 md:py-0 hover:text-rc-ink">Pro plans</Link></li>
+            <li><Link href="/explore" prefetch={false} className="block py-2.5 md:py-0 hover:text-rc-ink">Explore the map</Link></li>
+            <li><Link href="/catches" prefetch={false} className="block py-2.5 md:py-0 hover:text-rc-ink">Catch log</Link></li>
+            <li><Link href="/plans" prefetch={false} className="block py-2.5 md:py-0 hover:text-rc-ink">Pro plans</Link></li>
           </ul>
         </div>
 
@@ -91,11 +92,11 @@ export default function MarketingFooter() {
           <h4 className="rc-label text-[10px] mb-3">Account</h4>
           <ul className="md:space-y-2 text-rc-ink-soft">
             <li>
-              <TrialModalButton from="marketing-footer" className="block py-2 md:py-0 hover:text-rc-ink">
+              <TrialModalButton from="marketing-footer" className="block py-2.5 md:py-0 hover:text-rc-ink">
                 Start free
               </TrialModalButton>
             </li>
-            <li><Link href="/login" prefetch={false} className="block py-2 md:py-0 hover:text-rc-ink">Sign in</Link></li>
+            <li><Link href="/login" prefetch={false} className="block py-2.5 md:py-0 hover:text-rc-ink">Sign in</Link></li>
           </ul>
         </div>
 
@@ -121,7 +122,7 @@ export default function MarketingFooter() {
                 <Link
                   href={l.href}
                   prefetch={false}
-                  className="inline-block py-2 md:py-0 hover:text-rc-ink transition-colors"
+                  className="inline-block py-2.5 md:py-0 hover:text-rc-ink transition-colors"
                 >
                   {l.label}
                 </Link>
@@ -130,7 +131,7 @@ export default function MarketingFooter() {
             {/* Plain <a>: /sitemap.xml is a route handler, not an app page, so
                 <Link> would prefetch an RSC payload that doesn't exist. */}
             <li>
-              <a href="/sitemap.xml" className="inline-block py-2 md:py-0 hover:text-rc-ink transition-colors">
+              <a href="/sitemap.xml" className="inline-block py-2.5 md:py-0 hover:text-rc-ink transition-colors">
                 Sitemap
               </a>
             </li>
