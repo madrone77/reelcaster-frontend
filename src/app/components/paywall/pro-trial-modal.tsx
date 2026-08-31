@@ -16,7 +16,7 @@ import { useAnalytics } from "@/hooks/use-analytics";
 import { captureWall } from "@/lib/attribution";
 import { reportPaywall } from "@/lib/paywall-counter";
 import { noteWallShown } from "@/lib/upgrade-nag";
-import { TrialBuy, TrialCtaProvider, TrialExpress } from "./trial-cta";
+import { TrialBuy, TrialCtaProvider } from "./trial-cta";
 import PlanMatrix from "./plan-matrix";
 import { TRIAL_DAYS } from "@/lib/pricing";
 import { usePricing } from "@/app/components/split-test/use-pricing";
@@ -153,8 +153,7 @@ export default function ProTrialModal({
         /* Open with nothing focused.
 
            Radix focuses the first tabbable thing inside the content when the
-           dialog opens, and on this modal that is the email field, because the
-           wallet buttons above it render nothing for most visitors. On a phone
+           dialog opens, and on this modal that is the email field. On a phone
            the software keyboard then comes up with the modal, covering the
            headline, the price and the button before the reader has read any of
            it: the offer is sold from the top, so the top is what has to be on
@@ -172,18 +171,16 @@ export default function ProTrialModal({
         {/* overscroll-contain so a flick past the end of the modal on a phone
             doesn't start scrolling the page underneath it. */}
         <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
-        {/* One provider around all three pieces: the wallet buttons and the
-            buy form up top, the terms at the foot — sharing one resolution of
-            trial eligibility rather than each asking again. */}
+        {/* One provider around both pieces: the buy form up top and the terms
+            at the foot — sharing one resolution of trial eligibility rather
+            than each asking again. */}
         <TrialCtaProvider
           from={from}
           theme="light"
+          /* Always "checkout" now: the wallet buttons that were the only
+             source of a "wallet" destination no longer render on this modal. */
           onActivate={(method) =>
-            trackCta({
-              plan: "annual",
-              method,
-              destination: method === "wallet" ? "wallet" : "checkout",
-            })
+            trackCta({ plan: "annual", method, destination: "checkout" })
           }
         >
           {/* pr-10 clears the dialog's own close button — which is also why
@@ -197,13 +194,12 @@ export default function ProTrialModal({
             </DialogTitle>
           </DialogHeader>
 
-          {/* Wallets first, then the card path. A buyer with Apple Pay set up
-              is one tap from done and should never have to scroll past a form
-              to find that out; a buyer without one sees the form exactly where
-              it was, because <TrialExpress> renders nothing — not even its
-              divider — when no wallet is available. */}
+          {/* The card path, and only the card path. Apple Pay / Google Pay
+              used to sit above this; the wallet buttons are gone from this
+              modal on purpose, so every buyer here takes the same
+              email-and-card route. <TrialExpress> still exists for the
+              checkout surfaces that do offer wallets. */}
           <div className="px-4 sm:px-6 pb-4">
-            {!ctaHref && <TrialExpress className="mb-4" />}
             {ctaHref ? (
               <Link
                 href={ctaHref}
