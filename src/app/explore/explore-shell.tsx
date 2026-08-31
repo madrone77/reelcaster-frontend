@@ -1430,6 +1430,24 @@ export default function ExploreShell({
     [focusSpotOnMap],
   );
 
+  /**
+   * A preview session can open without a pin tap — a `?spot=` deep link, or
+   * the return trip from a spot page, which restores the selection out of the
+   * URL. Seed the anchor from whatever opened the session, ONCE, so those
+   * sessions get the same held-still anchor a pin tap gets.
+   *
+   * This used to be an inline `previewAnchor ?? selectedSpot.slug` fallback at
+   * the call site, which is a different thing: with no pin tap to set
+   * `previewAnchor`, the anchor was simply the current selection, and the
+   * current selection is what swiping changes. So the deck re-sorted around
+   * the card just landed on — every swipe put the card in hand back at "1 of
+   * n", and the neighbours either side changed under the gesture.
+   */
+  useEffect(() => {
+    if (!spotSlug) return;
+    setPreviewAnchor((cur) => cur ?? spotSlug);
+  }, [spotSlug]);
+
   const handleSelectSpot = useCallback(
     (slug: string) => {
       // Counted before the mobile branch below navigates away: the count lives
@@ -1950,9 +1968,7 @@ export default function ExploreShell({
         onLockedAdDay={focusAdOffer}
         freshCatches={freshCatches}
         selectedSlug={selectedSpot?.slug ?? null}
-        /* A deep link to `?spot=` never went through a pin tap, so the spot in
-           the URL is the anchor by default. */
-        previewAnchorSlug={previewAnchor ?? selectedSpot?.slug ?? null}
+        previewAnchorSlug={previewAnchor}
         onPreviewSlug={focusSpotOnMap}
         onClosePreview={handleCloseSpot}
       />
