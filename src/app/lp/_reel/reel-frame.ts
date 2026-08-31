@@ -72,6 +72,26 @@ export interface ReelFrame {
    * here is the phone in the hero disagreeing with the app it is a picture of.
    */
   regionLabel: string;
+  /**
+   * Marks this reel must stop at, named exactly as `fishing_spots.name` has
+   * them. Optional, and a frame without one behaves exactly as every frame
+   * did before this existed.
+   *
+   * The reel walks the most FISHED marks -- `track_rank`, then score -- which
+   * is the rule and is usually enough on its own. Sizing the sheet to hold a
+   * mark only makes it ELIGIBLE: Victoria's sheet can show fifteen and the
+   * reel walks eight, so a mark outside the city's ten busiest never comes up.
+   * Naming it here is how you say "this water is the point of the page".
+   *
+   * Keep the list short. A frame naming four marks has stopped trusting the
+   * ranking and is really a slideshow with extra steps.
+   *
+   * A name that matches nothing, or a mark the sheet cannot bring clear of
+   * the chrome, is skipped rather than erroring: the reel is a hero, and a
+   * hero that throws because a spot was renamed is worse than a hero that
+   * shows seven marks instead of eight.
+   */
+  featured?: string[];
 }
 
 /** The phone screen: the window the reel slides over the sheet. */
@@ -208,6 +228,129 @@ export const VANCOUVER_FRAME: ReelFrame = {
   width: 971,
   height: 934,
   regionLabel: "Lower Mainland",
+};
+
+/**
+ * Victoria, on a panning sheet at z11, framed on the water rather than on the
+ * solver's answer.
+ *
+ * ── What this frame is for ───────────────────────────────────────────────
+ *
+ * The first cut was whatever scripts/solve-reel-frame.mjs returned: the best
+ * contiguous run of marks inside a 1000k-px budget, which was the Victoria
+ * waterfront from Esquimalt out to Trial Islands. Correct by the rule it was
+ * given, and it left out two of the four pieces of water somebody fishing out
+ * of Victoria would name -- Constance Bank, and everything west toward Pedder
+ * Bay. The Saanich Peninsula filled the top third carrying no marks at all.
+ *
+ * This one is solved from a required list instead (the script takes one now,
+ * `--require`), so the sheet holds Victoria Waterfront, Constance Bank, Oak
+ * Bay Flats and William Head at the mouth of Pedder Bay, and the run of marks
+ * between them comes along: Albert Head, Church Rock, Esquimalt, Brotchie,
+ * Clover Point, Middle Ground, Trial Islands, Brodie Rock. Fifteen of the
+ * city's eighteen marks are on it and reachable, against eight before.
+ *
+ * ⚠ There is no spot named "Pedder Bay". It is a launch, not a mark: the
+ * marina at its head is where the boat goes in and the fishing is out at
+ * William Head, Whirl Bay and Race Rocks. William Head is the mark on this
+ * sheet, and it is what `featured` names. If a Pedder Bay spot is ever added
+ * to the roster, add it here too -- it will already be on the sheet.
+ *
+ * Race Rocks IS on the sheet, at the bottom-left with its closure drawn, but
+ * it sits close enough to the edge that the window cannot pan it clear of the
+ * preview card, so the reel will not stop there. Reaching it costs another
+ * 190 px of height and it is not on the list.
+ *
+ * ── The eight pixels ─────────────────────────────────────────────────────
+ *
+ * The centre is nudged 8 px west of the marks it is framed on, and that is
+ * not a rounding artefact. Mark-centred, this sheet put the New Dungeness
+ * buoy 76 px past its right edge against an 82 px label half-width, so six
+ * pixels of the station name bled onto the still -- and the reel does not
+ * redraw buoy labels, so those six pixels would have shipped. The solver
+ * finds the offset now (scripts/solve-reel-frame.mjs nudges before it gives
+ * up); before it did, it simply answered "nothing fits" to this whole frame.
+ *
+ * ── What it costs ────────────────────────────────────────────────────────
+ *
+ * 361 KB against the first cut's 353, on a sheet a quarter larger (1127k px
+ * against 905k). The bytes barely moved because the ground that was added is
+ * open Juan de Fuca, which is deep, smooth and cheap; what got expensive on
+ * the first cut was the contour detail inshore, and that is unchanged. This
+ * is still the heaviest of the five sheets and still the hero's LCP element.
+ *
+ * ── The asset is -v2 ─────────────────────────────────────────────────────
+ *
+ * Next's image optimizer keys its cache on the URL, so new bytes at the old
+ * path would serve the OLD frame from the edge and every pin would sit in the
+ * wrong place. project() was re-checked against map.project() at this centre
+ * and matched to 9e-11 px on all four required marks.
+ */
+export const VICTORIA_FRAME: ReelFrame = {
+  src: "/marketing/victoria-explore-map-v2.webp",
+  centerLng: -123.39751,
+  centerLat: 48.37892,
+  zoom: 11,
+  width: 1105,
+  height: 1020,
+  regionLabel: "South Vancouver Island",
+  // Waterfront, Oak Bay Flats and Constance Bank are NOT listed here, and
+  // deliberately: they are the three most reported marks in the city, so the
+  // reel's own ranking puts them first without being told. William Head is
+  // tenth, and is here because this page's water reaches out to Pedder Bay.
+  featured: ["William Head"],
+};
+
+/**
+ * Nanaimo, on a panning sheet at z11.
+ *
+ * Six stops from Neck Point down past Hudson Rocks, Five Finger Island and
+ * Snake Island Reef to Entrance Island and the Gabriola Bluffs: the run an
+ * angler out of Nanaimo actually works, north to south, in that order.
+ *
+ * The cheapest sheet of the five at 171 KB, because the top third is the open
+ * Strait of Georgia, which is deep, flat and nearly featureless. That is
+ * honest rather than lucky -- the strait IS flat there, and the contrast with
+ * the banks and passes the stops sit on is most of what the picture argues.
+ */
+export const NANAIMO_FRAME: ReelFrame = {
+  src: "/marketing/nanaimo-explore-map-v1.webp",
+  centerLng: -123.88128,
+  centerLat: 49.21484,
+  zoom: 11,
+  width: 846,
+  height: 944,
+  regionLabel: "Mid Vancouver Island",
+};
+
+/**
+ * Friday Harbor, on a panning sheet at z11.
+ *
+ * Four stops -- Eagle Point, Cattle Point, Mackaye Harbor and Iceberg Point --
+ * which is the fewest of the five and is the roster's doing, not the solver's:
+ * at z11 the San Juans spread their scored marks across more water than one
+ * affordable sheet holds, and the contiguous run that fits is the south end of
+ * San Juan Island and Lopez. The marks band further down the page still lists
+ * every one of the twenty, so nothing is hidden, only unpinned.
+ *
+ * The picture earns the zoom more than any other city's. Cattle Point, Salmon
+ * Bank and San Juan Channel are drawn as banks, shelves and a tide-scoured
+ * trench, with the style's own "WDFW Marine Area 7" label sitting in the water
+ * the reel spends most of its time over -- naming in the picture the
+ * jurisdiction the page's eyebrow names in words.
+ *
+ * There is a visible horizontal seam in the deep water on the left, where the
+ * bathymetry source changes. It is in the product too. Left alone on the same
+ * principle as the closures: a marketing still of this map should be this map.
+ */
+export const FRIDAY_HARBOR_FRAME: ReelFrame = {
+  src: "/marketing/friday-harbor-explore-map-v1.webp",
+  centerLng: -122.96555,
+  centerLat: 48.4371,
+  zoom: 11,
+  width: 803,
+  height: 885,
+  regionLabel: "San Juan County",
 };
 
 /**
