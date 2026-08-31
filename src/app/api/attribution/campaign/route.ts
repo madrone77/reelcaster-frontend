@@ -37,6 +37,7 @@ import { AD_WALLS } from '@/app/explore/spot/[slug]/ad-mode';
 import { CLICK_TYPES } from '@/lib/attribution';
 import { classifyUserAgent, isBotUserAgent } from '@/lib/device';
 import { readEdgeGeo } from '@/lib/edge-geo';
+import { pacificDay } from '@/lib/pacific-day';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -174,7 +175,7 @@ export async function POST(request: NextRequest) {
   const geo = readEdgeGeo(request.headers);
 
   const { error } = await admin.rpc('bump_campaign_counter', {
-    p_day: new Date().toISOString().slice(0, 10),
+    p_day: pacificDay(),
     p_landing: landing,
     p_angle: angle,
     p_target_city: targetCity,
