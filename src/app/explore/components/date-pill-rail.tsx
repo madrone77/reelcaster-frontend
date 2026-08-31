@@ -7,7 +7,7 @@ import {
   useRef,
   useState,
 } from "react";
-import { Lock } from "lucide-react";
+import { ChevronRight, Lock } from "lucide-react";
 import type { Tier } from "../lib/explore-data";
 import type {
   ForecastStripModel,
@@ -64,6 +64,15 @@ export default function DatePillRail({
   const railRef = useRef<HTMLDivElement | null>(null);
   const selRef = useRef<HTMLButtonElement | null>(null);
 
+  // Whether the right-edge arrow still has days behind it to point at.
+  const [atEnd, setAtEnd] = useState(false);
+  const readEdges = useCallback(() => {
+    const el = railRef.current;
+    if (!el) return;
+    setAtEnd(el.scrollLeft >= el.scrollWidth - el.clientWidth - 1);
+  }, []);
+  useEffect(readEdges, [readEdges, model]);
+
   // Centre the day the map is already showing. `selectedIso` can be day 9 of
   // 14, which is off the right edge of a pill this wide — without this the
   // rail opens looking like nothing is picked. Layout effect on the first
@@ -109,15 +118,33 @@ export default function DatePillRail({
         <div
           role="group"
           aria-label="Pick a forecast day"
-          ref={railRef}
-          className="pointer-events-auto mx-auto flex h-16 max-w-lg snap-x items-stretch gap-1 overflow-x-auto scrollbar-hide rounded-2xl border border-rc-rule bg-rc-panel/95 px-1.5 shadow-[0_6px_24px_rgba(15,23,42,0.18)] backdrop-blur-md"
+          className="pointer-events-auto relative mx-auto flex h-16 max-w-lg items-stretch overflow-hidden rounded-2xl border border-rc-rule bg-rc-panel/95 shadow-[0_6px_24px_rgba(15,23,42,0.18)] backdrop-blur-md"
         >
+          {/* Names the instrument, and stays put while the days scroll under
+              it — a caption that scrolled away would be gone by the second
+              swipe, which is exactly when you'd want to know what these
+              numbers are. Two lines because a pill this wide can't spare 100px
+              of the fortnight for one. */}
+          <div className="flex shrink-0 flex-col justify-center gap-0.5 border-r border-rc-rule px-2.5">
+            <span className="rc-label text-[8px] leading-none text-rc-ink">
+              14-Day
+            </span>
+            <span className="rc-label text-[8px] leading-none text-rc-ink-mute">
+              Forecast
+            </span>
+          </div>
+
+          <div
+            ref={railRef}
+            onScroll={readEdges}
+            className="flex min-w-0 flex-1 snap-x items-stretch gap-1 overflow-x-auto scrollbar-hide px-1.5 py-2"
+          >
           {!model
             ? Array.from({ length: 14 }).map((_, i) => (
                 <div
                   key={i}
                   aria-hidden
-                  className="my-2 w-[52px] shrink-0 animate-pulse rounded-xl bg-rc-surface"
+                  className="w-[52px] shrink-0 animate-pulse rounded-xl border border-rc-rule bg-rc-surface"
                 />
               ))
             : model.days.map((day) => {
@@ -138,10 +165,10 @@ export default function DatePillRail({
                             ? `, score ${day.score}`
                             : ""
                     }`}
-                    className={`relative my-2 flex w-[52px] shrink-0 snap-center flex-col items-center justify-center gap-0.5 rounded-xl transition-colors focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-rc-brand ${
+                    className={`relative flex w-[52px] shrink-0 snap-center flex-col items-center justify-center gap-0.5 rounded-xl border transition-colors focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-rc-brand ${
                       isSel
-                        ? "bg-rc-brand text-white"
-                        : "text-rc-ink active:bg-rc-surface"
+                        ? "border-rc-brand bg-rc-brand text-white"
+                        : "border-rc-rule bg-rc-panel text-rc-ink active:bg-rc-surface"
                     }`}
                   >
                     <span
@@ -193,19 +220,41 @@ export default function DatePillRail({
                     {/* The best day in the fortnight. The strip's "BEST" tab
                         hangs off the top edge of its cell, which this rail's
                         horizontal scroll would clip — and a fourth stacked row
-                        inside a 46px tile has nowhere to sit. A corner dot says
-                        the same thing and costs no height. */}
+                        inside a 46px tile has nowhere to sit. A gold bar along
+                        the tile's own top edge says the same thing, costs no
+                        height, and reads on both faces (gold on white, gold on
+                        the brand fill).
+
+                        A corner dot was the first try and both corners are
+                        taken: the top row is the day name, which on the widest
+                        of them ("TODAY") runs under a top-right dot, and a
+                        bottom-right dot sits beside the score and reads as a
+                        decimal point. */}
                     {day.isBest && (
                       <span
                         aria-hidden
-                        className={`absolute right-1.5 top-1.5 h-1.5 w-1.5 rounded-full ${
-                          isSel ? "bg-white" : "bg-rc-badge"
-                        }`}
+                        className="absolute inset-x-0 top-0 h-[3px] rounded-t-xl bg-rc-badge"
                       />
                     )}
                   </button>
                 );
               })}
+          </div>
+
+          {/* Says there is more fortnight off the right edge. A pill this
+              narrow shows five of fourteen days, and nothing else on it hints
+              that it scrolls — the tiles simply run to the border. Fades out
+              once the rail is at the end, because by then it would be
+              pointing at nothing. Click-through, so the tile underneath is
+              still tappable. */}
+          <div
+            aria-hidden
+            className={`pointer-events-none absolute inset-y-0 right-0 flex w-10 items-center justify-end bg-gradient-to-l from-rc-panel via-rc-panel/85 to-transparent pr-2 transition-opacity duration-200 ${
+              atEnd ? "opacity-0" : "opacity-100"
+            }`}
+          >
+            <ChevronRight className="h-4 w-4 text-rc-ink-mute" />
+          </div>
         </div>
       </div>
 
