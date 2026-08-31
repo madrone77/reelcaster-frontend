@@ -221,7 +221,7 @@ export default function DatePillRail({
                        thing on the pill. Selected AND best keeps the brand
                        fill and takes the gold border, so picking the best day
                        doesn't erase the fact that it is the best day. */
-                    className={`flex w-[52px] shrink-0 snap-center flex-col items-center justify-center gap-0.5 rounded transition-colors focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-rc-brand ${
+                    className={`relative flex w-[52px] shrink-0 snap-center flex-col items-center justify-center gap-0.5 overflow-hidden rounded transition-colors focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-rc-brand ${
                       day.isBest && showBest
                         ? isSel
                           ? "border-2 border-rc-badge bg-rc-brand text-white"
@@ -231,15 +231,35 @@ export default function DatePillRail({
                           : "border border-rc-rule bg-rc-panel text-rc-ink active:bg-rc-surface"
                     }`}
                   >
+                    {/* Locked: the same gauze the strip's DayCell wears —
+                        green where the score would be, blurred past reading,
+                        under a grey wash. Not a number: locked days arrive
+                        from the proxy with their grid nulled, so there is
+                        nothing to blur and nothing to leak. */}
+                    {day.locked && (
+                      <>
+                        <span
+                          aria-hidden
+                          className="pointer-events-none absolute inset-x-0 bottom-[7px] flex justify-center"
+                        >
+                          <span className="block h-4 w-6 rounded-[2px] bg-rc-good blur-[4px]" />
+                        </span>
+                        <span
+                          aria-hidden
+                          className="pointer-events-none absolute inset-0 bg-rc-surface/55 backdrop-blur-[2px]"
+                        />
+                      </>
+                    )}
+
                     <span
-                      className={`rc-label text-[9px] leading-none ${
+                      className={`relative rc-label text-[9px] leading-none ${
                         isSel ? "text-white/75" : ""
                       }`}
                     >
                       {day.index === 0 ? "Today" : day.dow}
                     </span>
                     <span
-                      className={`font-rc-mono text-[10px] leading-none ${
+                      className={`relative font-rc-mono text-[10px] leading-none ${
                         isSel ? "text-white/85" : "text-rc-ink-soft"
                       }`}
                     >
@@ -263,7 +283,7 @@ export default function DatePillRail({
                       </span>
                     ) : day.locked ? (
                       <Lock
-                        className={`h-3.5 w-3.5 ${
+                        className={`relative h-3.5 w-3.5 ${
                           isSel ? "text-white" : "text-rc-ink-soft"
                         }`}
                       />
