@@ -97,3 +97,32 @@ export function useSplitExposure(view: PricingView, surface: string): void {
     reportSplitExposure(view, surface);
   }, [view, surface]);
 }
+
+// ── Arms that are not prices ─────────────────────────────────────────────
+
+/**
+ * The same two counters, for a test whose arms vary something with no price
+ * in it — a treatment, a layout, a piece of copy.
+ *
+ * `PricingView` is the carrier above because a price test needs the currency
+ * on every row (the arms are different-sized changes in CAD and USD, so a
+ * pooled rate is a lie). A treatment test has no currency to carry, and
+ * inventing a `PricingView` to reach these counters would put a price on a row
+ * that was never about one. Currency goes up empty instead, which is what the
+ * event route's CURRENCIES set already allows.
+ */
+export function reportSplitArmExposure(
+  test: string,
+  variant: string,
+  surface: string,
+): void {
+  post({ kind: 'exposure', test, variant, surface, currency: '' });
+}
+
+export function reportSplitArmCta(
+  test: string,
+  variant: string,
+  surface: string,
+): void {
+  post({ kind: 'cta_click', test, variant, surface, currency: '' });
+}

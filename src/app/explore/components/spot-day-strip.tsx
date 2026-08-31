@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { ChevronRight, Lock } from "lucide-react";
+import { useLockedDayTreatment } from "@/app/components/split-test/use-locked-day";
 import LockedGauze from "./locked-gauze";
 import { tierFor, fmtPeak, type Tier } from "../lib/explore-data";
 import type { SpotsOutlook14dPayload } from "@/lib/bluecaster";
@@ -155,6 +156,16 @@ export default function SpotDayStrip({
     null,
   );
   const lockedCount = days.filter((d) => d.locked).length;
+  const lock = useLockedDayTreatment("spot_card", lockedCount > 0);
+  const gauze = lock.gauze;
+  // Every locked slot in this strip opens the same upgrade, so the tap is
+  // counted once here rather than at each of the four places that call it.
+  const unlock = onUnlock
+    ? () => {
+        lock.reportTap();
+        onUnlock();
+      }
+    : undefined;
   // The tail stands for everything past the visible window. Locks arrive as a
   // suffix, so a locked day anywhere past the phone window means the tail is
   // locked at either width.
@@ -171,14 +182,14 @@ export default function SpotDayStrip({
           <button
             type="button"
             onClick={
-              onUnlock
+              unlock
                 ? (e) => {
                     e.stopPropagation();
-                    onUnlock();
+                    unlock();
                   }
                 : undefined
             }
-            disabled={!onUnlock}
+            disabled={!unlock}
             className="flex items-center gap-1 font-rc-mono text-[10px] text-rc-brand enabled:hover:text-rc-brand-hover transition-colors shrink-0"
           >
             <Lock className="w-2.5 h-2.5" />
@@ -214,7 +225,7 @@ export default function SpotDayStrip({
                   title={`${d.dow} ${d.date} · locked`}
                   className="relative overflow-hidden flex-1 min-w-0 h-full rounded-sm bg-rc-surface border border-rc-rule"
                 >
-                  <LockedGauze variant="track" />
+                  {gauze && <LockedGauze variant="track" />}
                 </div>
               );
             }
@@ -247,18 +258,20 @@ export default function SpotDayStrip({
                   key={i}
                   type="button"
                   onClick={
-                    onUnlock
+                    unlock
                       ? (e) => {
                           e.stopPropagation();
-                          onUnlock();
+                          unlock();
                         }
                       : undefined
                   }
-                  disabled={!onUnlock}
+                  disabled={!unlock}
                   aria-label={`${d.dow} ${d.date}, upgrade to see this day`}
-                  className={`relative overflow-hidden flex-1 min-w-0 rounded bg-rc-panel border border-rc-rule ${show} flex-col items-center justify-center gap-0.5 py-1.5 enabled:hover:border-rc-brand transition-colors`}
+                  className={`relative overflow-hidden flex-1 min-w-0 rounded ${
+                    gauze ? "bg-rc-panel" : "bg-rc-surface"
+                  } border border-rc-rule ${show} flex-col items-center justify-center gap-0.5 py-1.5 enabled:hover:border-rc-brand transition-colors`}
                 >
-                  <LockedGauze variant="card" />
+                  {gauze && <LockedGauze variant="card" />}
                   <DayLabel
                     dow={d.dow}
                     className="relative rc-label text-[9px] leading-none text-rc-ink-mute"
@@ -297,7 +310,8 @@ export default function SpotDayStrip({
             <TailCell
               total={days.length}
               locked={tailLocked}
-              onUnlock={onUnlock}
+              gauze={gauze}
+              onUnlock={unlock}
               href={moreHref}
             />
           )}
@@ -318,11 +332,14 @@ export default function SpotDayStrip({
 function TailCell({
   total,
   locked,
+  gauze,
   onUnlock,
   href,
 }: {
   total: number;
   locked: boolean;
+  /** Whether this visitor's arm draws the frosted lock. */
+  gauze: boolean;
   onUnlock?: () => void;
   href?: string;
 }) {
@@ -331,7 +348,7 @@ function TailCell({
       {/* Locked, this one cell stands for every day past the window, so it
           wears the same glass they would. Unlocked it is a way through to the
           spot page and stays plain. */}
-      {locked && <LockedGauze variant="card" />}
+      {locked && gauze && <LockedGauze variant="card" />}
       <span className="relative rc-label text-[9px] leading-none text-rc-ink-mute overflow-hidden">
         <span className="sm:hidden">+{total - VISIBLE_PHONE}</span>
         <span className="hidden sm:inline">+{total - VISIBLE_WIDE}</span>
@@ -348,7 +365,7 @@ function TailCell({
   // left. Unlocked it stays sunk, which is what marks it as a way out of the
   // strip rather than another day in it.
   const shell = `relative overflow-hidden flex-1 min-w-0 rounded ${
-    locked ? "bg-rc-panel" : "bg-rc-surface"
+    locked && gauze ? "bg-rc-panel" : "bg-rc-surface"
   } border border-rc-rule border-dashed flex flex-col items-center justify-center gap-0.5 py-1.5 transition-colors`;
 
   if (locked) {

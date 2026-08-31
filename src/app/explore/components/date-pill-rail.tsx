@@ -14,6 +14,7 @@ import type {
   ForecastDay,
   LockTier,
 } from "../lib/forecast-strip";
+import { useLockedDayTreatment } from "@/app/components/split-test/use-locked-day";
 import LockedGauze from "./locked-gauze";
 import UpgradeDialog from "./upgrade-dialog";
 
@@ -84,6 +85,10 @@ export default function DatePillRail({
   // tiles, and the fortnight's best day stays one of the things signing in
   // is for.
   const showBest = signedIn;
+  const lock = useLockedDayTreatment(
+    "pill_rail",
+    !!model?.days.some((d) => d.locked),
+  );
   const [upgradeOpen, setUpgradeOpen] = useState(false);
   const [lockTier, setLockTier] = useState<LockTier>("pro");
 
@@ -125,6 +130,7 @@ export default function DatePillRail({
 
   const handleDay = (day: ForecastDay) => {
     if (day.locked) {
+      lock.reportTap();
       if (onLockedAdDay) {
         onLockedAdDay();
         return;
@@ -233,8 +239,8 @@ export default function DatePillRail({
                     }`}
                   >
                     {/* The same frosted glass the strip's DayCell wears, at
-                        pill scale. */}
-                    {day.locked && <LockedGauze variant="tile" />}
+                        pill scale, for the arm that gets it. */}
+                    {day.locked && lock.gauze && <LockedGauze variant="tile" />}
 
                     <span
                       className={`relative rc-label text-[9px] leading-none ${
