@@ -15,6 +15,7 @@ import { useSubscription } from "@/hooks/use-subscription";
 import { useAnalytics } from "@/hooks/use-analytics";
 import { captureWall } from "@/lib/attribution";
 import { reportPaywall } from "@/lib/paywall-counter";
+import { noteWallShown } from "@/lib/upgrade-nag";
 import { TrialBuy, TrialCtaProvider, TrialExpress } from "./trial-cta";
 import PlanMatrix from "./plan-matrix";
 import { TRIAL_DAYS } from "@/lib/pricing";
@@ -122,6 +123,13 @@ export default function ProTrialModal({
       timestamp: new Date().toISOString(),
     });
     bumpCounter("impression");
+    // The plan matrix is now on screen, however it got there, so the
+    // engagement nag on /explore starts its count over rather than opening a
+    // second copy of this modal a few clicks later. It restarts at what a lock
+    // is worth, not at zero, because walking into a wall is the strongest buy
+    // signal the page has. Harmless everywhere else: off /explore nothing
+    // reads the count. See lib/upgrade-nag.ts.
+    noteWallShown();
     // The cookie that carries this wall across the navigation to /signup or
     // out to Stripe, so whatever the visitor converts into knows which wall
     // sent them. Last touch wins, and it expires in 30 minutes.

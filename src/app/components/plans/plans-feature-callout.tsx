@@ -58,6 +58,12 @@ const FEATURE_COPY: Record<string, { title: string; body: string }> = {
     title: 'Direct support, from the people who built it',
     body: 'Pro opens The Port: a support queue with a one business day reply target, your ticket history in one place, and the full guide library.',
   },
+  // The proactive nag on /explore. Nothing was blocked, so the copy answers
+  // "why now" rather than "what you missed".
+  'whole-map': {
+    title: 'The whole map, not the shallow end',
+    body: 'You have been reading the free half. Pro opens the full two weeks on every spot, saves every one you fish, alerts you when it comes on, and shows what anglers are actually catching there.',
+  },
   'spot-horizon': {
     title: 'The full forecast on this spot',
     body: 'Pro opens the complete 14-day window with hourly detail and 5-species comparison on every spot page.',

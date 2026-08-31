@@ -27,6 +27,8 @@ import {
 } from "./lib/forecast-strip";
 import { boundsOf, paddedBbox, SPOT_LINK_ZOOM } from "./lib/viewport-bbox";
 import { useMountedOnce } from "@/hooks/use-mounted-once";
+import { useUpgradeNag } from "@/hooks/use-upgrade-nag";
+import { noteEngagement } from "@/lib/upgrade-nag";
 import {
   fetchFreshCatches,
   fetchMapForecast14d,
@@ -1421,6 +1423,7 @@ export default function ExploreShell({
 
   const handleMapSelectSpot = useCallback(
     (slug: string) => {
+      noteEngagement("browse");
       setPreviewAnchor(slug);
       focusSpotOnMap(slug);
     },
@@ -1429,6 +1432,10 @@ export default function ExploreShell({
 
   const handleSelectSpot = useCallback(
     (slug: string) => {
+      // Counted before the mobile branch below navigates away: the count lives
+      // in sessionStorage precisely so the click that leaves /explore is still
+      // banked when they come back to it.
+      noteEngagement("browse");
       // Mobile (<lg) has no rail/drawer — go straight to the responsive spot
       // page. Desktop keeps the in-rail drawer + flyTo.
       const spot = displaySpots.find((s) => s.slug === slug);
@@ -1464,6 +1471,7 @@ export default function ExploreShell({
 
   const handleSearchSelectSpot = useCallback(
     (slug: string, lat: number, lng: number) => {
+      noteEngagement("browse");
       if (
         typeof window !== "undefined" &&
         !window.matchMedia("(min-width:1024px)").matches
@@ -1513,6 +1521,7 @@ export default function ExploreShell({
   // species dict can't supply a label for the strip header.
   const handleSearchSelectSpecies = useCallback(
     (id: string, name: string) => {
+      noteEngagement("browse");
       setSpeciesFilter(id);
       setPickedSpeciesName(name);
     },
@@ -1526,6 +1535,7 @@ export default function ExploreShell({
 
   const handleSelectStation = useCallback(
     (pick: StationPick) => {
+      noteEngagement("browse");
       setLastPick(pick);
       setQuery({ stn: `${pick.source}:${pick.sid}`, spot: null });
       mapRef.current?.flyTo({
@@ -1573,10 +1583,27 @@ export default function ExploreShell({
 
   const handleSelectDay = useCallback(
     (d: ForecastDay) => {
+      noteEngagement("browse");
       setQuery({ day: d.iso === today ? null : d.iso });
     },
     [setQuery, today],
   );
+
+  // ── The filter setters, as the UI calls them ─────────────────────────────
+  //
+  // Wrappers rather than `setSpeciesFilter` itself, because the raw setters are
+  // also called by the mount-time restore and by "reset filters", and neither
+  // of those is a click anyone made. Only the chips, the search and the mobile
+  // sheet come through here, so only real picks are counted.
+  const chooseSpecies = useCallback((id: string | null) => {
+    noteEngagement("browse");
+    setSpeciesFilter(id);
+  }, []);
+
+  const chooseScoreFloor = useCallback((floor: ScoreFloor) => {
+    noteEngagement("browse");
+    setScoreFloor(floor);
+  }, []);
 
   // The remembered camera outranks the city one — see the restore block up
   // top. `initialViewState` is read once by MapLibre at mount, so this is the
@@ -1691,6 +1718,35 @@ export default function ExploreShell({
       /* storage unavailable (private mode) — fallback chain continues */
     }
   }, [labelCity]);
+
+  // ── The proactive upgrade ask ────────────────────────────────────────────
+  //
+  // Every other wall on this page waits to be walked into. This one counts the
+  // clicks (see lib/upgrade-nag.ts) and asks once, unprompted, when somebody
+  // has used the map enough to be worth asking. It exists for bought traffic:
+  // an ad click that opens three spots, reads the scores, never touches a lock
+  // and leaves was interested and was never asked.
+  //
+  // `tierLoading` is in the gate, not just `isPaid`: the tier reads as free
+  // until it resolves, and a Pro member nagged to buy Pro is worse than no nag
+  // at all. Deferred, not skipped, so a slow subscription answer only delays
+  // the ask to the next click.
+  //
+  // Not on the ad frame. That page is built around one offer that is already
+  // fixed to the screen, and a modal over it would be two asks competing.
+  const nag = useUpgradeNag({
+    enabled: !isPaid && !tierLoading && !ad,
+    // The dialogs and sheets this shell owns. Walls are absent on purpose:
+    // opening <ProTrialModal> zeroes the count, so they cannot be stacked on.
+    suppressed:
+      alertOpen ||
+      alertUpgradeOpen ||
+      customUpgradeOpen ||
+      customModalOpen ||
+      filterOpen ||
+      customMode,
+  });
+  const nagMounted = useMountedOnce(nag.open);
 
   return (
     // Explore pins itself to the viewport: the map fills the box and the rail
@@ -1934,7 +1990,7 @@ export default function ExploreShell({
           onToggleWind: toggleWind,
           species: speciesWithScores,
           speciesFilter,
-          onSpeciesChange: setSpeciesFilter,
+          onSpeciesChange: chooseSpecies,
           onNearMe: handleNearMe,
           locating,
         }}
@@ -1988,9 +2044,9 @@ export default function ExploreShell({
         // province away by now.
         species={speciesWithScores}
         speciesFilter={speciesFilter}
-        onSpeciesChange={setSpeciesFilter}
+        onSpeciesChange={chooseSpecies}
         scoreFloor={scoreFloor}
-        onScoreFloorChange={setScoreFloor}
+        onScoreFloorChange={chooseScoreFloor}
         reportsOnly={reportsOnly}
         onToggleReports={() => setReportsOnly((v) => !v)}
         reportsCount={reportsAvailable}
@@ -2044,6 +2100,20 @@ export default function ExploreShell({
         feature="custom-spots"
         from="explore-map"
       />
+      )}
+
+      {/* The engagement nag. Same modal and same plan matrix as every wall on
+          this page; the only difference is that nothing was blocked, so it
+          sells the whole map rather than one row of it. `from` is its own
+          surface so /admin/reelcaster/paywalls can read it apart from the
+          walls people walked into. */}
+      {nagMounted && (
+        <ProTrialModal
+          open={nag.open}
+          onOpenChange={nag.setOpen}
+          feature="whole-map"
+          from="explore-nag"
+        />
       )}
 
       {/* Rendered for cold traffic and hidden once the tier resolves to Pro.

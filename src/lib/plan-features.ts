@@ -216,7 +216,8 @@ export type NagFeatureId =
   | "catch-reports"
   | "remove-ads"
   | "support-the-map"
-  | "support";
+  | "support"
+  | "whole-map";
 
 export interface NagFeature {
   /** Completes "Start your 7-day Pro trial to ___". Lower case, no period. */
@@ -327,6 +328,17 @@ export const NAG_FEATURES: Record<NagFeatureId, NagFeature> = {
     unlocksAt: "pro",
     rowId: "ad-free",
     pricingFeature: "remove-ads",
+  },
+  // The proactive ask, and the only entry here that no click asked for: it
+  // fires off the engagement count in lib/upgrade-nag.ts, when somebody has
+  // used the map enough to be worth asking and has not hit a wall on their
+  // own. Nothing was blocked, so there is no row to highlight and the whole
+  // matrix is the pitch, same as "support the map".
+  "whole-map": {
+    action: "open the whole map",
+    headline: "Unlock the whole map",
+    unlocksAt: "pro",
+    pricingFeature: "whole-map",
   },
   // Deliberately NOT spot-scoped: the pitch is the whole reporting stream
   // across every spot, not this one spot's numbers. "for Oak Bay Flats" would

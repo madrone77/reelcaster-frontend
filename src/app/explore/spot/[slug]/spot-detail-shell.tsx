@@ -6,6 +6,8 @@ import dynamic from "next/dynamic";
 import { ArrowUpCircle, ChevronLeft, ChevronRight, Home, Bell } from "lucide-react";
 import { useAuth } from "@/contexts/auth-context";
 import { useSubscription } from "@/hooks/use-subscription";
+import { useUpgradeNag } from "@/hooks/use-upgrade-nag";
+import { noteEngagement } from "@/lib/upgrade-nag";
 import AdSlot from "@/app/components/ads/ad-slot";
 import { countryDisplayName, provinceCodeFromName, regulatorFor } from "@/lib/regions";
 import ExploreTopBar from "../../components/explore-top-bar";
@@ -465,8 +467,36 @@ export default function SpotDetailShell({
   // Sign-up gate: signed-out anglers who tap "Set alert" / "Log catch" (or a
   // locked forecast day) are sent through the sign-up flow; the intent drives
   // the modal copy.
+  // Switching species is the other click this page is really for, so it feeds
+  // the engagement count the same way a day pick does. A wrapper rather than
+  // `setSelId` itself, because the raw setter also runs off the initial
+  // best-species pick, which nobody clicked.
+  const chooseSpecies = useCallback((id: string | null) => {
+    noteEngagement("browse");
+    setSelId(id);
+  }, []);
+
   const [logCatchOpen, setLogCatchOpen] = useState(false);
   const [alertOpen, setAlertOpen] = useState(false);
+
+  // ── The proactive upgrade ask ────────────────────────────────────────────
+  //
+  // The other half of the engagement nag that /explore mounts. It has to be
+  // here as well as there, because on a phone this page IS the browsing: the
+  // map hands a tap on a spot card straight to /explore/spot/<slug>, so a
+  // visitor who goes down into two or three spots does most of their clicking
+  // where the map's copy of the nag cannot see it. The count is shared
+  // (sessionStorage, see lib/upgrade-nag.ts), so points earned on the map and
+  // points earned here add up to one ask, wherever the fourth click lands.
+  //
+  // Same gates as the map: never for Pro, held until the tier resolves, and
+  // never on the ad frame, which sells with the form further down the page.
+  const nag = useUpgradeNag({
+    enabled: !isPaid && !tierLoading && !ad,
+    // The dialogs this page owns. The walls are absent on purpose: opening
+    // <ProTrialModal> restarts the count, so they cannot be stacked on.
+    suppressed: alertOpen || logCatchOpen,
+  });
 
   const handleSetAlert = () => {
     // Alerts are Pro-only, so a signed-out tap gets the full trial modal —
@@ -684,6 +714,10 @@ export default function SpotDetailShell({
       setUpgradeOpen(true);
       return;
     }
+    // Only the unlocked branch counts. A locked day opens <ProTrialModal>,
+    // which restarts the engagement count on its own; on the ad frame it
+    // scrolls to the one offer and the nag is switched off entirely.
+    noteEngagement("browse");
     setSelectedIso(day.iso);
   };
 
@@ -1084,7 +1118,7 @@ export default function SpotDetailShell({
                   hourlyScoreGrid={fcSource.hourlyScoreGrid}
                   regulations={page.regulations}
                   selectedId={selId}
-                  onSelect={setSelId}
+                  onSelect={chooseSpecies}
                 />
               </div>
             )}
@@ -1461,6 +1495,16 @@ export default function SpotDetailShell({
         onOpenChange={setReportsUpgradeOpen}
         feature="catch-reports"
         from="spot-page-reports"
+      />
+
+      {/* The engagement nag. Nothing was blocked, so it sells the whole map
+          rather than one row of it, and it reports its own surface so the
+          paywall admin can read it apart from the walls people walked into. */}
+      <ProTrialModal
+        open={nag.open}
+        onOpenChange={nag.setOpen}
+        feature="whole-map"
+        from="spot-page-nag"
       />
     </div>
   );
