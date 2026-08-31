@@ -105,12 +105,24 @@ export default function MobileMapSheet({
   }, [pickerOpen]);
 
   // Detent visible-heights (px) derived from the viewport height.
+  //
+  // The VISUAL viewport, not `innerHeight`: with the browser's own chrome
+  // showing, `innerHeight` is the taller layout box, and sizing the full
+  // detent off it pushes the sheet's top edge up behind whatever is pinned
+  // there. Take the smaller of the two so the sheet is never taller than the
+  // glass it has to fit in.
   const [vh, setVh] = useState(0);
   useEffect(() => {
-    const read = () => setVh(window.innerHeight);
+    const vv = window.visualViewport;
+    const read = () =>
+      setVh(vv ? Math.min(window.innerHeight, vv.height) : window.innerHeight);
     read();
     window.addEventListener("resize", read);
-    return () => window.removeEventListener("resize", read);
+    vv?.addEventListener("resize", read);
+    return () => {
+      window.removeEventListener("resize", read);
+      vv?.removeEventListener("resize", read);
+    };
   }, []);
 
   // Peek is the measured height of the header block (handle + count + view
@@ -129,19 +141,68 @@ export default function MobileMapSheet({
     return () => ro.disconnect();
   }, []);
 
+  // What the sheet is lifted off the bottom of the screen by
+  // (`--rc-tabbar-clearance`), measured rather than assumed: it carries the
+  // device's safe-area inset, so it is 84px on one phone and 118px on the
+  // next. The white base below the sheet is exactly that tall, so measuring it
+  // IS measuring the offset.
+  //
+  // A callback ref, not an effect: the base unmounts whenever a pin preview
+  // takes over this dock, so an effect keyed on mount would measure null on
+  // any visit that starts at a `?spot=` deep link and never measure again.
+  const [clearance, setClearance] = useState(0);
+  const baseRO = useRef<ResizeObserver | null>(null);
+  const baseRef = useCallback((el: HTMLDivElement | null) => {
+    baseRO.current?.disconnect();
+    baseRO.current = null;
+    if (!el || typeof ResizeObserver === "undefined") return;
+    setClearance(el.offsetHeight);
+    const ro = new ResizeObserver(() => setClearance(el.offsetHeight));
+    ro.observe(el);
+    baseRO.current = ro;
+  }, []);
+
   const detents = useMemo(() => {
     const h = vh || 800;
+    const peek = headerH || 132;
     return {
-      peek: headerH || 132,
-      // Leave ~132px of map (+ the floating location header) visible up top.
-      half: Math.round(h * 0.5),
-      full: Math.max(240, h - 132),
+      peek,
+      // Half the screen, measured from the sheet's top edge for the same
+      // reason `full` is: a bare `h * 0.5` is half a screen of sheet stacked
+      // on top of the clearance, which covered half the map plus another 84px
+      // of it. Floored at peek, since on a short enough viewport the midpoint
+      // lands inside the header block and a detent smaller than the one below
+      // it is a rung the snap can never rest on.
+      half: Math.max(peek, Math.round(h * 0.5) - clearance),
+      // Leave ~132px of chrome and map visible up top: the fixed top bar
+      // (64px) and the floating location pill under it.
+      //
+      // Measured from the sheet's TOP edge, which means subtracting the offset
+      // it sits at. Without that, the full detent overshot by the whole
+      // clearance and parked the sheet's top edge at 132 - clearance — 48px on
+      // a phone with no safe area, 14px with one — burying the drag handle and
+      // the collapse chevron under the top bar. Those are the only two ways
+      // out of this sheet, so a full-height sheet was a sheet you could not
+      // close.
+      full: Math.max(240, h - 132 - clearance),
     };
-  }, [vh, headerH]);
+  }, [vh, headerH, clearance]);
 
   const [detent, setDetent] = useState<Detent>("peek");
   const [dragHeight, setDragHeight] = useState<number | null>(null);
   const dragRef = useRef<{ startY: number; startH: number } | null>(null);
+
+  // Escape drops an opened sheet back to peek, the way it closes the pickers.
+  // Held behind `pickerOpen` so one press doesn't close both — the picker's
+  // own handler has the key while it is up.
+  useEffect(() => {
+    if (pickerOpen || detent === "peek") return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setDetent("peek");
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [pickerOpen, detent]);
 
   // Collapsed folds the sheet down to a slim bar (handle + count + reopen
   // chevron), clearing the map. A tap on the chevron toggles it; a tap or drag
@@ -150,6 +211,12 @@ export default function MobileMapSheet({
   const COLLAPSED_H = 52;
 
   const height = collapsed ? COLLAPSED_H : dragHeight ?? detents[detent];
+
+  // The band left over between the top bar and a full-height sheet — what a
+  // tap-out has to land in. Zero on a viewport short enough for the full
+  // detent to hit its 240px floor, and there is nothing to tap there.
+  const TOP_BAR_H = 64;
+  const tapOutH = Math.max(0, vh - clearance - detents.full - TOP_BAR_H);
 
   const onPointerDown = useCallback(
     (e: React.PointerEvent) => {
@@ -375,9 +442,33 @@ export default function MobileMapSheet({
           sheet's bottom exactly (same offset). */}
       <div
         aria-hidden
+        ref={baseRef}
         className="lg:hidden pointer-events-none fixed inset-x-0 bottom-0 z-20 bg-rc-panel"
         style={{ height: "var(--rc-tabbar-clearance)" }}
       />
+
+      {/* Tap-out. A sheet at full height covers the map, and until now the only
+          ways back were the drag handle and the chevron — both a deliberate
+          aim at a 32px target in the top corner of a sheet filling the screen.
+          Reaching past it drops back to peek, the way a tap outside closes any
+          other sheet on this surface.
+
+          It appears only at full: at peek and half the map below it is the
+          thing you came here to drag, and a catcher over it would eat the pan.
+          It starts below the top bar (nav and the trial CTA stay live) and
+          ends at the sheet's top edge. That band is mostly the location pill,
+          which this does cover — one tap to come back, then the pill, which is
+          how a modal sheet behaves everywhere else. Undimmed: 68px of scrim
+          over a map reads as a rendering fault, not a backdrop. */}
+      {!collapsed && detent === "full" && dragHeight == null && tapOutH > 0 && (
+        <button
+          type="button"
+          aria-label="Close spot list"
+          onClick={() => setDetent("peek")}
+          className="lg:hidden fixed inset-x-0 top-16 z-[25] cursor-default"
+          style={{ height: tapOutH }}
+        />
+      )}
       <div
         // Tells the camera how much of the map this covers, so a spot the angler
         // taps here is framed in the water they can see, not behind the sheet.
