@@ -3,6 +3,7 @@
 import { Lock } from "lucide-react";
 import type { Tier } from "../lib/explore-data";
 import type { ForecastDay } from "../lib/forecast-strip";
+import LockedGauze from "./locked-gauze";
 import WeatherIcon from "../spot/components/weather-icon";
 
 /**
@@ -105,32 +106,9 @@ export default function DayCell({
         onClick={onSelect}
         className="relative overflow-hidden flex-1 min-w-0 h-full rounded border border-rc-rule bg-rc-panel flex flex-col items-center justify-center gap-1 py-2 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-rc-brand"
       >
-        {/* Under the gauze: green in the shape of a score, blurred past
-            reading. There IS no number to blur — the proxy nulls every locked
-            day's grid before it leaves the server, which is what keeps the
-            wall a wall rather than a CSS filter someone can lift in devtools.
-            So this is deliberately not text: two rounded slabs and a chip,
-            tinted with the good-score green, saying "a reading lives here"
-            without asserting what it is. A real number here would be either
-            invented or given away. */}
-        <div
-          aria-hidden
-          className="pointer-events-none absolute inset-0 flex translate-y-[13px] flex-col items-center justify-center gap-2"
-        >
-          <div className="flex items-end gap-[7px] blur-[5px]">
-            <span className="block h-8 w-4 rounded-[3px] bg-rc-good" />
-            <span className="block h-8 w-4 rounded-[3px] bg-rc-good" />
-          </div>
-          <span className="block h-[14px] w-10 rounded bg-rc-good/25 blur-[4px]" />
-        </div>
-
-        {/* The gauze itself: a thin grey wash plus a backdrop blur, so the
-            green reads as colour through frosted glass rather than as a shape
-            with a filter on it. */}
-        <div
-          aria-hidden
-          className="pointer-events-none absolute inset-0 bg-rc-surface/40 backdrop-blur-[2px]"
-        />
+        {/* A score behind frosted glass — see LockedGauze for why it is a
+            shape and not a blurred number. */}
+        <LockedGauze variant="cell" />
 
         <div className="relative flex flex-col items-center gap-1">
           <div className="rc-label text-[9px] leading-none text-center">{day.dow}</div>

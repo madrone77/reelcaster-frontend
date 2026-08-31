@@ -14,6 +14,7 @@ import type {
   ForecastDay,
   LockTier,
 } from "../lib/forecast-strip";
+import LockedGauze from "./locked-gauze";
 import UpgradeDialog from "./upgrade-dialog";
 
 /** Score colour per tier — the same tokens the day cells and the sheet use. */
@@ -231,25 +232,9 @@ export default function DatePillRail({
                           : "border border-rc-rule bg-rc-panel text-rc-ink active:bg-rc-surface"
                     }`}
                   >
-                    {/* Locked: the same gauze the strip's DayCell wears —
-                        green where the score would be, blurred past reading,
-                        under a grey wash. Not a number: locked days arrive
-                        from the proxy with their grid nulled, so there is
-                        nothing to blur and nothing to leak. */}
-                    {day.locked && (
-                      <>
-                        <span
-                          aria-hidden
-                          className="pointer-events-none absolute inset-x-0 bottom-[7px] flex justify-center"
-                        >
-                          <span className="block h-4 w-6 rounded-[2px] bg-rc-good blur-[4px]" />
-                        </span>
-                        <span
-                          aria-hidden
-                          className="pointer-events-none absolute inset-0 bg-rc-surface/55 backdrop-blur-[2px]"
-                        />
-                      </>
-                    )}
+                    {/* The same frosted glass the strip's DayCell wears, at
+                        pill scale. */}
+                    {day.locked && <LockedGauze variant="tile" />}
 
                     <span
                       className={`relative rc-label text-[9px] leading-none ${
