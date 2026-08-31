@@ -3,7 +3,11 @@ import { notFound } from "next/navigation";
 import { fetchSpotLivePage } from "@/lib/bluecaster";
 import { siteUrl } from "@/lib/site";
 import { readShareCard } from "@/lib/share-cards-server";
-import { shareDescription, shareTitle } from "@/lib/share-cards";
+import {
+  isDayLockedForAnon,
+  shareDescription,
+  shareTitle,
+} from "@/lib/share-cards";
 import SpotDetailShell from "@/app/explore/spot/[slug]/spot-detail-shell";
 import { loadSpotPage } from "@/app/explore/spot/[slug]/load-spot-page";
 import SharedCardDialog from "./shared-card-dialog";
@@ -69,6 +73,15 @@ export default async function SharedCardPage({ params }: PageProps) {
     card.spotSlug,
   );
 
+  // Land them on what they were invited to, not on the page's own defaults.
+  //
+  // The species always applies. The DAY only when an anonymous visitor can see
+  // it: this render cannot know the viewer's tier (the session lives in the
+  // browser), so preselecting a day beyond the anonymous horizon would put the
+  // page into a state its own controls will not let you reach. Everyone sees at
+  // least the anonymous window, so gating on it is safe for every tier.
+  const dayLocked = isDayLockedForAnon(card);
+
   return (
     <>
       <SpotDetailShell
@@ -78,8 +91,10 @@ export default async function SharedCardPage({ params }: PageProps) {
         tz={tz}
         serverNowMs={serverNowMs}
         cityLink={cityLink}
+        openOnSpeciesId={card.speciesId}
+        openOnIso={dayLocked ? null : card.targetDate}
       />
-      <SharedCardDialog card={card} />
+      <SharedCardDialog card={card} dayLocked={dayLocked} />
     </>
   );
 }

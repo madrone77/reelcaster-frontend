@@ -109,3 +109,14 @@ as $$
 $$;
 
 revoke all on function public.share_card_opened(text) from public, anon, authenticated;
+
+-- The BlueCaster species id behind the card's display name.
+--
+-- The card stores "Chinook" (already stripped of "Salmon" for card length), and
+-- the spot page selects a species by ID. Matching back by display name would be
+-- guesswork, so a recipient landing from a share opened on whatever species the
+-- page defaulted to — a different fish from the one they were invited about.
+alter table public.share_cards add column if not exists species_id text;
+
+comment on column public.share_cards.species_id is
+  'BlueCaster species id, so /s/<token> can select the species the card names.';

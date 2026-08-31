@@ -12,6 +12,10 @@
  * somebody already sent.
  */
 
+// The anonymous forecast horizon is the gate this whole flow turns on, so it
+// is imported rather than restated. Changing it there changes the ask here.
+import { ANON_STRIP_DAYS } from "@/app/explore/lib/forecast-strip";
+
 export type ShareTier = "good" | "fair" | "poor";
 
 export interface ShareCard {
@@ -23,6 +27,8 @@ export interface ShareCard {
   spotSlug: string;
   spotName: string;
   speciesName: string | null;
+  /** BlueCaster species id, so the landing page can select the right fish. */
+  speciesId: string | null;
   /** The fishing day, YYYY-MM-DD, in the spot's own timezone. */
   targetDate: string;
   tz: string;
@@ -270,6 +276,53 @@ export function shareMessage(card: ShareCard): string {
 /** Absolute share URL for a token. */
 export function shareUrl(siteOrigin: string, token: string): string {
   return `${siteOrigin.replace(/\/$/, "")}/s/${token}`;
+}
+
+// ── What the recipient can actually see ────────────────────────────────
+
+/**
+ * Today's calendar date at the spot, not in the reader's own timezone.
+ *
+ * A card names one fishing day in one place. Someone opening it from another
+ * timezone must still be told about the same day, so every comparison here is
+ * made in the spot's clock.
+ */
+function todayAtSpot(card: ShareCard, now: Date): string {
+  return new Intl.DateTimeFormat("en-CA", {
+    timeZone: card.tz,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(now);
+}
+
+/** Whole days from today at the spot to the card's day. 0 = today, negative = past. */
+export function dayOffset(card: ShareCard, now: Date = new Date()): number {
+  const [ty, tm, td] = todayAtSpot(card, now).split("-").map(Number);
+  const [cy, cm, cd] = card.targetDate.split("-").map(Number);
+  const ms =
+    Date.UTC(cy, (cm ?? 1) - 1, cd ?? 1) - Date.UTC(ty, (tm ?? 1) - 1, td ?? 1);
+  return Math.round(ms / 86_400_000);
+}
+
+/**
+ * Is the card's day past what a signed-out visitor is shown?
+ *
+ * This is the whole conversion moment, and it is normally TRUE. Anonymous
+ * visitors see `ANON_STRIP_DAYS` (2); a free account sees 7; and score alerts
+ * fire up to 6 days ahead. So the day a buddy was invited to almost always
+ * sits outside the anonymous window and inside the free one — which makes the
+ * honest ask "make a free account to see Sunday", not a generic wall.
+ *
+ * Deliberately NOT unlocked for referred visitors. Casey's call: the loop
+ * should be worth joining, not worth bypassing.
+ */
+export function isDayLockedForAnon(
+  card: ShareCard,
+  now: Date = new Date(),
+): boolean {
+  const offset = dayOffset(card, now);
+  return offset >= ANON_STRIP_DAYS;
 }
 
 // ── Staleness ──────────────────────────────────────────────────────────

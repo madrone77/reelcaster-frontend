@@ -184,6 +184,8 @@ export default function SpotDetailShell({
   tz: TZ,
   serverNowMs,
   ad = null,
+  openOnSpeciesId = null,
+  openOnIso = null,
 }: {
   page: SpotPageForClient;
   slug: string;
@@ -206,6 +208,19 @@ export default function SpotDetailShell({
    * `treatment`: the frame varies, the substance does not.
    */
   ad?: AdMode | null;
+  /**
+   * Open the page on a specific species and day instead of the defaults.
+   *
+   * Set by /s/<token>, so a recipient lands on the fish and the day they were
+   * actually invited to. Without it the page opened on its own best species and
+   * today, and a stranger who was told "Chinook, Sunday" got halibut and Monday
+   * with no way to tell the two apart.
+   *
+   * Both are hints, not commands: an id that is not on this spot's roster, or a
+   * day outside the horizon, is ignored rather than selecting nothing.
+   */
+  openOnSpeciesId?: string | null;
+  openOnIso?: string | null;
 }) {
   const { spot } = page;
   // Which fisheries authority governs this spot. `spot.region` is the
@@ -244,7 +259,14 @@ export default function SpotDetailShell({
     () => [...page.species].sort((a, b) => a.rank - b.rank),
     [page.species],
   );
-  const [selId, setSelId] = useState<string | null>(() => bestSpeciesId(page));
+  const [selId, setSelId] = useState<string | null>(() => {
+    // A shared link's species wins over the spot's own default, but only if the
+    // spot actually carries it — a stale card must not select nothing.
+    if (openOnSpeciesId && page.species.some((s) => s.id === openOnSpeciesId)) {
+      return openOnSpeciesId;
+    }
+    return bestSpeciesId(page);
+  });
   // Names for the per-species report split. The roster is the species this spot
   // is scored for; anglers report others (crab and lingcod at a salmon spot),
   // and those fold into "Other species" rather than being dropped.
@@ -431,7 +453,7 @@ export default function SpotDetailShell({
     [fcSource, selId, tierLoading, accessTier, regulation, page.sun],
   );
 
-  const [selectedIso, setSelectedIso] = useState<string | null>(null);
+  const [selectedIso, setSelectedIso] = useState<string | null>(openOnIso);
   const [upgradeOpen, setUpgradeOpen] = useState(false);
 
   /** Ad frame: send every "unlock this" gesture to the one offer on the page. */
