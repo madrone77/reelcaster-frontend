@@ -52,6 +52,7 @@ export default function MobileMapSheet({
   locationName,
   onSelectSpot,
   forecastModel,
+  previewForecastModel,
   selectedIso,
   onSelectDay,
   signedIn,
@@ -67,6 +68,14 @@ export default function MobileMapSheet({
   locationName?: string | null;
   onSelectSpot: (slug: string) => void;
   forecastModel: ForecastStripModel | null;
+  /**
+   * The same fortnight re-pointed at the previewed spot, for the carousel
+   * dock. `forecastModel` is a viewport fold — the best score across every
+   * spot in view — which is right for the browse list and wrong beside a
+   * single card, where it showed one spot's name over another spot's number.
+   * Falls back to the fold when absent.
+   */
+  previewForecastModel?: ForecastStripModel | null;
   selectedIso: string;
   onSelectDay: (day: ForecastDay) => void;
   signedIn: boolean;
@@ -441,7 +450,7 @@ export default function MobileMapSheet({
               sheet's answer — a picker that covers the card — is the wrong
               trade here. Sized like the nav pill it sits on. */}
           <DatePillRail
-            model={forecastModel}
+            model={previewForecastModel ?? forecastModel}
             selectedIso={selectedIso}
             onSelectDay={onSelectDay}
             signedIn={signedIn}

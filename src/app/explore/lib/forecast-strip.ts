@@ -13,6 +13,7 @@ import type {
 import type {
   MapForecast14dPayload,
   MapForecastDayConditions,
+  SpotOutlookDayPeak,
 } from "@/lib/bluecaster";
 import { tierFor, fmtPeak, type Tier } from "./explore-data";
 import {
@@ -321,4 +322,81 @@ function finishModel(days: ForecastDay[]): ForecastStripModel {
   if (bestDay) bestDay.isBest = true;
 
   return { days, bestIso: bestDay?.iso ?? null, bestDay };
+}
+
+
+/**
+ * Re-point an existing strip at ONE spot.
+ *
+ * The Explore strip is a viewport fold: each day is the best score across
+ * every spot in view. That is the right answer for the browse list, and the
+ * wrong one the moment a preview card is in hand — the card said Oak Bay
+ * Flats 80 while the strip under it said 87, because the 87 belonged to some
+ * other spot entirely. Two numbers for the same day, a thumb apart, with
+ * nothing saying they were measuring different things.
+ *
+ * So the viewport model stays the SPINE — it already carries the calendar
+ * (iso, dow, date), the lock horizon, the pending state, the weather icon and
+ * any non-retention days, all of which are true regardless of which spot you
+ * are looking at — and only the number is re-pointed, from the fold to this
+ * spot's own fortnight.
+ *
+ * Two things it will not do:
+ *
+ * - `override` pins one day (the selected one) to a series the caller already
+ *   has, which on Explore is the card's own `hours24`. The outlook payload and
+ *   map/spots are cached independently, so a re-bake between the two fetches
+ *   can leave them a couple of points apart. On the day being compared, that
+ *   gap IS the bug, so the card wins by construction. Same mechanism
+ *   `buildForecastDays` uses on the spot page.
+ *
+ * - Under a species filter, a cell scored by a DIFFERENT species is dropped
+ *   rather than shown. The bulk outlook route takes no species param, so its
+ *   cells are always best-species; printing one beside a card filtered to
+ *   coho would be the same lie in a smaller font. A dash says "not this
+ *   species here", which is true.
+ */
+export function buildSpotStripFromOutlook(
+  spine: ForecastStripModel,
+  cells: (SpotOutlookDayPeak | null)[] | null | undefined,
+  opts: {
+    speciesFilter?: string | null;
+    override?: { iso: string; hours: (number | null)[] } | null;
+  } = {},
+): ForecastStripModel {
+  const { speciesFilter = null, override = null } = opts;
+
+  const days: ForecastDay[] = spine.days.map((day, i) => {
+    const cell = cells?.[i] ?? null;
+
+    let score: number | null = null;
+    let hour: number | null = null;
+    if (cell && (!speciesFilter || cell.species_id === speciesFilter)) {
+      score = cell.score;
+      hour = cell.peak_hour;
+    }
+    if (override && day.iso === override.iso) {
+      const pinned = peakOf(override.hours);
+      if (pinned.score !== null) {
+        score = pinned.score;
+        hour = pinned.hour;
+      }
+    }
+
+    // A locked day never shows a number, whoever it belongs to. Keep the
+    // spine's gating verbatim — it is the caller's plan, not the spot's.
+    if (day.locked || day.pending || day.nonRetention) {
+      return { ...day, isBest: false };
+    }
+
+    return {
+      ...day,
+      score,
+      peakLabel: fmtPeak(hour),
+      tier: tierFor(score),
+      isBest: false,
+    };
+  });
+
+  return finishModel(days);
 }
