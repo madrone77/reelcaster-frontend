@@ -1,19 +1,30 @@
 "use client";
 
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { createPortal } from "react-dom";
-import { CalendarDays, ChevronDown, ChevronUp, X } from "lucide-react";
+import { ChevronDown, ChevronUp, X } from "lucide-react";
 import AdSlot from "@/app/components/ads/ad-slot";
-import type { RailSpot, Tier } from "../lib/explore-data";
+import type { RailSpot } from "../lib/explore-data";
 import { MAP_INSET_ATTR, MAP_INSET_RESTING_ATTR } from "../lib/sheet-safe-center";
 import type { ForecastStripModel, ForecastDay } from "../lib/forecast-strip";
 import type { FreshCatchesResponse } from "../lib/fresh-catch-types";
 import SpotCard from "./spot-card";
 import SortControl, { type SortKey, sortSpots } from "./sort-control";
-import SheetForecast from "./sheet-forecast";
+import DatePillRail from "./date-pill-rail";
 import ExploreFooter from "./explore-footer";
 
 type Detent = "peek" | "half" | "full";
+
+/** Slim-bar height when the sheet is folded away. */
+const COLLAPSED_H = 52;
+
+/**
+ * How much of the first spot card the peek leaves showing, under the fade.
+ * This is the whole discoverability budget for "there is a list down here".
+ */
+const PEEK_SLIVER = 36;
+
+/** Pointer travel below which a drag on the header counts as a tap. */
+const TAP_SLOP = 6;
 
 /**
  * Squared distance between two spots in degrees, longitude corrected for
@@ -26,14 +37,6 @@ function spotDist2(a: RailSpot, b: RailSpot): number {
   const dy = a.lat - b.lat;
   return dx * dx + dy * dy;
 }
-
-/** Score colour on the day pill — the tier tokens the day cells already use. */
-const DAY_PILL_SCORE: Record<Tier, string> = {
-  good: "text-rc-good",
-  fair: "text-rc-fair-ink",
-  poor: "text-rc-poor",
-  none: "text-rc-ink-mute",
-};
 
 /**
  * Zillow-style mobile bottom sheet over the full-screen Explore map. Three
@@ -49,6 +52,7 @@ export default function MobileMapSheet({
   locationName,
   onSelectSpot,
   forecastModel,
+  previewForecastModel,
   selectedIso,
   onSelectDay,
   signedIn,
@@ -64,6 +68,14 @@ export default function MobileMapSheet({
   locationName?: string | null;
   onSelectSpot: (slug: string) => void;
   forecastModel: ForecastStripModel | null;
+  /**
+   * The same fortnight re-pointed at the previewed spot, for the carousel
+   * dock. `forecastModel` is a viewport fold — the best score across every
+   * spot in view — which is right for the browse list and wrong beside a
+   * single card, where it showed one spot's name over another spot's number.
+   * Falls back to the fold when absent.
+   */
+  previewForecastModel?: ForecastStripModel | null;
   selectedIso: string;
   onSelectDay: (day: ForecastDay) => void;
   signedIn: boolean;
@@ -86,23 +98,8 @@ export default function MobileMapSheet({
   /** Dismiss the preview and go back to the browse list. */
   onClosePreview?: () => void;
 }) {
-  const [pickerOpen, setPickerOpen] = useState(false);
   const [sort, setSort] = useState<SortKey>("score");
   const sorted = useMemo(() => sortSpots(spots, sort), [spots, sort]);
-  const selectedDay = useMemo(
-    () => forecastModel?.days.find((d) => d.iso === selectedIso) ?? null,
-    [forecastModel, selectedIso],
-  );
-
-  // Escape closes the picker, matching the location and filter sheets.
-  useEffect(() => {
-    if (!pickerOpen) return;
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setPickerOpen(false);
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [pickerOpen]);
 
   // Detent visible-heights (px) derived from the viewport height.
   const [vh, setVh] = useState(0);
@@ -132,7 +129,17 @@ export default function MobileMapSheet({
   const detents = useMemo(() => {
     const h = vh || 800;
     return {
-      peek: headerH || 132,
+      // Header, plus a deliberate slice of the first card. The header alone
+      // closed on its own bottom edge, which said "this is the whole thing":
+      // the count promised 15 spots and nothing on screen showed one. A card
+      // cut mid-row under the fade is the strongest way to say a list is
+      // there, and it is the only one that costs no words.
+      //
+      // The comment on `headerRef` warns that a card sticking into the peek
+      // reads as a rendering fault. That was a HARDCODED peek cutting at
+      // wherever the card happened to be. This is measured and deliberate,
+      // and the gradient below is what makes it read as a fold.
+      peek: (headerH || 132) + PEEK_SLIVER,
       // Leave ~132px of map (+ the floating location header) visible up top.
       half: Math.round(h * 0.5),
       full: Math.max(240, h - 132),
@@ -141,19 +148,30 @@ export default function MobileMapSheet({
 
   const [detent, setDetent] = useState<Detent>("peek");
   const [dragHeight, setDragHeight] = useState<number | null>(null);
-  const dragRef = useRef<{ startY: number; startH: number } | null>(null);
+  const dragRef = useRef<{
+    startY: number;
+    startH: number;
+    moved: boolean;
+  } | null>(null);
 
   // Collapsed folds the sheet down to a slim bar (handle + count + reopen
   // chevron), clearing the map. A tap on the chevron toggles it; a tap or drag
   // anywhere on the bar reopens to peek.
   const [collapsed, setCollapsed] = useState(false);
-  const COLLAPSED_H = 52;
 
   const height = collapsed ? COLLAPSED_H : dragHeight ?? detents[detent];
 
+  // "Open" = the list is actually on screen, which is what the chevron's
+  // direction and the sort control both key off.
+  const open = !collapsed && detent !== "peek";
+
   const onPointerDown = useCallback(
     (e: React.PointerEvent) => {
-      dragRef.current = { startY: e.clientY, startH: detents[detent] };
+      dragRef.current = {
+        startY: e.clientY,
+        startH: detents[detent],
+        moved: false,
+      };
       e.currentTarget.setPointerCapture(e.pointerId);
     },
     [detent, detents],
@@ -163,9 +181,13 @@ export default function MobileMapSheet({
     (e: React.PointerEvent) => {
       if (!dragRef.current) return;
       const dy = dragRef.current.startY - e.clientY; // drag up = grow
+      if (Math.abs(dy) > TAP_SLOP) dragRef.current.moved = true;
+      // Floors at the collapsed bar, not at peek: the chevron now expands
+      // rather than collapses, so dragging down past peek is what folds the
+      // sheet away. Without this that capability had nowhere left to live.
       const next = Math.min(
         detents.full,
-        Math.max(detents.peek, dragRef.current.startH + dy),
+        Math.max(COLLAPSED_H, dragRef.current.startH + dy),
       );
       setDragHeight(next);
     },
@@ -174,13 +196,26 @@ export default function MobileMapSheet({
 
   const onPointerUp = useCallback(() => {
     if (!dragRef.current) return;
+    const moved = dragRef.current.moved;
+    dragRef.current = null;
+
+    // A tap on the header opens the list. People tap a bottom sheet before
+    // they think to drag one, and at peek there was nothing a tap could do —
+    // the count said 15 spots and the whole header was inert.
+    if (!moved) {
+      setDragHeight(null);
+      if (detent === "peek") setDetent("half");
+      return;
+    }
+
     const h = dragHeight ?? detents[detent];
-    const opts: [Detent, number][] = [
+    const opts: [Detent | "collapsed", number][] = [
+      ["collapsed", COLLAPSED_H],
       ["peek", detents.peek],
       ["half", detents.half],
       ["full", detents.full],
     ];
-    let best: Detent = "peek";
+    let best: Detent | "collapsed" = "peek";
     let bestD = Infinity;
     for (const [d, v] of opts) {
       const dd = Math.abs(v - h);
@@ -189,8 +224,14 @@ export default function MobileMapSheet({
         best = d;
       }
     }
-    dragRef.current = null;
     setDragHeight(null);
+    if (best === "collapsed") {
+      // Reopening from the slim bar goes back to peek, so park the detent
+      // there rather than wherever the drag started.
+      setCollapsed(true);
+      setDetent("peek");
+      return;
+    }
     setDetent(best);
   }, [dragHeight, detent, detents]);
 
@@ -403,6 +444,18 @@ export default function MobileMapSheet({
               </div>
             ))}
           </div>
+
+          {/* The fortnight, docked between the card and the tab bar. With a
+              card in hand the day is what gets changed most, and the browse
+              sheet's answer — a picker that covers the card — is the wrong
+              trade here. Sized like the nav pill it sits on. */}
+          <DatePillRail
+            model={previewForecastModel ?? forecastModel}
+            selectedIso={selectedIso}
+            onSelectDay={onSelectDay}
+            signedIn={signedIn}
+            onLockedAdDay={onLockedAdDay}
+          />
         </div>
       </>
     );
@@ -476,59 +529,79 @@ export default function MobileMapSheet({
               {spots.length} spot{spots.length === 1 ? "" : "s"}
             </div>
           </div>
-          {/* Sort + a collapse chevron. Both must swallow the pointer so a tap
-              doesn't start a sheet drag. */}
+          {/* Sort + the open/close chevron. Both must swallow the pointer so
+              a tap doesn't start a sheet drag.
+
+              Sort is hidden at peek. A control for reordering a list you
+              cannot see is noise, and it was competing for the tap that
+              should be opening the list. It returns the moment the list is
+              on screen, which is the moment it means anything. It is the same
+              8x8 box as the chevron, so hiding it never moves the row and the
+              measured peek stays put. */}
           <div
             className="flex items-center gap-1.5"
             onPointerDown={(e) => e.stopPropagation()}
           >
-            {spots.length > 1 && <SortControl sort={sort} onSort={setSort} />}
+            {spots.length > 1 && open && (
+              <SortControl sort={sort} onSort={setSort} />
+            )}
+            {/* The arrow points where it takes you. It used to point down and
+                collapse from every state, so at peek the only arrow on screen
+                argued against the one thing worth doing, next to a count of
+                spots that were all hidden. */}
             <button
               type="button"
-              onClick={() => setCollapsed(true)}
-              aria-label="Collapse spot list"
+              onClick={() => {
+                if (!open) {
+                  setDetent("half");
+                  return;
+                }
+                // Park at peek on the way down, so reopening from the slim
+                // bar lands on peek every time. Without the reset it restored
+                // whatever detent you collapsed FROM, which skipped peek —
+                // and peek is now the state that shows the fortnight and the
+                // sliver, so skipping it skips the whole orientation.
+                setCollapsed(true);
+                setDetent("peek");
+              }}
+              aria-label={open ? "Collapse spot list" : "Show spot list"}
+              aria-expanded={open}
               className="flex h-8 w-8 items-center justify-center rounded-md text-rc-ink-mute transition-colors hover:bg-rc-surface"
             >
-              <ChevronDown className="h-4 w-4" />
+              {open ? (
+                <ChevronDown className="h-4 w-4" />
+              ) : (
+                <ChevronUp className="h-4 w-4" />
+              )}
             </button>
           </div>
         </div>
 
-        {/* The day the map is showing, stated as text, with the picker
-            behind a button that says what it does. It was a single pill whose
-            label was the date — which read as a status line, so the way to
-            change the day was invisible unless you happened to tap it. Saying
-            the day and offering the change are two jobs; they get two
-            elements. */}
+        {/* The fortnight itself, in the header, the same rail the preview dock
+            carries. It replaces a date caption beside a "Change date" button
+            that opened the ledger in a sheet over this one.
+
+            Two surfaces asking the same question should not answer it two
+            ways, and the caption was the weaker half anyway: it said which day
+            the list is ranked for without saying whether any other day is
+            better, which is the only reason to change it. The rail says both,
+            and picking a day re-ranks the list underneath in place instead of
+            covering it.
+
+            Stops pointer events so scrolling the days doesn't drag the sheet
+            (this block sits inside the drag handle). */}
         <div
-          className="mt-2.5 flex items-center justify-between gap-3"
+          className="mt-2.5"
           onPointerDown={(e) => e.stopPropagation()}
         >
-          <div className="flex min-w-0 items-baseline gap-1.5">
-            <span className="truncate text-[13px] font-semibold text-rc-ink">
-              {selectedDay
-                ? `${selectedDay.index === 0 ? "Today" : selectedDay.dow} · ${selectedDay.date}`
-                : "14-day forecast"}
-            </span>
-            {selectedDay?.score != null && (
-              <span
-                className={`font-rc-mono text-[12px] font-bold ${DAY_PILL_SCORE[selectedDay.tier]}`}
-              >
-                {selectedDay.score}
-              </span>
-            )}
-          </div>
-          <button
-            type="button"
-            onClick={() => setPickerOpen(true)}
-            disabled={!selectedDay}
-            aria-haspopup="dialog"
-            aria-expanded={pickerOpen}
-            className="inline-flex shrink-0 items-center gap-1.5 rounded-full border border-rc-rule bg-rc-surface px-3 py-1.5 text-[13px] font-semibold text-rc-brand transition-colors enabled:hover:border-rc-brand disabled:opacity-60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rc-brand"
-          >
-            <CalendarDays className="h-3.5 w-3.5 shrink-0" />
-            Change date
-          </button>
+          <DatePillRail
+            variant="inline"
+            model={forecastModel}
+            selectedIso={selectedIso}
+            onSelectDay={onSelectDay}
+            signedIn={signedIn}
+            onLockedAdDay={onLockedAdDay}
+          />
         </div>
       </div>
 
@@ -575,9 +648,11 @@ export default function MobileMapSheet({
       {/* The list runs right up to the sheet's bottom edge, so whatever card
           the edge lands on gets cut mid-row. Fade the last few pixels into the
           panel so that reads as "keep scrolling" rather than a broken row.
-          Only once the sheet is open — at peek the body has no height and the
-          gradient would sit on the day pill instead. */}
-      {height > detents.peek + 8 && (
+          At peek this is the fold itself: it is what turns the cut card into
+          "keep pulling" rather than a card that failed to render. It used to
+          be suppressed here, back when peek ended on the header's own bottom
+          edge and there was no card under it to fade. */}
+      {!collapsed && (
         <div
           aria-hidden
           className="pointer-events-none absolute inset-x-0 bottom-0 h-6 bg-gradient-to-t from-rc-panel to-transparent"
@@ -585,49 +660,6 @@ export default function MobileMapSheet({
       )}
       </div>
 
-      {/* Day picker — the 14-day ledger, on demand. A portaled bottom sheet
-          like the location and filter pickers, so the three things you can
-          change about the map all open the same way. It stays open on a pick:
-          the row you tapped expands into its 24-hour scrub lane, and dragging
-          that is the reason to still be here. */}
-      {pickerOpen &&
-        createPortal(
-          <>
-            <div
-              className="fixed inset-0 z-[60] bg-black/25"
-              onClick={() => setPickerOpen(false)}
-            />
-            <div
-              role="dialog"
-              aria-label="Pick a day"
-              className="fixed inset-x-0 bottom-0 z-[61] max-h-[75vh] overflow-y-auto overscroll-contain rounded-t-2xl bg-rc-panel shadow-rc-panel animate-slide-up pb-[calc(0.5rem+env(safe-area-inset-bottom))]"
-            >
-              <div className="flex justify-center pt-2.5 pb-1">
-                <div className="h-1 w-9 rounded-full bg-rc-rule" />
-              </div>
-              {/* Names the instrument the same way the spot page's section
-                  does, so the fortnight reads as one thing across surfaces. */}
-              <div className="flex items-baseline justify-between gap-3 px-4 pb-3">
-                <span className="rc-label text-[9px]">14-Day Forecast</span>
-                <button
-                  type="button"
-                  onClick={() => setPickerOpen(false)}
-                  className="text-[13px] font-semibold text-rc-brand"
-                >
-                  Done
-                </button>
-              </div>
-              <SheetForecast
-                model={forecastModel}
-                selectedIso={selectedIso}
-                onSelectDay={onSelectDay}
-                signedIn={signedIn}
-                onLockedAdDay={onLockedAdDay}
-              />
-            </div>
-          </>,
-          document.body,
-        )}
     </>
   );
 }

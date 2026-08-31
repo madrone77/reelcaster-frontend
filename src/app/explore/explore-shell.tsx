@@ -22,6 +22,7 @@ import {
   buildViewportForecastDays,
   type ForecastDay,
   DESKTOP_STRIP_H,
+  buildSpotStripFromOutlook,
   type ForecastStripModel,
   type ForecastTier,
 } from "./lib/forecast-strip";
@@ -36,8 +37,12 @@ import {
   fetchMapSpotsCached,
   fetchMyCustomSpots,
   fetchSpotCoords,
+  fetchSpotsOutlook14d,
 } from "@/lib/bluecaster-client";
-import type { MapForecast14dPayload } from "@/lib/bluecaster";
+import type {
+  MapForecast14dPayload,
+  SpotOutlookDayPeak,
+} from "@/lib/bluecaster";
 import type { FreshCatchesResponse } from "./lib/fresh-catch-types";
 import { useSubscription } from "@/hooks/use-subscription";
 import { useAuth } from "@/contexts/auth-context";
@@ -1164,6 +1169,81 @@ export default function ExploreShell({
     );
   }, [displayForecast, speciesFilter, accessTier, pendingFrom]);
 
+  // ── The previewed spot's own fortnight ──────────────────────────────────
+  //
+  // `stripModel` above is a viewport FOLD: each day is the best score across
+  // every spot in view. Right for the browse list; wrong under a preview card,
+  // where it put "Oak Bay Flats 80" a thumb above a strip reading 87 — a
+  // number belonging to a different spot, with nothing on screen saying so.
+  //
+  // Bulk, lazy, and cached by spot id: one request covers the whole deck the
+  // carousel can swipe through, it only fires once a preview is actually
+  // opened (the browse list never needs it), and swiping never refetches.
+  // Keyed by species AND spot: the same spot's fortnight is a different set of
+  // numbers under a filter than without one, so a filtered read must never be
+  // served an unfiltered entry.
+  const outlookRef = useRef<Map<string, (SpotOutlookDayPeak | null)[]>>(
+    new Map(),
+  );
+  const [outlookVersion, setOutlookVersion] = useState(0);
+  const outlookKey = useCallback(
+    (spotId: string) => `${speciesFilter ?? "best"}:${spotId}`,
+    [speciesFilter],
+  );
+
+  useEffect(() => {
+    const id = selectedSpot?.id;
+    if (!id || outlookRef.current.has(outlookKey(id))) return;
+    // Ask for the whole deck, not just this spot: the carousel is ordered by
+    // distance from the tapped pin and swiping walks it, so the next card is
+    // already known. The route caps the id list itself.
+    const ids = railSpots.map((sp) => sp.id);
+    if (!ids.includes(id)) ids.unshift(id);
+    let cancelled = false;
+    // Scoped to the pinned species when there is one, so the strip under a
+    // filtered card reads that species rather than whatever outscored it.
+    fetchSpotsOutlook14d({ spotIds: ids, speciesId: speciesFilter ?? undefined })
+      .then((p) => {
+        if (cancelled || !p?.by_spot) return;
+        if (outlookRef.current.size > 400) outlookRef.current.clear();
+        for (const [spotId, cells] of Object.entries(p.by_spot)) {
+          outlookRef.current.set(outlookKey(spotId), cells);
+        }
+        setOutlookVersion((v) => v + 1);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedSpot?.id, railSpots, speciesFilter, outlookKey]);
+
+  // The strip the preview dock gets. Same calendar, same locks, same weather
+  // as the viewport model — only the numbers are re-pointed at this spot, and
+  // the selected day is pinned to the card's own series so the two can never
+  // disagree on the day being read. Falls back to the fold while the outlook
+  // is still in flight, which keeps the strip's shape steady.
+  const previewStripModel: ForecastStripModel | null = useMemo(() => {
+    if (!stripModel || !selectedSpot) return stripModel;
+    const cells = outlookRef.current.get(outlookKey(selectedSpot.id));
+    if (!cells) return stripModel;
+    return buildSpotStripFromOutlook(stripModel, cells, {
+      speciesFilter,
+      // The override pins the selected day to the card's own series so the two
+      // can never disagree — but ONLY when no species is pinned. Under a
+      // filter the card's score is remapped from `scoresBySpecies`, while
+      // `hours24` is left as the BEST-species series, so pinning to it puts
+      // the wrong fish's number on the day: a coho card read 86 over a tile
+      // reading the day's 89 crab peak, which is the exact contradiction this
+      // whole path exists to remove. Filtered, the outlook cell is already
+      // scored for the pinned species and is the better authority.
+      override: speciesFilter
+        ? null
+        : { iso: selectedIso, hours: selectedSpot.hours24 },
+    });
+    // outlookVersion is the signal that `outlookRef` gained this spot's cells.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [stripModel, selectedSpot, speciesFilter, selectedIso, outlookVersion, outlookKey]);
+
   // Viewport centre, handed to search purely as a tie-break between equally
   // good text matches. Search stays global — this never hides a distant hit.
   const searchNear = useMemo(
@@ -1962,6 +2042,7 @@ export default function ExploreShell({
         locationName={labelCity?.name ?? null}
         onSelectSpot={handleSelectSpot}
         forecastModel={stripModel}
+        previewForecastModel={previewStripModel}
         selectedIso={selectedIso}
         onSelectDay={handleSelectDay}
         signedIn={!!user}

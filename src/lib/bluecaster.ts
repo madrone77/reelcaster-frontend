@@ -584,7 +584,15 @@ export interface SpotsOutlook14dPayload {
  * never land in a shared cache entry.
  */
 export async function fetchSpotsOutlook14d(
-  scope: { spotIds?: string[]; citySlug?: string; bbox?: string },
+  scope: {
+    spotIds?: string[];
+    citySlug?: string;
+    bbox?: string;
+    /** Fold within one species rather than across all of them. Without it each
+     *  day is the best species at that spot, which reads as a contradiction
+     *  beside a surface already filtered to one. */
+    speciesId?: string;
+  },
   opts: { viewerId?: string } = {},
 ): Promise<SpotsOutlook14dPayload | null> {
   return bcGet<SpotsOutlook14dPayload>(
@@ -593,6 +601,7 @@ export async function fetchSpotsOutlook14d(
       spots: scope.spotIds?.length ? scope.spotIds.join(",") : undefined,
       city: scope.citySlug,
       bbox: scope.bbox,
+      species: scope.speciesId,
     },
     120,
     opts.viewerId,
