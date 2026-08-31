@@ -2,13 +2,16 @@ import { test, expect } from '@playwright/test';
 import { loginAs, freeUser, setUserTier, resetUserState } from '../fixtures/users';
 
 /**
- * Phase 6 — alerts/notifications consolidation.
+ * Alerts is the only notification system now.
  *
- * - `/alerts` is the canonical landing for real-time triggers.
- * - `/profile/forecast-emails` is the new home for scheduled digests.
- * - `/profile/notification-settings` permanent-redirects to the new path.
- * - The forecast-emails page surfaces a callout pointing back to /alerts so
- *   users don't confuse the two systems.
+ * The scheduled forecast digest that used to live at /profile/forecast-emails
+ * is retired: the nightly job reported success for months while never sending
+ * a single email, and it scored days with the legacy Open-Meteo calculation
+ * rather than BlueCaster's. Its settings page, the /settings/preferences card
+ * that embedded the same form, and the pipeline behind them are gone.
+ *
+ * What these tests hold onto is that the three retired paths still land
+ * somewhere useful, because bookmarks outlive features.
  */
 
 test.describe.configure({ mode: 'serial' });
@@ -18,21 +21,27 @@ test.beforeEach(async () => {
   await resetUserState(freeUser.email);
 });
 
-test('/profile/notification-settings → 308 to /profile/forecast-emails', async ({ page }) => {
-  await loginAs(page, freeUser);
-  await page.goto('/profile/notification-settings');
-  await page.waitForURL((url) => url.pathname === '/profile/forecast-emails', {
-    timeout: 10_000,
+for (const from of ['/profile/notification-settings', '/profile/forecast-emails']) {
+  test(`${from} → /alerts`, async ({ page }) => {
+    await loginAs(page, freeUser);
+    await page.goto(from);
+    await page.waitForURL((url) => url.pathname === '/alerts', { timeout: 10_000 });
   });
+}
+
+test('/settings/preferences → /profile', async ({ page }) => {
+  await loginAs(page, freeUser);
+  await page.goto('/settings/preferences');
+  await page.waitForURL((url) => url.pathname === '/profile', { timeout: 10_000 });
 });
 
-test('forecast-emails page renders cross-link to /alerts', async ({ page }) => {
+test('the settings hub offers Account, Alerts, and Units, and no Preferences', async ({ page }) => {
   await loginAs(page, freeUser);
-  await page.goto('/profile/forecast-emails');
-  const callout = page.getByTestId('forecast-emails-alerts-callout');
-  await expect(callout).toBeVisible();
-  await expect(callout).toContainText(/real-time alerts/i);
-  await expect(callout.locator('a[href="/alerts"]')).toBeVisible();
+  await page.goto('/profile');
+  await expect(page.locator('a[href="/settings/account"]')).toBeVisible();
+  await expect(page.locator('a[href="/settings/units"]')).toBeVisible();
+  await expect(page.locator('a[href="/alerts"]')).toBeVisible();
+  await expect(page.locator('a[href="/settings/preferences"]')).toHaveCount(0);
 });
 
 test('/alerts is the canonical alerts landing', async ({ page }) => {
