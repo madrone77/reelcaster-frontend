@@ -86,10 +86,26 @@ function DialogContent({
         {...props}
       >
         {children}
+        {/* The X, with a thumb-sized hit area around a 16px icon.
+ 
+            It used to BE 16px: `size-4` on the glyph and no padding, so the
+            tappable area was the glyph itself, well under the 44px every touch
+            guideline asks for. On a phone that is a control you stab at twice,
+            and it is the only way out of a modal that opens on its own now
+            (the upgrade nag), where "I cannot get rid of this" is the worst
+            thing the page can say to somebody we just paid to bring here.
+ 
+            `size-11` is 44px and `-m-3.5` is 14px, which is exactly half the
+            growth in each direction, so the box expands around the glyph and
+            the glyph does not move: it still sits 24px in from the top and
+            right of the dialog, pixel for pixel where it was. Nothing visible
+            changes — the box has no background of its own, only the focus
+            ring, which is why this is a rounded-md now rather than a 2px
+            radius drawn around a 44px square. */}
         {showCloseButton && (
           <DialogPrimitive.Close
             data-slot="dialog-close"
-            className="ring-offset-background focus:ring-ring data-[state=open]:bg-accent data-[state=open]:text-muted-foreground absolute top-4 right-4 rounded-xs opacity-70 transition-opacity hover:opacity-100 focus:ring-2 focus:ring-offset-2 focus:outline-hidden disabled:pointer-events-none [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4"
+            className="ring-offset-background focus:ring-ring data-[state=open]:bg-accent data-[state=open]:text-muted-foreground absolute top-4 right-4 -m-3.5 flex size-11 items-center justify-center rounded-md opacity-70 transition-opacity hover:opacity-100 focus:ring-2 focus:ring-offset-2 focus:outline-hidden disabled:pointer-events-none [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4"
           >
             <XIcon />
             <span className="sr-only">Close</span>
