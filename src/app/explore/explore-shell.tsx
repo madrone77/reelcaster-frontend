@@ -57,7 +57,12 @@ import { useAuth } from "@/contexts/auth-context";
 import { useExploreState } from "./lib/use-explore-state";
 import { useFlowLayer } from "./lib/use-flow";
 import { readExploreView, writeExploreView, type ExploreView } from "./lib/view-memory";
-import { MAP_INSET_ATTR, mapInsetOffsetY, sheetSafeCenter } from "./lib/sheet-safe-center";
+import {
+  MAP_INSET_ATTR,
+  mapInsetOffsetY,
+  mapVisibleBand,
+  sheetSafeCenter,
+} from "./lib/sheet-safe-center";
 import ExploreTopBar from "./components/explore-top-bar";
 import ExploreAdBar, { ANCHOR_ID as AD_ANCHOR } from "./components/explore-ad-bar";
 import {
@@ -1508,16 +1513,80 @@ export default function ExploreShell({
       // Desktop's flyTo zooms in on the pick. Mobile keeps the zoom it has:
       // the preview card is a browsing surface, and pulling the camera in a
       // notch on every pin tap walks the viewport away from the water the
-      // angler was reading. `sheet-safe-center` still lifts the pin clear of
-      // the card.
+      // angler was reading.
       const phone = !window.matchMedia("(min-width:1024px)").matches;
-      map.flyTo({
-        center: [spot.lng, spot.lat],
-        zoom: phone
-          ? (map.getZoom() ?? 9)
-          : Math.max(map.getZoom() ?? 9, 11),
-        duration: phone ? 450 : 700,
-      });
+      if (!phone) {
+        map.flyTo({
+          center: [spot.lng, spot.lat],
+          zoom: Math.max(map.getZoom() ?? 9, 11),
+          duration: 700,
+        });
+        return;
+      }
+      // ── Frame the pin in the water, not in the pane ──────────────────────
+      // A bare `center` puts the pin in the geometric middle of the map pane,
+      // and on a phone the bottom ~270px of that pane is the preview dock. So
+      // tapping a pin dropped it from wherever it was down to 39px above the
+      // card that had just appeared over it — the "jump". `sheetSafeCenter`
+      // already existed for exactly this and was only wired into the remembered
+      // view, never into the tap.
+      //
+      // Measured after the dock has mounted, not before: the inset at tap time
+      // is the browse sheet's peek, and the sheet is about to be replaced by a
+      // dock four times its height. Two frames is the cheapest way to ask the
+      // question after the answer exists, and it is invisible against a 450ms
+      // flight.
+      const zoom = map.getZoom() ?? 9;
+      requestAnimationFrame(() =>
+        requestAnimationFrame(() => {
+          const c = sheetSafeCenter(spot.lat, spot.lng, zoom, mapInsetOffsetY());
+          map.flyTo({ center: [c.lng, c.lat], zoom, duration: 450 });
+        }),
+      );
+    },
+    [setQuery, displaySpots],
+  );
+
+  /**
+   * The preview carousel was swiped onto a different card. Same selection
+   * change as a pin tap, but deliberately NOT the same camera move.
+   *
+   * Flying on every settle meant the map lurched once per card: four swipes,
+   * four 450ms flights, and the water under the deck never stopped moving
+   * while the angler was reading it. Most of those flights were also pointless
+   * — the next spot along is usually the next pin over, already on screen and
+   * already clear of the dock. So the camera only moves when the card in hand
+   * is genuinely somewhere you can't see: off the pane, or down behind the
+   * card. When it does move it eases rather than flies, because this is
+   * following a gesture, not answering a tap.
+   */
+  const followPreviewSlug = useCallback(
+    (slug: string) => {
+      setQuery({ spot: slug, stn: null });
+      const spot = displaySpots.find((s) => s.slug === slug);
+      const map = mapRef.current;
+      if (!spot || !map) return;
+      if (window.matchMedia("(min-width:1024px)").matches) return;
+
+      const band = mapVisibleBand();
+      const canvas = map.getCanvas().getBoundingClientRect();
+      const p = map.project([spot.lng, spot.lat]);
+      const x = p.x + canvas.left;
+      const y = p.y + canvas.top;
+      // A margin so a pin technically inside the band but hard against an edge
+      // still gets re-centred — a puck half under the card reads as hidden.
+      const M = 48;
+      const visible =
+        band != null &&
+        y > band.top + M &&
+        y < band.bottom - M &&
+        x > canvas.left + M &&
+        x < canvas.right - M;
+      if (visible) return;
+
+      const zoom = map.getZoom() ?? 9;
+      const c = sheetSafeCenter(spot.lat, spot.lng, zoom, mapInsetOffsetY());
+      map.easeTo({ center: [c.lng, c.lat], zoom, duration: 320 });
     },
     [setQuery, displaySpots],
   );
@@ -2148,7 +2217,7 @@ export default function ExploreShell({
         freshCatches={freshCatches}
         selectedSlug={selectedSpot?.slug ?? null}
         previewAnchorSlug={previewAnchor}
-        onPreviewSlug={focusSpotOnMap}
+        onPreviewSlug={followPreviewSlug}
         onClosePreview={handleCloseSpot}
       />
 
