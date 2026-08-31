@@ -3,6 +3,8 @@
 import { Lock } from "lucide-react";
 import type { Tier } from "../lib/explore-data";
 import type { ForecastDay } from "../lib/forecast-strip";
+import { useLockedDayTreatment } from "@/app/components/split-test/use-locked-day";
+import LockedGauze from "./locked-gauze";
 import WeatherIcon from "../spot/components/weather-icon";
 
 /**
@@ -60,6 +62,11 @@ export default function DayCell({
    */
   neutralLock?: boolean;
 }) {
+  // Which locked-day treatment this visitor is in. Called on every cell,
+  // locked or not, because hooks cannot be called conditionally; the counter
+  // it drives dedupes across cells (see useLockedDayTreatment).
+  const lock = useLockedDayTreatment("forecast_strip", day.locked);
+
   // Non-retention day: the selected species can't be kept on this date, so a
   // score would mislead. Show the regulatory label instead (takes precedence
   // over the lock — there's no retention score to gate).
@@ -102,18 +109,30 @@ export default function DayCell({
     return (
       <button
         type="button"
-        onClick={onSelect}
-        className="flex-1 min-w-0 h-full rounded border border-rc-rule bg-rc-surface flex flex-col items-center justify-center gap-1 py-2 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-rc-brand"
+        onClick={() => {
+          lock.reportTap();
+          onSelect();
+        }}
+        className={`relative overflow-hidden flex-1 min-w-0 h-full rounded border border-rc-rule flex flex-col items-center justify-center gap-1 py-2 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-rc-brand ${
+          lock.gauze ? "bg-rc-panel" : "bg-rc-surface"
+        }`}
       >
-        <div className="rc-label text-[9px] leading-none text-center">{day.dow}</div>
-        <div className="font-rc-mono text-[10px] text-rc-ink-soft">{day.date}</div>
-        <Lock className="w-5 h-5 text-rc-ink-soft my-0.5" />
-        <div className="font-rc-mono text-[9px] text-rc-ink-soft text-center leading-tight px-0.5">
-          {neutralLock
-            ? "Locked"
-            : day.lockTier === "free"
-              ? "Sign up free"
-              : "Upgrade to Pro"}
+        {/* A score behind frosted glass — see LockedGauze for why it is a
+            shape and not a blurred number, and use-locked-day for who sees
+            it. Without the arm this is the plain padlock it has always been. */}
+        {lock.gauze && <LockedGauze variant="cell" />}
+
+        <div className="relative flex flex-col items-center gap-1">
+          <div className="rc-label text-[9px] leading-none text-center">{day.dow}</div>
+          <div className="font-rc-mono text-[10px] text-rc-ink-soft">{day.date}</div>
+          <Lock className="w-5 h-5 text-rc-ink-soft my-0.5" />
+          <div className="font-rc-mono text-[9px] text-rc-ink-soft text-center leading-tight px-0.5">
+            {neutralLock
+              ? "Locked"
+              : day.lockTier === "free"
+                ? "Sign up free"
+                : "Upgrade to Pro"}
+          </div>
         </div>
       </button>
     );

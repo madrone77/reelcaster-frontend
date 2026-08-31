@@ -14,6 +14,8 @@ import type {
   ForecastDay,
   LockTier,
 } from "../lib/forecast-strip";
+import { useLockedDayTreatment } from "@/app/components/split-test/use-locked-day";
+import LockedGauze from "./locked-gauze";
 import UpgradeDialog from "./upgrade-dialog";
 
 /** Score colour per tier — the same tokens the day cells and the sheet use. */
@@ -83,6 +85,10 @@ export default function DatePillRail({
   // tiles, and the fortnight's best day stays one of the things signing in
   // is for.
   const showBest = signedIn;
+  const lock = useLockedDayTreatment(
+    "pill_rail",
+    !!model?.days.some((d) => d.locked),
+  );
   const [upgradeOpen, setUpgradeOpen] = useState(false);
   const [lockTier, setLockTier] = useState<LockTier>("pro");
 
@@ -124,6 +130,7 @@ export default function DatePillRail({
 
   const handleDay = (day: ForecastDay) => {
     if (day.locked) {
+      lock.reportTap();
       if (onLockedAdDay) {
         onLockedAdDay();
         return;
@@ -221,7 +228,7 @@ export default function DatePillRail({
                        thing on the pill. Selected AND best keeps the brand
                        fill and takes the gold border, so picking the best day
                        doesn't erase the fact that it is the best day. */
-                    className={`flex w-[52px] shrink-0 snap-center flex-col items-center justify-center gap-0.5 rounded transition-colors focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-rc-brand ${
+                    className={`relative flex w-[52px] shrink-0 snap-center flex-col items-center justify-center gap-0.5 overflow-hidden rounded transition-colors focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-rc-brand ${
                       day.isBest && showBest
                         ? isSel
                           ? "border-2 border-rc-badge bg-rc-brand text-white"
@@ -231,15 +238,19 @@ export default function DatePillRail({
                           : "border border-rc-rule bg-rc-panel text-rc-ink active:bg-rc-surface"
                     }`}
                   >
+                    {/* The same frosted glass the strip's DayCell wears, at
+                        pill scale, for the arm that gets it. */}
+                    {day.locked && lock.gauze && <LockedGauze variant="tile" />}
+
                     <span
-                      className={`rc-label text-[9px] leading-none ${
+                      className={`relative rc-label text-[9px] leading-none ${
                         isSel ? "text-white/75" : ""
                       }`}
                     >
                       {day.index === 0 ? "Today" : day.dow}
                     </span>
                     <span
-                      className={`font-rc-mono text-[10px] leading-none ${
+                      className={`relative font-rc-mono text-[10px] leading-none ${
                         isSel ? "text-white/85" : "text-rc-ink-soft"
                       }`}
                     >
@@ -263,7 +274,7 @@ export default function DatePillRail({
                       </span>
                     ) : day.locked ? (
                       <Lock
-                        className={`h-3.5 w-3.5 ${
+                        className={`relative h-3.5 w-3.5 ${
                           isSel ? "text-white" : "text-rc-ink-soft"
                         }`}
                       />
