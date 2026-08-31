@@ -364,10 +364,20 @@ function buildSvg(
   // direction arrows are ONE instrument, so they share a band and get a tight
   // inner gap instead.
   // Mobile row labels live in the gap above their band, so the gap must clear a
-  // 12px label. Desktop `top` also reserves headroom for the hover pill, which
+  // 10px label. Desktop `top` also reserves headroom for the hover pill, which
   // floats above the first band — too little and its rounded top clips off the
   // viewBox.
-  const gap = mob ? 32 : 30, top = mob ? 26 : 36, PAD = mob ? 6 : 8;
+  //
+  // The mobile gap is sized to the label and nothing more. Eight rows means
+  // eight gaps, so every spare pixel there was multiplied by eight: at 32 they
+  // were 226px of the 676px chart, a third of it whitespace, on a phone whose
+  // whole usable viewport is 660. The floor is 2*PAD + 11.2 — the label's own
+  // 7.2px cap height plus 2px of air on each side of it, and PAD twice because
+  // the gap spans from one band BOX's edge to the next one's, not from row to
+  // row (see the label baseline further down). 22 clears the floor at PAD 5.
+  // `top` drops with it: mobile draws no hover pill, so the only thing that
+  // headroom holds is the SCORE label.
+  const gap = mob ? 22 : 30, top = mob ? 14 : 36, PAD = mob ? 5 : 8;
   const Y: Record<string, { y0: number; y1: number }> = {};
   let cy = top;
   rows.forEach((r) => { r.y0 = cy; r.y1 = cy + r.h; Y[r.k] = { y0: r.y0, y1: r.y1 }; cy += r.h + (r.k === "wind" ? 2 : gap); });
@@ -413,7 +423,15 @@ function buildSvg(
     return p;
   };
 
-  let s = `<svg id="${id}" viewBox="0 0 ${W} ${H}" width="100%" tabindex="0" role="slider" aria-label="24-hour conditions, arrow keys to scrub by hour" aria-valuemin="0" aria-valuemax="23" aria-valuenow="0" data-ty0="${Y.tide.y0}" data-ty1="${Y.tide.y1}" style="touch-action:none;cursor:crosshair">`;
+  // `touch-action` is the whole mobile gesture contract. `none` on a chart
+  // taller than the phone it is drawn on means a finger anywhere in ~600px of
+  // page cannot scroll: the swipe is swallowed by an element that only ever
+  // wanted the horizontal half of it. `pan-y` hands vertical panning back to
+  // the browser and keeps horizontal for the scrub, and the browser's own
+  // direction lock does the arbitration — a swipe it claims arrives here as a
+  // pointercancel. Desktop keeps `none`; a mouse has nothing to arbitrate.
+  const touchAction = mob ? "pan-y" : "none";
+  let s = `<svg id="${id}" viewBox="0 0 ${W} ${H}" width="100%" tabindex="0" role="slider" aria-label="24-hour conditions, arrow keys to scrub by hour" aria-valuemin="0" aria-valuemax="23" aria-valuenow="0" data-ty0="${Y.tide.y0}" data-ty1="${Y.tide.y1}" style="touch-action:${touchAction};cursor:crosshair">`;
   // Night texture — a dot grid, not a wash. patternUnits is user space, so the
   // dots land on the same columns in every band and the night regions line up
   // down the whole stack.
@@ -538,7 +556,12 @@ function buildSvg(
   // labels
   rows.forEach((r) => { if (r.k === "arrow") return;
     // Mobile: the label rides in the gap ABOVE the band border, not inside it.
-    if (mob) s += `<text class="tm-lbl" x="${x0}" y="${(r.y0 ?? 0) - PAD - 5}">${r.l.toUpperCase()}</text>`;
+    // The label clears the BAND BOX, which starts PAD above the row, not the
+    // row itself — measured from r.y0 the descender crossed the box's own top
+    // rule and every label sat on a border. 2px of air under the baseline, and
+    // 10px type rather than the desktop 12 so the whole thing fits a gap sized
+    // to it: with PAD 5 the gap needs 2*PAD + 11.2 = 21.2px, hence 22.
+    if (mob) s += `<text class="tm-lbl tm-lbl-sm" x="${x0}" y="${(r.y0 ?? 0) - PAD - 2}">${r.l.toUpperCase()}</text>`;
     else { s += `<text class="tm-lbl" x="12" y="${(r.y0 ?? 0) + 14}">${r.l.toUpperCase()}</text>`; if (r.n) s += `<text class="tm-note" x="12" y="${(r.y0 ?? 0) + 30}">${r.n}</text>`; } });
 
   // hour axis + sun context. Sunrise/sunset carry a glyph + time; the plain hour
@@ -669,6 +692,11 @@ export default function SpotTerminal({
   // — e.g. a data refresh landing during a touch drag — doesn't drop the scrub.
   const downRef = useRef(false);
   const lastHRef = useRef<number | null>(null);
+  // Touch gesture state. A finger that lands on the chart has not yet said
+  // whether it means to scrub or to scroll past, so the hour does not move
+  // until it does — `claimed` once the movement is horizontal, `dead` once the
+  // browser has taken it for a scroll. Neither is used on the mouse path.
+  const gestRef = useRef<{ x: number; y: number; claimed: boolean; dead: boolean } | null>(null);
   const cur = currentRow(realCurrent, hours.tide);
   const current = cur.v;
   const ts = tideScale(hours.tide, tideRange);
@@ -809,17 +837,46 @@ export default function SpotTerminal({
         paint(host, id, mob, idx + 0.5);
         onSelectHour(idx);
       };
+      // How far a finger may travel before the gesture is called. 8px is under
+      // a comfortable tap's jitter and well under the ~13px an hour cell is
+      // wide, so a deliberate sideways move claims the scrub before it has
+      // crossed a single hour.
+      const SLOP = 8;
       svg.addEventListener("pointerdown", (e) => {
         downRef.current = true;
-        // Capture the pointer so a finger slide keeps scrubbing even when it
-        // drifts off the short chart — otherwise pointerleave cuts the drag
-        // and mobile degrades to hour-by-hour taps.
-        try { svg.setPointerCapture(e.pointerId); } catch {}
-        if (e.pointerType !== "mouse") haptic();
         lastHRef.current = null;
+        gestRef.current = { x: e.clientX, y: e.clientY, claimed: e.pointerType === "mouse", dead: false };
+        if (e.pointerType === "mouse") {
+          // Capture the pointer so a drag keeps scrubbing even when it drifts
+          // off the short chart — otherwise pointerleave cuts it.
+          try { svg.setPointerCapture(e.pointerId); } catch {}
+          move(e);
+          return;
+        }
+        // Touch: nothing moves yet. The finger has not said which axis it
+        // means, and moving the hour on the way past would make every scroll
+        // over the chart also change what the page says.
+      });
+      svg.addEventListener("pointermove", (e) => {
+        // A mouse reads out on hover, button or no button, as it always has.
+        if (e.pointerType === "mouse") { move(e); return; }
+        const g = gestRef.current;
+        if (!downRef.current || !g || g.dead) return;
+        if (!g.claimed) {
+          const dx = Math.abs(e.clientX - g.x), dy = Math.abs(e.clientY - g.y);
+          // Vertical wins ties: on a page this tall, scrolling is the commoner
+          // intent, and a scroll wrongly read as a scrub is the worse mistake
+          // (it moves data under the reader's eye and takes the page with it).
+          if (dy > SLOP && dy >= dx) { g.dead = true; downRef.current = false; return; }
+          if (dx <= SLOP) return;
+          g.claimed = true;
+          // Capture only once the scrub is ours, so a gesture still up for
+          // grabs stays available to the browser's scroller.
+          try { svg.setPointerCapture(e.pointerId); } catch {}
+          haptic();
+        }
         move(e);
       });
-      svg.addEventListener("pointermove", (e) => { if (downRef.current || e.pointerType === "mouse") move(e); });
       // A picked hour is kept, under mouse as well as touch. This used to snap
       // back to now on mouse-leave, which read as polite until the same hour
       // started driving the map's flow field a thousand pixels up the page:
@@ -827,8 +884,18 @@ export default function SpotTerminal({
       // chart, and the pick was gone before the map came into view. The way
       // back to the live hour is the "Now" button on the map's time bar, which
       // works the same on both input types.
-      svg.addEventListener("pointerup", () => { downRef.current = false; });
-      svg.addEventListener("pointercancel", () => { downRef.current = false; });
+      svg.addEventListener("pointerup", (e) => {
+        const g = gestRef.current;
+        // A touch that ended without ever becoming a scroll or a scrub is a
+        // tap, and a tap on an hour still picks that hour. This is the path
+        // the deferred pointerdown owes back.
+        if (g && !g.claimed && !g.dead && e.pointerType !== "mouse") { haptic(); move(e); }
+        downRef.current = false;
+        gestRef.current = null;
+      });
+      // Fired when the browser takes the gesture for a scroll — the scrub was
+      // never ours, so there is nothing to finish.
+      svg.addEventListener("pointercancel", () => { downRef.current = false; gestRef.current = null; });
       svg.addEventListener("pointerleave", (e) => {
         // Touch fires leave when a captured drag's element is rebuilt or the
         // finger drifts — never mid-gesture reset; up/cancel end the drag.
@@ -870,6 +937,7 @@ export default function SpotTerminal({
     <div className="tm-scope">
       <style>{`
         .tm-scope .tm-lbl{font-family:var(--rc-font-mono);font-size:12px;letter-spacing:.12em;text-transform:uppercase;font-weight:700;fill:#0F172A}
+        .tm-scope .tm-lbl-sm{font-size:10px;letter-spacing:.1em}
         .tm-scope .tm-note{font-family:var(--rc-font-mono);font-size:10px;letter-spacing:.04em;fill:#64748B}
         .tm-scope .tm-tick{font-family:var(--rc-font-mono);font-size:10px;fill:#94A3B8}
         .tm-scope .tm-cell{font-family:var(--rc-font-sans);font-size:11px;font-weight:700}
