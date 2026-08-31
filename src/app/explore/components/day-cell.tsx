@@ -43,6 +43,7 @@ export default function DayCell({
   selected,
   onSelect,
   neutralLock = false,
+  onScreen = true,
 }: {
   day: ForecastDay;
   selected: boolean;
@@ -61,11 +62,27 @@ export default function DayCell({
    * SHOULD say what unlocks it.
    */
   neutralLock?: boolean;
+  /**
+   * Whether this cell sits on a viewport that actually shows it.
+   *
+   * The Explore strip lives in a `hidden lg:flex` bar, so below 1024px React
+   * still mounts fourteen of these and CSS paints none of them: every button
+   * measures 0x0. The split-test counter believed them. Every phone load
+   * booked a `forecast_strip` exposure for a strip nobody could see, against a
+   * CTA that can only be tapped at lg and up, which dragged that surface's
+   * click rate toward zero for both arms alike.
+   *
+   * Same rule as `hasLockedDay` one layer down: a treatment nobody saw is not
+   * an exposure to it. Defaults true for the surfaces that are always drawn
+   * (the spot page, the city instrument page); only the desktop-only strip
+   * has to say otherwise.
+   */
+  onScreen?: boolean;
 }) {
   // Which locked-day treatment this visitor is in. Called on every cell,
   // locked or not, because hooks cannot be called conditionally; the counter
   // it drives dedupes across cells (see useLockedDayTreatment).
-  const lock = useLockedDayTreatment("forecast_strip", day.locked);
+  const lock = useLockedDayTreatment("forecast_strip", day.locked && onScreen);
 
   // Non-retention day: the selected species can't be kept on this date, so a
   // score would mislead. Show the regulatory label instead (takes precedence
