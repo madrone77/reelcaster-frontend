@@ -71,8 +71,18 @@ export type SpotFeatureCollection = {
   }>;
 };
 
+/**
+ * The only fields the declutter and its ranking actually read.
+ *
+ * Widened out of `RailSpot` so a surface with rows of a different shape — the
+ * city page's map, whose marks come from the hub payload — can share the one
+ * screen-space overlap rule instead of growing a second copy of it that drifts.
+ */
+export type DeclutterSpot = Pick<RailSpot, "slug" | "lat" | "lng" | "score"> &
+  Partial<Pick<RailSpot, "hours24">>;
+
 /** Hour-aware effective score — the same fallback the pin color/label uses. */
-function effectiveScore(s: RailSpot, hour?: number | null): number | null {
+function effectiveScore(s: DeclutterSpot, hour?: number | null): number | null {
   return hour != null ? (s.hours24?.[hour] ?? s.score) : s.score;
 }
 
@@ -157,7 +167,7 @@ const STROKE_PAD = 4;
  * immune — selecting a spot from the rail must never leave it invisible.
  */
 export function declutterHiddenSlugs(
-  spots: RailSpot[],
+  spots: DeclutterSpot[],
   hour: number | null | undefined,
   zoom: number,
   keepSlug: string | null,
