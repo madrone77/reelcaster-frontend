@@ -38,6 +38,11 @@ const PUBLIC_PREFIXES = [
   '/contact',
   '/about',
   '/faq',
+  // Where the getting-started email lands. It goes to free accounts as well as
+  // trials and gets opened on whichever device is to hand, which is often not
+  // the one holding the session. Nothing on it is account-specific, and a page
+  // that explains the product should not demand a login first.
+  '/welcome',
 ]
 
 // Private routes that render their OWN pending state — a skeleton of the page
@@ -88,10 +93,20 @@ export default function AuthGate({ children }: { children: React.ReactNode }) {
 
   const isPublicRoute = isPublicPath(pathname)
 
+  // Where to come back to. Kept out of the effect below so the effect does not
+  // depend on `window`, and read from the location rather than useSearchParams
+  // so this does not need a Suspense boundary wrapped around the whole app.
   useEffect(() => {
-    if (!loading && !user && !isPublicRoute) {
-      router.replace('/login')
-    }
+    if (loading || user || isPublicRoute) return
+
+    // Bouncing to a bare /login used to drop the destination, which is fine
+    // for somebody idly opening /dashboard and wrong for anybody arriving on
+    // a link: an emailed guide at /support?s=guides&id=your-spots signed them
+    // in and then landed them on a page that was not the one they clicked.
+    // /login already honours ?next= (src/lib/next-param.ts) and validates it
+    // as a same-origin path, so this only has to pass it along.
+    const here = `${window.location.pathname}${window.location.search}`
+    router.replace(`/login?next=${encodeURIComponent(here)}`)
   }, [loading, user, isPublicRoute, router])
 
   // Public routes render their children immediately — BEFORE the `loading`
