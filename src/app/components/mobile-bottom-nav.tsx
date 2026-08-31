@@ -41,7 +41,6 @@ const TABS: {
 // the page itself explains the paywall to anyone who arrives without Pro.
 const MORE_LINKS = [
   { href: "/settings/account", label: "Account" },
-  { href: "/settings/preferences", label: "Preferences" },
   { href: "/settings/units", label: "Units" },
   { href: "/alerts", label: "Alerts" },
   { href: "/support", label: "Support" },

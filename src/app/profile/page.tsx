@@ -1,15 +1,20 @@
 'use client'
 
 import Link from 'next/link'
-import { User, SlidersHorizontal, Ruler, ChevronRight } from 'lucide-react'
+import { User, Bell, Ruler, ChevronRight } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import { useAuth } from '@/contexts/auth-context'
 import { storedFirstName } from '@/lib/display-name'
 import ExploreTopBar from '@/app/explore/components/explore-top-bar'
 import { PAGE_MEASURE, READING_MEASURE } from '@/app/components/layout/page-measure'
 
-// The profile page is now a hub: the settings it used to hold in one long
-// scroll are split into three focused routes. Each row states what lives there.
+// The profile page is a hub: the settings it used to hold in one long scroll
+// are split into focused routes. Each row states what lives there.
+//
+// Preferences used to sit between Account and Units. It offered a default
+// fishing location nothing read and a notification digest that never sent, so
+// it is retired. Alerts takes the slot, because that is where an angler
+// looking for "when does this thing tell me something" should land.
 const SETTINGS: Array<{
   href: string
   label: string
@@ -23,10 +28,10 @@ const SETTINGS: Array<{
     Icon: User,
   },
   {
-    href: '/settings/preferences',
-    label: 'Preferences',
-    description: 'Default fishing location, target species, and notifications',
-    Icon: SlidersHorizontal,
+    href: '/alerts',
+    label: 'Alerts',
+    description: 'Tell us a spot and a score, and we will let you know',
+    Icon: Bell,
   },
   {
     href: '/settings/units',

@@ -88,12 +88,14 @@ src/app/
 - `/pricing`, `/billing/*` - purchase flow; `/login`, `/signup`, `/auth/*` - auth flow
 - `/about`, `/contact`, `/faq`, `/privacy`, `/terms` - info/legal pages (unwalled + restyled light 2026-07-15)
 - `/support` - **The Port**, the Pro-only support portal (guides, knowledge base, billing, status, ticketing) — added 2026-07-30, see its own section below
-- `/profile` (+ `catch-log`, `custom-alerts`, `forecast-emails`, `notification-settings`)
+- `/profile` (settings hub: Account, Alerts, Units) + `catch-log`, `custom-alerts`.
+  `forecast-emails` and `notification-settings` are permanent redirects to `/alerts`;
+  `/settings/preferences` redirects to `/profile` (retired 2026-08-30).
 - `/alerts`, `/notifications`, `/log-catch` - kept alongside the explore soft-launch
 
 The whole public surface (`/`, explore, pricing, auth, info pages) is on the light rc-* design system as of 2026-07-15; only signed-in AppShell pages (alerts, profile, billing) remain on the legacy dark theme.
 
-Deleted 2026-07: `/dashboard`, `/fishing/*`, `/historical-reports`, `/my-spots`, `/favorite-spots`, `/settings/*`, all `/admin/*` pages; `/species`, `/species/[slug]`, `/regulations` (deleted 2026-07-15 — the regulations DATA chain `/api/regulations` + `dfo-notice-service.ts` survives for /explore and notification emails; species fetchers were removed from `src/lib/bluecaster.ts` but the `bluecaster-client.ts` species list used by the log-catch wizard is untouched).
+Deleted 2026-07: `/dashboard`, `/fishing/*`, `/historical-reports`, `/my-spots`, `/favorite-spots`, `/settings/*`, all `/admin/*` pages; `/species`, `/species/[slug]`, `/regulations` (deleted 2026-07-15: the regulations DATA chain `/api/regulations` survives for /explore; `dfo-notice-service.ts` went with the retired digest; species fetchers were removed from `src/lib/bluecaster.ts` but the `bluecaster-client.ts` species list used by the log-catch wizard is untouched).
 
 ## External APIs
 
@@ -605,106 +607,35 @@ old dashboard, the `/fishing` SEO pages, and `/historical-reports`. What remains
   `src/app/data/regulations/` — used by the location
   components rendered on `/explore`. The `fishing_regulations` and `dfo_fishery_notices`
   tables still exist in Supabase but are no longer refreshed (data is frozen).
-- `src/lib/dfo-notice-service.ts` (notification emails) still reads `dfo_fishery_notices`.
-- The daily GitHub Action is now `.github/workflows/daily-jobs.yml` (scheduled
-  notifications only — the accuracy pipeline was deleted with the admin pages);
-  `scrape-data.yml` was deleted.
+- `dfo_fishery_notices` has no reader left in this repo: `src/lib/dfo-notice-service.ts`
+  was deleted with the scheduled digest.
+- `daily-jobs.yml` was deleted with the scheduled digest (2026-08-30); `scrape-data.yml`
+  went earlier. `custom-alerts.yml` is the one GitHub Action left, evaluating score
+  alerts every 30 minutes.
 - The weekly Vercel cron for regulations scraping was removed from `vercel.json`.
 
-## Automated Notification System
+## Automated Notification System: RETIRED (2026-08-30)
 
-ReelCaster features a comprehensive automated notification system that sends personalized fishing alerts to users based on their preferences and weather conditions.
+The scheduled forecast digest is gone. It ran nightly via
+`.github/workflows/daily-jobs.yml`, reported success every time, and never sent
+a single email: `last_notification_sent` was null on all five
+`notification_preferences` rows it had ever seen. It also scored days with the
+legacy `calculateOpenMeteoFishingScore` rather than BlueCaster's scores, and its
+"include regulation changes" toggle fed a function that always returned an empty
+list.
 
-### Features
+Deleted with it: `src/lib/notification-service.ts`,
+`src/lib/dfo-notice-service.ts`,
+`src/lib/email-templates/scheduled-notification.ts`,
+`src/app/api/notifications/send-scheduled/`,
+`src/app/components/notifications/`, `scripts/migrate-notification-preferences.ts`,
+and the `daily-jobs.yml` workflow. `/profile/forecast-emails` and
+`/profile/notification-settings` are permanent redirects to `/alerts`.
 
-- **Scheduled Notifications**: Daily or weekly emails sent automatically via GitHub Actions
-- **Personalized Forecasts**: Location-specific forecasts based on user-selected coordinates and radius
-- **Species-Specific Scoring**: Customized fishing scores for user's favorite species
-- **Weather Threshold Filtering**: Only send when conditions meet user's preferences
-- **Interactive Map Selection**: Mapbox GL integration for location and radius selection
-- **Comprehensive Preferences**:
-  - Location with adjustable radius (5-100km)
-  - Multiple species selection
-  - Weather thresholds (wind, waves, precipitation, temperature, UV, fishing score)
-  - Safety alerts (thunderstorms, gale warnings, pressure drops)
-  - Regulatory change notifications (bundled with scheduled emails)
-  - Frequency (daily/weekly) and timezone settings
+The `notification_preferences` table is still in Supabase and nothing reads it.
 
-### Setup Requirements
-
-**Environment Variables** (add to `.env.local`):
-```env
-# Mapbox Access Token (for location selector map)
-NEXT_PUBLIC_MAPBOX_TOKEN=your_mapbox_access_token
-
-# Cron Secret (for securing scheduled notification endpoint)
-CRON_SECRET=your_cron_secret_key
-```
-
-**GitHub Secrets** (add to repository settings):
-- `CRON_SECRET` - Same value as local CRON_SECRET for authenticating workflow requests
-
-### Database Schema
-
-- **`notification_preferences`** table stores all user preferences:
-  - Notification toggles (enabled, email, push)
-  - Schedule settings (frequency, time, timezone)
-  - Location (lat/lng, radius, name)
-  - Species preferences (array of IDs)
-  - Weather thresholds (11 different metrics)
-  - Alert toggles (3 safety alerts)
-  - Tracking (last_notification_sent timestamp)
-
-### Key Files
-
-- **Settings Page**: `/profile/notification-settings` - User preferences interface
-- **API Endpoints**:
-  - `/api/notifications/send-scheduled` - Automated notification sending
-  - `/api/notifications/preview` - Preview notification email
-- **Core Logic**: `src/lib/notification-service.ts` - Notification generation logic
-- **Email Template**: `src/lib/email-templates/scheduled-notification.ts` - Personalized HTML template
-- **Components**:
-  - `src/app/components/notifications/notification-preferences-form.tsx` - Main form
-  - `src/app/components/notifications/notification-location-selector.tsx` - Mapbox map
-  - `src/app/components/notifications/species-selector.tsx` - Multi-select species
-  - `src/app/components/notifications/weather-threshold-sliders.tsx` - Threshold controls
-  - `src/app/components/notifications/regulatory-preferences.tsx` - Regulation settings
-- **Automation**: `.github/workflows/daily-jobs.yml` - Runs daily at 2 AM UTC
-- **Migration Script**: `scripts/migrate-notification-preferences.ts` - One-time data migration
-
-### How It Works
-
-1. **User Configuration**: Users set preferences at `/profile/notification-settings`
-2. **Scheduled Trigger**: GitHub Actions workflow runs daily at 2 AM UTC
-3. **User Filtering**: System fetches users with notifications enabled
-4. **Notification Logic**:
-   - Checks if notification is due (based on frequency and last_sent)
-   - Fetches 7-day forecast for user's location
-   - Calculates fishing scores for user's species
-   - Checks weather conditions against user's thresholds
-   - Fetches regulation changes since last notification (if enabled)
-5. **Threshold Evaluation**: Only sends if conditions meet user's criteria:
-   - Fishing score >= threshold
-   - Weather within acceptable ranges
-   - Best day identified
-6. **Email Generation**: Creates personalized email with:
-   - Best fishing day highlighted
-   - 7-day forecast table
-   - Weather alerts (if any)
-   - Regulation changes (if any)
-   - Species-specific optimizations
-7. **Batch Sending**: Sends emails in batches of 20 via Resend
-8. **Timestamp Update**: Updates `last_notification_sent` for next cycle
-
-### Technology
-
-- **Map Library**: Mapbox GL JS (react-map-gl wrapper)
-- **Email Service**: Resend
-- **Automation**: GitHub Actions (daily cron job)
-- **Weather Data**: Open Meteo API (7-day forecasts)
-- **Scoring Algorithm**: Species-specific 13-factor calculation
-- **Database**: Supabase PostgreSQL with RLS policies
-
+Real-time score alerts are the live notification feature. See **Custom Alert
+Engine** below.
 
 ## Custom Alert Engine
 

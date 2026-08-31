@@ -20,7 +20,7 @@ import DangerZoneCard from '@/app/components/account/danger-zone-card'
 /**
  * Account settings — identity, plan, support, and the destructive actions.
  * One of the three buckets the old monolithic /profile page split into
- * (see /profile landing, plus /settings/preferences and /settings/units).
+ * (see /profile landing, plus /settings/units).
  */
 export default function AccountSettingsPage() {
   const { user, signOut } = useAuth()
