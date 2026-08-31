@@ -10,7 +10,6 @@ import {
   useState,
 } from 'react';
 import Link from 'next/link';
-import { ArrowDown } from 'lucide-react';
 import { useAuth } from '@/contexts/auth-context';
 import { supabase } from '@/lib/supabase';
 import { useUpgradeFlow } from '@/hooks/use-upgrade-flow';
@@ -416,20 +415,17 @@ export function TrialBuy({
               is also true for a repeat customer who has no trial left — one
               string that never has to promise something checkout would refuse.
 
-              items-end keeps the arrow on the last line of a wrapped label, so
-              it stays next to the field it's pointing at. */}
+              A bouncing arrow used to point from this label down at the field.
+              The label already sits directly on top of the box it names, so the
+              arrow was moving decoration on a form that asks for one thing. */}
           <label
             htmlFor={emailFieldId}
             className={cn(
-              'flex items-end gap-2 text-base sm:text-lg font-black tracking-[-0.01em]',
+              'block text-balance text-base sm:text-lg font-black tracking-[-0.01em]',
               s.isLight ? 'text-rc-ink' : 'text-rc-text',
             )}
           >
-            <span className="text-balance">Enter your email to begin</span>
-            <ArrowDown
-              aria-hidden
-              className="mb-0.5 h-5 w-5 shrink-0 animate-bounce text-rc-good motion-reduce:animate-none"
-            />
+            Enter your email to begin
           </label>
           <input
             id={emailFieldId}

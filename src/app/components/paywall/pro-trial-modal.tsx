@@ -142,6 +142,23 @@ export default function ProTrialModal({
       <DialogContent
         data-testid="pro-trial-modal"
         data-feature={feature}
+        /* Open with nothing focused.
+
+           Radix focuses the first tabbable thing inside the content when the
+           dialog opens, and on this modal that is the email field, because the
+           wallet buttons above it render nothing for most visitors. On a phone
+           the software keyboard then comes up with the modal, covering the
+           headline, the price and the button before the reader has read any of
+           it: the offer is sold from the top, so the top is what has to be on
+           screen. The keyboard belongs to the moment the angler taps the field.
+
+           Focus moves to the panel itself instead of being left on the trigger
+           behind the scrim, so the tab order starts inside the dialog and Esc
+           still closes it. */
+        onOpenAutoFocus={(event) => {
+          event.preventDefault();
+          (event.currentTarget as HTMLElement | null)?.focus();
+        }}
         className="bg-rc-panel border-rc-rule text-rc-ink p-0 gap-0 sm:max-w-lg max-h-[88dvh] flex flex-col overflow-hidden [&>[data-slot=dialog-close]]:z-20"
       >
         {/* overscroll-contain so a flick past the end of the modal on a phone
