@@ -1,5 +1,21 @@
 import Image from 'next/image';
+import { Home, Map, NotebookPen, MoreHorizontal } from 'lucide-react';
+import type { LucideIcon } from 'lucide-react';
 import type { ReactNode } from 'react';
+
+/**
+ * The tab bar's four tabs, in MobileBottomNav's order, with Explore lit
+ * because Explore is what the screen is showing. Same icons from the same
+ * set: a hand-drawn approximation of the bar would be the picture disagreeing
+ * with the app again, in the one place a reader can check it against the
+ * screenshot in the App Store.
+ */
+const TABS: { label: string; Icon: LucideIcon; active?: boolean }[] = [
+  { label: 'Home', Icon: Home },
+  { label: 'Explore', Icon: Map, active: true },
+  { label: 'Catch log', Icon: NotebookPen },
+  { label: 'More', Icon: MoreHorizontal },
+];
 
 /**
  * The product on an iPhone: a portrait device shell with the Explore top bar,
@@ -72,6 +88,38 @@ export default function PhoneFrame({
 
           <div className="absolute inset-x-0 top-[calc(116*var(--sp))] bottom-0 overflow-hidden">
             {children}
+
+            {/* The tab bar, floating over the map exactly as it does in the
+                app: a detached pill inset 16 from the sides and 12 up from
+                the bottom, 64 tall, 16 of radius, four columns. Icons at 20
+                and labels at 10, which are MobileBottomNav's own numbers.
+
+                It is inside the screen rather than beside it because it is
+                part of the product being shown. Until it was here the phone
+                was a map with a header, which is a website; the bar is what
+                says this is an app you carry. */}
+            <div
+              aria-hidden
+              className="absolute inset-x-[calc(16*var(--sp))] bottom-[calc(12*var(--sp))] grid h-[calc(64*var(--sp))] grid-cols-4 rounded-[calc(16*var(--sp))] border border-rc-rule bg-rc-panel/95 shadow-[0_6px_24px_rgba(15,23,42,0.18)] backdrop-blur-md"
+            >
+              {TABS.map(({ label, Icon, active }) => (
+                <div
+                  key={label}
+                  className={`flex flex-col items-center justify-center gap-[calc(2*var(--sp))] ${
+                    active ? 'text-rc-brand' : 'text-rc-ink-mute'
+                  }`}
+                >
+                  <Icon
+                    className="h-[calc(20*var(--sp))] w-[calc(20*var(--sp))]"
+                    fill="none"
+                    strokeWidth={active ? 2.4 : 2}
+                  />
+                  <span className="text-[calc(10*var(--sp))] font-medium tracking-[0.01em] whitespace-nowrap">
+                    {label}
+                  </span>
+                </div>
+              ))}
+            </div>
           </div>
         </div>
       </div>
