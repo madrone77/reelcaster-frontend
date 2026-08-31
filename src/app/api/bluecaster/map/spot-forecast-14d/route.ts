@@ -39,6 +39,10 @@ export async function GET(request: NextRequest) {
     .slice(0, MAX_SPOT_IDS);
   const citySlug = sp.get("city") ?? undefined;
   const bbox = sp.get("bbox") ?? undefined;
+  // Forwarded verbatim; upstream rejects a non-uuid with a 400. Part of this
+  // URL, so it is part of the cache key that keeps a filtered read off an
+  // unfiltered one.
+  const species = sp.get("species") ?? undefined;
 
   if (spotIds.length === 0 && !citySlug && !bbox) {
     return NextResponse.json(
@@ -58,7 +62,12 @@ export async function GET(request: NextRequest) {
   // same URL — passing the viewer id forces an uncached upstream fetch. City
   // and bbox scopes stay on the published set and keep their shared entry.
   const data = await fetchSpotsOutlook14d(
-    { spotIds: spotIds.length ? spotIds : undefined, citySlug, bbox },
+    {
+      spotIds: spotIds.length ? spotIds : undefined,
+      citySlug,
+      bbox,
+      speciesId: species,
+    },
     spotIds.length && userId ? { viewerId: userId } : {},
   );
   if (!data) {

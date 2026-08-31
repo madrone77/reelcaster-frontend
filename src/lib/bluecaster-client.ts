@@ -525,12 +525,14 @@ export async function fetchSpotRecentReports(
  *  the route reads `Authorization: Bearer`, not cookies, so a bare fetch would
  *  authenticate as nobody and quietly hand a Pro angler the 2-day payload. */
 export async function fetchSpotsOutlook14d(
-  scope: { spotIds?: string[]; citySlug?: string },
+  scope: { spotIds?: string[]; citySlug?: string; speciesId?: string },
 ): Promise<SpotsOutlook14dPayload | null> {
   const qs = new URLSearchParams();
   if (scope.spotIds?.length) qs.set("spots", scope.spotIds.join(","));
   if (scope.citySlug) qs.set("city", scope.citySlug);
+  // A scope is still required — a species alone is not one.
   if ([...qs.keys()].length === 0) return null;
+  if (scope.speciesId) qs.set("species", scope.speciesId);
 
   const { data } = await supabase.auth.getSession();
   const token = data.session?.access_token;

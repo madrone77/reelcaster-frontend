@@ -1179,26 +1179,35 @@ export default function ExploreShell({
   // Bulk, lazy, and cached by spot id: one request covers the whole deck the
   // carousel can swipe through, it only fires once a preview is actually
   // opened (the browse list never needs it), and swiping never refetches.
+  // Keyed by species AND spot: the same spot's fortnight is a different set of
+  // numbers under a filter than without one, so a filtered read must never be
+  // served an unfiltered entry.
   const outlookRef = useRef<Map<string, (SpotOutlookDayPeak | null)[]>>(
     new Map(),
   );
   const [outlookVersion, setOutlookVersion] = useState(0);
+  const outlookKey = useCallback(
+    (spotId: string) => `${speciesFilter ?? "best"}:${spotId}`,
+    [speciesFilter],
+  );
 
   useEffect(() => {
     const id = selectedSpot?.id;
-    if (!id || outlookRef.current.has(id)) return;
+    if (!id || outlookRef.current.has(outlookKey(id))) return;
     // Ask for the whole deck, not just this spot: the carousel is ordered by
     // distance from the tapped pin and swiping walks it, so the next card is
     // already known. The route caps the id list itself.
     const ids = railSpots.map((sp) => sp.id);
     if (!ids.includes(id)) ids.unshift(id);
     let cancelled = false;
-    fetchSpotsOutlook14d({ spotIds: ids })
+    // Scoped to the pinned species when there is one, so the strip under a
+    // filtered card reads that species rather than whatever outscored it.
+    fetchSpotsOutlook14d({ spotIds: ids, speciesId: speciesFilter ?? undefined })
       .then((p) => {
         if (cancelled || !p?.by_spot) return;
         if (outlookRef.current.size > 400) outlookRef.current.clear();
         for (const [spotId, cells] of Object.entries(p.by_spot)) {
-          outlookRef.current.set(spotId, cells);
+          outlookRef.current.set(outlookKey(spotId), cells);
         }
         setOutlookVersion((v) => v + 1);
       })
@@ -1206,7 +1215,7 @@ export default function ExploreShell({
     return () => {
       cancelled = true;
     };
-  }, [selectedSpot?.id, railSpots]);
+  }, [selectedSpot?.id, railSpots, speciesFilter, outlookKey]);
 
   // The strip the preview dock gets. Same calendar, same locks, same weather
   // as the viewport model — only the numbers are re-pointed at this spot, and
@@ -1215,15 +1224,25 @@ export default function ExploreShell({
   // is still in flight, which keeps the strip's shape steady.
   const previewStripModel: ForecastStripModel | null = useMemo(() => {
     if (!stripModel || !selectedSpot) return stripModel;
-    const cells = outlookRef.current.get(selectedSpot.id);
+    const cells = outlookRef.current.get(outlookKey(selectedSpot.id));
     if (!cells) return stripModel;
     return buildSpotStripFromOutlook(stripModel, cells, {
       speciesFilter,
-      override: { iso: selectedIso, hours: selectedSpot.hours24 },
+      // The override pins the selected day to the card's own series so the two
+      // can never disagree — but ONLY when no species is pinned. Under a
+      // filter the card's score is remapped from `scoresBySpecies`, while
+      // `hours24` is left as the BEST-species series, so pinning to it puts
+      // the wrong fish's number on the day: a coho card read 86 over a tile
+      // reading the day's 89 crab peak, which is the exact contradiction this
+      // whole path exists to remove. Filtered, the outlook cell is already
+      // scored for the pinned species and is the better authority.
+      override: speciesFilter
+        ? null
+        : { iso: selectedIso, hours: selectedSpot.hours24 },
     });
     // outlookVersion is the signal that `outlookRef` gained this spot's cells.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [stripModel, selectedSpot, speciesFilter, selectedIso, outlookVersion]);
+  }, [stripModel, selectedSpot, speciesFilter, selectedIso, outlookVersion, outlookKey]);
 
   // Viewport centre, handed to search purely as a tie-break between equally
   // good text matches. Search stays global — this never hides a distant hit.
