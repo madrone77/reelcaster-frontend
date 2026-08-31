@@ -1,5 +1,5 @@
 /**
- * Which channel carries which beat of a score alert.
+ * Which channel carries a score-alert digest.
  *
  * Pulled out of the send loop because this is a rule about whether a paying
  * angler hears anything at all, and it is worth being able to test it without
@@ -8,23 +8,39 @@
 
 import type { AlertBeat } from '@/lib/custom-alert-engine';
 
+/** The part of a digest item this decision reads. */
+export interface DigestItemChannels {
+  beat: AlertBeat;
+  /** The delivery channels this item's own alert asked for. */
+  channels: string[];
+}
+
 /**
- * Does SMS carry this beat, for someone who picked these channels?
+ * Does a text go out for this digest, and if so about which items?
  *
- * Normally no for a heads-up: it is a planning message up to six days out,
- * planning happens at a desk, and three texts about one fishing day is how an
- * alert gets muted. The heads-up goes by email and the phone stays quiet until
- * the day is real.
+ * A text is for a day you can still act on. A heads-up can be six days out,
+ * planning that far ahead happens at a desk, and a text about next Saturday is
+ * how an alert gets muted. So SMS carries a digest holding at least one
+ * confirm, and stays quiet for one that is heads-ups only.
  *
- * That rule assumed an email address was always in the mix. For someone who
- * asked for texts and nothing else it had no fallback, so the heads-up was
- * dropped on the floor: recorded as "No channel delivered", never retried, and
- * the angler heard about a good day only on the morning before it, never early
- * enough to book the day off. Being told late is the thing the lead time exists
- * to prevent, so when SMS is all they picked, SMS carries everything.
+ * The exception is an alert that asked for texts and nothing else. The rule
+ * used to assume an email address was always in the mix; without one it had no
+ * fallback, so the heads-up was dropped on the floor, recorded as "No channel
+ * delivered", and the angler heard about a good day only on the morning before
+ * it. Being told late is the thing lead time exists to prevent.
+ *
+ * ⚠️ Judged per item, not on the union of the user's channels. A digest pools
+ * several alerts, and a user with one email alert and one SMS-only alert has
+ * "email" in that union: reading the exception off the union would decide they
+ * can be reached by email, while the email is built only from the alerts that
+ * asked for email and would never mention the SMS-only spot. That item falls
+ * through both channels and is lost, which is exactly the failure this
+ * exception was added to prevent.
  */
-export function smsCarriesBeat(beat: AlertBeat, channels: string[]): boolean {
-  if (!channels.includes('sms')) return false;
-  if (beat === 'confirm' || beat === 'stand_down') return true;
-  return !channels.includes('email');
+export function smsCarriesDigest(items: DigestItemChannels[]): boolean {
+  const smsItems = items.filter((i) => i.channels.includes('sms'));
+  if (smsItems.length === 0) return false;
+  if (smsItems.some((i) => i.beat === 'confirm')) return true;
+  // Nothing else can carry these, so the text does.
+  return smsItems.some((i) => !i.channels.includes('email'));
 }

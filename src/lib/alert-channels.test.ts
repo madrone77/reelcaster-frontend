@@ -8,21 +8,44 @@
  */
 
 import assert from 'node:assert/strict';
-import { smsCarriesBeat } from './alert-channels';
+import { smsCarriesDigest, type DigestItemChannels } from './alert-channels';
 
-// Email and SMS: the phone stays quiet until the day is real.
-assert.equal(smsCarriesBeat('heads_up', ['email', 'sms']), false);
-assert.equal(smsCarriesBeat('confirm', ['email', 'sms']), true);
-assert.equal(smsCarriesBeat('stand_down', ['email', 'sms']), true);
+const headsUp = (channels: string[]): DigestItemChannels => ({ beat: 'heads_up', channels });
+const confirm = (channels: string[]): DigestItemChannels => ({ beat: 'confirm', channels });
 
-// SMS only: every beat goes by text, because nothing else can carry it.
-assert.equal(smsCarriesBeat('heads_up', ['sms']), true);
-assert.equal(smsCarriesBeat('confirm', ['sms']), true);
-assert.equal(smsCarriesBeat('stand_down', ['sms']), true);
+// Email and SMS on the same alert: the phone stays quiet until a day is real.
+assert.equal(smsCarriesDigest([headsUp(['email', 'sms'])]), false);
+assert.equal(smsCarriesDigest([confirm(['email', 'sms'])]), true);
 
-// No SMS at all: never, whatever the beat.
-assert.equal(smsCarriesBeat('heads_up', ['email']), false);
-assert.equal(smsCarriesBeat('confirm', ['email']), false);
-assert.equal(smsCarriesBeat('stand_down', []), false);
+// A confirm anywhere in the digest earns the text, even riding with heads-ups.
+assert.equal(
+  smsCarriesDigest([headsUp(['email', 'sms']), confirm(['email', 'sms'])]),
+  true,
+);
+
+// An alert that asked for texts and nothing else: the text is the only way to
+// reach them, so it carries the heads-up.
+assert.equal(smsCarriesDigest([headsUp(['sms'])]), true);
+
+// ⚠️ The regression that matters. One email-only alert and one SMS-only alert
+// in the same digest. Judged on the union of channels this reads as "they have
+// email, so hold the heads-up" while the email is built only from the
+// email-only alert and never mentions the SMS-only spot. That item would fall
+// through both channels and be lost.
+assert.equal(
+  smsCarriesDigest([headsUp(['email']), headsUp(['sms'])]),
+  true,
+  'an SMS-only alert must still be texted when another alert happens to use email',
+);
+
+// The email-only item alone earns no text, even next to an email+sms heads-up.
+assert.equal(
+  smsCarriesDigest([headsUp(['email']), headsUp(['email', 'sms'])]),
+  false,
+);
+
+// No SMS anywhere: never.
+assert.equal(smsCarriesDigest([headsUp(['email']), confirm(['email'])]), false);
+assert.equal(smsCarriesDigest([]), false);
 
 console.log('alert-channels: ok');
