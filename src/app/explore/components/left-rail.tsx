@@ -20,6 +20,9 @@ import type { FreshCatchesResponse } from "../lib/fresh-catch-types";
 
 interface MapControlsProps {
   relief: boolean;
+  /** The depth gate applies — see @/lib/preview-gate. */
+  depthLocked?: boolean;
+  onUnlockDepth?: () => void;
   currents: boolean;
   wind: boolean;
   onToggleRelief: () => void;
@@ -200,6 +203,8 @@ export default function LeftRail({
               <div className="flex items-center gap-1.5">
                 <MapFilterChips
                   relief={mapControls.relief}
+                  depthLocked={mapControls.depthLocked}
+                  onUnlockDepth={mapControls.onUnlockDepth}
                   currents={mapControls.currents}
                   wind={mapControls.wind}
                   onToggleRelief={mapControls.onToggleRelief}

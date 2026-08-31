@@ -82,8 +82,15 @@ type SearchParams = Promise<Record<string, string | string[] | undefined>>;
  *
  * Written once because it was written twice: a link that drops the zoom is
  * indistinguishable from one that keeps it until somebody lands on it.
+ *
+ * Points at /m/explore, not /explore. That route is the same map behind the
+ * paid-marketing frame: the visitor gets the whole thing, is asked once for a
+ * free account when the click count says they are using it, and loses the depth
+ * layers if they say no. See @/lib/preview-gate. It is deliberately the ONLY
+ * CTA on this page that moved — the trial forms still go to checkout, because
+ * this gate asks for an email and those ask for a card.
  */
-const exploreHref = (slug: string) => `/explore?loc=${slug}&z=10`;
+const exploreHref = (slug: string) => `/m/explore?loc=${slug}&z=10`;
 
 /** The one label, so the nav, the hero and the close cannot disagree. */
 const CTA_LABEL = "Start Exploring Free";

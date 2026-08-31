@@ -17,6 +17,10 @@ interface MobileFilterSheetProps {
   open: boolean;
   onClose: () => void;
   relief: boolean;
+  /** The depth gate applies: the bathymetry row becomes the way back.
+   *  See @/lib/preview-gate. */
+  depthLocked?: boolean;
+  onUnlockDepth?: () => void;
   currents: boolean;
   wind: boolean;
   onToggleRelief: () => void;
@@ -225,6 +229,8 @@ export default function MobileFilterSheet({
   open,
   onClose,
   relief,
+  depthLocked = false,
+  onUnlockDepth,
   currents,
   wind,
   onToggleRelief,
@@ -447,11 +453,27 @@ export default function MobileFilterSheet({
                   { value: "wind", label: "Wind" },
                 ]}
               />
-              <SwitchRow
-                label="Bathymetry"
-                checked={relief}
-                onChange={onToggleRelief}
-              />
+              {/* Locked: a row, not a switch. A switch that flips back on its
+                  own would read as a bug, and a missing row would leave the
+                  phone with no way back at all — the desktop chip is the only
+                  other one. */}
+              {depthLocked ? (
+                <button
+                  type="button"
+                  onClick={onUnlockDepth}
+                  data-testid="depth-unlock-mobile"
+                  className="flex min-h-12 w-full items-center justify-between gap-3 text-left text-base font-semibold text-rc-brand"
+                >
+                  Bathymetry
+                  <span className="text-sm font-medium">Free account</span>
+                </button>
+              ) : (
+                <SwitchRow
+                  label="Bathymetry"
+                  checked={relief}
+                  onChange={onToggleRelief}
+                />
+              )}
             </div>
 
             <button

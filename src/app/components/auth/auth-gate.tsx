@@ -23,6 +23,10 @@ const PUBLIC_PREFIXES = [
   '/billing/success',
   '/billing/cancel',
   '/explore',
+  // The paid-marketing frame of the same map (/m/explore). Cold ad traffic
+  // arrives here with no account by definition — that is the entire premise —
+  // so gating it to /login would bounce every visitor the ad just paid for.
+  '/m/',
   '/favorites',
   '/fishing',
   // Cold-traffic ad landing pages (/lp/1/{city}). Visitors arrive straight from
