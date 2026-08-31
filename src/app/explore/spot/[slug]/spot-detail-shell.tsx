@@ -1349,18 +1349,34 @@ export default function SpotDetailShell({
                 bands start 6px in and stop 20px short of the right on desktop,
                 0.5px/10px on the mobile variant — and the lg breakpoint is
                 exactly where the two SVGs swap. Measured, not guessed. */}
-            <div className="mt-5 ml-[0.5px] mr-[10px] lg:ml-[6px] lg:mr-[20px]">
-              <CurrentConditionsStrip
-                rightNow={tilesSnapshot}
-                score={hours24?.[selectedHour] ?? null}
-                currentSigned={chartCurrent}
-                currentSample={
-                  (activeIso ? curByIso[activeIso]?.[selectedHour] : null) ?? null
-                }
-                point={point}
-                hour={selectedHour}
-                isNow={dayIndex === 0 && selectedHour === nowHour}
-              />
+            {/* Pinned on phones. The strip IS the graph's readout, and the
+                graph is ~600px tall on a device with 660px of viewport, so a
+                readout that scrolls with it is off screen for most of the
+                scrub: a finger on the WIND row was moving numbers sitting 600px
+                above the top of the phone. Sticky keeps them under the thumb
+                for the whole gesture and costs nothing on desktop, where the
+                hover pill already follows the cursor.
+
+                `top-0` because nothing on this route is fixed to the top of the
+                viewport. The bleed margins put the opaque backdrop under the
+                page gutter as well as the content, so the chart does not show
+                through beside it while it is pinned — and they are safe inside
+                the body's `overflow-x-clip`, which is deliberately `clip` and
+                not `hidden` precisely so sticky still works in here. */}
+            <div className="mt-5 max-lg:sticky max-lg:top-0 max-lg:z-20 max-lg:-mx-4 max-lg:px-4 sm:max-lg:-mx-6 sm:max-lg:px-6 max-lg:pb-2 max-lg:bg-rc-panel">
+              <div className="ml-[0.5px] mr-[10px] lg:ml-[6px] lg:mr-[20px]">
+                <CurrentConditionsStrip
+                  rightNow={tilesSnapshot}
+                  score={hours24?.[selectedHour] ?? null}
+                  currentSigned={chartCurrent}
+                  currentSample={
+                    (activeIso ? curByIso[activeIso]?.[selectedHour] : null) ?? null
+                  }
+                  point={point}
+                  hour={selectedHour}
+                  isNow={dayIndex === 0 && selectedHour === nowHour}
+                />
+              </div>
             </div>
             <SpotTerminal
               hours={terminalHours}
