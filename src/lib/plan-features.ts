@@ -339,11 +339,14 @@ export const NAG_FEATURES: Record<NagFeatureId, NagFeature> = {
     rowId: "ad-free",
     pricingFeature: "remove-ads",
   },
-  // The proactive ask, and the only entry here that no click asked for: it
-  // fires off the engagement count in lib/upgrade-nag.ts, when somebody has
-  // used the map enough to be worth asking and has not hit a wall on their
-  // own. Nothing was blocked, so there is no row to highlight and the whole
-  // matrix is the pitch, same as "support the map".
+  // NOTHING OPENS THIS TODAY. It was the proactive ask on /explore and the
+  // spot page, the only entry here that no click asked for, and both were
+  // removed after seven days of impressions with no clicks at all: the
+  // headline promises to unlock a map that was never locked, which is a poor
+  // pitch to interrupt someone with. The entry stays because the copy is the
+  // one thing that was not wrong with it, and a future ask that a visitor
+  // actually initiates could use it. Nothing was blocked, so there is no row
+  // to highlight and the whole matrix is the pitch, same as "support the map".
   "whole-map": {
     action: "open the whole map",
     headline: "Unlock the whole map",

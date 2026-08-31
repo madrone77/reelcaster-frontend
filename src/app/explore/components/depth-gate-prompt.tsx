@@ -28,9 +28,11 @@ import { FREE_FORECAST_DAYS } from "@/lib/forecast-horizon";
  * account does not get it, and a gate that oversells is worse than one that
  * asks twice.
  *
- * WHEN IT OPENS is not this component's business — it rides the same engagement
- * count every other proactive ask on this page uses (@/lib/upgrade-nag), so the
- * two can never both fire in one visit.
+ * WHEN IT OPENS is not this component's business — it rides the engagement
+ * count in @/lib/upgrade-nag. It used to share that count with an unprompted
+ * Pro ask, and the sharing was what stopped the two firing in one visit; that
+ * ask has since been removed for converting at zero, so this is now the only
+ * thing the count opens.
  *
  * THE DISMISS IS PLAIN. "Not right now" and nothing else: no confirm-shaming,
  * no second thought, no smaller print explaining what they are giving up. The

@@ -124,9 +124,9 @@ export default function ProTrialModal({
     });
     bumpCounter("impression");
     // The plan matrix is now on screen, however it got there, so the
-    // engagement nag on /explore starts its count over rather than opening a
-    // second copy of this modal a few clicks later. It restarts at what a lock
-    // is worth, not at zero, because walking into a wall is the strongest buy
+    // engagement count on /explore starts over rather than letting the depth
+    // gate open on top of it a few clicks later. It restarts at what a lock is
+    // worth, not at zero, because walking into a wall is the strongest buy
     // signal the page has. Harmless everywhere else: off /explore nothing
     // reads the count. See lib/upgrade-nag.ts.
     noteWallShown();
