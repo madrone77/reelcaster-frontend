@@ -28,7 +28,7 @@ import {
   useSearch,
   type SearchResult,
 } from "../lib/use-search";
-import { useVisualViewport } from "../lib/use-visual-viewport";
+import { useVisualViewport } from "@/hooks/use-visual-viewport";
 
 interface MapControlsProps {
   relief: boolean;

@@ -110,7 +110,7 @@ export const viewport: Viewport = {
   // The trade is that a bottom-pinned element can be covered by the keyboard,
   // so anything pinned to the bottom *with a field in it* has to measure
   // `window.visualViewport` and sit above it — see
-  // `src/app/explore/lib/use-visual-viewport.ts`.
+  // `src/hooks/use-visual-viewport.ts`.
   interactiveWidget: 'resizes-visual',
 }
 

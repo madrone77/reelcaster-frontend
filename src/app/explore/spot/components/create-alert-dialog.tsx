@@ -202,7 +202,7 @@ export default function CreateAlertDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="bg-rc-panel border-rc-rule text-rc-ink sm:max-w-lg p-6 max-h-[90vh] overflow-y-auto">
+      <DialogContent className="bg-rc-panel border-rc-rule text-rc-ink sm:max-w-lg p-6">
         <DialogTitle className="sr-only">
           Create a score alert for {spot.name}
         </DialogTitle>

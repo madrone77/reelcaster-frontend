@@ -33,7 +33,7 @@ export default function LogCatchDialog({
 }) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="bg-rc-panel border-rc-rule text-rc-ink sm:max-w-md p-6 max-h-[88vh] overflow-y-auto">
+      <DialogContent className="bg-rc-panel border-rc-rule text-rc-ink sm:max-w-md p-6">
         <DialogTitle className="sr-only">Log a catch at {spot.name}</DialogTitle>
         <DialogDescription className="sr-only">
           Record the fish you landed: species, size, photo and notes.
