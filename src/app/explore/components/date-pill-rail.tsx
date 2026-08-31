@@ -15,7 +15,6 @@ import type {
   LockTier,
 } from "../lib/forecast-strip";
 import { useLockedDayTreatment } from "@/app/components/split-test/use-locked-day";
-import LockedGauze from "./locked-gauze";
 import UpgradeDialog from "./upgrade-dialog";
 
 /** Score colour per tier — the same tokens the day cells and the sheet use. */
@@ -224,33 +223,42 @@ export default function DatePillRail({
                        the top edge read as a rendering fault.
 
                        Colouring the whole tile needs no room at all, and gold
-                       against thirteen grey-ruled white tiles is the loudest
-                       thing on the pill. Selected AND best keeps the brand
-                       fill and takes the gold border, so picking the best day
-                       doesn't erase the fact that it is the best day. */
-                    className={`relative flex w-[52px] shrink-0 snap-center flex-col items-center justify-center gap-0.5 overflow-hidden rounded transition-colors focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-rc-brand ${
-                      day.isBest && showBest
-                        ? isSel
-                          ? "border-2 border-rc-badge bg-rc-brand text-white"
-                          : "border-2 border-rc-badge bg-rc-badge/12 text-rc-ink"
-                        : isSel
-                          ? "border border-rc-brand bg-rc-brand text-white"
-                          : "border border-rc-rule bg-rc-panel text-rc-ink active:bg-rc-surface"
+                       against thirteen grey-ruled tiles is the loudest thing
+                       on the pill. Selected AND best keeps the brand fill and
+                       takes the gold border, so picking the best day doesn't
+                       erase the fact that it is the best day.
+
+                       Locked is tested first and beats all of it, the way the
+                       strip's DayCell returns its locked cell before it can
+                       reach any other state. A locked day sits in the sunk
+                       grey the strip uses, so "you cannot have this one" reads
+                       the same on a phone as it does on a desktop. It cannot
+                       actually be selected, since handleDay opens the upgrade
+                       sheet instead of calling onSelectDay, and a day with no
+                       score cannot be the best one, so the branches below it
+                       are unreachable for a locked day rather than merely
+                       losing to it. */
+                    className={`flex w-[52px] shrink-0 snap-center flex-col items-center justify-center gap-0.5 rounded transition-colors focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-rc-brand ${
+                      day.locked
+                        ? "border border-rc-rule bg-rc-surface text-rc-ink"
+                        : day.isBest && showBest
+                          ? isSel
+                            ? "border-2 border-rc-badge bg-rc-brand text-white"
+                            : "border-2 border-rc-badge bg-rc-badge/12 text-rc-ink"
+                          : isSel
+                            ? "border border-rc-brand bg-rc-brand text-white"
+                            : "border border-rc-rule bg-rc-panel text-rc-ink active:bg-rc-surface"
                     }`}
                   >
-                    {/* The same frosted glass the strip's DayCell wears, at
-                        pill scale, for the arm that gets it. */}
-                    {day.locked && lock.gauze && <LockedGauze variant="tile" />}
-
                     <span
-                      className={`relative rc-label text-[9px] leading-none ${
+                      className={`rc-label text-[9px] leading-none ${
                         isSel ? "text-white/75" : ""
                       }`}
                     >
                       {day.index === 0 ? "Today" : day.dow}
                     </span>
                     <span
-                      className={`relative font-rc-mono text-[10px] leading-none ${
+                      className={`font-rc-mono text-[10px] leading-none ${
                         isSel ? "text-white/85" : "text-rc-ink-soft"
                       }`}
                     >
@@ -274,7 +282,7 @@ export default function DatePillRail({
                       </span>
                     ) : day.locked ? (
                       <Lock
-                        className={`relative h-3.5 w-3.5 ${
+                        className={`h-3.5 w-3.5 ${
                           isSel ? "text-white" : "text-rc-ink-soft"
                         }`}
                       />
@@ -287,7 +295,6 @@ export default function DatePillRail({
                         {day.score ?? "—"}
                       </span>
                     )}
-
                   </button>
                 );
               })}

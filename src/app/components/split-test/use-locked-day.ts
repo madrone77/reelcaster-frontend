@@ -1,21 +1,21 @@
 'use client';
 
 /**
- * Which locked-day treatment this visitor gets, and the two counters that
- * decide whether it was worth doing.
+ * The two counters on a locked forecast day: who saw one, and who tapped it.
  *
- * The question: a locked forecast day used to be an empty grey slot with a
- * padlock on it, which reads as "nothing here". Arm b puts the day behind
- * frosted glass instead — green where the score would be, blurred past
- * reading (see components/explore/locked-gauze.tsx). Does a day that looks
- * like it is hiding something get tapped more than a day that looks empty?
+ * There was a treatment here once. Arm b put the locked day behind frosted
+ * glass, green where the score would be, blurred past reading. It was pulled
+ * because the green was always the GOOD green on every locked day, whatever
+ * the day was actually worth: the client is never sent the score, so the tile
+ * could only ever invent one, and it invented a good one every time. A tile
+ * that promises a good day it cannot know is a promise the next screen breaks,
+ * and tap rate is the one number that would have called that a win.
  *
- * CONTROL IS TODAY'S LOOK, and it is also what everybody gets while the
- * registry says draft, which is the state this ships in. `useSplitArms`
- * returns nothing until /api/split-tests answers, so a visitor in arm b sees
- * the padlock for one round trip and then the glass. That flicker is the cost
- * of leaving these pages cacheable, and it is the same trade `usePricing`
- * documents next door.
+ * What is left is measurement with nothing to measure between: every visitor
+ * gets the padlock on sunk grey. The counters stay because "do people tap a
+ * locked day at all" is still worth knowing, and because the honest version of
+ * this test (a real good/fair/poor band per locked day, sent from the server
+ * instead of nulled) would want the same two events.
  */
 
 import { useEffect } from 'react';
@@ -23,9 +23,6 @@ import { useSplitArms } from './use-pricing';
 import { reportSplitArmCta, reportSplitArmExposure } from './report';
 
 export const LOCKED_DAY_TEST = 'locked_day_gauze_v1';
-
-/** The arm that draws the gauze. Anything else, including no arm, is control. */
-const GAUZE_ARM = 'b';
 
 /**
  * One exposure per arm per surface per page load, not one per locked day.
@@ -44,8 +41,6 @@ const GAUZE_ARM = 'b';
 const seen = new Set<string>();
 
 export interface LockedDayTreatment {
-  /** Draw the frosted-glass lock rather than the plain padlock. */
-  gauze: boolean;
   /** Call when a locked day is tapped. No-op outside the test. */
   reportTap: () => void;
 }
@@ -76,7 +71,6 @@ export function useLockedDayTreatment(
   }, [variant, hasLockedDay, surface]);
 
   return {
-    gauze: variant === GAUZE_ARM,
     reportTap: () => {
       if (!variant) return;
       reportSplitArmCta(LOCKED_DAY_TEST, variant, surface);
