@@ -76,12 +76,34 @@ type SearchParams = Promise<Record<string, string | string[] | undefined>>;
 /**
  * Where every CTA on the page goes.
  *
- * z=10 frames the city the way the app's own view of it does. Without it
- * Explore opens a city at zoom 9, which on this water pulls back far enough to
- * show sea nobody in this ad is launching into.
+ * NO z. Explore's own opening logic owns the frame, and this line must not
+ * fight it.
  *
- * Written once because it was written twice: a link that drops the zoom is
- * indistinguishable from one that keeps it until somebody lands on it.
+ * It used to append z=10, on the argument that zoom 9 pulls back far enough to
+ * show sea nobody in this ad is launching into. That argument was never
+ * measured, and it is wrong. Measured on production 2026-08-31, iPhone 13
+ * viewport, twenty seconds to settle, count read off the sheet header:
+ *
+ *     city              z=10          no z
+ *     seattle-wa        3 spots       12 spots
+ *     vancouver-bc      4 spots       30 spots
+ *     victoria-bc      16 spots       47 spots
+ *     nanaimo-bc        6 spots       17 spots
+ *     friday-harbor-wa 11 spots       27 spots
+ *
+ * z=10 does not tighten the frame onto the water, it centres on the CITY, and
+ * a coastal city at zoom 10 is mostly land. Seattle at z=10 fills the screen
+ * with King County and leaves two score pucks on it; at the default the frame
+ * is Puget Sound and six pucks are up. No city was better with the param, so
+ * there is nothing here to make per-city.
+ *
+ * That matters because of what the page says directly above the button: "We
+ * scored all 15 so you can skip 14." A reader who is promised fifteen and
+ * lands on three has been told the product is smaller than it is, by the link
+ * itself.
+ *
+ * Written once because it was written twice: a link that adds a zoom is
+ * indistinguishable from one that does not until somebody lands on it.
  *
  * Points at /explore. It briefly pointed at /m/explore, the paid-marketing
  * frame that can strip depth (see @/lib/preview-gate) — that is not launching
@@ -89,7 +111,7 @@ type SearchParams = Promise<Record<string, string | string[] | undefined>>;
  * the gate at all. Repointing this line is half of turning it on; the other
  * half is PREVIEW_GATE_ENABLED.
  */
-const exploreHref = (slug: string) => `/explore?loc=${slug}&z=10`;
+const exploreHref = (slug: string) => `/explore?loc=${slug}`;
 
 /** The one label, so the nav, the hero and the close cannot disagree. */
 const CTA_LABEL = "Start Exploring Free";
