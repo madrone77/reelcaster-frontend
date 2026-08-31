@@ -66,6 +66,7 @@ import {
 import ExploreTopBar from "./components/explore-top-bar";
 import ExploreAdBar, { ANCHOR_ID as AD_ANCHOR } from "./components/explore-ad-bar";
 import {
+  cameFromLandingPage,
   useCampaignHit,
   type CampaignTarget,
 } from "@/app/lp/_shared/lp-telemetry";
@@ -924,6 +925,35 @@ export default function ExploreShell({
       }
     : null;
   useCampaignHit(adTarget);
+
+  // A SECOND target, for arrivals that carry no ad frame at all.
+  //
+  // The live CTA on every /lp page points at /explore?loc=<slug>&z=10 with no
+  // `?ad=`, so `adTarget` was null on all of them and Explore counted nothing:
+  // 128 CTA presses recorded over 29-31 Aug against 0 explore hits. Every
+  // landing='explore' row ever written carries wall='today', which is the same
+  // fact from the other side -- only ad-framed links were ever counted.
+  //
+  // Kept separate from `adTarget` on purpose. That value is also what decides
+  // whether the paid ad bar renders, and widening it to cover plain arrivals
+  // would put the bar in front of organic traffic. This one only ever reaches
+  // the counter.
+  //
+  // wall='' is the discriminator: landing='explore' with a wall is an
+  // ad-framed arrival, landing='explore' with an empty wall is someone who
+  // walked in off a landing page. `!ad` keeps the two mutually exclusive, so
+  // one arrival is never counted in both buckets.
+  const lpArrivalTarget: CampaignTarget | null =
+    !ad && cameFromLandingPage()
+      ? {
+          landing: "explore",
+          target_city: initialCitySlug ?? data.defaultCitySlug ?? "",
+          target_spot: "",
+          wall: "",
+          angle: "",
+        }
+      : null;
+  useCampaignHit(lpArrivalTarget);
 
   // Currency follows the framed city too, for the same reason: a Seattle ad
   // bills in USD even if the reader has panned across the border by the time
