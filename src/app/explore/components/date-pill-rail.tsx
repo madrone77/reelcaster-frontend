@@ -137,7 +137,12 @@ export default function DatePillRail({
           <div
             ref={railRef}
             onScroll={readEdges}
-            className="flex min-w-0 flex-1 snap-x items-stretch gap-1 overflow-x-auto scrollbar-hide px-1.5 py-2"
+            /* py sets the tile height, and the tile is what gets sized here:
+               the pill is 64px locked to the tab bar, less its 1px border top
+               and bottom, so 5px of padding either side leaves a 52px tile,
+               still centred. Change the padding, not the tile — nothing in
+               here has an explicit height. */
+            className="flex min-w-0 flex-1 snap-x items-stretch gap-1 overflow-x-auto scrollbar-hide px-1.5 py-[5px]"
           >
           {!model
             ? Array.from({ length: 14 }).map((_, i) => (
