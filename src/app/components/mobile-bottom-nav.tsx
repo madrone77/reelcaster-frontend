@@ -58,7 +58,8 @@ const MORE_LINKS = [
  * tabs: Home, Explore, Catch log, and More (which opens a sheet of secondary links).
  * Active tab reads brand; the rest are muted. Renders a matching-height spacer
  * in flow so page content can scroll clear of the floating bar. Shows on every
- * page — marketing, auth, the dashboard, and the coming-soon wall included.
+ * page except the focused funnels and the homepage, both handled below —
+ * the rest of marketing, the dashboard, and the coming-soon wall included.
  *
  * The dashboard used to be excluded on the grounds that its own top bar and
  * footer were enough. They are not the same thing: the footer is a sitemap you
@@ -92,6 +93,19 @@ export default function MobileBottomNav() {
   // links home on these pages, which is the only way out they need.
   const FOCUSED_FUNNELS = ["/lp", "/signup", "/login"];
   if (FOCUSED_FUNNELS.some((p) => pathname === p || pathname.startsWith(`${p}/`))) {
+    return null;
+  }
+
+  // The homepage is the same category, and it is checked on its own because
+  // "/" is a prefix of every route on the site.
+  //
+  // It is the coldest surface we have. It already carries a header with the
+  // one action it wants and a footer sitemap under everything else, so four
+  // signed-in tabs floating over it are a second menu competing with the
+  // first. And its map section now shows a picture of THIS BAR, inside a
+  // phone, a few hundred pixels above where the real one sits: two bars of
+  // the same four tabs on one screen, one of them a photograph.
+  if (pathname === "/") {
     return null;
   }
 

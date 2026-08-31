@@ -175,6 +175,21 @@ export default function MarketingMap({
   const active = featured[activeIdx] ?? null;
   const activeSlug = active?.slug ?? "__none__";
 
+  /**
+   * Open on the spot the card is describing, not on the section's own frame.
+   *
+   * The rotation below re-centres every spot as it comes up, so the card and
+   * the puck it belongs to are together for all but the first stop. On a
+   * phone-shaped screen that exception is expensive: the frame is a third as
+   * wide as the old landscape box, the best spot is routinely outside it, and
+   * a visitor's first four seconds were a map with no card on it at all.
+   *
+   * `center` stays the declared frame for the case with nothing to centre on.
+   */
+  const opening = featured[0]
+    ? { latitude: featured[0].lat, longitude: featured[0].lng }
+    : { latitude: center.lat, longitude: center.lng };
+
   const data = useMemo(
     () => ({
       type: "FeatureCollection" as const,
@@ -292,9 +307,13 @@ export default function MarketingMap({
   if (gpuLost) return <>{fallback}</>;
 
   return (
-    <div className="relative h-full w-full">
+    // A container context so the card below can be told never to take more
+    // than two thirds of the glass. The map is a phone screen now and its
+    // width is whatever the device works out to at the reader's viewport, so
+    // the card cannot be a single fixed number that suits both.
+    <div className="relative h-full w-full [container-type:inline-size]">
       <Map
-        initialViewState={{ latitude: center.lat, longitude: center.lng, zoom }}
+        initialViewState={{ ...opening, zoom }}
         mapStyle={mapStyle}
         // A picture, not an instrument: no drag, scroll, keyboard or dblclick.
         interactive={false}
@@ -327,7 +346,15 @@ export default function MarketingMap({
           >
             <div
               key={active.slug}
-              className="pointer-events-none w-[248px] rounded border border-rc-rule/60 bg-rc-panel/95 px-3 py-2 shadow-rc-bar backdrop-blur-sm"
+              // 220 rather than the 248 this carried in the old landscape
+              // box, and capped at 72% of the map besides: the glass is a
+              // third as wide as that box was, and a card most of the way
+              // across it stops being a label on a map and starts being the
+              // map. The type does not scale with it. The score pucks are
+              // drawn on the canvas at their own size whatever the phone
+              // works out to, and a card that shrank away from them would
+              // read as a different screen's card pasted on.
+              className="pointer-events-none w-[min(220px,72cqw)] rounded border border-rc-rule/60 bg-rc-panel/95 px-3 py-2 shadow-rc-bar backdrop-blur-sm"
             >
               <div className="flex items-baseline justify-between gap-2">
                 {/* Wraps rather than truncates: spot names run long ("Howe
