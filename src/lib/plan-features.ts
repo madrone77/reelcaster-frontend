@@ -21,17 +21,32 @@
  * them because they aren't paywalled would undersell the free tier and make Pro
  * read as a wall rather than an addition.
  *
- * Ordering is the argument: seven rows of "this is a serious tool, and it's
- * free", then seven rows of what paying adds. The hinge is the adjacency of
- * "Plan a week ahead" (free) and "Plan the full two weeks" (Pro) — the first is
- * what makes an account worth creating, the second is the obvious next step
- * from it. Keep them next to each other; `PRO_ROW_START` marks the seam.
+ * Ordering is the argument, and the argument is what paying adds. The seven
+ * Pro-only rows come first, so a reader who has just hit a wall finds the
+ * answer to it in the rows under the buy button. The seven shared rows follow,
+ * under a heading that says whose they are.
  *
- * "No ads" sits high in the Pro block, second only to the hinge, because it is
- * the one row a reader can evaluate without knowing anything about fishing —
- * they have already seen the ads on the page the modal opened over. It is a
- * real entitlement, not a slogan: <AdSlot> renders nothing for a paid viewer,
- * trialists included (src/app/components/ads/ad-slot.tsx).
+ * They used to run the other way round: free rows first, on the theory that
+ * showing a serious free tier earned the right to ask. It read as a case for
+ * not paying. On a 390px phone every row visible under the button was a
+ * matched pair of ticks, and the reader scrolled about 300px of "free already
+ * has this" before reaching one thing Pro alone does.
+ *
+ * The shared rows stay, all seven, because they are the trust signal: this is
+ * a deep tool and most of it costs nothing. They just belong after the pitch
+ * rather than in front of it. `SHARED_ROW_START` marks where they begin and
+ * `SHARED_ROW_HEADING` is the line that sits above them.
+ *
+ * The swap costs the old hinge. "Plan a week ahead" (free) used to sit next to
+ * "Plan the full two weeks" (Pro), so one read as the obvious next step from
+ * the other; they are in different blocks now. "Plan the full two weeks" leads
+ * the Pro block instead, being the wall most readers arrive from.
+ *
+ * "No ads" sits second, because it is the one row a reader can judge without
+ * knowing anything about fishing: they have already seen the ads on the page
+ * the modal opened over. It is a real entitlement, not a slogan: <AdSlot>
+ * renders nothing for a paid viewer, trialists included
+ * (src/app/components/ads/ad-slot.tsx).
  *
  * Regulation-change alerts are still deliberately absent: built, not gated, and
  * not yet a thing a customer can switch on.
@@ -118,39 +133,24 @@ export interface PlanFeatureRow {
   pro: PlanCell;
 }
 
-/** Index of the first Pro-only row — the seam the /plans hinge depends on. */
-export const PRO_ROW_START = 7;
+/**
+ * Index of the first shared row: where the Pro-only block ends and the rows
+ * both tiers get begin. The matrix draws its one strong divider here and hangs
+ * `SHARED_ROW_HEADING` off it.
+ */
+export const SHARED_ROW_START = 7;
+
+/**
+ * The heading over the shared block. Phrased as a gift rather than a hedge:
+ * "Free gets this too" reads as a tier being generous, where "also in Free"
+ * reads as a list of what Pro fails to be worth.
+ */
+export const SHARED_ROW_HEADING = "Free gets this too";
 
 export const PLAN_FEATURES: PlanFeatureRow[] = [
-  // Trust first: every published spot has been through local-guide review.
-  {
-    id: "guide-reviewed",
-    label: "Spots checked by a local guide before they go live",
-    free: true,
-    pro: true,
-  },
-  { id: "today-score", label: "See today’s bite score", free: true, pro: true },
-  {
-    id: "bathymetry",
-    label: "Read the bottom: depth and structure",
-    free: true,
-    pro: true,
-  },
-  {
-    id: "tide-hourly",
-    label: "Watch the tide push through, hour by hour",
-    free: true,
-    pro: true,
-  },
-  { id: "regs", label: "Check the regs before you go", free: true, pro: true },
-  {
-    id: "catch-log",
-    label: "Log a catch straight from the photo",
-    free: true,
-    pro: true,
-  },
-  { id: "week-ahead", label: "Plan a week ahead", free: true, pro: true },
-  // ── everything below is what paying adds ──
+  // ── what paying adds ──
+  // First, because it is the wall most readers arrive from: every locked day
+  // tile on the forecast strip opens this modal.
   { id: "two-weeks", label: "Plan the full two weeks", free: false, pro: true },
   // Stated as the thing you get, not the thing we stop doing to you: "No ads"
   // is a removal, "Read the water with no ads in it" is the product. The free
@@ -192,6 +192,38 @@ export const PLAN_FEATURES: PlanFeatureRow[] = [
     free: false,
     pro: true,
   },
+  // ── SHARED_ROW_START: everything below is in the free tier as well ──
+  // Trust first within this block: every published spot has been through
+  // local-guide review.
+  {
+    id: "guide-reviewed",
+    label: "Spots checked by a local guide before they go live",
+    free: true,
+    pro: true,
+  },
+  { id: "today-score", label: "See today’s bite score", free: true, pro: true },
+  {
+    id: "bathymetry",
+    label: "Read the bottom: depth and structure",
+    free: true,
+    pro: true,
+  },
+  {
+    id: "tide-hourly",
+    label: "Watch the tide push through, hour by hour",
+    free: true,
+    pro: true,
+  },
+  { id: "regs", label: "Check the regs before you go", free: true, pro: true },
+  {
+    id: "catch-log",
+    label: "Log a catch straight from the photo",
+    free: true,
+    pro: true,
+  },
+  // Last, so the shared block ends on the row nearest to what the Pro block
+  // opened with. It is the closest the two halves get now.
+  { id: "week-ahead", label: "Plan a week ahead", free: true, pro: true },
 ];
 
 /* -------------------------------------------------------------------------
