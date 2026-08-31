@@ -40,16 +40,18 @@ export const MAP_INSET_RESTING_ATTR = "data-rc-map-inset-resting";
 const WORLD_PX_AT_Z0 = 512;
 
 /**
- * How far above the map pane's centre the visible water's centre sits, in CSS
- * pixels. 0 when there is nothing to correct for (desktop, no panels on screen,
- * or so little water left that shifting would be arbitrary).
+ * The strip of map the angler can actually see, in client coordinates: the
+ * pane's own box with the floating panels' resting heights taken off the top
+ * and bottom. `null` when there is no pane, or when the panels cover all but a
+ * sliver — at that point there is no sensible middle to aim at, and a large
+ * shift would throw the pin off the pane entirely.
  */
-export function mapInsetOffsetY(): number {
-  if (typeof document === "undefined") return 0;
+export function mapVisibleBand(): { top: number; bottom: number; paneMid: number } | null {
+  if (typeof document === "undefined") return null;
   const pane = document.querySelector(".maplibregl-map");
-  if (!pane) return 0;
+  if (!pane) return null;
   const r = pane.getBoundingClientRect();
-  if (r.height <= 0) return 0;
+  if (r.height <= 0) return null;
 
   let top = r.top;
   let bottom = r.bottom;
@@ -69,11 +71,19 @@ export function mapInsetOffsetY(): number {
     }
   }
 
-  // Panels covering all but a sliver: there is no sensible middle to aim at,
-  // and a large shift would throw the pin off the pane entirely.
-  if (bottom - top < 120) return 0;
+  if (bottom - top < 120) return null;
+  return { top, bottom, paneMid: (r.top + r.bottom) / 2 };
+}
 
-  return (r.top + r.bottom) / 2 - (top + bottom) / 2;
+/**
+ * How far above the map pane's centre the visible water's centre sits, in CSS
+ * pixels. 0 when there is nothing to correct for (desktop, no panels on screen,
+ * or so little water left that shifting would be arbitrary).
+ */
+export function mapInsetOffsetY(): number {
+  const band = mapVisibleBand();
+  if (!band) return 0;
+  return band.paneMid - (band.top + band.bottom) / 2;
 }
 
 /**

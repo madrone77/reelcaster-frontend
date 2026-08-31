@@ -276,6 +276,9 @@ export default function MobileMapSheet({
     }
   }
   const frozenDeck = deckRef.current?.order ?? null;
+  // Which deck is on screen. A new anchor is a new deck, not a move within the
+  // one in hand, and the two want opposite scroll behaviour (below).
+  const deckKey = deckRef.current?.key ?? null;
 
   // Frozen membership, live contents: each card re-reads itself from the spots
   // currently loaded and falls back to the snapshot when it has panned out of
@@ -291,8 +294,18 @@ export default function MobileMapSheet({
     [frozenDeck, spotsById, sorted],
   );
 
-  const previewIndex = previewOrder.findIndex((sp) => sp.slug === selectedSlug);
-  const previewing = selectedSlug != null && previewIndex >= 0;
+  // A selection the frozen deck has never heard of. It happens in the seam
+  // between a pin tap and the payload that proves the pin: the deck only
+  // refreezes once the new anchor is actually in `spots`, so for a render or
+  // two the slug is the new pin and the deck is still the old one. Falling
+  // through to `previewing === false` there tore the whole dock down and
+  // flashed the browse list up in its place — another way "things just
+  // disappear". Hold the card that IS in hand until the deck catches up.
+  const rawIndex = previewOrder.findIndex((sp) => sp.slug === selectedSlug);
+  const lastIndex = useRef(0);
+  if (rawIndex >= 0) lastIndex.current = rawIndex;
+  const previewIndex = rawIndex >= 0 ? rawIndex : Math.min(lastIndex.current, previewOrder.length - 1);
+  const previewing = selectedSlug != null && previewOrder.length > 0 && previewIndex >= 0;
 
   const railRef = useRef<HTMLDivElement | null>(null);
   // What the dock actually covers, measured. The camera reads this to frame
@@ -330,13 +343,35 @@ export default function MobileMapSheet({
     return best;
   }, []);
 
-  // Snap settled on a new card → move the map's selection to it.
+  // ── Where the rail is NOW, vs. what the map has selected ────────────────
+  // These are two different clocks and the dock needs both. The map's
+  // selection is deliberately debounced — re-selecting on every frame of a
+  // fling would fire a camera move per card — but the CARDS have to keep up
+  // with the thumb, and they used to be mounted off the debounced one.
+  //
+  // What that looked like: the mount window is the card in hand ±1, so a slow
+  // one-at-a-time swipe always had its next card ready. A real fling doesn't
+  // go one at a time. Flicking from card 4 to card 7 put cards 5 and 6 outside
+  // a window still centred on 4, and they are width-holding spacers with
+  // nothing in them — so the deck ran blank under the thumb for as long as the
+  // settle took to fire, measured at 358ms. That is the "things just
+  // disappear". The counter lied along with it, still reading "4 of 49" over
+  // card 6.
+  //
+  // So the live index drives what is mounted and what the counter says, and the
+  // debounced slug drives only the map. Setting it per scroll event is cheap:
+  // it's a bail-out when unchanged, and `SpotCard`'s subscription and
+  // favourites reads are both module-scoped stores fetched once per session,
+  // not per instance.
+  const [railIndex, setRailIndex] = useState(-1);
   const settleTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const onRailScroll = useCallback(() => {
+    const i = centredIndex();
+    if (i >= 0) setRailIndex((cur) => (cur === i ? cur : i));
     if (settleTimer.current) clearTimeout(settleTimer.current);
     settleTimer.current = setTimeout(() => {
-      const i = centredIndex();
-      const next = previewOrder[i];
+      const j = centredIndex();
+      const next = previewOrder[j];
       if (!next || next.slug === selectedSlug) return;
       onPreviewSlug?.(next.slug);
     }, 90);
@@ -349,33 +384,53 @@ export default function MobileMapSheet({
     [],
   );
 
-  // Selection changed from the map → bring that card into view. Instant on the
-  // first paint of a dock (there is nothing to animate from), smooth after.
+  // A fresh dock — and a fresh deck under an existing one — starts wherever
+  // the selection says, not where the last one was left. Without this the
+  // counter opens on the previous deck's card number for the frame before the
+  // first scroll event lands, and the mount window opens around it.
+  const previewClosed = selectedSlug == null;
+  useEffect(() => {
+    setRailIndex(-1);
+  }, [deckKey, previewClosed]);
+
+  // Selection changed from the map → bring that card into view. Instant when
+  // this deck is new, smooth when moving within the deck already on screen.
   //
   // The two directions are told apart by where the rail already sits, not by a
   // "who moved last" flag: a flag that is set but never consumed (the settle
   // fired, the slug did not change) stays set, and swallows the scroll for the
   // NEXT pin the angler taps. The rail's own position can't go stale.
-  const wasPreviewing = useRef(false);
+  //
+  // Deck identity, not just "was previewing", decides smooth vs instant.
+  // Tapping a second pin while the first is docked rebuilds the deck around
+  // the new anchor, which puts the tapped spot back at index 0 — and a smooth
+  // scroll there from card 7 of the OLD deck whooshed backwards through seven
+  // unrelated cards to arrive. A new deck has nothing to animate from, same as
+  // a fresh dock.
+  const scrolledDeck = useRef<string | null>(null);
   useEffect(() => {
     if (!previewing) {
-      wasPreviewing.current = false;
+      scrolledDeck.current = null;
       return;
     }
     const el = railRef.current;
     const card = el?.children[previewIndex] as HTMLElement | undefined;
     if (!el || !card) return;
-    if (centredIndex() === previewIndex) {
+    const sameDeck = scrolledDeck.current !== null && scrolledDeck.current === deckKey;
+    if (sameDeck && centredIndex() === previewIndex) {
       // Already the card in hand — this is the swipe that set the slug.
-      wasPreviewing.current = true;
       return;
     }
     el.scrollTo({
       left: card.offsetLeft - (el.clientWidth - card.offsetWidth) / 2,
-      behavior: wasPreviewing.current ? "smooth" : "auto",
+      behavior: sameDeck ? "smooth" : "auto",
     });
-    wasPreviewing.current = true;
-  }, [previewing, previewIndex, centredIndex]);
+    scrolledDeck.current = deckKey;
+  }, [previewing, previewIndex, centredIndex, deckKey]);
+
+  // What the counter and the mount window read: where the rail actually sits,
+  // falling back to the selection before the first scroll event of a session.
+  const liveIndex = railIndex >= 0 && railIndex < previewOrder.length ? railIndex : previewIndex;
 
   if (previewing) {
     const spot = previewOrder[previewIndex];
@@ -413,19 +468,31 @@ export default function MobileMapSheet({
             >
               <X className="h-4 w-4" />
             </button>
-            <span className="rounded-full bg-rc-ink/70 px-2.5 py-1 font-rc-mono text-[11px] font-semibold text-white backdrop-blur">
-              {previewIndex + 1} of {previewOrder.length}
+            <span
+              data-rc-preview-count=""
+              className="rounded-full bg-rc-ink/70 px-2.5 py-1 font-rc-mono text-[11px] font-semibold text-white backdrop-blur"
+            >
+              {liveIndex + 1} of {previewOrder.length}
             </span>
           </div>
 
-          {/* One card per spot in view, snapped. Only the card in hand and its
-              two neighbours actually mount — every SpotCard runs its own
-              subscription + favourite reads, and 40 of them behind a swipe is
-              a request storm for cards nobody has scrolled to yet. The rest
-              hold their width so the snap offsets stay honest. */}
+          {/* One card per spot in view, snapped. Only a window around the card
+              in hand actually mounts — 49 of them behind a swipe is a lot of
+              card to build for spots nobody has scrolled to. The rest hold
+              their width so the snap offsets stay honest.
+
+              The window is ±2 around where the rail IS, not ±1 around what the
+              map has selected. Two changes, both needed: the live index keeps
+              the mounted set under the thumb during a fling, and the extra card
+              either side means a one-card overshoot lands on something already
+              painted rather than on a spacer. */}
           <div
             ref={railRef}
             onScroll={onRailScroll}
+            // Named, because the fortnight rail docked directly below is also a
+            // `snap-x` scroller — "the snapping thing in the dock" matches two
+            // elements, and the one a test means is always this one.
+            data-rc-preview-rail=""
             className="flex snap-x snap-mandatory gap-3 overflow-x-auto scrollbar-hide px-[7vw] pb-2"
           >
             {previewOrder.map((sp, i) => (
@@ -433,7 +500,8 @@ export default function MobileMapSheet({
                 key={sp.id}
                 className="w-[86vw] shrink-0 snap-center"
               >
-                {Math.abs(i - previewIndex) <= 1 && (
+                {(Math.abs(i - liveIndex) <= 2 ||
+                  Math.abs(i - previewIndex) <= 1) && (
                   <SpotCard
                     spot={sp}
                     tz={tz}
