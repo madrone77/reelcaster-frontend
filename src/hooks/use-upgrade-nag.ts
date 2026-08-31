@@ -10,15 +10,21 @@ import {
 } from '@/lib/upgrade-nag';
 
 /**
- * Watches the engagement count and opens the proactive upgrade ask when it is
- * earned. The counting itself is `noteEngagement` in @/lib/upgrade-nag, called
- * straight from the click handlers; this is the half that decides when the
- * modal opens and hands the caller its open state.
+ * Watches the engagement count and opens the proactive ask when it is earned.
+ * The counting itself is `noteEngagement` in @/lib/upgrade-nag, called straight
+ * from the click handlers; this is the half that decides when the ask opens and
+ * hands the caller its open state.
+ *
+ * ONE CALLER LEFT: /explore, where this opens the depth gate. It used to be
+ * mounted on the spot page too, and on both surfaces it also opened an
+ * unprompted <ProTrialModal>; that ask was removed for converting at zero.
+ * Read @/lib/upgrade-nag before wiring a third one — the reason it failed was
+ * what it asked for, not how often.
  *
  * `enabled` is the whole audience rule and belongs to the caller, because only
- * the caller knows it. On /explore it is "not Pro, tier resolved, not the ad
- * frame". Resolved matters: `useSubscription` reports `isPaid: false` until it
- * answers, and a Pro member who gets nagged for the thing they already pay for
+ * the caller knows it. On /explore it is "gate on, not Pro, tier resolved, not
+ * the ad frame". Resolved matters: `useSubscription` reports `isPaid: false`
+ * until it answers, and a Pro member asked to buy what they already pay for
  * has been told the product does not know who they are.
  *
  * `suppressed` holds the ask back while another dialog owns the screen. Walls

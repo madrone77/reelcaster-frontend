@@ -1919,23 +1919,38 @@ export default function ExploreShell({
     }
   }, [labelCity]);
 
-  // ── The proactive upgrade ask ────────────────────────────────────────────
+  // ── The engagement count, and the one ask still riding it ────────────────
   //
-  // Every other wall on this page waits to be walked into. This one counts the
-  // clicks (see lib/upgrade-nag.ts) and asks once, unprompted, when somebody
-  // has used the map enough to be worth asking. It exists for bought traffic:
-  // an ad click that opens three spots, reads the scores, never touches a lock
-  // and leaves was interested and was never asked.
+  // This used to open <ProTrialModal feature="whole-map" from="explore-nag">
+  // unprompted, once a visitor had clicked enough to look interested. It was
+  // removed: over seven days it took 27 impressions and produced zero clicks,
+  // while every wall someone walked into on their own converted — the top-bar
+  // ask 33%, a locked day 6-10%, custom spots 12%. The headline was "Unlock
+  // the whole map" and the map was never locked, so it interrupted a browsing
+  // visitor to announce a restriction they had not hit, which is the one thing
+  // none of the converting asks do.
+  //
+  // The COUNT stays, because it is not only the nag's. The depth gate below
+  // reads the same `nag.open` to decide when to ask an ad visitor for a free
+  // account, and that is an ask with something behind it — depth goes away if
+  // they say no. Deleting the trigger rather than raising its threshold is
+  // deliberate: a nag that converts at zero is not badly tuned, it is asking
+  // for something nobody was stopped from having.
   //
   // `tierLoading` is in the gate, not just `isPaid`: the tier reads as free
-  // until it resolves, and a Pro member nagged to buy Pro is worse than no nag
-  // at all. Deferred, not skipped, so a slow subscription answer only delays
-  // the ask to the next click.
+  // until it resolves, and a Pro member asked to buy Pro has been told the
+  // product does not know who they are. Deferred, not skipped, so a slow
+  // subscription answer only delays the ask to the next click.
   //
   // Not on the ad frame. That page is built around one offer that is already
   // fixed to the screen, and a modal over it would be two asks competing.
+  //
+  // PREVIEW_GATE_ENABLED is in the gate too, now that the depth prompt is the
+  // only thing left that opens. Without it the hook would still spend the
+  // visit's one ask on every visit while the gate is off, silently, opening
+  // nothing — a flag in storage saying an ask was made that nobody saw.
   const nag = useUpgradeNag({
-    enabled: !isPaid && !tierLoading && !ad,
+    enabled: PREVIEW_GATE_ENABLED && !isPaid && !tierLoading && !ad,
     // The dialogs and sheets this shell owns. Walls are absent on purpose:
     // opening <ProTrialModal> zeroes the count, so they cannot be stacked on.
     suppressed:
@@ -1946,7 +1961,6 @@ export default function ExploreShell({
       filterOpen ||
       customMode,
   });
-  const nagMounted = useMountedOnce(nag.open);
 
   // ── Stamp the grant, here rather than on the landing page ────────────────
   //
@@ -1979,13 +1993,16 @@ export default function ExploreShell({
     return () => window.clearTimeout(t);
   }, [depthNarrated]);
 
+  // The engagement count's only remaining consumer. `nag.open` was shared with
+  // the unprompted Pro ask, which is why this reads as one of two; it is now
+  // the whole of it, and PREVIEW_GATE_ENABLED is also in `enabled` above so
+  // the count is not spent while the gate is off.
   const depthAsk =
     PREVIEW_GATE_ENABLED &&
     nag.open &&
     marketing &&
     !user &&
     preview !== "declined";
-  const proAsk = nag.open && !depthAsk;
 
   /**
    * The way back, from the affordance the locked map keeps.
@@ -2368,20 +2385,6 @@ export default function ExploreShell({
         feature="custom-spots"
         from="explore-map"
       />
-      )}
-
-      {/* The engagement nag. Same modal and same plan matrix as every wall on
-          this page; the only difference is that nothing was blocked, so it
-          sells the whole map rather than one row of it. `from` is its own
-          surface so /admin/reelcaster/paywalls can read it apart from the
-          walls people walked into. */}
-      {nagMounted && (
-        <ProTrialModal
-          open={proAsk}
-          onOpenChange={nag.setOpen}
-          feature="whole-map"
-          from="explore-nag"
-        />
       )}
 
       {/* The depth gate's own ask. Dismissing it IS the decline — see

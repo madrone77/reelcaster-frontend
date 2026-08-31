@@ -1,5 +1,5 @@
 /**
- * The engagement nag: one proactive upgrade ask per visit on /explore.
+ * The engagement count: how /explore knows a visitor is actually using it.
  *
  * WHY THIS EXISTS. Every upgrade wall on /explore is reactive. It waits for
  * someone to tap a locked day, a locked reports panel, "set alert" or "create
@@ -7,11 +7,24 @@
  * who goes looking for the edges of the free tier. It does nothing at all for
  * the visitor a Meta ad just bought, who lands on the map, opens three spots,
  * reads the scores, never touches a lock, and leaves. They were interested
- * enough to click four times and were never once asked to buy.
+ * enough to click four times and were never once asked for anything.
  *
  * So this counts the clicks instead of waiting for a wall, and when the count
- * says "this person is actually using the thing", the same <ProTrialModal>
- * every wall opens is opened once, unprompted.
+ * says "this person is actually using the thing", one ask is made unprompted.
+ *
+ * WHAT THE COUNT NOW OPENS is the depth gate, and only the depth gate — the
+ * ask for a free account on the ad frame, which has something behind it: say
+ * no and the charted depth goes away. See @/lib/preview-gate.
+ *
+ * IT USED TO OPEN <ProTrialModal feature="whole-map"> as well, on /explore and
+ * on the spot page. That was removed. Over seven days the two together took 33
+ * impressions and produced no clicks, while every wall a visitor walked into
+ * on their own converted — the top-bar ask at 33%, a locked day at 6-10%,
+ * custom spots at 12%. The lesson is in the headline it used: "Unlock the
+ * whole map", said to somebody whose map was not locked and who had not been
+ * refused anything. The threshold was never the problem, so the trigger went
+ * rather than the number. Anything wired here in future should be an ask about
+ * something the visitor has actually run into.
  *
  * THE COUNT. A browse click (opening a spot, picking a day, filtering, picking
  * a station) is worth 1. Anything gated is worth 2, because bouncing off a
@@ -34,7 +47,7 @@
  *
  * A WALL RESTARTS THE COUNT, AT TWO (see `noteWallShown`, called by
  * <ProTrialModal> on every open). Somebody who just closed the plan matrix
- * does not want to see it again ninety seconds later because they carried on
+ * does not want another dialog ninety seconds later because they carried on
  * browsing, so the count starts over. It does not start over at zero, though:
  * walking into a wall is the strongest signal on the page, so it carries
  * forward as the two points a lock is worth and leaves them halfway to the
