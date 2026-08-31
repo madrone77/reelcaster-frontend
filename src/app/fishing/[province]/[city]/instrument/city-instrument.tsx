@@ -292,8 +292,9 @@ export default function CityInstrument({
 
   const [upgradeOpen, setUpgradeOpen] = useState(false);
   /**
-   * Which wall the reader hit, which decides both what the modal SAYS and what
-   * the conversion is credited to.
+   * Which wall the reader hit, which decides what the conversion is credited
+   * to. Not what the modal says: every locked tile shows the same 14-day
+   * headline (see NAG_FEATURES in lib/plan-features.ts).
    *
    * "free" is a day 3–7 tile, which a free account opens; "pro" is a day 8–14
    * tile. They are different asks at different prices, so crediting them to
