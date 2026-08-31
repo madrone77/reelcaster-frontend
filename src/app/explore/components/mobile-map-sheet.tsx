@@ -203,11 +203,52 @@ export default function MobileMapSheet({
   // regional ranking — the two cards either side of a spot had nothing to do
   // with the water around it. Nearest-first makes a swipe mean "and what's
   // next to it", which is the question a map pin asks.
-  const previewOrder = useMemo(() => {
+  //
+  // The deck is FROZEN for the life of a preview session, because the carousel
+  // moves the very list it would otherwise be built from. `spots` is the spots
+  // in the viewport, and swiping re-centres the map on the card in hand, so a
+  // live deck re-membered and re-sorted itself under the swipe: "3 of 11"
+  // became "4 of 14" between one card and the next, and a spot two swipes out
+  // fell off the far edge of the new viewport entirely — no index, no deck,
+  // and the dock unmounted mid-gesture back to the browse list. Membership and
+  // order are captured once, when the anchor is set; only the card DATA stays
+  // live (below), so a score that refreshes still lands.
+  const deckRef = useRef<{ key: string; order: RailSpot[] } | null>(null);
+  if (selectedSlug == null) {
+    deckRef.current = null;
+  } else if (previewAnchorSlug && previewAnchorSlug !== deckRef.current?.key) {
+    // Freeze only once the anchor is actually in hand, or a first paint with
+    // no payload yet would capture an empty deck and hold it all session.
+    // What that leaves is deterministic on both routes in: a pin tap freezes
+    // the spots in view, because the map reported its viewport long ago; a
+    // `?spot=` deep link freezes the home city's spots, because the anchor
+    // first appears in the pre-viewport fallback, before MapLibre has
+    // reported. That is the better deck of the two for a deep link — the
+    // camera settles tight around the linked spot, and the viewport by then
+    // holds little but the spot itself.
     const anchor = spots.find((sp) => sp.slug === previewAnchorSlug);
-    if (!anchor) return sorted;
-    return [...spots].sort((a, b) => spotDist2(anchor, a) - spotDist2(anchor, b));
-  }, [spots, sorted, previewAnchorSlug]);
+    if (anchor) {
+      deckRef.current = {
+        key: previewAnchorSlug,
+        order: [...spots].sort((a, b) => spotDist2(anchor, a) - spotDist2(anchor, b)),
+      };
+    }
+  }
+  const frozenDeck = deckRef.current?.order ?? null;
+
+  // Frozen membership, live contents: each card re-reads itself from the spots
+  // currently loaded and falls back to the snapshot when it has panned out of
+  // view. That fallback is what keeps a card rendering instead of blanking
+  // once the camera has walked away from where the deck was cut.
+  const spotsById = useMemo(() => {
+    const m = new Map<string, RailSpot>();
+    for (const sp of spots) m.set(sp.id, sp);
+    return m;
+  }, [spots]);
+  const previewOrder = useMemo(
+    () => (frozenDeck ? frozenDeck.map((sp) => spotsById.get(sp.id) ?? sp) : sorted),
+    [frozenDeck, spotsById, sorted],
+  );
 
   const previewIndex = previewOrder.findIndex((sp) => sp.slug === selectedSlug);
   const previewing = selectedSlug != null && previewIndex >= 0;
