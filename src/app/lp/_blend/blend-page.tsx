@@ -88,11 +88,25 @@ import { BlendHit, BlendTrialForm, TrackedCta } from "./blend-track";
  * at all. See ../_reel/reel-frame.ts and blend-city.ts.
  */
 
-/** Where a reader goes when the ask is a link rather than a form. z=10 frames
- *  a city the way the app's own city view does; without it Explore opens at
- *  zoom 9, which on either of these inlets shows water nobody in this ad is
- *  launching into. */
-const exploreHref = (slug: string) => `/explore?loc=${slug}&z=10`;
+/**
+ * Where a reader goes when the ask is a link rather than a form.
+ *
+ * NO z. Explore's own opening logic owns the frame.
+ *
+ * This used to append z=10, on the argument that zoom 9 shows water nobody in
+ * this ad is launching into. Measured on production 2026-08-31 at an iPhone 13
+ * viewport, twenty seconds to settle, the argument does not hold: Seattle went
+ * 3 spots at z=10 against 12 without it, and Vancouver 4 against 30. z=10
+ * centres on the CITY rather than tightening onto the water, so a coastal city
+ * at that zoom is mostly land. Seattle at z=10 is a screen of King County with
+ * two score pucks on it. The same measurement across all five slugs these
+ * landing pages can name is in ../_city1/city1-page.tsx, and no city was
+ * better with the param.
+ *
+ * It also undercuts the page above it, which promises a whole city's worth of
+ * scored spots and then hands the reader three.
+ */
+const exploreHref = (slug: string) => `/explore?loc=${slug}`;
 
 export type BlendAsk = "explore" | "trial";
 
