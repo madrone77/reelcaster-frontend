@@ -424,7 +424,10 @@ export function bottomLabel(bottom: string | null): string | null {
   }
 }
 
-const PHASE_LABEL: Record<string, string> = {
+/** Tide phase codes as the reader sees them. Exported because the landing
+ *  cards name the phase a window opens on and must not invent a second
+ *  vocabulary for it. */
+export const PHASE_LABEL: Record<string, string> = {
   flood_early: "Early flood",
   flood_mid: "Mid flood",
   flood_late: "Late flood",

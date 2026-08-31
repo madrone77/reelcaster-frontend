@@ -1,5 +1,6 @@
 import { fetchFreshCatches, fetchHierarchy, fetchMapSpots } from "@/lib/bluecaster";
 import { buildExploreData, tierFor } from "@/app/explore/lib/explore-data";
+import { PHASE_LABEL } from "@/app/fishing/[province]/[city]/hub/hub-data";
 import { formatHour12 } from "@/lib/time-format";
 
 /**
@@ -58,6 +59,13 @@ export interface LpCard {
   /** "6 AM – 1 PM", or null when the day has no usable peak. */
   windowTime: string | null;
   windowNote: string | null;
+  /**
+   * The tide phase the window opens on, e.g. "Late flood". Null when the
+   * conditions strip carries no phase at that hour, and deliberately WITHOUT a
+   * generic fallback: "on the tide" is filler, and a made-up phase on a card
+   * that names a real mark is the kind of detail a local reader checks.
+   */
+  tidePhase: string | null;
   /** 24 bar heights, 0–100, midnight → midnight. Nulls flattened to 0. */
   hours: number[];
   /** Inclusive bar indices to paint as the best window. -1/-2 = none. */
@@ -190,6 +198,9 @@ export async function resolveLpCard(citySlug: string): Promise<LpCard | null> {
       ? `${formatHour12(window.from)}-${formatHour12(Math.min(window.to + 1, 23))}`
       : null,
     windowNote: window ? `Peaks at ${window.peak}` : null,
+    tidePhase: window
+      ? (PHASE_LABEL[rep.condStrip?.[window.from]?.tph ?? ""] ?? null)
+      : null,
     hours,
     bestFrom: window?.from ?? -1,
     bestTo: window?.to ?? -2,

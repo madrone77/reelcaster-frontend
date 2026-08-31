@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { fetchHierarchyLight, fetchMapSpots } from "@/lib/bluecaster";
+import { readEdgeGeoPoint } from "@/lib/edge-geo";
 import {
   coveredCityPoints,
   nearestCityTo,
@@ -19,9 +20,12 @@ import {
  * the page gets HTML with no city in it; a crawler asking for THIS gets
  * `located: false`, because data-centre IPs carry no geo headers.
  *
- * Location comes from Vercel's edge geo headers, the same rung
- * `/api/geo` reads. Deliberately NOT `navigator.geolocation`: no permission
- * prompt is ever raised, and the answer is a metro-area guess by design.
+ * Location comes from Vercel's edge geo headers via `readEdgeGeoPoint`, the
+ * same rung `/api/geo` reads and the same reader `/api/hero-card` uses.
+ * Deliberately NOT `navigator.geolocation`: no permission prompt is ever
+ * raised, and the answer is a metro-area guess by design. Outside production
+ * that reader also honours a `?geo_lat=&geo_lng=` override, which is how this
+ * section is exercised on localhost and on previews.
  *
  * No new backend surface. Both reads are ones the app already makes and the
  * Data Cache already holds — the hierarchy for `/explore`'s location tree, and
@@ -40,32 +44,6 @@ import {
 export const dynamic = "force-dynamic";
 
 /**
- * Read the caller's approximate position.
- *
- * On `next dev` and `vercel dev` the geo headers are absent, which would make
- * the section untestable without deploying — so outside production a
- * `?geo_lat=&geo_lng=` pair stands in for them. The gate is
- * `VERCEL_ENV === "production"`, which is set by the platform and not by us:
- * on prod the override is not read at all, so it cannot be used to make the
- * response say someone is somewhere they are not.
- */
-function readGeo(request: NextRequest): { lat: number; lng: number } | null {
-  if (process.env.VERCEL_ENV !== "production") {
-    const sp = request.nextUrl.searchParams;
-    const lat = Number(sp.get("geo_lat"));
-    const lng = Number(sp.get("geo_lng"));
-    if (Number.isFinite(lat) && Number.isFinite(lng) && sp.has("geo_lat")) {
-      return { lat, lng };
-    }
-  }
-
-  const lat = parseFloat(request.headers.get("x-vercel-ip-latitude") ?? "");
-  const lng = parseFloat(request.headers.get("x-vercel-ip-longitude") ?? "");
-  if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null;
-  return { lat, lng };
-}
-
-/**
  * `private` because the body depends on the caller's IP: a shared cache would
  * hand one city's list to the next visitor from somewhere else. 15 minutes is
  * well inside the hour the scoring cron works on, and a not-located answer
@@ -79,7 +57,7 @@ function json(payload: NearbyPayload, maxAge: number) {
 }
 
 export async function GET(request: NextRequest) {
-  const geo = readGeo(request);
+  const geo = readEdgeGeoPoint(request.headers, request.nextUrl.searchParams);
   if (!geo) return json(NOT_LOCATED, 3600);
 
   try {

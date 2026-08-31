@@ -65,3 +65,50 @@ export function readEdgeGeo(headers: Headers): EdgeGeo {
     city: geoHeader(headers, 'x-vercel-ip-city'),
   };
 }
+
+/** A coarse position, as the edge resolved it. */
+export interface EdgeGeoPoint {
+  lat: number;
+  lng: number;
+}
+
+/**
+ * The caller's approximate coordinates, or null when the edge did not resolve
+ * any — a data-centre IP, `next dev`, or a network the resolver has no fix for.
+ *
+ * Separate from `readEdgeGeo` above because the two answer different
+ * questions and fail independently: a request can carry a country and no
+ * lat/lng, and a caller that wants to snap to the nearest city needs the
+ * numbers rather than the names.
+ *
+ * `devOverride` stands in for the headers outside production, so a surface
+ * built on this can be exercised on localhost and on a preview where the
+ * platform sets no geo at all. The gate is `VERCEL_ENV === "production"`,
+ * which the platform sets and we do not: on prod the override is never read,
+ * so it cannot be used to make a response claim a visitor is somewhere else.
+ *
+ * Both params are required together — a lone `geo_lat` used to fall through to
+ * `Number(null) === 0` and place the caller in the Gulf of Guinea.
+ */
+export function readEdgeGeoPoint(
+  headers: Headers,
+  devOverride?: URLSearchParams,
+): EdgeGeoPoint | null {
+  if (devOverride && process.env.VERCEL_ENV !== 'production') {
+    const lat = Number(devOverride.get('geo_lat'));
+    const lng = Number(devOverride.get('geo_lng'));
+    if (
+      devOverride.has('geo_lat') &&
+      devOverride.has('geo_lng') &&
+      Number.isFinite(lat) &&
+      Number.isFinite(lng)
+    ) {
+      return { lat, lng };
+    }
+  }
+
+  const lat = parseFloat(headers.get('x-vercel-ip-latitude') ?? '');
+  const lng = parseFloat(headers.get('x-vercel-ip-longitude') ?? '');
+  if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null;
+  return { lat, lng };
+}
