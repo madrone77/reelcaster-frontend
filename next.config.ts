@@ -65,6 +65,21 @@ const nextConfig: NextConfig = {
       // Truncating to the bare segment is a natural thing to try, and BC is the
       // only jurisdiction on it today — hence temporary. When Washington lands
       // this becomes a real index page and both rules go.
+      // The three retired notification surfaces. These were page-level
+      // `permanentRedirect()` stubs, which does NOT produce a 308 when the
+      // route is `dynamic = 'force-static'`: Next bakes the redirect into the
+      // prerendered RSC payload, so a browser follows it on hydration while
+      // curl and any crawler get a 200 and a 40KB app shell. The old e2e test
+      // asserted "308" in its name but only ever checked `page.waitForURL`,
+      // which a client-side redirect satisfies, so nothing caught it.
+      //
+      // Here they are real edge redirects that render nothing at all.
+      // /settings/preferences held a default-location card nothing read and a
+      // digest that never sent; the hub is the honest landing because what
+      // someone wanted there could have been Account, Units, or Alerts.
+      { source: "/settings/preferences", destination: "/profile", permanent: true },
+      { source: "/profile/forecast-emails", destination: "/alerts", permanent: true },
+      { source: "/profile/notification-settings", destination: "/alerts", permanent: true },
       { source: "/fishing-licence", destination: "/fishing-licence/bc", permanent: false },
       { source: "/fishing-license", destination: "/fishing-licence/bc", permanent: false },
       {
