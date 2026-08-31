@@ -164,9 +164,16 @@ export default function MobileMapSheet({
 
   const detents = useMemo(() => {
     const h = vh || 800;
+    const peek = headerH || 132;
     return {
-      peek: headerH || 132,
-      half: Math.round(h * 0.5),
+      peek,
+      // Half the screen, measured from the sheet's top edge for the same
+      // reason `full` is: a bare `h * 0.5` is half a screen of sheet stacked
+      // on top of the clearance, which covered half the map plus another 84px
+      // of it. Floored at peek, since on a short enough viewport the midpoint
+      // lands inside the header block and a detent smaller than the one below
+      // it is a rung the snap can never rest on.
+      half: Math.max(peek, Math.round(h * 0.5) - clearance),
       // Leave ~132px of chrome and map visible up top: the fixed top bar
       // (64px) and the floating location pill under it.
       //
