@@ -252,8 +252,9 @@ export async function POST(request: NextRequest) {
         //
         // Unique on (alert_profile_id, target_date), so a confirm beat reuses
         // the heads-up's card rather than minting a second one for the same
-        // day. A stand-down is telling someone the day got worse, so it is
-        // never given something to pass on.
+        // day. Every remaining beat is a day worth going out on — the
+        // stand-down beat, which told someone a day had got worse, is gone from
+        // the model — so there is no beat here that should be denied a link.
         //
         // Only for the items that will actually render it. A card is a nicety
         // on top of the alert and must never stop a send, so every failure here
@@ -261,7 +262,7 @@ export async function POST(request: NextRequest) {
         const withShareLinks = async (items: typeof job.items) =>
           Promise.all(
             items.map(async (item) => {
-              if (item.beat === 'stand_down' || !item.spotSlug) return item;
+              if (!item.spotSlug) return item;
               try {
                 const card = await mintShareCard({
                   source: 'alert',

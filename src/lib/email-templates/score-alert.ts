@@ -36,8 +36,8 @@ export interface ScoreAlertItem {
   speciesMatched: boolean;
   /**
    * Deep link back to the spot with the share card open, when one was minted
-   * for this day. Absent for a stand-down and for any day the mint could not
-   * resolve — the digest must still send without it.
+   * for this day. Absent whenever the mint could not resolve a card, which is a
+   * normal outcome — the digest must still send without it.
    */
   shareUrl?: string | null;
   /** The fishing day, YYYY-MM-DD. */
