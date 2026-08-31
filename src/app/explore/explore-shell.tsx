@@ -31,6 +31,13 @@ import { useMountedOnce } from "@/hooks/use-mounted-once";
 import { useUpgradeNag } from "@/hooks/use-upgrade-nag";
 import { noteEngagement } from "@/lib/upgrade-nag";
 import {
+  depthLocked as isDepthLocked,
+  stampPreviewGrant,
+  writePreviewCookie,
+  type PreviewState,
+} from "@/lib/preview-gate";
+import DepthGatePrompt from "./components/depth-gate-prompt";
+import {
   fetchFreshCatches,
   fetchMapForecast14d,
   fetchMapSpotsAsViewer,
@@ -147,6 +154,8 @@ export default function ExploreShell({
   initialZoomOverride = null,
   initialForecast,
   initialForecastBbox,
+  marketing = false,
+  initialPreview = null,
   ad = null,
 }: {
   data: ExploreData;
@@ -185,11 +194,31 @@ export default function ExploreShell({
    * split rule the spot page's ad frame uses.
    */
   ad?: { wall: AdWall; angle: string; chargeDate: string } | null;
+  /**
+   * True on /m/explore — the paid-marketing frame. The only surface that asks
+   * the depth-gate question; /explore renders the answer but never poses it.
+   */
+  marketing?: boolean;
+  /**
+   * The preview cookie as the server read it, so a visitor who declined never
+   * watches the depth map paint and then vanish. Null is no grant, which is the
+   * generous reading — see @/lib/preview-gate.
+   */
+  initialPreview?: PreviewState | null;
 }) {
   const mapRef = useRef<MapRef>(null);
   const router = useRouter();
   const { isPaid, loading: tierLoading } = useSubscription();
   const { user } = useAuth();
+
+  // ── The depth gate ───────────────────────────────────────────────────────
+  //
+  // Seeded from the server's cookie read so the first paint is already right.
+  // `isDepthLocked` folds in the one rule that outranks everything: signing in
+  // brings depth back, immediately and on both routes, because a free account
+  // is the advertised way out of this.
+  const [preview, setPreview] = useState<PreviewState | null>(initialPreview);
+  const depthLocked = isDepthLocked({ state: preview, signedIn: !!user });
   // Key data fetches on the id, not the object: `useAuth` hands back a fresh
   // `user` on every onAuthStateChange (including token refresh), so an effect
   // depending on the object refetches the same URL for no reason.
@@ -375,6 +404,9 @@ export default function ExploreShell({
 
   // ── Map-layer toggles + species filter (MapControls) ────────────────
   const [relief, setRelief] = useState(true);
+  /** Shows the single "depth is part of a free account" line, once, on the way
+   *  down. A jump cut reads as the map breaking; a sentence reads as a choice. */
+  const [depthNarrated, setDepthNarrated] = useState(false);
   // Labels are always on. They were a toggle in the phone filter sheet and
   // nowhere else, which made them a setting one surface could turn off and no
   // other surface could turn back on. A saved view that still carries
@@ -1846,6 +1878,63 @@ export default function ExploreShell({
   });
   const nagMounted = useMountedOnce(nag.open);
 
+  // ── Stamp the grant, here rather than on the landing page ────────────────
+  //
+  // The route owns this so the deferred direct-to-/m/explore arm needs no new
+  // code when it is switched on — an ad pointed straight here stamps exactly
+  // what the /lp CTA stamps. Never overwrites a decline (see preview-gate), so
+  // clicking a second ad does not buy back the map.
+  //
+  // Client side because a page render may not write cookies in this Next
+  // version, and because there is nothing the FIRST render needs it for: no
+  // grant and no decline both mean depth stays on.
+  useEffect(() => {
+    if (!marketing) return;
+    setPreview((current) => current ?? stampPreviewGrant());
+  }, [marketing]);
+
+  // ── Which ask this visit earns ───────────────────────────────────────────
+  //
+  // One engagement count, two possible modals. On the marketing frame a
+  // signed-out visitor who has not yet answered gets the depth gate; everyone
+  // else gets the Pro trial modal the count was originally written for. Sharing
+  // the counter is what stops the two stacking, and keeps "one ask per visit"
+  // meaning one ask rather than one of each.
+  // One line, once, on the way down. Cleared on a timer rather than left for a
+  // dismiss button: it is an explanation, not a decision, and the permanent
+  // explanation is the unlock control the map keeps from here on.
+  useEffect(() => {
+    if (!depthNarrated) return;
+    const t = window.setTimeout(() => setDepthNarrated(false), 5200);
+    return () => window.clearTimeout(t);
+  }, [depthNarrated]);
+
+  const depthAsk = nag.open && marketing && !user && preview !== "declined";
+  const proAsk = nag.open && !depthAsk;
+
+  /**
+   * The way back, from the affordance the locked map keeps.
+   *
+   * A real route to /signup rather than a link to a marketing page: the whole
+   * promise is that registering switches the depth on, and `next` brings them
+   * straight back to the water they were reading.
+   */
+  const handleUnlockDepth = useCallback(() => {
+    const here =
+      typeof window === "undefined"
+        ? "/explore"
+        : `${window.location.pathname}${window.location.search}`;
+    router.push(`/signup?next=${encodeURIComponent(here)}`);
+  }, [router]);
+
+  /** They said no. Record it, strip depth, and let the map narrate it once. */
+  const declineDepth = useCallback(() => {
+    setPreview("declined");
+    writePreviewCookie("declined");
+    setDepthNarrated(true);
+    nag.setOpen(false);
+  }, [nag]);
+
   return (
     // Explore pins itself to the viewport: the map fills the box and the rail
     // and forecast strip scroll inside it, so the document itself never
@@ -1965,7 +2054,10 @@ export default function ExploreShell({
           onSelectStation={handleSelectStation}
           initialCenter={initialCenter}
           initialZoom={initialZoom}
-          relief={relief}
+          /* The toggle keeps its own state so it is exactly where they left it
+             the moment they register; the gate simply outranks it while it
+             applies. */
+          relief={relief && !depthLocked}
           labels={labels}
           currents={currents}
           wind={wind}
@@ -2079,7 +2171,9 @@ export default function ExploreShell({
           !customMode && !tierLoading ? handleCreateCustomSpot : undefined
         }
         mapControls={{
-          relief,
+          relief: relief && !depthLocked,
+          depthLocked,
+          onUnlockDepth: handleUnlockDepth,
           currents,
           wind,
           onToggleRelief: () => setRelief((v) => !v),
@@ -2129,7 +2223,9 @@ export default function ExploreShell({
       <MobileFilterSheet
         open={filterOpen}
         onClose={() => setFilterOpen(false)}
-        relief={relief}
+        relief={relief && !depthLocked}
+        depthLocked={depthLocked}
+        onUnlockDepth={handleUnlockDepth}
         currents={currents}
         wind={wind}
         onToggleRelief={() => setRelief((v) => !v)}
@@ -2206,11 +2302,28 @@ export default function ExploreShell({
           walls people walked into. */}
       {nagMounted && (
         <ProTrialModal
-          open={nag.open}
+          open={proAsk}
           onOpenChange={nag.setOpen}
           feature="whole-map"
           from="explore-nag"
         />
+      )}
+
+      {/* The depth gate's own ask. Dismissing it IS the decline — see
+          declineDepth — which is why it does not share ProTrialModal's
+          onOpenChange. */}
+      <DepthGatePrompt open={depthAsk} onDismiss={declineDepth} />
+
+      {/* Says what just happened, once. Without it the relief simply vanishing
+          reads as the map failing rather than as the answer they gave. */}
+      {depthNarrated && (
+        <div
+          role="status"
+          data-testid="depth-gate-narration"
+          className="fixed inset-x-4 top-20 z-40 mx-auto max-w-sm rounded-xl bg-rc-ink/90 px-4 py-2.5 text-center text-[13px] leading-relaxed text-white shadow-rc-panel backdrop-blur lg:left-[420px] lg:right-auto lg:top-6 lg:mx-0 lg:text-left"
+        >
+          Depth comes back with a free account. Scores and today stay free.
+        </div>
       )}
 
       {/* Rendered for cold traffic and hidden once the tier resolves to Pro.

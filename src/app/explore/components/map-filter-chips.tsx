@@ -11,6 +11,10 @@ import {
 
 export interface MapFilterChipsProps {
   relief: boolean;
+  /** The depth gate applies to this viewer: the Bathymetry chip stops being a
+   *  toggle and becomes the way back. See @/lib/preview-gate. */
+  depthLocked?: boolean;
+  onUnlockDepth?: () => void;
   currents: boolean;
   wind?: boolean;
   onToggleRelief: () => void;
@@ -33,6 +37,8 @@ const PANEL_W = 192; // w-48
  */
 export default function MapFilterChips({
   relief,
+  depthLocked = false,
+  onUnlockDepth,
   currents,
   wind,
   onToggleRelief,
@@ -85,7 +91,13 @@ export default function MapFilterChips({
   // unrendered for a while — the state, the prop and the map layer all existed,
   // so the overlay was reachable by nothing at all.
   const toggles: Array<[string, boolean, () => void]> = [
-    ["Bathymetry", relief, onToggleRelief],
+    // Locked, the chip keeps its place in the row and changes its job: it reads
+    // "Depth off" and opens the sign-up. A chip that quietly did nothing, or a
+    // layer that vanished with no control left behind, both read as the map
+    // being broken rather than as the answer they gave.
+    depthLocked
+      ? ["Depth off", false, onUnlockDepth ?? (() => {})]
+      : ["Bathymetry", relief, onToggleRelief],
     ["Currents", currents, onToggleCurrents],
     ...(onToggleWind ? ([["Wind", !!wind, onToggleWind]] as Array<[string, boolean, () => void]>) : []),
   ];
@@ -110,6 +122,10 @@ export default function MapFilterChips({
   // marketing section — where the bathymetry showed straight through the label.
   const chipOff =
     "bg-rc-panel border border-rc-rule text-rc-ink-soft font-medium hover:bg-rc-surface";
+  // The locked chip is an offer, not an off state, so it carries the brand
+  // colour rather than the muted one every other unpressed chip wears.
+  const chipLocked =
+    "bg-rc-panel border border-rc-brand text-rc-brand font-semibold hover:bg-rc-brand-soft";
 
   return (
     <div className="flex items-center gap-1.5 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
@@ -119,7 +135,9 @@ export default function MapFilterChips({
           type="button"
           onClick={onToggle}
           aria-pressed={active}
-          className={`${chipBase} ${active ? chipOn : chipOff}`}
+          className={`${chipBase} ${
+            active ? chipOn : label === "Depth off" ? chipLocked : chipOff
+          }`}
         >
           {label}
         </button>
