@@ -156,6 +156,8 @@ export default function DatePillRail({
                     ref={isSel ? selRef : undefined}
                     onClick={() => handleDay(day)}
                     aria-current={isSel ? "date" : undefined}
+                    /* The best day is marked in colour alone, so it has to be
+                       said here or it does not exist for a screen reader. */
                     aria-label={`${day.dow} ${day.date}${
                       day.nonRetention
                         ? ", non-retention"
@@ -164,11 +166,34 @@ export default function DatePillRail({
                           : day.score != null
                             ? `, score ${day.score}`
                             : ""
-                    }`}
-                    className={`relative flex w-[52px] shrink-0 snap-center flex-col items-center justify-center gap-0.5 rounded-xl border transition-colors focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-rc-brand ${
-                      isSel
-                        ? "border-rc-brand bg-rc-brand text-white"
-                        : "border-rc-rule bg-rc-panel text-rc-ink active:bg-rc-surface"
+                    }${day.isBest ? ", best day" : ""}`}
+                    /* The best day wears the marker on the tile itself — a
+                       gold border and a gold wash — rather than carrying a
+                       badge.
+
+                       The strip's "BEST" tab hangs off the top edge of its
+                       cell, and there is nowhere here for it to hang: the pill
+                       is locked to the tab bar's 64px, which leaves a 46px
+                       tile already holding day, date and score, and a tab
+                       floated above that lands on the day name. Two smaller
+                       markers were tried and both failed on the same 46px — a
+                       top-right dot ran under "TODAY", a bottom-right dot read
+                       as a decimal point beside the score, and a 3px bar on
+                       the top edge read as a rendering fault.
+
+                       Colouring the whole tile needs no room at all, and gold
+                       against thirteen grey-ruled white tiles is the loudest
+                       thing on the pill. Selected AND best keeps the brand
+                       fill and takes the gold border, so picking the best day
+                       doesn't erase the fact that it is the best day. */
+                    className={`flex w-[52px] shrink-0 snap-center flex-col items-center justify-center gap-0.5 rounded-xl transition-colors focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-rc-brand ${
+                      day.isBest
+                        ? isSel
+                          ? "border-2 border-rc-badge bg-rc-brand text-white"
+                          : "border-2 border-rc-badge bg-rc-badge/12 text-rc-ink"
+                        : isSel
+                          ? "border border-rc-brand bg-rc-brand text-white"
+                          : "border border-rc-rule bg-rc-panel text-rc-ink active:bg-rc-surface"
                     }`}
                   >
                     <span
@@ -217,25 +242,6 @@ export default function DatePillRail({
                       </span>
                     )}
 
-                    {/* The best day in the fortnight. The strip's "BEST" tab
-                        hangs off the top edge of its cell, which this rail's
-                        horizontal scroll would clip — and a fourth stacked row
-                        inside a 46px tile has nowhere to sit. A gold bar along
-                        the tile's own top edge says the same thing, costs no
-                        height, and reads on both faces (gold on white, gold on
-                        the brand fill).
-
-                        A corner dot was the first try and both corners are
-                        taken: the top row is the day name, which on the widest
-                        of them ("TODAY") runs under a top-right dot, and a
-                        bottom-right dot sits beside the score and reads as a
-                        decimal point. */}
-                    {day.isBest && (
-                      <span
-                        aria-hidden
-                        className="absolute inset-x-0 top-0 h-[3px] rounded-t-xl bg-rc-badge"
-                      />
-                    )}
                   </button>
                 );
               })}
