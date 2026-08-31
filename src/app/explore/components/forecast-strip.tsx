@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { CloudSun } from "lucide-react";
 import {
   DESKTOP_STRIP_H,
@@ -70,6 +70,24 @@ export default function ForecastStrip({
   // visitor, who would otherwise get a sign-up form after a Pro promise.
   const [lockTier, setLockTier] = useState<LockTier>("pro");
   const hasHours = selectedDayHours.some((v) => typeof v === "number");
+
+  /**
+   * Whether the bar this strip lives in is actually being displayed.
+   *
+   * The container below is `hidden lg:flex`, and React mounts its day cells at
+   * every width regardless of what CSS does with them. Without this the
+   * locked-day split test counted an exposure on every phone load for a strip
+   * at `display:none` — see DayCell's `onScreen`. Starts false so a phone
+   * never books one, and resolves on mount.
+   */
+  const [lgUp, setLgUp] = useState(false);
+  useEffect(() => {
+    const mql = window.matchMedia("(min-width:1024px)");
+    const read = () => setLgUp(mql.matches);
+    read();
+    mql.addEventListener("change", read);
+    return () => mql.removeEventListener("change", read);
+  }, []);
 
   const handleDay = (day: ForecastDay) => {
     if (day.locked) {
@@ -200,6 +218,7 @@ export default function ForecastStrip({
                   key={day.index}
                   day={day}
                   selected={isSel}
+                  onScreen={lgUp}
                   onSelect={() => handleDay(day)}
                 />
               );
