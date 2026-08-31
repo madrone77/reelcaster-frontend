@@ -696,6 +696,67 @@ ReelCaster includes a custom alert engine that allows users to define multi-vari
 - **Email Service**: Resend (shared infrastructure)
 - **Database**: Supabase PostgreSQL with RLS policies
 
+## Share cards (`/s/<token>`, 2026-08-30)
+
+A frozen fishing-day snapshot with its own URL, its own Open Graph image, and a
+modal at each end of the handoff. Built for person-to-person sending (iMessage,
+WhatsApp), not for feeds.
+
+**Every share gets its own URL, and that is the whole mechanism.** Unfurlers
+cache one scrape per URL and never re-poll, which is exactly why the spot page's
+own card (`explore/spot/[slug]/opengraph-image.tsx`) is deliberately evergreen
+and carries no score. A card that names a day and a verdict can only exist at a
+URL that is never reused, so each share writes a `share_cards` row and lives at
+`/s/<token>`. Immutable by construction, so caching it forever is correct rather
+than a lie, and it gives per-share attribution for free.
+
+### Key files
+
+- `src/lib/share-cards.ts` — pure half: types, palette, and every string on a
+  card or in its unfurl. Client-safe.
+- `src/lib/share-cards-server.ts` — `buildShareSnapshot` / `mintShareCard` /
+  `readShareCard`. Supabase + BlueCaster.
+- `src/lib/share-card-mark.ts` — the lockup, base64'd for Satori.
+- `src/app/s/[token]/` — `page.tsx`, `opengraph-image.tsx`,
+  `shared-card-dialog.tsx` (recipient), `orphan-share-view.tsx`.
+- `src/app/explore/spot/components/share-card-dialog.tsx` — sharer's modal.
+- `src/app/api/share-cards/` — mint (`POST /`), read (`GET /<token>`), counters
+  (`POST /<token>/event`).
+- Migration `supabase/migrations/20260830_share_cards.sql`.
+
+### Things that will bite you
+
+- **Display strings are stored, not re-derived.** `tide` / `wind` / `current`
+  are written already formatted ("Flood 9.1 ft"). A later units or rounding
+  change must not rewrite cards people have already sent.
+- **The token must exist before the share tap.** `navigator.share()` needs
+  transient activation, and iOS Safari refuses it if the handler awaited
+  anything. The card is minted when the modal OPENS (gesture one) and shared on
+  the tap (gesture two). Alert-borne cards are minted when the alert fires.
+- **`/s/<token>` renders the LIVE spot page under the modal**, so dismissing the
+  card is the click-through. It is a real page, never a redirect — a redirect
+  would serve the spot page's metadata and put us back in the frozen-card trap.
+- **`/s/` is in `PUBLIC_PREFIXES`** in `auth-gate.tsx`. It has to be: the whole
+  point is a signed-out person opening one. It is also `noindex`, and its
+  canonical points at the spot page.
+- **The card shows 14 bars to someone who lands on 2 days** (anon tier). Never
+  promise "the full week" in the recipient copy. That gap is the upgrade prompt.
+- **Bars scale to the range present, not 0-100.** Scores sit in a 70-90 band, so
+  a zeroed axis draws fourteen identical bars. This flatters, which is why the
+  axis is never labelled.
+- **Satori cannot read CSS variables or `next/font` woff2.** Hex is inlined and
+  the card uses `sans-serif`, like the other two OG routes. There are no
+  vendored TTFs in this repo.
+- **Current is Salish Sea only.** Outside that grid the rail renders two rows,
+  not three. Never a placeholder.
+- **Anonymous minting is open and idempotent, not rate limited** — same answer
+  the weekend-alert capture route gives. A signed-out caller asking twice for one
+  spot's default species inside 10 minutes gets the card they already made.
+
+⚠️ **Open copy decision:** the fair and poor headlines in `TIER_HEADLINE` are
+placeholders. Colour follows the real tier and sharing is open on any day, so
+those lines have to stay honest without killing the send.
+
 ## Catch Logging System — photo-first wizard with auto analysis (2026-07-11)
 
 ReelCaster's catch log is a photo-first wizard: drop a photo → BlueCaster reads
