@@ -138,11 +138,41 @@ export default function ExploreReel({
       // sheet's own edges, where the pan clamps and the pin cannot be
       // centred.
       .filter(({ at, pan }) => inSafeArea(at.x - pan.tx, at.y - pan.ty));
-    // Best first, decluttered, cut to length, THEN ordered by latitude: taking
-    // the top of a latitude-sorted list would hand the reel whichever marks
-    // happen to be furthest north rather than the ones worth showing.
+    /**
+     * Marks the frame names, ahead of the ranking.
+     *
+     * `pins` arrives most-fished first (city-proof.ts ranks on `track_rank`,
+     * then score), and that ordering is the mechanism -- it is what puts
+     * Victoria's Waterfront, Oak Bay Flats and Constance Bank on the reel
+     * every day without anything being written down. This list is the
+     * exception to it, not the way it works, and it should stay short: a
+     * frame that names four marks has stopped trusting the ranking and is
+     * really a slideshow with extra steps.
+     *
+     * What it is for is water the PAGE is about that the roster does not rank
+     * highly -- Victoria's sheet reaches out to Pedder Bay, and the mark there
+     * is the tenth most fished in the city, so nothing but naming it will put
+     * it on the reel.
+     *
+     * Unmatched names, and marks the window cannot bring clear of the chrome,
+     * fall out here silently: this is a hero, and one that shows seven marks
+     * is better than one that throws because a spot was renamed.
+     *
+     * Declutter still applies to them, and uniformly. Two pins closer than
+     * PIN_GAP overlap on screen whoever asked for them.
+     */
+    const named = (frame.featured ?? []).flatMap(
+      (n) => visible.filter((v) => v.pin.name === n),
+    );
+
+    // Decluttered, cut to length, THEN ordered by latitude: taking the top of
+    // a latitude-sorted list would hand the reel whichever marks happen to be
+    // furthest north rather than the ones worth showing.
     const kept: typeof visible = [];
-    for (const v of visible) {
+    const seen = new Set<string>();
+    for (const v of [...named, ...visible]) {
+      if (seen.has(v.pin.slug)) continue;
+      seen.add(v.pin.slug);
       const clash = kept.some(
         (k) => Math.abs(k.at.x - v.at.x) < PIN_GAP && Math.abs(k.at.y - v.at.y) < PIN_GAP,
       );

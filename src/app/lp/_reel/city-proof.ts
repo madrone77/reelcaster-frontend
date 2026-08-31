@@ -107,6 +107,21 @@ export interface ReelPin {
   hours: number[];
   bestFrom: number;
   bestTo: number;
+  /**
+   * How fished this mark is, as an ordinal over the city: 1 is the most
+   * reported mark in the roster. Undefined when the payload carries no track
+   * record for it, which sorts last.
+   *
+   * Read off `track_rank`, which the map payload already carries and which
+   * looks back a YEAR -- not `has_reports`, which is a 21-day "is anything
+   * happening this week" flag and is true of every published Victoria mark, so
+   * it cannot order anything. The ordinal is public by design: it ranks the
+   * marks against each other without disclosing how many reports any of them
+   * has, which is the fact the Pro gate is actually protecting.
+   */
+  trackRank?: number;
+  /** The band the rank sits in. Only "popular" is trusted to lead the reel. */
+  trackBand?: "popular" | "known" | "sparse";
 }
 
 export interface HeroMark {
@@ -250,6 +265,8 @@ export function buildCityProof(
           hours: pinHours,
           bestFrom: pinWin?.from ?? -1,
           bestTo: pinWin?.to ?? -1,
+          trackRank: spot.track_rank,
+          trackBand: spot.track_record,
         });
         if (!heroMark || score > heroMark.score) {
           const hours = strip.hours.map((h) =>
@@ -279,7 +296,43 @@ export function buildCityProof(
   }
 
   marks.sort((a, b) => b.score - a.score);
-  pins.sort((a, b) => b.score - a.score);
+  /**
+   * The reel leads with the most FISHED marks, then falls back to score.
+   *
+   * `marks` above stays on score, because that band answers "where is it good
+   * today" and score is the answer. The reel is answering a different
+   * question. It is the first thing a stranger sees, and what makes it land is
+   * recognising the water: somebody who fishes out of Victoria knows the
+   * Waterfront, Oak Bay Flats and Constance Bank, and a phone showing them
+   * three marks they have never heard of proves nothing, however green the
+   * numbers on it are.
+   *
+   * Score alone gets that wrong in a way that is invisible until you check.
+   * Victoria's three most reported marks -- 157, 117 and 96 reports -- carry
+   * 84, 89 and 88, and five quieter marks sit level with or above them on any
+   * given day, so the reel dropped the busiest mark in the city while looking
+   * like it was working.
+   *
+   * ── Why only the `popular` band leads ────────────────────────────────────
+   *
+   * Because the intel is not evenly spread, and a rank means nothing where
+   * there is nothing to rank. Victoria has seven marks in the `popular` band
+   * and Vancouver five; SEATTLE HAS NONE, and only three of its fifteen marks
+   * carry a rank at all -- the best-ranked being Shilshole, which is also the
+   * lowest-scoring mark in the city. Ranking on reports wherever a rank
+   * happens to exist would open Seattle's hero, which is carrying live paid
+   * traffic, on a 78 under a headline that reads "Green means go".
+   *
+   * So the band gates it. Marks the year of evidence calls popular lead, in
+   * their own order; everything else sorts on score exactly as it did before.
+   * A city with no popular marks -- Seattle and Friday Harbor today -- gets
+   * the old ordering unchanged, which is the right answer for a city whose
+   * forums we barely read rather than a claim that nobody fishes there.
+   */
+  const RANK_LAST = Number.MAX_SAFE_INTEGER;
+  const lead = (p: ReelPin) =>
+    p.trackBand === "popular" && p.trackRank ? p.trackRank : RANK_LAST;
+  pins.sort((a, b) => lead(a) - lead(b) || b.score - a.score);
 
   return {
     hero: heroMark,

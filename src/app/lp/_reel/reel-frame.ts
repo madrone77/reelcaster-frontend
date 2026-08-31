@@ -72,6 +72,26 @@ export interface ReelFrame {
    * here is the phone in the hero disagreeing with the app it is a picture of.
    */
   regionLabel: string;
+  /**
+   * Marks this reel must stop at, named exactly as `fishing_spots.name` has
+   * them. Optional, and a frame without one behaves exactly as every frame
+   * did before this existed.
+   *
+   * The reel walks the most FISHED marks -- `track_rank`, then score -- which
+   * is the rule and is usually enough on its own. Sizing the sheet to hold a
+   * mark only makes it ELIGIBLE: Victoria's sheet can show fifteen and the
+   * reel walks eight, so a mark outside the city's ten busiest never comes up.
+   * Naming it here is how you say "this water is the point of the page".
+   *
+   * Keep the list short. A frame naming four marks has stopped trusting the
+   * ranking and is really a slideshow with extra steps.
+   *
+   * A name that matches nothing, or a mark the sheet cannot bring clear of
+   * the chrome, is skipped rather than erroring: the reel is a hero, and a
+   * hero that throws because a spot was renamed is worse than a hero that
+   * shows seven marks instead of eight.
+   */
+  featured?: string[];
 }
 
 /** The phone screen: the window the reel slides over the sheet. */
@@ -211,41 +231,74 @@ export const VANCOUVER_FRAME: ReelFrame = {
 };
 
 /**
- * Victoria, on a panning sheet at z11.
+ * Victoria, on a panning sheet at z11, framed on the water rather than on the
+ * solver's answer.
  *
- * The densest of the five and the most expensive, and both facts have the
- * same cause. Solved by scripts/solve-reel-frame.mjs at z11 into eight stops
- * -- the most any city has -- running Esquimalt Harbour Entrance to Trial
- * Islands along the whole Victoria waterfront, with Oak Bay Flats and Trial
- * Islands, the two best-scoring marks in the roster, both on it.
+ * ── What this frame is for ───────────────────────────────────────────────
  *
- * 353 KB against Vancouver's 190 on a sheet of almost exactly the same area
- * (905k px against 907k). That is not slack in the encode: q65 only reaches
- * 314 KB, an 11% saving that comes straight out of the contour hairlines the
- * zoom exists to show. The bytes are the picture. Juan de Fuca and Haro
- * Strait carry far more NONNA detail than Howe Sound, and this is the hero's
- * LCP element, so it is the one frame here worth re-checking if the paid
- * numbers ever look slow.
+ * The first cut was whatever scripts/solve-reel-frame.mjs returned: the best
+ * contiguous run of marks inside a 1000k-px budget, which was the Victoria
+ * waterfront from Esquimalt out to Trial Islands. Correct by the rule it was
+ * given, and it left out two of the four pieces of water somebody fishing out
+ * of Victoria would name -- Constance Bank, and everything west toward Pedder
+ * Bay. The Saanich Peninsula filled the top third carrying no marks at all.
  *
- * The sheet cannot usefully be smaller. The eight stops span 667x144 px; the
- * rest of the 1043x868 is the room the 375x724 window needs to centre on the
- * outer two, which is also why the Saanich Peninsula fills the top third
- * carrying no marks. A 743k-px alternative exists at six stops and drops both
- * Oak Bay Flats and Discovery Island, which is the wrong trade.
+ * This one is solved from a required list instead (the script takes one now,
+ * `--require`), so the sheet holds Victoria Waterfront, Constance Bank, Oak
+ * Bay Flats and William Head at the mouth of Pedder Bay, and the run of marks
+ * between them comes along: Albert Head, Church Rock, Esquimalt, Brotchie,
+ * Clover Point, Middle Ground, Trial Islands, Brodie Rock. Fifteen of the
+ * city's eighteen marks are on it and reachable, against eight before.
  *
- * The Race Rocks and Trial Islands closures stay, for the reason they stay
- * everywhere: they are real, the product draws them, and deleting a
- * regulatory layer from a marketing still of a fishing app is the wrong kind
- * of edit.
+ * ⚠ There is no spot named "Pedder Bay". It is a launch, not a mark: the
+ * marina at its head is where the boat goes in and the fishing is out at
+ * William Head, Whirl Bay and Race Rocks. William Head is the mark on this
+ * sheet, and it is what `featured` names. If a Pedder Bay spot is ever added
+ * to the roster, add it here too -- it will already be on the sheet.
+ *
+ * Race Rocks IS on the sheet, at the bottom-left with its closure drawn, but
+ * it sits close enough to the edge that the window cannot pan it clear of the
+ * preview card, so the reel will not stop there. Reaching it costs another
+ * 190 px of height and it is not on the list.
+ *
+ * ── The eight pixels ─────────────────────────────────────────────────────
+ *
+ * The centre is nudged 8 px west of the marks it is framed on, and that is
+ * not a rounding artefact. Mark-centred, this sheet put the New Dungeness
+ * buoy 76 px past its right edge against an 82 px label half-width, so six
+ * pixels of the station name bled onto the still -- and the reel does not
+ * redraw buoy labels, so those six pixels would have shipped. The solver
+ * finds the offset now (scripts/solve-reel-frame.mjs nudges before it gives
+ * up); before it did, it simply answered "nothing fits" to this whole frame.
+ *
+ * ── What it costs ────────────────────────────────────────────────────────
+ *
+ * 361 KB against the first cut's 353, on a sheet a quarter larger (1127k px
+ * against 905k). The bytes barely moved because the ground that was added is
+ * open Juan de Fuca, which is deep, smooth and cheap; what got expensive on
+ * the first cut was the contour detail inshore, and that is unchanged. This
+ * is still the heaviest of the five sheets and still the hero's LCP element.
+ *
+ * ── The asset is -v2 ─────────────────────────────────────────────────────
+ *
+ * Next's image optimizer keys its cache on the URL, so new bytes at the old
+ * path would serve the OLD frame from the edge and every pin would sit in the
+ * wrong place. project() was re-checked against map.project() at this centre
+ * and matched to 9e-11 px on all four required marks.
  */
 export const VICTORIA_FRAME: ReelFrame = {
-  src: "/marketing/victoria-explore-map-v1.webp",
-  centerLng: -123.32895,
-  centerLat: 48.41124,
+  src: "/marketing/victoria-explore-map-v2.webp",
+  centerLng: -123.39751,
+  centerLat: 48.37892,
   zoom: 11,
-  width: 1043,
-  height: 868,
+  width: 1105,
+  height: 1020,
   regionLabel: "South Vancouver Island",
+  // Waterfront, Oak Bay Flats and Constance Bank are NOT listed here, and
+  // deliberately: they are the three most reported marks in the city, so the
+  // reel's own ranking puts them first without being told. William Head is
+  // tenth, and is here because this page's water reaches out to Pedder Bay.
+  featured: ["William Head"],
 };
 
 /**
