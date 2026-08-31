@@ -33,7 +33,7 @@ export const alt = "ReelCaster fishing forecast";
 export const size = { width: 1200, height: 630 };
 export const contentType = "image/png";
 
-const BAR_MAX = 140;
+const BAR_MAX = 118;
 const BAR_MIN = 18;
 
 /**
@@ -66,7 +66,7 @@ function Rail({ label, value }: { label: string; value: string }) {
         alignItems: "baseline",
         gap: 0,
         borderTop: `1px solid ${CARD_RULE}`,
-        paddingTop: 18,
+        paddingTop: 14,
       }}
     >
       {/* Fixed label column so the three readings line up. "CURRENT" is five
@@ -182,7 +182,7 @@ export default async function ShareCardImage({
           <span>{head.tail}</span>
         </div>
 
-        <div style={{ display: "flex", flex: 1, gap: 52, marginTop: 44 }}>
+        <div style={{ display: "flex", flex: 1, gap: 52, marginTop: 34 }}>
           <div
             style={{
               display: "flex",
@@ -224,7 +224,7 @@ export default async function ShareCardImage({
                 fontSize: spotLineSizeFor(spotLine),
                 fontWeight: 600,
                 color: CARD_INK,
-                marginTop: 28,
+                marginTop: 20,
               }}
             >
               {spotLine}
@@ -251,12 +251,12 @@ export default async function ShareCardImage({
             <div style={{ display: "flex" }}>
               <div
                 style={{
-                  fontSize: 56,
+                  fontSize: 52,
                   fontWeight: 600,
                   letterSpacing: "0.12em",
                   color: tier.pillInk,
                   background: tier.pillBg,
-                  padding: "20px 36px",
+                  padding: "14px 32px",
                   borderRadius: 12,
                 }}
               >
@@ -276,11 +276,11 @@ export default async function ShareCardImage({
             display: "flex",
             alignItems: "center",
             borderTop: `1px solid ${CARD_RULE}`,
-            marginTop: 34,
-            paddingTop: 26,
+            marginTop: 22,
+            paddingTop: 20,
           }}
         >
-          <img src={SHARE_CARD_MARK} width={109} height={50} alt="" />
+          <img src={SHARE_CARD_MARK} width={218} height={100} alt="" />
         </div>
       </div>
     ),
