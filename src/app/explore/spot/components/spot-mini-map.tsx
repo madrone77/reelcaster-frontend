@@ -104,6 +104,18 @@ export default function SpotMiniMap({
   const [base, setBase] = useState<Base>("bathy");
   const { flow, currents, wind, toggleCurrents, toggleWind } = useFlowLayer();
   const [expanded, setExpanded] = useState(false);
+  // Tracks the same 1024px line the layout uses, because that is the line the
+  // map's shape changes on: below it the map is full-bleed, above it it is a
+  // boxed column. Starts false so the server and the first client render
+  // agree; the effect corrects it on mount.
+  const [phone, setPhone] = useState(false);
+  useEffect(() => {
+    const mql = window.matchMedia("(min-width:1024px)");
+    const sync = () => setPhone(!mql.matches);
+    sync();
+    mql.addEventListener("change", sync);
+    return () => mql.removeEventListener("change", sync);
+  }, []);
 
   useFlow({ map: mapObj, kind: "currents", enabled: currents, timeIso: timeIso ?? null });
   useFlow({ map: mapObj, kind: "wind", enabled: wind, timeIso: timeIso ?? null });
@@ -114,14 +126,23 @@ export default function SpotMiniMap({
     return () => clearTimeout(t);
   }, [expanded, mapObj]);
 
-  // Let Escape collapse the fullscreen map.
+  // Let Escape collapse the fullscreen map, and hold the page still behind it.
+  // Expanding is now a phone's only way into a map it can drag, so the page
+  // underneath must not drift while a finger works the map on top of it.
+  // Without the lock you collapse the map and land somewhere you never scrolled
+  // to.
   useEffect(() => {
     if (!expanded) return;
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") setExpanded(false);
     };
     document.addEventListener("keydown", onKey);
-    return () => document.removeEventListener("keydown", onKey);
+    const prevOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.removeEventListener("keydown", onKey);
+      document.body.style.overflow = prevOverflow;
+    };
   }, [expanded]);
 
   const mapStyle = useMemo(
@@ -195,6 +216,37 @@ export default function SpotMiniMap({
   // satellite are the same picture at 4am and 4pm, and a clock over them would
   // be an instrument reading nothing.
   const barOn = flow != null && !!hours;
+
+  // A phone's inline map is a picture, not something you drive.
+  //
+  // It runs full-bleed at 45svh, so it spans the entire screen width with no
+  // page left beside it to put a thumb on, and MapLibre pans on one finger by
+  // default. Together those ate the scroll. Measured on prod at 390x664: a
+  // swipe starting on the map moved the page 0px, while the same swipe just
+  // below it moved 326px. The map lands directly under the fold and 86% of the
+  // page sits below it, so for anyone whose thumb came down on the map the page
+  // simply stopped, and everything under it read as not existing.
+  //
+  // So below `lg` the inline map takes no gestures at all and a tap expands it
+  // instead. Expanded it is fullscreen, there is nothing behind it to scroll,
+  // and every gesture comes back. Desktop is untouched: there the map is a
+  // boxed column with page either side of it to scroll on.
+  const inert = phone && !expanded;
+
+  // Set on the map object rather than passed to <Map>, because whether
+  // react-map-gl re-applies these after construction is a detail of its
+  // version and this has to hold on every flip of `expanded`. The handlers
+  // each carry their own enable/disable, so this is the whole switch.
+  useEffect(() => {
+    if (!mapObj) return;
+    const flip = inert ? "disable" : "enable";
+    mapObj.dragPan[flip]();
+    mapObj.dragRotate[flip]();
+    mapObj.touchZoomRotate[flip]();
+    mapObj.touchPitch[flip]();
+    mapObj.doubleClickZoom[flip]();
+  }, [mapObj, inert]);
+
   // The corner controls sit on the map's bottom edge, which is where the bar
   // docks. Lift them clear rather than letting the bar cover them.
   const cornerBottom = barOn ? "bottom-[74px]" : "bottom-2";
@@ -205,7 +257,7 @@ export default function SpotMiniMap({
         expanded
           ? "fixed inset-0 z-[60] bg-rc-panel"
           : // On a phone the map breaks the page gridline and runs to both
-            // edges, at 60svh rather than the boxed 288px. As a card it was a
+            // edges, at 45svh rather than the boxed 288px. As a card it was a
             // thumbnail with a white gutter down either side, and the floating
             // tab bar spent its life sitting on that gutter — the one thing on
             // the page that read as a hole rather than as water. Full width, it
@@ -216,9 +268,15 @@ export default function SpotMiniMap({
             // mobile Safari collapses its URL bar mid-scroll. The small
             // viewport unit is the one height that holds still.
             //
+            // 45svh, down from the 60svh it shipped at. At 60 the map plus
+            // the tab bar over it was very nearly the whole screen, so the
+            // sections under it read as an edge rather than as more page.
+            // A quarter off leaves the map big enough to orient by and puts
+            // roughly half the screen back on the content below it.
+            //
             // Desktop is untouched — it sits in a two-column band beside the
             // score, where a full-bleed map would have nothing to be beside.
-            "relative -mx-4 h-[60svh] overflow-hidden border-y border-rc-rule bg-rc-surface sm:-mx-6 lg:mx-0 lg:h-72 lg:rounded lg:border"
+            "relative -mx-4 h-[45svh] overflow-hidden border-y border-rc-rule bg-rc-surface sm:-mx-6 lg:mx-0 lg:h-72 lg:rounded lg:border"
       }
     >
       {/* Layer tabs: base map first, then the two flow overlays. */}
@@ -346,6 +404,27 @@ export default function SpotMiniMap({
           />
         </Source>
       </Map>
+
+      {/* Tap target over the inert map. The handlers above are already off, so
+          the canvas takes no touches either way; this is here to give the map
+          back something to do, since a map that answers nothing at all reads as
+          broken rather than as deliberate. A swipe that scrolls the page does
+          not fire a click, so scrolling past the map stays free.
+
+          Under the controls at z-10, so the layer tabs, the Explore link, the
+          expand button and the hour bar all keep taking their own taps. Hidden
+          from the accessibility tree and untabbable on purpose: the labelled
+          "Expand map" button is this same action, and one control per action is
+          enough to offer. */}
+      {inert && (
+        <button
+          type="button"
+          aria-hidden="true"
+          tabIndex={-1}
+          onClick={() => setExpanded(true)}
+          className="absolute inset-0 z-[5]"
+        />
+      )}
 
       {/* The hour the two flow fields are drawn at, and the control for it.
           Docked inside the map rather than under it so the field, its reading
