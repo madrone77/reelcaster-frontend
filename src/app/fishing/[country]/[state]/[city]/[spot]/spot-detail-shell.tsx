@@ -53,7 +53,10 @@ import ScoreFactors from "@/app/explore/spot/components/score-factors";
 import { useFavorite } from "@/app/explore/lib/use-favorite";
 import { useHomeSpot } from "@/app/explore/lib/use-home-spot";
 import HomeSpotOffer from "./home-spot-offer";
-import { resolveSea } from "@/app/explore/lib/sea-state";
+import {
+  buildTerminalHours,
+  tideRangeFrom,
+} from "@/app/explore/lib/terminal-hours";
 import SpotTerminal from "@/app/explore/spot/components/spot-terminal";
 import SpotMiniMap from "@/app/explore/spot/components/spot-mini-map";
 import ScoreCard from "@/app/explore/spot/components/score-card";
@@ -674,64 +677,22 @@ export default function SpotDetailShell({
   }, [fcSource, selId, dayIndex]);
 
   // Per-hour arrays for the terminal, for the day being shown.
-  const terminalHours = useMemo(() => {
-    const g =
-      fcSource.hourlyConditionsGrid?.[dayIndex] ??
-      fcSource.hourlyConditionsGrid?.[0] ??
-      [];
-    const pick = (
-      key:
-        | "tideM"
-        | "windKt"
-        | "windGustKt"
-        | "windDirDeg"
-        | "waveM"
-        | "cloudPct"
-        | "precipMm"
-        | "airTempC",
-    ) =>
-      Array.from(
-        { length: 24 },
-        (_, i) => (g[i]?.[key] ?? null) as number | null,
-      );
-    // Sea state falls back to a wind-derived estimate hour by hour: the wave grid
-    // has dry-land cells (Point Robinson never gets a wave height at all) and its
-    // wave partition also runs out around day 10, which used to blank the row.
-    // `seaEst` flags which hours are inferred so the chart can say so.
-    const wind = pick("windKt");
-    const gust = pick("windGustKt");
-    const seaRead = Array.from({ length: 24 }, (_, i) =>
-      resolveSea(g[i]?.waveM ?? null, wind[i], gust[i]),
-    );
-    return {
-      score: hours24,
-      tide: pick("tideM"),
-      wind,
-      gust,
-      windDir: pick("windDirDeg"),
-      sea: seaRead.map((r) => r?.m ?? null),
-      seaEst: seaRead.map((r) => r?.estimated ?? false),
-      cloud: pick("cloudPct"),
-      precip: pick("precipMm"),
-      air: pick("airTempC"),
-    };
-  }, [fcSource, dayIndex, hours24]);
+  const terminalHours = useMemo(
+    () =>
+      buildTerminalHours(
+        fcSource.hourlyConditionsGrid?.[dayIndex] ??
+          fcSource.hourlyConditionsGrid?.[0],
+        hours24,
+      ),
+    [fcSource, dayIndex, hours24],
+  );
 
   // Tide min/max across every forecast day, so the terminal's tide scale stays
   // put while flipping days instead of re-fitting to each day's range.
-  const tideRange = useMemo(() => {
-    let min = Infinity, max = -Infinity;
-    for (const day of fcSource.hourlyConditionsGrid ?? []) {
-      for (const h of day ?? []) {
-        const t = h?.tideM;
-        if (typeof t === "number" && Number.isFinite(t)) {
-          if (t < min) min = t;
-          if (t > max) max = t;
-        }
-      }
-    }
-    return min <= max ? { min, max } : null;
-  }, [fcSource]);
+  const tideRange = useMemo(
+    () => tideRangeFrom(fcSource.hourlyConditionsGrid),
+    [fcSource],
+  );
 
   // Signed flood/ebb current for the selected day — fed to BOTH the terminal
   // chart and the conditions strip, so the strip's current cell is literally

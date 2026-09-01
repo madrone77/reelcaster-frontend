@@ -38,6 +38,15 @@ export interface City1Shot {
   mark: string;
 }
 
+/**
+ * The variants that render this page.
+ *
+ * 1 is the shipped city-first page. 4 is the same page with the WHERE / WHAT /
+ * WHEN screenshot replaced by a live conditions phone -- one variable, so the
+ * pair reads as an experiment rather than as two pages.
+ */
+export type City1Variant = 1 | 4;
+
 export interface City1City {
   /**
    * The full slug, e.g. "seattle-wa". Never the path segment.
@@ -48,13 +57,16 @@ export interface City1City {
    */
   slug: string;
   /**
-   * The landing key this page counts under.
+   * The landing key each variant counts under.
    *
-   * Written down rather than derived from the slug because it is a name in a
-   * database that already has rows under it, and a derivation that produced
-   * "lpseattlewa" would silently start a second series for the same page.
+   * Written down rather than derived from the slug because these are names in
+   * a database that already has rows under them, and a derivation that
+   * produced "lpseattlewa" would silently start a second series for the same
+   * page. Keyed by variant so the two arms cannot land in one bucket, which
+   * would make the experiment unreadable in exactly the way that is hard to
+   * notice: a healthy-looking row that is two pages added together.
    */
-  landing: string;
+  landing: Record<City1Variant, string>;
   /** The capture the hero reel walks. See ../_reel/reel-frame.ts. */
   frame: ReelFrame;
   /**
@@ -111,7 +123,7 @@ export interface City1City {
 
 export const SEATTLE_1: City1City = {
   slug: "seattle-wa",
-  landing: "lpseattle1",
+  landing: { 1: "lpseattle1", 4: "lpseattle4" },
   frame: SEATTLE_FRAME,
   heroSpecies: "Halibut, Coho, Kings or Lings",
   colourVerb: "colored",
@@ -126,7 +138,7 @@ export const SEATTLE_1: City1City = {
 
 export const VANCOUVER_1: City1City = {
   slug: "vancouver-bc",
-  landing: "lpvancouver1",
+  landing: { 1: "lpvancouver1", 4: "lpvancouver4" },
   frame: VANCOUVER_FRAME,
   heroSpecies: "Halibut, Coho, Springs or Lings",
   colourVerb: "coloured",
