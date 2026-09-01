@@ -119,13 +119,13 @@ const CTA_LABEL = "Start Exploring Free";
 /**
  * The line under the button, and the whole of the qualification on it.
  *
- * "to start" is doing real work: what is free is getting in, not everything
- * past it, and a flat "no account and no card" would be read as a claim about
- * the whole product by somebody who then meets the day limit on the next
- * screen. The limits themselves are spelled out further down, where there is
- * room to be exact about them.
+ * It names the free horizon rather than the absence of a card, so it stays
+ * true on the next screen: ANON_FORECAST_DAYS is 2, which is today and
+ * tomorrow. Change that constant and this line has to change with it. The
+ * rest of the limits are spelled out further down, where there is room to be
+ * exact about them.
  */
-const CTA_NOTE = "No account and no card to start.";
+const CTA_NOTE = "Look at today and tomorrow free.";
 
 export async function city1Metadata(
   city: City1City,
