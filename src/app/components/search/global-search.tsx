@@ -4,7 +4,7 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import dynamic from 'next/dynamic';
 import { Search, MapPin, Building2, Map, Target, Loader2, X } from 'lucide-react';
-import type { BlueCasterSearchResult } from '@/lib/bluecaster';
+import type { SearchResult } from '@/lib/search-results';
 
 const WaitlistPinModal = dynamic(
   () => import('@/app/components/waitlist/waitlist-pin-modal'),
@@ -23,33 +23,18 @@ const TYPE_ICON = {
   species: Target,
 } as const;
 
-/**
- * Where a result leads, or null if nothing on this site renders it.
- *
- * Species and areas are still worth showing — they tell you the coverage is
- * there — but they have no standalone page, so they render inert rather than
- * as dead links. Explore's own search handles those by filtering and framing;
- * this palette can't, because it isn't mounted on Explore.
- */
-function hrefFor(r: BlueCasterSearchResult): string | null {
-  const province =
-    typeof r.meta?.province_code === 'string' ? r.meta.province_code : null;
-  switch (r.kind) {
-    case 'spot':
-      return `/explore/spot/${r.slug}`;
-    case 'city':
-      return province ? `/fishing/${province.toLowerCase()}/${r.slug}` : null;
-    default:
-      return null;
-  }
-}
+// Where a result leads is resolved server-side and arrives as `path` — the
+// city segment and a spot's owning city both live in the hierarchy, which this
+// component has no way to read. A null `path` renders inert rather than as a
+// dead link: species and areas are worth showing, because they say the
+// coverage is there, but they have no standalone page.
 
 export default function GlobalSearch({ open, onClose }: Props) {
   const router = useRouter();
   const inputRef = useRef<HTMLInputElement>(null);
 
   const [q, setQ] = useState('');
-  const [results, setResults] = useState<BlueCasterSearchResult[]>([]);
+  const [results, setResults] = useState<SearchResult[]>([]);
   const [loading, setLoading] = useState(false);
   const [highlight, setHighlight] = useState(0);
   const [waitlistOpen, setWaitlistOpen] = useState(false);
@@ -99,10 +84,9 @@ export default function GlobalSearch({ open, onClose }: Props) {
   }, [q, open]);
 
   const navigate = useCallback(
-    (r: BlueCasterSearchResult) => {
-      const href = hrefFor(r);
-      if (href) {
-        router.push(href);
+    (r: SearchResult) => {
+      if (r.path) {
+        router.push(r.path);
         onClose();
       }
     },
@@ -186,7 +170,7 @@ export default function GlobalSearch({ open, onClose }: Props) {
                 {results.map((r, i) => {
                   const Icon = TYPE_ICON[r.kind];
                   const active = i === highlight;
-                  const href = hrefFor(r);
+                  const href = r.path;
                   return (
                     <li key={`${r.kind}-${r.id}`}>
                       <button
