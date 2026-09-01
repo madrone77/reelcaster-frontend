@@ -28,6 +28,7 @@ import ExploreTopBar from "@/app/explore/components/explore-top-bar";
 import HomeSpotHero, { deriveTide, type TideRead } from "./home-spot-hero";
 import AroundYou, { aroundYouFrom, cityName } from "./around-you";
 import CityWater, { cityWaterFrom } from "./city-water";
+import HomeCityRow from "./home-city-row";
 import NearbyReports from "./nearby-reports";
 import MarketingFooter from "@/app/components/marketing/marketing-footer";
 import type { MapSpotsPayload } from "@/lib/bluecaster";
@@ -955,6 +956,13 @@ export default function DashboardPage() {
               {trackedCount === 1 ? "" : "s"} tracked · {activeAlertCount ?? "—"} alert
               {activeAlertCount === 1 ? "" : "s"} armed
             </p>
+            {/* The city this page is about, and the way to change it. Sits in
+                the header rather than in the city block below, because it has
+                to be there when that block is not: an angler with no home city
+                gets no city block at all, and this is how they get one. */}
+            <div className="mt-1.5">
+              <HomeCityRow />
+            </div>
           </div>
           <div className="flex items-start divide-x divide-rc-rule">
             <Stat n={spotsHot != null ? String(spotsHot) : "—"} label="Spots ≥ 80" tone="good" />
