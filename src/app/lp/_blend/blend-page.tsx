@@ -118,14 +118,13 @@ const LABEL: Record<BlendAsk, string> = {
 /**
  * The line under the button, and the whole of the qualification on it.
  *
- * On the explore variant "to start" is doing real work: what is free is
- * getting in, not everything past it, and a flat "no account and no card"
- * would be read as a claim about the whole product by somebody who then meets
- * the day limit on the next screen. The trial variant states its terms in the
- * form instead, under the button, where a card-required trial has to state
- * them.
+ * On the explore variant it names the free horizon rather than the absence of
+ * a card, so it stays true on the next screen: ANON_FORECAST_DAYS is 2, which
+ * is today and tomorrow. Change that constant and this line has to change
+ * with it. The trial variant states its terms in the form instead, under the
+ * button, where a card-required trial has to state them.
  */
-const EXPLORE_NOTE = "No account and no card to start.";
+const EXPLORE_NOTE = "Look at today and tomorrow free.";
 
 /**
  * The title and description, and NOTHING read off the query string.
