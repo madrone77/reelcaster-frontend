@@ -531,7 +531,7 @@ export default function HomeSpotHero({
             keeps it identical to the cards it is meant to match. */}
         {days14 === undefined ? (
           <div className="mt-4">
-            <div className="h-[83px] animate-pulse rounded bg-white/[0.05] sm:h-[96px]" />
+            <div className="h-[83px] animate-pulse rounded bg-white/[0.05] sm:h-[112px]" />
           </div>
         ) : days14 && days14.length > 0 ? (
           <div className="mt-4 overflow-hidden rounded bg-rc-panel">

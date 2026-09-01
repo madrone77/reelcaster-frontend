@@ -3,6 +3,7 @@
 import { Lock } from "lucide-react";
 import { useLockedDayTreatment } from "@/app/components/split-test/use-locked-day";
 import { tierFor, fmtPeak, type Tier } from "../lib/explore-data";
+import { FREE_STRIP_DAYS, type LockTier } from "../lib/forecast-strip";
 import type { SpotsOutlook14dPayload } from "@/lib/bluecaster";
 
 /**
@@ -15,6 +16,19 @@ const TIER_NUMERAL: Record<Tier, string> = {
   fair: "text-rc-fair-ink",
   poor: "text-rc-poor",
   none: "text-rc-ink-mute",
+};
+
+/**
+ * Peak-time chip, tinted to the day's own tier. Lifted from the forecast
+ * strip's day cell verbatim — a green chip under a red score would contradict
+ * state, and this is the one place in the square where a tinted background is
+ * the right treatment, because it IS a pill.
+ */
+const TIER_CHIP: Record<Tier, string> = {
+  good: "bg-rc-good-soft text-rc-good-ink",
+  fair: "bg-rc-fair-bg text-rc-fair-ink",
+  poor: "bg-rc-poor-bg text-rc-poor-ink",
+  none: "bg-rc-surface text-rc-ink-soft",
 };
 
 /**
@@ -92,6 +106,9 @@ export interface SpotDay {
   score: number | null; // null = locked, or no score that day
   peakHour: number | null;
   locked: boolean;
+  /** null when unlocked; otherwise the plan that unlocks this day, so the tile
+   *  can name it the way the forecast strip's cells do. */
+  lockTier: LockTier | null;
 }
 
 /**
@@ -113,12 +130,18 @@ export function spotDaysFrom(
   const lastScored = cells.reduce((last, c, i) => (c ? i : last), -1);
   return payload.days.map((d, i) => {
     const cell = cells[i] ?? null;
+    const locked = cell === null && i > lastScored;
     return {
       dow: d.dow,
       date: d.date,
       score: cell?.score ?? null,
       peakHour: cell?.peak_hour ?? null,
-      locked: cell === null && i > lastScored,
+      locked,
+      // Same wall the forecast strip names: a day inside the free week sells
+      // the account, a day past it sells Pro. Keyed off the shared constant so
+      // the two surfaces cannot drift into offering different plans for the
+      // same date.
+      lockTier: locked ? (i < FREE_STRIP_DAYS ? "free" : "pro") : null,
     };
   });
 }
@@ -244,7 +267,9 @@ export default function SpotDayStrip({
           })}
         </div>
       ) : (
-        <div className="flex gap-[2px] sm:gap-1">
+        // `mt-1.5` is headroom for the BEST tab, which hangs off the top edge
+        // of its cell and would otherwise sit on the header row above.
+        <div className="flex gap-[2px] sm:gap-1 mt-1.5">
           {days.map((d, i) => {
             const t = tierFor(d.score);
             const isBest = best !== null && d.score !== null && d === best;
@@ -263,7 +288,11 @@ export default function SpotDayStrip({
                       : undefined
                   }
                   disabled={!unlock}
-                  aria-label={`${d.dow} ${d.date}, upgrade to see this day`}
+                  aria-label={`${d.dow} ${d.date}, ${
+                    d.lockTier === "free"
+                      ? "become a Member to see this day"
+                      : "upgrade to Pro to see this day"
+                  }`}
                   className="flex-1 min-w-0 rounded bg-rc-surface border border-rc-rule flex flex-col items-center justify-center gap-0.5 py-1.5 enabled:hover:border-rc-brand transition-colors"
                 >
                   <DayLabel
@@ -272,6 +301,13 @@ export default function SpotDayStrip({
                   />
                   <DayDate date={d.date} className="text-rc-ink-mute" />
                   <Lock className="w-3 h-3 text-rc-ink-mute" />
+                  {/* A padlock says a day is withheld; it does not say what
+                      buys it. The forecast strip names the plan on the tile
+                      and this is the same wall, so it names it here too —
+                      wherever there is width for the words. */}
+                  <span className="hidden sm:block font-rc-mono text-[8px] leading-tight text-center text-rc-ink-soft px-0.5">
+                    {d.lockTier === "free" ? "Become a Member" : "Upgrade to Pro"}
+                  </span>
                 </button>
               );
             }
@@ -290,11 +326,20 @@ export default function SpotDayStrip({
                 // system reserves for pills and banners; fourteen of them in a
                 // row read as a heat map the four-band scale never promised.
                 className={`relative flex-1 min-w-0 rounded border bg-rc-panel flex flex-col items-center justify-center gap-0.5 py-1.5 ${
-                  isBest
-                    ? "border-rc-badge ring-1 ring-inset ring-rc-badge"
-                    : "border-rc-rule"
+                  isBest ? "border-rc-badge" : "border-rc-rule"
                 }`}
               >
+                {/* The gold BEST tab off the top edge, as the forecast strip
+                    marks its best day. It replaced an inset gold ring, which
+                    at this scale read as a focus state rather than a label.
+                    Below `sm` the word is wider than the cell it labels and
+                    spills over the neighbour, so there the gold border says it
+                    alone. */}
+                {isBest && (
+                  <span className="hidden sm:block absolute -top-1.5 left-1/2 -translate-x-1/2 px-1 py-0.5 rounded font-rc-mono text-[7px] font-bold tracking-wide bg-rc-badge text-rc-ink leading-none">
+                    BEST
+                  </span>
+                )}
                 <DayLabel
                   dow={d.dow}
                   className="rc-label text-[9px] leading-none text-rc-ink-soft"
@@ -304,6 +349,17 @@ export default function SpotDayStrip({
                   className={`text-[15px] sm:text-[17px] font-bold leading-none tracking-[-0.04em] ${TIER_NUMERAL[t]}`}
                 >
                   {d.score ?? "—"}
+                </span>
+                {/* The hour the day peaks. It was in the `title` only, which is
+                    nothing at all on a touch screen — and "when should I go" is
+                    the question this strip claims to answer. Reserved height so
+                    a day without a peak doesn't shorten its cell. */}
+                <span
+                  className={`hidden sm:flex h-[14px] items-center rounded px-1 font-rc-mono text-[9px] leading-none ${
+                    d.peakHour === null ? "opacity-0" : TIER_CHIP[t]
+                  }`}
+                >
+                  {d.peakHour === null ? "—" : fmtPeak(d.peakHour)}
                 </span>
               </div>
             );
@@ -328,7 +384,7 @@ export function SpotDayStripSkeleton({
       </div>
       <div
         className={`flex gap-[2px] sm:gap-1 ${
-          density === "compact" ? "h-8" : "h-[43px] sm:h-[56px]"
+          density === "compact" ? "h-8" : "mt-1.5 h-[43px] sm:h-[72px]"
         }`}
       >
         {/* Fourteen slots at both densities now, at the labelled cell's own
