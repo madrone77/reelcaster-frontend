@@ -5,6 +5,7 @@ import Image from 'next/image';
 import { usePathname } from 'next/navigation';
 import { useAuth } from '@/contexts/auth-context';
 import { btn } from '@/app/components/ui/button';
+import SearchTrigger from '@/app/components/search/search-trigger';
 import TrialModalButton from '@/app/components/paywall/trial-modal-button';
 
 interface MarketingHeaderProps {
@@ -82,6 +83,17 @@ export default function MarketingHeader({
         </Link>
 
         <div className="flex items-center gap-2 min-h-[36px] ml-auto">
+          {/* The one nav-like control on this bar, and it earns the exception:
+              the pitch is about water we cover, and a reader who wants to know
+              whether we cover THEIRS has otherwise no way to ask. Signed in or
+              out, because a member reading /about should not have to go back
+              into the app to search.
+
+              Not on `signedOutActions: 'none'` — that is /billing/success,
+              where the visitor has just paid and the bar deliberately offers
+              no control at all until the claim flow opens their account. */}
+          {signedOutActions !== 'none' && <SearchTrigger brand={brand} />}
+
           {loading ? null : user ? (
             <>
               {/* Signed-in affordance (initials → /profile). */}

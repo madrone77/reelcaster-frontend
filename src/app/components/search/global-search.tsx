@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef, useCallback } from 'react';
+import { createPortal } from 'react-dom';
 import { useRouter } from 'next/navigation';
 import dynamic from 'next/dynamic';
 import { Search, MapPin, Building2, Map, Target, Loader2, X } from 'lucide-react';
@@ -114,7 +115,13 @@ export default function GlobalSearch({ open, onClose }: Props) {
   const hasQuery = q.trim().length >= 2;
   const empty = hasQuery && !loading && results.length === 0;
 
-  return (
+  // Portalled to <body>. Both bars that open this are `position: sticky` or
+  // `fixed` and one of them carries a transform for its roll-away — a
+  // transformed ancestor becomes the containing block for `position: fixed`
+  // children, which would trap this full-screen overlay inside a 64px bar and
+  // slide it away on scroll. Escaping to the body means no caller has to know
+  // that, and a third bar can mount the trigger without rediscovering it.
+  return createPortal(
     <>
       <div
         className="fixed inset-0 z-50 flex items-start justify-center bg-rc-ink/60 backdrop-blur-sm p-4 pt-[10vh]"
@@ -215,6 +222,7 @@ export default function GlobalSearch({ open, onClose }: Props) {
         title={`We're not yet live in "${q}"`}
         description="Drop a pin where you'd like ReelCaster coverage and we'll let you know."
       />
-    </>
+    </>,
+    document.body,
   );
 }
