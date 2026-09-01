@@ -10,6 +10,7 @@ import { breadcrumbJsonLd, siteUrl } from "@/lib/site";
 import { getFishingCity, getFishingProvince, getFishingProvinceByCode, locationOf } from "@/app/fishing/lib/fishing-data";
 import { spotPath } from "@/lib/paths";
 import CityHeader from "./city-header";
+import { DeclareFishingPlace } from "@/app/fishing/fishing-place";
 import CityLive from "./city-live";
 import { SpeciesCards } from "./species-cards";
 import ProGate from "./hub/pro-gate";
@@ -262,6 +263,13 @@ export default async function CityPage({
           The measure is still protected — it is protected by the split and
           by each card's own max-width, not by squeezing the whole page. */}
       <div className="max-w-6xl mx-auto px-6 pt-6 space-y-6">
+        {/* Renders nothing. Tells the bar overhead which city this page is
+            about, so its trial CTA opens on "See the next 14 days in
+            Victoria" rather than the generic headline. The bar sits in
+            /fishing/layout.tsx and cannot read a name off the URL, which
+            carries a slug. */}
+        <DeclareFishingPlace name={city.name} />
+
         <CityHeader
           provincePath={provincePath}
           city={city}
