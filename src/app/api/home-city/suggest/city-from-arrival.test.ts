@@ -20,6 +20,9 @@ const city = (slug: string, name: string, lat = 0, lng = 0): CityPoint => ({
   lat,
   lng,
   spotCount: 5,
+  // Derived from the slug suffix so a fixture cannot disagree with its own name.
+  country: slug.endsWith("-wa") ? "US" : "CA",
+  province: slug.slice(-2).toUpperCase(),
 });
 
 const CITIES: CityPoint[] = [

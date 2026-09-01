@@ -38,6 +38,10 @@ export interface CityPoint {
   lat: number;
   lng: number;
   spotCount: number;
+  /** ISO country code from the hierarchy, e.g. "CA", "US". */
+  country: string;
+  /** State or province code, e.g. "BC", "WA". */
+  province: string;
 }
 
 export interface NearbySpot {
@@ -126,6 +130,8 @@ export function coveredCityPoints(
             lat: city.lat,
             lng: city.lng,
             spotCount: city.spot_count,
+            country: country.code,
+            province: province.code,
           });
         }
       }
