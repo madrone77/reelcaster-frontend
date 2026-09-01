@@ -148,7 +148,7 @@ export const GUIDES: Guide[] = [
       {
         title: 'Pro gives you ten profiles',
         detail:
-          'Free accounts run one alert. Pro runs up to ten, which is enough to cover a home spot per species plus a couple of road-trip candidates. Wind speed is smoothed with a 3-point moving average so a single gust does not trip a wind trigger.',
+          'Member accounts run one alert. Pro runs up to ten, which is enough to cover a home spot per species plus a couple of road-trip candidates. Wind speed is smoothed with a 3-point moving average so a single gust does not trip a wind trigger.',
       },
     ],
   },
@@ -200,7 +200,7 @@ export const GUIDES: Guide[] = [
       {
         title: 'The full 14-day forecast',
         detail:
-          'Pro sees 14 days on every spot page. A free account sees 7, and browsing signed-out shows the next 2. The extra week is what lets you pick a weekend two weeks out instead of reacting to this one.',
+          'Pro sees 14 days on every spot page. A Member account sees 7, and browsing Free, signed out, shows the next 2. The extra week is what lets you pick a weekend two weeks out instead of reacting to this one.',
       },
       {
         title: 'Ten alerts with composite triggers',
@@ -264,7 +264,7 @@ export const ARTICLES: Article[] = [
     topic: 'Account & billing',
     tags: ['tier', 'upgrade', 'plan', 'difference'],
     answer:
-      'Pro unlocks the full 14-day forecast (free accounts see 7 days, signed-out visitors see 2), up to 10 custom alerts with composite triggers, custom spots anywhere in covered waters, the full per-spot breakdown panel (wind, swell, tide, pressure, solunar), and The Port with priority support. Free still covers the live map, city and spot pages, the 7-day forecast, 1 email alert, favourites and catch logging.',
+      'Pro unlocks the full 14-day forecast (Member accounts see 7 days, signed-out Free browsing sees 2), up to 10 custom alerts with composite triggers, custom spots anywhere in covered waters, the full per-spot breakdown panel (wind, swell, tide, pressure, solunar), and The Port with priority support. Member still covers the live map, city and spot pages, the 7-day forecast, 1 email alert, favourites and catch logging, and costs nothing.',
   },
   {
     id: 'manage-subscription',
@@ -397,7 +397,7 @@ export const ARTICLES: Article[] = [
     topic: 'Alerts',
     tags: ['sms', 'text', 'phone', 'push'],
     answer:
-      'Yes, on Pro. Verify your phone in your profile, then turn on SMS delivery per alert. You can run email and SMS on the same alert, or either on its own. Free accounts get email only. Standard message rates from your carrier apply, and replying STOP unsubscribes you from all of them.',
+      'Yes, on Pro. Verify your phone in your profile, then turn on SMS delivery per alert. You can run email and SMS on the same alert, or either on its own. Member accounts get email only. Standard message rates from your carrier apply, and replying STOP unsubscribes you from all of them.',
   },
 
   // ---- Catch log

@@ -192,7 +192,7 @@ export function welcomeEmail(params: WelcomeEmailParams): {
   // page reads as a charge they did not notice. See ./shell.
   const footerHtml = isTrial
     ? undefined
-    : `ReelCaster &middot; You are on the free plan. Nothing to cancel, and no card on file.
+    : `ReelCaster &middot; You are on the Member plan. Nothing to cancel, and no card on file.
        <a href="${siteUrl('/profile')}" style="color:${BRAND};">Your account</a>.`;
 
   const body = [

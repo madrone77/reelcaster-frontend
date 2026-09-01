@@ -275,7 +275,7 @@ export default function ProTrialModal({
             </p>
           </div>
 
-          {/* The free tier, offered last and on purpose: after the matrix has
+          {/* The Member tier, offered last and on purpose: after the matrix has
               shown what an account gets you without paying, and after the ask
               above. Only for visitors who don't have one. */}
           {viewerTier === "anon" && (
@@ -286,7 +286,7 @@ export default function ProTrialModal({
                 onClick={() => trackCta({ plan: "free", destination: "signup" })}
                 className="text-sm font-semibold text-rc-brand hover:text-rc-brand-hover underline underline-offset-2"
               >
-                Sign up today as a free user
+                Sign up today as a Member
               </Link>
               <p className="mt-1.5 text-[11px] leading-relaxed text-rc-ink-mute">
                 No card. Keeps today&apos;s score, a week of forecast, and{" "}

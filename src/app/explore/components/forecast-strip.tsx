@@ -55,7 +55,7 @@ export default function ForecastStrip({
    * Set only on `/explore?ad=…`. A modal there would be a SECOND way to buy,
    * attributed to a different `from` than the bar under the map, which is
    * exactly the comparison a wall test is trying to make. It also drops the
-   * plan name from the tiles, because "Sign up free" beside a form asking for
+   * plan name from the tiles, because "Become a Member" beside a form asking for
    * a card is a cheaper offer winning by being cheaper.
    */
   onLockedAdDay?: () => void;
@@ -65,7 +65,7 @@ export default function ForecastStrip({
   onShow?: () => void;
 }) {
   const [upgradeOpen, setUpgradeOpen] = useState(false);
-  // Which plan the tapped day needs. A "Sign up free" day (3-7) sells the
+  // Which plan the tapped day needs. A "Become a Member" day (3-7) sells the
   // account; an "Upgrade to Pro" day (8-14) sells Pro even to a signed-out
   // visitor, who would otherwise get a sign-up form after a Pro promise.
   const [lockTier, setLockTier] = useState<LockTier>("pro");
@@ -260,13 +260,13 @@ export function MobileForecastStrip({
    * Set only on `/explore?ad=…`. A modal there would be a SECOND way to buy,
    * attributed to a different `from` than the bar under the map, which is
    * exactly the comparison a wall test is trying to make. It also drops the
-   * plan name from the tiles, because "Sign up free" beside a form asking for
+   * plan name from the tiles, because "Become a Member" beside a form asking for
    * a card is a cheaper offer winning by being cheaper.
    */
   onLockedAdDay?: () => void;
 }) {
   const [upgradeOpen, setUpgradeOpen] = useState(false);
-  // Which plan the tapped day needs. A "Sign up free" day (3-7) sells the
+  // Which plan the tapped day needs. A "Become a Member" day (3-7) sells the
   // account; an "Upgrade to Pro" day (8-14) sells Pro even to a signed-out
   // visitor, who would otherwise get a sign-up form after a Pro promise.
   const [lockTier, setLockTier] = useState<LockTier>("pro");

@@ -144,7 +144,7 @@ export async function POST(request: NextRequest) {
     if (!isPaid && (existingCount ?? 0) >= FREE_FAVORITE_SPOTS) {
       return NextResponse.json(
         {
-          error: `Free tier is limited to ${FREE_FAVORITE_SPOTS} ${
+          error: `Member accounts are limited to ${FREE_FAVORITE_SPOTS} ${
             FREE_FAVORITE_SPOTS === 1 ? 'spot' : 'spots'
           }`,
           upgrade_required: true,

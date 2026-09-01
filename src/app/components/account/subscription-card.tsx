@@ -10,7 +10,7 @@ import { useSubscription } from '@/hooks/use-subscription'
 import { supabase } from '@/lib/supabase'
 
 const TIER_LABELS: Record<string, string> = {
-  free: 'Free',
+  free: 'Member',
   pro_monthly: 'Pro · Monthly',
   pro_annual: 'Pro · Annual',
 }

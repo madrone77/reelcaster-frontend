@@ -85,7 +85,7 @@ export default function LoginPage() {
           <p className="mt-6 text-center text-sm text-rc-ink-mute">
             New to ReelCaster?{' '}
             {/* Same modal as every other signup entry. Someone who only
-                wants the free account gets it from the link at its foot, one
+                wants a Member account gets it from the link at its foot, one
                 click away, having seen what the tiers actually differ on. */}
             <TrialModalButton
               from="login-page"

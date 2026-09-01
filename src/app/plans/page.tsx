@@ -12,6 +12,7 @@ import {
 } from '@/app/components/split-test/price-text';
 import { TRIAL_DAYS } from '@/lib/trial';
 import { PLAN_FEATURES } from '@/lib/plan-features';
+import { PLAN_LABELS } from '@/lib/plan-labels';
 import PlansFeatureCallout from '@/app/components/plans/plans-feature-callout';
 import {
   breadcrumbJsonLd,
@@ -113,10 +114,10 @@ export const metadata: Metadata = {
 // `@/lib/plan-features` — the same list the in-app upgrade modal renders, so
 // this page and every paywall prompt can't drift apart. The rationale for what
 // belongs on it (live features only; the Pro-only rows first, then the ones
-// the free tier shares) is documented there.
+// the Member tier shares) is documented there.
 //
-// This page renders the list flat, with no seam and no "Free gets this too"
-// heading: the table has its own Free column header and a whole sales page
+// This page renders the list flat, with no seam and no "Member gets this too"
+// heading: the table has its own Member column header and a whole sales page
 // around it, so the block break the modal needs to make its argument would be
 // noise here. Only the order carries over.
 
@@ -135,9 +136,9 @@ const FAQ: { q: string; a: React.ReactNode }[] = [
     q: 'What do I lose if I cancel?',
     a: (
       <>
-        The Pro extras, and nothing else. Your account, your saved spots, your
-        catch log, and your 7-day forecast stay free. We don’t take back what
-        you’ve already put in.
+        The Pro extras, and nothing else. You drop back to Member and keep
+        your account, your saved spots, your catch log and your 7-day forecast.
+        We don’t take back what you’ve already put in.
       </>
     ),
   },
@@ -255,7 +256,7 @@ export default function PlansPage() {
                   Free for {TRIAL_DAYS} days, then{' '}
                   <PriceAmount /> a year,{' '}
                   <PricePerMonth /> a month. Cancel anytime, and
-                  you keep your free account.
+                  you keep your Member account.
                 </>
               ) : (
                 <>
@@ -270,8 +271,8 @@ export default function PlansPage() {
             <div className="overflow-hidden rounded-xl border border-rc-rule bg-rc-panel shadow-rc-panel">
               <table className="w-full border-collapse text-left">
                 <caption className="sr-only">
-                  Features included in the free account compared with ReelCaster
-                  Pro
+                  Features included with a Member account compared with
+                  ReelCaster Pro
                 </caption>
                 <thead>
                   <tr>
@@ -285,7 +286,7 @@ export default function PlansPage() {
                       scope="col"
                       className="w-16 px-2 pt-5 pb-3 text-center font-rc-mono text-[10px] uppercase tracking-[0.1em] text-rc-ink-mute"
                     >
-                      Free
+                      {PLAN_LABELS.free}
                     </th>
                     <th
                       scope="col"
@@ -320,9 +321,10 @@ export default function PlansPage() {
             </div>
 
             <p className="mt-3 px-1 text-xs leading-relaxed text-rc-ink-mute">
-              Free accounts can save one spot. Pro is unlimited, and alerts are
-              capped at 10 per account. Private spots work anywhere inside a
-              city we cover.
+              Member accounts can save one spot. Pro is unlimited, and alerts
+              are capped at 10 per account. Private spots work anywhere inside a
+              city we cover. Browsing without an account is Free, and shows the
+              next 2 days.
             </p>
           </div>
         </div>
@@ -372,10 +374,10 @@ export default function PlansPage() {
             Cancel and nothing disappears.
           </h2>
           <p className="mt-3 max-w-2xl text-sm leading-relaxed text-rc-ink-soft md:text-base">
-            Your spots, your catch log, and your 7-day forecast stay free
-            forever. Cancelling drops the Pro extras; it doesn’t lock you out
-            of your own fishing history. We’re not going to hold your season
-            hostage.
+            Your spots, your catch log and your 7-day forecast stay yours as a
+            Member, at no charge, forever. Cancelling drops the Pro extras; it
+            doesn’t lock you out of your own fishing history. We’re not going to
+            hold your season hostage.
           </p>
         </div>
       </section>
