@@ -1,26 +1,28 @@
 "use client";
 
 /**
- * The home city's water, cut two ways: what is scoring and what is busy.
+ * The home city's water, busiest first.
  *
- * Two lists rather than one because the two questions have different answers
- * and the difference is the useful part. Reports say where anglers actually
- * are; scores say how the water should fish. On the account this was built
- * against they disagree sharply — by activity Victoria opens with Constance
- * Bank, 25 reports and a strong verdict at a score of 81, which a score sort
- * never surfaces at all.
+ * Ranked on report volume, not on the forecast. Scores say how water should
+ * fish and reports say where people actually went, and only one of those can
+ * lead: post-rescale a healthy day peaks 88 to 92 across a whole city, so the
+ * top of a score-sorted list is a three-way tie a reader cannot tell apart.
+ * The city page reached the same conclusion and stopped ranking on the
+ * forecast. Today's score still shows on every row — it is a fact about each
+ * mark rather than the reason the mark is in that position.
  *
- * Showing only the activity list would bury a genuinely good day on water
- * nobody happens to be posting from. So both, short, side by side, with the
- * second one carrying only names the first did not.
+ * ⚠ The scores therefore do NOT descend. Same caveat the city page carries: a
+ * list that looks sorted and is not is worse than one that never looked
+ * sorted, which is what the subline is for.
+ *
+ * There was briefly a second list beside this one, good water with no reports
+ * on it. It went because the two were too alike to be worth the room: the
+ * scores either side were 88, 88, 87 against 88, 88, 88, and two lists that
+ * differ by a point read as one list printed twice.
  *
  * The rows are `SpotRow` from ./around-you, unchanged, so the lock treatment
  * on report counts is the same one the rest of the dashboard uses and cannot
  * drift out of step with it.
- *
- * The two lists are DISJOINT — see `cityWaterFrom`. Ranked two ways over the
- * same set they came out with the same names on top of both, which read as one
- * list printed twice.
  */
 
 import Link from "next/link";
@@ -44,36 +46,28 @@ const ProTrialModal = dynamic(
   { ssr: false },
 );
 
-/** How many marks each list names before it defers to the city page. */
-const SHOWN = 3;
+/** How many marks the list names before it defers to the city page. */
+const SHOWN = 5;
 
 export interface CityWaterLists {
   /** Where anglers actually are, busiest first. */
   active: AroundYouSpot[];
-  /** Good water that nobody is reporting from. Never repeats `active`. */
-  quiet: AroundYouSpot[];
   total: number;
 }
 
 /**
- * Rank the city's spots into two lists that do not overlap.
+ * Rank the city's spots by activity.
  *
- * The activity list leads because it is the stronger signal: scores say how
- * water should fish, reports say where people went. And because a score sort
- * cannot lead on its own any more — post-rescale a healthy day peaks 88 to 92
- * across a whole city, so the top of a score-sorted list is a three-way tie at
- * 88 that a reader cannot tell apart. The city page learned this the same way
- * and stopped ranking on the forecast.
+ * `activityRank` puts spots with reports first, then orders by count, then
+ * falls back to score. That fallback is why this does NOT filter on
+ * `hasReports`: in a city with no reports at all the list should still name
+ * the best water rather than render empty, and the subline is honest either
+ * way.
  *
- * The second list is then the thing the first one cannot say: water that is
- * scoring well with nobody on it. Built by EXCLUDING everything already shown
- * rather than by sorting the same set differently, because ranked two ways the
- * same spots came out on top of both and the pair read as one list printed
- * twice.
- *
- * A free viewer has no counts, but `hasReports` rides on the map payload and is
- * free-visible, so the split itself survives the paywall at full resolution —
- * only the numbers inside a row are withheld.
+ * A free viewer has no counts — those are paid — so for them this degrades to
+ * "spots with reports first, then by score", the same shape of answer at the
+ * resolution they are entitled to. `hasReports` itself rides on the map
+ * payload and is free-visible, so the ordering survives the paywall.
  *
  * Exported and pure so the page can memoize it, and so "is there anything to
  * show" is answered before any of this renders.
@@ -89,18 +83,8 @@ export function cityWaterFrom(
   const rows = cityRowsFrom(payload, reports, citySlug, ownSlugs, homeSpotSlug);
   if (rows.length === 0) return null;
 
-  const active = rows
-    .filter((r) => r.hasReports)
-    .sort(activityRank)
-    .slice(0, SHOWN);
-
-  const shown = new Set(active.map((r) => r.slug));
-  const quiet = rows
-    .filter((r) => !shown.has(r.slug))
-    .sort((a, b) => b.score - a.score)
-    .slice(0, SHOWN);
-
-  return { active, quiet, total: rows.length };
+  const active = [...rows].sort(activityRank).slice(0, SHOWN);
+  return { active, total: rows.length };
 }
 
 function List({
@@ -118,7 +102,7 @@ function List({
 }) {
   if (spots.length === 0) return null;
   return (
-    <div className="min-w-0 flex-1">
+    <div className="min-w-0">
       <p className="text-xs font-semibold uppercase tracking-wide text-rc-ink-mute">
         {title}
       </p>
@@ -172,18 +156,13 @@ export default function CityWater({
         )}
       </div>
 
-      <div className="mt-4 flex flex-col gap-6 sm:flex-row sm:gap-8">
+      <div className="mt-4">
         <List
           title="Most active"
-          note="by recent reports"
+          // Says out loud that the scores do not descend, so a reader does not
+          // read the order as a ranking by number.
+          note="by recent reports, not by score"
           spots={lists.active}
-          locked={!unlocked}
-          onUnlock={() => setUpgradeOpen(true)}
-        />
-        <List
-          title="Quiet but scoring"
-          note="no reports in the window"
-          spots={lists.quiet}
           locked={!unlocked}
           onUnlock={() => setUpgradeOpen(true)}
         />

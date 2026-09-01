@@ -2,7 +2,17 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import dynamic from "next/dynamic";
+import { Lock } from "lucide-react";
 import { supabase } from "@/lib/supabase";
+
+// Loaded on the tap that opens it, for the same reason every other paywall on
+// the dashboard defers it: a static import drags the plan matrix, the pricing
+// tables and the Stripe checkout client into the first chunk.
+const ProTrialModal = dynamic(
+  () => import("@/app/components/paywall/pro-trial-modal"),
+  { ssr: false },
+);
 
 // The daily report for the angler's home city — first card in the
 // dashboard rail, above alerts, catches and regulations.
@@ -83,7 +93,7 @@ function Paragraphs({ md, className }: { md: string; className: string }) {
   );
 }
 
-export function DailyReportCard() {
+export function DailyReportCard({ cityName }: { cityName?: string | null }) {
   const [data, setData] = useState<Payload | null>(null);
   // Headline only until asked. The card now sits in the main column between
   // the home spot and the saved-spot list, where three or four paragraphs of
@@ -91,6 +101,7 @@ export function DailyReportCard() {
   // report in one line; "On the water", the outlook and the tips are what the
   // plus is for.
   const [expanded, setExpanded] = useState(false);
+  const [upgradeOpen, setUpgradeOpen] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -129,9 +140,56 @@ export function DailyReportCard() {
     );
   }
 
-  // Free / signed-out: render nothing. This is a Pro surface and an empty
-  // teaser here would just be noise next to the existing upgrade prompts.
-  if (data.locked) return null;
+  // Free / Member: show the card, locked.
+  //
+  // It used to render nothing at all, on the reasoning that an empty teaser
+  // was noise beside the other upgrade prompts. That was the wrong call for
+  // this one card: what anglers are actually catching around you is the single
+  // best argument for paying, and a Member who never sees it exists cannot be
+  // persuaded by it. So the card keeps its frame, its city and its window, and
+  // withholds only the prose.
+  //
+  // There is genuinely nothing to tease with — the route returns `{locked:true}`
+  // and no body, so the headline never reaches the browser and cannot be read
+  // out of the network tab. The city name comes from the caller instead.
+  if (data.locked) {
+    return (
+      <>
+        <button
+          type="button"
+          onClick={() => setUpgradeOpen(true)}
+          className="block w-full overflow-hidden rounded border border-rc-rule bg-rc-panel px-4 py-3.5 text-left transition-colors hover:border-rc-brand/40 focus-visible:outline focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-rc-brand"
+        >
+          <div className="flex items-center gap-2">
+            <span className="font-rc-mono text-[10px] font-bold uppercase tracking-[0.14em] text-rc-brand">
+              {cityName ?? "Your area"} daily report
+            </span>
+            <span className="shrink-0 rounded bg-rc-surface px-1.5 py-0.5 font-rc-mono text-[10px] font-bold text-rc-ink-mute">
+              14D
+            </span>
+          </div>
+          <p className="mt-1.5 text-[15px] font-semibold leading-snug text-rc-ink">
+            What anglers are catching around{" "}
+            {cityName ?? "you"}
+          </p>
+          <p className="mt-1 text-[13px] leading-relaxed text-rc-ink-soft">
+            Written every morning from the last 14 days of reports: which
+            species are going, where they came from, and what worked.
+          </p>
+          <span className="mt-3 flex items-center gap-1.5 border-t border-rc-rule pt-3 text-[13px] font-semibold text-rc-brand">
+            <Lock className="h-3.5 w-3.5" aria-hidden />
+            Read it with Pro
+          </span>
+        </button>
+        <ProTrialModal
+          open={upgradeOpen}
+          onOpenChange={setUpgradeOpen}
+          feature="catch-reports"
+          from="dashboard-daily-report"
+        />
+      </>
+    );
+  }
 
   if (data.status === "no_home_city") {
     return (

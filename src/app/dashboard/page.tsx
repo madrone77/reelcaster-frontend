@@ -1009,6 +1009,10 @@ export default function DashboardPage() {
                   // angler's counts over a timeout is the worse mistake.
                   unlocked={spotReports ? spotReports.unlocked : true}
                 />
+                {/* What anglers are actually catching, in prose. Pro reads it;
+                    a Member sees the card locked, because a card nobody knows
+                    exists cannot argue for itself. */}
+                <DailyReportCard cityName={homeCityName} />
               </div>
             )}
 
@@ -1071,13 +1075,16 @@ export default function DashboardPage() {
             )}
             </div>
 
-            {/* Today's report for the home spot's city, headline first. The
-                saved-spots map used to sit here; it repeated pins the angler
-                can already read on Explore, and it cost a MapLibre instance
-                and a tile fetch on every dashboard load to do it. */}
-            <div className="mt-4">
-              <DailyReportCard />
-            </div>
+            {/* The daily report moved up into the city block above — it is
+                about the city, not about the pinned spot, and it always was.
+                It still renders here for an angler with no home city set, who
+                would otherwise lose it entirely; the route falls back to
+                resolving their pin. */}
+            {!homeCityName && (
+              <div className="mt-4">
+                <DailyReportCard />
+              </div>
+            )}
 
             {/* The city block sits with the report rather than below the spot
                 list: both answer "what is happening around me", one in prose
