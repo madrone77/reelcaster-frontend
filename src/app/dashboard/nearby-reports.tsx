@@ -28,6 +28,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { ArrowUpRight } from "lucide-react";
 import { supabase } from "@/lib/supabase";
+import { formatReportDate } from "@/lib/time-format";
 import type { NearbyCityReport } from "@/app/api/bluecaster/nearby-reports/route";
 
 interface Payload {
@@ -76,7 +77,7 @@ export default function NearbyReports() {
           each is the whole block; it must not grow taller than the card above
           it. */}
       <div className="mt-2.5 grid gap-x-6 gap-y-3 sm:grid-cols-2">
-        {data.cities.map(({ city, headline, distanceKm }) => (
+        {data.cities.map(({ city, headline, distanceKm, reportDate }) => (
           <Link
             key={city.slug}
             href={`/explore?loc=${encodeURIComponent(city.slug)}`}
@@ -86,8 +87,12 @@ export default function NearbyReports() {
               <span className="text-[14px] font-semibold text-rc-ink group-hover:text-rc-brand">
                 {city.name}
               </span>
+              {/* Distance and the report's own date. Dated for the same
+                  reason the main card is: these are not guaranteed daily, and
+                  an undated headline reads as this morning's however old it
+                  is. */}
               <span className="font-rc-mono text-[11px] text-rc-ink-mute">
-                {Math.round(distanceKm)} km
+                {Math.round(distanceKm)} km · {formatReportDate(reportDate)}
               </span>
               <ArrowUpRight
                 className="ml-auto h-3.5 w-3.5 shrink-0 text-rc-ink-mute group-hover:text-rc-brand"

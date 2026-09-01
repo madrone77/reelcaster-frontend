@@ -5,6 +5,7 @@ import Link from "next/link";
 import dynamic from "next/dynamic";
 import { Lock } from "lucide-react";
 import { supabase } from "@/lib/supabase";
+import { formatReportDate } from "@/lib/time-format";
 
 // Loaded on the tap that opens it, for the same reason every other paywall on
 // the dashboard defers it: a static import drags the plan matrix, the pricing
@@ -14,8 +15,14 @@ const ProTrialModal = dynamic(
   { ssr: false },
 );
 
-// The daily report for the angler's home city — first card in the
-// dashboard rail, above alerts, catches and regulations.
+// The report for the angler's home city — the first card on the dashboard.
+//
+// Called "report" and stamped with its own date, deliberately NOT "daily
+// report". The cadence is a function of how much anglers posted, and a city
+// with a thin week may not get one: a card that says "daily" turns a quiet
+// week into a visible broken promise, while a dated report is simply the most
+// recent one. The date is upstream's `report_date`, not the time of the read,
+// so a reader can always see how fresh what they are looking at is.
 //
 // Two sections of unequal weight, matching how BlueCaster writes them:
 // "On the water" (what people are actually catching, last 14 days) carries
@@ -162,10 +169,7 @@ export function DailyReportCard({ cityName }: { cityName?: string | null }) {
         >
           <div className="flex items-center gap-2">
             <span className="font-rc-mono text-[10px] font-bold uppercase tracking-[0.14em] text-rc-brand">
-              {cityName ?? "Your area"} daily report
-            </span>
-            <span className="shrink-0 rounded bg-rc-surface px-1.5 py-0.5 font-rc-mono text-[10px] font-bold text-rc-ink-mute">
-              14D
+              {cityName ?? "Your area"} report
             </span>
           </div>
           <p className="mt-1.5 text-[15px] font-semibold leading-snug text-rc-ink">
@@ -173,8 +177,12 @@ export function DailyReportCard({ cityName }: { cityName?: string | null }) {
             {cityName ?? "you"}
           </p>
           <p className="mt-1 text-[13px] leading-relaxed text-rc-ink-soft">
-            Written every morning from the last 14 days of reports: which
-            species are going, where they came from, and what worked.
+            {/* No cadence claimed and no date shown: a locked caller gets
+                `{locked:true}` and no body, so there is no report_date to
+                stamp, and promising "every morning" is the thing this card
+                stopped doing. */}
+            Written from the last two weeks of angler reports: which species
+            are going, where they came from, and what worked.
           </p>
           <span className="mt-3 flex items-center gap-1.5 border-t border-rc-rule pt-3 text-[13px] font-semibold text-rc-brand">
             <Lock className="h-3.5 w-3.5" aria-hidden />
@@ -196,7 +204,7 @@ export function DailyReportCard({ cityName }: { cityName?: string | null }) {
       <div className="overflow-hidden rounded border border-rc-rule bg-rc-panel">
         <div className="px-4 py-4">
           <span className="text-[15px] font-medium text-rc-ink">
-            Your daily report
+            Your report
           </span>
           {/* The gap is a home CITY now, not a pinned spot — the route
               prefers `homeCitySlug` and only falls back to resolving the pin.
@@ -222,7 +230,7 @@ export function DailyReportCard({ cityName }: { cityName?: string | null }) {
       <div className="overflow-hidden rounded border border-rc-rule bg-rc-panel">
         <div className="px-4 py-4">
           <span className="text-[15px] font-medium text-rc-ink">
-            {data.city?.name ? `${data.city.name} daily report` : "Your daily report"}
+            {data.city?.name ? `${data.city.name} report` : "Your report"}
           </span>
           <p className="mt-2 font-rc-mono text-[12px] text-rc-ink-soft">
             We&apos;re putting together your first report for{" "}
@@ -239,10 +247,14 @@ export function DailyReportCard({ cityName }: { cityName?: string | null }) {
     <section className="overflow-hidden rounded border border-rc-rule bg-rc-panel px-5 py-4">
       <div className="flex items-center gap-2">
         <span className="font-rc-mono text-[10px] font-bold uppercase tracking-[0.14em] text-rc-brand">
-          {data.city?.name ?? cityName ?? "Your area"} daily report
+          {data.city?.name ?? cityName ?? "Your area"} report
         </span>
+        {/* The report's own date, not today's. The window it covers moved
+            inside the body: two badges in a header is one too many, and of the
+            two, how fresh this is matters more on arrival than how far back it
+            reaches. */}
         <span className="shrink-0 rounded bg-rc-surface px-1.5 py-0.5 font-rc-mono text-[10px] font-bold text-rc-ink-mute">
-          {r.reports_window_days}D
+          {formatReportDate(r.report_date)}
         </span>
       </div>
 
@@ -275,6 +287,9 @@ export function DailyReportCard({ cityName }: { cityName?: string | null }) {
 
       {expanded && (
         <div id="daily-report-body" className="mt-3 border-t border-rc-rule pt-3">
+          <p className="mb-2 font-rc-mono text-[10px] uppercase tracking-wide text-rc-ink-mute">
+            From the last {r.reports_window_days} days of reports
+          </p>
           {r.reports_md ? (
             <div className="space-y-2">
               <Paragraphs

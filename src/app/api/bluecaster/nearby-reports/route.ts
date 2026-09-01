@@ -57,6 +57,9 @@ export interface NearbyCityReport {
   headline: string | null;
   reportsMd: string;
   windowDays: number;
+  /** The report's own date, `YYYY-MM-DD`. Shown, because these are not
+   *  guaranteed daily and an undated headline reads as current. */
+  reportDate: string;
 }
 
 const supabaseAdmin = createClient(
@@ -142,6 +145,7 @@ export async function GET(request: NextRequest) {
       headline: r.headline,
       reportsMd: r.reports_md,
       windowDays: r.reports_window_days,
+      reportDate: r.report_date,
     });
   }
 
