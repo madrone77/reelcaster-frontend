@@ -686,3 +686,34 @@ export async function fetchMapForecast14d(
   }
   return (await res.json()) as MapForecast14dPayload;
 }
+
+// ── The angler's home city ─────────────────────────────────────────────────
+//
+// Scoped by city slug and carrying no identity, which is the point of doing it
+// this way: a city's published water is the same for everyone, so the proxy can
+// mark the response shared-cacheable and the edge can serve it. Sending an
+// Authorization header would make it per-reader and uncacheable for no gain,
+// since it shows nothing a signed-out visitor cannot see.
+
+/**
+ * The city's spots and today's scores.
+ *
+ * Deliberately anonymous, unlike `fetchMapSpotsForIds`: that one sends a token
+ * so an angler's own unpublished custom spots come back. Here we are ranking a
+ * city's water for a dashboard band, and a private mark nobody else can see is
+ * not part of "the best of this city today".
+ */
+export async function fetchCitySpots(
+  citySlug: string,
+  date: string,
+): Promise<MapSpotsPayload | null> {
+  const qs = new URLSearchParams({ city: citySlug, date });
+  const res = await fetch(`/api/bluecaster/map/spots?${qs}`, {
+    // The band sits below the fold on a phone. It must not compete with the
+    // hero's own reads.
+    priority: "low",
+  });
+  if (!res.ok) return null;
+  return (await res.json().catch(() => null)) as MapSpotsPayload | null;
+}
+

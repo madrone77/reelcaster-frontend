@@ -19,6 +19,7 @@ import {
 } from "./lib/explore-data";
 import { nearestOpeningCity, readVisitorPoint } from "./lib/opening-city";
 import { HOME_SPOT_COOKIE, sanitizeHomeSpotSlug } from "./lib/home-spot-cookie";
+import { HOME_CITY_COOKIE, sanitizeHomeCitySlug } from "./lib/home-city-cookie";
 import { parseWall } from "@/lib/ad-mode";
 import { trialChargeDate } from "@/app/lp/_shared/lp-checkout";
 import { PRICE } from "@/app/lp/_shared/lp-content";
@@ -159,8 +160,21 @@ export async function renderExplore({
   // disappear on every single load.
   const previewState = parsePreviewState(cookieStore.get(PREVIEW_COOKIE)?.value);
 
-  const homeSpotSlug =
+  // The angler's own answer, when they have given one. Read straight from its
+  // own cookie rather than derived, which is the whole point of the setting:
+  // every consumer of the home SPOT except the dashboard hero only ever wanted
+  // the city it sat in, and inferring one from the other made a guessable
+  // question depend on an unguessable one.
+  const homeCityCookie =
     loc || spot
+      ? null
+      : sanitizeHomeCitySlug(cookieStore.get(HOME_CITY_COOKIE)?.value);
+
+  // The pin stays as the fallback, so every angler who set one before this
+  // shipped keeps their opening frame without a backfill. Skipped entirely
+  // once the city is known, which also skips its hierarchy read.
+  const homeSpotSlug =
+    loc || spot || homeCityCookie
       ? null
       : sanitizeHomeSpotSlug(cookieStore.get(HOME_SPOT_COOKIE)?.value);
   // Started before the spot-coords await below so the two overlap; both are
@@ -176,6 +190,9 @@ export async function renderExplore({
   // Null when the pin no longer resolves — an unpublished or deleted spot —
   // which reads as no pin rather than as an error.
   const homeCity = homeCityPromise ? await homeCityPromise : null;
+  // `coveredCitySlug` below gates whichever of the two we end up with, so an
+  // unpublished or retired city reads as no preference rather than as an error.
+  const homeCitySlug = homeCityCookie ?? homeCity?.slug;
 
   // ── Ship the opening city's spots, not three provinces' worth ────────────
   //
@@ -228,7 +245,7 @@ export async function renderExplore({
 
   const openingCity =
     coveredCitySlug(hierarchy, loc) ??
-    coveredCitySlug(hierarchy, homeCity?.slug) ??
+    coveredCitySlug(hierarchy, homeCitySlug) ??
     nearestOpeningCity(hierarchy, visitor) ??
     (hasPreferredDefaultCity(hierarchy) ? PREFERRED_DEFAULT_CITY : null);
 

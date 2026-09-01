@@ -26,6 +26,8 @@ import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/auth-context';
 import ProWelcomeModal from '@/app/components/pro/pro-welcome-modal';
 import NewUserWelcomeModal from './new-user-welcome-modal';
+import HomeCityModal from './home-city-modal';
+import { homeCityAsked, useHomeCityState } from '@/app/explore/lib/use-home-city';
 
 type Kind = 'new' | 'pro' | null;
 
@@ -40,6 +42,20 @@ export default function WelcomeGate() {
   const pathname = usePathname();
 
   const [state, setState] = useState<GateState>({ kind: null, next: null });
+
+  // The home city goes FIRST, ahead of the tour.
+  //
+  // It is one tap, and everything the tour then describes — today's report,
+  // the spots worth the run — is about the angler's own water once it is
+  // answered and about Victoria's until it is. Asking after the tour would
+  // mean explaining the product with the wrong city on screen.
+  //
+  // Hydrated, so this reads the durable answer rather than this browser's
+  // copy of it: `ready` is what separates "they have no home city" from "we
+  // have not looked yet", and asking on the second is asking somebody who
+  // already answered on their phone.
+  const { slug: homeCity, ready: homeCityReady } = useHomeCityState(true);
+  const [cityDone, setCityDone] = useState(false);
 
   // Never interrupt the purchase flow. Popping a welcome on the pricing page
   // reads as premature mid-checkout, and /billing/success celebrates on its
@@ -86,6 +102,14 @@ export default function WelcomeGate() {
   }, []);
 
   if (suppressed) return null;
+
+  // `homeCityAsked()` is only meaningful once the hydrate has landed, which is
+  // what `homeCityReady` gates: hydrateHomeCity copies the server's
+  // homeCityAskedAt into local storage on its way through.
+  const needsCity =
+    !!user && !authLoading && homeCityReady && !homeCity && !homeCityAsked() && !cityDone;
+
+  if (needsCity) return <HomeCityModal onClose={() => setCityDone(true)} />;
 
   if (state.kind === 'new') {
     return (

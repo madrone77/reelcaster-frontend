@@ -2,10 +2,27 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import dynamic from "next/dynamic";
+import { Lock } from "lucide-react";
 import { supabase } from "@/lib/supabase";
+import { formatReportDate } from "@/lib/time-format";
 
-// The daily report for the angler's home city — first card in the
-// dashboard rail, above alerts, catches and regulations.
+// Loaded on the tap that opens it, for the same reason every other paywall on
+// the dashboard defers it: a static import drags the plan matrix, the pricing
+// tables and the Stripe checkout client into the first chunk.
+const ProTrialModal = dynamic(
+  () => import("@/app/components/paywall/pro-trial-modal"),
+  { ssr: false },
+);
+
+// The report for the angler's home city — the first card on the dashboard.
+//
+// Called "report" and stamped with its own date, deliberately NOT "daily
+// report". The cadence is a function of how much anglers posted, and a city
+// with a thin week may not get one: a card that says "daily" turns a quiet
+// week into a visible broken promise, while a dated report is simply the most
+// recent one. The date is upstream's `report_date`, not the time of the read,
+// so a reader can always see how fresh what they are looking at is.
 //
 // Two sections of unequal weight, matching how BlueCaster writes them:
 // "On the water" (what people are actually catching, last 14 days) carries
@@ -19,8 +36,10 @@ import { supabase } from "@/lib/supabase";
 // — a free caller gets `{ locked: true }` with no body, so there is nothing
 // to reveal in the network tab. This component only decides what to render.
 //
-// The city is derived from the pinned home spot server-side and is never a
-// request parameter; without a home spot the card becomes the pin CTA.
+// The city is resolved server-side from `preferences.homeCitySlug`, falling
+// back to the pinned home spot for anglers who set one before the city setting
+// existed. It is never a request parameter. With neither, the card becomes the
+// prompt to set a city.
 
 interface DailyReport {
   report_date: string;
@@ -65,7 +84,12 @@ function BoldNames({ text }: { text: string }) {
   );
 }
 
-function Paragraphs({ md, className }: { md: string; className: string }) {
+/**
+ * Exported so ./nearby-reports renders a neighbour's report exactly the way
+ * this one does. Two renderers for the same prose would drift, and the
+ * `**bold**` handling is the part that must not.
+ */
+export function Paragraphs({ md, className }: { md: string; className: string }) {
   return (
     <>
       {md
@@ -81,7 +105,7 @@ function Paragraphs({ md, className }: { md: string; className: string }) {
   );
 }
 
-export function DailyReportCard() {
+export function DailyReportCard({ cityName }: { cityName?: string | null }) {
   const [data, setData] = useState<Payload | null>(null);
   // Headline only until asked. The card now sits in the main column between
   // the home spot and the saved-spot list, where three or four paragraphs of
@@ -89,6 +113,7 @@ export function DailyReportCard() {
   // report in one line; "On the water", the outlook and the tips are what the
   // plus is for.
   const [expanded, setExpanded] = useState(false);
+  const [upgradeOpen, setUpgradeOpen] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -127,26 +152,78 @@ export function DailyReportCard() {
     );
   }
 
-  // Free / signed-out: render nothing. This is a Pro surface and an empty
-  // teaser here would just be noise next to the existing upgrade prompts.
-  if (data.locked) return null;
+  // Free / Member: show the card, locked.
+  //
+  // It used to render nothing at all, on the reasoning that an empty teaser
+  // was noise beside the other upgrade prompts. That was the wrong call for
+  // this one card: what anglers are actually catching around you is the single
+  // best argument for paying, and a Member who never sees it exists cannot be
+  // persuaded by it. So the card keeps its frame, its city and its window, and
+  // withholds only the prose.
+  //
+  // There is genuinely nothing to tease with — the route returns `{locked:true}`
+  // and no body, so the headline never reaches the browser and cannot be read
+  // out of the network tab. The city name comes from the caller instead.
+  if (data.locked) {
+    return (
+      <>
+        <button
+          type="button"
+          onClick={() => setUpgradeOpen(true)}
+          className="block w-full overflow-hidden rounded border border-rc-rule bg-rc-panel px-4 py-3.5 text-left transition-colors hover:border-rc-brand/40 focus-visible:outline focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-rc-brand"
+        >
+          <div className="flex items-center gap-2">
+            <span className="font-rc-mono text-[10px] font-bold uppercase tracking-[0.14em] text-rc-brand">
+              {cityName ?? "Your area"} report
+            </span>
+          </div>
+          <p className="mt-1.5 text-[15px] font-semibold leading-snug text-rc-ink">
+            What anglers are catching around{" "}
+            {cityName ?? "you"}
+          </p>
+          <p className="mt-1 text-[13px] leading-relaxed text-rc-ink-soft">
+            {/* No cadence claimed and no date shown: a locked caller gets
+                `{locked:true}` and no body, so there is no report_date to
+                stamp, and promising "every morning" is the thing this card
+                stopped doing. */}
+            Written from the last two weeks of angler reports: which species
+            are going, where they came from, and what worked.
+          </p>
+          <span className="mt-3 flex items-center gap-1.5 border-t border-rc-rule pt-3 text-[13px] font-semibold text-rc-brand">
+            <Lock className="h-3.5 w-3.5" aria-hidden />
+            Read it with Pro
+          </span>
+        </button>
+        <ProTrialModal
+          open={upgradeOpen}
+          onOpenChange={setUpgradeOpen}
+          feature="catch-reports"
+          from="dashboard-daily-report"
+        />
+      </>
+    );
+  }
 
   if (data.status === "no_home_city") {
     return (
       <div className="overflow-hidden rounded border border-rc-rule bg-rc-panel">
         <div className="px-4 py-4">
           <span className="text-[15px] font-medium text-rc-ink">
-            Your daily report
+            Your report
           </span>
+          {/* The gap is a home CITY now, not a pinned spot — the route
+              prefers `homeCitySlug` and only falls back to resolving the pin.
+              Telling a reader to go pin a spot would send them to solve the
+              harder problem, and the wrong one. */}
           <p className="mt-2 font-rc-mono text-[12px] text-rc-ink-soft">
-            Pin a home spot and you&apos;ll get a daily read on what anglers are
-            catching around it.
+            Set your home city and you&apos;ll get a daily read on what anglers
+            are catching around you.
           </p>
           <Link
-            href="/explore"
+            href="/settings/account"
             className="mt-2 inline-block font-rc-mono text-[11px] font-bold text-rc-brand"
           >
-            Find your spot ›
+            Set your city ›
           </Link>
         </div>
       </div>
@@ -158,7 +235,7 @@ export function DailyReportCard() {
       <div className="overflow-hidden rounded border border-rc-rule bg-rc-panel">
         <div className="px-4 py-4">
           <span className="text-[15px] font-medium text-rc-ink">
-            {data.city?.name ? `${data.city.name} daily report` : "Your daily report"}
+            {data.city?.name ? `${data.city.name} report` : "Your report"}
           </span>
           <p className="mt-2 font-rc-mono text-[12px] text-rc-ink-soft">
             We&apos;re putting together your first report for{" "}
@@ -172,73 +249,75 @@ export function DailyReportCard() {
   const r = data.report;
 
   return (
-    <div className="overflow-hidden rounded border border-rc-rule bg-rc-panel">
-      {/* The whole card is the toggle, and it says so in words. A bare + asks
-          the reader to work out that there is more behind it and that the icon
-          is how you get there; "Click here for more information" asks nothing. */}
+    <section className="overflow-hidden rounded border border-rc-rule bg-rc-panel px-5 py-4">
+      <div className="flex items-center gap-2">
+        <span className="font-rc-mono text-[10px] font-bold uppercase tracking-[0.14em] text-rc-brand">
+          {data.city?.name ?? cityName ?? "Your area"} report
+        </span>
+        {/* The report's own date, not today's. The window it covers moved
+            inside the body: two badges in a header is one too many, and of the
+            two, how fresh this is matters more on arrival than how far back it
+            reaches. */}
+        <span className="shrink-0 rounded bg-rc-surface px-1.5 py-0.5 font-rc-mono text-[10px] font-bold text-rc-ink-mute">
+          {formatReportDate(r.report_date)}
+        </span>
+      </div>
+
+      {/* Headline only until asked. The prose is the payoff, not the hook:
+          five sentences open on arrival is a wall on a phone, and it pushed
+          everything else on the page below the fold. One line and a control
+          that says what is behind it. */}
+      <h2 className="mt-1.5 text-[17px] font-semibold leading-snug text-rc-ink">
+        {r.headline ??
+          `What anglers are catching around ${data.city?.name ?? cityName ?? "you"}`}
+      </h2>
+
       <button
         type="button"
         onClick={() => setExpanded((v) => !v)}
         aria-expanded={expanded}
-        aria-controls="daily-report-more"
-        className="block w-full px-4 pb-3.5 pt-3.5 text-left focus-visible:outline focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-rc-brand"
+        aria-controls="daily-report-body"
+        className="mt-2.5 flex w-full items-center justify-between gap-3 text-[13px] font-semibold text-rc-brand focus-visible:outline focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-rc-brand"
       >
-        <div className="flex items-center gap-2">
-          <span className="font-rc-mono text-[10px] font-bold uppercase tracking-[0.14em] text-rc-brand">
-            {data.city?.name ?? "Your area"} daily report
-          </span>
-          <span className="shrink-0 rounded bg-rc-surface px-1.5 py-0.5 font-rc-mono text-[10px] font-bold text-rc-ink-mute">
-            {r.reports_window_days}D
-          </span>
-        </div>
-        <p className="mt-1.5 text-[15px] font-semibold leading-snug text-rc-ink">
-          {r.headline ?? `What anglers are catching around ${data.city?.name ?? "you"}`}
-        </p>
-
-        <span className="mt-3 flex items-center justify-between gap-3 border-t border-rc-rule pt-3 text-[14px] font-semibold text-rc-brand">
-          {expanded ? "Click here to close" : "Click here for more information"}
-          <span
-            aria-hidden
-            className={`flex h-7 w-7 shrink-0 items-center justify-center rounded border border-rc-rule text-[15px] leading-none transition-transform duration-200 ${
-              expanded ? "rotate-45" : ""
-            }`}
-          >
-            +
-          </span>
+        {expanded ? "Hide report" : "See report"}
+        <span
+          aria-hidden
+          className={`flex h-6 w-6 shrink-0 items-center justify-center rounded border border-rc-rule text-[14px] leading-none transition-transform duration-200 ${
+            expanded ? "rotate-45" : ""
+          }`}
+        >
+          +
         </span>
       </button>
 
       {expanded && (
-        <div id="daily-report-more" className="px-4 pb-4">
-          {/* No rule of its own — the toggle row above already closed with one. */}
-          <div>
-            <div className="font-rc-mono text-[11px] font-bold uppercase tracking-wide text-rc-brand">
-              On the water
+        <div id="daily-report-body" className="mt-3 border-t border-rc-rule pt-3">
+          <p className="mb-2 font-rc-mono text-[10px] uppercase tracking-wide text-rc-ink-mute">
+            From the last {r.reports_window_days} days of reports
+          </p>
+          {r.reports_md ? (
+            <div className="space-y-2">
+              <Paragraphs
+                md={r.reports_md}
+                className="text-[14px] leading-relaxed text-rc-ink-soft"
+              />
             </div>
-            {r.reports_md ? (
-              <div className="mt-1.5 space-y-2">
-                <Paragraphs
-                  md={r.reports_md}
-                  className="text-[13px] leading-relaxed text-rc-ink-soft"
-                />
-              </div>
-            ) : (
-              <p className="mt-1.5 font-rc-mono text-[12px] text-rc-ink-soft">
-                No angler reports around your spot in the last{" "}
-                {r.reports_window_days} days.
-              </p>
-            )}
-          </div>
+          ) : (
+            <p className="font-rc-mono text-[12px] text-rc-ink-soft">
+              No angler reports around {data.city?.name ?? cityName ?? "you"} in
+              the last {r.reports_window_days} days.
+            </p>
+          )}
 
           {r.outlook_md && (
             <div className="mt-3 border-t border-rc-rule pt-3">
               <div className="font-rc-mono text-[11px] font-bold uppercase tracking-wide text-rc-ink-mute">
                 Next {r.outlook_horizon_days} days
               </div>
-              <div className="mt-1.5 space-y-2">
+              <div className="mt-1.5">
                 <Paragraphs
                   md={r.outlook_md}
-                  className="text-[12.5px] leading-relaxed text-rc-ink-soft"
+                  className="text-[13px] leading-relaxed text-rc-ink-soft"
                 />
               </div>
             </div>
@@ -249,7 +328,7 @@ export function DailyReportCard() {
               {r.tips.map((t, i) => (
                 <li
                   key={i}
-                  className="flex gap-2 text-[12.5px] leading-snug text-rc-ink-soft"
+                  className="flex gap-2 text-[13px] leading-snug text-rc-ink-soft"
                 >
                   <span aria-hidden className="text-rc-brand">
                     →
@@ -261,6 +340,6 @@ export function DailyReportCard() {
           )}
         </div>
       )}
-    </div>
+    </section>
   );
 }

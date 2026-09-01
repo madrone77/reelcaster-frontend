@@ -7,6 +7,7 @@ import { UnitPreferencesProvider } from '@/contexts/unit-preferences-context'
 import AuthGate from '@/app/components/auth/auth-gate'
 import MobileBottomNav from '@/app/components/mobile-bottom-nav'
 import WelcomeGate from '@/app/components/welcome/welcome-gate'
+import ArrivalRecorder from '@/app/components/welcome/arrival-recorder'
 import AttributionCapture from '@/app/components/attribution/attribution-capture'
 import { GoogleAnalytics } from '@next/third-parties/google'
 import { ADSENSE_CLIENT } from '@/lib/adsense'
@@ -169,6 +170,7 @@ export default function RootLayout({
                     landing page: a new account can arrive on any route. Picks
                     between the three-step new-user tour and the Pro setup
                     wizard, and renders null for everyone owed neither. */}
+                <ArrivalRecorder />
                 <WelcomeGate />
               </AuthGate>
             </UnitPreferencesProvider>

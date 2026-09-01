@@ -64,3 +64,21 @@ export const TIME_12H_OPTIONS = {
   minute: "2-digit",
   hour12: true,
 } as const satisfies Intl.DateTimeFormatOptions;
+
+/**
+ * A report's own date, as a short label: "Sep 1".
+ *
+ * Takes upstream's plain `YYYY-MM-DD` and parses it at noon, so a timezone
+ * offset can never roll it back to the previous day — the string names a day,
+ * not an instant, and `new Date("2026-09-01")` is midnight UTC, which is
+ * August 31st on this coast.
+ *
+ * Clock-free: it formats the string it is handed and never asks what today is.
+ * A caller that wants "is this stale" has to read the clock in an effect, not
+ * in render (see [[incident-spot-page-hydration-clock]]).
+ */
+export function formatReportDate(isoDate: string): string {
+  const d = new Date(`${isoDate}T12:00:00`);
+  if (Number.isNaN(d.getTime())) return isoDate;
+  return d.toLocaleDateString(undefined, { month: "short", day: "numeric" });
+}

@@ -7,6 +7,7 @@ import { useAuth } from "@/contexts/auth-context";
 import {
   fetchMyCustomSpots,
   fetchMapSpotsForIds,
+  fetchCitySpots,
   fetchSpotLive,
   fetchFreshCatches,
   fetchSpotsOutlook14d,
@@ -25,10 +26,13 @@ import SpotCard from "@/app/explore/components/spot-card";
 import { spotDaysFrom } from "@/app/explore/components/spot-day-strip";
 import ExploreTopBar from "@/app/explore/components/explore-top-bar";
 import HomeSpotHero, { deriveTide, type TideRead } from "./home-spot-hero";
-import AroundYou, { aroundYouFrom } from "./around-you";
+import AroundYou, { aroundYouFrom, cityName } from "./around-you";
+import CityWater, { cityWaterFrom } from "./city-water";
+import NearbyReports from "./nearby-reports";
 import MarketingFooter from "@/app/components/marketing/marketing-footer";
 import type { MapSpotsPayload } from "@/lib/bluecaster";
 import { useHomeSpotState } from "@/app/explore/lib/use-home-spot";
+import { useHomeCityState } from "@/app/explore/lib/use-home-city";
 import { useSavedSpots, setFavorite } from "@/app/explore/lib/use-favorite";
 import { storedFirstName, NAME_FALLBACK } from "@/lib/display-name";
 import { supabase } from "@/lib/supabase";
@@ -204,6 +208,13 @@ export default function DashboardPage() {
   // `homeReady` matters: until that copy lands, a null slug is "we have not
   // looked", not "no home spot".
   const { slug: homeSlug, ready: homeReady } = useHomeSpotState(true);
+  // The home CITY, which is what this page now opens on. Hydrated for the same
+  // reason the pin is: a null slug means "not looked yet" until the profile
+  // copy lands, and a city band that renders off that would flash the
+  // spot-only dashboard at somebody who set their city on another device.
+  const { slug: homeCitySlug, ready: homeCityReady } = useHomeCityState(true);
+  // undefined = still reading, null = it settled with nothing.
+  const [citySpots, setCitySpots] = useState<MapSpotsPayload | null | undefined>(undefined);
   const today = useToday();
   // undefined = the read is still out, null = it settled with nothing (no pin,
   // or the fetch failed). The regulations rail needs to tell those apart:
@@ -408,6 +419,31 @@ export default function DashboardPage() {
     // load. The token matters because owned custom spots only come back on an
     // authenticated read.
   }, [scopedIdsKey, session?.access_token, applyPayload]);
+
+  // The home city's water. City-scoped and carrying no identity, so it is the
+  // same answer for every angler in that city and the edge can serve it; see
+  // the note on `fetchCitySpots`.
+  //
+  // Fired on the city slug alone, and deliberately NOT on the spot payload
+  // above: this band is the reason someone with no spots at all still has a
+  // dashboard, so it must not wait on a read scoped to spots they do not have.
+  useEffect(() => {
+    if (!homeCityReady) return;
+    if (!homeCitySlug) {
+      setCitySpots(null);
+      return;
+    }
+    let cancelled = false;
+    setCitySpots(undefined);
+    fetchCitySpots(homeCitySlug, todayVancouver())
+      .then((d) => !cancelled && setCitySpots(d))
+      // Resolves null on failure rather than throwing, but a settled
+      // `undefined` would hold the skeleton forever.
+      .catch(() => !cancelled && setCitySpots(null));
+    return () => {
+      cancelled = true;
+    };
+  }, [homeCitySlug, homeCityReady]);
 
   // Home-spot live payload — powers the hero conditions, sparkline, and the
   // regulations rail (the spot's own DFO regs). Degrades to null.
@@ -783,6 +819,38 @@ export default function DashboardPage() {
     [payload, payloadSettled, spotReports, reportsSettled, railSpots, homeSlug],
   );
 
+  // The home city's two lists. Ranked from the city payload, not the
+  // spot-scoped one, so an angler who tracks nothing still gets a full answer.
+  const cityWater = useMemo(
+    () =>
+      citySpots === undefined
+        ? undefined
+        : cityWaterFrom(
+            citySpots,
+            spotReports,
+            homeCitySlug,
+            new Set((railSpots ?? []).map((sp) => sp.slug)),
+            homeSlug,
+          ),
+    [citySpots, spotReports, homeCitySlug, railSpots, homeSlug],
+  );
+
+  const homeCityName = homeCitySlug ? cityName(homeCitySlug) : null;
+  // Explore rather than the /fishing city page: that path needs the country
+  // and state segments, which only the place hierarchy can supply and this
+  // client does not have. `?loc=` is the same city, resolved server-side, and
+  // costs no extra round trip to build.
+  const homeCityHref = homeCitySlug
+    ? `/explore?loc=${encodeURIComponent(homeCitySlug)}`
+    : null;
+
+  // The home city is its own band above, so drop it here rather than saying
+  // the same city twice on one page.
+  const aroundYouElsewhere = useMemo(
+    () => (aroundYou ?? []).filter((c) => c.slug !== homeCitySlug),
+    [aroundYou, homeCitySlug],
+  );
+
   // Regulations rail — a restrictive reg on the home spot, if any.
   const restrictiveReg = (homeLive?.regulations ?? []).find(
     (r) => r.status !== "Open" || r.nextOpenDate
@@ -904,6 +972,41 @@ export default function DashboardPage() {
             in an order nobody chose. */}
         <div>
           <div>
+            {/* ── The home city leads ──────────────────────────────────────
+                This page used to open on one pinned spot, which meant it had
+                nothing to say to an angler who had not pinned one — every new
+                account — and little to say to one whose spot happened to be
+                poor today. A city always has an answer: something in it is
+                fishing, something is open, and a better day is coming.
+
+                The pinned spot keeps its hero directly underneath, because the
+                things it carries (tide, right now, the best window) are
+                spot-grain and a city has no honest version of them. What
+                changed is which one is the subject of the page. */}
+            {homeCityName && (
+              <div className="space-y-4">
+                {/* ── The prose leads ──────────────────────────────────────
+                    What anglers actually caught, in sentences, updated every
+                    morning. It is the one thing on this page that is different
+                    today from yesterday, which makes it the reason to open the
+                    page at all — so it goes first, ahead of the numbers.
+                    Nearby water follows, because on a slow week at home the
+                    next bay over is the more useful answer. */}
+                <DailyReportCard cityName={homeCityName} />
+                <NearbyReports />
+                <CityWater
+                  cityName={homeCityName}
+                  cityPath={homeCityHref}
+                  lists={cityWater}
+                  // Fails open, same as AroundYou below: `spotReports` is null
+                  // only when that read never came back, and blurring a paying
+                  // angler's counts over a timeout is the worse mistake.
+                  unlocked={spotReports ? spotReports.unlocked : true}
+                />
+              </div>
+            )}
+
+            <div className={homeCityName ? "mt-8" : undefined}>
             {/* `heroLoading` rather than `spotsLoading && homeSlug`: a null slug
                 is ambiguous until the server copy lands, so gating on it flashed
                 the empty state at an angler who does have a pin. Height tracks
@@ -939,6 +1042,13 @@ export default function DashboardPage() {
                     : undefined
                 }
               />
+            ) : homeCityName ? (
+              // No pin, but the city band above already answered the page's
+              // question. The old dashed "Pin a home spot" card linked to a
+              // bare /explore without saying what to do on arrival; the ask now
+              // lives on the spot page, in front of water the angler is
+              // actually looking at.
+              null
             ) : (
               <Link
                 href="/explore"
@@ -953,14 +1063,18 @@ export default function DashboardPage() {
                 <ChevronRight className="h-4 w-4 text-rc-ink-mute" />
               </Link>
             )}
-
-            {/* Today's report for the home spot's city, headline first. The
-                saved-spots map used to sit here; it repeated pins the angler
-                can already read on Explore, and it cost a MapLibre instance
-                and a tile fetch on every dashboard load to do it. */}
-            <div className="mt-4">
-              <DailyReportCard />
             </div>
+
+            {/* The daily report moved up into the city block above — it is
+                about the city, not about the pinned spot, and it always was.
+                It still renders here for an angler with no home city set, who
+                would otherwise lose it entirely; the route falls back to
+                resolving their pin. */}
+            {!homeCityName && (
+              <div className="mt-4">
+                <DailyReportCard />
+              </div>
+            )}
 
             {/* The city block sits with the report rather than below the spot
                 list: both answer "what is happening around me", one in prose
@@ -969,7 +1083,7 @@ export default function DashboardPage() {
                 rows a city so it doesn't push that list off the fold. */}
             <div className="mt-8">
               <AroundYou
-                cities={aroundYou}
+                cities={aroundYouElsewhere}
                 // Fails open — see the prop's own note. `spotReports` is null
                 // only when that read never came back, and blurring a paying
                 // angler's dashboard over a timeout is the worse mistake.

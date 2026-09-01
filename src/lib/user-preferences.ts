@@ -37,6 +37,29 @@ export interface UserPreferences {
    * still keeps a localStorage copy as a synchronous first-paint cache.
    */
   homeSpotSlug?: string
+  /**
+   * The angler's home city, as a BlueCaster city slug.
+   *
+   * Distinct from `homeSpotSlug`, and it is the more load-bearing of the two.
+   * Nearly everything that reads the pin only wants the city it sits in: the
+   * daily report resolves the spot to a city and throws the spot away, and so
+   * does Explore's opening frame. Those questions now ask this instead.
+   *
+   * A city is also the only one of the two that can be guessed. We can tell
+   * from an arrival URL or an IP fix which city someone fishes near; we can
+   * never tell which spot. So this is confirmed once, in one tap, rather than
+   * chosen from a list of water they have not fished yet.
+   */
+  homeCitySlug?: string
+  /**
+   * When the home-city question was last put to them, ISO 8601.
+   *
+   * Set whether they answered or dismissed, so the modal asks once. It lives
+   * here rather than in a `user_settings` column because this whole object is
+   * one jsonb blob we already write, and a new column would need a migration
+   * applied by hand.
+   */
+  homeCityAskedAt?: string
 }
 
 // No favorite* or notificationsEnabled defaults any more. They used to fill in
