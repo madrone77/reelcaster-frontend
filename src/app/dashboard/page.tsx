@@ -30,6 +30,7 @@ import HomeSpotHero, { deriveTide, type TideRead } from "./home-spot-hero";
 import AroundYou, { aroundYouFrom, cityName } from "./around-you";
 import CityTodayBand from "./city-today-band";
 import CityWater, { cityWaterFrom } from "./city-water";
+import NearbyReports from "./nearby-reports";
 import MarketingFooter from "@/app/components/marketing/marketing-footer";
 import type { BlueCasterCityToday, MapSpotsPayload } from "@/lib/bluecaster";
 import { useHomeSpotState } from "@/app/explore/lib/use-home-spot";
@@ -995,6 +996,15 @@ export default function DashboardPage() {
                 changed is which one is the subject of the page. */}
             {homeCityName && (
               <div className="space-y-4">
+                {/* ── The prose leads ──────────────────────────────────────
+                    What anglers actually caught, in sentences, updated every
+                    morning. It is the one thing on this page that is different
+                    today from yesterday, which makes it the reason to open the
+                    page at all — so it goes first, ahead of the numbers.
+                    Nearby water follows, because on a slow week at home the
+                    next bay over is the more useful answer. */}
+                <DailyReportCard cityName={homeCityName} />
+                <NearbyReports />
                 <CityTodayBand
                   cityName={homeCityName}
                   cityPath={homeCityHref}
@@ -1009,10 +1019,6 @@ export default function DashboardPage() {
                   // angler's counts over a timeout is the worse mistake.
                   unlocked={spotReports ? spotReports.unlocked : true}
                 />
-                {/* What anglers are actually catching, in prose. Pro reads it;
-                    a Member sees the card locked, because a card nobody knows
-                    exists cannot argue for itself. */}
-                <DailyReportCard cityName={homeCityName} />
               </div>
             )}
 

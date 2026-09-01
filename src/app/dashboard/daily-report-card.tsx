@@ -236,95 +236,91 @@ export function DailyReportCard({ cityName }: { cityName?: string | null }) {
   const r = data.report;
 
   return (
-    <div className="overflow-hidden rounded border border-rc-rule bg-rc-panel">
-      {/* The whole card is the toggle, and it says so in words. A bare + asks
-          the reader to work out that there is more behind it and that the icon
-          is how you get there; "Click here for more information" asks nothing. */}
-      <button
-        type="button"
-        onClick={() => setExpanded((v) => !v)}
-        aria-expanded={expanded}
-        aria-controls="daily-report-more"
-        className="block w-full px-4 pb-3.5 pt-3.5 text-left focus-visible:outline focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-rc-brand"
-      >
-        <div className="flex items-center gap-2">
-          <span className="font-rc-mono text-[10px] font-bold uppercase tracking-[0.14em] text-rc-brand">
-            {data.city?.name ?? "Your area"} daily report
-          </span>
-          <span className="shrink-0 rounded bg-rc-surface px-1.5 py-0.5 font-rc-mono text-[10px] font-bold text-rc-ink-mute">
-            {r.reports_window_days}D
-          </span>
-        </div>
-        <p className="mt-1.5 text-[15px] font-semibold leading-snug text-rc-ink">
-          {r.headline ?? `What anglers are catching around ${data.city?.name ?? "you"}`}
-        </p>
-
-        <span className="mt-3 flex items-center justify-between gap-3 border-t border-rc-rule pt-3 text-[14px] font-semibold text-rc-brand">
-          {expanded ? "Click here to close" : "Click here for more information"}
-          <span
-            aria-hidden
-            className={`flex h-7 w-7 shrink-0 items-center justify-center rounded border border-rc-rule text-[15px] leading-none transition-transform duration-200 ${
-              expanded ? "rotate-45" : ""
-            }`}
-          >
-            +
-          </span>
+    <section className="overflow-hidden rounded border border-rc-rule bg-rc-panel px-5 py-4">
+      <div className="flex items-center gap-2">
+        <span className="font-rc-mono text-[10px] font-bold uppercase tracking-[0.14em] text-rc-brand">
+          {data.city?.name ?? cityName ?? "Your area"} daily report
         </span>
-      </button>
+        <span className="shrink-0 rounded bg-rc-surface px-1.5 py-0.5 font-rc-mono text-[10px] font-bold text-rc-ink-mute">
+          {r.reports_window_days}D
+        </span>
+      </div>
 
-      {expanded && (
-        <div id="daily-report-more" className="px-4 pb-4">
-          {/* No rule of its own — the toggle row above already closed with one. */}
-          <div>
-            <div className="font-rc-mono text-[11px] font-bold uppercase tracking-wide text-rc-brand">
-              On the water
-            </div>
-            {r.reports_md ? (
-              <div className="mt-1.5 space-y-2">
-                <Paragraphs
-                  md={r.reports_md}
-                  className="text-[13px] leading-relaxed text-rc-ink-soft"
-                />
-              </div>
-            ) : (
-              <p className="mt-1.5 font-rc-mono text-[12px] text-rc-ink-soft">
-                No angler reports around your spot in the last{" "}
-                {r.reports_window_days} days.
-              </p>
-            )}
-          </div>
+      {/* The headline sentence, then the paragraph. Both open, no toggle.
+          This card used to hide everything but the headline behind a "Click
+          here for more information" row, which made sense when it sat in a
+          360px rail below the fold and did not when it became the first thing
+          on the page. What brings somebody back daily is the prose, and prose
+          behind a control is prose most people never read. */}
+      <h2 className="mt-1.5 text-[17px] font-semibold leading-snug text-rc-ink">
+        {r.headline ??
+          `What anglers are catching around ${data.city?.name ?? cityName ?? "you"}`}
+      </h2>
 
-          {r.outlook_md && (
-            <div className="mt-3 border-t border-rc-rule pt-3">
-              <div className="font-rc-mono text-[11px] font-bold uppercase tracking-wide text-rc-ink-mute">
-                Next {r.outlook_horizon_days} days
-              </div>
-              <div className="mt-1.5 space-y-2">
+      {r.reports_md ? (
+        <div className="mt-2.5 space-y-2">
+          <Paragraphs
+            md={r.reports_md}
+            className="text-[14px] leading-relaxed text-rc-ink-soft"
+          />
+        </div>
+      ) : (
+        <p className="mt-2.5 font-rc-mono text-[12px] text-rc-ink-soft">
+          No angler reports around {data.city?.name ?? cityName ?? "you"} in the
+          last {r.reports_window_days} days.
+        </p>
+      )}
+
+      {/* The outlook and the tips stay behind a control. They are a different
+          question — what is coming, rather than what happened — and the day's
+          catches have to be readable without scrolling past a forecast. */}
+      {(r.outlook_md || r.tips.length > 0) && (
+        <>
+          <button
+            type="button"
+            onClick={() => setExpanded((v) => !v)}
+            aria-expanded={expanded}
+            aria-controls="daily-report-more"
+            className="mt-3 flex w-full items-center justify-between gap-3 border-t border-rc-rule pt-3 text-[13px] font-semibold text-rc-brand focus-visible:outline focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-rc-brand"
+          >
+            {expanded ? "Hide the outlook" : `What's coming, next ${r.outlook_horizon_days} days`}
+            <span
+              aria-hidden
+              className={`flex h-6 w-6 shrink-0 items-center justify-center rounded border border-rc-rule text-[14px] leading-none transition-transform duration-200 ${
+                expanded ? "rotate-45" : ""
+              }`}
+            >
+              +
+            </span>
+          </button>
+
+          {expanded && (
+            <div id="daily-report-more" className="mt-3">
+              {r.outlook_md && (
                 <Paragraphs
                   md={r.outlook_md}
-                  className="text-[12.5px] leading-relaxed text-rc-ink-soft"
+                  className="text-[13px] leading-relaxed text-rc-ink-soft"
                 />
-              </div>
+              )}
+              {r.tips.length > 0 && (
+                <ul className="mt-3 space-y-1.5">
+                  {r.tips.map((t, i) => (
+                    <li
+                      key={i}
+                      className="flex gap-2 text-[13px] leading-snug text-rc-ink-soft"
+                    >
+                      <span aria-hidden className="text-rc-brand">
+                        →
+                      </span>
+                      <span>{t.text}</span>
+                    </li>
+                  ))}
+                </ul>
+              )}
             </div>
           )}
-
-          {r.tips.length > 0 && (
-            <ul className="mt-3 space-y-1.5 border-t border-rc-rule pt-3">
-              {r.tips.map((t, i) => (
-                <li
-                  key={i}
-                  className="flex gap-2 text-[12.5px] leading-snug text-rc-ink-soft"
-                >
-                  <span aria-hidden className="text-rc-brand">
-                    →
-                  </span>
-                  <span>{t.text}</span>
-                </li>
-              ))}
-            </ul>
-          )}
-        </div>
+        </>
       )}
-    </div>
+    </section>
   );
 }
