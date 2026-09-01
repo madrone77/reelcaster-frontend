@@ -1,4 +1,4 @@
-import { TIME_12H_OPTIONS } from "@/lib/time-format";
+import { formatTime12 } from "@/lib/time-format";
 
 /**
  * The line a landing page owes the reader when its numbers are not today's.
@@ -68,14 +68,23 @@ export function LpDataNote({
 function formatScoredAt(iso: string): string {
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return "";
-  const time = d.toLocaleTimeString("en-CA", {
-    ...TIME_12H_OPTIONS,
+  // formatTime12 rather than toLocaleTimeString, because en-CA renders "9:03
+  // a.m." and every other clock on this page is formatTime12's "9:03 AM".
+  // Two spellings of the same thing on one page reads as two authors.
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    hour: "numeric",
+    minute: "2-digit",
+    hourCycle: "h23",
     timeZone: "America/Vancouver",
-  });
+  }).formatToParts(d);
+  const at = (t: string) => Number(parts.find((p) => p.type === t)?.value ?? NaN);
+  const hour = at("hour");
+  const minute = at("minute");
+  if (Number.isNaN(hour) || Number.isNaN(minute)) return "";
   const day = d.toLocaleDateString("en-CA", {
     day: "numeric",
     month: "long",
     timeZone: "America/Vancouver",
   });
-  return `${time} on ${day}`;
+  return `${formatTime12(hour, minute)} on ${day}`;
 }
