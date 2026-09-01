@@ -67,11 +67,24 @@ function DialogOverlay({
   )
 }
 
+/**
+ * How the panel sits on the screen.
+ *
+ * "center" is every dialog in the app and the default. "sheet" pins it to the
+ * bottom edge, full width, rounded at the top: the shape a phone expects for
+ * something it can dismiss downward, and the shape that keeps a checkout
+ * button under the thumb rather than in the middle of the screen. The variant
+ * changes geometry only. Focus handling, the keyboard measurement, the scrim,
+ * the z-index band and the close button are one implementation for both.
+ */
+export type DialogVariant = "center" | "sheet"
+
 function DialogContent({
   children,
   ...props
 }: React.ComponentProps<typeof DialogPrimitive.Content> & {
   showCloseButton?: boolean
+  variant?: DialogVariant
 }) {
   return (
     <DialogPortal data-slot="dialog-portal">
@@ -119,12 +132,15 @@ function DialogPanel({
   showCloseButton = true,
   onOpenAutoFocus,
   style,
+  variant = "center",
   ...props
 }: React.ComponentProps<typeof DialogPrimitive.Content> & {
   showCloseButton?: boolean
+  variant?: DialogVariant
 }) {
   const { keyboard, height, offsetTop } = useVisualViewport(true)
   const squeezed = keyboard > 0 && height > 0
+  const sheet = variant === "sheet"
 
   return (
     <DialogPrimitive.Content
@@ -146,17 +162,33 @@ function DialogPanel({
       }}
       style={
         squeezed
-          ? {
-              top: offsetTop + height / 2,
-              // A little air, so the panel does not butt up against the keys
-              // and the top of the screen.
-              maxHeight: Math.max(height - 32, 160),
-              ...style,
-            }
+          ? sheet
+            ? {
+                // A bottom-pinned panel does not move to the middle of the
+                // gap; it sits on top of the keyboard. `keyboard` is how much
+                // of the layout viewport the keys cover, in the same
+                // coordinates `bottom` resolves in.
+                bottom: keyboard,
+                maxHeight: Math.max(height - 32, 160),
+                ...style,
+              }
+            : {
+                top: offsetTop + height / 2,
+                // A little air, so the panel does not butt up against the keys
+                // and the top of the screen.
+                maxHeight: Math.max(height - 32, 160),
+                ...style,
+              }
           : style
       }
       className={cn(
-        "bg-background data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 fixed top-[50%] left-[50%] z-[70] grid max-h-[calc(100dvh-2rem)] w-full max-w-[calc(100%-2rem)] translate-x-[-50%] translate-y-[-50%] gap-4 overflow-y-auto overscroll-contain rounded-lg border p-6 shadow-lg duration-200 sm:max-w-lg",
+        "bg-background data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 fixed z-[70] overflow-y-auto overscroll-contain shadow-lg duration-200",
+        sheet
+          ? // Bottom-pinned, full width, and it slides rather than zooms. The
+            // grid the centred panel uses would fight a panel whose own
+            // children decide what scrolls, so a sheet is a flex column.
+            "data-[state=closed]:slide-out-to-bottom data-[state=open]:slide-in-from-bottom inset-x-0 bottom-0 flex max-h-[92dvh] w-full flex-col rounded-t-2xl border-t"
+          : "data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 top-[50%] left-[50%] grid max-h-[calc(100dvh-2rem)] w-full max-w-[calc(100%-2rem)] translate-x-[-50%] translate-y-[-50%] gap-4 rounded-lg border p-6 sm:max-w-lg",
         className
       )}
       {...props}

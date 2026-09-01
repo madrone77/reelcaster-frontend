@@ -14,6 +14,13 @@ import { test, expect, type Page } from '@playwright/test';
  * an anonymous visitor can open with a single click and no fixtures. The
  * geometry it checks belongs to the shared `DialogContent`, so every other
  * dialog inherits the same answer.
+ *
+ * At this viewport the trial modal is the SHEET variant, which pins to the
+ * bottom edge rather than centring. That is deliberate coverage rather than an
+ * accident of which dialog was handy: the two variants sit above the keyboard
+ * by different arithmetic (one sets `top`, the other `bottom`), and both have
+ * to satisfy every assertion below. The centred branch is exercised by the
+ * same file at any width above `sm`, and by every other dialog in the app.
  */
 
 const KEYBOARD = 320;
@@ -70,6 +77,9 @@ test('a dialog fits above the keyboard, and scrolls if it cannot', async ({
   page,
 }) => {
   const panel = await openDialog(page);
+  // Sanity: this width really is the sheet, so a future change that flips the
+  // breakpoint does not quietly leave this file testing the other variant.
+  await expect(panel).toHaveAttribute('data-shape', 'sheet');
   await raiseKeyboard(page);
 
   // The whole panel is in the band the reader can see. Before this fix it ran

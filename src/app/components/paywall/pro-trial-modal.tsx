@@ -18,6 +18,8 @@ import { reportPaywall } from "@/lib/paywall-counter";
 import { noteWallShown } from "@/lib/upgrade-nag";
 import { TrialBuy, TrialCtaProvider } from "./trial-cta";
 import PlanMatrix from "./plan-matrix";
+import TrialSheet from "./trial-sheet";
+import { useIsPhone } from "@/hooks/use-is-phone";
 import { TRIAL_DAYS } from "@/lib/pricing";
 import { usePricing } from "@/app/components/split-test/use-pricing";
 import { useSplitExposure } from "@/app/components/split-test/report";
@@ -31,7 +33,15 @@ import {
 } from "@/lib/plan-features";
 
 /**
- * The upgrade nag for /explore. Two jobs, in this order:
+ * The upgrade nag for /explore. Two shapes, one modal.
+ *
+ * On a phone it is a bottom sheet that leads with the wallet and drops the
+ * plan matrix (see ./trial-sheet for why). Everywhere else it is the centred
+ * dialog below. Both are opened by the same triggers, carry the same `from`,
+ * and report through the same counters here — the shape changes, the
+ * accounting does not.
+ *
+ * Two jobs, in this order:
  *
  *   1. Answer the thing the angler just tried to do — "Start your 7-day Pro
  *      trial to create an alert". The headline names the action, so the modal
@@ -202,6 +212,41 @@ export default function ProTrialModal({
     // sent them. Last touch wins, and it expires in 30 minutes.
     captureWall(feature, from);
   }, [open, feature, viewerTier, from, trackEvent, bumpCounter]);
+
+  // Which shape. `useIsPhone` reads false until it has measured, so the first
+  // client render matches the server's and the sheet never flashes on a
+  // desktop. The modal only ever opens on an interaction, so there is no
+  // moment where a reader watches it decide.
+  const phone = useIsPhone();
+
+  if (phone) {
+    return (
+      <Dialog open={open} onOpenChange={onOpenChange}>
+        <DialogContent
+          variant="sheet"
+          data-testid="pro-trial-modal"
+          data-shape="sheet"
+          data-feature={feature}
+          className="bg-rc-panel border-rc-rule text-rc-ink gap-0 p-0 [&>[data-slot=dialog-close]]:z-20"
+        >
+          <TrialSheet
+            nag={nag}
+            viewerTier={viewerTier}
+            spotName={spotName}
+            from={from}
+            ctaHref={ctaHref}
+            ctaLabel={ctaLabel}
+            returnTo={returnTo}
+            priceAmount={pricing.amount}
+            onCtaClick={trackCta}
+            onActivate={(method) =>
+              trackCta({ plan: "annual", method, destination: "checkout" })
+            }
+          />
+        </DialogContent>
+      </Dialog>
+    );
+  }
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>

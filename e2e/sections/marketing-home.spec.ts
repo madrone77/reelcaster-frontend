@@ -28,30 +28,34 @@ test.describe('/ (marketing homepage)', () => {
     await expect(page.getByTestId('marketing-hero-headline')).toBeVisible();
     const cta = page.getByTestId('marketing-primary-cta');
     await expect(cta).toBeVisible();
-    await expect(cta).toHaveAttribute('href', /\/signup/);
+    // It opens the trial modal; it is not a link to /signup and has not been
+    // one since TrialModalButton replaced the signup links. This asserted an
+    // href for months and passed nowhere, because e2e is not in CI.
+    await cta.click();
+    await expect(page.getByTestId('pro-trial-modal')).toBeVisible();
   });
 
   test('score ticker renders', async ({ page }) => {
     await expect(page.getByTestId('homepage-ticker')).toBeVisible();
   });
 
-  // The CTAs are set in caps by `text-transform: uppercase`, not in the
-  // markup. Chromium used to fold that into the accessible name and no longer
-  // does, so an exact all-caps name silently stopped matching. Match
-  // case-insensitively: it passes under either behaviour and doesn't couple
-  // the test to a CSS decision.
+  // Both pricing CTAs are buttons that open the trial modal, not links. The
+  // caps are `text-transform: uppercase` rather than markup, so match the
+  // accessible name case-insensitively and don't couple the test to CSS. The
+  // Pro label interpolates TRIAL_DAYS, so match its shape rather than its
+  // words.
   test('pricing section renders with member + pro CTAs', async ({ page }) => {
     const pricing = page.getByTestId('homepage-pricing');
     await expect(pricing).toBeVisible();
-    await expect(
-      pricing.getByRole('link', { name: /^become a member$/i }),
-    ).toHaveAttribute('href', '/signup');
-    await expect(
-      // Label is trial-flavoured now and interpolates TRIAL_DAYS, so match the
-      // shape rather than the exact words — the assertion that matters is
-      // where it points.
-      pricing.getByRole('link', { name: /start .*free trial/i }),
-    ).toHaveAttribute('href', '/plans');
+
+    const member = pricing.getByRole('button', { name: /^become a member$/i });
+    const pro = pricing.getByRole('button', { name: /start .*free trial/i });
+    await expect(member).toBeVisible();
+    await expect(pro).toBeVisible();
+
+    // The one that matters: the free-of-charge column still opens the offer.
+    await member.click();
+    await expect(page.getByTestId('pro-trial-modal')).toBeVisible();
   });
 
   test('how-it-works (signals) section renders', async ({ page }) => {
