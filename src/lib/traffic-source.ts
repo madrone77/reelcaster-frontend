@@ -98,8 +98,17 @@ const MARKETING = ['about', 'contact', 'faq', 'privacy', 'terms', 'support'];
  * Which page is this, or null if it is not an arrival worth counting.
  *
  * Order follows specificity, longest route first, because these paths nest:
- * /fishing/wa/seattle-wa/chinook is also a /fishing/wa/seattle-wa prefix and
- * testing the short one first would collapse every species page into its city.
+ * /fishing/us/wa/seattle/chinook-salmon is also a /fishing/us/wa/seattle
+ * prefix, and testing the short one first would collapse every guide into its
+ * city.
+ *
+ * ⚠️ These match on SEGMENT COUNT, which is why the /fishing rules all had to
+ * change when a country segment was added. Under the old rules the new
+ * /fishing/ca/bc logged as a city, /fishing/ca/bc/victoria as a city-species,
+ * and every spot page as `other` — silently, since nothing here can fail. This
+ * table is the only instrument we have for measuring whether the URL migration
+ * worked, so getting it wrong would have blinded us during exactly the window
+ * it exists to observe. Keep it in step with src/lib/paths.ts.
  */
 export function classifyPage(pathname: string): PageClass | null {
   const path = pathname.replace(/\/+$/, '') || '/';
@@ -113,8 +122,20 @@ export function classifyPage(pathname: string): PageClass | null {
   // Spot pages, including the ad-framed rewrite target. Both are the same page
   // to a reader, and the ad frame is already a dimension of its own in
   // campaign_events_daily.
-  const spot = path.match(/^\/explore\/spot\/([^/]+)(?:\/ad)?$/);
-  if (spot) return { kind: 'spot', slug: clamp(spot[1]) };
+  //
+  // The slug alone is the key, not the whole path, so a spot's counts are
+  // continuous across the move: the same spot read at the retired URL and at
+  // its canonical one is one row, not two. That is the point of counting a
+  // migration.
+  const spot = path.match(
+    /^\/fishing\/[^/]+\/[^/]+\/[^/]+\/([^/]+)(?:\/ad)?$/,
+  );
+  if (spot && spot[1] !== 'species') return { kind: 'spot', slug: clamp(spot[1]) };
+
+  // The retired one-segment spot URL. Still counted: it 308s for published
+  // spots, but private custom spots never leave it.
+  const legacySpot = path.match(/^\/explore\/spot\/([^/]+)(?:\/ad)?$/);
+  if (legacySpot) return { kind: 'spot', slug: clamp(legacySpot[1]) };
 
   if (path === '/explore') return { kind: 'explore', slug: '' };
 
@@ -134,19 +155,32 @@ export function classifyPage(pathname: string): PageClass | null {
   const licence = path.match(/^\/fishing-licence\/([^/]+)$/);
   if (licence) return { kind: 'licence', slug: clamp(licence[1]) };
 
-  const citySpecies = path.match(/^\/fishing\/([^/]+)\/([^/]+)\/([^/]+)$/);
+  // /fishing/<country>/<state>/<city>/species/<species>
+  const citySpecies = path.match(
+    /^\/fishing\/([^/]+\/[^/]+\/[^/]+)\/species\/([^/]+)$/,
+  );
   if (citySpecies) {
     return {
       kind: 'city-species',
-      slug: clamp(`${citySpecies[1]}/${citySpecies[2]}/${citySpecies[3]}`),
+      slug: clamp(`${citySpecies[1]}/${citySpecies[2]}`),
     };
   }
 
-  const city = path.match(/^\/fishing\/([^/]+)\/([^/]+)$/);
-  if (city) return { kind: 'city', slug: clamp(`${city[1]}/${city[2]}`) };
+  // /fishing/<country>/<state>/<city>
+  const city = path.match(/^\/fishing\/([^/]+\/[^/]+\/[^/]+)$/);
+  if (city) return { kind: 'city', slug: clamp(city[1]) };
 
-  const province = path.match(/^\/fishing\/([^/]+)$/);
+  // /fishing/<country>/<state>. Still `province`: the kind names the level in
+  // the place hierarchy, and renaming it would split every existing row in the
+  // table off from the ones written after the migration.
+  const province = path.match(/^\/fishing\/([^/]+\/[^/]+)$/);
   if (province) return { kind: 'province', slug: clamp(province[1]) };
+
+  // /fishing/<country>. New level, folded into `province` rather than given a
+  // kind of its own, for the same continuity reason: it is a thin index and a
+  // new enum value would need a migration to the counter's CHECK constraint.
+  const country = path.match(/^\/fishing\/([^/]+)$/);
+  if (country) return { kind: 'province', slug: clamp(country[1]) };
 
   const marketing = path.match(/^\/([^/]+)$/);
   if (marketing && MARKETING.includes(marketing[1])) {

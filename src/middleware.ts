@@ -11,6 +11,8 @@ import { classifyUserAgent, isBotUserAgent } from '@/lib/device'
 import { readEdgeGeo } from '@/lib/edge-geo'
 import { classifyPage, classifySource } from '@/lib/traffic-source'
 import { pacificDay } from '@/lib/pacific-day'
+import { newFishingPath } from '@/lib/legacy-fishing-paths'
+import { isSpotPath } from '@/lib/paths'
 
 // Legacy coming-soon wall, now scoped to nothing.
 //
@@ -234,6 +236,23 @@ export function middleware(req: NextRequest, event: NextFetchEvent) {
     return NextResponse.redirect(url, 308)
   }
 
+  // The retired /fishing/<province>/... URLs.
+  //
+  // Above countPageView on purpose, for the same reason the lowercase fold is:
+  // a redirected request and the request that follows it are one visit, and
+  // counting both would double every legacy hit in traffic_events_daily.
+  //
+  // These are derived rather than looked up, so this costs no data at the edge.
+  // See lib/legacy-fishing-paths.ts for why that is safe and when it stops
+  // being safe. The spot page is not here: it carries no city, so it needs the
+  // hierarchy and lives as a route instead.
+  const movedFishingPath = newFishingPath(pathname)
+  if (movedFishingPath) {
+    const url = req.nextUrl.clone()
+    url.pathname = movedFishingPath
+    return NextResponse.redirect(url, 308)
+  }
+
   // Counted here rather than at the top of this function, so a mixed-case URL
   // is counted once on the lowercase request the browser follows the 308 to,
   // not twice.
@@ -241,10 +260,10 @@ export function middleware(req: NextRequest, event: NextFetchEvent) {
 
   // Paid traffic on a spot page renders the ad frame at ./ad — same payload,
   // same components, no navigation out and the trial ask inline. See
-  // src/app/explore/spot/[slug]/ad-mode.ts.
+  // src/lib/ad-mode.ts.
   //
   // A rewrite rather than a branch inside the page, because reading
-  // `searchParams` in /explore/spot/[slug]/page.tsx would opt that route out of
+  // `searchParams` in the spot page would opt that route out of
   // static generation for every visitor, organic ones included, and the
   // prerender is what puts its <title> and canonical in <head> rather than
   // streaming them into the body.
@@ -252,8 +271,13 @@ export function middleware(req: NextRequest, event: NextFetchEvent) {
   // The URL the visitor sees is unchanged, which is the point: the ad points at
   // the real spot page, and the frame is our business rather than something the
   // reader is made to look at in their address bar.
+  //
+  // Matched on the spot route's new home. The legacy /explore/spot/<slug> is a
+  // redirect now, and a rewrite there would frame a page that is about to
+  // 308 anyway; the ?ad= query survives the redirect, so an ad click on an old
+  // link still lands framed, one hop later.
   if (
-    pathname.startsWith('/explore/spot/') &&
+    isSpotPath(pathname) &&
     !pathname.endsWith('/ad') &&
     req.nextUrl.searchParams.has('ad')
   ) {

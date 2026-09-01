@@ -15,29 +15,58 @@ const HOST = 'www.reelcaster.com';
 
 // ── Page kinds ───────────────────────────────────────────────────────────────
 
-/** The nesting cases. Each of these paths is a prefix of the one before it. */
+/**
+ * The nesting cases. Each of these paths is a prefix of the one before it.
+ *
+ * These match on segment count, so adding the country segment moved every one
+ * of them by one. Before this was updated, /fishing/us/wa read as a city and
+ * /fishing/us/wa/seattle as a city-species: no error, just every row in the
+ * wrong bucket.
+ */
 function testFishingPathsDoNotCollapse() {
-  assert.deepEqual(classifyPage('/fishing/wa'), { kind: 'province', slug: 'wa' });
-  assert.deepEqual(classifyPage('/fishing/wa/seattle-wa'), {
-    kind: 'city',
-    slug: 'wa/seattle-wa',
+  assert.deepEqual(classifyPage('/fishing/us'), {
+    kind: 'province',
+    slug: 'us',
   });
-  assert.deepEqual(classifyPage('/fishing/wa/seattle-wa/chinook'), {
+  assert.deepEqual(classifyPage('/fishing/us/wa'), {
+    kind: 'province',
+    slug: 'us/wa',
+  });
+  assert.deepEqual(classifyPage('/fishing/us/wa/seattle'), {
+    kind: 'city',
+    slug: 'us/wa/seattle',
+  });
+  assert.deepEqual(classifyPage('/fishing/us/wa/seattle/species/chinook-salmon'), {
     kind: 'city-species',
-    slug: 'wa/seattle-wa/chinook',
+    slug: 'us/wa/seattle/chinook-salmon',
+  });
+  // A spot sits at the same depth as the guides' `species` segment, and only
+  // that literal separates them.
+  assert.deepEqual(classifyPage('/fishing/us/wa/seattle/point-robinson-e2e269'), {
+    kind: 'spot',
+    slug: 'point-robinson-e2e269',
   });
 }
 
-/** The ad frame is a rewrite of the same page and must not read as a new one. */
+/**
+ * The ad frame is a rewrite of the same page and must not read as a new one.
+ *
+ * The retired /explore/spot/<slug> is still counted, and counted as the SAME
+ * slug as the canonical path. Published spots 308 off it, but private custom
+ * spots never leave it, and keying on the slug rather than the whole path is
+ * what keeps one spot's counts continuous across the move instead of splitting
+ * them into a before and an after.
+ */
 function testSpotAdFrameIsTheSpot() {
-  assert.deepEqual(classifyPage('/explore/spot/point-robinson-e2e269'), {
-    kind: 'spot',
-    slug: 'point-robinson-e2e269',
-  });
-  assert.deepEqual(classifyPage('/explore/spot/point-robinson-e2e269/ad'), {
-    kind: 'spot',
-    slug: 'point-robinson-e2e269',
-  });
+  const expected = { kind: 'spot', slug: 'point-robinson-e2e269' };
+  for (const path of [
+    '/fishing/us/wa/seattle/point-robinson-e2e269',
+    '/fishing/us/wa/seattle/point-robinson-e2e269/ad',
+    '/explore/spot/point-robinson-e2e269',
+    '/explore/spot/point-robinson-e2e269/ad',
+  ]) {
+    assert.deepEqual(classifyPage(path), expected, path);
+  }
 }
 
 /**
@@ -59,9 +88,9 @@ function testSingletonPages() {
 
 /** A trailing slash is the same page and must not open a second bucket. */
 function testTrailingSlash() {
-  assert.deepEqual(classifyPage('/fishing/wa/seattle-wa/'), {
+  assert.deepEqual(classifyPage('/fishing/us/wa/seattle/'), {
     kind: 'city',
-    slug: 'wa/seattle-wa',
+    slug: 'us/wa/seattle',
   });
   assert.deepEqual(classifyPage('/'), { kind: 'home', slug: '' });
 }
@@ -85,7 +114,7 @@ function testSignedInSurfacesAreNotCounted() {
     assert.equal(classifyPage(p), null, `${p} should not be counted`);
   }
   // The guard is on the segment, not the substring.
-  assert.ok(classifyPage('/fishing/bc/plans-inlet'));
+  assert.ok(classifyPage('/fishing/ca/bc/plans-inlet'));
 }
 
 // ── Sources ──────────────────────────────────────────────────────────────────

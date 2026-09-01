@@ -119,3 +119,39 @@ export function legacyProvincePath(stateCode: string): string {
 export function legacyCityPath(stateCode: string, citySlug: string): string {
   return `${legacyProvincePath(stateCode)}/${seg(citySlug)}`;
 }
+
+/**
+ * Is this the path of a spot page?
+ *
+ * `/fishing/<country>/<state>/<city>/<spot>` is exactly five segments, and the
+ * leaf must not be a segment a sibling route owns. Middleware uses this to
+ * decide where to rewrite the ad frame, so it has to agree with the route tree
+ * by construction rather than by a second regex kept in step by hand.
+ */
+export function isSpotPath(pathname: string): boolean {
+  const parts = pathname.replace(/\/+$/, "").split("/").filter(Boolean);
+  if (parts.length !== 5) return false;
+  if (parts[0] !== FISHING_ROOT.slice(1)) return false;
+  return !SPOT_RESERVED_SEGMENTS.has(parts[4]);
+}
+
+/**
+ * The spot slug in a pathname, in either URL shape, or "" if it is neither.
+ *
+ * not-found.tsx is handed no params, so the slug has to come back off the URL,
+ * and there are now two URLs a spot can be at: the canonical five-segment path
+ * and the retired /explore/spot/<slug> that private custom spots never leave.
+ */
+export function spotSlugFromPath(pathname: string): string {
+  const parts = pathname.replace(/\/+$/, "").split("/").filter(Boolean);
+
+  if (parts[0] === "explore" && parts[1] === "spot" && parts[2]) {
+    return decodeURIComponent(parts[2]);
+  }
+  if (isSpotPath(pathname)) return decodeURIComponent(parts[4]);
+  // The ad frame hangs one segment below the spot page.
+  if (parts.length === 6 && parts[5] === "ad" && isSpotPath(`/${parts.slice(0, 5).join("/")}`)) {
+    return decodeURIComponent(parts[4]);
+  }
+  return "";
+}
