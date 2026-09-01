@@ -47,6 +47,21 @@ export interface City1Shot {
  */
 export type City1Variant = 1 | 4;
 
+/**
+ * A named mark and the species to draw it for, when the roster's own ranking
+ * would pick something else.
+ *
+ * `species` is matched as a substring against the SPOT's own species roster,
+ * so "Chinook" finds "Chinook Salmon" without this file having to carry an id
+ * or track how the name is spelled at display time.
+ */
+export interface City1Mark {
+  /** The spot's slug, e.g. "the-bell-buoy-df74f1". Not its name. */
+  slug: string;
+  /** Species display name, or enough of it to match. */
+  species: string;
+}
+
 export interface City1City {
   /**
    * The full slug, e.g. "seattle-wa". Never the path segment.
@@ -112,6 +127,21 @@ export interface City1City {
    */
   shot: City1Shot;
   /**
+   * The mark and species /lp/<city>/4's live phone draws, when the hero
+   * ranking is not the answer.
+   *
+   * Optional, and the default is the hero mark, so the phone cannot quietly
+   * draw one piece of water while the reel and the H1 are about another. Set
+   * it when the section is about a specific mark -- which this section always
+   * was: the still it replaces is a photograph of one named spot page, and
+   * `shot.mark` above names it in the caption.
+   *
+   * Falls back on its own if the named species is not scored there today; see
+   * load-conditions.ts. A slug that does not resolve costs the phone and
+   * restores the still, not the page.
+   */
+  conditionsMark?: City1Mark;
+  /**
    * The water in the footer line, in the words somebody here would use.
    *
    * Seattle says "the Salish Sea" because that is what shipped and this page
@@ -148,5 +178,10 @@ export const VANCOUVER_1: City1City = {
     height: 1820,
     mark: "The Bell Buoy",
   },
+  // The same mark the shot above pictures, so /4's phone and /1's screenshot
+  // are the same spot page. Chinook because that is what the Bell Buoy is
+  // fished for; it is scored there, and the loader falls through rather than
+  // drawing an empty chart on a day it is not.
+  conditionsMark: { slug: "the-bell-buoy-df74f1", species: "Chinook" },
   footerWater: "the Strait of Georgia",
 };

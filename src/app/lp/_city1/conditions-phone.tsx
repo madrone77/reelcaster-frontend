@@ -29,8 +29,8 @@ import type { ConditionsFeed } from "./load-conditions";
  *
  * All of it. This is not a mockup and not a recording: it is the SAME
  * CurrentConditionsStrip and SpotTerminal the spot page and the city
- * instrument render, on today's real payload for the mark the hero is already
- * about, rebuilt whenever the page's cache is. That is why it is worth the
+ * instrument render, on today's real payload for one named mark, rebuilt
+ * whenever the page's cache is. That is why it is worth the
  * component rather than an MP4 — a video of a good day keeps advertising that
  * day forever, and this cannot show a score the product would not show.
  *

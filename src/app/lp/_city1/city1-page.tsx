@@ -194,7 +194,7 @@ export default async function City1Page({
   const proof: CityProof | null = payload ? buildCityProof(payload, card) : null;
 
   /**
-   * /lp/4's second picture: the hero mark's own day, live.
+   * /lp/4's second picture: one mark's own day, live.
    *
    * Only fetched for the variant that draws it -- /lp/1 must not pay a spot-
    * page round trip for a phone it does not render. Null on any miss, and the
@@ -202,7 +202,9 @@ export default async function City1Page({
    * every city rather than becoming optional on the strength of this.
    */
   const conditions =
-    variant === 4 ? await loadConditionsFeed(proof, card.provinceCode) : null;
+    variant === 4
+      ? await loadConditionsFeed(proof, card.provinceCode, city.conditionsMark)
+      : null;
 
   // The hero reads off the SAME ranking as the marks band below it. Taking
   // the card's spot instead put Constance Bank at 88 above a list topped by
