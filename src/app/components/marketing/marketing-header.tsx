@@ -39,12 +39,27 @@ interface MarketingHeaderProps {
    * button still reports as the same entry point.
    */
   ctaLabel?: string;
+  /**
+   * The city the page is about, when the surface knows one.
+   *
+   * Same prop, same job and same name as ExploreTopBar's: it becomes the blue
+   * word in the phone sheet's headline ("See the next 14 days in Seattle") and
+   * names the catch-reports row after the same city. One concept, one name,
+   * from either bar all the way down to the sheet.
+   *
+   * Left unset by every surface that cannot honestly name one. This bar is
+   * also the homepage's, the licence guides' and the province index's, none of
+   * which have a single city as a subject, and the plain headline is the right
+   * answer for all three.
+   */
+  placeName?: string;
 }
 
 export default function MarketingHeader({
   variant = 'default',
   signedOutActions = 'full',
   ctaLabel = 'Start free trial',
+  placeName,
 }: MarketingHeaderProps = {}) {
   const { user, loading, signOut } = useAuth();
   const pathname = usePathname();
@@ -140,6 +155,7 @@ export default function MarketingHeader({
                   blue bar, same as ExploreTopBar. */}
               <TrialModalButton
                 from="marketing-header"
+                placeName={placeName}
                 className={brand ? btn.navOnBrand : btn.nav}
               >
                 {ctaLabel}

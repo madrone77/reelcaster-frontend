@@ -15,10 +15,12 @@
 
 import { usePathname } from "next/navigation";
 import MarketingHeader from "@/app/components/marketing/marketing-header";
+import { useFishingPlace } from "./fishing-place";
 import { spotSlugFromPath } from "@/lib/paths";
 
 export default function FishingHeader() {
   const pathname = usePathname() ?? "";
+  const place = useFishingPlace();
 
   // The spot page brings its own bar, so this one stands down.
   //
@@ -47,9 +49,15 @@ export default function FishingHeader() {
   // 5 spot (returned above), 6 species guide.
   const isCityPage = pathname.replace(/\/$/, "").split("/").filter(Boolean).length === 4;
 
+  // Only the city page names a place, for the same reason only it is
+  // relabelled: it is the page paid traffic lands on, and it is the only one
+  // under /fishing whose subject is a single city. The province index covers a
+  // whole province and the licence guides cover none, so both keep the plain
+  // headline rather than naming whichever city happened to be declared last.
   return (
     <MarketingHeader
       ctaLabel={isCityPage ? "Unlock 14-day radar" : undefined}
+      placeName={isCityPage ? (place ?? undefined) : undefined}
     />
   );
 }
