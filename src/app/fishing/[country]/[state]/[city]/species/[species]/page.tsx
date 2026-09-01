@@ -209,6 +209,9 @@ export default async function SpeciesGuidePage({
 
   const provincePath = province.path;
   const cityPath = city.path;
+  // Guides sit under a literal `species` segment. `guidePath` is the only
+  // thing that knows that; `${cityPath}/${slug}` is the spot route and 404s.
+  const location = locationOf(city);
   const cityLabel = `${city.name}, ${city.provinceCode}`;
   const siblings = (cityGuides?.guides ?? []).filter(
     (g) => g.species_slug !== speciesSlug,
@@ -218,7 +221,7 @@ export default async function SpeciesGuidePage({
     { name: "Home", path: "/" },
     { name: `Fishing in ${city.provinceName}`, path: provincePath },
     { name: city.name, path: cityPath },
-    { name: activityPhrase(guide.activity), path: `${cityPath}/${speciesSlug}` },
+    { name: activityPhrase(guide.activity), path: guidePath(location, speciesSlug) },
   ]);
 
   const spotList = {
@@ -382,7 +385,7 @@ export default async function SpeciesGuidePage({
             {siblings.map((g) => (
               <li key={g.species_slug}>
                 <Link
-                  href={`${cityPath}/${g.species_slug}`}
+                  href={guidePath(location, g.species_slug)}
                   className="group flex items-baseline gap-2 py-1"
                 >
                   <span className="text-[15px] font-medium text-rc-ink group-hover:text-rc-brand transition-colors">
