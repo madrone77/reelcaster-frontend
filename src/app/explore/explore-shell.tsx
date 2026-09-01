@@ -70,7 +70,7 @@ import {
   useCampaignHit,
   type CampaignTarget,
 } from "@/app/lp/_shared/lp-telemetry";
-import type { AdWall } from "./spot/[slug]/ad-mode";
+import type { AdWall } from "@/lib/ad-mode";
 import { BLEED_MEASURE } from "@/app/components/layout/page-measure";
 import ExploreMap, { type StationPick, type CustomSpotPin } from "./components/explore-map";
 

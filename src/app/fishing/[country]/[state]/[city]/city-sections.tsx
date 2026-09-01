@@ -19,7 +19,7 @@ import type {
   BlueCasterCityPage,
   BlueCasterCitySeasonRow,
 } from "@/lib/bluecaster";
-import { SectionHeading } from "./[species]/guide-sections";
+import { SectionHeading } from "./species/[species]/guide-sections";
 import { licenceFor } from "./city-licence";
 
 const MONTHS = ["J", "F", "M", "A", "M", "J", "J", "A", "S", "O", "N", "D"];

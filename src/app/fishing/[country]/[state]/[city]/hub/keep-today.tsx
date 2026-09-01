@@ -35,7 +35,7 @@ import type { BlueCasterCitySeasonRow } from "@/lib/bluecaster";
 import type { Regulator } from "@/lib/regions";
 import SpeciesIcon from "./species-icon";
 import { CARD, TYPE } from "./ui";
-import { SectionHeading } from "../[species]/guide-sections";
+import { SectionHeading } from "../species/[species]/guide-sections";
 
 /** cm → the unit the reader's own regulations are written in. */
 function sizeLabel(cm: number | null, provinceCode: string): string | null {

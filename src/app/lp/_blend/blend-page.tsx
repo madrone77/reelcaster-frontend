@@ -7,8 +7,8 @@ import { lpRegionFor } from "../_shared/lp-region";
 import { PRICE } from "../_shared/lp-content";
 import { trialChargeDate } from "../_shared/lp-checkout";
 import { fetchMapSpots } from "@/lib/bluecaster";
-import { loadCityBySlug } from "@/app/fishing/[province]/[city]/instrument/load-city";
-import KeepToday from "@/app/fishing/[province]/[city]/hub/keep-today";
+import { loadCityBySlug } from "@/app/fishing/[country]/[state]/[city]/instrument/load-city";
+import KeepToday from "@/app/fishing/[country]/[state]/[city]/hub/keep-today";
 import {
   ANON_FORECAST_DAYS,
   FREE_FORECAST_DAYS,

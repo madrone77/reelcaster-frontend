@@ -3,7 +3,7 @@
 import { PRICE } from "@/app/lp/_shared/lp-content";
 import type { CampaignTarget } from "@/app/lp/_shared/lp-telemetry";
 import { useAdCheckout } from "@/app/components/paywall/use-ad-checkout";
-import type { AdWall } from "../spot/[slug]/ad-mode";
+import type { AdWall } from "@/lib/ad-mode";
 
 /**
  * The card ask on the ad-framed map.

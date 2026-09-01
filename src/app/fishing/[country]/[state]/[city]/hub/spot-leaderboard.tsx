@@ -12,10 +12,10 @@
 "use client";
 
 import Link from "next/link";
-import { TIER_PILL, tierFor } from "../../../../explore/lib/explore-data";
+import { TIER_PILL, tierFor } from "@/app/explore/lib/explore-data";
 import { windowLabel } from "./bite-radar";
 import { bottomLabel, type HubBadge, type HubSpeciesEntry, type HubSpot } from "./hub-data";
-import { SectionHeading } from "../[species]/guide-sections";
+import { SectionHeading } from "../species/[species]/guide-sections";
 import { CARD, Chip, PAD, TYPE } from "./ui";
 
 export default function SpotLeaderboard({

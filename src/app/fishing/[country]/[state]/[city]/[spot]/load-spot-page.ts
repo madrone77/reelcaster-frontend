@@ -22,6 +22,14 @@ export interface LoadedSpotPage {
   page: SpotPageForClient;
   freshTracked: boolean;
   cityLink: SpotCityLink | null;
+  /**
+   * The spot's ONE public path, or null when it has no public home.
+   *
+   * Null means a private custom spot or a city that is not published yet.
+   * Those keep the legacy /explore/spot/<slug> URL, which is why that route
+   * still renders rather than redirecting unconditionally.
+   */
+  canonicalPath: string | null;
   /** The spot's IANA timezone, resolved from its region. */
   tz: string;
   /** One instant, baked into the HTML, from which every time-dependent string
@@ -63,6 +71,7 @@ export async function loadSpotPage(slug: string): Promise<LoadedSpotPage> {
     // Narrowed to the five strings the breadcrumb needs — `place.city` carries
     // the city's whole spot roster, which has no business crossing the
     // server/client boundary on every spot page.
+    canonicalPath: place?.spot.path ?? null,
     cityLink: place
       ? {
           cityName: place.city.name,

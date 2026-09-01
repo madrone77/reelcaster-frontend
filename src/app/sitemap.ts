@@ -1,7 +1,7 @@
 import { fetchCityGuides, fetchHierarchy, fetchMapSpots } from "@/lib/bluecaster";
 import { COVERED_PROVINCES } from "@/lib/regions";
 import { siteUrl } from "@/lib/site";
-import { getFishingProvince } from "./fishing/lib/fishing-data";
+import { getFishingProvinceByCode } from "./fishing/lib/fishing-data";
 
 // Same extent /explore fetches (BC + WA + OR) — keeps the sitemap's spot
 // list identical to what the explore surface actually renders.
@@ -106,7 +106,7 @@ export default async function sitemap(): Promise<SitemapEntry[]> {
   // drift from what actually resolves.
   if (hierarchy) {
     for (const code of COVERED_PROVINCES) {
-      const province = getFishingProvince(hierarchy, code);
+      const province = getFishingProvinceByCode(hierarchy, code);
       if (!province || province.cities.length === 0) continue;
       const provPath = `/fishing/${code.toLowerCase()}`;
       entries.push({

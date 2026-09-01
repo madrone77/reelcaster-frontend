@@ -1,6 +1,6 @@
 // Everything both city renderers need, loaded once.
 //
-// The public page at `/fishing/<province>/<city>` and the ad frame at
+// The public page at `/fishing/<country>/<state>/<city>` and the ad frame at
 // `/lp7/<city>` draw the same instrument from the same data. They must not be
 // two loaders: the anonymous-horizon slicing below is a gate, and a gate
 // applied in one renderer and forgotten in the other is how a landing page
@@ -35,8 +35,7 @@ import {
   getFishingCity,
   getFishingProvince,
   type FishingCity,
-  type FishingProvince,
-} from "@/app/fishing/lib/fishing-data";
+  type FishingProvince, getFishingProvinceByCode} from "@/app/fishing/lib/fishing-data";
 import { buildHubData } from "../hub/hub-data";
 import { featuredSpot, rankByRecognition, type RankedSpot } from "./featured";
 import type { FeaturedFeed } from "./city-instrument";
@@ -67,35 +66,54 @@ export interface LoadedCity {
 }
 
 /**
- * The same load, addressed by city slug alone.
+ * The same load, addressed by the city's API slug alone.
  *
- * The ad frame's URL is `/lp/7/<city>` with no province segment, because an ad
- * link is typed by hand and `/lp/7/bc/victoria-bc` is a second thing to get
- * wrong. City slugs already carry their jurisdiction (`victoria-bc`,
- * `seattle-wa`), but the SUFFIX is not the source of truth — a city is a row
- * in the hierarchy — so this searches the covered provinces for the slug
- * rather than parsing it. A slug we do not cover 404s.
- *
- * `fetchHierarchy` is cached, so the second call inside `loadCity` is a hit
- * rather than a second round trip.
+ * The ad frame's URL is `/lp/7/<city>` with no place segments, because an ad
+ * link is typed by hand and `/lp/7/ca/bc/victoria` is three more things to get
+ * wrong. Those links are already out in the world carrying the API slug
+ * (`victoria-bc`), so this matches on `slug`, NOT on `urlSlug`. The suffix is
+ * still not the source of truth: a city is a row in the hierarchy, so this
+ * searches rather than parsing. A slug we do not cover 404s.
  */
 export async function loadCityBySlug(citySlug: string): Promise<LoadedCity> {
   const hierarchy = await fetchHierarchy();
-  const provinceCode = COVERED_PROVINCES.find((code) =>
-    getFishingProvince(hierarchy, code)?.cities?.some(
-      (c) => c.slug === citySlug,
-    ),
-  );
-  if (!provinceCode) notFound();
-  return loadCity(provinceCode.toLowerCase(), citySlug);
+  for (const code of COVERED_PROVINCES) {
+    const province = getFishingProvinceByCode(hierarchy, code);
+    const city = province?.cities.find((c) => c.slug === citySlug);
+    if (province && city) return loadResolvedCity(hierarchy, province, city);
+  }
+  notFound();
 }
 
+/**
+ * The route form: the three path segments the public page carries.
+ *
+ * ⚠️ `cityUrlSlug` is the PATH segment ("victoria"), not the API slug
+ * ("victoria-bc"). Resolving the city before any fetch is what keeps those two
+ * apart: every downstream call takes `city.slug`, and passing the path segment
+ * to the API instead returns an empty city rather than an error.
+ */
 export async function loadCity(
-  provinceParam: string,
-  citySlug: string,
+  countryParam: string,
+  stateParam: string,
+  cityUrlSlug: string,
 ): Promise<LoadedCity> {
-  const [hierarchy, payload, cityPage, cityToday] = await Promise.all([
-    fetchHierarchy(),
+  const hierarchy = await fetchHierarchy();
+  const province = getFishingProvince(hierarchy, countryParam, stateParam);
+  const city = getFishingCity(province, cityUrlSlug);
+  if (!province || !city) notFound();
+  return loadResolvedCity(hierarchy, province, city);
+}
+
+async function loadResolvedCity(
+  hierarchy: Awaited<ReturnType<typeof fetchHierarchy>>,
+  province: FishingProvince,
+  city: FishingCity,
+): Promise<LoadedCity> {
+  // The API key, which is never the URL segment.
+  const citySlug = city.slug;
+
+  const [payload, cityPage, cityToday] = await Promise.all([
     fetchMapSpots({ city: citySlug }),
     fetchCityPage(citySlug),
     // At the ANON horizon on purpose. Both routes are prerendered, so the
@@ -103,10 +121,6 @@ export async function loadCity(
     // bake a day 9 answer into HTML served to everyone.
     fetchCityToday(citySlug, ANON_FORECAST_DAYS).catch(() => null),
   ]);
-
-  const province = getFishingProvince(hierarchy, provinceParam);
-  const city = getFishingCity(province, citySlug);
-  if (!province || !city) notFound();
 
   // Narrowed by id, not by `citySlug`. A spot has one home city but can be a
   // member of another, and `citySlug` carries the home — so filtering on it
@@ -192,7 +206,7 @@ export async function loadCity(
     province,
     city,
     citySlug,
-    provincePath: `/fishing/${provinceParam.toLowerCase()}`,
+    provincePath: province.path,
     tz: timezoneFor(city.provinceName),
     regulator: regulatorFor(city.provinceCode),
     spots,

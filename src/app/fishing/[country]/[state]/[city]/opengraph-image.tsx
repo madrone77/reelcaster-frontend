@@ -1,6 +1,6 @@
 import { ImageResponse } from "next/og";
 import { fetchCityGuides, fetchHierarchy } from "@/lib/bluecaster";
-import { getFishingCity, getFishingProvince } from "../../lib/fishing-data";
+import { getFishingCity, getFishingProvince } from "@/app/fishing/lib/fishing-data";
 
 // Per-city social card.
 //
@@ -93,20 +93,26 @@ function Shell({ children }: { children: React.ReactNode }) {
 export default async function CityOpengraphImage({
   params,
 }: {
-  params: Promise<{ province: string; city: string }>;
+  params: Promise<{ country: string; state: string; city: string }>;
 }) {
-  const { province: provinceParam, city: citySlug } = await params;
+  const {
+    country: countryParam,
+    state: stateParam,
+    city: cityUrlSlug,
+  } = await params;
 
   // A card is decoration. This route prerenders alongside the page, so a
   // throw here would fail the build on a transient upstream 500 rather than
   // lose a nicety.
-  const [hierarchy, guides] = await Promise.all([
-    fetchHierarchy().catch(() => null),
-    fetchCityGuides(citySlug).catch(() => null),
-  ]);
-
-  const province = hierarchy ? getFishingProvince(hierarchy, provinceParam) : null;
-  const city = getFishingCity(province, citySlug);
+  const hierarchy = await fetchHierarchy().catch(() => null);
+  const province = hierarchy
+    ? getFishingProvince(hierarchy, countryParam, stateParam)
+    : null;
+  const city = getFishingCity(province, cityUrlSlug);
+  // Guides are keyed by the API slug, which only the resolved city knows.
+  const guides = city
+    ? await fetchCityGuides(city.slug).catch(() => null)
+    : null;
 
   if (!city) {
     return new ImageResponse(

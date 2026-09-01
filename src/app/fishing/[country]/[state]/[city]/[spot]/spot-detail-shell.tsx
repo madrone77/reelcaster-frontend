@@ -9,19 +9,19 @@ import { useSubscription } from "@/hooks/use-subscription";
 import { noteEngagement } from "@/lib/upgrade-nag";
 import AdSlot from "@/app/components/ads/ad-slot";
 import { countryDisplayName, provinceCodeFromName, regulatorFor } from "@/lib/regions";
-import ExploreTopBar from "../../components/explore-top-bar";
-import DayCell from "../../components/day-cell";
-import { bestWindow } from "../../components/hourly-bars";
-import UpgradeDialog from "../../components/upgrade-dialog";
-import { fmtPeak, zonedHourToUtcIso, zoneAbbrev } from "../../lib/explore-data";
-import { useSpotClock } from "../../lib/use-spot-clock";
-import { useAutoRefresh } from "../../lib/use-auto-refresh";
+import ExploreTopBar from "@/app/explore/components/explore-top-bar";
+import DayCell from "@/app/explore/components/day-cell";
+import { bestWindow } from "@/app/explore/components/hourly-bars";
+import UpgradeDialog from "@/app/explore/components/upgrade-dialog";
+import { fmtPeak, zonedHourToUtcIso, zoneAbbrev } from "@/app/explore/lib/explore-data";
+import { useSpotClock } from "@/app/explore/lib/use-spot-clock";
+import { useAutoRefresh } from "@/app/explore/lib/use-auto-refresh";
 import { formatHour12, formatTime12 } from "@/lib/time-format";
 import {
   buildForecastDays,
   type ForecastDay,
   type ForecastTier,
-} from "../../lib/forecast-strip";
+} from "@/app/explore/lib/forecast-strip";
 import {
   fetchForecast14d,
   fetchFreshCatches,
@@ -34,7 +34,7 @@ import {
 import {
   localDayStartUtcMs,
   signCurrentSeries,
-} from "../../lib/current-series";
+} from "@/app/explore/lib/current-series";
 import type {
   SpotPageInitial,
   Forecast14dPayload,
@@ -42,36 +42,36 @@ import type {
   PointConditions,
   RightNowSnapshot,
 } from "@/lib/bluecaster/live-spot-types";
-import SpeciesCardRow from "../components/species-card-row";
-import SpotProfile from "../components/spot-profile";
-import NeighbourSpots from "../components/neighbour-spots";
-import SeasonalityStrip from "../components/seasonality-strip";
-import CurrentConditionsStrip from "../components/current-conditions-strip";
-import CurrentRegulations from "../components/current-regulations";
-import ScoreFactors from "../components/score-factors";
-import { useFavorite } from "../../lib/use-favorite";
-import { useHomeSpot } from "../../lib/use-home-spot";
-import { resolveSea } from "../../lib/sea-state";
-import SpotTerminal from "../components/spot-terminal";
-import SpotMiniMap from "../components/spot-mini-map";
-import ScoreCard from "../components/score-card";
+import SpeciesCardRow from "@/app/explore/spot/components/species-card-row";
+import SpotProfile from "@/app/explore/spot/components/spot-profile";
+import NeighbourSpots from "@/app/explore/spot/components/neighbour-spots";
+import SeasonalityStrip from "@/app/explore/spot/components/seasonality-strip";
+import CurrentConditionsStrip from "@/app/explore/spot/components/current-conditions-strip";
+import CurrentRegulations from "@/app/explore/spot/components/current-regulations";
+import ScoreFactors from "@/app/explore/spot/components/score-factors";
+import { useFavorite } from "@/app/explore/lib/use-favorite";
+import { useHomeSpot } from "@/app/explore/lib/use-home-spot";
+import { resolveSea } from "@/app/explore/lib/sea-state";
+import SpotTerminal from "@/app/explore/spot/components/spot-terminal";
+import SpotMiniMap from "@/app/explore/spot/components/spot-mini-map";
+import ScoreCard from "@/app/explore/spot/components/score-card";
 import { RecentReportsBand } from "@/app/explore/components/recent-reports";
 import type { RecentReports as RecentReportsData } from "@/lib/bluecaster/live-spot-types";
 import type { RailFreshCatch } from "@/app/explore/lib/fresh-catch-types";
-import CustomAlertCta from "../components/custom-alert-cta";
-import AdTrialCta from "../components/ad-trial-cta";
-import { AdBrandBar, AdFooter } from "../components/ad-brand-bar";
+import CustomAlertCta from "@/app/explore/spot/components/custom-alert-cta";
+import AdTrialCta from "@/app/explore/spot/components/ad-trial-cta";
+import { AdBrandBar, AdFooter } from "@/app/explore/spot/components/ad-brand-bar";
 import {
   useCampaignHit,
   type CampaignTarget,
 } from "@/app/lp/_shared/lp-telemetry";
-import type { AdMode, AdWall } from "./ad-mode";
+import type { AdMode, AdWall } from "@/lib/ad-mode";
 import MarketingFooter from "@/app/components/marketing/marketing-footer";
 import { PAGE_MEASURE } from "@/app/components/layout/page-measure";
-import LogCatchDialog from "../components/log-catch-dialog";
-import PullToRefresh from "../components/pull-to-refresh";
-import CreateAlertDialog from "../components/create-alert-dialog";
-import ShareCardDialog from "../components/share-card-dialog";
+import LogCatchDialog from "@/app/explore/spot/components/log-catch-dialog";
+import PullToRefresh from "@/app/explore/spot/components/pull-to-refresh";
+import CreateAlertDialog from "@/app/explore/spot/components/create-alert-dialog";
+import ShareCardDialog from "@/app/explore/spot/components/share-card-dialog";
 
 const ProTrialModal = dynamic(
   () => import("@/app/components/paywall/pro-trial-modal"),

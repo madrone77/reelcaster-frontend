@@ -38,7 +38,7 @@ import { FREE_FORECAST_DAYS } from "@/lib/forecast-horizon";
 import { siteUrl } from "@/lib/site";
 import { formatHour12 } from "@/lib/time-format";
 import { buildHubData, rankSpots } from
-  "@/app/fishing/[province]/[city]/hub/hub-data";
+  "@/app/fishing/[country]/[state]/[city]/hub/hub-data";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";

@@ -12,8 +12,8 @@
 
 import Link from "next/link";
 import type { BlueCasterGuideLink } from "@/lib/bluecaster";
-import { activityPhrase } from "../../lib/activity";
-import { SectionHeading } from "./[species]/guide-sections";
+import { activityPhrase } from "@/app/fishing/lib/activity";
+import { SectionHeading } from "./species/[species]/guide-sections";
 
 /**
  * Today's legality in one line.

@@ -25,7 +25,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import HourlyBars from "../../../../explore/components/hourly-bars";
+import HourlyBars from "@/app/explore/components/hourly-bars";
 import { formatHour12 } from "@/lib/time-format";
 import {
   bottomLabel,

@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { fetchCityDailyReport, fetchHierarchy } from "@/lib/bluecaster";
 import { isProViewer } from "@/lib/public-entitlement";
 import { COVERED_PROVINCES } from "@/lib/regions";
-import { getFishingProvince } from "@/app/fishing/lib/fishing-data";
+import { getFishingProvinceByCode } from "@/app/fishing/lib/fishing-data";
 
 /**
  * Same-origin proxy → BlueCaster GET /api/v1/cities/[slug]/daily-report, for
@@ -34,7 +34,7 @@ async function isPublishedCity(slug: string): Promise<boolean> {
   try {
     const hierarchy = await fetchHierarchy();
     return COVERED_PROVINCES.some((code) =>
-      (getFishingProvince(hierarchy, code)?.cities ?? []).some(
+      (getFishingProvinceByCode(hierarchy, code)?.cities ?? []).some(
         (c) => c.slug === slug,
       ),
     );

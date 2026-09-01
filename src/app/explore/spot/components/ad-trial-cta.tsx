@@ -6,7 +6,7 @@ import { lpRegionFor } from "@/app/lp/_shared/lp-region";
 import LpFlagUs from "@/app/lp/_shared/lp-flag";
 import type { CampaignTarget, LpCtaId } from "@/app/lp/_shared/lp-telemetry";
 import { useAdCheckout } from "@/app/components/paywall/use-ad-checkout";
-import type { AdWall } from "../[slug]/ad-mode";
+import type { AdWall } from "@/lib/ad-mode";
 
 /**
  * The card ask, inline on an ad-framed spot page.

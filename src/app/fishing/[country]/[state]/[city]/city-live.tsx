@@ -9,7 +9,7 @@
 // opens the upgrade modal and the modal needs one owner.
 
 import { useState } from "react";
-import UpgradeDialog from "../../../explore/components/upgrade-dialog";
+import UpgradeDialog from "@/app/explore/components/upgrade-dialog";
 import CityReport from "./city-report";
 
 export default function CityLive({

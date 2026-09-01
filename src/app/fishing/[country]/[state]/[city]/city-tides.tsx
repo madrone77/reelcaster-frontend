@@ -23,7 +23,7 @@ import { formatHour12 } from "@/lib/time-format";
 import TideChart from "@/app/explore/spot/components/tide-chart";
 import { useUnitPreferences } from "@/contexts/unit-preferences-context";
 import { convertHeight, formatHeight } from "@/app/utils/unit-conversions";
-import { SectionHeading } from "./[species]/guide-sections";
+import { SectionHeading } from "./species/[species]/guide-sections";
 
 function localHourMinute(iso: string, tz: string): string {
   const parts = new Intl.DateTimeFormat("en-US", {

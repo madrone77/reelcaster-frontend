@@ -19,7 +19,7 @@ import {
 } from "./lib/explore-data";
 import { nearestOpeningCity, readVisitorPoint } from "./lib/opening-city";
 import { HOME_SPOT_COOKIE, sanitizeHomeSpotSlug } from "./lib/home-spot-cookie";
-import { parseWall } from "./spot/[slug]/ad-mode";
+import { parseWall } from "@/lib/ad-mode";
 import { trialChargeDate } from "@/app/lp/_shared/lp-checkout";
 import { PRICE } from "@/app/lp/_shared/lp-content";
 import { ANGLES } from "@/app/lp/_shared/lp-angles";

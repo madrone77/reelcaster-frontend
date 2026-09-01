@@ -5,29 +5,50 @@ import { MapPin } from "lucide-react";
 import { fetchCityGuides, fetchHierarchy } from "@/lib/bluecaster";
 import { COVERED_PROVINCES } from "@/lib/regions";
 import { breadcrumbJsonLd, DEFAULT_OG, siteUrl } from "@/lib/site";
-import { getFishingProvince } from "../lib/fishing-data";
-import { activityPhrase } from "../lib/activity";
+import { getFishingProvince, locationOf } from "@/app/fishing/lib/fishing-data";
+import { guidePath } from "@/lib/paths";
+import { activityPhrase } from "@/app/fishing/lib/activity";
 
 // Hierarchy is cached 1h upstream (bcGet revalidate) — match it here so the
 // page regenerates on the same cadence.
 export const revalidate = 3600;
 
-// Prerender every covered province at build time. Without this the route is
+// Prerender every covered state at build time. Without this the route is
 // rendered on demand, and Next STREAMS metadata for on-demand renders — the
 // <title> and <link rel="canonical"> land at the end of the body instead of in
 // <head>. Prerendering resolves metadata ahead of the response, so the head is
 // complete in the first byte.
-export function generateStaticParams() {
-  return COVERED_PROVINCES.map((code) => ({ province: code.toLowerCase() }));
+//
+// The country has to come from the tree rather than a hardcoded map, because
+// the pair is what the route matches on: /fishing/us/bc must 404, not render
+// British Columbia under an American flag.
+export async function generateStaticParams() {
+  const hierarchy = await fetchHierarchy();
+  const params: Array<{ country: string; state: string }> = [];
+  for (const country of hierarchy?.countries ?? []) {
+    for (const code of COVERED_PROVINCES) {
+      const province = getFishingProvince(hierarchy, country.code, code);
+      if (!province || province.cities.length === 0) continue;
+      params.push({
+        country: country.code.toLowerCase(),
+        state: code.toLowerCase(),
+      });
+    }
+  }
+  return params;
 }
 
 export async function generateMetadata({
   params,
 }: {
-  params: Promise<{ province: string }>;
+  params: Promise<{ country: string; state: string }>;
 }): Promise<Metadata> {
-  const { province: provinceParam } = await params;
-  const province = getFishingProvince(await fetchHierarchy(), provinceParam);
+  const { country: countryParam, state: stateParam } = await params;
+  const province = getFishingProvince(
+    await fetchHierarchy(),
+    countryParam,
+    stateParam,
+  );
   // 404 here, not just in the page — metadata resolves before the body
   // streams, so bailing late would send a 200 with 404 UI (soft-404).
   if (!province || province.cities.length === 0) notFound();
@@ -39,7 +60,7 @@ export async function generateMetadata({
   const description = `Browse ${spotCount} saltwater fishing spots across ${province.cities
     .map((c) => c.name)
     .join(", ")} with live RC scores, conditions, and 14-day forecasts.`;
-  const canonical = siteUrl(`/fishing/${provinceParam.toLowerCase()}`);
+  const canonical = siteUrl(province.path);
   return {
     // Bare title — the root layout's "%s | ReelCaster" template adds the brand.
     title,
@@ -59,13 +80,17 @@ export async function generateMetadata({
 export default async function ProvincePage({
   params,
 }: {
-  params: Promise<{ province: string }>;
+  params: Promise<{ country: string; state: string }>;
 }) {
-  const { province: provinceParam } = await params;
-  const province = getFishingProvince(await fetchHierarchy(), provinceParam);
+  const { country: countryParam, state: stateParam } = await params;
+  const province = getFishingProvince(
+    await fetchHierarchy(),
+    countryParam,
+    stateParam,
+  );
   if (!province || province.cities.length === 0) notFound();
 
-  const provPath = `/fishing/${provinceParam.toLowerCase()}`;
+  const provPath = province.path;
   const spotCount = province.cities.reduce((n, c) => n + c.spots.length, 0);
 
   // Published species guides per city. One cached read each, on the same
@@ -97,7 +122,7 @@ export default async function ProvincePage({
       "@type": "ListItem",
       position: i + 1,
       name: `${city.name}, ${city.provinceCode}`,
-      url: siteUrl(`${provPath}/${city.slug}`),
+      url: siteUrl(city.path),
     })),
   };
 
@@ -149,7 +174,7 @@ export default async function ProvincePage({
             <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1 border-b border-rc-rule pb-2">
               <h2 id={`city-${city.slug}`} className="text-xl font-semibold">
                 <Link
-                  href={`${provPath}/${city.slug}`}
+                  href={city.path}
                   className="text-rc-ink hover:text-rc-brand transition-colors"
                 >
                   {city.name}, {city.provinceCode}
@@ -160,7 +185,7 @@ export default async function ProvincePage({
                 {city.regionName}
               </span>
               <Link
-                href={`${provPath}/${city.slug}`}
+                href={city.path}
                 className="ml-auto font-rc-mono text-[11px] font-semibold tracking-[0.08em] text-rc-brand hover:underline"
               >
                 VIEW CITY MAP →
@@ -171,7 +196,7 @@ export default async function ProvincePage({
               {city.spots.map((spot) => (
                 <li key={spot.id}>
                   <Link
-                    href={`/explore/spot/${spot.slug}`}
+                    href={spot.path}
                     className="group flex items-baseline gap-2 py-1"
                   >
                     <MapPin
@@ -201,7 +226,7 @@ export default async function ProvincePage({
                   {(guidesByCity.get(city.slug) ?? []).map((g) => (
                     <li key={g.species_slug}>
                       <Link
-                        href={`${provPath}/${city.slug}/${g.species_slug}`}
+                        href={guidePath(locationOf(city), g.species_slug)}
                         className="text-[13px] text-rc-ink-soft hover:text-rc-brand transition-colors"
                       >
                         {city.name} {activityPhrase(g.activity)}

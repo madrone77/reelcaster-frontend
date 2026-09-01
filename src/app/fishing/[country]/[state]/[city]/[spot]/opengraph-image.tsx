@@ -99,9 +99,9 @@ function Shell({ children }: { children: React.ReactNode }) {
 export default async function SpotOpengraphImage({
   params,
 }: {
-  params: Promise<{ slug: string }>;
+  params: Promise<{ country: string; state: string; city: string; spot: string }>;
 }) {
-  const { slug } = await params;
+  const { spot: slug } = await params;
 
   // A card is decoration. If the read fails we still owe the scraper an image,
   // and this route is prerendered alongside the page, so throwing here would

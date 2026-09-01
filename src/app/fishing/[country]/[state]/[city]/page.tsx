@@ -7,7 +7,8 @@ import {
 } from "@/lib/bluecaster";
 import { COVERED_PROVINCES } from "@/lib/regions";
 import { breadcrumbJsonLd, siteUrl } from "@/lib/site";
-import { getFishingCity, getFishingProvince } from "../../lib/fishing-data";
+import { getFishingCity, getFishingProvince, getFishingProvinceByCode, locationOf } from "@/app/fishing/lib/fishing-data";
+import { spotPath } from "@/lib/paths";
 import CityHeader from "./city-header";
 import CityLive from "./city-live";
 import { SpeciesCards } from "./species-cards";
@@ -38,10 +39,11 @@ export async function generateStaticParams() {
   try {
     const hierarchy = await fetchHierarchy();
     return COVERED_PROVINCES.flatMap((code) => {
-      const province = getFishingProvince(hierarchy, code);
+      const province = getFishingProvinceByCode(hierarchy, code);
       return (province?.cities ?? []).map((city) => ({
-        province: code.toLowerCase(),
-        city: city.slug,
+        country: city.countryCode.toLowerCase(),
+        state: code.toLowerCase(),
+        city: city.urlSlug,
       }));
     });
   } catch {
@@ -54,16 +56,24 @@ export async function generateStaticParams() {
 export async function generateMetadata({
   params,
 }: {
-  params: Promise<{ province: string; city: string }>;
+  params: Promise<{ country: string; state: string; city: string }>;
 }): Promise<Metadata> {
-  const { province: provinceParam, city: citySlug } = await params;
-  const province = getFishingProvince(await fetchHierarchy(), provinceParam);
-  const city = getFishingCity(province, citySlug);
+  const {
+    country: countryParam,
+    state: stateParam,
+    city: cityUrlSlug,
+  } = await params;
+  const province = getFishingProvince(
+    await fetchHierarchy(),
+    countryParam,
+    stateParam,
+  );
+  const city = getFishingCity(province, cityUrlSlug);
   // 404 here, not just in the page — metadata resolves before the body
   // streams, so bailing late would send a 200 with 404 UI (soft-404).
   if (!province || !city) notFound();
 
-  const cityPage = await fetchCityPage(citySlug);
+  const cityPage = await fetchCityPage(city.slug);
   // A CMS-authored title already carries its own brand suffix, so it opts out
   // of the layout template via `absolute`; the generated fallback is bare and
   // lets the template append.
@@ -82,9 +92,7 @@ export async function generateMetadata({
   const description =
     cityPage?.page.seo.meta_description ??
     `Explore ${city.spots.length} saltwater fishing spots around ${city.name}, ${province.name} on a live map: RC scores, wind, sea, and tide conditions for every spot.`;
-  const canonical = siteUrl(
-    `/fishing/${provinceParam.toLowerCase()}/${citySlug}`,
-  );
+  const canonical = siteUrl(city.path);
   return {
     title: cmsTitle ? { absolute: cmsTitle } : fallbackTitle,
     description,
@@ -112,9 +120,13 @@ export async function generateMetadata({
 export default async function CityPage({
   params,
 }: {
-  params: Promise<{ province: string; city: string }>;
+  params: Promise<{ country: string; state: string; city: string }>;
 }) {
-  const { province: provinceParam, city: citySlug } = await params;
+  const {
+    country: countryParam,
+    state: stateParam,
+    city: cityUrlSlug,
+  } = await params;
 
   // Loaded through the shared loader, which the ad frame at /lp7/<city> also
   // uses — see instrument/load-city.ts for why these must not be two loaders.
@@ -132,18 +144,18 @@ export default async function CityPage({
     headlineWindow,
     cityPage,
     cityToday,
-  } = await loadCity(provinceParam, citySlug);
+  } = await loadCity(countryParam, stateParam, cityUrlSlug);
 
   // Published species guides for this city. Additive: a city with none
   // renders exactly as it did before. Only the SEO renderer shows them.
-  const cityGuides = await fetchCityGuides(citySlug);
+  const cityGuides = await fetchCityGuides(city.slug);
 
 
   // Mirrors the visible breadcrumb CityShell renders.
   const breadcrumbs = breadcrumbJsonLd([
     { name: "Home", path: "/" },
     { name: `Fishing in ${city.provinceName}`, path: provincePath },
-    { name: city.name, path: `${provincePath}/${citySlug}` },
+    { name: city.name, path: city.path },
   ]);
 
   // The spot roster as an ItemList of Places, ranked as the rail ranks them.
@@ -159,7 +171,7 @@ export default async function CityPage({
       item: {
         "@type": "Place",
         name: spot.name,
-        url: siteUrl(`/explore/spot/${spot.slug}`),
+        url: siteUrl(spotPath(locationOf(city), spot.slug)),
         geo: {
           "@type": "GeoCoordinates",
           latitude: spot.lat,
@@ -172,8 +184,13 @@ export default async function CityPage({
   // Other published cities in the same province, so a reader who is in the
   // wrong place has somewhere to go. Ordered by how much we cover.
   const nearby = (province.cities ?? [])
-    .filter((c) => c.slug !== citySlug)
-    .map((c) => ({ slug: c.slug, name: c.name, spotCount: c.spots.length }))
+    .filter((c) => c.slug !== city.slug)
+    .map((c) => ({
+      slug: c.slug,
+      path: c.path,
+      name: c.name,
+      spotCount: c.spots.length,
+    }))
     .sort((a, b) => b.spotCount - a.spotCount)
     .slice(0, 6);
 
@@ -256,7 +273,7 @@ export default async function CityPage({
             (bite radar, spotlight, leaderboard, weekend signup) that stood
             here — see instrument/city-instrument.tsx for why. */}
         <CityInstrument
-          citySlug={citySlug}
+          citySlug={city.slug}
           cityName={city.name}
           cityLat={city.lat}
           cityLng={city.lng}
@@ -284,12 +301,12 @@ export default async function CityPage({
       </div>
 
       <div className="max-w-6xl mx-auto px-6 pt-10 pb-16 space-y-10">
-        <CityLive cityName={city.name} citySlug={citySlug} />
+        <CityLive cityName={city.name} citySlug={city.slug} />
 
         <SpeciesCards
           guides={guides}
           cityName={city.name}
-          cityPath={`${provincePath}/${citySlug}`}
+          cityPath={city.path}
         />
 
         {/* The second ask, and the only one below the fold.
@@ -302,7 +319,7 @@ export default async function CityPage({
         <ProGate
           variant="banner"
           provinceCode={city.provinceCode}
-          citySlug={citySlug}
+          citySlug={city.slug}
         />
 
         {cityToday?.tide_station && (

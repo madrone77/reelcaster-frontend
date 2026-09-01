@@ -10,13 +10,14 @@ import {
 } from "@/lib/bluecaster";
 import { breadcrumbJsonLd, DEFAULT_OG, siteUrl } from "@/lib/site";
 import { COVERED_PROVINCES } from "@/lib/regions";
-import { getFishingCity, getFishingProvince } from "../../../lib/fishing-data";
+import { getFishingCity, getFishingProvince, getFishingProvinceByCode, locationOf } from "@/app/fishing/lib/fishing-data";
+import { guidePath } from "@/lib/paths";
 import {
   activityPhrase,
   activityTitle,
   howHeading,
   whereHeading,
-} from "../../../lib/activity";
+} from "@/app/fishing/lib/activity";
 import {
   ConditionCard,
   MethodCard,
@@ -37,15 +38,21 @@ export const revalidate = 900;
 export async function generateStaticParams() {
   try {
     const hierarchy = await fetchHierarchy();
-    const params: Array<{ province: string; city: string; species: string }> = [];
+    const params: Array<{
+      country: string;
+      state: string;
+      city: string;
+      species: string;
+    }> = [];
     for (const code of COVERED_PROVINCES) {
-      const province = getFishingProvince(hierarchy, code);
+      const province = getFishingProvinceByCode(hierarchy, code);
       for (const city of province?.cities ?? []) {
         const guides = await fetchCityGuides(city.slug);
         for (const g of guides?.guides ?? []) {
           params.push({
-            province: code.toLowerCase(),
-            city: city.slug,
+            country: city.countryCode.toLowerCase(),
+            state: code.toLowerCase(),
+            city: city.urlSlug,
             species: g.species_slug,
           });
         }
@@ -59,13 +66,19 @@ export async function generateStaticParams() {
   }
 }
 
-async function load(provinceParam: string, citySlug: string, speciesSlug: string) {
+async function load(
+  countryParam: string,
+  stateParam: string,
+  cityUrlSlug: string,
+  speciesSlug: string,
+) {
   const hierarchy = await fetchHierarchy();
-  const province = getFishingProvince(hierarchy, provinceParam);
-  const city = getFishingCity(province, citySlug);
+  const province = getFishingProvince(hierarchy, countryParam, stateParam);
+  const city = getFishingCity(province, cityUrlSlug);
   if (!province || !city) return null;
 
-  const guide = await fetchSpeciesGuide(citySlug, speciesSlug);
+  // The API slug, not the path segment.
+  const guide = await fetchSpeciesGuide(city.slug, speciesSlug);
   if (!guide) return null;
 
   return { province, city, guide };
@@ -74,10 +87,20 @@ async function load(provinceParam: string, citySlug: string, speciesSlug: string
 export async function generateMetadata({
   params,
 }: {
-  params: Promise<{ province: string; city: string; species: string }>;
+  params: Promise<{
+    country: string;
+    state: string;
+    city: string;
+    species: string;
+  }>;
 }): Promise<Metadata> {
-  const { province: provinceParam, city: citySlug, species: speciesSlug } = await params;
-  const loaded = await load(provinceParam, citySlug, speciesSlug);
+  const {
+    country: countryParam,
+    state: stateParam,
+    city: cityUrlSlug,
+    species: speciesSlug,
+  } = await params;
+  const loaded = await load(countryParam, stateParam, cityUrlSlug, speciesSlug);
   // 404 in metadata too: bailing only in the body would send a 200 with 404
   // UI, which reads as a soft 404.
   if (!loaded) notFound();
@@ -88,9 +111,7 @@ export async function generateMetadata({
   // own verb: nobody searches "dungeness crab fishing", they search crabbing.
   const title = `${activityTitle(guide.activity)} in ${city.name}, ${city.provinceCode}`;
   const description = descriptionFor(guide, city.name, city.provinceCode);
-  const canonical = siteUrl(
-    `/fishing/${provinceParam.toLowerCase()}/${citySlug}/${speciesSlug}`,
-  );
+  const canonical = siteUrl(guidePath(locationOf(city), speciesSlug));
 
   return {
     title,
@@ -134,18 +155,28 @@ function descriptionFor(
 export default async function SpeciesGuidePage({
   params,
 }: {
-  params: Promise<{ province: string; city: string; species: string }>;
+  params: Promise<{
+    country: string;
+    state: string;
+    city: string;
+    species: string;
+  }>;
 }) {
-  const { province: provinceParam, city: citySlug, species: speciesSlug } = await params;
-  const loaded = await load(provinceParam, citySlug, speciesSlug);
+  const {
+    country: countryParam,
+    state: stateParam,
+    city: cityUrlSlug,
+    species: speciesSlug,
+  } = await params;
+  const loaded = await load(countryParam, stateParam, cityUrlSlug, speciesSlug);
   if (!loaded) notFound();
-  const { city, guide } = loaded;
+  const { province, city, guide } = loaded;
 
   // Today's scores for this species, from the same payload the city map
   // renders, so the guide's ranking and the map's agree by construction.
   const [payload, cityGuides] = await Promise.all([
-    fetchMapSpots({ city: citySlug }),
-    fetchCityGuides(citySlug),
+    fetchMapSpots({ city: city.slug }),
+    fetchCityGuides(city.slug),
   ]);
   const scoreBySpotId = new Map<string, number>();
   for (const s of payload?.spots ?? []) {
@@ -169,8 +200,8 @@ export default async function SpeciesGuidePage({
       );
     });
 
-  const provincePath = `/fishing/${provinceParam.toLowerCase()}`;
-  const cityPath = `${provincePath}/${citySlug}`;
+  const provincePath = province.path;
+  const cityPath = city.path;
   const cityLabel = `${city.name}, ${city.provinceCode}`;
   const siblings = (cityGuides?.guides ?? []).filter(
     (g) => g.species_slug !== speciesSlug,

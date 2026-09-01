@@ -24,7 +24,7 @@
 // dependency on every new city we launch.
 
 import Link from "next/link";
-import type { FishingCity } from "../../lib/fishing-data";
+import type { FishingCity } from "@/app/fishing/lib/fishing-data";
 
 export default function CityHeader({
   city,

@@ -18,31 +18,31 @@ import { useRouter } from "next/navigation";
 import type { MapRef } from "react-map-gl/maplibre";
 import ExploreMap, {
   type StationPick,
-} from "../../../explore/components/explore-map";
-import SpotCard from "../../../explore/components/spot-card";
-import SpotDrawer from "../../../explore/components/spot-drawer";
-import StationDrawer from "../../../explore/components/station-drawer";
-import MapFilterChips from "../../../explore/components/map-filter-chips";
-import MobileSpotList from "../../../explore/components/mobile-spot-list";
+} from "@/app/explore/components/explore-map";
+import SpotCard from "@/app/explore/components/spot-card";
+import SpotDrawer from "@/app/explore/components/spot-drawer";
+import StationDrawer from "@/app/explore/components/station-drawer";
+import MapFilterChips from "@/app/explore/components/map-filter-chips";
+import MobileSpotList from "@/app/explore/components/mobile-spot-list";
 import SortControl, {
   sortSpots,
   type SortKey,
-} from "../../../explore/components/sort-control";
+} from "@/app/explore/components/sort-control";
 import {
   zonedHourToUtcIso,
   type RailSpot,
   type SpeciesOption,
-} from "../../../explore/lib/explore-data";
-import type { FreshCatchesResponse } from "../../../explore/lib/fresh-catch-types";
-import { useFlowLayer } from "../../../explore/lib/use-flow";
+} from "@/app/explore/lib/explore-data";
+import type { FreshCatchesResponse } from "@/app/explore/lib/fresh-catch-types";
+import { useFlowLayer } from "@/app/explore/lib/use-flow";
 import {
   fetchFreshCatches,
   fetchSpotsOutlook14d,
   type SpotsOutlook14dPayload,
 } from "@/lib/bluecaster-client";
-import { spotDaysFrom } from "../../../explore/components/spot-day-strip";
+import { spotDaysFrom } from "@/app/explore/components/spot-day-strip";
 import { useAuth } from "@/contexts/auth-context";
-import type { FishingCity } from "../../lib/fishing-data";
+import type { FishingCity } from "@/app/fishing/lib/fishing-data";
 
 const MAP_TZ = "America/Vancouver";
 

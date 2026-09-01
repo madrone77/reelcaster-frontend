@@ -4,7 +4,7 @@
 
 import Link from "next/link";
 import type { BlueCasterSpeciesGuide } from "@/lib/bluecaster";
-import { TIER_PILL, tierFor } from "../../../../explore/lib/explore-data";
+import { TIER_PILL, tierFor } from "@/app/explore/lib/explore-data";
 
 export function SectionHeading({
   children,

@@ -1,18 +1,32 @@
 import type { Metadata } from "next";
-import { notFound } from "next/navigation";
-import { fetchMapSpots, fetchSpotLivePage } from "@/lib/bluecaster";
+import { notFound, permanentRedirect } from "next/navigation";
+import { fetchHierarchy, fetchSpotLivePage } from "@/lib/bluecaster";
 import { breadcrumbJsonLd, SITE_URL, siteUrl } from "@/lib/site";
 import { provinceCodeFromName } from "@/lib/regions";
 import SpotDetailShell from "./spot-detail-shell";
 import { loadSpotPage } from "./load-spot-page";
+import {
+  findCityForSpot,
+  getFishingCountries,
+} from "@/app/fishing/lib/fishing-data";
+import { spotPath } from "@/lib/paths";
 
-type PageProps = { params: Promise<{ slug: string }> };
+// `spot` is the DIRECTORY name, so it is the param Next fills. Destructured
+// as `slug` below because that is what the spot payload calls it, and because
+// getting these two out of step is invisible to the typechecker: the param
+// would simply arrive undefined at runtime.
+type PageProps = {
+  params: Promise<{
+    country: string;
+    state: string;
+    city: string;
+    spot: string;
+  }>;
+};
 
 
 
 
-// Same extent /explore and the sitemap use (BC + WA + OR).
-const COVERED_BBOX_ALL = "-139.06,41.99,-114.03,60";
 
 // Google renders roughly 60 characters of a <title> before truncating with an
 // ellipsis. The root layout appends " | ReelCaster", so a page's own title has
@@ -78,10 +92,24 @@ function snippet(text: string): string {
 // Custom and newly-published spots still render on demand and then cache.
 export async function generateStaticParams() {
   try {
-    const payload = await fetchMapSpots({ bbox: COVERED_BBOX_ALL });
-    return (payload?.spots ?? [])
-      .filter((s) => s.slug)
-      .map((s) => ({ slug: s.slug }));
+    // The hierarchy, not the map payload. A spot's path needs its home city,
+    // and /map/spots is bbox-scoped with no place chain on it: it can say a
+    // spot exists but not where its URL goes. Walking the lifecycle-gated tree
+    // also means only spots that HAVE a public home are prerendered, which is
+    // the same set the sitemap lists.
+    const countries = getFishingCountries(await fetchHierarchy());
+    return countries.flatMap((country) =>
+      country.provinces.flatMap((province) =>
+        province.cities.flatMap((city) =>
+          city.spots.map((spot) => ({
+            country: country.code.toLowerCase(),
+            state: province.code.toLowerCase(),
+            city: city.urlSlug,
+            spot: spot.slug,
+          })),
+        ),
+      ),
+    );
   } catch {
     // Upstream down at build time — fall back to pure on-demand rendering
     // rather than failing the build.
@@ -92,7 +120,7 @@ export async function generateStaticParams() {
 export async function generateMetadata({
   params,
 }: PageProps): Promise<Metadata> {
-  const { slug } = await params;
+  const { spot: slug } = await params;
   const page = await fetchSpotLivePage(slug).catch(() => null);
 
   // No server-side read means either "private custom spot" or "gone", and the
@@ -105,6 +133,14 @@ export async function generateMetadata({
   // 404s from its generateMetadata.
   if (!page) notFound();
 
+  // The canonical has to be the spot's HOME path, never the path that was
+  // requested. This route accepts any city segment, so echoing the request
+  // back would have every duplicate URL declare itself canonical, which is
+  // precisely the self-certifying duplicate the tag exists to prevent.
+  const place = findCityForSpot(await fetchHierarchy().catch(() => null), slug);
+  // No public home means no public page here; the body 404s for the same
+  // reason and metadata must agree, or the 404 ships under a 200.
+  if (!place) notFound();
 
   const name = page.spot.name;
   // "Constance Bank Fishing · Victoria, BC" — the postal code keeps the common
@@ -154,7 +190,7 @@ export async function generateMetadata({
     // Bare title — the root layout's "%s | ReelCaster" template adds the brand.
     title,
     description,
-    alternates: { canonical: siteUrl(`/explore/spot/${slug}`) },
+    alternates: { canonical: siteUrl(place.spot.path) },
     openGraph: {
       title: ogTitle,
       description: ogDescription,
@@ -162,7 +198,7 @@ export async function generateMetadata({
       // rather than merging into it, so without this the card loses the site
       // label and Facebook falls back to printing the bare domain.
       siteName: "ReelCaster",
-      url: siteUrl(`/explore/spot/${slug}`),
+      url: siteUrl(place.spot.path),
       // A spot page is a place, not a piece of writing — `article` invited
       // article-shaped expectations (author, published date) it never meets.
       type: "website",
@@ -176,11 +212,24 @@ export async function generateMetadata({
 }
 
 export default async function SpotDetailPage({ params }: PageProps) {
-  const { slug } = await params;
+  const { country, state, city, spot: slug } = await params;
   // Shared with the ad frame at ./ad — see ad-mode.ts. Both renderers load
   // through one function so a gate can never be applied to only one of them.
-  const { page, freshTracked, cityLink, tz, serverNowMs } =
+  const { page, freshTracked, cityLink, canonicalPath, tz, serverNowMs } =
     await loadSpotPage(slug);
+
+  // A spot has exactly ONE home city, so every other city that reaches this
+  // route is a second URL for the same page. Nothing links those, but a
+  // four-segment dynamic route accepts any combination somebody types or a
+  // scraper invents, and left alone that is 274 spots times 20 cities of
+  // duplicate content. Redirect rather than 404: the wrong city in the path is
+  // usually a stale link or a hand edit, and the right page exists.
+  if (!canonicalPath) notFound();
+  const requested = spotPath(
+    { countryCode: country, stateCode: state, cityUrlSlug: city },
+    slug,
+  );
+  if (requested !== canonicalPath) permanentRedirect(canonicalPath);
   const place = cityLink;
 
   const crumbs = place
@@ -188,7 +237,7 @@ export default async function SpotDetailPage({ params }: PageProps) {
         { name: "Home", path: "/" },
         { name: `Fishing in ${place.provinceName}`, path: place.provincePath },
         { name: place.cityName, path: place.cityPath },
-        { name: page.spot.name, path: `/explore/spot/${slug}` },
+        { name: page.spot.name, path: canonicalPath },
       ])
     : null;
 
@@ -197,9 +246,9 @@ export default async function SpotDetailPage({ params }: PageProps) {
   const spotJsonLd = {
     "@context": "https://schema.org",
     "@type": "Place",
-    "@id": siteUrl(`/explore/spot/${slug}#place`),
+    "@id": siteUrl(`${canonicalPath}#place`),
     name: page.spot.name,
-    url: siteUrl(`/explore/spot/${slug}`),
+    url: siteUrl(canonicalPath),
     ...(page.spot.seoIntro ? { description: page.spot.seoIntro } : {}),
     geo: {
       "@type": "GeoCoordinates",

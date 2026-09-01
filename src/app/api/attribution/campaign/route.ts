@@ -33,7 +33,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { ANGLES } from '@/app/lp/_shared/lp-angles';
-import { AD_WALLS } from '@/app/explore/spot/[slug]/ad-mode';
+import { AD_WALLS } from "@/lib/ad-mode";
 import { CLICK_TYPES } from '@/lib/attribution';
 import { classifyUserAgent, isBotUserAgent } from '@/lib/device';
 import { readEdgeGeo } from '@/lib/edge-geo';

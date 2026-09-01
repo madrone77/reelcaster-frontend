@@ -6,7 +6,7 @@ import { PRICE } from "@/app/lp/_shared/lp-content";
 import { ANGLES } from "@/app/lp/_shared/lp-angles";
 import SpotDetailShell from "../spot-detail-shell";
 import { loadSpotPage } from "../load-spot-page";
-import { parseWall } from "../ad-mode";
+import { parseWall } from "@/lib/ad-mode";
 
 /**
  * The ad frame of a spot page.
@@ -27,7 +27,7 @@ import { parseWall } from "../ad-mode";
  */
 
 type PageProps = {
-  params: Promise<{ slug: string }>;
+  params: Promise<{ country: string; state: string; city: string; spot: string }>;
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 };
 
@@ -38,7 +38,7 @@ function first(v: string | string[] | undefined): string {
 export async function generateMetadata({
   params,
 }: PageProps): Promise<Metadata> {
-  const { slug } = await params;
+  const { spot: slug } = await params;
   const page = await fetchSpotLivePage(slug).catch(() => null);
   const name = page?.spot.name ?? "This spot";
 
@@ -54,7 +54,7 @@ export async function generateMetadata({
 }
 
 export default async function SpotAdPage({ params, searchParams }: PageProps) {
-  const { slug } = await params;
+  const { spot: slug } = await params;
   const sp = await searchParams;
   const { page, freshTracked, cityLink, tz, serverNowMs } =
     await loadSpotPage(slug);
