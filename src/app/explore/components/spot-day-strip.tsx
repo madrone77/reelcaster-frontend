@@ -17,14 +17,6 @@ const TIER_NUMERAL: Record<Tier, string> = {
   none: "text-rc-ink-mute",
 };
 
-/** Cell fill, one step up from the numeral — a wash, not a block of color. */
-const TIER_FILL: Record<Tier, string> = {
-  good: "bg-rc-good-bg",
-  fair: "bg-rc-fair-bg",
-  poor: "bg-rc-poor-bg",
-  none: "bg-rc-surface",
-};
-
 /** Bar color for the compact density, where there's no room for a numeral. */
 const TIER_BAR: Record<Tier, string> = {
   good: "bg-rc-good",
@@ -281,7 +273,12 @@ export default function SpotDayStrip({
                     ? `${d.dow} ${d.date} · peaks ${fmtPeak(d.peakHour)}`
                     : `${d.dow} ${d.date}`
                 }
-                className={`relative flex-1 min-w-0 rounded border ${TIER_FILL[t]} flex flex-col items-center justify-center gap-0.5 py-1.5 ${
+                // White tile, ruled edge, tier only in the numeral — the same
+                // square the spot page's forecast strip draws. The cells used to
+                // carry a tier wash behind the number, which is a treatment the
+                // system reserves for pills and banners; fourteen of them in a
+                // row read as a heat map the four-band scale never promised.
+                className={`relative flex-1 min-w-0 rounded border bg-rc-panel flex flex-col items-center justify-center gap-0.5 py-1.5 ${
                   isBest
                     ? "border-rc-badge ring-1 ring-inset ring-rc-badge"
                     : "border-rc-rule"
