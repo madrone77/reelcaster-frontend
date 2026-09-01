@@ -1,7 +1,13 @@
 name: Custom Alerts Evaluation
 
 on:
-  # Run every 30 minutes
+  # Run every 30 minutes, on the hour and the half hour.
+  #
+  # A Vercel cron (see vercel.json) runs the same evaluation at :15 and :45.
+  # GitHub drops scheduled runs in multi-hour blocks under load and has missed
+  # whole 6-9am send windows, so the two schedulers are deliberately offset:
+  # either one alone still covers the window. The run is idempotent, so an
+  # overlap costs compute and nothing else.
   schedule:
     - cron: '*/30 * * * *'
 
@@ -43,8 +49,9 @@ jobs:
           SUCCESS=$(echo "$RESPONSE" | jq -r '.success // false')
           if [ "$SUCCESS" != "true" ]; then
             echo "evaluation_failed=true" >> $GITHUB_OUTPUT
+            echo "::error::Alert evaluation returned success=false"
+            exit 1
           fi
-        continue-on-error: true
 
       - name: Create summary
         if: always()
