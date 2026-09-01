@@ -4,6 +4,8 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import dynamic from 'next/dynamic';
 import { Search, MapPin, Building2, Map, Target, Loader2, X } from 'lucide-react';
+import { btn } from '@/app/components/ui/button';
+import { COVERED_PROVINCES } from '@/lib/regions';
 import type { SearchResult } from '@/lib/search-results';
 
 const WaitlistPinModal = dynamic(
@@ -115,26 +117,26 @@ export default function GlobalSearch({ open, onClose }: Props) {
   return (
     <>
       <div
-        className="fixed inset-0 z-50 flex items-start justify-center bg-black/70 p-4 pt-[10vh]"
+        className="fixed inset-0 z-50 flex items-start justify-center bg-rc-ink/60 backdrop-blur-sm p-4 pt-[10vh]"
         onClick={(e) => {
           if (e.target === e.currentTarget) onClose();
         }}
       >
-        <div className="bg-rc-bg-dark border border-rc-bg-light rounded-xl shadow-2xl w-full max-w-xl overflow-hidden">
-          <div className="flex items-center gap-3 px-4 py-3 border-b border-rc-bg-light">
-            <Search className="w-5 h-5 text-rc-text-muted" />
+        <div className="bg-rc-panel border border-rc-rule rounded-xl shadow-rc-panel w-full max-w-xl overflow-hidden">
+          <div className="flex items-center gap-3 px-4 py-3 border-b border-rc-rule">
+            <Search className="w-5 h-5 text-rc-ink-mute" />
             <input
               ref={inputRef}
               value={q}
               onChange={(e) => setQ(e.target.value)}
               onKeyDown={handleKeyDown}
               placeholder="Search spots, cities, species…"
-              className="flex-1 bg-transparent text-rc-text placeholder:text-rc-text-muted text-base focus:outline-none"
+              className="flex-1 bg-transparent text-rc-ink placeholder:text-rc-ink-mute text-base focus:outline-none"
             />
-            {loading && <Loader2 className="w-4 h-4 animate-spin text-rc-text-muted" />}
+            {loading && <Loader2 className="w-4 h-4 animate-spin text-rc-ink-mute" />}
             <button
               onClick={onClose}
-              className="text-rc-text-muted hover:text-rc-text"
+              className="text-rc-ink-mute hover:text-rc-ink"
               aria-label="Close"
             >
               <X className="w-4 h-4" />
@@ -143,22 +145,24 @@ export default function GlobalSearch({ open, onClose }: Props) {
 
           <div className="max-h-[60vh] overflow-y-auto">
             {!hasQuery && (
-              <div className="px-4 py-8 text-center text-sm text-rc-text-muted">
+              <div className="px-4 py-8 text-center text-sm text-rc-ink-mute">
                 Start typing to search
               </div>
             )}
 
             {empty && (
               <div className="px-4 py-8 text-center space-y-3">
-                <p className="text-sm text-rc-text">
+                <p className="text-sm text-rc-ink">
                   No spots found in &quot;<span className="font-semibold">{q}</span>&quot;.
                 </p>
-                <p className="text-xs text-rc-text-muted">
-                  ReelCaster is live in BC, WA, OR.
+                <p className="text-xs text-rc-ink-mute">
+                  {/* Derived, because this line named Oregon for months after
+                      it was pulled from the covered set. */}
+                  ReelCaster is live in {COVERED_PROVINCES.join(', ')}.
                 </p>
                 <button
                   onClick={() => setWaitlistOpen(true)}
-                  className="inline-flex items-center px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded-md text-sm font-semibold text-white transition-colors"
+                  className={btn.nav}
                 >
                   Request coverage →
                 </button>
@@ -177,17 +181,17 @@ export default function GlobalSearch({ open, onClose }: Props) {
                         onClick={() => navigate(r)}
                         onMouseEnter={() => setHighlight(i)}
                         className={`w-full flex items-center gap-3 px-4 py-2.5 text-left transition-colors ${
-                          active ? 'bg-rc-bg-light' : ''
-                        } ${href ? 'hover:bg-rc-bg-light cursor-pointer' : 'cursor-default opacity-60'}`}
+                          active ? 'bg-rc-page' : ''
+                        } ${href ? 'hover:bg-rc-page cursor-pointer' : 'cursor-default opacity-60'}`}
                       >
-                        <Icon className="w-4 h-4 text-rc-text-muted flex-shrink-0" />
+                        <Icon className="w-4 h-4 text-rc-ink-mute flex-shrink-0" />
                         <div className="flex-1 min-w-0">
-                          <p className="text-sm text-rc-text truncate">{r.name}</p>
+                          <p className="text-sm text-rc-ink truncate">{r.name}</p>
                           {r.label && (
-                            <p className="text-xs text-rc-text-muted truncate">{r.label}</p>
+                            <p className="text-xs text-rc-ink-mute truncate">{r.label}</p>
                           )}
                         </div>
-                        <span className="text-[10px] uppercase tracking-wide text-rc-text-muted">
+                        <span className="text-[10px] uppercase tracking-wide text-rc-ink-mute">
                           {r.kind}
                         </span>
                       </button>

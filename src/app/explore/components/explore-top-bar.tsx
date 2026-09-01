@@ -1,15 +1,26 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import dynamic from "next/dynamic";
 import Link from "next/link";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
+import { Search } from "lucide-react";
 import { btn } from "@/app/components/ui/button";
 import { PAGE_MEASURE } from "@/app/components/layout/page-measure";
 import { useAuth } from "@/contexts/auth-context";
 import TrialModalButton from "@/app/components/paywall/trial-modal-button";
 import type { NagFeatureId } from "@/lib/plan-features";
 import { fetchAlertProfiles } from "@/lib/alerts-client";
+
+// The search palette lives here because this bar is the only chrome every
+// signed-in surface mounts. It used to hang off AppShell, which no page has
+// rendered since the app moved off that dark shell, so the palette — and the
+// cmd-K that opens it — were unreachable in the running product.
+const GlobalSearch = dynamic(
+  () => import("@/app/components/search/global-search"),
+  { ssr: false },
+);
 
 // "Catch log" is the single destination for catch logging. The wizard at
 // /log-catch used to sit beside it as its own nav item, which made one feature
@@ -93,6 +104,25 @@ export default function ExploreTopBar({
   const signedIn = preview || !!user;
   const avatarLabel = preview ? "R" : initials;
 
+  // Search palette. cmd/ctrl-K from anywhere the bar is, and the
+  // `openGlobalSearch` event so a control outside this tree can open it too.
+  const [searchOpen, setSearchOpen] = useState(false);
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
+        e.preventDefault();
+        setSearchOpen(true);
+      }
+    };
+    const onEvent = () => setSearchOpen(true);
+    document.addEventListener("keydown", onKey);
+    window.addEventListener("openGlobalSearch", onEvent);
+    return () => {
+      document.removeEventListener("keydown", onKey);
+      window.removeEventListener("openGlobalSearch", onEvent);
+    };
+  }, []);
+
   // Active-alert count → "Notifications" badge.
   const [alertCount, setAlertCount] = useState<number | null>(null);
   useEffect(() => {
@@ -148,11 +178,12 @@ export default function ExploreTopBar({
       ? pathname === "/"
       : pathname === href || pathname.startsWith(`${href}/`);
 
+  // White, like MarketingHeader everywhere off the landing page — the tint
+  // only exists there to merge the bar into the hero band, and there's no
+  // such band here. Opaque, so there's no backdrop to blur. Keeps its rule:
+  // this bar floats over the map and needs the edge.
   return (
-    // White, like MarketingHeader everywhere off the landing page — the tint
-    // only exists there to merge the bar into the hero band, and there's no
-    // such band here. Opaque, so there's no backdrop to blur. Keeps its rule:
-    // this bar floats over the map and needs the edge.
+    <>
     <header
       className={`fixed top-0 inset-x-0 h-16 z-40 border-b transition-transform duration-200 ${
         rolledAway ? "-translate-y-full lg:translate-y-0" : "translate-y-0"
@@ -234,6 +265,29 @@ export default function ExploreTopBar({
         </nav>
 
         <div className="flex items-center gap-2 sm:gap-3 ml-auto">
+          {/* Icon-only. The bar is 64px and already carries a mark, four nav
+              items and a CTA; a full search field is what pushes it over on a
+              phone. The shortcut hint only shows where a keyboard is likely. */}
+          <button
+            type="button"
+            onClick={() => setSearchOpen(true)}
+            aria-label="Search spots, cities and species"
+            className={`flex items-center gap-2 rounded px-2 h-8 text-sm transition-colors ${
+              brand
+                ? "text-white/80 hover:text-white hover:bg-white/10"
+                : "text-rc-ink-soft hover:text-rc-ink hover:bg-rc-page"
+            }`}
+          >
+            <Search className="w-4 h-4" />
+            <span
+              className={`hidden lg:inline font-rc-mono text-[10px] tracking-wide ${
+                brand ? "text-white/60" : "text-rc-ink-mute"
+              }`}
+            >
+              ⌘K
+            </span>
+          </button>
+
           {loading && !preview ? null : signedIn && avatarLabel ? (
             <>
               {upgradeCta && (
@@ -285,5 +339,12 @@ export default function ExploreTopBar({
         </div>
       </div>
     </header>
+
+    {/* Outside the <header> on purpose. The bar carries a transform for its
+        roll-away, and a transformed ancestor becomes the containing block for
+        `position: fixed` descendants — the palette's full-screen overlay would
+        be trapped inside a 64px bar, and would slide away with it. */}
+    <GlobalSearch open={searchOpen} onClose={() => setSearchOpen(false)} />
+    </>
   );
 }
