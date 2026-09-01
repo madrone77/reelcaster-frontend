@@ -17,6 +17,7 @@ import { windowLabel } from "./bite-radar";
 import { bottomLabel, type HubBadge, type HubSpeciesEntry, type HubSpot } from "./hub-data";
 import { SectionHeading } from "../species/[species]/guide-sections";
 import { CARD, Chip, PAD, TYPE } from "./ui";
+import { spotHref } from "@/lib/paths";
 
 export default function SpotLeaderboard({
   rows,
@@ -83,7 +84,7 @@ export default function SpotLeaderboard({
           return (
             <li key={spot.id}>
               <Link
-                href={`/explore/spot/${spot.slug}`}
+                href={spotHref(spot)}
                 className={`group flex h-full flex-col ${CARD} ${PAD} hover:border-rc-brand hover:shadow-rc-panel transition-all`}
               >
                 <div className="flex items-start gap-3">

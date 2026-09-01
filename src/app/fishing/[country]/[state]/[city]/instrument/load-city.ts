@@ -131,7 +131,13 @@ async function loadResolvedCity(
 
   // `"all"`, not the default pool: these pages ORDER every mark they draw
   // rather than recommending a handful, and the map carries the full roster.
-  const hub = buildHubData(payload, inCity, "all");
+  // Canonical paths for every mark the page can reach, resolved once from the
+  // hierarchy. The rail rows already carry them; the hub rows are built from
+  // the raw payload and would otherwise have to guess the city.
+  const pathBySlug = new Map<string, string>();
+  for (const s of data.spots) if (s.path) pathBySlug.set(s.slug, s.path);
+
+  const hub = buildHubData(payload, inCity, "all", pathBySlug);
 
   // Popularity leads, today's score breaks its ties — see instrument/featured.ts.
   const rankedRows = rankByRecognition(hub.spots, null, hub.spots.length);
@@ -154,6 +160,7 @@ async function loadResolvedCity(
     featured && featuredPage
       ? {
           slug: featured.spot.slug,
+          path: pathBySlug.get(featured.spot.slug) ?? null,
           name: featured.spot.name,
           speciesId: featured.speciesId,
           speciesName:

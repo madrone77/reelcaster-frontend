@@ -79,6 +79,7 @@ import Section from "./section";
 import CitySpotMap from "./city-spot-map";
 import CityTopSpots from "./city-top-spots";
 import CustomSpots from "./custom-spots";
+import { spotHref } from "@/lib/paths";
 
 /**
  * The same paywall /explore and the spot page open, loaded on the tap that
@@ -111,6 +112,9 @@ const ProTrialModal = dynamic(
  */
 export interface FeaturedFeed {
   slug: string;
+  /** The mark's own canonical path. The featured mark can be homed in a
+   *  neighbouring city, so it is looked up rather than built from this page. */
+  path: string | null;
   name: string;
   /** Species the chart is drawn for. Carried as well as named, because the
    *  refetched 14-day grid below is keyed by id. */
@@ -626,7 +630,7 @@ export default function CityInstrument({
                 <>
                   A city has no tide or wind of its own, so this is{" "}
                   <Link
-                    href={`/explore/spot/${featured.slug}`}
+                    href={spotHref(featured)}
                     className="text-rc-brand font-semibold hover:underline"
                   >
                     {featured.name}

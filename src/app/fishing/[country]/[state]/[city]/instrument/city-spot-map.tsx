@@ -49,6 +49,7 @@ import { declutterHiddenSlugs } from "@/app/explore/lib/spot-geojson";
 import { formatHour12 } from "@/lib/time-format";
 import { bottomLabel, cellAt, chopLabel, phaseAt } from "../hub/hub-data";
 import { recognitionLabel, type RankedSpot } from "./featured";
+import { legacySpotPath } from "@/lib/paths";
 
 const SPOT_SOURCE = "city-spots";
 const SPOT_PUCK = "city-spot-puck";
@@ -220,6 +221,9 @@ export default function CitySpotMap({
           },
           properties: {
             slug: r.spot.slug,
+            // Carried so a click can navigate to the mark's OWN city, which is
+            // not always the city this map belongs to.
+            path: r.spot.path ?? '',
             label: String(r.entry.peak),
             // Both report signals stay off. They are Pro-gated on Explore, and
             // this body is public and CDN-cached, so it cannot resolve a tier
@@ -436,8 +440,13 @@ export default function CitySpotMap({
 
   const onClick = useCallback(
     (ev: MapLayerMouseEvent) => {
-      const slug = ev.features?.[0]?.properties?.slug as string | undefined;
-      if (slug) router.push(`/explore/spot/${slug}`);
+      const props = ev.features?.[0]?.properties as
+        | { slug?: string; path?: string }
+        | undefined;
+      const slug = props?.slug;
+      // `path` rides on the feature for the same reason city-shell looks one
+      // up: the map draws marks homed in other cities.
+      if (slug) router.push(props?.path || legacySpotPath(slug));
     },
     [router],
   );

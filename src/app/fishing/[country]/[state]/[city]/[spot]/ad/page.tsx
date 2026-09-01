@@ -7,6 +7,7 @@ import { ANGLES } from "@/app/lp/_shared/lp-angles";
 import SpotDetailShell from "../spot-detail-shell";
 import { loadSpotPage } from "../load-spot-page";
 import { parseWall } from "@/lib/ad-mode";
+import { spotPath } from "@/lib/paths";
 
 /**
  * The ad frame of a spot page.
@@ -38,7 +39,7 @@ function first(v: string | string[] | undefined): string {
 export async function generateMetadata({
   params,
 }: PageProps): Promise<Metadata> {
-  const { spot: slug } = await params;
+  const { country, state, city, spot: slug } = await params;
   const page = await fetchSpotLivePage(slug).catch(() => null);
   const name = page?.spot.name ?? "This spot";
 
@@ -49,7 +50,17 @@ export async function generateMetadata({
     // canonical is what stops any link that leaks into the wild from splitting
     // the public page's signals.
     robots: { index: false, follow: false },
-    alternates: { canonical: siteUrl(`/explore/spot/${slug}`) },
+    // The public page this frame wraps, in the new shape. Pointing it at the
+    // retired URL would aim the canonical at a redirect, which is a hint a
+    // crawler has to resolve before it can honour it.
+    alternates: {
+      canonical: siteUrl(
+        spotPath(
+          { countryCode: country, stateCode: state, cityUrlSlug: city },
+          slug,
+        ),
+      ),
+    },
   };
 }
 

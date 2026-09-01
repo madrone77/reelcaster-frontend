@@ -360,6 +360,18 @@ export interface MapSpotEntry {
   lat: number;
   lng: number;
   city_slug: string | null;
+  /**
+   * The one city this spot's public URL lives under (`cities.slug`).
+   *
+   * ⚠️ NOT `city_slug`, which is the alphabetically-first MEMBER city and is
+   * arbitrary with respect to where the spot belongs. 9 of the 228 published
+   * spots disagree between the two: Race Rocks is a member of Cowichan, 55 km
+   * away, and homed to Sooke. Build links from this one.
+   *
+   * Null where the spot has no public home: a private custom spot, or a city
+   * that is not published.
+   */
+  home_city_slug: string | null;
   /** Seabed at the mark: "rock" | "mixed" | "sand" | "mud" | "kelp", or null.
    *  The ONLY physical character a spot card can carry — there is no depth
    *  anywhere in the product (`depth_avg_m` is null on all 164 published

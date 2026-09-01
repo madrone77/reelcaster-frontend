@@ -155,3 +155,22 @@ export function spotSlugFromPath(pathname: string): string {
   }
   return "";
 }
+
+/**
+ * The href for a spot link, given whatever the caller knows.
+ *
+ * Pass the canonical `path` when the surface has resolved one. When it has not
+ * (a component with no city index, an unpublished city, a private custom
+ * spot), this falls back to the retired one-segment URL, which still resolves
+ * and 308s for anything with a public home.
+ *
+ * The fallback is a redirect hop, so it is a cost, not a default to settle
+ * for: a surface that renders many spot links should thread a city index in
+ * and give this a real path. It exists so that "we do not know the city here"
+ * degrades to one extra request rather than to a fabricated URL that 404s.
+ */
+export function spotHref(
+  spot: { path?: string | null; slug: string },
+): string {
+  return spot.path ?? legacySpotPath(spot.slug);
+}

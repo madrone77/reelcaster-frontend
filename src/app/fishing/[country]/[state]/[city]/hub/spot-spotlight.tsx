@@ -36,6 +36,7 @@ import {
   type HubSpot,
 } from "./hub-data";
 import { Chip, Label, PAD, PANEL, TYPE } from "./ui";
+import { spotHref } from "@/lib/paths";
 
 /** One fact per box. No icons: four pictograms on one card is decoration
  *  competing with the four values it is meant to introduce. */
@@ -119,7 +120,7 @@ export default function SpotSpotlight({
           <span className="min-w-0 flex-1">
             <h2 id="spotlight" className={`${TYPE.title} text-rc-ink`}>
               <Link
-                href={`/explore/spot/${spot.slug}`}
+                href={spotHref(spot)}
                 className="hover:text-rc-emerald-deep transition-colors"
               >
                 {spot.name}
@@ -184,7 +185,7 @@ export default function SpotSpotlight({
       </div>
 
       <Link
-        href={`/explore/spot/${spot.slug}`}
+        href={spotHref(spot)}
         className="block border-t border-rc-rule px-4 py-3 text-[13px] font-semibold text-rc-emerald-deep hover:bg-rc-surface transition-colors"
       >
         See the full day at {spot.name}

@@ -1,6 +1,6 @@
 import { notFound } from "next/navigation";
 import { fetchHierarchy, fetchSpotLivePage } from "@/lib/bluecaster";
-import { findCityForSpot } from "@/app/fishing/lib/fishing-data";
+import { findCityForSpot, spotPathIndex } from "@/app/fishing/lib/fishing-data";
 import { timezoneFor } from "@/lib/regions";
 import { spotHasFreshReports } from "@/app/explore/lib/fresh-catch-types";
 import { stripPaidIntel } from "./strip-paid-intel";
@@ -63,10 +63,26 @@ export async function loadSpotPage(slug: string): Promise<LoadedSpotPage> {
 
   // Where this spot sits in the public directory, so the page can link back up
   // to its city and province. Null for custom spots and unpublished cities.
-  const place = findCityForSpot(await fetchHierarchy().catch(() => null), slug);
+  const hierarchy = await fetchHierarchy().catch(() => null);
+  const place = findCityForSpot(hierarchy, slug);
+
+  // BlueCaster builds `nearbySpots[].href` itself, and it still emits the
+  // retired /explore/spot/<slug> shape. Rewriting here rather than changing the
+  // payload keeps the API out of the frontend's routing: the neighbour list is
+  // the spot page's main way out, and on an indexable page a whole rail of
+  // links to a redirect is the crawl budget spent twice.
+  //
+  // A neighbour with no public home (unpublished city) keeps the retired URL,
+  // which is where it actually renders.
+  const spotPaths = spotPathIndex(hierarchy);
+  const nearbySpots = page.nearbySpots?.map((n) => {
+    const neighbourSlug = n.href?.split("/").filter(Boolean).pop();
+    const canonical = neighbourSlug ? spotPaths.get(neighbourSlug) : undefined;
+    return canonical ? { ...n, href: canonical } : n;
+  });
 
   return {
-    page: stripPaidIntel(page),
+    page: stripPaidIntel({ ...page, ...(nearbySpots ? { nearbySpots } : {}) }),
     freshTracked,
     // Narrowed to the five strings the breadcrumb needs — `place.city` carries
     // the city's whole spot roster, which has no business crossing the

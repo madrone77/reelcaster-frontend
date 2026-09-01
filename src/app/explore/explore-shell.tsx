@@ -81,6 +81,7 @@ import LeftRail from "./components/left-rail";
 import LocationSelector from "./components/location-selector";
 import MobileMapSheet from "./components/mobile-map-sheet";
 import ForecastStrip from "./components/forecast-strip";
+import { legacySpotPath, spotHref } from "@/lib/paths";
 
 // ── Loaded on demand ─────────────────────────────────────────────────────
 //
@@ -1678,7 +1679,7 @@ export default function ExploreShell({
         // the page, so without this the return trip lands on whatever the list
         // happened to be scrolled over rather than on the spot just viewed.
         if (spot) writeSpotHandoff(spot);
-        router.push(`/explore/spot/${slug}`);
+        router.push(spot ? spotHref(spot) : legacySpotPath(slug));
         return;
       }
       setQuery({ spot: slug, stn: null });
@@ -1710,7 +1711,10 @@ export default function ExploreShell({
         // same return-trip frame a tapped card does. Otherwise coming back
         // from it landed on the water the search was typed over.
         writeSpotHandoff({ slug, lat, lng });
-        router.push(`/explore/spot/${slug}`);
+        // A search result can name a spot outside the loaded viewport, so
+        // there is no rail row to read a path off. The retired URL resolves it
+        // server-side and 308s, which is one hop and always right.
+        router.push(legacySpotPath(slug));
         return;
       }
       setQuery({ spot: slug, stn: null });

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { fetchHierarchyLight, fetchMapSpots } from "@/lib/bluecaster";
+import { fetchHierarchy, fetchHierarchyLight, fetchMapSpots } from "@/lib/bluecaster";
 import { readEdgeGeoPoint } from "@/lib/edge-geo";
 import {
   coveredCityPoints,
@@ -8,6 +8,7 @@ import {
   NOT_LOCATED,
   type NearbyPayload,
 } from "@/lib/nearby-spots";
+import { spotPathIndex } from "@/app/fishing/lib/fishing-data";
 
 /**
  * GET /api/nearby-spots
@@ -68,7 +69,14 @@ export async function GET(request: NextRequest) {
     if (!near) return json(NOT_LOCATED, 3600);
 
     const payload = await fetchMapSpots({ city: near.city.slug });
-    const spots = rankNearbySpots(payload);
+    // The homepage is indexable, so these links are part of the crawl graph
+    // and have to be the spots' own URLs. rankNearbySpots gets no place tree,
+    // so the paths are joined on here.
+    const paths = spotPathIndex(await fetchHierarchy().catch(() => null));
+    const spots = rankNearbySpots(payload).map((s) => ({
+      ...s,
+      path: paths.get(s.slug) ?? null,
+    }));
     // A covered city whose spots are all unscored today has nothing to rank.
     if (spots.length === 0) return json(NOT_LOCATED, 900);
 

@@ -5,6 +5,7 @@
 import Link from "next/link";
 import type { BlueCasterSpeciesGuide } from "@/lib/bluecaster";
 import { TIER_PILL, tierFor } from "@/app/explore/lib/explore-data";
+import { spotHref } from "@/lib/paths";
 
 export function SectionHeading({
   children,
@@ -183,6 +184,12 @@ export function ConditionCard({
 }
 
 export type GuideSpotRow = BlueCasterSpeciesGuide["spots"][number] & {
+  /**
+   * The spot's own canonical path. A guide ranks every mark in the city that
+   * holds the species, and a shared mark is homed in a neighbouring city, so
+   * this is looked up per spot rather than built from the guide's city.
+   */
+  path: string | null;
   /** Today's peak score for THIS species, when the city payload has one. */
   score: number | null;
 };
@@ -192,7 +199,7 @@ export function SpotRow({ spot }: { spot: GuideSpotRow }) {
   return (
     <li className="flex items-center gap-3 py-2.5 border-b border-rc-rule-soft last:border-0">
       <Link
-        href={`/explore/spot/${spot.slug}`}
+        href={spotHref(spot)}
         className="flex-1 min-w-0 group flex items-baseline gap-2"
       >
         <span className="text-[15px] font-medium text-rc-ink group-hover:text-rc-brand transition-colors truncate">

@@ -24,6 +24,7 @@ import { formatHour12 } from "@/lib/time-format";
 import { bottomLabel, cellAt, chopLabel, phaseAt } from "../hub/hub-data";
 import { recognitionLabel, type RankedSpot } from "./featured";
 import Section from "./section";
+import { spotHref } from "@/lib/paths";
 
 /** How many marks the list names. The map below it carries the rest. */
 const SHOWN = 6;
@@ -108,7 +109,7 @@ export default function CityTopSpots({
           return (
             <li key={spot.id}>
               <Link
-                href={`/explore/spot/${spot.slug}`}
+                href={spotHref(spot)}
                 className="group flex items-center gap-4 py-3 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-rc-brand"
               >
                 <div

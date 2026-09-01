@@ -43,6 +43,11 @@ export interface CityPoint {
 export interface NearbySpot {
   id: string;
   slug: string;
+  /**
+   * Canonical page path. Null out of this module, which is given a payload and
+   * no place tree; the route that serves these fills it in from the hierarchy.
+   */
+  path: string | null;
   name: string;
   /** 0–100, today's peak for the best-scoring species. */
   score: number;
@@ -191,6 +196,7 @@ export function rankNearbySpots(
     scored.push({
       id: entry.id,
       slug: entry.slug,
+      path: null,
       name: entry.name,
       score: Math.round(bestPeak * 100),
       topSpecies: (bestSpeciesId && species[bestSpeciesId]?.name) || null,

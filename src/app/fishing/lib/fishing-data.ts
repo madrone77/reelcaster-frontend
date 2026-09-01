@@ -269,3 +269,24 @@ export function getFishingProvinceByCode(
   }
   return null;
 }
+
+/**
+ * spot slug → canonical path, for every spot with a public home.
+ *
+ * One walk of the tree, for callers that hold a list of spot slugs from some
+ * other payload and need their URLs. The alternative is findCityForSpot() in a
+ * loop, which re-walks the whole tree per spot.
+ */
+export function spotPathIndex(
+  hierarchy: BlueCasterHierarchy | null,
+): Map<string, string> {
+  const index = new Map<string, string>();
+  for (const country of getFishingCountries(hierarchy)) {
+    for (const province of country.provinces) {
+      for (const city of province.cities) {
+        for (const spot of city.spots) index.set(spot.slug, spot.path);
+      }
+    }
+  }
+  return index;
+}

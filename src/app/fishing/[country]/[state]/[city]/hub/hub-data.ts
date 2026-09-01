@@ -67,6 +67,15 @@ export interface HubSpeciesEntry {
 export interface HubSpot {
   id: string;
   slug: string;
+  /**
+   * Canonical page path, or null when the caller supplied no path index.
+   *
+   * A city page ranks the spots it can REACH, which includes marks homed in a
+   * neighbouring city, so this cannot be derived from the page's own city:
+   * 9 of 228 spots would get a link to the wrong one. Render it through
+   * spotHref(), which falls back to the retired URL when this is null.
+   */
+  path: string | null;
   name: string;
   lat: number;
   lng: number;
@@ -258,6 +267,15 @@ export function buildHubData(
    * an unreported mark sorts last rather than vanishing.
    */
   pool: "fished" | "all" = "fished",
+  /**
+   * spot slug → canonical path, from a caller that has the hierarchy.
+   *
+   * Optional because the weekend digest builds hub rows in a cron with no tree
+   * to hand; its links go out through spotHref() and take the redirect, which
+   * is the right trade in an email that has to survive being read a week late
+   * anyway.
+   */
+  pathBySlug?: Map<string, string>,
 ): HubData {
   if (!payload) return { date: "", spots: [], species: [] };
 
@@ -309,6 +327,7 @@ export function buildHubData(
     spots.push({
       id: entry.id,
       slug: entry.slug,
+      path: pathBySlug?.get(entry.slug) ?? null,
       name: entry.name,
       lat: entry.lat,
       lng: entry.lng,

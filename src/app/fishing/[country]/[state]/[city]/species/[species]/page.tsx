@@ -10,8 +10,8 @@ import {
 } from "@/lib/bluecaster";
 import { breadcrumbJsonLd, DEFAULT_OG, siteUrl } from "@/lib/site";
 import { COVERED_PROVINCES } from "@/lib/regions";
-import { getFishingCity, getFishingProvince, getFishingProvinceByCode, locationOf } from "@/app/fishing/lib/fishing-data";
-import { guidePath } from "@/lib/paths";
+import { getFishingCity, getFishingProvince, getFishingProvinceByCode, locationOf, spotPathIndex } from "@/app/fishing/lib/fishing-data";
+import { guidePath, spotHref } from "@/lib/paths";
 import {
   activityPhrase,
   activityTitle,
@@ -81,7 +81,10 @@ async function load(
   const guide = await fetchSpeciesGuide(city.slug, speciesSlug);
   if (!guide) return null;
 
-  return { province, city, guide };
+  // A guide ranks every spot in the city that holds the species, and a shared
+  // mark is homed in a neighbouring one, so each spot's URL has to be looked
+  // up rather than assembled from this page's city.
+  return { province, city, guide, spotPaths: spotPathIndex(hierarchy) };
 }
 
 export async function generateMetadata({
@@ -170,7 +173,7 @@ export default async function SpeciesGuidePage({
   } = await params;
   const loaded = await load(countryParam, stateParam, cityUrlSlug, speciesSlug);
   if (!loaded) notFound();
-  const { province, city, guide } = loaded;
+  const { province, city, guide, spotPaths } = loaded;
 
   // Today's scores for this species, from the same payload the city map
   // renders, so the guide's ranking and the map's agree by construction.
@@ -188,7 +191,11 @@ export default async function SpeciesGuidePage({
   }
 
   const spots: GuideSpotRow[] = guide.spots
-    .map((s) => ({ ...s, score: scoreBySpotId.get(s.id) ?? null }))
+    .map((s) => ({
+      ...s,
+      score: scoreBySpotId.get(s.id) ?? null,
+      path: spotPaths.get(s.slug) ?? null,
+    }))
     .sort((a, b) => {
       // Open spots first, then by today's score, then alphabetically. An
       // angler cannot act on a high score at a spot that is shut.
@@ -225,7 +232,7 @@ export default async function SpeciesGuidePage({
       item: {
         "@type": "Place",
         name: spot.name,
-        url: siteUrl(`/explore/spot/${spot.slug}`),
+        url: siteUrl(spotHref(spot)),
         geo: { "@type": "GeoCoordinates", latitude: spot.lat, longitude: spot.lng },
       },
     })),

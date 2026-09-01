@@ -43,6 +43,7 @@ import {
 import { spotDaysFrom } from "@/app/explore/components/spot-day-strip";
 import { useAuth } from "@/contexts/auth-context";
 import type { FishingCity } from "@/app/fishing/lib/fishing-data";
+import { legacySpotPath, spotHref } from "@/lib/paths";
 
 const MAP_TZ = "America/Vancouver";
 
@@ -163,7 +164,11 @@ export default function CityShell({
         typeof window !== "undefined" &&
         !window.matchMedia("(min-width:1024px)").matches
       ) {
-        router.push(`/explore/spot/${slug}`);
+        // Look the path up rather than assembling it: a shared mark on this
+        // city's map is homed in a neighbouring city, and pushing this city's
+        // path would land on a 308.
+        const target = spots.find((s) => s.slug === slug);
+        router.push(target ? spotHref(target) : legacySpotPath(slug));
         return;
       }
       setStation(null);
@@ -177,7 +182,7 @@ export default function CityShell({
         });
       }
     },
-    [router, displaySpots],
+    [router, displaySpots, spots],
   );
 
   const handleSelectStation = useCallback((pick: StationPick) => {
