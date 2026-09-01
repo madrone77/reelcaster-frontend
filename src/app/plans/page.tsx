@@ -112,8 +112,13 @@ export const metadata: Metadata = {
 // The comparison table's rows, their order, and the free/pro split now live in
 // `@/lib/plan-features` — the same list the in-app upgrade modal renders, so
 // this page and every paywall prompt can't drift apart. The rationale for what
-// belongs on it (live features only; free rows first; keep "Plan a week ahead"
-// adjacent to "Plan the full two weeks") is documented there.
+// belongs on it (live features only; the Pro-only rows first, then the ones
+// the free tier shares) is documented there.
+//
+// This page renders the list flat, with no seam and no "Free gets this too"
+// heading: the table has its own Free column header and a whole sales page
+// around it, so the block break the modal needs to make its argument would be
+// noise here. Only the order carries over.
 
 const FAQ: { q: string; a: React.ReactNode }[] = [
   {

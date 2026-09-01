@@ -1,10 +1,12 @@
 "use client";
 
+import { Fragment } from "react";
 import { Check, Minus } from "lucide-react";
 import {
   PLAN_FEATURES,
   planTiers,
-  PRO_ROW_START,
+  SHARED_ROW_HEADING,
+  SHARED_ROW_START,
   type PlanCell,
   type PlanTierId,
 } from "@/lib/plan-features";
@@ -20,6 +22,10 @@ import { usePricing } from "@/app/components/split-test/use-pricing";
  * Two columns, Free and Pro, because that is the question being asked. A signed
  * out visitor gets the same two: what they can see without an account was a
  * third column that turned a yes/no into a three-way read.
+ *
+ * Pro-only rows run first and the shared rows follow under a heading. That
+ * order is a property of the list, not of this file: see the ordering note in
+ * plan-features.ts for why, and change it there.
  */
 
 // One track per PLAN_TIERS entry — kept literal because Tailwind can't scan a
@@ -90,28 +96,42 @@ export default function PlanMatrix({
 
       {PLAN_FEATURES.map((row, i) => {
         const hit = row.id === highlightRowId;
+        // The seam. Above it, what paying adds; below it, the rows the free
+        // tier gets as well. The Pro block leads so that the rows sharing the
+        // screen with the buy button are all reasons to press it, and the
+        // heading below stops the matched ticks reading as an argument for
+        // staying on free.
+        const seam = i === SHARED_ROW_START;
         return (
-          <div
-            key={row.id}
-            data-row={row.id}
-            data-highlighted={hit || undefined}
-            className={`${COL} items-center px-4 sm:px-6 py-2 border-t ${
-              // The seam between "free and serious" and "what paying adds" —
-              // the one place the table makes an argument rather than a list.
-              i === PRO_ROW_START ? "border-rc-rule" : "border-rc-rule/60"
-            } ${hit ? "bg-rc-brand-soft" : ""}`}
-          >
+          <Fragment key={row.id}>
+            {seam && (
+              <div
+                className={`${COL} px-4 sm:px-6 pt-3 pb-1.5 border-t border-rc-rule`}
+              >
+                <div className="rc-label text-rc-ink-mute">
+                  {SHARED_ROW_HEADING}
+                </div>
+              </div>
+            )}
             <div
-              className={`pr-3 text-[13px] leading-snug ${
-                hit ? "font-semibold text-rc-ink" : "text-rc-ink-soft"
-              }`}
+              data-row={row.id}
+              data-highlighted={hit || undefined}
+              className={`${COL} items-center px-4 sm:px-6 py-2 ${
+                seam ? "" : "border-t border-rc-rule/60"
+              } ${hit ? "bg-rc-brand-soft" : ""}`}
             >
-              {row.label}
+              <div
+                className={`pr-3 text-[13px] leading-snug ${
+                  hit ? "font-semibold text-rc-ink" : "text-rc-ink-soft"
+                }`}
+              >
+                {row.label}
+              </div>
+              {tiers.map((t) => (
+                <Cell key={t.id} value={row[t.id]} emphasis={t.id === "pro"} />
+              ))}
             </div>
-            {tiers.map((t) => (
-              <Cell key={t.id} value={row[t.id]} emphasis={t.id === "pro"} />
-            ))}
-          </div>
+          </Fragment>
         );
       })}
 
