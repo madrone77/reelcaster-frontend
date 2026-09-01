@@ -72,6 +72,12 @@ export default function ProTrialModal({
   /** City or province, under the phone sheet's headline. Ignored elsewhere. */
   spotRegion,
   /**
+   * The place the phone sheet names when there is no single spot: the city
+   * under the map camera. `spotName` wins where both exist, because a spot is
+   * a more specific answer to "what was I looking at" than its city.
+   */
+  placeName,
+  /**
    * Wall-specific detail for the event log: which locked day was tapped, which
    * limit was hit. Small scalars only — the server whitelists the shape.
    */
@@ -85,6 +91,7 @@ export default function ProTrialModal({
   from?: string;
   spotName?: string;
   spotRegion?: string;
+  placeName?: string;
   context?: Record<string, string | number | boolean>;
 }) {
   const { user } = useAuth();
@@ -240,8 +247,8 @@ export default function ProTrialModal({
         >
           <TrialSheet
             viewerTier={viewerTier}
-            spotName={spotName}
-            spotRegion={spotRegion}
+            placeName={spotName ?? placeName}
+            placeRegion={spotRegion}
             from={from}
             ctaHref={ctaHref}
             ctaLabel={ctaLabel}

@@ -50,6 +50,7 @@ export default function DatePillRail({
   onSelectDay,
   signedIn,
   onLockedAdDay,
+  placeName,
   variant = "floating",
 }: {
   model: ForecastStripModel | null;
@@ -59,6 +60,8 @@ export default function DatePillRail({
   /** Ad frame: focus the one offer already on the page instead of opening a
    *  second way to buy. Same contract as the strip and the sheet. */
   onLockedAdDay?: () => void;
+  /** The city under the camera, named in the trial sheet's headline. */
+  placeName?: string;
   /**
    * Where this is sitting, which is only a question about chrome — the tiles,
    * the cap and the arrow are identical either way.
@@ -326,6 +329,7 @@ export default function DatePillRail({
         onOpenChange={setUpgradeOpen}
         variant={!signedIn && lockTier === "free" ? "signup" : "pro"}
         dayIndex={lockDay ?? undefined}
+        placeName={placeName}
       />
     </>
   );

@@ -61,8 +61,8 @@ function viewerPlan(tier: PlanTierId) {
 
 export default function TrialSheet({
   viewerTier,
-  spotName,
-  spotRegion,
+  placeName,
+  placeRegion,
   from,
   region,
   ctaHref,
@@ -72,9 +72,17 @@ export default function TrialSheet({
   onActivate,
 }: {
   viewerTier: PlanTierId;
-  spotName?: string;
-  /** City or province under the headline, when the surface knows it. */
-  spotRegion?: string;
+  /**
+   * The blue word in the headline: what the reader was looking at.
+   *
+   * A spot on a spot page, the city under the camera on the map. Both are
+   * places the reader chose, which is the whole reason the headline names
+   * one. Absent on a surface that cannot honestly name either, and the
+   * headline then drops the phrase rather than inventing a subject.
+   */
+  placeName?: string;
+  /** The city or province under the headline, when it adds something. */
+  placeRegion?: string;
   from: string;
   region?: string;
   /** Set when the surface sends the reader somewhere instead of selling here. */
@@ -115,16 +123,16 @@ export default function TrialSheet({
             the phrase rather than inventing a subject. */}
         <DialogTitle className="mt-2 pr-10 text-[22px] leading-[28px] font-black tracking-[-0.02em] text-balance text-rc-ink">
           See the next {PRO_FORECAST_DAYS} days
-          {spotName ? (
+          {placeName ? (
             <>
               {' at '}
-              <span className="text-rc-brand">{spotName}</span>
+              <span className="text-rc-brand">{placeName}</span>
             </>
           ) : null}
         </DialogTitle>
 
         <p className="mt-1.5 text-sm leading-5 text-rc-ink-soft">
-          {spotRegion ? `${spotRegion} · ` : ''}
+          {placeRegion ? `${placeRegion} · ` : ''}
           {plan.label} shows {plan.days} days. Pro shows {PRO_FORECAST_DAYS}.
         </p>
 
