@@ -36,9 +36,16 @@ export default function FishingHeader() {
   // page that cost money to land on.
   if (spotSlugFromPath(pathname)) return null;
 
-  // /fishing/wa/seattle-wa exactly. Two segments is the province index, four
-  // is a species guide.
-  const isCityPage = pathname.replace(/\/$/, "").split("/").filter(Boolean).length === 3;
+  // /fishing/ca/bc/victoria exactly, which is FOUR segments under the country
+  // /state/city shape. It was three when a single `province` segment stood in
+  // for country and state, and the slug migration moved every level down one
+  // without moving this count — so the relabel had been landing on
+  // /fishing/ca/bc, the state index, and the city page it was written for had
+  // stopped getting it.
+  //
+  // Depths, for the next person who adds a level: 2 country, 3 state, 4 city,
+  // 5 spot (returned above), 6 species guide.
+  const isCityPage = pathname.replace(/\/$/, "").split("/").filter(Boolean).length === 4;
 
   return (
     <MarketingHeader
