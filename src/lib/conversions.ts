@@ -24,6 +24,7 @@ import type Stripe from 'stripe';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { SIGNUP_MODELED_VALUE_CENTS, SIGNUP_VALUE_CURRENCY } from './signup-conversion';
 import { armsFromMetadata, type SplitArms } from './split-tests';
+import { PAY_METHOD_KEY } from './payment-method';
 
 export type ConversionEvent = 'trial_start' | 'purchase' | 'signup';
 
@@ -78,6 +79,39 @@ export interface SubscriptionAcquisition {
   geo_region: string | null;
   geo_city: string | null;
   params: Record<string, string> | null;
+  /**
+   * Which wall earned this conversion, and where it stood.
+   *
+   * The answer already existed in two places and in neither usefully: on
+   * `user_settings.attr_trial_*`, which is one row per person and write-once,
+   * and in Stripe metadata. Neither can be grouped alongside utm_campaign and
+   * geo_city in one query, and that query — this wall, this campaign, this
+   * city, how many bought — is the whole point of recording any of this.
+   *
+   * These are the numerator's copy of the two columns `paywall_events` uses
+   * for the denominator, with the same vocabulary, so a conversion rate per
+   * wall is a filter on each side and a division.
+   *
+   * Null when a buyer reached checkout without passing a wall: straight to
+   * /plans, or from a link in an email. That is a real category and it is left
+   * as null rather than credited to something.
+   */
+  paywall_feature: string | null;
+  paywall_surface: string | null;
+  /**
+   * How it was actually paid for, at the moment of purchase: 'card',
+   * 'apple_pay', 'google_pay', 'link'.
+   *
+   * Mirrored off subscription metadata rather than read live, because Stripe
+   * forgets: swap the card on file and an Apple Pay purchase retroactively
+   * becomes a card purchase in every report that asks Stripe today. See
+   * src/lib/payment-method.ts, which owns the stamp and the vocabulary.
+   *
+   * Null on a trial recorded before the card was attached — the stamp lands on
+   * the `subscription.updated` that follows — and on every conversion recorded
+   * before this column existed.
+   */
+  pay_method: string | null;
   /**
    * Which split-test arms this buyer was in, read back off the `split_*` keys
    * the checkout route stamped on the subscription.
@@ -137,6 +171,9 @@ export function acquisitionFromSubscription(
     geo_country: str(m.acq_country),
     geo_region: str(m.acq_region),
     geo_city: str(m.acq_city),
+    paywall_feature: str(m.attr_feature),
+    paywall_surface: str(m.attr_from),
+    pay_method: str(m[PAY_METHOD_KEY]),
     params,
     split_tests: armsFromMetadata(m),
   };

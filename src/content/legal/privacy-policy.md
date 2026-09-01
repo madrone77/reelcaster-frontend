@@ -97,6 +97,7 @@ We ingest publicly available fishing reports and discussion from public forums a
 | Preferences | Local storage holding your units, map view, and settings | Yes, by clearing site data. Your preferences will reset. |
 | Analytics | Mixpanel, using local storage and a device identifier | Yes. See Section 11. |
 | Campaign measurement | A session-storage marker on advertising landing pages, so one visit is counted once. It holds no identifier and is erased when you close the tab. | Yes, by disabling storage for this site. |
+| Measuring our upgrade prompts | A short-lived cookie (`rc_sess`) holding a random value, so that an upgrade prompt shown to you three times in one visit is counted as one visit rather than three. It expires after 30 minutes of inactivity and after six hours in any case, it is never linked to your name or email, and it is never shared with an advertising network. | Yes, by blocking cookies for this site. |
 | Advertising | Google AdSense cookies and identifiers, Google Ads conversion cookies (`_gcl_*`), and Meta pixel cookies (`_fbp`, `_fbc`) | Yes. See Section 8 and Section 11.2. |
 
 We honour the **Global Privacy Control (GPC)** browser signal as a valid opt out of the sale or sharing of personal information where the law requires us to.

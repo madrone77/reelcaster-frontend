@@ -69,6 +69,9 @@ export default function ForecastStrip({
   // account; an "Upgrade to Pro" day (8-14) sells Pro even to a signed-out
   // visitor, who would otherwise get a sign-up form after a Pro promise.
   const [lockTier, setLockTier] = useState<LockTier>("pro");
+  // Which tile was tapped. Reported with the wall, never rendered. See
+  // UpgradeDialog's `dayIndex`.
+  const [lockDay, setLockDay] = useState<number | null>(null);
   const hasHours = selectedDayHours.some((v) => typeof v === "number");
 
   /**
@@ -96,6 +99,7 @@ export default function ForecastStrip({
         return;
       }
       setLockTier(day.lockTier ?? "pro");
+      setLockDay(day.index);
       setUpgradeOpen(true);
       return;
     }
@@ -232,6 +236,7 @@ export default function ForecastStrip({
         open={upgradeOpen}
         onOpenChange={setUpgradeOpen}
         variant={!signedIn && lockTier === "free" ? "signup" : "pro"}
+        dayIndex={lockDay ?? undefined}
       />
     </>
   );
@@ -270,6 +275,9 @@ export function MobileForecastStrip({
   // account; an "Upgrade to Pro" day (8-14) sells Pro even to a signed-out
   // visitor, who would otherwise get a sign-up form after a Pro promise.
   const [lockTier, setLockTier] = useState<LockTier>("pro");
+  // Which tile was tapped. Reported with the wall, never rendered. See
+  // UpgradeDialog's `dayIndex`.
+  const [lockDay, setLockDay] = useState<number | null>(null);
   if (!model) return null;
 
   const handleDay = (day: ForecastDay) => {
@@ -279,6 +287,7 @@ export function MobileForecastStrip({
         return;
       }
       setLockTier(day.lockTier ?? "pro");
+      setLockDay(day.index);
       setUpgradeOpen(true);
       return;
     }
@@ -303,6 +312,7 @@ export function MobileForecastStrip({
         open={upgradeOpen}
         onOpenChange={setUpgradeOpen}
         variant={!signedIn && lockTier === "free" ? "signup" : "pro"}
+        dayIndex={lockDay ?? undefined}
       />
     </>
   );

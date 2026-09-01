@@ -7,6 +7,7 @@ import { ArrowUpCircle, ChevronLeft, ChevronRight, Home, Bell, Share2 } from "lu
 import { useAuth } from "@/contexts/auth-context";
 import { useSubscription } from "@/hooks/use-subscription";
 import { noteEngagement } from "@/lib/upgrade-nag";
+import { setPaywallContext } from "@/lib/paywall-context";
 import AdSlot from "@/app/components/ads/ad-slot";
 import { countryDisplayName, provinceCodeFromName, regulatorFor } from "@/lib/regions";
 import ExploreTopBar from "../../components/explore-top-bar";
@@ -331,6 +332,17 @@ export default function SpotDetailShell({
   const liveKey = useRef({ slug, selId });
   liveKey.current = { slug, selId };
 
+  /**
+   * Publish which spot is on screen, so the walls on this page (alerts, the
+   * star, the reports panel) report it without every one of them taking a prop
+   * for the benefit of a beacon. Named on the way in rather than in an effect,
+   * because a tap on a lock can beat a post-paint effect. See
+   * @/lib/paywall-context.
+   */
+  useEffect(() => {
+    setPaywallContext({ spotSlug: slug, spotName: spot.name, page: "spot" });
+  }, [slug, spot.name]);
+
   const loadForecast = useCallback(async () => {
     const forSlug = slug;
     await Promise.allSettled([
@@ -494,7 +506,8 @@ export default function SpotDetailShell({
   // `setSelId` itself, because the raw setter also runs off the initial
   // best-species pick, which nobody clicked.
   const chooseSpecies = useCallback((id: string | null) => {
-    noteEngagement("browse");
+    noteEngagement("browse", "species_filter");
+    setPaywallContext({ speciesId: id ?? undefined });
     setSelId(id);
   }, []);
 
@@ -759,7 +772,7 @@ export default function SpotDetailShell({
     }
     // Only the unlocked branch counts. A locked day opens <ProTrialModal>,
     // which restarts the engagement count on its own.
-    noteEngagement("browse");
+    noteEngagement("browse", "day_pick");
     setSelectedIso(day.iso);
   };
 
