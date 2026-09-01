@@ -11,6 +11,15 @@
  *
  * GET, not POST. Vercel Cron issues GET requests, and a POST-only route
  * answers them with 405 forever without anything appearing to be wrong.
+ *
+ * ON THE TIME LIMIT. The drain posts one HTTP request per conversion, in
+ * sequence, and the queue used to hold a handful of rows a week — a full batch
+ * of 100 was theoretical. It stopped being theoretical when paywall opens
+ * became a reportable event: those arrive by the dozen per day, and 100
+ * sequential calls to Meta is comfortably longer than the 15 seconds a
+ * Node function defaults to. Raised rather than parallelised, because the
+ * failure this route exists to survive is a network having a bad minute, and
+ * hammering it with 100 concurrent requests is the wrong response to that.
  */
 
 import { NextResponse } from 'next/server';
@@ -19,6 +28,7 @@ import { uploadPendingConversions } from '@/lib/conversion-upload';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
+export const maxDuration = 300;
 
 const admin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
