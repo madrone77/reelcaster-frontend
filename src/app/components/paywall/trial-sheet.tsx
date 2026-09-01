@@ -9,15 +9,14 @@ import {
   TrialExpress,
   TrialTerms,
 } from './trial-cta';
-import {
-  PLAN_FEATURES,
-  SHARED_ROW_START,
-  nagHeadline,
-  type NagFeature,
-  type PlanTierId,
-} from '@/lib/plan-features';
+import { sheetFeatures, type PlanTierId } from '@/lib/plan-features';
 import { PLAN_LABELS } from '@/lib/plan-labels';
 import { REMINDER_LEAD_DAYS, TRIAL_DAYS } from '@/lib/pricing';
+import {
+  ANON_FORECAST_DAYS,
+  FREE_FORECAST_DAYS,
+  PRO_FORECAST_DAYS,
+} from '@/lib/forecast-horizon';
 
 /**
  * The phone shape of the trial offer: a bottom sheet, wallet first.
@@ -53,49 +52,41 @@ import { REMINDER_LEAD_DAYS, TRIAL_DAYS } from '@/lib/pricing';
 /** The day the reminder email goes out. Both numbers come from the sender. */
 const REMINDER_DAY = TRIAL_DAYS - REMINDER_LEAD_DAYS;
 
-/**
- * Three rows of what paying adds, from the plan matrix rather than a list of
- * their own: the wall the reader just hit, then the top of the Pro block.
- *
- * The order in PLAN_FEATURES is an argument that was made once and is not
- * worth re-making here, so this takes it as given and only promotes the row
- * that blocked them. `SHARED_ROW_START` is where the Pro-only rows end.
- */
-function sheetFeatures(rowId: string | undefined) {
-  const proRows = PLAN_FEATURES.slice(0, SHARED_ROW_START);
-  const hit = proRows.find((r) => r.id === rowId);
-  const rest = proRows.filter((r) => r.id !== hit?.id);
-  return [...(hit ? [hit] : []), ...rest].slice(0, 3);
+/** What the reader has today, in the two numbers the headline argues about. */
+function viewerPlan(tier: PlanTierId) {
+  return tier === 'anon'
+    ? { label: PLAN_LABELS.anon, days: ANON_FORECAST_DAYS }
+    : { label: PLAN_LABELS.free, days: FREE_FORECAST_DAYS };
 }
 
 export default function TrialSheet({
-  nag,
   viewerTier,
   spotName,
+  spotRegion,
   from,
   region,
   ctaHref,
   ctaLabel,
-  returnTo,
   priceAmount,
   onCtaClick,
   onActivate,
 }: {
-  nag: NagFeature;
   viewerTier: PlanTierId;
   spotName?: string;
+  /** City or province under the headline, when the surface knows it. */
+  spotRegion?: string;
   from: string;
   region?: string;
   /** Set when the surface sends the reader somewhere instead of selling here. */
   ctaHref?: string;
   ctaLabel: string;
-  returnTo: string;
   /** Formatted price for this reader, already currency-resolved. */
   priceAmount: string;
   onCtaClick: (extra: Record<string, unknown>) => void;
   onActivate: (method: 'annual' | 'wallet' | 'signup') => void;
 }) {
-  const features = sheetFeatures(nag.rowId);
+  const plan = viewerPlan(viewerTier);
+  const features = sheetFeatures(plan.days, plan.label);
 
   return (
     <TrialCtaProvider
@@ -114,12 +105,28 @@ export default function TrialSheet({
           shortest phones that is the difference between the buy button being
           on screen and being a scroll away. */}
       <div className="min-h-0 flex-1 overflow-y-auto px-4 pb-2">
-        <p className="pr-10 font-rc-mono text-[10px] font-semibold tracking-[0.14em] text-rc-brand uppercase">
+        <p className="pr-10 font-rc-mono text-[10px] font-semibold tracking-[0.14em] text-rc-ink-mute uppercase">
           {TRIAL_DAYS}-day free trial
         </p>
-        <DialogTitle className="mt-2 pr-10 text-xl font-black tracking-[-0.02em] text-balance text-rc-ink">
-          {nagHeadline(nag, viewerTier, spotName)}
+
+        {/* The spot is the subject, and it is set in brand blue because it is
+            the one word on the sheet the reader chose. A surface with no spot
+            in hand (the viewport strip on /explore, a marketing page) drops
+            the phrase rather than inventing a subject. */}
+        <DialogTitle className="mt-2 pr-10 text-[22px] leading-[28px] font-black tracking-[-0.02em] text-balance text-rc-ink">
+          See the next {PRO_FORECAST_DAYS} days
+          {spotName ? (
+            <>
+              {' at '}
+              <span className="text-rc-brand">{spotName}</span>
+            </>
+          ) : null}
         </DialogTitle>
+
+        <p className="mt-1.5 text-sm leading-5 text-rc-ink-soft">
+          {spotRegion ? `${spotRegion} · ` : ''}
+          {plan.label} shows {plan.days} days. Pro shows {PRO_FORECAST_DAYS}.
+        </p>
 
         <ul className="mt-4 space-y-2.5">
           {features.map((f) => (
@@ -130,8 +137,13 @@ export default function TrialSheet({
               >
                 <Check className="size-3 text-rc-brand" strokeWidth={3} />
               </span>
-              <span className="text-[15px] leading-5 font-semibold text-rc-ink">
-                {f.label}
+              <span className="min-w-0">
+                <span className="block text-[15px] leading-5 font-semibold text-rc-ink">
+                  {f.title}
+                </span>
+                <span className="block text-[13px] leading-[18px] text-rc-ink-mute">
+                  {f.detail}
+                </span>
               </span>
             </li>
           ))}
@@ -155,25 +167,12 @@ export default function TrialSheet({
         ) : (
           <>
             <TrialExpress region={region} className="mb-3" />
-            <TrialBuy signupLabel={ctaLabel} />
+            <TrialBuy signupLabel={ctaLabel} hideLabel />
           </>
         )}
 
         <TrialTerms className="mt-3" />
 
-        {/* The free tier, offered last and only to a visitor who has no
-            account: after the offer above has been read, never instead of it.
-            Same placement and the same reasoning as the centred dialog. */}
-        {viewerTier === 'anon' && (
-          <Link
-            href={`/signup?next=${encodeURIComponent(returnTo)}`}
-            data-testid="free-signup-cta"
-            onClick={() => onCtaClick({ plan: 'free', destination: 'signup' })}
-            className="mt-3 block py-2 text-center text-sm font-semibold text-rc-brand underline underline-offset-2"
-          >
-            Sign up today as a {PLAN_LABELS.free}
-          </Link>
-        )}
       </div>
     </TrialCtaProvider>
   );

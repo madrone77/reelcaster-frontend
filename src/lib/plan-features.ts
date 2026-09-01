@@ -151,6 +151,42 @@ export const SHARED_ROW_START = 7;
  */
 export const SHARED_ROW_HEADING = "Free gets this too";
 
+/**
+ * The phone sheet's three lines: a title and the reason it matters.
+ *
+ * Not the matrix rows. The matrix answers "what is the difference between two
+ * columns" in as few words as a table cell allows; a sheet has one column and
+ * room for a second line, and the second line is where the argument actually
+ * is ("Member stops at 7" means nothing as a column, and everything under a
+ * heading that says 14).
+ *
+ * The horizon in the first detail line is interpolated from the viewer's own
+ * tier rather than written down, so a change to FREE_FORECAST_DAYS cannot
+ * leave the sheet promising a number the API stopped enforcing.
+ *
+ * Three, and no more: a fourth costs the timeline its place above the fold on
+ * a 667pt phone, and the timeline is what answers the objection.
+ */
+export function sheetFeatures(viewerDays: number, viewerLabel: string) {
+  return [
+    {
+      id: "two-weeks",
+      title: "14-day forecast at every spot",
+      detail: `${viewerLabel} stops at ${viewerDays}. Plan your trips in advance.`,
+    },
+    {
+      id: "alerts",
+      title: "Alerts when your spot turns on",
+      detail: "Email or text the moment a good window opens.",
+    },
+    {
+      id: "custom-spots",
+      title: "Your own private spots",
+      detail: "Score the places that are not on the map.",
+    },
+  ];
+}
+
 export const PLAN_FEATURES: PlanFeatureRow[] = [
   // ── what paying adds ──
   // First, because it is the wall most readers arrive from: every locked day

@@ -346,9 +346,20 @@ export function TrialBuy({
   signupLabel,
   testId = 'trial-cta',
   className,
+  hideLabel = false,
 }: {
   signupHref?: string;
   signupLabel?: string;
+  /**
+   * Keeps the email label for screen readers but takes it off the screen.
+   *
+   * For a surface that has already made the ask in its own headline — the
+   * phone sheet, where "Enter your email to begin" set in black at 18px was a
+   * second heading competing with the one at the top of the sheet. Everywhere
+   * that renders this form on its own leaves it visible: a bare field with no
+   * label is worse than a heading too many.
+   */
+  hideLabel?: boolean;
   /**
    * Overridable so a surface that renders this more than once doesn't hand a
    * selector two matches. Every copy shares the provider's email state, so
@@ -421,8 +432,12 @@ export function TrialBuy({
           <label
             htmlFor={emailFieldId}
             className={cn(
-              'block text-balance text-base sm:text-lg font-black tracking-[-0.01em]',
-              s.isLight ? 'text-rc-ink' : 'text-rc-text',
+              hideLabel
+                ? 'sr-only'
+                : cn(
+                    'block text-balance text-base sm:text-lg font-black tracking-[-0.01em]',
+                    s.isLight ? 'text-rc-ink' : 'text-rc-text',
+                  ),
             )}
           >
             Enter your email to begin

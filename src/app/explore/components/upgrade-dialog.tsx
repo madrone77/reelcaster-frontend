@@ -39,10 +39,23 @@ export default function UpgradeDialog({
   onOpenChange,
   variant = "pro",
   dayIndex,
+  spotName,
+  spotRegion,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   variant?: "pro" | "signup";
+  /**
+   * The spot whose locked day was tapped, when there is one.
+   *
+   * The spot page has it. /explore's viewport strip does not and must not
+   * invent one: that strip folds a whole bbox into a single row of days, so
+   * there is no one spot the reader asked about. The phone sheet names the
+   * spot in its headline and drops the phrase when it is absent.
+   */
+  spotName?: string;
+  /** City or province, shown under that headline. */
+  spotRegion?: string;
   /**
    * Which tile they reached for, 0-based from today. Reported, never shown.
    *
@@ -66,6 +79,8 @@ export default function UpgradeDialog({
       onOpenChange={onOpenChange}
       feature={variant === "signup" ? "forecast-week" : "forecast-14d"}
       from="explore-forecast"
+      spotName={spotName}
+      spotRegion={spotRegion}
       context={typeof dayIndex === "number" ? { day_index: dayIndex } : undefined}
     />
   );
