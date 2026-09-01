@@ -69,6 +69,8 @@ export default function ProTrialModal({
   from = "explore",
   /** Names the spot in the headline ("Set an alert for Oak Bay Flats"). */
   spotName,
+  /** City or province, under the phone sheet's headline. Ignored elsewhere. */
+  spotRegion,
   /**
    * Wall-specific detail for the event log: which locked day was tapped, which
    * limit was hit. Small scalars only — the server whitelists the shape.
@@ -82,6 +84,7 @@ export default function ProTrialModal({
   ctaHref?: string;
   from?: string;
   spotName?: string;
+  spotRegion?: string;
   context?: Record<string, string | number | boolean>;
 }) {
   const { user } = useAuth();
@@ -236,13 +239,12 @@ export default function ProTrialModal({
           className="bg-rc-panel border-rc-rule text-rc-ink gap-0 p-0 [&>[data-slot=dialog-close]]:z-20"
         >
           <TrialSheet
-            nag={nag}
             viewerTier={viewerTier}
             spotName={spotName}
+            spotRegion={spotRegion}
             from={from}
             ctaHref={ctaHref}
             ctaLabel={ctaLabel}
-            returnTo={returnTo}
             priceAmount={pricing.amount}
             onCtaClick={trackCta}
             onActivate={(method) =>
