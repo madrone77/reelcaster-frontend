@@ -1,6 +1,10 @@
 {
   "crons": [
     {
+      "path": "/api/cron/evaluate-alerts",
+      "schedule": "15,45 * * * *"
+    },
+    {
       "path": "/api/cron/upload-conversions",
       "schedule": "0 * * * *"
     },
