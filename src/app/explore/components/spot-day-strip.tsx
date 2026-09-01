@@ -17,13 +17,21 @@ const TIER_NUMERAL: Record<Tier, string> = {
   none: "text-rc-ink-mute",
 };
 
-/** Bar color for the compact density, where there's no room for a numeral. */
-const TIER_BAR: Record<Tier, string> = {
-  good: "bg-rc-good",
-  fair: "bg-rc-fair",
-  poor: "bg-rc-poor",
-  none: "bg-rc-rule",
-};
+/**
+ * Bar color for the compact density, where there's no room for a numeral.
+ *
+ * One hue, two weights — the best day solid, the rest at the light tint —
+ * exactly as `SpotTrend` draws the 24h sparkline that sits above this strip on
+ * the same card. It used to paint each bar its own tier, green through amber to
+ * red, which is a per-day color scale the system does not otherwise have: a
+ * fortnight of it reads as a heat map, and it disagreed with the sparkline an
+ * inch away. Height already says how good a day is, and says it on a continuous
+ * scale rather than in four steps.
+ */
+const BAR_BEST = "bg-rc-good";
+const BAR_REST = "bg-rc-good/30";
+/** A day with no score at all — a gap in the fortnight, not a poor day. */
+const BAR_NONE = "bg-rc-rule-soft";
 
 /**
  * Bar height for the compact density. Scores at a decent spot sit in a narrow
@@ -203,7 +211,6 @@ export default function SpotDayStrip({
       {density === "compact" ? (
         <div className="flex items-end gap-[3px] h-8" aria-hidden>
           {days.map((d, i) => {
-            const t = tierFor(d.score);
             // A locked day fills its whole slot rather than drawing a stub.
             // As a stub it read as a rendering fault, twelve near-invisible
             // slivers, rather than "there is a fortnight here, behind a plan".
@@ -218,13 +225,17 @@ export default function SpotDayStrip({
                 />
               );
             }
+            const bar =
+              d.score === null
+                ? BAR_NONE
+                : best !== null && d === best
+                  ? BAR_BEST
+                  : BAR_REST;
             return (
               <div
                 key={i}
                 title={`${d.dow} ${d.date}${d.score !== null ? ` · ${d.score}` : ""}`}
-                className={`flex-1 min-w-0 rounded-sm ${TIER_BAR[t]} ${
-                  d.score === null ? "opacity-60" : ""
-                }`}
+                className={`flex-1 min-w-0 rounded-sm ${bar}`}
                 // A scoreless day still draws a stub, so the strip reads as 14
                 // days with gaps rather than a shorter fortnight.
                 style={{ height: `${barHeightPct(d.score)}%` }}
