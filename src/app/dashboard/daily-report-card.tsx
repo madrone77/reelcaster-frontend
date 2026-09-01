@@ -19,8 +19,10 @@ import { supabase } from "@/lib/supabase";
 // — a free caller gets `{ locked: true }` with no body, so there is nothing
 // to reveal in the network tab. This component only decides what to render.
 //
-// The city is derived from the pinned home spot server-side and is never a
-// request parameter; without a home spot the card becomes the pin CTA.
+// The city is resolved server-side from `preferences.homeCitySlug`, falling
+// back to the pinned home spot for anglers who set one before the city setting
+// existed. It is never a request parameter. With neither, the card becomes the
+// prompt to set a city.
 
 interface DailyReport {
   report_date: string;
@@ -138,15 +140,19 @@ export function DailyReportCard() {
           <span className="text-[15px] font-medium text-rc-ink">
             Your daily report
           </span>
+          {/* The gap is a home CITY now, not a pinned spot — the route
+              prefers `homeCitySlug` and only falls back to resolving the pin.
+              Telling a reader to go pin a spot would send them to solve the
+              harder problem, and the wrong one. */}
           <p className="mt-2 font-rc-mono text-[12px] text-rc-ink-soft">
-            Pin a home spot and you&apos;ll get a daily read on what anglers are
-            catching around it.
+            Set your home city and you&apos;ll get a daily read on what anglers
+            are catching around you.
           </p>
           <Link
-            href="/explore"
+            href="/settings/account"
             className="mt-2 inline-block font-rc-mono text-[11px] font-bold text-rc-brand"
           >
-            Find your spot ›
+            Set your city ›
           </Link>
         </div>
       </div>

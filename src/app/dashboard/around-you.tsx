@@ -32,7 +32,7 @@ const PER_CITY = 3;
  * end and the rest title-cases. A slug that ever breaks that shape degrades to
  * a readable title-cased string rather than to nothing.
  */
-function cityName(slug: string): string {
+export function cityName(slug: string): string {
   return slug
     .replace(/-(bc|wa|or|ca|ak)$/i, "")
     .split("-")
@@ -72,7 +72,7 @@ export type AroundYouSpot = {
  * "spots with reports first, then by score", which is the same shape of answer
  * at the resolution they are entitled to.
  */
-function activityRank(a: AroundYouSpot, b: AroundYouSpot): number {
+export function activityRank(a: AroundYouSpot, b: AroundYouSpot): number {
   if (a.hasReports !== b.hasReports) return a.hasReports ? -1 : 1;
   const byCount = (b.reportCount ?? 0) - (a.reportCount ?? 0);
   if (byCount !== 0) return byCount;
@@ -96,6 +96,63 @@ export type AroundYouCity = {
  * Sooke while two of four saved spots are in Victoria, and Victoria was
  * scoring higher. A strict home-city block would have hidden the better water.
  */
+/**
+ * Every scored spot in one city, as rows.
+ *
+ * Lifted out of `aroundYouFrom` so the dashboard's home-city band ranks the
+ * same water by the same fold. A spot's score is the highest per-species daily
+ * peak it carries and the species that produced it is the one named — the same
+ * number the map pin and the spot page show, so a reader who taps through
+ * never finds a different one.
+ *
+ * Unsorted: the two callers want different orders. `activityRank` is what
+ * "around you" and "most active" use; a plain score sort is what "best today"
+ * uses.
+ */
+export function cityRowsFrom(
+  payload: MapSpotsPayload,
+  reports: FreshCatchesResponse | null,
+  citySlug: string,
+  ownSlugs: Set<string>,
+  homeSlug: string | null,
+): AroundYouSpot[] {
+  const species = payload.species ?? {};
+  const scored: AroundYouSpot[] = [];
+  for (const e of payload.spots) {
+    if (e.city_slug !== citySlug) continue;
+    let best = 0;
+    let bestId: string | null = null;
+    for (const [id, strip] of Object.entries(e.scores ?? {})) {
+      const peak = (strip as { peak?: number })?.peak;
+      if (typeof peak === "number" && peak > best) {
+        best = peak;
+        bestId = id;
+      }
+    }
+    // An unscored spot is not a recommendation — leave it to Explore.
+    if (best <= 0) continue;
+    // `has_reports` rides on the map payload and is free-visible; the count
+    // and verdict come from the gated read and are absent when locked. Never
+    // infer one from the other — a locked row carries a key with no numbers,
+    // which is exactly how the paywall is meant to read.
+    const f = reports?.spots[e.id];
+    const locked = f?.locked !== false;
+    scored.push({
+      slug: e.slug,
+      name: e.name,
+      score: Math.round(best * 100),
+      species: (bestId && species[bestId]?.name) || null,
+      isHome: e.slug === homeSlug,
+      isSaved: ownSlugs.has(e.slug),
+      reportCount: locked ? null : (f?.count ?? null),
+      hasReports: e.has_reports === true || !!f,
+      verdict: locked ? null : (f?.verdict ?? null),
+      latestDate: locked ? null : (f?.latestDate ?? null),
+    });
+  }
+  return scored;
+}
+
 export function aroundYouFrom(
   payload: MapSpotsPayload | null,
   reports: FreshCatchesResponse | null,
@@ -113,43 +170,10 @@ export function aroundYouFrom(
   }
   if (citySlugs.size === 0) return [];
 
-  const species = payload.species ?? {};
   const cities: AroundYouCity[] = [];
 
   for (const city of citySlugs) {
-    const scored: AroundYouSpot[] = [];
-    for (const e of payload.spots) {
-      if (e.city_slug !== city) continue;
-      let best = 0;
-      let bestId: string | null = null;
-      for (const [id, strip] of Object.entries(e.scores ?? {})) {
-        const peak = (strip as { peak?: number })?.peak;
-        if (typeof peak === "number" && peak > best) {
-          best = peak;
-          bestId = id;
-        }
-      }
-      // An unscored spot is not a recommendation — leave it to Explore.
-      if (best <= 0) continue;
-      // `has_reports` rides on the map payload and is free-visible; the count
-      // and verdict come from the gated read and are absent when locked. Never
-      // infer one from the other — a locked row carries a key with no numbers,
-      // which is exactly how the paywall is meant to read.
-      const f = reports?.spots[e.id];
-      const locked = f?.locked !== false;
-      scored.push({
-        slug: e.slug,
-        name: e.name,
-        score: Math.round(best * 100),
-        species: (bestId && species[bestId]?.name) || null,
-        isHome: e.slug === homeSlug,
-        isSaved: own.has(e.slug),
-        reportCount: locked ? null : (f?.count ?? null),
-        hasReports: e.has_reports === true || !!f,
-        verdict: locked ? null : (f?.verdict ?? null),
-        latestDate: locked ? null : (f?.latestDate ?? null),
-      });
-    }
+    const scored = cityRowsFrom(payload, reports, city, own, homeSlug);
     if (scored.length === 0) continue;
     scored.sort(activityRank);
     cities.push({
@@ -166,7 +190,7 @@ export function aroundYouFrom(
   return cities;
 }
 
-function SpotRow({
+export function SpotRow({
   spot,
   locked,
   onUnlock,

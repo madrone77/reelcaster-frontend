@@ -28,16 +28,34 @@ import type {
 import { readArrival, clearArrival } from "./arrival-city";
 import { markHomeCityAsked, saveHomeCity } from "@/app/explore/lib/use-home-city";
 
-export default function HomeCityModal({ onClose }: { onClose: () => void }) {
+export default function HomeCityModal({
+  onClose,
+  pickerOnly = false,
+}: {
+  onClose: () => void;
+  /**
+   * Skip the "Fishing in Victoria?" confirmation and open straight on the
+   * search.
+   *
+   * For the settings card, where the angler came specifically to CHANGE their
+   * city: confirming the one they already have is not a question they asked.
+   * Without this the same thing happened only because the arrival URL had been
+   * cleared, which is incidental and would break the day something else set
+   * one.
+   */
+  pickerOnly?: boolean;
+}) {
   const [data, setData] = useState<HomeCitySuggestResponse | null>(null);
   const [failed, setFailed] = useState(false);
-  const [searching, setSearching] = useState(false);
+  const [searching, setSearching] = useState(pickerOnly);
   const [query, setQuery] = useState("");
   const searchRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     let cancelled = false;
-    const arrival = readArrival();
+    // A change from settings needs the city list, not a guess about where the
+    // angler is: they are telling us, not being asked.
+    const arrival = pickerOnly ? null : readArrival();
     const url = arrival
       ? `/api/home-city/suggest?from=${encodeURIComponent(arrival)}`
       : "/api/home-city/suggest";
@@ -59,7 +77,7 @@ export default function HomeCityModal({ onClose }: { onClose: () => void }) {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [pickerOnly]);
 
   // Nothing to ask. Retire the question rather than leaving a dead backdrop.
   useEffect(() => {
