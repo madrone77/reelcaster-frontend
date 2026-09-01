@@ -24,6 +24,7 @@ export default function TrialModalButton({
   feature = 'forecast-14d',
   from,
   spotName,
+  placeName,
   'data-testid': testId,
 }: {
   children: React.ReactNode;
@@ -33,6 +34,17 @@ export default function TrialModalButton({
   /** Analytics origin ('marketing-hero', 'login-page', …). */
   from: string;
   spotName?: string;
+  /**
+   * The place the reader is looking at when the bar has one, which for a
+   * header CTA is a city rather than a spot: the city under the Explore
+   * camera. It becomes the blue word in the phone sheet's headline ("See the
+   * next 14 days in Seattle") and names the reports row after the same city.
+   *
+   * Left unset by every surface that cannot honestly name one. A bar that
+   * guessed would put a city in front of a reader who never chose it, which
+   * is worse than the plain headline.
+   */
+  placeName?: string;
   'data-testid'?: string;
 }) {
   const [open, setOpen] = useState(false);
@@ -56,6 +68,7 @@ export default function TrialModalButton({
           feature={feature}
           from={from}
           spotName={spotName}
+          placeName={placeName}
         />
       )}
     </>
