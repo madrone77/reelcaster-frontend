@@ -18,6 +18,7 @@ import { City1Hit, TrackedCta } from "./city1-track";
 import type { City1City, City1Variant } from "./city1-city";
 import { loadConditionsFeed } from "./load-conditions";
 import ConditionsPhone from "./conditions-phone";
+import AlertSmsPhone from "./alert-sms-phone";
 import {
   buildCityProof,
   type CityProof,
@@ -393,6 +394,65 @@ export default async function City1Page({
           </figure>
         </div>
       </section>
+
+      {/* THE ALERT ARRIVING.
+          /lp/4 only, and only for a city with reviewed copy. The two phones
+          above still ask the reader to come and look; this is the offer the
+          page actually makes, which is that they do not have to. An arriving
+          text is the only honest way to show a thing whose whole value is
+          that it reaches you when you are not on this page.
+
+          The band sits here rather than higher because it answers the
+          question the where/what/when section leaves: fine, but I am not
+          going to check this every morning. */}
+      {variant === 4 && city.alertSms ? (
+        <section className="smssec white">
+          <div className="shell www">
+            <div>
+              <span className="lab">And when you are not looking</span>
+              <h2>We text you the morning it is worth going.</h2>
+              <p className="sub">
+                Set the score you&rsquo;d get up for at the marks you fish. We
+                watch all {proof ? proof.spotCount : ""} of them around{" "}
+                {card.cityName} every morning and send one text when a day
+                clears your bar. No app to open, nothing to remember.
+              </p>
+              <ul className="wwwlist">
+                <li>
+                  <b>Your bar</b>
+                  <span>You pick the score, not us</span>
+                </li>
+                <li>
+                  <b>Your marks</b>
+                  <span>Including custom spots you add yourself</span>
+                </li>
+                <li>
+                  <b>One text</b>
+                  <span>The best day in the window, not one a morning</span>
+                </li>
+              </ul>
+            </div>
+            <figure className="shotfig">
+              <AlertSmsPhone
+                parts={city.alertSms}
+                timeLabel={city.alertSmsTime ?? "6:00"}
+                dateLabel={city.alertSmsDate ?? "Sunday, September 6"}
+              />
+              {/* Says only what has been checked: the wording is the alert
+                  engine's own format (alert-sms.ts mirrors it), and the mark
+                  and the hour are real. Do NOT grow this into a claim about
+                  what the alert checks before it sends -- that path has not
+                  been read, and an unverified promise about closures is the
+                  worst kind to put on an ad. */}
+              <figcaption>
+                The wording is the alert&rsquo;s own, and{" "}
+                {city.alertSms.spot} is a mark we score around {card.cityName}.
+                Alerts by text are part of Pro.
+              </figcaption>
+            </figure>
+          </div>
+        </section>
+      ) : null}
 
       {/* PROOF STRIP */}
       {proof ? (

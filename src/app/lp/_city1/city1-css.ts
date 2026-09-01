@@ -566,6 +566,100 @@ export const LP8_CSS = `
   .l8 .condscreen{border-radius:36px;padding-left:8px;padding-right:8px}
 }
 
+/* ── The alert phone (/lp/4) ───────────────────────────────────────────────
+   Same shell as the conditions phone, and a real 375x812 screen: nothing
+   inside forces a height here, so the ratio is stated rather than fallen into.
+
+   It is a LOCK SCREEN, not a Messages thread. A thread holding one message is
+   four fifths empty, and the moment being sold is a text reaching somebody who
+   was not looking at their phone -- which happens here, not in a thread they
+   had to open. */
+.l8 .smsphone{display:flex;justify-content:center;width:100%}
+.l8 .smsbody{
+  width:min(397px,100%);
+  padding:11px;
+  background:#0A0C10;
+  border-radius:49px;
+  box-shadow:0 26px 54px rgba(18,21,26,.26), 0 2px 0 rgba(255,255,255,.14) inset;
+}
+/* Deep navy rather than a photograph: a stock wallpaper is one more thing to
+   license and to keep from dating, and the brand's own navy makes the white
+   banner the brightest thing on the screen, which is where the eye should go. */
+.l8 .smsscreen{
+  position:relative;overflow:hidden;
+  aspect-ratio:375/812;
+  border-radius:38px;
+  background:
+    radial-gradient(120% 80% at 50% 0%, #1B2C63 0%, transparent 60%),
+    linear-gradient(180deg, var(--l8-navy) 0%, #060B1D 100%);
+  color:#fff;
+  display:flex;flex-direction:column;align-items:center;
+  padding:0 12px 18px;
+}
+.l8 .smsscreen::before{
+  content:"";position:absolute;top:12px;left:50%;
+  transform:translateX(-50%);
+  width:96px;height:28px;
+  border-radius:999px;background:#000;z-index:2;
+}
+/* iOS puts the date over the clock, and the clock is the biggest thing on the
+   screen. Tabular figures so the loop cannot reflow it. */
+.l8 .smsclock{
+  margin-top:66px;text-align:center;
+  display:flex;flex-direction:column;align-items:center;gap:2px;
+}
+.l8 .smsdate{font-size:15px;font-weight:600;color:rgba(255,255,255,.86)}
+.l8 .smstime{
+  font-size:74px;font-weight:600;line-height:1;letter-spacing:-.03em;
+  font-variant-numeric:tabular-nums;
+}
+/* The banner. Frosted, as iOS draws it, and it is the only white on the
+   screen. Hidden with visibility rather than display, so the text stays in
+   the accessibility tree through the empty beat.
+   NB: this file is one JS template literal -- no backticks in these comments,
+   or the stylesheet ends here and the rest of it becomes code. */
+.l8 .smsbanner{
+  margin-top:40px;width:100%;
+  display:flex;gap:11px;align-items:flex-start;
+  background:rgba(255,255,255,.94);
+  -webkit-backdrop-filter:blur(18px);backdrop-filter:blur(18px);
+  border-radius:20px;padding:12px 14px;
+  box-shadow:0 12px 30px rgba(0,0,0,.30);
+  color:var(--l8-ink);
+  opacity:0;transform:translateY(-14px) scale(.97);visibility:hidden;
+  transition:opacity .34s ease, transform .34s cubic-bezier(.2,.9,.3,1.15), visibility 0s .34s;
+}
+.l8 .smsbanner.on{
+  opacity:1;transform:none;visibility:visible;
+  transition:opacity .34s ease, transform .34s cubic-bezier(.2,.9,.3,1.15), visibility 0s;
+}
+.l8 .smsicon{
+  flex:none;width:36px;height:36px;border-radius:9px;
+  background:var(--l8-brand);color:#fff;
+  display:flex;align-items:center;justify-content:center;
+  font-family:var(--l8-mono);font-size:13px;font-weight:700;letter-spacing:.03em;
+}
+.l8 .smsmsg{min-width:0;flex:1}
+.l8 .smshead{display:flex;align-items:baseline;justify-content:space-between;gap:8px}
+.l8 .smsapp{font-size:13px;font-weight:700;letter-spacing:.01em}
+.l8 .smswhen{font-size:12px;color:var(--l8-ink-mute);flex:none}
+.l8 .smstext{margin:2px 0 0;font-size:15px;line-height:1.32;color:var(--l8-ink)}
+/* The home indicator, which is what stops the bottom reading as a crop. */
+.l8 .smsbar{
+  margin-top:auto;width:134px;height:5px;border-radius:999px;
+  background:rgba(255,255,255,.55);
+}
+/* Reduced motion: the banner is simply there. The component stops its loop
+   too, so this only governs the first paint. */
+@media (prefers-reduced-motion:reduce){
+  .l8 .smsbanner{opacity:1;transform:none;visibility:visible;transition:none}
+}
+@media (max-width:939px){
+  .l8 .smssec .smsphone{width:auto;margin-inline:calc(6px - var(--l8-gut))}
+  .l8 .smsbody{padding:9px;border-radius:45px}
+  .l8 .smsscreen{border-radius:36px}
+}
+
 .l8 .wwwsec{background:var(--l8-panel);border-block:1px solid var(--l8-rule)}
 .l8 .www{display:grid;grid-template-columns:1fr;gap:clamp(28px,4vw,56px);align-items:center}
 /* Screenshot LEFT here, which is the mirror of the hero above it.

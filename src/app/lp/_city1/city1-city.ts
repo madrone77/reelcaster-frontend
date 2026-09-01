@@ -3,6 +3,7 @@ import {
   VANCOUVER_FRAME,
   type ReelFrame,
 } from "../_reel/reel-frame";
+import type { AlertSmsParts } from "./alert-sms";
 
 /**
  * Everything the city-first landing page needs that changes with the city.
@@ -142,6 +143,27 @@ export interface City1City {
    */
   conditionsMark?: City1Mark;
   /**
+   * The alert text /lp/<city>/4's third phone shows arriving.
+   *
+   * The format is the alert engine's own (see alert-sms.ts); these are the
+   * parts it prints. Frozen at build rather than read live, because it is a
+   * picture of a message and dressing that up as live is the dishonest
+   * option. Two rules, both about not advertising something the product would
+   * not say: the mark must be one we really score, and the hour must be one it
+   * really peaks at.
+   *
+   * Unset drops the band. A city with no reviewed copy shows no phone rather
+   * than a made-up one.
+   */
+  alertSms?: AlertSmsParts;
+  /**
+   * The clock on the bubble. Written down, not read: a mock that says it
+   * arrived "now" on every page load is the detail that gives it away.
+   */
+  alertSmsTime?: string;
+  /** The date under the clock, e.g. "Sunday, September 6". */
+  alertSmsDate?: string;
+  /**
    * The water in the footer line, in the words somebody here would use.
    *
    * Seattle says "the Salish Sea" because that is what shipped and this page
@@ -163,6 +185,15 @@ export const SEATTLE_1: City1City = {
     height: 1820,
     mark: "Jefferson Head",
   },
+  // Jefferson Head is a real Seattle mark in WDFW Marine Area 10, and 7am is
+  // really where it peaks -- Coho hits its high at hour 7 there.
+  // ⚠ The species and the score are Casey's copy, not today's data: Seattle's
+  // table is scoring Coho and Halibut, with no Chinook in it at all, and its
+  // Jefferson Head peak is 84 rather than 95. Swap to
+  // { species: "Coho Salmon", score: 84 } to make the whole line live-true.
+  alertSms: { species: "King Salmon", spot: "Jefferson Head", score: 95, hour: 7 },
+  alertSmsTime: "6:04",
+  alertSmsDate: "Sunday, September 6",
   footerWater: "the Salish Sea",
 };
 
@@ -183,5 +214,10 @@ export const VANCOUVER_1: City1City = {
   // fished for; it is scored there, and the loader falls through rather than
   // drawing an empty chart on a day it is not.
   conditionsMark: { slug: "the-bell-buoy-df74f1", species: "Chinook" },
+  // The same mark the phone above draws, and its real peak: Chinook scores at
+  // The Bell Buoy and hour 6 is where it peaks.
+  alertSms: { species: "Chinook", spot: "The Bell Buoy", score: 82, hour: 6 },
+  alertSmsTime: "5:58",
+  alertSmsDate: "Sunday, September 6",
   footerWater: "the Strait of Georgia",
 };
