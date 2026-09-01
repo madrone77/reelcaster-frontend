@@ -3,7 +3,6 @@
 import Link from "next/link";
 import { ChevronRight, Lock } from "lucide-react";
 import { useLockedDayTreatment } from "@/app/components/split-test/use-locked-day";
-import LockedGauze from "./locked-gauze";
 import { tierFor, fmtPeak, type Tier } from "../lib/explore-data";
 import type { SpotsOutlook14dPayload } from "@/lib/bluecaster";
 
@@ -157,7 +156,6 @@ export default function SpotDayStrip({
   );
   const lockedCount = days.filter((d) => d.locked).length;
   const lock = useLockedDayTreatment("spot_card", lockedCount > 0);
-  const gauze = lock.gauze;
   // Every locked slot in this strip opens the same upgrade, so the tap is
   // counted once here rather than at each of the four places that call it.
   const unlock = onUnlock
@@ -211,22 +209,18 @@ export default function SpotDayStrip({
         <div className="flex items-end gap-[3px] h-8" aria-hidden>
           {days.map((d, i) => {
             const t = tierFor(d.score);
-            // A locked day fills its whole slot rather than drawing a stub —
-            // as a stub it read as a rendering fault, twelve near-invisible
+            // A locked day fills its whole slot rather than drawing a stub.
+            // As a stub it read as a rendering fault, twelve near-invisible
             // slivers, rather than "there is a fortnight here, behind a plan".
-            // The slot is now that fortnight under frosted glass: a green bar
-            // at an unremarkable height, blurred, washed grey. Every locked
-            // bar is the same height on purpose, so nothing in the shape can
-            // be read back as the day's actual score.
+            // The slot is a plain sunk grey: it says a day is here and says
+            // nothing at all about what the day is worth.
             if (d.locked) {
               return (
                 <div
                   key={i}
                   title={`${d.dow} ${d.date} · locked`}
-                  className="relative overflow-hidden flex-1 min-w-0 h-full rounded-sm bg-rc-surface border border-rc-rule"
-                >
-                  {gauze && <LockedGauze variant="track" />}
-                </div>
+                  className="flex-1 min-w-0 h-full rounded-sm bg-rc-surface border border-rc-rule"
+                />
               );
             }
             return (
@@ -267,16 +261,13 @@ export default function SpotDayStrip({
                   }
                   disabled={!unlock}
                   aria-label={`${d.dow} ${d.date}, upgrade to see this day`}
-                  className={`relative overflow-hidden flex-1 min-w-0 rounded ${
-                    gauze ? "bg-rc-panel" : "bg-rc-surface"
-                  } border border-rc-rule ${show} flex-col items-center justify-center gap-0.5 py-1.5 enabled:hover:border-rc-brand transition-colors`}
+                  className={`flex-1 min-w-0 rounded bg-rc-surface border border-rc-rule ${show} flex-col items-center justify-center gap-0.5 py-1.5 enabled:hover:border-rc-brand transition-colors`}
                 >
-                  {gauze && <LockedGauze variant="card" />}
                   <DayLabel
                     dow={d.dow}
-                    className="relative rc-label text-[9px] leading-none text-rc-ink-mute"
+                    className="rc-label text-[9px] leading-none text-rc-ink-mute"
                   />
-                  <Lock className="relative w-3 h-3 text-rc-ink-mute" />
+                  <Lock className="w-3 h-3 text-rc-ink-mute" />
                 </button>
               );
             }
@@ -310,7 +301,6 @@ export default function SpotDayStrip({
             <TailCell
               total={days.length}
               locked={tailLocked}
-              gauze={gauze}
               onUnlock={unlock}
               href={moreHref}
             />
@@ -332,41 +322,35 @@ export default function SpotDayStrip({
 function TailCell({
   total,
   locked,
-  gauze,
   onUnlock,
   href,
 }: {
   total: number;
   locked: boolean;
-  /** Whether this visitor's arm draws the frosted lock. */
-  gauze: boolean;
   onUnlock?: () => void;
   href?: string;
 }) {
   const body = (
     <>
-      {/* Locked, this one cell stands for every day past the window, so it
-          wears the same glass they would. Unlocked it is a way through to the
-          spot page and stays plain. */}
-      {locked && gauze && <LockedGauze variant="card" />}
-      <span className="relative rc-label text-[9px] leading-none text-rc-ink-mute overflow-hidden">
+      {/* Locked, this one cell stands for every day past the window and
+          reads like the padlocks beside it. Unlocked it is a way through to
+          the spot page. */}
+      <span className="rc-label text-[9px] leading-none text-rc-ink-mute overflow-hidden">
         <span className="sm:hidden">+{total - VISIBLE_PHONE}</span>
         <span className="hidden sm:inline">+{total - VISIBLE_WIDE}</span>
       </span>
       {locked ? (
-        <Lock className="relative w-3 h-3 text-rc-ink-mute" />
+        <Lock className="w-3 h-3 text-rc-ink-mute" />
       ) : (
         <ChevronRight className="w-3 h-3 text-rc-ink-mute" />
       )}
     </>
   );
-  // Locked, the cell takes the panel fill the locked day cells take, so the
-  // green behind the glass reads the same here as it does two cells to the
-  // left. Unlocked it stays sunk, which is what marks it as a way out of the
-  // strip rather than another day in it.
-  const shell = `relative overflow-hidden flex-1 min-w-0 rounded ${
-    locked && gauze ? "bg-rc-panel" : "bg-rc-surface"
-  } border border-rc-rule border-dashed flex flex-col items-center justify-center gap-0.5 py-1.5 transition-colors`;
+  // Locked or not, the cell is sunk grey like the locked days beside it. The
+  // dashed border is what marks it as a way out of the strip rather than
+  // another day in it.
+  const shell =
+    "flex-1 min-w-0 rounded bg-rc-surface border border-rc-rule border-dashed flex flex-col items-center justify-center gap-0.5 py-1.5 transition-colors";
 
   if (locked) {
     return (
