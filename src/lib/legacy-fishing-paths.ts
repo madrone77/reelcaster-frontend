@@ -41,6 +41,33 @@ const COUNTRY_BY_LEGACY_PROVINCE: Record<string, string> = {
  */
 const COUNTRY_SEGMENTS = new Set(Object.values(COUNTRY_BY_LEGACY_PROVINCE));
 
+/**
+ * Cities that were published under the old URLs and are not any more, keyed by
+ * their legacy `<province>/<citySlug>` path.
+ *
+ * Everything else in this file is a derivation, which is what lets it run at
+ * the edge with no data. Whether a city is still published is the one fact a
+ * derivation cannot recover: middleware has no cheap way to read the hierarchy
+ * per request, so a retirement has to be written down.
+ *
+ * Without an entry, an unpublished city's old URL redirects to its new path and
+ * lands on a 404. That is honest but unhelpful: the reader wanted somewhere to
+ * fish near there, and the state page is the nearest true answer.
+ *
+ * ⚠️ **Add a city here whenever you set its lifecycle back to `building`**, and
+ * remove it if the city publishes again. Nothing enforces that, because nothing
+ * at the edge can.
+ *
+ * The redirect covers everything BELOW the city too: its species guides were
+ * live URLs and they are gone with it.
+ */
+const RETIRED_LEGACY_CITIES: Record<string, string> = {
+  // Unpublished 2026-09-01. One home spot (Alden Bank) after Point Lawrence
+  // was corrected to Friday Harbor, which is fewer than a city page should
+  // carry. Took 4 species guides with it. See bluecaster migration 170.
+  "wa/bellingham-wa": "/fishing/us/wa",
+};
+
 function stripProvinceSuffix(citySlug: string, province: string): string {
   const suffix = `-${province}`;
   return citySlug.endsWith(suffix)
@@ -73,6 +100,11 @@ export function newFishingPath(pathname: string): string | null {
 
   // /fishing/bc
   if (!citySlug) return `/fishing/${country}/${province}`;
+
+  // A city that is no longer published has no page to point at, and neither do
+  // its guides, so the whole subtree goes to the state index.
+  const retired = RETIRED_LEGACY_CITIES[`${province}/${citySlug}`];
+  if (retired) return retired;
 
   const city = stripProvinceSuffix(citySlug, province);
 
