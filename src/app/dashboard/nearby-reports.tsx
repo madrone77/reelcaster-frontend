@@ -85,13 +85,21 @@ export default function NearbyReports() {
 
       {/* Side by side above `sm`, stacked below it. */}
       <div className="mt-2.5 grid gap-x-6 gap-y-3 sm:grid-cols-2">
-        {data.cities.map(({ city, headline, distanceKm, reportDate }) => {
+        {data.cities.map(({ city, headline, distanceKm, reportDate, foreignProvince }) => {
           const isOpen = open === city.slug;
           return (
             <div key={city.slug} className="min-w-0">
               <div className="flex items-baseline gap-2">
                 <span className="text-[14px] font-semibold text-rc-ink">
                   {city.name}
+                  {/* Only across a border. "Victoria" to a Washington angler
+                      is otherwise indistinguishable from local water, and the
+                      licence and the regulations both change at that line. */}
+                  {foreignProvince && (
+                    <span className="font-normal text-rc-ink-mute">
+                      , {foreignProvince}
+                    </span>
+                  )}
                 </span>
                 {/* Distance and the report's own date. Dated for the same
                     reason the main card is: these are not guaranteed daily,

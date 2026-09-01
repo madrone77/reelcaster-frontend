@@ -204,6 +204,8 @@ test("the cutoff is applied at exactly MAX_CITY_DISTANCE_KM", () => {
     lat: c.lat,
     lng: c.lng,
     spotCount: c.spot_count,
+    country: "CA",
+    province: "BC",
   }));
   // Due north, a touch inside and a touch outside the ring.
   const degPerKm = 1 / 111.19;

@@ -10,8 +10,17 @@
  * at home"; this answers "and what about the next bay over", which on a slow
  * week at home is the more useful of the two.
  *
- * Nearest by distance, which lands exactly where you would expect: Victoria
- * gives Sidney and Sooke, Seattle gives Friday Harbor.
+ * Nearest by distance, but the angler's OWN COUNTRY first.
+ *
+ * Friday Harbor's two nearest covered cities are Sidney and Victoria, both in
+ * British Columbia — a licence, a set of regulations and a border crossing
+ * away from a Washington angler, which makes them poor suggestions however
+ * close they measure. Same-country cities are exhausted before any
+ * cross-border one is offered, and a cross-border entry that does get through
+ * carries its province so nobody reads "Victoria" as local water.
+ *
+ * Within a country it is still plain distance: Victoria gives Sidney and
+ * Sooke, Seattle gives Friday Harbor.
  *
  * ⚠️ The cities are chosen HERE and are deliberately not query parameters, the
  * same rule ../city-daily-report follows. Letting the browser name a city would
@@ -57,6 +66,9 @@ export interface NearbyCityReport {
   headline: string | null;
   reportsMd: string;
   windowDays: number;
+  /** Set only when the city is in a different country from the angler's own,
+   *  so the client can name the province rather than imply local water. */
+  foreignProvince: string | null;
   /** The report's own date, `YYYY-MM-DD`. Shown, because these are not
    *  guaranteed daily and an undated headline reads as current. */
   reportDate: string;
@@ -106,13 +118,25 @@ export async function GET(request: NextRequest) {
     );
   }
 
+  // Country first, then distance. A stable two-key sort rather than two passes:
+  // same-country cities all rank ahead of every foreign one, and within each
+  // group the nearest wins. Cross-border cities are therefore only ever fill,
+  // which is what makes Friday Harbor open on Seattle instead of on Sidney.
   const neighbours = covered
     .filter((c) => c.slug !== origin.slug)
     .map((c) => ({
       city: { slug: c.slug, name: c.name },
       distanceKm: haversineKm(origin.lat, origin.lng, c.lat, c.lng),
+      foreign: c.country !== origin.country,
+      province: c.province,
     }))
-    .sort((a, b) => a.distanceKm - b.distanceKm)
+    .sort((a, b) =>
+      a.foreign === b.foreign
+        ? a.distanceKm - b.distanceKm
+        : a.foreign
+          ? 1
+          : -1,
+    )
     .slice(0, NEARBY_COUNT);
 
   // Concurrent, and each failure isolated: one city whose report is missing
@@ -127,7 +151,7 @@ export async function GET(request: NextRequest) {
   );
 
   const cities: NearbyCityReport[] = [];
-  for (const { city, distanceKm, payload } of settled) {
+  for (const { city, distanceKm, foreign, province, payload } of settled) {
     const r = payload?.report;
     // Prose present and the report ready. Same test the main card applies, and
     // deliberately NOT `reports_signal_count > 0`.
@@ -146,6 +170,7 @@ export async function GET(request: NextRequest) {
       reportsMd: r.reports_md,
       windowDays: r.reports_window_days,
       reportDate: r.report_date,
+      foreignProvince: foreign ? province : null,
     });
   }
 
