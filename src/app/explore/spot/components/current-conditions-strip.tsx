@@ -130,6 +130,7 @@ export default function CurrentConditionsStrip({
   point = null,
   hour = 0,
   isNow = true,
+  phone = false,
 }: {
   rightNow: RightNowSnapshot | null;
   /** Score at `hour` for the selected species (0–100). */
@@ -141,7 +142,19 @@ export default function CurrentConditionsStrip({
   hour?: number;
   /** True when `hour` is the live hour of today, so the heading reads "now". */
   isNow?: boolean;
+  /**
+   * Stay narrow whatever the window is doing.
+   *
+   * Every `lg:` below asks how wide the WINDOW is, which is the right question
+   * on a page whose strip is as wide as the page and the wrong one inside a
+   * phone frame on a landing page: the cells are 375px wide and the window is
+   * a laptop, so the box laid itself out 7 across in a 375px phone. Same fix,
+   * same reason, as SpotTerminal's `phone`.
+   */
+  phone?: boolean;
 }) {
+  /** A `lg:` class, dropped when the container is a phone. */
+  const wide = (cls: string) => (phone ? "" : cls);
   const { windUnit, currentUnit, tempUnit, tideUnit, waveUnit } = useUnitPreferences();
   const rn = rightNow;
 
@@ -227,8 +240,8 @@ export default function CurrentConditionsStrip({
       sub:
         curSet == null ? null : slackAt != null && curSet !== "Slack" ? (
           <>
-            <span className="lg:hidden">{`${curSet} ~${hh(slackAt)}`}</span>
-            <span className="hidden lg:inline">{`${curSet} · slack ~${hh(slackAt)}`}</span>
+            <span className={wide("lg:hidden")}>{`${curSet} ~${hh(slackAt)}`}</span>
+            <span className={`hidden ${wide("lg:inline")}`}>{`${curSet} · slack ~${hh(slackAt)}`}</span>
           </>
         ) : (
           curSet
@@ -280,7 +293,7 @@ export default function CurrentConditionsStrip({
       // "Overcast" needs all of it. The word already names the condition, and
       // the graph's weather band sits a few pixels below with the icons in it.
       glyph: wx ? (
-        <span className="hidden lg:block text-rc-ink-soft shrink-0">
+        <span className={`hidden ${wide("lg:block")} text-rc-ink-soft shrink-0`}>
           <WeatherIcon condition={wx} size={18} />
         </span>
       ) : null,
@@ -293,7 +306,7 @@ export default function CurrentConditionsStrip({
           it where that cell is hidden. */}
       <div className="rc-label text-[9px] mb-1.5">
         Conditions
-        <span className="hidden lg:inline"> · {isNow ? "now" : hh(hour)}</span>
+        <span className={`hidden ${wide("lg:inline")}`}> · {isNow ? "now" : hh(hour)}</span>
       </div>
       {/* Bordered box, not the old border-y band: this sits directly on top of
           the graph's score strip, and the chart draws every one of its rows as
@@ -310,7 +323,7 @@ export default function CurrentConditionsStrip({
           bottom edge, 2px there against 1px everywhere else. A gap is
           column-count agnostic, and a `lg:hidden` cell leaves grid flow
           entirely, so it can't strand a rule behind it either. */}
-      <div className="grid grid-cols-4 lg:grid-cols-7 gap-px rounded border border-rc-rule bg-rc-rule overflow-hidden">
+      <div className={`grid grid-cols-4 ${wide("lg:grid-cols-7")} gap-px rounded border border-rc-rule bg-rc-rule overflow-hidden`}>
         {cells.map((c) => (
           // Quarter-width cells are tight at 375px, so the type and padding
           // step down below lg and every line truncates rather than wraps —
@@ -320,7 +333,7 @@ export default function CurrentConditionsStrip({
           // the cell fill has to stay opaque and match the page.
           <div
             key={c.label}
-            className={`bg-rc-panel px-1.5 py-2 lg:px-3 lg:py-2.5 min-w-0 ${c.mobileOnly ? "lg:hidden" : ""}`}
+            className={`bg-rc-panel px-1.5 py-2 ${wide("lg:px-3 lg:py-2.5")} min-w-0 ${c.mobileOnly ? wide("lg:hidden") : ""}`}
           >
             {/* No font-size utility here: .rc-label sets `font:` shorthand,
                 which resets size and wins, so a text-[9px] would be a no-op
@@ -328,16 +341,16 @@ export default function CurrentConditionsStrip({
                 the cell padding is what buys "SEA STATE" its room — at px-2 its
                 uppercase tracking put it 1px over and it ellipsised. */}
             <div className="rc-label truncate">{c.label}</div>
-            <div className="flex items-baseline gap-1 lg:gap-1.5 mt-1">
+            <div className={`flex items-baseline gap-1 ${wide("lg:gap-1.5")} mt-1`}>
               <span
-                className={`font-bold leading-none truncate ${c.valueClass ?? "text-rc-ink"} text-sm lg:text-base`}
+                className={`font-bold leading-none truncate ${c.valueClass ?? "text-rc-ink"} text-sm ${wide("lg:text-base")}`}
               >
                 {c.value}
               </span>
               {c.glyph}
             </div>
             {c.sub && (
-              <div className="font-rc-mono text-[9px] lg:text-[10px] text-rc-ink-mute mt-0.5 truncate">
+              <div className={`font-rc-mono text-[9px] ${wide("lg:text-[10px]")} text-rc-ink-mute mt-0.5 truncate`}>
                 {c.sub}
               </div>
             )}

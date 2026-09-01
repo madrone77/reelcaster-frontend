@@ -670,6 +670,7 @@ function buildSvg(
 
 export default function SpotTerminal({
   hours, realCurrent, tideRange, sun, nowHour, selectedHour, onSelectHour, bestWindow,
+  phone = false,
 }: {
   hours: TerminalHours;
   /** Signed real current (kn, +flood −ebb) for the day; null → tide-derived fallback. */
@@ -683,6 +684,16 @@ export default function SpotTerminal({
   selectedHour: number;
   onSelectHour: (h: number) => void;
   bestWindow: [number, number] | null;
+  /**
+   * Draw the phone variant whatever the window is doing.
+   *
+   * The two SVGs normally swap at `lg`, which asks how wide the WINDOW is —
+   * the right question on a page whose chart is as wide as the page. It is the
+   * wrong question inside a phone frame on a landing page: the container is
+   * 375px and the window is a laptop, so `lg` picked the 1120px desktop chart
+   * and drew it into a phone. This pins the answer to the container.
+   */
+  phone?: boolean;
 }) {
   const deskRef = useRef<HTMLDivElement>(null);
   const mobRef = useRef<HTMLDivElement>(null);
@@ -962,8 +973,11 @@ export default function SpotTerminal({
           data strip above the graph carries the now-state, and scrubbing reads
           out via the cursor pill + the a11y live region above. */}
 
-      <div ref={deskRef} className="hidden lg:block" />
-      <div ref={mobRef} className="lg:hidden" />
+      {/* Not rendered at all under `phone`, rather than hidden: a mounted
+          host still gets its SVG built on every data change, and that is a
+          1120px chart nobody will ever see. */}
+      {phone ? null : <div ref={deskRef} className="hidden lg:block" />}
+      <div ref={mobRef} className={phone ? undefined : "lg:hidden"} />
     </div>
   );
 }

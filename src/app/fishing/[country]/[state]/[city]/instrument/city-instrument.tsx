@@ -49,7 +49,10 @@ import dynamic from "next/dynamic";
 import { useMountedOnce } from "@/hooks/use-mounted-once";
 import CurrentConditionsStrip from "@/app/explore/spot/components/current-conditions-strip";
 import SpotTerminal from "@/app/explore/spot/components/spot-terminal";
-import { resolveSea } from "@/app/explore/lib/sea-state";
+import {
+  buildTerminalHours,
+  tideRangeFrom,
+} from "@/app/explore/lib/terminal-hours";
 import {
   localDayStartUtcMs,
   signCurrentSeries,
@@ -411,62 +414,17 @@ export default function CityInstrument({
   // down on each scrub tick, killing an in-flight touch drag.
   const win = useMemo(() => bestWindow(hours24 ?? []), [hours24]);
 
-  const terminalHours = useMemo(() => {
-    const g = grids.conditions[dayIndex] ?? [];
-    const pick = (
-      key:
-        | "tideM"
-        | "windKt"
-        | "windGustKt"
-        | "windDirDeg"
-        | "waveM"
-        | "cloudPct"
-        | "precipMm"
-        | "airTempC",
-    ) =>
-      Array.from(
-        { length: 24 },
-        (_, i) => (g[i]?.[key] ?? null) as number | null,
-      );
-    const wind = pick("windKt");
-    const gust = pick("windGustKt");
-    // The wave grid has dry-land cells and runs out around day 10, so sea
-    // state falls back to a wind-derived estimate hour by hour. `seaEst`
-    // flags which hours are inferred so the chart can say so rather than
-    // passing an estimate off as a model reading.
-    const seaRead = Array.from({ length: 24 }, (_, i) =>
-      resolveSea(g[i]?.waveM ?? null, wind[i], gust[i]),
-    );
-    return {
-      score: hours24,
-      tide: pick("tideM"),
-      wind,
-      gust,
-      windDir: pick("windDirDeg"),
-      sea: seaRead.map((r) => r?.m ?? null),
-      seaEst: seaRead.map((r) => r?.estimated ?? false),
-      cloud: pick("cloudPct"),
-      precip: pick("precipMm"),
-      air: pick("airTempC"),
-    };
-  }, [grids, dayIndex, hours24]);
+  const terminalHours = useMemo(
+    () => buildTerminalHours(grids.conditions[dayIndex], hours24),
+    [grids, dayIndex, hours24],
+  );
 
   // Tide scale fixed across every forecast day, so flipping days moves the
   // curve rather than re-fitting the axis under it.
-  const tideRange = useMemo(() => {
-    let min = Infinity;
-    let max = -Infinity;
-    for (const day of grids.conditions) {
-      for (const h of day ?? []) {
-        const t = h?.tideM;
-        if (typeof t === "number" && Number.isFinite(t)) {
-          if (t < min) min = t;
-          if (t > max) max = t;
-        }
-      }
-    }
-    return min <= max ? { min, max } : null;
-  }, [grids]);
+  const tideRange = useMemo(
+    () => tideRangeFrom(grids.conditions),
+    [grids],
+  );
 
   // Real predicted current at the featured mark, for the day on screen.
   // Fetched after mount and never blocking: without it the chart draws its

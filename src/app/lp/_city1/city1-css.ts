@@ -506,6 +506,66 @@ export const LP8_CSS = `
 }
 
 /* where / what / when */
+/* ── The conditions phone (/lp/4) ──────────────────────────────────────────
+   The same black shell as the reel, and deliberately NOT the same insides.
+
+   The reel's phone is sized in cqw so the whole device shrinks with its
+   column, which is right for a map: a map at 80% is a smaller map. This one
+   is showing 12px mono readouts and a chart whose hour cells are 13px wide,
+   and scaling those down stops the picture being about anything. So the app
+   simply lays itself out at whatever width the column gives it, at true size,
+   which is what it does on a real phone.
+
+   It also wears no app bar and no tab bar. The screen is ~750px of instrument
+   on its own; the reel's 116px bar over it and 76px bar under it made a phone
+   375 by 948, half again taller than the 375 by 812 device it is a picture
+   of. The island is drawn here instead, because it is the one piece of chrome
+   that still says "phone" and costs no height.
+
+   Radii are the reel's own percentages resolved at 375: 3cqw of padding,
+   13cqw on the shell, 10cqw on the screen. They stay concentric the same way,
+   the screen's plus the bezel. */
+.l8 .condphone{display:flex;justify-content:center;width:100%}
+.l8 .condbody{
+  width:min(397px,100%);
+  padding:11px;
+  background:#0A0C10;
+  border-radius:49px;
+  box-shadow:0 26px 54px rgba(18,21,26,.26), 0 2px 0 rgba(255,255,255,.14) inset;
+}
+.l8 .condscreen{
+  position:relative;overflow:hidden;
+  border-radius:38px;
+  background:var(--l8-panel);
+  /* Top clears the island (12 + 28, plus air). */
+  padding:50px 10px 18px;
+}
+/* The dynamic island, drawn rather than screenshotted so the frame stays
+   sharp at any width, and so the phone is not pretending to a clock or a
+   battery percentage we would then have to keep honest. Same geometry as the
+   reel's, which draws it on its app bar instead. */
+.l8 .condscreen::before{
+  content:"";position:absolute;top:12px;left:50%;
+  transform:translateX(-50%);
+  width:96px;height:28px;
+  border-radius:999px;background:#0A0C10;
+}
+.l8 .condpane > * + *{margin-top:8px}
+/* Below the two-column break the phone reclaims the section gutter.
+   Left in the column it is handed, it comes out about 293px wide inside, and
+   293 is under SpotTerminal's 300px measuring floor: the chart keeps its
+   414px default viewBox and draws itself scaled down to fit, so the one thing
+   the picture is about -- 12px readouts you can read -- stops being true. It
+   also squeezed the tile row until "SEA STATE" ellipsised. Full width, minus
+   6px of air, puts the app back at the width a real phone gives it. */
+@media (max-width:939px){
+  /* width:auto is load-bearing beside the negative margin. At width:100% the
+     used width stays the column's, and the margins only shift the box. */
+  .l8 .wwwsec .condphone{width:auto;margin-inline:calc(6px - var(--l8-gut))}
+  .l8 .condbody{padding:9px;border-radius:45px}
+  .l8 .condscreen{border-radius:36px;padding-left:8px;padding-right:8px}
+}
+
 .l8 .wwwsec{background:var(--l8-panel);border-block:1px solid var(--l8-rule)}
 .l8 .www{display:grid;grid-template-columns:1fr;gap:clamp(28px,4vw,56px);align-items:center}
 /* Screenshot LEFT here, which is the mirror of the hero above it.

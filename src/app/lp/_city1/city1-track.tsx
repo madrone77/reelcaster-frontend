@@ -8,7 +8,7 @@ import {
   type CampaignTarget,
   type LpCtaId,
 } from "../_shared/lp-telemetry";
-import type { City1City } from "./city1-city";
+import type { City1City, City1Variant } from "./city1-city";
 
 /**
  * Counting the city-first landing pages.
@@ -60,9 +60,13 @@ function currentAngle(): string {
   }).id;
 }
 
-function targetFor(city: City1City, angle: string): CampaignTarget {
+function targetFor(
+  city: City1City,
+  variant: City1Variant,
+  angle: string,
+): CampaignTarget {
   return {
-    landing: city.landing,
+    landing: city.landing[variant],
     target_city: city.slug,
     target_spot: "",
     wall: "",
@@ -71,9 +75,15 @@ function targetFor(city: City1City, angle: string): CampaignTarget {
 }
 
 /** Count this visit, once per tab. Renders nothing. */
-export function City1Hit({ city }: { city: City1City }) {
+export function City1Hit({
+  city,
+  variant,
+}: {
+  city: City1City;
+  variant: City1Variant;
+}) {
   const angle = useMemo(currentAngle, []);
-  useCampaignHit(targetFor(city, angle));
+  useCampaignHit(targetFor(city, variant, angle));
   return null;
 }
 
@@ -90,12 +100,14 @@ export function City1Hit({ city }: { city: City1City }) {
  */
 export function TrackedCta({
   city,
+  variant,
   cta,
   href,
   className,
   children,
 }: {
   city: City1City;
+  variant: City1Variant;
   cta: LpCtaId;
   href: string;
   className: string;
@@ -105,7 +117,9 @@ export function TrackedCta({
     <a
       className={className}
       href={href}
-      onClick={() => reportCampaignCta(cta, targetFor(city, currentAngle()))}
+      onClick={() =>
+        reportCampaignCta(cta, targetFor(city, variant, currentAngle()))
+      }
     >
       {children}
     </a>

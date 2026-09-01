@@ -15,7 +15,9 @@ import { formatHour12 } from "@/lib/time-format";
 import { LP8_CSS } from "./city1-css";
 import ExploreReel from "../_reel/explore-reel";
 import { City1Hit, TrackedCta } from "./city1-track";
-import type { City1City } from "./city1-city";
+import type { City1City, City1Variant } from "./city1-city";
+import { loadConditionsFeed } from "./load-conditions";
+import ConditionsPhone from "./conditions-phone";
 import {
   buildCityProof,
   type CityProof,
@@ -154,7 +156,17 @@ export async function city1Metadata(
  * of its work; the rest of it fed the checkout POST and the CTA counter, and
  * both of those left with the form.
  */
-export default async function City1Page({ city }: { city: City1City }) {
+export default async function City1Page({
+  city,
+  variant = 1,
+}: {
+  city: City1City;
+  /**
+   * Which arm this route is. The page is otherwise identical: same shell,
+   * same copy, same explore-only CTA, same ranking. See City1Variant.
+   */
+  variant?: City1Variant;
+}) {
   const slug = city.slug;
   const explore = exploreHref(slug);
 
@@ -181,6 +193,17 @@ export default async function City1Page({ city }: { city: City1City }) {
   const payload = await fetchMapSpots({ city: slug }).catch(() => null);
   const proof: CityProof | null = payload ? buildCityProof(payload, card) : null;
 
+  /**
+   * /lp/4's second picture: the hero mark's own day, live.
+   *
+   * Only fetched for the variant that draws it -- /lp/1 must not pay a spot-
+   * page round trip for a phone it does not render. Null on any miss, and the
+   * section falls back to the still, which is why `shot` stays required for
+   * every city rather than becoming optional on the strength of this.
+   */
+  const conditions =
+    variant === 4 ? await loadConditionsFeed(proof, card.provinceCode) : null;
+
   // The hero reads off the SAME ranking as the marks band below it. Taking
   // the card's spot instead put Constance Bank at 88 above a list topped by
   // Victoria Waterfront at 91, which is a page disagreeing with itself in the
@@ -188,6 +211,10 @@ export default async function City1Page({ city }: { city: City1City }) {
   // score: the city, the species and the region.
   const hero: HeroMark = proof?.hero ?? {
     name: card.spotName,
+    // resolveLpCard returns a card, not a mark, so there is no slug to give.
+    // Nothing that needs one uses this fallback: the conditions phone reads
+    // proof.hero directly and renders the still when there is no proof.
+    slug: "",
     score: card.score,
     hours: card.hours,
     bestFrom: card.bestFrom,
@@ -200,7 +227,7 @@ export default async function City1Page({ city }: { city: City1City }) {
   return (
     <div className="l8">
       <style dangerouslySetInnerHTML={{ __html: LP8_CSS }} />
-      <City1Hit city={city} />
+      <City1Hit city={city} variant={variant} />
 
       <div className="nav">
         <div className="navin">
@@ -217,7 +244,7 @@ export default async function City1Page({ city }: { city: City1City }) {
             height={48}
             priority
           />
-          <TrackedCta city={city} cta="nav" className="navcta" href={explore}>
+          <TrackedCta city={city} variant={variant} cta="nav" className="navcta" href={explore}>
             {CTA_LABEL}
           </TrackedCta>
         </div>
@@ -252,7 +279,7 @@ export default async function City1Page({ city }: { city: City1City }) {
 
             {/* One link, no form. */}
             <div id="start">
-              <TrackedCta city={city} cta="hero" className="go" href={explore}>
+              <TrackedCta city={city} variant={variant} cta="hero" className="go" href={explore}>
                 {CTA_LABEL}
                 <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
                   <path d="M3 8h9M8.5 4l4 4-4 4" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" />
@@ -327,18 +354,39 @@ export default async function City1Page({ city }: { city: City1City }) {
             </ul>
           </div>
           <figure className="shotfig">
-            <Image
-              src={city.shot.src}
-              alt={`A ReelCaster spot page for ${city.shot.mark}. Arrows label the spot name as Where, the species score card as What, and the best window as When.`}
-              width={city.shot.width}
-              height={city.shot.height}
-              sizes="(min-width: 940px) 46vw, 92vw"
-              className="shot"
-            />
+            {conditions ? (
+              <ConditionsPhone
+                feed={conditions}
+                serverNowMs={Date.now()}
+              />
+            ) : (
+              <Image
+                src={city.shot.src}
+                alt={`A ReelCaster spot page for ${city.shot.mark}. Arrows label the spot name as Where, the species score card as What, and the best window as When.`}
+                width={city.shot.width}
+                height={city.shot.height}
+                sizes="(min-width: 940px) 46vw, 92vw"
+                className="shot"
+              />
+            )}
             <figcaption>
-              {city.shot.mark}, one of the spots we score around{" "}
-              {card.cityName}, with its {region.regulator.name} regulations
-              underneath it and a full interactive bathymetry map of the spot.
+              {conditions ? (
+                <>
+                  {conditions.spotName}, today, scored for{" "}
+                  {conditions.speciesName ?? proof?.marksSpecies}. Every
+                  reading belongs to the hour the line is sitting on, and you
+                  can drag it yourself. The same screen carries the
+                  mark&rsquo;s {region.regulator.name} regulations and a full
+                  bathymetry map underneath it.
+                </>
+              ) : (
+                <>
+                  {city.shot.mark}, one of the spots we score around{" "}
+                  {card.cityName}, with its {region.regulator.name} regulations
+                  underneath it and a full interactive bathymetry map of the
+                  spot.
+                </>
+              )}
             </figcaption>
           </figure>
         </div>
@@ -494,7 +542,7 @@ export default async function City1Page({ city }: { city: City1City }) {
               ))}
             </div>
 
-            <TrackedCta city={city} cta="secondary" className="mapcta" href={explore}>
+            <TrackedCta city={city} variant={variant} cta="secondary" className="mapcta" href={explore}>
               Explore Live {card.cityName} Map
               <svg width="15" height="15" viewBox="0 0 16 16" fill="none" aria-hidden="true">
                 <path d="M3 8h9M8.5 4l4 4-4 4" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" />
@@ -649,7 +697,7 @@ export default async function City1Page({ city }: { city: City1City }) {
             Open the live {card.cityName} map and see the next{" "}
             {ANON_FORECAST_DAYS} days scored, spot by spot and hour by hour.
           </p>
-          <TrackedCta city={city} cta="final" className="go" href={explore}>
+          <TrackedCta city={city} variant={variant} cta="final" className="go" href={explore}>
             {CTA_LABEL}
             <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
               <path d="M3 8h9M8.5 4l4 4-4 4" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" />

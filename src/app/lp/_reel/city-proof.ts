@@ -52,6 +52,15 @@ export interface CityProof {
    * support it, in which case the card's own spot stands.
    */
   hero: HeroMark | null;
+  /**
+   * The species `hero`, `marks` and `pins` are all ranked on.
+   *
+   * Carried as an id as well as a name (`marksSpecies`) because the spot-page
+   * payload keys its hourly grids by id, and a page drawing the hero mark's
+   * chart has to draw it for the species the rest of the page is talking
+   * about. Null when the city payload scored nothing.
+   */
+  heroSpeciesId: string | null;
   /** "Wind 4 kt" or similar, from the featured spot's own conditions strip. */
   conditionNote: string | null;
   /**
@@ -111,6 +120,8 @@ export interface ReelPin {
 
 export interface HeroMark {
   name: string;
+  /** The mark's own slug, for callers that need its full hourly payload. */
+  slug: string;
   score: number;
   /** 24 bar heights, 0-100, midnight to midnight. Nulls flattened to 0. */
   hours: number[];
@@ -258,6 +269,7 @@ export function buildCityProof(
           const win = windowAround(hours, strip.peak_hour);
           heroMark = {
             name: spot.name,
+            slug: spot.slug,
             score,
             hours,
             bestFrom: win?.from ?? -1,
@@ -283,6 +295,7 @@ export function buildCityProof(
 
   return {
     hero: heroMark,
+    heroSpeciesId,
     spotCount,
     marksSpecies:
       (heroSpeciesId ? payload.species[heroSpeciesId]?.name : null) ??
