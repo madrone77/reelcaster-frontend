@@ -30,13 +30,18 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { sendEmail } from '@/lib/email-service';
 import { trialEndingEmail, type TrialSetupState } from '@/lib/email-templates/billing';
 import { SUPPORT_EMAIL } from '@/lib/site';
+import { REMINDER_LEAD_DAYS } from '@/lib/pricing';
 
 /**
  * How far ahead of the charge the reminder goes out. Matches what Stripe's own
  * trial_will_end event uses, so the two triggers agree on the day, and matches
  * the "three days out" on the landing page. On a 7-day trial that is day 4.
+ *
+ * Defined in ./pricing so the trial sheet can print the day without importing
+ * this module's mailer; re-exported here because this is where trial code
+ * looks for it.
  */
-export const REMINDER_LEAD_DAYS = 3;
+export { REMINDER_LEAD_DAYS };
 
 const DAY_MS = 86_400_000;
 
