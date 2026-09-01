@@ -170,9 +170,16 @@ Parts of the Service display advertising served by **Google AdSense**. Google an
 
 **Under the California Consumer Privacy Act, this counts as "sharing" personal information for cross-context behavioural advertising, and in some readings as a "sale."** You have the right to opt out. See Section 11.2.
 
-We also advertise on **Meta** (Facebook and Instagram). To measure whether those ads work, we report two things back to Meta: that a free trial started, and that a subscription was paid for. This happens two ways. A pixel on our site sets cookies (`_fbp`, `_fbc`) in your browser. Separately, our servers send Meta the same two events directly, because the first payment happens a week after the trial begins, when your browser is no longer involved.
+We also advertise on **Meta** (Facebook and Instagram). To measure whether those ads work, we report four things back to Meta, and only when you arrived from an ad we paid for:
 
-**We do not send Meta your name, email address, phone number, catch logs, photos, spot coordinates, or location.** What the server sends is the identifier Meta itself attached to the ad click that brought you here, the amount paid, and the currency.
+- that you were shown our subscription offer, counted at most once per visit;
+- that a free account was created;
+- that a free trial started;
+- that a subscription was paid for.
+
+This happens two ways. A pixel on our site sets cookies (`_fbp`, `_fbc`) in your browser. Separately, our servers send Meta the same events directly, because the first payment happens a week after the trial begins, when your browser is no longer involved.
+
+**We do not send Meta your name, email address, phone number, catch logs, photos, spot coordinates, or location.** What the server sends is the identifier Meta itself attached to the ad click that brought you here, and for a payment, the amount and the currency. Being shown the offer is reported with no value attached to it.
 
 We also advertise on **Google Search**. To measure whether those ads work, a tag on our site reports back to Google that a free trial started, together with the identifier Google attached to the ad click that brought you here.
 

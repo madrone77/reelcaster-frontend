@@ -43,22 +43,23 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import {
-  CLICK_TYPES,
-  EXTRA_PARAMS,
+  clickIdOf,
+  clickTypeOf,
+  extraParamsOf,
   readEntry,
   readPaid,
   readWall,
-  type CampaignParams,
   type EntryAttribution,
   type PaidAttribution,
   type WallAttribution,
 } from '@/lib/attribution';
 import { readOffer } from '@/lib/offers';
 import { NAG_FEATURES } from '@/lib/plan-features';
-import { recordSignupConversion, type SubscriptionAcquisition } from '@/lib/conversions';
-import { classifyUserAgent } from '@/lib/device';
-import { readEdgeGeo } from '@/lib/edge-geo';
-import { armsFromCookieHeader } from '@/lib/split-tests';
+import {
+  acquisitionFromRequest,
+  recordSignupConversion,
+  type SubscriptionAcquisition,
+} from '@/lib/conversions';
 import { sendWelcomeEmail } from '@/lib/welcome-email';
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
@@ -87,32 +88,6 @@ const ACCOUNT_AGE_GRACE_MS = 1000 * 60 * 60 * 24 * 2; // 2 days
  */
 
 /** Only a click type we know how to upload against is worth recording. */
-function clickType(c: CampaignParams): string | null {
-  return (CLICK_TYPES as readonly string[]).includes(c.click_type) ? c.click_type : null;
-}
-
-/**
- * A click id is only meaningful next to a type that says which network issued
- * it, so an id with an unrecognised type is dropped rather than stored as a
- * value nothing can ever resolve.
- */
-function clickId(c: CampaignParams): string | null {
-  if (!clickType(c)) return null;
-  return c.click_id ? c.click_id.slice(0, MAX_VALUE) : null;
-}
-
-/** Whitelist keys, clamp values, and store null rather than an empty object. */
-function extraParams(c: CampaignParams): Record<string, string> | null {
-  const raw = c.params;
-  if (!raw || typeof raw !== 'object') return null;
-  const out: Record<string, string> = {};
-  for (const key of EXTRA_PARAMS) {
-    const value = raw[key];
-    if (typeof value === 'string' && value) out[key] = value.slice(0, MAX_VALUE);
-  }
-  return Object.keys(out).length > 0 ? out : null;
-}
-
 /** Matches MAX_FIELD in src/lib/cookies.ts; re-applied because the cookie lied. */
 const MAX_VALUE = 200;
 
@@ -213,14 +188,12 @@ async function writeGeo(userId: string, geo: EdgeGeo): Promise<boolean> {
 /**
  * The acquisition context a signup conversion is recorded with.
  *
- * Mirrors what `attributionMetadata()` in the checkout route stamps onto a
- * subscription, down to the choice of touch: last PAID click if there was one,
- * otherwise first touch. Keeping the two rules identical is what lets a signup
- * and the trial it later becomes sit in the same rollup and be compared.
- *
- * Every value is re-checked rather than trusted. These arrive from cookies the
- * client can write by hand, and they end up in columns the campaign report
- * groups on.
+ * The touch rules themselves live in acquisitionFromRequest (src/lib/
+ * conversions.ts), shared with the paywall-view conversion so that a signup and
+ * the trial it later becomes sit in the same rollup and can be compared. What
+ * stays here is the one thing only this route knows: which wall earned the
+ * account, checked against the live enum because rc_wall is a cookie the
+ * browser can write and this lands in a column the admin groups on.
  */
 function signupAcquisition(
   request: NextRequest,
@@ -228,53 +201,13 @@ function signupAcquisition(
   paid: PaidAttribution | null,
   wall: WallAttribution | null,
 ): SubscriptionAcquisition {
-  const touch = paid ?? entry;
-  const ua = classifyUserAgent(request.headers.get('user-agent'));
-  const geo = readEdgeGeo(request.headers);
-
-  return {
-    // Read off the same cookie the price surfaces read, so a landing-page or
-    // modal test can be judged on free signups and not only on sales. Parsed
-    // and shape-checked rather than trusted: the cookie is client-writable,
-    // and this lands in a column the split-test report groups on.
-    split_tests: armsFromCookieHeader(request.headers.get('cookie')),
-    attribution_model: touch ? (paid ? 'paid' : 'first') : null,
-    click_id: touch ? clickId(touch) : null,
-    click_type: touch ? clickType(touch) : null,
-    utm_source: touch?.utm_source || null,
-    utm_medium: touch?.utm_medium || null,
-    utm_campaign: touch?.utm_campaign || null,
-    utm_content: touch?.utm_content || null,
-    utm_term: touch?.utm_term || null,
-    landing_path: paid?.landing_path || null,
-    entry_path: entry?.entry_path || null,
-    // When the CLICK happened, not when the account was made. Meta builds fbc
-    // as fb.1.<click_time_ms>.<fbclid> and matches on it.
-    click_at: paid?.ts || null,
-    // The machine the account was made on. Unlike a purchase, this is usually
-    // also the machine that saw the ad, because a signup follows the click by
-    // minutes rather than by days.
-    device: ua.device === 'unknown' ? null : ua.device,
-    os: ua.os === 'unknown' ? null : ua.os,
-    geo_country: geo.country,
-    geo_region: geo.region,
-    geo_city: geo.city,
-    params: touch ? extraParams(touch) : null,
-    // Which wall earned the account, on the conversion row rather than only on
-    // user_settings — so a signup rate per wall per campaign is one query over
-    // this table and paywall_events, instead of a join across a per-person
-    // table that holds one answer for the life of the account.
-    //
-    // Checked against the live enum for the same reason the user_settings copy
-    // is: rc_wall is a cookie the browser can write, and this lands in a column
-    // the admin groups on.
-    paywall_feature: wall && wall.feature in NAG_FEATURES ? wall.feature : null,
-    paywall_surface: wall?.from ? wall.from.slice(0, MAX_VALUE) : null,
-    // No money changed hands, so nothing paid for it. Explicit rather than
-    // absent: the column exists on every row and 'none' would be a fourth
-    // payment method that nobody uses.
-    pay_method: null,
-  };
+  return acquisitionFromRequest({
+    headers: request.headers,
+    entry,
+    paid,
+    paywallFeature: wall && wall.feature in NAG_FEATURES ? wall.feature : null,
+    paywallSurface: wall?.from || null,
+  });
 }
 
 export async function POST(request: NextRequest) {
@@ -456,9 +389,9 @@ export async function POST(request: NextRequest) {
     patch.attr_utm_campaign = entry.utm_campaign || null;
     patch.attr_utm_content = entry.utm_content || null;
     patch.attr_utm_term = entry.utm_term || null;
-    patch.attr_click_id = clickId(entry);
-    patch.attr_click_type = clickType(entry);
-    patch.attr_params = extraParams(entry);
+    patch.attr_click_id = clickIdOf(entry);
+    patch.attr_click_type = clickTypeOf(entry);
+    patch.attr_params = extraParamsOf(entry);
     patch.attr_raw_query = entry.raw_query || null;
   }
   if (paid) {
@@ -467,9 +400,9 @@ export async function POST(request: NextRequest) {
     patch.paid_utm_campaign = paid.utm_campaign || null;
     patch.paid_utm_content = paid.utm_content || null;
     patch.paid_utm_term = paid.utm_term || null;
-    patch.paid_click_id = clickId(paid);
-    patch.paid_click_type = clickType(paid);
-    patch.paid_params = extraParams(paid);
+    patch.paid_click_id = clickIdOf(paid);
+    patch.paid_click_type = clickTypeOf(paid);
+    patch.paid_params = extraParamsOf(paid);
     patch.paid_landing_path = paid.landing_path || null;
     patch.paid_at = paid.ts || null;
   }

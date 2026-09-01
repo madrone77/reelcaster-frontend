@@ -46,6 +46,7 @@ function row(over: Partial<ConversionRow>): ConversionRow {
     landing_path: null,
     stripe_subscription_id: null,
     user_id: USER,
+    dedupe_key: null,
     ...over,
   };
 }

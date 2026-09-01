@@ -26,13 +26,14 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { googleAdsConfig, googleAccessToken, googleAdsHeaders } from './google-ads-auth';
 import { META_SIGNUP_EVENT, signupEventId } from './signup-conversion';
+import { PAYWALL_VIEW_META_EVENT } from './paywall-conversion';
 
 /** Give up after this many tries, so a permanently bad row stops churning. */
 const MAX_ATTEMPTS = 5;
 
 export interface ConversionRow {
   id: number;
-  event_type: 'trial_start' | 'purchase' | 'signup';
+  event_type: 'trial_start' | 'purchase' | 'signup' | 'paywall_view';
   occurred_at: string;
   click_at: string | null;
   value_cents: number;
@@ -48,6 +49,11 @@ export interface ConversionRow {
   stripe_subscription_id: string | null;
   /** Null on the anon buy-first flow until the account exists. */
   user_id: string | null;
+  /**
+   * Set only on `paywall_view`, the one event with neither a subscription nor
+   * an account to key on. See src/lib/paywall-conversion.ts.
+   */
+  dedupe_key: string | null;
 }
 
 /**
@@ -64,13 +70,24 @@ export function conversionEventId(row: ConversionRow): string | null {
   if (row.event_type === 'signup') {
     return row.user_id ? signupEventId(row.user_id) : null;
   }
+  // A paywall open has neither, and its dedupe key is already a stable
+  // per-session string chosen for exactly this second job.
+  if (row.event_type === 'paywall_view') {
+    return row.dedupe_key;
+  }
   return row.stripe_subscription_id ? `${row.stripe_subscription_id}:${row.event_type}` : null;
 }
 
-/** The Meta standard event each of ours reports as. */
+/**
+ * The Meta event each of ours reports as. Three are standard names, chosen so
+ * Meta's pre-trained models apply; `paywall_view` is custom because no standard
+ * event means it and borrowing one would make two behaviours unreadable. The
+ * argument is at the top of src/lib/paywall-conversion.ts.
+ */
 export function metaEventName(event: ConversionRow['event_type']): string {
   if (event === 'purchase') return 'Purchase';
   if (event === 'signup') return META_SIGNUP_EVENT;
+  if (event === 'paywall_view') return PAYWALL_VIEW_META_EVENT;
   return 'StartTrial';
 }
 
@@ -111,7 +128,9 @@ function googleConversionAction(event: ConversionRow['event_type']): string | nu
       ? process.env.GOOGLE_ADS_CONVERSION_ACTION_PURCHASE
       : event === 'signup'
         ? process.env.GOOGLE_ADS_CONVERSION_ACTION_SIGNUP
-        : process.env.GOOGLE_ADS_CONVERSION_ACTION_TRIAL;
+        : event === 'paywall_view'
+          ? process.env.GOOGLE_ADS_CONVERSION_ACTION_PAYWALL_VIEW
+          : process.env.GOOGLE_ADS_CONVERSION_ACTION_TRIAL;
   return raw?.trim() || null;
 }
 
@@ -299,7 +318,7 @@ export async function uploadPendingConversions(
   const { data, error } = await admin
     .from('marketing_conversions')
     .select(
-      'id, event_type, occurred_at, click_at, value_cents, modeled_value_cents, currency, click_id, click_type, upload_network, upload_attempts, landing_path, stripe_subscription_id, user_id',
+      'id, event_type, occurred_at, click_at, value_cents, modeled_value_cents, currency, click_id, click_type, upload_network, upload_attempts, landing_path, stripe_subscription_id, user_id, dedupe_key',
     )
     .eq('upload_status', 'pending')
     .lt('upload_attempts', MAX_ATTEMPTS)

@@ -37,6 +37,7 @@
  */
 
 import {
+  MAX_FIELD,
   clampField as clamp,
   clampQuery,
   readJsonCookie,
@@ -161,6 +162,45 @@ export interface WallAttribution {
   /** The surface that opened the modal, e.g. "explore-forecast". */
   from: string;
   ts: string;
+}
+
+/* -------------------------------------------------------------------------
+ * Reading a touch back out, for the columns a conversion is stored in.
+ *
+ * These three re-check a value that has already been through the cookie
+ * writer, which looks redundant and is not: the cookies are client-writable,
+ * and every field below lands in a column that a campaign report groups on or
+ * that an ad network is handed verbatim. The cookie may have lied.
+ *
+ * They live here, next to CLICK_TYPES and EXTRA_PARAMS, because three callers
+ * now need them — the signup route for `user_settings`, and both conversion
+ * writers — and the version that gets copied is the version that drifts.
+ * ---------------------------------------------------------------------- */
+
+export function clickTypeOf(c: CampaignParams): string | null {
+  return (CLICK_TYPES as readonly string[]).includes(c.click_type) ? c.click_type : null;
+}
+
+/**
+ * A click id is only meaningful next to a type that says which network issued
+ * it, so an id with an unrecognised type is dropped rather than stored as a
+ * value nothing can ever resolve.
+ */
+export function clickIdOf(c: CampaignParams): string | null {
+  if (!clickTypeOf(c)) return null;
+  return c.click_id ? c.click_id.slice(0, MAX_FIELD) : null;
+}
+
+/** Whitelist keys, clamp values, and store null rather than an empty object. */
+export function extraParamsOf(c: CampaignParams): Record<string, string> | null {
+  const raw = c.params;
+  if (!raw || typeof raw !== 'object') return null;
+  const out: Record<string, string> = {};
+  for (const key of EXTRA_PARAMS) {
+    const value = raw[key];
+    if (typeof value === 'string' && value) out[key] = value.slice(0, MAX_FIELD);
+  }
+  return Object.keys(out).length > 0 ? out : null;
 }
 
 /**

@@ -27,11 +27,19 @@
  * field saying "I am an iPhone in Seattle from campaign X" would be a lie
  * surface bought for nothing.
  *
- * NO IP AND NO CLICK ID. The edge resolves the address to a city before this
- * code runs and only the city is kept. gclid and fbclid stay out entirely:
- * they are network-issued identifiers for a person, the conversion table
- * carries them only because the offline upload cannot work without them, and
- * an impression has nothing to upload.
+ * NO IP, AND NO CLICK ID IN `paywall_events`. The edge resolves the address to
+ * a city before this code runs and only the city is kept. gclid and fbclid stay
+ * out of the event log entirely: they are network-issued identifiers for a
+ * person, and the log is read by dashboards that have no business holding one.
+ *
+ * THAT LAST RULE USED TO END "and an impression has nothing to upload". It does
+ * now. A paid visitor opening the paywall is reported back to the network that
+ * sold the click, once per session, as a fourth `marketing_conversions` event —
+ * because trials and signups are both too rare for Meta's bidding to learn from
+ * and this one is not. The click id lives on THAT row, in the table that has
+ * always carried them and is the only thing the offline upload can work with.
+ * The event log itself is unchanged. See src/lib/paywall-conversion.ts for why
+ * an event this far from money is worth reporting, and what it costs.
  *
  * UNAUTHENTICATED BY DESIGN — most walls are shown to signed-out visitors, who
  * are exactly the ones we most want to count. The cost of that is that anyone
@@ -55,6 +63,10 @@ import { createClient } from '@supabase/supabase-js';
 import { NAG_FEATURES } from '@/lib/plan-features';
 import { pacificDay } from '@/lib/pacific-day';
 import { paywallEventRow } from '@/lib/paywall-event';
+import { readPaid, readEntry } from '@/lib/attribution';
+import { readSessionId } from '@/lib/paywall-session';
+import { acquisitionFromRequest, recordPaywallViewConversion } from '@/lib/conversions';
+import { paywallViewDedupeKey } from '@/lib/paywall-conversion';
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
@@ -150,7 +162,69 @@ export async function POST(request: NextRequest) {
 
   await recordEvent(request, { kind, feature, surface, viewerTier, body });
 
+  // Last, and after the two writes above have had their turn. A conversion is
+  // the newest and least load-bearing of the three, and the counter that has
+  // been landing since August must not be at the mercy of it.
+  if (kind === 'impression') {
+    await recordPaidView(request, { day, feature, surface });
+  }
+
   return NextResponse.json({ ok: true });
+}
+
+/**
+ * Report a bought click reaching the wall, once per session.
+ *
+ * ONLY WITH A PAID TOUCH. `rc_paid` is written from the request in middleware
+ * whenever a visit carries campaign tags or a click id, so its presence is the
+ * whole test for "we paid for this person". An organic reader opening the same
+ * wall is counted in `paywall_events` and nowhere else, which is correct: an ad
+ * network should not be shown a conversion for somebody it never sent.
+ *
+ * Deliberately NOT falling back to first touch, unlike every other consumer of
+ * these cookies. Elsewhere the fallback keeps organic campaign tags from
+ * vanishing; here it would report a months-old paid click as a conversion today
+ * because the reader came back through Google, and the whole value of this
+ * event is that it is frequent and recent.
+ *
+ * Never throws and never blocks the response. This runs on the request that
+ * shows somebody a paywall.
+ */
+async function recordPaidView(
+  request: NextRequest,
+  input: { day: string; feature: string; surface: string },
+): Promise<void> {
+  const cookieHeader = request.headers.get('cookie') ?? '';
+  const paid = readPaid(cookieHeader);
+  if (!paid) return;
+
+  const dedupeKey = paywallViewDedupeKey({
+    sessionId: readSessionId(cookieHeader),
+    clickId: paid.click_id || null,
+    day: input.day,
+  });
+  // Neither a session cookie nor a click id: nothing stable to count once by.
+  // See the argument in paywall-conversion.ts for why that is skipped rather
+  // than guessed at.
+  if (!dedupeKey) return;
+
+  try {
+    await recordPaywallViewConversion(admin, {
+      dedupeKey,
+      occurredAt: new Date().toISOString(),
+      acquisition: acquisitionFromRequest({
+        headers: request.headers,
+        entry: readEntry(cookieHeader),
+        paid,
+        // Already checked against the live enum by the caller, and clamped
+        // there too, so the wall this credits cannot be invented by a body.
+        paywallFeature: input.feature,
+        paywallSurface: input.surface || null,
+      }),
+    });
+  } catch (err) {
+    console.error('[attribution] paywall view conversion failed', err);
+  }
 }
 
 async function recordEvent(
