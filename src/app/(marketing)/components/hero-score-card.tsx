@@ -132,7 +132,17 @@ export default function HeroScoreCard() {
   }, []);
 
   return (
-    <div className="rounded border border-rc-rule bg-rc-panel shadow-rc-panel p-6 sm:p-8">
+    // `min-w-0` is load-bearing, not decoration. This card is a grid item in
+    // the homepage hero, and a grid item's default `min-width: auto` floors
+    // its track at the item's own min-content width. Because the eyebrow and
+    // the spot name are `truncate`, and so never wrap, that min-content width
+    // is the FULL name, not the truncated one. The demo card is short enough
+    // to fit a phone; the live swap is not. "Howe Sound (Pam Rock / Worlcombe
+    // Island Area)" sized the track to 631px inside a 375px viewport and took
+    // the headline, the paragraph and both buttons off the right edge with
+    // it. Flooring the minimum at 0 lets the track take the container's width
+    // and lets the truncation below actually do its job.
+    <div className="min-w-0 rounded border border-rc-rule bg-rc-panel shadow-rc-panel p-6 sm:p-8">
       <div className="text-center">
         <p className="font-rc-mono text-[10px] tracking-[0.2em] uppercase text-rc-ink-mute/80">
           Updated hourly
