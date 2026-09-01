@@ -32,7 +32,6 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { ArrowUpRight } from "lucide-react";
 import { Paragraphs } from "./daily-report-card";
 import { supabase } from "@/lib/supabase";
 import { formatReportDate } from "@/lib/time-format";
@@ -103,13 +102,20 @@ export default function NearbyReports() {
                 </span>
                 {/* The link to the city sits apart from the expander rather
                     than wrapping it. A button inside a link is not a thing a
-                    keyboard or a screen reader can resolve. */}
+                    keyboard or a screen reader can resolve.
+                    
+                    Named rather than an arrow: a bare ↗ beside a headline does
+                    not say where it goes, and this row already has a second
+                    control ("See report") that goes somewhere else entirely.
+                    The aria-label keeps the city in it, because two links
+                    reading "View on map" are indistinguishable in a screen
+                    reader's link list. */}
                 <Link
                   href={`/explore?loc=${encodeURIComponent(city.slug)}`}
-                  aria-label={`Open ${city.name} on the map`}
-                  className="ml-auto shrink-0 rounded p-1 text-rc-ink-mute hover:text-rc-brand focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-rc-brand"
+                  aria-label={`View ${city.name} on the map`}
+                  className="ml-auto shrink-0 whitespace-nowrap rounded text-[12px] font-medium text-rc-brand hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-rc-brand"
                 >
-                  <ArrowUpRight className="h-3.5 w-3.5" aria-hidden />
+                  View on map
                 </Link>
               </div>
 
