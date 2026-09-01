@@ -523,6 +523,9 @@ export default function MobileMapSheet({
             onSelectDay={onSelectDay}
             signedIn={signedIn}
             onLockedAdDay={onLockedAdDay}
+            // The same city this sheet already puts in its own header, so a
+            // locked day and the list above it name the same place.
+            placeName={locationName ?? undefined}
           />
         </div>
       </>
@@ -669,6 +672,9 @@ export default function MobileMapSheet({
             onSelectDay={onSelectDay}
             signedIn={signedIn}
             onLockedAdDay={onLockedAdDay}
+            // The same city this sheet already puts in its own header, so a
+            // locked day and the list above it name the same place.
+            placeName={locationName ?? undefined}
           />
         </div>
       </div>

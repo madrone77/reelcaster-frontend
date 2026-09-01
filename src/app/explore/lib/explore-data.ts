@@ -666,6 +666,16 @@ export function railSpotFromEntry(
  *
  * Returns null when the home city is missing or is not in the covered tree,
  * which is the same thing from a URL's point of view: no public address.
+ *
+ * ⚠️ The same is true of a place row that is PRESENT but hollow. The guard
+ * used to test the object and not its fields, so a city carrying an undefined
+ * countryCode, provinceCode or urlSlug reached `seg()`, which calls `.trim()`
+ * on it. That throws inside `buildExploreData`, which runs during the server
+ * render of /explore — so one incomplete row anywhere in the payload took the
+ * whole map down with a 500, rather than costing that one spot its link.
+ * Found on 2026-09-01: /explore rendered on www and 500'd against the same
+ * API from a local server, which is the signature of a row the cached
+ * response predates.
  */
 function canonicalSpotPath(
   homeCitySlug: string | null | undefined,
@@ -673,6 +683,7 @@ function canonicalSpotPath(
   place: { countryCode: string; provinceCode: string; urlSlug: string } | undefined,
 ): string | null {
   if (!homeCitySlug || !place) return null;
+  if (!place.countryCode || !place.provinceCode || !place.urlSlug) return null;
   return spotPath(
     {
       countryCode: place.countryCode,
