@@ -40,7 +40,6 @@ export default function UpgradeDialog({
   variant = "pro",
   dayIndex,
   spotName,
-  spotRegion,
   placeName,
 }: {
   open: boolean;
@@ -55,8 +54,6 @@ export default function UpgradeDialog({
    * spot in its headline and drops the phrase when it is absent.
    */
   spotName?: string;
-  /** City or province, shown under that headline. */
-  spotRegion?: string;
   /**
    * The city under the map camera, for the walls that are about a viewport
    * rather than a spot. The strip folds a whole bbox into one row of days, so
@@ -88,7 +85,6 @@ export default function UpgradeDialog({
       feature={variant === "signup" ? "forecast-week" : "forecast-14d"}
       from="explore-forecast"
       spotName={spotName}
-      spotRegion={spotRegion}
       placeName={placeName}
       context={typeof dayIndex === "number" ? { day_index: dayIndex } : undefined}
     />

@@ -1566,11 +1566,6 @@ export default function SpotDetailShell({
         onOpenChange={setUpgradeOpen}
         variant={!user && lockedTier === "free" ? "signup" : "pro"}
         spotName={spot.name}
-        // The city, not the province: "Victoria" places the spot for the
-        // reader who just tapped it. `subtitle` resolves to the province on
-        // most spots, which tells a British Columbian nothing they did not
-        // already know.
-        spotRegion={cityLink?.cityName ?? spot.city ?? spot.region ?? undefined}
       />
 
       <LogCatchDialog

@@ -62,7 +62,7 @@ function viewerPlan(tier: PlanTierId) {
 export default function TrialSheet({
   viewerTier,
   placeName,
-  placeRegion,
+  placeKind = 'spot',
   from,
   region,
   ctaHref,
@@ -81,8 +81,11 @@ export default function TrialSheet({
    * headline then drops the phrase rather than inventing a subject.
    */
   placeName?: string;
-  /** The city or province under the headline, when it adds something. */
-  placeRegion?: string;
+  /**
+   * Which kind of place that is, because English cares: you fish AT a spot
+   * and IN a city. Only the preposition depends on it.
+   */
+  placeKind?: 'spot' | 'city';
   from: string;
   region?: string;
   /** Set when the surface sends the reader somewhere instead of selling here. */
@@ -94,7 +97,7 @@ export default function TrialSheet({
   onActivate: (method: 'annual' | 'wallet' | 'signup') => void;
 }) {
   const plan = viewerPlan(viewerTier);
-  const features = sheetFeatures(plan.days, plan.label);
+  const features = sheetFeatures(placeName);
 
   return (
     <TrialCtaProvider
@@ -125,15 +128,15 @@ export default function TrialSheet({
           See the next {PRO_FORECAST_DAYS} days
           {placeName ? (
             <>
-              {' at '}
+              {placeKind === 'city' ? ' in ' : ' at '}
               <span className="text-rc-brand">{placeName}</span>
             </>
           ) : null}
         </DialogTitle>
 
         <p className="mt-1.5 text-sm leading-5 text-rc-ink-soft">
-          {placeRegion ? `${placeRegion} · ` : ''}
-          {plan.label} shows {plan.days} days. Pro shows {PRO_FORECAST_DAYS}.
+          {plan.label} shows {plan.days}. Pro shows {PRO_FORECAST_DAYS}{' '}
+          everywhere.
         </p>
 
         <ul className="mt-4 space-y-2.5">

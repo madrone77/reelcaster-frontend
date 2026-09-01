@@ -69,8 +69,6 @@ export default function ProTrialModal({
   from = "explore",
   /** Names the spot in the headline ("Set an alert for Oak Bay Flats"). */
   spotName,
-  /** City or province, under the phone sheet's headline. Ignored elsewhere. */
-  spotRegion,
   /**
    * The place the phone sheet names when there is no single spot: the city
    * under the map camera. `spotName` wins where both exist, because a spot is
@@ -90,7 +88,6 @@ export default function ProTrialModal({
   ctaHref?: string;
   from?: string;
   spotName?: string;
-  spotRegion?: string;
   placeName?: string;
   context?: Record<string, string | number | boolean>;
 }) {
@@ -248,7 +245,8 @@ export default function ProTrialModal({
           <TrialSheet
             viewerTier={viewerTier}
             placeName={spotName ?? placeName}
-            placeRegion={spotRegion}
+            // A spot when there is one, otherwise the city the map is on.
+            placeKind={spotName ? 'spot' : 'city'}
             from={from}
             ctaHref={ctaHref}
             ctaLabel={ctaLabel}

@@ -156,23 +156,24 @@ export const SHARED_ROW_HEADING = "Free gets this too";
  *
  * Not the matrix rows. The matrix answers "what is the difference between two
  * columns" in as few words as a table cell allows; a sheet has one column and
- * room for a second line, and the second line is where the argument actually
- * is ("Member stops at 7" means nothing as a column, and everything under a
- * heading that says 14).
+ * room for a second line, and the second line is where the argument is.
  *
- * The horizon in the first detail line is interpolated from the viewer's own
- * tier rather than written down, so a change to FREE_FORECAST_DAYS cannot
- * leave the sheet promising a number the API stopped enforcing.
+ * Reports lead. The forecast used to, and it was the headline said twice:
+ * "See the next 14 days" over "14-day forecast at every spot" spends the
+ * first and best line of the list restating the title. Reports are the one
+ * thing on the list a reader cannot guess the shape of from the map behind
+ * the sheet, and they are named after the place they cover, so the line reads
+ * as this place's reports rather than a feature in the abstract.
  *
  * Three, and no more: a fourth costs the timeline its place above the fold on
  * a 667pt phone, and the timeline is what answers the objection.
  */
-export function sheetFeatures(viewerDays: number, viewerLabel: string) {
+export function sheetFeatures(placeName?: string) {
   return [
     {
-      id: "two-weeks",
-      title: "14-day forecast at every spot",
-      detail: `${viewerLabel} stops at ${viewerDays}. Plan your trips in advance.`,
+      id: "catch-reports",
+      title: placeName ? `${placeName} Catch Reports` : "Catch reports",
+      detail: "Updated daily with what is being caught and where.",
     },
     {
       id: "alerts",
