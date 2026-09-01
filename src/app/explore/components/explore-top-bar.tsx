@@ -64,6 +64,7 @@ export default function ExploreTopBar({
   containerClassName = PAGE_MEASURE,
   hideOnScroll = false,
   upgradeCta = false,
+  placeName,
 }: {
   /** "brand" (the default) is a blue bar with a white mark/links; "default"
    *  is the light bar, kept available for any surface that needs it. */
@@ -88,6 +89,17 @@ export default function ExploreTopBar({
    *  because on a phone this bar now exists mainly to make that offer. It has
    *  no effect signed out, where the trial CTA already fills the same slot. */
   upgradeCta?: boolean;
+  /**
+   * The city the reader is looking at, when the surface knows one.
+   *
+   * Only Explore passes it, because only Explore has a camera pointed at a
+   * city. It travels to the trial modal, where the phone sheet sets it in
+   * brand blue behind the headline ("See the next 14 days in Seattle") and
+   * names the catch-reports row after the same city. Every other surface that
+   * mounts this bar leaves it unset and gets the plain headline, which is the
+   * right answer for a page that cannot say what the reader was looking at.
+   */
+  placeName?: string;
 } = {}) {
   const { user, session, loading } = useAuth();
   const pathname = usePathname();
@@ -246,6 +258,7 @@ export default function ExploreTopBar({
               {upgradeCta && (
                 <TrialModalButton
                   from="explore-topbar-upgrade"
+                  placeName={placeName}
                   className={brand ? btn.navOnBrand : btn.nav}
                 >
                   {/* 375px of bar, less a 104px mark and a 32px avatar, does
@@ -283,6 +296,7 @@ export default function ExploreTopBar({
                   btn.navOnBrand on the blue bar. */}
               <TrialModalButton
                 from="explore-topbar"
+                placeName={placeName}
                 className={brand ? btn.navOnBrand : btn.nav}
               >
                 Start free trial

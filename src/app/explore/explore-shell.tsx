@@ -2117,7 +2117,15 @@ export default function ExploreShell({
           already pinned under the map, and the mark rides in that bar. */}
       {!ad && (
         <div className={isPaid ? "hidden lg:block" : undefined}>
-          <ExploreTopBar containerClassName={BLEED_MEASURE} upgradeCta={!isPaid} />
+          {/* The bar's trial CTA names the city under the camera, the same
+              `labelCity` the floating location header and the mobile sheet
+              already show. Nothing to name before the camera settles, and the
+              headline simply drops the phrase until it does. */}
+          <ExploreTopBar
+            containerClassName={BLEED_MEASURE}
+            upgradeCta={!isPaid}
+            placeName={labelCity?.name ?? undefined}
+          />
         </div>
       )}
 
