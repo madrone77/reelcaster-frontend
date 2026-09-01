@@ -23,11 +23,38 @@
 import Link from "next/link";
 import { ArrowUpRight } from "lucide-react";
 import type { BlueCasterCityToday } from "@/lib/bluecaster";
-import { speciesDisplayName } from "@/app/explore/lib/explore-data";
+import { speciesDisplayName, tierFor } from "@/app/explore/lib/explore-data";
 import { formatHour12 } from "@/lib/time-format";
 
 /** How many species the roster names before it defers to the city page. */
 const SHOWN_SPECIES = 5;
+
+/**
+ * Below this many species the roster stays a plain list.
+ *
+ * A chart of two bars is not a chart, it is two numbers wearing a costume, and
+ * the comparison it invites is not worth the ink. Three is where the shape of
+ * the day starts carrying information a column of numerals does not.
+ */
+const CHART_MIN_SPECIES = 3;
+
+/**
+ * Bars are drawn from a floor, not from zero.
+ *
+ * Post-rescale a city's species sit in a narrow band — Victoria today is 68 to
+ * 73 — and bars from zero make five nearly identical rectangles that say
+ * nothing. Anchoring at 50 spends the width on the part that varies. It is
+ * stated on the axis rather than hidden, because a truncated baseline that
+ * does not admit it is the oldest lie in charting.
+ */
+const BAR_FLOOR = 50;
+
+const TIER_FILL: Record<string, string> = {
+  good: "var(--rc-good)",
+  fair: "var(--rc-fair)",
+  poor: "var(--rc-poor)",
+  none: "var(--rc-ink-mute)",
+};
 
 /**
  * The verdict band, in the tokens every other surface uses for a score.
@@ -93,6 +120,7 @@ export default function CityTodayBand({
   const headline = today.headline;
   const headlineWindow = headline ? windowLabel(headline.window) : null;
   const species = today.species.slice(0, SHOWN_SPECIES);
+  const chart = species.length >= CHART_MIN_SPECIES;
   const best = today.ahead?.best ?? null;
 
   return (
@@ -133,32 +161,71 @@ export default function CityTodayBand({
           <p className="mt-4 text-xs font-semibold uppercase tracking-wide text-rc-ink-mute">
             What you can fish
           </p>
-          <ul className="mt-2 divide-y divide-rc-rule">
+
+          {/* One measure across categories, so this is a plain bar chart: no
+              legend, no second axis, length carrying the whole comparison.
+              Values are `day_avg`, not `peak` — post-rescale every healthy day
+              peaks 89 to 92, so a chart of peaks would be five bars of equal
+              length.
+
+              ⚠ Colour is the product's tier palette, and it does NOT survive
+              colour-blind separation on its own: green against amber measures
+              ΔE 5.1 under protanopia, below even the 6-8 floor. That is
+              allowed here only because identity is never colour-alone — every
+              bar carries its species name and its numeral, and the numeral is
+              the actual value being compared. Do not "tidy up" this row by
+              dropping the numbers. */}
+          <ul className="mt-2.5 space-y-2">
             {species.map((s) => {
               const w = windowLabel(s.window);
+              const value = Math.round(s.day_avg);
+              const pct = Math.max(
+                2,
+                Math.min(100, ((value - BAR_FLOOR) / (100 - BAR_FLOOR)) * 100),
+              );
+              const fill = TIER_FILL[tierFor(value)] ?? TIER_FILL.none;
               return (
-                <li
-                  key={s.species_id}
-                  className="flex items-baseline gap-3 py-1.5 text-sm"
-                >
-                  <span className="min-w-0 flex-1 truncate text-rc-ink">
-                    {speciesDisplayName(s.species_name)}
-                  </span>
-                  {w && (
-                    <span className="shrink-0 font-rc-mono text-[11px] text-rc-ink-mute">
-                      {w}
+                <li key={s.species_id}>
+                  <div className="flex items-baseline gap-3 text-sm">
+                    <span className="min-w-0 flex-1 truncate text-rc-ink">
+                      {speciesDisplayName(s.species_name)}
                     </span>
+                    {w && (
+                      <span className="shrink-0 font-rc-mono text-[11px] text-rc-ink-mute">
+                        {w}
+                      </span>
+                    )}
+                    <span className="w-7 shrink-0 text-right font-rc-mono text-[13px] font-semibold text-rc-ink">
+                      {value}
+                    </span>
+                  </div>
+                  {chart && (
+                    <div
+                      className="mt-1 h-1.5 w-full overflow-hidden rounded-full bg-rc-surface"
+                      role="img"
+                      aria-label={`${speciesDisplayName(s.species_name)} scores ${value} out of 100 today`}
+                      title={
+                        s.good_hours > 0
+                          ? `${value}/100 · ${s.good_hours} good hours`
+                          : `${value}/100`
+                      }
+                    >
+                      <div
+                        className="h-full rounded-full"
+                        style={{ width: `${pct}%`, backgroundColor: fill }}
+                      />
+                    </div>
                   )}
-                  {/* `day_avg`, not `peak`. Post-rescale every healthy day
-                      peaks 89 to 92, so peaks separate nothing: a column of
-                      them reads as five identical species. */}
-                  <span className="w-8 shrink-0 text-right font-rc-mono text-[13px] font-semibold text-rc-ink">
-                    {Math.round(s.day_avg)}
-                  </span>
                 </li>
               );
             })}
           </ul>
+
+          {chart && (
+            <p className="mt-2 font-rc-mono text-[10px] text-rc-ink-mute">
+              Bars from {BAR_FLOOR}, not 0
+            </p>
+          )}
         </>
       )}
 
