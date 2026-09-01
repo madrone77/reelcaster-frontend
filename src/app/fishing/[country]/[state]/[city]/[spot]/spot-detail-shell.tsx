@@ -52,6 +52,7 @@ import CurrentRegulations from "@/app/explore/spot/components/current-regulation
 import ScoreFactors from "@/app/explore/spot/components/score-factors";
 import { useFavorite } from "@/app/explore/lib/use-favorite";
 import { useHomeSpot } from "@/app/explore/lib/use-home-spot";
+import HomeSpotOffer from "./home-spot-offer";
 import { resolveSea } from "@/app/explore/lib/sea-state";
 import SpotTerminal from "@/app/explore/spot/components/spot-terminal";
 import SpotMiniMap from "@/app/explore/spot/components/spot-mini-map";
@@ -286,7 +287,15 @@ export default function SpotDetailShell({
   // once entitlement says the reader actually is free.
   const [fresh, setFresh] = useState<RailFreshCatch | null>(null);
   const [saved, toggleSaved] = useFavorite(spot.slug);
-  const [isHome, toggleHome] = useHomeSpot(spot.slug);
+  // Hydrated, so the house fills in for an angler who pinned this spot on
+  // another device — and so HomeSpotOffer below can tell "no pin" apart from
+  // "the pin hasn't been read back yet" before it offers to set one.
+  const {
+    isHome,
+    toggle: toggleHome,
+    slug: homeSlug,
+    ready: homeReady,
+  } = useHomeSpot(spot.slug, true);
   const { isPaid, loading: tierLoading } = useSubscription();
   const { user, loading: authLoading } = useAuth();
   // Until `tierLoading` clears, `isPaid` is still its initial `false` — the
@@ -1172,6 +1181,22 @@ export default function SpotDetailShell({
                   }`}
                 </p>
               </div>
+
+            {/* The pin, said out loud. Sits under the identity rather than
+                above it — the angler should read WHICH spot this is before
+                being asked to claim it — and renders nothing until it is
+                earned, which is most of the time for most people. Suppressed
+                on an ad landing for the same reason the star and the house
+                are: one ask per cold visit. */}
+            {!ad && (
+              <HomeSpotOffer
+                slug={spot.slug}
+                name={spot.name}
+                homeReady={homeReady}
+                homeSlug={homeSlug}
+                signedIn={!authLoading && !!user}
+              />
+            )}
 
             {/* Species switcher drives every score below — pick first. */}
             {species.length > 1 && (

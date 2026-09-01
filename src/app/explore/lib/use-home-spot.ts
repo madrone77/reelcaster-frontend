@@ -189,17 +189,32 @@ export function useHomeSpotSlug(hydrate = false): string | null {
   return useHomeSpotState(hydrate).slug;
 }
 
+export interface HomeSpotPin extends HomeSpotState {
+  /** Is `slug` — the one asked about — the home spot? */
+  isHome: boolean;
+  /** Make it the home spot, or clear it if it already is. Both stores follow. */
+  toggle: () => void;
+}
+
 /**
- * Is `slug` the home spot? Returns [isHome, toggle]. Toggling on makes this the
- * home spot (replacing any prior); toggling off clears it. Both stores follow.
+ * The home-spot pin as seen from one spot's page.
+ *
+ * Returns an object rather than a tuple because a caller needs more than
+ * `isHome`: an offer to PIN this spot has to know whether some OTHER spot is
+ * already pinned, which `slug` answers, and whether that question has been
+ * answered at all, which `ready` does.
+ *
+ * Pass `hydrate` on a surface that must be right about a pin set on ANOTHER
+ * device — without it this reads localStorage only, so the spot page of an
+ * angler's home spot draws an empty house on the phone they didn't pin from.
  */
-export function useHomeSpot(slug: string) {
-  const current = useHomeSpotSlug();
+export function useHomeSpot(slug: string, hydrate = false): HomeSpotPin {
+  const { slug: current, ready } = useHomeSpotState(hydrate);
   const isHome = current === slug;
 
   const toggle = useCallback(() => {
     void saveHomeSpot(isHome ? null : slug);
   }, [isHome, slug]);
 
-  return [isHome, toggle] as const;
+  return { slug: current, ready, isHome, toggle };
 }
