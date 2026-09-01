@@ -13,6 +13,7 @@ import type {
   MapCondCell,
   MapCondStrip,
 } from "@/lib/bluecaster";
+import { spotPath } from "@/lib/paths";
 import { COVERED_PROVINCES } from "@/lib/regions";
 import { formatHour12 } from "@/lib/time-format";
 import { resolveSea } from "./sea-state";
@@ -91,6 +92,19 @@ export interface RailSpot {
   name: string;
   lat: number;
   lng: number;
+  /**
+   * This spot's canonical page path, or null when it has no public home.
+   *
+   * Built from the payload's `home_city_slug`, never from `citySlug`: the
+   * latter is the alphabetically-first MEMBER city and is arbitrary with
+   * respect to where the spot belongs, so a link built from it lands on a real
+   * page that immediately 308s to this one. 9 of 228 spots differ.
+   *
+   * Null means the spot has no /fishing address (a private custom spot, or a
+   * city that is not published). Fall back to legacySpotPath() there, which is
+   * the URL those spots never leave.
+   */
+  path: string | null;
   citySlug: string;
   cityName: string;
   regionSlug: string;
@@ -220,12 +234,16 @@ export const TIER_SCORE_TEXT: Record<Tier, string> = {
 // ── Location selector tree ──────────────────────────────────────────
 
 export interface CityNode {
+  /** BlueCaster's key ("victoria-bc"). What the API takes. */
   slug: string;
+  /** The path segment ("victoria"). What a URL takes. Never the same value. */
+  urlSlug: string;
   name: string;
   lat: number;
   lng: number;
   regionSlug: string;
   regionName: string;
+  countryCode: string;
   provinceCode: string;
   spotCount: number;
   bestScore: number | null;
@@ -241,6 +259,8 @@ export interface RegionNode {
 export interface ProvinceNode {
   code: string;
   name: string;
+  /** Needed to build any path below this node: /fishing/<country>/<code>/... */
+  countryCode: string;
   regions: RegionNode[];
 }
 
@@ -608,6 +628,12 @@ export function extraRailSpotsFromPayload(
  * the rail does it. The payload carries only `city_slug`, so region/province
  * come back blank — callers that need them fill them in. Lets surfaces outside
  * Explore (the dashboard) render the same card from the same numbers.
+ *
+ * `path` comes back null for the same reason: turning `home_city_slug` into a
+ * URL needs the city's country and url_slug, which live in the hierarchy this
+ * function is not given. Callers with a city index should fill it in; callers
+ * without one should render through spotHref(), which falls back to the
+ * retired URL and takes one redirect rather than inventing a wrong path.
  */
 export function railSpotFromEntry(
   entry: MapSpotEntry,
@@ -618,6 +644,7 @@ export function railSpotFromEntry(
   return {
     id: entry.id,
     slug: entry.slug,
+    path: null,
     name: entry.name,
     lat: entry.lat,
     lng: entry.lng,
@@ -635,6 +662,28 @@ export function railSpotFromEntry(
 }
 
 /**
+ * A spot's canonical path, given the home city the payload names.
+ *
+ * Returns null when the home city is missing or is not in the covered tree,
+ * which is the same thing from a URL's point of view: no public address.
+ */
+function canonicalSpotPath(
+  homeCitySlug: string | null | undefined,
+  spotSlug: string,
+  place: { countryCode: string; provinceCode: string; urlSlug: string } | undefined,
+): string | null {
+  if (!homeCitySlug || !place) return null;
+  return spotPath(
+    {
+      countryCode: place.countryCode,
+      stateCode: place.provinceCode,
+      cityUrlSlug: place.urlSlug,
+    },
+    spotSlug,
+  );
+}
+
+/**
  * Where a city sits, flattened out of the location tree.
  *
  * The spot payload carries only `city_slug`; region, province, and the city
@@ -644,11 +693,13 @@ export function railSpotFromEntry(
  */
 export interface CityPlace {
   slug: string;
+  urlSlug: string;
   name: string;
   lat: number;
   lng: number;
   regionSlug: string;
   regionName: string;
+  countryCode: string;
   provinceCode: string;
 }
 
@@ -662,11 +713,13 @@ export function cityIndexFromLocations(
       for (const city of region.cities) {
         index.set(city.slug, {
           slug: city.slug,
+          urlSlug: city.urlSlug,
           name: city.name,
           lat: city.lat,
           lng: city.lng,
           regionSlug: region.slug,
           regionName: region.name,
+          countryCode: prov.countryCode,
           provinceCode: prov.code,
         });
       }
@@ -696,6 +749,10 @@ export function railSpotsFromPayload(
   for (const entry of payload.spots) {
     const place = entry.city_slug ? cities.get(entry.city_slug) : undefined;
     if (!place) continue;
+    // The HOME city, which is a different lookup from the grouping one above.
+    const home = entry.home_city_slug
+      ? cities.get(entry.home_city_slug)
+      : undefined;
     const s = deriveScoring(entry, payload.species, atHour);
     out.push({
       id: entry.id,
@@ -703,6 +760,7 @@ export function railSpotsFromPayload(
       name: entry.name,
       lat: entry.lat,
       lng: entry.lng,
+      path: canonicalSpotPath(entry.home_city_slug, entry.slug, home),
       citySlug: place.slug,
       area: entry.area ?? null,
       areaAgency: entry.area_agency ?? null,
@@ -764,6 +822,7 @@ export function buildExploreData(
       city: HierarchyCity | HierarchyCityLight;
       regionSlug: string;
       regionName: string;
+      countryCode: string;
       provinceCode: string;
     }
   >();
@@ -774,6 +833,7 @@ export function buildExploreData(
       const provinceNode: ProvinceNode = {
         code: sp.code,
         name: sp.name,
+        countryCode: country.code,
         regions: [],
       };
 
@@ -790,6 +850,7 @@ export function buildExploreData(
             city,
             regionSlug: region.slug,
             regionName: region.name,
+            countryCode: country.code,
             provinceCode: sp.code,
           });
 
@@ -801,11 +862,13 @@ export function buildExploreData(
           if (spotCount > 0) {
             regionNode.cities.push({
               slug: city.slug,
+              urlSlug: city.url_slug,
               name: city.name,
               lat: city.lat,
               lng: city.lng,
               regionSlug: region.slug,
               regionName: region.name,
+              countryCode: country.code,
               provinceCode: sp.code,
               spotCount,
               bestScore: null, // filled from the payload below
@@ -831,6 +894,10 @@ export function buildExploreData(
 
     const s = deriveScoring(entry, speciesDict, nowHour);
     const { city, regionSlug, regionName, provinceCode } = place;
+    // The HOME city, which is a different lookup from the grouping one above.
+    const homePlace = entry.home_city_slug
+      ? cityIndex.get(entry.home_city_slug)
+      : undefined;
 
     spots.push({
       id: entry.id,
@@ -838,6 +905,15 @@ export function buildExploreData(
       name: entry.name,
       lat: entry.lat,
       lng: entry.lng,
+      path: canonicalSpotPath(
+        entry.home_city_slug,
+        entry.slug,
+        homePlace && {
+          countryCode: homePlace.countryCode,
+          provinceCode: homePlace.provinceCode,
+          urlSlug: homePlace.city.url_slug,
+        },
+      ),
       citySlug: city.slug,
       area: entry.area ?? null,
       areaAgency: entry.area_agency ?? null,

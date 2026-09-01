@@ -7,6 +7,7 @@ import { btn } from '@/app/components/ui/button';
 import { TIER_PILL, tierFor } from '@/app/explore/lib/explore-data';
 import { scoreColor } from '@/app/explore/lib/spot-geojson';
 import type { NearbyPayload, NearbySpot } from '@/lib/nearby-spots';
+import { spotHref } from "@/lib/paths";
 
 /**
  * "Top fishing spots near you" — the homepage's one personalized section.
@@ -48,7 +49,7 @@ function SpotRow({ spot, rank }: { spot: NearbySpot; rank: number }) {
   return (
     <li>
       <Link
-        href={`/explore/spot/${spot.slug}`}
+        href={spotHref(spot)}
         className="flex items-center gap-3 px-4 py-2 transition-colors hover:bg-rc-surface"
       >
         <span className="w-4 shrink-0 text-right font-rc-mono text-[11px] tabular-nums text-rc-ink-mute">

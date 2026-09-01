@@ -1,7 +1,7 @@
 "use client";
 
 import type { ComponentProps } from "react";
-import CityInstrument from "@/app/fishing/[province]/[city]/instrument/city-instrument";
+import CityInstrument from "@/app/fishing/[country]/[state]/[city]/instrument/city-instrument";
 import { useBlendTarget } from "./blend-track";
 
 /**

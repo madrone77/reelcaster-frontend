@@ -360,6 +360,18 @@ export interface MapSpotEntry {
   lat: number;
   lng: number;
   city_slug: string | null;
+  /**
+   * The one city this spot's public URL lives under (`cities.slug`).
+   *
+   * ⚠️ NOT `city_slug`, which is the alphabetically-first MEMBER city and is
+   * arbitrary with respect to where the spot belongs. 9 of the 228 published
+   * spots disagree between the two: Race Rocks is a member of Cowichan, 55 km
+   * away, and homed to Sooke. Build links from this one.
+   *
+   * Null where the spot has no public home: a private custom spot, or a city
+   * that is not published.
+   */
+  home_city_slug: string | null;
   /** Seabed at the mark: "rock" | "mixed" | "sand" | "mud" | "kelp", or null.
    *  The ONLY physical character a spot card can carry — there is no depth
    *  anywhere in the product (`depth_avg_m` is null on all 164 published
@@ -703,11 +715,36 @@ export async function fetchSpotThumb(
 interface HierarchyCityBase {
   id: string;
   name: string;
+  /**
+   * BlueCaster's internal key, province suffix included ("victoria-bc").
+   *
+   * This is what every OTHER endpoint taking a city means, so it is the value
+   * to pass to /api/v1/cities/:slug/*. It is NOT the URL segment: see
+   * `url_slug`, and never derive one from the other.
+   */
   slug: string;
+  /**
+   * The public path segment ("victoria"), with the province suffix stripped
+   * because the state is already its own segment in /fishing/ca/bc/victoria.
+   *
+   * Unique within a state, NOT globally: Vancouver BC and Vancouver WA are
+   * both "vancouver". Key caches and maps on `id`, or on state plus this.
+   */
+  url_slug: string;
   lat: number;
   lng: number;
   /** cities.lifecycle — building | staging | published. */
   lifecycle: string;
+  /**
+   * Published spots this city is the HOME of, which is the set its public page
+   * owns. Differs from `spot_count`, which counts memberships: a spot in N
+   * cities is a member of all N and the home of exactly one.
+   *
+   * Gate a city's page on THIS. San Diego is 7 by membership and 0 by home
+   * (all seven are offshore banks nearer other cities), so a spot_count gate
+   * renders an empty page.
+   */
+  home_spot_count: number;
 }
 
 export interface HierarchyCity extends HierarchyCityBase {
@@ -718,11 +755,25 @@ export interface HierarchyCity extends HierarchyCityBase {
     lat: number;
     lng: number;
     is_published: boolean;
+    /**
+     * The one city this spot's URL lives under. A spot appears once per
+     * membership in this tree, so without this there is no way to tell which
+     * of those appearances is canonical: 27 of the 274 published spots are
+     * members of more than one city.
+     *
+     * Null only for spots with no city link at all (drafts, archived, private
+     * custom spots).
+     */
+    home_city_id: string | null;
   }>;
 }
 
 export interface HierarchyCityLight extends HierarchyCityBase {
-  /** Published member spots. Replaces `spots[]` when fetched with spots=0. */
+  /**
+   * Member spots that are published. Counts MEMBERSHIPS, so it over-reports a
+   * city that borrows water from closer neighbours. Use `home_spot_count`
+   * unless you specifically mean "reachable from here".
+   */
   spot_count: number;
 }
 

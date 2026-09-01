@@ -8,8 +8,8 @@ import {
   shareDescription,
   shareTitle,
 } from "@/lib/share-cards";
-import SpotDetailShell from "@/app/explore/spot/[slug]/spot-detail-shell";
-import { loadSpotPage } from "@/app/explore/spot/[slug]/load-spot-page";
+import SpotDetailShell from "@/app/fishing/[country]/[state]/[city]/[spot]/spot-detail-shell";
+import { loadSpotPage } from "@/app/fishing/[country]/[state]/[city]/[spot]/load-spot-page";
 import SharedCardDialog from "./shared-card-dialog";
 import OrphanShareView from "./orphan-share-view";
 

@@ -1,6 +1,6 @@
 import { fetchFreshCatches, fetchHierarchy, fetchMapSpots } from "@/lib/bluecaster";
 import { buildExploreData, tierFor } from "@/app/explore/lib/explore-data";
-import { PHASE_LABEL } from "@/app/fishing/[province]/[city]/hub/hub-data";
+import { PHASE_LABEL } from "@/app/fishing/[country]/[state]/[city]/hub/hub-data";
 import { formatHour12 } from "@/lib/time-format";
 
 /**

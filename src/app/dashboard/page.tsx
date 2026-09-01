@@ -86,6 +86,7 @@ function unscoredRailSpot(
     id: slug,
     slug,
     name,
+    path: null,
     lat: 0,
     lng: 0,
     citySlug: "",

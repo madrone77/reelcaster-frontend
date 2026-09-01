@@ -30,6 +30,7 @@ import HourlyBars from "./hourly-bars";
 import { useUnitPreferences } from "@/contexts/unit-preferences-context";
 import { convertDistance, formatDistance } from "@/app/utils/unit-conversions";
 import { formatHour12 } from "@/lib/time-format";
+import { spotHref } from "@/lib/paths";
 
 const ProTrialModal = dynamic(
   () => import("@/app/components/paywall/pro-trial-modal"),
@@ -143,7 +144,7 @@ export default function SpotDrawer({
 
   const tier = tierFor(score);
   const peak = fmtPeak(spot.peakHour);
-  const spotHref = `/explore/spot/${spot.slug}`;
+  const href = spotHref(spot);
   const [fav, toggleFav] = useFavorite(spot.slug);
   const { isPaid } = useSubscription();
   const [upgradeOpen, setUpgradeOpen] = useState(false);
@@ -330,7 +331,7 @@ export default function SpotDrawer({
       {/* Actions */}
       <div className="flex gap-2 px-4 py-4 border-t border-rc-rule-soft">
         <Link
-          href={spotHref}
+          href={href}
           className="flex-1 text-center px-4 py-2.5 rounded-lg bg-rc-brand hover:bg-rc-brand-hover text-white font-rc-mono text-xs font-semibold tracking-[0.08em] transition-colors"
         >
           VIEW SPOT DETAILS
@@ -345,7 +346,7 @@ export default function SpotDrawer({
           </button>
         ) : (
           <Link
-            href={`${spotHref}?alert=1`}
+            href={`${href}?alert=1`}
             className="px-4 py-2.5 rounded-lg border border-rc-brand text-rc-brand font-rc-mono text-xs font-semibold tracking-[0.08em] hover:bg-rc-brand-soft transition-colors text-center"
           >
             SET ALERT

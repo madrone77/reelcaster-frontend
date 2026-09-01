@@ -1,7 +1,11 @@
 import { fetchCityGuides, fetchHierarchy, fetchMapSpots } from "@/lib/bluecaster";
-import { COVERED_PROVINCES } from "@/lib/regions";
+
 import { siteUrl } from "@/lib/site";
-import { getFishingProvince } from "./fishing/lib/fishing-data";
+import {
+  getFishingCountries,
+  locationOf,
+} from "./fishing/lib/fishing-data";
+import { guidePath } from "@/lib/paths";
 
 // Same extent /explore fetches (BC + WA + OR) — keeps the sitemap's spot
 // list identical to what the explore surface actually renders.
@@ -88,6 +92,8 @@ export default async function sitemap(): Promise<SitemapEntry[]> {
   }));
 
   // A sitemap must never 500, so both reads degrade to null rather than throw.
+  // `payload` is read for its scoring day alone now; the URL list is the
+  // hierarchy's, because only the hierarchy knows a spot's home city.
   const [hierarchy, payload] = await Promise.all([
     fetchHierarchy().catch(() => null),
     fetchMapSpots({ bbox: COVERED_BBOX_ALL }).catch(() => null),
@@ -95,76 +101,70 @@ export default async function sitemap(): Promise<SitemapEntry[]> {
 
   const scoredAt = scoredLastModified(payload?.date);
 
-  // Every spot slug reachable from a published city page. The hierarchy is the
-  // lifecycle gate — it carries only published cities, each with the exact
-  // spot links its page renders — so this set is precisely the internal link
-  // graph a crawler can walk.
-  const linkedSpotSlugs = new Set<string>();
+  // The directory, walked once from the same lifecycle-gated tree the pages
+  // render, so the sitemap cannot drift from what actually resolves.
+  //
+  // Every URL here is a DESTINATION. The retired /fishing/<province>/... and
+  // /explore/spot/<slug> URLs 308 to these, and a sitemap that lists a
+  // redirect source is asking a crawler to discover the redirect it is already
+  // being told about, on every fetch.
+  //
+  // `payload` is still read, but only for its scoring day: the spot list now
+  // comes from the hierarchy, which is the only source that knows a spot's
+  // home city and therefore its URL. That also removes the old orphan problem
+  // for free, since the tree only contains spots a crawler could reach by
+  // walking the site.
+  for (const country of getFishingCountries(hierarchy)) {
+    entries.push({
+      url: siteUrl(`/fishing/${country.code.toLowerCase()}`),
+      lastModified: scoredAt,
+      changeFrequency: "weekly",
+      priority: 0.7,
+    });
 
-  // /fishing directory — province indexes + city explorers, derived from the
-  // same lifecycle-gated hierarchy those pages render, so the sitemap can't
-  // drift from what actually resolves.
-  if (hierarchy) {
-    for (const code of COVERED_PROVINCES) {
-      const province = getFishingProvince(hierarchy, code);
-      if (!province || province.cities.length === 0) continue;
-      const provPath = `/fishing/${code.toLowerCase()}`;
+    for (const province of country.provinces) {
       entries.push({
-        url: siteUrl(provPath),
+        url: siteUrl(province.path),
         lastModified: scoredAt,
         changeFrequency: "weekly",
         priority: 0.8,
       });
+
       for (const city of province.cities) {
         entries.push({
-          url: siteUrl(`${provPath}/${city.slug}`),
+          url: siteUrl(city.path),
           lastModified: scoredAt,
           changeFrequency: "daily",
           priority: 0.8,
         });
-        // Species guides. Only published ones come back, and only for species
-        // that still have spots behind them, so this matches the links the
-        // city page renders.
+
+        // Only published guides for species that still have spots behind them
+        // come back, so this matches the links the city page renders.
         const guides = await fetchCityGuides(city.slug);
         for (const guide of guides?.guides ?? []) {
           entries.push({
-            url: siteUrl(`${provPath}/${city.slug}/${guide.species_slug}`),
-            // The prose is stable; the regulation block and per-spot scores
-            // move with the scoring day, same as the city page.
+            url: siteUrl(guidePath(locationOf(city), guide.species_slug)),
+            // The prose is stable; the regulation block and the per-spot
+            // scores move with the scoring day, same as the city page.
             lastModified: scoredAt,
             changeFrequency: "weekly",
             priority: 0.7,
           });
         }
+
+        // `city.spots` is already the spots this city is the HOME of, so a
+        // shared spot is listed once, under the one URL that serves it. The
+        // other city paths 308 here and belong in no sitemap.
         for (const spot of city.spots) {
-          if (spot.slug) linkedSpotSlugs.add(spot.slug);
+          entries.push({
+            url: siteUrl(spot.path),
+            lastModified: scoredAt,
+            changeFrequency: "daily",
+            priority: 0.7,
+          });
         }
       }
     }
-  }
-
-  // Spot pages are the content-rich indexable surface (/explore/spot/[slug]
-  // sets robots index:true + a canonical).
-  //
-  // The map payload is bbox-scoped, not lifecycle-gated, so on its own it also
-  // returns spots in cities that aren't published yet. Those pages render, but
-  // no city page links them and findCityForSpot() gives them no breadcrumb —
-  // they were seven orphans in the sitemap, which is exactly the "indexable,
-  // linked from nowhere" shape that reads as low value. Intersecting with the
-  // link graph keeps the sitemap to spots a crawler could also reach by
-  // walking the site.
-  //
-  // If the hierarchy read failed we have no link graph to intersect with, so
-  // fall back to the full payload: stale orphans beat an empty sitemap.
-  for (const spot of payload?.spots ?? []) {
-    if (!spot.slug) continue;
-    if (hierarchy && !linkedSpotSlugs.has(spot.slug)) continue;
-    entries.push({
-      url: siteUrl(`/explore/spot/${spot.slug}`),
-      lastModified: scoredAt,
-      changeFrequency: "daily",
-      priority: 0.7,
-    });
   }
 
   return entries;

@@ -5,6 +5,7 @@ import { Heart, ChevronRight, MapPin } from "lucide-react";
 import ExploreTopBar from "@/app/explore/components/explore-top-bar";
 import { useSavedSpots } from "@/app/explore/lib/use-favorite";
 import { PAGE_MEASURE, READING_MEASURE } from "@/app/components/layout/page-measure";
+import { legacySpotPath } from "@/lib/paths";
 
 // "victoria-waterfront-ad3f9b" → "Victoria Waterfront" (strip the id suffix,
 // title-case the slug words).
@@ -79,7 +80,7 @@ export default function FavoritesPage() {
                 {slugs.map((slug) => (
                   <li key={slug}>
                     <Link
-                      href={`/explore/spot/${slug}`}
+                      href={legacySpotPath(slug)}
                       className="flex items-center gap-3 rounded border border-rc-rule bg-rc-panel px-4 py-3.5 hover:border-rc-brand/40 transition-colors"
                     >
                       <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-rc-brand-soft text-rc-brand">

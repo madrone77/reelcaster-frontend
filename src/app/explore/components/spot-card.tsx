@@ -12,6 +12,7 @@ import SpotTrend from "./spot-trend";
 import SpotDayStrip, { SpotDayStripSkeleton, type SpotDay } from "./spot-day-strip";
 import { FreshCatchBadge } from "./fresh-catch-reports";
 import type { RailFreshCatch } from "../lib/fresh-catch-types";
+import { spotHref } from "@/lib/paths";
 
 const ProTrialModal = dynamic(
   () => import("@/app/components/paywall/pro-trial-modal"),
@@ -93,7 +94,7 @@ export default function SpotCard({
     region: spot.provinceCode,
   });
 
-  const reportHref = `/explore/spot/${spot.slug}`;
+  const reportHref = spotHref(spot);
 
   // Pro-only: which spots carry catch reports is no longer shown to free or
   // anonymous viewers at all, matching the map, where the "Hot" tag and the

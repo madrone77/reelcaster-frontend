@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
-import { loadCityBySlug } from "@/app/fishing/[province]/[city]/instrument/load-city";
-import CityInstrument from "@/app/fishing/[province]/[city]/instrument/city-instrument";
-import KeepToday from "@/app/fishing/[province]/[city]/hub/keep-today";
+import { loadCityBySlug } from "@/app/fishing/[country]/[state]/[city]/instrument/load-city";
+import CityInstrument from "@/app/fishing/[country]/[state]/[city]/instrument/city-instrument";
+import KeepToday from "@/app/fishing/[country]/[state]/[city]/hub/keep-today";
 import {
   AdBrandBar,
   AdFooter,
@@ -9,7 +9,7 @@ import {
 import { siteUrl } from "@/lib/site";
 import { COVERED_PROVINCES } from "@/lib/regions";
 import { fetchHierarchy } from "@/lib/bluecaster";
-import { getFishingProvince } from "@/app/fishing/lib/fishing-data";
+import { getFishingProvinceByCode } from "@/app/fishing/lib/fishing-data";
 
 /**
  * `/lp/7/<city>` — the city instrument as a cold-traffic landing page.
@@ -60,7 +60,7 @@ export async function generateStaticParams() {
     const hierarchy = await fetchHierarchy();
     return COVERED_PROVINCES.flatMap(
       (code) =>
-        getFishingProvince(hierarchy, code)?.cities?.map((c) => ({
+        getFishingProvinceByCode(hierarchy, code)?.cities?.map((c) => ({
           city: c.slug,
         })) ?? [],
     );
