@@ -159,6 +159,9 @@ export default async function City1Page({ city }: { city: City1City }) {
   const explore = exploreHref(slug);
 
   const card = await resolveLpCard(slug);
+  // Only an unknown city 404s now. A city that is real but has no scores for
+  // the live forecast version still gets its page; the bands that quote a
+  // number are gated on card.hasScores below. See LpCard.hasScores.
   if (!card) notFound();
 
   const region = lpRegionFor(card.provinceCode);
@@ -392,7 +395,8 @@ export default async function City1Page({ city }: { city: City1City }) {
               <div className="rname">
                 Season
                 <small>
-                  {card.species} run timing near {card.cityName}, week by week
+                  {card.hasScores ? `${card.species} run timing` : "Run timing"}{" "}
+                  near {card.cityName}, week by week
                 </small>
               </div>
               <div className="rval">weighted</div>
@@ -442,12 +446,19 @@ export default async function City1Page({ city }: { city: City1City }) {
                 <span className="rval">good</span>
               </div>
             </div>
-            <div className="sum">
-              <span>
-                {peakHourLabel} at {hero.name}
-              </span>
-              <b>{hero.score}</b>
-            </div>
+            {/* The one live figure on this page that sits outside a proof
+                guard. Dropped rather than zeroed when the city has no scores
+                for the live forecast version: a ladder explaining how the
+                score is built is still true with nothing at the bottom of it,
+                whereas "0" under "Green means go" argues against the page. */}
+            {card.hasScores ? (
+              <div className="sum">
+                <span>
+                  {peakHourLabel} at {hero.name}
+                </span>
+                <b>{hero.score}</b>
+              </div>
+            ) : null}
           </div>
         </div>
       </section>
