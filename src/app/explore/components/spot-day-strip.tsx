@@ -346,7 +346,7 @@ export default function SpotDayStrip({
                 />
                 <DayDate date={d.date} className="text-rc-ink-mute" />
                 <span
-                  className={`text-[15px] sm:text-[17px] font-bold leading-none tracking-[-0.04em] ${TIER_NUMERAL[t]}`}
+                  className={`text-[14px] sm:text-[15px] font-bold leading-none tracking-[-0.04em] ${TIER_NUMERAL[t]}`}
                 >
                   {d.score ?? "—"}
                 </span>
