@@ -16,7 +16,6 @@ import type {
   BuoyConditions,
 } from "./bluecaster/station-types";
 import type {
-  BlueCasterCityToday,
   MapForecast14dPayload,
   MapSpotsPayload,
   OwnedCustomSpot,
@@ -690,11 +689,11 @@ export async function fetchMapForecast14d(
 
 // ── The angler's home city ─────────────────────────────────────────────────
 //
-// Both reads are scoped by city slug and carry no identity, which is the point
-// of doing them this way: a city's published water is the same for everyone, so
-// the proxy can mark the response shared-cacheable and the edge can serve it.
-// Sending an Authorization header would make it per-reader and uncacheable for
-// no gain, since neither read shows anything a signed-out visitor cannot see.
+// Scoped by city slug and carrying no identity, which is the point of doing it
+// this way: a city's published water is the same for everyone, so the proxy can
+// mark the response shared-cacheable and the edge can serve it. Sending an
+// Authorization header would make it per-reader and uncacheable for no gain,
+// since it shows nothing a signed-out visitor cannot see.
 
 /**
  * The city's spots and today's scores.
@@ -718,27 +717,3 @@ export async function fetchCitySpots(
   return (await res.json().catch(() => null)) as MapSpotsPayload | null;
 }
 
-/**
- * Today's verdict for a city: the band, the headline species, the roster, and
- * the best day ahead.
- *
- * The forward half is entitlement-scoped in the route, never here — "best day
- * ahead is Thursday" is day 9 information, and a free reader whose strip draws
- * day 9 locked must not be handed its answer in a summary.
- */
-export async function fetchCityToday(
-  citySlug: string,
-): Promise<BlueCasterCityToday | null> {
-  const { data } = await supabase.auth.getSession();
-  const token = data.session?.access_token;
-  const res = await fetch(
-    `/api/bluecaster/city-today?city=${encodeURIComponent(citySlug)}`,
-    {
-      headers: token ? { Authorization: `Bearer ${token}` } : undefined,
-      cache: "no-store",
-      priority: "low",
-    },
-  );
-  if (!res.ok) return null;
-  return (await res.json().catch(() => null)) as BlueCasterCityToday | null;
-}

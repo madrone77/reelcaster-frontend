@@ -84,7 +84,12 @@ function BoldNames({ text }: { text: string }) {
   );
 }
 
-function Paragraphs({ md, className }: { md: string; className: string }) {
+/**
+ * Exported so ./nearby-reports renders a neighbour's report exactly the way
+ * this one does. Two renderers for the same prose would drift, and the
+ * `**bold**` handling is the part that must not.
+ */
+export function Paragraphs({ md, className }: { md: string; className: string }) {
   return (
     <>
       {md

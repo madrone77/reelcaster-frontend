@@ -8,7 +8,6 @@ import {
   fetchMyCustomSpots,
   fetchMapSpotsForIds,
   fetchCitySpots,
-  fetchCityToday,
   fetchSpotLive,
   fetchFreshCatches,
   fetchSpotsOutlook14d,
@@ -28,11 +27,10 @@ import { spotDaysFrom } from "@/app/explore/components/spot-day-strip";
 import ExploreTopBar from "@/app/explore/components/explore-top-bar";
 import HomeSpotHero, { deriveTide, type TideRead } from "./home-spot-hero";
 import AroundYou, { aroundYouFrom, cityName } from "./around-you";
-import CityTodayBand from "./city-today-band";
 import CityWater, { cityWaterFrom } from "./city-water";
 import NearbyReports from "./nearby-reports";
 import MarketingFooter from "@/app/components/marketing/marketing-footer";
-import type { BlueCasterCityToday, MapSpotsPayload } from "@/lib/bluecaster";
+import type { MapSpotsPayload } from "@/lib/bluecaster";
 import { useHomeSpotState } from "@/app/explore/lib/use-home-spot";
 import { useHomeCityState } from "@/app/explore/lib/use-home-city";
 import { useSavedSpots, setFavorite } from "@/app/explore/lib/use-favorite";
@@ -216,7 +214,6 @@ export default function DashboardPage() {
   // spot-only dashboard at somebody who set their city on another device.
   const { slug: homeCitySlug, ready: homeCityReady } = useHomeCityState(true);
   // undefined = still reading, null = it settled with nothing.
-  const [cityToday, setCityToday] = useState<BlueCasterCityToday | null | undefined>(undefined);
   const [citySpots, setCitySpots] = useState<MapSpotsPayload | null | undefined>(undefined);
   const today = useToday();
   // undefined = the read is still out, null = it settled with nothing (no pin,
@@ -423,9 +420,9 @@ export default function DashboardPage() {
     // authenticated read.
   }, [scopedIdsKey, session?.access_token, applyPayload]);
 
-  // The home city's verdict and its water. Both are city-scoped and carry no
-  // identity, so they are the same answer for every angler in that city and
-  // the edge can serve them; see the note on `fetchCitySpots`.
+  // The home city's water. City-scoped and carrying no identity, so it is the
+  // same answer for every angler in that city and the edge can serve it; see
+  // the note on `fetchCitySpots`.
   //
   // Fired on the city slug alone, and deliberately NOT on the spot payload
   // above: this band is the reason someone with no spots at all still has a
@@ -433,24 +430,16 @@ export default function DashboardPage() {
   useEffect(() => {
     if (!homeCityReady) return;
     if (!homeCitySlug) {
-      setCityToday(null);
       setCitySpots(null);
       return;
     }
     let cancelled = false;
-    setCityToday(undefined);
     setCitySpots(undefined);
-    const today = todayVancouver();
-    void Promise.allSettled([
-      fetchCityToday(homeCitySlug).then((d) => !cancelled && setCityToday(d)),
-      fetchCitySpots(homeCitySlug, today).then((d) => !cancelled && setCitySpots(d)),
-    ]).then(() => {
-      // Neither helper throws — both resolve null on failure — but a settled
-      // `undefined` would hold a skeleton forever, so close them out here.
-      if (cancelled) return;
-      setCityToday((v) => (v === undefined ? null : v));
-      setCitySpots((v) => (v === undefined ? null : v));
-    });
+    fetchCitySpots(homeCitySlug, todayVancouver())
+      .then((d) => !cancelled && setCitySpots(d))
+      // Resolves null on failure rather than throwing, but a settled
+      // `undefined` would hold the skeleton forever.
+      .catch(() => !cancelled && setCitySpots(null));
     return () => {
       cancelled = true;
     };
@@ -1005,11 +994,6 @@ export default function DashboardPage() {
                     next bay over is the more useful answer. */}
                 <DailyReportCard cityName={homeCityName} />
                 <NearbyReports />
-                <CityTodayBand
-                  cityName={homeCityName}
-                  cityPath={homeCityHref}
-                  today={cityToday}
-                />
                 <CityWater
                   cityName={homeCityName}
                   cityPath={homeCityHref}
