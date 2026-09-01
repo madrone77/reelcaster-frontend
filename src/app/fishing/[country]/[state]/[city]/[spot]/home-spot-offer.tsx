@@ -135,34 +135,38 @@ export default function HomeSpotOffer({
     return null;
   }
 
-  // Stacks below `sm`, sits on one line above it. Squeezing the sentence into
-  // the column left over beside the buttons turned it into a five-line ribbon
-  // on a phone, which is where this page is actually read.
+  // Stacks below `sm`, sits on one line above it.
+  //
+  // On a phone the buttons are indented to the text's left edge (`pl-7` = the
+  // w-4 icon plus the gap-3) rather than pushed to the right. Right-aligned,
+  // the blue button floated in the middle of the card with the sentence
+  // stranded above it, and the whole thing read as a banner dropped onto the
+  // page. Lined up under the sentence it reads as one block, which is what it
+  // is: a question and its two answers.
   return (
-    <div className="flex flex-col gap-3 rounded border border-rc-rule bg-rc-panel px-4 py-3 sm:flex-row sm:items-center">
+    <div className="flex flex-col gap-2.5 rounded border border-rc-rule bg-rc-panel px-4 py-3 sm:flex-row sm:items-center sm:gap-3">
       <div className="flex min-w-0 flex-1 items-start gap-3 sm:items-center">
         <Home className="mt-0.5 h-4 w-4 shrink-0 text-rc-brand sm:mt-0" aria-hidden />
         <p className="min-w-0 text-sm text-rc-ink">
           Make <span className="font-semibold">{name}</span> your home spot?
           <span className="text-rc-ink-soft">
             {" "}
-            Its conditions and today&rsquo;s report lead your dashboard every
-            morning.
+            Its conditions lead your dashboard every morning.
           </span>
         </p>
       </div>
-      <div className="flex shrink-0 items-center gap-2 self-end sm:self-auto">
+      <div className="flex shrink-0 items-center gap-1 pl-7 sm:gap-2 sm:pl-0">
         <button
           type="button"
           onClick={handlePin}
-          className="min-h-11 rounded bg-rc-brand px-4 text-[13px] font-semibold text-white transition-colors hover:bg-rc-brand/90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-rc-brand sm:min-h-9 sm:px-3"
+          className="min-h-9 rounded bg-rc-brand px-3 text-[13px] font-semibold text-white transition-colors hover:bg-rc-brand/90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-rc-brand"
         >
           Make it home
         </button>
         <button
           type="button"
           onClick={handleDismiss}
-          className="min-h-11 rounded px-3 text-[13px] text-rc-ink-mute transition-colors hover:bg-rc-surface hover:text-rc-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-rc-brand sm:min-h-9 sm:px-2"
+          className="min-h-9 rounded px-3 text-[13px] text-rc-ink-mute transition-colors hover:bg-rc-surface hover:text-rc-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-rc-brand sm:px-2"
         >
           Not now
         </button>
