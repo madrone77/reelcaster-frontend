@@ -1566,6 +1566,9 @@ export default function SpotDetailShell({
         onOpenChange={setUpgradeOpen}
         variant={!user && lockedTier === "free" ? "signup" : "pro"}
         spotName={spot.name}
+        // The headline names the spot; the reports line names the city it is
+        // in, because that is the grain reports are written at.
+        cityName={cityLink?.cityName ?? spot.city ?? undefined}
       />
 
       <LogCatchDialog
