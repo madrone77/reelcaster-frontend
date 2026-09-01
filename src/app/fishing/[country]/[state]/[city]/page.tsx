@@ -306,7 +306,7 @@ export default async function CityPage({
         <SpeciesCards
           guides={guides}
           cityName={city.name}
-          cityPath={city.path}
+          location={locationOf(city)}
         />
 
         {/* The second ask, and the only one below the fold.
@@ -350,7 +350,7 @@ export default async function CityPage({
             answers on screen. */}
         <CityFaq faq={faq} cityName={city.name} />
 
-        <NearbyCities cities={nearby} provincePath={provincePath} />
+        <NearbyCities cities={nearby} />
       </div>
     </>
   );

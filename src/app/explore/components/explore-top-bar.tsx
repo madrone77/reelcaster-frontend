@@ -10,6 +10,11 @@ import { useAuth } from "@/contexts/auth-context";
 import TrialModalButton from "@/app/components/paywall/trial-modal-button";
 import type { NagFeatureId } from "@/lib/plan-features";
 import { fetchAlertProfiles } from "@/lib/alerts-client";
+// Search lives here because this bar is the only chrome every signed-in
+// surface mounts. It used to hang off AppShell, which no page has rendered
+// since the app moved off that dark shell, so the palette — and the cmd-K that
+// opens it — were unreachable in the running product.
+import SearchTrigger from "@/app/components/search/search-trigger";
 
 // "Catch log" is the single destination for catch logging. The wizard at
 // /log-catch used to sit beside it as its own nav item, which made one feature
@@ -148,11 +153,11 @@ export default function ExploreTopBar({
       ? pathname === "/"
       : pathname === href || pathname.startsWith(`${href}/`);
 
+  // White, like MarketingHeader everywhere off the landing page — the tint
+  // only exists there to merge the bar into the hero band, and there's no
+  // such band here. Opaque, so there's no backdrop to blur. Keeps its rule:
+  // this bar floats over the map and needs the edge.
   return (
-    // White, like MarketingHeader everywhere off the landing page — the tint
-    // only exists there to merge the bar into the hero band, and there's no
-    // such band here. Opaque, so there's no backdrop to blur. Keeps its rule:
-    // this bar floats over the map and needs the edge.
     <header
       className={`fixed top-0 inset-x-0 h-16 z-40 border-b transition-transform duration-200 ${
         rolledAway ? "-translate-y-full lg:translate-y-0" : "translate-y-0"
@@ -234,6 +239,8 @@ export default function ExploreTopBar({
         </nav>
 
         <div className="flex items-center gap-2 sm:gap-3 ml-auto">
+          <SearchTrigger brand={brand} />
+
           {loading && !preview ? null : signedIn && avatarLabel ? (
             <>
               {upgradeCta && (

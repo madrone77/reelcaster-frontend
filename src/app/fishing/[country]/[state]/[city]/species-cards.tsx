@@ -12,6 +12,7 @@
 
 import Link from "next/link";
 import type { BlueCasterGuideLink } from "@/lib/bluecaster";
+import { guidePath, type PlaceLocation } from "@/lib/paths";
 import { activityPhrase } from "@/app/fishing/lib/activity";
 import { SectionHeading } from "./species/[species]/guide-sections";
 
@@ -67,11 +68,16 @@ function openingLabel(iso: string): string | null {
 export function SpeciesCards({
   guides,
   cityName,
-  cityPath,
+  location,
 }: {
   guides: BlueCasterGuideLink[];
   cityName: string;
-  cityPath: string;
+  /**
+   * Where the city sits, so the href comes from `guidePath`. A guide lives at
+   * `<city>/species/<slug>`, not `<city>/<slug>`: the bare form is read as the
+   * spot route and 404s.
+   */
+  location: PlaceLocation;
 }) {
   if (!guides.length) return null;
 
@@ -88,7 +94,7 @@ export function SpeciesCards({
           return (
             <li key={guide.species_slug}>
               <Link
-                href={`${cityPath}/${guide.species_slug}`}
+                href={guidePath(location, guide.species_slug)}
                 className="group flex h-full flex-col rounded-lg border border-rc-rule bg-rc-panel p-4 hover:border-rc-brand transition-colors"
               >
                 <div className="flex items-start justify-between gap-2">

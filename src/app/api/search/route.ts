@@ -2,7 +2,9 @@
  * GET /api/search?q=<query>&near=<lat,lng>&limit=<n>
  *
  * Same-origin proxy to BlueCaster's `/api/v1/search`, so the API key stays
- * server-side. Returns the BlueCaster shape unchanged.
+ * server-side. Returns the BlueCaster shape with one addition: every result
+ * carries the `path` it leads to, resolved here against the hierarchy. The
+ * client cannot build those itself — see lib/search-results.ts.
  *
  * Auth is optional. With a valid session the results also carry that angler's
  * OWN custom spots (`owned: true`), ranked with the published set. That
@@ -12,6 +14,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { searchBlueCaster } from '@/lib/bluecaster';
+import { resolveSearchPaths } from '@/lib/search-results';
 import { getUserIdFromRequest } from '@/lib/server-auth';
 
 export const dynamic = 'force-dynamic';
@@ -67,7 +70,12 @@ export async function GET(request: NextRequest) {
   // A search that can't reach the API degrades to "no matches" rather than an
   // error banner — the user is mid-keystroke and a transient blip shouldn't
   // replace the dropdown with a failure state.
-  return NextResponse.json(data ?? EMPTY(q), {
+  const body = data ?? EMPTY(q);
+
+  return NextResponse.json({
+    ...body,
+    results: await resolveSearchPaths(body.results),
+  }, {
     headers: {
       'Cache-Control': viewerId
         ? 'private, no-store'

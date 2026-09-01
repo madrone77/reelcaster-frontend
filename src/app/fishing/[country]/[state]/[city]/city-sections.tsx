@@ -339,10 +339,14 @@ export function CityFaq({
 
 export function NearbyCities({
   cities,
-  provincePath,
 }: {
-  cities: Array<{ slug: string; name: string; spotCount: number }>;
-  provincePath: string;
+  /**
+   * `path` is the city's canonical path, precomputed by the loader. Do NOT
+   * rebuild it from the province path and a slug: `slug` is the API key
+   * ("victoria-bc") and the URL segment is `url_slug` ("victoria"), so
+   * concatenating the two spells the province twice and 404s.
+   */
+  cities: Array<{ slug: string; path: string; name: string; spotCount: number }>;
 }) {
   if (!cities.length) return null;
   return (
@@ -352,7 +356,7 @@ export function NearbyCities({
         {cities.map((c) => (
           <li key={c.slug}>
             <Link
-              href={`${provincePath}/${c.slug}`}
+              href={c.path}
               className="group flex items-baseline gap-2 rounded-full border border-rc-rule bg-rc-panel px-3 py-1.5 hover:border-rc-brand transition-colors"
             >
               <span className="text-[13px] font-medium text-rc-ink group-hover:text-rc-brand transition-colors">
