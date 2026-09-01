@@ -221,7 +221,13 @@ export default function ProTrialModal({
 
   if (phone) {
     return (
-      <Dialog open={open} onOpenChange={onOpenChange}>
+      // handleOpenChange, not onOpenChange. Both shapes of this modal have to
+      // close through the same handler or the sheet reports no dismissals at
+      // all — impressions and CTA clicks are shared (the effect above and
+      // `trackCta`), so the shape would have looked instrumented while the one
+      // outcome most readers give it went unrecorded, on the surface that sees
+      // the most bought traffic in the product.
+      <Dialog open={open} onOpenChange={handleOpenChange}>
         <DialogContent
           variant="sheet"
           data-testid="pro-trial-modal"
