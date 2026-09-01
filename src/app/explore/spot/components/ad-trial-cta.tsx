@@ -1,7 +1,7 @@
 "use client";
 
-import { Star } from "lucide-react";
-import { PRICE, PROOF } from "@/app/lp/_shared/lp-content";
+import { PRICE } from "@/app/lp/_shared/lp-content";
+import Testimonial from "@/app/components/paywall/testimonial";
 import { lpRegionFor } from "@/app/lp/_shared/lp-region";
 import LpFlagUs from "@/app/lp/_shared/lp-flag";
 import type { CampaignTarget, LpCtaId } from "@/app/lp/_shared/lp-telemetry";
@@ -147,51 +147,6 @@ function SourceRow({ provinceCode }: { provinceCode: string }) {
         ))}
       </ul>
     </div>
-  );
-}
-
-/**
- * The customer quote, with its rating.
- *
- * The words are `PROOF.quote`, imported rather than copied so this page cannot
- * drift from the one place that records the quote is real, permissioned and
- * verbatim, and cannot be edited for length here. `PROOF.showProof` is
- * honoured too: if the band is ever switched off it goes off everywhere.
- *
- * The rating is `PROOF.quote.rating`, which the customer gave, and is read
- * rather than hardcoded so the stars cannot outlive it. Drawing five filled
- * stars in markup would be a second copy of a claim about a real person, free
- * to disagree with the record the moment either changed.
- */
-function Stars({ rating }: { rating: number }) {
-  const filled = Math.max(0, Math.min(5, Math.round(rating)));
-  return (
-    <div className="flex gap-0.5" aria-label={`${filled} out of 5 stars`}>
-      {[0, 1, 2, 3, 4].map((i) => (
-        <Star
-          key={i}
-          className={`h-3.5 w-3.5 ${
-            i < filled ? "fill-rc-badge text-rc-badge" : "fill-none text-rc-rule"
-          }`}
-          aria-hidden
-        />
-      ))}
-    </div>
-  );
-}
-
-function Testimonial() {
-  if (!PROOF.showProof) return null;
-  return (
-    <figure className="mt-5 rounded border border-rc-rule bg-rc-panel/70 p-4">
-      <Stars rating={PROOF.quote.rating} />
-      <blockquote className="rc-body mt-2 text-[13px] leading-relaxed text-rc-ink-soft">
-        {PROOF.quote.text}
-      </blockquote>
-      <figcaption className="mt-2 font-rc-mono text-[11px] text-rc-ink-mute">
-        {PROOF.quote.attr}
-      </figcaption>
-    </figure>
   );
 }
 

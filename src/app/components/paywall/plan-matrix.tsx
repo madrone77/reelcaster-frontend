@@ -11,6 +11,8 @@ import {
   type PlanTierId,
 } from "@/lib/plan-features";
 import { usePricing } from "@/app/components/split-test/use-pricing";
+import Testimonial from "./testimonial";
+import { PROOF } from "@/app/lp/_shared/lp-content";
 
 /**
  * The plan matrix: what each tier gets, one row per capability.
@@ -38,6 +40,7 @@ export default function PlanMatrix({
   viewerTier,
   highlightRowId,
   stickyHeader = true,
+  withProof = false,
 }: {
   viewerTier: PlanTierId;
   /** Row to call out — the one that blocked them. Omit where nothing did. */
@@ -49,6 +52,15 @@ export default function PlanMatrix({
    * sticky top bar instead.
    */
   stickyHeader?: boolean;
+  /**
+   * Hang the customer quote off the foot of the table. Opt-in, and today only
+   * the upgrade modal asks for it: that is the surface selling a trial to
+   * somebody who has not bought yet, where another customer's word is the last
+   * argument left. /billing/cancel goes without on purpose — the reader there
+   * already tried to buy, so proof answers a question they had stopped asking,
+   * and that page's job is to get them back to checkout.
+   */
+  withProof?: boolean;
 }) {
   // The Pro column's price line. Read per reader rather than from a constant,
   // so a price test does not leave this table quoting one number while the
@@ -147,6 +159,23 @@ export default function PlanMatrix({
         Pro available in British Columbia and Washington. More coming soon.
         Billed in CAD in Canada, USD in the US.
       </p>
+
+      {/* One customer, in his own words, under the table rather than over it.
+          The table is the claim we make about the product; this is somebody
+          else making it, which is worth more once the reader has seen what is
+          being claimed than as a banner before they know what it refers to.
+
+          Off unless a caller asks for it, so the page that shows this table to
+          somebody whose checkout just failed does not argue at them. Rendered
+          from the shared component, which reads PROOF, so the quote is not
+          reproduced here: see testimonial.tsx. Nothing renders when
+          PROOF.showProof is off, and the border goes with it so the matrix
+          cannot end on a rule with nothing under it. */}
+      {withProof && PROOF.showProof && (
+        <div className="border-t border-rc-rule px-4 sm:px-6 py-4">
+          <Testimonial className="" />
+        </div>
+      )}
     </div>
   );
 }

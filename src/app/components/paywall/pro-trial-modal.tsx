@@ -204,7 +204,7 @@ export default function ProTrialModal({
               <Link
                 href={ctaHref}
                 data-testid="pro-trial-cta"
-                onClick={() => trackCta({ href: ctaHref })}
+                onClick={() => trackCta({ href: ctaHref, position: "top" })}
                 className="block text-center px-4 py-2.5 rounded-lg bg-rc-brand hover:bg-rc-brand-hover text-white text-sm font-bold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rc-brand focus-visible:ring-offset-2"
               >
                 {ctaLabel}
@@ -238,20 +238,46 @@ export default function ProTrialModal({
             </DialogDescription>
           </div>
 
-          <PlanMatrix viewerTier={viewerTier} highlightRowId={nag.rowId} />
+          <PlanMatrix viewerTier={viewerTier} highlightRowId={nag.rowId} withProof />
+
+          {/* The second ask, under the table and the customer quote.
+
+              A copy of this was here once and was pulled, on the finding that
+              it doubled the ask while dragging the disclosure below the whole
+              table: at the time the terms attached to THIS button were the
+              only ones on the modal, so a reader had to scroll the matrix to
+              reach the renewal amount. That objection is answered rather than
+              overruled. The full disclosure, with Terms and Privacy, now sits
+              with the first button above the table where it is readable before
+              any click, and what rides with this one is a short restatement of
+              the price and the cancel right, not the only copy of them.
+
+              It shares the first button's email through TrialCtaProvider, so
+              whichever one the reader types into, the other is already filled.
+              `testId` is overridden because two copies must not hand a
+              selector two matches. */}
+          <div className="border-t border-rc-rule px-4 sm:px-6 py-4">
+            {ctaHref ? (
+              <Link
+                href={ctaHref}
+                data-testid="pro-trial-cta-foot"
+                onClick={() => trackCta({ href: ctaHref, position: "foot" })}
+                className="block text-center px-4 py-2.5 rounded-lg bg-rc-brand hover:bg-rc-brand-hover text-white text-sm font-bold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rc-brand focus-visible:ring-offset-2"
+              >
+                {ctaLabel}
+              </Link>
+            ) : (
+              <TrialBuy signupLabel={ctaLabel} testId="trial-cta-foot" />
+            )}
+            <p className="mt-3 text-[11px] leading-relaxed text-rc-ink-mute">
+              Free for {TRIAL_DAYS} days, then {pricing.amount} a year. Cancel
+              anytime before the trial ends and you pay nothing.
+            </p>
+          </div>
 
           {/* The free tier, offered last and on purpose: after the matrix has
-              shown what an account gets you without paying. Only for visitors
-              who don't have one — for everyone else the table is the last
-              thing on the modal, and the buy button is back up at the top
-              where the disclosure travels with it.
-
-              There used to be a second copy of the buy button down here, on
-              the argument that a reader who finished the table shouldn't have
-              to scroll back up to act on it. It doubled the ask, and the
-              disclosure attached to it was the only one on the modal — so the
-              terms sat below the whole table. One button, up top, with its
-              terms. */}
+              shown what an account gets you without paying, and after the ask
+              above. Only for visitors who don't have one. */}
           {viewerTier === "anon" && (
             <div className="border-t border-rc-rule px-4 sm:px-6 py-4 text-center">
               <Link
