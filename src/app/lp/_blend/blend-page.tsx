@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Image from "next/image";
 import { notFound } from "next/navigation";
+import { LpDataNote } from "../_shared/lp-data-note";
 import { angleFrom } from "../_shared/lp-angles";
 import { resolveLpCard } from "../_shared/lp-spot";
 import { lpRegionFor } from "../_shared/lp-region";
@@ -441,6 +442,13 @@ export default async function BlendPage({
             )}
           </div>
         </section>
+
+        <LpDataNote
+          hasScores={card.hasScores}
+          stale={card.stale}
+          scoredAt={card.scoredAt}
+          cityName={card.cityName}
+        />
 
         <div className="foot">
           ReelCaster {"·"} {city.city.name} and {cfg.water}

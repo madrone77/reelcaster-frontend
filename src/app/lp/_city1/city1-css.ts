@@ -631,6 +631,11 @@ export const LP8_CSS = `
 .l8 .close h2{color:#fff}
 .l8 .close .sub{color:#C3D0E0;margin:0 auto 28px}
 .l8 .foot{background:var(--l8-navy);color:#6E82A0;font-family:var(--l8-mono);font-size:11px;padding:0 var(--l8-gut) 36px;text-align:center;line-height:1.7}
+/* The staleness disclosure. Sits on the same navy ground directly above the
+   footer and reads as part of it: it is a disclosure, not a warning, and
+   styling it as an alert on a page receiving bought clicks would cost more
+   than the staleness it describes. Slightly dimmer than .foot on purpose. */
+.l8 .datanote{background:var(--l8-navy);color:#5C6F8C;font-family:var(--l8-mono);font-size:11px;padding:28px var(--l8-gut) 8px;text-align:center;line-height:1.7;margin:0}
 
 @media(prefers-reduced-motion:reduce){.l8 *{animation:none!important;transition:none!important}}
 `;

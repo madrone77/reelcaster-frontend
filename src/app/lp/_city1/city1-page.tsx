@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Image from "next/image";
 import { notFound } from "next/navigation";
+import { LpDataNote } from "../_shared/lp-data-note";
 import { angleFrom } from "../_shared/lp-angles";
 import { resolveLpCard } from "../_shared/lp-spot";
 import { lpRegionFor } from "../_shared/lp-region";
@@ -669,6 +670,13 @@ export default async function City1Page({ city }: { city: City1City }) {
           <p className="gonote">{CTA_NOTE}</p>
         </div>
       </section>
+
+      <LpDataNote
+        hasScores={card.hasScores}
+        stale={card.stale}
+        scoredAt={card.scoredAt}
+        cityName={card.cityName}
+      />
 
       <div className="foot">
         ReelCaster {"·"} {card.cityName} and {city.footerWater}

@@ -53,6 +53,17 @@ export interface LpCard {
    * in every way than one that is briefly short a hero figure.
    */
   hasScores: boolean;
+  /**
+   * True when the numbers on this page are real scores from an EARLIER
+   * forecast generation than the live one.
+   *
+   * The page must say so. That is the whole bargain that makes the fallback
+   * acceptable: an unlabelled old score is a lie about how fresh the product
+   * is, on the one page whose argument is that it knows today's water.
+   */
+  stale: boolean;
+  /** ISO instant the served scores were computed. Null unless stale. */
+  scoredAt: string | null;
   /** Real city display name, e.g. "Friday Harbor". */
   cityName: string;
   /**
@@ -166,7 +177,10 @@ function bestWindow(hours: number[]): { from: number; to: number; peak: number }
 export async function resolveLpCard(citySlug: string): Promise<LpCard | null> {
   const [hierarchy, payload, fresh] = await Promise.all([
     fetchHierarchy(),
-    fetchMapSpots({ city: citySlug }),
+    // A landing page would rather print a real score from an earlier
+    // generation, labelled, than nothing. See MapSpotsPayload.stale, and the
+    // disclaimer the pages render off card.stale.
+    fetchMapSpots({ city: citySlug, fallback: true }),
     fetchFreshCatches({ city: citySlug, days: 14 }),
   ]);
   if (!hierarchy || !payload) return null;
@@ -187,6 +201,8 @@ export async function resolveLpCard(citySlug: string): Promise<LpCard | null> {
     const rep = citySpots[0]!;
     return {
       hasScores: false,
+      stale: false,
+      scoredAt: null,
       cityName: rep.cityName,
       provinceCode: rep.provinceCode,
       spotName: rep.name,
@@ -231,6 +247,8 @@ export async function resolveLpCard(citySlug: string): Promise<LpCard | null> {
 
   return {
     hasScores: true,
+    stale: payload.stale === true,
+    scoredAt: payload.stale === true ? (payload.scored_at ?? null) : null,
     cityName: rep.cityName,
     provinceCode: rep.provinceCode,
     spotName: rep.name,
