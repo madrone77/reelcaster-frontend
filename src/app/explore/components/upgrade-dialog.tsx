@@ -38,10 +38,23 @@ export default function UpgradeDialog({
   open,
   onOpenChange,
   variant = "pro",
+  dayIndex,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   variant?: "pro" | "signup";
+  /**
+   * Which tile they reached for, 0-based from today. Reported, never shown.
+   *
+   * The feature id already splits the fortnight in two — days 3-7 are
+   * "forecast-week", days 8-14 are "forecast-14d" — and that split is what
+   * tells the two walls apart in the reports. This is the finer answer under
+   * it: whether the tiles people actually reach for are the ones just past the
+   * edge of what they have, or the far end of the run. Those imply different
+   * things about what the horizon should be, and neither is visible from a
+   * two-bucket count.
+   */
+  dayIndex?: number;
 }) {
   // Latched, so closing the modal doesn't rip it out mid-animation.
   const mounted = useMountedOnce(open);
@@ -53,6 +66,7 @@ export default function UpgradeDialog({
       onOpenChange={onOpenChange}
       feature={variant === "signup" ? "forecast-week" : "forecast-14d"}
       from="explore-forecast"
+      context={typeof dayIndex === "number" ? { day_index: dayIndex } : undefined}
     />
   );
 }

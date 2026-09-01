@@ -249,7 +249,8 @@ export type NagFeatureId =
   | "remove-ads"
   | "support-the-map"
   | "support"
-  | "whole-map";
+  | "whole-map"
+  | "depth-gate";
 
 export interface NagFeature {
   /** Completes "Start your 7-day Pro trial to ___". Lower case, no period. */
@@ -383,6 +384,27 @@ export const NAG_FEATURES: Record<NagFeatureId, NagFeature> = {
     action: "open the whole map",
     headline: "Unlock the whole map",
     unlocksAt: "pro",
+    pricingFeature: "whole-map",
+  },
+  // The depth gate on /m/explore: "Enjoying ReelCaster?", the one unprompted
+  // ask a visitor gets, fired by the engagement count rather than by a lock.
+  //
+  // IT DOES NOT OPEN ProTrialModal and it does not sell Pro — it asks for a
+  // free account, because registering is what brings the charted depth back.
+  // It is a member of this enum anyway, for the same reason "support" is: the
+  // paywall reporter validates every event against this list and an ask that
+  // is not on it is counted nowhere. That is precisely how this gate went
+  // unmeasured for its whole life, on the surface that sees the most bought
+  // traffic in the product.
+  //
+  // `unlocksAt: "free"` is the honest answer and is what separates it from
+  // every Pro wall in the report. No rowId: the plan matrix is not what it
+  // shows, and highlighting a Pro row for an ask that costs nothing would be a
+  // pitch it never makes. See explore/components/depth-gate-prompt.tsx.
+  "depth-gate": {
+    action: "keep the depth on the map",
+    headline: "Keep reading the bottom",
+    unlocksAt: "free",
     pricingFeature: "whole-map",
   },
   // Deliberately NOT spot-scoped: the pitch is the whole reporting stream

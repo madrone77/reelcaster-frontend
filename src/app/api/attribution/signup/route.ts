@@ -51,6 +51,7 @@ import {
   type CampaignParams,
   type EntryAttribution,
   type PaidAttribution,
+  type WallAttribution,
 } from '@/lib/attribution';
 import { readOffer } from '@/lib/offers';
 import { NAG_FEATURES } from '@/lib/plan-features';
@@ -225,6 +226,7 @@ function signupAcquisition(
   request: NextRequest,
   entry: EntryAttribution | null,
   paid: PaidAttribution | null,
+  wall: WallAttribution | null,
 ): SubscriptionAcquisition {
   const touch = paid ?? entry;
   const ua = classifyUserAgent(request.headers.get('user-agent'));
@@ -258,6 +260,20 @@ function signupAcquisition(
     geo_region: geo.region,
     geo_city: geo.city,
     params: touch ? extraParams(touch) : null,
+    // Which wall earned the account, on the conversion row rather than only on
+    // user_settings — so a signup rate per wall per campaign is one query over
+    // this table and paywall_events, instead of a join across a per-person
+    // table that holds one answer for the life of the account.
+    //
+    // Checked against the live enum for the same reason the user_settings copy
+    // is: rc_wall is a cookie the browser can write, and this lands in a column
+    // the admin groups on.
+    paywall_feature: wall && wall.feature in NAG_FEATURES ? wall.feature : null,
+    paywall_surface: wall?.from ? wall.from.slice(0, MAX_VALUE) : null,
+    // No money changed hands, so nothing paid for it. Explicit rather than
+    // absent: the column exists on every row and 'none' would be a fourth
+    // payment method that nobody uses.
+    pay_method: null,
   };
 }
 
@@ -346,7 +362,7 @@ export async function POST(request: NextRequest) {
       // wrong cohort on every report that divides by spend.
       userId: user.id,
       occurredAt: user.created_at,
-      acquisition: signupAcquisition(request, entry, paid),
+      acquisition: signupAcquisition(request, entry, paid, wall),
     });
 
     // The getting-started email, for accounts that came in the free door.

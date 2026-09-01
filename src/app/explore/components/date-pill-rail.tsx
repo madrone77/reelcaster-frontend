@@ -90,6 +90,9 @@ export default function DatePillRail({
   );
   const [upgradeOpen, setUpgradeOpen] = useState(false);
   const [lockTier, setLockTier] = useState<LockTier>("pro");
+  // Which tile was tapped. Reported with the wall, never rendered. See
+  // UpgradeDialog's `dayIndex`.
+  const [lockDay, setLockDay] = useState<number | null>(null);
 
   const railRef = useRef<HTMLDivElement | null>(null);
   const selRef = useRef<HTMLButtonElement | null>(null);
@@ -135,6 +138,7 @@ export default function DatePillRail({
         return;
       }
       setLockTier(day.lockTier ?? "pro");
+      setLockDay(day.index);
       setUpgradeOpen(true);
       return;
     }
@@ -321,6 +325,7 @@ export default function DatePillRail({
         open={upgradeOpen}
         onOpenChange={setUpgradeOpen}
         variant={!signedIn && lockTier === "free" ? "signup" : "pro"}
+        dayIndex={lockDay ?? undefined}
       />
     </>
   );

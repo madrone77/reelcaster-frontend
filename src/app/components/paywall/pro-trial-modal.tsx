@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect } from "react";
+import { useCallback, useEffect, useRef } from "react";
 import { usePathname } from "next/navigation";
 import {
   Dialog,
@@ -59,6 +59,11 @@ export default function ProTrialModal({
   from = "explore",
   /** Names the spot in the headline ("Set an alert for Oak Bay Flats"). */
   spotName,
+  /**
+   * Wall-specific detail for the event log: which locked day was tapped, which
+   * limit was hit. Small scalars only — the server whitelists the shape.
+   */
+  context,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -67,6 +72,7 @@ export default function ProTrialModal({
   ctaHref?: string;
   from?: string;
   spotName?: string;
+  context?: Record<string, string | number | boolean>;
 }) {
   const { user } = useAuth();
   const { isPaid } = useSubscription();
@@ -98,17 +104,76 @@ export default function ProTrialModal({
    * The request itself lives in lib/paywall-counter.ts, shared with the walls
    * that do not open this modal, so all of them report the same way.
    */
+  /**
+   * Held in a ref, and NOT in the dependency lists below.
+   *
+   * Callers pass this as an object literal, so it is a new identity on every
+   * render of the page behind the modal. In a dependency array that would give
+   * `bumpCounter` a new identity too, and the impression effect depends on
+   * `bumpCounter` — so a wall left open while anything upstream re-rendered
+   * would report an impression per render. A ref is read at call time and
+   * changes nothing about when the effect runs.
+   */
+  const contextRef = useRef(context);
+  contextRef.current = context;
+
   const bumpCounter = useCallback(
     (kind: "impression" | "cta_click") => {
-      reportPaywall(kind, { feature, surface: from, viewerTier });
+      reportPaywall(kind, {
+        feature,
+        surface: from,
+        viewerTier,
+        context: contextRef.current,
+      });
     },
     [feature, from, viewerTier],
+  );
+
+  /**
+   * When this modal opened, and whether the reader did anything with it.
+   *
+   * Both exist for the dismissal report below. A wall that is seen and closed
+   * is the most common thing that happens to a wall and was, until now, the
+   * one outcome nothing recorded: the counter had an impression column and a
+   * click column, and "saw it, said no" was inferred by subtracting one from
+   * the other. That subtraction cannot tell a reflex close from a considered
+   * no, and the difference between the two is the difference between a wall
+   * that interrupts and a wall that fails to convince.
+   *
+   * Refs rather than state on purpose. Neither value is rendered, and a
+   * setState on open would re-render the whole plan matrix to store a number
+   * only a beacon will ever read.
+   */
+  const openedAt = useRef<number | null>(null);
+  const acted = useRef(false);
+
+  /**
+   * Close without a click is a dismissal. Close AFTER a click is not: the CTA
+   * navigates to /signup, to /plans or out to Stripe, and Radix fires the
+   * close on the way out. Counting that as a refusal would put a dismissal on
+   * every conversion this modal ever produced.
+   */
+  const handleOpenChange = useCallback(
+    (next: boolean) => {
+      if (!next && !acted.current) {
+        reportPaywall("dismiss", {
+          feature,
+          surface: from,
+          viewerTier,
+          context: contextRef.current,
+          dwellMs: openedAt.current ? Date.now() - openedAt.current : undefined,
+        });
+      }
+      onOpenChange(next);
+    },
+    [feature, from, viewerTier, onOpenChange],
   );
 
   /** Every CTA on this modal reports the same way. */
   const trackCta = useCallback(
     (extra: Record<string, unknown>) => {
       trackEvent("Paywall CTA Clicked", { feature, viewerTier, from, ...extra });
+      acted.current = true;
       bumpCounter("cta_click");
     },
     [trackEvent, feature, viewerTier, from, bumpCounter],
@@ -116,6 +181,8 @@ export default function ProTrialModal({
 
   useEffect(() => {
     if (!open) return;
+    openedAt.current = Date.now();
+    acted.current = false;
     trackEvent("Upgrade Prompt Shown", {
       feature,
       viewerTier,
@@ -137,7 +204,7 @@ export default function ProTrialModal({
   }, [open, feature, viewerTier, from, trackEvent, bumpCounter]);
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={handleOpenChange}>
       {/* ONE scrolling box. This used to pin the headline and the buy button
           and scroll only the plan table between them — which on a phone left a
           narrow strip of moving content trapped between two frozen bands, and

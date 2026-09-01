@@ -30,6 +30,7 @@ import { boundsOf, paddedBbox, SPOT_LINK_ZOOM } from "./lib/viewport-bbox";
 import { useMountedOnce } from "@/hooks/use-mounted-once";
 import { useUpgradeNag } from "@/hooks/use-upgrade-nag";
 import { noteEngagement } from "@/lib/upgrade-nag";
+import { clearPaywallContext, setPaywallContext } from "@/lib/paywall-context";
 import {
   depthLocked as isDepthLocked,
   stampPreviewGrant,
@@ -1635,7 +1636,8 @@ export default function ExploreShell({
 
   const handleMapSelectSpot = useCallback(
     (slug: string) => {
-      noteEngagement("browse");
+      noteEngagement("browse", "spot_preview");
+      setPaywallContext({ spotSlug: slug, page: "explore" });
       setPreviewAnchor(slug);
       focusSpotOnMap(slug);
     },
@@ -1665,7 +1667,10 @@ export default function ExploreShell({
       // Counted before the mobile branch below navigates away: the count lives
       // in sessionStorage precisely so the click that leaves /explore is still
       // banked when they come back to it.
-      noteEngagement("browse");
+      noteEngagement("browse", "spot_open");
+      // The wall that opens two taps from here should know which water they
+      // were reading. Published rather than threaded: see @/lib/paywall-context.
+      setPaywallContext({ spotSlug: slug, page: "explore" });
       // Mobile (<lg) has no rail/drawer — go straight to the responsive spot
       // page. Desktop keeps the in-rail drawer + flyTo.
       const spot = displaySpots.find((s) => s.slug === slug);
@@ -1701,7 +1706,8 @@ export default function ExploreShell({
 
   const handleSearchSelectSpot = useCallback(
     (slug: string, lat: number, lng: number) => {
-      noteEngagement("browse");
+      noteEngagement("browse", "search_spot");
+      setPaywallContext({ spotSlug: slug, page: "explore" });
       if (
         typeof window !== "undefined" &&
         !window.matchMedia("(min-width:1024px)").matches
@@ -1751,7 +1757,8 @@ export default function ExploreShell({
   // species dict can't supply a label for the strip header.
   const handleSearchSelectSpecies = useCallback(
     (id: string, name: string) => {
-      noteEngagement("browse");
+      noteEngagement("browse", "search_species");
+      setPaywallContext({ speciesId: id, page: "explore" });
       setSpeciesFilter(id);
       setPickedSpeciesName(name);
     },
@@ -1759,13 +1766,16 @@ export default function ExploreShell({
   );
 
   const handleCloseSpot = useCallback(() => {
+    // Closed means no spot is in front of them any more, and a wall opened
+    // after this should not claim one. `page` survives; the selection does not.
+    clearPaywallContext({ page: "explore" });
     setPreviewAnchor(null);
     setQuery({ spot: null });
   }, [setQuery]);
 
   const handleSelectStation = useCallback(
     (pick: StationPick) => {
-      noteEngagement("browse");
+      noteEngagement("browse", "station_pick");
       setLastPick(pick);
       setQuery({ stn: `${pick.source}:${pick.sid}`, spot: null });
       mapRef.current?.flyTo({
@@ -1813,7 +1823,7 @@ export default function ExploreShell({
 
   const handleSelectDay = useCallback(
     (d: ForecastDay) => {
-      noteEngagement("browse");
+      noteEngagement("browse", "day_pick");
       setQuery({ day: d.iso === today ? null : d.iso });
     },
     [setQuery, today],
@@ -1826,12 +1836,13 @@ export default function ExploreShell({
   // of those is a click anyone made. Only the chips, the search and the mobile
   // sheet come through here, so only real picks are counted.
   const chooseSpecies = useCallback((id: string | null) => {
-    noteEngagement("browse");
+    noteEngagement("browse", "species_filter");
+    setPaywallContext({ speciesId: id ?? undefined, page: "explore" });
     setSpeciesFilter(id);
   }, []);
 
   const chooseScoreFloor = useCallback((floor: ScoreFloor) => {
-    noteEngagement("browse");
+    noteEngagement("browse", "score_filter");
     setScoreFloor(floor);
   }, []);
 
