@@ -357,7 +357,7 @@ export default function CreateAlertDialog({
         {/* Footer */}
         <div className="mt-4 flex items-center justify-between gap-3 pt-4 border-t border-rc-rule-soft">
           <div className="font-rc-mono text-[11px] text-rc-ink-mute uppercase tracking-[0.04em]">
-            {isPaid ? "PRO" : "FREE TIER"} ·{" "}
+            {isPaid ? "PRO" : "MEMBER"} ·{" "}
             {usedCount != null ? usedCount : "—"} of {limit}{" "}
             {limit === 1 ? "alert" : "alerts"}
           </div>

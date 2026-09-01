@@ -28,11 +28,11 @@ const FEATURE_COPY: Record<string, { title: string; body: string }> = {
   // Both slugs: the paywall sends `favorite-spots`, older links send `favorites`.
   favorites: {
     title: 'Save every spot you fish',
-    body: 'A free account saves one spot. Pro saves every spot you fish, with drag-to-reorder and a 7-day score sparkline next to each one.',
+    body: 'A Member account saves one spot. Pro saves every spot you fish, with drag-to-reorder and a 7-day score sparkline next to each one.',
   },
   'favorite-spots': {
     title: 'Save every spot you fish',
-    body: 'A free account saves one spot. Pro saves every spot you fish, with drag-to-reorder and a 7-day score sparkline next to each one.',
+    body: 'A Member account saves one spot. Pro saves every spot you fish, with drag-to-reorder and a 7-day score sparkline next to each one.',
   },
   '14-day-forecast': {
     title: 'The full two weeks',

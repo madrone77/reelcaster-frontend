@@ -1,5 +1,5 @@
 /**
- * The plan matrix — what a free account and a Pro member each get.
+ * The plan matrix — what a Member account and Pro each get.
  *
  * The Free/Pro rows and their ORDER are the ones written for the /plans page;
  * this module is now where they live, so the sales page and every in-app
@@ -61,6 +61,7 @@
  *   ads               src/app/components/ads/ad-slot.tsx (the `isPaid` gate)
  */
 
+import { PLAN_LABELS } from "./plan-labels";
 import { TRIAL_DAYS, type PricingView } from "./pricing";
 
 /**
@@ -85,8 +86,11 @@ export const FREE_FAVORITE_SPOTS = 1;
 
 /**
  * Who is looking. Still three of these even though the table has two columns:
- * "anon" is a viewer state — it decides whether the modal offers the free tier
- * at all — not a thing we quote a price for.
+ * "anon" is a viewer state — it decides whether the modal offers the Member
+ * tier at all — not a thing we quote a price for.
+ *
+ * These are identifiers, not labels. What each one is called on screen lives
+ * in ./plan-labels, and `free` is called "Member" there.
  */
 export type PlanTierId = "anon" | "free" | "pro";
 
@@ -110,7 +114,7 @@ export interface PlanTier {
  */
 export function planTiers(pricing: PricingView): PlanTier[] {
   return [
-    { id: "free", label: "Free", price: "$0" },
+    { id: "free", label: PLAN_LABELS.free, price: "$0" },
     // The charged amount, not the $2.75/mo pitch: the headline above the table
     // already does that division, and the column a customer scans for "what
     // does this cost me" should be the number that lands on their card.
@@ -249,7 +253,8 @@ export type NagFeatureId =
   | "remove-ads"
   | "support-the-map"
   | "support"
-  | "whole-map";
+  | "whole-map"
+  | "depth-gate";
 
 export interface NagFeature {
   /** Completes "Start your 7-day Pro trial to ___". Lower case, no period. */
@@ -383,6 +388,27 @@ export const NAG_FEATURES: Record<NagFeatureId, NagFeature> = {
     action: "open the whole map",
     headline: "Unlock the whole map",
     unlocksAt: "pro",
+    pricingFeature: "whole-map",
+  },
+  // The depth gate on /m/explore: "Enjoying ReelCaster?", the one unprompted
+  // ask a visitor gets, fired by the engagement count rather than by a lock.
+  //
+  // IT DOES NOT OPEN ProTrialModal and it does not sell Pro — it asks for a
+  // free account, because registering is what brings the charted depth back.
+  // It is a member of this enum anyway, for the same reason "support" is: the
+  // paywall reporter validates every event against this list and an ask that
+  // is not on it is counted nowhere. That is precisely how this gate went
+  // unmeasured for its whole life, on the surface that sees the most bought
+  // traffic in the product.
+  //
+  // `unlocksAt: "free"` is the honest answer and is what separates it from
+  // every Pro wall in the report. No rowId: the plan matrix is not what it
+  // shows, and highlighting a Pro row for an ask that costs nothing would be a
+  // pitch it never makes. See explore/components/depth-gate-prompt.tsx.
+  "depth-gate": {
+    action: "keep the depth on the map",
+    headline: "Keep reading the bottom",
+    unlocksAt: "free",
     pricingFeature: "whole-map",
   },
   // Deliberately NOT spot-scoped: the pitch is the whole reporting stream

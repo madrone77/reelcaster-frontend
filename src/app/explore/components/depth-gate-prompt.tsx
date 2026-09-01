@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useCallback, useEffect, useRef } from "react";
 import { usePathname } from "next/navigation";
 import { Waves, CalendarDays, BellRing } from "lucide-react";
 import {
@@ -11,6 +12,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { FREE_FORECAST_DAYS } from "@/lib/forecast-horizon";
+import { reportPaywall } from "@/lib/paywall-counter";
 
 /**
  * "Enjoying ReelCaster?" — the one ask on /m/explore.
@@ -38,7 +40,18 @@ import { FREE_FORECAST_DAYS } from "@/lib/forecast-horizon";
  * no second thought, no smaller print explaining what they are giving up. The
  * map itself says that, once, on the way down, and then keeps a way back
  * visible for as long as they stay.
+ *
+ * IT REPORTS ITSELF, like every other wall in the app. It did not, for its
+ * whole life, and the reason is worth writing down: the paywall reporter
+ * validates against NAG_FEATURES and this ask is not a Pro wall, so it had no
+ * feature id to report under and was counted nowhere — on the one surface that
+ * sees the most bought traffic in the product. `depth-gate` is now a member of
+ * that enum (unlocksAt "free", no matrix row, since what it sells is an
+ * account) and the three outcomes are reported here: shown, taken, refused.
  */
+/** Where this ask stands, as it should read on the admin's surface list. */
+const SURFACE = "explore-depth-gate";
+
 export default function DepthGatePrompt({
   open,
   onDismiss,
@@ -51,12 +64,59 @@ export default function DepthGatePrompt({
   onDismiss: () => void;
 }) {
   const pathname = usePathname();
+
+  /**
+   * The reporting triple. Tier is "anon" without asking: this dialog only
+   * opens for a signed-out visitor (see `depthAsk` in explore-shell), and what
+   * it offers is the account itself, so there is no other tier it could be
+   * shown to.
+   */
+  const openedAt = useRef<number | null>(null);
+  const acted = useRef(false);
+
+  useEffect(() => {
+    if (!open) return;
+    openedAt.current = Date.now();
+    acted.current = false;
+    reportPaywall("impression", {
+      feature: "depth-gate",
+      surface: SURFACE,
+      viewerTier: "anon",
+    });
+  }, [open]);
+
+  /**
+   * Every way out of this dialog lands here, which is the point: "Not right
+   * now", the close button, Esc and a scrim click are one decision and the
+   * component already treats them as one. The report distinguishes only
+   * between leaving through the offer and leaving past it.
+   */
+  const dismiss = useCallback(() => {
+    if (!acted.current) {
+      reportPaywall("dismiss", {
+        feature: "depth-gate",
+        surface: SURFACE,
+        viewerTier: "anon",
+        dwellMs: openedAt.current ? Date.now() - openedAt.current : undefined,
+      });
+    }
+    onDismiss();
+  }, [onDismiss]);
+
+  const takeOffer = useCallback(() => {
+    acted.current = true;
+    reportPaywall("cta_click", {
+      feature: "depth-gate",
+      surface: SURFACE,
+      viewerTier: "anon",
+    });
+  }, []);
   // Come back to the map, not to a dashboard. Registering is meant to feel like
   // the depth switching back on, which it cannot do from another page.
   const signupHref = `/signup?next=${encodeURIComponent(pathname || "/m/explore")}`;
 
   return (
-    <Dialog open={open} onOpenChange={(next) => { if (!next) onDismiss(); }}>
+    <Dialog open={open} onOpenChange={(next) => { if (!next) dismiss(); }}>
       <DialogContent
         className="max-w-[420px] p-0 overflow-hidden"
         data-testid="depth-gate-prompt"
@@ -67,7 +127,7 @@ export default function DepthGatePrompt({
               Enjoying ReelCaster?
             </DialogTitle>
             <DialogDescription className="text-sm leading-relaxed text-rc-ink-mute">
-              Create a free account and keep the depth map. No card needed.
+              Become a Member and keep the depth map. No card needed.
             </DialogDescription>
           </DialogHeader>
 
@@ -81,15 +141,16 @@ export default function DepthGatePrompt({
 
           <Link
             href={signupHref}
+            onClick={takeOffer}
             data-testid="depth-gate-signup"
             className="mt-5 flex w-full items-center justify-center rounded-xl bg-rc-brand px-4 py-3 text-[15px] font-semibold text-white transition-colors hover:bg-rc-brand-hover"
           >
-            Create a free account
+            Become a Member
           </Link>
 
           <button
             type="button"
-            onClick={onDismiss}
+            onClick={dismiss}
             data-testid="depth-gate-dismiss"
             className="mt-1 w-full rounded-lg py-2.5 text-[13px] font-medium text-rc-ink-mute transition-colors hover:text-rc-ink-soft"
           >

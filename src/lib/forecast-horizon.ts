@@ -14,9 +14,9 @@
 
 import type { MapForecast14dPayload, SpotsOutlook14dPayload } from "@/lib/bluecaster";
 
-/** Signed-out visitors see the first 2 days. */
+/** Free: signed out, no account. The first 2 days. */
 export const ANON_FORECAST_DAYS = 2;
-/** Free accounts see the first 7; days 8–14 are Pro. */
+/** Member: signed in, paying nothing. The first 7; days 8–14 are Pro. */
 export const FREE_FORECAST_DAYS = 7;
 /** The whole strip. */
 export const PRO_FORECAST_DAYS = 14;

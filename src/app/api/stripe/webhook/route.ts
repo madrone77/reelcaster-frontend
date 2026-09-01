@@ -214,6 +214,8 @@ async function applySubscriptionToUser(subscription: Stripe.Subscription) {
 
   if (isEntitledStatus) {
     await recordUpgradeAttribution(subscription, resolvedUserId);
+    // Before the conversion rows below, which read the stamp back off the
+    // subscription's metadata.
     await stampPaymentMethod(subscription);
   }
 
@@ -299,6 +301,15 @@ async function stampPaymentMethod(subscription: Stripe.Subscription) {
     await stripe.subscriptions.update(subscription.id, {
       metadata: { [PAY_METHOD_KEY]: key },
     });
+
+    // Written back onto the object in hand, because the caller records the
+    // trial_start conversion from it a few lines later and that row wants the
+    // method on it. The update above changed Stripe, not this local copy, so
+    // without this every trial would land with a null pay_method and only the
+    // day-7 purchase — read from a subscription fetched fresh — would carry
+    // one. Mutating the object is the smaller evil against re-fetching a
+    // subscription we already hold to learn a value we just computed.
+    subscription.metadata = { ...subscription.metadata, [PAY_METHOD_KEY]: key };
     console.info('[stripe webhook] stamped payment method', subscription.id, key);
   } catch (err) {
     console.warn('[stripe webhook] could not stamp payment method', err);

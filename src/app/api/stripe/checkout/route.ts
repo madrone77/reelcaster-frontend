@@ -25,6 +25,7 @@ import {
 } from '@/lib/trial';
 import { resolveEntitlement } from '@/lib/entitlement';
 import { readEntry, readPaid, readWall, type CampaignParams } from '@/lib/attribution';
+import { paywallEventRow } from '@/lib/paywall-event';
 import { classifyUserAgent } from '@/lib/device';
 import { readEdgeGeo } from '@/lib/edge-geo';
 
@@ -318,6 +319,11 @@ async function anonCheckout(request: NextRequest) {
       },
     });
 
+    // Awaited, unlike the client-side reporters: this route is already doing a
+    // round trip to Stripe, one insert is noise beside it, and a fire-and-forget
+    // write on a serverless function can be killed by the response returning.
+    await recordCheckoutStart(request, 'anon');
+
     return withSplitCookie(
       NextResponse.json({
         url: session.url,
@@ -329,6 +335,43 @@ async function anonCheckout(request: NextRequest) {
   } catch (err) {
     console.error('[stripe checkout] anon session failed', err);
     return NextResponse.json({ error: 'checkout_failed' }, { status: 502 });
+  }
+}
+
+/**
+ * The step between "clicked the offer" and "paid", written where it actually
+ * happens.
+ *
+ * A CTA click is reported by the browser and then the browser leaves for
+ * Stripe, so until now the funnel went straight from a click to a subscription
+ * days later with nothing in between. Anyone abandoning on the hosted checkout
+ * page — which is most of them — was invisible, and a wall whose clicks all die
+ * at the card form looked identical to a wall whose clicks convert.
+ *
+ * Recorded off the SAME rc_wall cookie the subscription metadata is built
+ * from, so the checkout row and the eventual conversion agree about which wall
+ * they belong to by construction rather than by a join we hope lines up.
+ *
+ * Nothing here can fail the checkout. A visitor with no wall cookie (came
+ * straight to /plans, say) records nothing at all: there is no wall to credit,
+ * and inventing one would put conversions on a surface that never sold them.
+ */
+async function recordCheckoutStart(request: NextRequest, viewerTier: string): Promise<void> {
+  const wall = readWall(request.headers.get('cookie') ?? '');
+  if (!wall?.feature) return;
+
+  try {
+    const { error } = await admin.from('paywall_events').insert(
+      paywallEventRow(request, {
+        kind: 'checkout_start',
+        feature: wall.feature,
+        surface: wall.from || 'unknown',
+        viewerTier,
+      }),
+    );
+    if (error) console.warn('[stripe checkout] paywall event insert failed', error);
+  } catch (err) {
+    console.warn('[stripe checkout] paywall event insert threw', err);
   }
 }
 
@@ -557,6 +600,10 @@ export async function POST(request: NextRequest) {
           : {}),
       },
     });
+
+    // Signed in and buying, so "free" is the tier they are leaving behind. A
+    // paid viewer does not reach this route.
+    await recordCheckoutStart(request, 'free');
 
     return withSplitCookie(
       NextResponse.json({

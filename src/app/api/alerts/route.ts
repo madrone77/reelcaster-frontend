@@ -304,7 +304,7 @@ export async function POST(request: NextRequest) {
         {
           error: isPaid
             ? 'Maximum of 10 alert profiles allowed'
-            : 'Free accounts get 1 alert. Upgrade to Pro for up to 10.',
+            : 'Member accounts get 1 alert. Upgrade to Pro for up to 10.',
           upgrade_required: !isPaid,
         },
         { status: 400 },

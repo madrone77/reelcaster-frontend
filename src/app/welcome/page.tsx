@@ -165,7 +165,7 @@ export default function WelcomePage() {
                 account is being shown around, not sold to. */}
             <section className="mt-10">
               <p className="text-xs leading-relaxed text-rc-ink-mute">
-                On a free account, the second week of forecast, unlimited saved
+                On a Member account, the second week of forecast, unlimited saved
                 spots, your own pins and up to ten alerts are what Pro adds. It
                 starts with a {TRIAL_DAYS}-day free trial.{' '}
                 <Link href="/plans" className="text-rc-brand hover:text-rc-brand-hover">

@@ -103,7 +103,7 @@ function proRequired() {
   return NextResponse.json(
     {
       error:
-        'The Port is a Pro feature. Free accounts can reach us at ' +
+        'The Port is a Pro feature. Member accounts can reach us at ' +
         `${SUPPORT_EMAIL}.`,
       upgrade_required: true,
     },

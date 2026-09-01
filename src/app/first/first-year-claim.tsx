@@ -37,7 +37,7 @@ export default function FirstYearClaim() {
           href="/signup?next=/first"
           className="inline-flex items-center justify-center rounded-md bg-rc-brand px-6 py-3.5 text-sm font-bold text-white transition-colors hover:bg-rc-brand-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rc-brand focus-visible:ring-offset-2"
         >
-          Create your free account
+          Become a Member
         </Link>
         <p className="mt-4 text-sm text-rc-ink-mute">
           Already have an account?{' '}

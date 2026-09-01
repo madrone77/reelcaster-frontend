@@ -160,11 +160,112 @@ export function serverNag(): NagState {
  * Stops counting once the ask has been spent, so the number in storage stays
  * the small honest thing it is rather than climbing all visit.
  */
-export function noteEngagement(signal: NagSignal): void {
+export function noteEngagement(signal: NagSignal, action?: NagAction): void {
   if (typeof window === 'undefined') return;
   hydrate();
+  // Journalled BEFORE the `asked` gate, and deliberately outside it. The score
+  // stops climbing once this visit's one ask is spent, because its only job is
+  // to decide whether to ask; the journal keeps recording, because its job is
+  // to describe what somebody did before they walked into a wall and that
+  // question does not stop being interesting after the first modal.
+  if (action) noteAction(action);
   if (state.asked) return;
   commit({ ...state, score: state.score + NAG_WEIGHTS[signal] });
+}
+
+/* -------------------------------------------------------------------------
+ * The journal — what they did before the wall opened.
+ * ---------------------------------------------------------------------- */
+
+/**
+ * The vocabulary of things worth remembering about a visit to /explore.
+ *
+ * KINDS ONLY, never content. "search_spot" is recorded; what was typed into
+ * the search box is not, here or anywhere downstream. The question this
+ * answers is "was this person using the map or bouncing off it", and the
+ * answer never needed the strings.
+ */
+export type NagAction =
+  | 'spot_open'
+  | 'spot_preview'
+  | 'search_spot'
+  | 'search_species'
+  | 'species_filter'
+  | 'score_filter'
+  | 'station_pick'
+  | 'day_pick'
+  | 'spot_page'
+  | 'wall';
+
+export interface JournalEntry {
+  /** What they did. */
+  k: NagAction;
+  /** Seconds since the first entry of this visit. */
+  t: number;
+}
+
+/**
+ * How many actions ride along with a paywall event.
+ *
+ * Twelve is the shape of a visit, not a transcript of one. The interesting
+ * distinctions — bounced straight into a lock, browsed six spots first,
+ * filtered then hit the fortnight — all resolve well inside it, and the whole
+ * array has to fit in a fire-and-forget request body sent while the page is
+ * navigating away.
+ */
+const JOURNAL_MAX = 12;
+const JOURNAL_KEY = 'rc-explore-journal';
+
+interface Journal {
+  /** Epoch ms of the first entry, so `t` can stay a small integer. */
+  t0: number;
+  entries: JournalEntry[];
+}
+
+let journal: Journal | null = null;
+let journalHydrated = false;
+
+function hydrateJournal(): void {
+  if (journalHydrated || typeof window === 'undefined') return;
+  journalHydrated = true;
+  try {
+    const raw = store()?.getItem(JOURNAL_KEY);
+    if (!raw) return;
+    const parsed = JSON.parse(raw) as Partial<Journal>;
+    if (typeof parsed.t0 === 'number' && Array.isArray(parsed.entries)) {
+      journal = { t0: parsed.t0, entries: parsed.entries.slice(-JOURNAL_MAX) };
+    }
+  } catch {
+    // An unreadable journal is an empty one. Same argument as the score above.
+  }
+}
+
+/**
+ * Append one action. Keeps the LAST `JOURNAL_MAX`, not the first: the actions
+ * nearest the wall are the ones that explain it.
+ */
+export function noteAction(action: NagAction): void {
+  if (typeof window === 'undefined') return;
+  hydrateJournal();
+  const now = Date.now();
+  if (!journal) journal = { t0: now, entries: [] };
+  journal.entries.push({ k: action, t: Math.round((now - journal.t0) / 1000) });
+  if (journal.entries.length > JOURNAL_MAX) {
+    journal.entries = journal.entries.slice(-JOURNAL_MAX);
+  }
+  try {
+    store()?.setItem(JOURNAL_KEY, JSON.stringify(journal));
+  } catch {
+    // In-memory for the rest of this page's life, which is enough for a wall
+    // opened on the page that is already loaded.
+  }
+}
+
+/** The visit so far, oldest first. Empty when nothing has been done yet. */
+export function readJournal(): JournalEntry[] {
+  if (typeof window === 'undefined') return [];
+  hydrateJournal();
+  return journal?.entries ?? [];
 }
 
 /** Spends the visit's one proactive ask. Called when the nag actually opens. */

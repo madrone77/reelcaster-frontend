@@ -52,6 +52,18 @@ export const CONTROL_ANNUAL_CENTS: Record<BillingCurrency, number> = {
 /** Free-trial length, in days. Shared by checkout and every piece of UI copy. */
 export const TRIAL_DAYS = 7;
 
+/**
+ * How far ahead of the charge the trial-ending reminder goes out. On a 7-day
+ * trial that is day 4.
+ *
+ * It lives here rather than next to the sender because customer-facing copy
+ * has to state the day, and `lib/trial-reminder` pulls in the mailer and the
+ * Supabase admin client — a client component that imported the constant from
+ * there would drag both into the browser bundle. `trial-reminder` re-exports
+ * it, so the send and the promise still cannot disagree.
+ */
+export const REMINDER_LEAD_DAYS = 3;
+
 /** The control arm's Stripe price. Unset means the product cannot be sold. */
 export const ANNUAL_PRICE_ID = process.env.STRIPE_ANNUAL_PRICE_ID ?? '';
 

@@ -17,7 +17,7 @@
  * the STEPS below are the single list they both read from.
  */
 
-/** True of an action a free account cannot take. Shown as a Pro tag. */
+/** True of an action a Member account cannot take. Shown as a Pro tag. */
 export type StepTier = 'all' | 'pro';
 
 export interface WelcomeStep {
@@ -65,7 +65,7 @@ export const STEPS: WelcomeStep[] = [
     detail: [
       'The star sits beside the house on every spot page and on the spot cards in Explore. Starring a spot puts it on your saved list.',
       'This is the difference between checking the forecast and hunting for it. Six starred spots is a single page you read with coffee, ranked, instead of six searches around a map at 5am.',
-      'A free account keeps one saved spot, so make it the one you actually launch at. Pro keeps as many as you like.',
+      'A Member account keeps one saved spot, so make it the one you actually launch at. Pro keeps as many as you like.',
     ],
     tier: 'all',
     href: '/favorites',
@@ -93,7 +93,7 @@ export const STEPS: WelcomeStep[] = [
     detail: [
       'Pick a spot, pick a species, pick a number. We check conditions every 30 minutes and tell you when the score crosses it.',
       'Set the number higher than feels right. A threshold of 60 on a good spot fires most weeks and you will stop reading them inside a month. Start around 78. You can always lower it later; you cannot untrain yourself to ignore us.',
-      'A free account runs one alert by email. Pro runs up to ten, by text or email, and can combine conditions: westerly under 15 knots on a falling tide, rather than a score standing in for it.',
+      'A Member account runs one alert by email. Pro runs up to ten, by text or email, and can combine conditions: westerly under 15 knots on a falling tide, rather than a score standing in for it.',
     ],
     tier: 'all',
     href: '/alerts',

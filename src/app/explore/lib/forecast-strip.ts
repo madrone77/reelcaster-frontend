@@ -23,7 +23,7 @@ import {
 
 /** Signed-out visitors see the first 2 days. */
 export const ANON_STRIP_DAYS = 2;
-/** Free accounts see the first 7 days; days 8–14 are Pro. */
+/** Member accounts see the first 7 days; days 8–14 are Pro. */
 export const FREE_STRIP_DAYS = 7;
 
 /**

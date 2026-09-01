@@ -375,7 +375,7 @@ export function TrialBuy({
         onClick={() => s.onActivate?.('signup')}
         className={cn(ctaClass, className)}
       >
-        {signupLabel ?? 'Create free account'}
+        {signupLabel ?? 'Become a Member'}
       </Link>
     );
   }

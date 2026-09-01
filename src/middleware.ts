@@ -7,6 +7,12 @@ import {
   buildEntry,
   buildPaid,
 } from '@/lib/attribution'
+import {
+  SESSION_COOKIE,
+  SESSION_MAX_AGE,
+  resolveSession,
+  serializeSession,
+} from '@/lib/paywall-session'
 import { classifyUserAgent, isBotUserAgent } from '@/lib/device'
 import { readEdgeGeo } from '@/lib/edge-geo'
 import { classifyPage, classifySource } from '@/lib/traffic-source'
@@ -117,6 +123,17 @@ function stampAttribution(req: NextRequest, res: NextResponse): NextResponse {
       maxAge: PAID_MAX_AGE,
     })
   }
+
+  // The visit id that lets a wall shown three times to one undecided reader be
+  // read as one reader. Re-set on every page view, which is what makes the
+  // 30-minute window idle-based rather than fixed; `resolveSession` replaces it
+  // outright once it passes the absolute cap, so rolling it cannot turn it into
+  // a durable identifier for this browser. See src/lib/paywall-session.ts.
+  const session = resolveSession(req.cookies.get(SESSION_COOKIE)?.value)
+  res.cookies.set(SESSION_COOKIE, serializeSession(session), {
+    ...options,
+    maxAge: SESSION_MAX_AGE,
+  })
 
   return res
 }
