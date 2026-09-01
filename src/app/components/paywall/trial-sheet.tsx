@@ -63,6 +63,7 @@ export default function TrialSheet({
   viewerTier,
   placeName,
   placeKind = 'spot',
+  cityName,
   from,
   region,
   ctaHref,
@@ -86,6 +87,12 @@ export default function TrialSheet({
    * and IN a city. Only the preposition depends on it.
    */
   placeKind?: 'spot' | 'city';
+  /**
+   * The city the reports row names, which is not always the headline's
+   * subject: on a spot page the headline names the spot and this names the
+   * city it sits in. Falls back to the subject when that already is a city.
+   */
+  cityName?: string;
   from: string;
   region?: string;
   /** Set when the surface sends the reader somewhere instead of selling here. */
@@ -97,7 +104,7 @@ export default function TrialSheet({
   onActivate: (method: 'annual' | 'wallet' | 'signup') => void;
 }) {
   const plan = viewerPlan(viewerTier);
-  const features = sheetFeatures(placeName);
+  const features = sheetFeatures(cityName ?? (placeKind === 'city' ? placeName : undefined));
 
   return (
     <TrialCtaProvider

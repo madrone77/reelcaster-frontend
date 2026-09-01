@@ -162,17 +162,22 @@ export const SHARED_ROW_HEADING = "Free gets this too";
  * "See the next 14 days" over "14-day forecast at every spot" spends the
  * first and best line of the list restating the title. Reports are the one
  * thing on the list a reader cannot guess the shape of from the map behind
- * the sheet, and they are named after the place they cover, so the line reads
- * as this place's reports rather than a feature in the abstract.
+ * the sheet.
+ *
+ * ⚠️ They are named after the CITY, never the spot, even on a spot page whose
+ * headline names the spot. Reports are gathered and written per city, and a
+ * quiet spot may have none of its own — "Oak Bay Flats Catch Reports" on a
+ * sheet sold beside an empty reports card is a promise the page behind it
+ * disproves. "Victoria Catch Reports" is true at both places.
  *
  * Three, and no more: a fourth costs the timeline its place above the fold on
  * a 667pt phone, and the timeline is what answers the objection.
  */
-export function sheetFeatures(placeName?: string) {
+export function sheetFeatures(cityName?: string) {
   return [
     {
       id: "catch-reports",
-      title: placeName ? `${placeName} Catch Reports` : "Catch reports",
+      title: cityName ? `${cityName} Catch Reports` : "Catch reports",
       detail: "Updated daily with what is being caught and where.",
     },
     {

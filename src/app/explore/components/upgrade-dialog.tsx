@@ -41,6 +41,7 @@ export default function UpgradeDialog({
   dayIndex,
   spotName,
   placeName,
+  cityName,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -57,10 +58,17 @@ export default function UpgradeDialog({
   /**
    * The city under the map camera, for the walls that are about a viewport
    * rather than a spot. The strip folds a whole bbox into one row of days, so
-   * "the next 14 days at Seattle" is the honest way to name what the reader
+   * "the next 14 days in Seattle" is the honest way to name what the reader
    * is actually looking at; `spotName` still wins where there is one.
    */
   placeName?: string;
+  /**
+   * The city for the sheet's reports line, which is a city-grain product: a
+   * spot page names its spot in the headline and its city here, because a
+   * quiet spot may have no reports of its own. Defaults to `placeName` when
+   * that is already a city.
+   */
+  cityName?: string;
   /**
    * Which tile they reached for, 0-based from today. Reported, never shown.
    *
@@ -86,6 +94,7 @@ export default function UpgradeDialog({
       from="explore-forecast"
       spotName={spotName}
       placeName={placeName}
+      cityName={cityName}
       context={typeof dayIndex === "number" ? { day_index: dayIndex } : undefined}
     />
   );

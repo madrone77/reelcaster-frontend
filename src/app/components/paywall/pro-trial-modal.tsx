@@ -75,6 +75,8 @@ export default function ProTrialModal({
    * a more specific answer to "what was I looking at" than its city.
    */
   placeName,
+  /** The city the spot sits in, for the sheet's reports line. */
+  cityName,
   /**
    * Wall-specific detail for the event log: which locked day was tapped, which
    * limit was hit. Small scalars only — the server whitelists the shape.
@@ -89,6 +91,7 @@ export default function ProTrialModal({
   from?: string;
   spotName?: string;
   placeName?: string;
+  cityName?: string;
   context?: Record<string, string | number | boolean>;
 }) {
   const { user } = useAuth();
@@ -247,6 +250,7 @@ export default function ProTrialModal({
             placeName={spotName ?? placeName}
             // A spot when there is one, otherwise the city the map is on.
             placeKind={spotName ? 'spot' : 'city'}
+            cityName={cityName}
             from={from}
             ctaHref={ctaHref}
             ctaLabel={ctaLabel}
