@@ -249,7 +249,7 @@ export default function AlertsClient({ spots }: Props) {
                   <Lock className="h-5 w-5 text-rc-brand flex-shrink-0 mt-0.5" />
                   <div className="flex-1">
                     <p className="text-rc-ink font-semibold mb-1">
-                      Free tier: 1 alert active
+                      Member: 1 alert active
                     </p>
                     <p className="text-sm text-rc-ink-mute mb-3">
                       Upgrade to Pro for up to 10 alerts plus SMS delivery.

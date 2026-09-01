@@ -411,7 +411,7 @@ export default function ExploreShell({
 
   // ── Map-layer toggles + species filter (MapControls) ────────────────
   const [relief, setRelief] = useState(true);
-  /** Shows the single "depth is part of a free account" line, once, on the way
+  /** Shows the single "depth is part of a Member account" line, once, on the way
    *  down. A jump cut reads as the map breaking; a sentence reads as a choice. */
   const [depthNarrated, setDepthNarrated] = useState(false);
   // Labels are always on. They were a toggle in the phone filter sheet and
@@ -2430,7 +2430,7 @@ export default function ExploreShell({
           data-testid="depth-gate-narration"
           className="fixed inset-x-4 top-20 z-40 mx-auto max-w-sm rounded-xl bg-rc-ink/90 px-4 py-2.5 text-center text-[13px] leading-relaxed text-white shadow-rc-panel backdrop-blur lg:left-[420px] lg:right-auto lg:top-6 lg:mx-0 lg:text-left"
         >
-          Depth comes back with a free account. Scores and today stay free.
+          Depth comes back with a Member account. Scores and today stay free.
         </div>
       )}
 

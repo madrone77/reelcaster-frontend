@@ -751,7 +751,7 @@ export default function SpotDetailShell({
         return;
       }
       setLockedTier(day.lockTier ?? "pro");
-      // Every locked day opens the same modal, including the "Sign up free"
+      // Every locked day opens the same modal, including the "Become a Member"
       // days 3–7: the free account they unlock is offered by the link at the
       // foot of that modal rather than by a separate sign-up dialog.
       setUpgradeOpen(true);

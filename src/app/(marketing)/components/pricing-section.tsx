@@ -18,27 +18,36 @@ export default function PricingSection() {
           Two plans. One goal. Better days on the water.
         </h2>
         <p className="mt-3 text-pretty text-center text-sm md:text-base text-white/60">
-          Start free and get today&apos;s score. Upgrade when you&apos;re ready
-          for the full forecast, alerts, and advanced planning tools.
+          Browse Free with no account at all. Become a Member for the week
+          ahead, and upgrade when you&apos;re ready for the full forecast,
+          alerts, and advanced planning tools.
         </p>
 
         <div className="mt-14 grid gap-10 md:gap-6 md:grid-cols-2 md:items-stretch">
-          {/* Free plan */}
+          {/* Member: the account that costs nothing. Free is the state a
+              reader is already in, named in the line under the price rather
+              than given a third column. */}
           <div className="flex flex-col rounded bg-rc-panel p-8 text-center">
-            <p className="text-base font-bold tracking-wide text-rc-ink">FREE</p>
+            <p className="text-base font-bold tracking-wide text-rc-ink">
+              MEMBER
+            </p>
             <p className="mt-2 text-5xl font-black tracking-[-0.03em] text-rc-ink">
               $0
             </p>
-            <p className="mt-5 text-pretty text-sm leading-relaxed text-rc-ink-soft">
+            <p className="mt-1.5 font-rc-mono text-[11px] text-rc-ink-mute">
+              no card, ever
+            </p>
+            <p className="mt-4 text-pretty text-sm leading-relaxed text-rc-ink-soft">
               See today&apos;s Reelcaster Score for one location and experience
-              how the platform works.
+              how the platform works. No account at all is Free, and shows the
+              next 2 days.
             </p>
             <div className="mt-auto pt-8">
               <TrialModalButton
                 from="marketing-pricing"
                 className={btn.cardPrimary}
               >
-                Start Free
+                Become a Member
               </TrialModalButton>
             </div>
           </div>

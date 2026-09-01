@@ -54,7 +54,7 @@ const HEADLINE_FEATURES = [
 const MORE_FEATURES = [
   'Save every spot you fish',
   'Every covered city, one price',
-  'Cancel anytime, your free account stays',
+  'Cancel anytime, your Member account stays',
 ];
 
 interface CheckoutStatus {

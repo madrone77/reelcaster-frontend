@@ -151,7 +151,7 @@ export async function POST(request: NextRequest) {
     if (!isPaid && slugs.length >= FREE_FAVORITE_SPOTS) {
       return NextResponse.json(
         {
-          error: `Free accounts can save ${FREE_FAVORITE_SPOTS} ${
+          error: `Member accounts can save ${FREE_FAVORITE_SPOTS} ${
             FREE_FAVORITE_SPOTS === 1 ? 'spot' : 'spots'
           }`,
           upgrade_required: true,

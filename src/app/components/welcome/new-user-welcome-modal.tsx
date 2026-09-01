@@ -97,7 +97,7 @@ const MAKE_IT_YOURS = [
   {
     icon: BellRing,
     title: 'Set an alert',
-    body: 'Tell us a spot and a score, and we watch the forecast for you. Free accounts get one alert by email.',
+    body: 'Tell us a spot and a score, and we watch the forecast for you. Member accounts get one alert by email.',
   },
   {
     icon: Fish,

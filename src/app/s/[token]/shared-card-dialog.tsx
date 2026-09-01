@@ -145,7 +145,7 @@ export default function SharedCardDialog({
                   nothing. A vague "sign up for more" invites the assumption
                   that a card is about to be asked for. */}
               <p className="text-center text-[12px] leading-relaxed text-rc-ink-mute">
-                A free account opens the next 7 days. No card, no trial.
+                A Member account opens the next 7 days. No card, no trial.
               </p>
               <button
                 type="button"

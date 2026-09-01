@@ -61,7 +61,8 @@ export default function SignupPage() {
               Create an account
             </h1>
             <p className="mt-2 text-pretty text-sm text-rc-ink-mute">
-              Start free. Today&apos;s Reelcaster Score in under a minute.
+              Join as a Member. Today&apos;s Reelcaster Score in under a
+              minute.
             </p>
           </div>
 

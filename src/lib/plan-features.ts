@@ -1,5 +1,5 @@
 /**
- * The plan matrix — what a free account and a Pro member each get.
+ * The plan matrix — what a Member account and Pro each get.
  *
  * The Free/Pro rows and their ORDER are the ones written for the /plans page;
  * this module is now where they live, so the sales page and every in-app
@@ -61,6 +61,7 @@
  *   ads               src/app/components/ads/ad-slot.tsx (the `isPaid` gate)
  */
 
+import { PLAN_LABELS } from "./plan-labels";
 import { TRIAL_DAYS, type PricingView } from "./pricing";
 
 /**
@@ -85,8 +86,11 @@ export const FREE_FAVORITE_SPOTS = 1;
 
 /**
  * Who is looking. Still three of these even though the table has two columns:
- * "anon" is a viewer state — it decides whether the modal offers the free tier
- * at all — not a thing we quote a price for.
+ * "anon" is a viewer state — it decides whether the modal offers the Member
+ * tier at all — not a thing we quote a price for.
+ *
+ * These are identifiers, not labels. What each one is called on screen lives
+ * in ./plan-labels, and `free` is called "Member" there.
  */
 export type PlanTierId = "anon" | "free" | "pro";
 
@@ -110,7 +114,7 @@ export interface PlanTier {
  */
 export function planTiers(pricing: PricingView): PlanTier[] {
   return [
-    { id: "free", label: "Free", price: "$0" },
+    { id: "free", label: PLAN_LABELS.free, price: "$0" },
     // The charged amount, not the $2.75/mo pitch: the headline above the table
     // already does that division, and the column a customer scans for "what
     // does this cost me" should be the number that lands on their card.

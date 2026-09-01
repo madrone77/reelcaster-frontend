@@ -465,7 +465,7 @@ export default function MobileFilterSheet({
                   className="flex min-h-12 w-full items-center justify-between gap-3 text-left text-base font-semibold text-rc-brand"
                 >
                   Bathymetry
-                  <span className="text-sm font-medium">Free account</span>
+                  <span className="text-sm font-medium">Member</span>
                 </button>
               ) : (
                 <SwitchRow

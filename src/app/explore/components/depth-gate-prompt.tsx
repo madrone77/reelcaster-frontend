@@ -67,7 +67,7 @@ export default function DepthGatePrompt({
               Enjoying ReelCaster?
             </DialogTitle>
             <DialogDescription className="text-sm leading-relaxed text-rc-ink-mute">
-              Create a free account and keep the depth map. No card needed.
+              Become a Member and keep the depth map. No card needed.
             </DialogDescription>
           </DialogHeader>
 
@@ -84,7 +84,7 @@ export default function DepthGatePrompt({
             data-testid="depth-gate-signup"
             className="mt-5 flex w-full items-center justify-center rounded-xl bg-rc-brand px-4 py-3 text-[15px] font-semibold text-white transition-colors hover:bg-rc-brand-hover"
           >
-            Create a free account
+            Become a Member
           </Link>
 
           <button

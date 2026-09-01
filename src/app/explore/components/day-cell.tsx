@@ -34,8 +34,8 @@ const TIER_CHIP: Record<Tier, string> = {
  * One forecast-strip day cell per the reference: DOW · date (two lines) ·
  * large tier-colored score · tier-tinted peak-time chip. Selected = brand
  * fill; best day gets a gold "BEST" badge tab on the top edge; locked days
- * show a lock + "Upgrade to Pro" ("Sign up free" for signed-out visitors
- * on days the free plan unlocks).
+ * show a lock + "Upgrade to Pro" ("Become a Member" for signed-out visitors
+ * on days a Member account unlocks).
  */
 export default function DayCell({
   day,
@@ -50,7 +50,7 @@ export default function DayCell({
   /**
    * Drop the plan name from a locked tile, leaving the lock alone.
    *
-   * Set on the ad frame of the spot page, where "Sign up free" would sit four
+   * Set on the ad frame of the spot page, where "Become a Member" would sit four
    * tiles wide directly above a form asking for a card. Two offers on one
    * screen is one too many, and the cheaper one wins by being cheaper rather
    * than by being what the visit was bought for. The tile still says there is
@@ -139,7 +139,7 @@ export default function DayCell({
             {neutralLock
               ? "Locked"
               : day.lockTier === "free"
-                ? "Sign up free"
+                ? "Become a Member"
                 : "Upgrade to Pro"}
           </div>
         </div>
