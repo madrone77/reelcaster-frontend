@@ -1,6 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
-import { fetchCityDailyReport, resolveHomeCity } from "@/lib/bluecaster";
+import {
+  fetchCityDailyReport,
+  resolveCityBySlug,
+  resolveHomeCity,
+} from "@/lib/bluecaster";
 import { getUserIdFromRequest } from "@/lib/server-auth";
 import { resolveEntitlement } from "@/lib/entitlement";
 
@@ -49,14 +53,26 @@ export async function GET(request: NextRequest) {
   // identity rather than trusting anything from the request body.
   const { data: userRecord } = await supabaseAdmin.auth.admin.getUserById(userId);
   const prefs = userRecord?.user?.user_metadata?.preferences as
-    | { homeSpotSlug?: string }
+    | { homeSpotSlug?: string; homeCitySlug?: string }
     | undefined;
+
+  // The stated home city wins. This route is why the setting exists: it only
+  // ever wanted a city, and derived one from a pinned spot because a city
+  // preference did not exist yet. That inverted the difficulty — a city can be
+  // guessed from an arrival URL or an IP fix and confirmed in one tap, while
+  // nobody can name their home spot on their first day.
+  //
+  // `resolveHomeCity` stays as the fallback so every angler who pinned a spot
+  // before this shipped keeps their report with no backfill.
+  const homeCitySlug = prefs?.homeCitySlug || null;
   const homeSpotSlug = prefs?.homeSpotSlug ?? null;
 
-  const city = await resolveHomeCity(homeSpotSlug);
+  const city = homeCitySlug
+    ? await resolveCityBySlug(homeCitySlug)
+    : await resolveHomeCity(homeSpotSlug);
   if (!city) {
-    // No home spot pinned, or it no longer resolves to a published city.
-    // The card renders its own "pin a home spot" empty state.
+    // No home city set and no pin to derive one from, or the city named is no
+    // longer published. The card renders its own empty state.
     return NextResponse.json(
       { locked: false, city: null, status: "no_home_city", report: null },
       { headers: { "Cache-Control": "private, no-store" } },

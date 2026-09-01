@@ -1666,12 +1666,46 @@ export async function fetchCityDailyReport(
 }
 
 /**
+ * A published city, by its own slug.
+ *
+ * The direct read that `resolveHomeCity` below had to work around before a
+ * home CITY could be stated outright. Gates on `lifecycle` so a city that has
+ * been retired or is still being built reads as no preference, which is what
+ * every caller wants: an opening frame or a daily report for a city we do not
+ * publish is worse than falling through to the default.
+ */
+export async function resolveCityBySlug(
+  citySlug: string | null | undefined,
+): Promise<{ slug: string; name: string } | null> {
+  if (!citySlug) return null;
+
+  const hierarchy = await fetchHierarchy();
+  if (!hierarchy) return null;
+
+  for (const country of hierarchy.countries) {
+    for (const province of country.states_provinces) {
+      for (const region of province.regions) {
+        for (const city of region.cities) {
+          if (city.lifecycle !== "published") continue;
+          if (city.slug === citySlug) return { slug: city.slug, name: city.name };
+        }
+      }
+    }
+  }
+  return null;
+}
+
+/**
  * The city a home spot belongs to.
  *
- * There is no stored home *city* — a spot has exactly one home city under
- * BlueCaster's shared-spot model, so the home spot the Pro wizard already
- * pins resolves to one. Deriving it means no new column, no new onboarding
- * step, and it works for everyone who has pinned a spot already.
+ * ⚠️ The FALLBACK now, not the primary. `preferences.homeCitySlug` is the
+ * stated answer and `resolveCityBySlug` above reads it; this exists so every
+ * angler who pinned a spot before the city setting shipped keeps their
+ * opening frame and their daily report without a backfill.
+ *
+ * A spot has exactly one home city under BlueCaster's shared-spot model, so
+ * the pin does resolve to one. What it cannot do is answer the question for
+ * somebody who has not pinned anything, which on day one is everybody.
  *
  * Returns null when no spot is pinned, when the slug no longer resolves, or
  * when the city isn't published.
