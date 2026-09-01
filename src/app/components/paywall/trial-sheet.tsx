@@ -7,7 +7,7 @@ import {
   TrialBuy,
   TrialCtaProvider,
   TrialExpress,
-  TrialTerms,
+  useTrialCta,
 } from './trial-cta';
 import { sheetFeatures, type PlanTierId } from '@/lib/plan-features';
 import { PLAN_LABELS } from '@/lib/plan-labels';
@@ -171,8 +171,6 @@ export default function TrialSheet({
           </>
         )}
 
-        <TrialTerms className="mt-3" />
-
       </div>
     </TrialCtaProvider>
   );
@@ -187,6 +185,8 @@ export default function TrialSheet({
  * about it.
  */
 function Timeline({ priceAmount }: { priceAmount: string }) {
+  // Inside the provider, so this is the same resolution the buy button uses.
+  const { chargeDate, trialOn } = useTrialCta();
   const rows = [
     {
       key: 'today',
@@ -206,7 +206,12 @@ function Timeline({ priceAmount }: { priceAmount: string }) {
       key: 'charge',
       when: `Day ${TRIAL_DAYS}`,
       amount: `${priceAmount}/yr`,
-      note: 'Cancel any time before this and you pay nothing.',
+      // The disclosure that used to sit under the button, in the row that was
+      // already making its point. "Day 7" is a countdown, not a date, and the
+      // date is the half a reader needs to put it in a calendar.
+      note: trialOn && chargeDate
+        ? `Charged ${chargeDate}. Cancel any time before then and you pay nothing.`
+        : 'Cancel any time before this and you pay nothing.',
       tone: 'charge' as const,
     },
   ];

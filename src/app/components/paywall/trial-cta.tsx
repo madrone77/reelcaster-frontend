@@ -132,7 +132,16 @@ interface TrialCtaState {
 
 const Ctx = createContext<TrialCtaState | null>(null);
 
-function useTrialCta(): TrialCtaState {
+/**
+ * The checkout state this provider resolved: trial eligibility, the price for
+ * this reader, the date the card is charged.
+ *
+ * Exported so a surface can place one of those facts in its own layout rather
+ * than accept `TrialTerms` as a block. The phone sheet does exactly that with
+ * `chargeDate`, which is the one thing in the disclosure that a timeline of
+ * days cannot say for itself.
+ */
+export function useTrialCta(): TrialCtaState {
   const ctx = useContext(Ctx);
   if (!ctx) {
     throw new Error('TrialCta parts must be rendered inside <TrialCtaProvider>');
