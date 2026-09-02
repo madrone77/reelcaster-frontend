@@ -670,6 +670,13 @@ export const LP8_CSS = `
 @media(min-width:940px){
   .l8 .www{grid-template-columns:1fr 1fr}
   .l8 .www .shotfig{order:-1}
+  /* ...except the alert band, which sits phone-right. It is the second .www
+     on the page and the two are the same shape, so leaving both phone-left
+     stacked one identical layout on another. Alternating also puts the two
+     phones on opposite edges, which reads as two different screens rather
+     than the same phone twice. DOM order is text then figure, so dropping
+     the pull-left is the whole change. */
+  .l8 .smssec .www .shotfig{order:0}
 }
 .l8 .wwwlist{list-style:none;margin:24px 0 0;padding:0;display:flex;flex-direction:column;gap:0}
 .l8 .wwwlist li{
