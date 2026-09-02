@@ -26,14 +26,38 @@
 /**
  * The Meta event name.
  *
- * Custom, unlike StartTrial and CompleteRegistration, and that is a real cost:
- * Meta's models are pre-trained on the standard events and a custom one starts
- * cold. It is named anyway because there is no standard event that means this.
- * ViewContent would be a lie about what was viewed, and InitiateCheckout is
- * already what a CTA press leads to — reusing either would put two different
- * behaviours under one name and make both unreadable.
+ * `InitiateCheckout`, and it started life as a custom `PaywallView`. The
+ * argument for the custom name was that InitiateCheckout was "already what a
+ * CTA press leads to", so reusing it would put two behaviours under one name.
+ * That was a reservation, not a fact: nothing in this codebase has ever fired
+ * InitiateCheckout, and the CTA press it was being held for was never built.
+ *
+ * A reservation is not worth what a custom event costs. Meta's optimisation
+ * models are pre-trained on the standard names and a custom one starts cold,
+ * which is the exact problem this event exists to solve — see the volume
+ * argument above. A standard name is also selectable as a campaign objective
+ * directly, where a custom one has to be wrapped in a custom conversion in
+ * Events Manager first.
+ *
+ * WHAT IT COSTS, stated so nobody has to rediscover it. The name is now spent:
+ * an event on the button INSIDE the modal, if one is ever wanted, needs a
+ * different one, or has to accept that the modal opening is where this funnel
+ * says checkout begins. And Events Manager will show a bad InitiateCheckout to
+ * Purchase ratio, because the numerator is modal opens. Both are reporting
+ * cosmetics. Neither changes what the optimiser is bidding on.
+ *
+ * It stays honest enough to defend: the modal carries the plan matrix and the
+ * button that goes to Stripe, so opening it is entering the checkout flow. The
+ * two names that would have been lies are still lies. ViewContent misdescribes
+ * what was viewed, and Purchase misdescribes everything.
+ *
+ * TYPED AS A STANDARD EVENT ON PURPOSE. `metaTrack` in src/lib/meta-pixel.ts
+ * accepts `MetaStandardEvent` and nothing else, so this constant is checked
+ * against that list at build time. Changing it back to a custom string breaks
+ * the compile rather than quietly landing an event in Events Manager that
+ * nobody is looking for.
  */
-export const PAYWALL_VIEW_META_EVENT = 'PaywallView' as const;
+export const PAYWALL_VIEW_META_EVENT = 'InitiateCheckout' as const;
 
 /**
  * The Google conversion action for the same event, which unlike Meta's is an

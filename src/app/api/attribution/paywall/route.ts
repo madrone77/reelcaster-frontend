@@ -1,5 +1,5 @@
 /**
- * POST /api/attribution/paywall  → { ok: true }
+ * POST /api/attribution/paywall  → { ok: true, event_id?: string }
  *
  * Every paywall in the app reports here, and the report lands in two places.
  *
@@ -40,6 +40,20 @@
  * always carried them and is the only thing the offline upload can work with.
  * The event log itself is unchanged. See src/lib/paywall-conversion.ts for why
  * an event this far from money is worth reporting, and what it costs.
+ *
+ * AND IT NOW ANSWERS WITH AN `event_id` WHEN IT WROTE ONE, which is the first
+ * thing this route has ever told a client. The row alone does not reach both
+ * networks: the Meta leg of the offline upload skips every conversion without
+ * an fbclid, and the Google leg has been dead on this account since June 2026
+ * (see src/lib/google-ads.ts). So a wall open reported here and nowhere else is
+ * invisible to the half of paid traffic that arrives untagged, and invisible to
+ * the whole of Google. The browser tags close both gaps, and they need this id:
+ * it is the event id the Conversions API sends for the same open, so where both
+ * halves fire Meta discards one, and it is Google's `transaction_id`, so a
+ * second wall in the same session is discarded there too. Handing it back is
+ * what keeps "is this paid" and "is this the first this session" one decision
+ * made here, from cookies a visitor cannot write, rather than a second copy of
+ * the rules living in a browser that cannot see rc_paid at all.
  *
  * UNAUTHENTICATED BY DESIGN — most walls are shown to signed-out visitors, who
  * are exactly the ones we most want to count. The cost of that is that anyone
@@ -165,11 +179,13 @@ export async function POST(request: NextRequest) {
   // Last, and after the two writes above have had their turn. A conversion is
   // the newest and least load-bearing of the three, and the counter that has
   // been landing since August must not be at the mercy of it.
-  if (kind === 'impression') {
-    await recordPaidView(request, { day, feature, surface });
-  }
+  const eventId =
+    kind === 'impression' ? await recordPaidView(request, { day, feature, surface }) : null;
 
-  return NextResponse.json({ ok: true });
+  // Non-null ONLY when a conversion row was just written: paid touch, stable
+  // key, and the first wall of this session. The browser tags fire off exactly
+  // that, so the three streams cannot disagree about how many there were.
+  return NextResponse.json(eventId ? { ok: true, event_id: eventId } : { ok: true });
 }
 
 /**
@@ -189,14 +205,23 @@ export async function POST(request: NextRequest) {
  *
  * Never throws and never blocks the response. This runs on the request that
  * shows somebody a paywall.
+ *
+ * @returns the dedupe key when a row was WRITTEN, null otherwise — organic
+ * traffic, a browser with nothing to key on, a repeat wall in the same
+ * session, or a failed insert. The caller hands it back to the browser as the
+ * one signal that says "report this open to the networks", so every no here is
+ * also a tag that does not fire. That is the point: the decision about whether
+ * an ad network is owed a conversion is made once, on the server, from cookies
+ * a visitor cannot write, and the browser is told the answer rather than
+ * asked to work it out from a second copy of the rules.
  */
 async function recordPaidView(
   request: NextRequest,
   input: { day: string; feature: string; surface: string },
-): Promise<void> {
+): Promise<string | null> {
   const cookieHeader = request.headers.get('cookie') ?? '';
   const paid = readPaid(cookieHeader);
-  if (!paid) return;
+  if (!paid) return null;
 
   const dedupeKey = paywallViewDedupeKey({
     sessionId: readSessionId(cookieHeader),
@@ -206,10 +231,10 @@ async function recordPaidView(
   // Neither a session cookie nor a click id: nothing stable to count once by.
   // See the argument in paywall-conversion.ts for why that is skipped rather
   // than guessed at.
-  if (!dedupeKey) return;
+  if (!dedupeKey) return null;
 
   try {
-    await recordPaywallViewConversion(admin, {
+    const id = await recordPaywallViewConversion(admin, {
       dedupeKey,
       occurredAt: new Date().toISOString(),
       acquisition: acquisitionFromRequest({
@@ -222,8 +247,13 @@ async function recordPaidView(
         paywallSurface: input.surface || null,
       }),
     });
+    // Null on the duplicate, which is the guard working rather than a fault,
+    // and on a write that failed. Neither is a conversion, so neither gets a
+    // tag.
+    return id === null ? null : dedupeKey;
   } catch (err) {
     console.error('[attribution] paywall view conversion failed', err);
+    return null;
   }
 }
 

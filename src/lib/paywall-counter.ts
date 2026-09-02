@@ -37,7 +37,11 @@
  * contract, and a new wall belongs in plan-features.ts first.
  *
  * FIRE AND FORGET, ALWAYS. A counter must never block a paywall or fail one.
- * Nothing here throws, nothing is awaited, and the response is ignored.
+ * Nothing here throws and nothing is awaited. The response is read now, which
+ * it never used to be, and only for one thing: an `event_id` meaning the route
+ * just recorded this open as a conversion, which is the cue to report it to
+ * Meta and Google from the browser. See `reportToNetworks` for why the server
+ * is the one deciding that. A failure to read it costs a tag and nothing else.
  * `keepalive` is the one detail that matters: a CTA click navigates away, to
  * /signup, to /plans, or out to Stripe, and an in-flight fetch on a tearing
  * down document is dropped without it. That would lose exactly the clicks that
@@ -47,6 +51,9 @@
 
 import { readJournal, readNag } from './upgrade-nag';
 import { readPaywallContext } from './paywall-context';
+import { googleTrackPaywallView } from './google-ads';
+import { metaTrack } from './meta-pixel';
+import { PAYWALL_VIEW_META_EVENT } from './paywall-conversion';
 import type { NagFeatureId, PlanTierId } from './plan-features';
 
 /**
@@ -108,7 +115,51 @@ export function reportPaywall(
       context: mergeContext(ambient, context),
     }),
     keepalive: true,
-  }).catch(() => {});
+  })
+    .then((res) => (res.ok ? res.json() : null))
+    .then((body) => reportToNetworks(body))
+    .catch(() => {});
+}
+
+/**
+ * Tell the ad networks, when the server says this open is owed to one.
+ *
+ * THE BROWSER DECIDES NOTHING. `event_id` comes back only when the route just
+ * wrote a `marketing_conversions` row: the visitor carried a paid touch, there
+ * was something stable to count once by, and this was the first wall of the
+ * session. Every one of those tests reads cookies the page cannot see, so the
+ * alternative to being told would be a second copy of the rules here, drifting
+ * against the first and reporting conversions for organic readers the day it
+ * did. There is no fallback branch on purpose: no id, no tag.
+ *
+ * WHY A TAG AT ALL when the row is already uploaded server-side. Neither
+ * network is fully reached by that upload. `uploadToMeta` skips every row
+ * whose click_type is not `fbclid`, and about half of Meta's own traffic
+ * arrives with the id stripped; those opens are real paid conversions that the
+ * Conversions API is never told about, and the pixel's `_fbp`/`_fbc` reach
+ * them. Google is worse than partial — its leg of conversion-upload.ts cannot
+ * send anything from this account at all (src/lib/google-ads.ts), so the tag
+ * is not a supplement there, it is the whole channel.
+ *
+ * Both halves carry the same id, so the overlap is deduplicated rather than
+ * doubled: Meta on `eventID`, Google on `transaction_id`. They also have to
+ * agree on the NAME, which is why both read it from one constant rather than
+ * spelling `InitiateCheckout` twice.
+ *
+ * Nothing here is awaited and nothing throws. This runs off the response to a
+ * counter that fired while a paywall was opening, and a missing pixel, a
+ * blocked script or an unparseable body must all end the same way — quietly.
+ */
+function reportToNetworks(body: unknown): void {
+  const eventId =
+    body && typeof body === 'object' ? (body as { event_id?: unknown }).event_id : null;
+  if (typeof eventId !== 'string' || !eventId) return;
+
+  // No value on either, matching the server: an open is worth nothing until
+  // somebody pays, and two halves of one conversion must not disagree about
+  // what it was worth.
+  metaTrack(PAYWALL_VIEW_META_EVENT, { eventId });
+  googleTrackPaywallView(eventId);
 }
 
 /**
