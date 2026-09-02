@@ -2,7 +2,6 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useRef } from "react";
-import { usePathname } from "next/navigation";
 import {
   Dialog,
   DialogContent,
@@ -30,7 +29,6 @@ import { TRIAL_DAYS } from "@/lib/pricing";
 import { usePricing } from "@/app/components/split-test/use-pricing";
 import { useSplitExposure } from "@/app/components/split-test/report";
 import {
-  FREE_FAVORITE_SPOTS,
   NAG_FEATURES,
   nagHeadlineParts,
   type NagFeatureId,
@@ -58,8 +56,10 @@ import {
  * highlighted, so "what I have" and "what I'd get" are both one glance. The
  * table is Free vs Pro for every viewer, signed out included — a signed-out
  * visitor is being asked whether to pay, and a third "Browsing" column made
- * that a three-way comparison. The free tier is still offered by name under
- * the buy button.
+ * that a three-way comparison. The free tier is no longer offered by name
+ * here at all: this modal sells the trial, /plans and /signup still sell the
+ * account, and a link out of a paywall to the free option was one more exit
+ * on the surface with the most bought traffic in the product.
  *
  * Copy + limits come from `@/lib/plan-features` — never hardcode them here.
  */
@@ -104,8 +104,6 @@ export default function ProTrialModal({
   const { isPaid } = useSubscription();
   const { trackEvent } = useAnalytics();
 
-  const pathname = usePathname();
-  const returnTo = pathname || "/explore";
   const nag = NAG_FEATURES[feature];
   const viewerTier: PlanTierId =
     viewerTierProp ?? (isPaid ? "pro" : user ? "free" : "anon");
@@ -318,7 +316,7 @@ export default function ProTrialModal({
            scroller. At `lg` it becomes a fixed-height two-pane box and the
            columns scroll instead — hence `overflow-hidden` there, or the panel
            would scroll a thing whose halves already do. */
-        className="bg-rc-panel border-rc-rule text-rc-ink p-0 gap-0 sm:max-w-lg lg:max-w-4xl max-h-[88dvh] lg:h-[min(88dvh,44rem)] flex flex-col overflow-y-auto overscroll-contain lg:overflow-hidden [&>[data-slot=dialog-close]]:z-20 lg:[&>[data-slot=dialog-close]]:right-[calc(50%+1rem)]"
+        className="bg-rc-panel border-rc-rule text-rc-ink p-0 gap-0 sm:max-w-lg lg:max-w-4xl max-h-[88dvh] lg:max-h-[min(88dvh,44rem)] flex flex-col overflow-y-auto overscroll-contain lg:overflow-hidden [&>[data-slot=dialog-close]]:z-20 lg:[&>[data-slot=dialog-close]]:right-[calc(50%+1rem)]"
       >
         {/* One provider around every piece: the wallet, the buy form, the
             timeline and the terms — sharing one resolution of trial
@@ -438,30 +436,6 @@ export default function ProTrialModal({
                     Privacy
                   </Link>
                 </DialogDescription>
-
-                {/* The Member tier, offered last and on purpose: under the ask
-                    it is an alternative to, and beside the table that has
-                    shown what an account gets without paying. Only for
-                    visitors who don't have one. */}
-                {viewerTier === "anon" && (
-                  <p className="mt-3 border-t border-rc-rule-soft pt-3 text-[11px] leading-relaxed text-rc-ink-mute">
-                    <Link
-                      href={`/signup?next=${encodeURIComponent(returnTo)}`}
-                      data-testid="free-signup-cta"
-                      onClick={() =>
-                        trackCta({ plan: "free", destination: "signup" })
-                      }
-                      className="font-semibold text-rc-brand hover:text-rc-brand-hover underline underline-offset-2"
-                    >
-                      Sign up today as a Member
-                    </Link>{" "}
-                    — no card. Keeps today&apos;s score, a week of forecast, and{" "}
-                    {FREE_FAVORITE_SPOTS === 1
-                      ? "one saved spot"
-                      : `${FREE_FAVORITE_SPOTS} saved spots`}
-                    .
-                  </p>
-                )}
               </div>
             </div>
 
@@ -471,10 +445,15 @@ export default function ProTrialModal({
                 top rule goes at `lg`, where there is nothing above it to be
                 ruled off from. */}
             <div className="lg:min-h-0 lg:overflow-y-auto lg:overscroll-contain lg:border-l lg:border-rc-rule">
+              {/* `sharedRows` off: this column is selling, and seven rows of
+                  things the reader already has are not an argument for paying.
+                  The customer quote takes their place. /billing/cancel keeps
+                  them — see plan-matrix. */}
               <PlanMatrix
                 viewerTier={viewerTier}
                 highlightRowId={nag.rowId}
                 withProof
+                sharedRows={false}
                 className="lg:border-t-0"
               />
             </div>
