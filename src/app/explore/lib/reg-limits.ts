@@ -1,10 +1,16 @@
 import type { LiveRegulation } from "@/lib/bluecaster/live-spot-types";
+import { lengthLabel, lengthRangeLabel, type Regulator } from "@/lib/regions";
 
 /**
  * Shared formatting for the regulation figures — the limits, the length rule,
  * and the gear clause. Both the summary strip in the score card and the full
  * Current Regulations panel read from here, so the two never disagree about
  * what a null limit or a one-sided size bound means.
+ *
+ * Lengths arrive as centimetres whoever set them, because that is the one unit
+ * BlueCaster stores, and they go out in the unit the REGULATOR writes — WDFW's
+ * tables are inches. So the size functions take the regulator the caller
+ * already resolved rather than reading the raw figure out.
  */
 
 const MONTHS = [
@@ -24,23 +30,38 @@ export function fmtMD(iso: string | null): string | null {
 }
 
 /** The size/length rule spelled out — min, max, or a slot. */
-export function sizeText(r: LiveRegulation): string | null {
-  const min = r.sizeLimitCm;
-  const max = r.sizeLimitMaxCm;
-  if (min != null && max != null) return `${min}-${max} cm slot`;
-  if (min != null) return `Minimum ${min} cm`;
-  if (max != null) return `Maximum ${max} cm`;
+export function sizeText(r: LiveRegulation, regulator: Regulator): string | null {
+  const { min, max } = sizeBounds(r);
+  if (min != null && max != null)
+    return `${lengthRangeLabel(min, max, regulator)} slot`;
+  if (min != null) return `Minimum ${lengthLabel(min, regulator)}`;
+  if (max != null) return `Maximum ${lengthLabel(max, regulator)}`;
   return null;
 }
 
 /** The same rule abbreviated, for the middot-joined summary strip. */
-export function sizeTextShort(r: LiveRegulation): string | null {
-  const min = r.sizeLimitCm;
-  const max = r.sizeLimitMaxCm;
-  if (min != null && max != null) return `${min}-${max} cm slot`;
-  if (min != null) return `min ${min} cm`;
-  if (max != null) return `max ${max} cm`;
+export function sizeTextShort(
+  r: LiveRegulation,
+  regulator: Regulator,
+): string | null {
+  const { min, max } = sizeBounds(r);
+  if (min != null && max != null)
+    return `${lengthRangeLabel(min, max, regulator)} slot`;
+  if (min != null) return `min ${lengthLabel(min, regulator)}`;
+  if (max != null) return `max ${lengthLabel(max, regulator)}`;
   return null;
+}
+
+/** The published bounds, with a zero read as an absence — no fishery has a
+ *  zero-length minimum, and "min 0" beside a real daily limit reads as a rule. */
+function sizeBounds(r: LiveRegulation): {
+  min: number | null;
+  max: number | null;
+} {
+  return {
+    min: r.sizeLimitCm != null && r.sizeLimitCm > 0 ? r.sizeLimitCm : null,
+    max: r.sizeLimitMaxCm != null && r.sizeLimitMaxCm > 0 ? r.sizeLimitMaxCm : null,
+  };
 }
 
 /** Gear clause with any trailing period trimmed, so it sits in a joined line
@@ -61,7 +82,10 @@ function gearPhrase(gear: string | null): string | null {
  * Release-only drops the size rule for the same reason: nothing is being kept,
  * so a minimum length is not a rule you can act on.
  */
-export function regHighlights(r: LiveRegulation): string[] {
+export function regHighlights(
+  r: LiveRegulation,
+  regulator: Regulator,
+): string[] {
   if (r.status === "Closed") {
     const reopen = fmtMD(r.nextOpenDate);
     return ["No retention", ...(reopen ? [`reopens ${reopen}`] : [])];
@@ -76,7 +100,7 @@ export function regHighlights(r: LiveRegulation): string[] {
 
   return [
     quantity,
-    releaseOnly ? null : sizeTextShort(r),
+    releaseOnly ? null : sizeTextShort(r, regulator),
     gearPhrase(r.gearRestrictions),
   ].filter((part): part is string => part != null);
 }

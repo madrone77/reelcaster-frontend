@@ -113,7 +113,7 @@ export default function CurrentRegulations({
   // Unverified default rows render muted, never dressed up as confirmed regs.
   const isExpected = active.confidence === "expected";
 
-  const size = sizeText(active);
+  const size = sizeText(active, regulator);
   const season =
     active.seasonOpenDate && active.seasonCloseDate
       ? `${fmtMD(active.seasonOpenDate)} to ${fmtMD(active.seasonCloseDate)}`

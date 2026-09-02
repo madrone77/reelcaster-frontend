@@ -303,7 +303,6 @@ export default async function CityPage({
         <KeepToday
           rows={seasonRows}
           cityName={city.name}
-          provinceCode={city.provinceCode}
           regulator={regulator}
         />
       </div>

@@ -10,6 +10,8 @@
 // water we don't forecast. Add a region back here the day it has a published
 // city, not the day we intend to build one.
 
+import { cmToIn, round1 } from "@/lib/units";
+
 export const COVERED_PROVINCES = ["BC", "WA"] as const;
 export type CoveredProvince = (typeof COVERED_PROVINCES)[number];
 
@@ -125,9 +127,24 @@ export interface Regulator {
    * does not say who set it.
    */
   areaShort: string;
+  /**
+   * The unit this authority writes its size limits in.
+   *
+   * BlueCaster stores every length in centimetres so a rule from either side
+   * of the border can be compared in one unit, and WDFW's are a conversion of
+   * the inches its own tables print. Printing the stored number back shows a
+   * Washington angler "min 55.9 cm" for a rule WDFW writes as 22 inches — a
+   * true figure in a unit nobody there measures a fish in.
+   *
+   * Follows the AGENCY, never the reader: a spot's limits are written in the
+   * unit whoever set them uses, wherever the person reading is.
+   */
+  lengthUnit: LengthUnit;
   /** The authority's own recreational-regulations page. */
   url: string;
 }
+
+export type LengthUnit = "cm" | "in";
 
 const REGULATOR_BY_PROVINCE: Record<KnownProvince, Regulator> = {
   BC: {
@@ -135,6 +152,7 @@ const REGULATOR_BY_PROVINCE: Record<KnownProvince, Regulator> = {
     sourceName: "DFO/MPO",
     areaLabel: "PFMA",
     areaShort: "Area",
+    lengthUnit: "cm",
     url: "https://www.pac.dfo-mpo.gc.ca/fm-gp/rec/index-eng.html",
   },
   WA: {
@@ -142,6 +160,7 @@ const REGULATOR_BY_PROVINCE: Record<KnownProvince, Regulator> = {
     sourceName: "WDFW",
     areaLabel: "Marine Area",
     areaShort: "MA",
+    lengthUnit: "in",
     url: "https://wdfw.wa.gov/fishing/regulations",
   },
   OR: {
@@ -149,6 +168,7 @@ const REGULATOR_BY_PROVINCE: Record<KnownProvince, Regulator> = {
     sourceName: "ODFW",
     areaLabel: "Zone",
     areaShort: "Zone",
+    lengthUnit: "in",
     url: "https://myodfw.com/recreation-report/fishing-report",
   },
 };
@@ -217,4 +237,34 @@ export function areaLabelFor(
 ): string | null {
   if (!area) return null;
   return `${regulatorFrom(from).areaShort} ${area}`;
+}
+
+/**
+ * A stored length (always centimetres) written the way the regulator writes it
+ * — `62 cm` under DFO, `22"` under WDFW.
+ *
+ * Inches come back whole wherever the stored figure is a converted whole inch,
+ * which is nearly always: WDFW prints 22", BlueCaster holds 55.9, and
+ * 55.9 / 2.54 is 22.007. Rounding to one decimal and dropping a trailing zero
+ * recovers the pamphlet's number without inventing precision on the rare
+ * half-inch rule.
+ */
+export function lengthLabel(cm: number, regulator: Regulator): string {
+  const value = lengthValue(cm, regulator);
+  return regulator.lengthUnit === "in" ? `${value}"` : `${value} cm`;
+}
+
+/** A slot limit, with the unit written once: `62–80 cm`, `22–26"`. */
+export function lengthRangeLabel(
+  minCm: number,
+  maxCm: number,
+  regulator: Regulator,
+): string {
+  const lo = lengthValue(minCm, regulator);
+  return `${lo}–${lengthLabel(maxCm, regulator)}`;
+}
+
+/** The bare number in the regulator's unit, for a range that labels itself once. */
+function lengthValue(cm: number, regulator: Regulator): number {
+  return round1(regulator.lengthUnit === "in" ? cmToIn(cm) : cm);
 }

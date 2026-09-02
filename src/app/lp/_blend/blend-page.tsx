@@ -401,7 +401,6 @@ export default async function BlendPage({
         <KeepToday
           rows={city.seasonRows}
           cityName={city.city.name}
-          provinceCode={city.city.provinceCode}
           regulator={city.regulator}
         />
       </div>
