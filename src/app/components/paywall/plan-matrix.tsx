@@ -11,6 +11,7 @@ import {
   type PlanTierId,
 } from "@/lib/plan-features";
 import { usePricing } from "@/app/components/split-test/use-pricing";
+import { cn } from "@/lib/utils";
 import Testimonial from "./testimonial";
 import { PROOF } from "@/app/lp/_shared/lp-content";
 
@@ -41,6 +42,8 @@ export default function PlanMatrix({
   highlightRowId,
   stickyHeader = true,
   withProof = false,
+  sharedRows = true,
+  className,
 }: {
   viewerTier: PlanTierId;
   /** Row to call out — the one that blocked them. Omit where nothing did. */
@@ -61,6 +64,23 @@ export default function PlanMatrix({
    * and that page's job is to get them back to checkout.
    */
   withProof?: boolean;
+  /**
+   * Show the rows the free tier gets as well, under their own heading.
+   *
+   * Off on the trial modal, where the column is selling: a reader deciding
+   * whether to pay does not need seven rows of things they already have, and
+   * the space buys a customer's word instead. On /billing/cancel they stay —
+   * that reader is being shown what an account keeps if they leave, and the
+   * shared rows are the whole of that answer.
+   */
+  sharedRows?: boolean;
+  /**
+   * Merged onto the root. The table carries its own top rule because every
+   * surface has so far stacked it under something; the trial dialog puts it in
+   * a column of its own at desktop widths, where that rule would be a stray
+   * hairline across the top of the panel, and turns it off from here.
+   */
+  className?: string;
 }) {
   // The Pro column's price line. Read per reader rather than from a constant,
   // so a price test does not leave this table quoting one number while the
@@ -68,7 +88,7 @@ export default function PlanMatrix({
   const tiers = planTiers(usePricing());
 
   return (
-    <div className="border-t border-rc-rule">
+    <div className={cn("border-t border-rc-rule", className)}>
       {/* Column heads — sticky so the tier you're reading stays labelled while
           the rows scroll past. Now that the whole modal is one scroller these
           stick to the top of the dialog rather than to a table-sized window,
@@ -106,7 +126,10 @@ export default function PlanMatrix({
         })}
       </div>
 
-      {PLAN_FEATURES.map((row, i) => {
+      {(sharedRows
+        ? PLAN_FEATURES
+        : PLAN_FEATURES.slice(0, SHARED_ROW_START)
+      ).map((row, i) => {
         const hit = row.id === highlightRowId;
         // The seam. Above it, what paying adds; below it, the rows the free
         // tier gets as well. The Pro block leads so that the rows sharing the
@@ -147,6 +170,25 @@ export default function PlanMatrix({
         );
       })}
 
+      {/* One customer, in his own words, where the shared rows used to be.
+
+          The table is the claim we make about the product; this is somebody
+          else making it, which is worth more once the reader has seen what is
+          being claimed than as a banner before they know what it refers to.
+          It sits above the coverage note rather than under it so the column
+          closes on the small print, not on a quote followed by small print.
+
+          Off unless a caller asks for it, so the page that shows this table to
+          somebody whose checkout just failed does not argue at them. Rendered
+          from the shared component, which reads PROOF, so the quote is not
+          reproduced here: see testimonial.tsx. Nothing renders when
+          PROOF.showProof is off, and the border goes with it. */}
+      {withProof && PROOF.showProof && (
+        <div className="border-t border-rc-rule px-4 sm:px-6 py-4">
+          <Testimonial className="" />
+        </div>
+      )}
+
       {/* Names only what a customer can actually use today. Oregon used to be
           listed here and in COVERED_PROVINCES despite having no cities in
           BlueCaster at all, so this sold water we don't forecast; it has been
@@ -159,24 +201,7 @@ export default function PlanMatrix({
         Pro available in British Columbia and Washington. More coming soon.
         Billed in CAD in Canada, USD in the US.
       </p>
-
-      {/* One customer, in his own words, under the table rather than over it.
-          The table is the claim we make about the product; this is somebody
-          else making it, which is worth more once the reader has seen what is
-          being claimed than as a banner before they know what it refers to.
-
-          Off unless a caller asks for it, so the page that shows this table to
-          somebody whose checkout just failed does not argue at them. Rendered
-          from the shared component, which reads PROOF, so the quote is not
-          reproduced here: see testimonial.tsx. Nothing renders when
-          PROOF.showProof is off, and the border goes with it so the matrix
-          cannot end on a rule with nothing under it. */}
-      {withProof && PROOF.showProof && (
-        <div className="border-t border-rc-rule px-4 sm:px-6 py-4">
-          <Testimonial className="" />
-        </div>
-      )}
-    </div>
+</div>
   );
 }
 

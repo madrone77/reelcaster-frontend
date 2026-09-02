@@ -298,18 +298,18 @@ export type NagFeatureId =
   | "whole-map"
   | "depth-gate";
 
+/**
+ * ⚠ Mostly vestigial: `rowId` is the only field anything still reads.
+ *
+ * `headline` and `takesSpot` came out when both shapes of the modal adopted
+ * one headline (see paywall/trial-pitch). `action`, `unlocksAt` and
+ * `pricingFeature` had already lost their last readers before that and are
+ * left alone here rather than swept up in an unrelated change — but do not
+ * add copy to this record expecting it on screen.
+ */
 export interface NagFeature {
   /** Completes "Start your 7-day Pro trial to ___". Lower case, no period. */
   action: string;
-  /**
-   * Names the thing that was just blocked, as the modal's headline subject:
-   * "View the full 14-day forecast", "Set an alert". Sentence case, no period
-   * — `nagHeadline` appends " with a free trial", and " for <spot>" first when
-   * `takesSpot` and a spot name is available.
-   */
-  headline: string;
-  /** Does naming the spot make the headline read better ("Set an alert for X")? */
-  takesSpot?: boolean;
   /** Lowest tier that unlocks it — decides whether we sell Pro or an account. */
   unlocksAt: "free" | "pro";
   /**
@@ -325,30 +325,24 @@ export interface NagFeature {
 export const NAG_FEATURES: Record<NagFeatureId, NagFeature> = {
   alerts: {
     action: "create an alert",
-    headline: "Set an alert",
-    takesSpot: true,
     unlocksAt: "pro",
     rowId: "alerts",
     pricingFeature: "alerts",
   },
   "sms-alerts": {
     action: "get alerts by text",
-    headline: "Get alerts by text",
-    takesSpot: true,
     unlocksAt: "pro",
     rowId: "alerts",
     pricingFeature: "alerts",
   },
   "favorite-spots": {
     action: "save more spots",
-    headline: "Save every spot you fish",
     unlocksAt: "pro",
     rowId: "save-spots",
     pricingFeature: "favorite-spots",
   },
   "custom-spots": {
     action: "score a spot we don’t cover",
-    headline: "Create custom spots",
     unlocksAt: "pro",
     rowId: "custom-spots",
     pricingFeature: "custom-spots",
@@ -365,24 +359,18 @@ export const NAG_FEATURES: Record<NagFeatureId, NagFeature> = {
   // the 14-day headline and highlights the same matrix row.
   "forecast-week": {
     action: "plan the full two weeks",
-    headline: "View the full 14-day forecast",
-    takesSpot: true,
     unlocksAt: "free",
     rowId: "two-weeks",
     pricingFeature: "14-day-forecast",
   },
   "forecast-14d": {
     action: "plan the full two weeks",
-    headline: "View the full 14-day forecast",
-    takesSpot: true,
     unlocksAt: "pro",
     rowId: "two-weeks",
     pricingFeature: "14-day-forecast",
   },
   "catch-log": {
     action: "log a catch",
-    headline: "Log your catch",
-    takesSpot: true,
     unlocksAt: "free",
     rowId: "catch-log",
     pricingFeature: "favorite-spots",
@@ -393,7 +381,6 @@ export const NAG_FEATURES: Record<NagFeatureId, NagFeature> = {
   // "keep this thing running". The whole matrix is the answer to that.
   "support-the-map": {
     action: "support the map",
-    headline: "Support ReelCaster",
     unlocksAt: "pro",
     pricingFeature: "support-the-map",
   },
@@ -404,7 +391,6 @@ export const NAG_FEATURES: Record<NagFeatureId, NagFeature> = {
   // counted nowhere. That is precisely how /support went unmeasured.
   support: {
     action: "open the support portal",
-    headline: "Open The Port",
     unlocksAt: "pro",
     pricingFeature: "support",
   },
@@ -413,7 +399,6 @@ export const NAG_FEATURES: Record<NagFeatureId, NagFeature> = {
   // property of the page, not of whichever card the unit landed next to.
   "remove-ads": {
     action: "remove the ads",
-    headline: "Remove the ads",
     unlocksAt: "pro",
     rowId: "ad-free",
     pricingFeature: "remove-ads",
@@ -428,7 +413,6 @@ export const NAG_FEATURES: Record<NagFeatureId, NagFeature> = {
   // to highlight and the whole matrix is the pitch, same as "support the map".
   "whole-map": {
     action: "open the whole map",
-    headline: "Unlock the whole map",
     unlocksAt: "pro",
     pricingFeature: "whole-map",
   },
@@ -449,7 +433,6 @@ export const NAG_FEATURES: Record<NagFeatureId, NagFeature> = {
   // pitch it never makes. See explore/components/depth-gate-prompt.tsx.
   "depth-gate": {
     action: "keep the depth on the map",
-    headline: "Keep reading the bottom",
     unlocksAt: "free",
     pricingFeature: "whole-map",
   },
@@ -458,31 +441,12 @@ export const NAG_FEATURES: Record<NagFeatureId, NagFeature> = {
   // undersell it to the size of whatever card they happened to click.
   "catch-reports": {
     action: "see what anglers are catching",
-    headline: "Unlock all fresh catch reports",
     unlocksAt: "pro",
     rowId: "catch-reports",
     pricingFeature: "catch-reports",
   },
 };
 
-/**
- * The modal's headline: "Set an alert for Oak Bay Flats with a free trial".
- *
- * Leads with the thing the angler just tried to do, not with the product —
- * a nag that opens by naming the plan reads as an interruption, one that
- * opens by naming their own action reads as an answer.
- */
-export function nagHeadline(
-  feature: NagFeature,
-  viewerTier: PlanTierId,
-  spotName?: string,
-): string {
-  const subject =
-    feature.takesSpot && spotName
-      ? `${feature.headline} for ${spotName}`
-      : feature.headline;
-  return `${subject} with a free trial`;
-}
 
 /**
  * The reassurance line under the headline. Same for every wall now — the
