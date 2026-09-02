@@ -141,7 +141,6 @@ export default async function CityAdPage({ params }: PageProps) {
           <KeepToday
             rows={seasonRows}
             cityName={city.name}
-            provinceCode={city.provinceCode}
             regulator={regulator}
           />
         </div>

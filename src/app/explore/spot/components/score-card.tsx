@@ -123,7 +123,7 @@ export default function ScoreCard({
         : regulation.status === "Release"
           ? "release only"
           : "closed";
-  const highlights = regulation ? regHighlights(regulation) : [];
+  const highlights = regulation ? regHighlights(regulation, regulator) : [];
   // "Peaks at 89" while the headline above reads 89 is the same number twice,
   // eight lines apart. The window box is drawn from the same day grid, so its
   // peak IS the headline peak by construction; what it adds is WHEN and what

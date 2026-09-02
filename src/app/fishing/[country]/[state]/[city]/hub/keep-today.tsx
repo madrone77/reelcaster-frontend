@@ -32,20 +32,10 @@
 // reader to the authority for the rest.
 
 import type { BlueCasterCitySeasonRow } from "@/lib/bluecaster";
-import type { Regulator } from "@/lib/regions";
+import { lengthLabel, type Regulator } from "@/lib/regions";
 import SpeciesIcon from "./species-icon";
 import { CARD, TYPE } from "./ui";
 import { SectionHeading } from "../species/[species]/guide-sections";
-
-/** cm → the unit the reader's own regulations are written in. */
-function sizeLabel(cm: number | null, provinceCode: string): string | null {
-  if (cm == null) return null;
-  if (provinceCode === "BC") return `min ${Math.round(cm)} cm`;
-  // WDFW writes minimum sizes in whole inches, and the centimetre value we
-  // hold is a conversion of one (55.9 cm is 22"). Rounding back to the inch
-  // returns the number printed in the pamphlet.
-  return `min ${Math.round(cm / 2.54)}"`;
-}
 
 /**
  * The area term in running prose.
@@ -131,12 +121,10 @@ function stateOf(row: BlueCasterCitySeasonRow): {
 export default function KeepToday({
   rows,
   cityName,
-  provinceCode,
   regulator,
 }: {
   rows: BlueCasterCitySeasonRow[];
   cityName: string;
-  provinceCode: string;
   regulator: Regulator;
 }) {
   // A species with no resolved state is not rendered as a blank row: an
@@ -170,7 +158,12 @@ export default function KeepToday({
             open && row.daily_limit != null && row.daily_limit > 0
               ? `${row.daily_limit} a day`
               : null;
-          const size = open ? sizeLabel(row.size_limit_cm, provinceCode) : null;
+          // The stored figure is centimetres whoever set it; the label is in
+          // the unit the agency governing this city publishes.
+          const size =
+            open && row.size_limit_cm != null
+              ? `min ${lengthLabel(row.size_limit_cm, regulator)}`
+              : null;
           const terms = [limit, size].filter(Boolean).join(" · ");
 
           return (
