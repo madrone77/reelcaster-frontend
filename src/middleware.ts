@@ -317,5 +317,13 @@ export function middleware(req: NextRequest, event: NextFetchEvent) {
 
 export const config = {
   // Skip Next internals and static assets (any path containing a dot).
-  matcher: ['/((?!_next/|favicon.ico|robots.txt|sitemap.xml|.*\\..*).*)'],
+  //
+  // /ingest is the PostHog reverse proxy (see next.config.ts rewrites). It is
+  // excluded for three reasons: analytics beacons should not each pay for an
+  // edge invocation, the lowercase 308 above would rewrite paths this file has
+  // no business touching, and countPageView must never see them. That last one
+  // holds today only because it demands sec-fetch-dest: document, which an XHR
+  // beacon is not. Relying on that would make traffic_events_daily one header
+  // change away from counting every analytics POST as an organic pageview.
+  matcher: ['/((?!_next/|ingest/|favicon.ico|robots.txt|sitemap.xml|.*\\..*).*)'],
 }

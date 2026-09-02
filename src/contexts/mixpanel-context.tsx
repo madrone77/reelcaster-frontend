@@ -2,6 +2,7 @@
 
 import { createContext, useContext, useEffect, useRef, useState } from 'react';
 import { initMixpanel } from '@/lib/mixpanel';
+import { initPostHog } from '@/lib/posthog';
 import {
   trackEvent as trackEventHelper,
   identifyUser as identifyUserHelper,
@@ -23,10 +24,19 @@ export function MixpanelProvider({ children }: { children: React.ReactNode }) {
   const previousUserIdRef = useRef<string | null>(null);
   const hasAliasedRef = useRef(false);
 
-  // Initialize Mixpanel once on mount
+  // Initialize both analytics sinks once on mount.
+  //
+  // Neither call loads an SDK here. Both only register intent and schedule the
+  // real import for after the page has settled, so this stays cheap on the
+  // hydration path no matter how many vendors are on the list.
+  //
+  // The provider keeps its Mixpanel name because renaming it would touch
+  // layout.tsx, the hook and every consumer for no behaviour change. It is the
+  // analytics provider; it has been since PostHog was added beside Mixpanel.
   useEffect(() => {
     if (!isInitialized) {
       initMixpanel();
+      initPostHog();
       setIsInitialized(true);
     }
   }, [isInitialized]);
