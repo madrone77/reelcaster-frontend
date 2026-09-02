@@ -190,13 +190,36 @@ export default function ExploreTopBar({
   // only exists there to merge the bar into the hero band, and there's no
   // such band here. Opaque, so there's no backdrop to blur. Keeps its rule:
   // this bar floats over the map and needs the edge.
+  //
+  // The ad frame's copy sits at the BOTTOM of the screen instead.
+  //
+  // It is the same bar with the same one button, moved to where a thumb
+  // already is. On a phone the top-right corner is the furthest point on the
+  // screen from a hand holding it, and this bar exists to be pressed; the top
+  // edge is where you put chrome you want out of the way, which is the
+  // opposite of what this is for. The rule flips with it (`border-t`, so the
+  // edge still faces the content), it takes the device safe area as padding so
+  // the button clears a home indicator, and it publishes `data-ad-bar` so
+  // everything else pinned to the bottom of a phone moves up by its height —
+  // see globals.css.
+  //
+  // It never rolls away. `hideOnScroll` is a trade for a long read whose nav
+  // lives elsewhere; here the bar is the only ask on the page.
+  const atBottom = adFrame;
   return (
     <header
-      className={`fixed top-0 inset-x-0 h-16 z-40 border-b transition-transform duration-200 ${
-        rolledAway ? "-translate-y-full lg:translate-y-0" : "translate-y-0"
-      } ${brand ? "bg-rc-brand border-white/15" : "bg-rc-panel border-rc-rule"}`}
+      data-ad-bar={adFrame ? "" : undefined}
+      className={
+        atBottom
+          ? `fixed bottom-0 inset-x-0 z-50 border-t pb-[env(safe-area-inset-bottom,0px)] ${
+              brand ? "bg-rc-brand border-white/15" : "bg-rc-panel border-rc-rule"
+            }`
+          : `fixed top-0 inset-x-0 h-16 z-40 border-b transition-transform duration-200 ${
+              rolledAway ? "-translate-y-full lg:translate-y-0" : "translate-y-0"
+            } ${brand ? "bg-rc-brand border-white/15" : "bg-rc-panel border-rc-rule"}`
+      }
     >
-      <div className={`h-full flex items-center gap-8 ${containerClassName}`}>
+      <div className={`h-16 flex items-center gap-8 ${containerClassName}`}>
         {/* The same mark either way; on the ad frame it is a picture rather
             than a door. See the `adFrame` prop for why. */}
         {adFrame ? (
