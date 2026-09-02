@@ -4,7 +4,7 @@ import { Bell } from "lucide-react";
 import { tierFor, TIER_PILL, TIER_TEXT } from "../../lib/explore-data";
 import { regHighlights } from "../../lib/reg-limits";
 import type { LiveRegulation } from "@/lib/bluecaster/live-spot-types";
-import { regulatorFor } from "@/lib/regions";
+import type { Regulator } from "@/lib/regions";
 
 /**
  * Consolidated headline score card: today's PEAK score for the driver species,
@@ -31,7 +31,7 @@ export default function ScoreCard({
   windowPeak,
   tidePhase,
   dfoArea,
-  region,
+  regulator,
   speciesName,
   regulation,
   onSetAlert,
@@ -56,8 +56,10 @@ export default function ScoreCard({
   tidePhase: string | null;
   /** Regulatory area code, e.g. "19-4" in BC, "10" in WA. */
   dfoArea: string | null;
-  /** Province/state the spot sits in — picks the regulator this strip cites. */
-  region: string | null;
+  /** The authority this strip cites and links. Resolved by the caller from
+   *  the payload's agency — see `regulatorFrom`; a spot's jurisdiction is not
+   *  reliably its city's. */
+  regulator: Regulator;
   /** Driver species common name, e.g. "Dungeness Crab". */
   speciesName: string | null;
   /** In-effect regulation for the driver species — drives the status word and
@@ -78,7 +80,6 @@ export default function ScoreCard({
   // printing, it just isn't a day's best.
   const headline = peak ?? score;
   const leadingWithPeak = peak != null;
-  const regulator = regulatorFor(region);
   // Release-only used to render as "closed" here, because this strip took a
   // boolean. It's a third state: the fishery is on, you just can't keep one.
   const statusWord =

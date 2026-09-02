@@ -235,6 +235,13 @@ export type NearbySpotCard = {
   id: string;
   name: string;
   dfoArea: string;
+  /**
+   * Who numbers `dfoArea` — "DFO" | "WDFW". Per-card, because "within easy
+   * run" of the San Juans crosses into BC: this rail routinely mixes
+   * jurisdictions, and one agency for the whole rail is wrong for whichever
+   * half sits on the other side of the line. Pass it to `areaLabelFor`.
+   */
+  areaAgency: string | null;
   href: string | null;
   species: { name: string; score: number }[];
   biteWindow: string | null;
@@ -268,6 +275,19 @@ export type LiveSpotDetail = {
   topScoreHourBySpecies: Record<string, number>;
   regulations: LiveRegulation[];
   regAreaCode: string | null;
+  /**
+   * Who numbers `regAreaCode` and governs the rows above it — "DFO" | "WDFW".
+   *
+   * The agency travels with the number because the page cannot work it out. A
+   * spot's jurisdiction is NOT reliably its city's: East Point (Saturna
+   * Island) is a BC mark in DFO subarea 18-11 sitting on friday-harbor-wa's
+   * roster, because a spot belongs to the nearest city and the nearest city
+   * can be across a border. Resolving the authority from that city cited WDFW
+   * and linked wdfw.wa.gov for Canadian water. Pass it to `regulatorFrom`.
+   *
+   * Null when the spot has no area, or on a payload predating the field.
+   */
+  regAgency: string | null;
   // Newest verified_at/updated_at across the reg rows (ISO), for the panel's
   // "synced …" attribution line. Null when no row carries a timestamp.
   regSyncedAt: string | null;

@@ -166,6 +166,37 @@ export function regulatorFor(region: string | null | undefined): Regulator {
   );
 }
 
+/** Agency slug as the payload writes it ("DFO", "WDFW") → its regulator. */
+function regulatorByAgency(agency: string): Regulator | undefined {
+  return Object.values(REGULATOR_BY_PROVINCE).find(
+    (r) => r.name.toUpperCase() === agency.toUpperCase(),
+  );
+}
+
+/**
+ * The authority governing a spot, from the best evidence available.
+ *
+ * ⚠ Resolve from the AGENCY the payload names, not from the spot's city. A
+ * spot belongs to the nearest city and the nearest city can be across a
+ * border: East Point (Saturna Island) is DFO subarea 18-11 sitting on
+ * friday-harbor-wa's roster. Reading the authority off that city cites WDFW
+ * over DFO's water — it links an angler at another country's regulations,
+ * and prints "MA 18-11" for a number WDFW never issued.
+ *
+ * `region` is the fallback, for a payload old enough not to carry an agency;
+ * `region` there must be the SPOT's province, not its city's, for the same
+ * reason. Both absent falls through `regulatorFor` to the pilot region.
+ */
+export function regulatorFrom(from: {
+  agency?: string | null;
+  region?: string | null;
+}): Regulator {
+  return (
+    (from.agency ? regulatorByAgency(from.agency) : undefined) ??
+    regulatorFor(from.region)
+  );
+}
+
 /**
  * A bare management-area number, labelled for the regulator that set it.
  *
@@ -175,13 +206,7 @@ export function regulatorFor(region: string | null | undefined): Regulator {
  * through here, so a Seattle card can never carry BC's word over Washington's
  * number.
  *
- * ⚠ Label from the AGENCY, which the payload carries, not from the spot's
- * city. A spot belongs to the nearest city and the nearest city can be across
- * a border: East Point (Saturna Island) is DFO subarea 18-11 sitting on
- * friday-harbor-wa's roster, and labelling it from that city renders
- * "MA 18-11" for water WDFW does not manage. `region` is only the fallback
- * for a payload old enough not to carry an agency, where the city is the best
- * guess available.
+ * Resolution and its caveats are `regulatorFrom`'s.
  *
  * Returns null for a missing area so a caller can collapse rather than
  * reserving space for a label it has nothing to put in.
@@ -191,10 +216,5 @@ export function areaLabelFor(
   from: { agency?: string | null; region?: string | null },
 ): string | null {
   if (!area) return null;
-  const byAgency = from.agency
-    ? Object.values(REGULATOR_BY_PROVINCE).find(
-        (r) => r.name.toUpperCase() === from.agency!.toUpperCase(),
-      )
-    : undefined;
-  return `${(byAgency ?? regulatorFor(from.region)).areaShort} ${area}`;
+  return `${regulatorFrom(from).areaShort} ${area}`;
 }

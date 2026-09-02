@@ -1,7 +1,7 @@
 "use client";
 
 import type { LiveRegulation, RegStatus } from "@/lib/bluecaster/live-spot-types";
-import { regulatorFor } from "@/lib/regions";
+import type { Regulator } from "@/lib/regions";
 import { fmtMD, sizeText } from "../../lib/reg-limits";
 
 const STATUS_LABEL: Record<RegStatus, string> = {
@@ -83,24 +83,21 @@ export default function CurrentRegulations({
   regulations,
   selectedId,
   areaCode,
-  region,
+  regulator,
   syncedAt,
   nowMs,
 }: {
   regulations: LiveRegulation[];
   selectedId: string | null;
   areaCode: string | null;
-  /** Province/state — picks the authority this panel names and links to. */
-  region: string | null;
+  /** The authority this panel names and links to. Resolved by the caller from
+   *  the payload's agency — see `regulatorFrom`. */
+  regulator: Regulator;
   syncedAt: string | null;
   /** Reference instant for the relative "synced …" label. */
   nowMs: number;
 }) {
   if (!regulations.length) return null;
-
-  // "Always check with DFO" is advice to verify against the governing
-  // authority — which is WDFW, not DFO, for a Washington spot.
-  const regulator = regulatorFor(region);
 
   const active =
     regulations.find((r) => r.speciesId === selectedId) ?? regulations[0];
