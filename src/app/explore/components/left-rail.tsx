@@ -74,7 +74,9 @@ export default function LeftRail({
   /** Hour scrubbed on the 14-day strip (0–23) or null = day peak — forwarded
       to the spot drawer so scrubbing articulates the selected spot's card. */
   scrubHour: number | null;
-  /** px gap from the viewport bottom — keeps the rail clear of the docked strip. */
+  /** px gap up from the bottom of the map pane — keeps the rail clear of the
+      docked strip. Measured from the pane, not the window: the rail adds
+      `--rc-tabbar-clearance` itself for anything pinned below the pane. */
   bottomInset: number;
   onSelectCity: (city: CityNode) => void;
   onSelectSpot: (slug: string) => void;
@@ -137,10 +139,23 @@ export default function LeftRail({
 
   return (
     <aside
+      /* `bottomInset` measures the gap up from whatever the strip is sitting
+         on, not from the window floor, so the rail has to take the same
+         clearance the strip itself takes: zero on the product, the ad frame's
+         bottom bar when one is on screen. Without it the rail ran a bar's
+         height past the strip on `/explore?ad=`, and since the drawer's
+         actions are the last thing in it, "View spot details" and "Set alert"
+         were the part that got cut off.
+
+         `dvh`, not `vh`: iPad Safari's `100vh` is the toolbar-hidden height,
+         which is taller than the box this rail is actually pinned inside. The
+         shell around it already measures itself in `dvh` for the same reason. */
       style={
         drawerOpen
-          ? { maxHeight: `calc(100vh - 72px - ${bottomInset}px)` }
-          : { bottom: `${bottomInset}px` }
+          ? {
+              maxHeight: `calc(100dvh - 72px - ${bottomInset}px - var(--rc-tabbar-clearance))`,
+            }
+          : { bottom: `calc(${bottomInset}px + var(--rc-tabbar-clearance))` }
       }
       className="hidden lg:flex flex-col fixed left-6 top-[72px] w-96 z-30 bg-rc-panel/88 backdrop-blur-md rounded-xl border border-rc-rule shadow-rc-panel overflow-hidden transition-[bottom] duration-200"
     >
