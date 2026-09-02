@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { UserPreferencesService } from "@/lib/user-preferences";
 import { writeHomeSpotCookie } from "./home-spot-cookie";
+import { adoptHomeCityLocal } from "./use-home-city";
 
 // A single "home spot" — the spot the angler pins as their default, surfaced as
 // the hero on the dashboard. Setting a new one replaces the old.
@@ -61,15 +62,65 @@ function writeLocal(slug: string | null) {
 }
 
 /**
- * Set (or clear) the home spot in both stores. The local write and the notify
- * happen first so the UI never waits on the network; the server write is
- * fire-and-forget bookkeeping.
+ * The city a spot lives under, asked of the server.
+ *
+ * The client cannot work this out. A spot's city comes from the place
+ * hierarchy, which is 58 KB and already in the server's Data Cache, and the
+ * pin is set from surfaces (the Pro wizard's typeahead, the spot-page offer)
+ * that know a spot slug and nothing else about where it is.
  */
-export async function saveHomeSpot(slug: string | null): Promise<void> {
+async function fetchSpotHomeCity(slug: string): Promise<string | null> {
+  try {
+    const res = await fetch(
+      `/api/home-city/for-spot?spot=${encodeURIComponent(slug)}`,
+    );
+    if (!res.ok) return null;
+    const body = (await res.json()) as { city: { slug: string } | null };
+    return body.city?.slug ?? null;
+  } catch {
+    // The pin still lands. Only the write-through below is skipped, and the
+    // report routes fall back to resolving the pin themselves, so the angler
+    // gets the right city either way.
+    return null;
+  }
+}
+
+/**
+ * Set (or clear) the home spot in both stores, and move the home CITY to match.
+ *
+ * The write-through is the point. A pin is the strongest statement anyone makes
+ * about where they fish, and before this it moved the dashboard hero while
+ * leaving the report, the neighbours and Explore's opening frame on whatever
+ * city had been guessed or confirmed months earlier. One angler, two answers.
+ *
+ * One preferences write, not two. `updateUserPreferences` merges into a cached
+ * copy of the whole jsonb blob, so a second overlapping call would write back a
+ * pre-write copy and silently drop the first.
+ *
+ * `citySlug` is for callers that already know it and can skip the round trip.
+ *
+ * CLEARING the pin does not clear the city. The city outranks the spot in every
+ * surface that reads both, and letting go of one piece of water is not a
+ * statement about the town it sits in.
+ *
+ * The local write and the notify happen first so the UI never waits on the
+ * network; everything after is fire-and-forget bookkeeping.
+ */
+export async function saveHomeSpot(
+  slug: string | null,
+  citySlug?: string | null,
+): Promise<void> {
   writeLocal(slug);
+
+  const city = slug ? (citySlug ?? (await fetchSpotHomeCity(slug))) : null;
+  // Pinning answers the home-city question, so the modal must stop asking it.
+  const when = new Date().toISOString();
+  if (city) adoptHomeCityLocal(city, when);
+
   try {
     await UserPreferencesService.updateUserPreferences({
       homeSpotSlug: slug ?? "",
+      ...(city ? { homeCitySlug: city, homeCityAskedAt: when } : {}),
     });
   } catch {
     // Signed out, or the write failed: the local pin still stands, and the

@@ -13,15 +13,21 @@
  * the city blocks on it and no explanation and no way in — the question only
  * ever came round again through a modal they had already dismissed, or not yet
  * received. This line is the standing way to answer it.
+ *
+ * It is also the ONLY place that says whether the city was chosen. The rest of
+ * the dashboard now fills in from a guess when nobody answered, which is worth
+ * far more than an empty page, but a guess that never admits to being one is
+ * how an angler in Everett ends up wondering why their report is about Seattle
+ * with nowhere to take the question.
  */
 
 import { useState } from "react";
 import HomeCityModal from "@/app/components/welcome/home-city-modal";
 import { cityName } from "./around-you";
-import { useHomeCityState } from "@/app/explore/lib/use-home-city";
+import { useEffectiveHomeCity } from "@/app/explore/lib/use-home-city";
 
 export default function HomeCityRow() {
-  const { slug, ready } = useHomeCityState(true);
+  const { slug, chosen, source, ready } = useEffectiveHomeCity();
   const [open, setOpen] = useState(false);
 
   // `ready`, not `slug !== null`: the answer comes back from the profile, so a
@@ -38,12 +44,20 @@ export default function HomeCityRow() {
         ) : (
           <span className="text-rc-ink-soft">not set</span>
         )}{" "}
+        {/* Only for a city nobody chose. Naming the reason is what makes the
+            button read as a correction rather than a setting, and "your
+            location" is the honest description of an IP fix. */}
+        {slug && !chosen && (
+          <span className="text-rc-ink-soft">
+            {source === "ip" ? "(from your location) " : ""}
+          </span>
+        )}
         <button
           type="button"
           onClick={() => setOpen(true)}
           className="rounded font-semibold text-rc-brand hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-rc-brand"
         >
-          ({slug ? "change" : "set one"})
+          ({chosen ? "change" : "set yours"})
         </button>
       </p>
 

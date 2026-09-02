@@ -1,12 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
-import {
-  fetchCityDailyReport,
-  resolveCityBySlug,
-  resolveHomeCity,
-} from "@/lib/bluecaster";
+import { fetchCityDailyReport } from "@/lib/bluecaster";
 import { getUserIdFromRequest } from "@/lib/server-auth";
 import { resolveEntitlement } from "@/lib/entitlement";
+import {
+  readHomeCityPrefs,
+  resolveEffectiveHomeCity,
+} from "@/lib/home-city-server";
 
 /**
  * Same-origin proxy → BlueCaster GET /api/v1/cities/[slug]/daily-report,
@@ -20,10 +20,10 @@ import { resolveEntitlement } from "@/lib/entitlement";
  * A free caller gets `{ locked: true }` with no report body at all, so a
  * locked card has nothing to reveal in the network tab.
  *
- * The city comes from the caller's own home spot, resolved server-side —
- * it is deliberately NOT a query parameter. Letting the browser name the
- * city would turn a Pro dashboard card into a way to read every city's
- * report by iterating slugs.
+ * The city is resolved server-side from the caller's own account — it is
+ * deliberately NOT a query parameter. Letting the browser name the city would
+ * turn a Pro dashboard card into a way to read every city's report by
+ * iterating slugs. See @/lib/home-city-server for the three tiers.
  */
 
 const supabaseAdmin = createClient(
@@ -49,30 +49,20 @@ export async function GET(request: NextRequest) {
     );
   }
 
-  // The home spot lives in auth metadata, so read it with the caller's own
+  // The preferences live in auth metadata, so read them with the caller's own
   // identity rather than trusting anything from the request body.
   const { data: userRecord } = await supabaseAdmin.auth.admin.getUserById(userId);
-  const prefs = userRecord?.user?.user_metadata?.preferences as
-    | { homeSpotSlug?: string; homeCitySlug?: string }
-    | undefined;
+  const prefs = readHomeCityPrefs(userRecord?.user?.user_metadata);
 
-  // The stated home city wins. This route is why the setting exists: it only
-  // ever wanted a city, and derived one from a pinned spot because a city
-  // preference did not exist yet. That inverted the difficulty — a city can be
-  // guessed from an arrival URL or an IP fix and confirmed in one tap, while
-  // nobody can name their home spot on their first day.
-  //
-  // `resolveHomeCity` stays as the fallback so every angler who pinned a spot
-  // before this shipped keeps their report with no backfill.
-  const homeCitySlug = prefs?.homeCitySlug || null;
-  const homeSpotSlug = prefs?.homeSpotSlug ?? null;
-
-  const city = homeCitySlug
-    ? await resolveCityBySlug(homeCitySlug)
-    : await resolveHomeCity(homeSpotSlug);
+  // Stated city, then the city under a pinned spot, then the nearest covered
+  // city to the request's own IP fix. The last tier is why this route almost
+  // never returns `no_home_city` any more: somebody who closed the modal
+  // without choosing is owed a report about real water, not a link telling
+  // them to go and answer a question they already declined.
+  const city = await resolveEffectiveHomeCity(request, prefs);
   if (!city) {
-    // No home city set and no pin to derive one from, or the city named is no
-    // longer published. The card renders its own empty state.
+    // No answer, no pin, and no position: a crawler, or a data-centre IP. The
+    // card renders its own empty state.
     return NextResponse.json(
       { locked: false, city: null, status: "no_home_city", report: null },
       { headers: { "Cache-Control": "private, no-store" } },
@@ -85,7 +75,10 @@ export async function GET(request: NextRequest) {
   }
 
   return NextResponse.json(
-    { locked: false, ...data },
+    // `citySource` after the spread: the upstream payload names the city, and
+    // the card has to be able to tell a city the angler chose from one we
+    // picked for them.
+    { locked: false, ...data, citySource: city.source },
     // Per-reader body behind a Pro gate — never shared-cached.
     { headers: { "Cache-Control": "private, no-store" } },
   );

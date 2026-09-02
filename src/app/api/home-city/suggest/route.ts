@@ -35,19 +35,13 @@ import {
   type HomeCitySuggestResponse,
 } from "./suggestion";
 import { nearestOpeningCity } from "@/app/explore/lib/opening-city";
+import { requestPoint } from "@/lib/home-city-server";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 /** How many alternates to offer under the suggestion. */
 const ALTERNATE_COUNT = 3;
-
-function readPoint(request: NextRequest): { lat: number; lng: number } | null {
-  const lat = parseFloat(request.headers.get("x-vercel-ip-latitude") ?? "");
-  const lng = parseFloat(request.headers.get("x-vercel-ip-longitude") ?? "");
-  if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null;
-  return { lat, lng };
-}
 
 export async function GET(request: NextRequest) {
   const arrival = request.nextUrl.searchParams.get("from");
@@ -66,7 +60,11 @@ export async function GET(request: NextRequest) {
     });
   }
 
-  const point = readPoint(request);
+  // Shared with the report routes, so a suggestion and a silent fallback can
+  // never disagree about where the visitor is. It also honours the
+  // `?geo_lat=&geo_lng=` override outside production, which is the only way to
+  // exercise any of this in `next dev`.
+  const point = requestPoint(request);
   const fromArrival = cityFromArrival(arrival, cities);
 
   // When we have no city from the URL, snap the IP fix to the nearest city we
