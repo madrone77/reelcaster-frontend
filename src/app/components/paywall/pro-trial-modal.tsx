@@ -7,7 +7,6 @@ import {
   DialogContent,
   DialogDescription,
   DialogHeader,
-  DialogTitle,
 } from "@/components/ui/dialog";
 import { useAuth } from "@/contexts/auth-context";
 import { useSubscription } from "@/hooks/use-subscription";
@@ -20,6 +19,7 @@ import {
   PlanCompareLine,
   TrialEyebrow,
   TrialFeatureList,
+  TrialHeadline,
   TrialTimeline,
 } from "./trial-pitch";
 import PlanMatrix from "./plan-matrix";
@@ -30,7 +30,6 @@ import { usePricing } from "@/app/components/split-test/use-pricing";
 import { useSplitExposure } from "@/app/components/split-test/report";
 import {
   NAG_FEATURES,
-  nagHeadlineParts,
   type NagFeatureId,
   type PlanTierId,
 } from "@/lib/plan-features";
@@ -46,9 +45,10 @@ import {
  *
  * Two jobs, and at `lg` they get a column each rather than a queue:
  *
- *   1. Answer the thing the angler just tried to do — "Set an alert for Oak
- *      Bay Flats". The headline names the action, so the modal never reads as
- *      a generic interruption, and the checkout sits directly under it.
+ *   1. Make the offer — what Pro shows you, where you are standing, what it
+ *      costs and when — with the checkout directly under it. The headline is
+ *      the sheet's, so both shapes read identically; it names the place rather
+ *      than the wall, and ./trial-pitch has the reasoning.
  *   2. Show the whole plan matrix beside that, so the decision is made here
  *      instead of on a round trip to /plans.
  *
@@ -112,11 +112,6 @@ export default function ProTrialModal({
   // open. The free tier isn't hidden — it's the link at the foot of the
   // modal, after the matrix has shown what the tiers actually differ on.
   const ctaLabel = `Start ${TRIAL_DAYS}-day free trial`;
-
-  // The wall the reader walked into, named. The place is whichever the surface
-  // could honestly give: a spot beats the city it sits in, the same order the
-  // phone sheet resolves its subject in.
-  const headline = nagHeadlineParts(nag, spotName ?? placeName);
 
   // The price this reader is quoted, and the exposure that quoting it counts
   // as. The modal is the highest-intent surface a price arm is shown on, so
@@ -359,18 +354,13 @@ export default function ProTrialModal({
                     why there's no "Not now": two dismissals for one modal. */}
                 <DialogHeader className="pr-10 sm:pr-12 text-left gap-0">
                   <TrialEyebrow />
-                  {/* The place is set in brand blue: it is the one word in the
-                      headline the reader chose. Composed from the two parts
-                      rather than one string so it can be. */}
-                  <DialogTitle className="mt-2 text-xl sm:text-2xl font-black tracking-[-0.02em] text-rc-ink text-balance">
-                    {headline.lead}
-                    {headline.place ? (
-                      <>
-                        {" "}
-                        <span className="text-rc-brand">{headline.place}</span>
-                      </>
-                    ) : null}
-                  </DialogTitle>
+                  {/* The sheet's headline, not a second one. See
+                      ./trial-pitch for why this stopped naming the wall. */}
+                  <TrialHeadline
+                    placeName={spotName ?? placeName}
+                    placeKind={spotName ? "spot" : "city"}
+                    className="mt-2 text-xl sm:text-2xl"
+                  />
                 </DialogHeader>
 
                 {/* asChild: this sentence is what the modal is about, so it

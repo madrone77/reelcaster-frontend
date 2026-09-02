@@ -1,16 +1,16 @@
 'use client';
 
 import Link from 'next/link';
-import { DialogDescription, DialogTitle } from '@/components/ui/dialog';
+import { DialogDescription } from '@/components/ui/dialog';
 import { TrialBuy, TrialCtaProvider, TrialExpress } from './trial-cta';
 import {
   PlanCompareLine,
   TrialEyebrow,
+  TrialHeadline,
   TrialFeatureList,
   TrialTimeline,
 } from './trial-pitch';
 import { type PlanTierId } from '@/lib/plan-features';
-import { PRO_FORECAST_DAYS } from '@/lib/forecast-horizon';
 
 /**
  * The phone shape of the trial offer: a bottom sheet, wallet first.
@@ -105,19 +105,11 @@ export default function TrialSheet({
       <div className="min-h-0 flex-1 overflow-y-auto px-4 pb-2">
         <TrialEyebrow className="pr-10" />
 
-        {/* The spot is the subject, and it is set in brand blue because it is
-            the one word on the sheet the reader chose. A surface with no spot
-            in hand (the viewport strip on /explore, a marketing page) drops
-            the phrase rather than inventing a subject. */}
-        <DialogTitle className="mt-2 pr-10 text-[22px] leading-[28px] font-black tracking-[-0.02em] text-balance text-rc-ink">
-          See the next {PRO_FORECAST_DAYS} days
-          {placeName ? (
-            <>
-              {placeKind === 'city' ? ' in ' : ' at '}
-              <span className="text-rc-brand">{placeName}</span>
-            </>
-          ) : null}
-        </DialogTitle>
+        <TrialHeadline
+          placeName={placeName}
+          placeKind={placeKind}
+          className="mt-2 pr-10 text-[22px] leading-[28px]"
+        />
 
         {/* asChild, so this sentence is the sheet's accessible description.
             It had none, and Radix warns on a dialog without one — the same

@@ -1,6 +1,7 @@
 'use client';
 
 import { Check } from 'lucide-react';
+import { DialogTitle } from '@/components/ui/dialog';
 import { useTrialCta } from './trial-cta';
 import { sheetFeatures, type PlanTierId } from '@/lib/plan-features';
 import { PLAN_LABELS } from '@/lib/plan-labels';
@@ -20,10 +21,12 @@ import {
  * version of "what Pro adds" is two things to keep in step, and the one that
  * gets edited is whichever the next session happens to open.
  *
- * What stays with each shape is the frame — the sheet's grab handle and pinned
- * controls, the dialog's two columns and its plan matrix — and the headline,
- * because they name their subject differently: the sheet leads with the
- * forecast horizon, the dialog leads with the wall the reader just hit.
+ * What stays with each shape is only the frame — the sheet's grab handle and
+ * pinned controls, the dialog's two columns and its plan matrix. The headline
+ * is shared too, as of the change that brought `TrialHeadline` here: the
+ * dialog used to compose its own from the wall the reader hit ("Set an alert
+ * for Oak Bay Flats") and now says what the sheet says, so the two shapes read
+ * identically and the place is named on both.
  */
 
 /** The day the reminder email goes out. Both numbers come from the sender. */
@@ -76,6 +79,49 @@ export function PlanCompareLine({
     >
       {plan.label} shows {plan.days}. Pro shows {PRO_FORECAST_DAYS} everywhere.
     </p>
+  );
+}
+
+/**
+ * The headline, on both shapes: what Pro shows you, where you are standing.
+ *
+ * One sentence for every wall. The dialog used to name the wall instead —
+ * "Set an alert for Oak Bay Flats", "Unlock all fresh catch reports" — which
+ * answered the reader's own action but could only name the place on the six
+ * of thirteen walls whose phrasing took one, so the commonest walls on
+ * /explore said the city on a phone and nothing on a desktop. Naming the place
+ * everywhere is worth more than naming the wall: the reader knows what they
+ * just clicked, and what they want to know is what they get.
+ *
+ * The place is set in brand blue because it is the one word here the reader
+ * chose. A surface that cannot honestly name one drops the phrase rather than
+ * inventing a subject.
+ */
+export function TrialHeadline({
+  placeName,
+  placeKind = 'spot',
+  className,
+}: {
+  placeName?: string;
+  /**
+   * Which kind of place that is, because English cares: you fish AT a spot and
+   * IN a city. Only the preposition depends on it.
+   */
+  placeKind?: 'spot' | 'city';
+  className?: string;
+}) {
+  return (
+    <DialogTitle
+      className={`font-black tracking-[-0.02em] text-balance text-rc-ink ${className ?? ''}`}
+    >
+      See the next {PRO_FORECAST_DAYS} days
+      {placeName ? (
+        <>
+          {placeKind === 'city' ? ' in ' : ' at '}
+          <span className="text-rc-brand">{placeName}</span>
+        </>
+      ) : null}
+    </DialogTitle>
   );
 }
 
