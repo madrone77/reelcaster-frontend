@@ -379,7 +379,7 @@ export default async function City1Page({
                   {conditions.speciesName ?? proof?.marksSpecies}. Every
                   reading belongs to the hour the line is sitting on, and you
                   can drag it yourself. The same screen carries the
-                  mark&rsquo;s {region.regulator.name} regulations and a full
+                  spot&rsquo;s {region.regulator.name} regulations and a full
                   bathymetry map underneath it.
                 </>
               ) : (
@@ -410,9 +410,9 @@ export default async function City1Page({
           <div className="shell www">
             <div>
               <span className="lab">And when you are not looking</span>
-              <h2>We text you the morning it is worth going.</h2>
+              <h2>We text you, so you don&rsquo;t miss them.</h2>
               <p className="sub">
-                Set the score you&rsquo;d get up for at the marks you fish. We
+                Set the score you&rsquo;d get up for at the spots you fish. We
                 watch all {proof ? proof.spotCount : ""} of them around{" "}
                 {card.cityName} every morning and send one text when a day
                 clears your bar. No app to open, nothing to remember.
@@ -423,8 +423,8 @@ export default async function City1Page({
                   <span>You pick the score, not us</span>
                 </li>
                 <li>
-                  <b>Your marks</b>
-                  <span>Including custom spots you add yourself</span>
+                  <b>Your spots</b>
+                  <span>Including custom ones you add yourself</span>
                 </li>
                 <li>
                   <b>One text</b>
@@ -446,7 +446,7 @@ export default async function City1Page({
                   worst kind to put on an ad. */}
               <figcaption>
                 The wording is the alert&rsquo;s own, and{" "}
-                {city.alertSms.spot} is a mark we score around {card.cityName}.
+                {city.alertSms.spot} is a spot we score around {card.cityName}.
                 Alerts by text are part of Pro.
               </figcaption>
             </figure>
