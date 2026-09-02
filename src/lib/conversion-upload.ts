@@ -79,10 +79,12 @@ export function conversionEventId(row: ConversionRow): string | null {
 }
 
 /**
- * The Meta event each of ours reports as. Three are standard names, chosen so
- * Meta's pre-trained models apply; `paywall_view` is custom because no standard
- * event means it and borrowing one would make two behaviours unreadable. The
- * argument is at the top of src/lib/paywall-conversion.ts.
+ * The Meta event each of ours reports as. All four are standard names, chosen
+ * so Meta's pre-trained models apply. `paywall_view` was the exception and is
+ * not any more: it shipped as a custom `PaywallView`, on the argument that
+ * InitiateCheckout was reserved for a CTA press, and that press was never
+ * built. The argument for the swap, and what it costs, is at the top of
+ * src/lib/paywall-conversion.ts.
  */
 export function metaEventName(event: ConversionRow['event_type']): string {
   if (event === 'purchase') return 'Purchase';

@@ -29,12 +29,23 @@ export const META_PIXEL_ID = process.env.NEXT_PUBLIC_META_PIXEL_ID ?? ''
  * names; a custom event starts cold and needs volume we do not have. Custom
  * CONVERSIONS are a different thing and need no code — they are built in Events
  * Manager on top of these same events.
+ *
+ * The list is closed so that a typo cannot become an event. `fbq('track')`
+ * accepts any string: "StartTrail" is reported happily, lands in Events Manager
+ * as a custom event, and is invisible until somebody wonders why the trial
+ * action stopped counting.
+ *
+ * `InitiateCheckout` is the paywall opening, which is the one entry here that
+ * is not fired from a page a customer has already arrived at. The reasoning for
+ * putting a modal open under a standard checkout name, and what that costs, is
+ * in src/lib/paywall-conversion.ts.
  */
 export type MetaStandardEvent =
   | 'PageView'
   | 'StartTrial'
   | 'Purchase'
   | 'CompleteRegistration'
+  | 'InitiateCheckout'
 
 type Fbq = ((...args: unknown[]) => void) & { queue?: unknown[] }
 

@@ -29,8 +29,14 @@ import {
 } from './attribution';
 import { SESSION_COOKIE, serializeSession } from './paywall-session';
 import { acquisitionFromRequest } from './conversions';
-import { paywallViewDedupeKey } from './paywall-conversion';
+import { PAYWALL_VIEW_META_EVENT, paywallViewDedupeKey } from './paywall-conversion';
 import { readSessionId } from './paywall-session';
+import {
+  conversionEventId,
+  conversionValue,
+  metaEventName,
+  type ConversionRow,
+} from './conversion-upload';
 
 const SESSION = '3a7c9e11-5d22-4b8f-9012-77aa33bb55cc';
 const FBCLID = 'IwY2xjawTx2yExampleId';
@@ -156,5 +162,49 @@ const organicJar = organicRaw.map((c) => c.split(';')[0]).join('; ');
 // The route's whole gate: no rc_paid, no conversion. A search visitor opening
 // the same wall must not become a conversion any ad network can claim.
 assert.equal(readPaid(organicJar), null);
+
+// ── The browser tags and the upload must name the same event ─────────
+
+/**
+ * The id the route hands back is the id the Conversions API will send for the
+ * same open, and this is the assertion that keeps them one number.
+ *
+ * Both halves of this event can fire for one visit: the pixel reports every
+ * paid wall open, the upload reports the ones carrying an fbclid, and this
+ * visitor has one. Meta deduplicates them on `eventID` matching `event_id`,
+ * Google on `transaction_id`. If the two ever key on different strings nothing
+ * errors and nothing looks wrong — the count simply doubles, and the bid is
+ * placed on twice the truth.
+ */
+assert.ok(dedupeKey, 'a session cookie must produce a key');
+
+// What the upload will put in Meta's `event_id`, off the row the route wrote.
+assert.equal(
+  conversionEventId({
+    event_type: 'paywall_view',
+    dedupe_key: dedupeKey,
+    stripe_subscription_id: null,
+    user_id: null,
+  } as ConversionRow),
+  dedupeKey,
+  'the upload must key a paywall view on the same string the route returns',
+);
+
+// And the event name, which has to match on both sides too: a pixel firing
+// under one name and an upload under another is two events, not one
+// deduplicated event, however well the ids line up.
+assert.equal(metaEventName('paywall_view'), PAYWALL_VIEW_META_EVENT);
+
+// A wall open is worth nothing on either side. A value on one half and not the
+// other is the other way two deduplicated events can disagree.
+assert.equal(
+  conversionValue({
+    event_type: 'paywall_view',
+    value_cents: 0,
+    modeled_value_cents: 0,
+    currency: 'cad',
+  } as ConversionRow),
+  null,
+);
 
 console.log('paywall-conversion-wire: ok');

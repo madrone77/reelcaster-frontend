@@ -94,10 +94,14 @@ assert.equal(paywallViewDedupeKey({ sessionId: '', clickId: '', day: '2026-09-01
 assert.equal(conversionEventId(row({})), `pv:s:${SESSION}`);
 assert.equal(conversionEventId(row({ dedupe_key: null })), null);
 
-// Custom, and deliberately not one of Meta's standard names. Asserted so a
-// later tidy-up toward ViewContent has to be a decision rather than a rename.
+// A standard name, and the literal is asserted so that changing it stays a
+// decision rather than a rename. It was the custom `PaywallView` until the
+// reservation on InitiateCheckout turned out to be holding the name for a CTA
+// press nothing ever fired; see src/lib/paywall-conversion.ts. Moving it again
+// splits the series in Events Manager, so it should be moved rarely and on
+// purpose.
 assert.equal(metaEventName('paywall_view'), PAYWALL_VIEW_META_EVENT);
-assert.equal(metaEventName('paywall_view'), 'PaywallView');
+assert.equal(metaEventName('paywall_view'), 'InitiateCheckout');
 assert.notEqual(metaEventName('paywall_view'), metaEventName('trial_start'));
 
 // NO VALUE. A modal open four seconds after a click has no defensible worth,
