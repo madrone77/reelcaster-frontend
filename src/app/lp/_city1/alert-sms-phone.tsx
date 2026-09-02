@@ -1,7 +1,11 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { formatAlertSms, type AlertSmsParts } from "./alert-sms";
+import {
+  formatAlertSms,
+  type AlertSmsParts,
+  type AlertSmsWhen,
+} from "./alert-sms";
 
 /**
  * The third picture: the text arriving.
@@ -11,6 +15,13 @@ import { formatAlertSms, type AlertSmsParts } from "./alert-sms";
  * page actually makes -- that they do not have to look, because we will tell
  * them -- and an arriving text is the only way to show a thing whose whole
  * value is that it reaches you when you are not on the page.
+ *
+ * ── Which message this is ────────────────────────────────────────────────
+ *
+ * The LEAD-TIME heads-up, not the day-of alert. The phone's own clock is a
+ * weekday morning and the text is about the Sunday coming: that gap is the
+ * product, and it is what the band's headline is promising. A text naming an
+ * hour with no day would only be useful to somebody already awake.
  *
  * ── What is real, and what is not ────────────────────────────────────────
  *
@@ -52,18 +63,18 @@ type Phase = "empty" | "shown";
 
 export default function AlertSmsPhone({
   parts,
+  when,
   /** Wall-clock label on the lock screen. Written down, not read: a picture of
    *  a phone whose clock is the reader's own is the detail that gives a mock
    *  away, and a clock that ticks would be a hydration mismatch besides. */
   timeLabel,
-  /** The date under it, e.g. "Sunday, September 6". */
-  dateLabel,
 }: {
   parts: AlertSmsParts;
+  /** Computed on the server so the day cannot go stale. See nextSundayFrom. */
+  when: AlertSmsWhen;
   timeLabel: string;
-  dateLabel: string;
 }) {
-  const body = formatAlertSms(parts);
+  const body = formatAlertSms(parts, when);
 
   // Server and first client render agree on "sent": the message is the point
   // of the band, so it must be in the HTML rather than animated in after
@@ -112,7 +123,7 @@ export default function AlertSmsPhone({
       <div className="smsbody">
         <div className="smsscreen">
           <div className="smsclock">
-            <span className="smsdate">{dateLabel}</span>
+            <span className="smsdate">{when.arrivedOn}</span>
             <span className="smstime">{timeLabel}</span>
           </div>
           {/* The banner is always in the DOM so the message is readable to a
