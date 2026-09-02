@@ -913,8 +913,8 @@ export default function SpotDetailShell({
       data-ad-frame={ad ? "" : undefined}
     >
       {/* The spot page is a long read on a phone, so the bar rolls away as you
-          head down it and comes back on the first upward flick. `pt-16` below
-          stays put either way — the bar moves, the document does not. */}
+          head down it and comes back on the first upward flick. The `pt-16`
+          below stays put either way — the bar moves, the document does not. */}
       {/* Paid traffic gets a bar with nowhere to go — and, now, one thing to
           press. `adFrame` keeps the mark and the Start free trial button and
           drops every link that is an exit: the nav, search, sign-in and the
@@ -927,7 +927,12 @@ export default function SpotDetailShell({
 
           No `hideOnScroll` under the frame. Rolling the bar away is the right
           trade on a long read whose nav lives elsewhere, and the wrong one
-          when the bar is the only ask on the page. */}
+          when the bar is the only ask on the page.
+
+          `adFrame` also puts it on the BOTTOM edge — see the prop. On this
+          page that is the bigger win of the two: a spot page is a long read,
+          and a top bar carrying the only button on it is off screen for all of
+          it except the first screenful. */}
       {ad ? (
         <ExploreTopBar
           adFrame
@@ -943,7 +948,11 @@ export default function SpotDetailShell({
           nothing below it shifts. */}
       <PullToRefresh onRefresh={runRefresh} />
 
-      <div className="pt-16">
+      {/* `pt-16` clears the fixed bar at the top; the ad frame's bar is at the
+          bottom instead, so the document starts at the top edge and ends one
+          bar-height short of the bottom. `--rc-ad-bar-h` carries the device
+          safe area, which a bare `pb-16` would not. */}
+      <div className={ad ? "pb-[var(--rc-ad-bar-h)]" : "pt-16"}>
         {/* Desktop sub-header: breadcrumb + freshness. Full-bleed rule, inner
             row on the page measure — so "Back to map" starts on the same
             gridline as the spot name below it, and the freshness stamp ends on

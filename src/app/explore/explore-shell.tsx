@@ -253,10 +253,10 @@ export default function ExploreShell({
   // the floating location pill both begin at the screen edge; everyone else
   // begins under the 64px bar. One value, so the two cannot drift apart, and
   // every pill measured from the map box keeps its offset at either tier.
-  // The ad frame wears a bar at every tier -- it is the only thing on the page
-  // carrying the offer -- so its map begins under one even for a Pro viewer,
-  // who is the one person here with no bar on the ordinary map.
-  const mobileTop = isPaid && !ad ? "top-0" : "top-16";
+  // The ad frame's bar is at the BOTTOM of the screen, so nothing is above the
+  // map and the floating location pill starts at the screen edge — the same
+  // place a Pro viewer's does, for the opposite reason.
+  const mobileTop = isPaid || ad ? "top-0" : "top-16";
   const { citySlug, spotSlug, day, stn, setQuery } = useExploreState();
 
   // ── Return-trip memory ──────────────────────────────────────────────────
@@ -2096,7 +2096,12 @@ export default function ExploreShell({
          bar keeps its own room via `--rc-tabbar-clearance`, which is what the
          sheet and the preview dock sit above; nothing needs the map to be
          short as well. */
-      className="relative overflow-hidden lg:min-h-0 h-dvh"
+      /* Shortened by exactly the ad bar's height, so the bar never overlays
+         water and never has to be dismissed. Everything else runs the map the
+         full viewport. */
+      className={`relative overflow-hidden lg:min-h-0 ${
+        ad ? "h-[calc(100dvh_-_var(--rc-ad-bar-h))]" : "h-dvh"
+      }`}
       /* Marks this render as the ad frame for the one piece of chrome outside
          this tree: the mobile tab bar in the root layout. */
       data-ad-frame={ad ? "" : undefined}
@@ -2115,17 +2120,21 @@ export default function ExploreShell({
           `isPaid` is false until the tier resolves, so the bar paints first
           and clears a beat later for a Pro viewer. That is the right way
           round: the viewers this bar now exists for get it immediately. */}
-      {/* The ad frame keeps the bar and empties it.
+      {/* The ad frame keeps the bar, empties it, and puts it at the bottom.
           It used to have none at all: the mark and the offer both rode in a
-          pinned strip under the map, and a bar would only have added exits.
+          strip pinned under the map, and a bar would only have added exits.
           With the offer moved into the trial modal the bar is the thing that
           opens it, so it comes back in `adFrame` dress — mark, one button, and
-          none of the nav, search, sign-in or avatar that made it an exit. It
-          shows at every width and for every tier, because on this page it is
-          the only ask there is.
+          none of the nav, search, sign-in or avatar that made it an exit — and
+          it comes back where the strip used to be, on the bottom edge, which
+          is the part of a phone a thumb can reach. It shows at every width and
+          for every tier, because on this page it is the only ask there is.
 
           Same `placeName` either way: the city under the camera, which the
           modal sets in brand blue behind its headline. */}
+      {/* Rendered here rather than at the foot of the tree because it reads as
+          the page's header and is one: `fixed` takes it out of the flow, and
+          where it lands on screen is the `adFrame` branch's business. */}
       {ad ? (
         <ExploreTopBar
           adFrame

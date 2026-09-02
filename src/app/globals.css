@@ -501,13 +501,28 @@ body:has([data-ad-frame]) [data-mobile-nav] {
 }
 
 /*
- * The ad frame's bottom bar is gone, and so is the variable that sized it.
+ * The ad frame's bar, as one number.
  *
- * `--rc-ad-bar-h` existed so three things could agree on the bar's height: the
- * bar, the map box above it, and everything that clears the mobile tab bar the
- * bar stood in for. The frame's offer moved into the trial modal behind the
- * header's Start free trial button, so there is no bottom bar to measure, the
- * map runs the full viewport again, and `--rc-tabbar-clearance` keeps whatever
- * the tab bar itself sets. The tab bar is still hidden on the frame by the
- * `data-ad-frame` rule above.
+ * The frame's header sits at the bottom of the screen, where a thumb is. Three
+ * things have to agree about how tall it is — the bar itself, the map box
+ * above it (shortened by exactly this, so the bar never overlays water), and
+ * everything else pinned to the bottom of a phone, which the bar would
+ * otherwise cover. As three literals they would drift the first time the bar
+ * changed height.
+ *
+ * One row of chrome (4rem) plus the device safe area, INSIDE the variable, so
+ * a notched phone shortens the map by the same amount the bar actually grows.
+ *
+ * The clearance hand-off is what moves the map sheet, the filter sheet and the
+ * location menu up: they already sit at `bottom: var(--rc-tabbar-clearance)`
+ * for the mobile tab bar, and on the ad frame this bar is what is down there
+ * instead — the tab bar itself is hidden by the `data-ad-frame` rule above.
+ * Unlike that tab bar the ad bar is NOT lg:hidden, so the clearance does not
+ * collapse on desktop and the rule is written once for both.
  */
+:root {
+  --rc-ad-bar-h: calc(4rem + env(safe-area-inset-bottom, 0px));
+}
+body:has([data-ad-bar]) {
+  --rc-tabbar-clearance: var(--rc-ad-bar-h);
+}
