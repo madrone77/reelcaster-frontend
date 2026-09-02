@@ -137,6 +137,26 @@ const LABEL: Record<BlendAsk, string> = {
 const EXPLORE_NOTE = "Look at today and tomorrow free.";
 
 /**
+ * The way past the card, on the trial variants only.
+ *
+ * /lp/seattle/3 and /lp/vancouver/3 asked for an email and a card and offered
+ * nothing else, so a reader who had just been shown a live city instrument and
+ * was not ready to buy had one move left, which was the back button. This is
+ * the other move. The map it opens is the same one /2 hands over, in the same
+ * ad frame, on the same free horizon.
+ *
+ * It does NOT turn /3 into /2. The ask above it is unchanged and still first:
+ * the trial form, its price and its charge date, in the hero and again in the
+ * close. What is being tested is still whether the card in front of the demo
+ * costs more than it earns, and this only stops the losing half of that answer
+ * from being a bounce, which the report cannot tell apart from a bad ad.
+ *
+ * Names the horizon, not the absence of a card, for the same reason
+ * EXPLORE_NOTE does: it has to still be true on the next screen.
+ */
+const EXPLORE_ALT = `Not ready? Open the live map first, ${ANON_FORECAST_DAYS} days free.`;
+
+/**
  * The title and description, and NOTHING read off the query string.
  *
  * /lp/seattle/1 and the numbered variants vary these by `?a=`, which is what
@@ -297,16 +317,32 @@ export default async function BlendPage({
 
               <div id="start">
                 {ask === "trial" ? (
-                  <BlendTrialForm
-                    landing={landing}
-                    citySlug={cfg.slug}
-                    region={cfg.billingRegion}
-                    cta="hero"
-                    inputId="blend-hero-email"
-                    chargeDate={chargeDate}
-                    price={PRICE.year}
-                    ctaLabel={LABEL.trial}
-                  />
+                  <>
+                    <BlendTrialForm
+                      landing={landing}
+                      citySlug={cfg.slug}
+                      region={cfg.billingRegion}
+                      cta="hero"
+                      inputId="blend-hero-email"
+                      chargeDate={chargeDate}
+                      price={PRICE.year}
+                      ctaLabel={LABEL.trial}
+                    />
+                    {/* Counted as "secondary" here and in the close, so both
+                        copies land in one number. The question this page has
+                        to answer is how many readers chose the map over the
+                        card, not which of two identical links they used. */}
+                    <p className="askalt">
+                      <TrackedCta
+                        landing={landing}
+                        citySlug={cfg.slug}
+                        cta="secondary"
+                        href={exploreHref(cfg.slug)}
+                      >
+                        {EXPLORE_ALT}
+                      </TrackedCta>
+                    </p>
+                  </>
                 ) : (
                   <>
                     <TrackedCta
@@ -420,16 +456,28 @@ export default async function BlendPage({
                 : `Open the live ${city.city.name} map and see the next ${ANON_FORECAST_DAYS} days scored, spot by spot and hour by hour.`}
             </p>
             {ask === "trial" ? (
-              <BlendTrialForm
-                landing={landing}
-                citySlug={cfg.slug}
-                region={cfg.billingRegion}
-                cta="final"
-                inputId="blend-final-email"
-                chargeDate={chargeDate}
-                price={PRICE.year}
-                ctaLabel={LABEL.trial}
-              />
+              <>
+                <BlendTrialForm
+                  landing={landing}
+                  citySlug={cfg.slug}
+                  region={cfg.billingRegion}
+                  cta="final"
+                  inputId="blend-final-email"
+                  chargeDate={chargeDate}
+                  price={PRICE.year}
+                  ctaLabel={LABEL.trial}
+                />
+                <p className="askalt">
+                  <TrackedCta
+                    landing={landing}
+                    citySlug={cfg.slug}
+                    cta="secondary"
+                    href={exploreHref(cfg.slug)}
+                  >
+                    {EXPLORE_ALT}
+                  </TrackedCta>
+                </p>
+              </>
             ) : (
               <>
                 <TrackedCta
