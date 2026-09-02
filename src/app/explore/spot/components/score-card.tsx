@@ -21,6 +21,36 @@ import type { Regulator } from "@/lib/regions";
  * a question about the day. The live number still matters once you are on the
  * water, so it keeps its place, just not the headline.
  */
+/**
+ * The regulatory notice's box, which is a link everywhere except the ad frame.
+ *
+ * A wrapper rather than two copies of the box's contents, so the notice cannot
+ * drift between the two frames — it is the same figures either way, and only
+ * the click differs. `hover:brightness` lives on the anchor only: a div that
+ * lights up under the cursor promises a click it does not have.
+ */
+function RegulatoryNotice({
+  href,
+  className,
+  children,
+}: {
+  href: string | null;
+  className: string;
+  children: React.ReactNode;
+}) {
+  if (!href) return <div className={className}>{children}</div>;
+  return (
+    <a
+      href={href}
+      target="_blank"
+      rel="noopener noreferrer"
+      className={`${className} hover:brightness-[0.98]`}
+    >
+      {children}
+    </a>
+  );
+}
+
 export default function ScoreCard({
   nowTime,
   nowIsPeak = false,
@@ -36,7 +66,10 @@ export default function ScoreCard({
   regulation,
   onSetAlert,
   children,
+  adFrame = false,
 }: {
+  /** On the ad frame the regulatory notice is a box, not a link out. */
+  adFrame?: boolean;
   /** The current hour with its zone, e.g. "9 PM PDT". */
   nowTime: string;
   /** Is the live hour the day's peak hour? Then the secondary line would be
@@ -187,19 +220,21 @@ export default function ScoreCard({
           daily quantity, length, and the gear rule. The second row keeps its
           height even when nothing is published, so the card doesn't reflow as
             the species selector moves between well- and thinly-documented rows. */}
+        {/* On the ad frame this notice stays and its href goes: same box, same
+            figures, no trip to a government site that will not send the reader
+            back. `Regulations ↗` goes with the link — it is a label for a
+            click that no longer exists. */}
         {dfoArea && (
-          <a
-            href={regulator.url}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="mt-3 lg:mt-0 flex min-h-[88px] flex-col justify-center gap-1.5 rounded border border-rc-fair-border bg-rc-fair-bg px-3 py-2.5 font-rc-mono text-[11px] text-rc-fair-ink hover:brightness-[0.98] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-rc-brand transition-all"
+          <RegulatoryNotice
+            href={adFrame ? null : regulator.url}
+            className="mt-3 lg:mt-0 flex min-h-[88px] flex-col justify-center gap-1.5 rounded border border-rc-fair-border bg-rc-fair-bg px-3 py-2.5 font-rc-mono text-[11px] text-rc-fair-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-rc-brand transition-all"
           >
             <span className="flex items-center justify-between gap-2">
               <span className="truncate">
                 {regulator.name} · {regulator.areaLabel} {dfoArea}
                 {speciesName && statusWord ? ` · ${speciesName} ${statusWord}` : ""}
               </span>
-              <span className="shrink-0 text-rc-brand">Regulations ↗</span>
+              {!adFrame && <span className="shrink-0 text-rc-brand">Regulations ↗</span>}
             </span>
             {/* Wraps rather than truncates: a phone-width line can't hold "2 per
                 day · min 45 cm · barbless hook and line", and the gear rule is
@@ -214,7 +249,7 @@ export default function ScoreCard({
                 Limits not published · check {regulator.name}
               </span>
             )}
-          </a>
+          </RegulatoryNotice>
         )}
       </div>
 

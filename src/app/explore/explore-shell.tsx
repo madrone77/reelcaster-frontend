@@ -65,7 +65,6 @@ import {
   sheetSafeCenter,
 } from "./lib/sheet-safe-center";
 import ExploreTopBar from "./components/explore-top-bar";
-import ExploreAdBar, { ANCHOR_ID as AD_ANCHOR } from "./components/explore-ad-bar";
 import {
   cameFromLandingPage,
   useCampaignHit,
@@ -83,6 +82,8 @@ import LocationSelector from "./components/location-selector";
 import MobileMapSheet from "./components/mobile-map-sheet";
 import ForecastStrip from "./components/forecast-strip";
 import { legacySpotPath, spotHref } from "@/lib/paths";
+import { withAdParams } from "@/lib/ad-mode";
+import { AdFrameProvider } from "./lib/ad-frame";
 
 // ── Loaded on demand ─────────────────────────────────────────────────────
 //
@@ -202,7 +203,7 @@ export default function ExploreShell({
    * so the map renders exactly what it rendered before this prop existed. Same
    * split rule the spot page's ad frame uses.
    */
-  ad?: { wall: AdWall; angle: string; chargeDate: string } | null;
+  ad?: { wall: AdWall; angle: string } | null;
   /**
    * True on /m/explore — the paid-marketing frame. The only surface that asks
    * the depth-gate question; /explore renders the answer but never poses it.
@@ -252,9 +253,10 @@ export default function ExploreShell({
   // the floating location pill both begin at the screen edge; everyone else
   // begins under the 64px bar. One value, so the two cannot drift apart, and
   // every pill measured from the map box keeps its offset at either tier.
-  // The ad frame drops the top bar for everyone, so its map starts at the
-  // screen edge exactly as a Pro viewer's does.
-  const mobileTop = isPaid || ad ? "top-0" : "top-16";
+  // The ad frame wears a bar at every tier -- it is the only thing on the page
+  // carrying the offer -- so its map begins under one even for a Pro viewer,
+  // who is the one person here with no bar on the ordinary map.
+  const mobileTop = isPaid && !ad ? "top-0" : "top-16";
   const { citySlug, spotSlug, day, stn, setQuery } = useExploreState();
 
   // ── Return-trip memory ──────────────────────────────────────────────────
@@ -957,24 +959,16 @@ export default function ExploreShell({
       : null;
   useCampaignHit(lpArrivalTarget);
 
-  // Currency follows the framed city too, for the same reason: a Seattle ad
-  // bills in USD even if the reader has panned across the border by the time
-  // they reach for the button.
-  const adRegion = selectedCity?.provinceCode ?? "";
-
-  // What a locked day does on the ad frame. The bar is fixed and already on
-  // screen, so there is nothing to scroll to: put the cursor in the field.
-  // Only defined under `ad`, and it is that undefined-ness that every locked
-  // surface checks to decide between "one offer" and the product's dialogs.
-  const focusAdOffer = ad
-    ? () => {
-        const el = document.getElementById(AD_ANCHOR)?.querySelector("input");
-        if (el instanceof HTMLInputElement) {
-          el.focus();
-          el.scrollIntoView({ block: "nearest" });
-        }
-      }
-    : undefined;
+  // A locked day on the ad frame now does what a locked day does everywhere
+  // else in the product: it opens the trial modal.
+  //
+  // It used to be the exception. `onLockedAdDay` was a callback that put the
+  // cursor in the pinned bar's email field, and every locked surface checked
+  // whether that callback was defined to decide between "one offer down there"
+  // and the product's own dialogs. With the bar gone there is no field to
+  // focus and no second way to buy, so the exception is gone with it: the
+  // prop is simply not passed, which is the same thing it meant off the ad
+  // frame all along.
 
   // Per-species best scores across the spots in view (and for the viewed
   // date) so the filter chips reflect the water the user is looking at.
@@ -1684,7 +1678,13 @@ export default function ExploreShell({
         // the page, so without this the return trip lands on whatever the list
         // happened to be scrolled over rather than on the spot just viewed.
         if (spot) writeSpotHandoff(spot);
-        router.push(spot ? spotHref(spot) : legacySpotPath(slug));
+        // Mobile opens the spot page directly instead of the desktop
+        // drawer, so this push is the ad frame's most-taken exit and the one
+        // that most needs to not be one. `withAdParams` puts `?ad=` back on
+        // it; middleware does the rest.
+        router.push(
+          withAdParams(spot ? spotHref(spot) : legacySpotPath(slug), ad),
+        );
         return;
       }
       setQuery({ spot: slug, stn: null });
@@ -1696,7 +1696,7 @@ export default function ExploreShell({
         });
       }
     },
-    [router, setQuery, displaySpots, writeSpotHandoff],
+    [router, setQuery, displaySpots, writeSpotHandoff, ad],
   );
 
   // ── Search picks ────────────────────────────────────────────────────
@@ -2073,11 +2073,16 @@ export default function ExploreShell({
   }, [nag]);
 
   return (
+    // Every spot link rendered under here carries the frame with it, so a tap
+    // on a pin opens the spot page framed rather than dropping the reader onto
+    // the app's own chrome. See ./lib/ad-frame.
+    //
     // Explore pins itself to the viewport: the map fills the box and the rail
     // and forecast strip scroll inside it, so the document itself never
     // scrolls. This height + clip used to come from ExploreLayout, but that
     // layout is shared with the spot page, which is a long document — so the
     // surface that wants the lock owns it.
+    <AdFrameProvider value={ad ? { wall: ad.wall, angle: ad.angle } : null}>
     <div
       /* The ad frame shortens the map's box by exactly the bar's height so the
          bar never overlays water.
@@ -2091,9 +2096,7 @@ export default function ExploreShell({
          bar keeps its own room via `--rc-tabbar-clearance`, which is what the
          sheet and the preview dock sit above; nothing needs the map to be
          short as well. */
-      className={`relative overflow-hidden lg:min-h-0 ${
-        ad ? "h-[calc(100dvh_-_var(--rc-ad-bar-h))]" : "h-dvh"
-      }`}
+      className="relative overflow-hidden lg:min-h-0 h-dvh"
       /* Marks this render as the ad frame for the one piece of chrome outside
          this tree: the mobile tab bar in the root layout. */
       data-ad-frame={ad ? "" : undefined}
@@ -2112,10 +2115,25 @@ export default function ExploreShell({
           `isPaid` is false until the tier resolves, so the bar paints first
           and clears a beat later for a Pro viewer. That is the right way
           round: the viewers this bar now exists for get it immediately. */}
-      {/* The ad frame has no top bar at any width. Every link in it is a way
-          off a page that cost money to land on, the offer it would carry is
-          already pinned under the map, and the mark rides in that bar. */}
-      {!ad && (
+      {/* The ad frame keeps the bar and empties it.
+          It used to have none at all: the mark and the offer both rode in a
+          pinned strip under the map, and a bar would only have added exits.
+          With the offer moved into the trial modal the bar is the thing that
+          opens it, so it comes back in `adFrame` dress — mark, one button, and
+          none of the nav, search, sign-in or avatar that made it an exit. It
+          shows at every width and for every tier, because on this page it is
+          the only ask there is.
+
+          Same `placeName` either way: the city under the camera, which the
+          modal sets in brand blue behind its headline. */}
+      {ad ? (
+        <ExploreTopBar
+          adFrame
+          containerClassName={BLEED_MEASURE}
+          upgradeCta={!isPaid}
+          placeName={labelCity?.name ?? undefined}
+        />
+      ) : (
         <div className={isPaid ? "hidden lg:block" : undefined}>
           {/* The bar's trial CTA names the city under the camera, the same
               `labelCity` the floating location header and the mobile sheet
@@ -2283,7 +2301,6 @@ export default function ExploreShell({
         selectedIso={selectedIso}
         onSelectDay={handleSelectDay}
         signedIn={!!user}
-        onLockedAdDay={focusAdOffer}
         freshCatches={freshCatches}
         selectedSlug={selectedSpot?.slug ?? null}
         previewAnchorSlug={previewAnchor}
@@ -2357,7 +2374,6 @@ export default function ExploreShell({
         scrubHour={scrubHour}
         onScrubHour={setScrubHour}
         signedIn={!!user}
-        onLockedAdDay={focusAdOffer}
         hidden={stripHidden}
         onHide={() => setStripHidden(true)}
         onShow={() => setStripHidden(false)}
@@ -2457,26 +2473,7 @@ export default function ExploreShell({
         </div>
       )}
 
-      {/* Rendered for cold traffic and hidden once the tier resolves to Pro.
-          Not held until it resolves, unlike the upgrade CTAs: the ask IS the
-          page here, `useSubscription` has been seen taking seconds, and a paid
-          click that lands on a page with no visible offer is the whole ad
-          wasted. Ad traffic is signed out by definition, so the flash costs
-          almost nobody anything. */}
-      {ad && adTarget && !isPaid && (
-        <ExploreAdBar
-          wall={ad.wall}
-          region={adRegion}
-          chargeDate={ad.chargeDate}
-          /* The city the ad FRAMED, not the one nearest the camera. `labelCity`
-             follows the map, so a Victoria ad whose reader has not touched
-             anything still ended up saying "every spot in Friday Harbor" once
-             the wide view settled. The counter already reports the framed
-             city; the copy has to agree with it. */
-          cityName={selectedCity?.name ?? null}
-          dims={adTarget}
-        />
-      )}
     </div>
+    </AdFrameProvider>
   );
 }

@@ -31,6 +31,8 @@ import { useUnitPreferences } from "@/contexts/unit-preferences-context";
 import { convertDistance, formatDistance } from "@/app/utils/unit-conversions";
 import { formatHour12 } from "@/lib/time-format";
 import { spotHref } from "@/lib/paths";
+import { withAdParams } from "@/lib/ad-mode";
+import { useAdFrame } from "../lib/ad-frame";
 
 const ProTrialModal = dynamic(
   () => import("@/app/components/paywall/pro-trial-modal"),
@@ -144,7 +146,16 @@ export default function SpotDrawer({
 
   const tier = tierFor(score);
   const peak = fmtPeak(spot.peakHour);
-  const href = spotHref(spot);
+  // Carries the ad frame onto the spot page when there is one — see
+  // SpotCard's copy of this line.
+  //
+  // The alert button is built separately rather than by appending to `href`.
+  // It used to be `${href}?alert=1`, which is fine while `href` is a bare path
+  // and produces `?ad=today?alert=1` the moment it is not: two query strings,
+  // one of them read as part of the other's value.
+  const adFrame = useAdFrame();
+  const href = withAdParams(spotHref(spot), adFrame);
+  const alertHref = withAdParams(`${spotHref(spot)}?alert=1`, adFrame);
   const [fav, toggleFav] = useFavorite(spot.slug);
   const { isPaid } = useSubscription();
   const [upgradeOpen, setUpgradeOpen] = useState(false);
@@ -346,7 +357,7 @@ export default function SpotDrawer({
           </button>
         ) : (
           <Link
-            href={`${href}?alert=1`}
+            href={alertHref}
             className="px-4 py-2.5 rounded-lg border border-rc-brand text-rc-brand font-rc-mono text-xs font-semibold tracking-[0.08em] hover:bg-rc-brand-soft transition-colors text-center"
           >
             SET ALERT

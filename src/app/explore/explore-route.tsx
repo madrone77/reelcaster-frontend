@@ -21,8 +21,6 @@ import { nearestOpeningCity, readVisitorPoint } from "./lib/opening-city";
 import { HOME_SPOT_COOKIE, sanitizeHomeSpotSlug } from "./lib/home-spot-cookie";
 import { HOME_CITY_COOKIE, sanitizeHomeCitySlug } from "./lib/home-city-cookie";
 import { parseWall } from "@/lib/ad-mode";
-import { trialChargeDate } from "@/app/lp/_shared/lp-checkout";
-import { PRICE } from "@/app/lp/_shared/lp-content";
 import { ANGLES } from "@/app/lp/_shared/lp-angles";
 import { openingBbox, spotViewBox } from "./lib/viewport-bbox";
 import { PREVIEW_COOKIE, parsePreviewState } from "@/lib/preview-gate";
@@ -72,9 +70,15 @@ export async function renderExplore({
   // resolve.
   // ── The ad frame ─────────────────────────────────────────────────────────
   //
-  // `?ad=<wall>` turns this into a paid-traffic landing page: no top bar, no
-  // way off the page, and the card ask pinned under the map. See
-  // ./spot/[slug]/ad-mode.ts, which owns the wall vocabulary both frames share.
+  // `?ad=<wall>` turns this into a paid-traffic landing page: no way off the
+  // page, an emptied top bar carrying the mark and one Start free trial
+  // button, and the trial modal behind it. See @/lib/ad-mode, which owns the
+  // wall vocabulary both frames share.
+  //
+  // The charge date used to be computed here and passed down, because the
+  // pinned bar rendered it and reading a clock in a client render is how a
+  // date becomes a hydration mismatch. The modal carries its own terms now, so
+  // there is nothing left for this route to date.
   //
   // Read straight off searchParams here, with none of the ceremony the spot
   // page needed. That page is prerendered and a searchParams read would have
@@ -348,7 +352,6 @@ export async function renderExplore({
                 angle: ANGLES.some((a) => a.id === params.a)
                   ? (params.a as string)
                   : "",
-                chargeDate: trialChargeDate(PRICE.trialDays),
               }
             : null
         }
