@@ -9,7 +9,7 @@ import { useSubscription } from "@/hooks/use-subscription";
 import { noteEngagement } from "@/lib/upgrade-nag";
 import { setPaywallContext } from "@/lib/paywall-context";
 import AdSlot from "@/app/components/ads/ad-slot";
-import { countryDisplayName, provinceCodeFromName, regulatorFrom } from "@/lib/regions";
+import { countryDisplayName, regulatorFrom } from "@/lib/regions";
 import ExploreTopBar from "@/app/explore/components/explore-top-bar";
 import DayCell from "@/app/explore/components/day-cell";
 import { bestWindow } from "@/app/explore/components/hourly-bars";
@@ -64,8 +64,6 @@ import { RecentReportsBand } from "@/app/explore/components/recent-reports";
 import type { RecentReports as RecentReportsData } from "@/lib/bluecaster/live-spot-types";
 import type { RailFreshCatch } from "@/app/explore/lib/fresh-catch-types";
 import CustomAlertCta from "@/app/explore/spot/components/custom-alert-cta";
-import AdTrialCta from "@/app/explore/spot/components/ad-trial-cta";
-import { AdBrandBar, AdFooter } from "@/app/explore/spot/components/ad-brand-bar";
 import {
   useCampaignHit,
   type CampaignTarget,
@@ -492,12 +490,6 @@ export default function SpotDetailShell({
   const [selectedIso, setSelectedIso] = useState<string | null>(openOnIso);
   const [upgradeOpen, setUpgradeOpen] = useState(false);
 
-  /** Ad frame: send every "unlock this" gesture to the one offer on the page. */
-  const scrollToOffer = () => {
-    document
-      .getElementById("ad-offer")
-      ?.scrollIntoView({ behavior: "smooth", block: "center" });
-  };
   // Which wall the tapped tile belongs to — highlights the matching matrix row.
   const [lockedTier, setLockedTier] = useState<"free" | "pro">("pro");
   const [alertUpgradeOpen, setAlertUpgradeOpen] = useState(false);
@@ -738,14 +730,11 @@ export default function SpotDetailShell({
 
   const handleDay = (day: ForecastDay) => {
     if (day.locked) {
-      // On an ad page the offer is already on the page, in a form that takes
-      // an email. Opening a modal instead would put a SECOND way to buy in
-      // front of the reader, attributed to a different `from`, which is
-      // exactly the comparison the wall test is trying to make.
-      if (ad) {
-        scrollToOffer();
-        return;
-      }
+      // No ad-frame branch here any more. It used to scroll to the inline
+      // email form, because opening a modal would have put a SECOND way to buy
+      // in front of the reader under a different `from`. There is no inline
+      // form now, so a locked day on a paid page does what a locked day does
+      // everywhere else, and the two paths have collapsed into one.
       setLockedTier(day.lockTier ?? "pro");
       // Every locked day opens the same modal, including the "Become a Member"
       // days 3–7: the free account they unlock is offered by the link at the
@@ -882,37 +871,6 @@ export default function SpotDetailShell({
   // nearest city is across a border — a BC mark on friday-harbor-wa's roster
   // is DFO water sold to a Washington reader in USD, and both of those are
   // right.
-  const adRegion = ad
-    ? (provinceCodeFromName(cityLink?.provinceName ?? spot.region ?? "") ?? "")
-    : "";
-
-  // Rendered twice: once at the wall, where the locked days are visible and
-  // the ask is obvious, and once at the foot for a reader who scrolled past
-  // it.
-  //
-  // NOT held until the tier resolves, which is the opposite of the upgrade
-  // button below. That button waits so a Pro account never sees a flash of the
-  // thing it already bought. Here the ask IS the page, and `useSubscription`
-  // has been observed taking seconds under load — a paid click that lands on a
-  // page with no visible offer for the first few seconds is the whole ad
-  // wasted. So it renders on the server and disappears if the viewer turns out
-  // to be Pro, rather than the other way round. Cold ad traffic is signed out
-  // by definition, so the flash costs almost nobody anything.
-  const adCta = (cta: "hero" | "final") =>
-    ad && adTarget && !isPaid ? (
-      <AdTrialCta
-        spotName={spot.name}
-        cityName={cityLink?.cityName ?? spot.city ?? null}
-        region={adRegion}
-        chargeDate={ad.chargeDate}
-        wall={ad.wall}
-        cta={cta}
-        inputId={`ad-email-${cta}`}
-        dims={adTarget}
-        withProof={cta === "hero"}
-      />
-    ) : null;
-
   const pills = (
     <div className="flex flex-wrap items-center gap-2">
       {/* Neutral area label — no open/closed claim. Area-level status isn't
@@ -957,10 +915,28 @@ export default function SpotDetailShell({
       {/* The spot page is a long read on a phone, so the bar rolls away as you
           head down it and comes back on the first upward flick. `pt-16` below
           stays put either way — the bar moves, the document does not. */}
-      {/* Paid traffic gets a bar with nowhere to go. Every link in the real
-          top bar (map, login, pricing, nav) is a way out of a page that cost
-          money to land on, and none of them is the thing the ad promised. */}
-      {ad ? <AdBrandBar /> : <ExploreTopBar hideOnScroll />}
+      {/* Paid traffic gets a bar with nowhere to go — and, now, one thing to
+          press. `adFrame` keeps the mark and the Start free trial button and
+          drops every link that is an exit: the nav, search, sign-in and the
+          avatar are all ways out of a page that cost money to land on, and
+          none of them is the thing the ad promised.
+
+          It replaces AdBrandBar, which carried the mark and nothing else back
+          when the offer lived in an email form further down the page. That
+          form is gone; this button is the ask.
+
+          No `hideOnScroll` under the frame. Rolling the bar away is the right
+          trade on a long read whose nav lives elsewhere, and the wrong one
+          when the bar is the only ask on the page. */}
+      {ad ? (
+        <ExploreTopBar
+          adFrame
+          upgradeCta={!isPaid}
+          placeName={cityLink?.cityName ?? spot.city ?? undefined}
+        />
+      ) : (
+        <ExploreTopBar hideOnScroll />
+      )}
 
       {/* Pull down from the top of the page to refetch the live numbers. Sits
           outside the flow — it draws a floating indicator and nothing else, so
@@ -1248,6 +1224,7 @@ export default function SpotDetailShell({
                   so this card is now purely the score verdict. */}
               <div className="order-1">
                 <ScoreCard
+                  adFrame={!!ad}
                   nowTime={nowTime}
                   nowIsPeak={peakHourNum === nowHour}
                   score={nowScore}
@@ -1278,7 +1255,7 @@ export default function SpotDetailShell({
               reports={reports}
               fresh={fresh}
               days={FRESH_DAYS}
-              onUpgrade={ad ? scrollToOffer : () => setReportsUpgradeOpen(true)}
+              onUpgrade={() => setReportsUpgradeOpen(true)}
               neutralLock={!!ad}
             />
           </div>
@@ -1327,14 +1304,13 @@ export default function SpotDetailShell({
                 <ChevronLeft className="w-4 h-4 text-rc-ink-mute" />
               </div>
             </div>
-            {/* The ask, directly under the locked days it is asking for. Also
-                the scroll target for every locked tile and locked panel on the
-                page, so there is one offer and one place it lives. */}
-            {adCta("hero") && (
-              <div id="ad-offer" className="mt-5 scroll-mt-20">
-                {adCta("hero")}
-              </div>
-            )}
+            {/* The inline email ask used to sit here, directly under the
+                locked days, with a second copy at the foot of the page. Both
+                are gone: the ad frame has ONE ask now, the Start free trial
+                button in the bar, which opens the same trial modal every other
+                CTA in the product opens. Two ways to buy on one page is two
+                conversion paths to reason about and two `from` values in the
+                funnel, for a page whose whole design is to have one. */}
           </div>
 
           {/* 5 · 24-hour graph, with the conditions strip as its readout */}
@@ -1439,6 +1415,7 @@ export default function SpotDetailShell({
           {selSpecies && page.regulations.length > 0 && (
             <div className="border-t border-rc-rule pt-8">
               <CurrentRegulations
+                adFrame={!!ad}
                 regulations={page.regulations}
                 selectedId={selId}
                 areaCode={page.regAreaCode}
@@ -1488,9 +1465,6 @@ export default function SpotDetailShell({
             {!ad && (
               <CustomAlertCta spotName={spot.name} onCreateAlert={handleSetAlert} />
             )}
-            {/* Second copy of the ask, for a reader who came all the way down
-                the page rather than stopping at the wall. */}
-            {adCta("final")}
             {/* Runs in the document flow at every width (the desktop breadcrumb
                 is hidden on mobile), keeping the spot → city → province edges
                 present for readers and crawlers. */}
@@ -1532,9 +1506,15 @@ export default function SpotDetailShell({
       </div>
 
       {/* The marketing footer is a sitemap. On an ad page it is forty ways to
-          leave, printed under the one thing we asked the reader to do. What
-          survives is what has to: the legal pages. */}
-      {ad ? <AdFooter /> : <MarketingFooter />}
+          leave, printed under the one thing we asked the reader to do — so the
+          ad frame ends with no footer at all.
+          It used to keep a legal-only one (terms, privacy, support), on the
+          reasoning that a page which takes a card has to reach them. It no
+          longer takes one: the card is taken in the trial modal, which carries
+          its own terms and its own links to them, at the moment they are
+          actually being agreed to. Three links under the fold were never where
+          "clear and conspicuous" was being satisfied. */}
+      {!ad && <MarketingFooter />}
 
       <UpgradeDialog
         open={upgradeOpen}

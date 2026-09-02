@@ -65,6 +65,7 @@ export default function ExploreTopBar({
   hideOnScroll = false,
   upgradeCta = false,
   placeName,
+  adFrame = false,
 }: {
   /** "brand" (the default) is a blue bar with a white mark/links; "default"
    *  is the light bar, kept available for any surface that needs it. */
@@ -100,6 +101,26 @@ export default function ExploreTopBar({
    * right answer for a page that cannot say what the reader was looking at.
    */
   placeName?: string;
+  /**
+   * Wear this bar on a page somebody paid to land on.
+   *
+   * The ad frame used to have no bar at all — every link in it is a way off a
+   * page that cost money, and the offer rode in a pinned strip under the map
+   * instead. That strip is gone (the offer is the modal now), so the bar comes
+   * back carrying the two things the frame actually wants: the mark, and one
+   * button.
+   *
+   * What `adFrame` removes is everything that is an exit. The nav, the search
+   * trigger, "Sign in", and the avatar all go, and the mark stops being a link
+   * — a logo that leads to the homepage is the most-pressed way out of a
+   * landing page, and the homepage sells the same thing less specifically than
+   * the page it would be leaving. What is left is a header with a logo and a
+   * Start free trial button, which is the whole brief.
+   *
+   * Not a fourth `variant`: this is orthogonal to the bar's colour, and both
+   * ad surfaces want the same blue bar the product already wears.
+   */
+  adFrame?: boolean;
 } = {}) {
   const { user, session, loading } = useAuth();
   const pathname = usePathname();
@@ -176,16 +197,31 @@ export default function ExploreTopBar({
       } ${brand ? "bg-rc-brand border-white/15" : "bg-rc-panel border-rc-rule"}`}
     >
       <div className={`h-full flex items-center gap-8 ${containerClassName}`}>
-        <Link href="/" className="shrink-0 flex items-center" aria-label="ReelCaster home">
-          <Image
-            src={brand ? "/reelcaster-mark-white.svg" : "/reelcaster-mark.svg"}
-            alt="ReelCaster"
-            width={104}
-            height={48}
-            priority
-          />
-        </Link>
+        {/* The same mark either way; on the ad frame it is a picture rather
+            than a door. See the `adFrame` prop for why. */}
+        {adFrame ? (
+          <span className="shrink-0 flex items-center">
+            <Image
+              src={brand ? "/reelcaster-mark-white.svg" : "/reelcaster-mark.svg"}
+              alt="ReelCaster"
+              width={104}
+              height={48}
+              priority
+            />
+          </span>
+        ) : (
+          <Link href="/" className="shrink-0 flex items-center" aria-label="ReelCaster home">
+            <Image
+              src={brand ? "/reelcaster-mark-white.svg" : "/reelcaster-mark.svg"}
+              alt="ReelCaster"
+              width={104}
+              height={48}
+              priority
+            />
+          </Link>
+        )}
 
+        {!adFrame && (
         <nav
           className={`hidden md:flex items-center gap-7 text-sm font-medium ${
             brand ? "text-white/70" : "text-rc-ink-soft"
@@ -249,11 +285,45 @@ export default function ExploreTopBar({
             );
           })}
         </nav>
+        )}
 
         <div className="flex items-center gap-2 sm:gap-3 ml-auto">
-          <SearchTrigger brand={brand} />
+          {/* Search is a way to somewhere else, which on a paid landing is the
+              one thing this bar must not offer. */}
+          {!adFrame && <SearchTrigger brand={brand} />}
 
-          {loading && !preview ? null : signedIn && avatarLabel ? (
+          {/* The ad frame's right-hand side is one button and nothing else.
+              Signed out — which cold ad traffic is by definition — that is the
+              trial CTA below. Signed in it is the upgrade CTA, or nothing at
+              all for someone who already pays; the avatar is a link to
+              /profile, so it goes with the rest of the exits.
+
+              Not held behind `loading`, unlike the product bar. The ask IS the
+              page here, `useAuth` has been seen taking seconds, and a paid
+              click that lands on a page with no visible offer is the whole ad
+              wasted — the same trade the pinned bar used to make. */}
+          {adFrame ? (
+            signedIn ? (
+              upgradeCta && (
+                <TrialModalButton
+                  from="explore-ad-topbar-upgrade"
+                  placeName={placeName}
+                  className={brand ? btn.navOnBrand : btn.nav}
+                >
+                  <span className="sm:hidden">Upgrade</span>
+                  <span className="hidden sm:inline">Upgrade to Pro</span>
+                </TrialModalButton>
+              )
+            ) : (
+              <TrialModalButton
+                from="explore-ad-topbar"
+                placeName={placeName}
+                className={brand ? btn.navOnBrand : btn.nav}
+              >
+                Start free trial
+              </TrialModalButton>
+            )
+          ) : loading && !preview ? null : signedIn && avatarLabel ? (
             <>
               {upgradeCta && (
                 <TrialModalButton

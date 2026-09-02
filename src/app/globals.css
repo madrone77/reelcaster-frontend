@@ -501,25 +501,13 @@ body:has([data-ad-frame]) [data-mobile-nav] {
 }
 
 /*
- * The ad frame's bottom bar, as one number.
+ * The ad frame's bottom bar is gone, and so is the variable that sized it.
  *
- * Three things have to agree about how tall it is: the bar itself, the map box
- * above it (shortened by exactly this so the bar never overlays water), and
- * everything that clears the mobile tab bar, which the bar replaces. They were
- * three literals and would have drifted the first time the copy changed
- * height. The safe-area inset is INSIDE the variable, so a notched phone
- * shortens the map by the same amount the bar actually grows.
- *
- * Three rows on a phone (mark, form, disclosure), one on a desktop.
+ * `--rc-ad-bar-h` existed so three things could agree on the bar's height: the
+ * bar, the map box above it, and everything that clears the mobile tab bar the
+ * bar stood in for. The frame's offer moved into the trial modal behind the
+ * header's Start free trial button, so there is no bottom bar to measure, the
+ * map runs the full viewport again, and `--rc-tabbar-clearance` keeps whatever
+ * the tab bar itself sets. The tab bar is still hidden on the frame by the
+ * `data-ad-frame` rule above.
  */
-:root {
-  --rc-ad-bar-h: calc(9.25rem + env(safe-area-inset-bottom, 0px));
-}
-@media (min-width: 1024px) {
-  :root {
-    --rc-ad-bar-h: 4.5rem;
-  }
-}
-body:has([data-ad-bar]) {
-  --rc-tabbar-clearance: var(--rc-ad-bar-h);
-}

@@ -47,15 +47,13 @@ export interface AdMode {
   /** The pitch the link asked for (`?a=`), shared with the /lp angles so a
    *  spot ad and a landing-page ad can be compared on the same axis. */
   angle: string;
-  /**
-   * The date the first charge lands, rendered on the server.
-   *
-   * Computed there and passed down because reading a clock during a client
-   * render is what turns a date into a hydration mismatch, which this page has
-   * already paid for once. Safe from staleness: the ad frame renders per
-   * request, so this is never served out of a cache older than today.
+  /*
+   * `chargeDate` used to live here: the date the first charge lands, computed
+   * on the server because reading a clock during a client render is what turns
+   * a date into a hydration mismatch. The frames that rendered it — a pinned
+   * bar under the map, an inline email form on the spot page — are gone, and
+   * the trial modal that replaced them dates its own terms.
    */
-  chargeDate: string;
 }
 
 /**
@@ -75,4 +73,34 @@ export function parseWall(raw: string | null | undefined): AdWall {
 /** Is this an ad request? Presence of `ad`, whatever its value. */
 export function isAdParam(value: string | null | undefined): boolean {
   return value !== null && value !== undefined && value !== "";
+}
+
+/**
+ * Carry the ad frame onto a link that leaves the page it is on.
+ *
+ * An ad-framed Explore is a landing page whose whole product is the map, and
+ * the map's own reason to exist is that you can open a spot from it. That tap
+ * is not an exit — it is the visit going deeper — so the frame has to survive
+ * it. Without this, opening a spot from a paid map dropped the reader onto the
+ * ordinary spot page: app bar, marketing footer, and a wall of links off a
+ * page that had already been paid for twice over.
+ *
+ * `?ad=` is the whole mechanism. src/middleware.ts already rewrites any spot
+ * URL carrying it to the `/ad` segment beside the public page, so a suffixed
+ * href needs nothing else built to be framed on arrival.
+ *
+ * Preserves any query the href already had (`?alert=1` on the drawer's second
+ * button) rather than replacing it, and takes no view on fragments because no
+ * link this touches carries one.
+ */
+export function withAdParams(
+  href: string,
+  ad: { wall: AdWall; angle?: string } | null | undefined,
+): string {
+  if (!ad) return href;
+  const [path, query = ""] = href.split("?");
+  const params = new URLSearchParams(query);
+  params.set("ad", ad.wall);
+  if (ad.angle) params.set("a", ad.angle);
+  return `${path}?${params.toString()}`;
 }

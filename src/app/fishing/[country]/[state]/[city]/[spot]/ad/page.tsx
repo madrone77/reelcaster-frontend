@@ -1,8 +1,6 @@
 import type { Metadata } from "next";
 import { fetchSpotLivePage } from "@/lib/bluecaster";
 import { siteUrl } from "@/lib/site";
-import { trialChargeDate } from "@/app/lp/_shared/lp-checkout";
-import { PRICE } from "@/app/lp/_shared/lp-content";
 import { ANGLES } from "@/app/lp/_shared/lp-angles";
 import SpotDetailShell from "../spot-detail-shell";
 import { loadSpotPage } from "../load-spot-page";
@@ -86,7 +84,7 @@ export default async function SpotAdPage({ params, searchParams }: PageProps) {
       tz={tz}
       serverNowMs={serverNowMs}
       cityLink={cityLink}
-      ad={{ wall, angle, chargeDate: trialChargeDate(PRICE.trialDays) }}
+      ad={{ wall, angle }}
     />
   );
 }

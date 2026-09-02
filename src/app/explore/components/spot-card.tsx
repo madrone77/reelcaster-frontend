@@ -13,6 +13,8 @@ import SpotDayStrip, { SpotDayStripSkeleton, type SpotDay } from "./spot-day-str
 import { FreshCatchBadge } from "./fresh-catch-reports";
 import type { RailFreshCatch } from "../lib/fresh-catch-types";
 import { spotHref } from "@/lib/paths";
+import { withAdParams } from "@/lib/ad-mode";
+import { useAdFrame } from "../lib/ad-frame";
 
 const ProTrialModal = dynamic(
   () => import("@/app/components/paywall/pro-trial-modal"),
@@ -94,7 +96,12 @@ export default function SpotCard({
     region: spot.provinceCode,
   });
 
-  const reportHref = spotHref(spot);
+  // Suffixed with `?ad=` when this card is inside the ad frame, so opening a
+  // spot from a paid map keeps the frame instead of landing on the app's own
+  // bar and the marketing footer. Null off the frame, which is every other
+  // surface that renders this card, and `withAdParams` returns the href
+  // untouched for null.
+  const reportHref = withAdParams(spotHref(spot), useAdFrame());
 
   // Pro-only: which spots carry catch reports is no longer shown to free or
   // anonymous viewers at all, matching the map, where the "Hot" tag and the

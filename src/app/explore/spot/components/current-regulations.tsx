@@ -86,6 +86,7 @@ export default function CurrentRegulations({
   regulator,
   syncedAt,
   nowMs,
+  adFrame = false,
 }: {
   regulations: LiveRegulation[];
   selectedId: string | null;
@@ -96,6 +97,9 @@ export default function CurrentRegulations({
   syncedAt: string | null;
   /** Reference instant for the relative "synced …" label. */
   nowMs: number;
+  /** On the ad frame, render the regulator as text rather than a link out.
+   *  See the render below. */
+  adFrame?: boolean;
 }) {
   if (!regulations.length) return null;
 
@@ -223,14 +227,25 @@ export default function CurrentRegulations({
           </div>
         )}
 
-        <a
-          href={regulator.url}
-          target="_blank"
-          rel="noreferrer"
-          className="inline-block mt-4 font-rc-mono text-[11px] font-medium text-rc-ink-mute hover:text-rc-ink underline"
-        >
-          Always check with {regulator.name} ↗
-        </a>
+        {/* The "check with the regulator" line keeps its words on the ad
+            frame and loses its href. It is the one honest thing on the panel
+            and it stays said; what goes is the click, which is a way off a
+            page somebody paid to land on and straight onto a government site
+            that has no reason to send them back. */}
+        {adFrame ? (
+          <span className="inline-block mt-4 font-rc-mono text-[11px] font-medium text-rc-ink-mute">
+            Always check with {regulator.name}
+          </span>
+        ) : (
+          <a
+            href={regulator.url}
+            target="_blank"
+            rel="noreferrer"
+            className="inline-block mt-4 font-rc-mono text-[11px] font-medium text-rc-ink-mute hover:text-rc-ink underline"
+          >
+            Always check with {regulator.name} ↗
+          </a>
+        )}
       </div>
 
       {/* Provenance — text-only source + freshness attribution. */}
