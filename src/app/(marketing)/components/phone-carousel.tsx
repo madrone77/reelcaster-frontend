@@ -31,6 +31,9 @@ import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
  * its own, so the kicker and the headline are too. What moves between slides
  * is the screen and the words, which is the only thing that should.
  *
+ * The devices are drawn at true size and shown at 65%: the app inside still
+ * lays itself out at the 375px a real phone gives it. See SLOT_CSS.
+ *
  * ── Every slide is in the HTML ───────────────────────────────────────────
  *
  * Slides are stacked rather than mounted on demand. Three reasons, in order of
@@ -166,21 +169,23 @@ export default function PhoneCarousel({ slides }: { slides: PhoneSlide[] }) {
       onBlurCapture={() => setFocused(false)}
     >
       <div className="grid gap-12 lg:grid-cols-2 lg:items-center lg:gap-14">
-        {/* THE PHONES. One cell, four devices in it, each hanging from the top
-            so their top edges land on the same pixel. The cell reclaims the
-            section gutter on a narrow screen — not decoration there: the
-            conditions phone lays its chart out at true size, and inside a
-            327px column that drops under SpotTerminal's 300px measuring floor
-            and the 12px readouts the picture is about stop being readable. */}
-        <div className="order-2 grid max-sm:-mx-[18px] lg:order-1">
+        {/* THE PHONES. One cell, four devices in it, each at the same stated
+            size, so their edges land on the same pixels.
+
+            No gutter reclaim any more: the device is drawn at true size and
+            scaled, so the box is a fixed 258 and fits the narrowest phone
+            with room either side. It used to be 397 and had to eat the
+            section's padding on a small screen, or the conditions phone
+            dropped under SpotTerminal's 300px measuring floor. */}
+        <div className="order-2 grid lg:order-1">
           {slides.map((slide, i) => {
             const l = layer(i);
             return (
             <div key={slide.id} {...l} className={`flex flex-col ${l.className}`}>
-              {/* The device box: one width, one height, whichever phone is
-                  in it. Two elements because the outer one is the size
-                  container and the inner one has to query it. See SLOT_CSS in
-                  product-carousel.tsx. */}
+              {/* The device box states the scaled size; the slot inside it
+                  draws the phone at true size and scales it, out of flow so
+                  the untransformed height does not reserve space. See
+                  SLOT_CSS in product-carousel.tsx. */}
               <div className="rcpbox">
                 <div className="rcpslot">
                   {slide.lazy && !seen.has(i) ? null : slide.phone}

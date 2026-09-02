@@ -72,52 +72,50 @@ const BBOX = '-125.60,48.00,-122.60,49.60';
 const CENTER = { lat: 48.85, lng: -123.4 };
 const ZOOM = 9.1;
 
-/**
- * PhoneFrame fills the slot, which is where the width actually lives now.
- *
- * The slot is 397 wide, and that is the landing pages' number rather than an
- * arbitrary one: 375 of app screen plus 11 of bezel each side. See SLOT_CSS.
- */
+/** PhoneFrame fills the slot, which is where the size lives. See SLOT_CSS. */
 const DEVICE = 'w-full';
 
 /**
- * The device box, and the rules that make four different phones one phone.
+ * The device box: drawn at true size, shown at 65%.
  *
- * Every screen here draws its own device: PhoneFrame sizes itself off its
- * container in `cqw`, while the two landing-page phones are a fixed 397 with
- * their height falling out of their contents — 860, 836 and 834 respectively.
- * Left alone that is a device whose bottom edge jumps two dozen pixels every
- * time the timer fires, which reads as the picture bouncing rather than as the
- * screen changing.
+ * ── Why a transform and not a smaller box ────────────────────────────────
  *
- * So the slot states the size once and every device fills it. 216.56cqw is
- * PhoneFrame's own height resolved as a share of its width — 840 screen units
- * at `94cqw/375` each, plus 3cqw of bezel top and bottom — so the FLOOR is the
- * device's real proportion rather than a number picked to look right, and it
- * holds at every width the column can be.
+ * Nothing here is re-laid-out. The app inside still gets the 375px a real
+ * phone gives it, which is the only width its own breakpoints and measuring
+ * floors are built for; handing these components a 258px box instead would not
+ * draw a smaller phone, it would draw a broken one — SpotTerminal drops under
+ * its 300px measuring floor and redraws itself shrunk, and the spot page starts
+ * wrapping at a width no iPhone has. So the device is built at 397 and scaled.
  *
- * It is a floor and not a fixed height because one of these phones will not be
- * told what size to be: the conditions phone draws a chart at true size
- * whatever width it is given, so below about 445px of window it is the tallest
- * thing here and the others have to come up to meet it. Everything in the slot
- * therefore stretches — the frame's screen, and both landing-page bodies — and
- * the alert phone's stated 375:812 gives way to the height it is handed. The
- * screens grow; nothing is scaled, so no drawing is stretched.
+ * 397 is the landing pages' number and it is not arbitrary: 375 of app screen
+ * plus 11 of bezel each side. 860 is PhoneFrame's own height at that width —
+ * 840 screen units at `94cqw/375` each, plus 3cqw of bezel top and bottom — so
+ * the box is the device's real proportion rather than a number picked to look
+ * right. At 0.65 it occupies 258.05 by 559.
+ *
+ * ── Why the height is stated ─────────────────────────────────────────────
+ *
+ * The four devices do not agree on it: 860, 860, 836 and 834. A device whose
+ * bottom edge jumps two dozen pixels every time the timer fires reads as the
+ * picture bouncing rather than as the screen changing, so everything in the
+ * slot stretches into the stated 860 — the frame's screen, and both
+ * landing-page bodies. The alert phone's own 375:812 aspect gives way for the
+ * same reason. The screens grow; nothing is squashed.
+ *
+ * ── Why the slot is out of flow ──────────────────────────────────────────
+ *
+ * A transform does not change the space an element takes. Left in flow the
+ * slot would still occupy 397 by 860 and leave a third of the column empty
+ * under the phone, so the box states the scaled size and the slot is drawn
+ * inside it, absolutely positioned.
  */
 const SLOT_CSS = `
-/* The box states the width and is the container. The slot inside it states the
-   height, because an element cannot query its own size: 216.56cqw written on
-   the container itself silently measures the VIEWPORT instead, which on a
-   laptop is a phone nine feet tall. */
-.rcpbox{
-  display:flex;flex-direction:column;flex:1 1 auto;
-  width:min(397px,100%);
-  margin-inline:auto;
-  container-type:inline-size;
-}
+.rcpbox{position:relative;width:258.05px;height:559px;margin-inline:auto}
 .rcpslot{
-  display:flex;flex-direction:column;flex:1 1 auto;
-  min-height:216.56cqw;
+  position:absolute;top:0;left:0;
+  display:flex;flex-direction:column;
+  width:397px;min-height:860px;
+  transform:scale(.65);transform-origin:top left;
 }
 .rcpslot > *{flex:1 1 auto}
 .rcpslot .condbody,.rcpslot .smsbody{display:flex;flex-direction:column}
