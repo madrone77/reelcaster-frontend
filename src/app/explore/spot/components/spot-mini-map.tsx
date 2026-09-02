@@ -85,6 +85,7 @@ export default function SpotMiniMap({
   timeIso,
   hours,
   hideExploreLink = false,
+  frame = false,
 }: {
   spot: LiveSpot;
   score: number | null;
@@ -96,6 +97,26 @@ export default function SpotMiniMap({
    *  page, where it is an exit sitting on top of the most tappable element on
    *  the page, pointing at a map that sells nothing in particular. */
   hideExploreLink?: boolean;
+  /**
+   * This map is inside a picture of a phone, not on a page somebody is using.
+   *
+   * The marketing carousel draws the real spot page at true size inside a
+   * device frame. Three things have to change for that to be honest and safe,
+   * and they are one idea rather than three flags:
+   *
+   * - The phone SHAPE is pinned rather than asked of the window. `45svh` and
+   *   the `lg:` boxed variant both ask how big the browser is, and inside a
+   *   375px frame on a laptop that is the wrong question — the mock would draw
+   *   the desktop map. Same fix, same reason, as SpotTerminal's `phone`.
+   * - Nothing here opens fullscreen. On the real page expanding is how a phone
+   *   gets a map it can drag; from inside a carousel it would throw a
+   *   full-screen map over a homepage nobody asked to leave.
+   * - The way out to Explore goes with it, for the same reason the ad frame
+   *   drops it: an exit on top of a picture.
+   *
+   * Gestures stay off, which they already are at phone width.
+   */
+  frame?: boolean;
 }) {
   const mapRef = useRef<MapRef | null>(null);
   const [mapObj, setMapObj] = useState<MlMap | null>(null);
@@ -108,14 +129,17 @@ export default function SpotMiniMap({
   // map's shape changes on: below it the map is full-bleed, above it it is a
   // boxed column. Starts false so the server and the first client render
   // agree; the effect corrects it on mount.
-  const [phone, setPhone] = useState(false);
+  const [winPhone, setWinPhone] = useState(false);
   useEffect(() => {
+    // Inside a frame the answer is fixed, so nothing here is asked.
+    if (frame) return;
     const mql = window.matchMedia("(min-width:1024px)");
-    const sync = () => setPhone(!mql.matches);
+    const sync = () => setWinPhone(!mql.matches);
     sync();
     mql.addEventListener("change", sync);
     return () => mql.removeEventListener("change", sync);
-  }, []);
+  }, [frame]);
+  const phone = frame || winPhone;
 
   useFlow({ map: mapObj, kind: "currents", enabled: currents, timeIso: timeIso ?? null });
   useFlow({ map: mapObj, kind: "wind", enabled: wind, timeIso: timeIso ?? null });
@@ -276,7 +300,14 @@ export default function SpotMiniMap({
             //
             // Desktop is untouched — it sits in a two-column band beside the
             // score, where a full-bleed map would have nothing to be beside.
-            "relative -mx-4 h-[45svh] overflow-hidden border-y border-rc-rule bg-rc-surface sm:-mx-6 lg:mx-0 lg:h-72 lg:rounded lg:border"
+            frame
+            ? // Full-bleed like the phone variant, and as tall as the caller's
+              // box. NOT 45svh: inside a mock that unit measures the laptop
+              // the mock is being viewed on. The frame gives it whatever screen
+              // is left under the score card, which is the band a real phone
+              // shows above the fold, with the mark's puck centred in it.
+              "relative -mx-4 h-full overflow-hidden border-y border-rc-rule bg-rc-surface"
+            : "relative -mx-4 h-[45svh] overflow-hidden border-y border-rc-rule bg-rc-surface sm:-mx-6 lg:mx-0 lg:h-72 lg:rounded lg:border"
       }
     >
       {/* Layer tabs: base map first, then the two flow overlays. */}
@@ -312,7 +343,7 @@ export default function SpotMiniMap({
       </div>
 
       {/* Back to the Explore map — only in the compact view */}
-      {!expanded && !hideExploreLink && (
+      {!expanded && !hideExploreLink && !frame && (
         <Link
           href="/explore"
           aria-label="Back to map"
@@ -322,7 +353,9 @@ export default function SpotMiniMap({
         </Link>
       )}
 
-      {/* Expand / collapse — stays on this spot's map; never leaves the page */}
+      {/* Expand / collapse — stays on this spot's map; never leaves the page.
+          Absent inside a frame: see `frame`. */}
+      {!frame && (
       <button
         type="button"
         onClick={() => setExpanded((v) => !v)}
@@ -336,6 +369,7 @@ export default function SpotMiniMap({
         )}
         {expanded ? "Close map" : "Expand map"}
       </button>
+      )}
 
       <Map
         ref={mapRef}
@@ -416,7 +450,7 @@ export default function SpotMiniMap({
           from the accessibility tree and untabbable on purpose: the labelled
           "Expand map" button is this same action, and one control per action is
           enough to offer. */}
-      {inert && (
+      {inert && !frame && (
         <button
           type="button"
           aria-hidden="true"

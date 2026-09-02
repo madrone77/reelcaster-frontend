@@ -17,6 +17,8 @@
  * spectrum (--l8-good and friends) is DATA and always sits on paper. They are
  * never adjacent and never substitute for each other.
  */
+import { PHONE_CSS } from "./phone-css";
+
 export const LP8_CSS = `
 .l8{
   --l8-brand:#2536D9; --l8-brand-hover:#1C29A8;
@@ -506,157 +508,26 @@ export const LP8_CSS = `
 }
 
 /* where / what / when */
-/* ── The conditions phone (/lp/4) ──────────────────────────────────────────
-   The same black shell as the reel, and deliberately NOT the same insides.
+${PHONE_CSS}
+/* The two live phones' own shells live in phone-css.ts, injected above, and
+   are shared verbatim with the homepage carousel. What stays here is the
+   layout THIS page gives them.
 
-   The reel's phone is sized in cqw so the whole device shrinks with its
-   column, which is right for a map: a map at 80% is a smaller map. This one
-   is showing 12px mono readouts and a chart whose hour cells are 13px wide,
-   and scaling those down stops the picture being about anything. So the app
-   simply lays itself out at whatever width the column gives it, at true size,
-   which is what it does on a real phone.
-
-   It also wears no app bar and no tab bar. The screen is ~750px of instrument
-   on its own; the reel's 116px bar over it and 76px bar under it made a phone
-   375 by 948, half again taller than the 375 by 812 device it is a picture
-   of. The island is drawn here instead, because it is the one piece of chrome
-   that still says "phone" and costs no height.
-
-   Radii are the reel's own percentages resolved at 375: 3cqw of padding,
-   13cqw on the shell, 10cqw on the screen. They stay concentric the same way,
-   the screen's plus the bezel. */
-.l8 .condphone{display:flex;justify-content:center;width:100%}
-.l8 .condbody{
-  width:min(397px,100%);
-  padding:11px;
-  background:#0A0C10;
-  border-radius:49px;
-  box-shadow:0 26px 54px rgba(18,21,26,.26), 0 2px 0 rgba(255,255,255,.14) inset;
-}
-.l8 .condscreen{
-  position:relative;overflow:hidden;
-  border-radius:38px;
-  background:var(--l8-panel);
-  /* Top clears the island (12 + 28, plus air). */
-  padding:50px 10px 18px;
-}
-/* The dynamic island, drawn rather than screenshotted so the frame stays
-   sharp at any width, and so the phone is not pretending to a clock or a
-   battery percentage we would then have to keep honest. Same geometry as the
-   reel's, which draws it on its app bar instead. */
-.l8 .condscreen::before{
-  content:"";position:absolute;top:12px;left:50%;
-  transform:translateX(-50%);
-  width:96px;height:28px;
-  border-radius:999px;background:#0A0C10;
-}
-.l8 .condpane > * + *{margin-top:8px}
-/* Below the two-column break the phone reclaims the section gutter.
-   Left in the column it is handed, it comes out about 293px wide inside, and
-   293 is under SpotTerminal's 300px measuring floor: the chart keeps its
-   414px default viewBox and draws itself scaled down to fit, so the one thing
-   the picture is about -- 12px readouts you can read -- stops being true. It
-   also squeezed the tile row until "SEA STATE" ellipsised. Full width, minus
-   6px of air, puts the app back at the width a real phone gives it. */
+   Below the two-column break each phone reclaims the section gutter. Left in
+   the column it is handed, the conditions phone comes out about 293px wide
+   inside, and 293 is under SpotTerminal's 300px measuring floor: the chart
+   keeps its 414px default viewBox and draws itself scaled down to fit, so the
+   one thing the picture is about -- 12px readouts you can read -- stops being
+   true. It also squeezed the tile row until "SEA STATE" ellipsised. Full
+   width, minus 6px of air, puts the app back at the width a real phone gives
+   it. */
 @media (max-width:939px){
   /* width:auto is load-bearing beside the negative margin. At width:100% the
      used width stays the column's, and the margins only shift the box. */
   .l8 .wwwsec .condphone{width:auto;margin-inline:calc(6px - var(--l8-gut))}
-  .l8 .condbody{padding:9px;border-radius:45px}
-  .l8 .condscreen{border-radius:36px;padding-left:8px;padding-right:8px}
-}
-
-/* ── The alert phone (/lp/4) ───────────────────────────────────────────────
-   Same shell as the conditions phone, and a real 375x812 screen: nothing
-   inside forces a height here, so the ratio is stated rather than fallen into.
-
-   It is a LOCK SCREEN, not a Messages thread. A thread holding one message is
-   four fifths empty, and the moment being sold is a text reaching somebody who
-   was not looking at their phone -- which happens here, not in a thread they
-   had to open. */
-.l8 .smsphone{display:flex;justify-content:center;width:100%}
-.l8 .smsbody{
-  width:min(397px,100%);
-  padding:11px;
-  background:#0A0C10;
-  border-radius:49px;
-  box-shadow:0 26px 54px rgba(18,21,26,.26), 0 2px 0 rgba(255,255,255,.14) inset;
-}
-/* Deep navy rather than a photograph: a stock wallpaper is one more thing to
-   license and to keep from dating, and the brand's own navy makes the white
-   banner the brightest thing on the screen, which is where the eye should go. */
-.l8 .smsscreen{
-  position:relative;overflow:hidden;
-  aspect-ratio:375/812;
-  border-radius:38px;
-  background:
-    radial-gradient(120% 80% at 50% 0%, #1B2C63 0%, transparent 60%),
-    linear-gradient(180deg, var(--l8-navy) 0%, #060B1D 100%);
-  color:#fff;
-  display:flex;flex-direction:column;align-items:center;
-  padding:0 12px 18px;
-}
-.l8 .smsscreen::before{
-  content:"";position:absolute;top:12px;left:50%;
-  transform:translateX(-50%);
-  width:96px;height:28px;
-  border-radius:999px;background:#000;z-index:2;
-}
-/* iOS puts the date over the clock, and the clock is the biggest thing on the
-   screen. Tabular figures so the loop cannot reflow it. */
-.l8 .smsclock{
-  margin-top:66px;text-align:center;
-  display:flex;flex-direction:column;align-items:center;gap:2px;
-}
-.l8 .smsdate{font-size:15px;font-weight:600;color:rgba(255,255,255,.86)}
-.l8 .smstime{
-  font-size:74px;font-weight:600;line-height:1;letter-spacing:-.03em;
-  font-variant-numeric:tabular-nums;
-}
-/* The banner. Frosted, as iOS draws it, and it is the only white on the
-   screen. Hidden with visibility rather than display, so the text stays in
-   the accessibility tree through the empty beat.
-   NB: this file is one JS template literal -- no backticks in these comments,
-   or the stylesheet ends here and the rest of it becomes code. */
-.l8 .smsbanner{
-  margin-top:40px;width:100%;
-  display:flex;gap:11px;align-items:flex-start;
-  background:rgba(255,255,255,.94);
-  -webkit-backdrop-filter:blur(18px);backdrop-filter:blur(18px);
-  border-radius:20px;padding:12px 14px;
-  box-shadow:0 12px 30px rgba(0,0,0,.30);
-  color:var(--l8-ink);
-  opacity:0;transform:translateY(-14px) scale(.97);visibility:hidden;
-  transition:opacity .34s ease, transform .34s cubic-bezier(.2,.9,.3,1.15), visibility 0s .34s;
-}
-.l8 .smsbanner.on{
-  opacity:1;transform:none;visibility:visible;
-  transition:opacity .34s ease, transform .34s cubic-bezier(.2,.9,.3,1.15), visibility 0s;
-}
-.l8 .smsicon{
-  flex:none;width:36px;height:36px;border-radius:9px;
-  background:var(--l8-brand);color:#fff;
-  display:flex;align-items:center;justify-content:center;
-  font-family:var(--l8-mono);font-size:13px;font-weight:700;letter-spacing:.03em;
-}
-.l8 .smsmsg{min-width:0;flex:1}
-.l8 .smshead{display:flex;align-items:baseline;justify-content:space-between;gap:8px}
-.l8 .smsapp{font-size:13px;font-weight:700;letter-spacing:.01em}
-.l8 .smswhen{font-size:12px;color:var(--l8-ink-mute);flex:none}
-.l8 .smstext{margin:2px 0 0;font-size:15px;line-height:1.32;color:var(--l8-ink)}
-/* The home indicator, which is what stops the bottom reading as a crop. */
-.l8 .smsbar{
-  margin-top:auto;width:134px;height:5px;border-radius:999px;
-  background:rgba(255,255,255,.55);
-}
-/* Reduced motion: the banner is simply there. The component stops its loop
-   too, so this only governs the first paint. */
-@media (prefers-reduced-motion:reduce){
-  .l8 .smsbanner{opacity:1;transform:none;visibility:visible;transition:none}
-}
-@media (max-width:939px){
   .l8 .smssec .smsphone{width:auto;margin-inline:calc(6px - var(--l8-gut))}
-  .l8 .smsbody{padding:9px;border-radius:45px}
+  .l8 .condbody,.l8 .smsbody{padding:9px;border-radius:45px}
+  .l8 .condscreen{border-radius:36px;padding-left:8px;padding-right:8px}
   .l8 .smsscreen{border-radius:36px}
 }
 

@@ -5,7 +5,7 @@ import NearbySpots from './components/nearby-spots';
 import ScoreTicker from './components/score-ticker';
 import DataSources from './components/data-sources';
 import SignalsSection from './components/signals-section';
-import MapSection from './components/map-section';
+import ProductCarousel from './components/product-carousel';
 import PricingSection from './components/pricing-section';
 import FeaturesSection from './components/features-section';
 import CtaBand from './components/cta-band';
@@ -73,9 +73,10 @@ export default function MarketingHomePage() {
           the slot here is past the fold, which is what lets it appear without
           shifting anything on screen. See components/nearby-spots.tsx. */}
       <NearbySpots />
-      {/* Pricing follows the map section: the two plans read as the answer to
-          "Mapped." instead of interrupting the signal story. */}
-      <MapSection />
+      {/* Pricing follows the product carousel: the two plans read as the
+          answer to the four screens instead of interrupting the signal
+          story. */}
+      <ProductCarousel />
       <PricingSection />
       <FeaturesSection />
       <CtaBand />

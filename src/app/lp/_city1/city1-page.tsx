@@ -245,7 +245,7 @@ export default async function City1Page({
   const peakHourLabel = formatHour12(hero.peakHour);
 
   return (
-    <div className="l8">
+    <div className="l8 rcp">
       <style dangerouslySetInnerHTML={{ __html: LP8_CSS }} />
       <City1Hit city={city} variant={variant} />
 

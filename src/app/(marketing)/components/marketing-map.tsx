@@ -116,7 +116,7 @@ export default function MarketingMap({
    *
    * So the loss is watched for directly: once the context is gone the map is
    * unmounted and the still illustration takes the slot. The boundary in
-   * map-section.tsx stays as the backstop for whatever this does not predict.
+   * product-carousel.tsx stays as the backstop for whatever this does not predict.
    */
   const [gpuLost, setGpuLost] = useState(false);
 

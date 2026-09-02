@@ -162,9 +162,11 @@ export async function fetchSpotPage(
  */
 export async function fetchSpotLivePage(
   slug: string,
-  ownerUserId?: string
+  ownerUserId?: string,
+  revalidate?: number
 ): Promise<SpotPageInitial | null> {
-  return (await fetchSpotLivePageWithCacheControl(slug, ownerUserId)).data;
+  return (await fetchSpotLivePageWithCacheControl(slug, ownerUserId, revalidate))
+    .data;
 }
 
 /**
@@ -181,7 +183,18 @@ export async function fetchSpotLivePage(
  */
 export async function fetchSpotLivePageWithCacheControl(
   slug: string,
-  ownerUserId?: string
+  ownerUserId?: string,
+  /**
+   * Seconds in the Data Cache. 60 is right for a spot page, which is the
+   * screen an angler refreshes.
+   *
+   * It is settable because a STATIC page inherits the shortest revalidate any
+   * fetch under it asks for: the marketing homepage draws one mark's day in
+   * its carousel, and at 60 that alone would have pulled the whole page from
+   * regenerating every five minutes to every one. A picture of a day on a
+   * landing page does not need the freshness the day's own page does.
+   */
+  revalidate = 60
 ): Promise<{ data: SpotPageInitial | null; cacheControl: string | null }> {
   const baseUrl = process.env.BLUECASTER_API_URL;
   const apiKey = process.env.BLUECASTER_API_KEY;
@@ -194,7 +207,7 @@ export async function fetchSpotLivePageWithCacheControl(
     },
     // An owner-scoped read is private to one user — never put it in the
     // shared Data Cache, or the next anonymous visitor gets served it.
-    ...(ownerUserId ? { cache: "no-store" as const } : { next: { revalidate: 60 } }),
+    ...(ownerUserId ? { cache: "no-store" as const } : { next: { revalidate } }),
   });
   const cacheControl = res.headers.get("cache-control");
   if (res.status === 404) return { data: null, cacheControl };
