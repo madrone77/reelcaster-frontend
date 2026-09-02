@@ -1,11 +1,61 @@
 /**
  * Analytics Helper Functions
- * Wrapper functions for type-safe Mixpanel tracking
+ *
+ * The single fan-out point for tracking. Every call site in the app goes
+ * through these wrappers, which is why adding a second analytics vendor is a
+ * change to this file and its two sinks rather than to 14 components.
+ *
+ * Two sinks run at once, deliberately:
+ *
+ *   Mixpanel  the incumbent, and the only place the last year of history
+ *             lives. Nothing about it changes here.
+ *   PostHog   new, and empty. It only ever becomes useful by accumulating,
+ *             so it starts accumulating now.
+ *
+ * Both are sent the same event names and the same properties, so the two are
+ * directly comparable while the second one fills up. Neither is authoritative
+ * yet; that is a decision to make once PostHog has history to judge.
+ *
+ * Where the two SDKs disagree on semantics, the difference is handled here and
+ * commented at the call. Nothing is invented to paper over a gap: a concept one
+ * vendor does not have is simply not sent to it.
  */
 
 import { isMixpanelEnabled, withMixpanel } from './mixpanel';
+import { isPostHogEnabled, withPostHog } from './posthog';
 import { readEntry, readPaid } from './attribution';
 import type { AnalyticsEventName, UserProperties } from '@/types/analytics';
+
+/**
+ * Is any sink live?
+ *
+ * This used to be `isMixpanelEnabled()` at the top of every export, which was
+ * correct while Mixpanel was the only vendor and became a trap the moment it
+ * was not: an environment with a PostHog key and no Mixpanel token would have
+ * short-circuited every function below and sent nothing anywhere, silently.
+ * The individual `withX` helpers already no-op when their own sink is off, so
+ * this only has to answer whether the event is worth building at all.
+ */
+function isAnalyticsEnabled(): boolean {
+  return isMixpanelEnabled() || isPostHogEnabled();
+}
+
+/**
+ * Mixpanel's reserved person properties, renamed to PostHog's.
+ *
+ * `$email` and `$created` are special to Mixpanel and meaningless to PostHog,
+ * which would file them as two ordinary properties with confusing names and
+ * then show a person with no email on their profile. Everything else is
+ * vendor-neutral and passes through untouched.
+ */
+function toPersonProperties(properties: UserProperties): Record<string, unknown> {
+  const { $email, $created, ...rest } = properties;
+  return {
+    ...rest,
+    ...($email ? { email: $email } : {}),
+    ...($created ? { created_at: $created } : {}),
+  };
+}
 
 /**
  * Track an analytics event
@@ -16,7 +66,7 @@ export function trackEvent<T extends Record<string, unknown>>(
   eventName: AnalyticsEventName,
   properties?: T
 ): void {
-  if (!isMixpanelEnabled()) {
+  if (!isAnalyticsEnabled()) {
     // In development, log to console for debugging
     if (process.env.NODE_ENV === 'development') {
       console.log('[Analytics]', eventName, properties);
@@ -38,10 +88,18 @@ export function trackEvent<T extends Record<string, unknown>>(
       console.error('[Analytics] Track error:', error);
     }
   });
+
+  withPostHog((posthog) => {
+    try {
+      posthog.capture(eventName, eventProperties);
+    } catch (error) {
+      console.error('[Analytics] PostHog capture error:', error);
+    }
+  });
 }
 
 /**
- * Identify a user with Mixpanel
+ * Identify a user
  * @param userId - The unique user ID
  * @param properties - User properties (optional)
  */
@@ -49,7 +107,7 @@ export function identifyUser(
   userId: string,
   properties?: UserProperties
 ): void {
-  if (!isMixpanelEnabled()) {
+  if (!isAnalyticsEnabled()) {
     if (process.env.NODE_ENV === 'development') {
       console.log('[Analytics] Identify:', userId, properties);
     }
@@ -64,12 +122,30 @@ export function identifyUser(
     }
   });
 
+  // PostHog takes the person properties on identify itself. It is also the
+  // call that stitches this user to everything they did anonymously before
+  // signing in, which is what makes an anonymous-to-paid funnel answerable.
+  withPostHog((posthog) => {
+    try {
+      posthog.identify(userId, properties ? toPersonProperties(properties) : undefined);
+    } catch (error) {
+      console.error('[Analytics] PostHog identify error:', error);
+    }
+  });
+
   if (properties) setUserProperties(properties);
 }
 
 /**
  * Alias a user (used when converting anonymous user to authenticated)
  * @param userId - The authenticated user ID
+ *
+ * Mixpanel only, on purpose. Mixpanel needs an explicit alias to merge the
+ * anonymous profile into the authenticated one. PostHog does that merge inside
+ * identify(), and its own alias() is for a different job: giving one already
+ * identified person a second id. Calling it here would create a second
+ * identity for a user who already has one, so the correct PostHog behaviour is
+ * to do nothing and let the identify() that follows this call do the work.
  */
 export function aliasUser(userId: string): void {
   if (!isMixpanelEnabled()) {
@@ -93,7 +169,7 @@ export function aliasUser(userId: string): void {
  * @param properties - User properties to set
  */
 export function setUserProperties(properties: UserProperties): void {
-  if (!isMixpanelEnabled()) {
+  if (!isAnalyticsEnabled()) {
     if (process.env.NODE_ENV === 'development') {
       console.log('[Analytics] Set user properties:', properties);
     }
@@ -107,12 +183,26 @@ export function setUserProperties(properties: UserProperties): void {
       console.error('[Analytics] Set user properties error:', error);
     }
   });
+
+  withPostHog((posthog) => {
+    try {
+      posthog.setPersonProperties(toPersonProperties(properties));
+    } catch (error) {
+      console.error('[Analytics] PostHog person properties error:', error);
+    }
+  });
 }
 
 /**
  * Increment a user property
  * @param property - The property to increment
  * @param by - The amount to increment by (default: 1)
+ *
+ * Mixpanel only. PostHog has no server-side increment: person properties are
+ * set, not accumulated, so the equivalent is a counted event and a query over
+ * it rather than a running total on the profile. Nothing calls this today, so
+ * there is no gap to fill; if something starts to, capture an event instead of
+ * reaching for a PostHog increment that does not exist.
  */
 export function incrementUserProperty(property: string, by: number = 1): void {
   if (!isMixpanelEnabled()) {
@@ -135,7 +225,7 @@ export function incrementUserProperty(property: string, by: number = 1): void {
  * Reset analytics (used on logout)
  */
 export function resetAnalytics(): void {
-  if (!isMixpanelEnabled()) {
+  if (!isAnalyticsEnabled()) {
     if (process.env.NODE_ENV === 'development') {
       console.log('[Analytics] Reset');
     }
@@ -147,6 +237,16 @@ export function resetAnalytics(): void {
       mixpanel.reset();
     } catch (error) {
       console.error('[Analytics] Reset error:', error);
+    }
+  });
+
+  // Sign-out has to clear both, or the next person on this browser inherits
+  // the previous one's distinct id in whichever sink was missed.
+  withPostHog((posthog) => {
+    try {
+      posthog.reset();
+    } catch (error) {
+      console.error('[Analytics] PostHog reset error:', error);
     }
   });
 }
@@ -231,7 +331,7 @@ export function trackError(
  * values, and `register_once` ignores the repeats.
  */
 export function registerAcquisition(): void {
-  if (!isMixpanelEnabled()) return;
+  if (!isAnalyticsEnabled()) return;
 
   const entry = readEntry();
   const paid = readPaid();
@@ -275,9 +375,21 @@ export function registerAcquisition(): void {
       console.error('[Analytics] Acquisition register error:', error);
     }
   });
+
+  // Same two modes in PostHog, same names. Super properties are what make every
+  // event answerable by campaign without touching a call site, and that is the
+  // half of campaign reporting worth having in both tools from the start.
+  withPostHog((posthog) => {
+    try {
+      if (Object.keys(first).length > 0) posthog.register_once(first);
+      if (Object.keys(last).length > 0) posthog.register(last);
+    } catch (error) {
+      console.error('[Analytics] PostHog acquisition register error:', error);
+    }
+  });
 }
 
-/** Skip empties, so an untagged visit does not fill Mixpanel with blank rows. */
+/** Skip empties, so an untagged visit does not fill either tool with blank rows. */
 function put(target: Record<string, string>, key: string, value: string): void {
   if (value) target[key] = value;
 }

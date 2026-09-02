@@ -3,6 +3,20 @@ import bundleAnalyzer from "@next/bundle-analyzer";
 
 const nextConfig: NextConfig = {
   trailingSlash: false,
+  // Required by the /ingest rewrites below. PostHog's ingest endpoints carry a
+  // trailing slash (/i/v0/e/), and with trailingSlash:false Next would answer
+  // those with a 308 to the slashless path. A 308 preserves the method, so an
+  // ordinary POST survives it, but the capture that matters most does not: the
+  // last events of a visit go out via sendBeacon/keepalive during unload, and
+  // a redirect hop there is not reliably followed. That would lose exactly the
+  // events at the end of a session.
+  //
+  // The cost is that /plans/ no longer 308s to /plans, so both spellings now
+  // render. That is an SEO duplicate, and it is already neutralised: every
+  // indexable page emits a self-referencing <link rel="canonical"> (see
+  // alternates.canonical throughout src/app), and middleware.ts still folds
+  // mixed case to lowercase with a real 308.
+  skipTrailingSlashRedirect: true,
   env: {
     // A real build timestamp for the sitemap's static entries.
     //
@@ -23,6 +37,32 @@ const nextConfig: NextConfig = {
       // bluecaster/scripts/seed-demo-content.ts).
       { protocol: "https", hostname: "images.unsplash.com" },
     ],
+  },
+  async rewrites() {
+    // Reverse proxy for PostHog ingestion.
+    //
+    // The browser posts to reelcaster.com/ingest/* and Vercel forwards it. The
+    // reason is not cosmetic: requests to known analytics hostnames are blocked
+    // outright by the common filter lists, and that loss is not evenly spread.
+    // It skews toward the technical, ad-blocking end of the audience, which
+    // means the missing rows are systematically the wrong rows to be missing.
+    // This project has already been bitten once by capture that only ran where
+    // nothing was blocking it, and read the resulting gap as a real signal.
+    //
+    // Doing it now rather than later matters more than usual, because the point
+    // of this integration is to accumulate history. History gathered through a
+    // hole is not repairable after the fact.
+    //
+    // us-assets serves the SDK's own lazily-loaded chunks (session replay,
+    // surveys, the toolbar). It is a separate host from the ingest API, so it
+    // needs its own rule, and that rule has to come first: /ingest/:path*
+    // matches /ingest/static/... too, and the first match wins.
+    const POSTHOG_ASSETS = "https://us-assets.i.posthog.com";
+    const POSTHOG_API = "https://us.i.posthog.com";
+    return [
+      { source: "/ingest/static/:path*", destination: `${POSTHOG_ASSETS}/static/:path*` },
+      { source: "/ingest/:path*", destination: `${POSTHOG_API}/:path*` },
+    ];
   },
   async redirects() {
     // /plans replaced /pricing as the sales page. Two indexable pages selling
