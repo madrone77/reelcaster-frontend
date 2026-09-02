@@ -60,10 +60,33 @@ export const BLEND_CSS = `${LP8_CSS}
 }
 .l8 .askerr a{color:var(--l8-brand)}
 
+/* The way past the card, on the trial variants only.
+   A quiet text link, deliberately not a second button: two buttons of equal
+   weight is not an ask with an escape hatch, it is a page that has not decided
+   what it wants. Sits under the terms rather than beside the button so the
+   reader meets the ask, the price and the date first, and finds this only if
+   the ask was the thing stopping them.
+
+   Left-aligned with the form above it, and held to the same 420px column, so
+   a longer line wraps where .askterms wraps rather than running out past the
+   field. The link sits OUTSIDE <form class="ask">, so it inherits none of that
+   width on its own. */
+.l8 .askalt{
+  display:block;max-width:min(420px,100%);font-size:13px;line-height:1.5;
+  color:var(--l8-ink-soft);margin:10px 0 0;text-align:left;
+}
+.l8 .askalt a{color:var(--l8-brand);text-decoration:underline;text-underline-offset:2px}
+.l8 .askalt a:hover{color:var(--l8-ink)}
+
 /* The close band runs the same form on navy. */
 .l8 .close .ask{margin-inline:auto}
 .l8 .close .asklab{color:#8FA3BC}
 .l8 .close .askin{background:#fff;border-color:transparent}
 .l8 .close .askterms{color:#8FA3BC}
 .l8 .close .askterms strong{color:#fff}
+/* Centred with the form, which the close band centres. --l8-brand is the blue
+   this band sits on, so the link takes white instead. */
+.l8 .close .askalt{margin-inline:auto;color:#8FA3BC}
+.l8 .close .askalt a{color:#fff}
+.l8 .close .askalt a:hover{color:#fff}
 `;

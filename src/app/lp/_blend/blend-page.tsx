@@ -105,8 +105,18 @@ import { BlendHit, BlendTrialForm, TrackedCta } from "./blend-track";
  *
  * It also undercuts the page above it, which promises a whole city's worth of
  * scored spots and then hands the reader three.
+ *
+ * Carries `ad=day2`, so Explore arrives in the ad frame: the emptied top bar
+ * with one Start free trial button, the trial modal behind it, and no way off
+ * the page. The frame follows the reader onto a spot page opened from the map.
+ *
+ * `day2` is a wall, not a date (@/lib/ad-mode). It is the loosest of the three
+ * that still frames the page: exactly what a signed-out visitor already gets,
+ * with nothing tightened. That is the honest control for traffic this page has
+ * already spent nine screens persuading -- it has earned the map, not another
+ * wall -- and it is a one-word edit here if a tighter one converts better.
  */
-const exploreHref = (slug: string) => `/explore?loc=${slug}`;
+const exploreHref = (slug: string) => `/explore?loc=${slug}&ad=day2`;
 
 export type BlendAsk = "explore" | "trial";
 
@@ -125,6 +135,26 @@ const LABEL: Record<BlendAsk, string> = {
  * button, where a card-required trial has to state them.
  */
 const EXPLORE_NOTE = "Look at today and tomorrow free.";
+
+/**
+ * The way past the card, on the trial variants only.
+ *
+ * /lp/seattle/3 and /lp/vancouver/3 asked for an email and a card and offered
+ * nothing else, so a reader who had just been shown a live city instrument and
+ * was not ready to buy had one move left, which was the back button. This is
+ * the other move. The map it opens is the same one /2 hands over, in the same
+ * ad frame, on the same free horizon.
+ *
+ * It does NOT turn /3 into /2. The ask above it is unchanged and still first:
+ * the trial form, its price and its charge date, in the hero and again in the
+ * close. What is being tested is still whether the card in front of the demo
+ * costs more than it earns, and this only stops the losing half of that answer
+ * from being a bounce, which the report cannot tell apart from a bad ad.
+ *
+ * Names the horizon, not the absence of a card, for the same reason
+ * EXPLORE_NOTE does: it has to still be true on the next screen.
+ */
+const EXPLORE_ALT = `Not ready? Open the live map first, ${ANON_FORECAST_DAYS} days free.`;
 
 /**
  * The title and description, and NOTHING read off the query string.
@@ -287,16 +317,32 @@ export default async function BlendPage({
 
               <div id="start">
                 {ask === "trial" ? (
-                  <BlendTrialForm
-                    landing={landing}
-                    citySlug={cfg.slug}
-                    region={cfg.billingRegion}
-                    cta="hero"
-                    inputId="blend-hero-email"
-                    chargeDate={chargeDate}
-                    price={PRICE.year}
-                    ctaLabel={LABEL.trial}
-                  />
+                  <>
+                    <BlendTrialForm
+                      landing={landing}
+                      citySlug={cfg.slug}
+                      region={cfg.billingRegion}
+                      cta="hero"
+                      inputId="blend-hero-email"
+                      chargeDate={chargeDate}
+                      price={PRICE.year}
+                      ctaLabel={LABEL.trial}
+                    />
+                    {/* Counted as "secondary" here and in the close, so both
+                        copies land in one number. The question this page has
+                        to answer is how many readers chose the map over the
+                        card, not which of two identical links they used. */}
+                    <p className="askalt">
+                      <TrackedCta
+                        landing={landing}
+                        citySlug={cfg.slug}
+                        cta="secondary"
+                        href={exploreHref(cfg.slug)}
+                      >
+                        {EXPLORE_ALT}
+                      </TrackedCta>
+                    </p>
+                  </>
                 ) : (
                   <>
                     <TrackedCta
@@ -410,16 +456,28 @@ export default async function BlendPage({
                 : `Open the live ${city.city.name} map and see the next ${ANON_FORECAST_DAYS} days scored, spot by spot and hour by hour.`}
             </p>
             {ask === "trial" ? (
-              <BlendTrialForm
-                landing={landing}
-                citySlug={cfg.slug}
-                region={cfg.billingRegion}
-                cta="final"
-                inputId="blend-final-email"
-                chargeDate={chargeDate}
-                price={PRICE.year}
-                ctaLabel={LABEL.trial}
-              />
+              <>
+                <BlendTrialForm
+                  landing={landing}
+                  citySlug={cfg.slug}
+                  region={cfg.billingRegion}
+                  cta="final"
+                  inputId="blend-final-email"
+                  chargeDate={chargeDate}
+                  price={PRICE.year}
+                  ctaLabel={LABEL.trial}
+                />
+                <p className="askalt">
+                  <TrackedCta
+                    landing={landing}
+                    citySlug={cfg.slug}
+                    cta="secondary"
+                    href={exploreHref(cfg.slug)}
+                  >
+                    {EXPLORE_ALT}
+                  </TrackedCta>
+                </p>
+              </>
             ) : (
               <>
                 <TrackedCta

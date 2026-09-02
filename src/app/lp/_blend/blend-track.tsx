@@ -113,7 +113,9 @@ export function TrackedCta({
   citySlug: string;
   cta: LpCtaId;
   href: string;
-  className: string;
+  /** Optional: the plain text link past the ask takes its styling from the
+   *  paragraph it sits in, and a class="" on the anchor is not styling. */
+  className?: string;
   children: React.ReactNode;
 }) {
   return (
