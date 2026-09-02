@@ -81,6 +81,12 @@ const ProTrialModal = dynamic(
   { ssr: false },
 );
 
+// The page is heavy already and almost nobody opens this. It loads on the tap.
+const ReportIssueDialog = dynamic(
+  () => import("@/app/explore/components/report-issue-dialog"),
+  { ssr: false },
+);
+
 /** Catch-report window. Matches FRESH_DAYS in the fresh-catches route. */
 const FRESH_DAYS = 21;
 
@@ -577,6 +583,7 @@ export default function SpotDetailShell({
   // Sharing is open to everyone, signed in or not, so unlike the alert modal
   // this one never waits on auth and never gates.
   const [shareOpen, setShareOpen] = useState(false);
+  const [reportIssueOpen, setReportIssueOpen] = useState(false);
   const [shareToken, setShareToken] = useState<string | null>(null);
 
   // Deep-link: `?share=<token>` is what the alert email's "send it to someone"
@@ -1505,6 +1512,27 @@ export default function SpotDetailShell({
                 .
               </p>
             )}
+
+            {/* Everything above this line is derived from something we scraped
+                or worked out. The reader is the only one here who has actually
+                stood at the place, so the last thing the page says is an offer
+                to be corrected.
+
+                Kept out of the ad frame with the rest of the outbound links: a
+                campaign page asks for one thing. */}
+            {!ad && (
+              <p className="text-sm text-rc-ink-soft">
+                Something look wrong on this page?{" "}
+                <button
+                  type="button"
+                  onClick={() => setReportIssueOpen(true)}
+                  className="text-rc-brand font-medium hover:underline"
+                >
+                  Tell us and we will check it
+                </button>
+                .
+              </p>
+            )}
           </div>
 
           {/* Last thing above the footer — after the description and the
@@ -1553,6 +1581,16 @@ export default function SpotDetailShell({
         dailyScores={dailyScores}
         onUpgradeRequired={() => setAlertUpgradeOpen(true)}
       />
+
+      {reportIssueOpen && (
+        <ReportIssueDialog
+          open={reportIssueOpen}
+          onOpenChange={setReportIssueOpen}
+          slug={slug}
+          spotName={spot.name}
+          surface="spot_page"
+        />
+      )}
 
       <ShareCardDialog
         open={shareOpen}

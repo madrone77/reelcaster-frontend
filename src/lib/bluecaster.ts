@@ -1885,3 +1885,54 @@ export async function fetchSpeciesGuide(
     900,
   );
 }
+
+export interface SpotIssueReportInput {
+  reason: string;
+  note?: string | null;
+  surface?: "spot_page" | "spot_card";
+  contactEmail?: string | null;
+  context?: Record<string, unknown>;
+  /** Honeypot passthrough. BlueCaster drops the submission when it is filled. */
+  website?: string;
+}
+
+/**
+ * File one "something here is wrong" report against a spot.
+ *
+ * The reporter needs no account, so this takes no session and the proxy in
+ * front of it refuses nobody. Two things it DOES forward, and neither can come
+ * from the browser: the caller's own access token when there is a session, so
+ * BlueCaster can stamp the row with who filed it, and the client IP, which
+ * BlueCaster hashes for throttling and never stores.
+ *
+ * Returns false only for a real failure. A throttled report answers 200 like
+ * any other, on purpose, so a script cannot find the limit by watching for a
+ * different reply.
+ */
+export async function submitSpotIssueReport(
+  slug: string,
+  input: SpotIssueReportInput,
+  opts: { accessToken?: string; clientIp?: string } = {},
+): Promise<{ ok: boolean; status: number }> {
+  const baseUrl = process.env.BLUECASTER_API_URL;
+  const apiKey = process.env.BLUECASTER_API_KEY;
+  if (!baseUrl || !apiKey) throw new Error("BlueCaster env vars not set");
+
+  const res = await fetch(
+    `${baseUrl}/api/v1/spots/${encodeURIComponent(slug)}/issue-report`,
+    {
+      method: "POST",
+      headers: {
+        "x-api-key": apiKey,
+        "Content-Type": "application/json",
+        ...(opts.accessToken
+          ? { Authorization: `Bearer ${opts.accessToken}` }
+          : {}),
+        ...(opts.clientIp ? { "x-reelcaster-client-ip": opts.clientIp } : {}),
+      },
+      body: JSON.stringify(input),
+      cache: "no-store",
+    },
+  );
+  return { ok: res.ok, status: res.status };
+}
