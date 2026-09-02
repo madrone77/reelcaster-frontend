@@ -43,15 +43,26 @@ const TABS: { label: string; Icon: LucideIcon; active?: boolean }[] = [
 export default function PhoneFrame({
   children,
   label,
+  width = 'w-[min(330px,88%)]',
 }: {
   /** Fills the screen under the app bar. */
   children: ReactNode;
   /** What the whole device is a picture of, for a screen reader. */
   label: string;
+  /**
+   * The device's own width, as a utility class. Everything inside is a share
+   * of it, so this is the only dial.
+   *
+   * The carousel passes `min(397px,100%)` to stand this phone beside the two
+   * live ones from the landing pages, which are 397 because that is the width
+   * at which a real 375px app screen fits inside a real bezel. Four screens
+   * of one product in devices of three sizes reads as three products.
+   */
+  width?: string;
 }) {
   return (
     <div
-      className="mx-auto w-[min(330px,88%)] [container-type:inline-size]"
+      className={`mx-auto ${width} [container-type:inline-size]`}
       role="group"
       aria-label={label}
     >

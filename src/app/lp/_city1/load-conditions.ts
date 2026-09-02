@@ -82,11 +82,21 @@ export async function loadConditionsFeed(
   proof: CityProof | null,
   provinceCode: string,
   pick?: City1Mark,
+  /**
+   * Seconds in the Data Cache, passed straight through. The landing pages
+   * render on demand and take the default; the marketing homepage is a static
+   * page and asks for longer, because the shortest fetch under a static page
+   * is what sets how often the whole page regenerates. See
+   * fetchSpotLivePageWithCacheControl.
+   */
+  revalidate?: number,
 ): Promise<ConditionsFeed | null> {
   const slug = pick?.slug ?? proof?.hero?.slug;
   if (!slug) return null;
 
-  const page = await fetchSpotLivePage(slug).catch(() => null);
+  const page = await fetchSpotLivePage(slug, undefined, revalidate).catch(
+    () => null,
+  );
   if (!page) return null;
 
   // The named species, then the city's hero species, then anything scored.

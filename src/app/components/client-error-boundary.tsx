@@ -15,7 +15,7 @@ import { Component, type ReactNode } from 'react';
  * page becomes the error text until the next successful render.
  *
  * That is not hypothetical — it is what happened to the homepage's search
- * snippet. See map-section.tsx for the widget that caused it.
+ * snippet. See product-carousel.tsx for the widget that caused it.
  *
  * So anything that can throw for reasons outside our control (a GPU that goes
  * away, a third party, a browser API that is present but refuses to work) gets
