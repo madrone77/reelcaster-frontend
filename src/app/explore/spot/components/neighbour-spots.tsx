@@ -5,7 +5,7 @@ import { Wind } from "lucide-react";
 import { tierFor, TIER_TEXT } from "../../lib/explore-data";
 import { useFavorite } from "../../lib/use-favorite";
 import SpotTrend from "../../components/spot-trend";
-import { regulatorFor, type Regulator } from "@/lib/regions";
+import { regulatorFrom, type Regulator } from "@/lib/regions";
 import type {
   NearbySpotCard,
   SeasonState,
@@ -36,7 +36,21 @@ function slugOf(n: NearbySpotCard): string {
   return n.href?.split("/").filter(Boolean).pop() ?? n.id;
 }
 
-function NearbyCard({ n, regulator }: { n: NearbySpotCard; regulator: Regulator }) {
+function NearbyCard({
+  n,
+  fallback,
+}: {
+  n: NearbySpotCard;
+  /** Used only when the card carries no agency of its own — the viewed spot's
+   *  regulator, which is the best guess a payload predating `areaAgency`
+   *  allows. */
+  fallback: Regulator;
+}) {
+  // Labelled from THIS card's agency, never the viewed spot's. See the
+  // component docstring below.
+  const regulator = n.areaAgency
+    ? regulatorFrom({ agency: n.areaAgency })
+    : fallback;
   const [fav, toggle] = useFavorite(slugOf(n));
   const top = n.species[0];
   const tier = tierFor(top?.score ?? null);
@@ -187,23 +201,27 @@ function NearbyCard({ n, regulator }: { n: NearbySpotCard; regulator: Regulator 
  * tier-coloured score, season state, bite window, the per-species score
  * breakdown, and current wind + next tides. Header links back to the map.
  *
- * `region` is the *viewed* spot's province/state, and it labels every card's
- * area number. `NearbySpotCard` carries no region of its own, so a neighbour
- * across a jurisdiction line would be mislabelled — acceptable here because
- * these are "within easy run" of the viewed spot, and far better than the
- * hardcoded "DFO area" this replaced, which called Puget Sound water a DFO
- * area. Give the card its own region if cross-border neighbours ever ship.
+ * Each card names its area under its OWN agency (`NearbySpotCard.areaAgency`),
+ * not the viewed spot's. This used to label the whole rail from the viewed
+ * spot on the grounds that neighbours are "within easy run" — but easy run
+ * from the San Juans crosses into BC. East Point (Saturna Island)'s four
+ * neighbours are three WDFW Area 7 marks and one DFO 18-5, so a single label
+ * for the rail is wrong for whichever half sits over the line, in whichever
+ * direction the reader is looking from.
+ *
+ * `regulator` remains the fallback for a card with no agency — a payload
+ * predating the field, where the viewed spot is the best guess available.
  */
 export default function NeighbourSpots({
   spots,
-  region,
+  regulator,
 }: {
   spots: NearbySpotCard[];
-  /** Province/state of the spot being viewed — picks the area vocabulary. */
-  region: string | null;
+  /** The viewed spot's authority — the fallback vocabulary for a card that
+   *  carries no agency of its own. */
+  regulator: Regulator;
 }) {
   if (spots.length === 0) return null;
-  const regulator = regulatorFor(region);
   return (
     <div>
       <div className="flex items-baseline justify-between gap-3">
@@ -221,7 +239,7 @@ export default function NeighbourSpots({
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mt-4">
         {spots.slice(0, 4).map((n) => (
-          <NearbyCard key={n.id} n={n} regulator={regulator} />
+          <NearbyCard key={n.id} n={n} fallback={regulator} />
         ))}
       </div>
     </div>

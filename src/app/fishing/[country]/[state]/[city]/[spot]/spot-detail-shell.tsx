@@ -9,7 +9,7 @@ import { useSubscription } from "@/hooks/use-subscription";
 import { noteEngagement } from "@/lib/upgrade-nag";
 import { setPaywallContext } from "@/lib/paywall-context";
 import AdSlot from "@/app/components/ads/ad-slot";
-import { countryDisplayName, provinceCodeFromName, regulatorFor } from "@/lib/regions";
+import { countryDisplayName, provinceCodeFromName, regulatorFrom } from "@/lib/regions";
 import ExploreTopBar from "@/app/explore/components/explore-top-bar";
 import DayCell from "@/app/explore/components/day-cell";
 import { bestWindow } from "@/app/explore/components/hourly-bars";
@@ -227,10 +227,23 @@ export default function SpotDetailShell({
   openOnIso?: string | null;
 }) {
   const { spot } = page;
-  // Which fisheries authority governs this spot. `spot.region` is the
-  // province/state ("Washington"); the linked breadcrumb's province name is
-  // the same value when a published city owns the spot.
-  const regulator = regulatorFor(cityLink?.provinceName ?? spot.region);
+  // Which fisheries authority governs this spot.
+  //
+  // The breadcrumb city's province used to win here, on the assumption that it
+  // is the same value when a published city owns the spot. It is not. A spot
+  // belongs to the NEAREST city and the nearest city can be across a border:
+  // East Point (Saturna Island) is a BC mark in DFO subarea 18-11 sitting on
+  // friday-harbor-wa's roster, so the page cited WDFW, printed "Marine Area
+  // 18-11" for a number WDFW never issued, and sent an angler to
+  // wdfw.wa.gov for Canadian water. The regs themselves were DFO's all along
+  // — only the attribution was wrong, which is the worse half to get wrong.
+  //
+  // So: the agency the payload names, then the SPOT's own province, and the
+  // city only as the last resort where neither reaches us.
+  const regulator = regulatorFrom({
+    agency: page.regAgency,
+    region: spot.region ?? cityLink?.provinceName,
+  });
   const { hour: nowHour, at: nowAt } = useSpotClock(TZ, serverNowMs);
   // Initial state is fixed at the first render, which is exactly when
   // `nowHour` still holds the server's seeded hour — so this matches what the
@@ -861,10 +874,14 @@ export default function SpotDetailShell({
     : null;
   useCampaignHit(adTarget);
 
-  // The billing region decides the currency (BC bills CAD, WA bills USD), and
-  // comes from the same province that decides the regulator printed above it,
-  // so the price and the copy cannot disagree about which country the reader
-  // is in.
+  // The billing region decides the currency (BC bills CAD, WA bills USD).
+  //
+  // This one DOES follow the breadcrumb city, unlike the regulator above it: a
+  // campaign targets a city and bills the reader it brought, while the
+  // regulator is a fact about the water. They part company on a spot whose
+  // nearest city is across a border — a BC mark on friday-harbor-wa's roster
+  // is DFO water sold to a Washington reader in USD, and both of those are
+  // right.
   const adRegion = ad
     ? (provinceCodeFromName(cityLink?.provinceName ?? spot.region ?? "") ?? "")
     : "";
@@ -1240,7 +1257,7 @@ export default function SpotDetailShell({
                   windowPeak={peakScore ?? todayScore}
                   tidePhase={peakTidePhase}
                   dfoArea={page.regAreaCode}
-                  region={cityLink?.provinceName ?? spot.region}
+                  regulator={regulator}
                   speciesName={selSpecies?.name ?? null}
                   regulation={regulation}
                 />
@@ -1425,7 +1442,7 @@ export default function SpotDetailShell({
                 regulations={page.regulations}
                 selectedId={selId}
                 areaCode={page.regAreaCode}
-                region={cityLink?.provinceName ?? spot.region}
+                regulator={regulator}
                 syncedAt={page.regSyncedAt}
                 nowMs={nowAt.getTime()}
               />
@@ -1457,10 +1474,7 @@ export default function SpotDetailShell({
               for, and off the spot the ad named. */}
           {!ad && (
             <div className="border-t border-rc-rule pt-8">
-              <NeighbourSpots
-                spots={page.nearbySpots}
-                region={cityLink?.provinceName ?? spot.region}
-              />
+              <NeighbourSpots spots={page.nearbySpots} regulator={regulator} />
             </div>
           )}
 
