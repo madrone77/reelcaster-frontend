@@ -87,26 +87,32 @@ export function googleTrackTrialStart(eventId: string, email?: string | null): v
 }
 
 /**
- * The "Paywall View" conversion action's label.
+ * The "Initiate Checkout" conversion action's label.
  *
- * EMPTY UNTIL THE ACTION EXISTS. A label is minted by Google when the action
- * is created in the Ads UI (Goals → Conversions → New action → Website →
- * "Set up manually"), and there is no API on this account that can create one:
- * the offline upload path this event was originally built for is dead, which
- * is the whole reason it needs a browser tag. So this ships blank and
- * `googleTrackPaywallView` no-ops until somebody pastes the label in.
+ * Minted by hand in the Ads UI on 2026-09-01, because the offline upload path
+ * this event was originally built for is dead on this account and there is no
+ * API here that can create an action. Settings that matter to the tag: no
+ * value, count One per click, 30-day click window. It is named to match Meta's
+ * InitiateCheckout so one act carries one name on both dashboards; only the
+ * Google category underneath it still says "Begin checkout", that being the
+ * nearest thing Google offers.
  *
- * Blank rather than borrowing GOOGLE_ADS_TRIAL_LABEL, which would be the one
- * genuinely damaging shortcut available here: paywall opens outnumber trials
- * by two orders of magnitude, and filing them under Trial Start would not
- * merely dilute that action, it would teach Smart Bidding that a modal open is
- * a trial and hand it a conversion count nothing downstream could correct.
+ * Not GOOGLE_ADS_TRIAL_LABEL, which would be the one genuinely damaging
+ * shortcut available here: paywall opens outnumber trials by two orders of
+ * magnitude, and filing them under Trial Start would not merely dilute that
+ * action, it would teach Smart Bidding that a modal open is a trial and hand
+ * it a conversion count nothing downstream could correct.
+ *
+ * The same damage has a second route, and creating the action opened it:
+ * Google added the Begin checkout goal to all three campaigns on the spot. It
+ * has to stay off their goal lists (campaign, Settings, Goals) or Smart
+ * Bidding optimises for modal opens anyway, out of a setting no diff shows.
  *
  * A constant rather than an env var, for the same reason as the two above: it
  * is a public value that ships in the page HTML, and a constant is reviewable
  * in the diff.
  */
-export const GOOGLE_ADS_PAYWALL_VIEW_LABEL = ''
+export const GOOGLE_ADS_PAYWALL_VIEW_LABEL = '6DbrCNTZq-wcEOWx2plD'
 
 /**
  * Report a paid click reaching the offer.
