@@ -466,22 +466,29 @@ export const NAG_FEATURES: Record<NagFeatureId, NagFeature> = {
 };
 
 /**
- * The modal's headline: "Set an alert for Oak Bay Flats with a free trial".
+ * The modal's headline, in two pieces: "Set an alert for" + "Oak Bay Flats".
  *
  * Leads with the thing the angler just tried to do, not with the product —
  * a nag that opens by naming the plan reads as an interruption, one that
  * opens by naming their own action reads as an answer.
+ *
+ * Two pieces rather than one string because the place gets its own colour:
+ * it is the one word in the headline the reader chose, and it is set in brand
+ * blue on both shapes of the modal. `place` is undefined where naming one
+ * would not read (`takesSpot` off) or where the surface has no honest name for
+ * it, and the headline is then the lead alone.
+ *
+ * It no longer ends in "with a free trial". The eyebrow directly above says
+ * "7-day free trial" on both shapes, and a headline that repeated it spent its
+ * widest line saying the smaller half twice.
  */
-export function nagHeadline(
+export function nagHeadlineParts(
   feature: NagFeature,
-  viewerTier: PlanTierId,
-  spotName?: string,
-): string {
-  const subject =
-    feature.takesSpot && spotName
-      ? `${feature.headline} for ${spotName}`
-      : feature.headline;
-  return `${subject} with a free trial`;
+  placeName?: string,
+): { lead: string; place?: string } {
+  return feature.takesSpot && placeName
+    ? { lead: `${feature.headline} for`, place: placeName }
+    : { lead: feature.headline };
 }
 
 /**

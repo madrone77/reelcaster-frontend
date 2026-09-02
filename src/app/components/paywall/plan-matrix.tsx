@@ -11,6 +11,7 @@ import {
   type PlanTierId,
 } from "@/lib/plan-features";
 import { usePricing } from "@/app/components/split-test/use-pricing";
+import { cn } from "@/lib/utils";
 import Testimonial from "./testimonial";
 import { PROOF } from "@/app/lp/_shared/lp-content";
 
@@ -41,6 +42,7 @@ export default function PlanMatrix({
   highlightRowId,
   stickyHeader = true,
   withProof = false,
+  className,
 }: {
   viewerTier: PlanTierId;
   /** Row to call out — the one that blocked them. Omit where nothing did. */
@@ -61,6 +63,13 @@ export default function PlanMatrix({
    * and that page's job is to get them back to checkout.
    */
   withProof?: boolean;
+  /**
+   * Merged onto the root. The table carries its own top rule because every
+   * surface has so far stacked it under something; the trial dialog puts it in
+   * a column of its own at desktop widths, where that rule would be a stray
+   * hairline across the top of the panel, and turns it off from here.
+   */
+  className?: string;
 }) {
   // The Pro column's price line. Read per reader rather than from a constant,
   // so a price test does not leave this table quoting one number while the
@@ -68,7 +77,7 @@ export default function PlanMatrix({
   const tiers = planTiers(usePricing());
 
   return (
-    <div className="border-t border-rc-rule">
+    <div className={cn("border-t border-rc-rule", className)}>
       {/* Column heads — sticky so the tier you're reading stays labelled while
           the rows scroll past. Now that the whole modal is one scroller these
           stick to the top of the dialog rather than to a table-sized window,

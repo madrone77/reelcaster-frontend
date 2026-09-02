@@ -16,7 +16,13 @@ import { useAnalytics } from "@/hooks/use-analytics";
 import { captureWall } from "@/lib/attribution";
 import { reportPaywall } from "@/lib/paywall-counter";
 import { noteWallShown } from "@/lib/upgrade-nag";
-import { TrialBuy, TrialCtaProvider } from "./trial-cta";
+import { TrialBuy, TrialCtaProvider, TrialExpress } from "./trial-cta";
+import {
+  PlanCompareLine,
+  TrialEyebrow,
+  TrialFeatureList,
+  TrialTimeline,
+} from "./trial-pitch";
 import PlanMatrix from "./plan-matrix";
 import TrialSheet from "./trial-sheet";
 import { useIsPhone } from "@/hooks/use-is-phone";
@@ -26,8 +32,7 @@ import { useSplitExposure } from "@/app/components/split-test/report";
 import {
   FREE_FAVORITE_SPOTS,
   NAG_FEATURES,
-  nagHeadline,
-  nagSubhead,
+  nagHeadlineParts,
   type NagFeatureId,
   type PlanTierId,
 } from "@/lib/plan-features";
@@ -41,19 +46,20 @@ import {
  * and report through the same counters here — the shape changes, the
  * accounting does not.
  *
- * Two jobs, in this order:
+ * Two jobs, and at `lg` they get a column each rather than a queue:
  *
- *   1. Answer the thing the angler just tried to do — "Start your 7-day Pro
- *      trial to create an alert". The headline names the action, so the modal
- *      never reads as a generic interruption.
- *   2. Show the whole plan matrix underneath, so the decision is made here
+ *   1. Answer the thing the angler just tried to do — "Set an alert for Oak
+ *      Bay Flats". The headline names the action, so the modal never reads as
+ *      a generic interruption, and the checkout sits directly under it.
+ *   2. Show the whole plan matrix beside that, so the decision is made here
  *      instead of on a round trip to /plans.
  *
  * The viewer's current tier column is marked, and the row that blocked them is
  * highlighted, so "what I have" and "what I'd get" are both one glance. The
  * table is Free vs Pro for every viewer, signed out included — a signed-out
  * visitor is being asked whether to pay, and a third "Browsing" column made
- * that a three-way comparison. The free tier is still offered by name below.
+ * that a three-way comparison. The free tier is still offered by name under
+ * the buy button.
  *
  * Copy + limits come from `@/lib/plan-features` — never hardcode them here.
  */
@@ -108,6 +114,11 @@ export default function ProTrialModal({
   // open. The free tier isn't hidden — it's the link at the foot of the
   // modal, after the matrix has shown what the tiers actually differ on.
   const ctaLabel = `Start ${TRIAL_DAYS}-day free trial`;
+
+  // The wall the reader walked into, named. The place is whichever the surface
+  // could honestly give: a spot beats the city it sits in, the same order the
+  // phone sheet resolves its subject in.
+  const headline = nagHeadlineParts(nag, spotName ?? placeName);
 
   // The price this reader is quoted, and the exposure that quoting it counts
   // as. The modal is the highest-intent surface a price arm is shown on, so
@@ -267,17 +278,25 @@ export default function ProTrialModal({
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
-      {/* ONE scrolling box. This used to pin the headline and the buy button
-          and scroll only the plan table between them — which on a phone left a
-          narrow strip of moving content trapped between two frozen bands, and
-          read as a broken page rather than a deliberate layout.
+      {/* Two columns from `lg` up: the offer on the left, the table on the
+          right, each scrolling in its own lane.
 
-          So the shell stays put and everything inside it scrolls together. The
-          close button is the one exception: it's absolutely positioned on the
-          shell, OUTSIDE the scroller, so it can't be scrolled away from — which
-          matters more here than it did before, now that the buy button can be. */}
+          It was one 512px column for both, which is the phone's shape drawn on
+          a 1440px screen. The matrix is fourteen rows, so the panel came to
+          1303px of content in a 792px box: the buy button scrolled away, the
+          table was cut off mid-row against the bottom edge with nothing to say
+          it continued, and the second buy button that existed to answer that
+          was itself below the fold. None of it was visible at once on the
+          surface with the most room in the product.
+
+          Split in two, the argument and the checkout are one screenful that
+          never scrolls, and the table gets a column tall enough to read. It
+          also retires the duplicate CTA: that button was there because the
+          matrix pushed the first one out of sight, and beside the table
+          instead of under it, the first one is always on screen. */}
       <DialogContent
         data-testid="pro-trial-modal"
+        data-shape="dialog"
         data-feature={feature}
         /* Open with nothing focused.
 
@@ -295,139 +314,172 @@ export default function ProTrialModal({
           event.preventDefault();
           (event.currentTarget as HTMLElement | null)?.focus();
         }}
-        className="bg-rc-panel border-rc-rule text-rc-ink p-0 gap-0 sm:max-w-lg max-h-[88dvh] flex flex-col overflow-hidden [&>[data-slot=dialog-close]]:z-20"
+        /* Below `lg` this is the old single column and the panel is the one
+           scroller. At `lg` it becomes a fixed-height two-pane box and the
+           columns scroll instead — hence `overflow-hidden` there, or the panel
+           would scroll a thing whose halves already do. */
+        className="bg-rc-panel border-rc-rule text-rc-ink p-0 gap-0 sm:max-w-lg lg:max-w-4xl max-h-[88dvh] lg:h-[min(88dvh,44rem)] flex flex-col overflow-y-auto overscroll-contain lg:overflow-hidden [&>[data-slot=dialog-close]]:z-20 lg:[&>[data-slot=dialog-close]]:right-[calc(50%+1rem)]"
       >
-        {/* overscroll-contain so a flick past the end of the modal on a phone
-            doesn't start scrolling the page underneath it. */}
-        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
-        {/* One provider around both pieces: the buy form up top and the terms
-            at the foot — sharing one resolution of trial eligibility rather
-            than each asking again. */}
+        {/* One provider around every piece: the wallet, the buy form, the
+            timeline and the terms — sharing one resolution of trial
+            eligibility rather than each asking again. The timeline prints the
+            charge date this same resolution produces. */}
         <TrialCtaProvider
           from={from}
           theme="light"
-          /* Always "checkout" now: the wallet buttons that were the only
-             source of a "wallet" destination no longer render on this modal. */
           onActivate={(method) =>
             trackCta({ plan: "annual", method, destination: "checkout" })
           }
         >
-          {/* pr-10 clears the dialog's own close button — which is also why
-              there's no "Not now": two dismissals for one modal. */}
-          <DialogHeader className="px-4 pr-10 pt-6 pb-5 sm:px-6 sm:pr-12 text-left">
-            <p className="font-rc-mono text-[10px] font-semibold tracking-[0.14em] uppercase text-rc-brand">
-              ReelCaster Pro
-            </p>
-            <DialogTitle className="mt-2 text-xl sm:text-2xl font-black tracking-[-0.02em] text-rc-ink text-balance">
-              {nagHeadline(nag, viewerTier, spotName)}
-            </DialogTitle>
-          </DialogHeader>
+          {/* Equal halves, so the left column's right edge is the panel's 50%
+              line — which is where the close button is moved to at `lg` (see
+              the className above). Left where the primitive puts it, the X
+              floats over the table's Pro column: over the price in the sticky
+              head, and over a tick in whichever row is under it as the table
+              scrolls. It belongs with the headline it dismisses anyway, and
+              the header below already reserves `pr-12` for it. */}
+          <div className="flex flex-col lg:grid lg:min-h-0 lg:flex-1 lg:grid-cols-2 lg:overflow-hidden">
+            {/* Left column: the argument, then the checkout under it.
 
-          {/* The card path, and only the card path. Apple Pay / Google Pay
-              used to sit above this; the wallet buttons are gone from this
-              modal on purpose, so every buyer here takes the same
-              email-and-card route. <TrialExpress> still exists for the
-              checkout surfaces that do offer wallets. */}
-          <div className="px-4 sm:px-6 pb-4">
-            {ctaHref ? (
-              <Link
-                href={ctaHref}
-                data-testid="pro-trial-cta"
-                onClick={() => trackCta({ href: ctaHref, position: "top" })}
-                className="block text-center px-4 py-2.5 rounded-lg bg-rc-brand hover:bg-rc-brand-hover text-white text-sm font-bold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rc-brand focus-visible:ring-offset-2"
-              >
-                {ctaLabel}
-              </Link>
-            ) : (
-              <TrialBuy signupLabel={ctaLabel} />
-            )}
+                The same pieces the phone sheet leads with — see
+                ./trial-pitch. What differs is the headline, which names the
+                wall the reader walked into rather than the forecast horizon:
+                the sheet has one screen and spends it on the commonest wall,
+                and this has a column and can answer the actual one. */}
+            {/* `min-h-0` and `flex-1` are `lg`-only on purpose. Below that the
+                panel is the scroller and these are flex items in a column that
+                overflows it, so a `min-h-0` here lets this one shrink past its
+                content to nothing: the offer collapsed to zero height and drew
+                itself on top of the table. Above `lg` the panel has stopped
+                scrolling and they are what lets the two lanes size to it. */}
+            <div className="flex flex-col lg:min-h-0 lg:overflow-hidden">
+              {/* Scrolls only at `lg`, where the panel has stopped. Below that
+                  the panel is the scroller and a second one here would trap a
+                  strip of moving content between two frozen bands. */}
+              <div className="lg:min-h-0 lg:flex-1 lg:overflow-y-auto lg:overscroll-contain px-4 sm:px-6 pt-6 pb-4">
+                {/* pr-10 clears the dialog's own close button — which is also
+                    why there's no "Not now": two dismissals for one modal. */}
+                <DialogHeader className="pr-10 sm:pr-12 text-left gap-0">
+                  <TrialEyebrow />
+                  {/* The place is set in brand blue: it is the one word in the
+                      headline the reader chose. Composed from the two parts
+                      rather than one string so it can be. */}
+                  <DialogTitle className="mt-2 text-xl sm:text-2xl font-black tracking-[-0.02em] text-rc-ink text-balance">
+                    {headline.lead}
+                    {headline.place ? (
+                      <>
+                        {" "}
+                        <span className="text-rc-brand">{headline.place}</span>
+                      </>
+                    ) : null}
+                  </DialogTitle>
+                </DialogHeader>
 
-            {/* The disclosure, directly under the button it belongs to. There
-                is one button now, so this rides with it above the table rather
-                than at the foot of the modal — the renewal amount and the
-                charge date have to be readable before the click, not a table's
-                worth of scrolling below it (see trial-cta.tsx). The Terms and
-                Privacy links live here because this is the only place on the
-                modal that carries them. */}
-            <DialogDescription className="mt-3 text-sm leading-relaxed text-rc-ink-soft">
-              {nagSubhead(pricing)}{" "}
-              <Link
-                href="/terms"
-                className="text-rc-brand underline underline-offset-2 hover:text-rc-brand-hover"
-              >
-                Terms
-              </Link>
-              {" · "}
-              <Link
-                href="/privacy"
-                className="text-rc-brand underline underline-offset-2 hover:text-rc-brand-hover"
-              >
-                Privacy
-              </Link>
-            </DialogDescription>
-          </div>
+                <PlanCompareLine viewerTier={viewerTier} className="mt-1.5" />
 
-          <PlanMatrix viewerTier={viewerTier} highlightRowId={nag.rowId} withProof />
+                {/* Same resolution the sheet makes: an explicit city wins,
+                    otherwise the place is a city only when no spot was named. */}
+                <TrialFeatureList
+                  cityName={cityName ?? (spotName ? undefined : placeName)}
+                  className="mt-4"
+                />
 
-          {/* The second ask, under the table and the customer quote.
+                {/* What happens and when, on the shape that has the table
+                    beside it to say what you get. The matrix answers "what am
+                    I buying"; this answers "when does it charge me", which is
+                    the question a card-required trial actually stalls on. */}
+                <TrialTimeline priceAmount={pricing.amount} className="mt-4" />
+              </div>
 
-              A copy of this was here once and was pulled, on the finding that
-              it doubled the ask while dragging the disclosure below the whole
-              table: at the time the terms attached to THIS button were the
-              only ones on the modal, so a reader had to scroll the matrix to
-              reach the renewal amount. That objection is answered rather than
-              overruled. The full disclosure, with Terms and Privacy, now sits
-              with the first button above the table where it is readable before
-              any click, and what rides with this one is a short restatement of
-              the price and the cancel right, not the only copy of them.
+              {/* The controls, at the foot of their own column so they stay on
+                  screen however long the table beside them runs. Wallet first:
+                  the buyer who has one never types anything.
 
-              It shares the first button's email through TrialCtaProvider, so
-              whichever one the reader types into, the other is already filled.
-              `testId` is overridden because two copies must not hand a
-              selector two matches. */}
-          <div className="border-t border-rc-rule px-4 sm:px-6 py-4">
-            {ctaHref ? (
-              <Link
-                href={ctaHref}
-                data-testid="pro-trial-cta-foot"
-                onClick={() => trackCta({ href: ctaHref, position: "foot" })}
-                className="block text-center px-4 py-2.5 rounded-lg bg-rc-brand hover:bg-rc-brand-hover text-white text-sm font-bold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rc-brand focus-visible:ring-offset-2"
-              >
-                {ctaLabel}
-              </Link>
-            ) : (
-              <TrialBuy signupLabel={ctaLabel} testId="trial-cta-foot" />
-            )}
-            <p className="mt-3 text-[11px] leading-relaxed text-rc-ink-mute">
-              Free for {TRIAL_DAYS} days, then {pricing.amount} a year. Cancel
-              anytime before the trial ends and you pay nothing.
-            </p>
-          </div>
+                  Apple Pay was pulled from this modal in #467 because the
+                  wallet row, its divider and the email form stacked into three
+                  asks above the table. That objection was about a stack, and
+                  there is no longer one — same reasoning that put the wallet
+                  back on the phone sheet in #495. */}
+              <div className="shrink-0 border-t border-rc-rule-soft px-4 sm:px-6 pt-4 pb-5">
+                {ctaHref ? (
+                  <Link
+                    href={ctaHref}
+                    data-testid="pro-trial-cta"
+                    onClick={() => trackCta({ href: ctaHref, position: "top" })}
+                    className="block text-center px-4 py-2.5 rounded-lg bg-rc-brand hover:bg-rc-brand-hover text-white text-sm font-bold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rc-brand focus-visible:ring-offset-2"
+                  >
+                    {ctaLabel}
+                  </Link>
+                ) : (
+                  <>
+                    <TrialExpress className="mb-3" />
+                    <TrialBuy signupLabel={ctaLabel} hideLabel />
+                  </>
+                )}
 
-          {/* The Member tier, offered last and on purpose: after the matrix has
-              shown what an account gets you without paying, and after the ask
-              above. Only for visitors who don't have one. */}
-          {viewerTier === "anon" && (
-            <div className="border-t border-rc-rule px-4 sm:px-6 py-4 text-center">
-              <Link
-                href={`/signup?next=${encodeURIComponent(returnTo)}`}
-                data-testid="free-signup-cta"
-                onClick={() => trackCta({ plan: "free", destination: "signup" })}
-                className="text-sm font-semibold text-rc-brand hover:text-rc-brand-hover underline underline-offset-2"
-              >
-                Sign up today as a Member
-              </Link>
-              <p className="mt-1.5 text-[11px] leading-relaxed text-rc-ink-mute">
-                No card. Keeps today&apos;s score, a week of forecast, and{" "}
-                {FREE_FAVORITE_SPOTS === 1
-                  ? "one saved spot"
-                  : `${FREE_FAVORITE_SPOTS} saved spots`}
-                .
-              </p>
+                {/* The disclosure that rides with the control. The timeline
+                    above already gives the amount and the date in the row a
+                    reader meets them in, so this is the short restatement plus
+                    the links — which live here because this is still the only
+                    place on either shape of the modal that carries them. */}
+                <DialogDescription className="mt-3 text-[11px] leading-relaxed text-rc-ink-mute">
+                  Free for {TRIAL_DAYS} days, then {pricing.amount} a year.{" "}
+                  <Link
+                    href="/terms"
+                    className="text-rc-brand underline underline-offset-2 hover:text-rc-brand-hover"
+                  >
+                    Terms
+                  </Link>
+                  {" · "}
+                  <Link
+                    href="/privacy"
+                    className="text-rc-brand underline underline-offset-2 hover:text-rc-brand-hover"
+                  >
+                    Privacy
+                  </Link>
+                </DialogDescription>
+
+                {/* The Member tier, offered last and on purpose: under the ask
+                    it is an alternative to, and beside the table that has
+                    shown what an account gets without paying. Only for
+                    visitors who don't have one. */}
+                {viewerTier === "anon" && (
+                  <p className="mt-3 border-t border-rc-rule-soft pt-3 text-[11px] leading-relaxed text-rc-ink-mute">
+                    <Link
+                      href={`/signup?next=${encodeURIComponent(returnTo)}`}
+                      data-testid="free-signup-cta"
+                      onClick={() =>
+                        trackCta({ plan: "free", destination: "signup" })
+                      }
+                      className="font-semibold text-rc-brand hover:text-rc-brand-hover underline underline-offset-2"
+                    >
+                      Sign up today as a Member
+                    </Link>{" "}
+                    — no card. Keeps today&apos;s score, a week of forecast, and{" "}
+                    {FREE_FAVORITE_SPOTS === 1
+                      ? "one saved spot"
+                      : `${FREE_FAVORITE_SPOTS} saved spots`}
+                    .
+                  </p>
+                )}
+              </div>
             </div>
-          )}
+
+            {/* Right column: the table, in its own lane and its own scroller.
+                Its sticky column heads stick to whichever of the two is
+                scrolling it — the panel below `lg`, this div at `lg`. The
+                top rule goes at `lg`, where there is nothing above it to be
+                ruled off from. */}
+            <div className="lg:min-h-0 lg:overflow-y-auto lg:overscroll-contain lg:border-l lg:border-rc-rule">
+              <PlanMatrix
+                viewerTier={viewerTier}
+                highlightRowId={nag.rowId}
+                withProof
+                className="lg:border-t-0"
+              />
+            </div>
+          </div>
         </TrialCtaProvider>
-        </div>
       </DialogContent>
     </Dialog>
   );
