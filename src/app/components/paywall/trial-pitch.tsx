@@ -57,13 +57,23 @@ export function TrialEyebrow({ className }: { className?: string }) {
 export function PlanCompareLine({
   viewerTier,
   className,
+  ...rest
 }: {
   viewerTier: PlanTierId;
   className?: string;
-}) {
+  /**
+   * Anything else lands on the paragraph. The dialog wraps this in a
+   * `DialogDescription asChild`, which needs to hand it an id: this sentence
+   * is what the modal is about, so it is the accessible description, and
+   * Radix warns when a dialog has none.
+   */
+} & React.HTMLAttributes<HTMLParagraphElement>) {
   const plan = viewerPlan(viewerTier);
   return (
-    <p className={`text-sm leading-5 text-rc-ink-soft ${className ?? ''}`}>
+    <p
+      {...rest}
+      className={`text-sm leading-5 text-rc-ink-soft ${className ?? ''}`}
+    >
       {plan.label} shows {plan.days}. Pro shows {PRO_FORECAST_DAYS} everywhere.
     </p>
   );

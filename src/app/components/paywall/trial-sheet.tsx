@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { DialogTitle } from '@/components/ui/dialog';
+import { DialogDescription, DialogTitle } from '@/components/ui/dialog';
 import { TrialBuy, TrialCtaProvider, TrialExpress } from './trial-cta';
 import {
   PlanCompareLine,
@@ -119,7 +119,12 @@ export default function TrialSheet({
           ) : null}
         </DialogTitle>
 
-        <PlanCompareLine viewerTier={viewerTier} className="mt-1.5" />
+        {/* asChild, so this sentence is the sheet's accessible description.
+            It had none, and Radix warns on a dialog without one — the same
+            wiring the centred dialog uses. */}
+        <DialogDescription asChild>
+          <PlanCompareLine viewerTier={viewerTier} className="mt-1.5" />
+        </DialogDescription>
 
         <TrialFeatureList
           cityName={cityName ?? (placeKind === 'city' ? placeName : undefined)}

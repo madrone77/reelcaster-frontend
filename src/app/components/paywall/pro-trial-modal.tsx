@@ -373,7 +373,12 @@ export default function ProTrialModal({
                   </DialogTitle>
                 </DialogHeader>
 
-                <PlanCompareLine viewerTier={viewerTier} className="mt-1.5" />
+                {/* asChild: this sentence is what the modal is about, so it
+                    is the accessible description. It used to be the price
+                    paragraph under the button, which is now gone. */}
+                <DialogDescription asChild>
+                  <PlanCompareLine viewerTier={viewerTier} className="mt-1.5" />
+                </DialogDescription>
 
                 {/* Same resolution the sheet makes: an explicit city wins,
                     otherwise the place is a city only when no spot was named. */}
@@ -414,28 +419,6 @@ export default function ProTrialModal({
                     <TrialBuy signupLabel={ctaLabel} hideLabel />
                   </>
                 )}
-
-                {/* The disclosure that rides with the control. The timeline
-                    above already gives the amount and the date in the row a
-                    reader meets them in, so this is the short restatement plus
-                    the links — which live here because this is still the only
-                    place on either shape of the modal that carries them. */}
-                <DialogDescription className="mt-3 text-[11px] leading-relaxed text-rc-ink-mute">
-                  Free for {TRIAL_DAYS} days, then {pricing.amount} a year.{" "}
-                  <Link
-                    href="/terms"
-                    className="text-rc-brand underline underline-offset-2 hover:text-rc-brand-hover"
-                  >
-                    Terms
-                  </Link>
-                  {" · "}
-                  <Link
-                    href="/privacy"
-                    className="text-rc-brand underline underline-offset-2 hover:text-rc-brand-hover"
-                  >
-                    Privacy
-                  </Link>
-                </DialogDescription>
               </div>
             </div>
 
@@ -456,6 +439,34 @@ export default function ProTrialModal({
                 sharedRows={false}
                 className="lg:border-t-0"
               />
+
+              {/* Terms and Privacy, with the coverage and currency note the
+                  table already ends on rather than under the buy button.
+
+                  They sat with the button because a disclosure belongs with
+                  the control it binds — but the disclosure itself has gone:
+                  the amount and the charge date are in the timeline, which is
+                  where a reader actually meets them, and repeating them under
+                  the button said the same two facts a third time on one
+                  screen. What is left is two links, and links are small print,
+                  and the small print on this modal is here. Both columns are
+                  on screen together at `lg`, so nothing has moved out of
+                  sight at the moment of the ask. */}
+              <p className="px-4 sm:px-6 pb-4 -mt-2 text-[11px] leading-relaxed text-rc-ink-mute">
+                <Link
+                  href="/terms"
+                  className="text-rc-brand underline underline-offset-2 hover:text-rc-brand-hover"
+                >
+                  Terms
+                </Link>
+                {" · "}
+                <Link
+                  href="/privacy"
+                  className="text-rc-brand underline underline-offset-2 hover:text-rc-brand-hover"
+                >
+                  Privacy
+                </Link>
+              </p>
             </div>
           </div>
         </TrialCtaProvider>
