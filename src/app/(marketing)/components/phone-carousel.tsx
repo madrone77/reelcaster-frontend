@@ -14,21 +14,38 @@ import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
  * meets the screens they were shown, and nobody has to keep two descriptions
  * of one product in step.
  *
+ * ── Two stacks, not four slides ──────────────────────────────────────────
+ *
+ * The phones are stacked in one grid cell and the copy in another, rather than
+ * each slide being a two-column block stacked on the next. It reads as a
+ * roundabout way to build a carousel and it is the whole reason this one does
+ * not bounce.
+ *
+ * Built the obvious way, each slide is as tall as its own contents, and a
+ * shorter slide centred in the shared box puts its phone somewhere else: the
+ * device slid up and down by tens of pixels every time the timer fired, and
+ * the headline moved with it, because the copy is a different length on every
+ * slide. Split in two, each stack is as tall as its own tallest member and
+ * that height never changes. The phone hangs from the top of its stack, so
+ * every device's top edge is at the same pixel; the copy hangs from the top of
+ * its own, so the kicker and the headline are too. What moves between slides
+ * is the screen and the words, which is the only thing that should.
+ *
  * ── Every slide is in the HTML ───────────────────────────────────────────
  *
- * Slides are stacked in one grid cell rather than mounted on demand. Three
- * reasons, in order of how much they cost to get wrong:
+ * Slides are stacked rather than mounted on demand. Three reasons, in order of
+ * how much they cost to get wrong:
  *
  * 1. The copy of all four is in the server-rendered HTML, so a crawler reads
  *    the whole product story rather than a quarter of it.
- * 2. The live screens — the map, and the phone drawing a real day — keep their
- *    own state and their own WebGL context instead of being torn down and
- *    rebuilt every time the timer comes round.
- * 3. The stack is as tall as its tallest slide and stays that height, so
+ * 2. The live screens — the map, and the phones drawing a real day — keep
+ *    their own state and their own WebGL context instead of being torn down
+ *    and rebuilt every time the timer comes round.
+ * 3. The stacks are as tall as their tallest member and stay that height, so
  *    advancing never moves the page under a reader's thumb.
  *
- * Hidden slides go `visibility:hidden`, which keeps their layout box (the map
- * needs a real size to stay sized) while taking them out of the accessibility
+ * Hidden layers go `visibility:hidden`, which keeps their layout box (the maps
+ * need a real size to stay sized) while taking them out of the accessibility
  * tree and out of tab order.
  *
  * ── The timer ────────────────────────────────────────────────────────────
@@ -37,7 +54,7 @@ import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
  * focus is inside it, and for good once a reader picks a slide themselves —
  * a carousel that keeps moving under somebody who has just chosen where to
  * look is the reason carousels have the reputation they do. It never starts
- * at all under prefers-reduced-motion, where the first slide simply stays.
+ * at all under prefers-reduced-motion.
  */
 
 export interface PhoneSlide {
@@ -57,13 +74,31 @@ export interface PhoneSlide {
   cta: ReactNode;
   /** The phone. Whatever it is, it draws its own device. */
   phone: ReactNode;
+  /**
+   * Hold this phone back until its slide is first shown.
+   *
+   * For the one slide that draws a second MapLibre map. The homepage already
+   * pays for one WebGL context and one set of relief tiles in the opening
+   * slide; a second one mounted at load would be bytes and a GPU context spent
+   * on a picture nobody has scrolled to yet. Once shown it stays mounted, like
+   * every other slide, so returning to it is instant.
+   *
+   * The COPY is never deferred — it is in the server-rendered HTML either way,
+   * which is the half a crawler reads.
+   */
+  lazy?: boolean;
 }
 
 /** How long a slide holds before the next one. Long enough to read the copy. */
 const HOLD_MS = 7000;
 
+/** Shared by both stacks so a layer and its phone fade together. */
+const LAYER = '[grid-area:1/1] transition-opacity duration-500 ease-out';
+
 export default function PhoneCarousel({ slides }: { slides: PhoneSlide[] }) {
   const [active, setActive] = useState(0);
+  /** Slides that have been shown at least once. See PhoneSlide.lazy. */
+  const [seen, setSeen] = useState<Set<number>>(() => new Set([0]));
   /** Set once a reader uses the dots. The timer does not come back. */
   const [taken, setTaken] = useState(false);
   /** On screen, and nobody is hovering or tabbing through it. */
@@ -98,10 +133,26 @@ export default function PhoneCarousel({ slides }: { slides: PhoneSlide[] }) {
     return () => clearInterval(id);
   }, [taken, hovered, focused, running, slides.length]);
 
+  useEffect(() => {
+    setSeen((prev) => (prev.has(active) ? prev : new Set(prev).add(active)));
+  }, [active]);
+
   const pick = useCallback((i: number) => {
     setTaken(true);
     setActive(i);
   }, []);
+
+  /** What every layer of a given slide shares: whether it is the one showing. */
+  const layer = (i: number) => ({
+    'aria-hidden': i !== active,
+    inert: i !== active,
+    className: `${LAYER} ${
+      i === active ? 'opacity-100' : 'pointer-events-none opacity-0'
+    }`,
+    style: {
+      visibility: i === active ? ('visible' as const) : ('hidden' as const),
+    },
+  });
 
   return (
     <div
@@ -114,78 +165,79 @@ export default function PhoneCarousel({ slides }: { slides: PhoneSlide[] }) {
       onFocusCapture={() => setFocused(true)}
       onBlurCapture={() => setFocused(false)}
     >
-      {/* One grid cell, four slides in it. See the note above. */}
-      <div className="grid">
-        {slides.map((slide, i) => {
-          const on = i === active;
-          return (
+      <div className="grid gap-12 lg:grid-cols-2 lg:items-center lg:gap-14">
+        {/* THE PHONES. One cell, four devices in it, each hanging from the top
+            so their top edges land on the same pixel. The cell reclaims the
+            section gutter on a narrow screen — not decoration there: the
+            conditions phone lays its chart out at true size, and inside a
+            327px column that drops under SpotTerminal's 300px measuring floor
+            and the 12px readouts the picture is about stop being readable. */}
+        <div className="order-2 grid max-sm:-mx-[18px] lg:order-1">
+          {slides.map((slide, i) => {
+            const l = layer(i);
+            return (
+            <div key={slide.id} {...l} className={`flex flex-col ${l.className}`}>
+              {/* The device box: one width, one height, whichever phone is
+                  in it. Two elements because the outer one is the size
+                  container and the inner one has to query it. See SLOT_CSS in
+                  product-carousel.tsx. */}
+              <div className="rcpbox">
+                <div className="rcpslot">
+                  {slide.lazy && !seen.has(i) ? null : slide.phone}
+                </div>
+              </div>
+            </div>
+            );
+          })}
+        </div>
+
+        {/* THE COPY. Its own stack, so the kicker starts at the same height on
+            every slide however long the paragraph under it runs. */}
+        <div className="order-1 grid lg:order-2">
+          {slides.map((slide, i) => (
             <div
               key={slide.id}
               role="group"
               aria-roledescription="slide"
               aria-label={`${i + 1} of ${slides.length}: ${slide.tab}`}
-              aria-hidden={!on}
-              // `inert` keeps a hidden slide's link out of tab order even
-              // where visibility alone would not; React 19 passes it through.
-              inert={!on}
-              // Every slide is stretched to the stack's full height (the
-              // tallest slide sets it) and centres its own contents in that
-              // box, so a shorter screen sits in the middle of the space
-              // rather than hanging from the top of it.
-              className={`flex items-center [grid-area:1/1] transition-opacity duration-500 ease-out ${
-                on ? 'opacity-100' : 'pointer-events-none opacity-0'
-              }`}
-              style={{ visibility: on ? 'visible' : 'hidden' }}
+              {...layer(i)}
             >
-              <div className="grid w-full gap-12 lg:grid-cols-2 lg:items-center lg:gap-14">
-                {/* The phone reclaims the section gutter on a narrow screen.
-                    It is not decoration there: the conditions phone lays its
-                    chart out at true size, and inside a 327px column that
-                    drops under SpotTerminal's 300px measuring floor and the
-                    12px readouts the picture is about stop being readable. */}
-                <div className="order-2 flex items-center justify-center max-sm:-mx-[18px] lg:order-1">
-                  {slide.phone}
-                </div>
-
-                <div className="order-1 lg:order-2">
-                  <span className="block font-mono text-[11px] font-semibold tracking-[0.1em] text-rc-ink-soft uppercase">
-                    {slide.kicker}
-                  </span>
-                  <h2 className="mt-4 text-balance text-3xl leading-[1.15] font-black tracking-[-0.02em] md:text-4xl">
-                    <span className="block text-rc-ink">{slide.title[0]}</span>
-                    <span className="block text-rc-brand">{slide.title[1]}</span>
-                  </h2>
-                  {slide.body.map((p) => (
-                    <p
-                      key={p}
-                      className="mt-5 max-w-lg text-pretty text-sm leading-relaxed text-rc-ink-soft md:text-base"
+              <span className="block font-mono text-[11px] font-semibold tracking-[0.1em] text-rc-ink-soft uppercase">
+                {slide.kicker}
+              </span>
+              <h2 className="mt-4 text-balance text-3xl leading-[1.15] font-black tracking-[-0.02em] md:text-4xl">
+                <span className="block text-rc-ink">{slide.title[0]}</span>
+                <span className="block text-rc-brand">{slide.title[1]}</span>
+              </h2>
+              {slide.body.map((p) => (
+                <p
+                  key={p}
+                  className="mt-5 max-w-lg text-pretty text-sm leading-relaxed text-rc-ink-soft md:text-base"
+                >
+                  {p}
+                </p>
+              ))}
+              {slide.points ? (
+                <ul className="mt-7 max-w-lg">
+                  {slide.points.map(({ term, detail }) => (
+                    <li
+                      key={term}
+                      className="grid grid-cols-[92px_1fr] items-baseline gap-4 border-b border-rc-rule/70 py-3.5 last:border-b-0"
                     >
-                      {p}
-                    </p>
+                      <b className="text-[17px] font-bold tracking-[-0.02em] text-rc-ink">
+                        {term}
+                      </b>
+                      <span className="text-sm leading-relaxed text-rc-ink-soft">
+                        {detail}
+                      </span>
+                    </li>
                   ))}
-                  {slide.points ? (
-                    <ul className="mt-7 max-w-lg">
-                      {slide.points.map(({ term, detail }) => (
-                        <li
-                          key={term}
-                          className="grid grid-cols-[92px_1fr] items-baseline gap-4 border-b border-rc-rule/70 py-3.5 last:border-b-0"
-                        >
-                          <b className="text-[17px] font-bold tracking-[-0.02em] text-rc-ink">
-                            {term}
-                          </b>
-                          <span className="text-sm leading-relaxed text-rc-ink-soft">
-                            {detail}
-                          </span>
-                        </li>
-                      ))}
-                    </ul>
-                  ) : null}
-                  <div className="mt-9">{slide.cta}</div>
-                </div>
-              </div>
+                </ul>
+              ) : null}
+              <div className="mt-9">{slide.cta}</div>
             </div>
-          );
-        })}
+          ))}
+        </div>
       </div>
 
       {/* The dots. Labelled with the screen they go to rather than a number,

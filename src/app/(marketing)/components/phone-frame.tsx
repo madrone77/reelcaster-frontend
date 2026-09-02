@@ -62,12 +62,20 @@ export default function PhoneFrame({
 }) {
   return (
     <div
-      className={`mx-auto ${width} [container-type:inline-size]`}
+      className={`mx-auto flex flex-col ${width} [container-type:inline-size]`}
       role="group"
       aria-label={label}
     >
-      <div className="rounded-[13cqw] bg-[#0A0C10] p-[3cqw] shadow-[0_26px_54px_rgba(18,21,26,.26),0_2px_0_rgba(255,255,255,.14)_inset]">
-        <div className="relative h-[calc(840*var(--sp))] w-full overflow-hidden rounded-[10cqw] bg-rc-brand [--sp:calc(94cqw/375)]">
+      <div className="flex flex-1 flex-col rounded-[13cqw] bg-[#0A0C10] p-[3cqw] shadow-[0_26px_54px_rgba(18,21,26,.26),0_2px_0_rgba(255,255,255,.14)_inset]">
+        {/* 840 screen units is the device's own height, and it is a FLOOR
+            rather than a fixed height so the frame can be stretched to match
+            the phones beside it. The carousel does that: one of those phones
+            lays its instrument out at a fixed size whatever width it is given,
+            so below about 445px of window it is taller than this frame's
+            proportion, and four devices in a row have to be one device. See
+            SLOT_CSS in product-carousel.tsx. Given no such box, this is
+            exactly the height it always was. */}
+        <div className="relative min-h-[calc(840*var(--sp))] w-full flex-1 overflow-hidden rounded-[10cqw] bg-rc-brand [--sp:calc(94cqw/375)]">
           {/* The app bar, at ExploreTopBar's own measurements taken at 375px:
               64 tall over a 52 status strip, 16 of side padding, a 104x48
               mark, a 40-tall CTA. Anything invented here is the picture
