@@ -114,8 +114,18 @@ type SearchParams = Promise<Record<string, string | string[] | undefined>>;
  * yet, so the CTA is back on the product's own map and no live surface links to
  * the gate at all. Repointing this line is half of turning it on; the other
  * half is PREVIEW_GATE_ENABLED.
+ *
+ * Carries `ad=day2`, so Explore arrives in the ad frame: the emptied top bar
+ * with one Start free trial button, the trial modal behind it, and no way off
+ * the page. The frame follows the reader onto a spot page opened from the map.
+ *
+ * `day2` is a wall, not a date (@/lib/ad-mode). It is the loosest of the three
+ * that still frames the page: exactly what a signed-out visitor already gets,
+ * with nothing tightened. That is the honest control for traffic this page has
+ * already spent nine screens persuading -- it has earned the map, not another
+ * wall -- and it is a one-word edit here if a tighter one converts better.
  */
-const exploreHref = (slug: string) => `/explore?loc=${slug}`;
+const exploreHref = (slug: string) => `/explore?loc=${slug}&ad=day2`;
 
 /** The one label, so the nav, the hero and the close cannot disagree. */
 const CTA_LABEL = "Start Exploring Free";
