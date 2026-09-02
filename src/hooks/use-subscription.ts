@@ -3,6 +3,7 @@
 import { useEffect, useSyncExternalStore } from 'react';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/auth-context';
+import { entitlementFromSettings } from '@/lib/entitlement';
 
 export type SubscriptionTier = 'free' | 'pro_monthly' | 'pro_annual';
 export type SubscriptionStatus =
@@ -18,7 +19,24 @@ export type SubscriptionStatus =
 export interface SubscriptionState {
   tier: SubscriptionTier;
   status: SubscriptionStatus;
+  /**
+   * Entitled to Pro right now. The same answer the API gives, via
+   * entitlementFromSettings: active, trialing, or past due inside the grace
+   * window. Before this went through entitlement the client said "free" to
+   * anyone past due while every API route still said "Pro", so a declined
+   * card showed upgrade CTAs over data the server was happily serving.
+   */
   isPaid: boolean;
+  /**
+   * Stripe could not charge the card on file. Set for past_due and unpaid
+   * whether or not the grace window is still open, because either way the
+   * fix is the same: a new card. Comped accounts have no card and never set it.
+   */
+  paymentFailed: boolean;
+  /** Pro is being carried by the 7-day grace window rather than payment. */
+  inGrace: boolean;
+  /** When grace ends (or ended). Null unless a payment has failed. */
+  graceUntil: string | null;
   loading: boolean;
   periodEnd: string | null;
   stripeCustomerId: string | null;
@@ -34,14 +52,25 @@ const FREE: Settings = {
   tier: 'free',
   status: 'none',
   isPaid: false,
+  paymentFailed: false,
+  inGrace: false,
+  graceUntil: null,
   periodEnd: null,
   stripeCustomerId: null,
   phoneE164: null,
   phoneVerified: false,
 };
 
+// grace_until landed in migration 20260726_pro_trial_and_grace. PostgREST
+// rejects the whole select if any named column is missing, which here would
+// read every Pro account as free, so this list assumes that migration is in.
 const COLUMNS =
-  'subscription_tier, subscription_status, subscription_period_end, stripe_customer_id, phone_e164, phone_verified';
+  'subscription_tier, subscription_status, subscription_period_end, grace_until, stripe_customer_id, phone_e164, phone_verified';
+
+const PAYMENT_PROBLEM_STATUSES: ReadonlySet<SubscriptionStatus> = new Set([
+  'past_due',
+  'unpaid',
+]);
 
 /**
  * ── One fetch per user, shared by every consumer ──────────────────────────
@@ -112,17 +141,21 @@ async function load(userId: string): Promise<void> {
 
     const tier = (data.subscription_tier ?? 'free') as SubscriptionTier;
     const status = (data.subscription_status ?? 'none') as SubscriptionStatus;
+    const stripeCustomerId = data.stripe_customer_id ?? null;
+    const entitlement = entitlementFromSettings(data);
 
     emit({
       userId,
       settings: {
         tier,
         status,
-        isPaid:
-          (tier === 'pro_monthly' || tier === 'pro_annual') &&
-          (status === 'active' || status === 'trialing'),
+        isPaid: entitlement.isPro,
+        paymentFailed:
+          PAYMENT_PROBLEM_STATUSES.has(status) && stripeCustomerId !== null,
+        inGrace: entitlement.inGrace,
+        graceUntil: entitlement.graceUntil,
         periodEnd: data.subscription_period_end ?? null,
-        stripeCustomerId: data.stripe_customer_id ?? null,
+        stripeCustomerId,
         phoneE164: data.phone_e164 ?? null,
         phoneVerified: !!data.phone_verified,
       },

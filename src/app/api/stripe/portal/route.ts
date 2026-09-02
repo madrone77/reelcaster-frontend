@@ -25,11 +25,28 @@ async function getUserFromRequest(request: NextRequest) {
   return user;
 }
 
+/**
+ * Optional body. `flow: 'payment_method_update'` drops the customer on the
+ * card form instead of the portal home, and brings them back to the account
+ * page when done. That is the whole journey for a declined card, so it should
+ * not be three clicks deep inside Stripe.
+ */
+async function requestedFlow(request: NextRequest): Promise<'payment_method_update' | null> {
+  try {
+    const body = (await request.json()) as { flow?: unknown } | null;
+    return body?.flow === 'payment_method_update' ? 'payment_method_update' : null;
+  } catch {
+    return null; // no body, or not JSON: the plain portal
+  }
+}
+
 export async function POST(request: NextRequest) {
   const user = await getUserFromRequest(request);
   if (!user) {
     return NextResponse.json({ error: 'unauthorized' }, { status: 401 });
   }
+
+  const flow = await requestedFlow(request);
 
   const { data: settings } = await admin
     .from('user_settings')
@@ -46,6 +63,17 @@ export async function POST(request: NextRequest) {
   const session = await stripe.billingPortal.sessions.create({
     customer: settings.stripe_customer_id,
     return_url: `${origin}/profile`,
+    ...(flow === 'payment_method_update'
+      ? {
+          flow_data: {
+            type: 'payment_method_update',
+            after_completion: {
+              type: 'redirect',
+              redirect: { return_url: `${origin}/settings/account` },
+            },
+          },
+        }
+      : {}),
   });
 
   return NextResponse.json({ url: session.url });

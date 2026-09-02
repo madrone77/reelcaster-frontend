@@ -140,7 +140,7 @@ export function paymentFailedEmail(params: {
         <p style="margin:0 0 24px;font-size:15px;line-height:24px;color:${INK_SOFT};">
           Update your card and we'll retry automatically.
         </p>
-        <p style="margin:0 0 8px;">${button(siteUrl('/profile'), 'Update payment method')}</p>
+        <p style="margin:0 0 8px;">${button(siteUrl('/settings/account'), 'Update payment method')}</p>
       </td></tr>`,
       { preheader: `Pro stays on until ${date}. Update your card to keep it.` },
     ),
