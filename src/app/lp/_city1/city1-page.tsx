@@ -19,6 +19,7 @@ import type { City1City, City1Variant } from "./city1-city";
 import { loadConditionsFeed } from "./load-conditions";
 import ConditionsPhone from "./conditions-phone";
 import AlertSmsPhone from "./alert-sms-phone";
+import { nextSundayFrom } from "./alert-sms";
 import {
   buildCityProof,
   type CityProof,
@@ -120,15 +121,21 @@ const exploreHref = (slug: string) => `/explore?loc=${slug}`;
 const CTA_LABEL = "Start Exploring Free";
 
 /**
- * The line under the button, and the whole of the qualification on it.
+ * There is no line under the button any more.
  *
- * It names the free horizon rather than the absence of a card, so it stays
- * true on the next screen: ANON_FORECAST_DAYS is 2, which is today and
- * tomorrow. Change that constant and this line has to change with it. The
- * rest of the limits are spelled out further down, where there is room to be
- * exact about them.
+ * It read "Look at today and tomorrow free." -- the anon horizon stated as
+ * what you get rather than as what you are missing (#512). Cut at Casey's
+ * call: a qualifier under a button is read as a catch whatever it says, and
+ * the limits are spelled out further down where there is room to be exact
+ * about them.
+ *
+ * ⚠ The blend pages still carry the identical string as EXPLORE_NOTE in
+ * ../_blend/blend-page.tsx, so /2 and /3 say it and /1 and /4 do not. Left
+ * that way deliberately rather than swept: those are separate live arms and
+ * changing their copy is a change to their test, not to this one.
+ *
+ * `.gonote` stays in city1-css.ts because the blend renders it.
  */
-const CTA_NOTE = "Look at today and tomorrow free.";
 
 export async function city1Metadata(
   city: City1City,
@@ -288,7 +295,6 @@ export default async function City1Page({
                   <path d="M3 8h9M8.5 4l4 4-4 4" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" />
                 </svg>
               </TrackedCta>
-              <p className="gonote">{CTA_NOTE}</p>
             </div>
           </div>
 
@@ -433,21 +439,28 @@ export default async function City1Page({
               </ul>
             </div>
             <figure className="shotfig">
+              {/* The day is computed here, on the server, for the same
+                  reason serverNowMs is: the page is cached, so a date read
+                  during a client render would disagree with its own HTML. */}
               <AlertSmsPhone
                 parts={city.alertSms}
-                timeLabel={city.alertSmsTime ?? "6:00"}
-                dateLabel={city.alertSmsDate ?? "Sunday, September 6"}
+                when={nextSundayFrom(Date.now(), conditions?.tz ?? "America/Los_Angeles")}
+                timeLabel={city.alertSmsTime ?? "6:04"}
               />
-              {/* Says only what has been checked: the wording is the alert
-                  engine's own format (alert-sms.ts mirrors it), and the mark
-                  and the hour are real. Do NOT grow this into a claim about
-                  what the alert checks before it sends -- that path has not
-                  been read, and an unverified promise about closures is the
-                  worst kind to put on an ad. */}
+              {/* No longer claims the wording is the engine's own: the shape
+                  is, but the hour in it is one field ahead of what
+                  ScoreAlertItem carries (see alert-sms.ts). What is left is
+                  checked -- the heads-up really does come days ahead, the
+                  spot is really scored, and SMS is really Pro.
+
+                  Do NOT grow this into a claim about what the alert checks
+                  before it sends. That path has not been read, and an
+                  unverified promise about closures is the worst kind to put
+                  on an ad. */}
               <figcaption>
-                The wording is the alert&rsquo;s own, and{" "}
-                {city.alertSms.spot} is a spot we score around {card.cityName}.
-                Alerts by text are part of Pro.
+                Days ahead, not the morning of, so there is still time to
+                plan. {city.alertSms.spot} is a spot we score around{" "}
+                {card.cityName}, and alerts by text are part of Pro.
               </figcaption>
             </figure>
           </div>
@@ -765,7 +778,6 @@ export default async function City1Page({
               <path d="M3 8h9M8.5 4l4 4-4 4" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" />
             </svg>
           </TrackedCta>
-          <p className="gonote">{CTA_NOTE}</p>
         </div>
       </section>
 

@@ -161,8 +161,6 @@ export interface City1City {
    * arrived "now" on every page load is the detail that gives it away.
    */
   alertSmsTime?: string;
-  /** The date under the clock, e.g. "Sunday, September 6". */
-  alertSmsDate?: string;
   /**
    * The water in the footer line, in the words somebody here would use.
    *
@@ -193,7 +191,6 @@ export const SEATTLE_1: City1City = {
   // { species: "Coho Salmon", score: 84 } to make the whole line live-true.
   alertSms: { species: "King Salmon", spot: "Jefferson Head", score: 95, hour: 7 },
   alertSmsTime: "6:04",
-  alertSmsDate: "Sunday, September 6",
   footerWater: "the Salish Sea",
 };
 
@@ -218,6 +215,5 @@ export const VANCOUVER_1: City1City = {
   // The Bell Buoy and hour 6 is where it peaks.
   alertSms: { species: "Chinook", spot: "The Bell Buoy", score: 82, hour: 6 },
   alertSmsTime: "5:58",
-  alertSmsDate: "Sunday, September 6",
   footerWater: "the Strait of Georgia",
 };
