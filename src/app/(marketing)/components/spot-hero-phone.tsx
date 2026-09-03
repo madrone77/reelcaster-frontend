@@ -1,15 +1,36 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import dynamic from 'next/dynamic';
 import SpeciesCardRow from '@/app/explore/spot/components/species-card-row';
 import ScoreCard from '@/app/explore/spot/components/score-card';
-import SpotMiniMap from '@/app/explore/spot/components/spot-mini-map';
 import { bestWindow } from '@/app/explore/components/hourly-bars';
 import { fmtPeak, zoneAbbrev, zonedHourToUtcIso } from '@/app/explore/lib/explore-data';
 import { buildTerminalHours } from '@/app/explore/lib/terminal-hours';
 import { useSpotClock } from '@/app/explore/lib/use-spot-clock';
 import { formatHour12 } from '@/lib/time-format';
 import type { SpotHeroFeed } from './spot-hero-feed';
+
+/**
+ * The map arrives as its own chunk, on demand.
+ *
+ * SpotMiniMap carries the MapLibre engine, about 260 KB compressed, and a
+ * static import put that in the first load of every page drawing this phone,
+ * reached or not. Loaded this way it ships only when the map is actually
+ * rendered on the client: on the homepage that is when the slide first
+ * shows, on /lp/<city>/5 when the phone comes near the viewport (deferMap).
+ * Still server-rendered, so where the map renders at once its chrome is in
+ * the HTML as before.
+ */
+const SpotMiniMap = dynamic(
+  () => import('@/app/explore/spot/components/spot-mini-map'),
+  { loading: () => <MapPlaceholder /> },
+);
+
+/** The map's box, empty: same size, same corner, none of the weight. */
+function MapPlaceholder() {
+  return <div aria-hidden className="h-full w-full rounded bg-rc-surface" />;
+}
 
 /**
  * The top of a real spot page, at true size, inside the device frame.
@@ -44,12 +65,49 @@ import type { SpotHeroFeed } from './spot-hero-feed';
 export default function SpotHeroPhone({
   feed,
   serverNowMs,
+  deferMap = false,
 }: {
   feed: SpotHeroFeed;
   /** The instant the server baked this HTML. See useSpotClock. */
   serverNowMs: number;
+  /**
+   * Hold the map until the phone is within a screen of the viewport.
+   *
+   * On /lp/<city>/5 this phone sits two screens down and its map is the
+   * heaviest thing on the page: the engine, three GeoJSON files, the glyphs
+   * and a dozen contour tiles, about a megabyte, downloaded at load for a
+   * picture the reader has not scrolled to. Measured on a throttled phone it
+   * doubled the page's bytes without moving its first paint. With this set
+   * the map mounts when the phone comes within a viewport of view, which is
+   * the same gate the homepage carousel puts on this slide. Off by default:
+   * the homepage already gates the slide, and the capture route wants the
+   * map at once.
+   */
+  deferMap?: boolean;
 }) {
   const { hour: nowHour, at: nowAt } = useSpotClock(feed.tz, serverNowMs);
+
+  const mapHost = useRef<HTMLDivElement>(null);
+  const [mapWanted, setMapWanted] = useState(!deferMap);
+  useEffect(() => {
+    if (mapWanted) return;
+    const el = mapHost.current;
+    if (!el || typeof IntersectionObserver === 'undefined') {
+      setMapWanted(true);
+      return;
+    }
+    const io = new IntersectionObserver(
+      ([e]) => {
+        if (e.isIntersecting) {
+          setMapWanted(true);
+          io.disconnect();
+        }
+      },
+      { rootMargin: '100% 0px' },
+    );
+    io.observe(el);
+    return () => io.disconnect();
+  }, [mapWanted]);
 
   /** The species the cards drive. Starts where the spot page starts. */
   const [selId, setSelId] = useState<string | null>(feed.selectedId);
@@ -195,28 +253,32 @@ export default function SpotHeroPhone({
           strip of water with the mark's own puck in it. Giving the map a fixed
           height instead pushed the puck below the frame, so the one thing the
           band is for — this mark, on this water — was the part that got cut. */}
-      <div className="mt-5 min-h-0 flex-1 px-4">
-        <SpotMiniMap
-          frame
-          spot={feed.spot}
-          score={peakScore ?? nowScore}
-          timeIso={timeIso}
-          hours={{
-            hour: nowHour,
-            onSelectHour: () => {},
-            nowHour,
-            isToday: true,
-            scrubbed: false,
-            onNow: () => {},
-            dayLabel: null,
-            scores: todayHours,
-            wind: terminalHours.wind,
-            gust: terminalHours.gust,
-            windDir: terminalHours.windDir,
-            current: null,
-            sun: feed.sun,
-          }}
-        />
+      <div ref={mapHost} className="mt-5 min-h-0 flex-1 px-4">
+        {mapWanted ? (
+          <SpotMiniMap
+            frame
+            spot={feed.spot}
+            score={peakScore ?? nowScore}
+            timeIso={timeIso}
+            hours={{
+              hour: nowHour,
+              onSelectHour: () => {},
+              nowHour,
+              isToday: true,
+              scrubbed: false,
+              onNow: () => {},
+              dayLabel: null,
+              scores: todayHours,
+              wind: terminalHours.wind,
+              gust: terminalHours.gust,
+              windDir: terminalHours.windDir,
+              current: null,
+              sun: feed.sun,
+            }}
+            />
+        ) : (
+          <MapPlaceholder />
+        )}
       </div>
     </div>
   );

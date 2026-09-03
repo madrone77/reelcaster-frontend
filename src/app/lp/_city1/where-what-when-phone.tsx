@@ -163,10 +163,13 @@ function Arrow({
 export default function WhereWhatWhenPhone({
   feed,
   serverNowMs,
+  deferMap = false,
 }: {
   feed: SpotHeroFeed;
   /** The instant the server baked this HTML. See useSpotClock. */
   serverNowMs: number;
+  /** Hold the mini map until the phone is near the viewport. See SpotHeroPhone. */
+  deferMap?: boolean;
 }) {
   const host = useRef<HTMLDivElement>(null);
   const [targets, setTargets] = useState<Targets | null>(null);
@@ -257,7 +260,7 @@ export default function WhereWhatWhenPhone({
         width={DEVICE}
         label={`The ReelCaster spot page for ${feed.spot.name} on a phone. Arrows label the spot name as Where, the species score card as What, and the best window as When.`}
       >
-        <SpotHeroPhone feed={feed} serverNowMs={serverNowMs} />
+        <SpotHeroPhone feed={feed} serverNowMs={serverNowMs} deferMap={deferMap} />
       </PhoneFrame>
 
       {targets && size && (
@@ -348,6 +351,7 @@ export default function WhereWhatWhenPhone({
 export function WhereWhatWhenPicture(props: {
   feed: SpotHeroFeed;
   serverNowMs: number;
+  deferMap?: boolean;
 }) {
   return (
     <div

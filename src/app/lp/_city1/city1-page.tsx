@@ -427,7 +427,11 @@ export default async function City1Page({
               // must not take the page with it. The still is the fallback,
               // as it is on the homepage's spot slide.
               <ClientErrorBoundary label="WhereWhatWhenPicture" fallback={still}>
-                <WhereWhatWhenPicture feed={picture} serverNowMs={Date.now()} />
+                <WhereWhatWhenPicture
+                  feed={picture}
+                  serverNowMs={Date.now()}
+                  deferMap
+                />
               </ClientErrorBoundary>
             ) : conditions && variant === 4 ? (
               <ConditionsPhone
