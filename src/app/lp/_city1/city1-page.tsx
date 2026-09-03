@@ -215,16 +215,28 @@ export default async function City1Page({
   const proof: CityProof | null = payload ? buildCityProof(payload, card) : null;
 
   /**
-   * /lp/4's second picture: one mark's own day, live.
+   * /lp/4's second picture, and /lp/5's fourth band: one mark's own day, live.
    *
-   * Only fetched for the variant that draws it -- /lp/1 must not pay a spot-
-   * page round trip for a phone it does not render. Null on any miss, and the
-   * section falls back to the still, which is why `shot` stays required for
-   * every city rather than becoming optional on the strength of this.
+   * Only fetched for the variants that draw it -- /lp/1 must not pay a spot-
+   * page round trip for a phone it does not render. Null on any miss: on /4
+   * the slot falls back to the still, which is why `shot` stays required for
+   * every city rather than becoming optional on the strength of this, and on
+   * /5 the band is simply not drawn.
+   *
+   * On /5 the chart follows the picture's mark when the city has not pinned
+   * one: that page is about one named spot (city.pictureMark, Casey's pick),
+   * and a chart of some other mark under a picture of this one is two spot
+   * pages on a page that says it is showing one. /4 keeps its own rule -- the
+   * hero mark unless pinned -- because that arm is live and this is not a
+   * change to it.
    */
   const conditions =
-    variant === 4
-      ? await loadConditionsFeed(proof, card.provinceCode, city.conditionsMark)
+    variant === 4 || variant === 5
+      ? await loadConditionsFeed(
+          proof,
+          card.provinceCode,
+          city.conditionsMark ?? (variant === 5 ? city.pictureMark : undefined),
+        )
       : null;
 
   /**
@@ -234,10 +246,12 @@ export default async function City1Page({
    * a spot page with the three arrows pasted on; /4 shows the day chart,
    * live; /5 shows the photograph's own subject, live -- the top of the spot
    * page for the mark named in city.pictureMark, drawn from the product's
-   * components with the callouts measured onto it. /5 is otherwise /4: it
-   * keeps the alert band below, so the two differ by this one picture. Only
-   * fetched for the variant that draws it, and null on any miss, in which
-   * case the still comes back, exactly as on /4.
+   * components with the callouts measured onto it. /5 keeps /4's alert band
+   * and shows /4's day chart as a fourth band under it, so it carries every
+   * screen the family has. Only fetched for the variant that draws it, and
+   * null on any miss, in which case the still comes back. Not the chart: on
+   * /5 the chart has its own band, and a phone shown twice on one page is
+   * worse than a photograph shown once.
    */
   const picture =
     variant === 5
@@ -415,7 +429,7 @@ export default async function City1Page({
               <ClientErrorBoundary label="WhereWhatWhenPicture" fallback={still}>
                 <WhereWhatWhenPicture feed={picture} serverNowMs={Date.now()} />
               </ClientErrorBoundary>
-            ) : conditions ? (
+            ) : conditions && variant === 4 ? (
               <ConditionsPhone
                 feed={conditions}
                 serverNowMs={Date.now()}
@@ -432,7 +446,7 @@ export default async function City1Page({
                   regulations underneath. Tap a species and the screen
                   follows.
                 </>
-              ) : conditions ? (
+              ) : conditions && variant === 4 ? (
                 <>
                   {conditions.spotName}, today, scored for{" "}
                   {conditions.speciesName ?? proof?.marksSpecies}. Every
@@ -514,6 +528,62 @@ export default async function City1Page({
                 Days ahead, not the morning of, so there is still time to
                 plan. {city.alertSms.spot} is a spot we score around{" "}
                 {card.cityName}, and alerts by text are part of Pro.
+              </figcaption>
+            </figure>
+          </div>
+        </section>
+      ) : null}
+
+      {/* THE DAY CHART.
+          /lp/5 only. /4 put this phone in the where/what/when slot; /5 gave
+          that slot to the rendered spot page and shows the chart here, as a
+          fourth band, so the page carries every screen the family has: the
+          map, the spot, the text, and the day. It sits under the alert band
+          because the chart is what the text is about -- which hours, and
+          why. Falls away when the feed is thin, as the /4 slot does.
+
+          Same section class as the where/what/when band on purpose: that is
+          what sizes this phone at .7 beside the alert phone (city1-css.ts),
+          and what puts it phone-left, so the three bands alternate. */}
+      {variant === 5 && conditions ? (
+        <section className="wwwsec condsec">
+          <div className="shell www">
+            <div>
+              <span className="lab">Hour by hour</span>
+              <h2>Tide, current, wind and sky, on the same hour.</h2>
+              <p className="sub">
+                Drag across the day and every reading moves together. The
+                score, the tide, the current at the mark, the wind and the
+                sea all belong to the hour the line is sitting on, so you can
+                see what an hour has going for it before you commit to it.
+              </p>
+              <ul className="wwwlist">
+                <li>
+                  <b>Tide</b>
+                  <span>
+                    Height and stage from {region.tideAuthority}, across the
+                    whole day
+                  </span>
+                </li>
+                <li>
+                  <b>Current</b>
+                  <span>Predicted speed and slack at the mark, hour by hour</span>
+                </li>
+                <li>
+                  <b>Weather</b>
+                  <span>Wind, sea state, air and sky on the same line</span>
+                </li>
+              </ul>
+            </div>
+            <figure className="shotfig">
+              <ConditionsPhone feed={conditions} serverNowMs={Date.now()} />
+              <figcaption>
+                {conditions.spotName}, today, scored for{" "}
+                {conditions.speciesName ?? proof?.marksSpecies}. Every reading
+                belongs to the hour the line is sitting on, and you can drag
+                it yourself. The same screen carries the spot&rsquo;s{" "}
+                {region.regulator.name} regulations and a full bathymetry map
+                underneath it.
               </figcaption>
             </figure>
           </div>

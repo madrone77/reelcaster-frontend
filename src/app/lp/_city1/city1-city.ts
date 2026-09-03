@@ -48,7 +48,8 @@ export interface City1Shot {
  * conditions phone swapped for the screenshot's own subject, rendered: the top
  * of one named spot page drawn from the product's components, with the three
  * callouts measured onto it (where-what-when-phone.tsx). It keeps 4's alert
- * band, so 4 and 5 differ by one picture.
+ * band and shows 4's day chart as a fourth band under it, so 5 carries every
+ * screen the family has: the map, the spot, the text, and the day.
  */
 export type City1Variant = 1 | 4 | 5;
 
