@@ -75,6 +75,7 @@ import LogCatchDialog from "@/app/explore/spot/components/log-catch-dialog";
 import PullToRefresh from "@/app/explore/spot/components/pull-to-refresh";
 import CreateAlertDialog from "@/app/explore/spot/components/create-alert-dialog";
 import ShareCardDialog from "@/app/explore/spot/components/share-card-dialog";
+import LeaveAdFrameWhenSignedIn from "@/components/leave-ad-frame-when-signed-in";
 
 const ProTrialModal = dynamic(
   () => import("@/app/components/paywall/pro-trial-modal"),
@@ -918,6 +919,8 @@ export default function SpotDetailShell({
          done with an attribute and a CSS rule rather than a prop. */
       data-ad-frame={ad ? "" : undefined}
     >
+      {/* A signed-in angler is sent to the public spot page at a clean URL. */}
+      {ad ? <LeaveAdFrameWhenSignedIn /> : null}
       {/* The spot page is a long read on a phone, so the bar rolls away as you
           head down it and comes back on the first upward flick. The `pt-16`
           below stays put either way — the bar moves, the document does not. */}

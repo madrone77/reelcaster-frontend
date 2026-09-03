@@ -3,6 +3,7 @@
 import { useEffect, useLayoutEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { useAuth } from '@/contexts/auth-context'
+import { hasStoredSession } from '@/lib/stored-session'
 
 // Signed-in anglers have no use for the pitch — reelcaster.com sends them
 // straight to their dashboard.
@@ -12,22 +13,6 @@ import { useAuth } from '@/contexts/auth-context'
 // visitor from a crawler. Redirecting here also keeps the homepage's static HTML
 // intact for search engines, which is the whole point of the marketing page.
 const DESTINATION = '/dashboard'
-
-// supabase-js stores the session under `sb-<project-ref>-auth-token`.
-const SUPABASE_SESSION_KEY = /^sb-.+-auth-token$/
-
-function hasStoredSession(): boolean {
-  try {
-    for (let i = 0; i < window.localStorage.length; i++) {
-      const key = window.localStorage.key(i)
-      if (key && SUPABASE_SESSION_KEY.test(key)) return true
-    }
-  } catch {
-    // Storage blocked (private mode, embedded webview) — fall back to the
-    // authoritative pass below.
-  }
-  return false
-}
 
 // `useLayoutEffect` warns when React renders this on the server; the layout
 // timing only matters in the browser anyway.
