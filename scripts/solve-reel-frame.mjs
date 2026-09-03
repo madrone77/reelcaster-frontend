@@ -7,7 +7,7 @@
  * "which run of marks is worth carrying, and how big is the sheet that holds
  * them" -- because the sheet is the hero's LCP image and its area is the bill.
  *
- *   node scripts/solve-reel-frame.mjs seattle-wa 11
+ *   node scripts/solve-reel-frame.mjs seattle-wa 11 [budgets-in-k]
  *
  * Prints, for a range of sheet-area budgets, the best contiguous run of marks
  * at that zoom: the frame numbers to paste into a `ReelFrame`, and where each
@@ -19,7 +19,11 @@
  *
  * Marks come from the same payload and the same widest-coverage species rule
  * the page itself ranks on (city-proof.ts), so the sheet is solved against the
- * marks the reel will actually be handed.
+ * marks the reel will actually be handed -- in the reel's own order, which
+ * since 2026-09-03 is marks with fresh reports (`has_reports`, the map's "Hot"
+ * tag) first and score second. A sheet is ranked on how many Hot stops it
+ * carries before how many stops, because the tag is the one thing on the
+ * phone a Pro viewer's map shows that a stranger's does not.
  */
 import { readFileSync } from "node:fs";
 
@@ -40,8 +44,21 @@ const FOCUS = { x: VW / 2, y: 316 };
 const PIN_GAP = 42, MAX_STOPS = 8;
 /** Half-width and drop of a two-line buoy label, measured off a capture. */
 const LABEL_HALF = 82, LABEL_DROP = 44;
-/** Sheet areas to report, in map px. 375x724 = 272k is one screen. */
-const BUDGETS = [500_000, 750_000, 1_000_000];
+/**
+ * Water kept beyond the safe box at the sheet's edges, so a stop at the edge
+ * of the run is not drawn against the bezel. The sheet only has to bring each
+ * stop inside the safe box after the clamped pan: a stop can sit anywhere in
+ * the middle of the sheet (the window centres on it) and only the outermost
+ * stops are ever off-centre, so the sheet is the run's spread plus the safe
+ * box's own margins, not the spread plus a whole window. The first version
+ * of this solver added a whole window and sized every sheet ~1.5x too large.
+ */
+const EDGE = 48;
+/** Sheet areas to report, in map px. 375x724 = 272k is one screen. An
+ *  optional third argument lists other budgets in k, e.g. `1000,1250,1500`. */
+const BUDGETS = process.argv[4]
+  ? process.argv[4].split(",").map((k) => Number(k) * 1000)
+  : [500_000, 750_000, 1_000_000];
 
 const mercX = (lng) => (lng + 180) / 360;
 const mercY = (lat) => 0.5 - Math.log(Math.tan(Math.PI / 4 + (lat * Math.PI) / 360)) / (2 * Math.PI);
@@ -66,11 +83,15 @@ const marks = payload.spots
   .map((s) => ({
     name: s.name,
     score: Math.round(s.scores[widest].peak * 100),
+    hot: s.has_reports === true,
     X: mercX(s.lng) * world,
     Y: mercY(s.lat) * world,
   }))
   .sort((a, b) => a.Y - b.Y);
-console.log(`${city} at z${zoom}: ranking on ${payload.species[widest].name}, ${marks.length} scored marks\n`);
+console.log(
+  `${city} at z${zoom}: ranking on ${payload.species[widest].name}, ${marks.length} scored marks,` +
+    ` ${marks.filter((m) => m.hot).length} with reports today\n`,
+);
 
 /** Buoys, read from the very GeoJSON the map style hands MapLibre. */
 const buoys = JSON.parse(
@@ -82,18 +103,33 @@ const buoys = JSON.parse(
 
 /** A candidate sheet from one contiguous run of marks, north to south. */
 function sheetFor(run) {
-  // Declutter best-first, as the reel does, then keep what is left.
+  // Declutter in the reel's own order -- reports first, then score -- and
+  // keep what is left.
   const kept = [];
-  for (const m of [...run].sort((a, b) => b.score - a.score)) {
+  for (const m of [...run].sort((a, b) => Number(b.hot) - Number(a.hot) || b.score - a.score)) {
     const clash = kept.some((k) => Math.hypot(k.X - m.X, k.Y - m.Y) < PIN_GAP);
     if (!clash) kept.push(m);
     if (kept.length === MAX_STOPS) break;
   }
   const xs = kept.map((k) => k.X), ys = kept.map((k) => k.Y);
-  const width = Math.ceil(Math.max(...xs) - Math.min(...xs)) + VW;
-  const height = Math.ceil(Math.max(...ys) - Math.min(...ys)) + VH;
-  const cX = (Math.min(...xs) + Math.max(...xs)) / 2;
-  const cY = (Math.min(...ys) + Math.max(...ys)) / 2;
+  // Margins the safe box demands at each edge of the sheet, plus EDGE. The
+  // bottom is the exception: the safe box only says a southern stop clears the
+  // card, which parks it in the 48 px between the card and the safe line with
+  // nothing but land above it -- on Vancouver the three harbour stops came out
+  // as a phone showing the North Shore, yellow to the middle of the screen. So
+  // the sheet reaches far enough below the last stop for the window to centre
+  // it, exactly as it centres every stop in the middle of the run.
+  const left = SAFE.x0 + EDGE, right = VW - SAFE.x1 + EDGE;
+  const top = SAFE.y0 + EDGE, bottom = Math.max(VH - SAFE.y1 + EDGE, VH - FOCUS.y);
+  const width = Math.max(VW, Math.ceil(Math.max(...xs) - Math.min(...xs)) + left + right);
+  const height = Math.max(VH, Math.ceil(Math.max(...ys) - Math.min(...ys)) + top + bottom);
+  // The run sits `left` in from the sheet's left edge and `top` down from its
+  // top, centred in whatever slack the VW/VH floors leave.
+  const spreadX = Math.max(...xs) - Math.min(...xs), spreadY = Math.max(...ys) - Math.min(...ys);
+  const x0 = left + (width - left - right - spreadX) / 2;
+  const y0 = top + (height - top - bottom - spreadY) / 2;
+  const cX = Math.min(...xs) - x0 + width / 2;
+  const cY = Math.min(...ys) - y0 + height / 2;
   const toSheet = (m) => ({ x: m.X - cX + width / 2, y: m.Y - cY + height / 2 });
 
   // Every buoy label must be wholly on the sheet or wholly off it.
@@ -112,10 +148,11 @@ function sheetFor(run) {
     const ty = clamp(y - FOCUS.y, 0, height - VH);
     const vx = x - tx, vy = y - ty;
     if (vx < SAFE.x0 || vx > SAFE.x1 || vy < SAFE.y0 || vy > SAFE.y1) return null;
-    stops.push({ name: m.name, score: m.score, x, y, tx, ty, vx, vy });
+    stops.push({ name: m.name, score: m.score, hot: m.hot, x, y, tx, ty, vx, vy });
   }
   return {
     width, height, stops,
+    hot: stops.filter((s) => s.hot).length,
     centerLng: (cX / world) * 360 - 180,
     centerLat: unmercY(cY / world),
   };
@@ -132,17 +169,22 @@ for (let i = 0; i < marks.length; i++) {
 for (const budget of BUDGETS) {
   const best = candidates
     .filter((c) => c.width * c.height <= budget)
-    .sort((a, b) => b.stops.length - a.stops.length || a.width * a.height - b.width * b.height)[0];
+    .sort(
+      (a, b) =>
+        b.hot - a.hot ||
+        b.stops.length - a.stops.length ||
+        a.width * a.height - b.width * b.height,
+    )[0];
   console.log(`sheet ≤ ${(budget / 1000).toFixed(0)}k px:`);
   if (!best) { console.log("  nothing fits\n"); continue; }
   console.log(
-    `  ${best.stops.length} stops   ${best.width}x${best.height}` +
+    `  ${best.stops.length} stops, ${best.hot} hot   ${best.width}x${best.height}` +
       ` (${((best.width * best.height) / 1000).toFixed(0)}k px)` +
       `   centre ${best.centerLng.toFixed(5)}, ${best.centerLat.toFixed(5)}`,
   );
   for (const s of best.stops) {
     console.log(
-      `      ${s.score}  ${s.name.padEnd(36)}` +
+      `      ${s.hot ? "HOT " : "    "}${s.score}  ${s.name.padEnd(36)}` +
         ` sheet(${s.x.toFixed(0)},${s.y.toFixed(0)}) pan(${s.tx.toFixed(0)},${s.ty.toFixed(0)})`,
     );
   }

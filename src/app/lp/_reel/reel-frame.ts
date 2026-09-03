@@ -178,10 +178,11 @@ export const SEATTLE_FRAME: ReelFrame = {
  *
  * ── What it costs ────────────────────────────────────────────────────────
  *
- * 190 KB against 37, and this is the hero's LCP element. The bytes track the
- * area almost exactly (971x934 is 1.22x Seattle's sheet, 190 KB is 1.24x its
- * 153) so there is no encoding win hiding here: q65 only reaches 166 KB and
- * spends the contour hairlines, which are the whole reason for the zoom.
+ * 218 KB against 37, and this is the hero's LCP element. The bytes track the
+ * area almost exactly (the first z11 sheet was 971x934 for 190 KB; this one
+ * is 1136x965 for 218) so there is no encoding win hiding here: q65 only
+ * saves a tenth and spends the contour hairlines, which are the whole reason
+ * for the zoom.
  *
  * You also stop seeing all eight marks at once. They are still all there, one
  * stop at a time, and the marks band further down the page lists the roster
@@ -189,26 +190,42 @@ export const SEATTLE_FRAME: ReelFrame = {
  *
  * ── The frame ────────────────────────────────────────────────────────────
  *
- * Solved by scripts/solve-reel-frame.mjs at z11: eight stops from Pam Rocks
- * down Queen Charlotte Channel to Plumper Cove, the best contiguous run the
- * 1000k-px budget holds. Captured by scripts/capture-reel.mjs, whose
- * projection check put project() against map.project() at 1.1e-10 px across
- * all eight.
+ * Moved south on 2026-09-03 so the reel reaches the marks with catch reports.
+ * The first z11 sheet was Howe Sound proper, Pam Rocks down to Plumper Cove,
+ * and held ONE mark that ever wears the map's "Hot" tag: Bowen Island. The
+ * other seventeen Vancouver marks with reports sit south of it, on the water
+ * between Bowen's south shore and First Narrows. So the sheet now runs from
+ * Queen Charlotte Channel across English Bay to the harbour mouth, and on the
+ * day it was solved every one of its eight stops was hot: Bowen Island, Roger
+ * Curtis, Worlcombe, Cowan Point, Point Atkinson, West Vancouver, Capilano,
+ * First Narrows.
+ *
+ * Solved by scripts/solve-reel-frame.mjs at z11 (1072x965: the run sized to
+ * the safe box rather than a whole window each side, and reaching far enough
+ * south of First Narrows for the window to centre the harbour stops instead
+ * of parking them against the card under a screen of North Shore), then
+ * widened 64 px to the east by hand: the 1072 sheet cut the word "Vancouver"
+ * in half at its right edge, which is not a thing to do to a city on its own
+ * landing page.
+ * The centre is the solve's centre plus 32 px, unrounded, because the
+ * capture was made at that value and the projection check is against it.
+ * Captured by scripts/capture-reel.mjs, whose check put project() against
+ * map.project() at 1.1e-10 px across all eight stops.
  *
  * The closures across Howe Sound stay: they are real, the product draws them,
  * and quietly deleting a regulatory layer from a marketing still of a fishing
  * app is the wrong kind of edit.
  *
- * The asset is `-v3` because Next's image optimizer keys its cache on the URL,
+ * The asset is `-v4` because Next's image optimizer keys its cache on the URL,
  * so new bytes at the old path would serve the old frame from the edge.
  */
 export const VANCOUVER_FRAME: ReelFrame = {
-  src: "/marketing/vancouver-explore-map-v3.webp",
-  centerLng: -123.3757,
-  centerLat: 49.42989,
+  src: "/marketing/vancouver-explore-map-v4.webp",
+  centerLng: -123.291043671875,
+  centerLat: 49.32738,
   zoom: 11,
-  width: 971,
-  height: 934,
+  width: 1136,
+  height: 965,
   regionLabel: "Lower Mainland",
 };
 
