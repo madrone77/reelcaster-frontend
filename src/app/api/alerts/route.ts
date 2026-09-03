@@ -10,6 +10,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import type { AlertTriggers } from '@/lib/custom-alert-engine';
+import type { LeadTimeMode } from '@/lib/score-beats';
 import { resolveEntitlement } from '@/lib/entitlement';
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
@@ -42,6 +43,17 @@ interface CreateAlertProfileInput {
   target_species?: string | null;
   score_threshold?: number | null;
   delivery_channels?: ('email' | 'sms')[];
+  /**
+   * How far ahead a score alert may speak. The column has existed since the
+   * lead-time migration with a DB default of 'asap', but nothing ever wrote
+   * it, so every alert got the six-day heads-up whether the angler wanted
+   * one or not. The create dialog now asks. Day caps live in score-beats.ts.
+   */
+  lead_time_mode?: LeadTimeMode;
+}
+
+function isLeadTimeMode(v: unknown): v is LeadTimeMode {
+  return v === 'asap' || v === 'short' || v === 'day_of';
 }
 
 interface UpdateAlertProfileInput extends Partial<CreateAlertProfileInput> {
@@ -290,6 +302,10 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    if (body.lead_time_mode !== undefined && !isLeadTimeMode(body.lead_time_mode)) {
+      return NextResponse.json({ error: 'Invalid lead_time_mode' }, { status: 400 });
+    }
+
     // Tier-aware limit: free users get 1 alert, paid get 10.
     const { count } = await supabaseAdmin
       .from('user_alert_profiles')
@@ -343,6 +359,7 @@ export async function POST(request: NextRequest) {
         target_species: body.target_species ?? null,
         score_threshold: body.score_threshold ?? null,
         delivery_channels: deliveryChannels,
+        lead_time_mode: body.lead_time_mode ?? 'asap',
       })
       .select()
       .single();
@@ -446,6 +463,13 @@ export async function PUT(request: NextRequest) {
         return NextResponse.json({ error: 'Cooldown hours must be between 1 and 168' }, { status: 400 });
       }
       updates.cooldown_hours = body.cooldown_hours;
+    }
+
+    if (body.lead_time_mode !== undefined) {
+      if (!isLeadTimeMode(body.lead_time_mode)) {
+        return NextResponse.json({ error: 'Invalid lead_time_mode' }, { status: 400 });
+      }
+      updates.lead_time_mode = body.lead_time_mode;
     }
 
     if (body.is_active !== undefined) {
