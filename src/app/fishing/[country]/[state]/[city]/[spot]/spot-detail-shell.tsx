@@ -1466,7 +1466,11 @@ export default function SpotDetailShell({
               for, and off the spot the ad named. */}
           {!ad && (
             <div className="border-t border-rc-rule pt-8">
-              <NeighbourSpots spots={page.nearbySpots} regulator={regulator} />
+              <NeighbourSpots
+                spots={page.nearbySpots}
+                regulator={regulator}
+                tz={TZ}
+              />
             </div>
           )}
 

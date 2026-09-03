@@ -9,7 +9,11 @@ import { fetchSpotThumb } from "@/lib/bluecaster";
  * markup while BLUECASTER_API_KEY (and the Google key behind it) stay
  * server-side.
  *
- * Query params: spot=<uuid>, z=<8..16>, size=card|panel
+ * Query params: spot=<uuid>, z=<8..16>, size=card|panel, pin=0|1
+ *
+ * `pin=0` returns the still without Google's marker, for a caller that draws
+ * the product's own pin over it (the nearby-spot card). Forwarded verbatim, so
+ * it also keys a fresh cache entry on both hops.
  *
  * Coordinates don't move, so the render is immutable — cached hard at the edge.
  */
@@ -22,9 +26,12 @@ export async function GET(request: NextRequest) {
   const z = Number(request.nextUrl.searchParams.get("z"));
   const size = request.nextUrl.searchParams.get("size") === "panel" ? "panel" : "card";
 
+  const pin = request.nextUrl.searchParams.get("pin") !== "0";
+
   const image = await fetchSpotThumb(spot, {
     zoom: Number.isFinite(z) && z > 0 ? z : undefined,
     size,
+    pin,
   });
 
   // 404, not 502: "no imagery for this spot" is a legitimate answer (private
