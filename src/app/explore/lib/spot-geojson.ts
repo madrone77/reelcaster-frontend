@@ -4,7 +4,7 @@
 // (app/map/MapExplorer.tsx + scoring-ui.ts).
 
 import { TIER_PIN, tierFor, type RailSpot } from "./explore-data";
-import { PUCK_HALF_W } from "./score-puck";
+import { PIN_MIN_DIST } from "./score-puck";
 
 export const NO_DATA_COLOR = "#9ca3af"; // zinc-400 — unscored dot
 export const SELECT_HEX = "#1F40E0"; // cobalt — selected stroke
@@ -157,8 +157,8 @@ function worldPx(lat: number, lng: number, zoom: number): [number, number] {
 }
 
 // Pins hide at the first pixel of contact (2 radii) plus a small allowance
-// for the white stroke ring, so kept pins always read fully separated.
-const STROKE_PAD = 4;
+// for the white stroke ring, so kept pins always read fully separated. The
+// distance itself lives with the puck (score-puck.ts PIN_MIN_DIST).
 
 /**
  * Greedy screen-space declutter: slugs whose pins should HIDE at this zoom.
@@ -178,7 +178,7 @@ export function declutterHiddenSlugs(
   // with zoom the way the circles' 11→16 radii did. It is also wider, so
   // co-located spots separate at a closer zoom than they used to.
   void zoom;
-  const minDist = PUCK_HALF_W * 2 + STROKE_PAD;
+  const minDist = PIN_MIN_DIST;
   const ranked = [...spots].sort((a, b) => {
     if (a.slug === keepSlug) return -1;
     if (b.slug === keepSlug) return 1;
