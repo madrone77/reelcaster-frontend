@@ -312,7 +312,12 @@ export default function WhereWhatWhenPhone({
         width={DEVICE}
         label={`The ReelCaster spot page for ${feed.spot.name} on a phone. Arrows label the spot name as Where, the species score card as What, and the best window as When.`}
       >
-        <SpotHeroPhone feed={feed} serverNowMs={serverNowMs} deferMap={deferMap} />
+        <SpotHeroPhone
+          feed={feed}
+          serverNowMs={serverNowMs}
+          deferMap={deferMap}
+          regsLink={false}
+        />
       </PhoneFrame>
 
       {targets && size && (
