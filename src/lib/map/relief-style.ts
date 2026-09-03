@@ -543,7 +543,11 @@ export function buildReliefStyle(origin: string): Record<string, unknown> {
         id: "tide-label",
         type: "symbol",
         source: "tides",
-        minzoom: 11.5,
+        // A zoom earlier than the donuts' own label used to appear at: on a
+        // phone the city frame sits near z10, and an unnamed donut there is a
+        // dot you have to tap to identify. `text-optional` still drops a name
+        // that would collide.
+        minzoom: 10.5,
         layout: {
           "text-field": ["get", "name"],
           "text-font": ["Open Sans Semibold"],

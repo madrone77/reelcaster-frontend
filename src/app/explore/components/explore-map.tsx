@@ -28,7 +28,11 @@ import {
   PUCK_TIP_OFFSET,
 } from "../lib/score-puck";
 import { MAP_CUSTOM_ATTRIBUTION } from "@/lib/map/map-brand";
-import { MAP_INSET_ATTR, mapBottomPanelInset } from "../lib/sheet-safe-center";
+import {
+  MAP_INSET_ATTR,
+  MAP_INSET_RESTING_ATTR,
+  mapBottomPanelInset,
+} from "../lib/sheet-safe-center";
 import { spotsToFeatureCollection, declutterHiddenSlugs } from "../lib/spot-geojson";
 import { useFlow } from "../lib/use-flow";
 
@@ -112,8 +116,11 @@ export default function ExploreMap({
   onMapPick,
   summary = false,
   showReports = false,
+  onBearingChange,
 }: {
   mapRef: RefObject<MapRef | null>;
+  /** Fired on every rotate with the new bearing, for the phone's compass. */
+  onBearingChange?: (bearing: number) => void;
   spots: RailSpot[];
   selectedSlug: string | null;
   onSelect: (slug: string) => void;
@@ -210,10 +217,33 @@ export default function ExploreMap({
     };
     attach();
 
+    // The resting height can change without the observed box changing: the
+    // hour bar mounts on the sheet's top edge and the sheet folds it into the
+    // attribute, and the preview dock replaces the sheet outright, taking the
+    // observed node with it. Both show up as a write to the attribute, so
+    // watch for that too, one measure per frame at most.
+    let pending = 0;
+    const schedule = () => {
+      if (pending) return;
+      pending = requestAnimationFrame(() => {
+        pending = 0;
+        measure();
+      });
+    };
+    const mo =
+      typeof MutationObserver !== "undefined" ? new MutationObserver(schedule) : null;
+    mo?.observe(document.body, {
+      subtree: true,
+      attributes: true,
+      attributeFilter: [MAP_INSET_RESTING_ATTR],
+    });
+
     window.addEventListener("resize", measure);
     return () => {
       cancelAnimationFrame(raf);
+      cancelAnimationFrame(pending);
       ro?.disconnect();
+      mo?.disconnect();
       window.removeEventListener("resize", measure);
     };
   }, []);
@@ -507,6 +537,7 @@ export default function ExploreMap({
           setDeclutterZoom(Math.round(e.viewState.zoom * 4) / 4)
         }
         onMoveEnd={(e) => reportViewport(e.target)}
+        onRotate={(e) => onBearingChange?.(e.viewState.bearing)}
         onResize={(e) => reportViewport(e.target)}
         onMouseMove={handleMouseMove}
         onMouseLeave={handleMouseLeave}

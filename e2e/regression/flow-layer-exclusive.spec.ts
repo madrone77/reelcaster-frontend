@@ -132,39 +132,67 @@ test('a city map runs one flow at a time', async ({ page }) => {
   await expect.poll(() => flowLayers(page), { timeout: 20_000 }).toEqual([]);
 });
 
-test('the phone filter sheet can reach both flow layers', async ({ page }) => {
-  // The chips this sheet holds were the only way to a flow layer on a phone,
-  // and it carried Currents alone: the wind field existed and nothing on a
-  // small screen could ask for it.
+test('the phone layers menu can reach both flow layers, and the hour bar follows', async ({ page }) => {
+  // The flow layers used to sit in the filter sheet under "Map", three taps
+  // deep behind a heading that said filters. They are a layers button on the
+  // map now, and its menu is the only way to a flow layer on a phone.
   await page.setViewportSize({ width: 390, height: 844 });
   await installMapProbe(page);
   await page.goto('/explore');
 
-  const openSheet = page.getByRole('button', { name: 'Filters' });
-  await expect(openSheet).toBeVisible({ timeout: 20_000 });
-  await openSheet.click();
+  const openLayers = page.getByRole('button', { name: 'Map layers' });
+  await expect(openLayers).toBeVisible({ timeout: 20_000 });
+  await openLayers.click();
 
-  // One exclusive choice, so one radiogroup — two chips claimed the layers
-  // were independent when useFlowLayer has always made them one.
-  const sheet = page.getByRole('dialog', { name: 'Map filters' });
-  const wind = sheet.getByRole('radio', { name: /^Wind$/ });
-  const currents = sheet.getByRole('radio', { name: /^Currents$/ });
-  const noFlow = sheet.getByRole('radio', { name: /^No flow$/ });
+  // Three checkbox rows. Bathymetry is independent and on by default; Currents
+  // and Wind are one choice, which the menu shows by unchecking one as the
+  // other comes on. Tapping the checked row is the way off — there is no
+  // "No flow" row to find. A pick closes the menu, so each step reopens it.
+  const menu = page.getByRole('menu', { name: 'Map layers' });
+  const wind = menu.getByRole('menuitemcheckbox', { name: /^Wind$/ });
+  const currents = menu.getByRole('menuitemcheckbox', { name: /^Currents$/ });
   await expect(wind).toBeVisible();
-  // Labels are always on now, so the sheet no longer offers to turn them off.
-  await expect(sheet.getByRole('button', { name: /^Labels$/ })).toHaveCount(0);
-  // Near me moved to the location header; it moves the camera, it never filtered.
-  await expect(sheet.getByRole('button', { name: /near me/i })).toHaveCount(0);
+  await expect(menu.getByRole('menuitemcheckbox', { name: /^Bathymetry$/ })).toHaveAttribute(
+    'aria-checked',
+    'true',
+  );
+  const hourBar = page.getByRole('slider', { name: 'Hour shown on the map' });
+  await expect(hourBar).toHaveCount(0);
 
   await wind.click();
   await expect.poll(() => flowLayers(page), { timeout: 20_000 }).toEqual(['flow-wind']);
+  // The menu gets out of the way of what it just started: a running field
+  // brings the scrubber with it, and nothing else on a phone says which hour
+  // the map is drawing.
+  await expect(menu).toHaveCount(0);
+  await expect(hourBar).toBeVisible();
 
+  // The bar's own X is the one-tap way out: it stops the field and takes the
+  // scrubber with it, no menu visit needed.
+  await page.getByRole('button', { name: 'Close wind' }).click();
+  await expect.poll(() => flowLayers(page), { timeout: 20_000 }).toEqual([]);
+  await expect(hourBar).toHaveCount(0);
+
+  await openLayers.click();
+  await expect(wind).toHaveAttribute('aria-checked', 'false');
   await currents.click();
   await expect.poll(() => flowLayers(page), { timeout: 20_000 }).toEqual(['flow-currents']);
-  await expect(wind).toHaveAttribute('aria-checked', 'false');
+  await expect(hourBar).toBeVisible();
 
-  await noFlow.click();
+  // And the checked row is the other way off.
+  await openLayers.click();
+  await expect(currents).toHaveAttribute('aria-checked', 'true');
+  await currents.click();
   await expect.poll(() => flowLayers(page), { timeout: 20_000 }).toEqual([]);
+  await expect(hourBar).toHaveCount(0);
+
+  // The filter sheet no longer carries any of this: it filters spots, and a
+  // layer changes what the map draws, not which spots are on it.
+  await page.getByRole('button', { name: 'Filters' }).click();
+  const sheet = page.getByRole('dialog', { name: 'Map filters' });
+  await expect(sheet).toBeVisible();
+  await expect(sheet.getByRole('radio', { name: /^Currents$/ })).toHaveCount(0);
+  await expect(sheet.getByText(/^Bathymetry$/)).toHaveCount(0);
 });
 
 test('the score floor narrows the map, and says so', async ({ page }) => {
