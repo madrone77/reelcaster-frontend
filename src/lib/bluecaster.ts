@@ -1888,6 +1888,8 @@ export async function fetchSpeciesGuide(
 
 export interface SpotIssueReportInput {
   reason: string;
+  /** The thumbs-down this report came out of, when the page prompt opened it. */
+  verdictId?: string | null;
   note?: string | null;
   surface?: "spot_page" | "spot_card";
   contactEmail?: string | null;
@@ -1935,4 +1937,49 @@ export async function submitSpotIssueReport(
     },
   );
   return { ok: res.ok, status: res.status };
+}
+
+/**
+ * Record one thumb from the "Does this look right to you?" prompt.
+ *
+ * Same anonymous-by-design stance as the report path, and the same two things
+ * forwarded that the browser cannot forge: the session token when there is one,
+ * and the client IP, which BlueCaster hashes and never stores.
+ *
+ * `verdictId` comes back so a thumbs down can be joined to the report it opens.
+ * ⚠️ It is null for a throttled vote, and the caller must carry on rather than
+ * treat that as a failure: the report is still worth having unjoined.
+ */
+export async function recordSpotPageVerdict(
+  slug: string,
+  input: {
+    verdict: "up" | "down";
+    surface?: string;
+    context?: Record<string, unknown>;
+  },
+  opts: { accessToken?: string; clientIp?: string } = {},
+): Promise<{ ok: boolean; status: number; verdictId: string | null }> {
+  const baseUrl = process.env.BLUECASTER_API_URL;
+  const apiKey = process.env.BLUECASTER_API_KEY;
+  if (!baseUrl || !apiKey) throw new Error("BlueCaster env vars not set");
+
+  const res = await fetch(
+    `${baseUrl}/api/v1/spots/${encodeURIComponent(slug)}/page-verdict`,
+    {
+      method: "POST",
+      headers: {
+        "x-api-key": apiKey,
+        "Content-Type": "application/json",
+        ...(opts.accessToken
+          ? { Authorization: `Bearer ${opts.accessToken}` }
+          : {}),
+        ...(opts.clientIp ? { "x-reelcaster-client-ip": opts.clientIp } : {}),
+      },
+      body: JSON.stringify(input),
+      cache: "no-store",
+    },
+  );
+  if (!res.ok) return { ok: false, status: res.status, verdictId: null };
+  const body = (await res.json()) as { verdictId?: string | null };
+  return { ok: true, status: res.status, verdictId: body.verdictId ?? null };
 }

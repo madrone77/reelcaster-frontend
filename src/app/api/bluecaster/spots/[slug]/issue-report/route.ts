@@ -34,6 +34,7 @@ export async function POST(
     contactEmail?: unknown;
     context?: unknown;
     website?: unknown;
+    verdictId?: unknown;
   } | null;
 
   if (!body || typeof body.reason !== "string") {
@@ -58,6 +59,10 @@ export async function POST(
         reason: body.reason,
         note: typeof body.note === "string" ? body.note : null,
         surface: body.surface === "spot_card" ? "spot_card" : "spot_page",
+        // The thumbs-down this report came out of. Null from a card's flag,
+        // and null when that vote was throttled. BlueCaster validates it as a
+        // uuid and drops anything else.
+        verdictId: typeof body.verdictId === "string" ? body.verdictId : null,
         contactEmail:
           typeof body.contactEmail === "string" ? body.contactEmail : null,
         context:
