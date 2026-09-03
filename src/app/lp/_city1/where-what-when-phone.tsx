@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import PhoneFrame from '@/app/(marketing)/components/phone-frame';
 import SpotHeroPhone from '@/app/(marketing)/components/spot-hero-phone';
 import type { SpotHeroFeed } from '@/app/(marketing)/components/spot-hero-feed';
@@ -36,14 +36,28 @@ import type { SpotHeroFeed } from '@/app/(marketing)/components/spot-hero-feed';
  *
  * The callouts hang outside the device on purpose, as they did on the
  * photograph: the words are the explainer, and inside the screen they would
- * cover the thing they explain. `LEFT` and `RIGHT` are the room they get, and
- * they are the component's own width, so a capture of this element is the
- * whole picture with nothing to crop.
+ * cover the thing they explain. `GUTTER` is the room they get on each side,
+ * and it is the component's own width, so a capture of this element is the
+ * whole picture with nothing to crop. Every slab ends at the picture's edge
+ * and nothing is drawn past it: the picture sits in a column, and a callout
+ * that overran it was cut off wherever the column ended.
  */
 
-/** Room outside the device for the callouts, CSS px. */
-const LEFT = 250;
-const RIGHT = 60;
+/**
+ * Room outside the device for the callouts, CSS px, the same on both sides.
+ *
+ * The photograph had 250 on the left and 60 on the right, because its
+ * "What?" pointed at a species card left of centre and its slab ran off the
+ * edge of a picture that could be cropped there. Drawn live, the target
+ * moves: a one-species mark has no card row and the callout lands on the
+ * header pill at the far right, where 60px holds neither a head nor a label.
+ * Equal gutters give the right-hand callout the room the left-hand ones
+ * have, and put the device on the centre line of its own box, so the box is
+ * centred in its column like the other two phones' rather than nudged by a
+ * margin. The sum is the old 310, so the picture is still 707 wide and shows
+ * at the same size it did.
+ */
+const GUTTER = 155;
 /** Room under the device for PhoneFrame's own drop shadow. */
 const BOTTOM = 64;
 /**
@@ -64,7 +78,7 @@ const DEVICE = "w-[397px]";
 const DEVICE_H = 860;
 
 /** The picture's own size, CSS px. What the capture script shoots. */
-export const PICTURE_W = LEFT + 397 + RIGHT;
+export const PICTURE_W = GUTTER + 397 + GUTTER;
 export const PICTURE_H = DEVICE_H + BOTTOM;
 
 /**
@@ -77,17 +91,28 @@ export const PICTURE_H = DEVICE_H + BOTTOM;
  */
 const SHOWN = 0.7;
 
-/** One callout's geometry: slab height, head height, head length. */
-const SLAB = 78;
-const HEAD_H = 152;
-const HEAD_W = 86;
 /**
- * The shortest slab that still holds a label. The left-hand callouts always
- * get it (LEFT is sized for them); the right-hand one gets it by extending
- * its tail past the gutter when its target sits far to the right, which the
- * one-species fallback (the header pill) does. The SVG overflows on purpose.
+ * One callout's geometry: slab height, head height, head length, outline
+ * width, label size.
+ *
+ * Smaller than the photograph's 78 / 152 / 86, which were cut for a 250
+ * gutter. The left-hand slab is what is left of the gutter after the head
+ * and the row's own inset, about 120px, and the label has to sit in it: a
+ * 28px "Where?" is about 100. The head keeps the photograph's proportion.
+ * A 152-tall head was also the wrong size for the rows it lands on: centred
+ * on the 19px header pill it reached up and sat on the app bar's button.
  */
-const MIN_SLAB = 150;
+const SLAB = 60;
+const HEAD_H = 92;
+const HEAD_W = 52;
+const STROKE = 8;
+const FONT = 28;
+/**
+ * How far short of its row a tip stops. The outline is stroked centred on
+ * the path, so half of it lies past the tip, and a tip put on the row's
+ * edge had that half sitting on the first glyph of the mark's name.
+ */
+const GAP = 8;
 
 interface Box {
   top: number;
@@ -100,6 +125,25 @@ interface Targets {
   name: Box;
   card: Box | null;
   window: Box | null;
+  /** The bottom of the app bar's button, which no head may reach up to. */
+  ceiling: number;
+}
+
+/**
+ * A head centred on its row, cut down when the row sits close under the
+ * app bar. The header pill is 26px below the bar's button, less than half
+ * a head, and a full head centred on it covered the button's corner. The
+ * head is shortened to the room the pill has, no further than a stub past
+ * the slab, and the tip is dropped by whatever room is still missing, which
+ * keeps it on the pill. Rows lower on the screen have the room and get the
+ * full head.
+ */
+function fitHead(row: Box, ceiling: number) {
+  let tipY = (row.top + row.bottom) / 2;
+  const room = 2 * (tipY - ceiling - STROKE);
+  const headH = Math.min(HEAD_H, Math.max(SLAB + 12, room));
+  if (room < headH) tipY += (headH - room) / 2;
+  return { tipY, headH };
 }
 
 /**
@@ -116,23 +160,26 @@ function Arrow({
   tipX,
   tipY,
   tail,
+  headH = HEAD_H,
 }: {
   label: string;
   dir: 'left' | 'right';
   tipX: number;
   tipY: number;
+  /** Where the slab ends: the picture's edge on the callout's own side. */
   tail: number;
+  headH?: number;
 }) {
   const s = dir === 'right' ? 1 : -1;
   const neck = tipX - s * HEAD_W;
   const d = [
     `M${tipX},${tipY}`,
-    `L${neck},${tipY - HEAD_H / 2}`,
+    `L${neck},${tipY - headH / 2}`,
     `L${neck},${tipY - SLAB / 2}`,
     `L${tail},${tipY - SLAB / 2}`,
     `L${tail},${tipY + SLAB / 2}`,
     `L${neck},${tipY + SLAB / 2}`,
-    `L${neck},${tipY + HEAD_H / 2}`,
+    `L${neck},${tipY + headH / 2}`,
     'Z',
   ].join('');
   return (
@@ -141,14 +188,17 @@ function Arrow({
         d={d}
         fill="#262626"
         stroke="#262626"
-        strokeWidth={10}
+        strokeWidth={STROKE}
         strokeLinejoin="round"
       />
+      {/* Centred in the slab, leaning a little towards the head: the head's
+          base is taller than the slab, so a label that is wider than a short
+          slab runs into the head rather than off the tail. */}
       <text
-        x={(neck + tail) / 2}
+        x={(neck + tail) / 2 + s * 8}
         y={tipY}
         fill="#fff"
-        fontSize={40}
+        fontSize={FONT}
         fontWeight={800}
         fontFamily="var(--font-inter), Inter, -apple-system, Helvetica, Arial, sans-serif"
         textAnchor="middle"
@@ -221,8 +271,10 @@ export default function WhereWhatWhenPhone({
           leaf('span', /·\s*(open|release|closed)$/i),
       );
       const window = box(leaf('div', /^best window$/i)?.parentElement ?? null);
+      // The app bar's button, from PhoneFrame. See fitHead.
+      const ceiling = box(leaf('span', /^start free trial$/i))?.bottom ?? 0;
       setSize({ w: el.offsetWidth, h: el.offsetHeight });
-      setTargets({ name, card, window });
+      setTargets({ name, card, window, ceiling });
     };
 
     measure();
@@ -252,7 +304,7 @@ export default function WhereWhatWhenPhone({
       style={{
         position: 'relative',
         display: 'inline-block',
-        padding: `0 ${RIGHT}px ${BOTTOM}px ${LEFT}px`,
+        padding: `0 ${GUTTER}px ${BOTTOM}px`,
         background: 'transparent',
       }}
     >
@@ -290,26 +342,29 @@ export default function WhereWhatWhenPhone({
           <Arrow
             label="Where?"
             dir="right"
-            tipX={targets.name.left - 2}
-            tipY={(targets.name.top + targets.name.bottom) / 2}
+            tipX={targets.name.left - GAP}
             tail={0}
+            {...fitHead(targets.name, targets.ceiling)}
           />
           {targets.card && (
             <Arrow
               label="What?"
               dir="left"
-              tipX={targets.card.right + 8}
-              tipY={(targets.card.top + targets.card.bottom) / 2}
-              tail={Math.max(size.w, targets.card.right + 8 + HEAD_W + MIN_SLAB)}
+              tipX={targets.card.right + GAP}
+              tail={size.w}
+              {...fitHead(targets.card, targets.ceiling)}
             />
           )}
           {targets.window && (
+            // The window is a filled panel, not a line of text, and a tip
+            // stopped at a panel's edge reads as pointing at the edge. The
+            // photograph's tip sat inside the panel; so does this one.
             <Arrow
               label="When?"
               dir="right"
-              tipX={targets.window.left + 44}
-              tipY={(targets.window.top + targets.window.bottom) / 2}
+              tipX={targets.window.left + HEAD_W / 2}
               tail={0}
+              {...fitHead(targets.window, targets.ceiling)}
             />
           )}
         </svg>
@@ -332,40 +387,85 @@ export default function WhereWhatWhenPhone({
  *
  * The scale is the column's width over the picture's, capped at SHOWN so the
  * phone inside comes out the same 278px as the two phones beside it in the
- * page, and it is computed in CSS rather than measured in JS so the server
- * render is already the right size and nothing jumps at hydration. The cap
- * is the box's max-width: at SHOWN the picture is PICTURE_W * SHOWN wide, and
- * a box that wide resolves cqw to exactly that scale.
+ * page. The cap is the box's max-width: at SHOWN the picture is PICTURE_W *
+ * SHOWN wide, and a box that wide resolves to exactly that scale. The box
+ * keeps the picture's aspect ratio, so the page reserves the right height and
+ * the caption under it does not move when the phone scales.
  *
- * The PHONE is centred, not the picture. The callouts hang further out on
- * the left than the right, so centring the box put the device 66px right of
- * the axis the alert phone under it sits on. The left margin places the
- * device's centre on the column's centre wherever there is room, and falls
- * back to a left-aligned box where there is not, which is the fit case. `tan(atan2(a, b))` is the
- * standard way to divide two lengths into a unitless number, and `cqw` reads
- * the box's width from a descendant: an element cannot query its own size, so
- * the unit sits on the child and the container-type on the box. The box keeps
- * the picture's aspect ratio, so the page reserves the right height and the
- * caption under it does not move when the phone scales.
+ * The box is centred in its column, and because the gutters are equal that
+ * centres the device too, on the axis the alert phone under it sits on. The
+ * photograph's unequal gutters needed a margin computed to put the device
+ * there, and in the fit case, where there was no room for it, the device sat
+ * right of centre with its right-hand callout cut off.
+ *
+ * ── The number is written twice: once in CSS, once measured ──────────────
+ *
+ * The server render has to be the right size already, or the page jumps at
+ * hydration, so the scale is first stated in CSS: `cqw` reads the box's width
+ * from a descendant (an element cannot query its own size, so the unit sits
+ * on the child and the container-type on the box) and the stylesheet divides
+ * it by the picture's width. Dividing two lengths into a number is the
+ * catch. `tan(atan2(a, b))` was the standard trick and Chrome and Firefox
+ * compute it, but WebKit gets it wrong whenever the lengths cannot be
+ * resolved at parse time: atan2() hands back degrees and the tan() around it
+ * reads them as radians. On a 390px phone that made the scale 2.6, the min()
+ * capped it at 1, and the picture stood at full size across the column with
+ * arrows the height of the hero (2026-09-03, an iPhone screenshot, reproduced
+ * in Playwright's WebKit). `calc(100cqw / 707px)` says the same thing without
+ * trigonometry; it is CSS Values 4 typed arithmetic, which WebKit and Chrome
+ * evaluate correctly and an older engine drops at parse time. It is listed
+ * second so it wins wherever it parses and gives way to the trig where it
+ * does not.
+ *
+ * Then, once the component is on the page, it measures the box and writes the
+ * number itself as an inline style, which beats the stylesheet and which every
+ * engine can apply. In Chrome that is the number the stylesheet already
+ * produced, so nothing moves; in a WebKit too old for typed arithmetic it is
+ * the moment the picture snaps to size. A layout effect, so it lands before
+ * the first client paint.
  */
+const FIT_CSS =
+  `.wwv-fit{` +
+  `transform:scale(min(1,tan(atan2(100cqw,${PICTURE_W}px))));` +
+  `transform:scale(min(1,calc(100cqw / ${PICTURE_W}px)))` +
+  `}`;
+
 export function WhereWhatWhenPicture(props: {
   feed: SpotHeroFeed;
   serverNowMs: number;
   deferMap?: boolean;
 }) {
+  const box = useRef<HTMLDivElement>(null);
+  const [scale, setScale] = useState<number | null>(null);
+
+  useLayoutEffect(() => {
+    const el = box.current;
+    if (!el) return;
+    const fit = () =>
+      setScale(Math.min(1, el.getBoundingClientRect().width / PICTURE_W));
+    fit();
+    const ro = new ResizeObserver(fit);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+
   return (
     <div
+      ref={box}
       style={{
         containerType: 'inline-size',
         position: 'relative',
         width: '100%',
         maxWidth: PICTURE_W * SHOWN,
         aspectRatio: `${PICTURE_W} / ${PICTURE_H}`,
-        marginLeft: `max(0px, calc(50% - ${(LEFT + 397 / 2) * SHOWN}px))`,
-        marginRight: 'auto',
+        marginInline: 'auto',
       }}
     >
+      <style href="wwv-fit" precedence="default">
+        {FIT_CSS}
+      </style>
       <div
+        className="wwv-fit"
         style={{
           position: 'absolute',
           top: 0,
@@ -373,7 +473,7 @@ export function WhereWhatWhenPicture(props: {
           width: PICTURE_W,
           height: PICTURE_H,
           transformOrigin: 'top left',
-          transform: `scale(min(1, tan(atan2(100cqw, ${PICTURE_W}px))))`,
+          transform: scale == null ? undefined : `scale(${scale})`,
         }}
       >
         <WhereWhatWhenPhone {...props} />
