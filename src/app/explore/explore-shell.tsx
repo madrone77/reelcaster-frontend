@@ -88,6 +88,7 @@ import ForecastStrip from "./components/forecast-strip";
 import { legacySpotPath, spotHref } from "@/lib/paths";
 import { withAdParams } from "@/lib/ad-mode";
 import { AdFrameProvider } from "./lib/ad-frame";
+import LeaveAdFrameWhenSignedIn from "@/components/leave-ad-frame-when-signed-in";
 
 // ── Loaded on demand ─────────────────────────────────────────────────────
 //
@@ -2123,6 +2124,8 @@ export default function ExploreShell({
     // layout is shared with the spot page, which is a long document — so the
     // surface that wants the lock owns it.
     <AdFrameProvider value={ad ? { wall: ad.wall, angle: ad.angle } : null}>
+    {/* A signed-in angler is sent to the plain map at a clean URL. */}
+    {ad ? <LeaveAdFrameWhenSignedIn /> : null}
     <div
       /* The ad frame shortens the map's box by exactly the bar's height so the
          bar never overlays water.
