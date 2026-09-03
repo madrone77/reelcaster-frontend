@@ -44,9 +44,14 @@ export interface City1Shot {
  *
  * 1 is the shipped city-first page. 4 is the same page with the WHERE / WHAT /
  * WHEN screenshot replaced by a live conditions phone -- one variable, so the
- * pair reads as an experiment rather than as two pages.
+ * pair reads as an experiment rather than as two pages. 5 is 4 with the
+ * conditions phone swapped for the screenshot's own subject, rendered: the top
+ * of one named spot page drawn from the product's components, with the three
+ * callouts measured onto it (where-what-when-phone.tsx). It keeps 4's alert
+ * band and shows 4's day chart as a fourth band under it, so 5 carries every
+ * screen the family has: the map, the spot, the text, and the day.
  */
-export type City1Variant = 1 | 4;
+export type City1Variant = 1 | 4 | 5;
 
 /**
  * A named mark and the species to draw it for, when the roster's own ranking
@@ -143,7 +148,24 @@ export interface City1City {
    */
   conditionsMark?: City1Mark;
   /**
-   * The alert text /lp/<city>/4's third phone shows arriving.
+   * The mark /lp/<city>/5's rendered where/what/when phone draws, and the
+   * species its card opens on.
+   *
+   * REQUIRED, and typed by hand rather than derived from a ranking, at Casey's
+   * call: when a city is set up, ASK HIM which spot this is. Neither ranking
+   * answers it by itself. The score ranking (what the hero uses) can lead with
+   * a mark nobody has heard of, and the report ranking (what the reel leads
+   * with once it ranks on reports) can lead with the busiest mark on a poor
+   * day. This is the page's second screen, so it is a choice, not a fallback.
+   * Same shape as `conditionsMark`, and `species` is matched against the
+   * spot's own roster the same way; see load-picture.ts.
+   *
+   * A slug that does not resolve, or a payload with no scored species, costs
+   * the phone and restores the still (`shot`), not the page.
+   */
+  pictureMark: City1Mark;
+  /**
+   * The alert text the third phone on /lp/<city>/4 and /5 shows arriving.
    *
    * The format is the alert engine's own (see alert-sms.ts); these are the
    * parts it prints. Frozen at build rather than read live, because it is a
@@ -173,7 +195,7 @@ export interface City1City {
 
 export const SEATTLE_1: City1City = {
   slug: "seattle-wa",
-  landing: { 1: "lpseattle1", 4: "lpseattle4" },
+  landing: { 1: "lpseattle1", 4: "lpseattle4", 5: "lpseattle5" },
   frame: SEATTLE_FRAME,
   heroSpecies: "Halibut, Coho, Kings or Lings",
   colourVerb: "colored",
@@ -183,6 +205,11 @@ export const SEATTLE_1: City1City = {
     height: 1820,
     mark: "Jefferson Head",
   },
+  // Casey's pick (2026-09-03): the mark the /1 still pictures, so /5's picture
+  // and /1's photograph are the same spot page. Coho is the one species
+  // scored there, so the screen draws no card row and the "What?" callout
+  // lands on the header pill instead; see where-what-when-phone.tsx.
+  pictureMark: { slug: "jefferson-head-d0d536", species: "Coho" },
   // Jefferson Head is a real Seattle mark in WDFW Marine Area 10, and 7am is
   // really where it peaks -- Coho hits its high at hour 7 there.
   // ⚠ The species and the score are Casey's copy, not today's data: Seattle's
@@ -196,7 +223,7 @@ export const SEATTLE_1: City1City = {
 
 export const VANCOUVER_1: City1City = {
   slug: "vancouver-bc",
-  landing: { 1: "lpvancouver1", 4: "lpvancouver4" },
+  landing: { 1: "lpvancouver1", 4: "lpvancouver4", 5: "lpvancouver5" },
   frame: VANCOUVER_FRAME,
   heroSpecies: "Halibut, Coho, Springs or Lings",
   colourVerb: "coloured",
@@ -211,6 +238,9 @@ export const VANCOUVER_1: City1City = {
   // fished for; it is scored there, and the loader falls through rather than
   // drawing an empty chart on a day it is not.
   conditionsMark: { slug: "the-bell-buoy-df74f1", species: "Chinook" },
+  // Casey's pick (2026-09-03): the same mark again, for the same reason as
+  // conditionsMark, so /1, /4 and /5 all picture one spot page.
+  pictureMark: { slug: "the-bell-buoy-df74f1", species: "Chinook" },
   // The same mark the phone above draws, and its real peak: Chinook scores at
   // The Bell Buoy and hour 6 is where it peaks.
   alertSms: { species: "Chinook", spot: "The Bell Buoy", score: 82, hour: 6 },

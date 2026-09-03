@@ -43,6 +43,11 @@ const PUBLIC_PREFIXES = [
   '/s/',
   '/privacy',
   '/terms',
+  // Capture surfaces for the marketing pictures (/dev/where-what-when). They
+  // exist so a script can point a headless browser at a component; every
+  // route under here must notFound() in production, and the gate is not the
+  // thing that makes that true.
+  '/dev/',
   '/contact',
   '/about',
   '/faq',
