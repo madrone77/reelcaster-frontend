@@ -230,6 +230,50 @@ export const VANCOUVER_FRAME: ReelFrame = {
 };
 
 /**
+ * Tacoma, on a panning sheet at z11.
+ *
+ * Solved by scripts/solve-reel-frame.mjs on 2026-09-03 (`tacoma-wa 11`),
+ * which offered two runs. The 8-stop sheet (752x1186) reaches north to
+ * Vashon's east side, Des Moines and Poverty Bay, which is Seattle's south
+ * end as much as it is Tacoma's water; the 6-stop sheet (496x941, 467k px)
+ * is Tacoma proper: Point Dalco and Dalco Passage across the top, Point
+ * Defiance (Clay Banks) at the mouth of the Narrows, Commencement Bay to
+ * the east, the Narrows itself and Point Fosdick at the bottom. The smaller
+ * sheet was taken because it is the water a Tacoma reader launches on, and
+ * it is 40% of Seattle's bytes for it. The roster ranked on Chinook, and
+ * on the day it was solved Point Defiance was its top score (85), which is
+ * also the mark /lp/tacoma/5's picture draws (city1-city.ts).
+ *
+ * No stop wore the Hot tag that day: Tacoma had no mark with a report in
+ * the window, so the reel's order falls back to score throughout.
+ *
+ * Widened 240 px to the east by hand after the first capture, as Vancouver's
+ * was, in three steps: the solved 496 sheet cut the map's own "Tacoma" label
+ * in half at its right edge, on the city's own landing page; 576 freed it
+ * and sliced the NOAA station label at Sitcum Waterway instead; 672 freed
+ * that and sliced the second "WDFW Marine Area 11" label over Commencement
+ * Bay. The solver only checks NDBC buoy labels, so tide-station and area
+ * labels have to be checked by eye on the capture. At 736 every label is
+ * whole, and the sheet (693k px) is a shade under Seattle's. The centre is
+ * the solve's centre plus 120 px (0.0412 degrees at z11), unrounded,
+ * because the capture was made at that value and the projection check is
+ * against it. The stops keep their solved x: the extra width is all east of
+ * them.
+ *
+ * Captured by scripts/capture-reel.mjs at exactly this centre; its check put
+ * project() against map.project() to a tenth of a pixel on every stop.
+ */
+export const TACOMA_FRAME: ReelFrame = {
+  src: "/marketing/tacoma-explore-map-v1.webp",
+  centerLng: -122.48532125,
+  centerLat: 47.26229,
+  zoom: 11,
+  width: 736,
+  height: 941,
+  regionLabel: "Pierce County",
+};
+
+/**
  * Chrome-free box, in the WINDOW's pixels. Shared by every city, and it has to
  * be: the box describes the reel's own chrome, which is the same markup at the
  * same sizes on every page that draws one.
