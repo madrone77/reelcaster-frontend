@@ -79,6 +79,16 @@ export interface ReelPin {
   name: string;
   slug: string;
   score: number;
+  /**
+   * Scraped catch reports exist here in the 21-day intel window.
+   *
+   * On the real map this is the "Hot" tag and the emerald collar a Pro viewer
+   * sees; the reel is a picture of the Pro product, so it wears them. Read
+   * off `has_reports`, which is presence only: the counts and the verdict
+   * stay behind the Pro gate, and the phone here claims no more than the
+   * payload says.
+   */
+  hot: boolean;
   lat: number;
   lng: number;
   /** Display name, "Pacific" already stripped. */
@@ -242,6 +252,7 @@ export function buildCityProof(
           name: spot.name,
           slug: spot.slug,
           score,
+          hot: spot.has_reports === true,
           lat: spot.lat,
           lng: spot.lng,
           species: speciesDisplayName(
@@ -291,7 +302,18 @@ export function buildCityProof(
   }
 
   marks.sort((a, b) => b.score - a.score);
-  pins.sort((a, b) => b.score - a.score);
+  /**
+   * The reel leads with marks that have fresh reports, then falls back to
+   * score. `marks` above stays on score, because that band answers "where is
+   * it good today" and score is the answer. The reel is a picture of the Pro
+   * product, and the thing a Pro viewer's map shows that a stranger's does
+   * not is the "Hot" tag; a reel that walked eight quiet marks past eighteen
+   * hot ones would be showing the one screen with the product's best feature
+   * cropped out. Ordering is a display decision, not a claim: every pin is
+   * still its real score, and the tag is only worn where the payload says
+   * reports exist.
+   */
+  pins.sort((a, b) => Number(b.hot) - Number(a.hot) || b.score - a.score);
 
   return {
     hero: heroMark,
