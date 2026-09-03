@@ -1,0 +1,136 @@
+name: Purge Vercel Data Cache
+
+on:
+  # Vercel reports every deployment to GitHub as a Deployment plus a series of
+  # DeploymentStatus events. We hang off the success status rather than firing
+  # on push, because the purge has to land AFTER the new build owns the domain.
+  # Purge any earlier and the deployment still serving traffic just refills the
+  # Data Cache with stale rows, which is the exact failure this guards against:
+  # new code reading old data, indistinguishable from a build that never shipped.
+  #
+  # Before git integration this was a manual `vercel cache purge --type data`
+  # chained onto every `vercel --prod` by hand. Nothing chains it now, so it
+  # lives here.
+  deployment_status:
+
+  # Lets you purge by hand without pushing anything.
+  workflow_dispatch:
+
+# The project and team ids are identifiers, not credentials; the VERCEL_TOKEN
+# repo secret is what actually authorises a purge.
+env:
+  VERCEL_ORG_ID: team_1tfuvQymhCR7N2KDA2e1lYPN
+  VERCEL_PROJECT_ID: prj_Qv3yU2f5mm26lPYiKOgHlKr6HIGU
+  VERCEL_SCOPE: casey-1425s-projects
+
+# One purge at a time. Two production deploys landing together must not race,
+# and a purge queued behind the later one is still the right answer.
+concurrency:
+  group: purge-vercel-data-cache
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  purge:
+    # deployment_status also fires for pending, in_progress and error, and for
+    # every preview build. Only a successful production deployment needs this.
+    # The environment string is Vercel's own label, so accept a production-branch
+    # ref as well and let the API check below settle it either way.
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.event.deployment_status.state == 'success' &&
+       (github.event.deployment_status.environment == 'Production' ||
+        github.event.deployment.ref == github.event.repository.default_branch))
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Check the VERCEL_TOKEN secret is present
+        id: secret
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+        run: |
+          # Skip loudly instead of failing, so a missing secret does not paint
+          # every production deploy red.
+          if [ -z "$VERCEL_TOKEN" ]; then
+            echo "::warning::VERCEL_TOKEN is not set, skipping the purge. Add it under Settings > Secrets and variables > Actions."
+            echo "present=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "present=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Confirm the deployment really targeted production
+        id: verify
+        if: steps.secret.outputs.present == 'true' && github.event_name == 'deployment_status'
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          TARGET_URL: ${{ github.event.deployment_status.target_url }}
+        run: |
+          # Read the real target off the Vercel API rather than trusting the
+          # GitHub environment label, so a relabelling upstream cannot make this
+          # purge on preview builds.
+          HOST=$(printf '%s' "$TARGET_URL" | sed -E 's#^https?://##; s#/.*$##')
+          echo "Deployment host: $HOST"
+
+          BODY=$(curl -sS -H "Authorization: Bearer $VERCEL_TOKEN" \
+            "https://api.vercel.com/v13/deployments/$HOST?teamId=$VERCEL_ORG_ID")
+
+          TARGET=$(printf '%s' "$BODY" | jq -r '.target // "null"')
+          SHA=$(printf '%s' "$BODY" | jq -r '.meta.githubCommitSha // "none"')
+          echo "target=$TARGET"
+          echo "commit=$SHA"
+          echo "sha=$SHA" >> "$GITHUB_OUTPUT"
+
+          if [ "$TARGET" != "production" ]; then
+            echo "::notice::Deployment target is '$TARGET', not production. Nothing to purge."
+            echo "proceed=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "proceed=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Purge the Data Cache
+        id: purge
+        if: >-
+          steps.secret.outputs.present == 'true' &&
+          (github.event_name == 'workflow_dispatch' || steps.verify.outputs.proceed == 'true')
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+        run: |
+          # There is no checkout in this job, so name the project explicitly
+          # rather than letting the CLI look for a .vercel/project.json link.
+          npx -y vercel@latest cache purge --type data --yes \
+            --project "$VERCEL_PROJECT_ID" \
+            --scope "$VERCEL_SCOPE" --token "$VERCEL_TOKEN"
+
+      - name: Create summary
+        if: always()
+        run: |
+          {
+            echo "# Vercel Data Cache purge"
+            echo ""
+            echo "**Time:** $(date -u +"%Y-%m-%d %H:%M:%S UTC")"
+            echo ""
+            if [ "${{ steps.secret.outputs.present }}" != "true" ]; then
+              echo "### Skipped"
+              echo ""
+              echo "\`VERCEL_TOKEN\` is not configured on this repository."
+            elif [ "${{ steps.purge.outcome }}" = "success" ]; then
+              echo "### Purged"
+              echo ""
+              echo "| Field | Value |"
+              echo "|-------|-------|"
+              echo "| Commit | \`${{ steps.verify.outputs.sha || github.sha }}\` |"
+              echo "| Trigger | \`${{ github.event_name }}\` |"
+            elif [ "${{ steps.purge.outcome }}" = "skipped" ]; then
+              echo "### Nothing to purge"
+              echo ""
+              echo "The deployment did not target production."
+            else
+              echo "### Failed"
+              echo ""
+              echo "The Data Cache still holds pre-deploy rows. Run"
+              echo "\`vercel cache purge --type data --yes --scope $VERCEL_SCOPE\` by hand."
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
