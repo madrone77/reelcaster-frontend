@@ -531,6 +531,41 @@ ${PHONE_CSS}
   .l8 .smsscreen{border-radius:36px}
 }
 
+/* ── Phones two and three, at the hero phone's width ─────────────────────
+   Both are drawn at 397 and shown at .83, which is 330: the width the Explore
+   reel above them already has. Three phones on one page at two sizes read as
+   two products; at one size they read as the same phone showing three
+   screens. Full size, the pair also came out wider than the hero's, so the
+   picture the reader met SECOND was the biggest thing on the page.
+
+   A transform and not a narrower column, for the reason product-carousel.tsx
+   gives at length: SpotTerminal's 300px measuring floor and the strip's tile
+   row are built for the 375 a real phone gives, and a 330 column would draw a
+   broken phone, not a smaller one. The app still gets its 397; only the
+   picture shrinks.
+
+   A transform does not give back the space it no longer paints, so the host
+   states the scaled size and the body is drawn inside it out of flow. The
+   height is stated for the reason the carousel states its own: on their own
+   the two bodies come out 836 and 834, and a shared 836 keeps the phone the
+   same height in both bands. The alert screen gives up its aspect and grows
+   2px; nothing is squashed. Desktop only: below the two-column break each
+   phone already has the whole gutter and needs every pixel of it (above). */
+@media(min-width:940px){
+  .l8 .wwwsec .condphone,.l8 .smssec .smsphone{
+    position:relative;display:block;
+    width:329.5px;height:694px;margin-inline:auto;
+  }
+  .l8 .wwwsec .condbody,.l8 .smssec .smsbody{
+    position:absolute;top:0;left:0;
+    width:397px;min-height:836px;
+    display:flex;flex-direction:column;
+    transform:scale(.83);transform-origin:top left;
+  }
+  .l8 .wwwsec .condscreen,.l8 .smssec .smsscreen{flex:1 1 auto}
+  .l8 .smssec .smsscreen{aspect-ratio:auto}
+}
+
 .l8 .wwwsec{background:var(--l8-panel);border-block:1px solid var(--l8-rule)}
 .l8 .www{display:grid;grid-template-columns:1fr;gap:clamp(28px,4vw,56px);align-items:center}
 /* Screenshot LEFT here, which is the mirror of the hero above it.
