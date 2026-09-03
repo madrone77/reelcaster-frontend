@@ -227,10 +227,12 @@ export default function ProTrialModal({
     captureWall(feature, from);
   }, [open, feature, viewerTier, from, trackEvent, bumpCounter]);
 
-  // Which shape. `useIsPhone` reads false until it has measured, so the first
-  // client render matches the server's and the sheet never flashes on a
-  // desktop. The modal only ever opens on an interaction, so there is no
-  // moment where a reader watches it decide.
+  // Which shape. `useIsPhone` answers on the first client render, so the
+  // shape this mounts in is the shape it keeps. It used to measure in an
+  // effect and answer false first, which mounted and opened the centred
+  // dialog, then swapped it for the sheet a frame later, and on WebKit the
+  // sheet's outside-tap listener could catch the tail of the opening tap and
+  // dismiss the sheet on the spot. See the hook for the full story.
   const phone = useIsPhone();
 
   if (phone) {
