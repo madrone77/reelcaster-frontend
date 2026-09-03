@@ -67,6 +67,16 @@ const DEVICE_H = 860;
 export const PICTURE_W = LEFT + 397 + RIGHT;
 export const PICTURE_H = DEVICE_H + BOTTOM;
 
+/**
+ * The scale the picture is SHOWN at on the landing page, and it is the
+ * other two phones' number, not this one's: city1-css.ts draws the
+ * conditions phone and the alert phone at 397 and shows them at .7, a fixed
+ * 278px at every width, so the three screens under the hero are one size.
+ * The same rule is a string in that stylesheet and cannot be imported;
+ * change both or the picture is the odd phone out again.
+ */
+const SHOWN = 0.7;
+
 /** One callout's geometry: slab height, head height, head length. */
 const SLAB = 78;
 const HEAD_H = 152;
@@ -317,9 +327,18 @@ export default function WhereWhatWhenPhone({
  * picture is drawn at full size and SCALED, the way that carousel shows its
  * devices at 65%.
  *
- * The scale is the column's width over the picture's, capped at 1, and it is
- * computed in CSS rather than measured in JS so the server render is already
- * the right size and nothing jumps at hydration. `tan(atan2(a, b))` is the
+ * The scale is the column's width over the picture's, capped at SHOWN so the
+ * phone inside comes out the same 278px as the two phones beside it in the
+ * page, and it is computed in CSS rather than measured in JS so the server
+ * render is already the right size and nothing jumps at hydration. The cap
+ * is the box's max-width: at SHOWN the picture is PICTURE_W * SHOWN wide, and
+ * a box that wide resolves cqw to exactly that scale.
+ *
+ * The PHONE is centred, not the picture. The callouts hang further out on
+ * the left than the right, so centring the box put the device 66px right of
+ * the axis the alert phone under it sits on. The left margin places the
+ * device's centre on the column's centre wherever there is room, and falls
+ * back to a left-aligned box where there is not, which is the fit case. `tan(atan2(a, b))` is the
  * standard way to divide two lengths into a unitless number, and `cqw` reads
  * the box's width from a descendant: an element cannot query its own size, so
  * the unit sits on the child and the container-type on the box. The box keeps
@@ -336,9 +355,10 @@ export function WhereWhatWhenPicture(props: {
         containerType: 'inline-size',
         position: 'relative',
         width: '100%',
-        maxWidth: PICTURE_W,
+        maxWidth: PICTURE_W * SHOWN,
         aspectRatio: `${PICTURE_W} / ${PICTURE_H}`,
-        margin: '0 auto',
+        marginLeft: `max(0px, calc(50% - ${(LEFT + 397 / 2) * SHOWN}px))`,
+        marginRight: 'auto',
       }}
     >
       <div
