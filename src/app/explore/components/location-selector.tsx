@@ -10,10 +10,8 @@ import {
   LocateFixed,
   Map as MapIcon,
   MapPin,
-  MapPinPlus,
   PanelLeftClose,
   Search,
-  SlidersHorizontal,
 } from "lucide-react";
 import {
   TIER_PILL,
@@ -74,11 +72,9 @@ export default function LocationSelector({
   onSelectSpot,
   onSelectRegion,
   onSelectSpecies,
-  onFilterClick,
-  activeFilters = 0,
+  compact = false,
   onNearMe,
   locating = false,
-  onAddSpot,
   onCollapse,
   mapControls,
   near,
@@ -93,21 +89,16 @@ export default function LocationSelector({
   onSelectRegion: (bbox: number[]) => void;
   /** Search pick: pin the species filter rather than moving the map. */
   onSelectSpecies: (id: string, name: string) => void;
-  /** Mobile only — opens the map-filter sheet. Omitted on desktop (inert). */
-  onFilterClick?: () => void;
-  /** Mobile only — how many map filters are off their default. Badges the
-   *  Filters button, so a narrowed map says so from the outside. */
-  activeFilters?: number;
+  /** Mobile only — render the trigger as a Search pill rather than the city
+   *  row. The phone's top row (MobileTopRow) carries Filters and Add spot
+   *  beside it; this component only owns the search and the sheet it opens. */
+  compact?: boolean;
   /** Mobile only — recentres on the viewer. Desktop reaches this through
-   *  `mapControls`; on a phone it sits in the header with the other map moves,
-   *  because it is a camera action and not a filter. */
+   *  `mapControls`; on a phone it is the first row of the search sheet. */
   onNearMe?: () => void;
   locating?: boolean;
-  /** Mobile only — arms custom-spot placement. Sits beside Filters instead of a
-   *  floating pill. Omitted on desktop (the rail header carries this action). */
-  onAddSpot?: () => void;
   /** Desktop rail only — collapses the rail to a reopen button. Rendered on the
-   *  right of the location row (where mobile puts Add spot / Filters). */
+   *  right of the location row. */
   onCollapse?: () => void;
   /** Desktop only — supplies the "Near me" action. */
   mapControls?: MapControlsProps;
@@ -121,7 +112,15 @@ export default function LocationSelector({
   const listRef = useRef<HTMLDivElement>(null);
 
   const searching = query.trim().length >= 2;
-  const { results, loading, truncated, settled } = useSearch(query, near);
+  const { results: allResults, loading, truncated, settled } = useSearch(query, near);
+  // The phone's search finds places, not fish. Species already has a home one
+  // tap away in the filter sheet, and a species row in a list of spots and
+  // cities was the one result that moved nothing on the map. Desktop keeps
+  // species: its rail has no filter sheet, so search is how it gets there.
+  const results = useMemo(
+    () => (compact ? allResults.filter((r) => r.kind !== "species") : allResults),
+    [allResults, compact],
+  );
   const groups = useMemo(() => groupResults(results), [results]);
   const [flat, active, setActive, handleNavKey] = useFlatNavigation(groups);
 
@@ -256,8 +255,12 @@ export default function LocationSelector({
             }
             if (e.key === "Enter" && cities.length > 0) pickCity(cities[0]);
           }}
-          placeholder="Search spots, cities, species…"
-          aria-label="Search spots, cities, areas and species"
+          placeholder={compact ? "Search spots and cities…" : "Search spots, cities, species…"}
+          aria-label={
+            compact
+              ? "Search spots, cities and areas"
+              : "Search spots, cities, areas and species"
+          }
           className="w-full bg-transparent text-sm text-rc-ink outline-none placeholder:text-rc-ink-mute"
         />
         {loading && (
@@ -266,18 +269,22 @@ export default function LocationSelector({
       </div>
 
       <div ref={listRef}>
-        {!searching && mapControls && (
+        {/* Near me leads the browse list on both breakpoints. The phone used
+            to carry it as a button in the top row; that row is spoken for
+            now, and a camera move belongs with the other ways of choosing
+            where to look. */}
+        {!searching && (mapControls || onNearMe) && (
           <>
             <button
               type="button"
               onClick={() => {
-                mapControls.onNearMe();
+                (mapControls ? mapControls.onNearMe : onNearMe)?.();
                 setOpen(false);
               }}
-              disabled={mapControls.locating}
+              disabled={mapControls ? mapControls.locating : locating}
               className="flex items-center gap-2.5 w-full px-3 py-2 text-sm font-medium text-rc-ink hover:bg-rc-surface transition-colors disabled:opacity-60"
             >
-              {mapControls.locating ? (
+              {(mapControls ? mapControls.locating : locating) ? (
                 <Loader2 className="w-4 h-4 animate-spin text-rc-ink-mute shrink-0" />
               ) : (
                 <LocateFixed className="w-4 h-4 text-rc-ink-mute shrink-0" />
@@ -381,6 +388,22 @@ export default function LocationSelector({
 
   return (
     <div ref={rootRef} className="relative">
+      {compact ? (
+        /* The phone's trigger: a Search pill, not the city's name. The browse
+           sheet under the map already names the city, and search is the rare
+           action here, so the pill is sized for what it is and Add spot takes
+           the width it gives up (see MobileTopRow). */
+        <button
+          type="button"
+          onClick={() => setOpen((v) => !v)}
+          aria-expanded={open}
+          aria-label="Search spots, cities and species"
+          className="flex h-11 shrink-0 items-center gap-2 rounded-full border border-rc-rule bg-rc-panel/95 pl-3.5 pr-4 text-[14px] font-semibold text-rc-ink shadow-rc-panel backdrop-blur"
+        >
+          <Search className="h-4 w-4 shrink-0 text-rc-ink-mute" />
+          Search
+        </button>
+      ) : (
       <div className="flex items-center px-3 py-2">
         <button
           type="button"
@@ -398,63 +421,6 @@ export default function LocationSelector({
             className={`w-4 h-4 text-rc-ink-mute shrink-0 transition-transform ${open ? "rotate-180" : ""}`}
           />
         </button>
-        {!mapControls && (onAddSpot || onFilterClick) && (
-          <>
-            <div className="flex-1" />
-            {/* Mobile-only (desktop passes mapControls instead). Add-spot sits
-                beside Filters here rather than floating over the map, and both
-                are sized for a thumb. */}
-            <div className="flex items-center gap-1.5 shrink-0">
-              {onAddSpot && (
-                <button
-                  type="button"
-                  onClick={onAddSpot}
-                  className="flex items-center gap-1.5 h-10 rounded-lg border border-rc-rule px-3 text-[13px] font-semibold text-rc-brand hover:bg-rc-surface transition-colors"
-                >
-                  <MapPinPlus className="w-4 h-4 shrink-0" />
-                  Add spot
-                </button>
-              )}
-              {onNearMe && (
-                <button
-                  type="button"
-                  aria-label="Find spots near me"
-                  onClick={onNearMe}
-                  disabled={locating}
-                  className="flex items-center justify-center w-10 h-10 rounded-lg border border-rc-rule text-rc-ink-soft hover:bg-rc-surface transition-colors disabled:opacity-60"
-                >
-                  {locating ? (
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                  ) : (
-                    <LocateFixed className="w-4 h-4" />
-                  )}
-                </button>
-              )}
-              {onFilterClick && (
-                <button
-                  type="button"
-                  aria-label={
-                    activeFilters > 0
-                      ? `Filters (${activeFilters} on)`
-                      : "Filters"
-                  }
-                  onClick={onFilterClick}
-                  className="relative flex items-center justify-center w-10 h-10 rounded-lg border border-rc-rule text-rc-ink-soft hover:bg-rc-surface transition-colors"
-                >
-                  <SlidersHorizontal className="w-4 h-4" />
-                  {/* The only thing on this screen that says the map is
-                      narrowed. Without it a filtered map and an empty stretch
-                      of water look the same. */}
-                  {activeFilters > 0 && (
-                    <span className="absolute -top-1 -right-1 flex h-4 min-w-4 items-center justify-center rounded-full border-2 border-rc-panel bg-rc-brand px-1 font-rc-mono text-[9px] font-bold leading-none text-white">
-                      {activeFilters}
-                    </span>
-                  )}
-                </button>
-              )}
-            </div>
-          </>
-        )}
         {mapControls && onCollapse && (
           <>
             <div className="flex-1" />
@@ -470,6 +436,7 @@ export default function LocationSelector({
           </>
         )}
       </div>
+      )}
 
       {/* Desktop — anchored dropdown below the pill. */}
       {open && !isMobile && (
@@ -485,19 +452,23 @@ export default function LocationSelector({
         isMobile &&
         createPortal(
           <>
+            {/* Scrim and sheet both sit BELOW the floating tab bar (z-50). The
+                sheet used to ride above it under a scrim that dimmed the bar
+                too, which made a search look like a modal you had to get out
+                of. It is a sheet pulled up behind the nav now, the way the
+                browse sheet is: the bar stays lit and tappable on top, and the
+                list runs to the screen's bottom edge under it. */}
             <div
-              className="fixed inset-0 z-[60] bg-black/30"
+              className="fixed inset-0 z-40 bg-black/30"
               onClick={() => setOpen(false)}
             />
-            {/* Rides above the floating tab bar, like the filter sheet it sits
-                beside in the header. The clearance already carries the safe
-                area, so the sheet's own padding does not repeat it. */}
             {/* With the keyboard up the sheet sits on top of it and takes the
                 whole visible area, so the search field it is anchored to stays
-                on screen. Without it, the sheet is the same bottom sheet as
-                before. Both numbers are measured, never `vh`: `vh` on iOS is
-                the tall-viewport height, which is larger than what the viewer
-                can see the moment any browser chrome or keyboard is up. */}
+                on screen. The bar is behind the keyboard then, so the bottom
+                padding that clears it goes too. Both numbers are measured,
+                never `vh`: `vh` on iOS is the tall-viewport height, which is
+                larger than what the viewer can see the moment any browser
+                chrome or keyboard is up. */}
             <div
               style={
                 keyboard > 0
@@ -505,10 +476,10 @@ export default function LocationSelector({
                       bottom: keyboard,
                       maxHeight: Math.max(visibleHeight - 12, 160),
                     }
-                  : { bottom: "var(--rc-tabbar-clearance)" }
+                  : { bottom: 0, paddingBottom: "var(--rc-tabbar-clearance)" }
               }
-              className={`fixed inset-x-0 z-[61] overflow-y-auto overscroll-contain bg-rc-panel rounded-t-2xl shadow-rc-panel animate-slide-up pb-2 ${
-                keyboard > 0 ? "" : "max-h-[75vh]"
+              className={`fixed inset-x-0 z-[41] overflow-y-auto overscroll-contain bg-rc-panel rounded-t-2xl shadow-rc-panel animate-slide-up ${
+                keyboard > 0 ? "pb-2" : "max-h-[82vh]"
               }`}
             >
               <div className="flex justify-center pt-2.5 pb-1">

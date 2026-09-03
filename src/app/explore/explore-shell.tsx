@@ -2,7 +2,6 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import dynamic from "next/dynamic";
-import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import type { MapRef } from "react-map-gl/maplibre";
 import type { MapSpotsPayload } from "@/lib/bluecaster";
@@ -80,6 +79,10 @@ import { X } from "lucide-react";
 import LeftRail from "./components/left-rail";
 import LocationSelector from "./components/location-selector";
 import MobileMapSheet from "./components/mobile-map-sheet";
+import MobileTopRow from "./components/mobile-top-row";
+import MobileLayersControl from "./components/mobile-layers-control";
+import MobileHourBar from "./components/mobile-hour-bar";
+import type { FlowKind } from "./lib/use-flow";
 import ForecastStrip from "./components/forecast-strip";
 import { legacySpotPath, spotHref } from "@/lib/paths";
 import { withAdParams } from "@/lib/ad-mode";
@@ -424,7 +427,7 @@ export default function ExploreShell({
   // `labels: false` is ignored for the same reason.
   const labels = true;
   // Currents and Wind share one piece of state, so only ever one of them draws.
-  const { currents, wind, toggleCurrents, toggleWind, setFlow } = useFlowLayer();
+  const { flow, currents, wind, toggleCurrents, toggleWind, setFlow } = useFlowLayer();
   const [speciesFilter, setSpeciesFilter] = useState<string | null>(null);
 
   // ── Map filters (the phone filter sheet) ────────────────────────────
@@ -1067,6 +1070,31 @@ export default function ExploreShell({
         : null,
     [flowHour, selectedIso],
   );
+
+  // The phone's layers button. Turning the flow field off also lets go of the
+  // scrubbed hour: the hour bar is the only control that shows the hour on a
+  // phone, and it leaves with the field, so pins held at 4 PM with nothing on
+  // screen saying so would read as the wrong scores.
+  const handleMobileFlow = useCallback(
+    (next: FlowKind | null) => {
+      setFlow(next);
+      if (next === null) setScrubHour(null);
+    },
+    [setFlow],
+  );
+
+  // The map's bearing, for the compass in the phone's top row. Reported by the
+  // map on every rotate frame; kept to whole degrees and only written when the
+  // degree changes, so a two-finger turn re-renders this shell once per degree
+  // rather than once per frame. The needle cannot show a fraction anyway.
+  const [bearing, setBearing] = useState(0);
+  const handleBearingChange = useCallback((b: number) => {
+    const deg = Math.round(b);
+    setBearing((cur) => (cur === deg ? cur : deg));
+  }, []);
+  const handleResetNorth = useCallback(() => {
+    mapRef.current?.getMap().resetNorth({ duration: 300 });
+  }, []);
 
   // Selecting a spot flies the camera, and the drawer opening resizes the map;
   // both report a new viewport, which mints new bbox keys and refetches the
@@ -2156,54 +2184,48 @@ export default function ExploreShell({
         </div>
       )}
 
-      {/* Mobile-only location header — floats over the top of the full-screen
-          map (Zillow-style), on the map's own top edge when there is no bar and
-          just under it when there is. Desktop shows the same selector inside
-          the rail.
+      {/* Mobile-only top row — floats over the top of the full-screen map, on
+          the map's own top edge when there is no bar and just under it when
+          there is: Search, Filters, a compass, and Add spot across the rest.
+          Desktop shows the location selector inside the rail instead.
 
-          An inset pill, not an edge-to-edge band: as a band it read as a second
-          header stacked under the top bar, and between the two of them a phone
-          gave up its first 110px before any water showed. The map already runs
-          underneath either way — this just lets it be seen. The outer div is
-          click-through so dragging the map beside the pill still works, and it
-          is what carries MAP_INSET_ATTR, so the camera keeps correcting for the
-          whole band the pill sits in. */}
+          Four separate controls on the water, not one white bar: as a bar it
+          read as a second header stacked under the top bar, and between the
+          two of them a phone gave up its first 110px before any water showed.
+          The outer div is click-through so dragging the map between the
+          pills still works, and it is what carries MAP_INSET_ATTR, so the
+          camera keeps correcting for the whole band the row sits in.
+
+          The Pro avatar that used to sit here is gone with the bar's width;
+          the More tab's Account row is the way to the account now. */}
       <div
         {...{ [MAP_INSET_ATTR]: "top" }}
         className={`lg:hidden pointer-events-none absolute ${mobileTop} inset-x-0 z-20 px-3 pt-2`}
       >
-        <div className="pointer-events-auto flex items-center rounded-xl border border-rc-rule bg-rc-panel/95 shadow-rc-panel backdrop-blur">
-        <div className="min-w-0 flex-1">
-        <LocationSelector
-          locations={data.locations}
-          selectedCity={labelCity}
-          onSelectCity={handleSelectCity}
-          onSelectSpot={handleSearchSelectSpot}
-          onSelectRegion={handleSearchSelectRegion}
-          onSelectSpecies={handleSearchSelectSpecies}
-          near={searchNear}
-          onFilterClick={() => setFilterOpen(true)}
-          activeFilters={activeFilters}
-          onNearMe={handleNearMe}
-          locating={locating}
-          onAddSpot={
-            !customMode && !tierLoading ? handleCreateCustomSpot : undefined
-          }
-        />
-        </div>
-        {/* Pro only: the one viewer with no bar above, and so no other way to
-            reach an account from this screen. Everyone else has the bar, which
-            carries both the avatar and the offer, and a 351px pill has no room
-            to say either of those things twice. */}
-        {isPaid && user && (
-          <Link
-            href="/profile"
-            aria-label="Profile"
-            className="mr-2 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-rc-ink font-rc-mono text-[11px] font-bold text-white"
-          >
-            {user.email ? user.email.slice(0, 2).toUpperCase() : "RC"}
-          </Link>
-        )}
+        <div className="pointer-events-auto">
+          <MobileTopRow
+            search={
+              <LocationSelector
+                compact
+                locations={data.locations}
+                selectedCity={labelCity}
+                onSelectCity={handleSelectCity}
+                onSelectSpot={handleSearchSelectSpot}
+                onSelectRegion={handleSearchSelectRegion}
+                onSelectSpecies={handleSearchSelectSpecies}
+                near={searchNear}
+                onNearMe={handleNearMe}
+                locating={locating}
+              />
+            }
+            onFilterClick={() => setFilterOpen(true)}
+            activeFilters={activeFilters}
+            bearing={bearing}
+            onResetNorth={handleResetNorth}
+            onAddSpot={
+              !customMode && !tierLoading ? handleCreateCustomSpot : undefined
+            }
+          />
         </div>
       </div>
 
@@ -2244,6 +2266,7 @@ export default function ExploreShell({
           // is the right way round: a Pro viewer waits a beat, a free one never
           // sees them.
           showReports={isPaid}
+          onBearingChange={handleBearingChange}
         />
 
         {/* The "Create custom spot" action no longer floats over the map: on
@@ -2299,10 +2322,37 @@ export default function ExploreShell({
       />
       )}
 
-      {/* Mobile-only pull-up spot sheet over the map (Zillow-style). */}
+      {/* Mobile-only pull-up spot sheet over the map (Zillow-style). Takes the
+          hour-scored list, like the desktop rail, so dragging the hour bar
+          re-ranks the cards under it. */}
       <MobileMapSheet
-        spots={railSpots}
+        spots={railDisplaySpots}
         tz={MAP_TZ}
+        aboveSheet={
+          <div className="flex flex-col items-start gap-2">
+            <MobileLayersControl
+              flow={flow}
+              onFlowChange={handleMobileFlow}
+              relief={relief && !depthLocked}
+              onToggleRelief={() => setRelief((v) => !v)}
+              depthLocked={depthLocked}
+              onUnlockDepth={handleUnlockDepth}
+            />
+            {flow && (
+              <div className="w-full">
+                <MobileHourBar
+                  kind={flow}
+                  hours={selectedDayHours}
+                  scrubHour={scrubHour}
+                  peakHour={peakHour}
+                  onScrubHour={setScrubHour}
+                  onReset={() => setScrubHour(null)}
+                  onClose={() => handleMobileFlow(null)}
+                />
+              </div>
+            )}
+          </div>
+        }
         locationName={labelCity?.name ?? null}
         onSelectSpot={handleSelectSpot}
         forecastModel={stripModel}
@@ -2393,14 +2443,6 @@ export default function ExploreShell({
       <MobileFilterSheet
         open={filterOpen}
         onClose={() => setFilterOpen(false)}
-        relief={relief && !depthLocked}
-        depthLocked={depthLocked}
-        onUnlockDepth={handleUnlockDepth}
-        currents={currents}
-        wind={wind}
-        onToggleRelief={() => setRelief((v) => !v)}
-        onToggleCurrents={toggleCurrents}
-        onToggleWind={toggleWind}
         // The in-view scores, like the desktop chips — the sheet's species rows
         // exist to say which fish is worth chasing HERE, and `allSpecies`
         // carries the opening payload's seed scores for water that may be a

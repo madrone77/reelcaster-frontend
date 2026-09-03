@@ -1,6 +1,14 @@
 "use client";
 
-import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  Fragment,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ReactNode,
+} from "react";
 import { ChevronDown, ChevronUp, X } from "lucide-react";
 import AdSlot from "@/app/components/ads/ad-slot";
 import type { RailSpot } from "../lib/explore-data";
@@ -62,6 +70,7 @@ export default function MobileMapSheet({
   previewAnchorSlug = null,
   onPreviewSlug,
   onClosePreview,
+  aboveSheet,
 }: {
   spots: RailSpot[];
   tz: string;
@@ -97,6 +106,16 @@ export default function MobileMapSheet({
   onPreviewSlug?: (slug: string) => void;
   /** Dismiss the preview and go back to the browse list. */
   onClosePreview?: () => void;
+  /**
+   * Map chrome that rides on the browse sheet's top edge: the layers button
+   * and the hour bar. Rendered here rather than positioned from outside
+   * because the sheet's height is its own business (detents, a live drag),
+   * and chrome pinned to a guessed offset either buried itself under the
+   * sheet or floated in the water above it. Hidden at the full detent, where
+   * there is no map left to be chrome for, and not shown at all under the
+   * preview dock, where the card takes the map.
+   */
+  aboveSheet?: ReactNode;
 }) {
   const [sort, setSort] = useState<SortKey>("score");
   const sorted = useMemo(() => sortSpots(spots, sort), [spots, sort]);
@@ -326,6 +345,38 @@ export default function MobileMapSheet({
     ro.observe(el);
     dockRO.current = ro;
   }, []);
+  // What the chrome above the sheet covers, measured the same way, so the
+  // camera and the ⓘ keep clear of the hour bar as well as the sheet. Folded
+  // into the resting height the sheet reports rather than declared as its own
+  // inset panel: the slot is pinned to the sheet's top edge and moves with a
+  // drag, and a panel measured off its live top would chase the drag exactly
+  // the way the sheet itself is careful not to.
+  const [slotH, setSlotH] = useState(0);
+  const slotRO = useRef<ResizeObserver | null>(null);
+  const slotRef = useCallback((el: HTMLDivElement | null) => {
+    slotRO.current?.disconnect();
+    slotRO.current = null;
+    if (!el || typeof ResizeObserver === "undefined") {
+      setSlotH(0);
+      return;
+    }
+    setSlotH(Math.round(el.offsetHeight));
+    const ro = new ResizeObserver(() => setSlotH(Math.round(el.offsetHeight)));
+    ro.observe(el);
+    slotRO.current = ro;
+  }, []);
+  // Click-through gutter with live children, so the map beside the layers
+  // button still pans. `bottom-full` keeps it on the sheet's top edge at every
+  // detent and through a drag.
+  const slot = aboveSheet ? (
+    <div
+      ref={slotRef}
+      className="pointer-events-none absolute inset-x-0 bottom-full px-3 pb-2 [&>*]:pointer-events-auto"
+    >
+      {aboveSheet}
+    </div>
+  ) : null;
+
   const centredIndex = useCallback(() => {
     const el = railRef.current;
     if (!el) return -1;
@@ -456,6 +507,10 @@ export default function MobileMapSheet({
           className="lg:hidden fixed inset-x-0 z-30 pt-1"
           style={{ bottom: "var(--rc-tabbar-clearance)" }}
         >
+          {/* No layer chrome here, deliberately. With a card in hand the card
+              is the thing, the way a tapped home on Zillow clears the map's
+              controls, and the layers keep drawing whatever was chosen. The
+              button and the hour bar come back with the browse sheet. */}
           {/* Both controls hug the LEFT edge: the map's zoom buttons live at
               the right, and a close button under them is a 44px target sharing
               an edge with "zoom out". */}
@@ -549,7 +604,7 @@ export default function MobileMapSheet({
         // The resting height is what gets measured, not `height`: the sheet can
         // be dragged up to browse, but it always comes back at peek, and that is
         // the frame the return trip will be seen in.
-        {...{ [MAP_INSET_ATTR]: "bottom", [MAP_INSET_RESTING_ATTR]: String(collapsed ? COLLAPSED_H : detents.peek) }}
+        {...{ [MAP_INSET_ATTR]: "bottom", [MAP_INSET_RESTING_ATTR]: String((collapsed ? COLLAPSED_H : detents.peek) + slotH) }}
         className="lg:hidden fixed inset-x-0 z-30 flex flex-col rounded-t-2xl border-t border-rc-rule bg-rc-panel shadow-[0_-8px_30px_rgba(15,23,42,0.12)]"
         style={{
           // Sit above the floating bottom tab bar (see --rc-tabbar-clearance).
@@ -561,6 +616,14 @@ export default function MobileMapSheet({
         role="dialog"
         aria-label="Spots in view"
       >
+      {/* The map chrome, on the top edge. Gone at full, where the sheet has
+          taken the map, and gone on a short screen (a phone on its side) while
+          the sheet is open: peek plus the tab bar already cover a landscape
+          phone to the top row, and the layers button was landing on the
+          Search pill. Folding the sheet to its slim bar brings it back, since
+          that is the only way to see the map there anyway. */}
+      {(collapsed || (vh || 800) >= 600) && !(detent === "full" && !collapsed) && slot}
+
       {/* Collapsed — a slim bar. Tap anywhere on it to reopen to peek. */}
       {collapsed && (
         <button

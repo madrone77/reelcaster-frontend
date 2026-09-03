@@ -460,6 +460,17 @@
   right: 10px;
   bottom: calc(var(--rc-map-sheet-inset, 0px) + 77px);
 }
+/* A phone has no zoom buttons: pinch and double-tap do that job, and the two
+   controls stood in the corner the layers button and hour bar now want. The ⓘ
+   drops into the slot the zoom group left. */
+@media (max-width: 1023px) {
+  .rc-explore-map .maplibregl-ctrl-bottom-right .maplibregl-ctrl-group {
+    display: none;
+  }
+  .rc-explore-map .maplibregl-ctrl-bottom-right .maplibregl-ctrl-attrib {
+    bottom: calc(var(--rc-map-sheet-inset, 0px) + 9.5px);
+  }
+}
 /* Collapsed, the ⓘ is a 24px square and centres over the 29px zoom group.
    Expanded it is a wide text panel, which stays flush at 10px. */
 .rc-explore-map

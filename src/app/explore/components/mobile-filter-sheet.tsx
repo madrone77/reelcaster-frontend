@@ -16,16 +16,6 @@ export type ScoreFloor = 0 | 55 | 75;
 interface MobileFilterSheetProps {
   open: boolean;
   onClose: () => void;
-  relief: boolean;
-  /** The depth gate applies: the bathymetry row becomes the way back.
-   *  See @/lib/preview-gate. */
-  depthLocked?: boolean;
-  onUnlockDepth?: () => void;
-  currents: boolean;
-  wind: boolean;
-  onToggleRelief: () => void;
-  onToggleCurrents: () => void;
-  onToggleWind: () => void;
   species: SpeciesOption[];
   speciesFilter: string | null;
   onSpeciesChange: (id: string | null) => void;
@@ -57,8 +47,8 @@ interface MobileFilterSheetProps {
  * geometry, and the shared components hug.
  *
  * The rule for which control a choice gets: exclusive → radiogroup, independent
- * → switch. That is what makes Currents/Wind read correctly (they are one
- * choice) without a comment explaining the rule to the user.
+ * → switch. The score floor is the radiogroup; the report and saved cuts are
+ * switches.
  */
 const SEG_WRAP = "flex rounded-sm border border-rc-rule bg-rc-surface p-0.5";
 const SEG_BTN =
@@ -228,14 +218,6 @@ function SpeciesRow({
 export default function MobileFilterSheet({
   open,
   onClose,
-  relief,
-  depthLocked = false,
-  onUnlockDepth,
-  currents,
-  wind,
-  onToggleRelief,
-  onToggleCurrents,
-  onToggleWind,
   species,
   speciesFilter,
   onSpeciesChange,
@@ -280,12 +262,6 @@ export default function MobileFilterSheet({
     onSpeciesChange(id);
     onClose();
   };
-
-  const flow: "off" | "currents" | "wind" = currents
-    ? "currents"
-    : wind
-      ? "wind"
-      : "off";
 
   return (
     <>
@@ -433,48 +409,10 @@ export default function MobileFilterSheet({
               )}
             </div>
 
-            <div className="space-y-1">
-              <div className="rc-label mb-1.5">Map</div>
-              {/* One control because it is one choice: the flow layer is
-                  exclusive in useFlowLayer, and two chips said otherwise. */}
-              <Segmented<"off" | "currents" | "wind">
-                label="Water overlay"
-                value={flow}
-                onChange={(next) => {
-                  if (next === flow) return;
-                  if (next === "currents") onToggleCurrents();
-                  else if (next === "wind") onToggleWind();
-                  else if (flow === "currents") onToggleCurrents();
-                  else onToggleWind();
-                }}
-                options={[
-                  { value: "off", label: "No flow" },
-                  { value: "currents", label: "Currents" },
-                  { value: "wind", label: "Wind" },
-                ]}
-              />
-              {/* Locked: a row, not a switch. A switch that flips back on its
-                  own would read as a bug, and a missing row would leave the
-                  phone with no way back at all — the desktop chip is the only
-                  other one. */}
-              {depthLocked ? (
-                <button
-                  type="button"
-                  onClick={onUnlockDepth}
-                  data-testid="depth-unlock-mobile"
-                  className="flex min-h-12 w-full items-center justify-between gap-3 text-left text-base font-semibold text-rc-brand"
-                >
-                  Bathymetry
-                  <span className="text-sm font-medium">Member</span>
-                </button>
-              ) : (
-                <SwitchRow
-                  label="Bathymetry"
-                  checked={relief}
-                  onChange={onToggleRelief}
-                />
-              )}
-            </div>
+            {/* No "Map" section any more. Bathymetry, Currents and Wind are
+                the layers button on the map itself (MobileLayersControl): a
+                layer changes what the map draws, not which spots are on it,
+                and it was three taps deep under a heading that said filters. */}
 
             <button
               type="button"
