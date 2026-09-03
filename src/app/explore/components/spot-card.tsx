@@ -3,7 +3,7 @@
 import Link from "next/link";
 import dynamic from "next/dynamic";
 import { useState } from "react";
-import { Wind, Waves, Navigation, Lock, Globe } from "lucide-react";
+import { Wind, Waves, Navigation, Lock, Globe, Flag } from "lucide-react";
 import { TIER_PILL, tierFor, type RailSpot } from "../lib/explore-data";
 import { areaLabelFor } from "@/lib/regions";
 import { useFavorite } from "../lib/use-favorite";
@@ -20,6 +20,12 @@ const ProTrialModal = dynamic(
   () => import("@/app/components/paywall/pro-trial-modal"),
   { ssr: false },
 );
+
+// Loaded only once somebody actually reaches for it. A card in a rail of forty
+// must not pay for a dialog that almost nobody opens.
+const ReportIssueDialog = dynamic(() => import("./report-issue-dialog"), {
+  ssr: false,
+});
 
 
 /**
@@ -74,6 +80,7 @@ export default function SpotCard({
   const [upgradeOpen, setUpgradeOpen] = useState(false);
   const [reportsUpgradeOpen, setReportsUpgradeOpen] = useState(false);
   const [forecastUpgradeOpen, setForecastUpgradeOpen] = useState(false);
+  const [reportIssueOpen, setReportIssueOpen] = useState(false);
   // Drives the one-shot "pop" animation when a spot is favorited (not on load).
   const [popping, setPopping] = useState(false);
 
@@ -301,6 +308,27 @@ export default function SpotCard({
           FULL REPORT →
         </Link>
         <div className="w-px bg-rc-rule" aria-hidden />
+        {/* "Something look wrong?" sits BETWEEN the two controls that were
+            already here, so the star keeps the right edge it has always had.
+            An icon rather than words: the row has room for one more 44px
+            target and none for one more label, and the thing being offered is
+            a favour, not a feature to advertise. */}
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            setReportIssueOpen(true);
+          }}
+          aria-label="Something look wrong at this spot?"
+          title="Something look wrong?"
+          className="group w-12 min-h-11 flex items-center justify-center hover:bg-rc-surface transition-colors"
+        >
+          <Flag
+            className="w-[14px] h-[14px] text-rc-ink-mute group-hover:text-rc-ink transition-colors"
+            aria-hidden
+          />
+        </button>
+        <div className="w-px bg-rc-rule" aria-hidden />
         <button
           type="button"
           onClick={onStar}
@@ -321,6 +349,18 @@ export default function SpotCard({
           </svg>
         </button>
       </div>
+
+      {/* Mounted only after the first tap, so a rail of cards carries no
+          dialogs it will never show. */}
+      {reportIssueOpen && (
+        <ReportIssueDialog
+          open={reportIssueOpen}
+          onOpenChange={setReportIssueOpen}
+          slug={spot.slug}
+          spotName={spot.name}
+          surface="spot_card"
+        />
+      )}
 
       <ProTrialModal
         open={upgradeOpen}
