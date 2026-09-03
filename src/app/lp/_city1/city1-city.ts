@@ -1,5 +1,6 @@
 import {
   SEATTLE_FRAME,
+  TACOMA_FRAME,
   VANCOUVER_FRAME,
   type ReelFrame,
 } from "../_reel/reel-frame";
@@ -246,4 +247,39 @@ export const VANCOUVER_1: City1City = {
   alertSms: { species: "Chinook", spot: "The Bell Buoy", score: 82, hour: 6 },
   alertSmsTime: "5:58",
   footerWater: "the Strait of Georgia",
+};
+
+/**
+ * Tacoma. Only /lp/tacoma/5 renders today; the 1 and 4 keys exist because
+ * the type asks for every variant, so a /1 or /4 route added later counts
+ * under its own name from the first hit rather than under a placeholder.
+ */
+export const TACOMA_1: City1City = {
+  slug: "tacoma-wa",
+  landing: { 1: "lptacoma1", 4: "lptacoma4", 5: "lptacoma5" },
+  frame: TACOMA_FRAME,
+  // Tacoma's roster: Chinook and Coho are present at every one of its twelve
+  // marks, Lingcod and Rockfish at the Narrows, Point Defiance and Colvos.
+  // No Halibut here (south Sound), so it is not named. Puget Sound says Kings.
+  heroSpecies: "Kings, Coho, Lings or Rockfish",
+  colourVerb: "colored",
+  shot: {
+    src: "/marketing/where-what-when-tacoma.png",
+    width: 1414,
+    height: 1848,
+    mark: "Point Defiance (Clay Banks)",
+  },
+  // Casey's pick (2026-09-03): "use point defiance or clay banks as the
+  // spots". One published mark carries both names, and it is the mark the
+  // shot above pictures, so /5's picture and its still are the same spot
+  // page. Chinook because that is what Clay Banks is fished for, and it is
+  // scored there; the loader falls through to the homepage's pick on a day
+  // it is not.
+  conditionsMark: { slug: "point-defiance-clay-banks--ebea31", species: "Chinook" },
+  pictureMark: { slug: "point-defiance-clay-banks--ebea31", species: "Chinook" },
+  // The same mark, and its real peak on the day this was written: Chinook
+  // scored 85 at Point Defiance with its high at hour 7, WDFW Marine Area 11.
+  alertSms: { species: "King Salmon", spot: "Point Defiance (Clay Banks)", score: 85, hour: 7 },
+  alertSmsTime: "6:04",
+  footerWater: "the South Sound",
 };
