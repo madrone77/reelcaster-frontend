@@ -257,6 +257,40 @@
   padding-bottom: env(safe-area-inset-bottom, 0px);
 }
 
+/* No text field under 16px on a touch screen.
+   Mobile Safari zooms the whole page in when a field smaller than 16px takes
+   focus, and it does not zoom back out when the field blurs. The page is then
+   wider than the screen, sits scrolled a few pixels off its left edge, and
+   looks broken on every surface until someone pinches it back: the Explore
+   city search ("eattle · 18 spots", the avatar cut off the right) was the
+   report, but the trial email field and the issue-report textarea did the
+   same. `maximum-scale=1` would stop it too, and would also take pinch zoom
+   away from everyone on Android, so the floor goes on the fields instead.
+   Written OUTSIDE @layer base on purpose: a Tailwind size utility (`text-sm`)
+   is layered, and an unlayered declaration beats it whatever the specificity,
+   so this holds for every field without editing each call site. `1em` here
+   is the parent's size, which keeps a field that is deliberately large (the
+   dashboard's headline-sized name field) at its own size. The landing pages
+   already write 16px by hand; this makes the rest of the app match them. */
+@media (pointer: coarse) {
+  :is(
+      input:not(
+          [type="checkbox"],
+          [type="radio"],
+          [type="range"],
+          [type="file"],
+          [type="color"],
+          [type="button"],
+          [type="submit"],
+          [type="reset"]
+        ),
+      textarea,
+      select
+    ) {
+    font-size: max(16px, 1em);
+  }
+}
+
 /* How much room the floating mobile tab bar takes at the bottom of a phone
    screen: the pill itself (h-16 = 4rem) plus the 0.75rem it is lifted off the
    edge, plus a 0.5rem breathing gap, plus the device safe area. Anything
