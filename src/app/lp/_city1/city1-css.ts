@@ -531,12 +531,12 @@ ${PHONE_CSS}
   .l8 .smsscreen{border-radius:36px}
 }
 
-/* ── Phones two and three, at the hero phone's width ─────────────────────
-   Both are drawn at 397 and shown at .83, which is 330: the width the Explore
-   reel above them already has. Three phones on one page at two sizes read as
-   two products; at one size they read as the same phone showing three
-   screens. Full size, the pair also came out wider than the hero's, so the
-   picture the reader met SECOND was the biggest thing on the page.
+/* ── Phones two and three, smaller than the hero phone ───────────────────
+   Both are drawn at 397 and shown at .7, which is 278: under the 330 Explore
+   reel above them. Full size, the pair came out wider than the hero's, so the
+   picture the reader met SECOND was the biggest thing on the page; at the
+   hero's own width they still pulled level with it, and these two are
+   supporting pictures, not the lead. Smaller than the lead is what says so.
 
    A transform and not a narrower column, for the reason product-carousel.tsx
    gives at length: SpotTerminal's 300px measuring floor and the strip's tile
@@ -554,13 +554,13 @@ ${PHONE_CSS}
 @media(min-width:940px){
   .l8 .wwwsec .condphone,.l8 .smssec .smsphone{
     position:relative;display:block;
-    width:329.5px;height:694px;margin-inline:auto;
+    width:278px;height:585px;margin-inline:auto;
   }
   .l8 .wwwsec .condbody,.l8 .smssec .smsbody{
     position:absolute;top:0;left:0;
     width:397px;min-height:836px;
     display:flex;flex-direction:column;
-    transform:scale(.83);transform-origin:top left;
+    transform:scale(.7);transform-origin:top left;
   }
   .l8 .wwwsec .condscreen,.l8 .smssec .smsscreen{flex:1 1 auto}
   .l8 .smssec .smsscreen{aspect-ratio:auto}
