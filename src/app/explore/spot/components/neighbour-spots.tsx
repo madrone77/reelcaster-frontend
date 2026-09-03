@@ -189,14 +189,18 @@ function NearbyCard({
           onClick={onStar}
           aria-pressed={fav}
           aria-label={fav ? "Remove from favorites" : "Add to favorites"}
-          className="group/fav absolute top-2.5 right-2.5 flex h-7 w-7 items-center justify-center rounded-full bg-rc-panel/90 transition-colors hover:bg-rc-panel"
+          className="group/fav absolute top-2.5 right-2.5 flex h-7 w-7 items-center justify-center rounded bg-rc-panel/90 transition-colors hover:bg-rc-panel"
         >
           {/* Same star as the Explore rail card's favourite (spot-card.tsx) —
-              one favourite glyph across the product, gold when saved. */}
+              one favourite glyph across the product, gold when saved. A square
+              tile, not a disc: nothing else in the product is round, and a
+              five-point star's visual centre sits below its box centre, so it
+              never looked centred in a circle. Nudged 1px down for the same
+              reason. */}
           <svg
             viewBox="0 0 42 40"
             aria-hidden
-            className={`w-[15px] h-[14px] origin-center transition-[fill] duration-200 ${
+            className={`w-[16px] h-[15px] translate-y-px origin-center transition-[fill] duration-200 ${
               fav
                 ? "fill-rc-badge"
                 : "fill-rc-ink-mute group-hover/fav:fill-rc-badge"
