@@ -3,7 +3,6 @@ import {
   VANCOUVER_FRAME,
   type ReelFrame,
 } from "../_reel/reel-frame";
-import type { AlertSmsParts } from "./alert-sms";
 
 /**
  * Everything the city-first landing page needs that changes with the city.
@@ -165,19 +164,20 @@ export interface City1City {
    */
   pictureMark: City1Mark;
   /**
-   * The alert text the third phone on /lp/<city>/4 and /5 shows arriving.
+   * The mark the third phone on /lp/<city>/4 and /5 shows a text arriving
+   * about, and the species to lead with when it is scored that day.
    *
-   * The format is the alert engine's own (see alert-sms.ts); these are the
-   * parts it prints. Frozen at build rather than read live, because it is a
-   * picture of a message and dressing that up as live is the dishonest
-   * option. Two rules, both about not advertising something the product would
-   * not say: the mark must be one we really score, and the hour must be one it
-   * really peaks at.
+   * The format is the alert engine's own (see alert-sms.ts). The species,
+   * score and hour are READ off this mark's forecast for the Sunday the text
+   * names (load-alert-sms.ts), never typed here: the message carries a date,
+   * and a date has to agree with the regulations and the forecast for that
+   * date. The scorer applies both per day, so whatever the payload holds for
+   * that Sunday is what the product would really say.
    *
-   * Unset drops the band. A city with no reviewed copy shows no phone rather
-   * than a made-up one.
+   * Unset drops the band, and so does a Sunday with nothing scored at the
+   * mark. No phone beats a made-up one.
    */
-  alertSms?: AlertSmsParts;
+  alertMark?: City1Mark;
   /**
    * The clock on the bubble. Written down, not read: a mock that says it
    * arrived "now" on every page load is the detail that gives it away.
@@ -210,13 +210,11 @@ export const SEATTLE_1: City1City = {
   // scored there, so the screen draws no card row and the "What?" callout
   // lands on the header pill instead; see where-what-when-phone.tsx.
   pictureMark: { slug: "jefferson-head-d0d536", species: "Coho" },
-  // Jefferson Head is a real Seattle mark in WDFW Marine Area 10, and 7am is
-  // really where it peaks -- Coho hits its high at hour 7 there.
-  // ⚠ The species and the score are Casey's copy, not today's data: Seattle's
-  // table is scoring Coho and Halibut, with no Chinook in it at all, and its
-  // Jefferson Head peak is 84 rather than 95. Swap to
-  // { species: "Coho Salmon", score: 84 } to make the whole line live-true.
-  alertSms: { species: "King Salmon", spot: "Jefferson Head", score: 95, hour: 7 },
+  // The same mark as the picture, so the text is about the spot page above
+  // it. Coho leads because it is what is open there in the season this page
+  // runs; Chinook at Jefferson Head is release-only under WDFW Marine Area 10
+  // and the loader would fall through to Coho anyway.
+  alertMark: { slug: "jefferson-head-d0d536", species: "Coho" },
   alertSmsTime: "6:04",
   footerWater: "the Salish Sea",
 };
@@ -241,9 +239,9 @@ export const VANCOUVER_1: City1City = {
   // Casey's pick (2026-09-03): the same mark again, for the same reason as
   // conditionsMark, so /1, /4 and /5 all picture one spot page.
   pictureMark: { slug: "the-bell-buoy-df74f1", species: "Chinook" },
-  // The same mark the phone above draws, and its real peak: Chinook scores at
-  // The Bell Buoy and hour 6 is where it peaks.
-  alertSms: { species: "Chinook", spot: "The Bell Buoy", score: 82, hour: 6 },
+  // The same mark the phone above draws. Chinook when it is scored that
+  // Sunday, else whatever is.
+  alertMark: { slug: "the-bell-buoy-df74f1", species: "Chinook" },
   alertSmsTime: "5:58",
   footerWater: "the Strait of Georgia",
 };

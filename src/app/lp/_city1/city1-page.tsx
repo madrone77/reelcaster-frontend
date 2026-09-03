@@ -22,7 +22,7 @@ import AlertSmsPhone from "./alert-sms-phone";
 import { loadPictureFeed } from "./load-picture";
 import { WhereWhatWhenPicture } from "./where-what-when-phone";
 import ClientErrorBoundary from "@/app/components/client-error-boundary";
-import { nextSundayFrom } from "./alert-sms";
+import { loadAlertSmsFeed } from "./load-alert-sms";
 import {
   buildCityProof,
   type CityProof,
@@ -261,6 +261,18 @@ export default async function City1Page({
       ? await loadPictureFeed(city.pictureMark, card.provinceCode)
       : null;
 
+  /**
+   * The alert band's text, read off the mark's forecast for the Sunday it
+   * names. Computed on the server for the same reason serverNowMs is: the
+   * page is cached, so a date read during a client render would disagree
+   * with its own HTML. Null when the city names no mark or that mark has
+   * nothing scored on the Sunday, and the band is not drawn.
+   */
+  const alert =
+    (variant === 4 || variant === 5) && city.alertMark
+      ? await loadAlertSmsFeed(city.alertMark, card.provinceCode, Date.now())
+      : null;
+
   // The hero reads off the SAME ranking as the marks band below it. Taking
   // the card's spot instead put Constance Bank at 88 above a list topped by
   // Victoria Waterfront at 91, which is a page disagreeing with itself in the
@@ -485,7 +497,7 @@ export default async function City1Page({
           The band sits here rather than higher because it answers the
           question the where/what/when section leaves: fine, but I am not
           going to check this every morning. */}
-      {(variant === 4 || variant === 5) && city.alertSms ? (
+      {(variant === 4 || variant === 5) && alert ? (
         <section className="smssec white">
           <div className="shell www">
             <div>
@@ -513,12 +525,9 @@ export default async function City1Page({
               </ul>
             </div>
             <figure className="shotfig">
-              {/* The day is computed here, on the server, for the same
-                  reason serverNowMs is: the page is cached, so a date read
-                  during a client render would disagree with its own HTML. */}
               <AlertSmsPhone
-                parts={city.alertSms}
-                when={nextSundayFrom(Date.now(), conditions?.tz ?? "America/Los_Angeles")}
+                parts={alert.parts}
+                when={alert.when}
                 timeLabel={city.alertSmsTime ?? "6:04"}
               />
               {/* No longer claims the wording is the engine's own: the shape
@@ -533,7 +542,7 @@ export default async function City1Page({
                   on an ad. */}
               <figcaption>
                 Days ahead, not the morning of, so there is still time to
-                plan. {city.alertSms.spot} is a spot we score around{" "}
+                plan. {alert.parts.spot} is a spot we score around{" "}
                 {card.cityName}, and alerts by text are part of Pro.
               </figcaption>
             </figure>

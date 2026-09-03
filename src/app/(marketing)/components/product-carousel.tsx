@@ -14,9 +14,8 @@ import AlertSmsPhone from '@/app/lp/_city1/alert-sms-phone';
 import { loadConditionsFeed } from '@/app/lp/_city1/load-conditions';
 import SpotHeroPhone from './spot-hero-phone';
 import { loadSpotHeroFeed } from './spot-hero-feed';
-import { nextSundayFrom } from '@/app/lp/_city1/alert-sms';
+import { loadAlertSmsFeed } from '@/app/lp/_city1/load-alert-sms';
 import { VANCOUVER_1 } from '@/app/lp/_city1/city1-city';
-import { timezoneFor } from '@/lib/regions';
 
 /**
  * The product, four screens of it, on a timer.
@@ -192,18 +191,20 @@ export default async function ProductCarousel() {
   // have started rebuilding five times as often as it did, to move a chart
   // nobody is reading a number off.
   //
-  // Both reads hit the same upstream payload for the same mark, which Next
-  // de-duplicates inside one render as long as they ask for the same lifetime.
-  const [conditions, hero] = await Promise.all([
-    loadConditionsFeed(null, PROVINCE, MARK, 300).catch(() => null),
-    loadSpotHeroFeed(MARK.slug, PROVINCE, 300).catch(() => null),
-  ]);
-
   // Read on the server and passed down, like serverNowMs: the page is cached
   // hourly, so a date read during a client render would disagree with the HTML
   // it is hydrating.
   const now = Date.now();
-  const tz = conditions?.tz ?? timezoneFor('BC');
+
+  // All three reads hit the same upstream payload for the same mark, which
+  // Next de-duplicates inside one render as long as they ask for the same
+  // lifetime. The alert text is read off that payload too (load-alert-sms.ts),
+  // so the text cannot name a fish the forecast is not scoring that Sunday.
+  const [conditions, hero, alert] = await Promise.all([
+    loadConditionsFeed(null, PROVINCE, MARK, 300).catch(() => null),
+    loadSpotHeroFeed(MARK.slug, PROVINCE, 300).catch(() => null),
+    loadAlertSmsFeed(VANCOUVER_1.alertMark ?? MARK, PROVINCE, now, 300).catch(() => null),
+  ]);
 
   const slides: PhoneSlide[] = [
     {
@@ -323,32 +324,38 @@ export default async function ProductCarousel() {
           },
         ]
       : []),
-    {
-      id: 'alerts',
-      tab: 'Alerts',
-      kicker: 'And when you are not looking',
-      title: ["We text you,", "so you don't miss them."],
-      body: [
-        "Set the score you'd get up for at the spots you fish. We watch them every morning and send one text when a day clears your bar. No app to open, nothing to remember.",
-      ],
-      points: [
-        { term: 'Your bar', detail: 'You pick the score, not us' },
-        { term: 'Your spots', detail: 'Including custom ones you add yourself' },
-        { term: 'One text', detail: 'The best day in the window, not one a morning' },
-      ],
-      cta: (
-        <TrialModalButton from="marketing-carousel-alerts" className={btn.primary}>
-          Start free trial
-        </TrialModalButton>
-      ),
-      phone: (
-        <AlertSmsPhone
-          parts={VANCOUVER_1.alertSms!}
-          when={nextSundayFrom(now, tz)}
-          timeLabel={VANCOUVER_1.alertSmsTime ?? '5:58'}
-        />
-      ),
-    },
+    // Falls away when the mark has nothing scored on the Sunday the text
+    // would name, as the conditions slide does on a thin feed.
+    ...(alert
+      ? [
+          {
+            id: 'alerts',
+            tab: 'Alerts',
+            kicker: 'And when you are not looking',
+            title: ["We text you,", "so you don't miss them."],
+            body: [
+              "Set the score you'd get up for at the spots you fish. We watch them every morning and send one text when a day clears your bar. No app to open, nothing to remember.",
+            ],
+            points: [
+              { term: 'Your bar', detail: 'You pick the score, not us' },
+              { term: 'Your spots', detail: 'Including custom ones you add yourself' },
+              { term: 'One text', detail: 'The best day in the window, not one a morning' },
+            ],
+            cta: (
+              <TrialModalButton from="marketing-carousel-alerts" className={btn.primary}>
+                Start free trial
+              </TrialModalButton>
+            ),
+            phone: (
+              <AlertSmsPhone
+                parts={alert.parts}
+                when={alert.when}
+                timeLabel={VANCOUVER_1.alertSmsTime ?? '5:58'}
+              />
+            ),
+          } satisfies PhoneSlide,
+        ]
+      : []),
   ];
 
   return (

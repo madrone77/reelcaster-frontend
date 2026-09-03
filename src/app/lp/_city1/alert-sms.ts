@@ -22,16 +22,19 @@
  * showing an alert one field better than the one that sends. Do not widen
  * that gap, and delete this warning when it closes.
  *
- * WHY THE NUMBERS ARE CONFIGURED AND THE DAY IS NOT
+ * WHY EVERY PART OF THIS IS READ, NOT WRITTEN DOWN
  *
- * Unlike the conditions phone, which renders the real components on the real
- * payload, this is a picture of a message: the score and the hour are frozen
- * when the page is built, written down per city and read as copy. The DAY is
- * computed, because a landing page that runs for months would otherwise be
- * advertising a Sunday that has already been and gone.
+ * The species, the score and the hour used to be typed per city, with only
+ * the day computed. That let Seattle's page name King Salmon at Jefferson Head
+ * on a Sunday the scorer had Chinook as release-only there. A message that
+ * names a date must agree with the forecast for that date, so the parts now
+ * come off the mark's own 14-day payload (load-alert-sms.ts), which already
+ * carries only the species an angler could keep that day. The day is computed
+ * for the older reason: a landing page that runs for months would otherwise
+ * be advertising a Sunday that has already been and gone.
  */
 
-/** The written-down half: what the alert is about. */
+/** What the alert is about, read off the forecast for the day it names. */
 export interface AlertSmsParts {
   /** Species display name, as the alert would print it. */
   species: string;
@@ -43,10 +46,12 @@ export interface AlertSmsParts {
   hour: number;
 }
 
-/** The computed half: when it is about, and when it arrived. */
+/** When it is about, and when it arrived. */
 export interface AlertSmsWhen {
   /** The fishing day, "Sun Sep 6" — formatDay()'s shape in score-alert.ts. */
   day: string;
+  /** The same day as YYYY-MM-DD in the mark's timezone, for matching `daily14`. */
+  iso: string;
   /** Days from arrival to the fishing day. Always >= 2 here. */
   leadDays: number;
   /** The lock screen's own date, "Tuesday, September 1". */
@@ -110,8 +115,16 @@ export function nextSundayFrom(nowMs: number, tz: string): AlertSmsWhen {
   while (leadDays < 2) leadDays += 7;
 
   const target = new Date(nowMs + leadDays * 86_400_000);
+  // en-CA is the locale whose numeric date is YYYY-MM-DD.
+  const iso = new Intl.DateTimeFormat("en-CA", {
+    timeZone: tz,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(target);
   return {
     day: parts(target, { weekday: "short", month: "short", day: "numeric" }),
+    iso,
     leadDays,
     arrivedOn: parts(now, { weekday: "long", month: "long", day: "numeric" }),
   };
