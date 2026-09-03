@@ -66,8 +66,16 @@ export default function SpotHeroPhone({
   feed,
   serverNowMs,
   deferMap = false,
+  regsLink = true,
 }: {
   feed: SpotHeroFeed;
+  /**
+   * Does the regulatory notice link out to the agency? On /lp/<city>/5 the
+   * phone is the picture of the product, and a live `Regulations ↗` there
+   * sent readers off the landing page to a government site that never sends
+   * them back. False draws the same box with no href (ScoreCard's ad frame).
+   */
+  regsLink?: boolean;
   /** The instant the server baked this HTML. See useSpotClock. */
   serverNowMs: number;
   /**
@@ -240,6 +248,7 @@ export default function SpotHeroPhone({
           regulator={feed.regulator}
           speciesName={selSpecies?.name ?? null}
           regulation={regulation}
+          adFrame={!regsLink}
         />
       </div>
 
