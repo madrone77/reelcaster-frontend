@@ -513,58 +513,43 @@ ${PHONE_CSS}
    are shared verbatim with the homepage carousel. What stays here is the
    layout THIS page gives them.
 
-   Below the two-column break each phone reclaims the section gutter. Left in
-   the column it is handed, the conditions phone comes out about 293px wide
-   inside, and 293 is under SpotTerminal's 300px measuring floor: the chart
-   keeps its 414px default viewBox and draws itself scaled down to fit, so the
-   one thing the picture is about -- 12px readouts you can read -- stops being
-   true. It also squeezed the tile row until "SEA STATE" ellipsised. Full
-   width, minus 6px of air, puts the app back at the width a real phone gives
-   it. */
-@media (max-width:939px){
-  /* width:auto is load-bearing beside the negative margin. At width:100% the
-     used width stays the column's, and the margins only shift the box. */
-  .l8 .wwwsec .condphone{width:auto;margin-inline:calc(6px - var(--l8-gut))}
-  .l8 .smssec .smsphone{width:auto;margin-inline:calc(6px - var(--l8-gut))}
-  .l8 .condbody,.l8 .smsbody{padding:9px;border-radius:45px}
-  .l8 .condscreen{border-radius:36px;padding-left:8px;padding-right:8px}
-  .l8 .smsscreen{border-radius:36px}
-}
-
-/* ── Phones two and three, smaller than the hero phone ───────────────────
+   ── Phones two and three, at .7 of true size ─────────────────────────────
    Both are drawn at 397 and shown at .7, which is 278: under the 330 Explore
-   reel above them. Full size, the pair came out wider than the hero's, so the
-   picture the reader met SECOND was the biggest thing on the page; at the
-   hero's own width they still pulled level with it, and these two are
-   supporting pictures, not the lead. Smaller than the lead is what says so.
+   reel above them at desktop, and well inside the screen on a phone. Full
+   size, the pair came out wider than the hero's, so the picture the reader
+   met SECOND was the biggest thing on the page; and on a real phone a
+   397-wide device filled the screen edge to edge, a phone inside a phone at
+   one to one, which reads as the page having run out of ideas rather than
+   as a picture of anything. These two are supporting pictures, not the
+   lead, and smaller than the lead is what says so.
 
    A transform and not a narrower column, for the reason product-carousel.tsx
    gives at length: SpotTerminal's 300px measuring floor and the strip's tile
-   row are built for the 375 a real phone gives, and a 330 column would draw a
-   broken phone, not a smaller one. The app still gets its 397; only the
-   picture shrinks.
+   row are built for the 375 a real phone gives, and a 278 column would draw a
+   broken phone, not a smaller one. (This page used to hand the phone the
+   whole gutter below the two-column break for exactly that reason: left in
+   its column it came out 293 inside and the chart redrew itself shrunk.) The
+   app still gets its 397; only the picture shrinks, at every width, so the
+   negative-margin rule is gone.
 
    A transform does not give back the space it no longer paints, so the host
    states the scaled size and the body is drawn inside it out of flow. The
    height is stated for the reason the carousel states its own: on their own
    the two bodies come out 836 and 834, and a shared 836 keeps the phone the
    same height in both bands. The alert screen gives up its aspect and grows
-   2px; nothing is squashed. Desktop only: below the two-column break each
-   phone already has the whole gutter and needs every pixel of it (above). */
-@media(min-width:940px){
-  .l8 .wwwsec .condphone,.l8 .smssec .smsphone{
-    position:relative;display:block;
-    width:278px;height:585px;margin-inline:auto;
-  }
-  .l8 .wwwsec .condbody,.l8 .smssec .smsbody{
-    position:absolute;top:0;left:0;
-    width:397px;min-height:836px;
-    display:flex;flex-direction:column;
-    transform:scale(.7);transform-origin:top left;
-  }
-  .l8 .wwwsec .condscreen,.l8 .smssec .smsscreen{flex:1 1 auto}
-  .l8 .smssec .smsscreen{aspect-ratio:auto}
+   2px; nothing is squashed. */
+.l8 .wwwsec .condphone,.l8 .smssec .smsphone{
+  position:relative;display:block;
+  width:278px;height:585px;margin-inline:auto;
 }
+.l8 .wwwsec .condbody,.l8 .smssec .smsbody{
+  position:absolute;top:0;left:0;
+  width:397px;min-height:836px;
+  display:flex;flex-direction:column;
+  transform:scale(.7);transform-origin:top left;
+}
+.l8 .wwwsec .condscreen,.l8 .smssec .smsscreen{flex:1 1 auto}
+.l8 .smssec .smsscreen{aspect-ratio:auto}
 
 .l8 .wwwsec{background:var(--l8-panel);border-block:1px solid var(--l8-rule)}
 .l8 .www{display:grid;grid-template-columns:1fr;gap:clamp(28px,4vw,56px);align-items:center}
