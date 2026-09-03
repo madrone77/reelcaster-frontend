@@ -81,9 +81,9 @@ const ProTrialModal = dynamic(
   { ssr: false },
 );
 
-// The page is heavy already and almost nobody opens this. It loads on the tap.
-const ReportIssueDialog = dynamic(
-  () => import("@/app/explore/components/report-issue-dialog"),
+// The prompt is small; the dialog behind it loads on the tap, inside it.
+const PageVerdict = dynamic(
+  () => import("@/app/explore/components/page-verdict"),
   { ssr: false },
 );
 
@@ -583,7 +583,6 @@ export default function SpotDetailShell({
   // Sharing is open to everyone, signed in or not, so unlike the alert modal
   // this one never waits on auth and never gates.
   const [shareOpen, setShareOpen] = useState(false);
-  const [reportIssueOpen, setReportIssueOpen] = useState(false);
   const [shareToken, setShareToken] = useState<string | null>(null);
 
   // Deep-link: `?share=<token>` is what the alert email's "send it to someone"
@@ -1515,24 +1514,16 @@ export default function SpotDetailShell({
 
             {/* Everything above this line is derived from something we scraped
                 or worked out. The reader is the only one here who has actually
-                stood at the place, so the last thing the page says is an offer
-                to be corrected.
+                stood at the place, so the last thing the page does is ask them.
+
+                A thumb rather than a "report a problem" link, because a link
+                like that is only ever pressed by people with a complaint, and
+                a complaint with no denominator under it cannot be weighed. See
+                page-verdict.tsx.
 
                 Kept out of the ad frame with the rest of the outbound links: a
                 campaign page asks for one thing. */}
-            {!ad && (
-              <p className="text-sm text-rc-ink-soft">
-                Something look wrong on this page?{" "}
-                <button
-                  type="button"
-                  onClick={() => setReportIssueOpen(true)}
-                  className="text-rc-brand font-medium hover:underline"
-                >
-                  Tell us and we will check it
-                </button>
-                .
-              </p>
-            )}
+            {!ad && <PageVerdict slug={slug} spotName={spot.name} />}
           </div>
 
           {/* Last thing above the footer — after the description and the
@@ -1581,16 +1572,6 @@ export default function SpotDetailShell({
         dailyScores={dailyScores}
         onUpgradeRequired={() => setAlertUpgradeOpen(true)}
       />
-
-      {reportIssueOpen && (
-        <ReportIssueDialog
-          open={reportIssueOpen}
-          onOpenChange={setReportIssueOpen}
-          slug={slug}
-          spotName={spot.name}
-          surface="spot_page"
-        />
-      )}
 
       <ShareCardDialog
         open={shareOpen}

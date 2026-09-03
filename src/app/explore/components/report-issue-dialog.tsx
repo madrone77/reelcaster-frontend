@@ -52,6 +52,8 @@ export default function ReportIssueDialog({
   slug,
   spotName,
   surface = "spot_page",
+  verdictId = null,
+  onSent,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -60,6 +62,14 @@ export default function ReportIssueDialog({
   /** Which surface it was opened from. A card shows a fraction of what the
    *  page does, so a report from one is a claim about far less evidence. */
   surface?: ReportSurface;
+  /** The thumbs-down that opened this, when the page prompt did. Null from a
+   *  card's flag, and null when that vote was throttled, which is why the
+   *  dialog never waits on it. */
+  verdictId?: string | null;
+  /** Fires once, when a report actually lands. The thumbs prompt uses it to
+   *  stop asking: somebody who has already told us what is off should not be
+   *  invited to tell us again. */
+  onSent?: () => void;
 }) {
   const { session, user } = useAuth();
   const [reason, setReason] = useState<string | null>(null);
@@ -109,6 +119,7 @@ export default function ReportIssueDialog({
             reason,
             note: note.trim() || null,
             surface,
+            verdictId,
             contactEmail: email.trim() || user?.email || null,
             website,
             // What they were looking at, so whoever reads this can open the
@@ -125,6 +136,7 @@ export default function ReportIssueDialog({
         return;
       }
       setSent(true);
+      onSent?.();
     } catch {
       setError("That did not send. Give it another try in a moment.");
     } finally {
