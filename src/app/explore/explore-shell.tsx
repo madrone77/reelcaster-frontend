@@ -70,6 +70,7 @@ import {
   useCampaignHit,
   type CampaignTarget,
 } from "@/app/lp/_shared/lp-telemetry";
+import { viaAngle } from "@/app/lp/_shared/lp-via";
 import type { AdWall } from "@/lib/ad-mode";
 import { BLEED_MEASURE } from "@/app/components/layout/page-measure";
 import ExploreMap, { type StationPick, type CustomSpotPin } from "./components/explore-map";
@@ -167,6 +168,7 @@ export default function ExploreShell({
   marketing = false,
   initialPreview = null,
   ad = null,
+  via = null,
 }: {
   data: ExploreData;
   bbox: string;
@@ -204,6 +206,11 @@ export default function ExploreShell({
    * split rule the spot page's ad frame uses.
    */
   ad?: { wall: AdWall; angle: string } | null;
+  /**
+   * The landing page that sent this visit, from the `via` stamp on its
+   * button. Null when no page stamped it. Only ever reaches the counter.
+   */
+  via?: string | null;
   /**
    * True on /m/explore — the paid-marketing frame. The only surface that asks
    * the depth-gate question; /explore renders the answer but never poses it.
@@ -947,14 +954,19 @@ export default function ExploreShell({
   // ad-framed arrival, landing='explore' with an empty wall is someone who
   // walked in off a landing page. `!ad` keeps the two mutually exclusive, so
   // one arrival is never counted in both buckets.
+  //
+  // Since the buttons open the ad frame, `ad` is set on those arrivals and
+  // this target is null; the stamp then rides on `adTarget.angle` instead.
+  // Kept for a link without the frame, where the stamp is the better
+  // evidence and the referrer is the fallback.
   const lpArrivalTarget: CampaignTarget | null =
-    !ad && cameFromLandingPage()
+    !ad && (via || cameFromLandingPage())
       ? {
           landing: "explore",
           target_city: initialCitySlug ?? data.defaultCitySlug ?? "",
           target_spot: "",
           wall: "",
-          angle: "",
+          angle: via ? viaAngle(via) : "",
         }
       : null;
   useCampaignHit(lpArrivalTarget);

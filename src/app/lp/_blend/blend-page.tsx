@@ -20,6 +20,7 @@ import type { BlendCity } from "./blend-city";
 import { BLEND_CSS } from "./blend-css";
 import BlendInstrument from "./blend-instrument";
 import { BlendHit, BlendTrialForm, TrackedCta } from "./blend-track";
+import { exploreHrefFrom } from "../_shared/lp-via";
 
 /**
  * The two Seattle blends: /lp/seattle/1's hero on top of /lp/7's instrument.
@@ -116,7 +117,7 @@ import { BlendHit, BlendTrialForm, TrackedCta } from "./blend-track";
  * already spent nine screens persuading -- it has earned the map, not another
  * wall -- and it is a one-word edit here if a tighter one converts better.
  */
-const exploreHref = (slug: string) => `/explore?loc=${slug}&ad=day2`;
+const exploreHref = (slug: string, landing: string) => exploreHrefFrom(slug, landing);
 
 export type BlendAsk = "explore" | "trial";
 
@@ -267,7 +268,7 @@ export default async function BlendPage({
               citySlug={cfg.slug}
               cta="nav"
               className="navcta"
-              href={ask === "trial" ? "#start" : exploreHref(cfg.slug)}
+              href={ask === "trial" ? "#start" : exploreHref(cfg.slug, landing)}
             >
               {LABEL[ask]}
             </TrackedCta>
@@ -337,7 +338,7 @@ export default async function BlendPage({
                         landing={landing}
                         citySlug={cfg.slug}
                         cta="secondary"
-                        href={exploreHref(cfg.slug)}
+                        href={exploreHref(cfg.slug, landing)}
                       >
                         {EXPLORE_ALT}
                       </TrackedCta>
@@ -350,7 +351,7 @@ export default async function BlendPage({
                       citySlug={cfg.slug}
                       cta="hero"
                       className="go"
-                      href={exploreHref(cfg.slug)}
+                      href={exploreHref(cfg.slug, landing)}
                     >
                       {LABEL.explore}
                       <Arrow />
@@ -471,7 +472,7 @@ export default async function BlendPage({
                     landing={landing}
                     citySlug={cfg.slug}
                     cta="secondary"
-                    href={exploreHref(cfg.slug)}
+                    href={exploreHref(cfg.slug, landing)}
                   >
                     {EXPLORE_ALT}
                   </TrackedCta>
@@ -484,7 +485,7 @@ export default async function BlendPage({
                   citySlug={cfg.slug}
                   cta="final"
                   className="go"
-                  href={exploreHref(cfg.slug)}
+                  href={exploreHref(cfg.slug, landing)}
                 >
                   {LABEL.explore}
                   <Arrow />
