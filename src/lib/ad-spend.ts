@@ -30,7 +30,12 @@ import { googleAdsConfig, googleAccessToken, googleAdsHeaders } from './google-a
  */
 export const RESTATEMENT_WINDOW_DAYS = 7;
 
-const GOOGLE_API_VERSION = 'v18';
+// Google sunsets a version about a year after it ships, and a sunset version
+// answers 404 to every call, which the ingest reports as a Google error while
+// Meta carries on. v18 (October 2024) was long gone by the time credentials
+// were first considered. Check developers.google.com/google-ads/api/docs/
+// sunset-dates when this next reads as a 404; v25 shipped July 2026.
+const GOOGLE_API_VERSION = 'v25';
 const META_API_VERSION = 'v21.0';
 
 export interface SpendRow {
