@@ -33,6 +33,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { ANGLES } from '@/app/lp/_shared/lp-angles';
+import { VIA_ANGLE_SHAPE } from '@/app/lp/_shared/lp-via';
 import { AD_WALLS } from "@/lib/ad-mode";
 import { CLICK_TYPES } from '@/lib/attribution';
 import { classifyUserAgent, isBotUserAgent } from '@/lib/device';
@@ -142,8 +143,11 @@ export async function POST(request: NextRequest) {
   // Everything below is best-effort: an unrecognised value becomes empty
   // rather than a 400, because losing a real hit to a stale vocabulary is
   // worse than filing it under a blank dimension.
+  // A landing page's stamp (`lp:<landing>`) is accepted beside the angle ids:
+  // on an Explore arrival the column says which page sent the visit. See
+  // src/app/lp/_shared/lp-via.ts.
   const angleRaw = tag(body.angle);
-  const angle = ANGLE_IDS.has(angleRaw) ? angleRaw : '';
+  const angle = ANGLE_IDS.has(angleRaw) || VIA_ANGLE_SHAPE.test(angleRaw) ? angleRaw : '';
 
   const cityRaw = tag(body.target_city);
   const targetCity = SLUG_SHAPE.test(cityRaw) ? cityRaw : '';

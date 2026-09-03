@@ -22,6 +22,7 @@ import { HOME_SPOT_COOKIE, sanitizeHomeSpotSlug } from "./lib/home-spot-cookie";
 import { HOME_CITY_COOKIE, sanitizeHomeCitySlug } from "./lib/home-city-cookie";
 import { parseWall } from "@/lib/ad-mode";
 import { ANGLES } from "@/app/lp/_shared/lp-angles";
+import { parseVia, viaAngle } from "@/app/lp/_shared/lp-via";
 import { openingBbox, spotViewBox } from "./lib/viewport-bbox";
 import { PREVIEW_COOKIE, parsePreviewState } from "@/lib/preview-gate";
 import ExploreShell from "./explore-shell";
@@ -88,6 +89,9 @@ export async function renderExplore({
   // left here for an ad parameter to spend.
   const adParam = typeof params.ad === "string" ? params.ad : null;
   const ad = adParam ? { wall: parseWall(adParam) } : null;
+  // Which of our landing pages sent this visit, if one did. Stamped on the
+  // button by lp-via.ts; malformed values read as no stamp.
+  const via = parseVia(params.via);
 
   // `?city=` is what every /lp link carries, and an ad link for this page will
   // be written by the same hand on the same afternoon. On a paid link it means
@@ -345,16 +349,21 @@ export async function renderExplore({
           ad
             ? {
                 wall: ad.wall,
-                // Shared with the /lp angles so the two kinds of ad can be
+                // A landing page's stamp wins: the arrival came from that
+                // page, whatever pitch the page itself was showing. Otherwise
+                // shared with the /lp angles so the two kinds of ad can be
                 // compared on one axis. An unknown value counts as no angle
                 // rather than inventing one, matching how the campaign
                 // counter validates it.
-                angle: ANGLES.some((a) => a.id === params.a)
-                  ? (params.a as string)
-                  : "",
+                angle: via
+                  ? viaAngle(via)
+                  : ANGLES.some((a) => a.id === params.a)
+                    ? (params.a as string)
+                    : "",
               }
             : null
         }
+        via={via}
       />
     </Suspense>
   );

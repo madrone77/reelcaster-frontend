@@ -28,6 +28,7 @@ import {
   type CityProof,
   type HeroMark,
 } from "../_reel/city-proof";
+import { exploreHrefFrom } from "../_shared/lp-via";
 
 /**
  * The city-first landing page: /lp/seattle/1, /lp/vancouver/1.
@@ -128,7 +129,7 @@ type SearchParams = Promise<Record<string, string | string[] | undefined>>;
  * already spent nine screens persuading -- it has earned the map, not another
  * wall -- and it is a one-word edit here if a tighter one converts better.
  */
-const exploreHref = (slug: string) => `/explore?loc=${slug}&ad=day2`;
+const exploreHref = (slug: string, landing: string) => exploreHrefFrom(slug, landing);
 
 /** The one label, so the nav, the hero and the close cannot disagree. */
 const CTA_LABEL = "Start Exploring Free";
@@ -189,7 +190,9 @@ export default async function City1Page({
   variant?: City1Variant;
 }) {
   const slug = city.slug;
-  const explore = exploreHref(slug);
+  // The stamp: this page's own campaign key rides on the button, so the
+  // arrival on Explore knows which page sent it. See lp-via.ts.
+  const explore = exploreHref(slug, city.landing[variant]);
 
   const card = await resolveLpCard(slug);
   if (!card) notFound();
