@@ -21,6 +21,17 @@
  * improve with it, and the privacy policy says we do not send it, so we do not
  * send it. The click id is the only identifier that leaves here, and the
  * network issued that id itself.
+ *
+ * WHAT MOVES TO META FROM HERE, AND WHAT DOES NOT. The pixel on
+ * 1209354965605238 is wired to a Meta Conversions API Gateway: every event the
+ * browser fires is relayed by that gateway to Meta a second time, as a server
+ * event carrying the same event id. So for any event the browser reports, Meta
+ * already holds a browser copy AND a server copy, and one more from this file
+ * is a third arrival of the same event. Meta pairs the browser event with one
+ * server copy and leaves the other standing, which is the "Event not
+ * deduplicated" flag Ads Manager raised on Initiate checkout on 2026-09-03.
+ * `META_GATEWAY_OWNED_EVENTS` names the events the browser owns; this file
+ * sends Meta only what no browser can, which is the day-7 `Purchase`.
  */
 
 import type { SupabaseClient } from '@supabase/supabase-js';
@@ -232,7 +243,23 @@ export function metaFbc(row: ConversionRow): string | null {
   return `fb.1.${clickMs}.${row.click_id}`;
 }
 
+/**
+ * Events the browser reports to Meta itself, and which the pixel's Conversions
+ * API Gateway then relays as the server copy. Sending them from here as well
+ * makes three arrivals of one event, and Meta only dedupes two of them. See the
+ * file header. Not here on purpose: `purchase`, which is charged on day 7 with
+ * no browser left to fire anything, so this queue is its only route to Meta.
+ * `signup` is the same shape as these two and is left as-is for now.
+ */
+export const META_GATEWAY_OWNED_EVENTS: ReadonlySet<ConversionRow['event_type']> = new Set([
+  'paywall_view',
+  'trial_start',
+]);
+
 async function uploadToMeta(row: ConversionRow): Promise<UploadOutcome> {
+  if (META_GATEWAY_OWNED_EVENTS.has(row.event_type)) {
+    return { status: 'skipped', reason: `gateway_owned:${row.event_type}` };
+  }
   const cfg = metaConfig();
   if (!cfg) return { status: 'skipped', reason: 'meta_not_configured' };
   if (row.click_type !== 'fbclid') {
