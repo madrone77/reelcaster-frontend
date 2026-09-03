@@ -423,12 +423,24 @@ export default function WhereWhatWhenPhone({
  * produced, so nothing moves; in a WebKit too old for typed arithmetic it is
  * the moment the picture snaps to size. A layout effect, so it lands before
  * the first client paint.
+ *
+ * The picture's width reaches the rule as a custom property, `--wwv-w`, set
+ * on the box, rather than being interpolated into the string. The first
+ * version interpolated it, as two template literals joined with +, and the
+ * production server bundle's minifier folded them into one literal and lost
+ * the tail of the first: `707px))));` came out as `707`, the rule was
+ * unbalanced, and every engine dropped it, so the first paint was unscaled
+ * everywhere until the layout effect ran (2026-09-03, seen on
+ * www.reelcaster.com and reproduced with `next build`; the client bundle,
+ * compiled to a different target, kept the string). The dev server never
+ * showed it. Plain single-quoted strings with nothing to substitute give the
+ * minifier nothing to fold.
  */
 const FIT_CSS =
-  `.wwv-fit{` +
-  `transform:scale(min(1,tan(atan2(100cqw,${PICTURE_W}px))));` +
-  `transform:scale(min(1,calc(100cqw / ${PICTURE_W}px)))` +
-  `}`;
+  '.wwv-fit{' +
+  'transform:scale(min(1,tan(atan2(100cqw,var(--wwv-w)))));' +
+  'transform:scale(min(1,calc(100cqw / var(--wwv-w))))' +
+  '}';
 
 export function WhereWhatWhenPicture(props: {
   feed: SpotHeroFeed;
@@ -459,6 +471,7 @@ export function WhereWhatWhenPicture(props: {
         maxWidth: PICTURE_W * SHOWN,
         aspectRatio: `${PICTURE_W} / ${PICTURE_H}`,
         marginInline: 'auto',
+        ['--wwv-w' as string]: `${PICTURE_W}px`,
       }}
     >
       <style href="wwv-fit" precedence="default">
