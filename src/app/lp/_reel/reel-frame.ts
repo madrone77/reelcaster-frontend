@@ -54,6 +54,8 @@
  */
 
 /** A capture: which still, and the map geometry that produced it. */
+import { PUCK } from "@/app/explore/lib/score-puck";
+
 export interface ReelFrame {
   /** The still the pins are drawn on. `width`x`height` at 2x. */
   src: string;
@@ -222,11 +224,18 @@ export const VANCOUVER_FRAME: ReelFrame = {
  * where the window runs out of room to centre the pin.
  *
  * y1 is measured from the card, not guessed: the card sits 74 screen-px off
- * the bottom and stands about 221 tall with its FULL REPORT row, which puts its
- * top edge at 503. A pin draws its badge some 28px above its own point, so
- * 462 is the last row whose badge clears the card.
+ * the bottom and its top edge lands 221 up from the window's, at 503. A pin
+ * is the map's own puck, whose badge stands tail plus body above its point
+ * (43px when it wears the Hot tag), so the last row whose badge clears the
+ * card is that far above 503, less the ring.
  */
-export const REEL_SAFE = { x0: 28, y0: 130, x1: 347, y1: 462 } as const;
+const CARD_TOP = 503;
+export const REEL_SAFE = {
+  x0: 28,
+  y0: 130,
+  x1: 347,
+  y1: CARD_TOP - (PUCK.PILL_H_HOT + PUCK.TAIL_H) - PUCK.RING_W,
+} as const;
 
 const TILE = 512;
 

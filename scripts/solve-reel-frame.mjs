@@ -32,9 +32,12 @@ const zoom = Number(process.argv[3] ?? 11);
 // Mirrors reel-frame.ts and explore-reel.tsx. Kept as literals rather than
 // imported: this is a plain node script and those are TS modules in the app.
 const TILE = 512, VW = 375, VH = 724;
-const SAFE = { x0: 28, y0: 130, x1: 347, y1: 462 };
+// y1 is the card top (503) less a Hot puck's badge (35 + 8) and its ring (2).
+const SAFE = { x0: 28, y0: 130, x1: 347, y1: 458 };
 const FOCUS = { x: VW / 2, y: 316 };
-const PIN_GAP = 26, MAX_STOPS = 8;
+// PIN_GAP is the map's own declutter distance: two puck half-widths (19) plus
+// its stroke allowance (4), centre to centre. See spot-geojson.ts PIN_MIN_DIST.
+const PIN_GAP = 42, MAX_STOPS = 8;
 /** Half-width and drop of a two-line buoy label, measured off a capture. */
 const LABEL_HALF = 82, LABEL_DROP = 44;
 /** Sheet areas to report, in map px. 375x724 = 272k is one screen. */
@@ -82,7 +85,7 @@ function sheetFor(run) {
   // Declutter best-first, as the reel does, then keep what is left.
   const kept = [];
   for (const m of [...run].sort((a, b) => b.score - a.score)) {
-    const clash = kept.some((k) => Math.abs(k.X - m.X) < PIN_GAP && Math.abs(k.Y - m.Y) < PIN_GAP);
+    const clash = kept.some((k) => Math.hypot(k.X - m.X, k.Y - m.Y) < PIN_GAP);
     if (!clash) kept.push(m);
     if (kept.length === MAX_STOPS) break;
   }

@@ -43,51 +43,95 @@ export const NO_DATA_LABEL = "·";
 /** Tag worn by spots with catch reports in the intel window. */
 export const HOT_TAG = "Hot";
 
-// Geometry, in logical px. RATIO is the retina multiplier.
+// RATIO is the retina multiplier, applied at rasterisation only. Everything
+// else is in logical px.
 const RATIO = 2;
-const PAD = 7; // room for the shadow and the outer collar
-const PILL_H = 24;
-const PILL_H_HOT = 35; // taller body, to seat the tag on its own line above the score
-const PILL_MIN_W = 30;
-const TAIL_W = 12;
-const TAIL_H = 8;
 
 /**
- * Ownership reads through the SILHOUETTE, not the corner radius.
+ * The puck's geometry, in one exported object.
  *
- * Rounding the corners of a pill and calling that "square" does not survive
- * contact with the map: a pill is already a wide rectangle, so at pin size the
- * two variants are indistinguishable. What made the old circle-vs-square pair
- * work was that the outlines had genuinely different proportions. So a custom
- * spot gets a puck that is as tall as it is wide, and grows taller rather than
- * wider when it has to hold a second line.
+ * Exported because this renderer is not the only thing that draws a puck. The
+ * landing pages' Explore reel is server-rendered, where there is no canvas, so
+ * it draws the same puck as an inline SVG (lp/_reel/reel-puck.tsx). Reading
+ * the numbers from here rather than copying them is what keeps a pin on a
+ * landing page the size, shape and colour of a pin on the map.
  */
-const SQUARE_SIDE = 30;
-const SQUARE_SIDE_HOT = 38;
-/** Horizontal breathing room around the text: tighter on a square. */
-const PILL_TEXT_PAD = 18;
-const SQUARE_TEXT_PAD = 12;
-const RADIUS_ROUND = 7;
-/** Soft enough to sit beside the rounded pins, square enough to read as square. */
-const RADIUS_SQUARE = 5;
+export const PUCK = {
+  PAD: 7, // room for the shadow and the outer collar
+  PILL_H: 24,
+  PILL_H_HOT: 35, // taller body, to seat the tag on its own line above the score
+  PILL_MIN_W: 30,
+  TAIL_W: 12,
+  TAIL_H: 8,
 
-const FONT = '700 13px ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif';
-const TAG_FONT = '800 10px ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif';
-// Text positions as a FRACTION of body height, so the two-line layout holds at
-// both the pill's 35px and the square's 38px.
-const TAG_Y_FRAC = 0.3;
-const SCORE_Y_FRAC = 0.686;
+  /**
+   * Ownership reads through the SILHOUETTE, not the corner radius.
+   *
+   * Rounding the corners of a pill and calling that "square" does not survive
+   * contact with the map: a pill is already a wide rectangle, so at pin size the
+   * two variants are indistinguishable. What made the old circle-vs-square pair
+   * work was that the outlines had genuinely different proportions. So a custom
+   * spot gets a puck that is as tall as it is wide, and grows taller rather than
+   * wider when it has to hold a second line.
+   */
+  SQUARE_SIDE: 30,
+  SQUARE_SIDE_HOT: 38,
+  /** Horizontal breathing room around the text: tighter on a square. */
+  PILL_TEXT_PAD: 18,
+  SQUARE_TEXT_PAD: 12,
+  RADIUS_ROUND: 7,
+  /** Soft enough to sit beside the rounded pins, square enough to read as square. */
+  RADIUS_SQUARE: 5,
 
-/**
- * Every puck gets the same white ring, and the flagged states add a colour
- * collar outside it. Colouring the ring itself would put emerald on a green
- * fill for a high-scoring spot with reports, which is the one case that needs
- * to read loudest. White always separates the pill from the collar and the
- * water.
- */
-const RING_W = 2;
-const COLLAR_W = 5.5; // stroked under the white ring, so ~1.75px shows outside it
-const COLLAR: Record<PuckRing, string | null> = {
+  /**
+   * Every puck gets the same white ring, and the flagged states add a colour
+   * collar outside it. Colouring the ring itself would put emerald on a green
+   * fill for a high-scoring spot with reports, which is the one case that needs
+   * to read loudest. White always separates the pill from the collar and the
+   * water.
+   */
+  RING_W: 2,
+  COLLAR_W: 5.5, // stroked under the white ring, so ~1.75px shows outside it
+
+  FONT_FAMILY:
+    'ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif',
+  SCORE_FONT: { size: 13, weight: 700 },
+  TAG_FONT: { size: 10, weight: 800 },
+  // Text positions as a FRACTION of body height, so the two-line layout holds at
+  // both the pill's 35px and the square's 38px.
+  TAG_Y_FRAC: 0.3,
+  SCORE_Y_FRAC: 0.686,
+
+  /** How far the top of the fill is mixed toward white before the gradient runs down to the score colour. */
+  LIGHTEN: 0.2,
+  /** The white sheen across the top of the body: its strength, and how far down the body it reaches. */
+  SHEEN: { alpha: 0.22, depth: 0.62 },
+  SHADOW: { color: "rgba(15, 23, 42, 0.45)", blur: 5, dy: 2 },
+} as const;
+
+const {
+  PAD,
+  PILL_H,
+  PILL_H_HOT,
+  PILL_MIN_W,
+  TAIL_W,
+  TAIL_H,
+  SQUARE_SIDE,
+  SQUARE_SIDE_HOT,
+  PILL_TEXT_PAD,
+  SQUARE_TEXT_PAD,
+  RADIUS_ROUND,
+  RADIUS_SQUARE,
+  RING_W,
+  COLLAR_W,
+  TAG_Y_FRAC,
+  SCORE_Y_FRAC,
+} = PUCK;
+
+const FONT = `${PUCK.SCORE_FONT.weight} ${PUCK.SCORE_FONT.size}px ${PUCK.FONT_FAMILY}`;
+const TAG_FONT = `${PUCK.TAG_FONT.weight} ${PUCK.TAG_FONT.size}px ${PUCK.FONT_FAMILY}`;
+
+export const COLLAR: Record<PuckRing, string | null> = {
   base: null,
   fresh: "#10b981", // emerald: catch reports exist at this spot
   sel: "#1F40E0", // cobalt: the selected spot
@@ -105,8 +149,23 @@ export const PUCK_TIP_OFFSET = PAD;
  */
 export const PUCK_HALF_W = 19;
 
+/**
+ * Centre-to-centre distance under which two pucks overlap on screen: two
+ * half-widths, plus a little for the white ring, so kept pins always read
+ * fully separated. The map's declutter (spot-geojson.ts) and the landing
+ * pages' Explore reel both read it from here, so the pair of marks the reel
+ * keeps apart is the pair Explore keeps apart at the same zoom.
+ *
+ * Lives here and not beside the declutter because of the import cycle: this
+ * module reads spot-geojson for colours (inside functions, so lazily), and a
+ * top-level constant over there that read PUCK_HALF_W would evaluate while
+ * this module was still initialising.
+ */
+const STROKE_PAD = 4;
+export const PIN_MIN_DIST = PUCK_HALF_W * 2 + STROKE_PAD;
+
 /** Mix a #rrggbb toward white by `t` (0..1). */
-function lighten(hex: string, t: number): string {
+export function lighten(hex: string, t: number): string {
   const n = parseInt(hex.slice(1), 16);
   const r = (n >> 16) & 255;
   const g = (n >> 8) & 255;
@@ -142,6 +201,68 @@ function puckPath(
   ctx.closePath();
 }
 
+/**
+ * The same outline as {@link puckPath}, as SVG path data.
+ *
+ * ⚠ Written twice on purpose, the way puckIconId and puckIconImageExpr are:
+ * canvas wants a sequence of context calls and SVG wants a string, and each
+ * consumer can only read its own kind. They sit together so a change to one
+ * is a visible change to the other. Every arcTo above turns a right-angled
+ * corner into a quarter circle, which is exactly the `A` below with sweep=1
+ * in y-down coordinates.
+ */
+export function puckPathData(x: number, y: number, w: number, h: number, r: number): string {
+  const midX = x + w / 2;
+  const a = (ex: number, ey: number) => `A${r},${r} 0 0 1 ${ex},${ey}`;
+  return [
+    `M${x + r},${y}`,
+    `L${x + w - r},${y}`,
+    a(x + w, y + r),
+    `L${x + w},${y + h - r}`,
+    a(x + w - r, y + h),
+    `L${midX + TAIL_W / 2},${y + h}`,
+    `L${midX},${y + h + TAIL_H}`,
+    `L${midX - TAIL_W / 2},${y + h}`,
+    `L${x + r},${y + h}`,
+    a(x, y + h - r),
+    `L${x},${y + r}`,
+    a(x + r, y),
+    "Z",
+  ].join(" ");
+}
+
+/** The box a puck occupies, and the body inside it. */
+export interface PuckBox {
+  pillW: number;
+  pillH: number;
+  corner: number;
+  /** Sprite size, padding included. */
+  w: number;
+  h: number;
+}
+
+/**
+ * Size a puck from the width its text needs. Pure, so the SVG twin can size
+ * itself by the same rule; only the measuring differs (canvas measures, a
+ * server render estimates).
+ */
+export function puckBox(textW: number, hot: boolean, shape: PuckShape): PuckBox {
+  const square = shape === "sq";
+  const pillH = square ? (hot ? SQUARE_SIDE_HOT : SQUARE_SIDE) : hot ? PILL_H_HOT : PILL_H;
+  // Width the text alone demands. Even, so the tail centres on a whole pixel.
+  const textMinW = Math.ceil((textW + (square ? SQUARE_TEXT_PAD : PILL_TEXT_PAD)) / 2) * 2;
+  // A square matches its height, and only breaks square if a wide label (say a
+  // three-digit 100) genuinely will not fit inside it.
+  const pillW = square ? Math.max(pillH, textMinW) : Math.max(PILL_MIN_W, textMinW);
+  return {
+    pillW,
+    pillH,
+    corner: square ? RADIUS_SQUARE : RADIUS_ROUND,
+    w: pillW + PAD * 2,
+    h: PAD + pillH + TAIL_H + PAD,
+  };
+}
+
 type PuckImage = { width: number; height: number; data: Uint8ClampedArray };
 
 /** Render one puck. Returns null server-side or without a 2D context. */
@@ -153,8 +274,6 @@ function drawPuck(label: string, ring: PuckRing, hot: boolean, shape: PuckShape)
   const base = noData || !Number.isFinite(score) ? NO_DATA_COLOR : scoreColor(score);
   const ink = noData ? "#374151" : "#ffffff";
   const collar = COLLAR[ring];
-  const square = shape === "sq";
-  const corner = square ? RADIUS_SQUARE : RADIUS_ROUND;
 
   const measure = document.createElement("canvas").getContext("2d");
   if (!measure) return null;
@@ -165,15 +284,7 @@ function drawPuck(label: string, ring: PuckRing, hot: boolean, shape: PuckShape)
   // Stacked, so the body only has to be as wide as the wider of the two lines.
   const textW = Math.max(scoreW, tagW);
 
-  const pillH = square ? (hot ? SQUARE_SIDE_HOT : SQUARE_SIDE) : hot ? PILL_H_HOT : PILL_H;
-  // Width the text alone demands. Even, so the tail centres on a whole pixel.
-  const textMinW = Math.ceil((textW + (square ? SQUARE_TEXT_PAD : PILL_TEXT_PAD)) / 2) * 2;
-  // A square matches its height, and only breaks square if a wide label (say a
-  // three-digit 100) genuinely will not fit inside it.
-  const pillW = square ? Math.max(pillH, textMinW) : Math.max(PILL_MIN_W, textMinW);
-
-  const w = pillW + PAD * 2;
-  const h = PAD + pillH + TAIL_H + PAD;
+  const { pillW, pillH, corner, w, h } = puckBox(textW, hot, shape);
   const canvas = document.createElement("canvas");
   canvas.width = w * RATIO;
   canvas.height = h * RATIO;
@@ -182,15 +293,15 @@ function drawPuck(label: string, ring: PuckRing, hot: boolean, shape: PuckShape)
   ctx.scale(RATIO, RATIO);
 
   const grad = ctx.createLinearGradient(0, PAD, 0, PAD + pillH);
-  grad.addColorStop(0, lighten(base, 0.2));
+  grad.addColorStop(0, lighten(base, PUCK.LIGHTEN));
   grad.addColorStop(1, base);
   ctx.lineJoin = "round";
 
   // Body, with the drop shadow attached to this fill only.
   ctx.save();
-  ctx.shadowColor = "rgba(15, 23, 42, 0.45)";
-  ctx.shadowBlur = 5;
-  ctx.shadowOffsetY = 2;
+  ctx.shadowColor = PUCK.SHADOW.color;
+  ctx.shadowBlur = PUCK.SHADOW.blur;
+  ctx.shadowOffsetY = PUCK.SHADOW.dy;
   ctx.fillStyle = grad;
   puckPath(ctx, PAD, PAD, pillW, pillH, corner);
   ctx.fill();
@@ -213,11 +324,11 @@ function drawPuck(label: string, ring: PuckRing, hot: boolean, shape: PuckShape)
   ctx.save();
   puckPath(ctx, PAD, PAD, pillW, pillH, corner);
   ctx.clip();
-  const sheen = ctx.createLinearGradient(0, PAD, 0, PAD + pillH * 0.62);
-  sheen.addColorStop(0, "rgba(255, 255, 255, 0.22)");
+  const sheen = ctx.createLinearGradient(0, PAD, 0, PAD + pillH * PUCK.SHEEN.depth);
+  sheen.addColorStop(0, `rgba(255, 255, 255, ${PUCK.SHEEN.alpha})`);
   sheen.addColorStop(1, "rgba(255, 255, 255, 0)");
   ctx.fillStyle = sheen;
-  ctx.fillRect(PAD, PAD, pillW, pillH * 0.62);
+  ctx.fillRect(PAD, PAD, pillW, pillH * PUCK.SHEEN.depth);
   ctx.restore();
 
   // White ring last, over the fill, the sheen and the collar's inner half.

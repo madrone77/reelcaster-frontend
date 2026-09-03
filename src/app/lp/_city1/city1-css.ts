@@ -307,55 +307,36 @@ export const LP8_CSS = `
 
 /* pins. Percentages of the map box, so they follow the projection in
    reel-frame.ts at any rendered size. */
-/* A puck with a tail, because a plain rounded rect floating over water does
-   not say WHICH water. --tail is how far below the badge the point sits, and
-   it appears three times -- in the offset that puts the point on the spot, in
-   the transform-origin so growing does not walk the point off it, and in the
-   ring's placement -- so it is a variable rather than the same number typed
-   out three times and later corrected in two of them. */
+/* The pins are the map's own pucks (reel-puck.tsx), sized in --sp inside the
+   SVG itself. This wrapper only places one: its point is the tail tip, which
+   sits --tip above the sprite's bottom edge (score-puck.ts PUCK_TIP_OFFSET,
+   the padding that gives the drop shadow room), so the wrapper is lifted by
+   its own height less that. The ping ring and the lift on the active stop
+   both take the tip as their origin, so what grows and what is circled is the
+   piece of water and not the number. */
 .l8 .reelpin{
-  --tail:calc(7 * var(--sp));
+  --tip:calc(7 * var(--sp));
   position:absolute;
-  transform:translate(-50%,calc(-100% - var(--tail)));
-  transform-origin:50% calc(100% + var(--tail));
-  display:flex;align-items:center;justify-content:center;
-  min-width:calc(30 * var(--sp));height:calc(21 * var(--sp));
-  padding:0 calc(5 * var(--sp));
-  background:var(--pin);border:calc(1.5 * var(--sp)) solid #fff;
-  border-radius:calc(6 * var(--sp));
-  box-shadow:0 calc(2 * var(--sp)) calc(5 * var(--sp)) rgba(10,12,16,.35);
-  transition:transform .45s cubic-bezier(.2,.9,.25,1), opacity .45s ease;
-  opacity:.85;z-index:1;
+  transform:translate(-50%,calc(-100% + var(--tip)));
+  transform-origin:50% calc(100% - var(--tip));
+  transition:transform .45s cubic-bezier(.2,.9,.25,1);
+  z-index:1;
 }
-/* The tail is a rotated square rather than a border triangle, so the white
-   outline carries on around it instead of stopping where the badge ends. */
-.l8 .reelpin::after{
-  content:"";position:absolute;left:50%;top:100%;
-  width:calc(10 * var(--sp));height:calc(10 * var(--sp));
-  margin-top:calc(-6 * var(--sp));
-  background:var(--pin);
-  border-right:calc(1.5 * var(--sp)) solid #fff;
-  border-bottom:calc(1.5 * var(--sp)) solid #fff;
-  border-bottom-right-radius:calc(2 * var(--sp));
-  transform:translateX(-50%) rotate(45deg);
-  z-index:-1;
-}
-.l8 .reelpin b{color:#fff;font-size:calc(11 * var(--sp));font-weight:700;font-variant-numeric:tabular-nums}
-/* The stop the reel is on: lifted, opaque, and above its neighbours. The
-   drop-shadow is what separates it from map clutter -- tide stations and
-   contour lines sit under these pins, and a pin that has only grown can still
-   be lost in them. */
+.l8 .reelpuck{display:block}
+/* The stop the reel is on. The puck already wears the map's cobalt "selected"
+   collar and sits above its neighbours; the lift is slight, enough to move
+   when the reel does and no more, because a pin half as big again as the
+   others is not a pin the map draws. */
 .l8 .reelpin.on{
-  opacity:1;z-index:3;
-  transform:translate(-50%,calc(-100% - var(--tail))) scale(1.32);
-  filter:drop-shadow(0 calc(3 * var(--sp)) calc(7 * var(--sp)) rgba(10,12,16,.45));
+  z-index:3;
+  transform:translate(-50%,calc(-100% + var(--tip))) scale(1.12);
 }
 /* The ring expands FROM the point, not from the badge, so the thing being
    circled is the piece of water rather than the number. */
 .l8 .reelping{
-  position:absolute;left:50%;top:100%;
+  position:absolute;left:50%;top:calc(100% - var(--tip));
   width:calc(22 * var(--sp));height:calc(22 * var(--sp));
-  margin:calc(var(--tail) - 11 * var(--sp)) 0 0 calc(-11 * var(--sp));
+  margin:calc(-11 * var(--sp)) 0 0 calc(-11 * var(--sp));
   border-radius:999px;
   border:calc(2.5 * var(--sp)) solid #fff;
   box-shadow:0 0 0 calc(1 * var(--sp)) var(--pin) inset, 0 0 0 calc(1 * var(--sp)) var(--pin);

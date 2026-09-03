@@ -5,8 +5,10 @@ import { Home, Map, NotebookPen, MoreHorizontal, Wind, Waves, Navigation } from 
 import type { LucideIcon } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { tierFor, TIER_PIN } from "@/app/explore/lib/explore-data";
+import { PIN_MIN_DIST, type PuckRing } from "@/app/explore/lib/score-puck";
 import type { ReelPin } from "./city-proof";
 import { placePin, panFor, inSafeArea, type ReelFrame } from "./reel-frame";
+import ReelPuck from "./reel-puck";
 
 /**
  * The hero: Explore, on a phone, walking its own spots.
@@ -23,6 +25,14 @@ import { placePin, panFor, inSafeArea, type ReelFrame } from "./reel-frame";
  * the card can change without a second image per spot and without a video that
  * goes stale the next time a score moves. It also stays sharp on any display,
  * which a screen-recorded MP4 at a fixed resolution does not.
+ *
+ * The pins are the map's own pucks, drawn as SVG from the same geometry,
+ * outline and colours the map rasterises to canvas (reel-puck.tsx), and they
+ * wear the map's own states: the emerald collar and "Hot" tag a Pro viewer
+ * sees on a mark with fresh catch reports, and the cobalt collar of the
+ * selected mark on the stop the reel is at. A pin here that was merely
+ * pin-shaped was the hero quietly disagreeing with the screen it is a
+ * picture of.
  *
  * The spots, the scores and the three readings on the card are the SAME
  * payload the marks band further down the page is built from, so the phone
@@ -55,13 +65,15 @@ const DWELL_MS = 2400;
 const MAX_STOPS = 8;
 
 /**
- * Map pixels below which two pins are the same pin as far as a reader is
- * concerned. The real map declutters on zoom; this still cannot, so a stop
- * that would land under a pin already drawn is dropped instead. Highlighting
- * a badge that is sitting behind another badge reads as the reel losing its
- * place, which is worse than showing one mark fewer.
+ * Two pins closer than this, centre to centre in map pixels, are the same pin
+ * as far as a reader is concerned. The real map declutters on zoom; this
+ * still cannot, so a stop that would land under a pin already drawn is
+ * dropped instead. Highlighting a badge that is sitting behind another badge
+ * reads as the reel losing its place, which is worse than showing one mark
+ * fewer. The distance is the map's own, so the pair of marks this keeps apart
+ * is the pair Explore keeps apart at the same zoom.
  */
-const PIN_GAP = 26;
+const PIN_GAP = PIN_MIN_DIST;
 
 /**
  * The card's sparkline: 24 hourly scores folded into 12 two-hour buckets, the
@@ -143,9 +155,7 @@ export default function ExploreReel({
     // happen to be furthest north rather than the ones worth showing.
     const kept: typeof visible = [];
     for (const v of visible) {
-      const clash = kept.some(
-        (k) => Math.abs(k.at.x - v.at.x) < PIN_GAP && Math.abs(k.at.y - v.at.y) < PIN_GAP,
-      );
+      const clash = kept.some((k) => Math.hypot(k.at.x - v.at.x, k.at.y - v.at.y) < PIN_GAP);
       if (!clash) kept.push(v);
       if (kept.length === MAX_STOPS) break;
     }
@@ -259,6 +269,9 @@ export default function ExploreReel({
 
             {stops.map((s, n) => {
               const on = n === i;
+              // The ring the map would give this mark, resolved in the map's
+              // own order: selected beats reports beats plain.
+              const ring: PuckRing = on ? "sel" : s.pin.hot ? "fresh" : "base";
               return (
                 <span
                   key={s.pin.slug}
@@ -266,13 +279,14 @@ export default function ExploreReel({
                   style={{
                     left: s.at.left,
                     top: s.at.top,
-                    // The product's own pin colour for the tier, so a pin here
-                    // is the colour it would be on the real map.
+                    // The product's own pin colour for the tier, for the ping
+                    // ring; the puck itself reads the same colour from the
+                    // same table.
                     ["--pin" as string]: TIER_PIN[tierFor(s.pin.score)],
                   }}
                 >
                   {on ? <i className="reelping" /> : null}
-                  <b>{s.pin.score}</b>
+                  <ReelPuck score={s.pin.score} ring={ring} hot={s.pin.hot} uid={s.pin.slug} />
                 </span>
               );
             })}
