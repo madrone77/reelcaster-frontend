@@ -68,7 +68,7 @@ import {
   useCampaignHit,
   type CampaignTarget,
 } from "@/app/lp/_shared/lp-telemetry";
-import type { AdMode, AdWall } from "@/lib/ad-mode";
+import { withAdParams, type AdMode, type AdWall } from "@/lib/ad-mode";
 import MarketingFooter from "@/app/components/marketing/marketing-footer";
 import { PAGE_MEASURE } from "@/app/components/layout/page-measure";
 import LogCatchDialog from "@/app/explore/spot/components/log-catch-dialog";
@@ -959,77 +959,107 @@ export default function SpotDetailShell({
           bar-height short of the bottom. `--rc-ad-bar-h` carries the device
           safe area, which a bare `pb-16` would not. */}
       <div className={ad ? "pb-[var(--rc-ad-bar-h)]" : "pt-16"}>
-        {/* Desktop sub-header: breadcrumb + freshness. Full-bleed rule, inner
-            row on the page measure — so "Back to map" starts on the same
-            gridline as the spot name below it, and the freshness stamp ends on
-            the same one as the map's right edge. */}
-        {/* Not merely hidden: a display:none link is still in the document,
-            still a tab stop, and still an exit. On an ad page it does not
-            exist. */}
-        {!ad && (
-        <div className="hidden lg:block border-b border-rc-rule">
+        {/* Sub-header: the way back to the map, then on desktop the breadcrumb
+            and the freshness stamp. Full-bleed rule, inner row on the page
+            measure — so "Back to map" starts on the same gridline as the spot
+            name below it, and the freshness stamp ends on the same one as the
+            map's right edge.
+
+            The link is here at every width. It used to be desktop-only, which
+            left a phone with no way back to the map except the browser's own
+            Back button and a chevron in the corner of the mini map, further
+            down the page than most readers get before they want to leave. */}
+        <div className="border-b border-rc-rule">
           <div
             className={`${PAGE_MEASURE} flex flex-wrap items-center justify-between gap-2 py-3`}
           >
             <div className="flex items-center gap-2 font-rc-mono text-[11px] text-rc-ink-mute">
+              {/* Under the ad frame this is the one link on the page, and it
+                  is not an exit: it carries `?ad=` back onto Explore, which
+                  wears the same frame, so a paid visit that opened a spot from
+                  the map can return to the map without leaving the frame.
+                  `?spot=` frames this spot on arrival for the visitor the ad
+                  sent straight here, who has no remembered view to restore;
+                  when there is one (they came from the map) the hand-off blob
+                  outranks the URL — see explore/lib/view-memory.ts. The
+                  product keeps the bare href, which is what that view memory
+                  was built around. */}
               <Link
-                href="/explore"
+                href={
+                  ad
+                    ? withAdParams(`/explore?spot=${spot.slug}`, ad)
+                    : "/explore"
+                }
                 className="flex items-center gap-1 text-rc-brand hover:underline"
               >
                 <ChevronLeft className="w-3.5 h-3.5" />
                 Back to map
               </Link>
-              <span className="text-rc-rule">·</span>
-              {/* Real anchors up the hierarchy, not prose. This used to render
-                  the country › region › city trail as plain text, which left
-                  every spot page linking only sideways to /explore — nothing
-                  pointed back at the city page that should rank for it. */}
-              <nav aria-label="Breadcrumb" className="min-w-0 truncate">
-                {cityLink ? (
-                  <>
-                    {/* Country is a label, not a link — there is no
-                        /fishing/<country> route to point it at. It still leads
-                        the trail so a US spot reads "USA › Washington › …"
-                        rather than opening on a state name with no context. */}
-                    {cityLink.countryName}
-                    {" › "}
-                    <Link
-                      href={cityLink.provincePath}
-                      className="hover:text-rc-ink transition-colors"
-                    >
-                      {cityLink.provinceName}
-                    </Link>
-                    {" › "}
-                    <Link
-                      href={cityLink.cityPath}
-                      className="hover:text-rc-ink transition-colors"
-                    >
-                      {cityLink.cityName}
-                    </Link>
-                    {" › "}
-                  </>
-                ) : (
-                  <>
-                    {/* No published city to link up to. Same shape, from the
-                        spot's own flat address — `spot.country` arrives as the
-                        formal name ("United States"), so it gets the same
-                        display mapping the linked branch already applied. */}
-                    {[
-                      spot.country ? countryDisplayName(spot.country) : null,
-                      spot.region,
-                      spot.city,
-                    ]
-                      .filter(Boolean)
-                      .join(" › ")}
-                    {" › "}
-                  </>
-                )}
-                <span className="text-rc-ink-soft" aria-current="page">
-                  {spot.name}
-                </span>
-              </nav>
+              {/* The trail up the hierarchy is desktop-only, and on an ad page
+                  it does not exist: every anchor in it is an exit, and a
+                  display:none link is still in the document, still a tab
+                  stop. */}
+              {!ad && (
+                <>
+                  <span className="hidden lg:inline text-rc-rule">·</span>
+                  {/* Real anchors up the hierarchy, not prose. This used to
+                      render the country › region › city trail as plain text,
+                      which left every spot page linking only sideways to
+                      /explore — nothing pointed back at the city page that
+                      should rank for it. */}
+                  <nav
+                    aria-label="Breadcrumb"
+                    className="hidden lg:block min-w-0 truncate"
+                  >
+                    {cityLink ? (
+                      <>
+                        {/* Country is a label, not a link — there is no
+                            /fishing/<country> route to point it at. It still leads
+                            the trail so a US spot reads "USA › Washington › …"
+                            rather than opening on a state name with no context. */}
+                        {cityLink.countryName}
+                        {" › "}
+                        <Link
+                          href={cityLink.provincePath}
+                          className="hover:text-rc-ink transition-colors"
+                        >
+                          {cityLink.provinceName}
+                        </Link>
+                        {" › "}
+                        <Link
+                          href={cityLink.cityPath}
+                          className="hover:text-rc-ink transition-colors"
+                        >
+                          {cityLink.cityName}
+                        </Link>
+                        {" › "}
+                      </>
+                    ) : (
+                      <>
+                        {/* No published city to link up to. Same shape, from the
+                            spot's own flat address — `spot.country` arrives as the
+                            formal name ("United States"), so it gets the same
+                            display mapping the linked branch already applied. */}
+                        {[
+                          spot.country ? countryDisplayName(spot.country) : null,
+                          spot.region,
+                          spot.city,
+                        ]
+                          .filter(Boolean)
+                          .join(" › ")}
+                        {" › "}
+                      </>
+                    )}
+                    <span className="text-rc-ink-soft" aria-current="page">
+                      {spot.name}
+                    </span>
+                  </nav>
+                </>
+              )}
             </div>
-            <div className="flex items-center gap-1.5 font-rc-mono text-[10px] text-rc-ink-mute uppercase tracking-[0.08em]">
+            {/* Desktop-only. On a phone the row is the way back and nothing
+                else. */}
+            <div className="hidden lg:flex items-center gap-1.5 font-rc-mono text-[10px] text-rc-ink-mute uppercase tracking-[0.08em]">
               <span className="w-1.5 h-1.5 rounded-full bg-rc-good" />
               Live · auto-refresh 5 min
               {/* Only after a refresh has actually run. Rendering a time on
@@ -1040,7 +1070,6 @@ export default function SpotDetailShell({
             </div>
           </div>
         </div>
-        )}
 
         {/* Body: single stack on mobile, two columns on desktop */}
         {/* Single top-to-bottom reading order (conclusion-first). A desktop-
