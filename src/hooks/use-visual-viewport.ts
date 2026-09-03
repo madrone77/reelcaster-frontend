@@ -67,11 +67,22 @@ export function useVisualViewport(active: boolean): ViewportMetrics {
     const measure = () => {
       frame = 0;
       const covered = window.innerHeight - (vv.height + vv.offsetTop);
-      setMetrics({
+      const next: ViewportMetrics = {
         keyboard: covered > KEYBOARD_MIN ? Math.round(covered) : 0,
         height: Math.round(vv.height),
         offsetTop: Math.round(vv.offsetTop),
-      });
+      };
+      // Same numbers, same object. iOS fires `scroll` on the visual viewport
+      // for every frame of a rubber-band or a URL-bar collapse, and a fresh
+      // object per frame re-rendered the whole open dialog, the Stripe
+      // wallet element included, at 60fps while nothing had changed.
+      setMetrics((prev) =>
+        prev.keyboard === next.keyboard &&
+        prev.height === next.height &&
+        prev.offsetTop === next.offsetTop
+          ? prev
+          : next,
+      );
     };
     // The keyboard animates in, firing a burst of resize + scroll events.
     // Coalesce them to one measurement per frame.

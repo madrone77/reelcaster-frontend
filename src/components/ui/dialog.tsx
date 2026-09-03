@@ -165,11 +165,24 @@ function DialogPanel({
           ? sheet
             ? {
                 // A bottom-pinned panel does not move to the middle of the
-                // gap; it sits on top of the keyboard. `keyboard` is how much
-                // of the layout viewport the keys cover, in the same
-                // coordinates `bottom` resolves in.
-                bottom: keyboard,
-                maxHeight: Math.max(height - 32, 160),
+                // gap; its CONTENT sits on top of the keyboard. `keyboard` is
+                // how much of the layout viewport the keys cover, in the same
+                // coordinates `bottom` and padding resolve in.
+                //
+                // Padding, not `bottom: keyboard`. Lifting the whole panel
+                // left the band it had vacated as scrim, and a thumb landing
+                // there (reaching for where the button had just been, or
+                // brushing the screen while the keys animated in) counted as
+                // a tap outside: the sheet closed and took the half-typed
+                // email with it. Padded instead, the panel still reaches the
+                // bottom edge, the keys cover only its padding, and every tap
+                // in that band lands on the sheet. It also means the panel no
+                // longer jumps up and back when iOS autofill collapses and
+                // re-raises the keyboard; only the padding breathes.
+                paddingBottom: keyboard,
+                // The visible part is capped at the band above the keys; the
+                // padding hidden under them is on top of that.
+                maxHeight: Math.max(height - 32, 160) + keyboard,
                 ...style,
               }
             : {

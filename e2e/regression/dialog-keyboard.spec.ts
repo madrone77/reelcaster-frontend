@@ -62,6 +62,72 @@ async function raiseKeyboard(page: Page) {
   );
 }
 
+test('the trial modal mounts in its final shape on the opening tap', async ({
+  page,
+}) => {
+  await page.goto('/fishing-licence/bc');
+  await page.waitForLoadState('networkidle').catch(() => {});
+
+  // Record the shape of every dialog panel that enters the DOM from the tap
+  // onward. The phone check used to answer in an effect, so the first panel
+  // to mount was the centred dialog and the sheet replaced it a frame later.
+  // On WebKit that swap let the sheet's outside-tap listener catch the tail
+  // of the opening tap and close it. One shape, first time, is the fix.
+  await page.evaluate(() => {
+    const seen: string[] = [];
+    (window as unknown as { __shapes: string[] }).__shapes = seen;
+    new MutationObserver((records) => {
+      for (const record of records) {
+        for (const node of record.addedNodes) {
+          if (!(node instanceof Element)) continue;
+          const panel = node.matches('[data-slot="dialog-content"]')
+            ? node
+            : node.querySelector('[data-slot="dialog-content"]');
+          if (panel) seen.push(panel.getAttribute('data-shape') ?? '');
+        }
+      }
+    }).observe(document.body, { childList: true, subtree: true });
+  });
+
+  await page.getByRole('button', { name: 'Start free' }).last().click();
+  const panel = page.locator('[data-slot="dialog-content"]');
+  await expect(panel).toBeVisible({ timeout: 15_000 });
+  await expect(panel).toHaveAttribute('data-shape', 'sheet');
+
+  const shapes = await page.evaluate(
+    () => (window as unknown as { __shapes: string[] }).__shapes,
+  );
+  expect(shapes).toEqual(['sheet']);
+});
+
+test('a tap in the band the keyboard covers does not close the sheet', async ({
+  page,
+}) => {
+  const panel = await openDialog(page);
+  await expect(panel).toHaveAttribute('data-shape', 'sheet');
+  await raiseKeyboard(page);
+
+  // The sheet still reaches the bottom edge: the keys cover its padding, not
+  // scrim. Lifting the whole panel by the keyboard's height left that band as
+  // overlay, and a thumb landing there closed the sheet and threw away the
+  // email being typed into it.
+  const box = await panel.boundingBox();
+  expect(Math.round(box!.y + box!.height)).toBeGreaterThanOrEqual(PHONE.height);
+
+  const inBand = await page.evaluate(
+    ({ x, y }) => {
+      const hit = document.elementFromPoint(x, y);
+      const panel = document.querySelector('[data-slot="dialog-content"]');
+      return Boolean(hit && panel && panel.contains(hit));
+    },
+    { x: PHONE.width / 2, y: PHONE.height - KEYBOARD / 2 },
+  );
+  expect(inBand).toBe(true);
+
+  await page.mouse.click(PHONE.width / 2, PHONE.height - KEYBOARD / 2);
+  await expect(panel).toBeVisible();
+});
+
 test('opening a dialog on a touch device does not raise the keyboard', async ({
   page,
 }) => {
@@ -82,12 +148,17 @@ test('a dialog fits above the keyboard, and scrolls if it cannot', async ({
   await expect(panel).toHaveAttribute('data-shape', 'sheet');
   await raiseKeyboard(page);
 
-  // The whole panel is in the band the reader can see. Before this fix it ran
-  // ~265px past the top of the keyboard. Polled because the modal's own
-  // content settles over a couple of frames as the wallet buttons resolve.
+  // Everything the reader has to reach is in the band they can see. Before
+  // this fix the panel ran ~265px past the top of the keyboard. The sheet
+  // itself still touches the bottom edge (the keys cover its padding, so a
+  // tap in that band lands on the sheet rather than on the scrim that closes
+  // it), which is why this measures the buy button, the last thing in the
+  // sheet, and not the panel's box. Polled because the modal's own content
+  // settles over a couple of frames as the wallet buttons resolve.
+  const cta = panel.getByTestId('trial-cta');
   await expect
     .poll(async () => {
-      const box = await panel.boundingBox();
+      const box = await cta.boundingBox();
       return box ? Math.round(box.y + box.height) : null;
     })
     .toBeLessThanOrEqual(KEYBOARD_TOP);
