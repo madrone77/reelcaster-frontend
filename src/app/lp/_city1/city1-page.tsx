@@ -19,6 +19,9 @@ import type { City1City, City1Variant } from "./city1-city";
 import { loadConditionsFeed } from "./load-conditions";
 import ConditionsPhone from "./conditions-phone";
 import AlertSmsPhone from "./alert-sms-phone";
+import { loadPictureFeed } from "./load-picture";
+import { WhereWhatWhenPicture } from "./where-what-when-phone";
+import ClientErrorBoundary from "@/app/components/client-error-boundary";
 import { nextSundayFrom } from "./alert-sms";
 import {
   buildCityProof,
@@ -224,6 +227,23 @@ export default async function City1Page({
       ? await loadConditionsFeed(proof, card.provinceCode, city.conditionsMark)
       : null;
 
+  /**
+   * /lp/5's second picture: the WHERE / WHAT / WHEN screen itself, rendered.
+   *
+   * The same slot, and the third thing to sit in it. /1 shows a photograph of
+   * a spot page with the three arrows pasted on; /4 shows the day chart,
+   * live; /5 shows the photograph's own subject, live -- the top of the spot
+   * page for the mark named in city.pictureMark, drawn from the product's
+   * components with the callouts measured onto it. /5 is otherwise /4: it
+   * keeps the alert band below, so the two differ by this one picture. Only
+   * fetched for the variant that draws it, and null on any miss, in which
+   * case the still comes back, exactly as on /4.
+   */
+  const picture =
+    variant === 5
+      ? await loadPictureFeed(city.pictureMark, card.provinceCode)
+      : null;
+
   // The hero reads off the SAME ranking as the marks band below it. Taking
   // the card's spot instead put Constance Bank at 88 above a list topped by
   // Victoria Waterfront at 91, which is a page disagreeing with itself in the
@@ -243,6 +263,21 @@ export default async function City1Page({
   };
 
   const peakHourLabel = formatHour12(hero.peakHour);
+
+  /**
+   * The photograph: what /1 shows, and what /4 and /5 fall back to when their
+   * payload comes back thin or their screen throws.
+   */
+  const still = (
+    <Image
+      src={city.shot.src}
+      alt={`A ReelCaster spot page for ${city.shot.mark}. Arrows label the spot name as Where, the species score card as What, and the best window as When.`}
+      width={city.shot.width}
+      height={city.shot.height}
+      sizes="(min-width: 940px) 46vw, 92vw"
+      className="shot"
+    />
+  );
 
   return (
     <div className="l8 rcp">
@@ -373,23 +408,31 @@ export default async function City1Page({
             </ul>
           </div>
           <figure className="shotfig">
-            {conditions ? (
+            {picture ? (
+              // The picture draws a MapLibre map, and a lost WebGL context
+              // must not take the page with it. The still is the fallback,
+              // as it is on the homepage's spot slide.
+              <ClientErrorBoundary label="WhereWhatWhenPicture" fallback={still}>
+                <WhereWhatWhenPicture feed={picture} serverNowMs={Date.now()} />
+              </ClientErrorBoundary>
+            ) : conditions ? (
               <ConditionsPhone
                 feed={conditions}
                 serverNowMs={Date.now()}
               />
             ) : (
-              <Image
-                src={city.shot.src}
-                alt={`A ReelCaster spot page for ${city.shot.mark}. Arrows label the spot name as Where, the species score card as What, and the best window as When.`}
-                width={city.shot.width}
-                height={city.shot.height}
-                sizes="(min-width: 940px) 46vw, 92vw"
-                className="shot"
-              />
+              still
             )}
             <figcaption>
-              {conditions ? (
+              {picture ? (
+                <>
+                  {picture.spot.name}, one of the spots we score around{" "}
+                  {card.cityName}, as it stands today: every species scored
+                  there, the best window, and its {region.regulator.name}{" "}
+                  regulations underneath. Tap a species and the screen
+                  follows.
+                </>
+              ) : conditions ? (
                 <>
                   {conditions.spotName}, today, scored for{" "}
                   {conditions.speciesName ?? proof?.marksSpecies}. Every
@@ -412,7 +455,7 @@ export default async function City1Page({
       </section>
 
       {/* THE ALERT ARRIVING.
-          /lp/4 only, and only for a city with reviewed copy. The two phones
+          /lp/4 and /lp/5, and only for a city with reviewed copy. The two phones
           above still ask the reader to come and look; this is the offer the
           page actually makes, which is that they do not have to. An arriving
           text is the only honest way to show a thing whose whole value is
@@ -421,7 +464,7 @@ export default async function City1Page({
           The band sits here rather than higher because it answers the
           question the where/what/when section leaves: fine, but I am not
           going to check this every morning. */}
-      {variant === 4 && city.alertSms ? (
+      {(variant === 4 || variant === 5) && city.alertSms ? (
         <section className="smssec white">
           <div className="shell www">
             <div>
