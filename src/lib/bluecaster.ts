@@ -700,7 +700,14 @@ export async function fetchBuoyConditions(
  */
 export async function fetchSpotThumb(
   spotId: string,
-  opts: { zoom?: number; size?: "card" | "panel" } = {},
+  opts: {
+    zoom?: number;
+    size?: "card" | "panel";
+    /** `false` asks BlueCaster to leave Google's marker off the still, for a
+     *  caller that draws the product's own pin over the image. Default keeps
+     *  the marker, and with it every URL already cached at the edge. */
+    pin?: boolean;
+  } = {},
 ): Promise<{ body: ArrayBuffer; contentType: string } | null> {
   const env = bcEnv();
   if (!env) return null;
@@ -708,6 +715,7 @@ export async function fetchSpotThumb(
   url.searchParams.set("spot", spotId);
   if (opts.zoom) url.searchParams.set("z", String(opts.zoom));
   if (opts.size) url.searchParams.set("size", opts.size);
+  if (opts.pin === false) url.searchParams.set("pin", "0");
   try {
     const res = await fetch(url.toString(), {
       headers: { "x-api-key": env.apiKey },
