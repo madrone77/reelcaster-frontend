@@ -19,6 +19,15 @@ import { classifyPage, classifySource } from '@/lib/traffic-source'
 import { pacificDay } from '@/lib/pacific-day'
 import { newFishingPath } from '@/lib/legacy-fishing-paths'
 import { isSpotPath } from '@/lib/paths'
+import {
+  LP_SPLIT_COOKIE,
+  LP_SPLIT_COOKIE_MAX_AGE,
+  TREATMENT_ARM,
+  parseLpSplitCookie,
+  resolveLpArm,
+  serializeLpSplitArms,
+  splitForPath,
+} from '@/lib/lp-splits'
 
 // Legacy coming-soon wall, now scoped to nothing.
 //
@@ -226,6 +235,29 @@ function countPageView(req: NextRequest, event: NextFetchEvent): void {
   )
 }
 
+/**
+ * Remember which arm of a landing split this browser is in.
+ *
+ * Written only when the membership changed, so a visitor already in an arm
+ * gets no Set-Cookie on every page of their visit. httpOnly, because nothing
+ * in the browser needs to read it: the page a visitor is on IS their arm.
+ */
+function withLpArms(
+  req: NextRequest,
+  res: NextResponse,
+  arms: string | null,
+): NextResponse {
+  if (arms === null) return res
+  res.cookies.set(LP_SPLIT_COOKIE, arms, {
+    path: '/',
+    sameSite: 'lax',
+    secure: req.nextUrl.protocol === 'https:',
+    httpOnly: true,
+    maxAge: LP_SPLIT_COOKIE_MAX_AGE,
+  })
+  return res
+}
+
 export function middleware(req: NextRequest, event: NextFetchEvent) {
   const { pathname } = req.nextUrl
 
@@ -270,6 +302,43 @@ export function middleware(req: NextRequest, event: NextFetchEvent) {
     return NextResponse.redirect(url, 308)
   }
 
+  // A whole-page landing split: the ad points at the control, and a share of
+  // the people who click it are sent on to the treatment instead.
+  //
+  // Decided HERE, above the page-view count and returned as a redirect rather
+  // than stamped, on purpose: the request that follows the 307 is the one
+  // that gets counted and gets the first-touch cookie, so a split visit is
+  // counted once and every record names the page the visitor actually saw.
+  // The query string rides along untouched, because the click id and the UTM
+  // fields on it are the only attribution the visit has.
+  //
+  // Only a person arriving at a page is split. Prefetches and RSC fetches
+  // pass straight through (isPageView), and a self-declaring crawler always
+  // gets the control, so an ad network's link preview is stable. The arm is
+  // held in a cookie so a return visit lands on the same page. See
+  // src/lib/lp-splits.ts for the table, and for why this is not the
+  // registry-driven split-test system.
+  let pendingLpArms: string | null = null
+  const lpSplit = splitForPath(pathname)
+  if (
+    lpSplit &&
+    req.method === 'GET' &&
+    isPageView(req) &&
+    !isBotUserAgent(req.headers.get('user-agent'))
+  ) {
+    const resolved = resolveLpArm(
+      lpSplit,
+      parseLpSplitCookie(req.cookies.get(LP_SPLIT_COOKIE)?.value),
+      Math.random(),
+    )
+    if (resolved.changed) pendingLpArms = serializeLpSplitArms(resolved.arms)
+    if (resolved.arm === TREATMENT_ARM) {
+      const url = req.nextUrl.clone()
+      url.pathname = lpSplit.treatment
+      return withLpArms(req, NextResponse.redirect(url, 307), pendingLpArms)
+    }
+  }
+
   // Counted here rather than at the top of this function, so a mixed-case URL
   // is counted once on the lowercase request the browser follows the 308 to,
   // not twice.
@@ -308,11 +377,13 @@ export function middleware(req: NextRequest, event: NextFetchEvent) {
   const walled = WALLED_PREFIXES.some(
     (p) => pathname === p || pathname.startsWith(p + '/'),
   )
-  if (!walled) return stampAttribution(req, NextResponse.next())
+  if (!walled) {
+    return withLpArms(req, stampAttribution(req, NextResponse.next()), pendingLpArms)
+  }
 
   const url = req.nextUrl.clone()
   url.pathname = '/coming-soon'
-  return stampAttribution(req, NextResponse.rewrite(url))
+  return withLpArms(req, stampAttribution(req, NextResponse.rewrite(url)), pendingLpArms)
 }
 
 export const config = {
