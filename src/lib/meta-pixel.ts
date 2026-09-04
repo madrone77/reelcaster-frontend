@@ -3,9 +3,12 @@
  *
  * The server half already exists and is the reliable one: the Stripe webhook
  * writes `marketing_conversions` rows and `src/lib/conversion-upload.ts` posts
- * them to the Conversions API as `StartTrial` and `Purchase`. That leg survives
- * ad blockers, and it is the ONLY way the day-7 `Purchase` can ever be
- * reported, because by then no browser is left to fire a tag.
+ * them to the Conversions API. Since 2026-09-03 that leg sends Meta only the
+ * day-7 `Purchase`, the one event no browser can report: the pixel is wired to
+ * a Meta Conversions API Gateway that already relays every browser event as a
+ * server copy, so a third copy from our queue was what Ads Manager flagged as
+ * "Event not deduplicated". `StartTrial` and `InitiateCheckout` now reach Meta
+ * from the browser and the gateway alone (see META_GATEWAY_OWNED_EVENTS).
  *
  * So why a pixel at all? Two things the server leg cannot do:
  *
