@@ -45,6 +45,7 @@ import { useSubscription } from "@/hooks/use-subscription";
 import { zoneAbbrev } from "@/app/explore/lib/explore-data";
 import { useSpotClock } from "@/app/explore/lib/use-spot-clock";
 import DayCell from "@/app/explore/components/day-cell";
+import LockedFortnight from "./locked-fortnight";
 import { bestWindow } from "@/app/explore/components/hourly-bars";
 import dynamic from "next/dynamic";
 import { useMountedOnce } from "@/hooks/use-mounted-once";
@@ -487,6 +488,34 @@ export default function CityInstrument({
   const isToday = dayIndex === 0;
   const activeDay = stripModel?.days[dayIndex] ?? null;
 
+  // The strip splits into the days this reader can open (or is still waiting
+  // on) and the locked tail, which is one panel rather than a run of padlock
+  // tiles. Locked days are always a contiguous tail: the horizon is a count.
+  const openDays = useMemo(
+    () => (stripModel?.days ?? []).filter((d) => !d.locked),
+    [stripModel],
+  );
+  const lockedDays = useMemo(
+    () => (stripModel?.days ?? []).filter((d) => d.locked),
+    [stripModel],
+  );
+  const handleLockedRun = useCallback(() => {
+    const first = lockedDays[0];
+    if (!first) return;
+    trackEvent("City Day Chosen", {
+      city: citySlug,
+      day: first.iso,
+      index: first.index,
+      locked: true,
+      overlay: true,
+    });
+    // One panel, one ask: it says "Upgrade to Pro", so the press is credited
+    // to the 14-day wall even when the first locked day is a free account's.
+    setLockedTier("pro");
+    if (campaignTarget) reportCampaignCta("hero", campaignTarget);
+    setUpgradeOpen(true);
+  }, [lockedDays, citySlug, campaignTarget]);
+
   return (
     <>
       {/* ── 1 · The 14-day strip ──────────────────────────────────────────
@@ -539,7 +568,7 @@ export default function CityInstrument({
             ref={stripRef}
             className="flex gap-1.5 h-[132px] pt-2 overflow-x-auto scrollbar-hide"
           >
-            {(stripModel?.days ?? []).map((day) => (
+            {openDays.map((day) => (
               <div key={day.index} className="flex-1 min-w-[54px] flex">
                 <DayCell
                   day={day}
@@ -548,6 +577,11 @@ export default function CityInstrument({
                 />
               </div>
             ))}
+            <LockedFortnight
+              days={lockedDays}
+              cityName={cityName}
+              onSelect={handleLockedRun}
+            />
             {!stripModel &&
               Array.from({ length: 14 }, (_, i) => (
                 <div
