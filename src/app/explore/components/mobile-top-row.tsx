@@ -2,6 +2,7 @@
 
 import type { ReactNode } from "react";
 import { MapPinPlus, SlidersHorizontal } from "lucide-react";
+import { TOP_BAR_CTA_WIDTH } from "@/app/components/ui/button";
 
 /**
  * The phone's top row, floating over the map: Search, Filters, a compass, and
@@ -19,6 +20,16 @@ import { MapPinPlus, SlidersHorizontal } from "lucide-react";
  * fingers, and a rotated chart with no north on it is a chart you cannot read;
  * the needle turns with the map and a tap puts north back on top.
  */
+/**
+ * The row lines up with the blue bar above it. Search is exactly the width of
+ * the ReelCaster mark (104px, see ExploreTopBar), Add spot is exactly the width
+ * of the bar's Start free trial button (TOP_BAR_CTA_WIDTH, pinned in
+ * button.ts), and both sit on the bar's own gutters, so the pill's left edge is
+ * the mark's left edge and Add spot's right edge is the button's. Filters and
+ * the compass float between them with equal air on either side.
+ */
+export const MARK_WIDTH_CLASS = "w-[104px]";
+
 export default function MobileTopRow({
   search,
   onFilterClick,
@@ -40,7 +51,7 @@ export default function MobileTopRow({
 }) {
   const rotated = Math.abs(bearing) > 0.5;
   return (
-    <div className="flex items-center gap-2">
+    <div className="flex items-center justify-between gap-1">
       {search}
 
       <button
@@ -78,14 +89,13 @@ export default function MobileTopRow({
         </svg>
       </button>
 
-      {/* Fills the rest of a phone's row. On a tablet "the rest" is most of
-          the screen, so it stops at a button's width and sits on the right
-          edge instead, where the old bar kept it. */}
+      {/* The same width as the bar's Start free trial button, so the two stack
+          edge to edge. */}
       <button
         type="button"
         onClick={onAddSpot}
         disabled={!onAddSpot}
-        className="ml-auto flex h-11 min-w-0 max-w-[240px] flex-1 items-center justify-center gap-2 rounded-full border border-rc-brand bg-rc-brand px-3 text-[14px] font-bold text-white shadow-rc-panel outline outline-2 outline-white -outline-offset-5 transition-colors hover:bg-rc-brand-hover disabled:opacity-70"
+        className={`${TOP_BAR_CTA_WIDTH} flex h-11 shrink-0 items-center justify-center gap-2 rounded-full border border-rc-brand bg-rc-brand px-3 text-[14px] font-bold text-white shadow-rc-panel outline outline-2 outline-white -outline-offset-5 transition-colors hover:bg-rc-brand-hover disabled:opacity-70`}
       >
         <MapPinPlus className="h-[18px] w-[18px] shrink-0" />
         <span className="truncate">Add spot</span>

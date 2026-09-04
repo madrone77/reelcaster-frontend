@@ -13,6 +13,7 @@ import {
   PanelLeftClose,
   Search,
 } from "lucide-react";
+import { MARK_WIDTH_CLASS } from "./mobile-top-row";
 import {
   TIER_PILL,
   tierFor,
@@ -391,14 +392,14 @@ export default function LocationSelector({
       {compact ? (
         /* The phone's trigger: a Search pill, not the city's name. The browse
            sheet under the map already names the city, and search is the rare
-           action here, so the pill is sized for what it is and Add spot takes
-           the width it gives up (see MobileTopRow). */
+           action here, so the pill is the width of the ReelCaster mark in the
+           bar above it and Add spot takes the rest (see MobileTopRow). */
         <button
           type="button"
           onClick={() => setOpen((v) => !v)}
           aria-expanded={open}
           aria-label="Search spots, cities and species"
-          className="flex h-11 shrink-0 items-center gap-2 rounded-full border border-rc-rule bg-rc-panel/95 pl-3.5 pr-4 text-[14px] font-semibold text-rc-ink shadow-rc-panel backdrop-blur"
+          className={`${MARK_WIDTH_CLASS} flex h-11 shrink-0 items-center justify-center gap-2 rounded-full border border-rc-rule bg-rc-panel/95 text-[14px] font-semibold text-rc-ink shadow-rc-panel backdrop-blur`}
         >
           <Search className="h-4 w-4 shrink-0 text-rc-ink-mute" />
           Search

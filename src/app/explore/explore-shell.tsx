@@ -2221,11 +2221,14 @@ export default function ExploreShell({
           pills still works, and it is what carries MAP_INSET_ATTR, so the
           camera keeps correcting for the whole band the row sits in.
 
+          The gutters are BLEED_MEASURE's, the same ones the bar above wears,
+          so Search sits under the mark and Add spot under the bar's button.
+
           The Pro avatar that used to sit here is gone with the bar's width;
           the More tab's Account row is the way to the account now. */}
       <div
         {...{ [MAP_INSET_ATTR]: "top" }}
-        className={`lg:hidden pointer-events-none absolute ${mobileTop} inset-x-0 z-20 px-3 pt-2`}
+        className={`lg:hidden pointer-events-none absolute ${mobileTop} inset-x-0 z-20 px-4 pt-2 sm:px-6`}
       >
         <div className="pointer-events-auto">
           <MobileTopRow

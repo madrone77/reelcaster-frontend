@@ -23,6 +23,18 @@ const ON_BRAND = 'bg-white text-rc-brand hover:bg-white/90';
 // moments that want a big CTA.
 const LARGE = 'min-h-12 px-6 text-base';
 
+// The phone width of the top bar's Start free trial button. Explore's Add spot
+// button (mobile-top-row.tsx) wears the same class so the two stack with
+// their edges flush; pinning both to one number is what makes that exact
+// rather than a coincidence of the label's length. Phones only: from 640 up
+// the bar's CTA hugs its label as before.
+// Two plain strings, not a template: Tailwind only generates classes it can
+// read off the source. Narrow phones (under 390) get a tighter button so the
+// row still fits the mark, two 44px rounds and this at 16px gutters.
+export const TOP_BAR_CTA_WIDTH = 'w-[136px] min-[390px]:w-[156px]';
+export const TOP_BAR_CTA_PHONE_WIDTH =
+  'max-sm:w-[136px] max-sm:min-[390px]:w-[156px] max-sm:px-0';
+
 export const btn = {
   // Standalone prominent CTA: fills on compact, hugs from medium (640) up.
   primary: `${BASE} ${PROMINENT} w-full min-w-20 ${PRIMARY} sm:w-auto`,
