@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import dynamic from "next/dynamic";
-import { ArrowUpCircle, ChevronLeft, ChevronRight, Home, Bell, Share2 } from "lucide-react";
+import { ArrowUpCircle, ChevronLeft, ChevronRight, Home, Bell, Share2, X } from "lucide-react";
 import { useAuth } from "@/contexts/auth-context";
 import { useSubscription } from "@/hooks/use-subscription";
 import { noteEngagement } from "@/lib/upgrade-nag";
@@ -185,6 +185,14 @@ export type SpotCityLink = {
   countryName: string;
 };
 
+/** What a sheet host hands the shell: its close, and a way to swap spots. */
+export type SpotSheetHost = {
+  onClose: () => void;
+  /** Open another spot in the same sheet. `href` is the card's real page
+   *  URL, so a host can fall back to navigating if it wants to. */
+  onOpenSpot: (slug: string, href: string) => void;
+};
+
 export default function SpotDetailShell({
   page,
   slug,
@@ -195,6 +203,7 @@ export default function SpotDetailShell({
   ad = null,
   openOnSpeciesId = null,
   openOnIso = null,
+  sheet = null,
 }: {
   page: SpotPageForClient;
   slug: string;
@@ -230,6 +239,18 @@ export default function SpotDetailShell({
    */
   openOnSpeciesId?: string | null;
   openOnIso?: string | null;
+  /**
+   * Set when this render is the body of the phone's spot sheet on Explore
+   * (see explore/components/mobile-spot-sheet.tsx) rather than a page of its
+   * own.
+   *
+   * Null is the page. A sheet is the same page minus the chrome that only
+   * makes sense on a document: the fixed top bar, pull-to-refresh, the
+   * marketing footer, and every link that goes to /explore, which is where
+   * the reader already is. Those become the sheet's own close, and a nearby
+   * spot opens in the same sheet instead of navigating away from the map.
+   */
+  sheet?: SpotSheetHost | null;
 }) {
   const { spot } = page;
   // Which fisheries authority governs this spot.
@@ -515,6 +536,23 @@ export default function SpotDetailShell({
 
   // 14-day strip scroll affordance — overlaid arrows that fade in/out with
   // scroll position, so it's clear there's more to see in either direction.
+  // The sheet's pinned header row. Its height feeds `--rc-sheet-head` on the
+  // root so the sticky conditions strip can stack under it. Measured rather
+  // than assumed: the row wraps at narrow widths.
+  const sheetHeadRef = useRef<HTMLDivElement>(null);
+  const rootRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const head = sheetHeadRef.current;
+    const root = rootRef.current;
+    if (!sheet || !head || !root || typeof ResizeObserver === "undefined") return;
+    const apply = () =>
+      root.style.setProperty("--rc-sheet-head", `${head.offsetHeight}px`);
+    apply();
+    const ro = new ResizeObserver(apply);
+    ro.observe(head);
+    return () => ro.disconnect();
+  }, [sheet]);
+
   const dayStripRef = useRef<HTMLDivElement>(null);
   const [dayStripScrollable, setDayStripScrollable] = useState(false);
   const [dayStripScrolledLeft, setDayStripScrolledLeft] = useState(false);
@@ -953,7 +991,8 @@ export default function SpotDetailShell({
     // Nothing here listened to that scroller anyway (only the 14-day strip
     // scrolls, horizontally, on its own).
     <div
-      className="min-h-dvh bg-rc-panel"
+      ref={rootRef}
+      className={`${sheet ? "min-h-full" : "min-h-dvh"} bg-rc-panel`}
       /* Marks this render as the ad frame for the one piece of app chrome that
          lives OUTSIDE this tree: the mobile tab bar in the root layout. See
          the note in src/app/components/mobile-bottom-nav.tsx for why it is
@@ -979,7 +1018,9 @@ export default function SpotDetailShell({
 
           `adBarEdge="top"`: the bar sits at the top here, like everywhere
           else. Casey's call (2026-09-04): never at the bottom. */}
-      {ad ? (
+      {/* A sheet has no bar of its own: the map's chrome is still under it,
+          and the sheet's header row below carries the way back. */}
+      {sheet ? null : ad ? (
         <ExploreTopBar
           adFrame
           adBarEdge="top"
@@ -992,11 +1033,13 @@ export default function SpotDetailShell({
 
       {/* Pull down from the top of the page to refetch the live numbers. Sits
           outside the flow — it draws a floating indicator and nothing else, so
-          nothing below it shifts. */}
-      <PullToRefresh onRefresh={runRefresh} />
+          nothing below it shifts. Not in a sheet: the gesture reads the
+          document's scroll position, and a sheet scrolls its own box. */}
+      {!sheet && <PullToRefresh onRefresh={runRefresh} />}
 
-      {/* `pt-16` clears the fixed bar at the top, on the ad frame and off it. */}
-      <div className="pt-16">
+      {/* `pt-16` clears the fixed bar at the top, on the ad frame and off it.
+          A sheet has no fixed bar to clear. */}
+      <div className={sheet ? "" : "pt-16"}>
         {/* Sub-header: the way back to the map, then on desktop the breadcrumb
             and the freshness stamp. Full-bleed rule, inner row on the page
             measure — so "Back to map" starts on the same gridline as the spot
@@ -1007,7 +1050,24 @@ export default function SpotDetailShell({
             left a phone with no way back to the map except the browser's own
             Back button and a chevron in the corner of the mini map, further
             down the page than most readers get before they want to leave. */}
-        <div className="border-b border-rc-rule">
+        <div
+          className={
+            sheet
+              ? // Pinned to the top of the sheet's scroller, so the way out
+                // stays under the thumb however far down the read goes. The
+                // height is published as a CSS variable for the conditions
+                // strip further down, which is sticky too and has to stack
+                // under this row rather than slide up behind it.
+                "sticky top-0 z-30 border-b border-rc-rule bg-rc-panel"
+              : "border-b border-rc-rule"
+          }
+          ref={sheetHeadRef}
+        >
+          {sheet && (
+            <div className="flex justify-center pt-2" aria-hidden="true">
+              <span className="h-1.5 w-10 rounded-full bg-rc-rule" />
+            </div>
+          )}
           <div
             className={`${PAGE_MEASURE} flex flex-wrap items-center justify-between gap-2 py-3`}
           >
@@ -1022,20 +1082,36 @@ export default function SpotDetailShell({
                   outranks the URL — see explore/lib/view-memory.ts. The
                   product keeps the bare href, which is what that view memory
                   was built around. */}
-              <Link
-                href={
-                  ad
-                    ? withAdParams(`/explore?spot=${spot.slug}`, ad)
-                    : "/explore"
-                }
-                onClick={() =>
-                  trackEvent("Back To Map Clicked", { slug, ad_wall: ad?.wall })
-                }
-                className="flex items-center gap-1 text-rc-brand hover:underline"
-              >
-                <ChevronLeft className="w-3.5 h-3.5" />
-                Back to map
-              </Link>
+              {sheet ? (
+                // The map is right behind the sheet, so "back" is a close,
+                // not a navigation.
+                <button
+                  type="button"
+                  onClick={() => {
+                    trackEvent("Back To Map Clicked", { slug, ad_wall: ad?.wall });
+                    sheet.onClose();
+                  }}
+                  className="flex items-center gap-1 text-rc-brand hover:underline"
+                >
+                  <ChevronLeft className="w-3.5 h-3.5" />
+                  Back to map
+                </button>
+              ) : (
+                <Link
+                  href={
+                    ad
+                      ? withAdParams(`/explore?spot=${spot.slug}`, ad)
+                      : "/explore"
+                  }
+                  onClick={() =>
+                    trackEvent("Back To Map Clicked", { slug, ad_wall: ad?.wall })
+                  }
+                  className="flex items-center gap-1 text-rc-brand hover:underline"
+                >
+                  <ChevronLeft className="w-3.5 h-3.5" />
+                  Back to map
+                </Link>
+              )}
               {/* The trail up the hierarchy is desktop-only, and on an ad page
                   it does not exist: every anchor in it is an exit, and a
                   display:none link is still in the document, still a tab
@@ -1098,6 +1174,19 @@ export default function SpotDetailShell({
                 </>
               )}
             </div>
+            {/* A sheet closes from either end of the row: the link on the
+                left for readers who scan for words, the X on the right for the
+                thumb that expects one where every other sheet puts it. */}
+            {sheet && (
+              <button
+                type="button"
+                onClick={sheet.onClose}
+                aria-label="Close"
+                className="-mr-2 flex h-9 w-9 items-center justify-center rounded-full text-rc-ink-mute hover:bg-rc-surface hover:text-rc-ink"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            )}
             {/* Desktop-only. On a phone the row is the way back and nothing
                 else. */}
             <div className="hidden lg:flex items-center gap-1.5 font-rc-mono text-[10px] text-rc-ink-mute uppercase tracking-[0.08em]">
@@ -1441,7 +1530,13 @@ export default function SpotDetailShell({
                 through beside it while it is pinned — and they are safe inside
                 the body's `overflow-x-clip`, which is deliberately `clip` and
                 not `hidden` precisely so sticky still works in here. */}
-            <div className="mt-5 max-lg:sticky max-lg:top-0 max-lg:z-20 max-lg:-mx-4 max-lg:px-4 sm:max-lg:-mx-6 sm:max-lg:px-6 max-lg:pb-2 max-lg:bg-rc-panel">
+            <div
+              className={`mt-5 max-lg:sticky max-lg:z-20 max-lg:-mx-4 max-lg:px-4 sm:max-lg:-mx-6 sm:max-lg:px-6 max-lg:pb-2 max-lg:bg-rc-panel ${
+                // Under the sheet's own pinned header, not the top of the
+                // scroller; the variable is measured off that header above.
+                sheet ? "max-lg:top-[var(--rc-sheet-head,0px)]" : "max-lg:top-0"
+              }`}
+            >
               <div className="ml-[0.5px] mr-[10px] lg:ml-[6px] lg:mr-[20px]">
                 <CurrentConditionsStrip
                   rightNow={tilesSnapshot}
@@ -1544,6 +1639,8 @@ export default function SpotDetailShell({
                 spots={page.nearbySpots}
                 regulator={regulator}
                 tz={TZ}
+                onViewMap={sheet?.onClose}
+                onOpenSpot={sheet?.onOpenSpot}
               />
             </div>
           )}
@@ -1583,9 +1680,19 @@ export default function SpotDetailShell({
             {!ad && (
               <p className="text-sm text-rc-ink-soft">
                 Looking for the full interactive map?{" "}
-                <Link href="/explore" className="text-rc-brand font-medium hover:underline">
-                  Open Explore
-                </Link>
+                {sheet ? (
+                  <button
+                    type="button"
+                    onClick={sheet.onClose}
+                    className="text-rc-brand font-medium hover:underline"
+                  >
+                    Open Explore
+                  </button>
+                ) : (
+                  <Link href="/explore" className="text-rc-brand font-medium hover:underline">
+                    Open Explore
+                  </Link>
+                )}
                 .
               </p>
             )}
@@ -1620,7 +1727,7 @@ export default function SpotDetailShell({
           its own terms and its own links to them, at the moment they are
           actually being agreed to. Three links under the fold were never where
           "clear and conspicuous" was being satisfied. */}
-      {!ad && <MarketingFooter />}
+      {!ad && !sheet && <MarketingFooter />}
 
       <UpgradeDialog
         open={upgradeOpen}
