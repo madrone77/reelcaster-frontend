@@ -272,6 +272,16 @@ export type AnalyticsEventName =
   | 'Catch Edited'
   // Billing. 'Trial Started' fires on /billing/success, where Meta and
   // Plausible already do; it is the conversion, not the intent.
+  // The three taps on the buy control, named for the button. 'Apple Pay
+  // Clicked' / 'Google Pay Clicked' fire when the wallet button is tapped
+  // (before the OS sheet opens); 'Email Entered' once per paywall when the
+  // email field is left holding an address; 'Start Trial Clicked' on the
+  // Start N-day free trial (or Get Pro) button itself. 'Checkout Started'
+  // still fires when the request to Stripe actually goes out.
+  | 'Apple Pay Clicked'
+  | 'Google Pay Clicked'
+  | 'Email Entered'
+  | 'Start Trial Clicked'
   | 'Checkout Started'
   | 'Trial Started'
   | 'Account Claimed'

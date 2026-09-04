@@ -7,6 +7,7 @@ import {
   useEffect,
   useId,
   useMemo,
+  useRef,
   useState,
 } from 'react';
 import Link from 'next/link';
@@ -126,6 +127,10 @@ interface TrialCtaState {
   // buy
   email: string;
   setEmail: (v: string) => void;
+  /** Fires 'Email Entered' once, when the field is left holding an address. */
+  reportEmail: (v: string) => void;
+  /** Fires 'Start Trial Clicked' for the buy button (both signed-in and out). */
+  reportStartClick: () => void;
   submitting: boolean;
   errorText: string | null;
   startAnonCheckout: () => void;
@@ -172,6 +177,20 @@ export function TrialCtaProvider({
   const [status, setStatus] = useState<CheckoutStatus | null>(null);
   const [statusLoading, setStatusLoading] = useState(true);
   const [email, setEmail] = useState('');
+  // 'Email Entered' fires once per paywall, not on every keystroke or blur.
+  const emailReported = useRef(false);
+  function reportEmail(value: string) {
+    if (emailReported.current) return;
+    const v = value.trim();
+    if (!v.includes('@')) return;
+    emailReported.current = true;
+    trackEvent('Email Entered', {
+      surface: 'paywall',
+      from,
+      region,
+      domain: v.slice(v.lastIndexOf('@') + 1).toLowerCase(),
+    });
+  }
   const [anonSubmitting, setAnonSubmitting] = useState(false);
   const [anonError, setAnonError] = useState<string | null>(null);
 
@@ -227,6 +246,7 @@ export function TrialCtaProvider({
   );
 
   async function startAnonCheckout() {
+    reportEmail(email);
     reportSplitCta(pricing, 'paywall');
     trackEvent('Checkout Started', {
       surface: 'paywall',
@@ -279,6 +299,19 @@ export function TrialCtaProvider({
     onActivate,
     email,
     setEmail,
+    reportEmail,
+    reportStartClick: () => {
+      trackEvent('Start Trial Clicked', {
+        surface: 'paywall',
+        from,
+        region,
+        signed_in: !anon,
+        trial: trialOn,
+        trial_days: trialDays,
+        price_cents: pricing.cents,
+        pricing: pricing.variant ?? 'control',
+      });
+    },
     submitting: submitting || anonSubmitting,
     errorText:
       anonError ??
@@ -442,6 +475,7 @@ export function TrialBuy({
           className="flex flex-col gap-2"
           onSubmit={(e) => {
             e.preventDefault();
+            s.reportStartClick();
             s.onActivate?.('annual');
             s.startAnonCheckout();
           }}
@@ -477,6 +511,7 @@ export function TrialBuy({
             inputMode="email"
             value={s.email}
             onChange={(e) => s.setEmail(e.target.value)}
+            onBlur={(e) => s.reportEmail(e.target.value)}
             placeholder="angler@example.com"
             disabled={s.submitting}
             className={cn(
@@ -501,7 +536,10 @@ export function TrialBuy({
           href={`/plans/checkout?from=${encodeURIComponent(s.from)}`}
           data-testid={testId}
           data-plan="annual"
-          onClick={() => s.onActivate?.('annual')}
+          onClick={() => {
+            s.reportStartClick();
+            s.onActivate?.('annual');
+          }}
           className={ctaClass}
         >
           {ctaLabel}
@@ -513,6 +551,7 @@ export function TrialBuy({
           data-testid={testId}
           data-plan="annual"
           onClick={() => {
+            s.reportStartClick();
             s.onActivate?.('annual');
             s.startCheckout();
           }}
