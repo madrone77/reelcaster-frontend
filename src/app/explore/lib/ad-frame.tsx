@@ -28,9 +28,8 @@ export type AdFrame = {
    * something other than the spot page.
    *
    * Casey's call (2026-09-04): on the ad-framed Explore that press does not
-   * leave the map. It brings the brand bar back to the top of the screen and
-   * opens the trial modal, so the offer arrives on the tap that showed the
-   * most intent. SpotCard calls it instead of navigating when it is set; the
+   * leave the map. It opens the trial modal, so the offer arrives on the tap
+   * that showed the most intent. SpotCard calls it instead of navigating when it is set; the
    * href stays in the markup, so a modified click still opens the spot page.
    */
   onFullReport?: (spot: { name: string }) => void;

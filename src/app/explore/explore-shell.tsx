@@ -263,26 +263,18 @@ export default function ExploreShell({
   // the floating location pill both begin at the screen edge; everyone else
   // begins under the 64px bar. One value, so the two cannot drift apart, and
   // every pill measured from the map box keeps its offset at either tier.
-  // The ad frame's bar is at the BOTTOM of the screen, so nothing is above the
-  // map and the floating location pill starts at the screen edge — the same
-  // place a Pro viewer's does, for the opposite reason.
-  //
-  // Until a FULL REPORT press, that is. Casey's call (2026-09-04): on the
-  // ad-framed map that press stays on the map, brings the bar back to the top
-  // edge, and opens the trial modal. `adBarAtTop` is that state; once set it
-  // stays for the visit, so the bar does not hop back down when the modal
-  // closes. The map's top offset follows it, the same way it follows the
-  // product bar.
-  const [adBarAtTop, setAdBarAtTop] = useState(false);
+  // The ad frame's bar is at the TOP of the screen too (Casey's call,
+  // 2026-09-04: never at the bottom), so the offset is the same as the
+  // product bar's. A FULL REPORT press on a card is a separate thing: it
+  // stays on the map and opens the trial modal.
   const [adOfferOpen, setAdOfferOpen] = useState(false);
   const [adOfferSpotName, setAdOfferSpotName] = useState<string | undefined>();
   const adOfferMounted = useMountedOnce(adOfferOpen);
   const onAdFullReport = useCallback((spot: { name: string }) => {
-    setAdBarAtTop(true);
     setAdOfferSpotName(spot.name);
     setAdOfferOpen(true);
   }, []);
-  const mobileTop = isPaid || (ad && !adBarAtTop) ? "top-0" : "top-16";
+  const mobileTop = isPaid ? "top-0" : "top-16";
   const { citySlug, spotSlug, day, stn, setQuery } = useExploreState();
 
   // ── Return-trip memory ──────────────────────────────────────────────────
@@ -2185,10 +2177,10 @@ export default function ExploreShell({
           strip pinned under the map, and a bar would only have added exits.
           With the offer moved into the trial modal the bar is the thing that
           opens it, so it comes back in `adFrame` dress — mark, one button, and
-          none of the nav, search, sign-in or avatar that made it an exit — and
-          it comes back where the strip used to be, on the bottom edge, which
-          is the part of a phone a thumb can reach. It shows at every width and
-          for every tier, because on this page it is the only ask there is.
+          none of the nav, search, sign-in or avatar that made it an exit — on
+          the top edge, where the product's bar is (Casey's call, 2026-09-04:
+          never at the bottom). It shows at every width and for every tier,
+          because on this page it is the only ask there is.
 
           Same `placeName` either way: the city under the camera, which the
           modal sets in brand blue behind its headline. */}
@@ -2198,7 +2190,7 @@ export default function ExploreShell({
       {ad ? (
         <ExploreTopBar
           adFrame
-          adBarEdge={adBarAtTop ? "top" : "bottom"}
+          adBarEdge="top"
           containerClassName={BLEED_MEASURE}
           upgradeCta={!isPaid}
           placeName={labelCity?.name ?? undefined}

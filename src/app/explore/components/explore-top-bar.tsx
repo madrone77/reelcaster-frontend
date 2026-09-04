@@ -125,12 +125,10 @@ export default function ExploreTopBar({
   /**
    * Which edge of the screen the ad frame's bar sits on.
    *
-   * "bottom" (the default) is where the ad-framed map starts: the map is the
-   * page, and the one button lives where a thumb already is. "top" is where
-   * it goes after a FULL REPORT press on a card (Casey's call, 2026-09-04):
-   * the press stays on the map, the brand blue, the mark and the Start free
-   * trial button come back to the top of the screen where every other page
-   * keeps them, and the offer pops as the modal.
+   * "bottom" (the default) is the thumb-reach position the frame shipped
+   * with, still worn by the ad spot page. "top" is Explore's (Casey's call,
+   * 2026-09-04: never at the bottom there): the brand blue, the mark and the
+   * Start free trial button sit where every other page keeps them.
    *
    * Only read under `adFrame`; the product bar is always at the top.
    */
@@ -220,9 +218,9 @@ export default function ExploreTopBar({
   // It never rolls away. `hideOnScroll` is a trade for a long read whose nav
   // lives elsewhere; here the bar is the only ask on the page.
   //
-  // After a FULL REPORT press Explore asks for the top edge (`adBarEdge`):
-  // same bar, same one button, pinned where the product's bar is. It publishes
-  // no `data-ad-bar` there, so nothing below moves up to clear it.
+  // Explore asks for the top edge (`adBarEdge="top"`): same bar, same one
+  // button, pinned where the product's bar is. It publishes no `data-ad-bar`
+  // there, so nothing below moves up to clear it.
   const atBottom = adFrame && adBarEdge === "bottom";
   return (
     <header
