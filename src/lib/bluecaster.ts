@@ -457,6 +457,18 @@ export interface MapSpotsPayload {
   date: string; // YYYY-MM-DD in America/Vancouver
   tz: string;
   forecast_version: number;
+  /**
+   * True when these scores came from an older forecast generation than the
+   * live one, because the caller passed `fallback` and the live generation
+   * had nothing for these spots.
+   *
+   * Optional because it only exists on responses from BlueCaster builds that
+   * carry the fallback path; an older upstream simply omits it, which reads
+   * as "not stale" and is the correct answer for every non-fallback caller.
+   */
+  stale?: boolean;
+  /** ISO instant the served generation was computed. Only set when stale. */
+  scored_at?: string | null;
   hours_utc: string[]; // 24 ISO instants; index i = local hour i
   species: Record<string, { id: string; slug: string; name: string }>;
   spots: MapSpotEntry[];
@@ -508,6 +520,20 @@ export async function fetchMapSpots(opts: {
   spotIds?: string[];
   /** Verified viewer — adds that angler's own custom spots to the payload. */
   viewerId?: string;
+  /**
+   * Accept an older forecast generation rather than an empty answer.
+   *
+   * Off by default and it should stay that way for the map and the app: a
+   * city with no scores for the live generation is a data gap, and drawing it
+   * grey is the honest rendering. Landing pages pass it, because they get one
+   * pass with a stranger who arrived on a bought click, and a real score from
+   * a few hours ago carrying a line that says so beats a blank.
+   *
+   * The response reports what happened via `stale` / `scored_at`. A caller
+   * that sets this and does not surface `stale` is passing off an old
+   * generation as the current one.
+   */
+  fallback?: boolean;
 }): Promise<MapSpotsPayload | null> {
   return bcGet<MapSpotsPayload>(
     "/api/v1/map/spots",
@@ -522,6 +548,7 @@ export async function fetchMapSpots(opts: {
       // same bbox — the origin never runs. Identity stays in the header; this
       // is just a flag, so no user id ever lands in a URL or an access log.
       viewer: opts.viewerId ? "1" : undefined,
+      fallback: opts.fallback ? "1" : undefined,
     },
     300,
     opts.viewerId,
