@@ -9,9 +9,7 @@ import {
   TrialExpress,
   useTrialCta,
 } from './trial-cta';
-import { PlanCompareLine } from './trial-pitch';
 import Testimonial from './testimonial';
-import { type PlanTierId } from '@/lib/plan-features';
 import { TRIAL_DAYS } from '@/lib/pricing';
 import { PRO_FORECAST_DAYS } from '@/lib/forecast-horizon';
 
@@ -65,7 +63,6 @@ export const TRIAL_SHEET_TEST = 'trial_sheet_pro_v1';
  * than copied so the sheet and the matrix cannot disagree about what Pro is.
  */
 export default function TrialSheetPro({
-  viewerTier,
   placeName,
   placeKind = 'spot',
   cityName,
@@ -77,7 +74,6 @@ export default function TrialSheetPro({
   onCtaClick,
   onActivate,
 }: {
-  viewerTier: PlanTierId;
   placeName?: string;
   placeKind?: 'spot' | 'city';
   /** The city the headline names. Falls back to the place when it is one. */
@@ -126,8 +122,12 @@ export default function TrialSheetPro({
           fishing intel
         </DialogTitle>
 
+        {/* The terms, right under the headline: what today costs, what the
+            charge day costs, and how to never reach it. The control keeps
+            this in a timeline at the foot; here it is the second thing read.
+            It is the sheet's accessible description for the same reason. */}
         <DialogDescription asChild>
-          <PlanCompareLine viewerTier={viewerTier} className="mt-1.5" />
+          <ChargeTerms priceAmount={priceAmount} className="mt-2.5" />
         </DialogDescription>
 
         <p className="mt-4 font-rc-mono text-[10px] font-semibold tracking-[0.14em] text-rc-ink-mute uppercase">
@@ -155,8 +155,7 @@ export default function TrialSheetPro({
         <Testimonial className="mt-4 rounded-xl border border-rc-rule-soft bg-rc-surface p-4" />
       </div>
 
-      <div className="shrink-0 border-t border-rc-rule-soft px-4 pt-3 pb-[max(1rem,env(safe-area-inset-bottom))]">
-        <ChargeLine priceAmount={priceAmount} />
+      <div className="shrink-0 border-t border-rc-rule-soft px-4 pt-4 pb-[max(1rem,env(safe-area-inset-bottom))]">
         {ctaHref ? (
           <Link
             href={ctaHref}
@@ -178,17 +177,33 @@ export default function TrialSheetPro({
 }
 
 /**
- * The disclosure the timeline used to carry, in one line over the button.
- * Inside the provider so the date is the one the button would produce.
+ * The terms in two lines, read from the same hook the buy button uses so the
+ * date is the one the button produces.
+ *
+ * The price is shown to the cent ("$33.00") because a charge is a charge and
+ * a whole-dollar figure next to "$0.00" reads as a different kind of number.
+ * `dollars()` drops the cents on whole amounts for the pitch elsewhere.
  */
-function ChargeLine({ priceAmount }: { priceAmount: string }) {
+function ChargeTerms({
+  priceAmount,
+  className,
+  ...rest
+}: { priceAmount: string; className?: string } & React.HTMLAttributes<HTMLDivElement>) {
   const { chargeDate, trialOn } = useTrialCta();
+  const price = /\.\d{2}$/.test(priceAmount) ? priceAmount : `${priceAmount}.00`;
+  const when = trialOn && chargeDate ? chargeDate : `Day ${TRIAL_DAYS}`;
   return (
-    <p className="mb-3 text-center text-[13px] leading-[18px] text-rc-ink-mute">
-      $0 today.{' '}
-      {trialOn && chargeDate
-        ? `${priceAmount}/yr from ${chargeDate}. Cancel before then and pay nothing.`
-        : `${priceAmount}/yr after ${TRIAL_DAYS} days. Cancel before then and pay nothing.`}
-    </p>
+    <div {...rest} className={`text-[13px] leading-[18px] ${className ?? ''}`}>
+      <p className="font-semibold text-rc-ink">
+        Today: $0.00 ({TRIAL_DAYS} Days Free)
+        <span className="mx-1.5 text-rc-ink-mute" aria-hidden>
+          •
+        </span>
+        {when}: {price}/yr
+      </p>
+      <p className="mt-0.5 text-rc-ink-mute">
+        Cancel anytime before {when} to never be charged.
+      </p>
+    </div>
   );
 }
