@@ -1,8 +1,12 @@
 /**
  * GET /api/cron/grace-reminders
  *
- * Sends the grace-ending nudge to every declined-card account whose 7-day
- * grace window closes inside the next 2 days and has not been nudged yet.
+ * Two sweeps over declined-card accounts:
+ *   1. The grace-ending nudge, to everyone whose 7-day grace window closes
+ *      inside the next 2 days and has not been nudged yet.
+ *   2. The switched-off notice, to everyone whose window has already closed
+ *      and has not been told. Pro lapses at read time in entitlement.ts, so
+ *      no event marks that moment; this sweep does.
  *
  * Every 6 hours, offset from the trial-reminders run. The window is a fixed
  * 2 days wide, so the run frequency decides how much notice the last person
@@ -20,6 +24,11 @@ import {
   sendGraceReminder,
   type GraceReminderOutcome,
 } from '@/lib/grace-reminder';
+import {
+  findLapsedGraceWindows,
+  sendLapseNotice,
+  type LapseNoticeOutcome,
+} from '@/lib/lapse-notice';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -66,5 +75,36 @@ export async function GET(request: Request) {
     console.error(`[grace reminder cron] ${tally.send_failed} sends failed, will retry next run`);
   }
 
-  return NextResponse.json({ ok: true, due: due.length, ...tally });
+  const lapsed = await findLapsedGraceWindows(admin);
+
+  const lapseTally: Record<LapseNoticeOutcome, number> = {
+    sent: 0,
+    already_sent: 0,
+    no_email: 0,
+    send_failed: 0,
+  };
+
+  for (const row of lapsed) {
+    const outcome = await sendLapseNotice(admin, {
+      userId: row.user_id,
+      amountLabel: amountLabelForStored(
+        row.subscription_amount_cents,
+        row.subscription_tier,
+      ),
+      // Still past_due rather than canceled, so the Stripe subscription is
+      // alive and a card update revives it.
+      canResume: true,
+    });
+    lapseTally[outcome] += 1;
+  }
+
+  if (lapseTally.send_failed > 0) {
+    console.error(`[lapse notice cron] ${lapseTally.send_failed} sends failed, will retry next run`);
+  }
+
+  return NextResponse.json({
+    ok: true,
+    reminders: { due: due.length, ...tally },
+    lapses: { due: lapsed.length, ...lapseTally },
+  });
 }
