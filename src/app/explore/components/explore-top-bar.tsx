@@ -66,6 +66,7 @@ export default function ExploreTopBar({
   upgradeCta = false,
   placeName,
   adFrame = false,
+  adBarEdge = "bottom",
 }: {
   /** "brand" (the default) is a blue bar with a white mark/links; "default"
    *  is the light bar, kept available for any surface that needs it. */
@@ -121,6 +122,20 @@ export default function ExploreTopBar({
    * ad surfaces want the same blue bar the product already wears.
    */
   adFrame?: boolean;
+  /**
+   * Which edge of the screen the ad frame's bar sits on.
+   *
+   * "bottom" (the default) is Explore's answer: the map is the page, and the
+   * one button lives where a thumb already is. "top" is the spot page's: a
+   * reader who pressed FULL REPORT on a card arrives on a long document, and
+   * the brand blue, the mark and the Start free trial button belong back at
+   * the top of it, where every other page in the product keeps them. The
+   * offer itself pops as the modal on arrival there, so the button does not
+   * have to be under a thumb to be pressed.
+   *
+   * Only read under `adFrame`; the product bar is always at the top.
+   */
+  adBarEdge?: "top" | "bottom";
 } = {}) {
   const { user, session, loading } = useAuth();
   const pathname = usePathname();
@@ -205,10 +220,14 @@ export default function ExploreTopBar({
   //
   // It never rolls away. `hideOnScroll` is a trade for a long read whose nav
   // lives elsewhere; here the bar is the only ask on the page.
-  const atBottom = adFrame;
+  //
+  // The spot page asks for the top edge instead (`adBarEdge="top"`): same
+  // bar, same one button, pinned where the product's bar is. It publishes no
+  // `data-ad-bar` there, because nothing below needs to move up to clear it.
+  const atBottom = adFrame && adBarEdge === "bottom";
   return (
     <header
-      data-ad-bar={adFrame ? "" : undefined}
+      data-ad-bar={atBottom ? "" : undefined}
       className={
         atBottom
           ? `fixed bottom-0 inset-x-0 z-50 border-t pb-[env(safe-area-inset-bottom,0px)] ${

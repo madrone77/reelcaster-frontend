@@ -580,6 +580,26 @@ export default function SpotDetailShell({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [authLoading]);
 
+  // ── The ad frame's offer, on arrival ─────────────────────────────────────
+  //
+  // A paid visitor who pressed FULL REPORT on a card lands here, and the offer
+  // opens as the modal straight away rather than waiting to be found in the
+  // bar. Casey's call (2026-09-04), and the same modal the bar's button and
+  // every locked day open, so the conversion leg it reports is unchanged.
+  //
+  // Held until auth resolves and only for a signed-out reader: a member who
+  // followed a saved ad link is on their way off the frame anyway, and the
+  // modal flashing at them first would be the one thing on the page they
+  // could not use. Once per mount, like the alert and share deep-links, so
+  // dismissing it dismisses it.
+  const [arrivalOfferOpen, setArrivalOfferOpen] = useState(false);
+  const arrivalOfferShown = useRef(false);
+  useEffect(() => {
+    if (!ad || authLoading || user || arrivalOfferShown.current) return;
+    arrivalOfferShown.current = true;
+    setArrivalOfferOpen(true);
+  }, [ad, authLoading, user]);
+
   // Sharing is open to everyone, signed in or not, so unlike the alert modal
   // this one never waits on auth and never gates.
   const [shareOpen, setShareOpen] = useState(false);
@@ -935,13 +955,17 @@ export default function SpotDetailShell({
           trade on a long read whose nav lives elsewhere, and the wrong one
           when the bar is the only ask on the page.
 
-          `adFrame` also puts it on the BOTTOM edge — see the prop. On this
-          page that is the bigger win of the two: a spot page is a long read,
-          and a top bar carrying the only button on it is off screen for all of
-          it except the first screenful. */}
+          `adBarEdge="top"` keeps it on the TOP edge, unlike Explore, where
+          the ad bar sits under a thumb at the bottom. Casey's call
+          (2026-09-04): a reader who pressed FULL REPORT on a card should find
+          the brand blue, the mark and the Start free trial button back at the
+          top of the page, and the offer opens as the modal on arrival (see
+          `arrivalOfferOpen`), so the button being off screen further down the
+          read no longer costs the ask. */}
       {ad ? (
         <ExploreTopBar
           adFrame
+          adBarEdge="top"
           upgradeCta={!isPaid}
           placeName={cityLink?.cityName ?? spot.city ?? undefined}
         />
@@ -954,11 +978,9 @@ export default function SpotDetailShell({
           nothing below it shifts. */}
       <PullToRefresh onRefresh={runRefresh} />
 
-      {/* `pt-16` clears the fixed bar at the top; the ad frame's bar is at the
-          bottom instead, so the document starts at the top edge and ends one
-          bar-height short of the bottom. `--rc-ad-bar-h` carries the device
-          safe area, which a bare `pb-16` would not. */}
-      <div className={ad ? "pb-[var(--rc-ad-bar-h)]" : "pt-16"}>
+      {/* `pt-16` clears the fixed bar at the top, on the ad frame and off it:
+          both bars are pinned to the top edge on this page. */}
+      <div className="pt-16">
         {/* Sub-header: the way back to the map, then on desktop the breadcrumb
             and the freshness stamp. Full-bleed rule, inner row on the page
             measure — so "Back to map" starts on the same gridline as the spot
@@ -1636,6 +1658,16 @@ export default function SpotDetailShell({
         feature="catch-reports"
         from="spot-page-reports"
       />
+      {ad && (
+        <ProTrialModal
+          open={arrivalOfferOpen}
+          onOpenChange={setArrivalOfferOpen}
+          feature="forecast-14d"
+          from="spot-page-ad-arrival"
+          spotName={spot.name}
+          placeName={cityLink?.cityName ?? spot.city ?? undefined}
+        />
+      )}
     </div>
   );
 }
