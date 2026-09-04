@@ -116,8 +116,8 @@ async function loadPostHog(key: string): Promise<void> {
       api_host: INGEST_PATH,
       ui_host: UI_HOST,
 
-      // Mixpanel is configured with track_pageview: false because every event
-      // here is deliberate. PostHog gets the opposite treatment on purpose:
+      // Mixpanel now tracks history-change page views too (see mixpanel.ts),
+      // but no autocapture. PostHog gets the fuller treatment on purpose:
       // history_change pageviews and autocapture are the reason to run it at
       // all. They are what makes paths, retention and funnels answerable
       // without going back and instrumenting a call site for every question,

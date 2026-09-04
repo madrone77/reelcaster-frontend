@@ -10,6 +10,13 @@ import { type Mixpanel } from 'mixpanel-browser'
 import { ensureSafeStorage } from '@/lib/safe-storage'
 import { schedulePostSettleLoad } from '@/lib/analytics-loader'
 
+/**
+ * Own-origin path that next.config.ts forwards to api.mixpanel.com (and
+ * `/libs/` beneath it to cdn.mxpnl.com). Relative on purpose: the SDK resolves
+ * it against the page, so preview deploys proxy through themselves.
+ */
+const INGEST_PATH = '/mp'
+
 let mixpanelInstance: Mixpanel | null = null
 let isInitialized = false
 /** No token, or the SDK failed to load — nothing will ever arrive. */
@@ -95,10 +102,27 @@ async function loadMixpanel(token: string): Promise<void> {
 
     mixpanel.init(token, {
       debug: false,
-      track_pageview: false, // We'll handle page views manually
+      // Page views on every history change, as `$mp_web_page_view` with the
+      // path and query string. This was `false` with a note that page views
+      // would be handled by hand, and nothing ever did: for the life of the
+      // project Mixpanel had every wall and sign-in but no record of anyone
+      // arriving anywhere, so no funnel could start at a page. The query
+      // string is kept on purpose. `?loc=`, `?ad=`, `?via=` and the LP
+      // parameters are how a visit says where it came from.
+      track_pageview: 'url-with-path-and-query-string',
       persistence: 'localStorage',
       ignore_dnt: false, // Respect Do Not Track
-      api_host: 'https://api.mixpanel.com',
+      // Same reverse proxy as PostHog's /ingest (see next.config.ts). Posting
+      // straight to api.mixpanel.com is blocked by the common filter lists,
+      // and the loss lands on the ad-blocking end of the audience, so the rows
+      // that went missing were systematically the wrong rows to lose.
+      api_host: INGEST_PATH,
+      // The session-replay recorder is a second script the SDK fetches lazily
+      // from cdn.mxpnl.com, and it is on the same lists. Served through the
+      // proxy too, or replay works exactly where events already did. The
+      // option is real in 2.71 (its default is the cdn.mxpnl.com URL) but
+      // missing from the SDK's own typings, hence the cast.
+      ...({ recorder_src: `${INGEST_PATH}/libs/mixpanel-recorder.min.js` } as object),
       record_sessions_percent: 100,
       loaded: () => {
         console.log('[Mixpanel] Initialized successfully')
