@@ -2136,10 +2136,15 @@ export default function ExploreShell({
       }
     >
     <div
-      /* The ad frame shortens the map's box by exactly the bar's height so the
-         bar never overlays water.
+      /* The map runs the full height of the viewport on every surface, phone
+         included, the ad frame too: its bar sits on the TOP edge now, in the
+         same 4rem band the product's bar takes, and the map box below starts
+         under it. It used to be cut short by the bar's height as well, from
+         when the bar was pinned to the bottom, and once the bar moved up that
+         cut left a white strip across the bottom of the screen with nothing in
+         it, under the preview card and the fortnight rail.
 
-         Everything else runs the map the full height of the viewport, phone
+         Everything runs the map the full height of the viewport, phone
          included. It used to stop 3.5rem short to hold a strip open for the
          floating tab bar, and that strip was dead space: page background under
          a bar that is already translucent and already floats. Tapping a pin
@@ -2148,12 +2153,7 @@ export default function ExploreShell({
          bar keeps its own room via `--rc-tabbar-clearance`, which is what the
          sheet and the preview dock sit above; nothing needs the map to be
          short as well. */
-      /* Shortened by exactly the ad bar's height, so the bar never overlays
-         water and never has to be dismissed. Everything else runs the map the
-         full viewport. */
-      className={`relative overflow-hidden lg:min-h-0 ${
-        ad ? "h-[calc(100dvh_-_var(--rc-ad-bar-h))]" : "h-dvh"
-      }`}
+      className="relative overflow-hidden lg:min-h-0 h-dvh"
       /* Marks this render as the ad frame for the one piece of chrome outside
          this tree: the mobile tab bar in the root layout. */
       data-ad-frame={ad ? "" : undefined}
@@ -2257,14 +2257,10 @@ export default function ExploreShell({
       {/* The single map instance — full-screen on every breakpoint. Mobile
           floats the location header + a pull-up spot sheet over it; desktop
           keeps the rail + docked forecast strip. */}
-      {/* `lg:top-16` is the desktop top bar's band. The ad frame has no top bar
-          at any width, so leaving the offset in place left an empty grey strip
-          across the top of a desktop window with nothing in it. */}
-      <div
-        className={`absolute inset-x-0 bottom-0 ${mobileTop} ${
-          ad ? "lg:top-0" : "lg:top-16"
-        }`}
-      >
+      {/* `lg:top-16` is the desktop top bar's band. The ad frame wears its bar
+          in the same band at every width (`adBarEdge="top"`), so the map
+          starts under it there too. */}
+      <div className={`absolute inset-x-0 bottom-0 ${mobileTop} lg:top-16`}>
         <ExploreMap
           mapRef={mapRef}
           spots={filteredSpots}
