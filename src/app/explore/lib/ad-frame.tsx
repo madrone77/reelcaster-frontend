@@ -20,7 +20,21 @@ import type { AdWall } from "@/lib/ad-mode";
  *
  * Modelled on ./fishing-place, the same shape one segment over.
  */
-export type AdFrame = { wall: AdWall; angle: string };
+export type AdFrame = {
+  wall: AdWall;
+  angle: string;
+  /**
+   * What a FULL REPORT press does on the ad-framed map, when the map wants
+   * something other than the spot page.
+   *
+   * Casey's call (2026-09-04): on the ad-framed Explore that press does not
+   * leave the map. It brings the brand bar back to the top of the screen and
+   * opens the trial modal, so the offer arrives on the tap that showed the
+   * most intent. SpotCard calls it instead of navigating when it is set; the
+   * href stays in the markup, so a modified click still opens the spot page.
+   */
+  onFullReport?: (spot: { name: string }) => void;
+};
 
 const AdFrameContext = createContext<AdFrame | null>(null);
 

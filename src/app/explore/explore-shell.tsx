@@ -266,7 +266,23 @@ export default function ExploreShell({
   // The ad frame's bar is at the BOTTOM of the screen, so nothing is above the
   // map and the floating location pill starts at the screen edge — the same
   // place a Pro viewer's does, for the opposite reason.
-  const mobileTop = isPaid || ad ? "top-0" : "top-16";
+  //
+  // Until a FULL REPORT press, that is. Casey's call (2026-09-04): on the
+  // ad-framed map that press stays on the map, brings the bar back to the top
+  // edge, and opens the trial modal. `adBarAtTop` is that state; once set it
+  // stays for the visit, so the bar does not hop back down when the modal
+  // closes. The map's top offset follows it, the same way it follows the
+  // product bar.
+  const [adBarAtTop, setAdBarAtTop] = useState(false);
+  const [adOfferOpen, setAdOfferOpen] = useState(false);
+  const [adOfferSpotName, setAdOfferSpotName] = useState<string | undefined>();
+  const adOfferMounted = useMountedOnce(adOfferOpen);
+  const onAdFullReport = useCallback((spot: { name: string }) => {
+    setAdBarAtTop(true);
+    setAdOfferSpotName(spot.name);
+    setAdOfferOpen(true);
+  }, []);
+  const mobileTop = isPaid || (ad && !adBarAtTop) ? "top-0" : "top-16";
   const { citySlug, spotSlug, day, stn, setQuery } = useExploreState();
 
   // ── Return-trip memory ──────────────────────────────────────────────────
@@ -2122,7 +2138,11 @@ export default function ExploreShell({
     // scrolls. This height + clip used to come from ExploreLayout, but that
     // layout is shared with the spot page, which is a long document — so the
     // surface that wants the lock owns it.
-    <AdFrameProvider value={ad ? { wall: ad.wall, angle: ad.angle } : null}>
+    <AdFrameProvider
+      value={
+        ad ? { wall: ad.wall, angle: ad.angle, onFullReport: onAdFullReport } : null
+      }
+    >
     <div
       /* The ad frame shortens the map's box by exactly the bar's height so the
          bar never overlays water.
@@ -2178,6 +2198,7 @@ export default function ExploreShell({
       {ad ? (
         <ExploreTopBar
           adFrame
+          adBarEdge={adBarAtTop ? "top" : "bottom"}
           containerClassName={BLEED_MEASURE}
           upgradeCta={!isPaid}
           placeName={labelCity?.name ?? undefined}
@@ -2516,6 +2537,19 @@ export default function ExploreShell({
         onOpenChange={setCustomUpgradeOpen}
         feature="custom-spots"
         from="explore-map"
+      />
+      )}
+
+      {/* The ad frame's offer, made on a FULL REPORT press. Same modal as
+          the bar's button, named after the spot that was pressed. */}
+      {adOfferMounted && (
+      <ProTrialModal
+        open={adOfferOpen}
+        onOpenChange={setAdOfferOpen}
+        feature="forecast-14d"
+        from="explore-ad-full-report"
+        spotName={adOfferSpotName}
+        placeName={labelCity?.name ?? undefined}
       />
       )}
 

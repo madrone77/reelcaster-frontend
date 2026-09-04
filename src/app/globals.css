@@ -571,3 +571,11 @@ body:has([data-ad-frame]) [data-mobile-nav] {
 body:has([data-ad-bar]) {
   --rc-tabbar-clearance: var(--rc-ad-bar-h);
 }
+/*
+ * The ad frame with its bar moved to the TOP edge (after a FULL REPORT press
+ * on Explore, see ExploreTopBar's `adBarEdge`): the tab bar is hidden and the
+ * ad bar is no longer down there either, so nothing needs clearing.
+ */
+body:has([data-ad-frame]):not(:has([data-ad-bar])) {
+  --rc-tabbar-clearance: 0px;
+}
