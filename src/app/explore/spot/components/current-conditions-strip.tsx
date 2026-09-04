@@ -131,6 +131,7 @@ export default function CurrentConditionsStrip({
   hour = 0,
   isNow = true,
   phone = false,
+  compact = false,
 }: {
   rightNow: RightNowSnapshot | null;
   /** Score at `hour` for the selected species (0–100). */
@@ -152,6 +153,18 @@ export default function CurrentConditionsStrip({
    * same reason, as SpotTerminal's `phone`.
    */
   phone?: boolean;
+  /**
+   * The pinned form, on a phone: no heading, no sub-lines, no glyph, tight
+   * padding. Same eight cells in the same 4×2 order, at about a third of the
+   * height.
+   *
+   * The strip pins to the top of the screen while the 24h chart is scrubbed,
+   * and on a phone the two-row table with its sub-lines took ~200px of a
+   * viewport that has ~660 to give, with the chart underneath it. Compact is
+   * what it wears while pinned; the full table is what it wears in the flow,
+   * where there is room to read the sub-lines.
+   */
+  compact?: boolean;
 }) {
   /** A `lg:` class, dropped when the container is a phone. */
   const wide = (cls: string) => (phone ? "" : cls);
@@ -303,11 +316,13 @@ export default function CurrentConditionsStrip({
   return (
     <div>
       {/* The Time cell carries the hour on mobile, so the heading only repeats
-          it where that cell is hidden. */}
-      <div className="rc-label text-[9px] mb-1.5">
-        Conditions
-        <span className={`hidden ${wide("lg:inline")}`}> · {isNow ? "now" : hh(hour)}</span>
-      </div>
+          it where that cell is hidden. Compact has no room for a heading. */}
+      {!compact && (
+        <div className="rc-label text-[9px] mb-1.5">
+          Conditions
+          <span className={`hidden ${wide("lg:inline")}`}> · {isNow ? "now" : hh(hour)}</span>
+        </div>
+      )}
       {/* Bordered box, not the old border-y band: this sits directly on top of
           the graph's score strip, and the chart draws every one of its rows as
           a bordered box. Same shape = reads as the top row of one instrument.
@@ -333,7 +348,7 @@ export default function CurrentConditionsStrip({
           // the cell fill has to stay opaque and match the page.
           <div
             key={c.label}
-            className={`bg-rc-panel px-1.5 py-2 ${wide("lg:px-3 lg:py-2.5")} min-w-0 ${c.mobileOnly ? wide("lg:hidden") : ""}`}
+            className={`bg-rc-panel min-w-0 ${compact ? "px-1.5 py-1" : `px-1.5 py-2 ${wide("lg:px-3 lg:py-2.5")}`} ${c.mobileOnly ? wide("lg:hidden") : ""}`}
           >
             {/* No font-size utility here: .rc-label sets `font:` shorthand,
                 which resets size and wins, so a text-[9px] would be a no-op
@@ -341,15 +356,15 @@ export default function CurrentConditionsStrip({
                 the cell padding is what buys "SEA STATE" its room — at px-2 its
                 uppercase tracking put it 1px over and it ellipsised. */}
             <div className="rc-label truncate">{c.label}</div>
-            <div className={`flex items-baseline gap-1 ${wide("lg:gap-1.5")} mt-1`}>
+            <div className={`flex items-baseline gap-1 ${wide("lg:gap-1.5")} ${compact ? "mt-0.5" : "mt-1"}`}>
               <span
-                className={`font-bold leading-none truncate ${c.valueClass ?? "text-rc-ink"} text-sm ${wide("lg:text-base")}`}
+                className={`font-bold leading-none truncate ${c.valueClass ?? "text-rc-ink"} ${compact ? "text-[13px]" : `text-sm ${wide("lg:text-base")}`}`}
               >
                 {c.value}
               </span>
-              {c.glyph}
+              {!compact && c.glyph}
             </div>
-            {c.sub && (
+            {!compact && c.sub && (
               <div className={`font-rc-mono text-[9px] ${wide("lg:text-[10px]")} text-rc-ink-mute mt-0.5 truncate`}>
                 {c.sub}
               </div>

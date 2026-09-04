@@ -81,13 +81,12 @@ import { X } from "lucide-react";
 import LeftRail from "./components/left-rail";
 import LocationSelector from "./components/location-selector";
 import MobileMapSheet from "./components/mobile-map-sheet";
+import MobileSpotSheet from "./components/mobile-spot-sheet";
 import MobileTopRow from "./components/mobile-top-row";
 import MobileLayersControl from "./components/mobile-layers-control";
 import MobileHourBar from "./components/mobile-hour-bar";
 import type { FlowKind } from "./lib/use-flow";
 import ForecastStrip from "./components/forecast-strip";
-import { legacySpotPath, spotHref } from "@/lib/paths";
-import { withAdParams } from "@/lib/ad-mode";
 import { AdFrameProvider } from "./lib/ad-frame";
 
 // ── Loaded on demand ─────────────────────────────────────────────────────
@@ -284,6 +283,11 @@ export default function ExploreShell({
   );
   const mobileTop = isPaid ? "top-0" : "top-16";
   const { citySlug, spotSlug, day, stn, setQuery } = useExploreState();
+  // The spot open in the phone's sheet (see components/mobile-spot-sheet.tsx),
+  // or null. Local state, not the URL: `?spot=` is the map's selection, which
+  // is the preview card, and this sits on top of that without replacing it.
+  const [sheetSpot, setSheetSpot] = useState<string | null>(null);
+  const closeSheetSpot = useCallback(() => setSheetSpot(null), []);
 
   // ── Return-trip memory ──────────────────────────────────────────────────
   //
@@ -1582,35 +1586,6 @@ export default function ExploreShell({
    * out then, as this used to, left the return trip with no memory at all and
    * sent the map home to the default city.
    */
-  const writeSpotHandoff = useCallback(
-    (spot: { slug: string; lat: number; lng: number }) => {
-      const base = savedRef.current;
-      const zoom = Math.max(base?.zoom ?? mapRef.current?.getZoom() ?? 0, 11);
-      // Aim at the middle of the water the angler can see rather than the middle
-      // of the map pane, which the location header and the spot sheet push down
-      // out of. Measured here, where both panels are on screen, because the
-      // return trip has to open already framed and cannot pan after the fact.
-      const center = sheetSafeCenter(spot.lat, spot.lng, zoom, mapInsetOffsetY());
-      writeExploreView({
-        species: speciesFilter,
-        relief,
-        labels,
-        currents,
-        wind,
-        day,
-        ...base,
-        lat: center.lat,
-        lng: center.lng,
-        zoom,
-        // Recentring invalidates them; the map reports real ones on load.
-        bounds: null,
-        spot: spot.slug,
-        fromSpotPage: true,
-      });
-    },
-    [speciesFilter, relief, labels, currents, wind, day],
-  );
-
   /**
    * A tap on a MAP PIN. Desktop opens the rail drawer; mobile opens the
    * preview card docked in the sheet — it does NOT navigate.
@@ -1770,31 +1745,23 @@ export default function ExploreShell({
       // The wall that opens two taps from here should know which water they
       // were reading. Published rather than threaded: see @/lib/paywall-context.
       setPaywallContext({ spotSlug: slug, page: "explore" });
-      // Mobile (<lg) has no rail/drawer — go straight to the responsive spot
-      // page. Desktop keeps the in-rail drawer + flyTo.
+      // Mobile (<lg) has no rail/drawer — the spot page opens as a sheet over
+      // the map. Desktop keeps the in-rail drawer + flyTo.
       const spot = displaySpots.find((s) => s.slug === slug);
       if (
         typeof window !== "undefined" &&
         !window.matchMedia("(min-width:1024px)").matches
       ) {
-        // Leave the memory centred on this spot, the same frame desktop's
-        // flyTo below would have left. Mobile taps a card and goes straight to
-        // the page, so without this the return trip lands on whatever the list
-        // happened to be scrolled over rather than on the spot just viewed.
         // Under the ad frame a phone's card tap stays on the map and makes
         // the offer instead (Casey's call, 2026-09-04).
         if (ad) {
           onAdOpenSpot({ name: spot?.name, slug });
           return;
         }
-        if (spot) writeSpotHandoff(spot);
-        // Mobile opens the spot page directly instead of the desktop
-        // drawer, so this push is the ad frame's most-taken exit and the one
-        // that most needs to not be one. `withAdParams` puts `?ad=` back on
-        // it; middleware does the rest.
-        router.push(
-          withAdParams(spot ? spotHref(spot) : legacySpotPath(slug), ad),
-        );
+        // It used to `router.push` the spot page here, which left the map
+        // and everything it was showing; the sheet keeps the map mounted
+        // underneath and closes back onto it.
+        setSheetSpot(slug);
         return;
       }
       setQuery({ spot: slug, stn: null });
@@ -1806,7 +1773,7 @@ export default function ExploreShell({
         });
       }
     },
-    [router, setQuery, displaySpots, writeSpotHandoff, ad, onAdOpenSpot, isPaid],
+    [setQuery, displaySpots, ad, onAdOpenSpot, isPaid],
   );
 
   // ── Search picks ────────────────────────────────────────────────────
@@ -1824,19 +1791,20 @@ export default function ExploreShell({
         typeof window !== "undefined" &&
         !window.matchMedia("(min-width:1024px)").matches
       ) {
-        // The result carries its own coordinates, so a searched spot gets the
-        // same return-trip frame a tapped card does. Otherwise coming back
-        // from it landed on the water the search was typed over.
         // Same under the ad frame for a search pick.
         if (ad) {
           onAdOpenSpot({ slug });
           return;
         }
-        writeSpotHandoff({ slug, lat, lng });
-        // A search result can name a spot outside the loaded viewport, so
-        // there is no rail row to read a path off. The retired URL resolves it
-        // server-side and 308s, which is one hop and always right.
-        router.push(legacySpotPath(slug));
+        // The sheet opens over the map, and the map flies to the result
+        // under it, so closing the sheet lands on the water just searched
+        // for rather than the water the search was typed over.
+        mapRef.current?.flyTo({
+          center: [lng, lat],
+          zoom: Math.max(mapRef.current.getZoom() ?? 9, 11),
+          duration: 700,
+        });
+        setSheetSpot(slug);
         return;
       }
       setQuery({ spot: slug, stn: null });
@@ -1846,7 +1814,7 @@ export default function ExploreShell({
         duration: 700,
       });
     },
-    [router, setQuery, writeSpotHandoff, ad, onAdOpenSpot],
+    [setQuery, ad, onAdOpenSpot],
   );
 
   const handleSearchSelectRegion = useCallback(
@@ -2487,6 +2455,15 @@ export default function ExploreShell({
         previewAnchorSlug={previewAnchor}
         onPreviewSlug={followPreviewSlug}
         onClosePreview={handleCloseSpot}
+      />
+
+      {/* The phone's spot page, as a sheet over the map. Never opened under
+          the ad frame, where a spot tap makes the offer instead. */}
+      <MobileSpotSheet
+        slug={sheetSpot}
+        spot={displaySpots.find((s) => s.slug === sheetSpot) ?? null}
+        onClose={closeSheetSpot}
+        onOpenSpot={setSheetSpot}
       />
 
       <LeftRail

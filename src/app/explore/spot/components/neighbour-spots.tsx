@@ -106,7 +106,10 @@ function NearbyCard({
   n,
   fallback,
   tz,
+  onOpenSpot,
 }: {
+  /** See NeighbourSpots.onOpenSpot. */
+  onOpenSpot?: (slug: string, href: string) => void;
   n: NearbySpotCard;
   /** Used only when the card carries no agency of its own — the viewed spot's
    *  regulator, which is the best guess a payload predating `areaAgency`
@@ -296,7 +299,26 @@ function NearbyCard({
   return (
     <>
       {n.href ? (
-        <Link href={n.href} className="group block h-full">
+        <Link
+          href={n.href}
+          className="group block h-full"
+          onClick={(e) => {
+            // Inside the phone's spot sheet the card swaps the sheet's spot
+            // rather than leaving the map. Modified clicks keep the href.
+            if (
+              !onOpenSpot ||
+              e.metaKey ||
+              e.ctrlKey ||
+              e.shiftKey ||
+              e.altKey ||
+              e.button !== 0
+            ) {
+              return;
+            }
+            e.preventDefault();
+            onOpenSpot(slugOf(n), n.href!);
+          }}
+        >
           {body}
         </Link>
       ) : (
@@ -334,7 +356,15 @@ export default function NeighbourSpots({
   spots,
   regulator,
   tz,
+  onViewMap,
+  onOpenSpot,
 }: {
+  /** Set inside the phone's spot sheet: the map is right behind it, so
+   *  "View all on map" closes the sheet instead of navigating to /explore. */
+  onViewMap?: () => void;
+  /** Set inside the phone's spot sheet: a neighbour opens in the same sheet
+   *  rather than leaving the map. Absent, the card is a plain link. */
+  onOpenSpot?: (slug: string, href: string) => void;
   spots: NearbySpotCard[];
   /** The viewed spot's authority — the fallback vocabulary for a card that
    *  carries no agency of its own. */
@@ -348,12 +378,22 @@ export default function NeighbourSpots({
     <div>
       <div className="flex items-baseline justify-between gap-3">
         <h3 className="text-lg font-bold text-rc-ink">Nearby Spots</h3>
-        <Link
-          href="/explore"
-          className="font-rc-mono text-[11px] font-semibold text-rc-brand hover:underline shrink-0"
-        >
-          View all on map →
-        </Link>
+        {onViewMap ? (
+          <button
+            type="button"
+            onClick={onViewMap}
+            className="font-rc-mono text-[11px] font-semibold text-rc-brand hover:underline shrink-0"
+          >
+            View all on map →
+          </button>
+        ) : (
+          <Link
+            href="/explore"
+            className="font-rc-mono text-[11px] font-semibold text-rc-brand hover:underline shrink-0"
+          >
+            View all on map →
+          </Link>
+        )}
       </div>
       <p className="text-sm text-rc-ink-soft mt-0.5">
         Other productive spots within easy run
@@ -361,7 +401,13 @@ export default function NeighbourSpots({
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mt-4">
         {spots.slice(0, 4).map((n) => (
-          <NearbyCard key={n.id} n={n} fallback={regulator} tz={tz} />
+          <NearbyCard
+            key={n.id}
+            n={n}
+            fallback={regulator}
+            tz={tz}
+            onOpenSpot={onOpenSpot}
+          />
         ))}
       </div>
     </div>
