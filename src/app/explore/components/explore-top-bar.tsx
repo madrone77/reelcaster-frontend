@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
-import { btn } from "@/app/components/ui/button";
+import { btn, TOP_BAR_CTA_PHONE_WIDTH } from "@/app/components/ui/button";
 import { PAGE_MEASURE } from "@/app/components/layout/page-measure";
 import { useAuth } from "@/contexts/auth-context";
 import TrialModalButton from "@/app/components/paywall/trial-modal-button";
@@ -357,7 +357,7 @@ export default function ExploreTopBar({
               <TrialModalButton
                 from="explore-ad-topbar"
                 placeName={placeName}
-                className={brand ? btn.navOnBrand : btn.nav}
+                className={`${brand ? btn.navOnBrand : btn.nav} ${TOP_BAR_CTA_PHONE_WIDTH}`}
               >
                 Start free trial
               </TrialModalButton>
@@ -368,7 +368,7 @@ export default function ExploreTopBar({
                 <TrialModalButton
                   from="explore-topbar-upgrade"
                   placeName={placeName}
-                  className={brand ? btn.navOnBrand : btn.nav}
+                  className={`${brand ? btn.navOnBrand : btn.nav} ${TOP_BAR_CTA_PHONE_WIDTH}`}
                 >
                   {/* 375px of bar, less a 104px mark and a 32px avatar, does
                       not hold the full label. It fits from 640 up. */}
@@ -403,10 +403,12 @@ export default function ExploreTopBar({
               {/* Same trial modal as every other CTA in the product, styled
                   with the canonical btn — btn.nav on light, inverted to
                   btn.navOnBrand on the blue bar. */}
+              {/* Pinned to one phone width (TOP_BAR_CTA_PHONE_WIDTH) so
+                  Explore's Add spot, directly under it, is exactly as wide. */}
               <TrialModalButton
                 from="explore-topbar"
                 placeName={placeName}
-                className={brand ? btn.navOnBrand : btn.nav}
+                className={`${brand ? btn.navOnBrand : btn.nav} ${TOP_BAR_CTA_PHONE_WIDTH}`}
               >
                 Start free trial
               </TrialModalButton>
