@@ -205,9 +205,11 @@ async function applySubscriptionToUser(subscription: Stripe.Subscription) {
     subscription_currency: subscription.currency ?? null,
   };
 
-  // Payment is good again (or the subscription ended) — close the window.
+  // Payment is good again (or the subscription ended) — close the window, and
+  // forget the nudge so the next decline, maybe a year out, gets its own.
   if (!isPaymentProblem) {
     update.grace_until = null;
+    update.grace_reminder_sent_at = null;
   }
 
   await admin.from('user_settings').upsert(update, { onConflict: 'user_id' });
@@ -463,9 +465,11 @@ async function openGraceWindow(subscription: Stripe.Subscription) {
 
   const graceUntil = new Date(Date.now() + GRACE_DAYS * 86_400_000).toISOString();
 
+  // A fresh window gets a fresh nudge: /api/cron/grace-reminders sends the
+  // two-days-left note once per window, keyed on grace_reminder_sent_at.
   await admin
     .from('user_settings')
-    .update({ grace_until: graceUntil })
+    .update({ grace_until: graceUntil, grace_reminder_sent_at: null })
     .eq('user_id', userId);
 
   const email = await emailForUser(userId);
