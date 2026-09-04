@@ -27,6 +27,7 @@ import type {
 } from "@/app/api/home-city/suggest/suggestion";
 import { readArrival, clearArrival } from "./arrival-city";
 import { markHomeCityAsked, saveHomeCity } from "@/app/explore/lib/use-home-city";
+import { trackEvent } from "@/lib/analytics";
 
 export default function HomeCityModal({
   onClose,
@@ -92,11 +93,15 @@ export default function HomeCityModal({
 
   const choose = useCallback(
     (city: HomeCitySuggestion) => {
+      trackEvent("Home City Chosen", {
+        city: city.slug,
+        suggested: city.slug === data?.suggested?.slug,
+      });
       void saveHomeCity(city.slug);
       clearArrival();
       onClose();
     },
-    [onClose],
+    [onClose, data?.suggested?.slug],
   );
 
   const matches = useMemo(() => {

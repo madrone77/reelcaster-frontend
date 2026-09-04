@@ -8,6 +8,7 @@ import { useAuth } from "@/contexts/auth-context";
 import { useSubscription } from "@/hooks/use-subscription";
 import { noteEngagement } from "@/lib/upgrade-nag";
 import { setPaywallContext } from "@/lib/paywall-context";
+import { trackEvent } from "@/lib/analytics";
 import AdSlot from "@/app/components/ads/ad-slot";
 import { countryDisplayName, regulatorFrom } from "@/lib/regions";
 import ExploreTopBar from "@/app/explore/components/explore-top-bar";
@@ -337,6 +338,7 @@ export default function SpotDetailShell({
   const [savePop, setSavePop] = useState(false);
   const handleToggleSaved = async () => {
     const res = await toggleSaved({ isPaid, spotId: spot.id });
+    trackEvent("Spot Saved", { outcome: res, slug, paid: isPaid });
     if (res === "signed-out" || res === "at-cap") {
       setFavUpgradeOpen(true);
       return;
@@ -371,6 +373,17 @@ export default function SpotDetailShell({
   useEffect(() => {
     setPaywallContext({ spotSlug: slug, spotName: spot.name, page: "spot" });
   }, [slug, spot.name]);
+  // Once per slug per mount. The species and tier are read at that moment on
+  // purpose: a later species pick is its own event, not a second page view.
+  useEffect(() => {
+    trackEvent("Spot Viewed", {
+      slug,
+      species: selId,
+      tier: accessTier,
+      ad_wall: ad?.wall,
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [slug]);
 
   const loadForecast = useCallback(async () => {
     const forSlug = slug;
@@ -528,11 +541,20 @@ export default function SpotDetailShell({
   // the engagement count the same way a day pick does. A wrapper rather than
   // `setSelId` itself, because the raw setter also runs off the initial
   // best-species pick, which nobody clicked.
-  const chooseSpecies = useCallback((id: string | null) => {
-    noteEngagement("browse", "species_filter");
-    setPaywallContext({ speciesId: id ?? undefined });
-    setSelId(id);
-  }, []);
+  const chooseSpecies = useCallback(
+    (id: string | null) => {
+      noteEngagement("browse", "species_filter");
+      setPaywallContext({ speciesId: id ?? undefined });
+      trackEvent("Species Chosen", {
+        species: id,
+        slug,
+        surface: "spot",
+        previous: selId,
+      });
+      setSelId(id);
+    },
+    [slug, selId],
+  );
 
   const [logCatchOpen, setLogCatchOpen] = useState(false);
   const [alertOpen, setAlertOpen] = useState(false);
@@ -560,9 +582,15 @@ export default function SpotDetailShell({
     // matrix, cadence, pay-first checkout, free-tier link at its foot — not
     // the slimmer sign-up gate, which exists for the FREE-tier walls.
     if (!user) {
+      trackEvent("Alert Setup Opened", {
+        slug,
+        species: selId,
+        outcome: "upgrade-gate",
+      });
       setAlertUpgradeOpen(true);
       return;
     }
+    trackEvent("Alert Setup Opened", { slug, species: selId, outcome: "opened" });
     setAlertOpen(true);
   };
 
@@ -742,6 +770,13 @@ export default function SpotDetailShell({
       // form now, so a locked day on a paid page does what a locked day does
       // everywhere else, and the two paths have collapsed into one.
       setLockedTier(day.lockTier ?? "pro");
+      trackEvent("Locked Day Tapped", {
+        index: day.index,
+        lock_tier: day.lockTier,
+        slug,
+        tier: accessTier,
+        surface: "spot",
+      });
       // Every locked day opens the same modal, including the "Become a Member"
       // days 3–7: the free account they unlock is offered by the link at the
       // foot of that modal rather than by a separate sign-up dialog.
@@ -751,6 +786,13 @@ export default function SpotDetailShell({
     // Only the unlocked branch counts. A locked day opens <ProTrialModal>,
     // which restarts the engagement count on its own.
     noteEngagement("browse", "day_pick");
+    trackEvent("Day Chosen", {
+      day: day.iso,
+      index: day.index,
+      surface: "spot",
+      slug,
+      species: selId,
+    });
     setSelectedIso(day.iso);
   };
 
@@ -986,6 +1028,9 @@ export default function SpotDetailShell({
                     ? withAdParams(`/explore?spot=${spot.slug}`, ad)
                     : "/explore"
                 }
+                onClick={() =>
+                  trackEvent("Back To Map Clicked", { slug, ad_wall: ad?.wall })
+                }
                 className="flex items-center gap-1 text-rc-brand hover:underline"
               >
                 <ChevronLeft className="w-3.5 h-3.5" />
@@ -1117,7 +1162,10 @@ export default function SpotDetailShell({
                     </button>
                     <button
                       type="button"
-                      onClick={toggleHome}
+                      onClick={() => {
+                        trackEvent("Home Spot Set", { on: !isHome, slug });
+                        toggleHome();
+                      }}
                       aria-pressed={isHome}
                       aria-label={isHome ? "Remove as home spot" : "Set as home spot"}
                       title={isHome ? "Your home spot" : "Set as home spot"}
@@ -1154,6 +1202,7 @@ export default function SpotDetailShell({
                     <button
                       type="button"
                       onClick={() => {
+                        trackEvent("Share Opened", { slug, species: selId });
                         setShareToken(null);
                         setShareOpen(true);
                       }}

@@ -5,6 +5,7 @@ import Link from "next/link";
 import { CheckCircle2, Loader2, Mail, Smartphone } from "lucide-react";
 import { useAuth } from "@/contexts/auth-context";
 import { useSubscription } from "@/hooks/use-subscription";
+import { trackEvent } from "@/lib/analytics";
 import {
   formatNational,
   fromE164,
@@ -96,6 +97,11 @@ export default function DeliveryChannelPicker({
       });
       const body = await res.json().catch(() => ({}));
       if (!res.ok) {
+        trackEvent("Phone Verify Failed", {
+          surface: "alerts",
+          step: "send",
+          error: body.reason ?? `http_${res.status}`,
+        });
         throw new Error(
           // 503 = the texting service is unreachable right now, not a feature
           // we haven't shipped. Say so, and point at the channel that works.
@@ -104,6 +110,8 @@ export default function DeliveryChannelPicker({
             : (body.error ?? "Couldn't send the code."),
         );
       }
+      // lib/phone is NANP-only, so the calling code is always 1 today.
+      trackEvent("Phone Code Sent", { surface: "alerts", country: "1" });
       setVerifyStep("enter-code");
       setVerifyInfo(
         `We texted a code to ${formatNational(phoneInput)}. It may take a minute.`,
@@ -140,8 +148,14 @@ export default function DeliveryChannelPicker({
       });
       const body = await res.json().catch(() => ({}));
       if (!res.ok || !body.approved) {
+        trackEvent("Phone Verify Failed", {
+          surface: "alerts",
+          step: "confirm",
+          error: body.reason ?? (res.ok ? "not_approved" : `http_${res.status}`),
+        });
         throw new Error(body.error ?? "That code didn't match. Try again.");
       }
+      trackEvent("Phone Verified", { surface: "alerts" });
       // Verified — flip the subscription state so smsAvailable becomes true,
       // collapse the verify UI, and pre-arm the SMS channel for this alert.
       setVerifyOpen(false);

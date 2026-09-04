@@ -59,9 +59,18 @@ const nextConfig: NextConfig = {
     // matches /ingest/static/... too, and the first match wins.
     const POSTHOG_ASSETS = "https://us-assets.i.posthog.com";
     const POSTHOG_API = "https://us.i.posthog.com";
+    // Mixpanel gets the same treatment at /mp. It had posted straight to
+    // api.mixpanel.com since the start, so a year of its history has the hole
+    // described above. Two hosts again: the API for events, people and replay
+    // batches, and the CDN for the session-replay recorder the SDK fetches
+    // lazily. The /libs/ rule comes first for the same reason as /static/.
+    const MIXPANEL_CDN = "https://cdn.mxpnl.com";
+    const MIXPANEL_API = "https://api.mixpanel.com";
     return [
       { source: "/ingest/static/:path*", destination: `${POSTHOG_ASSETS}/static/:path*` },
       { source: "/ingest/:path*", destination: `${POSTHOG_API}/:path*` },
+      { source: "/mp/libs/:path*", destination: `${MIXPANEL_CDN}/libs/:path*` },
+      { source: "/mp/:path*", destination: `${MIXPANEL_API}/:path*` },
     ];
   },
   async redirects() {

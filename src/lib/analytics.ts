@@ -393,3 +393,67 @@ export function registerAcquisition(): void {
 function put(target: Record<string, string>, key: string, value: string): void {
   if (value) target[key] = value;
 }
+
+/**
+ * Stamp the viewer's plan on every event from now on, and on the profile.
+ *
+ * `viewer_tier` is a super property because the question it answers ("do
+ * free accounts do this?") is asked of every event, not of a few. It is
+ * `register`, not `register_once`: a trial that lapses changes the answer and
+ * the next event must say so. The person properties carry the finer grain the
+ * profile page wants and a cohort can filter on.
+ *
+ * Call it only once auth and the subscription row have BOTH settled; before
+ * that the hook reports the free default and would label a Pro member wrong.
+ */
+export function registerViewerContext(properties: UserProperties & { viewer_tier: 'anon' | 'free' | 'pro' }): void {
+  if (!isAnalyticsEnabled()) return;
+
+  withMixpanel((mixpanel) => {
+    try {
+      mixpanel.register({ viewer_tier: properties.viewer_tier });
+    } catch (error) {
+      console.error('[Analytics] Viewer register error:', error);
+    }
+  });
+  withPostHog((posthog) => {
+    try {
+      posthog.register({ viewer_tier: properties.viewer_tier });
+    } catch (error) {
+      console.error('[Analytics] PostHog viewer register error:', error);
+    }
+  });
+
+  // Anonymous visitors have no profile to write to; the super property is
+  // the whole record for them.
+  if (properties.viewer_tier !== 'anon') setUserProperties(properties);
+}
+
+/**
+ * Switch tracking off (or back on) for a browser that belongs to the team.
+ *
+ * Both SDKs persist the choice themselves, so it holds across page loads
+ * without this being called again. Opting back in matters for the shared
+ * laptop case: a customer signing in where a team member had been must not
+ * inherit the silence.
+ */
+export function setInternalTraffic(internal: boolean): void {
+  withMixpanel((mixpanel) => {
+    try {
+      const out = mixpanel.has_opted_out_tracking();
+      if (internal && !out) mixpanel.opt_out_tracking();
+      else if (!internal && out) mixpanel.opt_in_tracking();
+    } catch (error) {
+      console.error('[Analytics] Opt-out error:', error);
+    }
+  });
+  withPostHog((posthog) => {
+    try {
+      const out = posthog.has_opted_out_capturing();
+      if (internal && !out) posthog.opt_out_capturing();
+      else if (!internal && out) posthog.opt_in_capturing();
+    } catch (error) {
+      console.error('[Analytics] PostHog opt-out error:', error);
+    }
+  });
+}

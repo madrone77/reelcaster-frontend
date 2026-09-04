@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { CheckCircle2, Loader2 } from 'lucide-react'
 import { apiFetch } from '@/lib/api-client'
+import { trackEvent } from '@/lib/analytics'
 import { useSubscription } from '@/hooks/use-subscription'
 import { useAuth } from '@/contexts/auth-context'
 import MetaStartTrial from '@/app/components/analytics/meta-start-trial'
@@ -66,6 +67,7 @@ function BillingSuccessInner() {
         }
 
         if (body?.status === 'signed_in' && body.url) {
+          trackEvent('Account Claimed')
           // The magic link signs them in and returns to /explore.
           window.location.href = body.url
           return
@@ -123,6 +125,27 @@ function BillingSuccessInner() {
     // subscription.refresh / router are stable refs; we want this to fire once.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sessionId])
+
+  // Same gate and once-per-session guard as the Meta and Plausible tags, and
+  // for the same reason: Mixpanel does not dedupe, so a refresh here would
+  // count a second trial.
+  useEffect(() => {
+    if (!activated || !conversion.settled || !status || !sessionId) return
+    const key = `rc_mixpanel_fired:${sessionId}`
+    try {
+      if (window.sessionStorage.getItem(key)) return
+      window.sessionStorage.setItem(key, '1')
+    } catch {
+      // Storage unavailable. Fire rather than go quiet; see plausible-start-trial.
+    }
+    trackEvent('Trial Started', {
+      tier: status.tier,
+      status: status.status,
+      claimed: claimState,
+    })
+    // status and claimState are settled by the time `activated` flips.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activated, conversion.settled, sessionId])
 
   // The bounce to /explore, held until the conversion question is answered.
   //

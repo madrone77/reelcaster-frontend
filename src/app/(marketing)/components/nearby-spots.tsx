@@ -8,6 +8,7 @@ import { TIER_PILL, tierFor } from '@/app/explore/lib/explore-data';
 import { scoreColor } from '@/app/explore/lib/spot-geojson';
 import type { NearbyPayload, NearbySpot } from '@/lib/nearby-spots';
 import { spotHref } from "@/lib/paths";
+import { trackEvent } from '@/lib/analytics';
 
 /**
  * "Top fishing spots near you" — the homepage's one personalized section.
@@ -51,6 +52,9 @@ function SpotRow({ spot, rank }: { spot: NearbySpot; rank: number }) {
       <Link
         href={spotHref(spot)}
         className="flex items-center gap-3 px-4 py-2 transition-colors hover:bg-rc-surface"
+        onClick={() =>
+          trackEvent('Top Spot Clicked', { slug: spot.slug, rank, surface: 'home-nearby' })
+        }
       >
         <span className="w-4 shrink-0 text-right font-rc-mono text-[11px] tabular-nums text-rc-ink-mute">
           {rank}
@@ -236,7 +240,17 @@ export default function NearbySpots() {
           <p className="mt-3 max-w-lg text-pretty text-sm md:text-base leading-relaxed text-rc-ink-soft">
             Tides, current, weather, and open seasons, updated through the day.
           </p>
-          <Link href={`/explore?loc=${city.slug}`} className={`mt-9 ${btn.primary}`}>
+          <Link
+            href={`/explore?loc=${city.slug}`}
+            className={`mt-9 ${btn.primary}`}
+            onClick={() =>
+              trackEvent('Nearby Map Clicked', {
+                city: city.slug,
+                spots: spots.length,
+                located: data.located,
+              })
+            }
+          >
             See them on the map
           </Link>
         </div>

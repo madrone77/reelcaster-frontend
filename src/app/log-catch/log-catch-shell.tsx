@@ -7,6 +7,7 @@ import { ArrowLeft, Check } from "lucide-react";
 import ExploreTopBar from "@/app/explore/components/explore-top-bar";
 import { PAGE_MEASURE, READING_MEASURE } from "@/app/components/layout/page-measure";
 import { useAuth } from "@/contexts/auth-context";
+import { trackEvent } from "@/lib/analytics";
 import {
   fetchCatchPreview,
   fetchNearestSpots,
@@ -148,6 +149,11 @@ export default function LogCatchShell() {
         });
 
         if (result && result.status === "rejected") {
+          trackEvent("Catch Photo Attached", {
+            bytes: f.size,
+            type: f.type,
+            outcome: "no-fish",
+          });
           setRejection(
             result.rejection_reason === "no_fish_detected"
               ? "We couldn't spot a fish in that photo. Try a clearer shot of the catch."
@@ -156,6 +162,11 @@ export default function LogCatchShell() {
           return;
         }
         if (result && result.status === "duplicate") {
+          trackEvent("Catch Photo Attached", {
+            bytes: f.size,
+            type: f.type,
+            outcome: "duplicate",
+          });
           setRejection(
             "This exact photo has already been logged. Every catch needs its own photo.",
           );
@@ -190,6 +201,15 @@ export default function LogCatchShell() {
             needs_input: ["location", "spot", "species"],
           } satisfies CatchPreviewResponse);
 
+        trackEvent("Catch Photo Attached", {
+          bytes: f.size,
+          type: f.type,
+          outcome: "ok",
+          confidence:
+            p.vision.species?.confidence != null
+              ? Math.round(p.vision.species.confidence * 100) / 100
+              : undefined,
+        });
         setPreview(p);
         setCaughtAtNaive(p.observed_at ?? localNowNaive());
         if (p.vision.species) {
@@ -211,6 +231,11 @@ export default function LogCatchShell() {
         }
         setPreviewDone(true);
       } catch {
+        trackEvent("Catch Photo Attached", {
+          bytes: f.size,
+          type: f.type,
+          outcome: "error",
+        });
         setError("Couldn't analyze that photo. Try again.");
         setStep("upload");
       }
@@ -369,8 +394,19 @@ export default function LogCatchShell() {
         session.access_token,
       );
       if (!res.ok) {
+        trackEvent("Custom Spot Create Failed", {
+          reason: res.error,
+          surface: "log-catch",
+        });
         return res.message ?? "Couldn't create the spot. Try again.";
       }
+      // The wizard's create form takes no visibility or species; the API
+      // defaults apply, so the count is what was sent.
+      trackEvent("Custom Spot Created", {
+        visibility: "private",
+        species_count: 0,
+        surface: "log-catch",
+      });
       const hit: NearestSpotHit = {
         id: res.data.spot.id,
         name: res.data.spot.name,
@@ -557,6 +593,13 @@ export default function LogCatchShell() {
             .catch(() => undefined);
         }
 
+        trackEvent("Catch Logged", {
+          status,
+          species: species?.slug,
+          slug: spot?.slug,
+          has_photo: photoPath != null,
+          score_status: scoreSnapshot?.status,
+        });
         setSaved(true);
         setTimeout(() => router.push("/catches"), 900);
       } catch {

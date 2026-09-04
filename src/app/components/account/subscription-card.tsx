@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { useSubscription } from '@/hooks/use-subscription'
 import { supabase } from '@/lib/supabase'
+import { trackEvent } from '@/lib/analytics'
 
 const TIER_LABELS: Record<string, string> = {
   free: 'Member',
@@ -32,6 +33,7 @@ export default function SubscriptionCard() {
   const [error, setError] = useState<string | null>(null)
 
   const handleManage = async () => {
+    trackEvent('Manage Subscription Clicked', { tier, status })
     setOpening(true)
     setError(null)
     try {

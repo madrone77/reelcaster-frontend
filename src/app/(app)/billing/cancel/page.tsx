@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { ArrowRight, X as CancelIcon } from 'lucide-react'
 import { btn } from '@/app/components/ui/button'
@@ -9,6 +9,7 @@ import { useUpgradeFlow } from '@/hooks/use-upgrade-flow'
 import { useAuth } from '@/contexts/auth-context'
 import { useSubscription } from '@/hooks/use-subscription'
 import type { PlanTierId } from '@/lib/plan-features'
+import { trackEvent } from '@/lib/analytics'
 
 export default function BillingCancelPage() {
   const { openCheckout, loading, error } = useUpgradeFlow()
@@ -19,6 +20,12 @@ export default function BillingCancelPage() {
   // Same derivation as ProTrialModal, so the "You" column marks the same
   // tier whether they abandoned checkout or hit a wall inside the app.
   const viewerTier: PlanTierId = isPaid ? 'pro' : user ? 'free' : 'anon'
+
+  useEffect(() => {
+    trackEvent('Cancel Page Viewed', { tier: viewerTier })
+    // Once on mount; the tier is whatever had settled at that moment.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   const handleRetry = async () => {
     setRetrying(true)

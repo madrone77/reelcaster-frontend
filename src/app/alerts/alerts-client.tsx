@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation';
 import { Bell, Plus, Lock } from 'lucide-react';
 import { useAuth } from '@/contexts/auth-context';
 import { useSubscription } from '@/hooks/use-subscription';
+import { trackEvent } from '@/lib/analytics';
 import ExploreTopBar from '@/app/explore/components/explore-top-bar';
 import { PAGE_MEASURE, READING_MEASURE } from '@/app/components/layout/page-measure';
 import { CustomAlertsList } from '@/app/components/alerts/custom-alerts-list';
@@ -62,6 +63,8 @@ export default function AlertsClient({ spots }: Props) {
     })();
   }, [session]);
 
+  const atLimit = !isPaid && profiles.length >= 1;
+
   const handleCreate = async (form: ScoreAlertFormValue) => {
     if (!session?.access_token) return;
     setError(null);
@@ -114,6 +117,16 @@ export default function AlertsClient({ spots }: Props) {
       return;
     }
 
+    trackEvent('Alert Created', {
+      surface: 'alerts-page',
+      kind: 'score',
+      slug: spot.slug,
+      species: form.speciesSlug,
+      threshold: form.threshold,
+      channels: form.channels,
+      at_limit: atLimit,
+      paid: isPaid,
+    });
     setProfiles([body.profile, ...profiles]);
     setShowForm(false);
   };
@@ -124,7 +137,10 @@ export default function AlertsClient({ spots }: Props) {
       method: 'DELETE',
       headers: { Authorization: `Bearer ${session.access_token}` },
     });
-    if (res.ok) setProfiles(profiles.filter((p) => p.id !== id));
+    if (res.ok) {
+      trackEvent('Alert Deleted', { remaining: profiles.length - 1 });
+      setProfiles(profiles.filter((p) => p.id !== id));
+    }
   };
 
   const handleToggle = async (id: string, isActive: boolean) => {
@@ -139,6 +155,7 @@ export default function AlertsClient({ spots }: Props) {
     });
     if (res.ok) {
       const { profile } = await res.json();
+      trackEvent(isActive ? 'Alert Resumed' : 'Alert Paused');
       setProfiles(profiles.map((p) => (p.id === id ? profile : p)));
     }
   };
@@ -187,12 +204,12 @@ export default function AlertsClient({ spots }: Props) {
       setError(body.error ?? 'Failed to duplicate alert');
       return;
     }
+    trackEvent('Alert Duplicated', { at_limit: atLimit });
     setProfiles([body.profile, ...profiles]);
   };
 
   if (authLoading || !user) return null;
 
-  const atLimit = !isPaid && profiles.length >= 1;
   const showLimitNotice = atLimit && !showForm;
 
   return (

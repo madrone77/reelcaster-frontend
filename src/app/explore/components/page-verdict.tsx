@@ -4,6 +4,7 @@ import { useState } from "react";
 import dynamic from "next/dynamic";
 import { ThumbsUp, ThumbsDown } from "lucide-react";
 import { useAuth } from "@/contexts/auth-context";
+import { trackEvent } from "@/lib/analytics";
 
 const ReportIssueDialog = dynamic(() => import("./report-issue-dialog"), {
   ssr: false,
@@ -81,6 +82,9 @@ export default function PageVerdict({
 
   function onUp() {
     setPicked("up");
+    // The verdict id only exists once the vote lands, so the up vote never
+    // carries one; the down vote reports it when it comes back.
+    trackEvent("Verdict Voted", { vote: "up", slug, verdict: null });
     void vote("up");
   }
 
@@ -91,7 +95,10 @@ export default function PageVerdict({
     // returns null and the dialog carries on regardless.
     setPicked("down");
     setReportOpen(true);
-    void vote("down").then(setVerdictId);
+    void vote("down").then((id) => {
+      setVerdictId(id);
+      trackEvent("Verdict Voted", { vote: "down", slug, verdict: id });
+    });
   }
 
   return (

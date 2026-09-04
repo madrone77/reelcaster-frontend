@@ -23,6 +23,7 @@ import type {
 } from '@stripe/stripe-js';
 import { apiFetch } from '@/lib/api-client';
 import { useAuth } from '@/contexts/auth-context';
+import { trackEvent } from '@/lib/analytics';
 import { TRIAL_DAYS, dollars } from '@/lib/pricing';
 
 /**
@@ -258,6 +259,12 @@ function WalletButtons({
     async (event: StripeExpressCheckoutElementConfirmEvent) => {
       if (!stripe || !elements) return;
 
+      trackEvent('Checkout Started', {
+        surface: 'express',
+        wallet: event.expressPaymentType === 'apple_pay' ? 'apple_pay' : 'google_pay',
+        region,
+        from,
+      });
       setBusy(true);
       setError(null);
 

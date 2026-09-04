@@ -28,6 +28,7 @@
 
 import { useCallback, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
+import { trackEvent } from "@/lib/analytics";
 import type { BlueCasterCityToday } from "@/lib/bluecaster";
 import BiteRadar from "./bite-radar";
 import SpeciesChips from "./species-chips";
@@ -182,12 +183,13 @@ export default function CityHub({
    */
   const select = useCallback((id: string | null, slug: string | null) => {
     setOverride(id);
+    trackEvent("City Species Chosen", { city: citySlug, species: slug ?? "all" });
     if (typeof window === "undefined") return;
     const url = new URL(window.location.href);
     if (slug) url.searchParams.set("species", slug);
     else url.searchParams.delete("species");
     window.history.replaceState(null, "", url);
-  }, []);
+  }, [citySlug]);
 
   const tactic = tacticLine(heroSpecies?.tactic ?? null);
 

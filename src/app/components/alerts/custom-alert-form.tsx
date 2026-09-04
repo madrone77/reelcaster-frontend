@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { trackEvent } from '@/lib/analytics'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -208,6 +209,14 @@ export function CustomAlertForm({ profile, spotContext, onSubmit, onCancel }: Cu
       data.delivery_channels = ['email']
 
       await onSubmit(data)
+      trackEvent(profile?.id ? 'Alert Edited' : 'Alert Created', {
+        surface: 'custom-form',
+        kind: data.alert_kind,
+        triggers: enabledKeys,
+        logic_mode: logicMode,
+        cooldown_hours: cooldownHours,
+        slug: spotContext.slug,
+      })
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to save')
     } finally {

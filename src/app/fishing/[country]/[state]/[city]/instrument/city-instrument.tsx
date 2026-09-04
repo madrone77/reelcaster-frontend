@@ -40,6 +40,7 @@ import {
   useCampaignHit,
   type CampaignTarget,
 } from "@/app/lp/_shared/lp-telemetry";
+import { trackEvent } from "@/lib/analytics";
 import { useSubscription } from "@/hooks/use-subscription";
 import { zoneAbbrev } from "@/app/explore/lib/explore-data";
 import { useSpotClock } from "@/app/explore/lib/use-spot-clock";
@@ -314,6 +315,12 @@ export default function CityInstrument({
 
   const handleDay = useCallback((day: ForecastDay) => {
     if (day.pending) return;
+    trackEvent("City Day Chosen", {
+      city: citySlug,
+      day: day.iso,
+      index: day.index,
+      locked: !!day.lockTier,
+    });
     if (day.locked) {
       setLockedTier(day.lockTier ?? "pro");
       // The primary ask on this page: the reader reached for a day they cannot
@@ -324,7 +331,7 @@ export default function CityInstrument({
       return;
     }
     setSelectedIso(day.iso);
-  }, [campaignTarget]);
+  }, [campaignTarget, citySlug]);
 
   // Scroll affordance on the strip — the same overlaid arrows the spot page
   // uses, so a phone reader knows there are days off the right edge.

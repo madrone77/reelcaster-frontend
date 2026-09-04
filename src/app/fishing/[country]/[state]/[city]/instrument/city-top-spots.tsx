@@ -25,6 +25,7 @@ import { bottomLabel, cellAt, chopLabel, phaseAt } from "../hub/hub-data";
 import { recognitionLabel, type RankedSpot } from "./featured";
 import Section from "./section";
 import { spotHref } from "@/lib/paths";
+import { trackEvent } from "@/lib/analytics";
 
 /** How many marks the list names. The map below it carries the rest. */
 const SHOWN = 6;
@@ -94,7 +95,7 @@ export default function CityTopSpots({
       ]}
     >
       <ul className="divide-y divide-rc-rule border-t border-rc-rule">
-        {shown.map((row) => {
+        {shown.map((row, i) => {
           const { spot, entry } = row;
           const tier = tierFor(entry.peak);
           const cell = cellAt(spot, entry.peak_hour);
@@ -111,6 +112,14 @@ export default function CityTopSpots({
               <Link
                 href={spotHref(spot)}
                 className="group flex items-center gap-4 py-3 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-rc-brand"
+                onClick={() =>
+                  trackEvent("Top Spot Clicked", {
+                    slug: spot.slug,
+                    rank: i + 1,
+                    city: cityName,
+                    surface: "instrument",
+                  })
+                }
               >
                 <div
                   className={`w-[52px] shrink-0 text-[30px] font-bold leading-none tracking-[-0.04em] tabular-nums ${TIER_NUMERAL[tier]}`}

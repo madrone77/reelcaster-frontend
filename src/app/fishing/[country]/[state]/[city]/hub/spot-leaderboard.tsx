@@ -18,6 +18,7 @@ import { bottomLabel, type HubBadge, type HubSpeciesEntry, type HubSpot } from "
 import { SectionHeading } from "../species/[species]/guide-sections";
 import { CARD, Chip, PAD, TYPE } from "./ui";
 import { spotHref } from "@/lib/paths";
+import { trackEvent } from "@/lib/analytics";
 
 export default function SpotLeaderboard({
   rows,
@@ -52,7 +53,7 @@ export default function SpotLeaderboard({
       </p>
 
       <ul className="grid gap-2.5 sm:grid-cols-2">
-        {rows.map(({ spot, entry, speciesName: driver }) => {
+        {rows.map(({ spot, entry, speciesName: driver }, i) => {
           const tier = tierFor(entry.peak);
           const win = windowLabel(entry.window);
           const badge = badges.get(spot.id);
@@ -86,6 +87,14 @@ export default function SpotLeaderboard({
               <Link
                 href={spotHref(spot)}
                 className={`group flex h-full flex-col ${CARD} ${PAD} hover:border-rc-brand hover:shadow-rc-panel transition-all`}
+                onClick={() =>
+                  trackEvent("Top Spot Clicked", {
+                    slug: spot.slug,
+                    rank: i + 1,
+                    city: cityName,
+                    surface: "leaderboard",
+                  })
+                }
               >
                 <div className="flex items-start gap-3">
                   <span

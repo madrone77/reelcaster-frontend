@@ -2,6 +2,7 @@
 
 import { Lock } from "lucide-react";
 import { useLockedDayTreatment } from "@/app/components/split-test/use-locked-day";
+import { trackEvent } from "@/lib/analytics";
 import { tierFor, fmtPeak, type Tier } from "../lib/explore-data";
 import { FREE_STRIP_DAYS, type LockTier } from "../lib/forecast-strip";
 import type { SpotsOutlook14dPayload } from "@/lib/bluecaster";
@@ -188,9 +189,17 @@ export default function SpotDayStrip({
   const lock = useLockedDayTreatment("spot_card", lockedCount > 0);
   // Every locked slot in this strip opens the same upgrade, so the tap is
   // counted once here rather than at each of the four places that call it.
+  // The compact "N more" button stands for the whole locked run, so it
+  // reports the first locked day.
+  const firstLocked = days.findIndex((d) => d.locked);
   const unlock = onUnlock
-    ? () => {
+    ? (index: number) => {
         lock.reportTap();
+        trackEvent("Locked Day Tapped", {
+          index,
+          lock_tier: days[index]?.lockTier ?? null,
+          surface: "strip",
+        });
         onUnlock();
       }
     : undefined;
@@ -209,7 +218,7 @@ export default function SpotDayStrip({
               unlock
                 ? (e) => {
                     e.stopPropagation();
-                    unlock();
+                    unlock(firstLocked);
                   }
                 : undefined
             }
@@ -283,7 +292,7 @@ export default function SpotDayStrip({
                     unlock
                       ? (e) => {
                           e.stopPropagation();
-                          unlock();
+                          unlock(i);
                         }
                       : undefined
                   }

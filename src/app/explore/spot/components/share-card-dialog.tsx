@@ -9,6 +9,7 @@ import {
   DialogDescription,
 } from "@/components/ui/dialog";
 import { useAuth } from "@/contexts/auth-context";
+import { trackEvent } from "@/lib/analytics";
 import { dayLabel, windowLabel, type ShareCard } from "@/lib/share-cards";
 
 interface MintedShare {
@@ -108,6 +109,7 @@ export default function ShareCardDialog({
       .share({ title: share.title, text: share.message, url: share.url })
       .then(() => {
         markSent(share.token);
+        trackEvent("Share Sent", { method: "share-sheet", token: share.token });
         onOpenChange(false);
       })
       // A dismissed share sheet rejects. That is a person changing their mind,
@@ -121,6 +123,7 @@ export default function ShareCardDialog({
       await navigator.clipboard.writeText(`${share.message} ${share.url}`);
       setCopied(true);
       markSent(share.token);
+      trackEvent("Share Sent", { method: "copy", token: share.token });
       setTimeout(() => setCopied(false), 2000);
     } catch {
       setError("Could not copy. Long-press the link to copy it by hand.");
