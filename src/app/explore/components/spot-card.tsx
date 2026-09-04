@@ -100,7 +100,8 @@ export default function SpotCard({
   // bar and the marketing footer. Null off the frame, which is every other
   // surface that renders this card, and `withAdParams` returns the href
   // untouched for null.
-  const reportHref = withAdParams(spotHref(spot), useAdFrame());
+  const adFrame = useAdFrame();
+  const reportHref = withAdParams(spotHref(spot), adFrame);
 
   // Pro-only: which spots carry catch reports is no longer shown to free or
   // anonymous viewers at all, matching the map, where the "Hot" tag and the
@@ -294,7 +295,19 @@ export default function SpotCard({
       <div className="flex items-stretch border-t border-rc-rule bg-rc-surface">
         <Link
           href={reportHref}
-          onClick={(e) => e.stopPropagation()}
+          onClick={(e) => {
+            e.stopPropagation();
+            // On the ad-framed map a plain press stays on the map and makes
+            // the offer instead — see AdFrame.onFullReport. Modified clicks
+            // keep the href, like the card body above.
+            if (
+              adFrame?.onFullReport &&
+              !e.metaKey && !e.ctrlKey && !e.shiftKey && !e.altKey && e.button === 0
+            ) {
+              e.preventDefault();
+              adFrame.onFullReport(spot);
+            }
+          }}
           className="flex flex-1 items-center min-h-11 text-left px-3 py-2 font-rc-mono text-[11px] font-semibold tracking-[0.08em] text-rc-brand hover:bg-rc-brand-soft/40 transition-colors"
         >
           FULL REPORT →
