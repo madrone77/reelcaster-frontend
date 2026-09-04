@@ -18,6 +18,7 @@ import {
 import { loadStripe } from '@stripe/stripe-js/pure';
 import type { Stripe } from '@stripe/stripe-js';
 import type {
+  StripeExpressCheckoutElementClickEvent,
   StripeExpressCheckoutElementConfirmEvent,
   StripeExpressCheckoutElementReadyEvent,
 } from '@stripe/stripe-js';
@@ -372,9 +373,18 @@ function WalletButtons({
         // handled, it's just "no wallet available", which is a state the modal
         // already knows how to render.
         onLoadError={() => onAvailabilityChange?.(false)}
-        onClick={({ resolve }: { resolve: () => void }) => {
+        onClick={(event: StripeExpressCheckoutElementClickEvent) => {
+          // The tap itself, before the wallet sheet opens. 'Checkout Started'
+          // below fires only if they confirm inside the sheet, so the gap
+          // between the two is the sheet's abandonment rate.
+          trackEvent(
+            event.expressPaymentType === 'apple_pay'
+              ? 'Apple Pay Clicked'
+              : 'Google Pay Clicked',
+            { surface: 'express', wallet: event.expressPaymentType, from, region, signed_in: signedIn },
+          );
           onActivate?.();
-          resolve();
+          event.resolve();
         }}
         onConfirm={onConfirm}
         onCancel={() => setBusy(false)}
