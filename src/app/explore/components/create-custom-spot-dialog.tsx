@@ -81,7 +81,14 @@ export default function CreateCustomSpotDialog({
     fetchScorableSpecies(coords.lat, coords.lng)
       .then((res) => {
         if (cancelled) return;
-        if (res) setCitySpecies(res.species.map((sp) => ({ id: sp.id, name: sp.name })));
+        if (!res) return;
+        const list = res.species.map((sp) => ({ id: sp.id, name: sp.name }));
+        setCitySpecies(list);
+        // Everything scorable starts picked. The default has to be a full
+        // forecast: an angler who names the spot and taps Create, the way a
+        // Pro trialist did in his first hour, must not end up with a spot
+        // that never scores. Deselecting is one tap per species.
+        setPicked(new Set(list.map((sp) => sp.id)));
       })
       .finally(() => {
         if (!cancelled) setLoadingSpecies(false);
@@ -111,6 +118,10 @@ export default function CreateCustomSpotDialog({
       setError("Give your spot a name.");
       return;
     }
+    if (picked.size === 0) {
+      setError("Pick at least one species to score here.");
+      return;
+    }
     setSaving(true);
     setError(null);
     const result = await createCustomSpot(
@@ -133,7 +144,9 @@ export default function CreateCustomSpotDialog({
         result.message ??
           (result.error === "outside_coverage"
             ? "That spot is outside the waters ReelCaster covers yet."
-            : "Couldn't create the spot. Try again."),
+            : result.error === "species_required"
+              ? "Pick at least one species to score here."
+              : "Couldn't create the spot. Try again."),
       );
       return;
     }
@@ -289,7 +302,7 @@ export default function CreateCustomSpotDialog({
                 SPECIES TO SCORE ({picked.size})
               </div>
               <div className="text-rc-ink-soft mt-1 text-sm">
-                Which species should we score here
+                Which species should we score here. Tap one to leave it out.
               </div>
               <div className="mt-2 flex flex-wrap gap-2">
                 {loadingSpecies && options.length === 0 && (
@@ -341,7 +354,7 @@ export default function CreateCustomSpotDialog({
               <button
                 type="button"
                 onClick={handleCreate}
-                disabled={saving}
+                disabled={saving || picked.size === 0}
                 className="px-5 py-2.5 rounded-xl bg-rc-brand hover:bg-rc-brand-hover text-white text-sm font-semibold transition-colors disabled:opacity-60 flex items-center gap-2"
               >
                 {saving ? (

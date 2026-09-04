@@ -21,7 +21,7 @@ const supabaseAdmin = createClient(
  * Custom spots are a Pro feature: free accounts get 403 `pro_required`.
  * BlueCaster additionally fences coordinates to covered waters and
  * answers 422 `outside_coverage`, which is passed through.
- * Body: { name, lat, lng, visibility?, species_ids? }. The owner (user_id)
+ * Body: { name, lat, lng, visibility?, species_ids (1+) }. The owner (user_id)
  * comes from the verified session, never the body.
  */
 export async function POST(request: NextRequest) {
@@ -60,6 +60,19 @@ export async function POST(request: NextRequest) {
   const species_ids: string[] = Array.isArray(body?.species_ids)
     ? body.species_ids.filter((s: unknown): s is string => typeof s === "string")
     : [];
+  // BlueCaster refuses this too (400 species_required). Refusing here as well
+  // keeps a spot that can never score from being created by any caller of
+  // this proxy, and saves the round trip.
+  if (species_ids.length === 0) {
+    return NextResponse.json(
+      {
+        error: "species_required",
+        message:
+          "Pick at least one species to score at this spot. Without one there is nothing to forecast.",
+      },
+      { status: 400 },
+    );
+  }
 
   try {
     const result = await createCustomSpot(
