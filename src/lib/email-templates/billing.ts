@@ -1,6 +1,6 @@
 /**
  * Billing lifecycle emails: trial ending, payment failed, grace ending,
- * duplicate-card refusal.
+ * Pro lapsed, duplicate-card refusal.
  *
  * The trial-ending one isn't optional garnish — a card-required trial that
  * auto-charges needs clear advance notice of the date and the amount under
@@ -185,6 +185,59 @@ export function graceEndingEmail(params: {
         </p>
       </td></tr>`,
       { preheader: `Pro ends ${date} unless the card is updated.` },
+    ),
+  };
+}
+
+/**
+ * Sent when the grace window has closed and Pro is off. The third and last
+ * email in the declined-card sequence, after the decline and the two-days-left
+ * nudge.
+ *
+ * Leads with what did NOT happen: nothing was lost, the account is free and
+ * keeps everything it had on free. Then the way back, which depends on whether
+ * the Stripe subscription still exists. While it does, a card update revives
+ * it and Stripe retries on its own. Once Stripe has cancelled it, the route is
+ * a fresh purchase, and the trial is not offered twice.
+ */
+export function proLapsedEmail(params: {
+  amountLabel: string;
+  canResume: boolean;
+}): { subject: string; html: string } {
+  const wayBack = params.canResume
+    ? {
+        html: `To turn it back on, update the card on file. We retry the ${params.amountLabel}
+          charge automatically and Pro comes straight back, nothing else to set up.`,
+        href: siteUrl('/settings/account'),
+        label: 'Update payment method',
+      }
+    : {
+        html: `To turn it back on, start Pro again at ${params.amountLabel} a year. Your spots
+          and alerts are still there and pick up where they left off.`,
+        href: siteUrl('/plans'),
+        label: 'Get Pro back',
+      };
+
+  return {
+    subject: 'Your ReelCaster Pro has switched off',
+    html: shell(
+      `<tr><td>
+        <h1 style="margin:0 0 16px;font-size:22px;line-height:30px;color:${INK};">Pro is off for now</h1>
+        <p style="margin:0 0 16px;font-size:15px;line-height:24px;color:${INK_SOFT};">
+          We could not charge ${params.amountLabel} for ReelCaster Pro, so as of today your account
+          is back on the free plan. <strong>Nothing has been deleted.</strong> You keep your saved
+          spots, your catch log, and the 7-day forecast. The 14-day forecast, private spots, and
+          alerts are paused.
+        </p>
+        <p style="margin:0 0 24px;font-size:15px;line-height:24px;color:${INK_SOFT};">
+          ${wayBack.html}
+        </p>
+        <p style="margin:0 0 20px;">${button(wayBack.href, wayBack.label)}</p>
+        <p style="margin:0;font-size:14px;line-height:22px;color:${INK_MUTE};">
+          If this is a surprise, or the card should have worked, reply to this email and a person will read it.
+        </p>
+      </td></tr>`,
+      { preheader: 'Your account is on the free plan. Nothing was deleted.' },
     ),
   };
 }

@@ -17,6 +17,7 @@ import {
   trialUnavailableEmail,
 } from '@/lib/email-templates/billing';
 import { sendTrialReminder } from '@/lib/trial-reminder';
+import { sendLapseNotice } from '@/lib/lapse-notice';
 import { sendWelcomeEmail } from '@/lib/welcome-email';
 import {
   PAY_METHOD_KEY,
@@ -210,6 +211,13 @@ async function applySubscriptionToUser(subscription: Stripe.Subscription) {
   if (!isPaymentProblem) {
     update.grace_until = null;
     update.grace_reminder_sent_at = null;
+  }
+
+  // Only a RECOVERY forgets the switched-off notice. A cancellation must not:
+  // the cron may have sent it when the window closed by clock, and Stripe's
+  // deleted event arriving afterwards would otherwise send it a second time.
+  if (isEntitledStatus) {
+    update.lapse_notice_sent_at = null;
   }
 
   await admin.from('user_settings').upsert(update, { onConflict: 'user_id' });
@@ -447,6 +455,32 @@ async function cardFingerprintFor(
 }
 
 /**
+ * Stripe gave up retrying a declined card and cancelled the subscription.
+ *
+ * Only for that reason. A customer who cancels from the portal, or an admin
+ * who cancels in the dashboard, gets the same deleted event with a different
+ * cancellation reason, and "we could not charge your card" would be untrue.
+ * sendLapseNotice claims the send, so if the cron already sent this when our
+ * own grace window closed, this is a no-op.
+ */
+async function sendLapseNoticeIfPaymentFailed(subscription: Stripe.Subscription) {
+  if (subscription.cancellation_details?.reason !== 'payment_failed') return;
+
+  const userId = await resolveUserId(subscription);
+  if (!userId) return;
+
+  await sendLapseNotice(admin, {
+    userId,
+    amountLabel: amountLabelForSubscription(
+      subscription,
+      tierFromPriceId(subscription.items.data[0]?.price?.id ?? null),
+    ),
+    // The subscription is gone; the way back is a new purchase.
+    canResume: false,
+  });
+}
+
+/**
  * Open the 7-day grace window. Idempotent: Stripe retries a failing invoice
  * several times and each attempt fires this event, but the deadline is set
  * from the FIRST failure so retries can't extend it indefinitely.
@@ -469,7 +503,7 @@ async function openGraceWindow(subscription: Stripe.Subscription) {
   // two-days-left note once per window, keyed on grace_reminder_sent_at.
   await admin
     .from('user_settings')
-    .update({ grace_until: graceUntil, grace_reminder_sent_at: null })
+    .update({ grace_until: graceUntil, grace_reminder_sent_at: null, lapse_notice_sent_at: null })
     .eq('user_id', userId);
 
   const email = await emailForUser(userId);
@@ -569,10 +603,15 @@ export async function POST(request: Request) {
         break;
       }
       case 'customer.subscription.created':
-      case 'customer.subscription.updated':
+      case 'customer.subscription.updated': {
+        const sub = event.data.object as Stripe.Subscription;
+        await applySubscriptionToUser(sub);
+        break;
+      }
       case 'customer.subscription.deleted': {
         const sub = event.data.object as Stripe.Subscription;
         await applySubscriptionToUser(sub);
+        await sendLapseNoticeIfPaymentFailed(sub);
         break;
       }
       case 'customer.subscription.trial_will_end': {
