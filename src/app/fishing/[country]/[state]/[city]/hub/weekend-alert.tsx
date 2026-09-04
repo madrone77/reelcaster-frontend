@@ -14,6 +14,7 @@
 
 import { useState } from "react";
 import { PANEL, TYPE } from "./ui";
+import { trackEvent } from "@/lib/analytics";
 
 type Phase = "idle" | "sending" | "check-email" | "code-sent" | "confirmed";
 
@@ -40,6 +41,13 @@ export default function WeekendAlert({
     setError(null);
     setPhase("sending");
 
+    // Read here rather than on the server: the page is prerendered, so
+    // the route never sees the landing URL's query string.
+    const source =
+      typeof window === "undefined"
+        ? null
+        : new URLSearchParams(window.location.search).get("source");
+
     const res = await fetch("/api/weekend-alert", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -49,12 +57,7 @@ export default function WeekendAlert({
         cityName,
         province: provinceCode,
         species: speciesSlug,
-        // Read here rather than on the server: the page is prerendered, so
-        // the route never sees the landing URL's query string.
-        source:
-          typeof window === "undefined"
-            ? null
-            : new URLSearchParams(window.location.search).get("source"),
+        source,
       }),
     }).catch(() => null);
 
@@ -65,7 +68,14 @@ export default function WeekendAlert({
       setPhase("idle");
       return;
     }
-    setPhase(body.status === "code-sent" ? "code-sent" : "check-email");
+    const next: Phase = body.status === "code-sent" ? "code-sent" : "check-email";
+    trackEvent("LP Alert Code Sent", {
+      city: citySlug,
+      species: speciesSlug,
+      phase: next,
+      source,
+    });
+    setPhase(next);
   }
 
   async function confirmCode(e: React.FormEvent) {
@@ -85,6 +95,7 @@ export default function WeekendAlert({
       setPhase("code-sent");
       return;
     }
+    trackEvent("LP Alert Confirmed", { city: citySlug, species: speciesSlug });
     setPhase("confirmed");
   }
 

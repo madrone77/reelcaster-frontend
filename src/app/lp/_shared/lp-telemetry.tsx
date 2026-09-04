@@ -2,6 +2,7 @@
 
 import { useEffect } from "react";
 import { CLICK_TYPES } from "@/lib/attribution";
+import { trackEvent } from "@/lib/analytics";
 
 /**
  * Counting what happens on a landing page before anyone converts.
@@ -285,6 +286,15 @@ export function reportLpCta(cta: LpCtaId, angle: string): void {
 export function reportCampaignCta(cta: LpCtaId, target: CampaignTarget): void {
   if (typeof window === "undefined") return;
   if (!target.landing) return;
+
+  // The one place every LP CTA passes through, so one call covers them all.
+  trackEvent("LP CTA Clicked", {
+    landing: target.landing,
+    cta,
+    angle: target.angle,
+    target_city: target.target_city,
+    ...(target.target_spot ? { target_spot: target.target_spot } : {}),
+  });
 
   post({
     kind: "cta_click",

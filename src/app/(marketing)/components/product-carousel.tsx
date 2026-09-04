@@ -5,6 +5,7 @@ import { buildExploreData } from '@/app/explore/lib/explore-data';
 import MarketingMap, { type MapSpot } from './marketing-map';
 import PhoneFrame from './phone-frame';
 import PhoneCarousel, { type PhoneSlide } from './phone-carousel';
+import CarouselCta from './carousel-cta';
 import ClientErrorBoundary from '@/app/components/client-error-boundary';
 import TrialModalButton from '@/app/components/paywall/trial-modal-button';
 import { btn } from '@/app/components/ui/button';
@@ -216,9 +217,11 @@ export default async function ProductCarousel() {
         "Whether you're chasing salmon, halibut, or lingcod, you'll always know where to start.",
       ],
       cta: (
-        <Link href="/explore" className={btn.primary}>
-          Explore the map
-        </Link>
+        <CarouselCta slide="map">
+          <Link href="/explore" className={btn.primary}>
+            Explore the map
+          </Link>
+        </CarouselCta>
       ),
       phone: (
         <PhoneFrame
@@ -276,9 +279,11 @@ export default async function ProductCarousel() {
               },
             ],
             cta: (
-              <Link href="/explore" className={btn.primary}>
-                Find your spot
-              </Link>
+              <CarouselCta slide="spot">
+                <Link href="/explore" className={btn.primary}>
+                  Find your spot
+                </Link>
+              </CarouselCta>
             ),
             // Held back until the slide is first shown: it is the second
             // MapLibre map on this page. See PhoneSlide.lazy.
@@ -315,9 +320,11 @@ export default async function ProductCarousel() {
               'The same screen carries the spot\u2019s DFO regulations and a full bathymetry map underneath it.',
             ],
             cta: (
-              <Link href="/explore" className={btn.primary}>
-                See today&rsquo;s conditions
-              </Link>
+              <CarouselCta slide="conditions">
+                <Link href="/explore" className={btn.primary}>
+                  See today&rsquo;s conditions
+                </Link>
+              </CarouselCta>
             ),
             phone: <ConditionsPhone feed={conditions} serverNowMs={now} />,
           },
@@ -337,9 +344,11 @@ export default async function ProductCarousel() {
         { term: 'One text', detail: 'The best day in the window, not one a morning' },
       ],
       cta: (
-        <TrialModalButton from="marketing-carousel-alerts" className={btn.primary}>
-          Start free trial
-        </TrialModalButton>
+        <CarouselCta slide="alerts">
+          <TrialModalButton from="marketing-carousel-alerts" className={btn.primary}>
+            Start free trial
+          </TrialModalButton>
+        </CarouselCta>
       ),
       phone: (
         <AlertSmsPhone

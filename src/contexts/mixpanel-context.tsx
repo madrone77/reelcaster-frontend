@@ -9,8 +9,13 @@ import {
   aliasUser,
   setUserProperties as setUserPropertiesHelper,
   resetAnalytics,
+  registerViewerContext,
+  setInternalTraffic,
 } from '@/lib/analytics';
 import { useAuth } from '@/contexts/auth-context';
+import { useSubscription } from '@/hooks/use-subscription';
+import { viewerTierOf } from '@/lib/viewer-tier';
+import { isInternalBrowser, isInternalUser } from '@/lib/internal-traffic';
 import { UserPreferencesService } from '@/lib/user-preferences';
 import type { AnalyticsContextType, UserProperties } from '@/types/analytics';
 
@@ -20,6 +25,7 @@ const MixpanelContext = createContext<AnalyticsContextType | undefined>(
 
 export function MixpanelProvider({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth();
+  const subscription = useSubscription();
   const [isInitialized, setIsInitialized] = useState(false);
   const previousUserIdRef = useRef<string | null>(null);
   const hasAliasedRef = useRef(false);
@@ -40,6 +46,37 @@ export function MixpanelProvider({ children }: { children: React.ReactNode }) {
       setIsInitialized(true);
     }
   }, [isInitialized]);
+
+  // Team browsers and team accounts do not count. Decided on every auth
+  // change so a customer signing in on a shared machine is opted back in.
+  useEffect(() => {
+    if (loading || !isInitialized) return;
+    setInternalTraffic(isInternalBrowser() || isInternalUser(user?.id));
+  }, [user?.id, loading, isInitialized]);
+
+  // viewer_tier on every event from here on, plus the plan on the profile.
+  // Waits for the subscription row, not just auth: before it lands the hook
+  // reports the free default and a Pro member would be stamped 'free'.
+  useEffect(() => {
+    if (loading || subscription.loading || !isInitialized) return;
+    registerViewerContext({
+      viewer_tier: viewerTierOf(!!user, subscription.isPaid),
+      subscription_tier: subscription.tier,
+      subscription_status: subscription.status,
+      subscription_period_end: subscription.periodEnd,
+      phone_verified: subscription.phoneVerified,
+    });
+  }, [
+    user,
+    loading,
+    isInitialized,
+    subscription.loading,
+    subscription.isPaid,
+    subscription.tier,
+    subscription.status,
+    subscription.periodEnd,
+    subscription.phoneVerified,
+  ]);
 
   // Handle user authentication state changes
   useEffect(() => {

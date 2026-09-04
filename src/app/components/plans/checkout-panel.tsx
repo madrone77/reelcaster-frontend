@@ -21,6 +21,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/contexts/auth-context';
 import TrialCta from '@/app/components/paywall/trial-cta';
 import { supabase } from '@/lib/supabase';
+import { trackEvent } from '@/lib/analytics';
 import {
   currencyForRegion,
   TRIAL_DAYS,
@@ -157,6 +158,14 @@ export default function CheckoutPanel({
   }, [user, authLoading]);
 
   const startCheckout = useCallback(async () => {
+    trackEvent('Checkout Started', {
+      surface: 'plans',
+      region,
+      from: fromQuery,
+      trial_available: status?.trial_available,
+      trial_days: status?.trial_days,
+      signed_in: true,
+    });
     setSubmitting(true);
     setError(null);
     try {
@@ -197,7 +206,7 @@ export default function CheckoutPanel({
       setError(err instanceof Error ? err.message : 'Could not start checkout');
       setSubmitting(false);
     }
-  }, [region, fromQuery, router]);
+  }, [region, fromQuery, router, status]);
 
   // The trial is granted per checkout session by the checkout route, not baked
   // into the Stripe Price — see /support, which documents it that way.

@@ -6,13 +6,15 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button'
 import { useSubscription } from '@/hooks/use-subscription'
 import { supabase } from '@/lib/supabase'
+import { trackEvent } from '@/lib/analytics'
 
 export default function DangerZoneCard() {
-  const { isPaid, stripeCustomerId } = useSubscription()
+  const { isPaid, stripeCustomerId, tier, status } = useSubscription()
   const [opening, setOpening] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
   const handleCancel = async () => {
+    trackEvent('Cancel Clicked', { tier, status })
     setOpening(true)
     setError(null)
     try {

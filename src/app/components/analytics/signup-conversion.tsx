@@ -3,6 +3,7 @@
 import { useEffect } from 'react'
 import { PLAUSIBLE_SIGNUP_EVENT, plausibleTrack } from '@/lib/plausible'
 import { metaTrack } from '@/lib/meta-pixel'
+import { trackEvent } from '@/lib/analytics'
 import {
   META_SIGNUP_EVENT,
   SIGNUP_MODELED_VALUE_CENTS,
@@ -56,6 +57,7 @@ export default function SignupConversion({
     }
 
     plausibleTrack(PLAUSIBLE_SIGNUP_EVENT, { path })
+    trackEvent('Signup Completed', { path })
 
     // Value on a registration event is unusual and deliberate. See
     // SIGNUP_MODELED_VALUE_CENTS: it is what a free account is modeled to be

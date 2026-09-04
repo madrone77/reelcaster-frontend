@@ -8,6 +8,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Badge } from '@/components/ui/badge'
 import { useSubscription } from '@/hooks/use-subscription'
+import { trackEvent } from '@/lib/analytics'
 import { supabase } from '@/lib/supabase'
 import { formatNational, isValidNational, nationalDigits, toE164 } from '@/lib/phone'
 
@@ -65,6 +66,11 @@ export default function PhoneVerifyCard() {
       })
       const body = await res.json()
       if (!res.ok) {
+        trackEvent('Phone Verify Failed', {
+          surface: 'account',
+          step: 'send',
+          error: body.reason ?? `http_${res.status}`,
+        })
         if (res.status === 503) {
           setSmsAvailable(false)
           throw new Error(
@@ -73,6 +79,8 @@ export default function PhoneVerifyCard() {
         }
         throw new Error(body.error ?? 'Failed to send code')
       }
+      // lib/phone is NANP-only, so the calling code is always 1 today.
+      trackEvent('Phone Code Sent', { surface: 'account', country: '1' })
       setStep('enter-code')
       setInfo(`We sent a code to ${formatNational(phone)}. It may take a minute to arrive.`)
       refresh()
@@ -104,8 +112,14 @@ export default function PhoneVerifyCard() {
       })
       const body = await res.json()
       if (!res.ok || !body.approved) {
+        trackEvent('Phone Verify Failed', {
+          surface: 'account',
+          step: 'confirm',
+          error: body.reason ?? (res.ok ? 'not_approved' : `http_${res.status}`),
+        })
         throw new Error(body.error ?? 'Invalid or expired code')
       }
+      trackEvent('Phone Verified', { surface: 'account' })
       setInfo('Phone number verified. SMS alerts are ready when delivery launches.')
       setCode('')
       setStep('enter-phone')

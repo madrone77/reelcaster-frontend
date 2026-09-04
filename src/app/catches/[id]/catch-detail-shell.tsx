@@ -7,6 +7,7 @@ import { ArrowLeft, Check, Loader2 } from "lucide-react";
 import ExploreTopBar from "@/app/explore/components/explore-top-bar";
 import { PAGE_MEASURE, READING_MEASURE } from "@/app/components/layout/page-measure";
 import { useAuth } from "@/contexts/auth-context";
+import { trackEvent } from "@/lib/analytics";
 import {
   fetchNearestSpots,
   fetchSpotSnapshot,
@@ -284,8 +285,17 @@ export default function CatchDetailShell({ catchId }: { catchId: string }) {
         session.access_token,
       );
       if (!res.ok) {
+        trackEvent("Custom Spot Create Failed", {
+          reason: res.error,
+          surface: "catch-detail",
+        });
         return res.message ?? "Couldn't create the spot. Try again.";
       }
+      trackEvent("Custom Spot Created", {
+        visibility: "private",
+        species_count: 0,
+        surface: "catch-detail",
+      });
       const hit: NearestSpotHit = {
         id: res.data.spot.id,
         name: res.data.spot.name,
@@ -434,6 +444,7 @@ export default function CatchDetailShell({ catchId }: { catchId: string }) {
             .catch(() => undefined);
         }
 
+        trackEvent("Catch Edited", { catch_id: catchId, species: species?.slug });
         setSaved(true);
         setTimeout(() => router.push("/catches"), 800);
       } catch {
@@ -455,6 +466,7 @@ export default function CatchDetailShell({ catchId }: { catchId: string }) {
       mgmtAreaLabel,
       scoreSnapshot,
       router,
+      catchId,
     ],
   );
 

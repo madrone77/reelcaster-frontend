@@ -24,6 +24,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { usePathname } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/auth-context';
+import { trackEvent } from '@/lib/analytics';
 import ProWelcomeModal from '@/app/components/pro/pro-welcome-modal';
 import NewUserWelcomeModal from './new-user-welcome-modal';
 import HomeCityModal from './home-city-modal';
@@ -101,13 +102,23 @@ export default function WelcomeGate() {
     setState((s) => ({ kind: s.next, next: null, pro: s.pro }));
   }, []);
 
-  if (suppressed) return null;
-
   // `homeCityAsked()` is only meaningful once the hydrate has landed, which is
   // what `homeCityReady` gates: hydrateHomeCity copies the server's
   // homeCityAskedAt into local storage on its way through.
   const needsCity =
     !!user && !authLoading && homeCityReady && !homeCity && !homeCityAsked() && !cityDone;
+
+  // The welcome actually on screen: null while the city question is ahead of it.
+  const shownKind = suppressed || needsCity ? null : state.kind;
+  const shownPro = !!state.pro;
+  useEffect(() => {
+    if (!shownKind) return;
+    trackEvent('Welcome Shown', { kind: shownKind, pro: shownPro });
+    // Once per welcome, not per re-render of the same one.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [shownKind]);
+
+  if (suppressed) return null;
 
   if (needsCity) return <HomeCityModal onClose={() => setCityDone(true)} />;
 

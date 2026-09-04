@@ -12,6 +12,7 @@ import {
 } from "@/components/ui/dialog";
 import { useAuth } from "@/contexts/auth-context";
 import { useSubscription } from "@/hooks/use-subscription";
+import { trackEvent } from "@/lib/analytics";
 import { useIsPhone } from "@/hooks/use-is-phone";
 import DeliveryChannelPicker from "@/app/components/alerts/delivery-channel-picker";
 import { tierFor, TIER_PILL, TIER_TEXT } from "../../lib/explore-data";
@@ -253,6 +254,15 @@ export default function CreateAlertDialog({
         setSaving(false);
         return;
       }
+      trackEvent("Alert Created", {
+        surface: "spot-dialog",
+        slug: spot.slug,
+        species: species.slug,
+        threshold,
+        channels,
+        lead_mode: leadMode,
+        paid: isPaid,
+      });
       onCreated?.();
       onOpenChange(false);
     } catch {

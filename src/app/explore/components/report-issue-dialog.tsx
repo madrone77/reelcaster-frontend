@@ -9,6 +9,7 @@ import {
   DialogDescription,
 } from "@/components/ui/dialog";
 import { useAuth } from "@/contexts/auth-context";
+import { trackEvent } from "@/lib/analytics";
 
 /**
  * "Something look wrong?" — the one place an angler can tell us our data is
@@ -136,6 +137,7 @@ export default function ReportIssueDialog({
         return;
       }
       setSent(true);
+      trackEvent("Issue Reported", { slug, surface, reason });
       onSent?.();
     } catch {
       setError("That did not send. Give it another try in a moment.");

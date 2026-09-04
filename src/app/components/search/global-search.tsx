@@ -8,6 +8,7 @@ import { Search, MapPin, Building2, Map, Target, Loader2, X } from 'lucide-react
 import { btn } from '@/app/components/ui/button';
 import { COVERED_PROVINCES } from '@/lib/regions';
 import type { SearchResult } from '@/lib/search-results';
+import { trackEvent } from '@/lib/analytics';
 
 const WaitlistPinModal = dynamic(
   () => import('@/app/components/waitlist/waitlist-pin-modal'),
@@ -18,6 +19,9 @@ interface Props {
   open: boolean;
   onClose: () => void;
 }
+
+// Someone searching their own address is not something to keep.
+const scrubQuery = (q: string) => q.replace(/\S+@\S+\.\S+/g, '[email]');
 
 const TYPE_ICON = {
   spot: MapPin,
@@ -75,8 +79,13 @@ export default function GlobalSearch({ open, onClose }: Props) {
       try {
         const res = await fetch(`/api/search?q=${encodeURIComponent(q.trim())}`);
         const data = await res.json();
-        setResults(data.results ?? []);
+        const list: SearchResult[] = data.results ?? [];
+        setResults(list);
         setHighlight(0);
+        trackEvent('Search Performed', {
+          query: scrubQuery(q.trim()),
+          results: list.length,
+        });
       } catch {
         setResults([]);
       } finally {
@@ -88,12 +97,13 @@ export default function GlobalSearch({ open, onClose }: Props) {
 
   const navigate = useCallback(
     (r: SearchResult) => {
+      trackEvent('Search Result Picked', { type: r.kind, path: r.path, index: highlight });
       if (r.path) {
         router.push(r.path);
         onClose();
       }
     },
-    [router, onClose],
+    [router, onClose, highlight],
   );
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {

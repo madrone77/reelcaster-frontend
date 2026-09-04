@@ -37,6 +37,7 @@ import {
 } from "./hub-data";
 import { Chip, Label, PAD, PANEL, TYPE } from "./ui";
 import { spotHref } from "@/lib/paths";
+import { trackEvent } from "@/lib/analytics";
 
 /** One fact per box. No icons: four pictograms on one card is decoration
  *  competing with the four values it is meant to introduce. */
@@ -79,6 +80,13 @@ export default function SpotSpotlight({
   cityName: string;
   tz: string;
 }) {
+  const onSpotClick = () =>
+    trackEvent("Top Spot Clicked", {
+      slug: spot.slug,
+      rank: 1,
+      city: cityName,
+      surface: "spotlight",
+    });
   /**
    * The hour the reader is scrubbing, or null when they are not.
    *
@@ -122,6 +130,7 @@ export default function SpotSpotlight({
               <Link
                 href={spotHref(spot)}
                 className="hover:text-rc-emerald-deep transition-colors"
+                onClick={onSpotClick}
               >
                 {spot.name}
               </Link>
@@ -187,6 +196,7 @@ export default function SpotSpotlight({
       <Link
         href={spotHref(spot)}
         className="block border-t border-rc-rule px-4 py-3 text-[13px] font-semibold text-rc-emerald-deep hover:bg-rc-surface transition-colors"
+        onClick={onSpotClick}
       >
         See the full day at {spot.name}
         <span aria-hidden> &rarr;</span>

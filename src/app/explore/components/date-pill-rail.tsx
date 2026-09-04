@@ -16,6 +16,7 @@ import type {
 } from "../lib/forecast-strip";
 import { useLockedDayTreatment } from "@/app/components/split-test/use-locked-day";
 import UpgradeDialog from "./upgrade-dialog";
+import { trackEvent } from "@/lib/analytics";
 
 /** Score colour per tier — the same tokens the day cells and the sheet use. */
 const TIER_SCORE: Record<Tier, string> = {
@@ -136,6 +137,11 @@ export default function DatePillRail({
   const handleDay = (day: ForecastDay) => {
     if (day.locked) {
       lock.reportTap();
+      trackEvent("Locked Day Tapped", {
+        index: day.index,
+        lock_tier: day.lockTier,
+        surface: "rail",
+      });
       if (onLockedAdDay) {
         onLockedAdDay();
         return;

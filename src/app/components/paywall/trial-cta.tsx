@@ -11,6 +11,8 @@ import {
 } from 'react';
 import Link from 'next/link';
 import { useAuth } from '@/contexts/auth-context';
+import { useSubscription } from '@/hooks/use-subscription';
+import { trackEvent } from '@/lib/analytics';
 import { supabase } from '@/lib/supabase';
 import { useUpgradeFlow } from '@/hooks/use-upgrade-flow';
 import { cn } from '@/lib/utils';
@@ -164,6 +166,7 @@ export function TrialCtaProvider({
   children: React.ReactNode;
 }) {
   const { user, loading: authLoading } = useAuth();
+  const { isPaid } = useSubscription();
   const { openCheckout, loading: submitting, error } = useUpgradeFlow();
 
   const [status, setStatus] = useState<CheckoutStatus | null>(null);
@@ -225,6 +228,14 @@ export function TrialCtaProvider({
 
   async function startAnonCheckout() {
     reportSplitCta(pricing, 'paywall');
+    trackEvent('Checkout Started', {
+      surface: 'paywall',
+      from,
+      region,
+      signed_in: false,
+      trial: trialOn,
+      pricing: pricing.variant ?? 'control',
+    });
     setAnonSubmitting(true);
     setAnonError(null);
     try {
@@ -275,6 +286,13 @@ export function TrialCtaProvider({
     startAnonCheckout,
     startCheckout: () => {
       reportSplitCta(pricing, 'paywall');
+      trackEvent('Checkout Started', {
+        surface: 'paywall',
+        from,
+        region,
+        signed_in: true,
+        tier: isPaid ? 'pro' : 'free',
+      });
       openCheckout({ from, region }).catch(() => {
         /* surfaced through errorText */
       });

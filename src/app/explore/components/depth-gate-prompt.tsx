@@ -13,6 +13,7 @@ import {
 } from "@/components/ui/dialog";
 import { FREE_FORECAST_DAYS } from "@/lib/forecast-horizon";
 import { reportPaywall } from "@/lib/paywall-counter";
+import { trackEvent } from "@/lib/analytics";
 
 /**
  * "Enjoying ReelCaster?" — the one ask on /m/explore.
@@ -83,6 +84,7 @@ export default function DepthGatePrompt({
       surface: SURFACE,
       viewerTier: "anon",
     });
+    trackEvent("Depth Gate Shown", { surface: SURFACE, feature: "depth-gate" });
   }, [open]);
 
   /**
@@ -99,6 +101,10 @@ export default function DepthGatePrompt({
         viewerTier: "anon",
         dwellMs: openedAt.current ? Date.now() - openedAt.current : undefined,
       });
+      trackEvent("Depth Gate Dismissed", {
+        surface: SURFACE,
+        dwell_ms: openedAt.current ? Date.now() - openedAt.current : undefined,
+      });
     }
     onDismiss();
   }, [onDismiss]);
@@ -109,6 +115,10 @@ export default function DepthGatePrompt({
       feature: "depth-gate",
       surface: SURFACE,
       viewerTier: "anon",
+    });
+    trackEvent("Depth Gate Accepted", {
+      surface: SURFACE,
+      dwell_ms: openedAt.current ? Date.now() - openedAt.current : undefined,
     });
   }, []);
   // Come back to the map, not to a dashboard. Registering is meant to feel like

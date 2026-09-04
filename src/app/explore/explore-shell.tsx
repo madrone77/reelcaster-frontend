@@ -29,6 +29,7 @@ import { boundsOf, paddedBbox, SPOT_LINK_ZOOM } from "./lib/viewport-bbox";
 import { useMountedOnce } from "@/hooks/use-mounted-once";
 import { useUpgradeNag } from "@/hooks/use-upgrade-nag";
 import { noteEngagement } from "@/lib/upgrade-nag";
+import { trackEvent } from "@/lib/analytics";
 import { clearPaywallContext, setPaywallContext } from "@/lib/paywall-context";
 import {
   depthLocked as isDepthLocked,
@@ -270,10 +271,17 @@ export default function ExploreShell({
   const [adOfferOpen, setAdOfferOpen] = useState(false);
   const [adOfferSpotName, setAdOfferSpotName] = useState<string | undefined>();
   const adOfferMounted = useMountedOnce(adOfferOpen);
-  const onAdOpenSpot = useCallback((spot: { name?: string }) => {
-    setAdOfferSpotName(spot.name);
-    setAdOfferOpen(true);
-  }, []);
+  const onAdOpenSpot = useCallback(
+    (spot: { name?: string; slug?: string }) => {
+      trackEvent("Ad Frame Spot Blocked", {
+        slug: spot.slug ?? spot.name,
+        ad_wall: ad?.wall,
+      });
+      setAdOfferSpotName(spot.name);
+      setAdOfferOpen(true);
+    },
+    [ad],
+  );
   const mobileTop = isPaid ? "top-0" : "top-16";
   const { citySlug, spotSlug, day, stn, setQuery } = useExploreState();
 
@@ -389,6 +397,10 @@ export default function ExploreShell({
   const [customUpgradeOpen, setCustomUpgradeOpen] = useState(false);
   const customUpgradeMounted = useMountedOnce(customUpgradeOpen);
   const handleCreateCustomSpot = useCallback(() => {
+    trackEvent("Custom Spot Create Started", {
+      outcome: isPaid ? "pin-mode" : "upgrade-dialog",
+      paid: isPaid,
+    });
     if (isPaid) setCustomMode(true);
     else setCustomUpgradeOpen(true);
   }, [isPaid]);
@@ -485,6 +497,16 @@ export default function ExploreShell({
   const vpTimerRef = useRef<number | null>(null);
   const vpReported = useRef(false);
 
+  // "Map Moved" analytics: a pan is reported once the camera has been still
+  // for a second AND it went somewhere new (3 km or a whole zoom level). The
+  // first report is the initial fit and only seeds the baseline.
+  const movedTimerRef = useRef<number | null>(null);
+  const movedLastRef = useRef<{ lat: number; lng: number; zoom: number } | null>(null);
+  const movedCityRef = useRef<string | null>(null);
+  useEffect(() => {
+    movedCityRef.current = citySlug ?? null;
+  }, [citySlug]);
+
   const handleViewportChange = useCallback(
     (b: { w: number; s: number; e: number; n: number }, c: { lat: number; lng: number }) => {
       vpReported.current = true;
@@ -494,6 +516,27 @@ export default function ExploreShell({
       if (typeof z === "number") setViewZoom(z);
       if (vpTimerRef.current) window.clearTimeout(vpTimerRef.current);
       vpTimerRef.current = window.setTimeout(() => setVpBbox(paddedBbox(b)), 300);
+      if (movedTimerRef.current) window.clearTimeout(movedTimerRef.current);
+      movedTimerRef.current = window.setTimeout(() => {
+        const zoom = mapRef.current?.getZoom();
+        if (typeof zoom !== "number") return;
+        const last = movedLastRef.current;
+        if (!last) {
+          movedLastRef.current = { lat: c.lat, lng: c.lng, zoom };
+          return;
+        }
+        const far = haversineKm(last.lat, last.lng, c.lat, c.lng) > 3;
+        const banded = Math.floor(zoom) !== Math.floor(last.zoom);
+        if (!far && !banded) return;
+        movedLastRef.current = { lat: c.lat, lng: c.lng, zoom };
+        trackEvent("Map Moved", {
+          zoom: Math.round(zoom * 10) / 10,
+          zoom_band: Math.floor(zoom),
+          lat: Math.round(c.lat * 100) / 100,
+          lng: Math.round(c.lng * 100) / 100,
+          city: movedCityRef.current,
+        });
+      }, 1000);
     },
     [],
   );
@@ -1523,9 +1566,10 @@ export default function ExploreShell({
 
   const handleSelectCity = useCallback(
     (city: CityNode) => {
+      trackEvent("City Chosen", { city: city.slug, previous: citySlug });
       setQuery({ loc: city.slug, spot: null });
     },
-    [setQuery],
+    [setQuery, citySlug],
   );
 
   /**
@@ -1680,11 +1724,17 @@ export default function ExploreShell({
   const handleMapSelectSpot = useCallback(
     (slug: string) => {
       noteEngagement("browse", "spot_preview");
+      trackEvent("Spot Selected", {
+        slug,
+        source: "map",
+        species: speciesFilter,
+        day: selectedIso,
+      });
       setPaywallContext({ spotSlug: slug, page: "explore" });
       setPreviewAnchor(slug);
       focusSpotOnMap(slug);
     },
-    [focusSpotOnMap],
+    [focusSpotOnMap, speciesFilter, selectedIso],
   );
 
   /**
@@ -1711,6 +1761,12 @@ export default function ExploreShell({
       // in sessionStorage precisely so the click that leaves /explore is still
       // banked when they come back to it.
       noteEngagement("browse", "spot_open");
+      trackEvent("Spot Selected", {
+        slug,
+        source: "rail",
+        ad_wall: ad?.wall,
+        paid: isPaid,
+      });
       // The wall that opens two taps from here should know which water they
       // were reading. Published rather than threaded: see @/lib/paywall-context.
       setPaywallContext({ spotSlug: slug, page: "explore" });
@@ -1728,7 +1784,7 @@ export default function ExploreShell({
         // Under the ad frame a phone's card tap stays on the map and makes
         // the offer instead (Casey's call, 2026-09-04).
         if (ad) {
-          onAdOpenSpot({ name: spot?.name });
+          onAdOpenSpot({ name: spot?.name, slug });
           return;
         }
         if (spot) writeSpotHandoff(spot);
@@ -1750,7 +1806,7 @@ export default function ExploreShell({
         });
       }
     },
-    [router, setQuery, displaySpots, writeSpotHandoff, ad, onAdOpenSpot],
+    [router, setQuery, displaySpots, writeSpotHandoff, ad, onAdOpenSpot, isPaid],
   );
 
   // ── Search picks ────────────────────────────────────────────────────
@@ -1762,6 +1818,7 @@ export default function ExploreShell({
   const handleSearchSelectSpot = useCallback(
     (slug: string, lat: number, lng: number) => {
       noteEngagement("browse", "search_spot");
+      trackEvent("Spot Selected", { slug, source: "search" });
       setPaywallContext({ spotSlug: slug, page: "explore" });
       if (
         typeof window !== "undefined" &&
@@ -1772,7 +1829,7 @@ export default function ExploreShell({
         // from it landed on the water the search was typed over.
         // Same under the ad frame for a search pick.
         if (ad) {
-          onAdOpenSpot({});
+          onAdOpenSpot({ slug });
           return;
         }
         writeSpotHandoff({ slug, lat, lng });
@@ -1795,6 +1852,7 @@ export default function ExploreShell({
   const handleSearchSelectRegion = useCallback(
     (bbox: number[]) => {
       const [w, s, e, n] = bbox;
+      trackEvent("Search Result Picked", { type: "region" });
       setQuery({ spot: null, stn: null });
       const desktop = typeof window !== "undefined" && window.innerWidth >= 1024;
       mapRef.current?.fitBounds(
@@ -1821,6 +1879,7 @@ export default function ExploreShell({
   const handleSearchSelectSpecies = useCallback(
     (id: string, name: string) => {
       noteEngagement("browse", "search_species");
+      trackEvent("Search Result Picked", { type: "species", species: id });
       setPaywallContext({ speciesId: id, page: "explore" });
       setSpeciesFilter(id);
       setPickedSpeciesName(name);
@@ -1832,13 +1891,19 @@ export default function ExploreShell({
     // Closed means no spot is in front of them any more, and a wall opened
     // after this should not claim one. `page` survives; the selection does not.
     clearPaywallContext({ page: "explore" });
+    trackEvent("Spot Closed", { slug: spotSlug });
     setPreviewAnchor(null);
     setQuery({ spot: null });
-  }, [setQuery]);
+  }, [setQuery, spotSlug]);
 
   const handleSelectStation = useCallback(
     (pick: StationPick) => {
       noteEngagement("browse", "station_pick");
+      trackEvent("Station Selected", {
+        kind: pick.kind,
+        source: pick.source,
+        station: pick.sid,
+      });
       setLastPick(pick);
       setQuery({ stn: `${pick.source}:${pick.sid}`, spot: null });
       mapRef.current?.flyTo({
@@ -1875,11 +1940,19 @@ export default function ExploreShell({
                 best = city;
               }
             }
+        trackEvent("Near Me Used", {
+          outcome: best ? "found" : "none",
+          slug: best?.slug,
+          km: Number.isFinite(bestKm) ? Math.round(bestKm) : undefined,
+        });
         if (best) setQuery({ loc: best.slug, spot: null });
         else mapRef.current?.flyTo({ center: [longitude, latitude], zoom: 9, duration: 800 });
         setLocating(false);
       },
-      () => setLocating(false),
+      () => {
+        trackEvent("Near Me Used", { outcome: "denied" });
+        setLocating(false);
+      },
       { enableHighAccuracy: false, timeout: 8000 },
     );
   }, [data.locations, setQuery]);
@@ -1887,9 +1960,15 @@ export default function ExploreShell({
   const handleSelectDay = useCallback(
     (d: ForecastDay) => {
       noteEngagement("browse", "day_pick");
+      trackEvent("Day Chosen", {
+        day: d.iso,
+        index: d.index,
+        surface: "explore",
+        slug: spotSlug,
+      });
       setQuery({ day: d.iso === today ? null : d.iso });
     },
-    [setQuery, today],
+    [setQuery, today, spotSlug],
   );
 
   // ── The filter setters, as the UI calls them ─────────────────────────────
@@ -1900,14 +1979,16 @@ export default function ExploreShell({
   // sheet come through here, so only real picks are counted.
   const chooseSpecies = useCallback((id: string | null) => {
     noteEngagement("browse", "species_filter");
+    trackEvent("Species Chosen", { species: id, city: citySlug, surface: "explore" });
     setPaywallContext({ speciesId: id ?? undefined, page: "explore" });
     setSpeciesFilter(id);
-  }, []);
+  }, [citySlug]);
 
   const chooseScoreFloor = useCallback((floor: ScoreFloor) => {
     noteEngagement("browse", "score_filter");
+    trackEvent("Score Floor Changed", { floor, city: citySlug });
     setScoreFloor(floor);
-  }, []);
+  }, [citySlug]);
 
   // The remembered camera outranks the city one — see the restore block up
   // top. `initialViewState` is read once by MapLibre at mount, so this is the
@@ -2116,12 +2197,18 @@ export default function ExploreShell({
    * straight back to the water they were reading.
    */
   const handleUnlockDepth = useCallback(() => {
+    // The locked map's own "unlock" affordance, not the dialog: the dialog
+    // reports its own outcomes in depth-gate-prompt.tsx.
+    trackEvent("Depth Gate Accepted", {
+      surface: marketing ? "marketing" : "preview",
+      from: "locked-map",
+    });
     const here =
       typeof window === "undefined"
         ? "/explore"
         : `${window.location.pathname}${window.location.search}`;
     router.push(`/signup?next=${encodeURIComponent(here)}`);
-  }, [router]);
+  }, [router, marketing]);
 
   /** They said no. Record it, strip depth, and let the map narrate it once. */
   const declineDepth = useCallback(() => {

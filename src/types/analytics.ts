@@ -224,6 +224,73 @@ export type AnalyticsEventName =
   // Password Reset
   | 'Password Reset Requested'
   | 'Password Reset Completed'
+  // Explore. Every one names the spot/species/day in scope so a funnel can
+  // start at what was on screen rather than at the wall that followed.
+  | 'Spot Selected'
+  | 'Spot Closed'
+  | 'Species Chosen'
+  | 'Day Chosen'
+  | 'Score Floor Changed'
+  | 'Map Moved'
+  | 'City Chosen'
+  | 'Near Me Used'
+  | 'Station Selected'
+  | 'Search Performed'
+  | 'Search Result Picked'
+  | 'Depth Gate Shown'
+  | 'Depth Gate Dismissed'
+  | 'Depth Gate Accepted'
+  | 'Ad Frame Spot Blocked'
+  | 'Back To Map Clicked'
+  // Spot page
+  | 'Spot Viewed'
+  | 'Locked Day Tapped'
+  | 'Spot Saved'
+  | 'Home Spot Set'
+  | 'Alert Setup Opened'
+  | 'Share Opened'
+  | 'Share Sent'
+  | 'Issue Reported'
+  | 'Verdict Voted'
+  // Custom spots
+  | 'Custom Spot Create Started'
+  | 'Custom Spot Created'
+  | 'Custom Spot Create Failed'
+  // Alerts. Never the phone number: country and outcome only.
+  | 'Alert Created'
+  | 'Alert Edited'
+  | 'Alert Deleted'
+  | 'Alert Paused'
+  | 'Alert Resumed'
+  | 'Alert Duplicated'
+  | 'Phone Code Sent'
+  | 'Phone Verified'
+  | 'Phone Verify Failed'
+  // Catch log
+  | 'Catch Photo Attached'
+  | 'Catch Logged'
+  | 'Catch Edited'
+  // Billing. 'Trial Started' fires on /billing/success, where Meta and
+  // Plausible already do; it is the conversion, not the intent.
+  | 'Checkout Started'
+  | 'Trial Started'
+  | 'Account Claimed'
+  | 'Cancel Clicked'
+  | 'Cancel Page Viewed'
+  // Signup
+  | 'Signup Completed'
+  | 'Welcome Shown'
+  | 'Home City Chosen'
+  // Landing pages, keyed the same way the campaign counter is
+  | 'LP CTA Clicked'
+  | 'LP Alert Code Sent'
+  | 'LP Alert Confirmed'
+  // City and home pages
+  | 'City Day Chosen'
+  | 'City Species Chosen'
+  | 'Top Spot Clicked'
+  | 'Nearby Map Clicked'
+  | 'Carousel CTA Clicked'
   // Errors
   | 'Error';
 
@@ -250,6 +317,12 @@ export interface UserProperties {
   notificationsEnabled?: boolean;
   totalForecasts?: number;
   lastActiveDate?: string; // ISO date string
+  /** Plan state, so a cohort can be cut by what the person pays for. */
+  viewer_tier?: 'anon' | 'free' | 'pro';
+  subscription_tier?: string;
+  subscription_status?: string;
+  subscription_period_end?: string | null;
+  phone_verified?: boolean;
 }
 
 // ============================================================================

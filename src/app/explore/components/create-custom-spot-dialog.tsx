@@ -9,6 +9,7 @@ import {
   DialogDescription,
 } from "@/components/ui/dialog";
 import { useAuth } from "@/contexts/auth-context";
+import { trackEvent } from "@/lib/analytics";
 import { createCustomSpot, fetchScorableSpecies } from "@/lib/bluecaster-client";
 import type { CreateCustomSpotResponse } from "@/lib/bluecaster/catch-ingest-types";
 import TrialModalButton from "@/app/components/paywall/trial-modal-button";
@@ -136,6 +137,10 @@ export default function CreateCustomSpotDialog({
     );
     setSaving(false);
     if (!result.ok) {
+      trackEvent("Custom Spot Create Failed", {
+        reason: result.error,
+        surface: "explore",
+      });
       if (result.error === "pro_required") {
         setUpsell(true);
         return;
@@ -154,6 +159,11 @@ export default function CreateCustomSpotDialog({
     // forecast exists, so closing here is what left an angler staring at a
     // spot with no explanation. It also has to carry the "everything you
     // picked is closed" case, which a toast makes far too easy to miss.
+    trackEvent("Custom Spot Created", {
+      visibility,
+      species_count: picked.size,
+      surface: "explore",
+    });
     setCreated(result.data);
     onCreated?.(result.data.spot);
   };
