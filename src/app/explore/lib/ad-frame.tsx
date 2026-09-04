@@ -24,15 +24,16 @@ export type AdFrame = {
   wall: AdWall;
   angle: string;
   /**
-   * What a FULL REPORT press does on the ad-framed map, when the map wants
-   * something other than the spot page.
+   * What any attempt to open a spot page does on the ad-framed map.
    *
-   * Casey's call (2026-09-04): on the ad-framed Explore that press does not
-   * leave the map. It opens the trial modal, so the offer arrives on the tap
-   * that showed the most intent. SpotCard calls it instead of navigating when it is set; the
-   * href stays in the markup, so a modified click still opens the spot page.
+   * Casey's call (2026-09-04): on the ad-framed Explore, FULL REPORT, a card
+   * tap on a phone, the drawer's VIEW SPOT DETAILS and SET ALERT links, and a
+   * search pick all stay on the map and open the trial modal, so the offer
+   * arrives on the tap that showed the most intent. Callers use it instead
+   * of navigating when it is set; hrefs stay in the markup, so a modified
+   * click still opens the spot page.
    */
-  onFullReport?: (spot: { name: string }) => void;
+  onOpenSpot?: (spot: { name?: string }) => void;
 };
 
 const AdFrameContext = createContext<AdFrame | null>(null);

@@ -155,6 +155,14 @@ export default function SpotDrawer({
   // one of them read as part of the other's value.
   const adFrame = useAdFrame();
   const href = withAdParams(spotHref(spot), adFrame);
+  // Under the ad frame both links below stay on the map and open the trial
+  // modal instead (AdFrame.onOpenSpot); modified clicks keep the href.
+  const openSpotOnAd = (e: React.MouseEvent) => {
+    if (adFrame?.onOpenSpot && !e.metaKey && !e.ctrlKey && !e.shiftKey && !e.altKey && e.button === 0) {
+      e.preventDefault();
+      adFrame.onOpenSpot(spot);
+    }
+  };
   const alertHref = withAdParams(`${spotHref(spot)}?alert=1`, adFrame);
   const [fav, toggleFav] = useFavorite(spot.slug);
   const { isPaid } = useSubscription();
@@ -343,6 +351,7 @@ export default function SpotDrawer({
       <div className="flex gap-2 px-4 py-4 border-t border-rc-rule-soft">
         <Link
           href={href}
+          onClick={openSpotOnAd}
           className="flex-1 text-center px-4 py-2.5 rounded-lg bg-rc-brand hover:bg-rc-brand-hover text-white font-rc-mono text-xs font-semibold tracking-[0.08em] transition-colors"
         >
           VIEW SPOT DETAILS
@@ -358,6 +367,7 @@ export default function SpotDrawer({
         ) : (
           <Link
             href={alertHref}
+            onClick={openSpotOnAd}
             className="px-4 py-2.5 rounded-lg border border-rc-brand text-rc-brand font-rc-mono text-xs font-semibold tracking-[0.08em] hover:bg-rc-brand-soft transition-colors text-center"
           >
             SET ALERT

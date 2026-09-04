@@ -270,7 +270,7 @@ export default function ExploreShell({
   const [adOfferOpen, setAdOfferOpen] = useState(false);
   const [adOfferSpotName, setAdOfferSpotName] = useState<string | undefined>();
   const adOfferMounted = useMountedOnce(adOfferOpen);
-  const onAdFullReport = useCallback((spot: { name: string }) => {
+  const onAdOpenSpot = useCallback((spot: { name?: string }) => {
     setAdOfferSpotName(spot.name);
     setAdOfferOpen(true);
   }, []);
@@ -1725,6 +1725,12 @@ export default function ExploreShell({
         // flyTo below would have left. Mobile taps a card and goes straight to
         // the page, so without this the return trip lands on whatever the list
         // happened to be scrolled over rather than on the spot just viewed.
+        // Under the ad frame a phone's card tap stays on the map and makes
+        // the offer instead (Casey's call, 2026-09-04).
+        if (ad) {
+          onAdOpenSpot({ name: spot?.name });
+          return;
+        }
         if (spot) writeSpotHandoff(spot);
         // Mobile opens the spot page directly instead of the desktop
         // drawer, so this push is the ad frame's most-taken exit and the one
@@ -1744,7 +1750,7 @@ export default function ExploreShell({
         });
       }
     },
-    [router, setQuery, displaySpots, writeSpotHandoff, ad],
+    [router, setQuery, displaySpots, writeSpotHandoff, ad, onAdOpenSpot],
   );
 
   // ── Search picks ────────────────────────────────────────────────────
@@ -1764,6 +1770,11 @@ export default function ExploreShell({
         // The result carries its own coordinates, so a searched spot gets the
         // same return-trip frame a tapped card does. Otherwise coming back
         // from it landed on the water the search was typed over.
+        // Same under the ad frame for a search pick.
+        if (ad) {
+          onAdOpenSpot({});
+          return;
+        }
         writeSpotHandoff({ slug, lat, lng });
         // A search result can name a spot outside the loaded viewport, so
         // there is no rail row to read a path off. The retired URL resolves it
@@ -1778,7 +1789,7 @@ export default function ExploreShell({
         duration: 700,
       });
     },
-    [router, setQuery, writeSpotHandoff],
+    [router, setQuery, writeSpotHandoff, ad, onAdOpenSpot],
   );
 
   const handleSearchSelectRegion = useCallback(
@@ -2132,7 +2143,7 @@ export default function ExploreShell({
     // surface that wants the lock owns it.
     <AdFrameProvider
       value={
-        ad ? { wall: ad.wall, angle: ad.angle, onFullReport: onAdFullReport } : null
+        ad ? { wall: ad.wall, angle: ad.angle, onOpenSpot: onAdOpenSpot } : null
       }
     >
     <div
@@ -2539,7 +2550,7 @@ export default function ExploreShell({
         open={adOfferOpen}
         onOpenChange={setAdOfferOpen}
         feature="forecast-14d"
-        from="explore-ad-full-report"
+        from="explore-ad-open-spot"
         spotName={adOfferSpotName}
         placeName={labelCity?.name ?? undefined}
       />
