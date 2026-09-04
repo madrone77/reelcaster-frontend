@@ -2,21 +2,33 @@
 
 import Link from 'next/link';
 import { Check } from 'lucide-react';
-import { DialogDescription } from '@/components/ui/dialog';
+import { DialogDescription, DialogTitle } from '@/components/ui/dialog';
 import {
   TrialBuy,
   TrialCtaProvider,
   TrialExpress,
   useTrialCta,
 } from './trial-cta';
-import { PlanCompareLine, TrialHeadline } from './trial-pitch';
+import { PlanCompareLine } from './trial-pitch';
 import Testimonial from './testimonial';
-import {
-  PLAN_FEATURES,
-  SHARED_ROW_START,
-  type PlanTierId,
-} from '@/lib/plan-features';
+import { type PlanTierId } from '@/lib/plan-features';
 import { TRIAL_DAYS } from '@/lib/pricing';
+import { PRO_FORECAST_DAYS } from '@/lib/forecast-horizon';
+
+/**
+ * The six rows, in Casey's words (2026-09-04). Not the plan matrix rows: the
+ * matrix answers "what is the difference between two columns", and these
+ * answer "what do I get", which is shorter and plainer. Kept here rather than
+ * in plan-features because they belong to this arm and to nothing else.
+ */
+const PRO_ROWS: readonly string[] = [
+  `Full ${PRO_FORECAST_DAYS} day fishing enriched forecast`,
+  'No ads, no locks, see everything',
+  'Your own private custom spots',
+  "SMS and email alerts when it's hot",
+  'Daily catch reports (where available)',
+  'Smart catch logging',
+];
 
 /**
  * The registry key of the split this sheet is the treatment arm of.
@@ -56,6 +68,7 @@ export default function TrialSheetPro({
   viewerTier,
   placeName,
   placeKind = 'spot',
+  cityName,
   from,
   region,
   ctaHref,
@@ -67,6 +80,8 @@ export default function TrialSheetPro({
   viewerTier: PlanTierId;
   placeName?: string;
   placeKind?: 'spot' | 'city';
+  /** The city the headline names. Falls back to the place when it is one. */
+  cityName?: string;
   from: string;
   region?: string;
   ctaHref?: string;
@@ -75,7 +90,10 @@ export default function TrialSheetPro({
   onCtaClick: (extra: Record<string, unknown>) => void;
   onActivate: (method: 'annual' | 'wallet' | 'signup') => void;
 }) {
-  const proRows = PLAN_FEATURES.slice(0, SHARED_ROW_START);
+  // The headline names the city, not the spot: intel (reports, alerts,
+  // forecasts) is gathered per city, so the city is the true subject even
+  // when the reader opened this from a spot.
+  const city = cityName ?? (placeKind === 'city' ? placeName : undefined) ?? placeName;
 
   return (
     <TrialCtaProvider
@@ -98,11 +116,15 @@ export default function TrialSheetPro({
           </p>
         </div>
 
-        <TrialHeadline
-          placeName={placeName}
-          placeKind={placeKind}
-          className="mt-2 pr-10 text-[22px] leading-[28px]"
-        />
+        <DialogTitle className="mt-2 pr-10 font-black tracking-[-0.02em] text-balance text-rc-ink text-[22px] leading-[28px]">
+          Try a free week of Pro to unlock{' '}
+          {city ? (
+            <>
+              <span className="text-rc-brand">{city}</span>{' '}
+            </>
+          ) : null}
+          fishing intel
+        </DialogTitle>
 
         <DialogDescription asChild>
           <PlanCompareLine viewerTier={viewerTier} className="mt-1.5" />
@@ -111,17 +133,20 @@ export default function TrialSheetPro({
         <p className="mt-4 font-rc-mono text-[10px] font-semibold tracking-[0.14em] text-rc-ink-mute uppercase">
           Everything in Pro
         </p>
-        <ul className="mt-2 space-y-2">
-          {proRows.map((row) => (
-            <li key={row.id} className="flex items-start gap-2.5">
+        <ul className="mt-2 divide-y divide-rc-rule-soft">
+          {PRO_ROWS.map((row) => (
+            <li
+              key={row}
+              className="flex items-center justify-between gap-3 py-2"
+            >
+              <span className="text-[15px] leading-5 font-medium text-rc-ink">
+                {row}
+              </span>
               <span
                 aria-hidden
-                className="mt-0.5 flex size-5 shrink-0 items-center justify-center rounded-full bg-rc-brand-soft"
+                className="flex size-5 shrink-0 items-center justify-center rounded-full bg-rc-brand-soft"
               >
                 <Check className="size-3 text-rc-brand" strokeWidth={3} />
-              </span>
-              <span className="text-[15px] leading-5 font-medium text-rc-ink">
-                {row.label}
               </span>
             </li>
           ))}
