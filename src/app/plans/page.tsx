@@ -17,6 +17,7 @@ import PlansFeatureCallout from '@/app/components/plans/plans-feature-callout';
 import {
   breadcrumbJsonLd,
   DEFAULT_OG,
+  DEFAULT_OG_IMAGE,
   SITE_NAME,
   SITE_URL,
   siteUrl,
@@ -63,6 +64,11 @@ const PLANS_JSONLD = {
   description:
     'Full 14-day fishing forecasts, custom score alerts, and custom spot profiles for the BC and Washington coasts.',
   brand: { '@type': 'Brand', name: SITE_NAME },
+  // Search Console flagged this Product as invalid ("Missing field image",
+  // first seen 2026-08-24). Google requires an image on Product markup; the
+  // site's standard 1200x630 card is the honest one, since there is no product
+  // photo of a subscription.
+  image: [siteUrl(DEFAULT_OG_IMAGE)],
   url: siteUrl('/plans'),
   category: 'Fishing forecast subscription',
   offers: ANNUAL_SELLABLE ? [proOffer('CAD'), proOffer('USD')] : [],
