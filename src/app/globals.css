@@ -572,10 +572,14 @@ body:has([data-ad-bar]) {
   --rc-tabbar-clearance: var(--rc-ad-bar-h);
 }
 /*
- * The ad frame with its bar on the TOP edge (Explore, see ExploreTopBar's
+ * The ad frame with its bar on the TOP edge (see ExploreTopBar's
  * `adBarEdge`): the tab bar is hidden and the ad bar is not down there
- * either, so nothing needs clearing.
+ * either, so there is no chrome to clear. What is left to clear is the
+ * screen's own bottom edge: the preview dock's fortnight rail is shaped like
+ * the tab pill, and at 0px it sat flush on the edge, under a phone's home
+ * indicator. So it takes the pill's own lift, the 0.75rem the nav floats off
+ * the edge plus the device safe area, and the map runs on underneath.
  */
 body:has([data-ad-frame]):not(:has([data-ad-bar])) {
-  --rc-tabbar-clearance: 0px;
+  --rc-tabbar-clearance: calc(0.75rem + env(safe-area-inset-bottom, 0px));
 }
