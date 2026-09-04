@@ -82,7 +82,10 @@ export default function BillingCancelPage() {
               {retrying || loading ? 'Opening checkout…' : 'Try again'}
               <ArrowRight className="h-4 w-4" />
             </button>
-            <Link href="/explore" className={`${btn.secondary} sm:flex-1`}>
+            {/* Same framed Explore an ad lands on (`day2` wall, @/lib/ad-mode):
+                they came from a checkout, not the signed-in app, so keep them
+                in the walkthrough that sells Pro rather than the open map. */}
+            <Link href="/explore?ad=day2" className={`${btn.secondary} sm:flex-1`}>
               Back to Explore
             </Link>
           </div>
