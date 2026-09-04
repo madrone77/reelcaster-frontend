@@ -298,14 +298,14 @@ export default function SpotCard({
           onClick={(e) => {
             e.stopPropagation();
             // On the ad-framed map a plain press stays on the map and makes
-            // the offer instead — see AdFrame.onFullReport. Modified clicks
+            // the offer instead — see AdFrame.onOpenSpot. Modified clicks
             // keep the href, like the card body above.
             if (
-              adFrame?.onFullReport &&
+              adFrame?.onOpenSpot &&
               !e.metaKey && !e.ctrlKey && !e.shiftKey && !e.altKey && e.button === 0
             ) {
               e.preventDefault();
-              adFrame.onFullReport(spot);
+              adFrame.onOpenSpot(spot);
             }
           }}
           className="flex flex-1 items-center min-h-11 text-left px-3 py-2 font-rc-mono text-[11px] font-semibold tracking-[0.08em] text-rc-brand hover:bg-rc-brand-soft/40 transition-colors"
