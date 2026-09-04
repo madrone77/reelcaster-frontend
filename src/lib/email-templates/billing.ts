@@ -1,6 +1,6 @@
 /**
- * Billing lifecycle emails: trial ending, payment failed, duplicate-card
- * refusal.
+ * Billing lifecycle emails: trial ending, payment failed, grace ending,
+ * duplicate-card refusal.
  *
  * The trial-ending one isn't optional garnish — a card-required trial that
  * auto-charges needs clear advance notice of the date and the amount under
@@ -143,6 +143,48 @@ export function paymentFailedEmail(params: {
         <p style="margin:0 0 8px;">${button(siteUrl('/profile'), 'Update payment method')}</p>
       </td></tr>`,
       { preheader: `Pro stays on until ${date}. Update your card to keep it.` },
+    ),
+  };
+}
+
+/**
+ * Sent 2 days before a declined card's grace window closes. The decline email
+ * opened the window; this is the second and last note before Pro switches off.
+ *
+ * It has to say three things plainly: the date Pro ends, what happens to the
+ * account after (nothing is lost, it goes back to free), and the one action
+ * that keeps it. The amount is repeated because the reader may have deleted
+ * the first email.
+ */
+export function graceEndingEmail(params: {
+  graceUntil: string;
+  amountLabel: string;
+}): { subject: string; html: string } {
+  const date = formatDate(params.graceUntil);
+  return {
+    subject: `Your ReelCaster Pro switches off ${date}`,
+    html: shell(
+      `<tr><td>
+        <h1 style="margin:0 0 16px;font-size:22px;line-height:30px;color:${INK};">Two days left to keep Pro</h1>
+        <p style="margin:0 0 16px;font-size:15px;line-height:24px;color:${INK_SOFT};">
+          We still have not been able to charge ${params.amountLabel} for ReelCaster Pro, and the
+          card on file keeps getting declined. <strong>Pro switches off on ${date}</strong> unless
+          the card is updated before then.
+        </p>
+        <p style="margin:0 0 16px;font-size:15px;line-height:24px;color:${INK_SOFT};">
+          Update the card and we retry the charge automatically. Your 14-day forecasts, private
+          spots, and alerts carry on without a gap.
+        </p>
+        <p style="margin:0 0 24px;font-size:15px;line-height:24px;color:${INK_SOFT};">
+          If you would rather let it go, there is nothing to do. On ${date} the account goes back
+          to free and keeps your spots, your catch log, and your 7-day forecast.
+        </p>
+        <p style="margin:0 0 20px;">${button(siteUrl('/settings/account'), 'Update payment method')}</p>
+        <p style="margin:0;font-size:14px;line-height:22px;color:${INK_MUTE};">
+          Card already updated, or something looks wrong? Reply to this email and a person will read it.
+        </p>
+      </td></tr>`,
+      { preheader: `Pro ends ${date} unless the card is updated.` },
     ),
   };
 }

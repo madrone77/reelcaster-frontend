@@ -17,6 +17,10 @@
       "schedule": "0 */6 * * *"
     },
     {
+      "path": "/api/cron/grace-reminders",
+      "schedule": "30 */6 * * *"
+    },
+    {
       "path": "/api/cron/weekend-digest",
       "schedule": "0 * * * 4,5"
     }
