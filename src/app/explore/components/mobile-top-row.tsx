@@ -85,7 +85,7 @@ export default function MobileTopRow({
         type="button"
         onClick={onAddSpot}
         disabled={!onAddSpot}
-        className="ml-auto flex h-11 min-w-0 max-w-[240px] flex-1 items-center justify-center gap-2 rounded-full border border-rc-brand bg-rc-brand px-3 text-[14px] font-bold text-white shadow-rc-panel transition-colors hover:bg-rc-brand-hover disabled:opacity-70"
+        className="ml-auto flex h-11 min-w-0 max-w-[240px] flex-1 items-center justify-center gap-2 rounded-full border border-rc-brand bg-rc-brand px-3 text-[14px] font-bold text-white shadow-rc-panel outline outline-1 outline-white -outline-offset-4 transition-colors hover:bg-rc-brand-hover disabled:opacity-70"
       >
         <MapPinPlus className="h-[18px] w-[18px] shrink-0" />
         <span className="truncate">Add spot</span>
