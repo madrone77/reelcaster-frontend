@@ -106,6 +106,15 @@ export default function MobileSpotSheet({
   const [attempt, setAttempt] = useState(0);
   const scrollerRef = useRef<HTMLDivElement>(null);
 
+  // Has the reader scrolled into the page? Drives the header's collapse and
+  // the sheet going edge to edge. Hysteresis so a bounce at the top does not
+  // flap it.
+  const [scrolled, setScrolled] = useState(false);
+  const onScroll = useCallback(() => {
+    const top = scrollerRef.current?.scrollTop ?? 0;
+    setScrolled((cur) => (cur ? top > 4 : top > 24));
+  }, []);
+
   // ── Data ────────────────────────────────────────────────────────────
   // The token, when there is one, is what lets an owner open their own
   // private custom spot; the proxy verifies it and vouches downstream. Held
@@ -140,6 +149,7 @@ export default function MobileSpotSheet({
           nowMs: Date.now(),
         });
         scrollerRef.current?.scrollTo({ top: 0 });
+        setScrolled(false);
       })
       .catch(() => {
         if (!cancelled) setFailed(slug);
@@ -160,6 +170,7 @@ export default function MobileSpotSheet({
     if (!slug) {
       setLoaded(null);
       setFailed(null);
+      setScrolled(false);
       fetchedFor.current = null;
     }
   }, [slug]);
@@ -243,14 +254,22 @@ export default function MobileSpotSheet({
       />
       <div
         ref={scrollerRef}
-        className={`fixed inset-x-0 bottom-0 z-[61] overflow-y-auto overscroll-contain rounded-t-2xl bg-rc-panel shadow-rc-panel transition-transform duration-300 ease-out ${
+        onScroll={onScroll}
+        className={`fixed inset-x-0 bottom-0 z-[61] overflow-y-auto overscroll-contain bg-rc-panel shadow-rc-panel transition-[transform,top,border-radius] duration-300 ease-out ${
           entered ? "" : "translate-y-full"
-        }`}
-        // A sliver of map stays visible above the sheet, so it reads as a
-        // sheet over the map and not as a new page. Below the status bar on
-        // a notched phone.
-        style={{ top: "max(2.5rem, calc(env(safe-area-inset-top) + 1.25rem))" }}
+        } ${scrolled ? "rounded-none" : "rounded-t-2xl"}`}
+        // At the top a sliver of map stays visible above the sheet, so it
+        // reads as a sheet over the map and not as a new page. Once the
+        // reader scrolls into the page the sheet takes the whole screen: the
+        // sliver only says "you are over the map", and a long read wants the
+        // height more, the 24h chart above all.
+        style={{
+          top: scrolled
+            ? 0
+            : "max(2.5rem, calc(env(safe-area-inset-top) + 1.25rem))",
+        }}
         data-testid="mobile-spot-sheet"
+        data-scrolled={scrolled ? "" : undefined}
       >
         {loaded ? (
           <SpotDetailShell
@@ -260,7 +279,12 @@ export default function MobileSpotSheet({
             cityLink={loaded.slug === spot?.slug ? cityLinkFrom(spot) : null}
             tz={loaded.tz}
             serverNowMs={loaded.nowMs}
-            sheet={{ onClose: close, onOpenSpot: (next) => onOpenSpot(next) }}
+            sheet={{
+              onClose: close,
+              onOpenSpot: (next) => onOpenSpot(next),
+              scrolled,
+              scroller: scrollerRef,
+            }}
           />
         ) : (
           <SheetPlaceholder

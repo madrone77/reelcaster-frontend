@@ -191,6 +191,16 @@ export type SpotSheetHost = {
   /** Open another spot in the same sheet. `href` is the card's real page
    *  URL, so a host can fall back to navigating if it wants to. */
   onOpenSpot: (slug: string, href: string) => void;
+  /**
+   * Has the reader scrolled into the page? At the top the header row is the
+   * sheet's own: handle, Back to map, X. Once scrolled it collapses to a slim
+   * bar with the spot's name and its actions, so the long read below keeps
+   * its height for the chart.
+   */
+  scrolled: boolean;
+  /** The sheet's scroll box: the root the pinned-readout observer watches.
+   *  The page uses the viewport. */
+  scroller: React.RefObject<HTMLElement | null>;
 };
 
 export default function SpotDetailShell({
@@ -541,17 +551,52 @@ export default function SpotDetailShell({
   // than assumed: the row wraps at narrow widths.
   const sheetHeadRef = useRef<HTMLDivElement>(null);
   const rootRef = useRef<HTMLDivElement>(null);
+  const [sheetHeadH, setSheetHeadH] = useState(0);
   useEffect(() => {
     const head = sheetHeadRef.current;
     const root = rootRef.current;
     if (!sheet || !head || !root || typeof ResizeObserver === "undefined") return;
-    const apply = () =>
-      root.style.setProperty("--rc-sheet-head", `${head.offsetHeight}px`);
+    const apply = () => {
+      const h = head.offsetHeight;
+      root.style.setProperty("--rc-sheet-head", `${h}px`);
+      setSheetHeadH(h);
+    };
     apply();
     const ro = new ResizeObserver(apply);
     ro.observe(head);
     return () => ro.disconnect();
   }, [sheet]);
+
+  // Is the conditions strip pinned? A 1px sentinel sits just above it in the
+  // flow; once the sentinel is above the line the strip sticks to (the top of
+  // the viewport on the page, the bottom of the sheet's header in a sheet),
+  // the strip is pinned and wears its compact form. Phones only: the strip
+  // is only sticky under lg, and the desktop row has room for the full table
+  // wherever it is.
+  const stripSentinelRef = useRef<HTMLDivElement>(null);
+  const [stripPinned, setStripPinned] = useState(false);
+  useEffect(() => {
+    const el = stripSentinelRef.current;
+    if (!el || typeof IntersectionObserver === "undefined") return;
+    const root = sheet ? sheet.scroller.current : null;
+    if (sheet && !root) return;
+    const phone = window.matchMedia("(max-width: 1023px)");
+    // The observed box runs from the pin line down without limit, so the
+    // sentinel "intersects" whenever it is below the line and stops the
+    // moment it crosses above. A box that stopped at the bottom of the
+    // viewport would let a fast fling carry the 1px sentinel from below it
+    // to above it between two frames, and an observer only reports a
+    // change of state: below and above are both "not intersecting", so
+    // nothing would fire and the strip would stay full.
+    const io = new IntersectionObserver(
+      ([entry]) => {
+        setStripPinned(phone.matches && !entry.isIntersecting);
+      },
+      { root, rootMargin: `-${sheet ? sheetHeadH : 0}px 0px 100000px 0px` },
+    );
+    io.observe(el);
+    return () => io.disconnect();
+  }, [sheet, sheetHeadH]);
 
   const dayStripRef = useRef<HTMLDivElement>(null);
   const [dayStripScrollable, setDayStripScrollable] = useState(false);
@@ -1063,6 +1108,61 @@ export default function SpotDetailShell({
           }
           ref={sheetHeadRef}
         >
+          {sheet?.scrolled ? (
+            // The collapsed bar. The name so the reader knows where they are
+            // with the hero gone, then the hero's own actions, then the X.
+            // Same handlers as the hero buttons below; only the geometry
+            // differs.
+            <div
+              className={`${PAGE_MEASURE} flex items-center gap-1 py-1.5`}
+            >
+              <span className="min-w-0 flex-1 truncate text-[15px] font-bold text-rc-ink">
+                {spot.name}
+              </span>
+              <button
+                type="button"
+                onClick={toggleHome}
+                aria-pressed={isHome}
+                aria-label={isHome ? "Remove as home spot" : "Set as home spot"}
+                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full hover:bg-rc-brand-soft"
+              >
+                <Home
+                  className={`h-[18px] w-[18px] ${
+                    isHome ? "text-rc-brand fill-rc-brand/15" : "text-rc-ink-mute"
+                  }`}
+                  strokeWidth={isHome ? 2.4 : 2}
+                />
+              </button>
+              <button
+                type="button"
+                onClick={handleSetAlert}
+                aria-label="Set alert"
+                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-rc-brand hover:bg-rc-brand-soft"
+              >
+                <Bell className="h-[18px] w-[18px]" aria-hidden />
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setShareToken(null);
+                  setShareOpen(true);
+                }}
+                aria-label="Share this spot"
+                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-rc-ink hover:bg-rc-surface"
+              >
+                <Share2 className="h-[18px] w-[18px]" aria-hidden />
+              </button>
+              <button
+                type="button"
+                onClick={sheet.onClose}
+                aria-label="Close"
+                className="-mr-2 flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-rc-ink-mute hover:bg-rc-surface hover:text-rc-ink"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+          ) : (
+          <>
           {sheet && (
             <div className="flex justify-center pt-2" aria-hidden="true">
               <span className="h-1.5 w-10 rounded-full bg-rc-rule" />
@@ -1199,6 +1299,8 @@ export default function SpotDetailShell({
               {refreshedAt && <> · updated {formatClock(refreshedAt, TZ)}</>}
             </div>
           </div>
+          </>
+          )}
         </div>
 
         {/* Body: single stack on mobile, two columns on desktop */}
@@ -1530,7 +1632,10 @@ export default function SpotDetailShell({
                 through beside it while it is pinned — and they are safe inside
                 the body's `overflow-x-clip`, which is deliberately `clip` and
                 not `hidden` precisely so sticky still works in here. */}
+            {/* Pinned-readout sentinel; see `stripPinned`. */}
+            <div ref={stripSentinelRef} className="h-px" aria-hidden="true" />
             <div
+              data-strip-pinned={stripPinned ? "" : undefined}
               className={`mt-5 max-lg:sticky max-lg:z-20 max-lg:-mx-4 max-lg:px-4 sm:max-lg:-mx-6 sm:max-lg:px-6 max-lg:pb-2 max-lg:bg-rc-panel ${
                 // Under the sheet's own pinned header, not the top of the
                 // scroller; the variable is measured off that header above.
@@ -1548,6 +1653,7 @@ export default function SpotDetailShell({
                   point={point}
                   hour={selectedHour}
                   isNow={dayIndex === 0 && selectedHour === nowHour}
+                  compact={stripPinned}
                 />
               </div>
             </div>
