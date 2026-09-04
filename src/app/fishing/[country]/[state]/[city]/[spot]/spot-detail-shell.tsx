@@ -935,13 +935,12 @@ export default function SpotDetailShell({
           trade on a long read whose nav lives elsewhere, and the wrong one
           when the bar is the only ask on the page.
 
-          `adFrame` also puts it on the BOTTOM edge — see the prop. On this
-          page that is the bigger win of the two: a spot page is a long read,
-          and a top bar carrying the only button on it is off screen for all of
-          it except the first screenful. */}
+          `adBarEdge="top"`: the bar sits at the top here, like everywhere
+          else. Casey's call (2026-09-04): never at the bottom. */}
       {ad ? (
         <ExploreTopBar
           adFrame
+          adBarEdge="top"
           upgradeCta={!isPaid}
           placeName={cityLink?.cityName ?? spot.city ?? undefined}
         />
@@ -954,11 +953,8 @@ export default function SpotDetailShell({
           nothing below it shifts. */}
       <PullToRefresh onRefresh={runRefresh} />
 
-      {/* `pt-16` clears the fixed bar at the top; the ad frame's bar is at the
-          bottom instead, so the document starts at the top edge and ends one
-          bar-height short of the bottom. `--rc-ad-bar-h` carries the device
-          safe area, which a bare `pb-16` would not. */}
-      <div className={ad ? "pb-[var(--rc-ad-bar-h)]" : "pt-16"}>
+      {/* `pt-16` clears the fixed bar at the top, on the ad frame and off it. */}
+      <div className="pt-16">
         {/* Sub-header: the way back to the map, then on desktop the breadcrumb
             and the freshness stamp. Full-bleed rule, inner row on the page
             measure — so "Back to map" starts on the same gridline as the spot

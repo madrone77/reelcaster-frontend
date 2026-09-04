@@ -126,8 +126,8 @@ export default function ExploreTopBar({
    * Which edge of the screen the ad frame's bar sits on.
    *
    * "bottom" (the default) is the thumb-reach position the frame shipped
-   * with, still worn by the ad spot page. "top" is Explore's (Casey's call,
-   * 2026-09-04: never at the bottom there): the brand blue, the mark and the
+   * with; nothing wears it any more. Both ad surfaces pass "top" (Casey's
+   * call, 2026-09-04: never at the bottom): the brand blue, the mark and the
    * Start free trial button sit where every other page keeps them.
    *
    * Only read under `adFrame`; the product bar is always at the top.
