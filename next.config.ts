@@ -101,6 +101,21 @@ const nextConfig: NextConfig = {
       // went out carrying /theport links and those must keep working.
       { source: "/theport", destination: "/support", permanent: true },
       { source: "/theport/:path*", destination: "/support/:path*", permanent: true },
+      // /lp/seattle/1 is retired in favour of /lp/seattle/5: the same shell,
+      // copy and ask, with the where/what/when screenshot rendered live and
+      // the day chart kept as a fourth band. The Seattle ads still point at
+      // /1 and re-pointing them in Meta restarts their learning, so the edge
+      // sends the click on instead. Temporary (307) on purpose: nobody should
+      // cache the hop, and removing this row puts /1 back the moment it is
+      // wanted. The query string rides along, so utm_* and ?a= survive, and
+      // the request that follows the hop is the one middleware counts and
+      // stamps, so the visit is recorded under lpseattle5 with first touch
+      // intact. Bots are redirected too, so an ad network's link preview
+      // shows the page people actually see.
+      //
+      // Not a row in src/lib/lp-splits.ts because this is not a test: there
+      // is no control arm to hold anyone in, and a cookie would be pure cost.
+      { source: "/lp/seattle/1", destination: "/lp/seattle/5", permanent: false },
       // The licence guide canonicalises on the Canadian "licence", matching DFO
       // and gov.bc.ca — the sources it quotes. Plenty of people type the
       // American "license", including British Columbians, so that spelling is
