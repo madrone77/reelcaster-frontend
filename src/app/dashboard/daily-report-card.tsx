@@ -32,9 +32,10 @@ const ProTrialModal = dynamic(
 // reports section is three or four sentences of prose rather than the one
 // line the other rail cards carry.
 //
-// Pro-only, and the gate is server-side in /api/bluecaster/city-daily-report
-// — a free caller gets `{ locked: true }` with no body, so there is nothing
-// to reveal in the network tab. This component only decides what to render.
+// The prose is Pro-only, and the gate is server-side in
+// /api/bluecaster/city-daily-report: a free caller gets `{ locked: true }`
+// with the city and the headline and no body, so there is nothing to reveal
+// in the network tab. This component only decides what to render.
 //
 // The city is resolved server-side from `preferences.homeCitySlug`, falling
 // back to the pinned home spot for anglers who set one before the city setting
@@ -56,7 +57,13 @@ interface Payload {
   locked?: boolean;
   city?: { slug: string; name: string } | null;
   status?: "ready" | "pending" | "no_home_city";
-  report?: DailyReport | null;
+  /** Locked: only `headline`, `report_date` and `generated_at` arrive. */
+  report?: DailyReport | Pick<DailyReport, "headline" | "report_date" | "generated_at"> | null;
+}
+
+/** The prose arrived, which only happens for a Pro reader. */
+function isFullReport(r: NonNullable<Payload["report"]>): r is DailyReport {
+  return "reports_md" in r;
 }
 
 /**
@@ -158,13 +165,18 @@ export function DailyReportCard({ cityName }: { cityName?: string | null }) {
   // was noise beside the other upgrade prompts. That was the wrong call for
   // this one card: what anglers are actually catching around you is the single
   // best argument for paying, and a Member who never sees it exists cannot be
-  // persuaded by it. So the card keeps its frame, its city and its window, and
-  // withholds only the prose.
+  // persuaded by it. So the card keeps its frame, its city, its date and its
+  // headline, and withholds only the prose.
   //
-  // There is genuinely nothing to tease with — the route returns `{locked:true}`
-  // and no body, so the headline never reaches the browser and cannot be read
-  // out of the network tab. The city name comes from the caller instead.
+  // The headline is the real one, the same line a free reader gets on the
+  // public city page. The route sends nothing below it, so the body cannot be
+  // read out of the network tab. The city is the one the route resolved for
+  // this reader, which for a free account is usually the nearest covered city
+  // to where they are; the caller's name is the fallback for a read that came
+  // back without one.
   if (data.locked) {
+    const lockedCity = data.city?.name ?? cityName;
+    const teaser = data.report;
     return (
       <>
         <button
@@ -174,18 +186,22 @@ export function DailyReportCard({ cityName }: { cityName?: string | null }) {
         >
           <div className="flex items-center gap-2">
             <span className="font-rc-mono text-[10px] font-bold uppercase tracking-[0.14em] text-rc-brand">
-              {cityName ?? "Your area"} report
+              {lockedCity ?? "Your area"} report
             </span>
+            {teaser?.report_date && (
+              <span className="shrink-0 rounded bg-rc-surface px-1.5 py-0.5 font-rc-mono text-[10px] font-bold text-rc-ink-mute">
+                {formatReportDate(teaser.report_date)}
+              </span>
+            )}
           </div>
           <p className="mt-1.5 text-[15px] font-semibold leading-snug text-rc-ink">
-            What anglers are catching around{" "}
-            {cityName ?? "you"}
+            {teaser?.headline ??
+              `What anglers are catching around ${lockedCity ?? "you"}`}
           </p>
           <p className="mt-1 text-[13px] leading-relaxed text-rc-ink-soft">
-            {/* No cadence claimed and no date shown: a locked caller gets
-                `{locked:true}` and no body, so there is no report_date to
-                stamp, and promising "every morning" is the thing this card
-                stopped doing. */}
+            {/* No cadence claimed: promising "every morning" is the thing this
+                card stopped doing. The date above, when there is one, says how
+                fresh the report behind the lock is. */}
             Written from the last two weeks of angler reports: which species
             are going, where they came from, and what worked.
           </p>
@@ -230,7 +246,7 @@ export function DailyReportCard({ cityName }: { cityName?: string | null }) {
     );
   }
 
-  if (data.status === "pending" || !data.report) {
+  if (data.status === "pending" || !data.report || !isFullReport(data.report)) {
     return (
       <div className="overflow-hidden rounded border border-rc-rule bg-rc-panel">
         <div className="px-4 py-4">
