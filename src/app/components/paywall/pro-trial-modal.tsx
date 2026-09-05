@@ -383,9 +383,10 @@ export default function ProTrialModal({
                     why there's no "Not now": two dismissals for one modal. */}
                 <DialogHeader className="pr-10 sm:pr-12 text-left gap-0">
                   <TrialEyebrow />
-                  {/* The sheet's headline, not a second one. See
-                      ./trial-pitch for why this stopped naming the wall. */}
+                  {/* Named for the wall the reader hit. The phone sheet keeps
+                      the shared forecast sentence while its split test runs. */}
                   <TrialHeadline
+                    feature={feature}
                     placeName={spotName ?? placeName}
                     placeKind={spotName ? "spot" : "city"}
                     className="mt-2 text-xl sm:text-2xl"

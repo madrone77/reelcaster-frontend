@@ -63,6 +63,7 @@
 
 import { PLAN_LABELS } from "./plan-labels";
 import { TRIAL_DAYS, type PricingView } from "./pricing";
+import { PRO_FORECAST_DAYS } from "./forecast-horizon";
 
 /**
  * How many spots a free account may save. Pro is unlimited, so there is no
@@ -299,17 +300,30 @@ export type NagFeatureId =
   | "depth-gate";
 
 /**
- * ⚠ Mostly vestigial: `rowId` is the only field anything still reads.
- *
- * `headline` and `takesSpot` came out when both shapes of the modal adopted
- * one headline (see paywall/trial-pitch). `action`, `unlocksAt` and
- * `pricingFeature` had already lost their last readers before that and are
- * left alone here rather than swept up in an unrelated change — but do not
- * add copy to this record expecting it on screen.
+ * `headline` is what the trial modal's desktop dialog prints above the offer,
+ * chosen by the wall the reader hit. `rowId` picks the matrix row it
+ * highlights. `action`, `unlocksAt` and `pricingFeature` have no readers left
+ * on screen and are kept for the reports and the deep links.
  */
+/**
+ * The headline the trial modal prints for one wall, in three forms: `spot`
+ * when the modal can name the spot the reader was on, `city` when it can only
+ * name the city under the map, `bare` when it can name neither. `{place}` is
+ * replaced with that name and set in brand blue; `{days}` with the Pro
+ * forecast horizon. Every wall has all three so the modal never has to fall
+ * back to a sentence written for a different wall.
+ */
+export interface NagHeadline {
+  spot: string;
+  city: string;
+  bare: string;
+}
+
 export interface NagFeature {
   /** Completes "Start your 7-day Pro trial to ___". Lower case, no period. */
   action: string;
+  /** What the trial modal says at the top, for this wall. */
+  headline: NagHeadline;
   /** Lowest tier that unlocks it — decides whether we sell Pro or an account. */
   unlocksAt: "free" | "pro";
   /**
@@ -325,24 +339,44 @@ export interface NagFeature {
 export const NAG_FEATURES: Record<NagFeatureId, NagFeature> = {
   alerts: {
     action: "create an alert",
+    headline: {
+      spot: "Get an alert the moment {place} turns on",
+      city: "Get an alert the moment a spot in {place} turns on",
+      bare: "Get an alert the moment your spot turns on",
+    },
     unlocksAt: "pro",
     rowId: "alerts",
     pricingFeature: "alerts",
   },
   "sms-alerts": {
     action: "get alerts by text",
+    headline: {
+      spot: "Get {place} alerts by text",
+      city: "Get your {place} alerts by text",
+      bare: "Get your alerts by text",
+    },
     unlocksAt: "pro",
     rowId: "alerts",
     pricingFeature: "alerts",
   },
   "favorite-spots": {
     action: "save more spots",
+    headline: {
+      spot: "Save {place} and every spot you fish",
+      city: "Save every spot you fish around {place}",
+      bare: "Save every spot you fish",
+    },
     unlocksAt: "pro",
     rowId: "save-spots",
     pricingFeature: "favorite-spots",
   },
   "custom-spots": {
     action: "score a spot we don’t cover",
+    headline: {
+      spot: "Score your own spots near {place}",
+      city: "Score your own spots around {place}",
+      bare: "Score a spot we don’t cover yet",
+    },
     unlocksAt: "pro",
     rowId: "custom-spots",
     pricingFeature: "custom-spots",
@@ -359,18 +393,33 @@ export const NAG_FEATURES: Record<NagFeatureId, NagFeature> = {
   // the 14-day headline and highlights the same matrix row.
   "forecast-week": {
     action: "plan the full two weeks",
+    headline: {
+      spot: "See the next {days} days at {place}",
+      city: "See the next {days} days in {place}",
+      bare: "See the next {days} days",
+    },
     unlocksAt: "free",
     rowId: "two-weeks",
     pricingFeature: "14-day-forecast",
   },
   "forecast-14d": {
     action: "plan the full two weeks",
+    headline: {
+      spot: "See the next {days} days at {place}",
+      city: "See the next {days} days in {place}",
+      bare: "See the next {days} days",
+    },
     unlocksAt: "pro",
     rowId: "two-weeks",
     pricingFeature: "14-day-forecast",
   },
   "catch-log": {
     action: "log a catch",
+    headline: {
+      spot: "Keep a log of what you catch at {place}",
+      city: "Keep a log of what you catch around {place}",
+      bare: "Keep a log of what you catch",
+    },
     unlocksAt: "free",
     rowId: "catch-log",
     pricingFeature: "favorite-spots",
@@ -381,6 +430,11 @@ export const NAG_FEATURES: Record<NagFeatureId, NagFeature> = {
   // "keep this thing running". The whole matrix is the answer to that.
   "support-the-map": {
     action: "support the map",
+    headline: {
+      spot: "Support the map and get all of Pro",
+      city: "Support the map and get all of Pro",
+      bare: "Support the map and get all of Pro",
+    },
     unlocksAt: "pro",
     pricingFeature: "support-the-map",
   },
@@ -391,6 +445,11 @@ export const NAG_FEATURES: Record<NagFeatureId, NagFeature> = {
   // counted nowhere. That is precisely how /support went unmeasured.
   support: {
     action: "open the support portal",
+    headline: {
+      spot: "Get a reply from a person",
+      city: "Get a reply from a person",
+      bare: "Get a reply from a person",
+    },
     unlocksAt: "pro",
     pricingFeature: "support",
   },
@@ -399,6 +458,11 @@ export const NAG_FEATURES: Record<NagFeatureId, NagFeature> = {
   // property of the page, not of whichever card the unit landed next to.
   "remove-ads": {
     action: "remove the ads",
+    headline: {
+      spot: "Read the water with no ads in the way",
+      city: "Read the water with no ads in the way",
+      bare: "Read the water with no ads in the way",
+    },
     unlocksAt: "pro",
     rowId: "ad-free",
     pricingFeature: "remove-ads",
@@ -413,6 +477,11 @@ export const NAG_FEATURES: Record<NagFeatureId, NagFeature> = {
   // to highlight and the whole matrix is the pitch, same as "support the map".
   "whole-map": {
     action: "open the whole map",
+    headline: {
+      spot: "See the whole map around {place}",
+      city: "See the whole map around {place}",
+      bare: "See the whole map",
+    },
     unlocksAt: "pro",
     pricingFeature: "whole-map",
   },
@@ -433,14 +502,24 @@ export const NAG_FEATURES: Record<NagFeatureId, NagFeature> = {
   // pitch it never makes. See explore/components/depth-gate-prompt.tsx.
   "depth-gate": {
     action: "keep the depth on the map",
+    headline: {
+      spot: "Keep the depth on the map",
+      city: "Keep the depth on the map",
+      bare: "Keep the depth on the map",
+    },
     unlocksAt: "free",
     pricingFeature: "whole-map",
   },
-  // Deliberately NOT spot-scoped: the pitch is the whole reporting stream
-  // across every spot, not this one spot's numbers. "for Oak Bay Flats" would
-  // undersell it to the size of whatever card they happened to click.
+  // "Around" the place, never "at" it: the pitch is the whole reporting
+  // stream across every spot, not this one spot's numbers, and "at Oak Bay
+  // Flats" would undersell it to the size of whatever card they clicked.
   "catch-reports": {
     action: "see what anglers are catching",
+    headline: {
+      spot: "See what’s being caught around {place}",
+      city: "See what’s being caught around {place}",
+      bare: "See what anglers are catching",
+    },
     unlocksAt: "pro",
     rowId: "catch-reports",
     pricingFeature: "catch-reports",
@@ -460,4 +539,30 @@ export const NAG_FEATURES: Record<NagFeatureId, NagFeature> = {
  */
 export function nagSubhead(pricing: PricingView): string {
   return `Free for ${TRIAL_DAYS} days, then ${pricing.perMonth} a month, billed yearly at ${pricing.amount}. Cancel anytime before the trial ends and you pay nothing.`;
+}
+
+/**
+ * The trial modal's headline for a wall, split around the place so the caller
+ * can set the place in its own colour. `place` is null when the modal has
+ * nothing honest to name, and then the `bare` form is used and `place` comes
+ * back empty.
+ */
+export function nagHeadline(
+  feature: NagFeatureId,
+  place: { name: string; kind: "spot" | "city" } | null,
+): { before: string; place: string; after: string } {
+  const forms = NAG_FEATURES[feature].headline;
+  const template = (place ? forms[place.kind] : forms.bare).replace(
+    "{days}",
+    String(PRO_FORECAST_DAYS),
+  );
+  const at = template.indexOf("{place}");
+  if (!place || at < 0) {
+    return { before: template.replace("{place}", "").trim(), place: "", after: "" };
+  }
+  return {
+    before: template.slice(0, at),
+    place: place.name,
+    after: template.slice(at + "{place}".length),
+  };
 }

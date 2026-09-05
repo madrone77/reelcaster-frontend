@@ -3,7 +3,12 @@
 import { Check } from 'lucide-react';
 import { DialogTitle } from '@/components/ui/dialog';
 import { useTrialCta } from './trial-cta';
-import { sheetFeatures, type PlanTierId } from '@/lib/plan-features';
+import {
+  nagHeadline,
+  sheetFeatures,
+  type NagFeatureId,
+  type PlanTierId,
+} from '@/lib/plan-features';
 import { PLAN_LABELS } from '@/lib/plan-labels';
 import { REMINDER_LEAD_DAYS, TRIAL_DAYS } from '@/lib/pricing';
 import {
@@ -23,10 +28,9 @@ import {
  *
  * What stays with each shape is only the frame — the sheet's grab handle and
  * pinned controls, the dialog's two columns and its plan matrix. The headline
- * is shared too, as of the change that brought `TrialHeadline` here: the
- * dialog used to compose its own from the wall the reader hit ("Set an alert
- * for Oak Bay Flats") and now says what the sheet says, so the two shapes read
- * identically and the place is named on both.
+ * lives here too. The dialog names the wall the reader hit (`feature`); the
+ * sheet still says the shared forecast sentence until the sheet split test
+ * concludes. Both name the place.
  */
 
 /** The day the reminder email goes out. Both numbers come from the sender. */
@@ -83,44 +87,38 @@ export function PlanCompareLine({
 }
 
 /**
- * The headline, on both shapes: what Pro shows you, where you are standing.
- *
- * One sentence for every wall. The dialog used to name the wall instead —
- * "Set an alert for Oak Bay Flats", "Unlock all fresh catch reports" — which
- * answered the reader's own action but could only name the place on the six
- * of thirteen walls whose phrasing took one, so the commonest walls on
- * /explore said the city on a phone and nothing on a desktop. Naming the place
- * everywhere is worth more than naming the wall: the reader knows what they
- * just clicked, and what they want to know is what they get.
+ * The headline. With a `feature` it is the sentence written for that wall in
+ * `NAG_FEATURES` ("Get an alert the moment Oak Bay Flats turns on"), naming
+ * the place where the wall honestly can and dropping it where it cannot.
+ * Without one it is the forecast sentence every wall used to share, which the
+ * phone sheet still prints while the sheet split test runs.
  *
  * The place is set in brand blue because it is the one word here the reader
- * chose. A surface that cannot honestly name one drops the phrase rather than
- * inventing a subject.
+ * chose.
  */
 export function TrialHeadline({
+  feature,
   placeName,
   placeKind = 'spot',
   className,
 }: {
+  feature?: NagFeatureId;
   placeName?: string;
-  /**
-   * Which kind of place that is, because English cares: you fish AT a spot and
-   * IN a city. Only the preposition depends on it.
-   */
+  /** Which kind of place that is: you fish AT a spot and IN a city. */
   placeKind?: 'spot' | 'city';
   className?: string;
 }) {
+  const parts = nagHeadline(
+    feature ?? 'forecast-14d',
+    placeName ? { name: placeName, kind: placeKind } : null,
+  );
   return (
     <DialogTitle
       className={`font-black tracking-[-0.02em] text-balance text-rc-ink ${className ?? ''}`}
     >
-      See the next {PRO_FORECAST_DAYS} days
-      {placeName ? (
-        <>
-          {placeKind === 'city' ? ' in ' : ' at '}
-          <span className="text-rc-brand">{placeName}</span>
-        </>
-      ) : null}
+      {parts.before}
+      {parts.place ? <span className="text-rc-brand">{parts.place}</span> : null}
+      {parts.after}
     </DialogTitle>
   );
 }
