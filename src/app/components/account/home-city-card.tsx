@@ -20,10 +20,10 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import HomeCityModal from "@/app/components/welcome/home-city-modal";
 import { cityName } from "@/app/dashboard/around-you";
-import { useHomeCityState } from "@/app/explore/lib/use-home-city";
+import { useEffectiveHomeCity } from "@/app/explore/lib/use-home-city";
 
 export default function HomeCityCard() {
-  const { slug, ready } = useHomeCityState(true);
+  const { slug, chosen, ready } = useEffectiveHomeCity();
   const [open, setOpen] = useState(false);
 
   return (
@@ -42,9 +42,11 @@ export default function HomeCityCard() {
                   that they do not. */}
               {!ready
                 ? " "
-                : slug
-                  ? `Your dashboard and the map open on ${cityName(slug)}.`
-                  : "Set one and your dashboard opens on your own water."}
+                : !slug
+                  ? "Set one and your dashboard opens on your own water."
+                  : chosen
+                    ? `Your dashboard and the map open on ${cityName(slug)}.`
+                    : `Your dashboard is opening on ${cityName(slug)}, picked from your location. Set your own to change it.`}
             </p>
           </div>
           <Button
@@ -52,7 +54,7 @@ export default function HomeCityCard() {
             className="shrink-0"
             onClick={() => setOpen(true)}
           >
-            {ready && slug ? "Change" : "Set city"}
+            {ready && chosen ? "Change" : "Set city"}
           </Button>
         </CardContent>
       </Card>

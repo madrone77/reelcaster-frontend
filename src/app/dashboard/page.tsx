@@ -33,7 +33,7 @@ import NearbyReports from "./nearby-reports";
 import MarketingFooter from "@/app/components/marketing/marketing-footer";
 import type { MapSpotsPayload } from "@/lib/bluecaster";
 import { useHomeSpotState } from "@/app/explore/lib/use-home-spot";
-import { useHomeCityState } from "@/app/explore/lib/use-home-city";
+import { useEffectiveHomeCity } from "@/app/explore/lib/use-home-city";
 import { useSavedSpots, setFavorite } from "@/app/explore/lib/use-favorite";
 import { storedFirstName, NAME_FALLBACK } from "@/lib/display-name";
 import { supabase } from "@/lib/supabase";
@@ -209,11 +209,20 @@ export default function DashboardPage() {
   // `homeReady` matters: until that copy lands, a null slug is "we have not
   // looked", not "no home spot".
   const { slug: homeSlug, ready: homeReady } = useHomeSpotState(true);
-  // The home CITY, which is what this page now opens on. Hydrated for the same
-  // reason the pin is: a null slug means "not looked yet" until the profile
-  // copy lands, and a city band that renders off that would flash the
-  // spot-only dashboard at somebody who set their city on another device.
-  const { slug: homeCitySlug, ready: homeCityReady } = useHomeCityState(true);
+  // The home CITY, which is what this page now opens on. The EFFECTIVE one:
+  // a city the angler never chose still fills this page, because a dashboard
+  // with no city band, no report and no neighbours is what an unanswered
+  // optional question used to cost them. `chosen` is what the row at the top
+  // says out loud; nothing else on the page needs to care how we got here.
+  //
+  // Settles late for the same reason the pin does: a null slug means "not
+  // looked yet" until the profile copy lands, and a city band that renders off
+  // that would flash the spot-only dashboard at somebody who set their city on
+  // another device.
+  const {
+    slug: homeCitySlug,
+    ready: homeCityReady,
+  } = useEffectiveHomeCity();
   // undefined = still reading, null = it settled with nothing.
   const [citySpots, setCitySpots] = useState<MapSpotsPayload | null | undefined>(undefined);
   const today = useToday();

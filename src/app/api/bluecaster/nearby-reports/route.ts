@@ -33,15 +33,14 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
-import {
-  fetchCityDailyReport,
-  fetchHierarchyLight,
-  resolveCityBySlug,
-  resolveHomeCity,
-} from "@/lib/bluecaster";
+import { fetchCityDailyReport, fetchHierarchyLight } from "@/lib/bluecaster";
 import { coveredCityPoints, haversineKm } from "@/lib/nearby-spots";
 import { getUserIdFromRequest } from "@/lib/server-auth";
 import { resolveEntitlement } from "@/lib/entitlement";
+import {
+  readHomeCityPrefs,
+  resolveEffectiveHomeCity,
+} from "@/lib/home-city-server";
 
 /**
  * How many neighbours to carry.
@@ -92,15 +91,14 @@ export async function GET(request: NextRequest) {
   const { isPro } = await resolveEntitlement(supabaseAdmin, userId);
   if (!isPro) return locked;
 
-  // The angler's own identity, never the request body.
+  // The angler's own identity, never the request body. Same resolver and same
+  // three tiers as ../city-daily-report, so the neighbours are always the
+  // neighbours of the city whose report sits above them.
   const { data: userRecord } = await supabaseAdmin.auth.admin.getUserById(userId);
-  const prefs = userRecord?.user?.user_metadata?.preferences as
-    | { homeSpotSlug?: string; homeCitySlug?: string }
-    | undefined;
-
-  const home = prefs?.homeCitySlug
-    ? await resolveCityBySlug(prefs.homeCitySlug)
-    : await resolveHomeCity(prefs?.homeSpotSlug ?? null);
+  const home = await resolveEffectiveHomeCity(
+    request,
+    readHomeCityPrefs(userRecord?.user?.user_metadata),
+  );
 
   if (!home) {
     return NextResponse.json(
