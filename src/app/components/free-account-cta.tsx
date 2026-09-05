@@ -126,7 +126,7 @@ export default function FreeAccountCta() {
           <X className="h-4 w-4" />
         </button>
         <p className="pr-8 text-[14px] leading-snug text-rc-ink">
-          You&rsquo;ll get more access, reports, and can browse freely.
+          You&rsquo;ll get more forecast days, saved spots, and catch reports.
         </p>
         <div className="mt-3 flex gap-2">
           <Link
