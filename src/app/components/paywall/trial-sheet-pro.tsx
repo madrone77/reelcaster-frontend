@@ -20,12 +20,12 @@ import { PRO_FORECAST_DAYS } from '@/lib/forecast-horizon';
  * in plan-features because they belong to this arm and to nothing else.
  */
 const PRO_ROWS: readonly string[] = [
-  `Full ${PRO_FORECAST_DAYS} day fishing enriched forecast`,
-  'No ads, no locks, see everything',
-  'Your own private custom spots',
+  `Full ${PRO_FORECAST_DAYS} day fishing forecast`,
+  "What's biting - recent catch reports",
+  'When to go - conditions and species scores',
+  'Where to go - local spots scored hour by hour',
   "SMS and email alerts when it's hot",
-  'Daily catch reports (where available)',
-  'Smart catch logging',
+  'And more',
 ];
 
 /**
