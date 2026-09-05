@@ -71,7 +71,9 @@ import {
   type CampaignTarget,
 } from "@/app/lp/_shared/lp-telemetry";
 import { viaAngle } from "@/app/lp/_shared/lp-via";
-import type { AdWall } from "@/lib/ad-mode";
+import { withAdParams, type AdWall } from "@/lib/ad-mode";
+import { spotHref } from "@/lib/paths";
+import { takeAdSpotOpen } from "./lib/ad-spot-opens";
 import { BLEED_MEASURE } from "@/app/components/layout/page-measure";
 import ExploreMap, { type StationPick, type CustomSpotPin } from "./components/explore-map";
 
@@ -270,8 +272,16 @@ export default function ExploreShell({
   const [adOfferOpen, setAdOfferOpen] = useState(false);
   const [adOfferSpotName, setAdOfferSpotName] = useState<string | undefined>();
   const adOfferMounted = useMountedOnce(adOfferOpen);
+  // `day2` lets the first two opens through to the framed spot page before
+  // the offer (Casey, 2026-09-04); the other walls ask on the first tap. The
+  // allowance lives in ./lib/ad-spot-opens.
   const onAdOpenSpot = useCallback(
-    (spot: { name?: string; slug?: string }) => {
+    (spot: { name?: string; slug?: string; href?: string }) => {
+      if (ad && spot.slug && takeAdSpotOpen(ad.wall)) {
+        trackEvent("Ad Frame Spot Opened", { slug: spot.slug, ad_wall: ad.wall });
+        router.push(spot.href ?? withAdParams(spotHref({ slug: spot.slug }), ad));
+        return;
+      }
       trackEvent("Ad Frame Spot Blocked", {
         slug: spot.slug ?? spot.name,
         ad_wall: ad?.wall,
@@ -279,7 +289,7 @@ export default function ExploreShell({
       setAdOfferSpotName(spot.name);
       setAdOfferOpen(true);
     },
-    [ad],
+    [ad, router],
   );
   const mobileTop = isPaid ? "top-0" : "top-16";
   const { citySlug, spotSlug, day, stn, setQuery } = useExploreState();
@@ -1755,7 +1765,11 @@ export default function ExploreShell({
         // Under the ad frame a phone's card tap stays on the map and makes
         // the offer instead (Casey's call, 2026-09-04).
         if (ad) {
-          onAdOpenSpot({ name: spot?.name, slug });
+          onAdOpenSpot({
+            name: spot?.name,
+            slug,
+            href: spot ? withAdParams(spotHref(spot), ad) : undefined,
+          });
           return;
         }
         // It used to `router.push` the spot page here, which left the map

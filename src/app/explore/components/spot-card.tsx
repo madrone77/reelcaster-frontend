@@ -305,7 +305,7 @@ export default function SpotCard({
               !e.metaKey && !e.ctrlKey && !e.shiftKey && !e.altKey && e.button === 0
             ) {
               e.preventDefault();
-              adFrame.onOpenSpot(spot);
+              adFrame.onOpenSpot({ ...spot, href: reportHref });
             }
           }}
           className="flex flex-1 items-center min-h-11 text-left px-3 py-2 font-rc-mono text-[11px] font-semibold tracking-[0.08em] text-rc-brand hover:bg-rc-brand-soft/40 transition-colors"
