@@ -29,6 +29,7 @@ import { boundsOf, paddedBbox, SPOT_LINK_ZOOM } from "./lib/viewport-bbox";
 import { useMountedOnce } from "@/hooks/use-mounted-once";
 import { useUpgradeNag } from "@/hooks/use-upgrade-nag";
 import { noteEngagement } from "@/lib/upgrade-nag";
+import { noteSpotView } from "@/lib/spot-views";
 import { trackEvent } from "@/lib/analytics";
 import { clearPaywallContext, setPaywallContext } from "@/lib/paywall-context";
 import {
@@ -1778,6 +1779,9 @@ export default function ExploreShell({
         setSheetSpot(slug);
         return;
       }
+      // The desktop drawer is a read of the spot; the sheet above counts
+      // itself, through the shell it mounts.
+      noteSpotView(slug);
       setQuery({ spot: slug, stn: null });
       if (spot) {
         mapRef.current?.flyTo({
