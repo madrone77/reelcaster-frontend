@@ -72,7 +72,12 @@ export async function GET(request: NextRequest) {
   // Gating on "is there a row" is not enough: a city whose forum chatter dries
   // up keeps its last briefing, and a month-old report presented as today's is
   // worse than no section at all. Prince Rupert has no signals right now.
-  if ((report.reports_signal_count ?? 0) === 0) {
+  //
+  // Both counts, not one. A Washington city has WDFW dockside creel checks in
+  // the window and no forum posts at all (Tacoma: 0 posts, hundreds of anglers
+  // checked), and its briefing is written from the checks. Gating on posts
+  // alone hid every WA report while Victoria sailed through.
+  if ((report.reports_signal_count ?? 0) === 0 && (report.creel_survey_count ?? 0) === 0) {
     return NextResponse.json(
       { locked: false, status: "no_signals", report: null },
       { headers: { "Cache-Control": "private, no-store" } },

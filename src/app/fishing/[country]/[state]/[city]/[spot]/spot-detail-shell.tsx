@@ -62,6 +62,7 @@ import SpotTerminal from "@/app/explore/spot/components/spot-terminal";
 import SpotMiniMap from "@/app/explore/spot/components/spot-mini-map";
 import ScoreCard from "@/app/explore/spot/components/score-card";
 import { RecentReportsBand } from "@/app/explore/components/recent-reports";
+import { DocksideChecks } from "@/app/explore/components/dockside-checks";
 import type { RecentReports as RecentReportsData } from "@/lib/bluecaster/live-spot-types";
 import type { RailFreshCatch } from "@/app/explore/lib/fresh-catch-types";
 import CustomAlertCta from "@/app/explore/spot/components/custom-alert-cta";
@@ -1538,6 +1539,14 @@ export default function SpotDetailShell({
               onUpgrade={() => setReportsUpgradeOpen(true)}
               neutralLock={!!ad}
             />
+
+            {/* WDFW's ramp counts for the marine area, under the reports and
+                in the same shell. On most Washington water the report band
+                above renders nothing at all (the forums are not scraped
+                there), so this is the catch evidence a WA spot page has.
+                Public data, so it renders for everyone, and it names the
+                whole area rather than this mark. Null outside WA. */}
+            <DocksideChecks report={page.creelReport ?? null} />
           </div>
           {/* end identity + score cluster (items 1–3) */}
 
