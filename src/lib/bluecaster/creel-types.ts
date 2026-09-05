@@ -1,24 +1,24 @@
-// WDFW dockside creel checks, as they reach the spot page and the city page.
+// Area-wide catch checks, as they reach the Recent reports band.
 //
-// The state's samplers stand at the ramps and count the boats coming in and
-// the fish they kept, per marine area, per day. BlueCaster folds those rows
-// into one summary per area over a trailing fortnight. It is the only catch
-// evidence most Washington water has: the forums that feed "Recent reports"
-// are barely scraped there, so a WA spot page with no report band at all is
-// the normal case, and this is what fills the gap.
+// BlueCaster folds Washington's ramp-sampling rows into one summary per
+// marine area over a trailing fortnight: anglers checked and the fish they
+// kept, per species. It is the only catch evidence most Washington water
+// has, because the forums that feed the written report are barely scraped
+// there, so it rides in the same band and under the same gate as the report
+// rather than standing on its own.
 //
 // Two facts every renderer has to respect, because the numbers lie otherwise:
 //
-//   AREA GRAIN. "Shilshole ramp, Area 10" means anglers who launched at
-//   Shilshole and fished somewhere in Area 10, most of central Puget Sound.
-//   Nothing here is this spot's own tally. Say "across Marine Area 10",
-//   never "at Jefferson Head".
+//   AREA GRAIN. A row is somebody who launched at a ramp and fished somewhere
+//   in the marine area. Nothing here is this spot's own tally. Say "across
+//   Marine Area 10", never "at Jefferson Head".
 //
 //   KEPT FISH ONLY. Released and undersize fish are not counted. A zero is
 //   nothing boxed, not nothing hooked, and the word is "kept", never "caught".
 //
-// Official public data: unlike the forum-fed report it needs no source
-// stripping and no Pro gate. It renders for everyone, crawlers included.
+// Language: the reader is told what is being kept in the area and how much
+// effort that rests on. They are not told who counted it or where the boats
+// launched; that is our plumbing, and the band already speaks in one voice.
 
 export type CreelKept = {
   species: string;
@@ -52,16 +52,17 @@ export type CreelAreaReport = {
   interviews: number;
   anglers: number;
   latestSurveyDate: string | null;
-  /** WDFW's own published Chinook-per-angler, angler-weighted. */
+  /** The regulator's own published Chinook-per-angler, angler-weighted. */
   chinookPerAngler: number | null;
   /** Species with at least one fish kept, most kept first. */
   kept: CreelKept[];
   trend: CreelTrend | null;
+  /** Carried on the wire; not rendered to readers. */
   topRamps: CreelRamp[];
 };
 
 /** The city page carries the same summary in snake_case, plus how many of
- *  the city's spots sit in the area. */
+ *  the city's spots sit in the area. Carried on the wire, not rendered. */
 export type CreelAreaWire = {
   area_number: string;
   area_label: string;
@@ -84,29 +85,33 @@ export type CreelAreaWire = {
   spot_count: number;
 };
 
-export function creelAreaFromWire(w: CreelAreaWire): CreelAreaReport {
-  return {
-    areaNumber: w.area_number,
-    areaLabel: w.area_label,
-    windowStart: w.window_start,
-    windowEnd: w.window_end,
-    windowDays: w.window_days,
-    surveyDays: w.survey_days,
-    interviews: w.interviews,
-    anglers: w.anglers,
-    latestSurveyDate: w.latest_survey_date,
-    chinookPerAngler: w.chinook_per_angler,
-    kept: w.kept.map((k) => ({ species: k.species, kept: k.kept, perAngler: k.per_angler })),
-    trend: w.trend
-      ? {
-          species: w.trend.species,
-          recentPerAngler: w.trend.recent_per_angler,
-          priorPerAngler: w.trend.prior_per_angler,
-          direction: w.trend.direction,
-        }
-      : null,
-    topRamps: w.top_ramps,
-  };
+/** "Marine Area 10", without the descriptive tail in brackets. */
+export function shortAreaLabel(report: CreelAreaReport): string {
+  return report.areaLabel.replace(/\s*\(.*\)\s*$/, "");
+}
+
+/**
+ * The one-line verdict, written the way the report band writes its own
+ * headline: what is being kept, and where. This is also the teaser a free
+ * reader sees, so it must stand on its own and must not lean on the count.
+ */
+export function creelHeadline(report: CreelAreaReport): string {
+  const area = shortAreaLabel(report);
+  const lead = report.kept[0];
+  if (!lead) return `Nothing has been kept across ${area} lately`;
+  const second = report.kept[1];
+  const leadRate = lead.perAngler ?? 0;
+  const pace =
+    leadRate >= 0.75
+      ? "coming steadily"
+      : leadRate >= 0.25
+        ? "being kept"
+        : "the odd one being kept";
+  const tail =
+    second && second.perAngler != null && second.perAngler < leadRate * 0.2
+      ? `, ${second.species} hard to come by`
+      : "";
+  return `${lead.species} ${pace} across ${area}${tail}`;
 }
 
 /**

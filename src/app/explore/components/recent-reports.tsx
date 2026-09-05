@@ -37,11 +37,27 @@
 //
 // Three states: locked (not paying), narrative (a real summary), and
 // counts-only (reports exist but too few to narrate).
+//
+// AREA CHECKS. Washington water carries a fourth input: the state's own ramp
+// sampling for the spot's marine area, folded upstream into anglers checked
+// and fish kept per species. It is the same product as the report (what is
+// being kept nearby, this fortnight) and takes the same gate, so it renders
+// inside this band as a "Kept across Marine Area N" section, and on water with
+// no written report at all it IS the band. Readers are told what is being
+// kept and how much effort that rests on, never who counted it. Area grain:
+// the label always names the whole area, never this mark.
 
 import { useState } from "react";
-import { ChevronDown, Lock } from "lucide-react";
+import { ChevronDown, Lock, TrendingDown, TrendingUp } from "lucide-react";
 import type { RecentReports as RecentReportsData } from "@/lib/bluecaster/live-spot-types";
 import { reportAge, type RailFreshCatch } from "@/app/explore/lib/fresh-catch-types";
+import {
+  creelHeadline,
+  describePerAngler,
+  fmtCount,
+  shortAreaLabel,
+  type CreelAreaReport,
+} from "@/lib/bluecaster/creel-types";
 
 const STATE_DOT: Record<string, string> = {
   biting: "bg-rc-good",
@@ -140,10 +156,93 @@ function SpeciesRow({
   );
 }
 
+/** One species kept across the area: a bar scaled to the best rate in the
+ *  list, the count, and the rate in plain words. The bar compares species with
+ *  each other, which is the question, not a hit rate. */
+function KeptRow({
+  species,
+  kept,
+  perAngler,
+  maxPerAngler,
+}: {
+  species: string;
+  kept: number;
+  perAngler: number | null;
+  maxPerAngler: number;
+}) {
+  const pct =
+    perAngler != null && maxPerAngler > 0
+      ? Math.max(3, Math.round((perAngler / maxPerAngler) * 100))
+      : 0;
+  return (
+    <li className="flex items-center gap-3">
+      <span className="w-[128px] shrink-0 truncate text-[13.5px] font-semibold text-rc-ink">
+        {species}
+      </span>
+      <span className="h-1.5 min-w-0 flex-1 overflow-hidden rounded-full bg-rc-surface" aria-hidden>
+        <span className="block h-full rounded-full bg-rc-good" style={{ width: `${pct}%` }} />
+      </span>
+      <span className="shrink-0 whitespace-nowrap font-rc-mono text-[11px] text-rc-ink-mute">
+        <span className="text-rc-ink">{fmtCount(kept)}</span> kept
+        {perAngler != null && (
+          <span className="hidden sm:inline">{` · ${describePerAngler(perAngler)}`}</span>
+        )}
+      </span>
+    </li>
+  );
+}
+
+/** The area section: what is being kept across the marine area this spot sits
+ *  in. Sits under "Caught here" when there is a written report, and carries
+ *  the band alone when there is not. */
+function KeptAcrossArea({ creel, expanded }: { creel: CreelAreaReport; expanded: boolean }) {
+  const maxPerAngler = Math.max(0, ...creel.kept.map((k) => k.perAngler ?? 0));
+  const trend = creel.trend;
+  return (
+    <div className="mt-4 border-t border-rc-rule pt-4">
+      <div className="flex items-baseline justify-between gap-3">
+        <ColLabel>Kept across {shortAreaLabel(creel)}</ColLabel>
+        {trend && (
+          <span className="flex items-center gap-1.5 font-rc-mono text-[10px] text-rc-ink-mute">
+            {trend.direction === "building" ? (
+              <TrendingUp className="h-3.5 w-3.5 text-rc-good" aria-hidden />
+            ) : trend.direction === "fading" ? (
+              <TrendingDown className="h-3.5 w-3.5 text-rc-fair" aria-hidden />
+            ) : null}
+            {trend.species}{" "}
+            <span className="text-rc-ink">
+              {trend.direction === "steady" ? "holding" : trend.direction}
+            </span>
+          </span>
+        )}
+      </div>
+      {creel.kept.length > 0 ? (
+        <ul className="mt-3 flex flex-col gap-3.5">
+          {creel.kept.map((k) => (
+            <KeptRow key={k.species} {...k} maxPerAngler={maxPerAngler} />
+          ))}
+        </ul>
+      ) : (
+        <p className="mt-2 text-[12.5px] text-rc-ink-soft">Nothing kept lately.</p>
+      )}
+      {expanded && (
+        <p className="mt-3 text-[12.5px] leading-snug text-rc-ink-soft">
+          From {fmtCount(creel.anglers)} anglers across the whole area over{" "}
+          {creel.surveyDays} day{creel.surveyDays === 1 ? "" : "s"}, not this spot alone. Only
+          fish kept are counted; released fish are not.
+          {trend &&
+            ` ${trend.species} went from ${describePerAngler(trend.priorPerAngler) || "none"} earlier in the fortnight to ${describePerAngler(trend.recentPerAngler) || "none"} lately.`}
+        </p>
+      )}
+    </div>
+  );
+}
+
 export function RecentReportsBand({
   teaser,
   updatedAt,
   reports,
+  creel = null,
   fresh,
   days,
   locked,
@@ -159,6 +258,9 @@ export function RecentReportsBand({
   /** The full report. Only ever populated for a Pro viewer, fetched from the
    *  gated route after the server has checked entitlement. */
   reports: RecentReportsData | null;
+  /** What is being kept across the spot's marine area. Same gate as the
+   *  report, so also Pro-only and fetched with it. Null outside Washington. */
+  creel?: CreelAreaReport | null;
   fresh: RailFreshCatch | null;
   days: number;
   /** Has the server said whether this reader may have the report?
@@ -180,9 +282,9 @@ export function RecentReportsBand({
   // Resolved once, before the state guards narrow `fresh` away. Freshest known
   // date wins: the full report if we have it, else the date that travelled with
   // the teaser, else whatever the counts carry.
-  const headerDate = reports?.latestDate ?? updatedAt ?? fresh?.latestDate ?? null;
+  const headerDate = reports?.latestDate ?? updatedAt ?? fresh?.latestDate ?? creel?.latestSurveyDate ?? null;
 
-  if (!fresh && !reports && !teaser) return null;
+  if (!fresh && !reports && !teaser && !creel) return null;
 
   const shell = `rounded border border-rc-rule bg-rc-panel p-4 lg:p-5 ${className}`;
 
@@ -193,7 +295,7 @@ export function RecentReportsBand({
   // Teaser: the headline is public and renders straight away. Below it, nothing
   // at all until the server answers — no skeleton, because a grey box that
   // appears and vanishes is the same flash by another name.
-  if (!reports && teaser) {
+  if (!reports && !creel && teaser) {
     return (
       <section className={shell}>
         <Header days={days} updatedAt={headerDate} />
@@ -241,6 +343,33 @@ export function RecentReportsBand({
             </span>
           </span>
           <span className="shrink-0 font-rc-mono text-[11px] font-bold text-rc-brand">→</span>
+        </button>
+      </section>
+    );
+  }
+
+  // No written report, but the area checks came through the gate: the band
+  // is the area section. Headline in the report's own voice, the kept rows,
+  // and the effort behind them on expand.
+  if (!reports && creel) {
+    return (
+      <section className={shell}>
+        <Header days={days} updatedAt={headerDate} />
+        <h3 className="mt-3 text-[17px] font-semibold leading-snug text-rc-ink lg:text-[19px]">
+          {creelHeadline(creel)}
+        </h3>
+        <KeptAcrossArea creel={creel} expanded={expanded} />
+        <button
+          type="button"
+          aria-expanded={expanded}
+          onClick={() => setExpanded((v) => !v)}
+          className="mt-4 flex items-center gap-1.5 font-rc-mono text-[11px] font-bold uppercase tracking-[0.06em] text-rc-brand hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-rc-brand"
+        >
+          {expanded ? "Show less" : "Show more"}
+          <ChevronDown
+            aria-hidden
+            className={`h-3.5 w-3.5 transition-transform ${expanded ? "rotate-180" : ""}`}
+          />
         </button>
       </section>
     );
@@ -314,6 +443,8 @@ export function RecentReportsBand({
           ))}
         </ul>
       </div>
+
+      {creel && <KeptAcrossArea creel={creel} expanded={expanded} />}
 
       {expanded && (
         <>

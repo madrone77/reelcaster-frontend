@@ -12,8 +12,6 @@
 // contradicts the section next to it. Everything numeric on this page is
 // rendered here, from data, at request time.
 
-import { DocksideChecks } from "@/app/explore/components/dockside-checks";
-import { creelAreaFromWire } from "@/lib/bluecaster/creel-types";
 import Link from "next/link";
 import Markdown from "react-markdown";
 import remarkGfm from "remark-gfm";
@@ -199,48 +197,6 @@ export function SeasonMatrix({
             ))}
         </ul>
       )}
-    </section>
-  );
-}
-
-// ── Dockside checks: WDFW creel, per marine area ──────────────────────────
-
-/**
- * The ramp counts for every marine area the city's spots sit in, most spots
- * first. Washington only in practice; BC cities get null and render nothing.
- * Public data, so it sits on the prerendered page for every reader and for
- * search, which is the point: "what are they keeping around Tacoma" is a
- * question the forum-fed report cannot answer there.
- */
-export function CityCreel({
-  creel,
-  cityName,
-}: {
-  creel: BlueCasterCityPage["creel"];
-  cityName: string;
-}) {
-  const areas = (creel?.areas ?? []).filter((a) => a.anglers > 0);
-  if (!areas.length) return null;
-  return (
-    <section className="space-y-4">
-      <SectionHeading id="dockside-checks">
-        What anglers are keeping around {cityName}
-      </SectionHeading>
-      <p className="text-[14px] text-rc-ink-soft">
-        WDFW samplers count the boats coming in at the ramps and the fish they
-        kept, by marine area. Counts are for the whole area, not any one spot,
-        and released fish are not counted.
-      </p>
-      <div className="grid gap-4 lg:grid-cols-2 items-start">
-        {areas.map((a) => (
-          <DocksideChecks
-            key={a.area_number}
-            report={creelAreaFromWire(a)}
-            title={`Marine Area ${a.area_number}`}
-            spotCount={a.spot_count}
-          />
-        ))}
-      </div>
     </section>
   );
 }

@@ -493,7 +493,7 @@ export async function fetchFreshCatches(
  *  in place rather than blanking the block. */
 export async function fetchSpotRecentReports(
   slug: string,
-): Promise<{ locked: boolean; reports: unknown | null }> {
+): Promise<{ locked: boolean; reports: unknown | null; creel: unknown | null }> {
   const { data } = await supabase.auth.getSession();
   const token = data.session?.access_token;
   const res = await fetch(
@@ -507,11 +507,11 @@ export async function fetchSpotRecentReports(
   // "still asking" from "asked, and you may not have it": collapsing both to
   // null is what let the upsell paint while a Pro angler's report was still in
   // flight.
-  if (!res.ok) return { locked: true, reports: null };
+  if (!res.ok) return { locked: true, reports: null, creel: null };
   const body = (await res.json().catch(() => null)) as
     | { locked?: boolean; reports?: unknown }
     | null;
-  if (!body) return { locked: true, reports: null };
+  if (!body) return { locked: true, reports: null, creel: null };
   return { locked: !!body.locked, reports: body.reports ?? null };
 }
 
