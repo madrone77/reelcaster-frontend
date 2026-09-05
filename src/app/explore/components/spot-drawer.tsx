@@ -160,7 +160,7 @@ export default function SpotDrawer({
   const openSpotOnAd = (e: React.MouseEvent) => {
     if (adFrame?.onOpenSpot && !e.metaKey && !e.ctrlKey && !e.shiftKey && !e.altKey && e.button === 0) {
       e.preventDefault();
-      adFrame.onOpenSpot(spot);
+      adFrame.onOpenSpot({ ...spot, href });
     }
   };
   const alertHref = withAdParams(`${spotHref(spot)}?alert=1`, adFrame);

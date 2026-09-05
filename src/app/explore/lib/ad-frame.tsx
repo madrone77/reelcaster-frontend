@@ -32,8 +32,13 @@ export type AdFrame = {
    * arrives on the tap that showed the most intent. Callers use it instead
    * of navigating when it is set; hrefs stay in the markup, so a modified
    * click still opens the spot page.
+   *
+   * Amended 2026-09-04: `day2` lets the first two opens through to the
+   * framed spot page (see ./ad-spot-opens). Callers pass the framed `href`
+   * they would have followed, so the shell can push the same URL the link
+   * carries rather than rebuilding it from the slug.
    */
-  onOpenSpot?: (spot: { name?: string }) => void;
+  onOpenSpot?: (spot: { name?: string; slug?: string; href?: string }) => void;
 };
 
 const AdFrameContext = createContext<AdFrame | null>(null);
