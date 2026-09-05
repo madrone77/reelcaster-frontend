@@ -509,10 +509,10 @@ export async function fetchSpotRecentReports(
   // flight.
   if (!res.ok) return { locked: true, reports: null, creel: null };
   const body = (await res.json().catch(() => null)) as
-    | { locked?: boolean; reports?: unknown }
+    | { locked?: boolean; reports?: unknown; creel?: unknown }
     | null;
   if (!body) return { locked: true, reports: null, creel: null };
-  return { locked: !!body.locked, reports: body.reports ?? null };
+  return { locked: !!body.locked, reports: body.reports ?? null, creel: body.creel ?? null };
 }
 
 /** Per-spot 14-day outlook for a whole list of cards in one request.
