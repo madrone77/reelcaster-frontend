@@ -38,7 +38,7 @@ export default function PricingSection() {
               no card, ever
             </p>
             <p className="mt-4 text-pretty text-sm leading-relaxed text-rc-ink-soft">
-              See today&apos;s Reelcaster Score for one location and experience
+              See today&apos;s ReelCaster Score for one location and experience
               how the platform works. No account at all is Free, and shows the
               next 2 days.
             </p>
@@ -52,7 +52,7 @@ export default function PricingSection() {
             </div>
           </div>
 
-          {/* Reelcaster Pro */}
+          {/* ReelCaster Pro */}
           <div className="relative flex flex-col rounded bg-rc-panel p-8 text-center">
             <span className="absolute -top-3.5 left-1/2 -translate-x-1/2 whitespace-nowrap rounded bg-rc-good-bg px-3 py-1.5 font-rc-mono text-[10px] font-semibold tracking-[0.14em] text-rc-good-ink">
               MOST POPULAR

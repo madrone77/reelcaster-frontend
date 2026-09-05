@@ -16,7 +16,7 @@ export default function Hero() {
             <span className="block text-rc-brand">Before you go.</span>
           </h1>
           <p className="mt-6 max-w-xl text-pretty text-lg md:text-xl leading-relaxed text-rc-ink-mute">
-            Reelcaster combines tides, weather, water conditions, and
+            ReelCaster combines tides, weather, water conditions, and
             regulations into one simple score, so you know exactly when and
             where to fish.
           </p>
