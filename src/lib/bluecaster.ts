@@ -1,6 +1,7 @@
 // BlueCaster API client
 // The API returns a nested response; we normalize it for components
 
+import type { CreelAreaWire } from "@/lib/bluecaster/creel-types";
 import type {
   StationConditions,
   BuoyConditions,
@@ -889,6 +890,10 @@ export interface BlueCasterCityPage {
    *  nobody has profiled is absent, not present with twelve blank months. */
   species_table: BlueCasterCitySeasonRow[];
   regulatory_areas: Array<{ body: string; area_number: string; name: string }>;
+  /** WDFW dockside creel checks, one entry per marine area the city's spots
+   *  sit in, most spots first. Null for BC and for a WA city whose areas had
+   *  no sampler out. Area grain, kept fish only, public. */
+  creel: { window_days: number; areas: CreelAreaWire[] } | null;
 }
 
 export async function fetchCityPage(
@@ -1560,6 +1565,11 @@ export interface BlueCasterCityDailyReport {
      *  to hide the section rather than to print a stale briefing. Treat it as
      *  a floor: it truncates at PostgREST's 1,000-row ceiling. */
     reports_signal_count: number;
+    /** WDFW dockside creel survey rows behind the same window, for the areas
+     *  the city's spots sit in. A Washington city usually has this and a
+     *  `reports_signal_count` of 0, so hide the section only when BOTH are
+     *  zero. Absent on a payload predating the field. */
+    creel_survey_count?: number;
     tips: Array<{ text: string }>;
     generated_at: string;
   } | null;

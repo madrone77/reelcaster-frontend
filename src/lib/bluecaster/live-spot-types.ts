@@ -8,6 +8,8 @@
 
 // ─── Spot identity ─────────────────────────────────────────────────────
 
+import type { CreelAreaReport } from "./creel-types";
+
 export type LiveSpot = {
   id: string;
   name: string;
@@ -301,6 +303,14 @@ export type LiveSpotDetail = {
    * thin one.
    */
   recentReports: RecentReports | null;
+  /**
+   * WDFW dockside creel checks for the marine area this spot sits in, over
+   * the trailing fortnight. AREA grain, never this spot's own tally, and
+   * kept fish only. Official public data: it is not paid intel and is not
+   * stripped before the client. Null outside Washington and when no sampler
+   * was out. See creel-types.ts.
+   */
+  creelReport: CreelAreaReport | null;
   tideStationName: string | null;
   seasonStateBySpecies: Record<string, SeasonState>;
   seasonWeeksBySpecies: Record<string, SeasonState[]>;

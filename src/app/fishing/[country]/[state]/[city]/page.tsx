@@ -19,6 +19,7 @@ import { loadCity } from "./instrument/load-city";
 import KeepToday from "./hub/keep-today";
 import {
   BeforeYouGo,
+  CityCreel,
   CityFaq,
   CityProse,
   NearbyCities,
@@ -309,6 +310,11 @@ export default async function CityPage({
 
       <div className="max-w-6xl mx-auto px-6 pt-10 pb-16 space-y-10">
         <CityLive cityName={city.name} citySlug={city.slug} />
+
+        {/* WDFW's ramp counts, one card per marine area. Directly under the
+            daily report because it answers the same question, and on most
+            Washington cities it answers it alone. Renders nothing for BC. */}
+        <CityCreel creel={cityPage?.creel ?? null} cityName={city.name} />
 
         <SpeciesCards
           guides={guides}
