@@ -1902,6 +1902,7 @@ export default function SpotDetailShell({
         onOpenChange={setReportsUpgradeOpen}
         feature="catch-reports"
         from="spot-page-reports"
+        spotName={spot.name}
       />
     </div>
   );

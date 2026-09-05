@@ -199,6 +199,7 @@ export function DailyReportCard({ cityName }: { cityName?: string | null }) {
           onOpenChange={setUpgradeOpen}
           feature="catch-reports"
           from="dashboard-daily-report"
+          placeName={cityName ?? undefined}
         />
       </>
     );

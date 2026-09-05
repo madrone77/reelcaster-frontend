@@ -387,6 +387,7 @@ export default function SpotDrawer({
         onOpenChange={setReportsUpgradeOpen}
         feature="catch-reports"
         from="explore-drawer-reports"
+        spotName={spot.name}
       />
     </div>
   );
