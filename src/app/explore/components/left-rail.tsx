@@ -264,8 +264,11 @@ export default function LeftRail({
 
               {spots.length === 0 && (
                 <div className="text-center py-10 px-4">
+                  {/* Not "no published spots any more": now that unscored
+                      spots come off the map, this panel is also empty where
+                      spots exist but none of them is scoring today. */}
                   <p className="text-sm font-semibold text-rc-ink mb-1">
-                    No published spots here yet
+                    Nothing scoring here yet
                   </p>
                   <p className="text-xs text-rc-ink-mute">
                     Coverage is rolling out across BC, WA, and OR, and new spots are
