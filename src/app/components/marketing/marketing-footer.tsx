@@ -107,6 +107,15 @@ export default function MarketingFooter() {
             Northwest. Forecasts are reference only. Always verify
             regulations with your regulator: DFO in BC, WDFW in Washington.
           </p>
+          {/* ReelCaster is a website, not a download. Stated on every page
+              because search and AI answers have been confusing it with an
+              unrelated app called Reelcast. Same wording as the FAQ entry and
+              the homepage features note. */}
+          <p className="mt-3 text-rc-ink-mute text-xs leading-relaxed">
+            ReelCaster is a website, not an app. There is nothing to
+            download. It runs in your phone&rsquo;s browser at
+            www.reelcaster.com and is not related to Reelcast.
+          </p>
         </div>
       </div>
       <div className="border-t border-rc-rule">
