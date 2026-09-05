@@ -7,6 +7,7 @@
 
 import type { SpotPageInitial } from "@/lib/bluecaster/live-spot-types";
 import type { SpotPageForClient } from "./spot-detail-shell";
+import { creelHeadline } from "@/lib/bluecaster/creel-types";
 
 /** How much of the headline a free reader sees before the cut. Enough to name
  *  the spot and start the verdict, not enough to answer "is it worth going". */
@@ -41,17 +42,22 @@ export function teaserHeadline(reports: unknown): string | null {
  * from the gated route.
  */
 export function stripPaidIntel(raw: SpotPageInitial): SpotPageForClient {
-  const { catchSignals, intelVerdict, recentReports, ...rest } = raw;
+  const { catchSignals, intelVerdict, recentReports, creelReport, ...rest } = raw;
   void catchSignals;
   void intelVerdict;
+  // The area-wide catch checks are the same product as the written report:
+  // what is being kept nearby, this fortnight. They take the same gate, so
+  // they are stripped here too and only a teaser survives. On most Washington
+  // water there is no written report at all and this teaser is the band.
+  const teaser = teaserHeadline(recentReports) ?? (creelReport ? teaserHeadline({ headline: creelHeadline(creelReport) }) : null);
   return {
     ...rest,
-    recentReportsTeaser: teaserHeadline(recentReports),
+    recentReportsTeaser: teaser,
     // The date of the newest report travels with the teaser. It is not paid
     // information (how fresh the news is, not what the news says) and the
     // gated block needs it to say "Updated 2 days ago" before a free reader
     // has anything else.
-    recentReportsUpdatedAt: latestReportDate(recentReports),
+    recentReportsUpdatedAt: latestReportDate(recentReports) ?? creelReport?.latestSurveyDate ?? null,
   };
 }
 

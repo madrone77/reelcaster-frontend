@@ -47,8 +47,13 @@ export async function GET(
 
   try {
     const page = await fetchSpotLivePage(slug);
-    return NextResponse.json({ locked: false, reports: page?.recentReports ?? null }, { headers });
+    // The area-wide catch checks ride with the report: same product, same
+    // gate. On most Washington water they are the whole band.
+    return NextResponse.json(
+      { locked: false, reports: page?.recentReports ?? null, creel: page?.creelReport ?? null },
+      { headers },
+    );
   } catch {
-    return NextResponse.json({ locked: false, reports: null }, { headers });
+    return NextResponse.json({ locked: false, reports: null, creel: null }, { headers });
   }
 }

@@ -62,7 +62,7 @@ import SpotTerminal from "@/app/explore/spot/components/spot-terminal";
 import SpotMiniMap from "@/app/explore/spot/components/spot-mini-map";
 import ScoreCard from "@/app/explore/spot/components/score-card";
 import { RecentReportsBand } from "@/app/explore/components/recent-reports";
-import { DocksideChecks } from "@/app/explore/components/dockside-checks";
+import type { CreelAreaReport } from "@/lib/bluecaster/creel-types";
 import type { RecentReports as RecentReportsData } from "@/lib/bluecaster/live-spot-types";
 import type { RailFreshCatch } from "@/app/explore/lib/fresh-catch-types";
 import CustomAlertCta from "@/app/explore/spot/components/custom-alert-cta";
@@ -147,7 +147,7 @@ function tierForWall(wall: AdWall): ForecastTier {
  */
 export type SpotPageForClient = Omit<
   SpotPageInitial,
-  "catchSignals" | "intelVerdict" | "recentReports"
+  "catchSignals" | "intelVerdict" | "recentReports" | "creelReport"
 > & {
   /** Truncated headline only. The full report is Pro and is fetched at request
    *  time from the gated route, never serialized into the prerendered HTML. */
@@ -472,19 +472,22 @@ export default function SpotDetailShell({
   // Fired on mount rather than after `isPaid`, because the route is the gate: a
   // free caller gets {locked:true} and no prose.
   const [reports, setReports] = useState<RecentReportsData | null>(null);
+  const [creel, setCreel] = useState<CreelAreaReport | null>(null);
   const [reportsLocked, setReportsLocked] = useState<boolean | null>(null);
   const loadReports = useCallback(async () => {
     if (!page.recentReportsTeaser) {
       setReports(null);
+      setCreel(null);
       setReportsLocked(null);
       return;
     }
     const forSlug = spot.slug;
     try {
-      const { locked, reports: r } = await fetchSpotRecentReports(forSlug);
+      const { locked, reports: r, creel: c } = await fetchSpotRecentReports(forSlug);
       if (liveKey.current.slug !== forSlug) return;
       setReportsLocked(locked);
       setReports((r as RecentReportsData | null) ?? null);
+      setCreel((c as CreelAreaReport | null) ?? null);
     } catch {
       if (liveKey.current.slug === forSlug) setReportsLocked(true);
     }
@@ -1534,19 +1537,12 @@ export default function SpotDetailShell({
                  once the server has actually said no. */
               locked={reportsLocked}
               reports={reports}
+              creel={creel}
               fresh={fresh}
               days={FRESH_DAYS}
               onUpgrade={() => setReportsUpgradeOpen(true)}
               neutralLock={!!ad}
             />
-
-            {/* WDFW's ramp counts for the marine area, under the reports and
-                in the same shell. On most Washington water the report band
-                above renders nothing at all (the forums are not scraped
-                there), so this is the catch evidence a WA spot page has.
-                Public data, so it renders for everyone, and it names the
-                whole area rather than this mark. Null outside WA. */}
-            <DocksideChecks report={page.creelReport ?? null} />
           </div>
           {/* end identity + score cluster (items 1–3) */}
 

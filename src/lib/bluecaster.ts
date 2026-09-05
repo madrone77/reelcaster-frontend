@@ -890,9 +890,10 @@ export interface BlueCasterCityPage {
    *  nobody has profiled is absent, not present with twelve blank months. */
   species_table: BlueCasterCitySeasonRow[];
   regulatory_areas: Array<{ body: string; area_number: string; name: string }>;
-  /** WDFW dockside creel checks, one entry per marine area the city's spots
-   *  sit in, most spots first. Null for BC and for a WA city whose areas had
-   *  no sampler out. Area grain, kept fish only, public. */
+  /** Area-wide catch checks, one entry per marine area the city's spots sit
+   *  in. Carried on the wire; the city page does not render it on its own.
+   *  The daily report reads the same data upstream and is the surface for
+   *  it, under the report's own gate. */
   creel: { window_days: number; areas: CreelAreaWire[] } | null;
 }
 
