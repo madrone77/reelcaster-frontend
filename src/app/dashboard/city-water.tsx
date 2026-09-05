@@ -176,6 +176,7 @@ export default function CityWater({
         onOpenChange={setUpgradeOpen}
         feature="catch-reports"
         from="dashboard-city-water"
+        placeName={cityName}
       />
     </section>
   );

@@ -342,13 +342,14 @@ export default function SpotCard({
         spotName={spot.name}
       />
       {/* Separate instance from the favourites nag: same modal, different
-          pitch. No spotName — the offer is the whole reporting stream, not
-          this one card's numbers. */}
+          pitch. The headline says "around" the spot, so naming it does not
+          shrink the offer to this one card's numbers. */}
       <ProTrialModal
         open={reportsUpgradeOpen}
         onOpenChange={setReportsUpgradeOpen}
         feature="catch-reports"
         from="explore-rail-reports"
+        spotName={spot.name}
       />
       {/* A locked day in the strip. Named for the spot so the pitch is about
           the fortnight at a place the angler already cares about. */}

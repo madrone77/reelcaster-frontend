@@ -389,6 +389,9 @@ export default function AroundYou({
         onOpenChange={setUpgradeOpen}
         feature="catch-reports"
         from="dashboard-around-you"
+        // Named only when every row is in one city; two cities have no
+        // honest single name and the bare form says the same thing.
+        placeName={cities?.length === 1 ? cities[0].name : undefined}
       />
     </section>
   );
