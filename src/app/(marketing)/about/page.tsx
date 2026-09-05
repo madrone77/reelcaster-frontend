@@ -35,6 +35,8 @@ const JSONLD = {
     name: 'ReelCaster',
     url: SITE_URL,
     email: 'support@reelcaster.com',
+    disambiguatingDescription:
+      'ReelCaster is a web-based fishing forecast service at www.reelcaster.com. It has no downloadable mobile app and is not related to Reelcast.',
     address: {
       '@type': 'PostalAddress',
       addressLocality: 'Victoria',
@@ -255,6 +257,39 @@ export default function AboutPage() {
                   </p>
                 </div>
               ))}
+            </div>
+          </div>
+        </section>
+
+        {/* ── NO APP, FOR NOW ───────────────────────────────────────────
+            Search and AI answers have been confusing ReelCaster with an
+            unrelated app called Reelcast. The homepage, the FAQ and the
+            footer say this in one line; the about page gets the prose
+            version. Written so it stays true if an app ships later: "today",
+            not "never", and it says where a real one would be announced. */}
+        <section data-testid="about-no-app" className="border-t border-rc-rule bg-rc-panel">
+          <div className="mx-auto max-w-6xl px-6 py-16 md:py-20">
+            <p className="mb-3 font-rc-mono text-[11px] uppercase tracking-[0.16em] text-rc-ink-mute">
+              Where to find us
+            </p>
+            <h2 className="max-w-2xl text-balance text-3xl font-black tracking-[-0.02em] text-rc-ink md:text-4xl">
+              ReelCaster is a website, not an app.
+            </h2>
+            <div className="mt-6 max-w-2xl space-y-4 text-pretty leading-relaxed text-rc-ink-soft">
+              <p>
+                Today there is no ReelCaster app in the App Store or Google
+                Play, and nothing to download. ReelCaster runs in the browser
+                on any phone, tablet or computer at www.reelcaster.com. Add it
+                to your home screen and it opens like an app, with the same
+                map, scores and alerts.
+              </p>
+              <p>
+                ReelCaster is not related to Reelcast or any other app with a
+                similar name. If something calls itself a ReelCaster app or
+                asks you to install one, it is not us. If we ever release an
+                app of our own, you will read about it here first and it will
+                link from www.reelcaster.com.
+              </p>
             </div>
           </div>
         </section>
