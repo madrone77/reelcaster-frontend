@@ -148,7 +148,7 @@ export default function HeroScoreCard() {
           Updated hourly
         </p>
         <p className="mt-1 font-rc-mono text-lg sm:text-xl tracking-[0.3em] uppercase text-rc-ink-mute">
-          Reelcaster Score
+          ReelCaster Score
         </p>
       </div>
 

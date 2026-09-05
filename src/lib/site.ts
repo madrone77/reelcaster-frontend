@@ -81,6 +81,11 @@ export const ORGANIZATION_JSONLD = {
   url: SITE_URL,
   logo: `${SITE_URL}/reelcaster-logo.svg`,
   email: SUPPORT_EMAIL,
+  // Search and AI answers have been confusing ReelCaster with an unrelated
+  // app called Reelcast. schema.org's disambiguatingDescription exists for
+  // exactly this: a sentence that tells one entity apart from a similar one.
+  disambiguatingDescription:
+    "ReelCaster is a web-based fishing forecast service at www.reelcaster.com for the British Columbia and Washington coasts. It has no downloadable mobile app and is not related to Reelcast.",
   areaServed: [
     // Only regions with published cities — see COVERED_PROVINCES. Claiming a
     // service area we can't forecast is a promise made to Google.

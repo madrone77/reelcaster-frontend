@@ -27,6 +27,15 @@ const FAQS: Array<{ q: string; a: string }> = [
     q: 'What does Pro give me that Free doesn’t?',
     a: 'Pro unlocks the full 14-day forecast (a Member account sees 7 days; browsing Free, with no account, shows the next 2), up to 10 custom alerts with SMS delivery, custom spots anywhere in our covered waters, and the full per-spot breakdown panel (wind, swell, tide, pressure, solunar). Member covers the live map and city/spot pages, the 7-day forecast, 1 email alert, favorites, and catch logging, and costs nothing.',
   },
+  // Search and AI answers have been mixing ReelCaster up with an unrelated
+  // app called Reelcast. This entry states the difference in plain words so
+  // the FAQPage JSON-LD below carries it too. Keep the "no app, runs in the
+  // browser" wording in step with the homepage features note and the
+  // marketing footer.
+  {
+    q: 'Is there a ReelCaster app? Is ReelCaster the same as Reelcast?',
+    a: 'No on both counts. ReelCaster does not have an app in the App Store or Google Play, and we never ask you to download anything. ReelCaster runs in the browser on your phone, tablet or computer at www.reelcaster.com. Add it to your home screen and it opens like an app. ReelCaster is not related to Reelcast or any other app with a similar name. If something calls itself a ReelCaster app or asks for a download, it is not us.',
+  },
   {
     q: 'Which regions are covered?',
     a: 'British Columbia is the launch region: Salish Sea, west coast Vancouver Island, and parts of the north coast and inlets. Other provinces and Pacific Northwest US waters are on the roadmap; sign up for updates and you’ll hear when your area lights up.',

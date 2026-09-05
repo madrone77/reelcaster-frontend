@@ -187,6 +187,21 @@ export default function FeaturesSection() {
             </li>
           ))}
         </ul>
+
+        {/* Plain statement that there is no app to install. It sits under the
+            feature grid because the phone frames above it read as a native
+            app, and search and AI answers have been confusing ReelCaster with
+            an unrelated app called Reelcast. Same wording as the FAQ entry and
+            the marketing footer. */}
+        <p
+          data-testid="homepage-no-app-note"
+          className="mt-8 text-pretty text-sm leading-relaxed text-rc-ink-soft"
+        >
+          <span className="font-semibold text-rc-ink">No app to install.</span>{' '}
+          ReelCaster runs in the browser on any phone, tablet or computer at
+          www.reelcaster.com. Add it to your home screen and it opens like an
+          app. ReelCaster is not related to Reelcast.
+        </p>
       </div>
     </section>
   );

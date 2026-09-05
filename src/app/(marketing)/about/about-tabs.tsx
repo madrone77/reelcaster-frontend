@@ -10,7 +10,7 @@ const TABS: Tab[] = [
     label: 'Our Mission',
     body: (
       <>
-        Reelcaster exists to take the guesswork out of fishing. We fold tides,
+        ReelCaster exists to take the guesswork out of fishing. We fold tides,
         weather, water, and regulations into one honest score for every spot,
         species, and hour, so you spend your time on the water when it actually
         counts, not cross-referencing five apps before you leave the dock.

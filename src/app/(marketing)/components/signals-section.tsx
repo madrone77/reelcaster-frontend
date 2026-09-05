@@ -16,7 +16,7 @@ export default function SignalsSection() {
             <span className="block text-rc-brand">Hundreds of signals.</span>
           </h2>
           <p className="mt-5 max-w-lg text-pretty text-sm md:text-base leading-relaxed text-rc-ink-soft">
-            Reelcaster analyzes tides, current, weather, pressure, water
+            ReelCaster analyzes tides, current, weather, pressure, water
             conditions, and seasonal regulations to generate a daily score{' '}
             <span className="whitespace-nowrap">from 0 to 100</span>.
           </p>
@@ -45,7 +45,7 @@ export default function SignalsSection() {
             />
             <Image
               src="/landing/signal-stack.svg"
-              alt="Layers of tide, weather, water, and regulation data feeding one Reelcaster score"
+              alt="Layers of tide, weather, water, and regulation data feeding one ReelCaster score"
               width={327}
               height={331}
               className="w-full h-auto"
