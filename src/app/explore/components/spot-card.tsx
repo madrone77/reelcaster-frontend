@@ -11,7 +11,11 @@ import { useSubscription } from "@/hooks/use-subscription";
 import SpotTrend from "./spot-trend";
 import SpotDayStrip, { SpotDayStripSkeleton, type SpotDay } from "./spot-day-strip";
 import { FreshCatchBadge } from "./fresh-catch-reports";
-import type { RailFreshCatch } from "../lib/fresh-catch-types";
+import {
+  freshVerdictStyle,
+  reportAge,
+  type RailFreshCatch,
+} from "../lib/fresh-catch-types";
 import { spotHref } from "@/lib/paths";
 import { withAdParams } from "@/lib/ad-mode";
 import { useAdFrame } from "../lib/ad-frame";
@@ -38,6 +42,7 @@ export default function SpotCard({
   showDayStrip = false,
   days14,
   dayStripDensity = "labelled",
+  reportsLayout = "badge",
 }: {
   spot: RailSpot;
   /** Accepted for call-site compatibility; the compact trend needs no tz. */
@@ -67,6 +72,12 @@ export default function SpotCard({
   days14?: SpotDay[] | null;
   /** `labelled` needs roughly 560px of card. Narrow rails pass `compact`. */
   dayStripDensity?: "labelled" | "compact";
+  /** Where the catch reports sit. `badge` is the small count beside the name
+   *  the desktop rail has always had. `row` is the dashboard's treatment: a
+   *  line of its own under the species, verdict pill first, then "N reports ·
+   *  yesterday". The phone sheet passes `row`, so a spot's reports read the
+   *  same on the Explore card as on the Around you and Home spot cards. */
+  reportsLayout?: "badge" | "row";
 }) {
   const [fav, toggleFav] = useFavorite(spot.slug);
   const { isPaid } = useSubscription();
@@ -197,7 +208,7 @@ export default function SpotCard({
                   Home
                 </span>
               )}
-              {reports && (
+              {reports && reportsLayout === "badge" && (
                 <FreshCatchBadge
                   fresh={reports}
                   onUnlock={() => setReportsUpgradeOpen(true)}
@@ -239,6 +250,50 @@ export default function SpotCard({
               </span>
             )}
           </div>
+
+          {/* 2b · the reports, as a row. Same markup as the dashboard's
+              Around you rows and the Home spot hero: verdict pill, then the
+              count and how old the newest report is. Locked keeps the same
+              lock pill those surfaces use, and it is the paywall entry point
+              here too, so it stops the click before the card link takes it. */}
+          {reports && reportsLayout === "row" && (
+            <div className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1">
+              {!reports.locked && (reports.count ?? 0) > 0 ? (
+                <>
+                  {reports.verdict && (
+                    <span
+                      className={`inline-flex shrink-0 items-center rounded px-1.5 py-0.5 font-rc-mono text-[9px] uppercase tracking-[0.06em] ${
+                        freshVerdictStyle(reports.verdict).cls
+                      }`}
+                    >
+                      {freshVerdictStyle(reports.verdict).label}
+                    </span>
+                  )}
+                  <span className="font-rc-mono text-[11px] text-rc-ink-soft">
+                    {reports.count} report{reports.count === 1 ? "" : "s"}
+                    {reports.latestDate
+                      ? ` · ${reportAge(reports.latestDate)}`
+                      : ""}
+                  </span>
+                </>
+              ) : reports.locked ? (
+                <button
+                  type="button"
+                  title="Catch reports tracked here, see them with Pro"
+                  aria-label="Unlock fresh catch reports"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    setReportsUpgradeOpen(true);
+                  }}
+                  className="inline-flex shrink-0 items-center gap-1 rounded bg-rc-surface px-1.5 py-0.5 font-rc-mono text-[9px] uppercase tracking-[0.06em] text-rc-ink-mute transition-colors hover:bg-rc-rule hover:text-rc-ink"
+                >
+                  <Lock className="h-2.5 w-2.5" />
+                  Reports
+                </button>
+              ) : null}
+            </div>
+          )}
 
           {/* 3 · KPI columns (labels above) + compact trend */}
           <div className="flex items-end gap-2 mt-2.5">
