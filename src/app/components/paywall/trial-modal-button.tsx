@@ -25,6 +25,7 @@ export default function TrialModalButton({
   from,
   spotName,
   placeName,
+  onClick,
   'data-testid': testId,
 }: {
   children: React.ReactNode;
@@ -45,6 +46,12 @@ export default function TrialModalButton({
    * is worse than the plain headline.
    */
   placeName?: string;
+  /**
+   * Fired on the press, before the modal opens. For a caller that counts the
+   * press on its own ledger (a split test's CTA counter) and nothing else:
+   * the modal still opens, and the paywall log still records it.
+   */
+  onClick?: () => void;
   'data-testid'?: string;
 }) {
   const [open, setOpen] = useState(false);
@@ -54,7 +61,10 @@ export default function TrialModalButton({
       <button
         type="button"
         className={className}
-        onClick={() => setOpen(true)}
+        onClick={() => {
+          onClick?.();
+          setOpen(true);
+        }}
         data-testid={testId}
       >
         {children}
