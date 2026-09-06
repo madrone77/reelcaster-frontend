@@ -24,6 +24,8 @@ export interface SubscriptionState {
   stripeCustomerId: string | null;
   phoneE164: string | null;
   phoneVerified: boolean;
+  /** In-app asks this account has said no to, keyed by surface. See src/lib/referral-nag.ts. */
+  dismissedNags: Record<string, string>;
   refresh: () => void;
 }
 
@@ -38,10 +40,11 @@ const FREE: Settings = {
   stripeCustomerId: null,
   phoneE164: null,
   phoneVerified: false,
+  dismissedNags: {},
 };
 
 const COLUMNS =
-  'subscription_tier, subscription_status, subscription_period_end, stripe_customer_id, phone_e164, phone_verified';
+  'subscription_tier, subscription_status, subscription_period_end, stripe_customer_id, phone_e164, phone_verified, dismissed_nags';
 
 /**
  * ── One fetch per user, shared by every consumer ──────────────────────────
@@ -143,6 +146,10 @@ async function load(userId: string): Promise<void> {
         stripeCustomerId: data.stripe_customer_id ?? null,
         phoneE164: data.phone_e164 ?? null,
         phoneVerified: !!data.phone_verified,
+        dismissedNags:
+          data.dismissed_nags && typeof data.dismissed_nags === 'object'
+            ? (data.dismissed_nags as Record<string, string>)
+            : {},
       },
     });
   } catch {
