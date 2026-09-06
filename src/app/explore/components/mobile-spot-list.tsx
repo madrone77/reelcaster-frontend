@@ -50,6 +50,7 @@ export default function MobileSpotList({
             key={spot.id}
             spot={spot}
             tz={tz}
+            layout="row"
             onSelect={() => onSelectSpot(spot.slug)}
             fresh={freshCatches?.spots[spot.id]}
           />

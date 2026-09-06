@@ -7,7 +7,7 @@ import { Wind } from "lucide-react";
 import { tierFor, TIER_TEXT } from "../../lib/explore-data";
 import { useFavorite } from "../../lib/use-favorite";
 import { useSubscription } from "@/hooks/use-subscription";
-import HourlyBars from "../../components/hourly-bars";
+import ScoreStrip from "../../components/score-strip";
 import { regulatorFrom, type Regulator } from "@/lib/regions";
 import type {
   NearbySpotCard,
@@ -268,14 +268,12 @@ function NearbyCard({
           </div>
         )}
 
-        {/* The drawer's 24-hour chart, compact and read-only: one bar per
-            hour, the best window solid, the current hour marked, an hour axis
-            under it. This was the rail card's 12-bucket sparkline, which is
-            drawn for an 80px slot beside the KPI columns; given this card's
-            full width its twelve bars stretched into squat blocks that looked
-            like no other chart on the page. */}
+        {/* The drawer's 24-hour strip, compact and read-only: one tinted
+            cell per hour, the best window bracketed, the current hour marked,
+            an hour axis under it. The same object the spot page's chart leads
+            with. */}
         <div className="mt-3">
-          <HourlyBars hours={n.scoreNext24h} tz={tz} hideLabel dense />
+          <ScoreStrip hours={n.scoreNext24h} tz={tz} size="dense" />
         </div>
 
         <div className="mt-auto flex items-end justify-between gap-2 border-t border-rc-rule-soft pt-3 mt-3">

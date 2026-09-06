@@ -48,6 +48,28 @@ export const TIER_PILL: Record<Tier, string> = {
 };
 
 /** Tier-colored text (numerals, bars). */
+/**
+ * Score STRIP cell fills: tinted tier fill + dark tier ink. Shared by the spot
+ * page's terminal chart and the card strips so a day looks the same wherever
+ * it is drawn. The green is two steps brighter than the pill background
+ * (`--rc-good-bg`, #DCFCE7): at strip height that 6%-saturation wash reads as
+ * white, and a good day and a blank day looked the same from a foot away.
+ * Amber and red are the shared tier backgrounds. Green-900 ink on green-400
+ * is 8.9:1.
+ */
+export const STRIP_FILL: Record<Tier, string> = {
+  good: "#4ADE80",
+  fair: "#FEF3C7",
+  poor: "#FEE2E2",
+  none: "#F1F5F9",
+};
+export const STRIP_INK: Record<Tier, string> = {
+  good: "#14532D",
+  fair: "#92400E",
+  poor: "#991B1B",
+  none: "#8A92A4",
+};
+
 export const TIER_TEXT: Record<Tier, string> = {
   good: "text-rc-good",
   fair: "text-rc-fair",
