@@ -1077,7 +1077,7 @@ export default function DashboardPage() {
               null
             ) : (
               <Link
-                href="/explore"
+                href={homeCityHref ?? "/explore"}
                 className="flex items-center justify-between rounded border border-dashed border-rc-rule bg-rc-panel px-6 py-8 text-rc-ink-soft transition-colors hover:border-rc-brand/40"
               >
                 <span className="flex items-center gap-3">
@@ -1182,7 +1182,7 @@ export default function DashboardPage() {
                   Save a spot or drop your own to see it here.
                 </p>
                 <Link
-                  href="/explore"
+                  href={homeCityHref ?? "/explore"}
                   className="mt-4 inline-flex h-8 items-center gap-1.5 rounded bg-rc-brand px-3 text-sm font-normal text-white transition-colors hover:bg-rc-brand-hover"
                 >
                   Explore spots

@@ -15,6 +15,7 @@ import { fetchAlertProfiles } from "@/lib/alerts-client";
 // since the app moved off that dark shell, so the palette — and the cmd-K that
 // opens it — were unreachable in the running product.
 import SearchTrigger from "@/app/components/search/search-trigger";
+import ExploreNavLink, { DASHBOARD_PATH } from "@/app/components/explore-nav-link";
 
 // "Catch log" is the single destination for catch logging. The wizard at
 // /log-catch used to sit beside it as its own nav item, which made one feature
@@ -312,8 +313,15 @@ export default function ExploreTopBar({
               );
             }
 
+            // From the dashboard, Explore names the home city. See
+            // ExploreNavLink for why it is a component and dashboard-only.
+            const NavLink =
+              item.href === "/explore" && pathname === DASHBOARD_PATH
+                ? ExploreNavLink
+                : Link;
+
             return (
-              <Link
+              <NavLink
                 key={item.href}
                 href={item.href}
                 aria-current={active ? "page" : undefined}
@@ -329,7 +337,7 @@ export default function ExploreTopBar({
                     {alertCount}
                   </span>
                 )}
-              </Link>
+              </NavLink>
             );
           })}
         </nav>
