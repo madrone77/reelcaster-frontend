@@ -291,6 +291,7 @@ export type AnalyticsEventName =
   | 'Checkout Started'
   | 'Trial Started'
   | 'Account Claimed'
+  | 'Checkout Email Corrected'
   | 'Cancel Clicked'
   | 'Cancel Page Viewed'
   // Signup

@@ -1,6 +1,7 @@
 'use client'
 
 import { Suspense, useEffect, useState } from 'react'
+import type { FormEvent } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { CheckCircle2, Loader2 } from 'lucide-react'
@@ -36,9 +37,18 @@ function BillingSuccessInner() {
   const [activated, setActivated] = useState(false)
   // Pay-first purchases land here with no session at all: the account was
   // created from the email Stripe billed, and this is where it gets claimed.
-  const [claimState, setClaimState] = useState<'idle' | 'working' | 'emailed'>(
-    'idle',
-  )
+  const [claimState, setClaimState] = useState<
+    'idle' | 'working' | 'created' | 'emailed'
+  >('idle')
+  // The address the account is being made under, as Stripe reports it. The
+  // phone sheet never asked for one, so this is the first time the buyer sees
+  // it, and a typo here is a paid account nobody can sign in to. Shown while
+  // the account is set up and for a moment after, with a way to correct it.
+  const [claimEmail, setClaimEmail] = useState<string | null>(null)
+  const [editingEmail, setEditingEmail] = useState(false)
+  // The sign-in link, once the claim has produced one. Followed a moment
+  // later unless the buyer is mid-correction, in which case it waits.
+  const [signInUrl, setSignInUrl] = useState<string | null>(null)
 
   useEffect(() => {
     if (authLoading || user || !sessionId) return
@@ -57,6 +67,9 @@ function BillingSuccessInner() {
         const body = await res.json().catch(() => ({}))
 
         if (cancelled) return
+        if (typeof body?.email === 'string' && body.email) {
+          setClaimEmail(body.email)
+        }
 
         // 202 = the webhook hasn't provisioned the account yet. Keep waiting.
         if (res.status === 202) {
@@ -68,8 +81,11 @@ function BillingSuccessInner() {
 
         if (body?.status === 'signed_in' && body.url) {
           trackEvent('Account Claimed')
-          // The magic link signs them in and returns to /explore.
-          window.location.href = body.url
+          // The magic link signs them in and returns to /explore. Followed by
+          // the effect below, after the buyer has had a moment to read the
+          // address it was made under.
+          setSignInUrl(body.url)
+          setClaimState('created')
           return
         }
         setClaimState('emailed')
@@ -83,6 +99,16 @@ function BillingSuccessInner() {
       cancelled = true
     }
   }, [authLoading, user, sessionId])
+
+  // Follow the sign-in link, unless the buyer has opened the address to fix
+  // it; then this waits until they save or cancel, and goes.
+  useEffect(() => {
+    if (!signInUrl || editingEmail) return
+    const t = setTimeout(() => {
+      window.location.href = signInUrl
+    }, 3000)
+    return () => clearTimeout(t)
+  }, [signInUrl, editingEmail])
 
   // Poll the checkout status endpoint until the webhook flips
   // user_settings.subscription_status to active. Bail out after ~30s.
@@ -189,17 +215,44 @@ function BillingSuccessInner() {
           unlocking now.
         </p>
 
-        {claimState === 'working' ? (
-          <div className="mt-6 inline-flex items-center gap-2 text-sm text-rc-ink-mute">
-            <Loader2 className="h-4 w-4 animate-spin" />
-            Setting up your account…
+        {claimState === 'working' || claimState === 'created' ? (
+          <div className="mt-6">
+            {claimState === 'working' ? (
+              <div className="inline-flex items-center gap-2 text-sm text-rc-ink-mute">
+                <Loader2 className="h-4 w-4 animate-spin" />
+                Setting up your account…
+              </div>
+            ) : (
+              <div className="text-sm font-semibold text-rc-good-ink">
+                All set. Taking you to Explore.
+              </div>
+            )}
+            {claimEmail && sessionId ? (
+              <AccountEmail
+                email={claimEmail}
+                sessionId={sessionId}
+                editing={editingEmail}
+                onEdit={() => setEditingEmail(true)}
+                onDone={(next) => {
+                  if (next) setClaimEmail(next)
+                  setEditingEmail(false)
+                }}
+              />
+            ) : null}
           </div>
         ) : claimState === 'emailed' ? (
           // Either the email already had an account (paying isn't proof of
           // owning an inbox) or the one-time handoff was already used.
           <div className="mt-6 text-sm leading-relaxed text-rc-ink-soft">
-            Your subscription is active. We&apos;ve emailed you a sign-in
-            link. Open it and you&apos;re in. No password needed.
+            Your subscription is active. We&apos;ve emailed{' '}
+            {claimEmail ? (
+              <>
+                <span className="font-semibold text-rc-ink">{claimEmail}</span>{' '}
+              </>
+            ) : (
+              'you '
+            )}
+            a sign-in link. Open it and you&apos;re in. No password needed.
           </div>
         ) : polling ? (
           <div className="mt-6 inline-flex items-center gap-2 text-sm text-rc-ink-mute">
@@ -224,6 +277,133 @@ function BillingSuccessInner() {
         )}
       </div>
     </div>
+  )
+}
+
+/**
+ * "Creating your account with <email>", with a way to change it.
+ *
+ * The buyer typed this address on Stripe's page, or their wallet supplied it,
+ * and this is the account it becomes. The correction goes through the claim
+ * route's PATCH, which moves the address on Stripe and on the account if the
+ * webhook has already made one, so whichever order things land in the sign-in
+ * link reaches the corrected inbox.
+ */
+function AccountEmail({
+  email,
+  sessionId,
+  editing,
+  onEdit,
+  onDone,
+}: {
+  email: string
+  sessionId: string
+  editing: boolean
+  onEdit: () => void
+  /** Called with the saved address, or null on cancel. */
+  onDone: (next: string | null) => void
+}) {
+  const [draft, setDraft] = useState(email)
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  async function save(e: FormEvent) {
+    e.preventDefault()
+    const next = draft.trim().toLowerCase()
+    if (!next || next === email.toLowerCase()) {
+      onDone(null)
+      return
+    }
+    setSaving(true)
+    setError(null)
+    try {
+      const res = await fetch('/api/stripe/claim', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ session_id: sessionId, email: next }),
+      })
+      const body = await res.json().catch(() => ({}))
+      if (!res.ok) {
+        setError(
+          body?.error === 'email_taken' || body?.error === 'account_exists'
+            ? 'That address already has an account. Sign in with it instead.'
+            : body?.error === 'email_invalid'
+              ? 'That does not look like an email address.'
+              : 'Could not change the address. You can fix it in Settings after signing in.',
+        )
+        return
+      }
+      trackEvent('Checkout Email Corrected')
+      onDone(body?.email ?? next)
+    } catch {
+      setError('Could not change the address. You can fix it in Settings after signing in.')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  if (!editing) {
+    return (
+      <p className="mt-3 text-sm leading-relaxed text-rc-ink-soft">
+        Creating your account with{' '}
+        <span className="font-semibold text-rc-ink">{email}</span>.{' '}
+        <button
+          type="button"
+          onClick={() => {
+            setDraft(email)
+            setError(null)
+            onEdit()
+          }}
+          className="font-semibold text-rc-brand underline underline-offset-2 hover:text-rc-brand-hover"
+        >
+          Wrong email? Change it
+        </button>
+      </p>
+    )
+  }
+
+  return (
+    <form onSubmit={save} className="mt-3 text-left">
+      <label
+        htmlFor="claim-email"
+        className="block text-sm font-semibold text-rc-ink"
+      >
+        Email for your account
+      </label>
+      <input
+        id="claim-email"
+        type="email"
+        required
+        autoComplete="email"
+        inputMode="email"
+        value={draft}
+        onChange={(e) => setDraft(e.target.value)}
+        disabled={saving}
+        className="mt-1.5 w-full rounded-lg border border-rc-rule bg-rc-surface px-3 py-2.5 text-base text-rc-ink placeholder:text-rc-ink-mute focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rc-brand focus-visible:ring-offset-2 disabled:opacity-60"
+      />
+      {error ? (
+        <p role="alert" className="mt-2 text-xs text-rc-poor-ink">
+          {error}
+        </p>
+      ) : null}
+      <div className="mt-3 flex gap-2">
+        <button
+          type="submit"
+          disabled={saving}
+          className="inline-flex h-10 flex-1 items-center justify-center rounded-md bg-rc-brand px-4 text-sm font-semibold text-white transition-colors hover:bg-rc-brand-hover disabled:opacity-60"
+        >
+          {saving ? 'Saving…' : 'Use this email'}
+        </button>
+        <button
+          type="button"
+          disabled={saving}
+          onClick={() => onDone(null)}
+          className="inline-flex h-10 items-center justify-center rounded-md border border-rc-rule px-4 text-sm font-semibold text-rc-ink transition-colors hover:bg-rc-surface disabled:opacity-60"
+        >
+          Keep it
+        </button>
+      </div>
+    </form>
   )
 }
 

@@ -62,38 +62,29 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'invalid_body' }, { status: 400 });
   }
 
-  const express = isExpressSetupIntentId(sessionId);
-  if (!express && !sessionId.startsWith('cs_')) {
-    return NextResponse.json({ error: 'invalid_session' }, { status: 400 });
-  }
-
-  const proof = express
-    ? await proofFromSetupIntent(sessionId)
-    : await proofFromCheckoutSession(sessionId);
-
-  if ('error' in proof) {
-    return NextResponse.json({ error: proof.error }, { status: proof.status });
-  }
-
-  const { customerId, createdMs } = proof;
-
-  if (!createdMs || Date.now() - createdMs > CLAIM_WINDOW_MS) {
-    return NextResponse.json({ error: 'session_expired' }, { status: 410 });
-  }
-
-  const { data: link } = await admin
-    .from('user_settings')
-    .select('user_id, created_via_checkout')
-    .eq('stripe_customer_id', customerId)
-    .maybeSingle();
+  const resolved = await resolveCredential(sessionId);
+  if ('response' in resolved) return resolved.response;
+  const { proof, link } = resolved;
+  const { customerId } = proof;
 
   // The webhook hasn't provisioned the account yet. Not an error — the caller
-  // polls this endpoint until it has.
+  // polls this endpoint until it has. The email is the one Stripe holds for
+  // the customer right now, not the one on the session, so a correction made
+  // while waiting (PATCH below) shows up on the next poll.
   if (!link) {
-    return NextResponse.json({ status: 'pending' }, { status: 202 });
+    return NextResponse.json(
+      { status: 'pending', email: await customerEmail(customerId, proof.email) },
+      { status: 202 },
+    );
   }
 
-  const email = proof.email;
+  // The account's own address for the account this purchase created: that is
+  // where the sign-in has to go, and it may differ from the session's if the
+  // buyer corrected it. The pre-existing-account path below keeps the
+  // session's email, since there the inbox is the proof.
+  const email = link.created_via_checkout
+    ? ((await emailForUser(link.user_id)) ?? proof.email)
+    : proof.email;
 
   // The account predates this purchase, so paying for it proves nothing about
   // owning the inbox. Only the inbox can complete this one.
@@ -123,12 +114,153 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ status: 'emailed' });
   }
 
-  return NextResponse.json({ status: 'signed_in', url: actionLink });
+  return NextResponse.json({ status: 'signed_in', url: actionLink, email });
+}
+
+/**
+ * Correct the email a purchase is being provisioned under.
+ *
+ * The phone sheet sends buyers to Stripe without asking for an address, so
+ * the first time they see the one that will own their account is the success
+ * page, and a typo there is a paid account nobody can sign in to. Same
+ * credential and checks as the claim (a completed, recent purchase), and the
+ * same trust: the purchase already earns a signed-in session, so it can earn
+ * the address that session is for.
+ *
+ * What moves: the Stripe customer's email (which the webhook reads when it
+ * provisions, and which the customer's invoices go to), the subscription's
+ * `checkout_email` when one is set (the webhook reads that first), and, if the
+ * webhook already ran, the auth user's email. An account that predates the
+ * purchase is never renamed: paying for an address is not owning it.
+ */
+export async function PATCH(request: NextRequest) {
+  let sessionId: string;
+  let email: string;
+  try {
+    const body = await request.json();
+    sessionId = (body?.session_id ?? '').toString().trim();
+    email = (body?.email ?? '').toString().trim().toLowerCase();
+  } catch {
+    return NextResponse.json({ error: 'invalid_body' }, { status: 400 });
+  }
+  if (!EMAIL_RE.test(email)) {
+    return NextResponse.json({ error: 'email_invalid' }, { status: 400 });
+  }
+
+  const resolved = await resolveCredential(sessionId);
+  if ('response' in resolved) return resolved.response;
+  const { proof, link } = resolved;
+
+  if (link && !link.created_via_checkout) {
+    return NextResponse.json({ error: 'account_exists' }, { status: 409 });
+  }
+
+  const stripe = await getStripe();
+  try {
+    await stripe.customers.update(proof.customerId, { email });
+    if (proof.subscriptionId) {
+      const sub = await stripe.subscriptions.retrieve(proof.subscriptionId);
+      if (sub.metadata?.checkout_email) {
+        await stripe.subscriptions.update(proof.subscriptionId, {
+          metadata: { checkout_email: email },
+        });
+      }
+    }
+  } catch (err) {
+    console.error('[stripe claim] could not update customer email', err);
+    return NextResponse.json({ error: 'update_failed' }, { status: 502 });
+  }
+
+  if (link) {
+    const { error } = await admin.auth.admin.updateUserById(link.user_id, {
+      email,
+      email_confirm: true,
+    });
+    if (error) {
+      console.error('[stripe claim] could not update account email', error);
+      // Almost always: the new address already has an account.
+      return NextResponse.json({ error: 'email_taken' }, { status: 409 });
+    }
+  }
+
+  return NextResponse.json({ status: 'updated', email });
+}
+
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+/**
+ * The purchase credential, checked, and the account it maps to if the webhook
+ * has made one yet. Shared by the claim and the correction so the two cannot
+ * disagree about what counts as proof.
+ */
+async function resolveCredential(sessionId: string): Promise<
+  | {
+      proof: Extract<Proof, { customerId: string }>;
+      link: { user_id: string; created_via_checkout: boolean | null } | null;
+    }
+  | { response: NextResponse }
+> {
+  const express = isExpressSetupIntentId(sessionId);
+  if (!express && !sessionId.startsWith('cs_')) {
+    return {
+      response: NextResponse.json({ error: 'invalid_session' }, { status: 400 }),
+    };
+  }
+
+  const proof = express
+    ? await proofFromSetupIntent(sessionId)
+    : await proofFromCheckoutSession(sessionId);
+
+  if ('error' in proof) {
+    return {
+      response: NextResponse.json({ error: proof.error }, { status: proof.status }),
+    };
+  }
+
+  if (!proof.createdMs || Date.now() - proof.createdMs > CLAIM_WINDOW_MS) {
+    return {
+      response: NextResponse.json({ error: 'session_expired' }, { status: 410 }),
+    };
+  }
+
+  const { data: link } = await admin
+    .from('user_settings')
+    .select('user_id, created_via_checkout')
+    .eq('stripe_customer_id', proof.customerId)
+    .maybeSingle();
+
+  return { proof, link: link ?? null };
+}
+
+/** The email Stripe holds for a customer right now, else the fallback. */
+async function customerEmail(
+  customerId: string,
+  fallback: string | null,
+): Promise<string | null> {
+  try {
+    const stripe = await getStripe();
+    const customer = await stripe.customers.retrieve(customerId);
+    return customer.deleted ? fallback : (customer.email ?? fallback);
+  } catch {
+    return fallback;
+  }
+}
+
+/** The address on an auth user, by id. */
+async function emailForUser(userId: string): Promise<string | null> {
+  const { data } = await admin.auth.admin.getUserById(userId);
+  return data?.user?.email ?? null;
 }
 
 /** What a valid purchase credential resolves to, whichever kind it is. */
 type Proof =
-  | { customerId: string; createdMs: number; email: string | null }
+  | {
+      customerId: string;
+      createdMs: number;
+      email: string | null;
+      /** The subscription the purchase made, when the credential names one. */
+      subscriptionId: string | null;
+    }
   | { error: string; status: number };
 
 async function proofFromCheckoutSession(sessionId: string): Promise<Proof> {
@@ -155,6 +287,10 @@ async function proofFromCheckoutSession(sessionId: string): Promise<Proof> {
     customerId,
     createdMs: (session.created ?? 0) * 1000,
     email: session.customer_details?.email ?? session.customer_email ?? null,
+    subscriptionId:
+      typeof session.subscription === 'string'
+        ? session.subscription
+        : (session.subscription?.id ?? null),
   };
 }
 
@@ -197,6 +333,7 @@ async function proofFromSetupIntent(setupIntentId: string): Promise<Proof> {
     customerId,
     createdMs: (intent.created ?? 0) * 1000,
     email: intent.metadata?.checkout_email ?? null,
+    subscriptionId: null,
   };
 }
 

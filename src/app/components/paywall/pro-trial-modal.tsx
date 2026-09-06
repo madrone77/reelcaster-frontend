@@ -24,10 +24,16 @@ import {
 } from "./trial-pitch";
 import PlanMatrix from "./plan-matrix";
 import TrialSheetPro from "./trial-sheet-pro";
+import TrialSheetStripe, { TRIAL_SHEET_TEST } from "./trial-sheet-stripe";
 import { useIsPhone } from "@/hooks/use-is-phone";
+import { cn } from "@/lib/utils";
 import { TRIAL_DAYS } from "@/lib/pricing";
-import { usePricing } from "@/app/components/split-test/use-pricing";
-import { useSplitExposure } from "@/app/components/split-test/report";
+import { usePricing, useSplitArms } from "@/app/components/split-test/use-pricing";
+import {
+  reportSplitArmCta,
+  reportSplitArmExposure,
+  useSplitExposure,
+} from "@/app/components/split-test/report";
 import {
   NAG_FEATURES,
   type NagFeatureId,
@@ -119,7 +125,18 @@ export default function ProTrialModal({
   const pricing = usePricing();
   useSplitExposure(pricing, "modal");
 
+  // Which phone sheet. A treatment arm, not a price: both sheets quote the
+  // same `pricing`. Read here rather than in the sheet so the exposure and
+  // the CTA below are counted by the component that owns every other count
+  // this modal makes. Null when the test is not running, and then the control
+  // sheet renders and nothing is reported.
   const phone = useIsPhone();
+  const sheetArm = useSplitArms()[TRIAL_SHEET_TEST] ?? null;
+  const sheetArmShown = phone && open ? sheetArm : null;
+  useEffect(() => {
+    if (!sheetArmShown) return;
+    reportSplitArmExposure(TRIAL_SHEET_TEST, sheetArmShown, "modal");
+  }, [sheetArmShown]);
 
   /**
    * The server-side counter behind /admin/reelcaster/paywalls and the
@@ -202,12 +219,16 @@ export default function ProTrialModal({
         feature,
         viewerTier,
         from,
+        ...(sheetArmShown ? { sheetArm: sheetArmShown } : {}),
         ...extra,
       });
       acted.current = true;
       bumpCounter("cta_click");
+      if (sheetArmShown) {
+        reportSplitArmCta(TRIAL_SHEET_TEST, sheetArmShown, "modal");
+      }
     },
-    [trackEvent, feature, viewerTier, from, bumpCounter],
+    [trackEvent, feature, viewerTier, from, bumpCounter, sheetArmShown],
   );
 
   useEffect(() => {
@@ -241,6 +262,7 @@ export default function ProTrialModal({
   // sheet's outside-tap listener could catch the tail of the opening tap and
   // dismiss the sheet on the spot. See the hook for the full story.
   if (phone) {
+    const Sheet = sheetArm === "b" ? TrialSheetStripe : TrialSheetPro;
     return (
       // handleOpenChange, not onOpenChange. Both shapes of this modal have to
       // close through the same handler or the sheet reports no dismissals at
@@ -254,9 +276,16 @@ export default function ProTrialModal({
           data-testid="pro-trial-modal"
           data-shape="sheet"
           data-feature={feature}
-          className="bg-rc-panel border-rc-rule text-rc-ink gap-0 p-0 [&>[data-slot=dialog-close]]:z-20"
+          data-sheet-arm={sheetArm ?? undefined}
+          // Arm b is a fixed height, near the top of the screen but not at
+          // it: the control is as tall as its rows and hangs a third of the
+          // way down, and the treatment reads as a page, not a tray.
+          className={cn(
+            "bg-rc-panel border-rc-rule text-rc-ink gap-0 p-0 [&>[data-slot=dialog-close]]:z-20",
+            sheetArm === "b" && "h-[94dvh] max-h-[94dvh]",
+          )}
         >
-          <TrialSheetPro
+          <Sheet
             placeName={spotName ?? placeName}
             // A spot when there is one, otherwise the city the map is on.
             placeKind={spotName ? 'spot' : 'city'}

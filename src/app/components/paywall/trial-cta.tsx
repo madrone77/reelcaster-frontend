@@ -473,10 +473,28 @@ export function TrialBuy({
   signupLabel,
   testId = 'trial-cta',
   className,
+  buttonClassName,
   hideLabel = false,
+  collectEmail = true,
 }: {
   signupHref?: string;
   signupLabel?: string;
+  /**
+   * Replaces the button's own classes, for a surface that draws the button to
+   * someone else's spec (the phone sheet draws it the way Stripe Checkout
+   * draws its pay button, so the two screens read as one flow). The default
+   * stays what every other surface renders.
+   */
+  buttonClassName?: string;
+  /**
+   * Whether a signed-out buyer types an email here before Stripe. Off, the
+   * button goes straight to checkout and Stripe's own form takes the email
+   * with the card, which is how the phone sheet works: one screen fewer, and
+   * the address is typed once. The trial-eligibility pre-check needs the
+   * address, so a surface that turns this off is trusting the webhook's
+   * guards to catch a repeat trial instead.
+   */
+  collectEmail?: boolean;
   /**
    * Keeps the email label for screen readers but takes it off the screen.
    *
@@ -499,6 +517,7 @@ export function TrialBuy({
   const emailFieldId = useId();
 
   const ctaClass =
+    buttonClassName ??
     'inline-flex w-full items-center justify-center rounded-lg bg-rc-brand px-4 py-2.5 text-sm font-bold text-white transition-colors hover:bg-rc-brand-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rc-brand focus-visible:ring-offset-2 disabled:opacity-60';
   const ctaLabel = s.trialOn
     ? `Start ${s.trialDays}-day free trial`
@@ -536,7 +555,23 @@ export function TrialBuy({
 
   return (
     <div className={cn('flex flex-col gap-2', className)}>
-      {s.anon && PAY_FIRST ? (
+      {s.anon && PAY_FIRST && !collectEmail ? (
+        // Pay first, sign up never, and Stripe asks for the email itself.
+        <button
+          type="button"
+          data-testid={testId}
+          data-plan="annual"
+          disabled={s.submitting}
+          onClick={() => {
+            s.reportStartClick();
+            s.onActivate?.('annual');
+            s.startAnonCheckout();
+          }}
+          className={ctaClass}
+        >
+          {s.submitting ? 'Starting…' : ctaLabel}
+        </button>
+      ) : s.anon && PAY_FIRST ? (
         // Pay first, sign up never: one email field, no password, no account.
         <form
           className="flex flex-col gap-2"

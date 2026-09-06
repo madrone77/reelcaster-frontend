@@ -210,9 +210,12 @@ function withSplitCookie(
  * customer attached — the customer, and then the user row, come into existence
  * downstream.
  *
- * The email is still collected in our UI (one field, no password) because it's
- * the only way to check trial eligibility BEFORE Stripe applies a trial. Layer
- * 3 in the webhook catches whatever slips through.
+ * The email is optional. When the UI collects it (one field, no password) it
+ * is the only way to check trial eligibility BEFORE Stripe applies a trial.
+ * The phone sheet stopped collecting it (2026-09-06: the button goes straight
+ * to Stripe, which takes the email and the card on one screen), and for that
+ * caller the pre-check is skipped, the trial is offered, and the webhook's
+ * guards catch a repeat. A bad email is still refused; an absent one is not.
  */
 async function anonCheckout(request: NextRequest) {
   // Off until someone has watched one real transaction go through. Every
@@ -230,8 +233,8 @@ async function anonCheckout(request: NextRequest) {
   }
 
   const email = (body.email ?? '').toString().trim().toLowerCase();
-  if (!EMAIL_RE.test(email)) {
-    return NextResponse.json({ error: 'email_required' }, { status: 400 });
+  if (email && !EMAIL_RE.test(email)) {
+    return NextResponse.json({ error: 'email_invalid' }, { status: 400 });
   }
 
   const region = (body.region ?? '').toString().trim();
@@ -262,7 +265,11 @@ async function anonCheckout(request: NextRequest) {
     );
   }
 
-  const eligibility = await checkTrialEligibilityByEmail(admin, email);
+  // No email, no pre-check: Stripe collects the address and the webhook's
+  // guards decide after the fact.
+  const eligibility = email
+    ? await checkTrialEligibilityByEmail(admin, email)
+    : { eligible: true as const };
   const trialEligible = eligibility.eligible;
   if (!trialEligible) {
     console.info('[stripe checkout] anon trial withheld', eligibility.reason);
@@ -273,8 +280,9 @@ async function anonCheckout(request: NextRequest) {
     const session = await stripe.checkout.sessions.create({
       mode: 'subscription',
       // No `customer`: Stripe creates one from the email it collects, and the
-      // webhook binds it to the account it provisions.
-      customer_email: email,
+      // webhook binds it to the account it provisions. Prefilled only when
+      // our UI collected one; otherwise Stripe's own field asks.
+      ...(email ? { customer_email: email } : {}),
       currency,
       line_items: [{ price: priced.priceId, quantity: 1 }],
       allow_promotion_codes: true,
@@ -285,7 +293,7 @@ async function anonCheckout(request: NextRequest) {
         // No supabase_user_id yet — `anon_checkout` is the webhook's signal to
         // provision one rather than log an unresolvable subscription.
         anon_checkout: 'true',
-        checkout_email: email,
+        ...(email ? { checkout_email: email } : {}),
         plan: 'annual',
         currency,
         region: region || '',
@@ -295,7 +303,7 @@ async function anonCheckout(request: NextRequest) {
       subscription_data: {
         metadata: {
           anon_checkout: 'true',
-          checkout_email: email,
+          ...(email ? { checkout_email: email } : {}),
           plan: 'annual',
           currency,
           trial: String(trialEligible),
