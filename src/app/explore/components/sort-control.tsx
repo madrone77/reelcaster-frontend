@@ -1,16 +1,9 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import dynamic from "next/dynamic";
 import { ArrowUpDown } from "lucide-react";
 import type { RailSpot } from "../lib/explore-data";
 import type { FreshCatchesResponse } from "../lib/fresh-catch-types";
-import { useSubscription } from "@/hooks/use-subscription";
-
-const ProTrialModal = dynamic(
-  () => import("@/app/components/paywall/pro-trial-modal"),
-  { ssr: false },
-);
 
 export type SortKey = "score" | "active" | "name";
 
@@ -20,19 +13,16 @@ export const SORT_LABEL: Record<SortKey, string> = {
   name: "Name A-Z",
 };
 
-/** Sorts that read Pro-only data. Picking one as a free or anonymous viewer
- *  opens the Pro modal instead of reordering: the ranking would give away
- *  which spots carry catch reports, the same fact the badge hides from them. */
-const PRO_SORTS: ReadonlySet<SortKey> = new Set<SortKey>(["active"]);
-
 const byScore = (a: RailSpot, b: RailSpot) => (b.score ?? -1) - (a.score ?? -1);
 
 /** Rail-local presentation sort (never reorders the map / forecast anchor).
  *
- *  `fresh` is the Pro-gated catch-report payload. "Most active" ranks by its
- *  report count inside the intel window; a spot the payload has not landed for
- *  yet falls back to the boolean `hasReports` that rides on the map payload, so
- *  tracked spots still float up on the first paint. Ties break on score. */
+ *  `fresh` is the catch-report payload. "Most active" ranks by its activity
+ *  rank, an ordinal the route hands every viewer, so anonymous, free and Pro
+ *  all get the same order even though only Pro sees the counts behind it.
+ *  Before the payload lands it falls back to the boolean `hasReports` on the
+ *  map payload, so tracked spots still float up on the first paint. Spots
+ *  without reports follow, by score. */
 export function sortSpots(
   spots: RailSpot[],
   sort: SortKey,
@@ -42,8 +32,14 @@ export function sortSpots(
     return [...spots].sort((a, b) => a.name.localeCompare(b.name));
   }
   if (sort === "active") {
-    const activity = (s: RailSpot) =>
-      fresh?.spots[s.id]?.count ?? (s.hasReports ? 0.5 : 0);
+    // Higher is busier. A ranked spot beats any unranked one; among the
+    // unranked, a tracked spot beats an untracked one.
+    const activity = (s: RailSpot) => {
+      const e = fresh?.spots[s.id];
+      if (e?.rank != null) return 1_000_000 - e.rank;
+      if (e?.count != null) return e.count;
+      return s.hasReports ? 0.5 : 0;
+    };
     return [...spots].sort(
       (a, b) => activity(b) - activity(a) || byScore(a, b),
     );
@@ -64,9 +60,7 @@ export default function SortControl({
   onSort: (key: SortKey) => void;
 }) {
   const [open, setOpen] = useState(false);
-  const [upgradeOpen, setUpgradeOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
-  const { isPaid } = useSubscription();
 
   useEffect(() => {
     if (!open) return;
@@ -104,12 +98,8 @@ export default function SortControl({
               key={key}
               type="button"
               onClick={() => {
-                setOpen(false);
-                if (PRO_SORTS.has(key) && !isPaid) {
-                  setUpgradeOpen(true);
-                  return;
-                }
                 onSort(key);
+                setOpen(false);
               }}
               className={`w-full text-left px-3 py-2 text-sm transition-colors ${
                 sort === key
@@ -122,14 +112,6 @@ export default function SortControl({
           ))}
         </div>
       )}
-      {/* Same pitch as the reports badge: the offer is the reporting stream,
-          which is also what this ranking reads. */}
-      <ProTrialModal
-        open={upgradeOpen}
-        onOpenChange={setUpgradeOpen}
-        feature="catch-reports"
-        from="explore-sort-most-active"
-      />
     </div>
   );
 }

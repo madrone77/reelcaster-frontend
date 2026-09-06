@@ -17,6 +17,9 @@ export type { FreshCatchVerdict, FreshCatchSpecies };
 
 export interface RailFreshCatch {
   locked: boolean;
+  /** Ordinal among the spots in the payload, 1 = busiest. Present on locked
+   *  entries too: it orders a free viewer's rail without disclosing a count. */
+  rank?: number;
   verdict?: FreshCatchVerdict;
   count?: number;
   positive?: number;
