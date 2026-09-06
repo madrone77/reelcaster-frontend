@@ -1,12 +1,16 @@
 /**
- * Meta traffic skips the landing pages and lands on the map.
+ * Where a Meta click on a landing page goes: the city's /5 page, or the map.
  *
  * Every Meta ad still points at a /lp page, because re-pointing an ad in
- * Meta restarts its learning. The edge sends a Meta click straight on to
- * `/explore?loc=<city>&ad=day2` instead: the ad-framed Explore, opened on the
- * city the landing page was about, with the two-day wall the landing pages'
- * own CTA already links to (src/app/lp/_shared/lp-via.ts builds the same
- * href). Google traffic is left alone and still reads the landing page.
+ * Meta restarts its learning. The edge decides what the click actually
+ * reads. From 2026-09-06 every Meta click went straight on to
+ * `/explore?loc=<city>&ad=day2`: the ad-framed Explore, opened on the city
+ * the landing page was about, with the two-day wall the landing pages' own
+ * CTA already links to (src/app/lp/_shared/lp-via.ts builds the same href).
+ * Now that is one arm of a split (src/lib/lp-splits.ts, `meta_lp5_explore`):
+ * the other arm reads the city's /5 landing page, and the two are compared
+ * on the same ad and the same audience. Google traffic is left alone and
+ * still reads the landing page.
  *
  * WHY A REDIRECT AND NOT A REWRITE: the same reasons as src/lib/lp-splits.ts.
  * The address bar, the pixel's page view and our first-touch cookie all name
@@ -93,6 +97,50 @@ export function lpCityFor(pathname: string, search: string): string | null {
 /** Is this a landing-page URL at all? Only /lp pages are ever hopped. */
 export function isLpPath(pathname: string): boolean {
   return /^\/lp(\/|$)/.test(pathname);
+}
+
+/**
+ * The city's /5 landing page, for a Meta click that landed on a city-first
+ * page at another number: `/lp/vancouver/4` → `/lp/vancouver/5`. Null when
+ * the click is already on a /5 page, or on a page with no city-first family
+ * (the doorway and the variant-first pages read as they are: they have no
+ * "/5 for this city" the ad could have pointed at). The query rides along.
+ */
+export function lpFiveHop(pathname: string, search: string): string | null {
+  const path = pathname.replace(/\/+$/, '');
+  const m = path.match(/^\/lp\/([^/]+)\/([^/]+)$/);
+  if (!m) return null;
+  const [, city, variant] = m;
+  if (!CITY_FIRST_LANDINGS[city]) return null;
+  if (variant === '5') return null;
+  return `/lp/${city}/5${search}`;
+}
+
+/** Is this a request the Meta split decides at all: a Meta click on a landing page? */
+export function isMetaLpArrival(input: {
+  pathname: string;
+  search: string;
+  referrer: string;
+}): boolean {
+  return isLpPath(input.pathname) && isMetaTraffic(input);
+}
+
+/**
+ * Where a Meta click on a landing page goes, given its arm, as a path plus
+ * query, or null when this request should read the page it asked for.
+ *
+ * Arm `b` is the map (metaExploreHop below). Arm `a` is the city's /5
+ * landing page, which is a hop only when the ad pointed at another number.
+ */
+export function metaLpDestination(input: {
+  pathname: string;
+  search: string;
+  referrer: string;
+  arm: 'a' | 'b';
+}): string | null {
+  if (!isMetaLpArrival(input)) return null;
+  if (input.arm === 'b') return metaExploreHop(input);
+  return lpFiveHop(input.pathname, input.search);
 }
 
 /**

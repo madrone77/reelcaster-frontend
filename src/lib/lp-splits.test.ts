@@ -3,17 +3,20 @@ import {
   CONTROL_ARM,
   LP_SPLITS,
   TREATMENT_ARM,
+  isPageSplit,
+  metaSplit,
   parseLpSplitCookie,
   resolveLpArm,
   serializeLpSplitArms,
   splitForPath,
+  type LpPageSplit,
   type LpSplit,
 } from "./lp-splits";
 
 const tests: Array<[string, () => void]> = [];
 const test = (name: string, fn: () => void) => tests.push([name, fn]);
 
-const SPLIT: LpSplit = {
+const SPLIT: LpPageSplit = {
   key: "vancouver_4_5",
   control: "/lp/vancouver/4",
   treatment: "/lp/vancouver/5",
@@ -95,17 +98,38 @@ test("the cookie round-trips and refuses what it did not write", () => {
   assert.deepEqual(parseLpSplitCookie("vancouver_4_5:z|Bad-Key:a|noarm"), {});
 });
 
+test("the Meta split is found by kind and never by path", () => {
+  const META: LpSplit = { kind: "meta", key: "meta_lp5_explore", share: 0.5 };
+  const both = [SPLIT, META];
+  assert.equal(metaSplit(both), META);
+  assert.equal(metaSplit(ONLY), null);
+  assert.equal(splitForPath("/lp/vancouver/4", both), SPLIT);
+  assert.equal(splitForPath("/lp/seattle/5", both), null);
+  assert.equal(isPageSplit(META), false);
+  assert.equal(isPageSplit(SPLIT), true);
+  // A Meta arm assigned first survives the page split's own resolution.
+  const meta = resolveLpArm(META, {}, 0.1, both);
+  assert.deepEqual(meta.arms, { meta_lp5_explore: "b" });
+  const page = resolveLpArm(SPLIT, meta.arms, 0.9, both);
+  assert.deepEqual(page.arms, { meta_lp5_explore: "b", vancouver_4_5: "a" });
+});
+
 test("the live table is well formed", () => {
+  const keys = LP_SPLITS.map((s) => s.key);
+  assert.equal(new Set(keys).size, keys.length, "keys are unique");
   for (const s of LP_SPLITS) {
     assert.match(s.key, /^[a-z0-9_]{1,64}$/);
+    assert.ok(s.share >= 0 && s.share <= 1);
+    if (!isPageSplit(s)) continue;
     assert.ok(s.control.startsWith("/lp/"), s.control);
     assert.ok(s.treatment.startsWith("/lp/"), s.treatment);
     assert.notEqual(s.control, s.treatment);
-    assert.ok(s.share >= 0 && s.share <= 1);
     // The treatment must never itself be a control, or a visitor could be
     // bounced twice.
     assert.equal(splitForPath(s.treatment), null);
   }
+  // At most one Meta split: every Meta click is dealt exactly one arm.
+  assert.ok(LP_SPLITS.filter((s) => s.kind === "meta").length <= 1);
 });
 
 let failed = 0;

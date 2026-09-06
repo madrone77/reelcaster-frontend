@@ -19,15 +19,18 @@ import { classifyPage, classifySource } from '@/lib/traffic-source'
 import { pacificDay } from '@/lib/pacific-day'
 import { newFishingPath } from '@/lib/legacy-fishing-paths'
 import { isSpotPath } from '@/lib/paths'
-import { metaExploreHop } from '@/lib/meta-lp-hop'
+import { isMetaLpArrival, metaLpDestination } from '@/lib/meta-lp-hop'
 import {
+  CONTROL_ARM,
   LP_SPLIT_COOKIE,
   LP_SPLIT_COOKIE_MAX_AGE,
   TREATMENT_ARM,
+  metaSplit,
   parseLpSplitCookie,
   resolveLpArm,
   serializeLpSplitArms,
   splitForPath,
+  type LpArm,
 } from '@/lib/lp-splits'
 
 // Legacy coming-soon wall, now scoped to nothing.
@@ -303,30 +306,49 @@ export function middleware(req: NextRequest, event: NextFetchEvent) {
     return NextResponse.redirect(url, 308)
   }
 
-  // Meta traffic skips the landing page and lands on the ad-framed map.
+  // The arm memberships this browser already holds, and whether they need
+  // writing back. Both landing splits below read and extend the same jar, so
+  // one cannot overwrite the other's fresh assignment.
+  let lpArms = parseLpSplitCookie(req.cookies.get(LP_SPLIT_COOKIE)?.value)
+  let pendingLpArms: string | null = null
+  const isPerson = !isBotUserAgent(req.headers.get('user-agent'))
+
+  // Meta traffic on a landing page: the city's /5 page, or the ad-framed map.
   //
   // The Meta ads keep pointing at /lp pages (re-pointing an ad restarts its
-  // learning); the edge sends the click on to `/explore?loc=<city>&ad=day2`,
-  // the same href the landing pages' own CTA carries. Google traffic falls
-  // through and reads the page. Above the landing split and above the
-  // page-view count for the same reason the split is: the request that
+  // learning); the edge decides what the click reads. Half are sent on to
+  // `/explore?loc=<city>&ad=day2`, the same href the landing pages' own CTA
+  // carries; the other half read the city's /5 landing page (a click on
+  // /lp/vancouver/4 is sent to /lp/vancouver/5 first). Google traffic falls
+  // through and reads the page. Above the page split and above the
+  // page-view count for the same reason the page split is: the request that
   // follows the 307 is the one counted and stamped, and a Meta visitor must
-  // not be dealt a split arm for a page they never see. Only a person arriving
-  // at a page is hopped; prefetches and RSC fetches pass through. Bots are
-  // hopped too, so Meta's link preview shows the page people actually see.
-  // See src/lib/meta-lp-hop.ts.
+  // not be dealt a page-split arm for a page they never see. Only a person
+  // arriving at a page is hopped; prefetches and RSC fetches pass through.
+  // A self-declaring crawler is dealt the control and no cookie, so Meta's
+  // link preview is the /5 landing page. See src/lib/meta-lp-hop.ts for the
+  // destinations and src/lib/lp-splits.ts for the share.
   if (req.method === 'GET' && isPageView(req)) {
-    const hop = metaExploreHop({
+    const arrival = {
       pathname,
       search: req.nextUrl.search,
       referrer: req.headers.get('referer') ?? '',
-    })
+    }
+    const meta = metaSplit()
+    let arm: LpArm = CONTROL_ARM
+    if (meta && isPerson && isMetaLpArrival(arrival)) {
+      const resolved = resolveLpArm(meta, lpArms, Math.random())
+      lpArms = resolved.arms
+      if (resolved.changed) pendingLpArms = serializeLpSplitArms(resolved.arms)
+      arm = resolved.arm
+    }
+    const hop = meta ? metaLpDestination({ ...arrival, arm }) : null
     if (hop) {
       const url = req.nextUrl.clone()
       const [hopPath, hopQuery = ''] = hop.split('?')
       url.pathname = hopPath
       url.search = hopQuery ? `?${hopQuery}` : ''
-      return NextResponse.redirect(url, 307)
+      return withLpArms(req, NextResponse.redirect(url, 307), pendingLpArms)
     }
   }
 
@@ -346,19 +368,10 @@ export function middleware(req: NextRequest, event: NextFetchEvent) {
   // held in a cookie so a return visit lands on the same page. See
   // src/lib/lp-splits.ts for the table, and for why this is not the
   // registry-driven split-test system.
-  let pendingLpArms: string | null = null
   const lpSplit = splitForPath(pathname)
-  if (
-    lpSplit &&
-    req.method === 'GET' &&
-    isPageView(req) &&
-    !isBotUserAgent(req.headers.get('user-agent'))
-  ) {
-    const resolved = resolveLpArm(
-      lpSplit,
-      parseLpSplitCookie(req.cookies.get(LP_SPLIT_COOKIE)?.value),
-      Math.random(),
-    )
+  if (lpSplit && req.method === 'GET' && isPageView(req) && isPerson) {
+    const resolved = resolveLpArm(lpSplit, lpArms, Math.random())
+    lpArms = resolved.arms
     if (resolved.changed) pendingLpArms = serializeLpSplitArms(resolved.arms)
     if (resolved.arm === TREATMENT_ARM) {
       const url = req.nextUrl.clone()

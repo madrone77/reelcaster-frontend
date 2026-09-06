@@ -1,5 +1,5 @@
 import assert from "node:assert";
-import { isMetaTraffic, lpCityFor, metaExploreHop } from "./meta-lp-hop";
+import { isMetaLpArrival, isMetaTraffic, lpCityFor, lpFiveHop, metaExploreHop, metaLpDestination } from "./meta-lp-hop";
 
 const tests: Array<[string, () => void]> = [];
 const test = (name: string, fn: () => void) => tests.push([name, fn]);
@@ -113,6 +113,44 @@ test("Meta traffic anywhere but a landing page is left alone", () => {
   for (const path of ["/", "/explore", "/fishing/us/wa/seattle-wa/jefferson-head-d0d536", "/lpx", "/plans"]) {
     assert.equal(metaExploreHop({ pathname: path, search: "?fbclid=x", referrer: "" }), null, path);
   }
+});
+
+test("the control arm reads the city's /5 page: a hop only from another number", () => {
+  assert.equal(lpFiveHop("/lp/vancouver/4", "?utm_source=meta&a=green"), "/lp/vancouver/5?utm_source=meta&a=green");
+  assert.equal(lpFiveHop("/lp/seattle/1/", ""), "/lp/seattle/5");
+  assert.equal(lpFiveHop("/lp/tacoma/5", "?fbclid=x"), null);
+  assert.equal(lpFiveHop("/lp/vancouver/5/", ""), null);
+  // No city-first family: the page reads as it is.
+  assert.equal(lpFiveHop("/lp/5/seattle-wa", ""), null);
+  assert.equal(lpFiveHop("/lp/5", "?city=seattle-wa"), null);
+  assert.equal(lpFiveHop("/lp/victoria/4", ""), null);
+  assert.equal(lpFiveHop("/explore", ""), null);
+});
+
+test("the destination follows the arm, and only for a Meta click on a landing page", () => {
+  const meta = { pathname: "/lp/vancouver/4", search: "?utm_source=meta&fbclid=z", referrer: "" };
+  assert.equal(isMetaLpArrival(meta), true);
+  assert.equal(metaLpDestination({ ...meta, arm: "a" }), "/lp/vancouver/5?utm_source=meta&fbclid=z");
+  const b = metaLpDestination({ ...meta, arm: "b" });
+  assert.ok(b && b.startsWith("/explore?"));
+  assert.equal(new URLSearchParams(b!.split("?")[1]).get("loc"), "vancouver-bc");
+  assert.equal(new URLSearchParams(b!.split("?")[1]).get("ad"), "day2");
+
+  // Already on /5: the control arm reads the page, the treatment still hops.
+  const five = { pathname: "/lp/tacoma/5", search: "?utm_source=meta", referrer: "" };
+  assert.equal(metaLpDestination({ ...five, arm: "a" }), null);
+  const fiveB = metaLpDestination({ ...five, arm: "b" });
+  assert.ok(fiveB?.startsWith("/explore?"));
+  assert.equal(new URLSearchParams(fiveB!.split("?")[1]).get("loc"), "tacoma-wa");
+
+  // Google reads the landing page whatever the arm.
+  const google = { pathname: "/lp/vancouver/4", search: "?gclid=1&utm_source=google", referrer: "" };
+  assert.equal(isMetaLpArrival(google), false);
+  assert.equal(metaLpDestination({ ...google, arm: "a" }), null);
+  assert.equal(metaLpDestination({ ...google, arm: "b" }), null);
+
+  // Off the landing pages nothing is decided.
+  assert.equal(metaLpDestination({ pathname: "/explore", search: "?fbclid=1", referrer: "", arm: "b" }), null);
 });
 
 let failed = 0;
