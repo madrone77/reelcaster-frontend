@@ -5,7 +5,6 @@ import { createPortal } from "react-dom";
 import {
   Building2,
   ChevronDown,
-  Fish,
   Loader2,
   LocateFixed,
   Map as MapIcon,
@@ -41,12 +40,11 @@ interface MapControlsProps {
   locating: boolean;
 }
 
-const KIND_ICON = {
+const KIND_ICON: Partial<Record<SearchResult["kind"], typeof MapPin>> = {
   spot: MapPin,
   city: Building2,
   region: MapIcon,
-  species: Fish,
-} as const;
+};
 
 /**
  * The rail header pill ("Victoria · South Vancouver Island" + ⌄) and the
@@ -59,12 +57,13 @@ const KIND_ICON = {
  * Two modes share one panel:
  *  - **Empty query — browse.** The flat city list, as before. Still the fastest
  *    path when you just want to hop between covered cities.
- *  - **Typing — search.** A debounced server query across spots, cities, areas
- *    and species. Results arrive pre-ranked and flat; we group them for display
- *    but never re-sort inside a group, because that order IS the ranking.
+ *  - **Typing — search.** A debounced server query across spots, cities and
+ *    areas. Results arrive pre-ranked and flat; we group them for display but
+ *    never re-sort inside a group, because that order IS the ranking.
  *
- * Picking a result moves the map (or, for species, applies the filter). It
- * never filters the rail by name — the rail follows the viewport, always.
+ * Picking a result moves the map. It never filters the rail by name — the rail
+ * follows the viewport, always. Species is not a search result on any
+ * breakpoint: it is a filter, and the filter controls own it.
  */
 export default function LocationSelector({
   locations,
@@ -72,7 +71,6 @@ export default function LocationSelector({
   onSelectCity,
   onSelectSpot,
   onSelectRegion,
-  onSelectSpecies,
   compact = false,
   onNearMe,
   locating = false,
@@ -88,8 +86,6 @@ export default function LocationSelector({
   onSelectSpot: (slug: string, lat: number, lng: number) => void;
   /** Search pick: frame a whole area from its bbox [w,s,e,n]. */
   onSelectRegion: (bbox: number[]) => void;
-  /** Search pick: pin the species filter rather than moving the map. */
-  onSelectSpecies: (id: string, name: string) => void;
   /** Mobile only — render the trigger as a Search pill rather than the city
    *  row. The phone's top row (MobileTopRow) carries Filters and Add spot
    *  beside it; this component only owns the search and the sheet it opens. */
@@ -113,15 +109,7 @@ export default function LocationSelector({
   const listRef = useRef<HTMLDivElement>(null);
 
   const searching = query.trim().length >= 2;
-  const { results: allResults, loading, truncated, settled } = useSearch(query, near);
-  // The phone's search finds places, not fish. Species already has a home one
-  // tap away in the filter sheet, and a species row in a list of spots and
-  // cities was the one result that moved nothing on the map. Desktop keeps
-  // species: its rail has no filter sheet, so search is how it gets there.
-  const results = useMemo(
-    () => (compact ? allResults.filter((r) => r.kind !== "species") : allResults),
-    [allResults, compact],
-  );
+  const { results, loading, truncated, settled } = useSearch(query, near);
   const groups = useMemo(() => groupResults(results), [results]);
   const [flat, active, setActive, handleNavKey] = useFlatNavigation(groups);
 
@@ -223,9 +211,6 @@ export default function LocationSelector({
       case "region":
         if (r.bbox && r.bbox.length === 4) onSelectRegion(r.bbox);
         break;
-      case "species":
-        onSelectSpecies(r.id, r.name);
-        break;
     }
   };
 
@@ -256,12 +241,8 @@ export default function LocationSelector({
             }
             if (e.key === "Enter" && cities.length > 0) pickCity(cities[0]);
           }}
-          placeholder={compact ? "Search spots and cities…" : "Search spots, cities, species…"}
-          aria-label={
-            compact
-              ? "Search spots, cities and areas"
-              : "Search spots, cities, areas and species"
-          }
+          placeholder="Search spots and cities…"
+          aria-label="Search spots, cities and areas"
           className="w-full bg-transparent text-sm text-rc-ink outline-none placeholder:text-rc-ink-mute"
         />
         {loading && (
@@ -334,7 +315,7 @@ export default function LocationSelector({
                 {group.heading}
               </div>
               {group.items.map((r) => {
-                const Icon = KIND_ICON[r.kind];
+                const Icon = KIND_ICON[r.kind] ?? MapPin;
                 const navIndex = flat.indexOf(r);
                 return (
                   <button
@@ -398,7 +379,7 @@ export default function LocationSelector({
           type="button"
           onClick={() => setOpen((v) => !v)}
           aria-expanded={open}
-          aria-label="Search spots, cities and species"
+          aria-label="Search spots and cities"
           className={`${MARK_WIDTH_CLASS} flex h-11 shrink-0 items-center justify-center gap-2 rounded-full border border-rc-rule bg-rc-panel/95 text-[14px] font-semibold text-rc-ink shadow-rc-panel backdrop-blur`}
         >
           <Search className="h-4 w-4 shrink-0 text-rc-ink-mute" />

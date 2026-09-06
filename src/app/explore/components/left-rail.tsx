@@ -54,7 +54,6 @@ export default function LeftRail({
   onSelectSpot,
   onSearchSelectSpot,
   onSearchSelectRegion,
-  onSearchSelectSpecies,
   searchNear,
   onCloseSpot,
   onCloseStation,
@@ -84,7 +83,6 @@ export default function LeftRail({
       usually outside the viewport and so absent from the loaded payload. */
   onSearchSelectSpot: (slug: string, lat: number, lng: number) => void;
   onSearchSelectRegion: (bbox: number[]) => void;
-  onSearchSelectSpecies: (id: string, name: string) => void;
   /** Viewport centre — tie-break only, never a filter. */
   searchNear?: { lat: number; lng: number };
   onCloseSpot: () => void;
@@ -192,7 +190,6 @@ export default function LeftRail({
               onSelectCity={onSelectCity}
               onSelectSpot={onSearchSelectSpot}
               onSelectRegion={onSearchSelectRegion}
-              onSelectSpecies={onSearchSelectSpecies}
               near={searchNear}
               mapControls={mapControls}
               onCollapse={() => setCollapsed(true)}

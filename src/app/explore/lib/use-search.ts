@@ -14,7 +14,6 @@ export const SEARCH_GROUPS: { kind: SearchKind; heading: string }[] = [
   { kind: "spot", heading: "Spots" },
   { kind: "city", heading: "Cities" },
   { kind: "region", heading: "Areas" },
-  { kind: "species", heading: "Species" },
 ];
 
 /** Max rows rendered per group. The ranking decides which ones survive. */

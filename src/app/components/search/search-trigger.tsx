@@ -53,7 +53,7 @@ export default function SearchTrigger({ brand = false }: { brand?: boolean }) {
       <button
         type="button"
         onClick={() => setOpen(true)}
-        aria-label="Search spots, cities and species"
+        aria-label="Search spots and cities"
         className={`flex items-center gap-2 rounded px-2 h-8 text-sm transition-colors ${
           brand
             ? 'text-white/80 hover:text-white hover:bg-white/10'
