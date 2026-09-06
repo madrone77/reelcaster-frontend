@@ -1,12 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
 import { fetchMapForecast14d } from "@/lib/bluecaster";
-import { getUserIdFromRequest } from "@/lib/server-auth";
-import { resolveEntitlement } from "@/lib/entitlement";
-import {
-  stripViewportForecast,
-  visibleForecastDays,
-} from "@/lib/forecast-horizon";
+import { callerVisibleDays } from "@/lib/caller-horizon";
+import { stripViewportForecast } from "@/lib/forecast-horizon";
 
 /**
  * Same-origin proxy → BlueCaster GET /api/v1/map/forecast-14d.
@@ -22,19 +17,6 @@ import {
  * private-cacheable only.
  */
 
-const supabaseAdmin = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!,
-  { auth: { autoRefreshToken: false, persistSession: false } },
-);
-
-async function callerVisibleDays(request: NextRequest): Promise<number> {
-  const userId = await getUserIdFromRequest(request);
-  if (!userId) return visibleForecastDays(false, false);
-
-  const { isPro } = await resolveEntitlement(supabaseAdmin, userId);
-  return visibleForecastDays(true, isPro);
-}
 
 export async function GET(request: NextRequest) {
   const sp = request.nextUrl.searchParams;

@@ -18,6 +18,7 @@ import {
 } from "./lib/explore-data";
 import {
   ANON_STRIP_DAYS,
+  stripDaysFor,
   buildViewportForecastDays,
   type ForecastDay,
   DESKTOP_STRIP_H,
@@ -26,6 +27,7 @@ import {
   type ForecastTier,
 } from "./lib/forecast-strip";
 import { boundsOf, paddedBbox, SPOT_LINK_ZOOM } from "./lib/viewport-bbox";
+import { forecastDayIndex } from "@/lib/forecast-horizon";
 import { useMountedOnce } from "@/hooks/use-mounted-once";
 import { useUpgradeNag } from "@/hooks/use-upgrade-nag";
 import { noteEngagement } from "@/lib/upgrade-nag";
@@ -1363,6 +1365,19 @@ export default function ExploreShell({
       pendingFrom,
     );
   }, [displayForecast, speciesFilter, accessTier, pendingFrom]);
+
+  // A selected day the viewer cannot see comes off the URL as soon as the tier
+  // is known. It gets there two ways: `?day=` typed or shared, and a tap on a
+  // tile the rail had not resolved yet. The spots proxy now answers such a day
+  // with no scores, so leaving it selected would mean a locked tile over a
+  // map of grey pins. Today is always inside every horizon, so it is the day
+  // to fall back to, and it is what a bare /explore means anyway.
+  useEffect(() => {
+    if (tierLoading || !day) return;
+    if (forecastDayIndex(today, day) >= stripDaysFor(accessTier)) {
+      setQuery({ day: null });
+    }
+  }, [tierLoading, day, today, accessTier, setQuery]);
 
   // ── The previewed spot's own fortnight ──────────────────────────────────
   //

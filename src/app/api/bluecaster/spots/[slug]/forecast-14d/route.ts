@@ -1,8 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
 import { fetchSpotForecast14d } from "@/lib/bluecaster";
 import { getUserIdFromRequest } from "@/lib/server-auth";
-import { resolveEntitlement } from "@/lib/entitlement";
+import { callerVisibleDays } from "@/lib/caller-horizon";
 import type { Forecast14dPayload } from "@/lib/bluecaster/live-spot-types";
 
 /**
@@ -20,26 +19,6 @@ import type { Forecast14dPayload } from "@/lib/bluecaster/live-spot-types";
  * anonymous 2 days, free account 7, Pro 14 (Bearer token, same pattern
  * as /api/spot-page).
  */
-
-/** Server-side mirrors of ANON_STRIP_DAYS / FREE_STRIP_DAYS in
- *  src/app/explore/lib/forecast-strip.ts. */
-const ANON_FORECAST_DAYS = 2;
-const FREE_FORECAST_DAYS = 7;
-
-const supabaseAdmin = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!,
-  { auth: { autoRefreshToken: false, persistSession: false } },
-);
-
-/** How many forecast days this caller may see: anon 2, free 7, Pro 14. */
-async function callerVisibleDays(request: NextRequest): Promise<number> {
-  const userId = await getUserIdFromRequest(request);
-  if (!userId) return ANON_FORECAST_DAYS;
-
-  const { isPro } = await resolveEntitlement(supabaseAdmin, userId);
-  return isPro ? 14 : FREE_FORECAST_DAYS;
-}
 
 /**
  * Null out the forecast data for days past the free horizon. Day entries
