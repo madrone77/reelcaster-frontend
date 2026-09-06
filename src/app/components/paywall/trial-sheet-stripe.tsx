@@ -3,12 +3,7 @@
 import Link from 'next/link';
 import { Check } from 'lucide-react';
 import { DialogDescription, DialogTitle } from '@/components/ui/dialog';
-import {
-  TrialBuy,
-  TrialCtaProvider,
-  TrialExpress,
-  useTrialCta,
-} from './trial-cta';
+import { TrialBuy, TrialCtaProvider, useTrialCta } from './trial-cta';
 import Testimonial from './testimonial';
 import { TRIAL_DAYS } from '@/lib/pricing';
 import { PRO_FORECAST_DAYS } from '@/lib/forecast-horizon';
@@ -51,7 +46,8 @@ const STRIPE_BUTTON =
  * - Stripe's header (the round R mark and "ReelCaster") at Stripe's sizes.
  * - Stripe's offer block, centred: "Try ReelCaster Pro" over "7 days free".
  * - Stripe's button shape, in our blue, with the first charge stated under
- *   it rather than over the headline.
+ *   it rather than over the headline. One button: no wallet row above it and
+ *   no "or pay by card" divider (2026-09-06).
  * - No email field. Stripe asks for the address with the card, so the buyer
  *   types it once; see `collectEmail` on TrialBuy for what that costs.
  * - The rows in Casey's order, with "And more..." closing the list.
@@ -154,15 +150,15 @@ export default function TrialSheetStripe({
             {ctaLabel}
           </Link>
         ) : (
-          <>
-            <TrialExpress region={region} className="mb-3" />
-            <TrialBuy
-              signupLabel={ctaLabel}
-              hideLabel
-              collectEmail={false}
-              buttonClassName={STRIPE_BUTTON}
-            />
-          </>
+          // No wallet row and no "or pay by card" divider above the button:
+          // one button, the way Stripe's page has one. Apple Pay is still
+          // offered on that page for anyone whose device has it.
+          <TrialBuy
+            signupLabel={ctaLabel}
+            hideLabel
+            collectEmail={false}
+            buttonClassName={STRIPE_BUTTON}
+          />
         )}
         {/* The first charge, under the button the way Stripe's page puts the
             terms under Start trial: the reader sees the date and the amount
