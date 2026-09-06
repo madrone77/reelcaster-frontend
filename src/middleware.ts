@@ -19,6 +19,7 @@ import { classifyPage, classifySource } from '@/lib/traffic-source'
 import { pacificDay } from '@/lib/pacific-day'
 import { newFishingPath } from '@/lib/legacy-fishing-paths'
 import { isSpotPath } from '@/lib/paths'
+import { metaExploreHop } from '@/lib/meta-lp-hop'
 import {
   LP_SPLIT_COOKIE,
   LP_SPLIT_COOKIE_MAX_AGE,
@@ -300,6 +301,33 @@ export function middleware(req: NextRequest, event: NextFetchEvent) {
     const url = req.nextUrl.clone()
     url.pathname = movedFishingPath
     return NextResponse.redirect(url, 308)
+  }
+
+  // Meta traffic skips the landing page and lands on the ad-framed map.
+  //
+  // The Meta ads keep pointing at /lp pages (re-pointing an ad restarts its
+  // learning); the edge sends the click on to `/explore?loc=<city>&ad=day2`,
+  // the same href the landing pages' own CTA carries. Google traffic falls
+  // through and reads the page. Above the landing split and above the
+  // page-view count for the same reason the split is: the request that
+  // follows the 307 is the one counted and stamped, and a Meta visitor must
+  // not be dealt a split arm for a page they never see. Only a person arriving
+  // at a page is hopped; prefetches and RSC fetches pass through. Bots are
+  // hopped too, so Meta's link preview shows the page people actually see.
+  // See src/lib/meta-lp-hop.ts.
+  if (req.method === 'GET' && isPageView(req)) {
+    const hop = metaExploreHop({
+      pathname,
+      search: req.nextUrl.search,
+      referrer: req.headers.get('referer') ?? '',
+    })
+    if (hop) {
+      const url = req.nextUrl.clone()
+      const [hopPath, hopQuery = ''] = hop.split('?')
+      url.pathname = hopPath
+      url.search = hopQuery ? `?${hopQuery}` : ''
+      return NextResponse.redirect(url, 307)
+    }
   }
 
   // A whole-page landing split: the ad points at the control, and a share of
