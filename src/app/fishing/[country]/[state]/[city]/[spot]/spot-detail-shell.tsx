@@ -12,6 +12,7 @@ import { trackEvent } from "@/lib/analytics";
 import AdSlot from "@/app/components/ads/ad-slot";
 import { countryDisplayName, regulatorFrom } from "@/lib/regions";
 import ExploreTopBar from "@/app/explore/components/explore-top-bar";
+import { useAdBarEdge } from "@/app/components/split-test/use-ad-bar-edge";
 import DayCell from "@/app/explore/components/day-cell";
 import { bestWindow } from "@/app/explore/components/hourly-bars";
 import UpgradeDialog from "@/app/explore/components/upgrade-dialog";
@@ -350,6 +351,10 @@ export default function SpotDetailShell({
     ready: homeReady,
   } = useHomeSpot(spot.slug, true);
   const { isPaid, loading: tierLoading } = useSubscription();
+  // Which edge the ad frame's bar sits on: the `ad_bar_edge_v1` split. A
+  // sheet has no bar, so it is not an exposure to anything.
+  const adBar = useAdBarEdge("spot_page", !!ad && !sheet);
+  const adBarBottom = !!ad && !sheet && adBar.edge === "bottom";
   const { user, loading: authLoading } = useAuth();
   // Until `tierLoading` clears, `isPaid` is still its initial `false` — the
   // strip holds off rather than briefly locking a Pro account's days 8–14.
@@ -1065,14 +1070,17 @@ export default function SpotDetailShell({
           trade on a long read whose nav lives elsewhere, and the wrong one
           when the bar is the only ask on the page.
 
-          `adBarEdge="top"`: the bar sits at the top here, like everywhere
-          else. Casey's call (2026-09-04): never at the bottom. */}
+          Which edge it sits on is the `ad_bar_edge_v1` split (`adBar`
+          above). On a long read the bottom edge is the bigger change of the
+          two: a top bar carrying the only button on the page is off screen
+          for all of it except the first screenful. */}
       {/* A sheet has no bar of its own: the map's chrome is still under it,
           and the sheet's header row below carries the way back. */}
       {sheet ? null : ad ? (
         <ExploreTopBar
           adFrame
-          adBarEdge="top"
+          adBarEdge={adBar.edge}
+          onAdCta={adBar.reportCta}
           upgradeCta={!isPaid}
           placeName={cityLink?.cityName ?? spot.city ?? undefined}
         />
@@ -1087,8 +1095,11 @@ export default function SpotDetailShell({
       {!sheet && <PullToRefresh onRefresh={runRefresh} />}
 
       {/* `pt-16` clears the fixed bar at the top, on the ad frame and off it.
-          A sheet has no fixed bar to clear. */}
-      <div className={sheet ? "" : "pt-16"}>
+          With the ad bar on the bottom edge (arm b) the document starts at
+          the top edge and ends one bar-height short of the bottom;
+          `--rc-ad-bar-h` carries the device safe area, which a bare `pb-16`
+          would not. A sheet has no fixed bar to clear. */}
+      <div className={sheet ? "" : adBarBottom ? "pb-[var(--rc-ad-bar-h)]" : "pt-16"}>
         {/* Sub-header: the way back to the map, then on desktop the breadcrumb
             and the freshness stamp. Full-bleed rule, inner row on the page
             measure — so "Back to map" starts on the same gridline as the spot
