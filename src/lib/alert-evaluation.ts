@@ -121,7 +121,9 @@ export async function runAlertEvaluation(): Promise<AlertEvaluationOutcome> {
           speciesName,
         });
 
-        const channels: string[] = profile.delivery_channels ?? ['email'];
+        // What the tier allows this run, falling back to what the row asks
+        // for. See alert-tier.ts: a lapsed account's alert goes by email only.
+        const channels: string[] = result.channels ?? profile.delivery_channels ?? ['email'];
 
         // Send email when channel is enabled (default behavior preserved)
         const sendResult = channels.includes('email')
