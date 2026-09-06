@@ -131,8 +131,8 @@ export default function CityShell({
   }, [spots, speciesFilter, species]);
 
   const railSpots = useMemo(
-    () => sortSpots(displaySpots, sort),
-    [displaySpots, sort],
+    () => sortSpots(displaySpots, sort, freshCatches),
+    [displaySpots, sort, freshCatches],
   );
 
   const selectedSpot = useMemo(

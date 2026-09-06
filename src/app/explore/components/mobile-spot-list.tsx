@@ -26,7 +26,7 @@ export default function MobileSpotList({
   freshCatches?: FreshCatchesResponse | null;
 }) {
   const [sort, setSort] = useState<SortKey>("score");
-  const sorted = useMemo(() => sortSpots(spots, sort), [spots, sort]);
+  const sorted = useMemo(() => sortSpots(spots, sort, freshCatches), [spots, sort, freshCatches]);
 
   return (
     <section className="lg:hidden bg-rc-page">

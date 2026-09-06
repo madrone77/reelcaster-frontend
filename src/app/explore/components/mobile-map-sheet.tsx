@@ -118,7 +118,7 @@ export default function MobileMapSheet({
   aboveSheet?: ReactNode;
 }) {
   const [sort, setSort] = useState<SortKey>("score");
-  const sorted = useMemo(() => sortSpots(spots, sort), [spots, sort]);
+  const sorted = useMemo(() => sortSpots(spots, sort, freshCatches), [spots, sort, freshCatches]);
 
   // Detent visible-heights (px) derived from the viewport height.
   const [vh, setVh] = useState(0);
