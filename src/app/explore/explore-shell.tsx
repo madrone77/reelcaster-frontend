@@ -419,14 +419,29 @@ export default function ExploreShell({
   // isn't on here" was invisible to exactly the people asking.
   const [customUpgradeOpen, setCustomUpgradeOpen] = useState(false);
   const customUpgradeMounted = useMountedOnce(customUpgradeOpen);
+  // A press while the tier is still resolving is kept, not dropped. The
+  // button used to be disabled (and dimmed) until `tierLoading` cleared,
+  // which on Chrome Android could be never: the auth client's Web Lock hangs
+  // there and the tier never settles, so Add spot sat washed out and dead.
+  // The hook now bounds that wait, and this holds the press until it ends.
+  const createPending = useRef(false);
   const handleCreateCustomSpot = useCallback(() => {
+    if (tierLoading) {
+      createPending.current = true;
+      return;
+    }
     trackEvent("Custom Spot Create Started", {
       outcome: isPaid ? "pin-mode" : "upgrade-dialog",
       paid: isPaid,
     });
     if (isPaid) setCustomMode(true);
     else setCustomUpgradeOpen(true);
-  }, [isPaid]);
+  }, [isPaid, tierLoading]);
+  useEffect(() => {
+    if (tierLoading || !createPending.current) return;
+    createPending.current = false;
+    handleCreateCustomSpot();
+  }, [tierLoading, handleCreateCustomSpot]);
   const [customSpots, setCustomSpots] = useState<CustomSpotPin[]>([]);
 
   useEffect(() => {
@@ -2331,9 +2346,7 @@ export default function ExploreShell({
             activeFilters={activeFilters}
             bearing={bearing}
             onResetNorth={handleResetNorth}
-            onAddSpot={
-              !customMode && !tierLoading ? handleCreateCustomSpot : undefined
-            }
+            onAddSpot={!customMode ? handleCreateCustomSpot : undefined}
           />
         </div>
       </div>
@@ -2507,9 +2520,7 @@ export default function ExploreShell({
         onCloseStation={handleCloseStation}
         onSpotHourHover={setScrubHour}
         onSetAlert={handleSetAlert}
-        onCreateCustomSpot={
-          !customMode && !tierLoading ? handleCreateCustomSpot : undefined
-        }
+        onCreateCustomSpot={!customMode ? handleCreateCustomSpot : undefined}
         mapControls={{
           relief: relief && !depthLocked,
           depthLocked,

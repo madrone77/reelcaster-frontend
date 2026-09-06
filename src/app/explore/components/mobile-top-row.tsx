@@ -46,7 +46,8 @@ export default function MobileTopRow({
   /** The map's bearing in degrees; 0 is north-up. */
   bearing: number;
   onResetNorth: () => void;
-  /** Undefined while placement is armed or the tier is unresolved. */
+  /** Undefined while placement is armed. Present even while the tier is
+   *  still resolving: the shell holds a press until it knows. */
   onAddSpot?: () => void;
 }) {
   const rotated = Math.abs(bearing) > 0.5;
