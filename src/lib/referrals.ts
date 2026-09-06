@@ -45,8 +45,13 @@ export function parseReferralCode(value: unknown): string | null {
   return CODE_PATTERN.test(code) ? code : null;
 }
 
+/**
+ * Lower case in the URL. Production redirects any upper-case path to its
+ * lower-case twin with a 308, and a shared link should not take that hop.
+ * The code itself is case-insensitive on read (parseReferralCode upper-cases).
+ */
 export function referralPath(code: string): string {
-  return `/r/${code}`;
+  return `/r/${code.toLowerCase()}`;
 }
 
 interface ReferralClaim {
