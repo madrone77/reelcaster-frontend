@@ -1,7 +1,7 @@
 /**
  * POST /api/attribution/signup
  *   → { ok: true, written: boolean, new_account: boolean,
- *       signup_path?: 'free' | 'checkout', offer_claimed: boolean,
+ *       signup_path?: 'free' | 'checkout', offer_claimed: boolean, referral_granted: boolean,
  *       geo_written: boolean }
  *
  * Stamps "which wall earned this account, and how did they find us" onto
@@ -54,6 +54,8 @@ import {
   type WallAttribution,
 } from '@/lib/attribution';
 import { readOffer } from '@/lib/offers';
+import { readReferral } from '@/lib/referrals';
+import { grantReferralAtSignup } from '@/lib/referrals-server';
 import { NAG_FEATURES } from '@/lib/plan-features';
 import {
   acquisitionFromRequest,
@@ -233,6 +235,7 @@ export async function POST(request: NextRequest) {
   const entry = readEntry(cookieHeader);
   const paid = readPaid(cookieHeader);
   const offer = readOffer(cookieHeader);
+  const referral = readReferral(cookieHeader);
 
   // Location rides on the request, not on a cookie, so it survives the cases
   // that leave us with no attribution at all — a browser blocking storage, an
@@ -246,7 +249,7 @@ export async function POST(request: NextRequest) {
   const accountAge = Date.now() - new Date(user.created_at).getTime();
   const isNewAccount = accountAge <= ACCOUNT_AGE_GRACE_MS;
 
-  if (!wall && !entry && !paid && !offer && !geo && !isNewAccount) {
+  if (!wall && !entry && !paid && !offer && !referral && !geo && !isNewAccount) {
     return NextResponse.json({
       ok: true,
       written: false,
@@ -320,6 +323,27 @@ export async function POST(request: NextRequest) {
     }
   }
 
+  // Give a month, get a month. New accounts only, which is the opposite of
+  // the offer claim below and for the opposite reason: an offer is a request
+  // an admin decides, a referral grants on its own, and the account-age guard
+  // is most of what stops a forwarded link from comping every old account
+  // that opens it. Every other guard lives in grantReferralAtSignup, which is
+  // idempotent, so re-posting is a no-op like everything else here.
+  //
+  // Runs before the attribution write so the friend's Pro is on by the time
+  // the browser reads the subscription store. Its own failures are logged
+  // inside; a lost month must not cost the conversion row or the pixel fire.
+  let referralGranted = false;
+  if (referral && isNewAccount) {
+    const result = await grantReferralAtSignup(admin, {
+      userId: user.id,
+      email: user.email,
+      code: referral,
+      isNewAccount,
+    });
+    referralGranted = result.outcome === 'granted';
+  }
+
   // Offer claims are recorded BEFORE the account-age guard, and survive it.
   //
   // Attribution answers "what earned this signup", so believing a months-old
@@ -353,6 +377,7 @@ export async function POST(request: NextRequest) {
       written: false,
       new_account: false,
       offer_claimed: offerClaimed,
+      referral_granted: referralGranted,
       geo_written: geoWritten,
       reason: 'account_too_old',
     });
@@ -365,6 +390,7 @@ export async function POST(request: NextRequest) {
       new_account: true,
       signup_path: signupPath,
       offer_claimed: offerClaimed,
+      referral_granted: referralGranted,
       geo_written: geoWritten,
       reason: 'no_attribution',
     });
@@ -430,6 +456,7 @@ export async function POST(request: NextRequest) {
     new_account: true,
     signup_path: signupPath,
     offer_claimed: offerClaimed,
+    referral_granted: referralGranted,
     geo_written: geoWritten,
   });
 }

@@ -207,6 +207,9 @@ export type AnalyticsEventName =
   | 'Paywall Shown'
   | 'Paywall CTA Clicked'
   | 'Manage Subscription Clicked'
+  // Give a month, get a month: the account-page link left the page.
+  | 'Referral Link Copied'
+  | 'Referral Link Shared'
   | 'Pro Welcome Shown'
   // Closed the onboarding wizard early. Paired with 'Pro Onboarding Completed'
   // — both stop it reappearing, only one means they reached the end.

@@ -1352,6 +1352,19 @@ export default function DashboardPage() {
               )}
             </RailCard>
           </div>
+
+          {/* Give a month, get a month. One line, not a card: the card with
+              the link lives on the account page, and this is only the way
+              there for somebody who never opens settings. */}
+          <p className="mt-6 font-rc-mono text-[12px] text-rc-ink-soft">
+            Give a fishing buddy a month of Pro and get a month back.{" "}
+            <Link
+              href="/settings/account"
+              className={`font-bold text-rc-brand ${TAP_TEXT}`}
+            >
+              Get your link ›
+            </Link>
+          </p>
         </div>
       </div>
 
