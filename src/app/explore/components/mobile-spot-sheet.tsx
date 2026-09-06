@@ -12,6 +12,7 @@ import type {
   SpotPageForClient,
 } from "@/app/fishing/[country]/[state]/[city]/[spot]/spot-detail-shell";
 import type { RailSpot } from "../lib/explore-data";
+import type { AdMode } from "@/lib/ad-mode";
 
 // The whole spot page, as a client chunk. Explore never renders it on the
 // server, and it is by far the heaviest thing this map can open, so it loads
@@ -94,9 +95,14 @@ export default function MobileSpotSheet({
   spot,
   onClose,
   onOpenSpot,
+  ad = null,
 }: {
   /** The spot to show, or null for closed. */
   slug: string | null;
+  /** The ad frame this map is under, when it is: the sheet's page keeps the
+   *  wall's forecast tier and counts the campaign hit the way the framed spot
+   *  page does. Null is the product. */
+  ad?: AdMode | null;
   /** The rail's row for it, when it is in the loaded viewport: names the
    *  sheet while the payload loads and places the spot in the directory. A
    *  searched spot can arrive without one. */
@@ -315,6 +321,7 @@ export default function MobileSpotSheet({
             cityLink={loaded.slug === spot?.slug ? cityLinkFrom(spot) : null}
             tz={loaded.tz}
             serverNowMs={loaded.nowMs}
+            ad={ad}
             sheet={{
               onClose: close,
               onOpenSpot: (next) => onOpenSpot(next),
