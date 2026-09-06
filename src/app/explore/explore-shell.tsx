@@ -490,9 +490,6 @@ export default function ExploreShell({
   const [savedOnly, setSavedOnly] = useState(false);
   const { slugs: savedSlugs } = useSavedSpots();
   const savedSet = useMemo(() => new Set(savedSlugs), [savedSlugs]);
-  // Label fallback for a species pinned from search that no in-view spot
-  // carries, so the strip header can still name it.
-  const [pickedSpeciesName, setPickedSpeciesName] = useState<string | null>(null);
 
   // ── Viewport tracking: the map viewport is the source of truth for which
   //    spots the rail/list/strip reflect. `viewBounds` updates on every
@@ -1442,8 +1439,7 @@ export default function ExploreShell({
 
   // Strip header label: the pinned species, else the cross-species best fold.
   const stripSpeciesName = speciesFilter
-    ? allSpecies.find((s) => s.id === speciesFilter)?.name ??
-      pickedSpeciesName
+    ? allSpecies.find((s) => s.id === speciesFilter)?.name ?? null
     : "Best species";
 
   // Frame the picked city's spots when the selection changes (search pick,
@@ -1866,21 +1862,6 @@ export default function ExploreShell({
       );
     },
     [setQuery],
-  );
-
-  // Species is a filter, not a place — picking one pins the chip and leaves the
-  // camera alone. The name is kept alongside because a species can be searched
-  // that isn't on any spot in the current viewport, in which case the loaded
-  // species dict can't supply a label for the strip header.
-  const handleSearchSelectSpecies = useCallback(
-    (id: string, name: string) => {
-      noteEngagement("browse", "search_species");
-      trackEvent("Search Result Picked", { type: "species", species: id });
-      setPaywallContext({ speciesId: id, page: "explore" });
-      setSpeciesFilter(id);
-      setPickedSpeciesName(name);
-    },
-    [],
   );
 
   const handleCloseSpot = useCallback(() => {
@@ -2341,7 +2322,6 @@ export default function ExploreShell({
                 onSelectCity={handleSelectCity}
                 onSelectSpot={handleSearchSelectSpot}
                 onSelectRegion={handleSearchSelectRegion}
-                onSelectSpecies={handleSearchSelectSpecies}
                 near={searchNear}
                 onNearMe={handleNearMe}
                 locating={locating}
@@ -2522,7 +2502,6 @@ export default function ExploreShell({
         onSelectSpot={handleSelectSpot}
         onSearchSelectSpot={handleSearchSelectSpot}
         onSearchSelectRegion={handleSearchSelectRegion}
-        onSearchSelectSpecies={handleSearchSelectSpecies}
         searchNear={searchNear}
         onCloseSpot={handleCloseSpot}
         onCloseStation={handleCloseStation}

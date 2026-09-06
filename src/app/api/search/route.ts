@@ -72,9 +72,16 @@ export async function GET(request: NextRequest) {
   // replace the dropdown with a failure state.
   const body = data ?? EMPTY(q);
 
+  // Search finds places. BlueCaster ranks species alongside spots and cities,
+  // but a species row is the one result that leads nowhere: it has no page,
+  // and on Explore the filter sheet already owns it. Dropped here, once, so no
+  // surface has to remember to hide it.
+  const results = body.results.filter((r) => r.kind !== 'species');
+
   return NextResponse.json({
     ...body,
-    results: await resolveSearchPaths(body.results),
+    results: await resolveSearchPaths(results),
+    meta: { ...body.meta, count: results.length },
   }, {
     headers: {
       'Cache-Control': viewerId

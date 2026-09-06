@@ -29,8 +29,8 @@ export interface SearchResult extends BlueCasterSearchResult {
   /**
    * Where this result leads, or null when nothing on this site renders it.
    *
-   * Species and regions are always null: they are worth showing, because they
-   * tell a reader the coverage is there, but they have no standalone page.
+   * Regions are always null: they are worth showing, because they tell a
+   * reader the coverage is there, but they have no standalone page.
    */
   path: string | null;
 }
@@ -69,7 +69,7 @@ function pathFor(
 export async function resolveSearchPaths(
   results: BlueCasterSearchResult[],
 ): Promise<SearchResult[]> {
-  // Species-only and empty responses never need the tree. The hierarchy fetch
+  // Region-only and empty responses never need the tree. The hierarchy fetch
   // is cached, but a search runs per keystroke, so skipping it is worth the
   // one line.
   if (!results.some((r) => r.kind === "spot" || r.kind === "city")) {

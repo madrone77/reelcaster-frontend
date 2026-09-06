@@ -4,7 +4,7 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import { useRouter } from 'next/navigation';
 import dynamic from 'next/dynamic';
-import { Search, MapPin, Building2, Map, Target, Loader2, X } from 'lucide-react';
+import { Search, MapPin, Building2, Map, Loader2, X } from 'lucide-react';
 import { btn } from '@/app/components/ui/button';
 import { COVERED_PROVINCES } from '@/lib/regions';
 import type { SearchResult } from '@/lib/search-results';
@@ -23,18 +23,18 @@ interface Props {
 // Someone searching their own address is not something to keep.
 const scrubQuery = (q: string) => q.replace(/\S+@\S+\.\S+/g, '[email]');
 
-const TYPE_ICON = {
+const TYPE_ICON: Partial<Record<SearchResult['kind'], typeof MapPin>> = {
   spot: MapPin,
   city: Building2,
   region: Map,
-  species: Target,
-} as const;
+};
 
 // Where a result leads is resolved server-side and arrives as `path` — the
 // city segment and a spot's owning city both live in the hierarchy, which this
 // component has no way to read. A null `path` renders inert rather than as a
-// dead link: species and areas are worth showing, because they say the
-// coverage is there, but they have no standalone page.
+// dead link: areas are worth showing, because they say the coverage is there,
+// but they have no standalone page. Species never arrive: /api/search drops
+// them before they leave the server.
 
 export default function GlobalSearch({ open, onClose }: Props) {
   const router = useRouter();
@@ -147,7 +147,7 @@ export default function GlobalSearch({ open, onClose }: Props) {
               value={q}
               onChange={(e) => setQ(e.target.value)}
               onKeyDown={handleKeyDown}
-              placeholder="Search spots, cities, species…"
+              placeholder="Search spots and cities…"
               className="flex-1 bg-transparent text-rc-ink placeholder:text-rc-ink-mute text-base focus:outline-none"
             />
             {loading && <Loader2 className="w-4 h-4 animate-spin text-rc-ink-mute" />}
@@ -189,7 +189,7 @@ export default function GlobalSearch({ open, onClose }: Props) {
             {results.length > 0 && (
               <ul className="py-1">
                 {results.map((r, i) => {
-                  const Icon = TYPE_ICON[r.kind];
+                  const Icon = TYPE_ICON[r.kind] ?? MapPin;
                   const active = i === highlight;
                   const href = r.path;
                   return (
