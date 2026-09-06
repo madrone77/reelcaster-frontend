@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import type { SunHours } from "@/lib/bluecaster/live-spot-types";
 import { haptic } from "@/lib/haptics";
 import { niceCurrentScale } from "../../lib/current-series";
-import { STRIP_FILL, STRIP_INK, tierFor, type Tier } from "../../lib/explore-data";
+import { STRIP_SOLID, tierFor, type Tier } from "../../lib/explore-data";
 import { windCardinal } from "../../lib/wind-rose";
 import { monoInterp as interp } from "../../lib/curve";
 import {
@@ -69,14 +69,21 @@ const C = {
 
 const num = (v: number | null | undefined) =>
   typeof v === "number" && Number.isFinite(v) ? v : null;
-// Score STRIP cells: the shared `STRIP_FILL` / `STRIP_INK` tints, the same
-// cells the Explore cards draw (score-strip.tsx).
+// Score STRIP cells: the shared `STRIP_SOLID` fills, the design system's
+// score colours at full strength, the same cells the Explore cards draw
+// (score-strip.tsx). The numeral sits in white on all three; the pale tints
+// with dark ink read as white from arm's length.
 //
 // Fill, ink and word all key off `tierFor`, so this file holds no cut points
 // of its own. It used to hold two sets that disagreed: cells at 85/60/40 and
 // the word at 75/55, which put a 61 in a green cell labelled "Fair".
-const TIER_FILL = STRIP_FILL;
-const TIER_INK = STRIP_INK;
+const TIER_FILL = STRIP_SOLID;
+const TIER_INK: Record<Tier, string> = {
+  good: "#FFFFFF",
+  fair: "#FFFFFF",
+  poor: "#FFFFFF",
+  none: "#5A616B",
+};
 const TIER_WORD: Record<Tier, string> = {
   good: "Good",
   fair: "Fair",
