@@ -12,7 +12,11 @@
  * scores leave.
  */
 
-import type { MapForecast14dPayload, SpotsOutlook14dPayload } from "@/lib/bluecaster";
+import type {
+  MapForecast14dPayload,
+  MapSpotsPayload,
+  SpotsOutlook14dPayload,
+} from "@/lib/bluecaster";
 
 /** Free: signed out, no account. The first 2 days. */
 export const ANON_FORECAST_DAYS = 2;
@@ -69,5 +73,47 @@ export function stripSpotsOutlook(
         cells.map((cell, i) => (i >= visibleDays ? null : cell)),
       ]),
     ),
+  };
+}
+
+/**
+ * Which strip day a calendar date is, counted from today: 0 today, 1
+ * tomorrow, 13 the last tile. Both arguments are YYYY-MM-DD in the forecast's
+ * own zone (America/Vancouver, the `date` the map payloads carry), so the
+ * arithmetic is on whole calendar days and never touches a clock.
+ */
+export function forecastDayIndex(todayIso: string, dateIso: string): number {
+  const day = (iso: string) => Date.UTC(+iso.slice(0, 4), +iso.slice(5, 7) - 1, +iso.slice(8, 10));
+  return Math.round((day(dateIso) - day(todayIso)) / 86_400_000);
+}
+
+/**
+ * The map's per-day spots: the same rule, applied to one day at a time.
+ *
+ * The strip nulls its cells past the horizon, but the pins and cards under it
+ * come from `/map/spots?date=`, which used to answer any date for anyone. So
+ * a locked tile sat over a map coloured with the day it was locking: tap a
+ * tile the rail had not yet resolved, or type `?day=` into the URL, and the
+ * whole Pro fortnight was on screen for a signed-out visitor.
+ *
+ * A date past the caller's horizon keeps its spots (the roster, coordinates
+ * and weather are not paid data and the map still needs pins to draw) and
+ * loses every score, the same way a locked strip cell keeps its date and
+ * loses its number. A date inside the horizon comes back untouched.
+ */
+export function stripMapSpotsPastHorizon(
+  data: MapSpotsPayload,
+  visibleDays: number,
+  todayIso: string,
+): MapSpotsPayload {
+  if (visibleDays >= PRO_FORECAST_DAYS) return data;
+  if (forecastDayIndex(todayIso, data.date) < visibleDays) return data;
+  return {
+    ...data,
+    spots: data.spots.map((spot) => ({
+      ...spot,
+      best_species_id: null,
+      scores: {},
+    })),
   };
 }
