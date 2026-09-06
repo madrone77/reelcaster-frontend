@@ -8,6 +8,7 @@ import type { LucideIcon } from "lucide-react";
 import { useAuth } from "@/contexts/auth-context";
 import TrialModalButton from "@/app/components/paywall/trial-modal-button";
 import type { NagFeatureId } from "@/lib/plan-features";
+import ExploreNavLink, { DASHBOARD_PATH } from "@/app/components/explore-nav-link";
 
 // Home is the dashboard (the angler's saved/favorite spots) and sits far left.
 // Catch log owns the wizard at /log-catch too. It's one destination with a
@@ -213,15 +214,22 @@ export default function MobileBottomNav() {
               );
             }
 
+            // From the dashboard, Explore names the home city. See
+            // ExploreNavLink for why it is a component and dashboard-only.
+            const NavLink =
+              href === "/explore" && pathname === DASHBOARD_PATH
+                ? ExploreNavLink
+                : Link;
+
             return (
-              <Link
+              <NavLink
                 key={href}
                 href={href}
                 aria-current={active ? "page" : undefined}
                 className={tabClass}
               >
                 {face}
-              </Link>
+              </NavLink>
             );
           })}
 
