@@ -274,13 +274,28 @@ export default function ExploreShell({
   const [adOfferOpen, setAdOfferOpen] = useState(false);
   const [adOfferSpotName, setAdOfferSpotName] = useState<string | undefined>();
   const adOfferMounted = useMountedOnce(adOfferOpen);
-  // `day2` lets the first two opens through to the framed spot page before
-  // the offer (Casey, 2026-09-04); the other walls ask on the first tap. The
-  // allowance lives in ./lib/ad-spot-opens.
+  // The spot open in the phone's sheet (see components/mobile-spot-sheet.tsx),
+  // or null. Local state, not the URL: `?spot=` is the map's selection, which
+  // is the preview card, and this sits on top of that without replacing it.
+  const [sheetSpot, setSheetSpot] = useState<string | null>(null);
+  const closeSheetSpot = useCallback(() => setSheetSpot(null), []);
+  // `day2` lets the first two opens through before the offer (Casey,
+  // 2026-09-04); the other walls ask on the first tap. The allowance lives
+  // in ./lib/ad-spot-opens. An allowed open goes where an unframed open
+  // goes on that surface: the sheet on a phone (Casey, 2026-09-06; it used
+  // to push the page, which read as "spots open as pages" against the
+  // sheet an unframed session gets), the framed spot page on desktop.
   const onAdOpenSpot = useCallback(
     (spot: { name?: string; slug?: string; href?: string }) => {
       if (ad && spot.slug && takeAdSpotOpen(ad.wall)) {
         trackEvent("Ad Frame Spot Opened", { slug: spot.slug, ad_wall: ad.wall });
+        if (
+          typeof window !== "undefined" &&
+          !window.matchMedia("(min-width:1024px)").matches
+        ) {
+          setSheetSpot(spot.slug);
+          return;
+        }
         router.push(spot.href ?? withAdParams(spotHref({ slug: spot.slug }), ad));
         return;
       }
@@ -302,11 +317,6 @@ export default function ExploreShell({
   const adBarBottom = !!ad && adBar.edge === "bottom";
   const mobileTop = isPaid || adBarBottom ? "top-0" : "top-16";
   const { citySlug, spotSlug, day, stn, setQuery } = useExploreState();
-  // The spot open in the phone's sheet (see components/mobile-spot-sheet.tsx),
-  // or null. Local state, not the URL: `?spot=` is the map's selection, which
-  // is the preview card, and this sits on top of that without replacing it.
-  const [sheetSpot, setSheetSpot] = useState<string | null>(null);
-  const closeSheetSpot = useCallback(() => setSheetSpot(null), []);
 
   // ── Return-trip memory ──────────────────────────────────────────────────
   //
@@ -1787,8 +1797,8 @@ export default function ExploreShell({
         typeof window !== "undefined" &&
         !window.matchMedia("(min-width:1024px)").matches
       ) {
-        // Under the ad frame a phone's card tap stays on the map and makes
-        // the offer instead (Casey's call, 2026-09-04).
+        // Under the ad frame the tap goes through the wall's allowance:
+        // the sheet while it lasts, then the offer (Casey's call, 2026-09-04).
         if (ad) {
           onAdOpenSpot({
             name: spot?.name,
@@ -2491,13 +2501,14 @@ export default function ExploreShell({
         onClosePreview={handleCloseSpot}
       />
 
-      {/* The phone's spot page, as a sheet over the map. Never opened under
-          the ad frame, where a spot tap makes the offer instead. */}
+      {/* The phone's spot page, as a sheet over the map. Under the ad frame
+          it opens only while the wall's allowance lasts (onAdOpenSpot). */}
       <MobileSpotSheet
         slug={sheetSpot}
         spot={displaySpots.find((s) => s.slug === sheetSpot) ?? null}
         onClose={closeSheetSpot}
         onOpenSpot={setSheetSpot}
+        ad={ad}
       />
 
       <LeftRail
