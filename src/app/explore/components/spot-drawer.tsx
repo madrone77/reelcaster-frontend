@@ -26,7 +26,8 @@ import {
   tierFor,
   type RailSpot,
 } from "../lib/explore-data";
-import HourlyBars from "./hourly-bars";
+import ScoreStrip from "./score-strip";
+import { bestWindow } from "../lib/best-window";
 import { useUnitPreferences } from "@/contexts/unit-preferences-context";
 import { convertDistance, formatDistance } from "@/app/utils/unit-conversions";
 import { formatHour12 } from "@/lib/time-format";
@@ -146,6 +147,8 @@ export default function SpotDrawer({
 
   const tier = tierFor(score);
   const peak = fmtPeak(spot.peakHour);
+  const nowHour = currentLocalHour(tz);
+  const { label: windowLabel } = bestWindow(spot.hours24);
   // Carries the ad frame onto the spot page when there is one — see
   // SpotCard's copy of this line.
   //
@@ -335,15 +338,43 @@ export default function SpotDrawer({
           ))}
         </div>
 
-        {/* 24h chart — hover-scrubbable; the marker tracks the hovered hour,
-            resting on the day's peak hour. */}
+        {/* 24h strip — hover-scrubbable; the marker tracks the hovered hour,
+            resting on the day's peak hour. Colour only: the number for an
+            hour is in the pill under the cursor, and the rested line below
+            states the peak and the current hour so the card still says both
+            with nothing hovered. */}
         <div className="mt-5">
-          <HourlyBars
+          <div className="flex items-baseline justify-between mb-1.5 gap-2">
+            <div className="rc-label text-[9px] whitespace-nowrap">
+              24H{windowLabel ? ` · BEST WINDOW ${windowLabel}` : ""}
+            </div>
+            <div className="font-rc-mono text-[9px] text-rc-ink-mute italic shrink-0">
+              hover to scrub
+            </div>
+          </div>
+          <ScoreStrip
             hours={spot.hours24}
             tz={tz}
             selectedHour={displayHour}
             onHoverHour={handleHourHover}
+            size="tall"
           />
+          <div className="flex items-baseline gap-2 mt-1.5 font-rc-mono text-[11px] text-rc-ink-soft tabular-nums">
+            {peak && spot.peakHour !== null && (
+              <>
+                <span className="text-[14px] font-semibold text-rc-ink">
+                  {spot.hours24[spot.peakHour] ?? "—"}
+                </span>
+                <span>peak {peak}</span>
+              </>
+            )}
+            {peak && <span className="text-rc-ink-mute">·</span>}
+            <span>now</span>
+            <span className="text-[14px] font-semibold text-rc-ink">
+              {spot.hours24[nowHour] ?? "—"}
+            </span>
+            <span>{formatHour12(nowHour)}</span>
+          </div>
         </div>
       </div>
 

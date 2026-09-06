@@ -3,12 +3,13 @@
 import Link from "next/link";
 import dynamic from "next/dynamic";
 import { useState } from "react";
-import { Wind, Waves, Navigation, Lock, Globe } from "lucide-react";
-import { TIER_PILL, tierFor, type RailSpot } from "../lib/explore-data";
+import { Wind, Waves, Navigation, Clock, Lock, Globe } from "lucide-react";
+import { TIER_PILL, fmtPeak, tierFor, type RailSpot } from "../lib/explore-data";
+import { bestWindow } from "../lib/best-window";
 import { areaLabelFor } from "@/lib/regions";
 import { useFavorite } from "../lib/use-favorite";
 import { useSubscription } from "@/hooks/use-subscription";
-import SpotTrend from "./spot-trend";
+import ScoreStrip from "./score-strip";
 import SpotDayStrip, { SpotDayStripSkeleton, type SpotDay } from "./spot-day-strip";
 import { FreshCatchBadge } from "./fresh-catch-reports";
 import type { RailFreshCatch } from "../lib/fresh-catch-types";
@@ -23,13 +24,17 @@ const ProTrialModal = dynamic(
 
 /**
  * Rail spot card. No hover-only actions: header + score badge, a plain-English
- * conclusion line, a WIND/SEA/TIDE meta row, the 24h sparkline, an optional
- * 14-day strip, and a persistent footer (FULL REPORT link + favorite star).
+ * conclusion line, a WIND/SEA/CURRENT/BEST meta row, the 24h score strip, an
+ * optional 14-day strip, and a persistent footer (FULL REPORT link + favorite
+ * star). `layout="row"` is the phone list: the same parts stacked tighter,
+ * with the best window and peak named above the strip and wind + current
+ * under it.
  * The whole body above the footer opens the location report; the strip and the
  * footer controls act on their own.
  */
 export default function SpotCard({
   spot,
+  tz,
   onSelect,
   showVisibility = false,
   homeBadge = false,
@@ -38,9 +43,10 @@ export default function SpotCard({
   showDayStrip = false,
   days14,
   dayStripDensity = "labelled",
+  layout = "card",
 }: {
   spot: RailSpot;
-  /** Accepted for call-site compatibility; the compact trend needs no tz. */
+  /** The strip's clock: its marker rests on the current hour at the spot. */
   tz?: string;
   /** Opens the in-page drawer. Omit outside Explore — the body link then
    *  navigates to the spot report on its own. */
@@ -67,7 +73,11 @@ export default function SpotCard({
   days14?: SpotDay[] | null;
   /** `labelled` needs roughly 560px of card. Narrow rails pass `compact`. */
   dayStripDensity?: "labelled" | "compact";
+  /** `row` is the phone list card: slimmer, the strip thin, the best window
+   *  and peak in words above it. */
+  layout?: "card" | "row";
 }) {
+  const row = layout === "row";
   const [fav, toggleFav] = useFavorite(spot.slug);
   const { isPaid } = useSubscription();
   const [upgradeOpen, setUpgradeOpen] = useState(false);
@@ -87,6 +97,13 @@ export default function SpotCard({
   // The peak time is still on the day tiles and on the spot page, where it sits
   // beside the hours that produced it.
   const conclusion = species ?? "No live score yet";
+  // The peak hour and the best window, for the BEST column and the row
+  // layout's line above the strip. The conclusion line stopped carrying the
+  // window because on a settled day every card in view claimed the same
+  // fourteen hours; the strip now draws that window as a bracket, and the
+  // words beside it name the one hour that peaks, which does differ.
+  const peak = fmtPeak(spot.peakHour);
+  const { label: windowLabel } = bestWindow(spot.hours24);
   // The management area, labelled for whoever set it. Beside the species
   // rather than under the name because seasons and limits are set per area, so
   // it belongs with the thing whose season is in question. Null collapses.
@@ -231,40 +248,92 @@ export default function SpotCard({
           </div>
 
           {/* 2 · conclusion, and where the rules that govern it are set */}
-          <div className="font-rc-mono text-[12px] text-rc-ink-soft mt-0.5 truncate">
+          <div
+            className={`font-rc-mono text-rc-ink-soft truncate ${
+              row ? "text-[11px] text-rc-ink-mute mt-0.5" : "text-[12px] mt-0.5"
+            }`}
+          >
             {conclusion}
             {area && (
-              <span className="ml-1.5 pl-1.5 border-l border-rc-rule text-rc-ink-mute">
-                {area}
+              <span
+                className={
+                  row
+                    ? "ml-1.5"
+                    : "ml-1.5 pl-1.5 border-l border-rc-rule text-rc-ink-mute"
+                }
+              >
+                {row ? `· ${area}` : area}
               </span>
             )}
           </div>
 
-          {/* 3 · KPI columns (labels above) + compact trend */}
-          <div className="flex items-end gap-2 mt-2.5">
-            <div className="grid grid-cols-3 gap-x-2 flex-1 min-w-0">
-              {(
-                [
-                  [Wind, "WIND", spot.conditions.wind],
-                  [Waves, "SEA", spot.conditions.sea],
-                  [Navigation, "CURRENT", spot.conditions.current],
-                ] as const
-              ).map(([Icon, label, value]) => (
-                <div key={label} className="min-w-0">
-                  <div className="rc-label text-[9px] flex items-center gap-1">
-                    <Icon className="w-3 h-3 text-rc-ink-mute shrink-0" />
-                    {label}
-                  </div>
-                  <div className="font-rc-mono text-[12px] font-medium text-rc-ink mt-0.5 truncate">
-                    {value ?? "—"}
-                  </div>
+          {row ? (
+            <>
+              {/* 3 · best window and peak, in words, above the strip */}
+              {(windowLabel || peak) && (
+                <div className="flex items-baseline gap-1.5 mt-2.5 font-rc-mono text-[11px] text-rc-ink-mute">
+                  {windowLabel && (
+                    <span className="font-semibold text-rc-good-ink">
+                      Best {windowLabel}
+                    </span>
+                  )}
+                  {windowLabel && peak && <span>·</span>}
+                  {peak && <span>peak {peak}</span>}
                 </div>
-              ))}
-            </div>
-            <div className="w-20 shrink-0">
-              <SpotTrend hours={spot.hours24} />
-            </div>
-          </div>
+              )}
+              <ScoreStrip
+                hours={spot.hours24}
+                tz={tz}
+                size="thin"
+                axis={false}
+                className="mt-1"
+              />
+              {/* 4 · wind and current, labelled */}
+              <div className="flex gap-4 mt-2 font-rc-mono text-[12px] text-rc-ink">
+                <span>
+                  <span className="text-rc-ink-mute">Wind: </span>
+                  {spot.conditions.wind ?? "—"}
+                </span>
+                <span>
+                  <span className="text-rc-ink-mute">Current: </span>
+                  {spot.conditions.current ?? "—"}
+                </span>
+              </div>
+            </>
+          ) : (
+            <>
+              {/* 3 · KPI columns (labels above) */}
+              <div className="grid grid-cols-4 gap-x-2 mt-2.5">
+                {(
+                  [
+                    [Wind, "WIND", spot.conditions.wind],
+                    [Waves, "SEA", spot.conditions.sea],
+                    [Navigation, "CURRENT", spot.conditions.current],
+                    [Clock, "BEST", peak],
+                  ] as const
+                ).map(([Icon, label, value]) => (
+                  <div key={label} className="min-w-0">
+                    <div className="rc-label text-[9px] flex items-center gap-1">
+                      <Icon className="w-3 h-3 text-rc-ink-mute shrink-0" />
+                      {label}
+                    </div>
+                    <div className="font-rc-mono text-[12px] font-medium text-rc-ink mt-0.5 truncate">
+                      {value ?? "—"}
+                    </div>
+                  </div>
+                ))}
+              </div>
+              {/* 4 · the 24h strip, full width. Read-only here: the body is
+                  one link, and the number for an hour is on the drawer and
+                  the spot page, where the strip scrubs. */}
+              <ScoreStrip
+                hours={spot.hours24}
+                tz={tz}
+                size="dense"
+                className="mt-2.5"
+              />
+            </>
+          )}
         </div>
       </Link>
 

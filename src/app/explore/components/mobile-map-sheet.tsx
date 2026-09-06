@@ -560,6 +560,7 @@ export default function MobileMapSheet({
                   <SpotCard
                     spot={sp}
                     tz={tz}
+                    layout="row"
                     onSelect={() => onSelectSpot(sp.slug)}
                     fresh={freshCatches?.spots[sp.id]}
                   />
@@ -754,6 +755,7 @@ export default function MobileMapSheet({
                   <SpotCard
                     spot={spot}
                     tz={tz}
+                    layout="row"
                     onSelect={() => onSelectSpot(spot.slug)}
                     fresh={freshCatches?.spots[spot.id]}
                   />

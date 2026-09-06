@@ -25,7 +25,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import HourlyBars from "@/app/explore/components/hourly-bars";
+import ScoreStrip from "@/app/explore/components/score-strip";
 import { formatHour12 } from "@/lib/time-format";
 import {
   bottomLabel,
@@ -144,10 +144,10 @@ export default function SpotSpotlight({
           </span>
         </div>
 
-        {/* The 24-hour shape, scrubbable. `HourlyBars` is Explore's own chart
-            — the same bars, best-window highlight and detents a subscriber
-            sees — rather than a landing-page mock of it. The series is
-            already in the map payload, so it costs no request. */}
+        {/* The 24-hour shape, scrubbable. `ScoreStrip` is Explore's own
+            strip — the same tinted cells, best-window bracket and detents a
+            subscriber sees — rather than a landing-page mock of it. The
+            series is already in the map payload, so it costs no request. */}
         <div className="mt-4 rounded-lg bg-rc-surface px-3 pt-2.5 pb-1.5">
           <div className="flex items-baseline justify-between gap-3">
             <Label>Hour by hour</Label>
@@ -157,13 +157,12 @@ export default function SpotSpotlight({
                 : `${formatHour12(scrubHour)} · ${entry.hours24[scrubHour] ?? "no score"}`}
             </span>
           </div>
-          <HourlyBars
+          <ScoreStrip
             hours={entry.hours24}
             tz={tz}
             selectedHour={scrubHour}
             onHoverHour={setScrubHour}
-            hideLabel
-            dense
+            size="dense"
           />
         </div>
 
