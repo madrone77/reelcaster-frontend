@@ -232,7 +232,7 @@ export default function ExploreShell({
   const mapRef = useRef<MapRef>(null);
   const router = useRouter();
   const { isPaid, loading: tierLoading } = useSubscription();
-  const { user } = useAuth();
+  const { user, session } = useAuth();
 
   // ── The depth gate ───────────────────────────────────────────────────────
   //
@@ -576,9 +576,12 @@ export default function ExploreShell({
     null,
   );
 
+  // The token, not the session object: AuthProvider re-emits a fresh session
+  // on every auth event and an object dep would refetch for no reason.
+  const accessToken = session?.access_token ?? null;
   useEffect(() => {
     let cancelled = false;
-    fetchFreshCatches()
+    fetchFreshCatches(undefined, accessToken)
       .then((p) => {
         if (!cancelled && p) setFreshCatches(p);
       })
@@ -590,8 +593,10 @@ export default function ExploreShell({
     };
     // Re-runs when the session resolves: the first pass often fires before
     // Supabase has rehydrated, which would leave a Pro viewer holding the
-    // anonymous (locked) payload for the rest of the visit.
-  }, [userId]);
+    // anonymous (locked) payload for the rest of the visit. The token is
+    // handed in from the context rather than read off the client inside the
+    // helper, so the re-run carries the session the page is already using.
+  }, [accessToken]);
 
   // ── Spots follow the map ─────────────────────────────────────────────────
   //

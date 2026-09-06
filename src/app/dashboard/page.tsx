@@ -511,9 +511,18 @@ export default function DashboardPage() {
   // access token, so a pass fired before Supabase rehydrates would leave a Pro
   // angler holding the locked payload. Degrades to null — the badge is
   // additive, and a card without it is still the card.
+  //
+  // The token is handed in from the context, not read off the Supabase client
+  // inside the helper: this page mounts while auth is still resolving, and on
+  // 2026-09-05 a Pro angler's page had a session in context while the client's
+  // own read came back empty, so the fetch went out with no bearer and every
+  // "Most active" row stayed locked. While auth is still loading and there is
+  // no token yet, wait for it rather than fetching as nobody and then again.
   useEffect(() => {
+    const token = session?.access_token ?? null;
+    if (!token && authLoading) return;
     let cancelled = false;
-    fetchFreshCatches()
+    fetchFreshCatches(undefined, token)
       .then((p) => {
         if (cancelled) return;
         if (p) setSpotReports(p);
@@ -525,7 +534,7 @@ export default function DashboardPage() {
     };
     // Token, not the session object — AuthProvider re-emits a fresh session on
     // every auth event, and an object dep fired this twice per load.
-  }, [session?.access_token]);
+  }, [session?.access_token, authLoading]);
 
   // Fresh catches — the angler's own catch log, last 14 days.
   useEffect(() => {
