@@ -48,19 +48,33 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: "upstream unavailable" }, { status: 502 });
   }
 
+  // Activity rank: an ORDINAL over the spots in this payload, busiest first,
+  // ties broken by the most recent report. It crosses the Pro gate on purpose
+  // so that "Most active" can order the rail for every viewer. Like the map's
+  // track_rank, an ordinal says "3rd busiest of these" without disclosing how
+  // many reports any spot has; the counts and the verdict stay Pro-only.
+  const ranked = Object.entries(data.spots).sort(
+    ([, a], [, b]) =>
+      b.count - a.count ||
+      (b.latest_date ?? "").localeCompare(a.latest_date ?? ""),
+  );
+  const rankOf = new Map(ranked.map(([id], i) => [id, i + 1]));
+
   const spots: Record<string, RailFreshCatch> = {};
   for (const [spotId, s] of Object.entries(data.spots)) {
     if (only && spotId !== only) continue;
+    const rank = rankOf.get(spotId)!;
     spots[spotId] = isPro
       ? {
           locked: false,
+          rank,
           verdict: s.verdict,
           count: s.count,
           positive: s.positive,
           latestDate: s.latest_date,
           species: s.species,
         }
-      : { locked: true };
+      : { locked: true, rank };
   }
 
   return NextResponse.json(
