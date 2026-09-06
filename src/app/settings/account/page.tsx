@@ -15,6 +15,7 @@ import ExploreTopBar from '@/app/explore/components/explore-top-bar'
 import { PAGE_MEASURE, READING_MEASURE } from '@/app/components/layout/page-measure'
 import SubscriptionCard from '@/app/components/account/subscription-card'
 import HomeCityCard from '@/app/components/account/home-city-card'
+import ReferralCard from '@/app/components/account/referral-card'
 import PhoneVerifyCard from '@/app/components/account/phone-verify-card'
 import DangerZoneCard from '@/app/components/account/danger-zone-card'
 
@@ -162,6 +163,10 @@ export default function AccountSettingsPage() {
 
               {/* Subscription */}
               <SubscriptionCard />
+
+              {/* Give a month, get a month. Under the plan because that is
+                  what it changes. */}
+              <ReferralCard />
 
               {/* Where the dashboard and the map open. Asked once at signup;
                   this is the promised way back to it. */}

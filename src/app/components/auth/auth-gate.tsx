@@ -37,6 +37,9 @@ const PUBLIC_PREFIXES = [
   // sends people to /signup?next=/first, so bouncing them to a bare /login
   // would drop them out of the offer they were invited into.
   '/first',
+  // Referral links (/r/<code>). Same shape as /first: the visitor is a friend
+  // with no account yet, and the page's whole job is to get them to /signup.
+  '/r/',
   // Share links. The whole point is that a signed-out person opens one, so
   // gating it would bounce every recipient to /login and break the loop this
   // route exists to close.
