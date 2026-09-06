@@ -40,7 +40,9 @@ export const LP_SPLIT_COOKIE = 'rc_lp';
 /** Thirty days. Sticky for as long as a bought click plausibly comes back. */
 export const LP_SPLIT_COOKIE_MAX_AGE = 60 * 60 * 24 * 30;
 
-export interface LpSplit {
+/** One page against another: the ad points at the control path. */
+export interface LpPageSplit {
+  kind?: 'page';
   /** Cookie key. Lowercase letters, digits and underscores. */
   key: string;
   /** The path the ad points at. Exact match; a trailing slash is ignored. */
@@ -52,17 +54,44 @@ export interface LpSplit {
 }
 
 /**
+ * The landing page against the map, for Meta clicks only.
+ *
+ * Every Meta click on any /lp page is dealt an arm. The control reads the
+ * city's /5 landing page (a click on /lp/vancouver/4 is sent on to
+ * /lp/vancouver/5 first, so the control is one page per city); the treatment
+ * skips the page and lands on `/explore?loc=<city>&ad=day2`, which is where
+ * every Meta click went before this split. Google and organic traffic are
+ * never dealt an arm and read whatever page the link named. See
+ * src/lib/meta-lp-hop.ts for the destinations.
+ */
+export interface LpMetaSplit {
+  kind: 'meta';
+  key: string;
+  /** Fraction of NEW Meta visitors sent straight to the map, 0 to 1. */
+  share: number;
+}
+
+export type LpSplit = LpPageSplit | LpMetaSplit;
+
+/**
  * Every running split.
  *
  * Remove a row to stop its test. Visitors already in the treatment arm are
  * served the control from then on, because nothing matches their path any
- * more, and their stale cookie entry is dropped on the next visit.
+ * more, and their stale cookie entry is dropped on the next visit. Removing
+ * the Meta row puts every Meta click back on the landing page; to go back
+ * to sending them all to the map instead, set its share to 1.
  */
 export const LP_SPLITS: readonly LpSplit[] = [
   {
     key: 'vancouver_4_5',
     control: '/lp/vancouver/4',
     treatment: '/lp/vancouver/5',
+    share: 0.5,
+  },
+  {
+    kind: 'meta',
+    key: 'meta_lp5_explore',
     share: 0.5,
   },
 ];
@@ -80,13 +109,22 @@ function isArm(value: string): value is LpArm {
   return value === CONTROL_ARM || value === TREATMENT_ARM;
 }
 
-/** The split whose control path this is, or null. */
+export function isPageSplit(split: LpSplit): split is LpPageSplit {
+  return split.kind === undefined || split.kind === 'page';
+}
+
+/** The page split whose control path this is, or null. */
 export function splitForPath(
   pathname: string,
   splits: readonly LpSplit[] = LP_SPLITS,
-): LpSplit | null {
+): LpPageSplit | null {
   const path = pathname.replace(/\/+$/, '') || '/';
-  return splits.find((s) => s.control === path) ?? null;
+  return splits.find((s): s is LpPageSplit => isPageSplit(s) && s.control === path) ?? null;
+}
+
+/** The running Meta split, or null when there is none. */
+export function metaSplit(splits: readonly LpSplit[] = LP_SPLITS): LpMetaSplit | null {
+  return splits.find((s): s is LpMetaSplit => s.kind === 'meta') ?? null;
 }
 
 /**
@@ -145,7 +183,7 @@ export interface LpResolution {
  * month.
  */
 export function resolveLpArm(
-  split: LpSplit,
+  split: Pick<LpSplit, 'key' | 'share'>,
   current: LpArms,
   roll: number,
   splits: readonly LpSplit[] = LP_SPLITS,
