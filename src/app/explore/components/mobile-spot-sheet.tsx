@@ -21,6 +21,11 @@ const SpotDetailShell = dynamic(
   { ssr: false },
 );
 
+/** How long a tap waits for auth to settle before fetching anonymous. */
+const AUTH_WAIT_MS = 1500;
+/** How long a payload request may take before it counts as failed. */
+const FETCH_TIMEOUT_MS = 20_000;
+
 /** The history.state key that marks "a spot sheet is open" on this entry. */
 const HISTORY_KEY = "rcSpotSheet";
 
@@ -101,6 +106,9 @@ export default function MobileSpotSheet({
   onOpenSpot: (slug: string) => void;
 }) {
   const { session, loading: authLoading } = useAuth();
+  // The string, not the session object: a token refresh hands out a new
+  // object with the same token, and that is not a reason to fetch again.
+  const accessToken = session?.access_token;
   const [loaded, setLoaded] = useState<Loaded | null>(null);
   const [failed, setFailed] = useState<string | null>(null);
   const [attempt, setAttempt] = useState(0);
@@ -117,52 +125,80 @@ export default function MobileSpotSheet({
 
   // ── Data ────────────────────────────────────────────────────────────
   // The token, when there is one, is what lets an owner open their own
-  // private custom spot; the proxy verifies it and vouches downstream. Held
-  // until auth has settled so a signed-in angler's first tap does not go out
-  // anonymous and 404.
+  // private custom spot; the proxy verifies it and vouches downstream. The
+  // fetch waits for auth to settle so a signed-in angler's first tap does not
+  // go out anonymous and 404, but only for a moment: Supabase reads the
+  // session under a cross-tab Navigator lock with no timeout, and on Android
+  // Chrome a frozen background tab can hold that lock for as long as it
+  // lives. Then `authLoading` never clears, and a sheet that waited on it
+  // showed its dots forever (seen 2026-09-06). After AUTH_WAIT_MS the fetch
+  // goes out anonymous; every curated spot answers the same either way, and
+  // if auth settles later the effect runs again with the token, which is
+  // what a private custom spot needs.
+  //
+  // The request itself is bounded too. A stalled connection used to leave
+  // the same dots with no way out but closing the sheet; now it lands in
+  // the failed state, where Try again is.
   const fetchedFor = useRef<string | null>(null);
   useEffect(() => {
-    if (!slug || authLoading) return;
+    if (!slug) return;
     const key = `${slug}#${attempt}`;
     if (fetchedFor.current === key) return;
-    fetchedFor.current = key;
     // A swap to another spot shows that spot's skeleton, not the last page.
     setLoaded((cur) => (cur?.slug === slug ? cur : null));
     setFailed(null);
     let cancelled = false;
-    const token = session?.access_token;
-    fetch(`/api/bluecaster/spots/${encodeURIComponent(slug)}/spot-page`, {
-      headers: token ? { Authorization: `Bearer ${token}` } : undefined,
-      cache: "no-store",
-    })
-      .then((res) => (res.ok ? res.json() : null))
-      .then((data: SpotPageInitial | null) => {
-        if (cancelled) return;
-        if (!data) {
-          setFailed(slug);
-          return;
-        }
-        setLoaded({
-          slug,
-          page: stripPaidIntel(data),
-          tz: timezoneFor(spot?.regionName ?? data.spot.region),
-          nowMs: Date.now(),
-        });
-        scrollerRef.current?.scrollTo({ top: 0 });
-        setScrolled(false);
+    let authTimer: number | undefined;
+    let fetchTimer: number | undefined;
+    const controller = new AbortController();
+
+    const run = (token: string | undefined) => {
+      fetchedFor.current = key;
+      fetchTimer = window.setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
+      fetch(`/api/bluecaster/spots/${encodeURIComponent(slug)}/spot-page`, {
+        headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+        cache: "no-store",
+        signal: controller.signal,
       })
-      .catch(() => {
-        if (!cancelled) setFailed(slug);
-      });
+        .then((res) => (res.ok ? res.json() : null))
+        .then((data: SpotPageInitial | null) => {
+          if (cancelled) return;
+          if (!data) {
+            setFailed(slug);
+            return;
+          }
+          setLoaded({
+            slug,
+            page: stripPaidIntel(data),
+            tz: timezoneFor(spot?.regionName ?? data.spot.region),
+            nowMs: Date.now(),
+          });
+          scrollerRef.current?.scrollTo({ top: 0 });
+          setScrolled(false);
+        })
+        .catch(() => {
+          if (!cancelled) setFailed(slug);
+        })
+        .finally(() => window.clearTimeout(fetchTimer));
+    };
+
+    if (authLoading) {
+      authTimer = window.setTimeout(() => run(undefined), AUTH_WAIT_MS);
+    } else {
+      run(accessToken);
+    }
     return () => {
       cancelled = true;
+      window.clearTimeout(authTimer);
+      window.clearTimeout(fetchTimer);
+      controller.abort();
       // Cancelled before it landed: let the next run ask again.
       if (fetchedFor.current === key) fetchedFor.current = null;
     };
     // `spot` is only a label source here; a payload does not need refetching
     // when the rail re-ranks around it.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [slug, session, authLoading, attempt]);
+  }, [slug, accessToken, authLoading, attempt]);
 
   // Closed: drop the payload so the next open starts from its skeleton
   // rather than flashing the last spot.
