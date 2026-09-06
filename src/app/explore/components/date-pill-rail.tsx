@@ -99,7 +99,12 @@ export default function DatePillRail({
   const [lockDay, setLockDay] = useState<number | null>(null);
 
   const railRef = useRef<HTMLDivElement | null>(null);
-  const selRef = useRef<HTMLButtonElement | null>(null);
+  // The selected tile, a button once resolved and a plain div while pending,
+  // so the ref is typed to what both are and set through a callback.
+  const selRef = useRef<HTMLElement | null>(null);
+  const setSelRef = useCallback((el: HTMLElement | null) => {
+    selRef.current = el;
+  }, []);
 
   // Whether the right-edge arrow still has days behind it to point at.
   const [atEnd, setAtEnd] = useState(false);
@@ -203,11 +208,42 @@ export default function DatePillRail({
               ))
             : model.days.map((day) => {
                 const isSel = day.iso === selectedIso;
+                // Still resolving whether this day is ours to show (see
+                // ForecastDay.pending). Not a button: this tile has no answer
+                // yet, and a tap on it used to fall through to `onSelectDay`
+                // because `handleDay` only asks about `locked`. On a phone
+                // whose tier read stalled (a frozen background tab holding
+                // the auth lock) that put a paid day in the URL for anyone
+                // who tapped fast enough. Same shape as the strip's DayCell:
+                // the date stays, the number is a pulse, and nothing on it
+                // takes a tap until the tier says what the tile is.
+                if (day.pending) {
+                  return (
+                    <div
+                      key={day.index}
+                      ref={isSel ? setSelRef : undefined}
+                      aria-busy="true"
+                      aria-label={`${day.dow} ${day.date}, loading`}
+                      className="flex w-[52px] shrink-0 snap-center flex-col items-center justify-center gap-0.5 rounded border border-rc-rule bg-rc-surface text-rc-ink"
+                    >
+                      <span className="rc-label text-[9px] leading-none">
+                        {day.index === 0 ? "Today" : day.dow}
+                      </span>
+                      <span className="font-rc-mono text-[10px] leading-none text-rc-ink-soft">
+                        {day.date}
+                      </span>
+                      <span
+                        aria-hidden
+                        className="mt-0.5 h-4 w-6 animate-pulse rounded bg-rc-panel"
+                      />
+                    </div>
+                  );
+                }
                 return (
                   <button
                     key={day.index}
                     type="button"
-                    ref={isSel ? selRef : undefined}
+                    ref={isSel ? setSelRef : undefined}
                     onClick={() => handleDay(day)}
                     aria-current={isSel ? "date" : undefined}
                     /* The best day is marked in colour alone, so it has to be
@@ -280,12 +316,7 @@ export default function DatePillRail({
 
                     {/* The one line that changes: a score, a padlock, or the
                         reason there is no score to show. */}
-                    {day.pending ? (
-                      <span
-                        aria-hidden
-                        className="mt-0.5 h-4 w-6 animate-pulse rounded bg-rc-surface"
-                      />
-                    ) : day.nonRetention ? (
+                    {day.nonRetention ? (
                       <span
                         className={`font-rc-mono text-[8px] leading-none ${
                           isSel ? "text-white/85" : "text-rc-ink-soft"
