@@ -21,6 +21,8 @@ import {
   type NoticeState,
   type ScoreBeatCandidate,
 } from './score-beats';
+import { ENTITLEMENT_COLUMNS, entitlementFromSettings } from './entitlement';
+import { applyTierToProfiles } from './alert-tier';
 
 // =============================================================================
 // Types
@@ -1176,6 +1178,40 @@ export async function getActiveAlertProfiles(): Promise<AlertProfile[]> {
 }
 
 /**
+ * Is each of these accounts Pro right now? One query for the whole run.
+ *
+ * Read from user_settings through the same resolver every API route uses, so
+ * trial, grace and cancellation all mean here what they mean at the paywall.
+ * An account with no row is free, as everywhere else.
+ *
+ * Fails OPEN. If the lookup itself errors, every owner is treated as Pro for
+ * this run and the error is logged. The alternative is one bad query muting
+ * every paying customer's alerts on a silent tick, which is worse than one
+ * lapsed account hearing about a good day.
+ */
+export async function proStatusByUser(userIds: string[]): Promise<Map<string, boolean>> {
+  const isPro = new Map<string, boolean>();
+  if (userIds.length === 0) return isPro;
+
+  const { data, error } = await supabaseAdmin
+    .from('user_settings')
+    .select(`user_id, ${ENTITLEMENT_COLUMNS}`)
+    .in('user_id', userIds);
+
+  if (error) {
+    console.error('[alerts] entitlement lookup failed, treating every owner as Pro this run:', error);
+    for (const id of userIds) isPro.set(id, true);
+    return isPro;
+  }
+
+  for (const id of userIds) isPro.set(id, false);
+  for (const row of data ?? []) {
+    isPro.set(row.user_id as string, entitlementFromSettings(row).isPro);
+  }
+  return isPro;
+}
+
+/**
  * Update alert profile after trigger
  */
 export async function updateAlertProfileAfterTrigger(
@@ -1281,6 +1317,12 @@ export async function processAlerts(): Promise<{
     profileName: string;
     triggered: boolean;
     reason: string;
+    /**
+     * The channels the account may use for this send. Set on a triggered
+     * composite alert. The sender re-reads the row, and the row still says
+     * what the customer asked for, not what their tier allows.
+     */
+    channels?: string[];
   }>;
   /** One claimed, ready-to-send digest per angler. */
   digestJobs: AlertDigestJob[];
@@ -1290,6 +1332,7 @@ export async function processAlerts(): Promise<{
     profileName: string;
     triggered: boolean;
     reason: string;
+    channels?: string[];
   }> = [];
 
   let processed = 0;
@@ -1299,9 +1342,22 @@ export async function processAlerts(): Promise<{
   let digestJobs: AlertDigestJob[] = [];
 
   try {
-    // Fetch all active profiles
-    const profiles = await getActiveAlertProfiles();
-    console.log(`Processing ${profiles.length} active alert profiles`);
+    // Fetch all active profiles, then hold back what the account no longer
+    // pays for. is_active is what the customer chose; the tier is what they
+    // have. A cancelled trial's extra alerts and its SMS stop here, and its
+    // oldest alert carries on by email. See ./alert-tier.ts.
+    const activeProfiles = await getActiveAlertProfiles();
+    const isProByUser = await proStatusByUser([
+      ...new Set(activeProfiles.map((p) => p.user_id)),
+    ]);
+    const { allowed: profiles, held } = applyTierToProfiles(activeProfiles, isProByUser);
+    for (const { profile, reason } of held) {
+      results.push({ profileId: profile.id, profileName: profile.name, triggered: false, reason });
+      skipped++;
+    }
+    console.log(
+      `Processing ${profiles.length} active alert profiles (${held.length} held back by tier)`,
+    );
 
     // Score alerts and composite alerts share nothing but a table. Score alerts
     // read the bluecaster outlook; composite alerts read Open-Meteo and CHS.
@@ -1451,6 +1507,7 @@ export async function processAlerts(): Promise<{
                   profileName: profile.name,
                   triggered: true,
                   reason: evaluation.reason,
+                  channels: profile.delivery_channels ?? ['email'],
                 });
               } else {
                 // Update state flags only
