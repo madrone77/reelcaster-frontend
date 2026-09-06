@@ -210,6 +210,14 @@ export function buildForecastDays(
   reg?: StripRegulation | null,
   // Sun times for the daylight window used by the per-day weather icon.
   sun?: SunHours | null,
+  /**
+   * Index from which the caller does not yet know whether a day is locked —
+   * see `ForecastDay.pending`. The spot page passes the anonymous horizon
+   * here while the account tier is still resolving, so the strip keeps its
+   * shape (dates in, numbers pending) instead of rendering nothing. null
+   * (the default) means the tier is known and every cell is final.
+   */
+  pendingFrom: number | null = null,
 ): ForecastStripModel {
   const grid = bestSpeciesId
     ? payload.hourlyScoreGrid[bestSpeciesId]
@@ -226,26 +234,29 @@ export function buildForecastDays(
     // daily score the engine already computed.
     const score = fromGrid.score ?? d.score ?? null;
     const nonRetention = isNonRetentionOn(reg, d.iso);
+    const pending = pendingFrom !== null && i >= pendingFrom;
     // A non-retention day has no retention score to gate — show the label
-    // ungated rather than a lock/paywall.
-    const lockTier = nonRetention ? null : lockTierAt(i, visible);
+    // ungated rather than a lock/paywall. A pending day is neither locked
+    // nor scored yet: it draws a skeleton until the tier answers.
+    const lockTier = nonRetention || pending ? null : lockTierAt(i, visible);
     const locked = lockTier !== null;
     return {
       index: i,
       iso: d.iso,
       dow: d.dow.charAt(0).toUpperCase() + d.dow.slice(1).toLowerCase(),
       date: d.date,
-      score,
-      peakLabel: locked || nonRetention ? null : fmtPeak(fromGrid.hour),
-      tier: tierFor(score),
+      score: pending ? null : score,
+      peakLabel:
+        locked || nonRetention || pending ? null : fmtPeak(fromGrid.hour),
+      tier: tierFor(pending ? null : score),
       locked,
       lockTier,
       isBest: false,
       nonRetention,
       weather: dayWeather(payload.hourlyConditionsGrid?.[i], sun, fromGrid.hour),
-      // The spot page fetches its own payload under the caller's session, so
-      // its lock states are final on arrival — nothing to resolve later.
-      pending: false,
+      // Once the tier is known, the spot page's payload is fetched under the
+      // caller's session, so every lock state is final on arrival.
+      pending,
     };
   });
 

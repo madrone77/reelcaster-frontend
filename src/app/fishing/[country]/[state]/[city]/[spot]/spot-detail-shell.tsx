@@ -21,6 +21,7 @@ import { useSpotClock } from "@/app/explore/lib/use-spot-clock";
 import { useAutoRefresh } from "@/app/explore/lib/use-auto-refresh";
 import { formatHour12, formatTime12 } from "@/lib/time-format";
 import {
+  ANON_STRIP_DAYS,
   buildForecastDays,
   type ForecastDay,
   type ForecastTier,
@@ -538,10 +539,27 @@ export default function SpotDetailShell({
   const regulation = page.regulations.find((r) => r.speciesId === selId) ?? null;
 
   const fcSource = fc ?? page;
+  // While the tier is still resolving the strip is built on the anonymous
+  // horizon with every later day PENDING: dates in, numbers and padlocks
+  // held, exactly what the Explore strip does. It used to be null until
+  // `tierLoading` cleared, which drew an empty 124px box. That was meant to
+  // last a few hundred ms, but the session read behind `useSubscription`
+  // waits on a browser tab lock (see @/lib/supabase), and on Android Chrome
+  // a frozen background tab can hold that lock for as long as the page is
+  // open, so the box stayed empty for the whole visit. Now the skeleton is
+  // what a slow answer costs, and nothing shifts when it lands.
   const stripModel = useMemo(
     () =>
-      selId && !tierLoading
-        ? buildForecastDays(fcSource, selId, accessTier, null, regulation, page.sun)
+      selId
+        ? buildForecastDays(
+            fcSource,
+            selId,
+            tierLoading ? "anonymous" : accessTier,
+            null,
+            regulation,
+            page.sun,
+            tierLoading ? ANON_STRIP_DAYS : null,
+          )
         : null,
     [fcSource, selId, tierLoading, accessTier, regulation, page.sun],
   );
