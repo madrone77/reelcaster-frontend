@@ -93,14 +93,32 @@ const getSnapshot = (): Snapshot => snapshot;
 /** SSR has no session; the client corrects this on hydration. */
 const getServerSnapshot = (): Snapshot => SIGNED_OUT;
 
+/**
+ * How long the settings read may take before it resolves to free. The read
+ * goes through the auth client for its bearer token, and that takes the same
+ * Web Lock as getSession(); on Chrome Android the lock is sometimes never
+ * granted (supabase/supabase-js#2013), so an unbounded await here left
+ * `loading` true forever and every consumer stuck on it.
+ */
+const LOAD_DEADLINE_MS = 6000;
+
 async function load(userId: string): Promise<void> {
   inFlight = true;
   try {
-    const { data, error } = await supabase
+    const read = supabase
       .from('user_settings')
       .select(COLUMNS)
       .eq('user_id', userId)
       .maybeSingle();
+    const { data, error } = await Promise.race([
+      read,
+      new Promise<{ data: null; error: Error }>((resolve) =>
+        setTimeout(
+          () => resolve({ data: null, error: new Error('user_settings read timed out') }),
+          LOAD_DEADLINE_MS,
+        ),
+      ),
+    ]);
 
     // Someone switched accounts mid-flight — this answer is for a stale user.
     if (snapshot.userId !== userId) return;

@@ -28,6 +28,9 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
 
+/** How long the first getSession() may take before we stop waiting on it. */
+const SESSION_DEADLINE_MS = 4000
+
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null)
   const [session, setSession] = useState<Session | null>(null)
@@ -35,12 +38,29 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [isPasswordRecovery, setIsPasswordRecovery] = useState(false)
 
   useEffect(() => {
-    // Get initial session
-    supabase.auth.getSession().then(({ data: { session } }) => {
+    // Get initial session.
+    //
+    // Bounded, because supabase-js takes a Web Lock (navigator.locks) before
+    // it answers, and on Chrome Android that lock is sometimes never granted
+    // (supabase/supabase-js#2013, #2111): getSession() then never settles,
+    // `loading` stays true for the life of the page, and everything gated on
+    // it (the tier, Add spot on /explore) is stuck. After the deadline we
+    // proceed as signed out; onAuthStateChange still delivers the session if
+    // the lock frees up later.
+    let settled = false
+    const settle = (session: Session | null) => {
+      if (settled) return
+      settled = true
       setSession(session)
       setUser(session?.user ?? null)
       setLoading(false)
-    })
+    }
+    const deadline = setTimeout(() => settle(null), SESSION_DEADLINE_MS)
+    supabase.auth
+      .getSession()
+      .then(({ data: { session } }) => settle(session))
+      .catch(() => settle(null))
+      .finally(() => clearTimeout(deadline))
 
     // Listen for auth changes
     const {
@@ -62,7 +82,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
     })
 
-    return () => subscription.unsubscribe()
+    return () => {
+      clearTimeout(deadline)
+      subscription.unsubscribe()
+    }
   }, [])
 
   const signUp = async (email: string, password: string, firstName?: string) => {
