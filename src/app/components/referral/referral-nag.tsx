@@ -5,27 +5,50 @@
  *
  * Two shapes on two surfaces. `banner` is a full-width strip at the top of a
  * spot page. `line` is one sentence under the home city on the dashboard.
- * Both open the same modal and both remember a dismissal per browser (see
- * src/lib/referral-nag.ts), so the X is not "later", it is "stop asking".
+ * Both open the same modal and both remember a dismissal on the ACCOUNT (see
+ * src/lib/referral-nag.ts), so the X is not "later", it is "stop asking",
+ * and it holds on every browser the person signs in on.
  *
  * Renders nothing for a signed-out reader: the link needs an account, and a
- * nag that leads to a signup wall is a different ask.
- *
- * The dismissal is read in an effect, not during render, so the server and
- * the first client paint agree; the nag appears a frame after hydration on
- * the browsers that have not said no.
+ * nag that leads to a signup wall is a different ask. Renders nothing while
+ * the account's row is still loading, so a dismissed nag never flashes.
  */
 
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { X } from 'lucide-react';
 import { useAuth } from '@/contexts/auth-context';
+import { refreshSubscription, useSubscription } from '@/hooks/use-subscription';
+import { supabase } from '@/lib/supabase';
 import { trackEvent } from '@/lib/analytics';
-import {
-  dismissReferralNag,
-  isReferralNagDismissed,
-  type ReferralNagSurface,
-} from '@/lib/referral-nag';
+import { isReferralNagDismissed, type ReferralNagSurface } from '@/lib/referral-nag';
 import ReferralModal from './referral-modal';
+
+/**
+ * Record the no on the account. The component hides the nag on its own state
+ * first; this makes it stick. Failure is logged and swallowed: the nag is
+ * gone for this page view either way, and it simply asks once more next time.
+ */
+async function saveDismissal(surface: ReferralNagSurface): Promise<void> {
+  try {
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
+    if (!session) return;
+    const res = await fetch('/api/referrals/dismiss', {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${session.access_token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ surface }),
+    });
+    if (!res.ok) throw new Error(String(res.status));
+    // Every other consumer of the row learns about it too.
+    refreshSubscription();
+  } catch (err) {
+    console.warn('[referral nag] dismiss did not save', err);
+  }
+}
 
 const COPY: Record<ReferralNagSurface, string> = {
   spot: 'Share with a friend and get a free month of Pro',
@@ -42,19 +65,19 @@ export default function ReferralNag({
   className?: string;
 }) {
   const { user } = useAuth();
-  const [visible, setVisible] = useState(false);
+  const { dismissedNags, loading } = useSubscription();
+  // Hidden the moment the X is tapped, before the save round-trips.
+  const [hidden, setHidden] = useState(false);
   const [open, setOpen] = useState(false);
 
-  useEffect(() => {
-    setVisible(!isReferralNagDismissed(surface));
-  }, [surface]);
-
-  if (!user || !visible) return null;
+  if (!user || loading || hidden || isReferralNagDismissed(dismissedNags, surface)) {
+    return null;
+  }
 
   const dismiss = () => {
-    dismissReferralNag(surface);
-    setVisible(false);
+    setHidden(true);
     trackEvent('Referral Nag Dismissed', { surface });
+    void saveDismissal(surface);
   };
 
   const openModal = () => {
