@@ -14,7 +14,6 @@ import Link from 'next/link';
 import { useAuth } from '@/contexts/auth-context';
 import { useSubscription } from '@/hooks/use-subscription';
 import { trackEvent } from '@/lib/analytics';
-import { supabase } from '@/lib/supabase';
 import { useUpgradeFlow } from '@/hooks/use-upgrade-flow';
 import { cn } from '@/lib/utils';
 import ExpressCheckout from './express-checkout';
@@ -68,6 +67,46 @@ const PAY_FIRST = process.env.NEXT_PUBLIC_PAY_FIRST_CHECKOUT === '1';
 
 /** How the purchase was started, for the caller's analytics. */
 export type TrialCtaMethod = 'annual' | 'wallet' | 'signup';
+
+/**
+ * How long the button waits for the auth context to settle before it draws
+ * itself anyway. Uncontended, the session read behind `useAuth().loading`
+ * answers in milliseconds, so this never fires for a healthy page.
+ */
+const AUTH_WAIT_MS = 1500;
+/** How long the eligibility read may take before the button stops waiting. */
+const STATUS_TIMEOUT_MS = 15_000;
+
+/**
+ * The session the Supabase client persisted, read straight from storage.
+ *
+ * Only for the stalled case. The client serialises every session read across
+ * tabs with a Web Lock, and on Android Chrome a frozen background tab can hold
+ * that lock for as long as it lives; then `useAuth()` never settles and nothing
+ * that asks the client for a session gets an answer. Storage has no lock. A
+ * live token here means the reader is signed in even though the context could
+ * not say so, and it is the token the eligibility read and checkout need.
+ * Blocked storage throws on access, so the whole read is guarded.
+ */
+function peekStoredAccessToken(): string | undefined {
+  try {
+    const url = process.env.NEXT_PUBLIC_SUPABASE_URL ?? '';
+    const ref = url.replace(/^https?:\/\//, '').split('.')[0];
+    if (!ref) return undefined;
+    const raw = window.localStorage.getItem(`sb-${ref}-auth-token`);
+    if (!raw) return undefined;
+    const parsed = JSON.parse(raw) as { access_token?: string; expires_at?: number };
+    if (!parsed.access_token) return undefined;
+    // A dead token would only be refused; without the client to refresh it,
+    // signed out is the honest answer.
+    if (parsed.expires_at && parsed.expires_at * 1000 < Date.now() + 30_000) {
+      return undefined;
+    }
+    return parsed.access_token;
+  } catch {
+    return undefined;
+  }
+}
 
 function addDays(days: number): Date {
   const d = new Date();
@@ -170,9 +209,31 @@ export function TrialCtaProvider({
   onActivate?: (method: TrialCtaMethod) => void;
   children: React.ReactNode;
 }) {
-  const { user, loading: authLoading } = useAuth();
+  const { user, session, loading: authLoading } = useAuth();
   const { isPaid } = useSubscription();
   const { openCheckout, loading: submitting, error } = useUpgradeFlow();
+
+  // The token comes from the auth context, never from a fresh
+  // `supabase.auth.getSession()` here. That call waits on the client's
+  // cross-tab lock, and a stuck lock (see peekStoredAccessToken) left this
+  // effect waiting forever: the button read "Loading…" for the whole visit.
+  // Seen on Chrome for Android with fifteen tabs open, 2026-09-06.
+  //
+  // If the context itself has not settled after AUTH_WAIT_MS, the button
+  // stops waiting for it: storage says whether there is a session, and the
+  // read runs with that token or as signed out. Should the context settle
+  // later, the deps below pick its answer up.
+  const [authStalled, setAuthStalled] = useState(false);
+  useEffect(() => {
+    if (!authLoading) return;
+    const timer = window.setTimeout(() => setAuthStalled(true), AUTH_WAIT_MS);
+    return () => window.clearTimeout(timer);
+  }, [authLoading]);
+  const authSettled = !authLoading || authStalled;
+  const accessToken =
+    session?.access_token ??
+    (authLoading && authStalled ? peekStoredAccessToken() : undefined);
+  const signedIn = Boolean(user) || Boolean(accessToken);
 
   const [status, setStatus] = useState<CheckoutStatus | null>(null);
   const [statusLoading, setStatusLoading] = useState(true);
@@ -195,23 +256,24 @@ export function TrialCtaProvider({
   const [anonError, setAnonError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (authLoading) return;
-    if (!user) {
+    if (!authSettled) return;
+    if (!accessToken) {
+      // Signed out, or signed in with no token to send: either way there is
+      // no eligibility to read, and the button must not wait on one.
       setStatusLoading(false);
       return;
     }
 
     let cancelled = false;
+    // Bounded, so a stalled connection ends in paid terms rather than a
+    // button that never enables. Understating the offer is the safe failure.
+    const controller = new AbortController();
+    const timer = window.setTimeout(() => controller.abort(), STATUS_TIMEOUT_MS);
     (async () => {
       try {
-        const {
-          data: { session },
-        } = await supabase.auth.getSession();
-        const token = session?.access_token;
-        if (!token) throw new Error('no session');
-
         const res = await fetch('/api/stripe/checkout', {
-          headers: { Authorization: `Bearer ${token}` },
+          headers: { Authorization: `Bearer ${accessToken}` },
+          signal: controller.signal,
         });
         if (!res.ok) throw new Error('status fetch failed');
         const body = (await res.json()) as CheckoutStatus;
@@ -219,21 +281,24 @@ export function TrialCtaProvider({
       } catch {
         if (!cancelled) setStatus(null);
       } finally {
+        window.clearTimeout(timer);
         if (!cancelled) setStatusLoading(false);
       }
     })();
 
     return () => {
       cancelled = true;
+      window.clearTimeout(timer);
+      controller.abort();
     };
-  }, [user, authLoading]);
+  }, [accessToken, authSettled]);
 
   // Every number this provider hands down comes from one resolved price, so
   // the button label, the disclosure under it and the summary above it cannot
   // disagree about what the card is about to be charged.
   const pricing = usePricing(region);
 
-  const anon = !authLoading && !user;
+  const anon = authSettled && !signedIn;
   // Eligibility for a signed-out buyer is checked server-side against the
   // email they give — typed, or handed over by the wallet — so an optimistic
   // `true` here never survives into the session for someone who has already
@@ -285,7 +350,7 @@ export function TrialCtaProvider({
 
   const value: TrialCtaState = {
     status,
-    busy: authLoading || (!anon && statusLoading),
+    busy: !authSettled || (!anon && statusLoading),
     anon,
     trialOn,
     trialDays,
@@ -326,7 +391,9 @@ export function TrialCtaProvider({
         signed_in: true,
         tier: isPaid ? 'pro' : 'free',
       });
-      openCheckout({ from, region }).catch(() => {
+      // The same token the eligibility read used, so the POST does not go
+      // back to the client for a session and wait on the same lock.
+      openCheckout({ from, region, accessToken }).catch(() => {
         /* surfaced through errorText */
       });
     },

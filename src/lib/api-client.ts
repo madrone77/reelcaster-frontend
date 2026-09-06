@@ -33,6 +33,14 @@ export interface ApiFetchOptions extends Omit<RequestInit, 'body'> {
   feature?: string;
   /** Skip auth header attachment (for endpoints that should be hit unauthenticated). */
   skipAuth?: boolean;
+  /**
+   * A session token the caller already holds, typically `useAuth().session`.
+   * Sent as-is, and the Supabase client is not asked for a session. Prefer
+   * this wherever the auth context is in reach: the client's own session read
+   * waits on a cross-tab lock, which a frozen background tab on Android
+   * Chrome can hold for as long as it lives (2026-09-06).
+   */
+  accessToken?: string | null;
 }
 
 /**
@@ -47,7 +55,7 @@ export async function apiFetch<T = unknown>(
   path: string,
   opts: ApiFetchOptions = {},
 ): Promise<T> {
-  const { body, feature, skipAuth, headers: extraHeaders, ...rest } = opts;
+  const { body, feature, skipAuth, accessToken, headers: extraHeaders, ...rest } = opts;
 
   const headers: Record<string, string> = {
     'content-type': 'application/json',
@@ -55,8 +63,11 @@ export async function apiFetch<T = unknown>(
   };
 
   if (!skipAuth) {
-    const { data } = await supabase.auth.getSession();
-    const token = data.session?.access_token;
+    let token = accessToken ?? undefined;
+    if (!token) {
+      const { data } = await supabase.auth.getSession();
+      token = data.session?.access_token;
+    }
     if (token) {
       headers['authorization'] = `Bearer ${token}`;
     }

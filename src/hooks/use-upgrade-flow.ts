@@ -8,6 +8,14 @@ export interface OpenCheckoutOptions {
   region?: string;
   /** Analytics origin: 'spot', 'pricing', 'paywall:14-day-forecast', etc. */
   from?: string;
+  /**
+   * The caller's session token, when it has one in hand (the auth context).
+   * Passed through so the request does not ask the Supabase client for a
+   * session at send time: that read waits on a cross-tab lock that a frozen
+   * Android tab can hold forever, and a button that had already resolved
+   * its terms then hung at "Starting…" on the press.
+   */
+  accessToken?: string | null;
 }
 
 interface CheckoutResponse {
@@ -34,6 +42,7 @@ export function useUpgradeFlow() {
     try {
       const res = await apiFetch<CheckoutResponse>('/api/stripe/checkout', {
         method: 'POST',
+        accessToken: opts.accessToken,
         body: {
           region: opts.region ?? '',
           from: opts.from ?? '',
