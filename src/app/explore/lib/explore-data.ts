@@ -70,6 +70,21 @@ export const STRIP_INK: Record<Tier, string> = {
   none: "#8A92A4",
 };
 
+/**
+ * Card strip cell fills: the design system's score colours at full strength
+ * (admin/design/design-system on bluecaster: Poor, Fair, Good), one per
+ * `tierFor` tier. Solid, not the pale STRIP_FILL tints: at 12–34px a tint
+ * reads as white from arm's length, and a good day and a blank day looked
+ * the same. These match `--rc-poor`, `--rc-fair`, `--rc-good`; literals
+ * because the cells are painted inline.
+ */
+export const STRIP_SOLID: Record<Tier, string> = {
+  good: "#3D8B4F",
+  fair: "#C97A1C",
+  poor: "#B23A2F",
+  none: "#E2E5E9",
+};
+
 export const TIER_TEXT: Record<Tier, string> = {
   good: "text-rc-good",
   fair: "text-rc-fair",

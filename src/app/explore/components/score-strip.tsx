@@ -3,7 +3,7 @@
 import { useMemo, useRef, useState } from "react";
 
 import { bestWindow } from "../lib/best-window";
-import { currentLocalHour, STRIP_FILL, tierFor } from "../lib/explore-data";
+import { currentLocalHour, STRIP_SOLID, tierFor } from "../lib/explore-data";
 import { formatHour12 } from "@/lib/time-format";
 
 const HOURS = 24;
@@ -31,8 +31,9 @@ const HEIGHT = {
 } as const;
 
 /**
- * The 24-hour score strip: one tinted cell per hour, colour = rating, the
- * same cells the spot page's terminal chart leads with. Colour only — the
+ * The 24-hour score strip: one cell per hour in its tier's score colour at
+ * full strength (`STRIP_SOLID`), the shape the spot page's terminal chart
+ * leads with. Colour only — the
  * number for an hour lives in the readout pill that follows the pointer, and
  * the card around the strip states the peak in words. A bracket under the
  * strip marks the best window (`bestWindow`, the same rule the share card and
@@ -197,16 +198,18 @@ export default function ScoreStrip({
               key={i}
               className={`flex-1 h-full rounded-[2px] ${
                 i === liveHour
-                  ? "outline outline-2 -outline-offset-1 outline-rc-brand z-[1]"
+                  ? "outline outline-2 outline-offset-1 outline-rc-ink z-[1]"
                   : ""
               }`}
-              style={{ background: STRIP_FILL[tierFor(score)] }}
+              style={{ background: STRIP_SOLID[tierFor(score)] }}
             />
           ))}
-          {/* Marker — glides between hour centers so the snap is visible. */}
+          {/* Marker — glides between hour centers so the snap is visible.
+              Ink, not the poor red: the cells are solid now and a red
+              hairline vanished on a red hour. */}
           {marker !== null && (
             <div
-              className="absolute top-0 bottom-0 w-px bg-rc-poor pointer-events-none transition-[left] duration-100 ease-out motion-reduce:transition-none"
+              className="absolute top-0 bottom-0 w-px bg-rc-ink pointer-events-none transition-[left] duration-100 ease-out motion-reduce:transition-none"
               style={{ left: `${centerOf(marker) * 100}%` }}
             />
           )}
