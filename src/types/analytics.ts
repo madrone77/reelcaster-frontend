@@ -212,6 +212,12 @@ export type AnalyticsEventName =
   | 'Referral Link Shared'
   | 'Referral Nag Dismissed'
   | 'Referral Modal Opened'
+  // The friend's side: the /r/<code> page opened, and the account made
+  // through it got its month. 'Referral Month Earned' is the sponsor's side
+  // and fires from the server, since the sponsor is not in a browser.
+  | 'Referral Link Viewed'
+  | 'Referral Claimed'
+  | 'Referral Month Earned'
   | 'Pro Welcome Shown'
   // Closed the onboarding wizard early. Paired with 'Pro Onboarding Completed'
   // — both stop it reappearing, only one means they reached the end.

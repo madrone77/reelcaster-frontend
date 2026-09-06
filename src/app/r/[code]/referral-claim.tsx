@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useAuth } from '@/contexts/auth-context';
 import { useSubscription } from '@/hooks/use-subscription';
 import { captureReferral, referralPath } from '@/lib/referrals';
+import { trackEvent } from '@/lib/analytics';
 
 /**
  * The state-dependent half of /r/<code>: set the cookie, then say where the
@@ -30,6 +31,15 @@ export default function ReferralClaim({ code, who }: { code: string; who: string
   useEffect(() => {
     captureReferral(code);
   }, [code]);
+
+  // Once auth has settled, so the event can say whether this is a friend
+  // with no account (the audience) or an existing member who got the link.
+  useEffect(() => {
+    if (authLoading) return;
+    trackEvent('Referral Link Viewed', { code, signed_in: !!user });
+    // Once per code per mount. `user` settling later would double-fire.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [code, authLoading]);
 
   // A new account arriving back here has just been comped by the attribution
   // route. The store may have read before that write; ask again once.

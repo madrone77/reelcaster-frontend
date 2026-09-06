@@ -47,6 +47,7 @@ import { getStripe } from '@/lib/stripe';
 import { sendEmail } from '@/lib/email-service';
 import { referralCreditEmail, type ReferralPayout } from '@/lib/email-templates/referral';
 import { emailIdentityHash } from '@/lib/trial';
+import { trackServerEvent } from '@/lib/mixpanel-server';
 import { dollars } from '@/lib/pricing';
 import { siteUrl } from '@/lib/site';
 import {
@@ -449,6 +450,17 @@ export async function grantReferralAtSignup(
   if (row?.id) {
     await notifyReferrer(admin, { creditId: row.id as string, referrerId: referrer.userId, payout });
   }
+
+  // The sponsor's side of the event, on the sponsor's own id. Awaited so the
+  // route does not return before the request is on the wire; bounded inside.
+  await trackServerEvent('Referral Month Earned', referrer.userId, {
+    payout: ledger.applied_as,
+    landed: ledger.applied_at !== null,
+    amount_cents: ledger.amount_cents,
+    currency: ledger.currency,
+    friends_this_year: earned + 1,
+    friend_comped: friendComped,
+  });
 
   return { outcome: 'granted', friendComped };
 }

@@ -4,13 +4,15 @@ import { useEffect, useRef, useState } from 'react';
 import { usePathname } from 'next/navigation';
 import { useAuth } from '@/contexts/auth-context';
 import { captureEntry, capturePaidTouch } from '@/lib/attribution';
-import { registerAcquisition } from '@/lib/analytics';
+import { registerAcquisition, trackEvent } from '@/lib/analytics';
 import SignupConversion from '@/app/components/analytics/signup-conversion';
 
 /** What POST /api/attribution/signup answers, narrowed to what is used here. */
 interface SignupAttributionResponse {
   new_account?: boolean;
   signup_path?: 'free' | 'checkout';
+  /** The account was made through a referral link and got its month. */
+  referral_granted?: boolean;
 }
 
 /**
@@ -83,6 +85,11 @@ export default function AttributionCapture() {
         if (!res.ok) return;
         const body = (await res.json()) as SignupAttributionResponse;
         if (!body.new_account) return;
+        // The friend's side of a referral. Fired here rather than on the
+        // /r page because only the server knows the month was granted.
+        if (body.referral_granted) {
+          trackEvent('Referral Claimed', { path: body.signup_path ?? 'free' });
+        }
         setNewAccount({ userId, path: body.signup_path ?? 'free' });
       })
       .catch(() => {});
