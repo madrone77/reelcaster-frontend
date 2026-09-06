@@ -536,6 +536,51 @@ const EMPTY_SCORING: ScoringFields = {
   scoresBySpecies: {},
 };
 
+// ── Lead species ────────────────────────────────────────────────────
+//
+// The species a spot leads with on every Explore surface (card, phone list and
+// sheet carousel, drawer, pin colour, day tiles). The payload's best_species_id
+// is the highest-scoring species, which on most days is lingcod or crab, so a
+// column of cards read "Lingcod" at spots people fish for salmon. Anglers rank
+// what they want to catch, so the lead is picked by that ranking among the
+// species scored at the spot (a closed season has no strip and so never
+// leads). Species off the list come after it, best score first, and the
+// payload's own pick is the fallback when nothing is scored.
+const SPECIES_PREFERENCE = [
+  "chinook",
+  "coho",
+  "chum",
+  "halibut",
+  "lingcod",
+  "crab",
+  "prawn",
+  "shrimp",
+];
+
+function speciesRank(name: string | undefined): number {
+  if (!name) return SPECIES_PREFERENCE.length;
+  const n = name.toLowerCase();
+  const i = SPECIES_PREFERENCE.findIndex((p) => n.includes(p));
+  // "prawn" and "shrimp" share the last rung.
+  return i === -1 ? SPECIES_PREFERENCE.length : Math.min(i, SPECIES_PREFERENCE.length - 2);
+}
+
+function leadSpeciesId(entry: MapSpotEntry, speciesDict: SpeciesDict): string | null {
+  let bestId: string | null = null;
+  let bestRank = Infinity;
+  let bestPeak = -1;
+  for (const [sid, sp] of Object.entries(entry.scores ?? {})) {
+    if (!sp) continue;
+    const rank = speciesRank(speciesDict[sid]?.name);
+    if (rank < bestRank || (rank === bestRank && sp.peak > bestPeak)) {
+      bestId = sid;
+      bestRank = rank;
+      bestPeak = sp.peak;
+    }
+  }
+  return bestId ?? entry.best_species_id;
+}
+
 /**
  * Pull a spot's display fields out of a map/spots entry. `atHour` is the
  * conditions hour to read; pass the current local hour for "today" and an
@@ -548,9 +593,8 @@ function deriveScoring(
   atHour: number,
 ): ScoringFields {
   if (!entry) return EMPTY_SCORING;
-  const strip = entry.best_species_id
-    ? entry.scores[entry.best_species_id]
-    : undefined;
+  const leadId = leadSpeciesId(entry, speciesDict);
+  const strip = leadId ? entry.scores[leadId] : undefined;
   const score = strip ? Math.round(strip.peak * 100) : null;
   const cell =
     entry.conditions?.[atHour] ??
@@ -563,9 +607,9 @@ function deriveScoring(
   }
   return {
     score,
-    bestSpeciesId: entry.best_species_id,
-    driverSpecies: entry.best_species_id
-      ? speciesDisplayName(speciesDict[entry.best_species_id]?.name ?? "")
+    bestSpeciesId: leadId,
+    driverSpecies: leadId
+      ? speciesDisplayName(speciesDict[leadId]?.name ?? "")
       : null,
     peakHour: strip?.peak_hour ?? null,
     conditions: formatConditions(cell),
