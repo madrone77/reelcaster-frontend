@@ -29,27 +29,20 @@ const PRO_ROWS: readonly string[] = [
 ];
 
 /**
- * The registry key of the split this sheet is the treatment arm of.
+ * The phone trial sheet: the whole Pro tier on one screen, with a customer
+ * saying so.
  *
- * Arm `a` is ./trial-sheet, unchanged. Arm `b` is this file. The modal reads
- * the arm and picks; nothing else knows the test exists. Stop the test with
- * an UPDATE on `split_tests` and every phone gets arm `a` again.
- */
-export const TRIAL_SHEET_TEST = 'trial_sheet_pro_v1';
-
-/**
- * The phone trial sheet, arm b: the whole Pro tier on one screen, with a
- * customer saying so.
+ * This was arm b of `trial_sheet_pro_v1` (2026-09-04 to 2026-09-06). The
+ * control argued in three lines and a timeline; it read clean and it did not
+ * convert (1 trial in 100 exposures against 5 in 140 here), and the guess was
+ * that clean was the problem: three rows undersell a tier with seven things
+ * in it, and a timeline of what it costs is a screen spent on the objection
+ * rather than on the offer. So this sheet names the tier, lists every Pro-only
+ * row, each with a tick and nothing under it, and gives the space the
+ * timeline had to a real customer's words instead. The test is concluded in
+ * the registry and the modal renders this sheet on every phone.
  *
- * The control (./trial-sheet) argues in three lines and a timeline. It reads
- * clean and it does not convert, and the guess this arm tests is that clean
- * is the problem: three rows undersell a tier with seven things in it, and a
- * timeline of what it costs is a screen spent on the objection rather than
- * on the offer. So this arm names the tier, lists every Pro-only row the plan
- * matrix has, each with a tick and nothing under it, and gives the space the
- * timeline had to a real customer's words instead.
- *
- * What it keeps from the control, deliberately:
+ * What it kept from the control, deliberately:
  *
  * - The headline and the comparison line, so the two arms differ in the
  *   argument and not in what the reader is told they are looking at.
