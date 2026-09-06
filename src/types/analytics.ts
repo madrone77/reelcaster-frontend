@@ -210,6 +210,8 @@ export type AnalyticsEventName =
   // Give a month, get a month: the account-page link left the page.
   | 'Referral Link Copied'
   | 'Referral Link Shared'
+  | 'Referral Nag Dismissed'
+  | 'Referral Modal Opened'
   | 'Pro Welcome Shown'
   // Closed the onboarding wizard early. Paired with 'Pro Onboarding Completed'
   // — both stop it reappearing, only one means they reached the end.

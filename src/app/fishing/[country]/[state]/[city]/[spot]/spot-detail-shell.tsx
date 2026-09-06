@@ -5,6 +5,7 @@ import Link from "next/link";
 import dynamic from "next/dynamic";
 import { ArrowUpCircle, ChevronLeft, ChevronRight, Home, Bell, Share2, X } from "lucide-react";
 import { useAuth } from "@/contexts/auth-context";
+import ReferralNag from "@/app/components/referral/referral-nag";
 import { useSubscription } from "@/hooks/use-subscription";
 import { noteEngagement } from "@/lib/upgrade-nag";
 import { setPaywallContext } from "@/lib/paywall-context";
@@ -1130,6 +1131,14 @@ export default function SpotDetailShell({
           `--rc-ad-bar-h` carries the device safe area, which a bare `pb-16`
           would not. A sheet has no fixed bar to clear. */}
       <div className={sheet ? "" : adBarBottom ? "pb-[var(--rc-ad-bar-h)]" : "pt-16"}>
+        {/* Share and get a month, at the top of the page. Not in the phone
+            sheet: its head is sticky and measured, and a strip above it
+            would push the handle down. Not under the ad frame either, where
+            the one link on the page is meant to be Back to map. An X hides
+            it on this browser for good. */}
+        {!sheet && !ad && (
+          <ReferralNag surface="spot" shape="banner" className={PAGE_MEASURE} />
+        )}
         {/* Sub-header: the way back to the map, then on desktop the breadcrumb
             and the freshness stamp. Full-bleed rule, inner row on the page
             measure — so "Back to map" starts on the same gridline as the spot
