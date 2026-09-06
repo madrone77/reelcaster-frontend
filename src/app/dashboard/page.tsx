@@ -29,6 +29,7 @@ import HomeSpotHero, { deriveTide, type TideRead } from "./home-spot-hero";
 import AroundYou, { aroundYouFrom, cityName } from "./around-you";
 import CityWater, { cityWaterFrom } from "./city-water";
 import HomeCityRow from "./home-city-row";
+import ReferralNag from "@/app/components/referral/referral-nag";
 import NearbyReports from "./nearby-reports";
 import MarketingFooter from "@/app/components/marketing/marketing-footer";
 import type { MapSpotsPayload } from "@/lib/bluecaster";
@@ -981,6 +982,9 @@ export default function DashboardPage() {
             <div className="mt-1.5">
               <HomeCityRow />
             </div>
+            {/* Share and get a month, one line under the city. An X hides it
+                on this browser for good; see src/lib/referral-nag.ts. */}
+            <ReferralNag surface="dashboard" className="mt-1.5" />
           </div>
           <div className="flex items-start divide-x divide-rc-rule">
             <Stat n={spotsHot != null ? String(spotsHot) : "—"} label="Spots ≥ 80" tone="good" />
@@ -1352,19 +1356,6 @@ export default function DashboardPage() {
               )}
             </RailCard>
           </div>
-
-          {/* Give a month, get a month. One line, not a card: the card with
-              the link lives on the account page, and this is only the way
-              there for somebody who never opens settings. */}
-          <p className="mt-6 font-rc-mono text-[12px] text-rc-ink-soft">
-            Give a fishing buddy a month of Pro and get a month back.{" "}
-            <Link
-              href="/settings/account"
-              className={`font-bold text-rc-brand ${TAP_TEXT}`}
-            >
-              Get your link ›
-            </Link>
-          </p>
         </div>
       </div>
 

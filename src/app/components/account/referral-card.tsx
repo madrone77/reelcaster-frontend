@@ -13,56 +13,19 @@
  * twelfth of the price credited to the renewal. See referrals-server.ts.
  */
 
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useState } from 'react'
 import { Gift, Check, Copy, Share2 } from 'lucide-react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
-import { useAuth } from '@/contexts/auth-context'
 import { useSubscription } from '@/hooks/use-subscription'
-import { supabase } from '@/lib/supabase'
+import { useReferralSummary } from '@/hooks/use-referral-summary'
 import { trackEvent } from '@/lib/analytics'
 import { referralShareText } from '@/lib/referrals'
 
-interface Summary {
-  code: string
-  url: string
-  friends: number
-  monthsThisYear: number
-  cap: number
-  days: number
-}
-
 export default function ReferralCard() {
-  const { user } = useAuth()
   const { isPaid, stripeCustomerId } = useSubscription()
-  const [summary, setSummary] = useState<Summary | null>(null)
-  const [failed, setFailed] = useState(false)
+  const { summary, failed } = useReferralSummary()
   const [copied, setCopied] = useState(false)
-
-  // Keyed on the id, not the user object: the auth context hands out a fresh
-  // object on every token refresh, and each one re-minted the same summary.
-  const userId = user?.id ?? null
-  useEffect(() => {
-    if (!userId) return
-    let cancelled = false
-    ;(async () => {
-      try {
-        const { data: { session } } = await supabase.auth.getSession()
-        if (!session) throw new Error('no session')
-        const res = await fetch('/api/referrals', {
-          headers: { Authorization: `Bearer ${session.access_token}` },
-        })
-        if (!res.ok) throw new Error(String(res.status))
-        const body = (await res.json()) as Summary
-        if (!cancelled) setSummary(body)
-      } catch {
-        if (!cancelled) setFailed(true)
-      }
-    })()
-    return () => {
-      cancelled = true
-    }
-  }, [userId])
 
   const canShare = typeof navigator !== 'undefined' && typeof navigator.share === 'function'
 
