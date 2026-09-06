@@ -1062,9 +1062,21 @@ export default function SpotDetailShell({
     // measures against — the mark landing a few px right of the spot name.
     // Nothing here listened to that scroller anyway (only the 14-day strip
     // scrolls, horizontally, on its own).
+    //
+    // `overflow-anchor: none` under lg, because Chrome's scroll anchoring and
+    // the sticky conditions strip below chase each other. The strip wears a
+    // shorter compact form once it is pinned, so pinning moves everything
+    // under it up by the difference. Chrome answers by scrolling up the same
+    // amount to hold the chart still under the reader's eye, which carries the
+    // strip's sentinel back below the pin line, the strip unpins and grows,
+    // the chart drops, Chrome scrolls back down, and round it goes at ten
+    // times a second: on Android the page over the chart visibly bounced and
+    // no scrub could land. Safari has no scroll anchoring, which is why the
+    // same page was fine on an iPhone. Turning anchoring off for this tree
+    // ends the loop; the sentinel then decides the pin state alone.
     <div
       ref={rootRef}
-      className={`${sheet ? "min-h-full" : "min-h-dvh"} bg-rc-panel`}
+      className={`${sheet ? "min-h-full" : "min-h-dvh"} bg-rc-panel max-lg:[overflow-anchor:none]`}
       /* Marks this render as the ad frame for the one piece of app chrome that
          lives OUTSIDE this tree: the mobile tab bar in the root layout. See
          the note in src/app/components/mobile-bottom-nav.tsx for why it is
