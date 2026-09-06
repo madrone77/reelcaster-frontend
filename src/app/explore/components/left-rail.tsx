@@ -102,7 +102,7 @@ export default function LeftRail({
   onCreateCustomSpot?: () => void;
 }) {
   const [sort, setSort] = useState<SortKey>("score");
-  const sortedSpots = useMemo(() => sortSpots(spots, sort), [spots, sort]);
+  const sortedSpots = useMemo(() => sortSpots(spots, sort, freshCatches), [spots, sort, freshCatches]);
 
   // Names for the drawer's per-species report split. mapControls.species is the
   // map payload's dict, which has already had catch-and-release species dropped
