@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import dynamic from "next/dynamic";
 import { Lock } from "lucide-react";
-import { supabase } from "@/lib/supabase";
+import { useAuth } from "@/contexts/auth-context";
 import { formatReportDate } from "@/lib/time-format";
 
 // Loaded on the tap that opens it, for the same reason every other paywall on
@@ -122,16 +122,30 @@ export function DailyReportCard({ cityName }: { cityName?: string | null }) {
   const [expanded, setExpanded] = useState(false);
   const [upgradeOpen, setUpgradeOpen] = useState(false);
 
+  // The token comes from the auth context, the same place the alerts and
+  // saved-spot reads on this page get theirs, and the read re-runs when it
+  // changes. It used to ask the Supabase client for a session once, on mount,
+  // and never again. The dashboard mounts its children while auth is still
+  // resolving (see AuthGate's SELF_PENDING_PREFIXES), so that single read could
+  // fire before the session existed, and a Pro angler was left holding the
+  // locked teaser for the rest of the visit. Seen on 2026-09-05: a trialing
+  // Pro account whose page had a session in context while the client's own
+  // session read came back empty, so this route and the fresh-catches read
+  // went out with no bearer and the server correctly answered locked.
+  const { session, loading: authLoading } = useAuth();
+  const token = session?.access_token;
+
   useEffect(() => {
+    // Not an answer yet: keep the skeleton until auth has settled one way or
+    // the other, rather than painting the lock and then swapping it out.
+    if (!token && authLoading) return;
+    if (!token) {
+      setData({ locked: true });
+      return;
+    }
     let cancelled = false;
     (async () => {
       try {
-        const { data: session } = await supabase.auth.getSession();
-        const token = session.session?.access_token;
-        if (!token) {
-          if (!cancelled) setData({ locked: true });
-          return;
-        }
         const res = await fetch("/api/bluecaster/city-daily-report", {
           headers: { Authorization: `Bearer ${token}` },
         });
@@ -144,7 +158,7 @@ export function DailyReportCard({ cityName }: { cityName?: string | null }) {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [token, authLoading]);
 
   // Loading: a skeleton rather than nothing, so the card doesn't pop in
   // and shove the rest of the dashboard down.

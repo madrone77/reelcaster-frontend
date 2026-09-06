@@ -439,12 +439,24 @@ const freshCatchesCache = new Map<
  *  payload. Signed-out callers still fetch (they get the locked shape by
  *  design); the header is simply absent.
  *
- *  `spot` narrows the response to one spot id, for the spot page. */
+ *  `spot` narrows the response to one spot id, for the spot page.
+ *
+ *  `accessToken` is the caller's session token from the auth context. Pass it
+ *  wherever `useAuth()` is in reach: the context is what the page already
+ *  trusts to say "signed in", and a read keyed on it re-runs when it changes.
+ *  Asking the Supabase client for a session at call time is the fallback for
+ *  callers without the context, not the primary. On 2026-09-05 a Pro angler's
+ *  dashboard had a session in context while that client read came back empty,
+ *  and this fetch went out with no bearer and stayed locked for the visit. */
 export async function fetchFreshCatches(
   spotId?: string,
+  accessToken?: string | null,
 ): Promise<FreshCatchesResponse | null> {
-  const { data } = await supabase.auth.getSession();
-  const token = data.session?.access_token;
+  let token = accessToken ?? undefined;
+  if (!token) {
+    const { data } = await supabase.auth.getSession();
+    token = data.session?.access_token;
+  }
 
   const now = Date.now();
   const key = `${spotId ?? ""}|${token ?? ""}`;
