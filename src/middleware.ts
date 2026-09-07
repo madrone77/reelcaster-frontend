@@ -319,7 +319,8 @@ export function middleware(req: NextRequest, event: NextFetchEvent) {
   // learning); the edge decides what the click reads. Half are sent on to
   // `/explore?loc=<city>&ad=day2`, the same href the landing pages' own CTA
   // carries; the other half read the city's /5 landing page (a click on
-  // /lp/vancouver/4 is sent to /lp/vancouver/5 first). Google traffic falls
+  // another variant of a pinned city is sent to that city's /5 first).
+  // Google traffic falls
   // through and reads the page. Above the page split and above the
   // page-view count for the same reason the page split is: the request that
   // follows the 307 is the one counted and stamped, and a Meta visitor must
