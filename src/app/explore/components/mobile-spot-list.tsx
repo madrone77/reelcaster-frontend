@@ -47,11 +47,9 @@ export default function MobileSpotList({
       <div className="px-4 pb-4 space-y-3">
         {sorted.map((spot) => (
           <SpotCard
-            stripPalette="neon4"
             key={spot.id}
             spot={spot}
             tz={tz}
-            layout="row"
             onSelect={() => onSelectSpot(spot.slug)}
             fresh={freshCatches?.spots[spot.id]}
           />

@@ -243,7 +243,6 @@ export default function LeftRail({
                 {sortedSpots.map((spot, i) => (
                   <Fragment key={spot.id}>
                     <SpotCard
-                      stripPalette="neon4"
                       spot={spot}
                       tz={tz}
                       onSelect={() => onSelectSpot(spot.slug)}
