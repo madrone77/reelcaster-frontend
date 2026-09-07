@@ -30,6 +30,13 @@ const MORE_ROW = 'And more...';
  * corners, 16px semibold, a hairline shadow. The reader taps this and lands on
  * a page with the same button a moment later.
  */
+/**
+ * The email field at the size Stripe Checkout draws its own: the button's
+ * height and corner radius, 16px text so iOS does not zoom the page when the
+ * field takes focus (see the global input floor).
+ */
+const STRIPE_INPUT = 'h-11 rounded-md px-3 text-[16px]';
+
 const STRIPE_BUTTON =
   'inline-flex h-11 w-full items-center justify-center rounded-md bg-rc-brand px-4 text-[16px] font-semibold text-white shadow-[0_1px_3px_rgba(0,0,0,0.12)] transition-colors hover:bg-rc-brand-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rc-brand focus-visible:ring-offset-2 disabled:opacity-60';
 
@@ -48,8 +55,13 @@ const STRIPE_BUTTON =
  * - Stripe's button shape, in our blue, with the first charge stated under
  *   it rather than over the headline. One button: no wallet row above it and
  *   no "or pay by card" divider (2026-09-06).
- * - No email field. Stripe asks for the address with the card, so the buyer
- *   types it once; see `collectEmail` on TrialBuy for what that costs.
+ * - An email field over the button, at Stripe's field height and radius. It
+ *   left on 2026-09-06 (Stripe asks for the address with the card) and came
+ *   back on 2026-09-07: without it, taps through to Stripe doubled and the
+ *   share that finished there fell from about 45% to about 10%, so the sheet
+ *   produced fewer trials per wall than before. Typing an address is the
+ *   small commitment that sorts a curious tap from a buyer, and it is what
+ *   lets the trial-eligibility pre-check run before Stripe offers a trial.
  * - The rows in Casey's order, with "And more..." closing the list.
  * - A sheet that fills the screen to just under the header (the modal sets
  *   the height when this arm renders).
@@ -149,13 +161,13 @@ export default function TrialSheetStripe({
           </Link>
         ) : (
           // No wallet row and no "or pay by card" divider above the button:
-          // one button, the way Stripe's page has one. Apple Pay is still
-          // offered on that page for anyone whose device has it.
+          // one field and one button, the way Stripe's page opens. Apple Pay
+          // is still offered on that page for anyone whose device has it.
           <TrialBuy
             signupLabel={ctaLabel}
             hideLabel
-            collectEmail={false}
             buttonClassName={STRIPE_BUTTON}
+            inputClassName={STRIPE_INPUT}
           />
         )}
         {/* The first charge, under the button the way Stripe's page puts the
