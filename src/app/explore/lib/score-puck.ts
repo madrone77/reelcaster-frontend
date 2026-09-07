@@ -397,10 +397,10 @@ function drawPuck(label: string, ring: PuckRing, hot: boolean, shape: PuckShape)
   ctx.fillStyle = ink;
   ctx.textBaseline = "middle";
   ctx.textAlign = "center";
-  // A soft shadow under the glyphs so white holds on the lighter fills.
-  ctx.shadowColor = "rgba(15, 23, 42, 0.28)";
-  ctx.shadowBlur = 1.5;
-  ctx.shadowOffsetY = 0.5;
+  // A slight drop shadow under the glyphs so white holds on the lighter fills.
+  ctx.shadowColor = "rgba(15, 23, 42, 0.45)";
+  ctx.shadowBlur = 2;
+  ctx.shadowOffsetY = 1;
   if (hot) {
     ctx.font = TAG_FONT;
     ctx.fillText(HOT_TAG, midX, PAD + pillH * TAG_Y_FRAC);
