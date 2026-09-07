@@ -595,20 +595,27 @@ export default function SpotDetailShell({
     return () => ro.disconnect();
   }, [sheet]);
 
-  // Is the conditions strip pinned? A 1px sentinel sits just above it in the
-  // flow; once the sentinel is above the line the strip sticks to (the top of
-  // the viewport on the page, the bottom of the sheet's header in a sheet),
-  // the strip is pinned and wears its compact form. Phones only: the strip
-  // is only sticky under lg, and the desktop row has room for the full table
-  // wherever it is.
+  // Is the conditions strip pinned? A 1px sentinel sits at its top edge in
+  // the flow; once the sentinel is above the line the strip sticks to (the
+  // top of the viewport on the page, the bottom of the sheet's header in a
+  // sheet), the strip is pinned and wears its compact form. Phones only: the
+  // strip is only sticky under lg, and the desktop row has room for the full
+  // table wherever it is.
+  //
+  // The answer goes straight onto the wrapper as `data-strip-pinned`, not
+  // through React state. CSS on the wrapper's two children does the rest, so
+  // a flip costs a style recalc on eight cells and nothing else. Through
+  // state it re-rendered this whole shell, chart SVG included, in the middle
+  // of a touch scroll: on a mid-range Android that was a dropped frame or
+  // three right where the reader's eye was.
   const stripSentinelRef = useRef<HTMLDivElement>(null);
-  const [stripPinned, setStripPinned] = useState(false);
+  const stripWrapRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
     const el = stripSentinelRef.current;
-    if (!el || typeof IntersectionObserver === "undefined") return;
+    const wrap = stripWrapRef.current;
+    if (!el || !wrap || typeof IntersectionObserver === "undefined") return;
     const root = sheet ? sheet.scroller.current : null;
     if (sheet && !root) return;
-    const phone = window.matchMedia("(max-width: 1023px)");
     // The observed box runs from the pin line down without limit, so the
     // sentinel "intersects" whenever it is below the line and stops the
     // moment it crosses above. A box that stopped at the bottom of the
@@ -618,12 +625,16 @@ export default function SpotDetailShell({
     // nothing would fire and the strip would stay full.
     const io = new IntersectionObserver(
       ([entry]) => {
-        setStripPinned(phone.matches && !entry.isIntersecting);
+        if (entry.isIntersecting) delete wrap.dataset.stripPinned;
+        else wrap.dataset.stripPinned = "";
       },
       { root, rootMargin: `-${sheet ? sheetHeadH : 0}px 0px 100000px 0px` },
     );
     io.observe(el);
-    return () => io.disconnect();
+    return () => {
+      io.disconnect();
+      delete wrap.dataset.stripPinned;
+    };
   }, [sheet, sheetHeadH]);
 
   const dayStripRef = useRef<HTMLDivElement>(null);
@@ -1065,16 +1076,13 @@ export default function SpotDetailShell({
     // scrolls, horizontally, on its own).
     //
     // `overflow-anchor: none` under lg, because Chrome's scroll anchoring and
-    // the sticky conditions strip below chase each other. The strip wears a
-    // shorter compact form once it is pinned, so pinning moves everything
-    // under it up by the difference. Chrome answers by scrolling up the same
-    // amount to hold the chart still under the reader's eye, which carries the
-    // strip's sentinel back below the pin line, the strip unpins and grows,
-    // the chart drops, Chrome scrolls back down, and round it goes at ten
-    // times a second: on Android the page over the chart visibly bounced and
-    // no scrub could land. Safari has no scroll anchoring, which is why the
-    // same page was fine on an iPhone. Turning anchoring off for this tree
-    // ends the loop; the sentinel then decides the pin state alone.
+    // the sticky conditions strip below once chased each other. The strip
+    // used to shrink in the flow when it pinned, Chrome scrolled up by the
+    // difference to hold the chart still, that carried the sentinel back
+    // below the pin line, the strip unpinned and grew, and round it went at
+    // ten times a second. The strip now keeps one flow height in both forms
+    // (see the wrapper below), so there is nothing left to anchor against;
+    // the rule stays as a guard so no future height change can restart it.
     <div
       ref={rootRef}
       className={`${sheet ? "min-h-full" : "min-h-dvh"} bg-rc-panel max-lg:[overflow-anchor:none]`}
@@ -1687,29 +1695,67 @@ export default function SpotDetailShell({
                 through beside it while it is pinned — and they are safe inside
                 the body's `overflow-x-clip`, which is deliberately `clip` and
                 not `hidden` precisely so sticky still works in here. */}
-            {/* Pinned-readout sentinel; see `stripPinned`. */}
-            <div ref={stripSentinelRef} className="h-px" aria-hidden="true" />
+            {/* Pinned-readout sentinel; see `stripWrapRef`. It carries the
+                gap above the strip and sits flush with the strip's top edge
+                (`-mb-px` takes its own height back out of the flow), so the
+                flip lands the frame the strip locks, not 20px early while it
+                is still moving. */}
+            <div ref={stripSentinelRef} className="mt-5 h-px -mb-px" aria-hidden="true" />
+            {/* The strip is drawn twice under lg, full and compact, stacked in
+                one grid cell, and `data-strip-pinned` (set by the observer
+                above) decides which is visible. The cell is always as tall as
+                the full form, whichever is showing, so the flow height never
+                changes: the chart and everything under it stay exactly where
+                they are when the strip pins or unpins. Before, the wrapper
+                shrank by ~70px the moment it pinned, and on a phone that was
+                the chart jumping under the reader's thumb at every crossing,
+                which read as a jitter right before the lock.
+
+                Pinned, the compact box sits at the top of the cell and the
+                rest is see-through: the chart scrolls under it and, with
+                pointer events off on the wrapper and back on for the boxes, a
+                finger there scrubs the chart as if nothing were over it. */}
             <div
-              data-strip-pinned={stripPinned ? "" : undefined}
-              className={`mt-5 max-lg:sticky max-lg:z-20 max-lg:-mx-4 max-lg:px-4 sm:max-lg:-mx-6 sm:max-lg:px-6 max-lg:pb-2 max-lg:bg-rc-panel ${
+              ref={stripWrapRef}
+              className={`group/strip grid max-lg:sticky max-lg:z-20 max-lg:pointer-events-none ${
                 // Under the sheet's own pinned header, not the top of the
                 // scroller; the variable is measured off that header above.
                 sheet ? "max-lg:top-[var(--rc-sheet-head,0px)]" : "max-lg:top-0"
               }`}
             >
-              <div className="ml-[0.5px] mr-[10px] lg:ml-[6px] lg:mr-[20px]">
-                <CurrentConditionsStrip
-                  rightNow={tilesSnapshot}
-                  score={hours24?.[selectedHour] ?? null}
-                  currentSigned={chartCurrent}
-                  currentSample={
-                    (activeIso ? curByIso[activeIso]?.[selectedHour] : null) ?? null
-                  }
-                  point={point}
-                  hour={selectedHour}
-                  isNow={dayIndex === 0 && selectedHour === nowHour}
-                  compact={stripPinned}
-                />
+              {/* The bleed margins put the opaque backdrop under the page
+                  gutter as well as the content, so the chart does not show
+                  through beside the box while it is pinned. */}
+              <div className="[grid-area:1/1] self-start max-lg:pointer-events-auto max-lg:-mx-4 max-lg:px-4 sm:max-lg:-mx-6 sm:max-lg:px-6 max-lg:pb-2 max-lg:bg-rc-panel max-lg:group-data-[strip-pinned]/strip:invisible">
+                <div className="ml-[0.5px] mr-[10px] lg:ml-[6px] lg:mr-[20px]">
+                  <CurrentConditionsStrip
+                    rightNow={tilesSnapshot}
+                    score={hours24?.[selectedHour] ?? null}
+                    currentSigned={chartCurrent}
+                    currentSample={
+                      (activeIso ? curByIso[activeIso]?.[selectedHour] : null) ?? null
+                    }
+                    point={point}
+                    hour={selectedHour}
+                    isNow={dayIndex === 0 && selectedHour === nowHour}
+                  />
+                </div>
+              </div>
+              <div className="[grid-area:1/1] self-start lg:hidden pointer-events-auto -mx-4 px-4 sm:-mx-6 sm:px-6 pb-2 bg-rc-panel invisible group-data-[strip-pinned]/strip:visible">
+                <div className="ml-[0.5px] mr-[10px]">
+                  <CurrentConditionsStrip
+                    rightNow={tilesSnapshot}
+                    score={hours24?.[selectedHour] ?? null}
+                    currentSigned={chartCurrent}
+                    currentSample={
+                      (activeIso ? curByIso[activeIso]?.[selectedHour] : null) ?? null
+                    }
+                    point={point}
+                    hour={selectedHour}
+                    isNow={dayIndex === 0 && selectedHour === nowHour}
+                    compact
+                  />
+                </div>
               </div>
             </div>
             <SpotTerminal
