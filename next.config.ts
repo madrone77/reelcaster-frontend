@@ -116,6 +116,11 @@ const nextConfig: NextConfig = {
       // Not a row in src/lib/lp-splits.ts because this is not a test: there
       // is no control arm to hold anyone in, and a cookie would be pure cost.
       { source: "/lp/seattle/1", destination: "/lp/seattle/5", permanent: false },
+      // /lp/vancouver/4 went the same way on 7 Sep. From 3 Sep it split half
+      // its clicks to /5 (src/lib/lp-splits.ts); /5 won on click-through and
+      // trials, so the split row is gone and every visitor, bot or person,
+      // is sent on. The Vancouver ads still point at /4.
+      { source: "/lp/vancouver/4", destination: "/lp/vancouver/5", permanent: false },
       // The licence guide canonicalises on the Canadian "licence", matching DFO
       // and gov.bc.ca — the sources it quotes. Plenty of people type the
       // American "license", including British Columbians, so that spelling is

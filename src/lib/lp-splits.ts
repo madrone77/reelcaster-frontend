@@ -83,12 +83,10 @@ export type LpSplit = LpPageSplit | LpMetaSplit;
  * to sending them all to the map instead, set its share to 1.
  */
 export const LP_SPLITS: readonly LpSplit[] = [
-  {
-    key: 'vancouver_4_5',
-    control: '/lp/vancouver/4',
-    treatment: '/lp/vancouver/5',
-    share: 0.5,
-  },
+  // vancouver_4_5 (3 to 7 Sep: /lp/vancouver/4 against /lp/vancouver/5)
+  // concluded for /5. Every /4 visitor now goes to /5 by a redirect in
+  // next.config.ts, which needs no cookie because there is no arm to hold
+  // anyone in. Stale vancouver_4_5 cookie keys are dropped on the next visit.
   {
     kind: 'meta',
     key: 'meta_lp5_explore',
