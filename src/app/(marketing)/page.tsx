@@ -29,6 +29,11 @@ export const metadata: Metadata = {
     'ReelCaster turns tides, weather, water conditions, and regulations into one fishing score, so you know when and where to fish on the BC and Washington coasts.',
   alternates: { canonical: siteUrl('/') },
   openGraph: {
+    // A page-level openGraph block REPLACES the root layout's, so siteName
+    // has to be restated here. Google reads the site name off the home page
+    // only, and wants og:site_name, the WebSite node, and the <title> brand
+    // to agree; without this tag it kept printing the bare domain.
+    siteName: SITE_NAME,
     title: 'ReelCaster: Know the bite. Before you go.',
     description:
       'Tides, weather, water conditions, and regulations in one simple fishing score for the BC and Washington coasts.',
