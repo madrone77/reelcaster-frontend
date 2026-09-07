@@ -30,10 +30,10 @@ function hourAtX(x: number, width: number): number {
  * it. Everything else keeps STRIP_SOLID and the three shipped tiers.
  */
 const NEON4 = {
-  prime: "#18B65B", // a firmer green than the reference check, so it holds apart from good
-  good: "#7EE29B", // a lighter mint, so prime still reads apart from good
-  fair: "#FFC24D",
-  poor: "#E7443F", // the reference's warning red
+  prime: "#0FA958", // deep vivid green
+  good: "#3CCB74", // the reference check's green, one step lighter than prime
+  fair: "#F2A93B", // warm amber, held at the same weight as the greens
+  poor: "#E4574F", // vivid red, a touch softer so a run of poor hours is not a wall
 } as const;
 function neon4(score: number | null): string {
   if (score === null) return STRIP_SOLID.none;

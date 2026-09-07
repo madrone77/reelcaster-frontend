@@ -34,14 +34,14 @@ import { NO_DATA_COLOR } from "./spot-geojson";
  * four bands as the cards' 24-hour squares (score-strip.tsx NEON4), cut at
  * 85 / 75 / 55. Local to this file on purpose: the landing-page reel puck and
  * the marketing nearby list still read `scoreColor`, so only the Explore map
- * changes. The numeral goes carbon grey on the two lighter fills, white on
- * the two saturated ones.
+ * changes. One numeral colour, white, on all four: the fills are held at one
+ * weight so white carries on each, with a soft shadow under the glyphs.
  */
 const PUCK4 = {
-  prime: { fill: "#18B65B", ink: "#ffffff" },
-  good: { fill: "#7EE29B", ink: "#5F6670" }, // carbon grey, not black
-  fair: { fill: "#FFC24D", ink: "#5F6670" },
-  poor: { fill: "#E7443F", ink: "#ffffff" },
+  prime: { fill: "#0FA958", ink: "#ffffff" },
+  good: { fill: "#3CCB74", ink: "#ffffff" },
+  fair: { fill: "#F2A93B", ink: "#ffffff" },
+  poor: { fill: "#E4574F", ink: "#ffffff" },
 } as const;
 function puck4(score: number) {
   if (score >= 85) return PUCK4.prime;
@@ -116,17 +116,17 @@ export const PUCK = {
 
   FONT_FAMILY:
     'ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif',
-  SCORE_FONT: { size: 13, weight: 700 },
-  TAG_FONT: { size: 10, weight: 800 },
+  SCORE_FONT: { size: 13, weight: 600 },
+  TAG_FONT: { size: 10, weight: 600 },
   // Text positions as a FRACTION of body height, so the two-line layout holds at
   // both the pill's 35px and the square's 38px.
   TAG_Y_FRAC: 0.3,
   SCORE_Y_FRAC: 0.686,
 
   /** How far the top of the fill is mixed toward white before the gradient runs down to the score colour. */
-  LIGHTEN: 0.2,
+  LIGHTEN: 0.1, // PREVIEW: quieter, so the band colour stays sturdy
   /** The white sheen across the top of the body: its strength, and how far down the body it reaches. */
-  SHEEN: { alpha: 0.22, depth: 0.62 },
+  SHEEN: { alpha: 0.12, depth: 0.62 },
   SHADOW: { color: "rgba(15, 23, 42, 0.45)", blur: 5, dy: 2 },
 } as const;
 
@@ -149,8 +149,22 @@ const {
   SCORE_Y_FRAC,
 } = PUCK;
 
-const FONT = `${PUCK.SCORE_FONT.weight} ${PUCK.SCORE_FONT.size}px ${PUCK.FONT_FAMILY}`;
-const TAG_FONT = `${PUCK.TAG_FONT.weight} ${PUCK.TAG_FONT.size}px ${PUCK.FONT_FAMILY}`;
+/**
+ * PREVIEW: the numerals are set in the design system's mono (IBM Plex Mono),
+ * which the doc names for map pins. next/font self-hosts it under a family
+ * the app exposes as `--font-plex-mono`; read that at raster time so the
+ * canvas uses the same face as the page, and fall back to the sans stack.
+ */
+let fontFamily: string | null = null;
+function puckFamily(): string {
+  if (fontFamily) return fontFamily;
+  if (typeof document === "undefined") return PUCK.FONT_FAMILY;
+  const v = getComputedStyle(document.documentElement).getPropertyValue("--font-plex-mono").trim();
+  fontFamily = v ? `${v}, ui-monospace, monospace` : PUCK.FONT_FAMILY;
+  return fontFamily;
+}
+const scoreFont = () => `${PUCK.SCORE_FONT.weight} ${PUCK.SCORE_FONT.size}px ${puckFamily()}`;
+const tagFont = () => `${PUCK.TAG_FONT.weight} ${PUCK.TAG_FONT.size}px ${puckFamily()}`;
 
 export const COLLAR: Record<PuckRing, string | null> = {
   base: null,
@@ -299,6 +313,8 @@ function drawPuck(label: string, ring: PuckRing, hot: boolean, shape: PuckShape)
 
   const measure = document.createElement("canvas").getContext("2d");
   if (!measure) return null;
+  const FONT = scoreFont();
+  const TAG_FONT = tagFont();
   measure.font = FONT;
   const scoreW = measure.measureText(label).width;
   measure.font = TAG_FONT;
@@ -365,6 +381,10 @@ function drawPuck(label: string, ring: PuckRing, hot: boolean, shape: PuckShape)
   ctx.fillStyle = ink;
   ctx.textBaseline = "middle";
   ctx.textAlign = "center";
+  // A soft shadow under the glyphs so white holds on the lighter fills.
+  ctx.shadowColor = "rgba(15, 23, 42, 0.28)";
+  ctx.shadowBlur = 1.5;
+  ctx.shadowOffsetY = 0.5;
   if (hot) {
     ctx.font = TAG_FONT;
     ctx.fillText(HOT_TAG, midX, PAD + pillH * TAG_Y_FRAC);
