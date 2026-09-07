@@ -103,3 +103,47 @@ export function paywallViewDedupeKey(input: {
   if (input.clickId) return `pv:c:${input.clickId}:${input.day}`;
   return null;
 }
+
+/**
+ * Which opens count. ONLY THE ONES THE VISITOR ASKED FOR.
+ *
+ * The modal reaches a reader two ways and they are not the same event. One is
+ * a tap on a button that says "Start free trial" or "Upgrade to Pro": the top
+ * bar on Explore, the ad frame's one button, the Pro CTAs across the marketing
+ * site. The other is a wall the product put in the way: a grey day tile, the
+ * Add spot control, the day-two spot open, the catch reports band. Both open
+ * the same component and both used to be reported under the same name.
+ *
+ * Measured 2026-09-07 over 30 days of Meta sessions in paywall_events, the two
+ * do not behave alike. A reader who tapped the ad-frame trial button went on
+ * to tap Begin checkout 30 times in 134 opens, about one in five. The locked
+ * day tile managed 9 in 134, the map's custom-spot control 2 in 75, and the
+ * day-two wall 0 in 38. About half of everything Meta was being told to find
+ * was the second group, and the optimiser cannot tell them apart when they
+ * share a name.
+ *
+ * So the conversion is now the ASK, not the wall. Volume drops by roughly half
+ * to about fifty a week, which is where Meta says its bidding stops being
+ * learning-limited, and the event it learns from is four times closer to a
+ * checkout. When the Begin checkout tap itself clears that bar, move the
+ * objective to it and retire this.
+ *
+ * AN ALLOWLIST, NOT A BLOCKLIST, on purpose. A new wall added to the product
+ * starts out uncounted, and someone has to argue it in; a blocklist would let
+ * every new interruption quietly join the conversion until somebody noticed
+ * the ratio had moved. The `marketing-` prefix is the one open rule, because
+ * every surface under it is a Pro button on a page that sells Pro.
+ *
+ * `null` (a wall reported without a surface) is not asked for either.
+ */
+const ASKED_FOR_SURFACES: ReadonlySet<string> = new Set([
+  'explore-ad-topbar',
+  'explore-ad-topbar-upgrade',
+  'explore-topbar',
+  'explore-topbar-upgrade',
+]);
+
+export function paywallViewIsAskedFor(surface: string | null | undefined): boolean {
+  if (!surface) return false;
+  return ASKED_FOR_SURFACES.has(surface) || surface.startsWith('marketing-');
+}

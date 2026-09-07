@@ -80,7 +80,7 @@ import { paywallEventRow, type PaywallEventKind } from '@/lib/paywall-event';
 import { readPaid, readEntry, readWall } from '@/lib/attribution';
 import { readSessionId } from '@/lib/paywall-session';
 import { acquisitionFromRequest, recordPaywallViewConversion } from '@/lib/conversions';
-import { paywallViewDedupeKey } from '@/lib/paywall-conversion';
+import { paywallViewDedupeKey, paywallViewIsAskedFor } from '@/lib/paywall-conversion';
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
@@ -212,6 +212,11 @@ export async function POST(request: NextRequest) {
 /**
  * Report a bought click reaching the wall, once per session.
  *
+ * ONLY WHEN THE READER OPENED IT ON PURPOSE. A tap on a trial or upgrade
+ * button counts; a wall the product put in front of them does not. The list
+ * and the numbers behind it are `paywallViewIsAskedFor` in
+ * src/lib/paywall-conversion.ts.
+ *
  * ONLY WITH A PAID TOUCH. `rc_paid` is written from the request in middleware
  * whenever a visit carries campaign tags or a click id, so its presence is the
  * whole test for "we paid for this person". An organic reader opening the same
@@ -240,6 +245,12 @@ async function recordPaidView(
   request: NextRequest,
   input: { day: string; feature: string; surface: string },
 ): Promise<string | null> {
+  // Before the cookies: a wall that popped on the reader is not a conversion
+  // no matter who paid for the click. Checked first so it also cannot spend
+  // the session's one dedupe key — a locked tile at minute one must not make
+  // a real tap on the trial button at minute three invisible.
+  if (!paywallViewIsAskedFor(input.surface)) return null;
+
   const cookieHeader = request.headers.get('cookie') ?? '';
   const paid = readPaid(cookieHeader);
   if (!paid) return null;

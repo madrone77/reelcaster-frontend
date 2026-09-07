@@ -118,3 +118,41 @@ assert.equal(
 );
 
 console.log('paywall-conversion: ok');
+
+// ── Which opens count ─────────────────────────────────────────────────
+
+import { paywallViewIsAskedFor } from './paywall-conversion';
+
+// A tap on a trial or upgrade button, on Explore or the ad frame.
+for (const surface of [
+  'explore-ad-topbar',
+  'explore-ad-topbar-upgrade',
+  'explore-topbar',
+  'explore-topbar-upgrade',
+]) {
+  assert.equal(paywallViewIsAskedFor(surface), true, surface);
+}
+// Every Pro button on the marketing site, including ones not yet written.
+assert.equal(paywallViewIsAskedFor('marketing-hero'), true);
+assert.equal(paywallViewIsAskedFor('marketing-pricing-pro'), true);
+assert.equal(paywallViewIsAskedFor('marketing-anything-new'), true);
+
+// A wall the product put in the way. The locked day tile, the custom-spot
+// control on the map, the day-two spot open, catch reports.
+for (const surface of [
+  'explore-forecast',
+  'explore-map',
+  'explore-ad-open-spot',
+  'spot-page-reports',
+  'explore-nag',
+  'login-page',
+  'unknown',
+]) {
+  assert.equal(paywallViewIsAskedFor(surface), false, surface);
+}
+// No surface at all is not an ask.
+assert.equal(paywallViewIsAskedFor(null), false);
+assert.equal(paywallViewIsAskedFor(''), false);
+assert.equal(paywallViewIsAskedFor(undefined), false);
+
+console.log('paywall-conversion: asked-for surfaces ok');
