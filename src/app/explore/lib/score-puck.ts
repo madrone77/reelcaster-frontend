@@ -130,6 +130,28 @@ export const PUCK = {
   SHADOW: { color: "rgba(15, 23, 42, 0.45)", blur: 5, dy: 2 },
 } as const;
 
+/**
+ * PREVIEW: a smaller puck with no white ring. Local overrides of the shared
+ * geometry, so the landing-page reel puck (which reads PUCK) keeps its size.
+ */
+const G = {
+  ...PUCK,
+  PILL_H: 20,
+  PILL_H_HOT: 30,
+  PILL_MIN_W: 26,
+  TAIL_W: 10,
+  TAIL_H: 6,
+  SQUARE_SIDE: 26,
+  SQUARE_SIDE_HOT: 33,
+  PILL_TEXT_PAD: 14,
+  SQUARE_TEXT_PAD: 10,
+  RADIUS_ROUND: 6,
+  RADIUS_SQUARE: 4,
+  RING_W: 0,
+  SCORE_FONT: { size: 12, weight: 600 },
+  TAG_FONT: { size: 9, weight: 600 },
+} as const;
+
 const {
   PAD,
   PILL_H,
@@ -147,7 +169,7 @@ const {
   COLLAR_W,
   TAG_Y_FRAC,
   SCORE_Y_FRAC,
-} = PUCK;
+} = G;
 
 /**
  * PREVIEW: the numerals are set in the design system's mono (IBM Plex Mono),
@@ -163,8 +185,8 @@ function puckFamily(): string {
   fontFamily = v ? `${v}, ui-monospace, monospace` : PUCK.FONT_FAMILY;
   return fontFamily;
 }
-const scoreFont = () => `${PUCK.SCORE_FONT.weight} ${PUCK.SCORE_FONT.size}px ${puckFamily()}`;
-const tagFont = () => `${PUCK.TAG_FONT.weight} ${PUCK.TAG_FONT.size}px ${puckFamily()}`;
+const scoreFont = () => `${G.SCORE_FONT.weight} ${G.SCORE_FONT.size}px ${puckFamily()}`;
+const tagFont = () => `${G.TAG_FONT.weight} ${G.TAG_FONT.size}px ${puckFamily()}`;
 
 export const COLLAR: Record<PuckRing, string | null> = {
   base: null,
@@ -370,10 +392,12 @@ function drawPuck(label: string, ring: PuckRing, hot: boolean, shape: PuckShape)
   ctx.restore();
 
   // White ring last, over the fill, the sheen and the collar's inner half.
-  ctx.lineWidth = RING_W;
-  ctx.strokeStyle = "#ffffff";
-  puckPath(ctx, PAD, PAD, pillW, pillH, corner);
-  ctx.stroke();
+  if (RING_W > 0) {
+    ctx.lineWidth = RING_W;
+    ctx.strokeStyle = "#ffffff";
+    puckPath(ctx, PAD, PAD, pillW, pillH, corner);
+    ctx.stroke();
+  }
 
   // Text. "Hot" sits on its own line above the score, smaller and heavier, so
   // the score stays the thing you read first and the tag reads as a label on it.
