@@ -39,8 +39,8 @@ import { NO_DATA_COLOR } from "./spot-geojson";
  */
 const PUCK4 = {
   prime: { fill: "#18B65B", ink: "#ffffff" },
-  good: { fill: "#7EE29B", ink: "#474D57" }, // carbon grey, not black
-  fair: { fill: "#FFC24D", ink: "#474D57" },
+  good: { fill: "#7EE29B", ink: "#5F6670" }, // carbon grey, not black
+  fair: { fill: "#FFC24D", ink: "#5F6670" },
   poor: { fill: "#E7443F", ink: "#ffffff" },
 } as const;
 function puck4(score: number) {
