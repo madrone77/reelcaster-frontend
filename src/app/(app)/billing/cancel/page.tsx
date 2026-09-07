@@ -2,19 +2,43 @@
 
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import { ArrowRight, X as CancelIcon } from 'lucide-react'
 import { btn } from '@/app/components/ui/button'
 import PlanMatrix from '@/app/components/paywall/plan-matrix'
+import { AuthForm } from '@/app/components/auth/auth-form'
 import { useUpgradeFlow } from '@/hooks/use-upgrade-flow'
 import { useAuth } from '@/contexts/auth-context'
 import { useSubscription } from '@/hooks/use-subscription'
 import type { PlanTierId } from '@/lib/plan-features'
 import { trackEvent } from '@/lib/analytics'
+import { reportCheckoutHop } from '@/lib/paywall-counter'
 
+/**
+ * Where Stripe's Back arrow lands.
+ *
+ * The reader here tapped a pay button, reached Stripe's page and came back
+ * without a card. Two of the three things on this page ask for the card again
+ * (the header CTA and Try again). The third, for a signed-out reader, is a free
+ * account: it keeps the email that the no-email checkout arm never collected,
+ * gives them a login, and puts them on the free-tier nag path instead of losing
+ * them cold. Try again stays primary; the free form sits under the matrix that
+ * already shows the free rows, so the offer matches what the table says.
+ *
+ * Signed-in readers already have an account, so they get the page as before.
+ *
+ * On mount the page writes a `checkout_cancel` paywall event, feature and
+ * surface from the rc_wall cookie server-side, the same way checkout_start
+ * and checkout_redirect are stamped. That is the count of abandoners who came
+ * back through our door at all; a closed tab never does. A free signup from
+ * here is attributed to that same wall by /api/attribution/signup, which reads
+ * the cookie the checkout left behind.
+ */
 export default function BillingCancelPage() {
   const { openCheckout, loading, error } = useUpgradeFlow()
-  const { user } = useAuth()
+  const { user, loading: authLoading } = useAuth()
   const { isPaid } = useSubscription()
+  const router = useRouter()
   const [retrying, setRetrying] = useState(false)
 
   // Same derivation as ProTrialModal, so the "You" column marks the same
@@ -23,6 +47,7 @@ export default function BillingCancelPage() {
 
   useEffect(() => {
     trackEvent('Cancel Page Viewed', { tier: viewerTier })
+    reportCheckoutHop('checkout_cancel', { viewerTier })
     // Once on mount; the tier is whatever had settled at that moment.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
@@ -35,6 +60,11 @@ export default function BillingCancelPage() {
       setRetrying(false)
     }
   }
+
+  // Not rendered until auth has settled: a signed-in reader must never see a
+  // form offering them the account they already have, and a flash of it on
+  // first paint reads as exactly that.
+  const offerFreeAccount = !authLoading && !user
 
   return (
     <div className="mx-auto flex max-w-2xl flex-col px-6 py-12 md:py-16">
@@ -90,6 +120,37 @@ export default function BillingCancelPage() {
             </Link>
           </div>
         </div>
+
+        {offerFreeAccount && (
+          <div
+            className="border-t border-rc-rule bg-rc-surface p-6 md:p-8"
+            data-testid="billing-cancel-free-signup"
+          >
+            <h2 className="text-center text-lg font-black tracking-[-0.02em] text-rc-ink">
+              Not ready to pay? Keep a free account
+            </h2>
+            <p className="mt-2 text-center text-sm leading-relaxed text-rc-ink-soft">
+              No card. The rows the free tier gets are yours to keep:
+              today&rsquo;s bite score, the regs, a week ahead, and a catch log.
+            </p>
+            <div className="mx-auto mt-6 max-w-md">
+              <AuthForm
+                defaultMode="signup"
+                source="billing-cancel"
+                onSuccess={() => router.replace('/explore')}
+              />
+              <p className="mt-4 text-center text-sm text-rc-ink-mute">
+                Already have an account?{' '}
+                <Link
+                  href="/login?next=/explore"
+                  className="font-semibold text-rc-brand transition-colors hover:text-rc-brand-hover"
+                >
+                  Sign in
+                </Link>
+              </p>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   )

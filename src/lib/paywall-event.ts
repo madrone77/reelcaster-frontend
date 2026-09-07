@@ -38,7 +38,9 @@ export type PaywallEventKind =
   // The browser asked to leave for Stripe's URL (src/lib/checkout-redirect.ts).
   | 'checkout_redirect'
   // ...and was still on our page three seconds later.
-  | 'checkout_stuck';
+  | 'checkout_stuck'
+  // Stripe sent them back to /billing/cancel: they reached its page and left.
+  | 'checkout_cancel';
 
 /** The half of a row that describes the wall rather than the visit. */
 export interface PaywallEventFields {

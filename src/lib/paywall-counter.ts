@@ -64,13 +64,15 @@ import type { NagFeatureId, PlanTierId } from './plan-features';
 export type PaywallCountKind = 'impression' | 'cta_click' | 'dismiss';
 
 /**
- * The two kinds that describe the hop to Stripe rather than the wall. They
- * carry no feature or surface of their own: the wall that sent the buyer is
- * read on the server off the rc_wall cookie, the same cookie the checkout
- * route stamps 'checkout_start' from, so the three rows name one wall by
- * construction. See src/lib/checkout-redirect.ts for when each fires.
+ * The kinds that describe the hop to Stripe and back rather than the wall.
+ * They carry no feature or surface of their own: the wall that sent the buyer
+ * is read on the server off the rc_wall cookie, the same cookie the checkout
+ * route stamps 'checkout_start' from, so every row for one buyer names one
+ * wall by construction. See src/lib/checkout-redirect.ts for the two on the
+ * way out; 'checkout_cancel' is the way back, written once by /billing/cancel
+ * when Stripe's own Back arrow lands a reader there.
  */
-export type CheckoutHopKind = 'checkout_redirect' | 'checkout_stuck';
+export type CheckoutHopKind = 'checkout_redirect' | 'checkout_stuck' | 'checkout_cancel';
 
 export interface PaywallCountTarget {
   /** What the visitor was denied. Must be a live NAG_FEATURES key. */
