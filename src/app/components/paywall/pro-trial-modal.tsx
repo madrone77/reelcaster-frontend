@@ -148,12 +148,12 @@ export default function ProTrialModal({
   contextRef.current = context;
 
   const bumpCounter = useCallback(
-    (kind: "impression" | "cta_click") => {
+    (kind: "impression" | "cta_click", extra?: Record<string, string | number | boolean>) => {
       reportPaywall(kind, {
         feature,
         surface: from,
         viewerTier,
-        context: contextRef.current,
+        context: extra ? { ...contextRef.current, ...extra } : contextRef.current,
       });
     },
     [feature, from, viewerTier],
@@ -199,7 +199,14 @@ export default function ProTrialModal({
     [feature, from, viewerTier, onOpenChange],
   );
 
-  /** Every CTA on this modal reports the same way. */
+  /**
+   * Every CTA on this modal reports the same way, with one mark. A tap whose
+   * next screen is the card — the annual button, the email form's submit, a
+   * wallet — is the Begin checkout tap, and the counter route answers it with
+   * a Meta event id (CHECKOUT_TAP_META_EVENT in src/lib/paywall-conversion.ts).
+   * The sign-up link arrives here as method "signup" with the same
+   * destination and is not one; neither is the plans link, which has none.
+   */
   const trackCta = useCallback(
     (extra: Record<string, unknown>) => {
       trackEvent("Paywall CTA Clicked", {
@@ -209,7 +216,8 @@ export default function ProTrialModal({
         ...extra,
       });
       acted.current = true;
-      bumpCounter("cta_click");
+      const checkoutTap = extra.destination === "checkout" && extra.method !== "signup";
+      bumpCounter("cta_click", checkoutTap ? { checkout_tap: true } : undefined);
     },
     [trackEvent, feature, viewerTier, from, bumpCounter],
   );
