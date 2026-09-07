@@ -30,7 +30,7 @@ function hourAtX(x: number, width: number): number {
  * it. Everything else keeps STRIP_SOLID and the three shipped tiers.
  */
 const NEON4 = {
-  prime: "#3ED37B", // the saturated check-mark green from the reference
+  prime: "#18B65B", // a firmer green than the reference check, so it holds apart from good
   good: "#7EE29B", // a lighter mint, so prime still reads apart from good
   fair: "#FFC24D",
   poor: "#E7443F", // the reference's warning red

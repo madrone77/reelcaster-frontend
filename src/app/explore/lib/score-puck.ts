@@ -38,7 +38,7 @@ import { NO_DATA_COLOR } from "./spot-geojson";
  * saturated ones.
  */
 const PUCK4 = {
-  prime: { fill: "#3ED37B", ink: "#ffffff" },
+  prime: { fill: "#18B65B", ink: "#ffffff" },
   good: { fill: "#7EE29B", ink: "#12151A" },
   fair: { fill: "#FFC24D", ink: "#12151A" },
   poor: { fill: "#E7443F", ink: "#ffffff" },
