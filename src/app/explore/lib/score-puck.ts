@@ -34,13 +34,13 @@ import { NO_DATA_COLOR } from "./spot-geojson";
  * four bands as the cards' 24-hour squares (score-strip.tsx NEON4), cut at
  * 85 / 75 / 55. Local to this file on purpose: the landing-page reel puck and
  * the marketing nearby list still read `scoreColor`, so only the Explore map
- * changes. The numeral goes ink on the two lighter fills, white on the two
- * saturated ones.
+ * changes. The numeral goes carbon grey on the two lighter fills, white on
+ * the two saturated ones.
  */
 const PUCK4 = {
   prime: { fill: "#18B65B", ink: "#ffffff" },
-  good: { fill: "#7EE29B", ink: "#12151A" },
-  fair: { fill: "#FFC24D", ink: "#12151A" },
+  good: { fill: "#7EE29B", ink: "#474D57" }, // carbon grey, not black
+  fair: { fill: "#FFC24D", ink: "#474D57" },
   poor: { fill: "#E7443F", ink: "#ffffff" },
 } as const;
 function puck4(score: number) {
