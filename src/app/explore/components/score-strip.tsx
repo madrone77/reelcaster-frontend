@@ -68,6 +68,7 @@ export default function ScoreStrip({
   axis = true,
   bracket = true,
   palette = "tiers",
+  restMarker = true,
   className = "",
 }: {
   /** Hourly scores 0–100, null = unavailable. */
@@ -86,6 +87,9 @@ export default function ScoreStrip({
   bracket?: boolean;
   /** Cell fills: the shipped three tiers, or the four-band neon preview. */
   palette?: "tiers" | "neon4";
+  /** Draw the hour marker when nothing is being scrubbed. The drawer turns
+   *  this off: at rest its marker sat on the peak hour and read as "now". */
+  restMarker?: boolean;
   className?: string;
 }) {
   const marker = selectedHour ?? (tz ? currentLocalHour(tz) : null);
@@ -221,7 +225,7 @@ export default function ScoreStrip({
           {/* Marker — glides between hour centers so the snap is visible.
               Ink, not the poor red: the cells are solid now and a red
               hairline vanished on a red hour. */}
-          {marker !== null && (
+          {marker !== null && (restMarker || liveHour !== null) && (
             <div
               className="absolute top-0 bottom-0 w-px bg-rc-ink pointer-events-none transition-[left] duration-100 ease-out motion-reduce:transition-none"
               style={{ left: `${centerOf(marker) * 100}%` }}

@@ -359,6 +359,7 @@ export default function SpotDrawer({
             onHoverHour={handleHourHover}
             size="tall"
             palette="neon4"
+            restMarker={false}
           />
           <div className="flex items-baseline gap-2 mt-1.5 font-rc-mono text-[11px] text-rc-ink-soft tabular-nums">
             {peak && spot.peakHour !== null && (
