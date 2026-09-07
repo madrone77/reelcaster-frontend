@@ -147,3 +147,65 @@ export function paywallViewIsAskedFor(surface: string | null | undefined): boole
   if (!surface) return false;
   return ASKED_FOR_SURFACES.has(surface) || surface.startsWith('marketing-');
 }
+
+/* -------------------------------------------------------------------------
+ * The next rung: the tap on Begin checkout.
+ * ---------------------------------------------------------------------- */
+
+/**
+ * The Meta event for a reader tapping Begin checkout (or a wallet button)
+ * inside the modal. `AddPaymentInfo`.
+ *
+ * WHY IT EXISTS. The open above is what Meta bids on today because it is the
+ * only event frequent enough to learn from. The tap is the step that actually
+ * predicts a trial, and on Meta traffic it is about 14 a week (2026-09-07),
+ * under the ~50 Meta wants. So it is sent now, under its own name, so that the
+ * day it clears that bar the campaign objective can be moved to it in Events
+ * Manager with no deploy, and so its history starts today rather than then.
+ *
+ * WHY THIS NAME. InitiateCheckout is spent on the open (see above). The tap
+ * is the reader asking to go where the card is entered — the phone sheet's
+ * email field and then Stripe, or straight to Stripe — and AddPaymentInfo is
+ * Meta's name for the rung after InitiateCheckout, so Events Manager's funnel
+ * reads in the right order. AddToCart would be honest about "chose a plan" but
+ * sits ABOVE InitiateCheckout in Meta's ordering, which would show a checkout
+ * funnel running backwards. Both are cosmetics; the optimiser bids on the name
+ * it is pointed at either way.
+ *
+ * WHAT IT COSTS. The name is now spent too: nothing fires when a card is
+ * really entered on Stripe's page, and nothing can under this name without
+ * counting one buyer twice. The webhook's StartTrial is the next event down
+ * and is the one that says the card was taken.
+ *
+ * NO `marketing_conversions` ROW, unlike the open. That table's event_type is
+ * a CHECK constraint, the admin analytics read it by name, and the offline
+ * upload leg was made redundant for browser-fired events by the pixel's own
+ * Conversions API Gateway (see META_GATEWAY_OWNED_EVENTS in
+ * conversion-upload.ts): the browser fires the tag, the gateway relays it as
+ * the server copy, and both carry the id below. The count lives in
+ * `paywall_events` as `cta_click` rows with `context.checkout_tap = true`.
+ *
+ * ONCE PER SESSION is enforced by Meta rather than by us. With no row there is
+ * no partial unique index to refuse a second tap, so the id is the same string
+ * for every tap in a session and Meta's own event-id deduplication (48 hours,
+ * same name) collapses them. A reader who taps, fixes a typo in the email and
+ * taps again is one event. That is weaker than the open's guard by exactly the
+ * width of a 48-hour window, which is narrower than a session anyway.
+ */
+export const CHECKOUT_TAP_META_EVENT = 'AddPaymentInfo' as const;
+
+/**
+ * The Meta `event_id` for the tap. Same two branches and the same refusal as
+ * `paywallViewDedupeKey`, under a different prefix so the open and the tap in
+ * one session never share an id: Meta dedupes on id AND name, but a shared id
+ * would still be two different events claiming to be the same thing.
+ */
+export function checkoutTapDedupeKey(input: {
+  sessionId: string | null;
+  clickId: string | null;
+  day: string;
+}): string | null {
+  if (input.sessionId) return `ct:s:${input.sessionId}`;
+  if (input.clickId) return `ct:c:${input.clickId}:${input.day}`;
+  return null;
+}

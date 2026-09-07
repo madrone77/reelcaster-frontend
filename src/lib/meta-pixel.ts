@@ -38,7 +38,8 @@ export const META_PIXEL_ID = process.env.NEXT_PUBLIC_META_PIXEL_ID ?? ''
  * `InitiateCheckout` is the paywall opening, which is the one entry here that
  * is not fired from a page a customer has already arrived at. The reasoning for
  * putting a modal open under a standard checkout name, and what that costs, is
- * in src/lib/paywall-conversion.ts.
+ * in src/lib/paywall-conversion.ts. `AddPaymentInfo` is the tap on Begin
+ * checkout inside that modal, one rung down; same file.
  */
 export type MetaStandardEvent =
   | 'PageView'
@@ -46,6 +47,7 @@ export type MetaStandardEvent =
   | 'Purchase'
   | 'CompleteRegistration'
   | 'InitiateCheckout'
+  | 'AddPaymentInfo'
 
 type Fbq = ((...args: unknown[]) => void) & { queue?: unknown[] }
 

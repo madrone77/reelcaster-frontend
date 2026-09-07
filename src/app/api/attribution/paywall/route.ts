@@ -80,7 +80,11 @@ import { paywallEventRow, type PaywallEventKind } from '@/lib/paywall-event';
 import { readPaid, readEntry, readWall } from '@/lib/attribution';
 import { readSessionId } from '@/lib/paywall-session';
 import { acquisitionFromRequest, recordPaywallViewConversion } from '@/lib/conversions';
-import { paywallViewDedupeKey, paywallViewIsAskedFor } from '@/lib/paywall-conversion';
+import {
+  checkoutTapDedupeKey,
+  paywallViewDedupeKey,
+  paywallViewIsAskedFor,
+} from '@/lib/paywall-conversion';
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
@@ -200,13 +204,55 @@ export async function POST(request: NextRequest) {
   // Last, and after the two writes above have had their turn. A conversion is
   // the newest and least load-bearing of the three, and the counter that has
   // been landing since August must not be at the mercy of it.
-  const eventId =
-    kind === 'impression' ? await recordPaidView(request, { day, feature, surface }) : null;
+  if (kind === 'impression') {
+    const eventId = await recordPaidView(request, { day, feature, surface });
+    // Non-null ONLY when a conversion row was just written: paid touch, stable
+    // key, and the first wall of this session. The browser tags fire off
+    // exactly that, so the three streams cannot disagree about how many there
+    // were.
+    return NextResponse.json(
+      eventId ? { ok: true, event_id: eventId, event: 'paywall_view' } : { ok: true },
+    );
+  }
 
-  // Non-null ONLY when a conversion row was just written: paid touch, stable
-  // key, and the first wall of this session. The browser tags fire off exactly
-  // that, so the three streams cannot disagree about how many there were.
-  return NextResponse.json(eventId ? { ok: true, event_id: eventId } : { ok: true });
+  if (kind === 'cta_click' && isCheckoutTap(body)) {
+    const eventId = checkoutTapEventId(request, day);
+    return NextResponse.json(
+      eventId ? { ok: true, event_id: eventId, event: 'checkout_tap' } : { ok: true },
+    );
+  }
+
+  return NextResponse.json({ ok: true });
+}
+
+/**
+ * Which CTA clicks are the Begin checkout tap. The modal marks the ones whose
+ * destination is the card — the annual button, the email form's submit, a
+ * wallet button — and leaves the sign-up link and the plans link unmarked.
+ * Client-written, like the surface, and worth exactly as much: the paid touch
+ * and the session below are still read off cookies the page cannot write.
+ */
+function isCheckoutTap(body: Record<string, unknown>): boolean {
+  const ctx = body.context;
+  if (!ctx || typeof ctx !== 'object' || Array.isArray(ctx)) return false;
+  return (ctx as Record<string, unknown>).checkout_tap === true;
+}
+
+/**
+ * The Meta event id for a Begin checkout tap, or null when the tap is not a
+ * bought click's. Nothing is written: see CHECKOUT_TAP_META_EVENT in
+ * src/lib/paywall-conversion.ts for why this event has no conversion row and
+ * lets Meta collapse repeat taps on the id instead.
+ */
+function checkoutTapEventId(request: NextRequest, day: string): string | null {
+  const cookieHeader = request.headers.get('cookie') ?? '';
+  const paid = readPaid(cookieHeader);
+  if (!paid) return null;
+  return checkoutTapDedupeKey({
+    sessionId: readSessionId(cookieHeader),
+    clickId: paid.click_id || null,
+    day,
+  });
 }
 
 /**

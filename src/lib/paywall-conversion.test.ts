@@ -156,3 +156,34 @@ assert.equal(paywallViewIsAskedFor(''), false);
 assert.equal(paywallViewIsAskedFor(undefined), false);
 
 console.log('paywall-conversion: asked-for surfaces ok');
+
+// ── The Begin checkout tap ────────────────────────────────────────────
+
+import { CHECKOUT_TAP_META_EVENT, checkoutTapDedupeKey } from './paywall-conversion';
+
+// Its own name, so the open and the tap are two events in Events Manager.
+assert.equal(CHECKOUT_TAP_META_EVENT, 'AddPaymentInfo');
+assert.notEqual(CHECKOUT_TAP_META_EVENT, PAYWALL_VIEW_META_EVENT);
+
+// Same shape as the open's key, a different prefix, so one session's open and
+// tap never share an id.
+assert.equal(
+  checkoutTapDedupeKey({ sessionId: SESSION, clickId: FBCLID, day: '2026-09-01' }),
+  `ct:s:${SESSION}`,
+);
+assert.notEqual(
+  checkoutTapDedupeKey({ sessionId: SESSION, clickId: FBCLID, day: '2026-09-01' }),
+  paywallViewDedupeKey({ sessionId: SESSION, clickId: FBCLID, day: '2026-09-01' }),
+);
+// A second tap in the session is the same string: that is the whole dedupe.
+assert.equal(
+  checkoutTapDedupeKey({ sessionId: SESSION, clickId: null, day: '2026-09-02' }),
+  checkoutTapDedupeKey({ sessionId: SESSION, clickId: FBCLID, day: '2026-09-01' }),
+);
+assert.equal(
+  checkoutTapDedupeKey({ sessionId: null, clickId: FBCLID, day: '2026-09-01' }),
+  `ct:c:${FBCLID}:2026-09-01`,
+);
+assert.equal(checkoutTapDedupeKey({ sessionId: null, clickId: null, day: '2026-09-01' }), null);
+
+console.log('paywall-conversion: checkout tap ok');
