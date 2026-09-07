@@ -23,6 +23,26 @@ function hourAtX(x: number, width: number): number {
 
 /** Strip heights. `thin` is the phone list row, `dense` the rail and
  *  neighbour cards, `tall` the drawer, where nothing sits inside the cells. */
+/**
+ * PREVIEW (claude/neon-score-object-preview): a four-band pastel neon fill for
+ * the cells, cut at 85 / 75 / 55, so a Prime hour reads apart from a Good one.
+ * Opt-in per caller; the Explore spot cards are the only surface that asks for
+ * it. Everything else keeps STRIP_SOLID and the three shipped tiers.
+ */
+const NEON4 = {
+  prime: "#17D989",
+  good: "#B8F26B",
+  fair: "#FFC24D",
+  poor: "#FF7A70",
+} as const;
+function neon4(score: number | null): string {
+  if (score === null) return STRIP_SOLID.none;
+  if (score >= 85) return NEON4.prime;
+  if (score >= 75) return NEON4.good;
+  if (score >= 55) return NEON4.fair;
+  return NEON4.poor;
+}
+
 const HEIGHT = {
   thin: "h-3",
   dense: "h-4",
@@ -59,6 +79,7 @@ export default function ScoreStrip({
   size = "regular",
   axis = true,
   bracket = true,
+  palette = "tiers",
   className = "",
 }: {
   /** Hourly scores 0–100, null = unavailable. */
@@ -75,6 +96,8 @@ export default function ScoreStrip({
   axis?: boolean;
   /** The best-window bracket under the strip. */
   bracket?: boolean;
+  /** Cell fills: the shipped three tiers, or the four-band neon preview. */
+  palette?: "tiers" | "neon4";
   className?: string;
 }) {
   const marker = selectedHour ?? (tz ? currentLocalHour(tz) : null);
@@ -201,7 +224,10 @@ export default function ScoreStrip({
                   ? "outline outline-2 outline-offset-1 outline-rc-ink z-[1]"
                   : ""
               }`}
-              style={{ background: STRIP_SOLID[tierFor(score)] }}
+              style={{
+                background:
+                  palette === "neon4" ? neon4(score) : STRIP_SOLID[tierFor(score)],
+              }}
             />
           ))}
           {/* Marker — glides between hour centers so the snap is visible.

@@ -44,6 +44,7 @@ export default function SpotCard({
   days14,
   dayStripDensity = "labelled",
   layout = "card",
+  stripPalette = "tiers",
 }: {
   spot: RailSpot;
   /** The strip's clock: its marker rests on the current hour at the spot. */
@@ -76,6 +77,9 @@ export default function SpotCard({
   /** `row` is the phone list card: slimmer, the strip thin, the best window
    *  and peak in words above it. */
   layout?: "card" | "row";
+  /** PREVIEW: the 24h strip's cell fills. Explore passes `neon4`; the
+   *  dashboard and the city page keep the shipped tiers. */
+  stripPalette?: "tiers" | "neon4";
 }) {
   const row = layout === "row";
   const [fav, toggleFav] = useFavorite(spot.slug);
@@ -286,6 +290,7 @@ export default function SpotCard({
                 tz={tz}
                 size="thin"
                 axis={false}
+                palette={stripPalette}
                 className="mt-1"
               />
               {/* 4 · wind and current, labelled */}
@@ -330,6 +335,7 @@ export default function SpotCard({
                 hours={spot.hours24}
                 tz={tz}
                 size="dense"
+                palette={stripPalette}
                 className="mt-2.5"
               />
             </>
