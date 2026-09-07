@@ -4,6 +4,7 @@ import { useMemo, useRef, useState } from "react";
 
 import { bestWindow } from "../lib/best-window";
 import { currentLocalHour, STRIP_SOLID, tierFor } from "../lib/explore-data";
+import { band4Fill } from "../lib/band4";
 import { formatHour12 } from "@/lib/time-format";
 
 const HOURS = 24;
@@ -23,6 +24,13 @@ function hourAtX(x: number, width: number): number {
 
 /** Strip heights. `thin` is the phone list row, `dense` the rail and
  *  neighbour cards, `tall` the drawer, where nothing sits inside the cells. */
+/**
+ * PREVIEW (claude/neon-score-object-preview): a four-band pastel neon fill for
+ * the cells, cut at 85 / 75 / 55, so a Prime hour reads apart from a Good one.
+ * Opt-in per caller; the Explore spot cards are the only surface that asks for
+ * it. Everything else keeps STRIP_SOLID and the three shipped tiers.
+ */
+
 const HEIGHT = {
   thin: "h-3",
   dense: "h-4",
@@ -59,6 +67,8 @@ export default function ScoreStrip({
   size = "regular",
   axis = true,
   bracket = true,
+  palette = "tiers",
+  restMarker = true,
   className = "",
 }: {
   /** Hourly scores 0–100, null = unavailable. */
@@ -75,6 +85,11 @@ export default function ScoreStrip({
   axis?: boolean;
   /** The best-window bracket under the strip. */
   bracket?: boolean;
+  /** Cell fills: the shipped three tiers, or the four-band neon preview. */
+  palette?: "tiers" | "neon4";
+  /** Draw the hour marker when nothing is being scrubbed. The drawer turns
+   *  this off: at rest its marker sat on the peak hour and read as "now". */
+  restMarker?: boolean;
   className?: string;
 }) {
   const marker = selectedHour ?? (tz ? currentLocalHour(tz) : null);
@@ -201,13 +216,16 @@ export default function ScoreStrip({
                   ? "outline outline-2 outline-offset-1 outline-rc-ink z-[1]"
                   : ""
               }`}
-              style={{ background: STRIP_SOLID[tierFor(score)] }}
+              style={{
+                background:
+                  palette === "neon4" ? band4Fill(score) : STRIP_SOLID[tierFor(score)],
+              }}
             />
           ))}
           {/* Marker — glides between hour centers so the snap is visible.
               Ink, not the poor red: the cells are solid now and a red
               hairline vanished on a red hour. */}
-          {marker !== null && (
+          {marker !== null && (restMarker || liveHour !== null) && (
             <div
               className="absolute top-0 bottom-0 w-px bg-rc-ink pointer-events-none transition-[left] duration-100 ease-out motion-reduce:transition-none"
               style={{ left: `${centerOf(marker) * 100}%` }}

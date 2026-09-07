@@ -558,6 +558,7 @@ export default function MobileMapSheet({
                 {(Math.abs(i - liveIndex) <= 2 ||
                   Math.abs(i - previewIndex) <= 1) && (
                   <SpotCard
+                    stripPalette="neon4"
                     spot={sp}
                     tz={tz}
                     layout="row"
@@ -753,6 +754,7 @@ export default function MobileMapSheet({
               {sorted.map((spot, i) => (
                 <Fragment key={spot.id}>
                   <SpotCard
+                    stripPalette="neon4"
                     spot={spot}
                     tz={tz}
                     layout="row"

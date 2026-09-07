@@ -4,7 +4,8 @@ import { useEffect, useRef, useState } from "react";
 import type { SunHours } from "@/lib/bluecaster/live-spot-types";
 import { haptic } from "@/lib/haptics";
 import { niceCurrentScale } from "../../lib/current-series";
-import { STRIP_SOLID, tierFor, type Tier } from "../../lib/explore-data";
+import { tierFor, type Tier } from "../../lib/explore-data";
+import { band4Fill } from "../../lib/band4";
 import { windCardinal } from "../../lib/wind-rose";
 import { monoInterp as interp } from "../../lib/curve";
 import {
@@ -77,7 +78,8 @@ const num = (v: number | null | undefined) =>
 // Fill, ink and word all key off `tierFor`, so this file holds no cut points
 // of its own. It used to hold two sets that disagreed: cells at 85/60/40 and
 // the word at 75/55, which put a 61 in a green cell labelled "Fair".
-const TIER_FILL = STRIP_SOLID;
+// PREVIEW: the score row takes the same four bands as the Explore squares
+// and pucks (band4.ts). Word and ink still key off the shipped `tierFor`.
 const TIER_INK: Record<Tier, string> = {
   good: "#FFFFFF",
   fair: "#FFFFFF",
@@ -90,7 +92,7 @@ const TIER_WORD: Record<Tier, string> = {
   poor: "Tough",
   none: "—",
 };
-const ratingBg = (s: number | null) => TIER_FILL[tierFor(s)];
+const ratingBg = (s: number | null) => band4Fill(s);
 const ratingInk = (s: number | null) => TIER_INK[tierFor(s)];
 const verdict = (s: number | null) => TIER_WORD[tierFor(s)];
 const windName = (d: number | null) => windCardinal(d) ?? "—";
