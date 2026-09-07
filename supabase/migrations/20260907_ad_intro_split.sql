@@ -1,7 +1,7 @@
 -- Orientation on landing for the cold ad visitor. `?ad=day2` drops Meta
 -- traffic onto the live Explore map with nothing in between, and the first
 -- thing the visit does is a tap on a dot or a tap on Back. Arm b shows three
--- lines over the map once per tab: what the dots are, what the colour means,
+-- lines over the map once per tab: what the dots are, what the number means,
 -- tap one to see when to go. One "Got it" button. No trial, no Pro, no
 -- price; the wall's free spot opens and the trial modal run as before on
 -- both arms. Arm a is today: nothing.

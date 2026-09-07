@@ -30,10 +30,9 @@ import type { AdWall } from "@/lib/ad-mode";
  * ad click starts over. If storage throws (iOS blocked site data) it shows
  * once per mount, which on this surface is once per page load.
  *
- * SPELLING follows the water. A Seattle visitor reads "color"; a Victoria
- * visitor reads "colour". The city is the one the shell labels the viewport
- * with, so the card drops the city phrase when the camera has not settled
- * rather than name the wrong one.
+ * THE CITY is the one the shell labels the viewport with, so the card drops
+ * the city phrase when the camera has not settled rather than name the
+ * wrong one.
  */
 
 const KEY = "rc_ad_intro";
@@ -57,14 +56,11 @@ function markShown(wall: AdWall): void {
 export default function AdIntroCard({
   wall,
   cityName,
-  countryCode,
   onAcknowledge,
 }: {
   wall: AdWall;
   /** The city under the camera, or undefined before it settles. */
   cityName?: string;
-  /** ISO country of that city, any case. Picks the spelling. */
-  countryCode?: string;
   /** Fires on the button only, not on a tap past the card. */
   onAcknowledge?: () => void;
 }) {
@@ -73,13 +69,11 @@ export default function AdIntroCard({
   // per-browser answer into HTML that has to match the server's.
   const [open, setOpen] = useState(false);
   const openedAt = useRef<number | null>(null);
-  const cityAtOpen = useRef<string | undefined>(undefined);
 
   useEffect(() => {
     if (alreadyShown(wall)) return;
     markShown(wall);
     openedAt.current = Date.now();
-    cityAtOpen.current = cityName;
     setOpen(true);
     trackEvent("Ad Intro Shown", { ad_wall: wall, city: cityName });
     // Once, on mount. The city is read at that moment for the event only;
@@ -111,7 +105,6 @@ export default function AdIntroCard({
 
   if (!open) return null;
 
-  const colour = (countryCode ?? "").toUpperCase() === "US" ? "color" : "colour";
   const near = cityName ? ` near ${cityName}` : "";
 
   return (
@@ -141,7 +134,7 @@ export default function AdIntroCard({
           id="ad-intro-body"
           className="mt-2 text-[14.5px] leading-relaxed text-rc-ink-soft"
         >
-          Every dot is a fishing spot{near}. The {colour} is today&rsquo;s top
+          Every dot is a fishing spot{near}. The number is today&rsquo;s top
           score at that spot.
         </p>
         <p className="mt-1.5 text-[14.5px] leading-relaxed text-rc-ink-soft">

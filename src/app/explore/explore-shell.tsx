@@ -2689,12 +2689,11 @@ export default function ExploreShell({
 
       {/* The ad frame's intro, arm b of ad_intro_v1 only. Three lines over
           the live map, no offer. Names the city under the camera the same
-          way the bar's CTA does, and spells "colour" by that city's country. */}
+          way the bar's CTA does. */}
       {ad?.wall === "day2" && adIntro.show && (
         <AdIntroCard
           wall={ad.wall}
           cityName={labelCity?.name ?? undefined}
-          countryCode={labelCity?.countryCode}
           onAcknowledge={adIntro.reportCta}
         />
       )}
