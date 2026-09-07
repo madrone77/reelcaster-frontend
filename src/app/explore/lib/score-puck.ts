@@ -27,7 +27,28 @@
  * spoken for by the score ramp and cobalt already means "selected".
  */
 
-import { NO_DATA_COLOR, scoreColor } from "./spot-geojson";
+import { NO_DATA_COLOR } from "./spot-geojson";
+
+/**
+ * PREVIEW (claude/neon-score-object-preview): the Explore pucks take the same
+ * four bands as the cards' 24-hour squares (score-strip.tsx NEON4), cut at
+ * 85 / 75 / 55. Local to this file on purpose: the landing-page reel puck and
+ * the marketing nearby list still read `scoreColor`, so only the Explore map
+ * changes. The numeral goes ink on the two lighter fills, white on the two
+ * saturated ones.
+ */
+const PUCK4 = {
+  prime: { fill: "#3ED37B", ink: "#ffffff" },
+  good: { fill: "#7EE29B", ink: "#12151A" },
+  fair: { fill: "#FFC24D", ink: "#12151A" },
+  poor: { fill: "#E7443F", ink: "#ffffff" },
+} as const;
+function puck4(score: number) {
+  if (score >= 85) return PUCK4.prime;
+  if (score >= 75) return PUCK4.good;
+  if (score >= 55) return PUCK4.fair;
+  return PUCK4.poor;
+}
 
 /** Icon-id namespace. Every id looks like `rcp:84:fresh:1:rd`. */
 const PREFIX = "rcp";
@@ -271,8 +292,9 @@ function drawPuck(label: string, ring: PuckRing, hot: boolean, shape: PuckShape)
 
   const noData = label === NO_DATA_LABEL;
   const score = Number(label);
-  const base = noData || !Number.isFinite(score) ? NO_DATA_COLOR : scoreColor(score);
-  const ink = noData ? "#374151" : "#ffffff";
+  const band = noData || !Number.isFinite(score) ? null : puck4(score);
+  const base = band ? band.fill : NO_DATA_COLOR;
+  const ink = band ? band.ink : "#374151";
   const collar = COLLAR[ring];
 
   const measure = document.createElement("canvas").getContext("2d");
