@@ -41,6 +41,7 @@ import {
   type PreviewState,
 } from "@/lib/preview-gate";
 import DepthGatePrompt from "./components/depth-gate-prompt";
+import AdIntroCard from "./components/ad-intro-card";
 import {
   fetchFreshCatches,
   fetchMapForecast14d,
@@ -93,6 +94,7 @@ import type { FlowKind } from "./lib/use-flow";
 import ForecastStrip from "./components/forecast-strip";
 import { AdFrameProvider } from "./lib/ad-frame";
 import { useAdBarEdge } from "@/app/components/split-test/use-ad-bar-edge";
+import { useAdIntro } from "@/app/components/split-test/use-ad-intro";
 
 // ── Loaded on demand ─────────────────────────────────────────────────────
 //
@@ -317,6 +319,10 @@ export default function ExploreShell({
   // shortened by the bar's height so the bar never overlays water.
   const adBar = useAdBarEdge("explore_map", !!ad);
   const adBarBottom = !!ad && adBar.edge === "bottom";
+  // A few words of orientation on landing, for the cold `day2` visitor: the
+  // `ad_intro_v1` split. Arm b shows the card once per tab; arm a and no arm
+  // show nothing. Not part of the paywall flow above and never restarts it.
+  const adIntro = useAdIntro(ad?.wall === "day2");
   const mobileTop = isPaid || adBarBottom ? "top-0" : "top-16";
   const { citySlug, spotSlug, day, stn, setQuery } = useExploreState();
 
@@ -2680,6 +2686,18 @@ export default function ExploreShell({
           declineDepth — which is why it does not share ProTrialModal's
           onOpenChange. */}
       <DepthGatePrompt open={depthAsk} onDismiss={declineDepth} />
+
+      {/* The ad frame's intro, arm b of ad_intro_v1 only. Three lines over
+          the live map, no offer. Names the city under the camera the same
+          way the bar's CTA does, and spells "colour" by that city's country. */}
+      {ad?.wall === "day2" && adIntro.show && (
+        <AdIntroCard
+          wall={ad.wall}
+          cityName={labelCity?.name ?? undefined}
+          countryCode={labelCity?.countryCode}
+          onAcknowledge={adIntro.reportCta}
+        />
+      )}
 
       {/* Says what just happened, once. Without it the relief simply vanishing
           reads as the map failing rather than as the answer they gave. */}
