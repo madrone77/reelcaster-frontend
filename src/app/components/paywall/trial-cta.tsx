@@ -503,6 +503,7 @@ export function TrialBuy({
   testId = 'trial-cta',
   className,
   buttonClassName,
+  inputClassName,
   hideLabel = false,
   collectEmail = true,
 }: {
@@ -515,6 +516,12 @@ export function TrialBuy({
    * stays what every other surface renders.
    */
   buttonClassName?: string;
+  /**
+   * Added to the email field's classes, for the same reason as
+   * `buttonClassName`: the phone sheet draws the field at Stripe's height and
+   * corner radius so the field and the button under it read as one form.
+   */
+  inputClassName?: string;
   /**
    * Whether a signed-out buyer types an email here before Stripe. Off, the
    * button goes straight to checkout and Stripe's own form takes the email
@@ -650,6 +657,7 @@ export function TrialBuy({
               s.isLight
                 ? 'border-rc-rule bg-rc-surface text-rc-ink placeholder:text-rc-ink-mute'
                 : 'border-rc-bg-light bg-rc-bg-light text-rc-text placeholder:text-rc-text-muted',
+              inputClassName,
             )}
           />
           <button
