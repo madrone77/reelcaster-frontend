@@ -15,6 +15,7 @@ import { useAuth } from '@/contexts/auth-context';
 import { useSubscription } from '@/hooks/use-subscription';
 import { trackEvent } from '@/lib/analytics';
 import { useUpgradeFlow } from '@/hooks/use-upgrade-flow';
+import { goToCheckout } from '@/lib/checkout-redirect';
 import { cn } from '@/lib/utils';
 import ExpressCheckout from './express-checkout';
 import { TRIAL_DAYS, dollars } from '@/lib/pricing';
@@ -172,6 +173,13 @@ interface TrialCtaState {
   reportStartClick: () => void;
   submitting: boolean;
   errorText: string | null;
+  /**
+   * Stripe's URL, when the browser was asked to go there and three seconds
+   * later had not left. Drawn as a plain link so a swallowed navigation (an
+   * in-app browser, a blocked redirect) still has a way through, and reported
+   * as 'checkout_stuck' so the funnel shows how often that happens.
+   */
+  stuckUrl: string | null;
   startAnonCheckout: () => void;
   startCheckout: () => void;
 }
@@ -211,7 +219,12 @@ export function TrialCtaProvider({
 }) {
   const { user, session, loading: authLoading } = useAuth();
   const { isPaid } = useSubscription();
-  const { openCheckout, loading: submitting, error } = useUpgradeFlow();
+  const {
+    openCheckout,
+    loading: submitting,
+    error,
+    stuckUrl: signedInStuckUrl,
+  } = useUpgradeFlow();
 
   // The token comes from the auth context, never from a fresh
   // `supabase.auth.getSession()` here. That call waits on the client's
@@ -254,6 +267,9 @@ export function TrialCtaProvider({
   }
   const [anonSubmitting, setAnonSubmitting] = useState(false);
   const [anonError, setAnonError] = useState<string | null>(null);
+  const [anonStuckUrl, setAnonStuckUrl] = useState<string | null>(null);
+  const cancelHop = useRef<(() => void) | null>(null);
+  useEffect(() => () => cancelHop.current?.(), []);
 
   useEffect(() => {
     if (!authSettled) return;
@@ -329,7 +345,7 @@ export function TrialCtaProvider({
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ from, region, email: email.trim() }),
       });
-      let payload: { url?: string; redirect?: string; error?: string } = {};
+      let payload: { url?: string; id?: string; redirect?: string; error?: string } = {};
       try {
         payload = await res.json();
       } catch {
@@ -341,7 +357,14 @@ export function TrialCtaProvider({
         return;
       }
       if (!payload.url) throw new Error('no_url');
-      window.location.href = payload.url;
+      cancelHop.current = goToCheckout(payload.url, {
+        sessionId: payload.id ?? null,
+        viewerTier: 'anon',
+        onStuck: (url) => {
+          setAnonStuckUrl(url);
+          setAnonSubmitting(false);
+        },
+      });
     } catch {
       setAnonError('We couldn’t start checkout. Please try again in a moment.');
       setAnonSubmitting(false);
@@ -381,6 +404,7 @@ export function TrialCtaProvider({
     errorText:
       anonError ??
       (error ? 'We couldn’t start checkout. Please try again in a moment.' : null),
+    stuckUrl: anonStuckUrl ?? signedInStuckUrl,
     startAnonCheckout,
     startCheckout: () => {
       reportSplitCta(pricing, 'paywall');
@@ -393,7 +417,12 @@ export function TrialCtaProvider({
       });
       // The same token the eligibility read used, so the POST does not go
       // back to the client for a session and wait on the same lock.
-      openCheckout({ from, region, accessToken }).catch(() => {
+      openCheckout({
+        from,
+        region,
+        accessToken,
+        viewerTier: isPaid ? 'pro' : 'free',
+      }).catch(() => {
         /* surfaced through errorText */
       });
     },
@@ -661,6 +690,20 @@ export function TrialBuy({
         >
           {s.submitting ? 'Starting…' : s.busy ? 'Loading…' : ctaLabel}
         </button>
+      )}
+
+      {s.stuckUrl && (
+        // The browser was asked to open Stripe and did not go. A plain link is
+        // the one thing every browser honours on a tap.
+        <a
+          href={s.stuckUrl}
+          data-testid="trial-cta-continue"
+          className={cn(
+            'inline-flex w-full items-center justify-center rounded-lg border border-rc-brand px-4 py-2.5 text-sm font-semibold text-rc-brand',
+          )}
+        >
+          Continue to secure checkout
+        </a>
       )}
 
       {s.errorText && (
