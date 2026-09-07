@@ -253,6 +253,8 @@ export type AnalyticsEventName =
   | 'Depth Gate Accepted'
   | 'Ad Frame Spot Blocked'
   | 'Ad Frame Spot Opened'
+  | 'Ad Intro Shown'
+  | 'Ad Intro Dismissed'
   | 'Back To Map Clicked'
   // Spot page
   | 'Spot Viewed'
