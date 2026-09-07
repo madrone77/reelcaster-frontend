@@ -100,15 +100,16 @@ const KINDS = new Set([
   'dismiss',
   'checkout_redirect',
   'checkout_stuck',
+  'checkout_cancel',
 ]);
 const COUNTED_KINDS = new Set(['impression', 'cta_click']);
 /**
  * The hop kinds name no wall in the body. The wall is the one in the rc_wall
  * cookie, read exactly as the checkout route reads it for 'checkout_start',
- * so redirect, stuck and start rows for one buyer agree on the surface. No
- * cookie, nothing to credit: the report is dropped, not invented.
+ * so redirect, stuck, cancel and start rows for one buyer agree on the
+ * surface. No cookie, nothing to credit: the report is dropped, not invented.
  */
-const WALL_COOKIE_KINDS = new Set(['checkout_redirect', 'checkout_stuck']);
+const WALL_COOKIE_KINDS = new Set(['checkout_redirect', 'checkout_stuck', 'checkout_cancel']);
 const TIERS = new Set(['anon', 'free', 'pro']);
 
 /** Matches the cookie field cap in src/lib/attribution.ts. */

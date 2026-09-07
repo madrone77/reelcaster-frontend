@@ -43,6 +43,17 @@ test.describe('Stripe success / cancel pages', () => {
     await page.goto('/billing/cancel');
     await expect(page.getByTestId('billing-cancel')).toBeVisible();
     await expect(page.getByTestId('billing-cancel-retry')).toBeVisible();
+    // Signed in: they already have the account the free form would offer.
+    await expect(page.getByTestId('billing-cancel-free-signup')).toHaveCount(0);
+  });
+
+  test('/billing/cancel offers a free account to a signed-out reader', async ({ page }) => {
+    await page.goto('/billing/cancel');
+    await expect(page.getByTestId('billing-cancel-retry')).toBeVisible();
+    const offer = page.getByTestId('billing-cancel-free-signup');
+    await expect(offer).toBeVisible();
+    await expect(offer.getByLabel(/first name/i)).toBeVisible();
+    await expect(offer.getByRole('link', { name: /sign in/i })).toBeVisible();
   });
 
   test('/billing/success renders activating state for free user', async ({ page }) => {
