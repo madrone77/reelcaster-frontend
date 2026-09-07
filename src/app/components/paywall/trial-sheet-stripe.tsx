@@ -34,12 +34,12 @@ const STRIPE_BUTTON =
   'inline-flex h-11 w-full items-center justify-center rounded-md bg-rc-brand px-4 text-[16px] font-semibold text-white shadow-[0_1px_3px_rgba(0,0,0,0.12)] transition-colors hover:bg-rc-brand-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rc-brand focus-visible:ring-offset-2 disabled:opacity-60';
 
 /**
- * The phone trial sheet drawn the way Stripe Checkout draws the page after
- * it: arm b of `trial_sheet_stripe_v1` (2026-09-06).
- *
- * The control (./trial-sheet-pro) is the sheet that won trial_sheet_pro_v1:
- * a PRO badge, a headline naming the city, the terms in two lines, six ticked
- * rows, a testimonial, an email field and the buy button. This one keeps the
+ * The phone trial sheet, drawn the way Stripe Checkout draws the page after
+ * it. It began as arm b of `trial_sheet_stripe_v1` (2026-09-06) against the
+ * sheet that won trial_sheet_pro_v1 (a PRO badge, a headline naming the
+ * city, the terms in two lines, six ticked rows, a testimonial, an email
+ * field and the buy button), and won it on 2026-09-07: 17 taps through in 60
+ * exposures against 3 in 53. It is now the only phone sheet. It keeps the
  * rows and the testimonial and changes everything around them to match the
  * screen the button leads to:
  *
@@ -54,12 +54,10 @@ const STRIPE_BUTTON =
  * - A sheet that fills the screen to just under the header (the modal sets
  *   the height when this arm renders).
  *
- * The guess: a sheet that reads as the first page of checkout, rather than a
- * tray with a form in it, gets more taps through to Stripe, and a screen
- * fewer between the tap and the card gets more of those to a trial.
+ * The guess, which held: a sheet that reads as the first page of checkout,
+ * rather than a tray with a form in it, gets more taps through to Stripe, and
+ * a screen fewer between the tap and the card gets more of those to a trial.
  */
-export const TRIAL_SHEET_TEST = 'trial_sheet_stripe_v1';
-
 export default function TrialSheetStripe({
   from,
   region,
