@@ -4,6 +4,7 @@ import { useMemo, useRef, useState } from "react";
 
 import { bestWindow } from "../lib/best-window";
 import { currentLocalHour, STRIP_SOLID, tierFor } from "../lib/explore-data";
+import { band4Fill } from "../lib/band4";
 import { formatHour12 } from "@/lib/time-format";
 
 const HOURS = 24;
@@ -29,19 +30,6 @@ function hourAtX(x: number, width: number): number {
  * Opt-in per caller; the Explore spot cards are the only surface that asks for
  * it. Everything else keeps STRIP_SOLID and the three shipped tiers.
  */
-const NEON4 = {
-  prime: "#0FA958", // deep vivid green
-  good: "#3CCB74", // the reference check's green, one step lighter than prime
-  fair: "#F2A93B", // warm amber, held at the same weight as the greens
-  poor: "#E4574F", // vivid red, a touch softer so a run of poor hours is not a wall
-} as const;
-function neon4(score: number | null): string {
-  if (score === null) return STRIP_SOLID.none;
-  if (score >= 85) return NEON4.prime;
-  if (score >= 75) return NEON4.good;
-  if (score >= 55) return NEON4.fair;
-  return NEON4.poor;
-}
 
 const HEIGHT = {
   thin: "h-3",
@@ -226,7 +214,7 @@ export default function ScoreStrip({
               }`}
               style={{
                 background:
-                  palette === "neon4" ? neon4(score) : STRIP_SOLID[tierFor(score)],
+                  palette === "neon4" ? band4Fill(score) : STRIP_SOLID[tierFor(score)],
               }}
             />
           ))}

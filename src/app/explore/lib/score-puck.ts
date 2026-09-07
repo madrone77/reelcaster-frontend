@@ -28,6 +28,7 @@
  */
 
 import { NO_DATA_COLOR } from "./spot-geojson";
+import { BAND4, band4 } from "./band4";
 
 /**
  * PREVIEW (claude/neon-score-object-preview): the Explore pucks take the same
@@ -37,17 +38,8 @@ import { NO_DATA_COLOR } from "./spot-geojson";
  * changes. One numeral colour, white, on all four: the fills are held at one
  * weight so white carries on each, with a soft shadow under the glyphs.
  */
-const PUCK4 = {
-  prime: { fill: "#0FA958", ink: "#ffffff" },
-  good: { fill: "#3CCB74", ink: "#ffffff" },
-  fair: { fill: "#F2A93B", ink: "#ffffff" },
-  poor: { fill: "#E4574F", ink: "#ffffff" },
-} as const;
 function puck4(score: number) {
-  if (score >= 85) return PUCK4.prime;
-  if (score >= 75) return PUCK4.good;
-  if (score >= 55) return PUCK4.fair;
-  return PUCK4.poor;
+  return { fill: BAND4[band4(score)], ink: "#ffffff" };
 }
 
 /** Icon-id namespace. Every id looks like `rcp:84:fresh:1:rd`. */
