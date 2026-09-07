@@ -68,7 +68,6 @@ export default function ExploreTopBar({
   placeName,
   adFrame = false,
   adBarEdge = "bottom",
-  onAdCta,
 }: {
   /** "brand" (the default) is a blue bar with a white mark/links; "default"
    *  is the light bar, kept available for any surface that needs it. */
@@ -128,21 +127,14 @@ export default function ExploreTopBar({
    * Which edge of the screen the ad frame's bar sits on.
    *
    * "bottom" (the default) is the thumb-reach position the frame shipped
-   * with. "top" is where every other page keeps the brand blue, the mark and
-   * the Start free trial button. Both ad surfaces went to the top on
-   * 2026-09-04; the two are now the arms of `ad_bar_edge_v1` (see
-   * components/split-test/use-ad-bar-edge.ts), which is what decides the
-   * value each surface passes.
+   * with, and what both ad surfaces pass. "top" is where every other page
+   * keeps the brand blue, the mark and the Start free trial button; the ad
+   * surfaces wore it from 2026-09-04 until the `ad_bar_edge_v1` split
+   * (top against bottom) concluded for the bottom on 2026-09-07.
    *
    * Only read under `adFrame`; the product bar is always at the top.
    */
   adBarEdge?: "top" | "bottom";
-  /**
-   * Fired when the ad frame's Start free trial button is pressed. The split
-   * test's CTA counter; the modal opens and the paywall log records the press
-   * regardless.
-   */
-  onAdCta?: () => void;
 } = {}) {
   const { user, session, loading } = useAuth();
   const pathname = usePathname();
@@ -228,9 +220,9 @@ export default function ExploreTopBar({
   // It never rolls away. `hideOnScroll` is a trade for a long read whose nav
   // lives elsewhere; here the bar is the only ask on the page.
   //
-  // The top edge (`adBarEdge="top"`): same bar, same one button, pinned where
-  // the product's bar is. It publishes no `data-ad-bar` there, so nothing
-  // below moves up to clear it.
+  // The top edge (`adBarEdge="top"`, nothing passes it today): same bar,
+  // same one button, pinned where the product's bar is. It publishes no
+  // `data-ad-bar` there, so nothing below moves up to clear it.
   const atBottom = adFrame && adBarEdge === "bottom";
   return (
     <header
@@ -374,7 +366,6 @@ export default function ExploreTopBar({
               <TrialModalButton
                 from="explore-ad-topbar"
                 placeName={placeName}
-                onClick={onAdCta}
                 className={`${brand ? btn.navOnBrand : btn.nav} ${TOP_BAR_CTA_PHONE_WIDTH}`}
               >
                 Start free trial

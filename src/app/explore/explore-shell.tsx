@@ -93,7 +93,6 @@ import MobileHourBar from "./components/mobile-hour-bar";
 import type { FlowKind } from "./lib/use-flow";
 import ForecastStrip from "./components/forecast-strip";
 import { AdFrameProvider } from "./lib/ad-frame";
-import { useAdBarEdge } from "@/app/components/split-test/use-ad-bar-edge";
 import { useAdIntro } from "@/app/components/split-test/use-ad-intro";
 
 // ── Loaded on demand ─────────────────────────────────────────────────────
@@ -270,9 +269,9 @@ export default function ExploreShell({
   // the floating location pill both begin at the screen edge; everyone else
   // begins under the 64px bar. One value, so the two cannot drift apart, and
   // every pill measured from the map box keeps its offset at either tier.
-  // The ad frame's bar is at the top too on arm a of the ad-bar split (see
-  // `adBar` below), so the offset is the same as the product bar's; arm b
-  // puts it at the bottom and the map starts at the edge. A FULL REPORT
+  // The ad frame's bar is at the BOTTOM of the screen (the `ad_bar_edge_v1`
+  // split, concluded 2026-09-07 for the bottom), so there is nothing above
+  // the map and it starts at the edge like a Pro viewer's. A FULL REPORT
   // press on a card is a separate thing: it stays on the map and opens the
   // trial modal.
   const [adOfferOpen, setAdOfferOpen] = useState(false);
@@ -312,13 +311,12 @@ export default function ExploreShell({
     },
     [ad, router],
   );
-  // Which edge the ad frame's bar sits on: the `ad_bar_edge_v1` split. Arm a
-  // (and no arm) is the top, where the product bar is. Arm b is the bottom,
-  // the 2026-09-02 shape: nothing above the map, so the floating location
-  // pill starts at the screen edge like a Pro viewer's, and the map's box is
-  // shortened by the bar's height so the bar never overlays water.
-  const adBar = useAdBarEdge("explore_map", !!ad);
-  const adBarBottom = !!ad && adBar.edge === "bottom";
+  // The ad frame's bar sits on the bottom edge, the 2026-09-02 shape: nothing
+  // above the map, so the floating location pill starts at the screen edge
+  // like a Pro viewer's, and the map's box is shortened by the bar's height
+  // so the bar never overlays water. It was the top edge from 2026-09-04
+  // until the `ad_bar_edge_v1` split settled it (2026-09-07: the bottom).
+  const adBarBottom = !!ad;
   // A few words of orientation on landing, for the cold `day2` visitor: the
   // `ad_intro_v1` split. Arm b shows the card once per tab; arm a and no arm
   // show nothing. Not part of the paywall flow above and never restarts it.
@@ -2274,9 +2272,9 @@ export default function ExploreShell({
          bar keeps its own room via `--rc-tabbar-clearance`, which is what the
          sheet and the preview dock sit above; nothing needs the map to be
          short as well. */
-      /* Arm b of the ad-bar split shortens the box by exactly the bar's
-         height, so the bottom bar never overlays water and never has to be
-         dismissed. `--rc-ad-bar-h` carries the device safe area. */
+      /* The ad frame shortens the box by exactly its bottom bar's height, so
+         the bar never overlays water and never has to be dismissed.
+         `--rc-ad-bar-h` carries the device safe area. */
       className={`relative overflow-hidden lg:min-h-0 ${
         adBarBottom ? "h-[calc(100dvh_-_var(--rc-ad-bar-h))]" : "h-dvh"
       }`}
@@ -2303,11 +2301,10 @@ export default function ExploreShell({
           map, and a bar would only have added exits. With the offer moved
           into the trial modal the bar is the thing that opens it, so it comes
           back in `adFrame` dress — mark, one button, and none of the nav,
-          search, sign-in or avatar that made it an exit. Which edge it sits
-          on is the `ad_bar_edge_v1` split (see `adBar` above): the top, where
-          the product's bar is, or the bottom, under a thumb. It shows at every
-          width and for every tier, because on this page it is the only ask
-          there is.
+          search, sign-in or avatar that made it an exit. It sits on the
+          bottom edge, under a thumb; the top edge lost the `ad_bar_edge_v1`
+          split (2026-09-07). It shows at every width and for every tier,
+          because on this page it is the only ask there is.
 
           Same `placeName` either way: the city under the camera, which the
           modal sets in brand blue behind its headline. */}
@@ -2317,8 +2314,7 @@ export default function ExploreShell({
       {ad ? (
         <ExploreTopBar
           adFrame
-          adBarEdge={adBar.edge}
-          onAdCta={adBar.reportCta}
+          adBarEdge="bottom"
           containerClassName={BLEED_MEASURE}
           upgradeCta={!isPaid}
           placeName={labelCity?.name ?? undefined}
@@ -2385,11 +2381,10 @@ export default function ExploreShell({
       {/* The single map instance — full-screen on every breakpoint. Mobile
           floats the location header + a pull-up spot sheet over it; desktop
           keeps the rail + docked forecast strip. */}
-      {/* `lg:top-16` is the desktop top bar's band. The ad frame's bar on the
-          top edge sits in the same band at every width, so the map starts
-          under it there too. On the bottom edge (arm b) there is no top bar
-          at any width, and the offset would leave an empty strip across the
-          top of a desktop window with nothing in it. */}
+      {/* `lg:top-16` is the desktop top bar's band. The ad frame has no top
+          bar at any width (its bar is on the bottom edge), and the offset
+          would leave an empty strip across the top of a desktop window with
+          nothing in it. */}
       <div
         className={`absolute inset-x-0 bottom-0 ${mobileTop} ${
           adBarBottom ? "lg:top-0" : "lg:top-16"
