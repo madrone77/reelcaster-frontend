@@ -63,6 +63,15 @@ import type { NagFeatureId, PlanTierId } from './plan-features';
  */
 export type PaywallCountKind = 'impression' | 'cta_click' | 'dismiss';
 
+/**
+ * The two kinds that describe the hop to Stripe rather than the wall. They
+ * carry no feature or surface of their own: the wall that sent the buyer is
+ * read on the server off the rc_wall cookie, the same cookie the checkout
+ * route stamps 'checkout_start' from, so the three rows name one wall by
+ * construction. See src/lib/checkout-redirect.ts for when each fires.
+ */
+export type CheckoutHopKind = 'checkout_redirect' | 'checkout_stuck';
+
 export interface PaywallCountTarget {
   /** What the visitor was denied. Must be a live NAG_FEATURES key. */
   feature: NagFeatureId;
@@ -119,6 +128,32 @@ export function reportPaywall(
     .then((res) => (res.ok ? res.json() : null))
     .then((body) => reportToNetworks(body))
     .catch(() => {});
+}
+
+/**
+ * Report a hop toward Stripe. Fire and forget, `keepalive` because the very
+ * next thing the caller does is leave the page. No feature in the body: the
+ * route reads the wall off the cookie, and a body with no wall to credit is
+ * dropped there rather than invented here.
+ */
+export function reportCheckoutHop(
+  kind: CheckoutHopKind,
+  {
+    viewerTier,
+    context,
+  }: { viewerTier: PlanTierId; context?: Record<string, string | number | boolean> },
+): void {
+  if (typeof window === 'undefined') return;
+  void fetch('/api/attribution/paywall', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      kind,
+      viewer_tier: viewerTier,
+      context: mergeContext(readPaywallContext(), context),
+    }),
+    keepalive: true,
+  }).catch(() => {});
 }
 
 /**

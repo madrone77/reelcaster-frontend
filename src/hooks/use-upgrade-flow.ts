@@ -1,7 +1,9 @@
 'use client';
 
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { apiFetch } from '@/lib/api-client';
+import { goToCheckout } from '@/lib/checkout-redirect';
+import type { PlanTierId } from '@/lib/plan-features';
 
 export interface OpenCheckoutOptions {
   /** Region slug (e.g. 'BC', 'WA', 'OR'); 'Other' triggers waitlist redirect. */
@@ -16,6 +18,8 @@ export interface OpenCheckoutOptions {
    * its terms then hung at "Starting…" on the press.
    */
   accessToken?: string | null;
+  /** Who is buying, for the hop beacons. Defaults to 'free': signed in. */
+  viewerTier?: PlanTierId;
 }
 
 interface CheckoutResponse {
@@ -35,6 +39,14 @@ interface PortalResponse {
 export function useUpgradeFlow() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<Error | null>(null);
+  /**
+   * Set when the browser was asked to leave for Stripe and, three seconds
+   * later, had not. The caller draws it as a plain link so the reader still
+   * has a way through; see src/lib/checkout-redirect.ts for why this exists.
+   */
+  const [stuckUrl, setStuckUrl] = useState<string | null>(null);
+  const cancelHop = useRef<(() => void) | null>(null);
+  useEffect(() => () => cancelHop.current?.(), []);
 
   const openCheckout = useCallback(async (opts: OpenCheckoutOptions = {}) => {
     setLoading(true);
@@ -50,9 +62,14 @@ export function useUpgradeFlow() {
       });
 
       // 'Other' region returns { redirect: '/explore?waitlist=1' } instead of a Stripe URL.
-      const target = res.url ?? res.redirect;
-      if (target) {
-        window.location.href = target;
+      if (res.url) {
+        cancelHop.current = goToCheckout(res.url, {
+          sessionId: res.id ?? null,
+          viewerTier: opts.viewerTier ?? 'free',
+          onStuck: setStuckUrl,
+        });
+      } else if (res.redirect) {
+        window.location.href = res.redirect;
       }
     } catch (e) {
       setError(e instanceof Error ? e : new Error(String(e)));
@@ -80,5 +97,5 @@ export function useUpgradeFlow() {
     }
   }, []);
 
-  return { openCheckout, openPortal, loading, error };
+  return { openCheckout, openPortal, loading, error, stuckUrl };
 }

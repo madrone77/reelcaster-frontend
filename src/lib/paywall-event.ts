@@ -30,7 +30,15 @@ import { readEdgeGeo } from './edge-geo';
 import { armsFromCookieHeader } from './split-tests';
 import { pacificDay } from './pacific-day';
 
-export type PaywallEventKind = 'impression' | 'cta_click' | 'dismiss' | 'checkout_start';
+export type PaywallEventKind =
+  | 'impression'
+  | 'cta_click'
+  | 'dismiss'
+  | 'checkout_start'
+  // The browser asked to leave for Stripe's URL (src/lib/checkout-redirect.ts).
+  | 'checkout_redirect'
+  // ...and was still on our page three seconds later.
+  | 'checkout_stuck';
 
 /** The half of a row that describes the wall rather than the visit. */
 export interface PaywallEventFields {

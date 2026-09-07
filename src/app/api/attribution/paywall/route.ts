@@ -76,8 +76,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { NAG_FEATURES } from '@/lib/plan-features';
 import { pacificDay } from '@/lib/pacific-day';
-import { paywallEventRow } from '@/lib/paywall-event';
-import { readPaid, readEntry } from '@/lib/attribution';
+import { paywallEventRow, type PaywallEventKind } from '@/lib/paywall-event';
+import { readPaid, readEntry, readWall } from '@/lib/attribution';
 import { readSessionId } from '@/lib/paywall-session';
 import { acquisitionFromRequest, recordPaywallViewConversion } from '@/lib/conversions';
 import { paywallViewDedupeKey } from '@/lib/paywall-conversion';
@@ -94,8 +94,21 @@ const admin = createClient(supabaseUrl, supabaseServiceKey, {
  * impressions column and a cta_clicks column and adding a third would change
  * the meaning of a table two admin pages already read.
  */
-const KINDS = new Set(['impression', 'cta_click', 'dismiss']);
+const KINDS = new Set([
+  'impression',
+  'cta_click',
+  'dismiss',
+  'checkout_redirect',
+  'checkout_stuck',
+]);
 const COUNTED_KINDS = new Set(['impression', 'cta_click']);
+/**
+ * The hop kinds name no wall in the body. The wall is the one in the rc_wall
+ * cookie, read exactly as the checkout route reads it for 'checkout_start',
+ * so redirect, stuck and start rows for one buyer agree on the surface. No
+ * cookie, nothing to credit: the report is dropped, not invented.
+ */
+const WALL_COOKIE_KINDS = new Set(['checkout_redirect', 'checkout_stuck']);
 const TIERS = new Set(['anon', 'free', 'pro']);
 
 /** Matches the cookie field cap in src/lib/attribution.ts. */
@@ -123,7 +136,8 @@ const JOURNAL_KINDS = new Set([
 const JOURNAL_MAX = 12;
 const CONTEXT_MAX_KEYS = 10;
 const CONTEXT_KEY = /^[a-z][a-z0-9_]{0,23}$/;
-const CONTEXT_VALUE_MAX = 64;
+/** A Stripe Checkout session id is 66 characters; the cap has to hold one. */
+const CONTEXT_VALUE_MAX = 96;
 
 /** A day is 86.4M ms; a modal open longer than an hour is a tab left behind. */
 const DWELL_MAX_MS = 60 * 60 * 1000;
@@ -138,12 +152,18 @@ export async function POST(request: NextRequest) {
   }
 
   const kind = String(body.kind ?? '');
-  const feature = String(body.feature ?? '');
   const viewerTier = String(body.viewer_tier ?? 'anon');
-  const surface = String(body.surface ?? '').slice(0, MAX_SURFACE);
+  let feature = String(body.feature ?? '');
+  let surface = String(body.surface ?? '').slice(0, MAX_SURFACE);
 
   if (!KINDS.has(kind)) {
     return NextResponse.json({ error: 'invalid_kind' }, { status: 400 });
+  }
+  if (WALL_COOKIE_KINDS.has(kind)) {
+    const wall = readWall(request.headers.get('cookie') ?? '');
+    if (!wall?.feature) return NextResponse.json({ ok: true });
+    feature = wall.feature;
+    surface = (wall.from || 'unknown').slice(0, MAX_SURFACE);
   }
   // Validated against the live enum rather than a copy, so a new wall added to
   // plan-features.ts starts counting without anyone remembering to edit here.
@@ -272,7 +292,7 @@ async function recordEvent(
   // one of those values has just come out of a body a visitor could have
   // written, so each is clamped or dropped below.
   const row = paywallEventRow(request, {
-    kind: input.kind as 'impression' | 'cta_click' | 'dismiss',
+    kind: input.kind as PaywallEventKind,
     feature: input.feature,
     surface: input.surface,
     viewerTier: input.viewerTier,
