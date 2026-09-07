@@ -191,7 +191,7 @@ const tagFont = () => `${G.TAG_FONT.weight} ${G.TAG_FONT.size}px ${puckFamily()}
 export const COLLAR: Record<PuckRing, string | null> = {
   base: null,
   fresh: "#10b981", // emerald: catch reports exist at this spot
-  sel: "#1F40E0", // cobalt: the selected spot
+  sel: "#ffffff", // PREVIEW: white collar on the selected spot (was cobalt)
 };
 
 /**
