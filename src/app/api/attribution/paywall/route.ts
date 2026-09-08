@@ -258,8 +258,8 @@ function checkoutTapEventId(request: NextRequest, day: string): string | null {
 /**
  * Report a bought click reaching the wall, once per session.
  *
- * ONLY WHEN THE READER OPENED IT ON PURPOSE. A tap on a trial or upgrade
- * button counts; a wall the product put in front of them does not. The list
+ * ONLY WHEN THE READER TAPPED START FREE TRIAL. Not an upgrade button, not a
+ * marketing CTA, and not a wall the product put in front of them. The list
  * and the numbers behind it are `paywallViewIsAskedFor` in
  * src/lib/paywall-conversion.ts.
  *
