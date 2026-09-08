@@ -237,6 +237,7 @@ export default function ForecastStrip({
         onOpenChange={setUpgradeOpen}
         variant={!signedIn && lockTier === "free" ? "signup" : "pro"}
         dayIndex={lockDay ?? undefined}
+        onExplore
       />
     </>
   );
@@ -313,6 +314,7 @@ export function MobileForecastStrip({
         onOpenChange={setUpgradeOpen}
         variant={!signedIn && lockTier === "free" ? "signup" : "pro"}
         dayIndex={lockDay ?? undefined}
+        onExplore
       />
     </>
   );

@@ -1,18 +1,6 @@
 "use client";
 
-import dynamic from "next/dynamic";
-import { useMountedOnce } from "@/hooks/use-mounted-once";
-
-// Loaded on the tap that opens it, not with the map. This wrapper is rendered
-// unconditionally by the forecast strip and the mobile sheet, so a static
-// import put the plan matrix, the pricing tables and the Stripe checkout
-// client into the chunks /explore parses before it can hydrate — on a page
-// whose whole job is a map. Matches `TrialModalButton`, which already does
-// this for the marketing CTAs.
-const ProTrialModal = dynamic(
-  () => import("@/app/components/paywall/pro-trial-modal"),
-  { ssr: false },
-);
+import ExploreWall from "./explore-wall";
 
 /**
  * Shown when a locked forecast day is tapped. Thin wrapper over the shared
@@ -33,6 +21,14 @@ const ProTrialModal = dynamic(
  * pro variant, which told a signed-out visitor the matrix's Free column was
  * "You" and suppressed the free-signup offer at the foot of the modal. The
  * modal reads the real tier from auth itself.
+ *
+ * It renders `<ExploreWall>` rather than the modal directly, which is where
+ * the two shapes are chosen and where the dynamic import and the mount latch
+ * now live. THREE surfaces render this wrapper, not one: /explore's strip and
+ * pill rail, the city page's live panel, and the spot page. Only the first is
+ * in `explore_join_prompt_v1`, so `onExplore` decides eligibility and the
+ * other two are untouched. It defaults to false: a new caller that forgets it
+ * gets today's modal, which is the safe way round.
  */
 export default function UpgradeDialog({
   open,
@@ -42,6 +38,7 @@ export default function UpgradeDialog({
   spotName,
   placeName,
   cityName,
+  onExplore = false,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -81,17 +78,19 @@ export default function UpgradeDialog({
    * two-bucket count.
    */
   dayIndex?: number;
+  /**
+   * True when this locked day is on the Explore map, which is the only
+   * surface `explore_join_prompt_v1` runs on. See the note above.
+   */
+  onExplore?: boolean;
 }) {
-  // Latched, so closing the modal doesn't rip it out mid-animation.
-  const mounted = useMountedOnce(open);
-  if (!mounted) return null;
-
   return (
-    <ProTrialModal
+    <ExploreWall
       open={open}
       onOpenChange={onOpenChange}
       feature={variant === "signup" ? "forecast-week" : "forecast-14d"}
       from="explore-forecast"
+      eligible={onExplore}
       spotName={spotName}
       placeName={placeName}
       cityName={cityName}

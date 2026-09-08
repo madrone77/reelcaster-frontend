@@ -1,7 +1,6 @@
 "use client";
 
 import Link from "next/link";
-import dynamic from "next/dynamic";
 import { useState } from "react";
 import { Wind, Waves, Navigation, Lock, Globe } from "lucide-react";
 import { TIER_PILL, tierFor, type RailSpot } from "../lib/explore-data";
@@ -15,11 +14,7 @@ import type { RailFreshCatch } from "../lib/fresh-catch-types";
 import { spotHref } from "@/lib/paths";
 import { withAdParams } from "@/lib/ad-mode";
 import { useAdFrame } from "../lib/ad-frame";
-
-const ProTrialModal = dynamic(
-  () => import("@/app/components/paywall/pro-trial-modal"),
-  { ssr: false },
-);
+import ExploreWall from "./explore-wall";
 
 /**
  * Rail spot card. No hover-only actions: header + score badge, a plain-English
@@ -334,7 +329,7 @@ export default function SpotCard({
         </button>
       </div>
 
-      <ProTrialModal
+      <ExploreWall
         open={upgradeOpen}
         onOpenChange={setUpgradeOpen}
         feature="favorite-spots"
@@ -344,7 +339,7 @@ export default function SpotCard({
       {/* Separate instance from the favourites nag: same modal, different
           pitch. No spotName — the offer is the whole reporting stream, not
           this one card's numbers. */}
-      <ProTrialModal
+      <ExploreWall
         open={reportsUpgradeOpen}
         onOpenChange={setReportsUpgradeOpen}
         feature="catch-reports"
@@ -352,7 +347,7 @@ export default function SpotCard({
       />
       {/* A locked day in the strip. Named for the spot so the pitch is about
           the fortnight at a place the angler already cares about. */}
-      <ProTrialModal
+      <ExploreWall
         open={forecastUpgradeOpen}
         onOpenChange={setForecastUpgradeOpen}
         feature={forecastNag}

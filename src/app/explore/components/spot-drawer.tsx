@@ -2,7 +2,6 @@
 
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import dynamic from "next/dynamic";
 import {
   ChevronLeft,
   Wind,
@@ -33,11 +32,7 @@ import { formatHour12 } from "@/lib/time-format";
 import { spotHref } from "@/lib/paths";
 import { withAdParams } from "@/lib/ad-mode";
 import { useAdFrame } from "../lib/ad-frame";
-
-const ProTrialModal = dynamic(
-  () => import("@/app/components/paywall/pro-trial-modal"),
-  { ssr: false },
-);
+import ExploreWall from "./explore-wall";
 
 
 function dateStamp(date: string): string {
@@ -375,14 +370,14 @@ export default function SpotDrawer({
         )}
       </div>
 
-      <ProTrialModal
+      <ExploreWall
         open={upgradeOpen}
         onOpenChange={setUpgradeOpen}
         feature="favorite-spots"
         from="explore-drawer"
         spotName={spot.name}
       />
-      <ProTrialModal
+      <ExploreWall
         open={reportsUpgradeOpen}
         onOpenChange={setReportsUpgradeOpen}
         feature="catch-reports"
