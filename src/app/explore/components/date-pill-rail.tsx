@@ -366,6 +366,7 @@ export default function DatePillRail({
         onOpenChange={setUpgradeOpen}
         variant={!signedIn && lockTier === "free" ? "signup" : "pro"}
         dayIndex={lockDay ?? undefined}
+        onExplore
         placeName={placeName}
       />
     </>

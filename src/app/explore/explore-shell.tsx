@@ -42,6 +42,7 @@ import {
 } from "@/lib/preview-gate";
 import DepthGatePrompt from "./components/depth-gate-prompt";
 import AdIntroCard from "./components/ad-intro-card";
+import ExploreWall from "./components/explore-wall";
 import {
   fetchFreshCatches,
   fetchMapForecast14d,
@@ -101,7 +102,9 @@ import { useAdIntro } from "@/app/components/split-test/use-ad-intro";
 // filter button, "create alert", an upgrade prompt. Statically imported they
 // were in the chunks /explore has to fetch and parse before it can hydrate —
 // and `ProTrialModal` drags Stripe in behind it, so a map that never sells
-// anything was paying for a checkout form on every load.
+// anything was paying for a checkout form on every load. That one is now
+// deferred a level down, inside `<ExploreWall>`, which is what every wall on
+// this surface renders and where its dynamic import lives.
 //
 // `ssr: false` is free here: ExploreShell is a client component and each of
 // these renders nothing until its state flips, so the server markup they
@@ -119,10 +122,6 @@ const MobileFilterSheet = dynamic(
 );
 const CreateAlertDialog = dynamic(
   () => import("./spot/components/create-alert-dialog"),
-  { ssr: false },
-);
-const ProTrialModal = dynamic(
-  () => import("@/app/components/paywall/pro-trial-modal"),
   { ssr: false },
 );
 
@@ -276,7 +275,6 @@ export default function ExploreShell({
   // trial modal.
   const [adOfferOpen, setAdOfferOpen] = useState(false);
   const [adOfferSpotName, setAdOfferSpotName] = useState<string | undefined>();
-  const adOfferMounted = useMountedOnce(adOfferOpen);
   // The spot open in the phone's sheet (see components/mobile-spot-sheet.tsx),
   // or null. Local state, not the URL: `?spot=` is the map's selection, which
   // is the preview card, and this sits on top of that without replacing it.
@@ -434,7 +432,6 @@ export default function ExploreShell({
   // whatever your tier — hiding it meant the one feature that answers "my spot
   // isn't on here" was invisible to exactly the people asking.
   const [customUpgradeOpen, setCustomUpgradeOpen] = useState(false);
-  const customUpgradeMounted = useMountedOnce(customUpgradeOpen);
   // A press while the tier is still resolving is kept, not dropped. The
   // button used to be disabled (and dimmed) until `tierLoading` cleared,
   // which on Chrome Android could be never: the auth client's Web Lock hangs
@@ -1251,7 +1248,6 @@ export default function ExploreShell({
   const [alertSpot, setAlertSpot] = useState<RailSpot | null>(null);
   const [alertOpen, setAlertOpen] = useState(false);
   const [alertUpgradeOpen, setAlertUpgradeOpen] = useState(false);
-  const alertUpgradeMounted = useMountedOnce(alertUpgradeOpen);
 
   const handleSetAlert = useCallback(
     (spot: RailSpot) => {
@@ -2642,40 +2638,38 @@ export default function ExploreShell({
         />
       )}
 
-      {alertUpgradeMounted && (
-      <ProTrialModal
+      <ExploreWall
         open={alertUpgradeOpen}
         onOpenChange={setAlertUpgradeOpen}
         feature="alerts"
         from="explore"
         spotName={alertSpot?.name}
       />
-      )}
 
       {/* The wall behind "Create custom spot" for a free or signed-out angler.
-          Same modal and same plan matrix as every other wall on /explore, on
-          the row that actually got hit. */}
-      {customUpgradeMounted && (
-      <ProTrialModal
+          The same wall as every other one on /explore, in whichever of the two
+          shapes `explore_join_prompt_v1` puts this reader in. */}
+      <ExploreWall
         open={customUpgradeOpen}
         onOpenChange={setCustomUpgradeOpen}
         feature="custom-spots"
         from="explore-map"
       />
-      )}
 
       {/* The ad frame's offer, made on a FULL REPORT press. Same modal as
           the bar's button, named after the spot that was pressed. */}
-      {adOfferMounted && (
-      <ProTrialModal
+      <ExploreWall
         open={adOfferOpen}
         onOpenChange={setAdOfferOpen}
         feature="forecast-14d"
+        // The counter still files this as the fortnight, which is what the
+        // big modal sells. The small one talks about the map, because that is
+        // what the reader was doing when it stopped them.
+        prompt="spot-views"
         from="explore-ad-open-spot"
         spotName={adOfferSpotName}
         placeName={labelCity?.name ?? undefined}
       />
-      )}
 
       {/* The depth gate's own ask. Dismissing it IS the decline — see
           declineDepth — which is why it does not share ProTrialModal's
