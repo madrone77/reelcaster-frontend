@@ -108,3 +108,31 @@ export function metaTrack(
     options?.eventId ? { eventID: options.eventId } : {},
   )
 }
+
+/**
+ * Hand the pixel who this is, so the events after it can be matched to a
+ * person when the click cookie cannot. Advanced matching, in Meta's terms.
+ *
+ * `em` is the SHA-256 of the trimmed lowercased address (src/lib/meta-match.ts)
+ * and `external_id` is our user id for a signed-in reader. Both are optional
+ * and a call with neither is a no-op, so callers can pass whatever they have.
+ *
+ * A second `init` on the same pixel id is how the pixel takes user data after
+ * page load; fbevents logs a "Duplicate Pixel ID" warning in the console and
+ * merges the data. The gateway relays whatever the pixel sends, so the server
+ * copy of each event carries the same identifiers without a second wire.
+ *
+ * Order matters and is the caller's problem: the pixel processes calls in the
+ * order made, so this has to run before the `metaTrack` it is meant to help.
+ * Every caller here runs it as soon as the address is known, well ahead of the
+ * network round trip that precedes the event.
+ */
+export function metaIdentify(input: { emailHash?: string | null; externalId?: string | null }): void {
+  if (!META_PIXEL_ID) return
+  if (typeof window === 'undefined' || typeof window.fbq !== 'function') return
+  const userData: Record<string, string> = {}
+  if (input.emailHash) userData.em = input.emailHash
+  if (input.externalId) userData.external_id = input.externalId
+  if (Object.keys(userData).length === 0) return
+  window.fbq('init', META_PIXEL_ID, userData)
+}

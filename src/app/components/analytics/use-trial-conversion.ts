@@ -7,6 +7,8 @@ export interface TrialConversion {
   event: 'StartTrial' | null
   /** `<subscription>:trial_start`, the id every network dedupes on. */
   eventId: string | null
+  /** SHA-256 of the billing email, for the Meta pixel's advanced matching. */
+  emailHash: string | null
   /**
    * Whether the question has been answered, one way or another. The page holds
    * its redirect on this, so it MUST become true even when everything fails.
@@ -41,12 +43,13 @@ export function useTrialConversion(sessionId: string | null): TrialConversion {
   const [state, setState] = useState<TrialConversion>({
     event: null,
     eventId: null,
+    emailHash: null,
     settled: false,
   })
 
   useEffect(() => {
     if (!sessionId) {
-      setState({ event: null, eventId: null, settled: true })
+      setState({ event: null, eventId: null, emailHash: null, settled: true })
       return
     }
 
@@ -62,16 +65,25 @@ export function useTrialConversion(sessionId: string | null): TrialConversion {
         )
         if (cancelled) return
         if (!res.ok) {
-          setState({ event: null, eventId: null, settled: true })
+          setState({ event: null, eventId: null, emailHash: null, settled: true })
           return
         }
-        const body = (await res.json()) as { event: 'StartTrial' | null; event_id: string | null }
+        const body = (await res.json()) as {
+          event: 'StartTrial' | null
+          event_id: string | null
+          email_hash?: string | null
+        }
         if (cancelled) return
-        setState({ event: body.event, eventId: body.event_id, settled: true })
+        setState({
+          event: body.event,
+          eventId: body.event_id,
+          emailHash: body.email_hash ?? null,
+          settled: true,
+        })
       } catch {
         // Never let conversion reporting break the page a customer just paid
         // on. Settled with no event: nothing fires, and the page moves on.
-        if (!cancelled) setState({ event: null, eventId: null, settled: true })
+        if (!cancelled) setState({ event: null, eventId: null, emailHash: null, settled: true })
       }
     }
 

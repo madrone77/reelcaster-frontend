@@ -12,6 +12,8 @@ import {
 } from 'react';
 import Link from 'next/link';
 import { useAuth } from '@/contexts/auth-context';
+import { hashEmailForMeta } from '@/lib/meta-match';
+import { metaIdentify } from '@/lib/meta-pixel';
 import { useSubscription } from '@/hooks/use-subscription';
 import { trackEvent } from '@/lib/analytics';
 import { useUpgradeFlow } from '@/hooks/use-upgrade-flow';
@@ -251,9 +253,32 @@ export function TrialCtaProvider({
   const [status, setStatus] = useState<CheckoutStatus | null>(null);
   const [statusLoading, setStatusLoading] = useState(true);
   const [email, setEmail] = useState('');
+
+  // Advanced matching for the Meta pixel (src/lib/meta-match.ts). A signed-in
+  // reader is identified as soon as the provider knows them, so every event
+  // on the page carries it; a signed-out reader is identified from the email
+  // field, on blur and again on submit, which is before the Begin checkout
+  // tap's InitiateCheckout can fire (that waits on a round trip to the
+  // counter route). Hashed before it reaches the pixel.
+  const identified = useRef<string | null>(null);
+  function identify(address: string | null | undefined, externalId?: string | null) {
+    const key = `${address ?? ''}|${externalId ?? ''}`;
+    if (identified.current === key) return;
+    identified.current = key;
+    void hashEmailForMeta(address).then((emailHash) => {
+      if (identified.current !== key) return;
+      metaIdentify({ emailHash, externalId });
+    });
+  }
+  useEffect(() => {
+    if (user?.email) identify(user.email, user.id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.id, user?.email]);
+
   // 'Email Entered' fires once per paywall, not on every keystroke or blur.
   const emailReported = useRef(false);
   function reportEmail(value: string) {
+    identify(value);
     if (emailReported.current) return;
     const v = value.trim();
     if (!v.includes('@')) return;
@@ -613,6 +638,10 @@ export function TrialBuy({
           className="flex flex-col gap-2"
           onSubmit={(e) => {
             e.preventDefault();
+            // The browser has validated the address by now (`required`,
+            // type=email). reportEmail also identifies the pixel; on a phone
+            // the field may never blur before the submit, so it runs here too.
+            s.reportEmail(s.email);
             s.reportStartClick();
             s.onActivate?.('annual');
             s.startAnonCheckout();

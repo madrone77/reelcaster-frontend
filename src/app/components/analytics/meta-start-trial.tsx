@@ -1,7 +1,8 @@
 'use client'
 
 import { useEffect } from 'react'
-import { META_PIXEL_ID, metaTrack } from '@/lib/meta-pixel'
+import { META_PIXEL_ID, metaIdentify, metaTrack } from '@/lib/meta-pixel'
+import { useAuth } from '@/contexts/auth-context'
 import type { TrialConversion } from './use-trial-conversion'
 
 /**
@@ -26,7 +27,11 @@ import type { TrialConversion } from './use-trial-conversion'
  * server-side.
  */
 export default function MetaStartTrial({ conversion }: { conversion: TrialConversion }) {
-  const { event, eventId } = conversion
+  const { event, eventId, emailHash } = conversion
+  // Usually null here: a signed-out buyer's account is made by the webhook
+  // and they are bounced through a magic link later. Sent when it is known.
+  const { user } = useAuth()
+  const externalId = user?.id ?? null
 
   useEffect(() => {
     if (!META_PIXEL_ID) return
@@ -44,8 +49,11 @@ export default function MetaStartTrial({ conversion }: { conversion: TrialConver
       // Storage unavailable. Fire and let Meta deduplicate.
     }
 
+    // Who this is, before the event: advanced matching is what lifts this
+    // event's match quality off the floor (src/lib/meta-match.ts).
+    metaIdentify({ emailHash, externalId })
     metaTrack('StartTrial', { eventId })
-  }, [event, eventId])
+  }, [event, eventId, emailHash, externalId])
 
   return null
 }
