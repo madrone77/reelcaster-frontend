@@ -23,6 +23,7 @@ import type {
 } from "@/lib/bluecaster/catch-ingest-types";
 import { uploadCatchPhoto } from "@/lib/catch-photo-upload";
 import { preparePhotoForAnalysis, type PreparedPhoto } from "@/lib/photo-prep";
+import type { CatchPreviewExtras } from "@/lib/bluecaster/catch-ingest-types";
 import { resolveInitialPin, type PinSource } from "@/lib/geo-fallback";
 import { getCurrentPosition, type GeoLocationError } from "@/lib/geolocation-service";
 import { lbToKg, inToCm, ftToM } from "@/lib/units";
@@ -41,6 +42,26 @@ import {
   type SnapshotOverrides,
   type StatDraft,
 } from "./wizard/types";
+
+/**
+ * What the client read off the ORIGINAL photo, for both server calls.
+ *
+ * BlueCaster re-reads EXIF from the bytes it receives and treats these as
+ * advisory, but the bytes it receives are a converted or recompressed copy
+ * whenever the original was HEIC or large, and neither copy carries the
+ * original's EXIF block. Without these fields the ingest gate sees a photo with
+ * no metadata and turns it away as a screenshot.
+ */
+function exifExtras(prep: PreparedPhoto): CatchPreviewExtras {
+  return {
+    exif_captured_at: prep.exif?.capturedAtNaive ?? null,
+    exif_lat: prep.exif?.lat ?? null,
+    exif_lng: prep.exif?.lng ?? null,
+    camera: prep.exif?.camera ?? null,
+    file_lastmod: prep.fileLastModNaive,
+    tz_offset_minutes: prep.tzOffsetMinutes,
+  };
+}
 
 /**
  * Photo-first catch wizard (2026-07 revamp):
@@ -139,20 +160,18 @@ export default function LogCatchShell() {
           );
         }
 
-        const result = await fetchCatchPreview(prep.analysisFile, {
-          exif_captured_at: prep.exif?.capturedAtNaive ?? null,
-          exif_lat: prep.exif?.lat ?? null,
-          exif_lng: prep.exif?.lng ?? null,
-          camera: prep.exif?.camera ?? null,
-          file_lastmod: prep.fileLastModNaive,
-          tz_offset_minutes: prep.tzOffsetMinutes,
-        });
+        const result = await fetchCatchPreview(prep.analysisFile, exifExtras(prep));
 
         if (result && result.status === "rejected") {
+          // The reason travels with the event. It used to be hardcoded to
+          // "no-fish", which made a photo rejected for missing EXIF — the
+          // common case, and a bug — indistinguishable in Mixpanel from a
+          // clear shot the vision pass simply missed.
           trackEvent("Catch Photo Attached", {
             bytes: f.size,
             type: f.type,
-            outcome: "no-fish",
+            outcome: "rejected",
+            reason: result.rejection_reason ?? "unknown",
           });
           setRejection(
             result.rejection_reason === "no_fish_detected"
@@ -574,6 +593,7 @@ export default function LogCatchShell() {
             prepared.uploadFile,
             saved.id,
             token,
+            exifExtras(prepared),
           )
             .then((pool) => {
               if (pool?.observation_id) {

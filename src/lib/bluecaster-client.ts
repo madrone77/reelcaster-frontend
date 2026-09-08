@@ -584,10 +584,21 @@ export async function commitCatchToPool(
   photo: File | null,
   idempotencyKey: string,
   accessToken: string,
+  exif?: CatchPreviewExtras,
 ): Promise<PoolCommitResponse | null> {
   const form = new FormData();
   form.append("payload", JSON.stringify(payload));
   if (photo) form.append("photo", photo);
+  // Same advisory EXIF the preview call sends, for the same reason: an iPhone
+  // photo is a converted JPEG by the time it gets here and the conversion
+  // dropped the EXIF block the ingest gate looks for.
+  if (exif) {
+    for (const [key, value] of Object.entries(exif)) {
+      if (value !== undefined && value !== null && value !== "") {
+        form.append(key, String(value));
+      }
+    }
+  }
   const res = await fetch("/api/bluecaster/ingest/catch", {
     method: "POST",
     headers: {

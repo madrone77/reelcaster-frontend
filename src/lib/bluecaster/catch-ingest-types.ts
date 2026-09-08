@@ -71,6 +71,9 @@ export interface CatchPreviewResponse {
     lat: number | null;
     lng: number | null;
     camera: string | null;
+    /** Which side read it: "file" from the uploaded bytes, "client" from the
+     *  CatchPreviewExtras we sent. Optional — older deploys omit it. */
+    source?: "file" | "client" | null;
   };
 
   vision: {
