@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getStripe } from '@/lib/stripe';
 import { EXPRESS_MARKER, isExpressSetupIntentId } from '@/lib/express-checkout';
+import { hashEmailForMeta } from '@/lib/meta-match';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -102,10 +103,32 @@ export async function GET(request: NextRequest) {
   const subscription = subscriptions.data[0];
   if (!subscription) return nothing({ event: null, event_id: null });
 
+  // The hashed billing email, for the pixel's advanced matching. This is the
+  // event that matches worst (3.0/10 on 2026-09-08) because the click cookie
+  // often does not survive the trip through Stripe, and the address is the
+  // identifier that recovers it. Hashed here (src/lib/meta-match.ts) so the
+  // page never holds the raw address for a tag. Best effort: a Stripe hiccup
+  // on this read costs the match, not the event.
+  const emailHash = await hashEmailForMeta(await customerEmail(stripe, resolved.customerId));
+
   return nothing({
     event: 'StartTrial',
     event_id: `${subscription.id}:trial_start`,
+    email_hash: emailHash,
   });
+}
+
+async function customerEmail(
+  stripe: Awaited<ReturnType<typeof getStripe>>,
+  customerId: string,
+): Promise<string | null> {
+  try {
+    const customer = await stripe.customers.retrieve(customerId);
+    if (customer.deleted) return null;
+    return customer.email ?? null;
+  } catch {
+    return null;
+  }
 }
 
 async function customerFromCheckoutSession(
