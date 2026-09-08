@@ -22,36 +22,39 @@ import type { NagFeatureId, PlanTierId } from '@/lib/plan-features';
 import BrandHeader from './brand-header';
 
 /**
- * Choose a plan: the step between the join prompt and the trial sheet.
+ * The step between the join prompt and the trial sheet: Pro, offered
+ * properly, with the Member account available underneath it.
  *
  * WHY IT EXISTS. The join prompt that raises it says nothing about tiers on
  * purpose — a tapped star gets "Save this spot", "Join now", "Sign in", and
  * not a word about what anything costs. That leaves one question unanswered,
- * and this is where it is answered, once, on a screen built for it: Member or
- * Pro. Casey's call (2026-09-08).
+ * and this is where it is answered.
+ *
+ * PRO IS THE PITCH. Casey's call (2026-09-08): Pro on top, Member an option
+ * and not a top choice. So this is not a two-column chooser — it was, for
+ * about an hour, and two equal cards side by side make the free one win by
+ * default on price alone. The screen is the Pro offer, drawn the way the
+ * trial sheet draws it, with the Member account as a quiet line under a rule
+ * at the bottom. Member is genuinely reachable, in one tap, named and priced
+ * honestly. It is simply not what the screen is arguing for.
+ *
+ * The demotion is done with weight, not with obstruction: no crosses against
+ * the Member line, no confirm-shaming on the way to it, no "no thanks, I
+ * don't want to catch fish". It gets a heading, a true sentence about what it
+ * includes and a full-width button of its own — just a quiet one, below the
+ * fold of the argument rather than beside it.
  *
  * IT IS THE TRIAL SHEET'S DESIGN SYSTEM, deliberately and in detail: the same
- * Stripe-style brand header, the same ticked rows over `divide-rc-rule-soft`,
- * the same 44px button with the 6px radius, the same sheet on a phone and
- * centred dialog above it. These are consecutive screens of one flow — this
- * one leads directly into ./trial-sheet-stripe when Pro is chosen — and the
- * hand-off has to read as the next page rather than a different site. That is
- * the same argument the trial sheet makes about Stripe Checkout, one step
- * earlier in the same chain.
+ * Stripe-style brand header, the same centred offer block ("Try ReelCaster
+ * Pro" over the days), the same ticked rows, the same 44px button with the
+ * 6px radius, the same sheet on a phone and centred dialog above it. This
+ * screen leads directly into ./trial-sheet-stripe, so the hand-off has to
+ * read as the next page rather than a different site — the same argument the
+ * trial sheet makes about Stripe Checkout, one step earlier in the chain.
  *
- * THE TWO COLUMNS ARE MEMBER AND PRO, not "Free" and Pro, and the difference
- * matters: "Free" is what ../../../lib/plan-labels calls the state a reader is
- * already in — browsing, no account. Offering it back to them as a choice
- * would be offering them what they have. Member is the account, it is free,
- * and the price line says so in the plainest word available.
- *
- * IT SELLS NEITHER HARDER THAN THE OTHER by shape. Pro carries the price and
- * the trial and sits second, where the eye lands last on a phone; Member is a
- * real column with real rows rather than a link under a button. A reader who
- * came from a Pro-only wall will find Pro is the one that answers it, and the
- * rows say which is which without a cross anywhere on the screen — this is a
- * choice, not a comparison, and ProTrialModal's matrix is still one tap away
- * behind the Pro button.
+ * WHAT IT IS NOT is the fourteen-row plan matrix. That is still in
+ * ./pro-trial-modal, one tap further on, for a reader who wants the full
+ * comparison. Six rows and a price is what this step needs.
  *
  * IT REPORTS UNDER THE WALL THAT RAISED IT — same `feature`, same `surface` —
  * so the whole chain from wall to trial stays one story in the counter. Its
@@ -59,28 +62,26 @@ import BrandHeader from './brand-header';
  * `plan_choice_cta`.
  */
 
-/** What a Member gets. Live today, all of it, and none of it behind a card. */
-const MEMBER_ROWS: readonly string[] = [
-  "Today's bite score at every spot",
-  `${FREE_FORECAST_DAYS} days of forecast`,
-  'Depth, structure and hourly tides',
-  'Regulations before you go',
-  'Smart catch logging',
-];
-
 /** What Pro adds. The trial sheet's own rows, in Casey's order. */
 const PRO_ROWS: readonly string[] = [
   'Daily catch reports',
   'Custom private spots',
   "Alerts when it's hot",
   `Full ${PRO_FORECAST_DAYS} day fishing forecast`,
+  'Smart catch logging',
   'No ads, no locks, see everything',
 ];
 
+/**
+ * Stripe Checkout's pay button in our blue, the shape ./trial-sheet-stripe
+ * uses: the reader taps this and lands on a page with the same button.
+ */
 const BUTTON_BASE =
-  'inline-flex h-11 w-full items-center justify-center rounded-md px-4 text-[16px] font-semibold shadow-[0_1px_3px_rgba(0,0,0,0.12)] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rc-brand focus-visible:ring-offset-2';
-const BUTTON_PRIMARY = `${BUTTON_BASE} bg-rc-brand text-white hover:bg-rc-brand-hover`;
-const BUTTON_QUIET = `${BUTTON_BASE} border border-rc-rule bg-white text-rc-ink hover:bg-rc-badge/10`;
+  'inline-flex h-11 w-full items-center justify-center rounded-md px-4 text-[16px] font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rc-brand focus-visible:ring-offset-2';
+const BUTTON_PRIMARY = `${BUTTON_BASE} bg-rc-brand text-white shadow-[0_1px_3px_rgba(0,0,0,0.12)] hover:bg-rc-brand-hover`;
+/** Quieter by a whole step: no fill, no shadow, 15px rather than 16. */
+const BUTTON_QUIET =
+  'inline-flex h-10 w-full items-center justify-center rounded-md border border-rc-rule px-4 text-[15px] font-semibold text-rc-ink transition-colors hover:bg-rc-badge/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rc-brand focus-visible:ring-offset-2';
 
 export default function PlanChoiceModal({
   open,
@@ -109,9 +110,10 @@ export default function PlanChoiceModal({
   const viewerTier: PlanTierId = isPaid ? 'pro' : user ? 'free' : 'anon';
 
   /**
-   * A reader who already has the account cannot join one. The Member column
-   * stays on screen — it is what they have, and seeing it is how the Pro
-   * column means anything — but its button says so and does nothing.
+   * A reader who already has the account cannot join one, so the Member line
+   * says what they are rather than offering it. It stays on screen: dropping
+   * it would leave a Pro pitch with no stated alternative, which is a harder
+   * sell than one that names the thing you already have.
    */
   const hasAccount = Boolean(user);
 
@@ -169,73 +171,84 @@ export default function PlanChoiceModal({
   }, [takeCta, onChoosePro]);
 
   const body = (
-    <>
-      <div className="min-h-0 flex-1 overflow-y-auto px-4 pb-4">
-        <BrandHeader />
+    <div className="min-h-0 flex-1 overflow-y-auto px-4 pb-4">
+      <BrandHeader />
 
-        <div className="mt-6 text-center">
-          <DialogTitle className="text-[26px] leading-[30px] font-bold tracking-[-0.02em] text-rc-ink">
-            Choose your plan
-          </DialogTitle>
-          <DialogDescription className="mt-1.5 text-[14px] leading-5 text-rc-ink-soft">
-            Both open the map. One opens all of it.
-          </DialogDescription>
-        </div>
-
-        <div className="mt-5 grid gap-3 lg:grid-cols-2">
-          <PlanCard
-            name={PLAN_LABELS.free}
-            price="Free"
-            priceNote="No card, ever"
-            rows={MEMBER_ROWS}
-            testId="plan-choice-member"
-          >
-            {hasAccount ? (
-              <span
-                className={`${BUTTON_QUIET} cursor-default opacity-60`}
-                aria-disabled
-              >
-                Your plan
-              </span>
-            ) : (
-              <Link
-                href={signupHref}
-                onClick={() => takeCta('member')}
-                data-testid="plan-choice-member-cta"
-                className={BUTTON_QUIET}
-              >
-                Join as a {PLAN_LABELS.free}
-              </Link>
-            )}
-          </PlanCard>
-
-          <PlanCard
-            name={PLAN_LABELS.pro}
-            price={`${TRIAL_DAYS} days free`}
-            priceNote={`Then ${pricing.amount} a year. Cancel anytime.`}
-            rows={PRO_ROWS}
-            highlight
-            testId="plan-choice-pro"
-          >
-            <button
-              type="button"
-              onClick={choosePro}
-              data-testid="plan-choice-pro-cta"
-              className={BUTTON_PRIMARY}
-            >
-              Start {TRIAL_DAYS}-day free trial
-            </button>
-          </PlanCard>
-        </div>
-
-        {/* Everything on the Member list is on the Pro list too. Said once,
-            plainly, rather than drawn as fourteen rows of ticks and crosses:
-            that table is the modal after this one, for a reader who wants it. */}
-        <p className="mt-4 text-center text-[13px] leading-5 text-rc-ink-mute">
-          Pro includes everything in {PLAN_LABELS.free}.
+      {/* The offer, set the way the trial sheet sets it and the way Stripe
+          Checkout sets it on the page two steps from here: what it is in
+          grey, what it costs today in large type, centred. */}
+      <div className="mt-6 text-center">
+        <p className="text-[19px] leading-6 font-medium text-rc-ink-soft">
+          Try ReelCaster Pro
         </p>
+        <DialogTitle className="mt-1 text-[36px] leading-[40px] font-bold tracking-[-0.02em] text-rc-ink">
+          {TRIAL_DAYS} days free
+        </DialogTitle>
+        <DialogDescription className="mt-2 text-[14px] leading-5 text-rc-ink-soft">
+          Then {pricing.amount} a year. Cancel anytime before the trial ends
+          and you pay nothing.
+        </DialogDescription>
       </div>
-    </>
+
+      <p className="mt-6 font-rc-mono text-[10px] font-semibold tracking-[0.14em] text-rc-ink-mute uppercase">
+        Everything in Pro
+      </p>
+      <ul className="mt-2 divide-y divide-rc-rule-soft">
+        {PRO_ROWS.map((row) => (
+          <li key={row} className="flex items-center justify-between gap-3 py-2">
+            <span className="text-[15px] leading-5 font-medium text-rc-ink">
+              {row}
+            </span>
+            <span
+              aria-hidden
+              className="flex size-5 shrink-0 items-center justify-center rounded-full bg-rc-brand-soft"
+            >
+              <Check className="size-3 text-rc-brand" strokeWidth={3} />
+            </span>
+          </li>
+        ))}
+      </ul>
+
+      <button
+        type="button"
+        onClick={choosePro}
+        data-testid="plan-choice-pro-cta"
+        className={`${BUTTON_PRIMARY} mt-5`}
+      >
+        Start {TRIAL_DAYS}-day free trial
+      </button>
+
+      {/* ── The other way in ─────────────────────────────────────────────
+          Under a rule, at a smaller size, after the argument rather than
+          beside it. Still one tap, still named and priced honestly, still
+          without a single word discouraging it. Just not the pitch. */}
+      <div className="mt-5 border-t border-rc-rule-soft pt-4">
+        {hasAccount ? (
+          <p
+            className="text-center text-[13px] leading-5 text-rc-ink-mute"
+            data-testid="plan-choice-member-current"
+          >
+            You are on the {PLAN_LABELS.free} plan. It stays free.
+          </p>
+        ) : (
+          <>
+            <p className="text-[13px] leading-5 text-rc-ink-soft">
+              Not ready for Pro? A {PLAN_LABELS.free} account is free and needs
+              no card: today&rsquo;s score at every spot, {FREE_FORECAST_DAYS}{' '}
+              days of forecast, depth and hourly tides.
+            </p>
+            <Link
+              href={signupHref}
+              onClick={() => takeCta('member')}
+              data-testid="plan-choice-member-cta"
+              className={`${BUTTON_QUIET} mt-3`}
+            >
+              Join as a {PLAN_LABELS.free} instead
+            </Link>
+          </>
+        )}
+      </div>
+    </div>
   );
 
   if (phone) {
@@ -263,78 +276,10 @@ export default function PlanChoiceModal({
         data-testid="plan-choice-modal"
         data-shape="dialog"
         data-feature={feature}
-        className="bg-rc-panel border-rc-rule text-rc-ink gap-0 p-0 pt-5 sm:max-w-[720px]"
+        className="bg-rc-panel border-rc-rule text-rc-ink gap-0 p-0 pt-5 sm:max-w-[440px]"
       >
         {body}
       </DialogContent>
     </Dialog>
-  );
-}
-
-/**
- * One plan.
- *
- * Both cards sit on the sheet's own white. Member started on `bg-rc-surface`,
- * the grey the trial sheet tints its testimonial box with, and beside a
- * blue-bordered Pro card that grey read as disabled — a live choice greyed
- * out is a choice most readers will not make, and the whole point of this
- * screen is that both are real. `highlight` is now the only difference in
- * weight: a brand-coloured hairline and a wash of the brand tint, enough to
- * say which one we would pick without putting the other one out of play.
- */
-function PlanCard({
-  name,
-  price,
-  priceNote,
-  rows,
-  highlight,
-  testId,
-  children,
-}: {
-  name: string;
-  price: string;
-  priceNote: string;
-  rows: readonly string[];
-  highlight?: boolean;
-  testId: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <div
-      data-testid={testId}
-      className={`flex flex-col rounded-xl border p-4 ${
-        highlight
-          ? 'border-rc-brand bg-rc-brand-soft/20'
-          : 'border-rc-rule bg-rc-panel'
-      }`}
-    >
-      <p className="font-rc-mono text-[10px] font-semibold tracking-[0.14em] text-rc-ink-mute uppercase">
-        {name}
-      </p>
-      <p className="mt-1 text-[24px] leading-7 font-bold tracking-[-0.02em] text-rc-ink">
-        {price}
-      </p>
-      <p className="mt-0.5 text-[13px] leading-[18px] text-rc-ink-soft">
-        {priceNote}
-      </p>
-
-      <ul className="mt-3 flex-1 space-y-1.5">
-        {rows.map((row) => (
-          <li key={row} className="flex items-start gap-2.5">
-            <span
-              aria-hidden
-              className="mt-0.5 flex size-5 shrink-0 items-center justify-center rounded-full bg-rc-brand-soft"
-            >
-              <Check className="size-3 text-rc-brand" strokeWidth={3} />
-            </span>
-            <span className="text-[14px] leading-5 font-medium text-rc-ink">
-              {row}
-            </span>
-          </li>
-        ))}
-      </ul>
-
-      <div className="mt-4">{children}</div>
-    </div>
   );
 }
