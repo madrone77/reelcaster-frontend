@@ -131,21 +131,23 @@ export function paywallViewDedupeKey(input: {
  * AN ALLOWLIST, NOT A BLOCKLIST, on purpose. A new wall added to the product
  * starts out uncounted, and someone has to argue it in; a blocklist would let
  * every new interruption quietly join the conversion until somebody noticed
- * the ratio had moved. The `marketing-` prefix is the one open rule, because
- * every surface under it is a Pro button on a page that sells Pro.
+ * the ratio had moved.
+ *
+ * ONE BUTTON, TWO PLACES (Casey, 2026-09-08). The signed-out "Start free
+ * trial" button in the Explore top bar and in the ad frame's bar, and nothing
+ * else. The first cut of this list (FE #624) also took the signed-in "Upgrade
+ * to Pro" buttons and every `marketing-*` CTA; the day it ran, 58 of 59 fires
+ * were the ad-bar trial button anyway, and the one that was not was a
+ * marketing header on a page no ad points at. Bidding on exactly the button
+ * the ad lands people in front of keeps the event one thing.
  *
  * `null` (a wall reported without a surface) is not asked for either.
  */
-const ASKED_FOR_SURFACES: ReadonlySet<string> = new Set([
-  'explore-ad-topbar',
-  'explore-ad-topbar-upgrade',
-  'explore-topbar',
-  'explore-topbar-upgrade',
-]);
+const ASKED_FOR_SURFACES: ReadonlySet<string> = new Set(['explore-ad-topbar', 'explore-topbar']);
 
 export function paywallViewIsAskedFor(surface: string | null | undefined): boolean {
   if (!surface) return false;
-  return ASKED_FOR_SURFACES.has(surface) || surface.startsWith('marketing-');
+  return ASKED_FOR_SURFACES.has(surface);
 }
 
 /* -------------------------------------------------------------------------

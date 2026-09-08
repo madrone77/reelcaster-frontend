@@ -123,19 +123,20 @@ console.log('paywall-conversion: ok');
 
 import { paywallViewIsAskedFor } from './paywall-conversion';
 
-// A tap on a trial or upgrade button, on Explore or the ad frame.
-for (const surface of [
-  'explore-ad-topbar',
-  'explore-ad-topbar-upgrade',
-  'explore-topbar',
-  'explore-topbar-upgrade',
-]) {
+// The signed-out Start free trial button, in the product bar and the ad bar.
+for (const surface of ['explore-ad-topbar', 'explore-topbar']) {
   assert.equal(paywallViewIsAskedFor(surface), true, surface);
 }
-// Every Pro button on the marketing site, including ones not yet written.
-assert.equal(paywallViewIsAskedFor('marketing-hero'), true);
-assert.equal(paywallViewIsAskedFor('marketing-pricing-pro'), true);
-assert.equal(paywallViewIsAskedFor('marketing-anything-new'), true);
+// Not the signed-in Upgrade to Pro buttons, and not the marketing site.
+for (const surface of [
+  'explore-ad-topbar-upgrade',
+  'explore-topbar-upgrade',
+  'marketing-hero',
+  'marketing-header',
+  'marketing-pricing-pro',
+]) {
+  assert.equal(paywallViewIsAskedFor(surface), false, surface);
+}
 
 // A wall the product put in the way. The locked day tile, the custom-spot
 // control on the map, the day-two spot open, catch reports.
