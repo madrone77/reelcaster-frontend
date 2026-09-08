@@ -6,7 +6,8 @@
  *     conversion and downscaling both strip EXIF, so this must run first.
  *  2. Convert HEIC/HEIF to JPEG (Claude vision can't read HEIC; without
  *     this iPhone photos silently lose species detection).
- *  3. Downscale the ANALYSIS copy to ≤2048px / high-compression JPEG —
+ *  3. Downscale the ANALYSIS copy to ≤2048px / high-compression JPEG, EXIF
+ *     block carried over where the source is a JPEG —
  *     Anthropic's vision API rejects images over ~5 MB, while the upload
  *     bucket takes up to 25 MB. The original (or converted JPEG) is what
  *     gets stored; the small copy is what gets analyzed.
@@ -103,9 +104,12 @@ async function downscaleForAnalysis(file: File): Promise<File> {
       maxWidthOrHeight: ANALYSIS_MAX_DIMENSION,
       fileType: 'image/jpeg',
       useWebWorker: true,
-      // EXIF is intentionally NOT preserved here — the analysis copy's
-      // metadata is advisory only; the server gets client-extracted EXIF
-      // fields alongside.
+      // Carry the original's EXIF block into the compressed copy. This used to
+      // be left off on the grounds that the server also receives the fields we
+      // read below — it does, but it treats them as advisory and reads the
+      // bytes as truth, so a stripped copy was failing its EXIF gate and every
+      // photo over 3 MB came back rejected as "likely a screenshot".
+      preserveExif: true,
     })
     const name = (file.name || 'photo').replace(/\.[a-z0-9]+$/i, '') + '.jpg'
     return new File([compressed], name, { type: 'image/jpeg' })
