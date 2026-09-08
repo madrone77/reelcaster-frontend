@@ -1,39 +1,25 @@
 /**
  * What the small wall on /explore says, per thing the reader reached for.
  *
- * The full <ProTrialModal> answers every wall with the same screen: a
- * headline about Pro, a fourteen-row plan matrix and a card form. That is
- * the right answer to "start free trial" and the wrong one to "I tapped a
- * star". This table is the other answer — one line naming what they reached
- * for, one line saying honestly what an account does about it.
+ * A TITLE AND NOTHING ELSE. No body line, no tier, no price, no mention of a
+ * free account, of Pro, or of a trial — Casey's call (2026-09-08). The modal
+ * this feeds is two buttons under one line: Join now, Sign in. What the plans
+ * are and what they cost is the NEXT screen's job
+ * (components/paywall/plan-choice-modal), and asking that question one screen
+ * early is what made the old wall feel like a checkout you did not open.
  *
- * TWO RULES, and they are the whole reason this is a table rather than a
- * template:
+ * THE TITLE IS THEIR ACTION, not our offer. It finishes the sentence the tap
+ * started: they pressed the star, so the modal says "Save this spot", not "Go
+ * Pro". A wall that renames what you were doing reads as a different thing
+ * being sold to you, which is exactly what the full modal did and what this
+ * exists to stop.
  *
- * 1. THE TITLE IS THEIR ACTION, not our offer. It finishes the sentence the
- *    tap started: they pressed the star, so the modal says "Save this spot",
- *    not "Go Pro". A wall that renames what you were doing reads as a
- *    different thing being sold to you, which is what the big modal already
- *    does and what this exists to stop.
- *
- * 2. THE BODY NEVER OVERSELLS. Most of these walls are Pro-only, and an
- *    account does NOT open them. So the body says what the account really
- *    does — keeps your spots, opens the week, gets one email alert — and
- *    then names Pro for the part an account does not reach. A gate that
- *    promises the blocked thing unlocks is worse than one that asks twice:
- *    the next screen disproves it. The depth gate on this same surface has
- *    the same rule written on it for the same reason.
- *
- * The offer of Pro is still here, at the foot of the modal, as one quiet
- * line that opens the full modal. This does not replace that pitch; it stops
- * the pitch being the first thing every tap gets.
- *
- * Limits come from the plan matrix, never typed in — the horizon and the
- * saved-spot cap both move, and a number written into a sentence here is a
- * number that goes stale silently.
+ * There is consequently nothing here that can go stale against a limit or a
+ * price, which is the other half of why the body line left: it had to name
+ * the forecast horizon and the saved-spot cap to be honest, and a sentence
+ * carrying a number is a sentence that quietly rots.
  */
 
-import { FREE_FORECAST_DAYS } from "@/lib/forecast-horizon";
 import type { NagFeatureId } from "@/lib/plan-features";
 
 /**
@@ -47,68 +33,26 @@ import type { NagFeatureId } from "@/lib/plan-features";
  */
 export type JoinPromptKey = NagFeatureId | "spot-views";
 
-export interface JoinPrompt {
-  /** Finishes the tap. Sentence case, no period. */
-  title: string;
-  /** One line. What an account really does here, and where Pro starts. */
-  body: string;
-}
-
 /**
  * Every wall /explore can raise. Keyed loosely rather than as a total
  * Record<JoinPromptKey, …> because the walls off this surface — support,
  * remove-ads, the retired whole-map ask — have no prompt here and should not
  * be given invented copy to satisfy a type. `joinPromptFor` falls back.
  */
-const PROMPTS: Partial<Record<JoinPromptKey, JoinPrompt>> = {
-  // The ad frame's third spot open. They are browsing the map, so the offer
-  // is more map. Nothing about Pro: this wall stands between a visitor and
-  // the thing the ad promised, and the cheapest way past it really is an
-  // account.
-  "spot-views": {
-    title: "See more spots",
-    body: "Join now to keep opening spots on the map. It is free and takes a moment.",
-  },
-  // Days 3 to 7. The one wall on this list an account genuinely opens, so
-  // the body is a flat promise with no Pro clause after it.
-  "forecast-week": {
-    title: "See the week ahead",
-    body: `A free account opens the next ${FREE_FORECAST_DAYS} days at every spot.`,
-  },
-  // Days 8 to 14. An account gets them most of the way there and no further,
-  // and the sentence says so in that order: what they get, then where it
-  // stops.
-  "forecast-14d": {
-    title: "See further ahead",
-    body: `A free account opens the next ${FREE_FORECAST_DAYS} days. The full two weeks comes with Pro.`,
-  },
-  "favorite-spots": {
-    title: "Save this spot",
-    body: "A free account keeps a spot waiting for you. Pro saves as many as you like.",
-  },
-  "catch-reports": {
-    title: "See what anglers are catching",
-    body: "Join now to keep your spots and the week ahead. Catch reports come with Pro.",
-  },
-  // Only ever raised for a signed-in free angler who has used their alert
-  // (see create-alert-dialog), so the body speaks to someone who already has
-  // the account. The modal drops the join buttons for that reader anyway.
-  alerts: {
-    title: "Get an alert on this spot",
-    body: "A free account keeps one email alert. Pro alerts every spot you fish, by email or text.",
-  },
-  "sms-alerts": {
-    title: "Get alerts by text",
-    body: "A free account keeps one email alert. Text alerts come with Pro.",
-  },
-  "custom-spots": {
-    title: "Add your own spot",
-    body: "Join now to keep your spots and the week ahead. Scoring a spot of your own comes with Pro.",
-  },
-  "catch-log": {
-    title: "Log this catch",
-    body: "A free account keeps your catch log, photos and all.",
-  },
+const TITLES: Partial<Record<JoinPromptKey, string>> = {
+  /** The ad frame's third spot open. They are browsing, so: more browsing. */
+  "spot-views": "See more spots",
+  /** Days 3 to 7. */
+  "forecast-week": "See the week ahead",
+  /** Days 8 to 14. Same reach, further out; the tiles do not read as two
+   *  different products and the title should not either. */
+  "forecast-14d": "See further ahead",
+  "favorite-spots": "Save this spot",
+  "catch-reports": "See what anglers are catching",
+  alerts: "Get an alert on this spot",
+  "sms-alerts": "Get alerts by text",
+  "custom-spots": "Add your own spot",
+  "catch-log": "Log this catch",
 };
 
 /**
@@ -116,11 +60,8 @@ const PROMPTS: Partial<Record<JoinPromptKey, JoinPrompt>> = {
  * what was blocked. A wall with no entry above is a wall this table has not
  * been taught, and naming the wrong feature is worse than naming none.
  */
-const FALLBACK: JoinPrompt = {
-  title: "Join ReelCaster",
-  body: "A free account keeps your spots and opens the week ahead.",
-};
+const FALLBACK = "Join ReelCaster";
 
-export function joinPromptFor(key: JoinPromptKey): JoinPrompt {
-  return PROMPTS[key] ?? FALLBACK;
+export function joinPromptFor(key: JoinPromptKey): string {
+  return TITLES[key] ?? FALLBACK;
 }

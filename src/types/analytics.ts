@@ -206,6 +206,12 @@ export type AnalyticsEventName =
   // Paywall + Billing
   | 'Paywall Shown'
   | 'Paywall CTA Clicked'
+  // The Member-or-Pro step between /explore's join prompt and the trial
+  // sheet. Its own two events rather than more 'Paywall CTA Clicked' rows,
+  // because the question it asks is which plan, not whether to buy, and the
+  // funnel it sits in wants those counted apart.
+  | 'Plan Choice Shown'
+  | 'Plan Choice Taken'
   | 'Manage Subscription Clicked'
   // Give a month, get a month: the account-page link left the page.
   | 'Referral Link Copied'

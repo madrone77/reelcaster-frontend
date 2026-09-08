@@ -8,14 +8,22 @@ import type { NagFeatureId } from "@/lib/plan-features";
 import type { JoinPromptKey } from "../lib/join-prompt-copy";
 import JoinPromptModal from "./join-prompt-modal";
 
-// Loaded on the tap that opens it, not with the map — the plan matrix, the
+// Loaded on the tap that opens them, not with the map — the plan matrix, the
 // pricing tables and the Stripe client are a large thing to parse on a page
 // whose whole job is a map. Same reasoning as ./upgrade-dialog, which this
-// now sits under.
+// now sits under. The chooser is deferred for the same reason one step
+// earlier: most readers who see the join prompt never ask for it.
 const ProTrialModal = dynamic(
   () => import("@/app/components/paywall/pro-trial-modal"),
   { ssr: false },
 );
+const PlanChoiceModal = dynamic(
+  () => import("@/app/components/paywall/plan-choice-modal"),
+  { ssr: false },
+);
+
+/** Which of the three screens the reader is on. */
+type Step = "prompt" | "choice" | "trial";
 
 /**
  * Every wall /explore can raise, and which of the two shapes answers it.
@@ -25,21 +33,33 @@ const ProTrialModal = dynamic(
  * in three places, add-a-spot, alerts, and the ad frame's third spot open —
  * and each of them used to name <ProTrialModal> itself. Putting the arm check
  * in each would have been nine copies of the same condition and nine chances
- * for one of them to drift out of the test. They all render this instead, with
- * the props they already passed.
+ * for one of them to drift out of the test. They all render this instead,
+ * with the props they already passed.
  *
- * Arm a, and everyone outside the test, gets exactly what they got before:
- * <ProTrialModal>, same feature, same surface, same reporting. Arm b gets
- * <JoinPromptModal>, which reports through the same counters under the same
- * ids so the two arms are comparable. See use-join-prompt for what the test
- * asks and how it is read.
+ * ARM A, and everyone outside the test, gets exactly what they got before:
+ * <ProTrialModal>, same feature, same surface, same reporting.
  *
- * THE TRIAL LINE ESCALATES rather than navigates. Pressing it on the small
- * modal swaps in the full one, still open, still carrying this wall's feature
- * and surface — so the reader who wants the pitch gets all of it without a
- * page load, and the big modal fires its own impression because it really was
- * shown. That is why `escalated` is state here and not inside the small modal:
- * the swap is between two siblings, and only their parent can make it.
+ * ARM B IS THREE SCREENS, each one a smaller question than the old wall's
+ * one big one:
+ *
+ *   prompt  <JoinPromptModal>   what you reached for. Join now / Sign in,
+ *                               and not a word about plans or prices.
+ *   choice  <PlanChoiceModal>   Member or Pro, in the trial sheet's design
+ *                               system. Raised by Join now.
+ *   trial   <ProTrialModal>     the pitch and the card, unchanged. Raised by
+ *                               the chooser's Pro button.
+ *
+ * The reader can stop at any of them, and most will never see the third. That
+ * is the point: the old wall put the card form in front of a tapped star, and
+ * this puts one question in front of it instead, with the card two deliberate
+ * taps further on for the people who want it. Sign in and Join-as-a-Member
+ * both navigate out and end the chain there.
+ *
+ * THE STEP IS PARENT STATE, not something the modals hold, because each swap
+ * is between siblings and only their parent can make one. It resets on close,
+ * or a reader who once looked at the chooser would keep reopening the deepest
+ * screen they had reached for the rest of the visit and quietly leave arm b's
+ * first screen behind.
  *
  * SCOPE IS /explore. The same walls exist on the spot page, the dashboard and
  * the city pages and are deliberately untouched: the test is about the surface
@@ -60,9 +80,9 @@ export default function ExploreWall({
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  /** What the counter records, on both arms. */
+  /** What the counter records, on every step and both arms. */
   feature: NagFeatureId;
-  /** What the small modal's words say, where that differs from `feature`. */
+  /** What the prompt's title says, where that differs from `feature`. */
   prompt?: JoinPromptKey;
   from: string;
   spotName?: string;
@@ -82,26 +102,41 @@ export default function ExploreWall({
 }) {
   const { compact } = useJoinPrompt(open && eligible);
 
+  const [step, setStep] = useState<Step>("prompt");
   /**
-   * Latched for the life of the wall, then cleared on close. Without the
-   * clear, a reader who opened the pitch once would get the big modal for
-   * every wall afterwards and quietly leave arm b for the rest of the visit.
+   * Where the chooser's Member button sends them. The prompt captures it from
+   * the address bar as it opens (see there for why not `useSearchParams`) and
+   * hands it up, so the chooser does not have to read the URL a second time
+   * at a moment when the map behind it may have moved on.
    */
-  const [escalated, setEscalated] = useState(false);
+  const [signupHref, setSignupHref] = useState("/signup");
+
   const handleOpenChange = useCallback(
     (next: boolean) => {
-      if (!next) setEscalated(false);
+      if (!next) setStep("prompt");
       onOpenChange(next);
     },
     [onOpenChange],
   );
 
-  // Keeps the dynamic chunk off page load while still letting the modal
+  // Keeps the dynamic chunks off page load while still letting a modal
   // animate closed. Same latch ./upgrade-dialog used.
   const mounted = useMountedOnce(open);
   if (!mounted) return null;
 
-  if (compact && eligible && !escalated) {
+  if (compact && eligible && step !== "trial") {
+    if (step === "choice") {
+      return (
+        <PlanChoiceModal
+          open={open}
+          onOpenChange={handleOpenChange}
+          feature={feature}
+          from={from}
+          signupHref={signupHref}
+          onChoosePro={() => setStep("trial")}
+        />
+      );
+    }
     return (
       <JoinPromptModal
         open={open}
@@ -111,7 +146,8 @@ export default function ExploreWall({
         from={from}
         spotName={spotName}
         context={context}
-        onStartTrial={() => setEscalated(true)}
+        onJoin={() => setStep("choice")}
+        onSignupHref={setSignupHref}
       />
     );
   }

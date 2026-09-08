@@ -5,7 +5,6 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import {
   Dialog,
   DialogContent,
-  DialogDescription,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
@@ -15,40 +14,40 @@ import { useAnalytics } from "@/hooks/use-analytics";
 import { captureWall } from "@/lib/attribution";
 import { reportPaywall } from "@/lib/paywall-counter";
 import { noteWallShown } from "@/lib/upgrade-nag";
-import { TRIAL_DAYS } from "@/lib/pricing";
 import type { NagFeatureId, PlanTierId } from "@/lib/plan-features";
 import { joinPromptFor, type JoinPromptKey } from "../lib/join-prompt-copy";
 
 /**
- * The small wall on /explore: what you reached for, and the account that
- * gets you closer to it.
+ * The small wall on /explore: what you reached for, then Join now or Sign in.
  *
  * IT IS THE SAME WALL, IN A SMALLER ROOM. Every trigger that used to open
  * <ProTrialModal> on this surface — the ad frame's third spot open, a locked
  * day tile, the star at the saved-spot cap, add-a-spot, alerts, catch
  * reports — opens this instead on arm b of `explore_join_prompt_v1`. Nothing
  * about what is gated changes. What changes is the first thing a tap gets:
- * a fourteen-row plan matrix and a card form, or two sentences and a free
- * account.
+ * a fourteen-row plan matrix and a card form, or one line and two buttons.
  *
- * THE ASK IS AN ACCOUNT. "Join now" and "Sign in", in that order, because
- * the reader this fires for most often has neither. Pro is still sold, from
- * the quiet line under the buttons, and pressing it hands off to the full
- * modal with the same feature and surface — so a reader who wants the pitch
- * is one tap from all of it and nobody is shown it who did not ask.
+ * IT SAYS NOTHING ABOUT PLANS. No price, no trial, no "free account", no
+ * Pro — Casey's call (2026-09-08). The title finishes the tap, the buttons
+ * are Join now and Sign in, and that is the whole screen. Which plan, and
+ * what it costs, is the next step's question and it has a screen built for
+ * it: <PlanChoiceModal>, in the trial sheet's design system, raised by Join
+ * now. Answering it here, over a map, in a box this size, is what made the
+ * old wall read as a checkout the reader never opened.
  *
- * IT DOES NOT OVERSELL. Most of these walls are Pro-only and an account does
- * not open them; ../lib/join-prompt-copy carries that rule and the wording.
+ * That also means nothing here can go stale. The body line this used to
+ * carry had to name the forecast horizon and the saved-spot cap to stay
+ * honest, and a sentence with a limit in it is a sentence that rots quietly.
  *
- * SHAPE AND SIZE ARE THE INTRO CARD'S: about 340px of card, a title, a line
- * or two, a full-width button. Not the intro card's transparency, though.
- * That card was about the map behind it and deliberately had no scrim and no
- * focus trap; this one is a question that wants an answer, so it uses the
- * shared <Dialog> like every other wall and closes the same four ways.
+ * SHAPE AND SIZE ARE THE INTRO CARD'S: about 340px of card, a title, a
+ * full-width button. Not the intro card's transparency, though. That card was
+ * about the map behind it and deliberately had no scrim and no focus trap;
+ * this one is a question that wants an answer, so it uses the shared <Dialog>
+ * like every other wall and closes the same four ways.
  *
  * IT REPORTS EXACTLY AS THE BIG MODAL DOES — same `feature`, same `surface`,
- * same impression/cta_click/dismiss triple through lib/paywall-counter, the
- * same `captureWall` cookie and the same `noteWallShown`. That is not
+ * the same impression/cta_click/dismiss triple through lib/paywall-counter,
+ * the same `captureWall` cookie and the same `noteWallShown`. That is not
  * incidental: the split's whole read is walls seen, walls taken and trials
  * started per arm, and an arm that counted differently could not be compared
  * to the one it replaced.
@@ -61,35 +60,38 @@ export default function JoinPromptModal({
   from,
   spotName,
   context,
-  onStartTrial,
+  onJoin,
+  onSignupHref,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   /** What the counter records. Unchanged from the wall this replaces. */
   feature: NagFeatureId;
-  /** What the words say. Defaults to `feature`; see JoinPromptKey. */
+  /** What the title says. Defaults to `feature`; see JoinPromptKey. */
   prompt?: JoinPromptKey;
   /** The surface id the wall already reported under. */
   from: string;
-  /** Named in the title's second line where there is one. */
+  /** Named under the title where there is one. */
   spotName?: string;
   context?: Record<string, string | number | boolean>;
-  /** Hands off to the full <ProTrialModal>. The parent does the swap. */
-  onStartTrial: () => void;
+  /** Hands off to <PlanChoiceModal>. The parent does the swap. */
+  onJoin: () => void;
+  /** Reports the /signup href this wall would return to, for the next step. */
+  onSignupHref?: (href: string) => void;
 }) {
   const { user } = useAuth();
   const { isPaid } = useSubscription();
   const { trackEvent } = useAnalytics();
 
-  const copy = joinPromptFor(prompt ?? feature);
+  const title = joinPromptFor(prompt ?? feature);
   const viewerTier: PlanTierId = isPaid ? "pro" : user ? "free" : "anon";
 
   /**
-   * A signed-in free angler has already done the joining. Showing them "Join
-   * now" is the modal failing to look at who it is talking to, and the two
-   * walls that fire for them almost exclusively — the alert limit, the saved
-   * spot cap — are Pro walls anyway. For them the trial is the only honest
-   * button, so it becomes the primary one and the account row goes.
+   * A signed-in angler has already done the joining, and the two walls that
+   * fire for them almost exclusively — the alert limit, the saved-spot cap —
+   * are answered on the next screen rather than this one. So they get one
+   * neutral button through to it instead of an invitation to join twice.
+   * Still not a word about a tier here: "See plans" is what it does.
    */
   const hasAccount = Boolean(user);
 
@@ -104,8 +106,10 @@ export default function JoinPromptModal({
   const [next, setNext] = useState("/explore");
   useEffect(() => {
     if (!open) return;
-    setNext(`${window.location.pathname}${window.location.search}`);
-  }, [open]);
+    const here = `${window.location.pathname}${window.location.search}`;
+    setNext(here);
+    onSignupHref?.(`/signup?next=${encodeURIComponent(here)}`);
+  }, [open, onSignupHref]);
 
   const contextRef = useRef(context);
   contextRef.current = context;
@@ -140,9 +144,9 @@ export default function JoinPromptModal({
   }, [open, feature, viewerTier, from, trackEvent]);
 
   /**
-   * A close with no click is a refusal. A close after one is not: the account
-   * links navigate and the trial line swaps this modal for the big one, and
-   * both would otherwise be filed as somebody saying no.
+   * A close with no click is a refusal. A close after one is not: Sign in
+   * navigates and Join now swaps this modal for the plan chooser, and both
+   * would otherwise be filed as somebody saying no.
    */
   const handleOpenChange = useCallback(
     (nextOpen: boolean) => {
@@ -161,14 +165,14 @@ export default function JoinPromptModal({
   );
 
   /**
-   * One click counter for all three buttons, marked by where it goes.
+   * One click counter for both buttons, marked by where it goes.
    *
    * `destination` is never "checkout" here, which matters: the counter route
-   * answers a checkout tap with a Meta event id, and this modal has no card
-   * form on it. The trial line is a hop to the modal that does.
+   * answers a checkout tap with a Meta event id, and this modal is two
+   * screens away from a card field.
    */
   const takeCta = useCallback(
-    (destination: "signup" | "login" | "trial-modal") => {
+    (destination: "plan-choice" | "login") => {
       acted.current = true;
       trackEvent("Paywall CTA Clicked", {
         feature,
@@ -187,76 +191,50 @@ export default function JoinPromptModal({
     [trackEvent, feature, viewerTier, from],
   );
 
-  const startTrial = useCallback(() => {
-    takeCta("trial-modal");
-    onStartTrial();
-  }, [takeCta, onStartTrial]);
-
-  const query = `?next=${encodeURIComponent(next)}`;
+  const join = useCallback(() => {
+    takeCta("plan-choice");
+    onJoin();
+  }, [takeCta, onJoin]);
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent
-        // The intro card's measurements, in a dialog. 360px rather than the
-        // 420 the depth gate uses: this one has two sentences, not a list.
+        // The intro card's measurements, in a dialog.
         className="max-w-[360px] p-0 overflow-hidden"
         data-testid="join-prompt-modal"
         data-feature={feature}
         data-prompt={prompt ?? feature}
       >
         <div className="px-6 pt-6 pb-5">
-          <DialogHeader className="space-y-2 text-left">
+          <DialogHeader className="space-y-1.5 text-left">
             <DialogTitle className="text-[19px] font-semibold leading-tight tracking-tight text-rc-ink">
-              {copy.title}
+              {title}
             </DialogTitle>
-            <DialogDescription className="text-[14.5px] leading-relaxed text-rc-ink-soft">
-              {copy.body}
-            </DialogDescription>
+            {spotName && (
+              <p className="text-[13px] leading-relaxed text-rc-ink-mute">
+                {spotName}
+              </p>
+            )}
           </DialogHeader>
 
-          {spotName && (
-            <p className="mt-2 text-[13px] leading-relaxed text-rc-ink-mute">
-              {spotName}
-            </p>
-          )}
+          <button
+            type="button"
+            onClick={join}
+            data-testid="join-prompt-join"
+            className="mt-5 flex w-full items-center justify-center rounded-xl bg-rc-brand px-4 py-3 text-[15px] font-semibold text-white transition-colors hover:bg-rc-brand-hover"
+          >
+            {hasAccount ? "See plans" : "Join now"}
+          </button>
 
-          {hasAccount ? (
-            <button
-              type="button"
-              onClick={startTrial}
-              data-testid="join-prompt-trial-primary"
-              className="mt-5 flex w-full items-center justify-center rounded-xl bg-rc-brand px-4 py-3 text-[15px] font-semibold text-white transition-colors hover:bg-rc-brand-hover"
+          {!hasAccount && (
+            <Link
+              href={`/login?next=${encodeURIComponent(next)}`}
+              onClick={() => takeCta("login")}
+              data-testid="join-prompt-signin"
+              className="mt-2 flex w-full items-center justify-center rounded-xl border border-rc-rule px-4 py-3 text-[15px] font-semibold text-rc-ink transition-colors hover:bg-rc-badge/10"
             >
-              Start {TRIAL_DAYS}-day free trial
-            </button>
-          ) : (
-            <>
-              <Link
-                href={`/signup${query}`}
-                onClick={() => takeCta("signup")}
-                data-testid="join-prompt-signup"
-                className="mt-5 flex w-full items-center justify-center rounded-xl bg-rc-brand px-4 py-3 text-[15px] font-semibold text-white transition-colors hover:bg-rc-brand-hover"
-              >
-                Join now
-              </Link>
-              <Link
-                href={`/login${query}`}
-                onClick={() => takeCta("login")}
-                data-testid="join-prompt-signin"
-                className="mt-2 flex w-full items-center justify-center rounded-xl border border-rc-rule px-4 py-3 text-[15px] font-semibold text-rc-ink transition-colors hover:bg-rc-badge/10"
-              >
-                Sign in
-              </Link>
-              {/* The whole Pro pitch, one tap away and not a step sooner. */}
-              <button
-                type="button"
-                onClick={startTrial}
-                data-testid="join-prompt-trial"
-                className="mt-3 w-full rounded-lg py-2 text-[13px] font-medium text-rc-ink-mute underline-offset-4 transition-colors hover:text-rc-ink-soft hover:underline"
-              >
-                Or start a {TRIAL_DAYS}-day free trial of Pro
-              </button>
-            </>
+              Sign in
+            </Link>
           )}
         </div>
       </DialogContent>
