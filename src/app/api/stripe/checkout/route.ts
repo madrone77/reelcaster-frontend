@@ -24,7 +24,8 @@ import {
   checkTrialEligibilityByEmail,
 } from '@/lib/trial';
 import { resolveEntitlement } from '@/lib/entitlement';
-import { readEntry, readPaid, readWall, type CampaignParams } from '@/lib/attribution';
+import { readEntry, readFbp, readPaid, readWall, type CampaignParams } from '@/lib/attribution';
+import { metaIdentityForUser } from '@/lib/meta-identity';
 import { paywallEventRow } from '@/lib/paywall-event';
 import { classifyUserAgent } from '@/lib/device';
 import { readEdgeGeo } from '@/lib/edge-geo';
@@ -71,6 +72,10 @@ function attributionMetadata(request: NextRequest): Record<string, string> {
     out.attr_feature = meta(wall.feature);
     out.attr_from = meta(wall.from);
   }
+
+  // Meta's browser id, for the day-7 purchase upload (src/lib/attribution.ts).
+  const fbp = readFbp(cookieHeader);
+  if (fbp) out.acq_fbp = meta(fbp);
 
   const touch: CampaignParams | null = paid ?? entry;
   if (touch) {
@@ -656,8 +661,14 @@ export async function GET(request: NextRequest) {
   const trialEligibility = await checkTrialEligibility(admin, user.id, user.email);
   const annualAvailable = Boolean(ANNUAL_PRICE_ID);
 
+  // Who this is, hashed Meta's way, so the pay modal can identify the pixel
+  // for a signed-in reader with everything the account holds: email, a
+  // verified SMS number, the billing name. See src/lib/meta-identity.ts.
+  const metaIdentity = await metaIdentityForUser(admin, { userId: user.id, email: user.email ?? null });
+
   return NextResponse.json({
     session_id: sessionId,
+    meta_identity: metaIdentity,
     tier: entitlement.tier,
     status: entitlement.status,
     is_active: entitlement.isPro,

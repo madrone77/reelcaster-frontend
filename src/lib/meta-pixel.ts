@@ -113,9 +113,9 @@ export function metaTrack(
  * Hand the pixel who this is, so the events after it can be matched to a
  * person when the click cookie cannot. Advanced matching, in Meta's terms.
  *
- * `em` is the SHA-256 of the trimmed lowercased address (src/lib/meta-match.ts)
- * and `external_id` is our user id for a signed-in reader. Both are optional
- * and a call with neither is a no-op, so callers can pass whatever they have.
+ * `em`, `ph`, `fn` and `ln` are SHA-256 hashes made by src/lib/meta-match.ts,
+ * and `external_id` is our user id for a signed-in reader. All optional; a
+ * call with nothing is a no-op, so callers pass whatever they have.
  *
  * A second `init` on the same pixel id is how the pixel takes user data after
  * page load; fbevents logs a "Duplicate Pixel ID" warning in the console and
@@ -127,11 +127,20 @@ export function metaTrack(
  * Every caller here runs it as soon as the address is known, well ahead of the
  * network round trip that precedes the event.
  */
-export function metaIdentify(input: { emailHash?: string | null; externalId?: string | null }): void {
+export function metaIdentify(input: {
+  emailHash?: string | null
+  phoneHash?: string | null
+  firstNameHash?: string | null
+  lastNameHash?: string | null
+  externalId?: string | null
+}): void {
   if (!META_PIXEL_ID) return
   if (typeof window === 'undefined' || typeof window.fbq !== 'function') return
   const userData: Record<string, string> = {}
   if (input.emailHash) userData.em = input.emailHash
+  if (input.phoneHash) userData.ph = input.phoneHash
+  if (input.firstNameHash) userData.fn = input.firstNameHash
+  if (input.lastNameHash) userData.ln = input.lastNameHash
   if (input.externalId) userData.external_id = input.externalId
   if (Object.keys(userData).length === 0) return
   window.fbq('init', META_PIXEL_ID, userData)

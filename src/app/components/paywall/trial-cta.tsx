@@ -60,6 +60,8 @@ interface CheckoutStatus {
   trial_available: boolean;
   trial_days: number;
   annual_available: boolean;
+  /** Hashed email / phone / name for the pixel; see src/lib/meta-identity.ts. */
+  meta_identity?: { em?: string; ph?: string; fn?: string; ln?: string } | null;
 }
 
 /**
@@ -319,6 +321,17 @@ export function TrialCtaProvider({
         if (!res.ok) throw new Error('status fetch failed');
         const body = (await res.json()) as CheckoutStatus;
         if (!cancelled) setStatus(body);
+        // The fuller identity the account holds (a verified SMS number, the
+        // billing name) on top of the email the mount effect already sent.
+        if (!cancelled && body.meta_identity) {
+          metaIdentify({
+            emailHash: body.meta_identity.em,
+            phoneHash: body.meta_identity.ph,
+            firstNameHash: body.meta_identity.fn,
+            lastNameHash: body.meta_identity.ln,
+            externalId: user?.id ?? null,
+          });
+        }
       } catch {
         if (!cancelled) setStatus(null);
       } finally {

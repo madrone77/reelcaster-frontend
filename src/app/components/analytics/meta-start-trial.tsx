@@ -27,7 +27,7 @@ import type { TrialConversion } from './use-trial-conversion'
  * server-side.
  */
 export default function MetaStartTrial({ conversion }: { conversion: TrialConversion }) {
-  const { event, eventId, emailHash } = conversion
+  const { event, eventId, emailHash, firstNameHash, lastNameHash } = conversion
   // Usually null here: a signed-out buyer's account is made by the webhook
   // and they are bounced through a magic link later. Sent when it is known.
   const { user } = useAuth()
@@ -51,9 +51,9 @@ export default function MetaStartTrial({ conversion }: { conversion: TrialConver
 
     // Who this is, before the event: advanced matching is what lifts this
     // event's match quality off the floor (src/lib/meta-match.ts).
-    metaIdentify({ emailHash, externalId })
+    metaIdentify({ emailHash, firstNameHash, lastNameHash, externalId })
     metaTrack('StartTrial', { eventId })
-  }, [event, eventId, emailHash, externalId])
+  }, [event, eventId, emailHash, firstNameHash, lastNameHash, externalId])
 
   return null
 }

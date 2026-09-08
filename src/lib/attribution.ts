@@ -405,3 +405,24 @@ export function readPaid(cookieHeader?: string): PaidAttribution | null {
 export function readWall(cookieHeader?: string): WallAttribution | null {
   return readJsonCookie<WallAttribution>(WALL_COOKIE, cookieHeader);
 }
+
+/**
+ * Meta's own browser id, `_fbp`, which fbevents.js sets on our domain as
+ * `fb.1.<ms>.<random>`. Read so it can ride on the subscription metadata and
+ * come back on the day-7 purchase row, where it is the one Meta-native
+ * identifier a server-only event can carry besides the click id. Validated by
+ * shape: it goes to Meta verbatim, and a cookie is a thing a visitor can edit.
+ */
+export const FBP_COOKIE = '_fbp';
+const FBP_SHAPE = /^fb\.\d\.\d{10,16}\.\d{6,20}$/;
+
+export function readFbp(cookieHeader?: string | null): string | null {
+  if (!cookieHeader) return null;
+  const hit = cookieHeader
+    .split(';')
+    .map((part) => part.trim())
+    .find((part) => part.startsWith(`${FBP_COOKIE}=`));
+  if (!hit) return null;
+  const value = decodeURIComponent(hit.slice(FBP_COOKIE.length + 1));
+  return FBP_SHAPE.test(value) ? value : null;
+}
