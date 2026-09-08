@@ -53,7 +53,7 @@ import { readJournal, readNag } from './upgrade-nag';
 import { readPaywallContext } from './paywall-context';
 import { googleTrackPaywallView } from './google-ads';
 import { metaTrack } from './meta-pixel';
-import { CHECKOUT_TAP_META_EVENT, PAYWALL_VIEW_META_EVENT } from './paywall-conversion';
+import { CHECKOUT_TAP_META_EVENT } from './paywall-conversion';
 import type { NagFeatureId, PlanTierId } from './plan-features';
 
 /**
@@ -192,21 +192,18 @@ function reportToNetworks(body: unknown): void {
   const { event_id: eventId, event } = body as { event_id?: unknown; event?: unknown };
   if (typeof eventId !== 'string' || !eventId) return;
 
-  // The Begin checkout tap. Meta only: the Google leg has no conversion
-  // action for it and could not upload one if it had (src/lib/google-ads.ts),
-  // and the id is the whole dedupe, so it must be the server's. See
-  // CHECKOUT_TAP_META_EVENT for the rest.
+  // The Begin checkout tap: Meta's InitiateCheckout. Meta only: the Google leg
+  // has no conversion action for it and could not upload one if it had
+  // (src/lib/google-ads.ts). The id is the whole dedupe, so it must be the
+  // server's. See CHECKOUT_TAP_META_EVENT for the rest.
   if (event === 'checkout_tap') {
     metaTrack(CHECKOUT_TAP_META_EVENT, { eventId });
     return;
   }
 
-  // The open. `event` is missing from a server one deploy behind this file,
-  // and that server only ever answered an impression, so no field means this.
-  // No value on either, matching the server: an open is worth nothing until
-  // somebody pays, and two halves of one conversion must not disagree about
-  // what it was worth.
-  metaTrack(PAYWALL_VIEW_META_EVENT, { eventId });
+  // The open: Google only, since 2026-09-08. `event` is missing from a server
+  // one deploy behind this file, and that server only ever answered an
+  // impression, so no field means this. No value, matching the server.
   googleTrackPaywallView(eventId);
 }
 

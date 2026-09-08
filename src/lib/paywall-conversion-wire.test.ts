@@ -29,7 +29,7 @@ import {
 } from './attribution';
 import { SESSION_COOKIE, serializeSession } from './paywall-session';
 import { acquisitionFromRequest } from './conversions';
-import { PAYWALL_VIEW_META_EVENT, paywallViewDedupeKey } from './paywall-conversion';
+import { paywallViewDedupeKey } from './paywall-conversion';
 import { readSessionId } from './paywall-session';
 import {
   conversionEventId,
@@ -190,10 +190,10 @@ assert.equal(
   'the upload must key a paywall view on the same string the route returns',
 );
 
-// And the event name, which has to match on both sides too: a pixel firing
-// under one name and an upload under another is two events, not one
-// deduplicated event, however well the ids line up.
-assert.equal(metaEventName('paywall_view'), PAYWALL_VIEW_META_EVENT);
+// And Meta is not told about the open at all any more: the browser fires no
+// Meta tag for it, and the upload leg must agree, or modal opens land back in
+// InitiateCheckout, which is the Begin checkout tap now.
+assert.equal(metaEventName('paywall_view'), null);
 
 // A wall open is worth nothing on either side. A value on one half and not the
 // other is the other way two deduplicated events can disagree.

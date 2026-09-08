@@ -16,7 +16,7 @@
  */
 
 import assert from 'node:assert/strict';
-import { PAYWALL_VIEW_META_EVENT, paywallViewDedupeKey } from './paywall-conversion';
+import { paywallViewDedupeKey } from './paywall-conversion';
 import {
   conversionEventId,
   conversionValue,
@@ -94,15 +94,12 @@ assert.equal(paywallViewDedupeKey({ sessionId: '', clickId: '', day: '2026-09-01
 assert.equal(conversionEventId(row({})), `pv:s:${SESSION}`);
 assert.equal(conversionEventId(row({ dedupe_key: null })), null);
 
-// A standard name, and the literal is asserted so that changing it stays a
-// decision rather than a rename. It was the custom `PaywallView` until the
-// reservation on InitiateCheckout turned out to be holding the name for a CTA
-// press nothing ever fired; see src/lib/paywall-conversion.ts. Moving it again
-// splits the series in Events Manager, so it should be moved rarely and on
-// purpose.
-assert.equal(metaEventName('paywall_view'), PAYWALL_VIEW_META_EVENT);
-assert.equal(metaEventName('paywall_view'), 'InitiateCheckout');
-assert.notEqual(metaEventName('paywall_view'), metaEventName('trial_start'));
+// NOT A META EVENT since 2026-09-08. The open's row is still written and
+// still keyed, but the Meta leg of the upload must skip it: InitiateCheckout
+// is the Begin checkout tap now, and an upload of the open under that name
+// would put modal opens back into the event the campaign bids on.
+assert.equal(metaEventName('paywall_view'), null);
+assert.equal(metaEventName('trial_start'), 'StartTrial');
 
 // NO VALUE. A modal open four seconds after a click has no defensible worth,
 // and a number here would be summable into something that reads as revenue.
@@ -162,9 +159,9 @@ console.log('paywall-conversion: asked-for surfaces ok');
 
 import { CHECKOUT_TAP_META_EVENT, checkoutTapDedupeKey } from './paywall-conversion';
 
-// Its own name, so the open and the tap are two events in Events Manager.
-assert.equal(CHECKOUT_TAP_META_EVENT, 'AddPaymentInfo');
-assert.notEqual(CHECKOUT_TAP_META_EVENT, PAYWALL_VIEW_META_EVENT);
+// The name the campaign bids on, asserted as a literal so moving it again is
+// a decision. The open no longer carries it (metaEventName above is null).
+assert.equal(CHECKOUT_TAP_META_EVENT, 'InitiateCheckout');
 
 // Same shape as the open's key, a different prefix, so one session's open and
 // tap never share an id.

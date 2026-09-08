@@ -26,7 +26,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { googleAdsConfig, googleAccessToken, googleAdsHeaders } from './google-ads-auth';
 import { META_SIGNUP_EVENT, signupEventId } from './signup-conversion';
-import { PAYWALL_VIEW_META_EVENT } from './paywall-conversion';
+
 
 /** Give up after this many tries, so a permanently bad row stops churning. */
 const MAX_ATTEMPTS = 5;
@@ -79,17 +79,21 @@ export function conversionEventId(row: ConversionRow): string | null {
 }
 
 /**
- * The Meta event each of ours reports as. All four are standard names, chosen
- * so Meta's pre-trained models apply. `paywall_view` was the exception and is
- * not any more: it shipped as a custom `PaywallView`, on the argument that
- * InitiateCheckout was reserved for a CTA press, and that press was never
- * built. The argument for the swap, and what it costs, is at the top of
- * src/lib/paywall-conversion.ts.
+ * The Meta event each of ours reports as, or null for one Meta is not told
+ * about. All three are standard names, chosen so Meta's pre-trained models
+ * apply.
+ *
+ * `paywall_view` is null since 2026-09-08. It used to go up as
+ * InitiateCheckout; that name now belongs to the Begin checkout tap, which the
+ * browser fires and the pixel's Conversions API Gateway relays, and an upload
+ * of the open under the same name would put modal opens back into the event
+ * the campaign bids on. The row is still written for the admin and still
+ * uploaded to Google. See src/lib/paywall-conversion.ts.
  */
-export function metaEventName(event: ConversionRow['event_type']): string {
+export function metaEventName(event: ConversionRow['event_type']): string | null {
   if (event === 'purchase') return 'Purchase';
   if (event === 'signup') return META_SIGNUP_EVENT;
-  if (event === 'paywall_view') return PAYWALL_VIEW_META_EVENT;
+  if (event === 'paywall_view') return null;
   return 'StartTrial';
 }
 
@@ -244,13 +248,16 @@ async function uploadToMeta(row: ConversionRow): Promise<UploadOutcome> {
   const eventId = conversionEventId(row);
   if (!eventId) return { status: 'skipped', reason: 'no_event_id' };
 
+  const eventName = metaEventName(row.event_type);
+  if (!eventName) return { status: 'skipped', reason: `not_a_meta_event:${row.event_type}` };
+
   const origin = process.env.NEXT_PUBLIC_SITE_URL || 'https://www.reelcaster.com';
   const value = conversionValue(row);
 
   const payload: Record<string, unknown> = {
     data: [
       {
-        event_name: metaEventName(row.event_type),
+        event_name: eventName,
         event_time: Math.floor(new Date(row.occurred_at).getTime() / 1000),
         action_source: 'website',
         event_source_url: `${origin}${row.landing_path ?? '/'}`,
