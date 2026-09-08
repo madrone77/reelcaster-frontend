@@ -3,9 +3,10 @@
 import Link from 'next/link';
 import { Check } from 'lucide-react';
 import { DialogDescription, DialogTitle } from '@/components/ui/dialog';
-import { TrialBuy, TrialCtaProvider, useTrialCta } from './trial-cta';
+import { TrialBuy, TrialCtaProvider } from './trial-cta';
 import Testimonial from './testimonial';
 import BrandHeader from './brand-header';
+import ChargeTerms from './charge-terms';
 import { TRIAL_DAYS } from '@/lib/pricing';
 import { PRO_FORECAST_DAYS } from '@/lib/forecast-horizon';
 
@@ -179,31 +180,5 @@ export default function TrialSheetStripe({
         </DialogDescription>
       </div>
     </TrialCtaProvider>
-  );
-}
-
-/**
- * The first-charge line in Stripe's words ("Then CA$33.00 per year starting
- * September 13"), read from the same hook the buy button uses so the date is
- * the one the button produces. A card-required trial that auto-charges has to
- * say the date and the amount before the tap, and this is where the sheet
- * says it. It is the sheet's accessible description for the same reason.
- *
- * The price is shown to the cent ("$33.00") because a charge is a charge and
- * a whole-dollar figure next to "free" reads as a different kind of number.
- */
-function ChargeTerms({
-  priceAmount,
-  className,
-  ...rest
-}: { priceAmount: string; className?: string } & React.HTMLAttributes<HTMLParagraphElement>) {
-  const { chargeDate, trialOn } = useTrialCta();
-  const price = /\.\d{2}$/.test(priceAmount) ? priceAmount : `${priceAmount}.00`;
-  const when = trialOn && chargeDate ? chargeDate : `day ${TRIAL_DAYS}`;
-  return (
-    <p {...rest} className={`text-[13px] leading-[18px] text-rc-ink-soft ${className ?? ''}`}>
-      Then <span className="font-semibold text-rc-ink">{price}</span> per year
-      starting {when}
-    </p>
   );
 }

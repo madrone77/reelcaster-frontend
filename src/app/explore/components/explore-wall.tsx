@@ -22,8 +22,8 @@ const PlanChoiceModal = dynamic(
   { ssr: false },
 );
 
-/** Which of the three screens the reader is on. */
-type Step = "prompt" | "choice" | "trial";
+/** Which of arm b's two screens the reader is on. */
+type Step = "prompt" | "choice";
 
 /**
  * Every wall /explore can raise, and which of the two shapes answers it.
@@ -39,27 +39,25 @@ type Step = "prompt" | "choice" | "trial";
  * ARM A, and everyone outside the test, gets exactly what they got before:
  * <ProTrialModal>, same feature, same surface, same reporting.
  *
- * ARM B IS THREE SCREENS, each one a smaller question than the old wall's
- * one big one:
+ * ARM B IS TWO SCREENS, and the first one asks almost nothing:
  *
  *   prompt  <JoinPromptModal>   what you reached for. Join now / Sign in,
  *                               and not a word about plans or prices.
- *   choice  <PlanChoiceModal>   Member or Pro, in the trial sheet's design
- *                               system. Raised by Join now.
- *   trial   <ProTrialModal>     the pitch and the card, unchanged. Raised by
- *                               the chooser's Pro button.
+ *   choice  <PlanChoiceModal>   the live trial sheet — the same rows, the
+ *                               same email field, the same button — whose
+ *                               button opens Stripe directly, with a bare
+ *                               "Join as a Member" under it.
  *
- * The reader can stop at any of them, and most will never see the third. That
- * is the point: the old wall put the card form in front of a tapped star, and
- * this puts one question in front of it instead, with the card two deliberate
- * taps further on for the people who want it. Sign in and Join-as-a-Member
- * both navigate out and end the chain there.
+ * No third modal, and no plan matrix on this arm: prompt, sheet, Stripe. The
+ * old wall put the card form in front of a tapped star; this puts one small
+ * question in front of it and then the same form, one deliberate tap later,
+ * for the readers who answered it. Sign in and Join-as-a-Member navigate out
+ * and end the chain there.
  *
- * THE STEP IS PARENT STATE, not something the modals hold, because each swap
+ * THE STEP IS PARENT STATE, not something the modals hold, because the swap
  * is between siblings and only their parent can make one. It resets on close,
- * or a reader who once looked at the chooser would keep reopening the deepest
- * screen they had reached for the rest of the visit and quietly leave arm b's
- * first screen behind.
+ * or a reader who once reached the sheet would keep reopening it for the rest
+ * of the visit and quietly leave arm b's first screen behind.
  *
  * SCOPE IS /explore. The same walls exist on the spot page, the dashboard and
  * the city pages and are deliberately untouched: the test is about the surface
@@ -124,7 +122,7 @@ export default function ExploreWall({
   const mounted = useMountedOnce(open);
   if (!mounted) return null;
 
-  if (compact && eligible && step !== "trial") {
+  if (compact && eligible) {
     if (step === "choice") {
       return (
         <PlanChoiceModal
@@ -133,7 +131,6 @@ export default function ExploreWall({
           feature={feature}
           from={from}
           signupHref={signupHref}
-          onChoosePro={() => setStep("trial")}
         />
       );
     }
