@@ -37,6 +37,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { googleAdsConfig, googleAccessToken, googleAdsHeaders } from './google-ads-auth';
 import { META_SIGNUP_EVENT, signupEventId } from './signup-conversion';
+import { resolveMetaIdentity, type MetaIdentity } from './meta-identity';
 
 
 /** Give up after this many tries, so a permanently bad row stops churning. */
@@ -60,6 +61,8 @@ export interface ConversionRow {
   stripe_subscription_id: string | null;
   /** Null on the anon buy-first flow until the account exists. */
   user_id: string | null;
+  /** Meta's `_fbp` browser id off the checkout, when it carried one. */
+  fbp?: string | null;
   /**
    * Set only on `paywall_view`, the one event with neither a subscription nor
    * an account to key on. See src/lib/paywall-conversion.ts.
@@ -260,7 +263,7 @@ export const META_GATEWAY_OWNED_EVENTS: ReadonlySet<ConversionRow['event_type']>
   'trial_start',
 ]);
 
-async function uploadToMeta(row: ConversionRow): Promise<UploadOutcome> {
+async function uploadToMeta(row: ConversionRow, identity?: MetaIdentity): Promise<UploadOutcome> {
   if (META_GATEWAY_OWNED_EVENTS.has(row.event_type)) {
     return { status: 'skipped', reason: `gateway_owned:${row.event_type}` };
   }
@@ -292,7 +295,10 @@ async function uploadToMeta(row: ConversionRow): Promise<UploadOutcome> {
         // CompleteRegistration with these same ids, and Meta dedupes the pair
         // on them rather than counting each conversion twice.
         event_id: eventId,
-        user_data: { fbc },
+        // The click id, plus everything the account holds by now, hashed
+        // Meta's way: this is a server-only event with no pixel to carry the
+        // browser's identifiers, so the match is only as good as this object.
+        user_data: { ...(identity ?? {}), fbc },
         ...(value ? { custom_data: value } : {}),
       },
     ],
@@ -319,13 +325,16 @@ async function uploadToMeta(row: ConversionRow): Promise<UploadOutcome> {
 
 // ── Dispatch ─────────────────────────────────────────────────────────
 
-export async function uploadConversion(row: ConversionRow): Promise<UploadOutcome> {
+export async function uploadConversion(
+  row: ConversionRow,
+  identity?: MetaIdentity,
+): Promise<UploadOutcome> {
   try {
     switch (row.upload_network) {
       case 'google':
         return await uploadToGoogle(row);
       case 'meta':
-        return await uploadToMeta(row);
+        return await uploadToMeta(row, identity);
       case null:
       case undefined:
         return { status: 'skipped', reason: 'no_network' };
@@ -354,7 +363,7 @@ export async function uploadPendingConversions(
   const { data, error } = await admin
     .from('marketing_conversions')
     .select(
-      'id, event_type, occurred_at, click_at, value_cents, modeled_value_cents, currency, click_id, click_type, upload_network, upload_attempts, landing_path, stripe_subscription_id, user_id, dedupe_key',
+      'id, event_type, occurred_at, click_at, value_cents, modeled_value_cents, currency, click_id, click_type, upload_network, upload_attempts, landing_path, stripe_subscription_id, user_id, dedupe_key, fbp',
     )
     .eq('upload_status', 'pending')
     .lt('upload_attempts', MAX_ATTEMPTS)
@@ -371,7 +380,14 @@ export async function uploadPendingConversions(
   let failed = 0;
 
   for (const row of data as ConversionRow[]) {
-    const outcome = await uploadConversion(row);
+    // Only the Meta leg wants an identity, and only the rows it will send
+    // (purchase, in practice) are worth a Stripe read for one. Best effort:
+    // a failed lookup uploads with the click id alone, as before.
+    const identity =
+      row.upload_network === 'meta' && !META_GATEWAY_OWNED_EVENTS.has(row.event_type)
+        ? await resolveMetaIdentity(admin, row)
+        : undefined;
+    const outcome = await uploadConversion(row, identity);
     const attempts = (row.upload_attempts ?? 0) + 1;
 
     if (outcome.status === 'sent') {

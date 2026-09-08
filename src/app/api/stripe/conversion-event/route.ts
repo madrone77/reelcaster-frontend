@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getStripe } from '@/lib/stripe';
 import { EXPRESS_MARKER, isExpressSetupIntentId } from '@/lib/express-checkout';
-import { hashEmailForMeta } from '@/lib/meta-match';
+import { metaUserDataHashes } from '@/lib/meta-match';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -103,31 +103,36 @@ export async function GET(request: NextRequest) {
   const subscription = subscriptions.data[0];
   if (!subscription) return nothing({ event: null, event_id: null });
 
-  // The hashed billing email, for the pixel's advanced matching. This is the
+  // The hashed billing email and name, for the pixel's advanced matching. This is the
   // event that matches worst (3.0/10 on 2026-09-08) because the click cookie
   // often does not survive the trip through Stripe, and the address is the
   // identifier that recovers it. Hashed here (src/lib/meta-match.ts) so the
   // page never holds the raw address for a tag. Best effort: a Stripe hiccup
   // on this read costs the match, not the event.
-  const emailHash = await hashEmailForMeta(await customerEmail(stripe, resolved.customerId));
+  const customer = await customerIdentity(stripe, resolved.customerId);
+  const hashes = await metaUserDataHashes({ email: customer.email, fullName: customer.name });
 
   return nothing({
     event: 'StartTrial',
     event_id: `${subscription.id}:trial_start`,
-    email_hash: emailHash,
+    email_hash: hashes.em ?? null,
+    first_name_hash: hashes.fn ?? null,
+    last_name_hash: hashes.ln ?? null,
   });
 }
 
-async function customerEmail(
+async function customerIdentity(
   stripe: Awaited<ReturnType<typeof getStripe>>,
   customerId: string,
-): Promise<string | null> {
+): Promise<{ email: string | null; name: string | null }> {
   try {
     const customer = await stripe.customers.retrieve(customerId);
-    if (customer.deleted) return null;
-    return customer.email ?? null;
+    if (customer.deleted) return { email: null, name: null };
+    // The billing name, which Stripe collects with the card: the first
+    // moment we hold one for a pay-first buyer.
+    return { email: customer.email ?? null, name: customer.name ?? null };
   } catch {
-    return null;
+    return { email: null, name: null };
   }
 }
 

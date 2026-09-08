@@ -46,6 +46,7 @@ import {
   extraParamsOf,
   type EntryAttribution,
   type PaidAttribution,
+  readFbp,
 } from './attribution';
 
 /**
@@ -154,6 +155,12 @@ export interface SubscriptionAcquisition {
    * of them and is not a gap.
    */
   split_tests: SplitArms;
+  /**
+   * Meta's `_fbp` browser id, when the checkout (or the request) carried it.
+   * The column predates this field and sat empty until 2026-09-08; it exists
+   * for the day-7 purchase upload, which has no browser of its own.
+   */
+  fbp: string | null;
 }
 
 function str(value: string | undefined): string | null {
@@ -204,6 +211,7 @@ export function acquisitionFromSubscription(
     pay_method: str(m[PAY_METHOD_KEY]),
     params,
     split_tests: armsFromMetadata(m),
+    fbp: str(m.acq_fbp),
   };
 }
 
@@ -283,6 +291,7 @@ export function acquisitionFromRequest(input: {
     // absent: the column exists on every row and 'none' would be a fourth
     // payment method that nobody uses.
     pay_method: null,
+    fbp: readFbp(input.headers.get('cookie')),
   };
 }
 

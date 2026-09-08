@@ -9,6 +9,9 @@ export interface TrialConversion {
   eventId: string | null
   /** SHA-256 of the billing email, for the Meta pixel's advanced matching. */
   emailHash: string | null
+  /** SHA-256 of the billing first and last name, same purpose. */
+  firstNameHash: string | null
+  lastNameHash: string | null
   /**
    * Whether the question has been answered, one way or another. The page holds
    * its redirect on this, so it MUST become true even when everything fails.
@@ -44,12 +47,14 @@ export function useTrialConversion(sessionId: string | null): TrialConversion {
     event: null,
     eventId: null,
     emailHash: null,
+    firstNameHash: null,
+    lastNameHash: null,
     settled: false,
   })
 
   useEffect(() => {
     if (!sessionId) {
-      setState({ event: null, eventId: null, emailHash: null, settled: true })
+      setState({ event: null, eventId: null, emailHash: null, firstNameHash: null, lastNameHash: null, settled: true })
       return
     }
 
@@ -65,25 +70,29 @@ export function useTrialConversion(sessionId: string | null): TrialConversion {
         )
         if (cancelled) return
         if (!res.ok) {
-          setState({ event: null, eventId: null, emailHash: null, settled: true })
+          setState({ event: null, eventId: null, emailHash: null, firstNameHash: null, lastNameHash: null, settled: true })
           return
         }
         const body = (await res.json()) as {
           event: 'StartTrial' | null
           event_id: string | null
           email_hash?: string | null
+          first_name_hash?: string | null
+          last_name_hash?: string | null
         }
         if (cancelled) return
         setState({
           event: body.event,
           eventId: body.event_id,
           emailHash: body.email_hash ?? null,
+          firstNameHash: body.first_name_hash ?? null,
+          lastNameHash: body.last_name_hash ?? null,
           settled: true,
         })
       } catch {
         // Never let conversion reporting break the page a customer just paid
         // on. Settled with no event: nothing fires, and the page moves on.
-        if (!cancelled) setState({ event: null, eventId: null, emailHash: null, settled: true })
+        if (!cancelled) setState({ event: null, eventId: null, emailHash: null, firstNameHash: null, lastNameHash: null, settled: true })
       }
     }
 
