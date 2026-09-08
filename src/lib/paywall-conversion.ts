@@ -24,40 +24,25 @@
  */
 
 /**
- * The Meta event name.
+ * THE OPEN NO LONGER REACHES META. Until 2026-09-08 it went up as
+ * `InitiateCheckout` and was the event the campaign bid on, because nothing
+ * closer to money was frequent enough to learn from. Casey moved that name
+ * down one rung to the Begin checkout tap (CHECKOUT_TAP_META_EVENT, below)
+ * rather than touch a running campaign's conversion action: the ad set keeps
+ * optimising for "InitiateCheckout", and what that word means changed under
+ * it. The open is still recorded in `marketing_conversions` for the admin's
+ * Offer % and still tagged for Google, whose conversion action was always its
+ * own; the Meta leg of the upload skips it (see uploadToMeta), and the browser
+ * fires no Meta tag for it.
  *
- * `InitiateCheckout`, and it started life as a custom `PaywallView`. The
- * argument for the custom name was that InitiateCheckout was "already what a
- * CTA press leads to", so reusing it would put two behaviours under one name.
- * That was a reservation, not a fact: nothing in this codebase has ever fired
- * InitiateCheckout, and the CTA press it was being held for was never built.
- *
- * A reservation is not worth what a custom event costs. Meta's optimisation
- * models are pre-trained on the standard names and a custom one starts cold,
- * which is the exact problem this event exists to solve — see the volume
- * argument above. A standard name is also selectable as a campaign objective
- * directly, where a custom one has to be wrapped in a custom conversion in
- * Events Manager first.
- *
- * WHAT IT COSTS, stated so nobody has to rediscover it. The name is now spent:
- * an event on the button INSIDE the modal, if one is ever wanted, needs a
- * different one, or has to accept that the modal opening is where this funnel
- * says checkout begins. And Events Manager will show a bad InitiateCheckout to
- * Purchase ratio, because the numerator is modal opens. Both are reporting
- * cosmetics. Neither changes what the optimiser is bidding on.
- *
- * It stays honest enough to defend: the modal carries the plan matrix and the
- * button that goes to Stripe, so opening it is entering the checkout flow. The
- * two names that would have been lies are still lies. ViewContent misdescribes
- * what was viewed, and Purchase misdescribes everything.
- *
- * TYPED AS A STANDARD EVENT ON PURPOSE. `metaTrack` in src/lib/meta-pixel.ts
- * accepts `MetaStandardEvent` and nothing else, so this constant is checked
- * against that list at build time. Changing it back to a custom string breaks
- * the compile rather than quietly landing an event in Events Manager that
- * nobody is looking for.
+ * The history, since the name will be read in Events Manager for years: the
+ * open shipped as a custom `PaywallView`, became `InitiateCheckout` on
+ * 2026-09-02 (standard names bid better; a custom one starts cold), was cut to
+ * opens the reader asked for on 2026-09-07 (#624, #628), and handed the name to
+ * the tap on 2026-09-08. The series in Events Manager is three things end to
+ * end and should be read with those dates beside it.
  */
-export const PAYWALL_VIEW_META_EVENT = 'InitiateCheckout' as const;
+
 
 /**
  * The Google conversion action for the same event, which unlike Meta's is an
@@ -155,29 +140,24 @@ export function paywallViewIsAskedFor(surface: string | null | undefined): boole
  * ---------------------------------------------------------------------- */
 
 /**
- * The Meta event for a reader tapping Begin checkout (or a wallet button)
- * inside the modal. `AddPaymentInfo`.
+ * The Meta event for a reader tapping Begin checkout inside the modal.
+ * `InitiateCheckout`, the name the campaign bids on.
  *
- * WHY IT EXISTS. The open above is what Meta bids on today because it is the
- * only event frequent enough to learn from. The tap is the step that actually
- * predicts a trial, and on Meta traffic it is about 14 a week (2026-09-07),
- * under the ~50 Meta wants. So it is sent now, under its own name, so that the
- * day it clears that bar the campaign objective can be moved to it in Events
- * Manager with no deploy, and so its history starts today rather than then.
+ * WHAT COUNTS AS THE TAP. The "Start 7-day free trial" button at the bottom
+ * of the modal, which for a signed-out reader sits under a required email
+ * field, so it only fires once a well-formed address is in the box and the
+ * form submits; the same button for a signed-in reader, who has no field; and
+ * an Apple Pay or Google Pay button, which skips the email. The sign-up link
+ * and the plans link inside the modal are not the tap.
  *
- * WHY THIS NAME. InitiateCheckout is spent on the open (see above). The tap
- * is the reader asking to go where the card is entered — the phone sheet's
- * email field and then Stripe, or straight to Stripe — and AddPaymentInfo is
- * Meta's name for the rung after InitiateCheckout, so Events Manager's funnel
- * reads in the right order. AddToCart would be honest about "chose a plan" but
- * sits ABOVE InitiateCheckout in Meta's ordering, which would show a checkout
- * funnel running backwards. Both are cosmetics; the optimiser bids on the name
- * it is pointed at either way.
- *
- * WHAT IT COSTS. The name is now spent too: nothing fires when a card is
- * really entered on Stripe's page, and nothing can under this name without
- * counting one buyer twice. The webhook's StartTrial is the next event down
- * and is the one that says the card was taken.
+ * WHY THIS IS THE EVENT (Casey, 2026-09-08). The open was ~160 a week on Meta
+ * and the tap ~30, but the open converted to a trial at about one in fourteen
+ * and the tap at about one in three, and Meta was being told to find people
+ * who open modals. Thirty a week is under the ~50 Meta wants to leave the
+ * learning phase; that trade is taken knowingly. It briefly shipped as
+ * `AddPaymentInfo` beside the open (#626, one day) so the campaign would not
+ * need editing; the campaign is not being edited either way, so the name it
+ * already bids on is the one the tap now carries.
  *
  * NO `marketing_conversions` ROW, unlike the open. That table's event_type is
  * a CHECK constraint, the admin analytics read it by name, and the offline
@@ -194,13 +174,12 @@ export function paywallViewIsAskedFor(surface: string | null | undefined): boole
  * taps again is one event. That is weaker than the open's guard by exactly the
  * width of a 48-hour window, which is narrower than a session anyway.
  */
-export const CHECKOUT_TAP_META_EVENT = 'AddPaymentInfo' as const;
+export const CHECKOUT_TAP_META_EVENT = 'InitiateCheckout' as const;
 
 /**
  * The Meta `event_id` for the tap. Same two branches and the same refusal as
- * `paywallViewDedupeKey`, under a different prefix so the open and the tap in
- * one session never share an id: Meta dedupes on id AND name, but a shared id
- * would still be two different events claiming to be the same thing.
+ * `paywallViewDedupeKey`, under a different prefix so the open's row (which
+ * Google still keys on) and the tap's tag never share an id.
  */
 export function checkoutTapDedupeKey(input: {
   sessionId: string | null;

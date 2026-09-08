@@ -256,7 +256,9 @@ function checkoutTapEventId(request: NextRequest, day: string): string | null {
 }
 
 /**
- * Report a bought click reaching the wall, once per session.
+ * Record a bought click reaching the wall, once per session. Since 2026-09-08
+ * this row reaches Google and the admin's Offer % only; Meta's InitiateCheckout
+ * is the Begin checkout tap below (`checkoutTapEventId`).
  *
  * ONLY WHEN THE READER TAPPED START FREE TRIAL. Not an upgrade button, not a
  * marketing CTA, and not a wall the product put in front of them. The list
