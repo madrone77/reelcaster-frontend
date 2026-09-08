@@ -142,24 +142,36 @@ export default function PlanChoiceModal({
   );
 
   /**
-   * `checkout_tap` on the Pro side and not on the Member side. The counter
-   * route answers a checkout tap with a Meta event id, and on this arm the
-   * Pro button really is the hop to the card — there is no sheet after this
-   * one. The sign-up link is a navigation, not a purchase, and marking it
-   * would put a Meta InitiateCheckout on a reader who is not buying.
+   * `checkout_tap` marks the hop to the card, and it is what Meta's
+   * InitiateCheckout is fired off: the counter route answers a marked
+   * cta_click with an event id, and lib/paywall-counter turns that id into
+   * the tag (CHECKOUT_TAP_META_EVENT). On this arm the Pro button really is
+   * that hop — there is no sheet after this one — so the mark belongs here.
+   *
+   * TWO THINGS ARE DELIBERATELY NOT MARKED. The Member link is a navigation,
+   * not a purchase, and marking it would put an InitiateCheckout on a reader
+   * who is not buying. And `method === 'signup'` is excluded even on the Pro
+   * side, matching ./pro-trial-modal's own `trackCta`: <TrialBuy> reports
+   * that method when it is selling an account rather than a subscription
+   * (its `signupHref` branch), and a button that leads to /signup is not a
+   * checkout however it was labelled on the way past. Nothing passes
+   * `signupHref` here today, so this cannot fire yet — it is a guard on the
+   * conversion the campaign bids on, in the one file that now produces it.
    */
   const takeCta = useCallback(
     (choice: 'member' | 'pro', method?: string) => {
       acted.current = true;
       trackEvent('Plan Choice Taken', { feature, from, viewerTier, choice, method });
+      const isCheckoutTap = choice === 'pro' && method !== 'signup';
       reportPaywall('cta_click', {
         feature,
         surface: from,
         viewerTier,
-        context:
-          choice === 'pro'
-            ? { step: 'plan_choice', plan_choice_cta: 'pro', checkout_tap: true }
-            : { step: 'plan_choice', plan_choice_cta: 'member' },
+        context: {
+          step: 'plan_choice',
+          plan_choice_cta: choice,
+          ...(isCheckoutTap ? { checkout_tap: true } : {}),
+        },
       });
     },
     [trackEvent, feature, from, viewerTier],
