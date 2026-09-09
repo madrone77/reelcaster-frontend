@@ -24,7 +24,7 @@
  * created per exposure, on the campaign results page. Arm b is meant to move
  * signups up without moving trials down.
  *
- * ONE EXPOSURE PER ARM PER PAGE LOAD, like the ad-bar and ad-intro counters —
+ * ONE EXPOSURE PER ARM PER PAGE LOAD, the house rule for these counters —
  * not one per wall. A single sitting on the map can hit the star, a locked day
  * and the reports card, and counting each would make "exposures" mean "walls
  * painted" and swamp the rate. Both arms count by the same rule, which is what

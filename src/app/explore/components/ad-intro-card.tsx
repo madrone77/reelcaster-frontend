@@ -9,6 +9,11 @@ import type { AdWall } from "@/lib/ad-mode";
  * from an ad. Says what the dots are and what to do with one, then gets out
  * of the way.
  *
+ * Every `?ad=day2` visitor sees this. It ran as arm b of `ad_intro_v1`
+ * against nothing from 2026-09-07 and the split settled on the card
+ * (2026-09-09), so there is no arm left to read; the Mixpanel pair below is
+ * the only counting it does now.
+ *
  * NOT AN OFFER. No trial, no Pro, no price, no second button. The frame's
  * paywall flow (the free spot opens, then the trial modal) runs exactly as
  * it would without this, and nothing here counts toward or restarts it.
@@ -56,13 +61,10 @@ function markShown(wall: AdWall): void {
 export default function AdIntroCard({
   wall,
   cityName,
-  onAcknowledge,
 }: {
   wall: AdWall;
   /** The city under the camera, or undefined before it settles. */
   cityName?: string;
-  /** Fires on the button only, not on a tap past the card. */
-  onAcknowledge?: () => void;
 }) {
   // Decided in an effect, not the initial state: this component server
   // renders with the shell, and reading storage during render would put a
@@ -89,9 +91,8 @@ export default function AdIntroCard({
         via,
         dwell_ms: openedAt.current ? Date.now() - openedAt.current : undefined,
       });
-      if (via === "button") onAcknowledge?.();
     },
-    [wall, onAcknowledge],
+    [wall],
   );
 
   useEffect(() => {
