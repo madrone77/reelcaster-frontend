@@ -5,6 +5,7 @@ import { User, Session } from '@supabase/supabase-js'
 import { supabase } from '@/lib/supabase'
 import { resetFavorites } from '@/app/explore/lib/use-favorite'
 import { resetCachedUser } from '@/lib/user-preferences'
+import { writeAuthCookie } from '@/lib/auth-cookie'
 
 interface AuthContextType {
   user: User | null
@@ -54,6 +55,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setSession(session)
       setUser(session?.user ?? null)
       setLoading(false)
+      // The edge cannot see the session — supabase-js keeps it in
+      // localStorage — so the page-view counter reads this instead. Written on
+      // every resolution, not only on the transitions, because the reader who
+      // never touches a login form is the one whose cookie has to be kept
+      // alive. See src/lib/auth-cookie.ts.
+      writeAuthCookie(Boolean(session))
     }
     const deadline = setTimeout(() => settle(null), SESSION_DEADLINE_MS)
     supabase.auth
@@ -69,6 +76,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setSession(session)
       setUser(session?.user ?? null)
       setLoading(false)
+      writeAuthCookie(Boolean(session))
       if (event === 'PASSWORD_RECOVERY') {
         setIsPasswordRecovery(true)
       }
