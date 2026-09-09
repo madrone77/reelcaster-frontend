@@ -13,6 +13,7 @@ import {
   resolveSession,
   serializeSession,
 } from '@/lib/paywall-session'
+import { AUTH_COOKIE, authStateFromCookie } from '@/lib/auth-cookie'
 import { classifyUserAgent, isBotUserAgent } from '@/lib/device'
 import { readEdgeGeo } from '@/lib/edge-geo'
 import { classifyPage, classifySource } from '@/lib/traffic-source'
@@ -171,6 +172,14 @@ function stampAttribution(req: NextRequest, res: NextResponse): NextResponse {
  * robots. Real browsers have sent sec-fetch-dest on navigations for years; most
  * crawlers send it not at all.
  *
+ * WHAT IT KNOWS ABOUT THE READER. Whether they were signed in, and nothing
+ * else about them. The session itself lives in localStorage and never reaches
+ * a request, so this reads the `rc_auth` cookie the client mirrors it into —
+ * one character, no identity. It is the difference between the two audiences a
+ * spot page serves, and until it existed they were one number. Where the
+ * answer can be stale, and why every such case leans toward "signed out", is
+ * in src/lib/auth-cookie.ts.
+ *
  * NEVER BLOCKS THE RESPONSE. The write goes out under `waitUntil`, so the
  * visitor's page is already on its way while this happens, and a failure is
  * swallowed. A counter that can make the site slow, or down, is not worth
@@ -216,6 +225,7 @@ function countPageView(req: NextRequest, event: NextFetchEvent): void {
     p_geo_region: geo.region ?? '',
     p_device: device,
     p_os: os,
+    p_auth_state: authStateFromCookie(req.cookies.get(AUTH_COOKIE)?.value),
   })
 
   // PostgREST directly rather than through an API route of our own. A route
