@@ -94,7 +94,6 @@ import MobileHourBar from "./components/mobile-hour-bar";
 import type { FlowKind } from "./lib/use-flow";
 import ForecastStrip from "./components/forecast-strip";
 import { AdFrameProvider } from "./lib/ad-frame";
-import { useAdIntro } from "@/app/components/split-test/use-ad-intro";
 
 // ── Loaded on demand ─────────────────────────────────────────────────────
 //
@@ -315,10 +314,6 @@ export default function ExploreShell({
   // so the bar never overlays water. It was the top edge from 2026-09-04
   // until the `ad_bar_edge_v1` split settled it (2026-09-07: the bottom).
   const adBarBottom = !!ad;
-  // A few words of orientation on landing, for the cold `day2` visitor: the
-  // `ad_intro_v1` split. Arm b shows the card once per tab; arm a and no arm
-  // show nothing. Not part of the paywall flow above and never restarts it.
-  const adIntro = useAdIntro(ad?.wall === "day2");
   const mobileTop = isPaid || adBarBottom ? "top-0" : "top-16";
   const { citySlug, spotSlug, day, stn, setQuery } = useExploreState();
 
@@ -2676,15 +2671,13 @@ export default function ExploreShell({
           onOpenChange. */}
       <DepthGatePrompt open={depthAsk} onDismiss={declineDepth} />
 
-      {/* The ad frame's intro, arm b of ad_intro_v1 only. Three lines over
-          the live map, no offer. Names the city under the camera the same
-          way the bar's CTA does. */}
-      {ad?.wall === "day2" && adIntro.show && (
-        <AdIntroCard
-          wall={ad.wall}
-          cityName={labelCity?.name ?? undefined}
-          onAcknowledge={adIntro.reportCta}
-        />
+      {/* The ad frame's intro: three lines over the live map for the cold
+          `day2` visitor, no offer. Names the city under the camera the same
+          way the bar's CTA does. It was arm b of `ad_intro_v1` from
+          2026-09-07 until the split settled it (2026-09-09: the card), and
+          every day2 visitor gets it now with no arm read. */}
+      {ad?.wall === "day2" && (
+        <AdIntroCard wall={ad.wall} cityName={labelCity?.name ?? undefined} />
       )}
 
       {/* Says what just happened, once. Without it the relief simply vanishing
