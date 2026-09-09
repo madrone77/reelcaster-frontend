@@ -26,6 +26,7 @@ import {
 } from "./city-sections";
 import { licenceFor } from "./city-licence";
 import CityTides from "./city-tides";
+import PreferredSource from "@/app/components/marketing/preferred-source";
 
 // Scores refresh through the day — keep the page fresh-ish without going
 // fully dynamic (the hierarchy behind it is cached 1h regardless).
@@ -358,6 +359,10 @@ export default async function CityPage({
         <CityFaq faq={faq} cityName={city.name} />
 
         <NearbyCities cities={nearby} />
+
+        {/* Last thing on the page, under everything the reader came for. The
+            ask only makes sense once they have had the answer. */}
+        <PreferredSource surface="city" />
       </div>
     </>
   );

@@ -10,6 +10,7 @@ import { useSubscription } from "@/hooks/use-subscription";
 import { noteEngagement } from "@/lib/upgrade-nag";
 import { setPaywallContext } from "@/lib/paywall-context";
 import { trackEvent } from "@/lib/analytics";
+import PreferredSource from "@/app/components/marketing/preferred-source";
 import AdSlot from "@/app/components/ads/ad-slot";
 import { countryDisplayName, regulatorFrom } from "@/lib/regions";
 import ExploreTopBar from "@/app/explore/components/explore-top-bar";
@@ -1913,6 +1914,11 @@ export default function SpotDetailShell({
                 Kept out of the ad frame with the rest of the outbound links: a
                 campaign page asks for one thing. */}
             {!ad && <PageVerdict slug={slug} spotName={spot.name} />}
+
+            {/* Out of the ad frame with the rest of the outbound links, and
+                out of the sheet: inside Explore the reader has not left the
+                map, so there is no "today" to have been helpful with yet. */}
+            {!ad && !sheet && <PreferredSource surface="spot" />}
           </div>
 
           {/* Last thing above the footer — after the description and the

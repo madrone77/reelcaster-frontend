@@ -12,6 +12,7 @@ import { breadcrumbJsonLd, DEFAULT_OG, siteUrl } from "@/lib/site";
 import { COVERED_PROVINCES } from "@/lib/regions";
 import { getFishingCity, getFishingProvince, getFishingProvinceByCode, locationOf, spotPathIndex } from "@/app/fishing/lib/fishing-data";
 import { guidePath, spotHref } from "@/lib/paths";
+import PreferredSource from "@/app/components/marketing/preferred-source";
 import {
   activityPhrase,
   activityTitle,
@@ -413,6 +414,10 @@ export default async function SpeciesGuidePage({
           notice before you fish.
         </p>
       )}
+
+      {/* Under the guide and its review date, which is the last thing a
+          reader needs from it. */}
+      <PreferredSource surface="species-guide" className="mt-10" />
     </div>
   );
 }

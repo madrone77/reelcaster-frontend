@@ -322,6 +322,10 @@ export type AnalyticsEventName =
   | 'Top Spot Clicked'
   | 'Nearby Map Clicked'
   | 'Carousel CTA Clicked'
+  // The preferred-source ask at the foot of the public pages. One event, with
+  // the surface as a property, because the question is which page earns the
+  // most goodwill, not which button was pressed.
+  | 'Preferred Source Clicked'
   // Errors
   | 'Error';
 
