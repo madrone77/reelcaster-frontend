@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { ChevronDown, Fish, Info, Shell, Waves } from "lucide-react";
 import { btn } from "@/app/components/ui/button";
+import PreferredSource from "@/app/components/marketing/preferred-source";
 import TrialModalButton from "@/app/components/paywall/trial-modal-button";
 import { breadcrumbJsonLd, DEFAULT_OG, siteUrl } from "@/lib/site";
 import { DetailCards, Fees, SectionHeading, Source, Steps } from "../guide-ui";
@@ -550,6 +551,12 @@ export default function WaFishingLicensePage() {
               </li>
             ))}
           </ul>
+        </section>
+
+        {/* The preferred-source ask goes above the trial CTA, not below it:
+            the brand band is the page's close, and nothing follows it. */}
+        <section className="max-w-3xl mx-auto px-6 pb-12 pt-4">
+          <PreferredSource surface="licence-guide" />
         </section>
 
         {/* ── CTA ────────────────────────────────────────────────── */}
