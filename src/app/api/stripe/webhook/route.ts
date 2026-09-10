@@ -21,8 +21,10 @@ import { sendLapseNotice } from '@/lib/lapse-notice';
 import { sendWelcomeEmail } from '@/lib/welcome-email';
 import {
   PAY_METHOD_KEY,
+  resolvePaymentMethod,
   resolvePaymentMethodKey,
 } from '@/lib/payment-method';
+import { syncBillingProfile } from '@/lib/billing-profile';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -221,6 +223,19 @@ async function applySubscriptionToUser(subscription: Stripe.Subscription) {
   }
 
   await admin.from('user_settings').upsert(update, { onConflict: 'user_id' });
+
+  // Everything Stripe knows about this member that nobody was keeping: the
+  // cardholder name, the billing city and postal code, the card's funding and
+  // issuing country, what they have paid in total, and -- on the deleted event
+  // -- why they left. See src/lib/billing-profile.ts.
+  //
+  // After the upsert, for every status rather than just the entitled ones: a
+  // cancellation is precisely the event that carries the reason, and it is the
+  // one this used to throw away.
+  await syncBillingProfile(await getStripe(), admin, {
+    subscription,
+    userId: resolvedUserId,
+  });
 
   if (isEntitledStatus) {
     await recordUpgradeAttribution(subscription, resolvedUserId);
@@ -427,31 +442,12 @@ async function handleTrialingSubscription(
 async function cardFingerprintFor(
   subscription: Stripe.Subscription,
 ): Promise<string | null> {
-  const stripe = await getStripe();
-
-  let pmId: string | null = null;
-  const dpm = subscription.default_payment_method;
-  if (dpm) {
-    pmId = typeof dpm === 'string' ? dpm : dpm.id;
-  } else {
-    // Checkout attaches the card to the customer; the subscription may not
-    // carry it directly.
-    const customer = await stripe.customers.retrieve(customerIdOf(subscription));
-    if (!customer.deleted) {
-      const def = customer.invoice_settings?.default_payment_method;
-      pmId = typeof def === 'string' ? def : def?.id ?? null;
-    }
-  }
-
-  if (!pmId) return null;
-
-  try {
-    const pm = await stripe.paymentMethods.retrieve(pmId);
-    return pm.card?.fingerprint ?? null;
-  } catch (err) {
-    console.error('[stripe webhook] could not read payment method', pmId, err);
-    return null;
-  }
+  // The subscription's own method, or the customer's default when hosted
+  // Checkout attached the card there instead. Both cases, and their failures,
+  // live in resolvePaymentMethod -- this used to carry its own copy of that
+  // lookup, and a fix to one was a fix to only one.
+  const pm = await resolvePaymentMethod(await getStripe(), subscription);
+  return pm?.card?.fingerprint ?? null;
 }
 
 /**
