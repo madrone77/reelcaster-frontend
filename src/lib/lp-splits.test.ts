@@ -9,7 +9,6 @@ import {
   serializeLpSplitArms,
   splitForPath,
   type LpPageSplit,
-  type LpSplit,
 } from "./lp-splits";
 
 const tests: Array<[string, () => void]> = [];
