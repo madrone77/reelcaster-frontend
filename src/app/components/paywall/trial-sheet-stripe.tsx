@@ -73,6 +73,9 @@ const STRIPE_BUTTON =
  * a screen fewer between the tap and the card gets more of those to a trial.
  */
 export default function TrialSheetStripe({
+  placeName,
+  placeKind,
+  cityName,
   from,
   region,
   ctaHref,
@@ -81,9 +84,9 @@ export default function TrialSheetStripe({
   onCtaClick,
   onActivate,
 }: {
-  /** Where the reader opened this from. The headline no longer names it
-      (it is set the way Stripe's page sets the offer), but the modal still
-      passes it and a later copy pass may want it back. */
+  /** Where the reader opened this from. The headline does not name it (it is
+      set the way Stripe's page sets the offer), but the brand header does:
+      these three are how it knows which city to stand in. */
   placeName?: string;
   placeKind?: 'spot' | 'city';
   cityName?: string;
@@ -107,7 +110,10 @@ export default function TrialSheetStripe({
       </div>
 
       <div className="min-h-0 flex-1 overflow-y-auto px-4 pb-2">
-        <BrandHeader />
+        {/* An explicit city wins; otherwise the place is a city only when the
+            caller did not name a spot. Same resolution the feature list makes
+            in ./pro-trial-modal, so the two never disagree on one screen. */}
+        <BrandHeader city={cityName ?? (placeKind === 'city' ? placeName : undefined)} />
 
         {/* The offer, set the way Stripe Checkout sets it on the page after
             this one: what it is in grey, what it costs today in large type,

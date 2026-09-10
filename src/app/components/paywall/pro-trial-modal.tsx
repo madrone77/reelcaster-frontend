@@ -22,6 +22,7 @@ import {
   TrialHeadline,
   TrialTimeline,
 } from "./trial-pitch";
+import BrandHeader from "./brand-header";
 import PlanMatrix from "./plan-matrix";
 import TrialSheetStripe from "./trial-sheet-stripe";
 import { useIsPhone } from "@/hooks/use-is-phone";
@@ -374,12 +375,30 @@ export default function ProTrialModal({
                 {/* pr-10 clears the dialog's own close button — which is also
                     why there's no "Not now": two dismissals for one modal. */}
                 <DialogHeader className="pr-10 sm:pr-12 text-left gap-0">
+                  {/* The same brand row the phone sheet wears, naming the
+                      same city — see ./brand-header. This shape had no mark
+                      on it at all, so the one screen in the product that asks
+                      for money was also the one that never said whose water
+                      it was about. The two shapes are the same offer, and a
+                      header that appeared on one of them only would be the
+                      most visible place for them to drift. */}
+                  <div className="mb-5">
+                    <BrandHeader
+                      city={cityName ?? (spotName ? undefined : placeName)}
+                    />
+                  </div>
                   <TrialEyebrow />
                   {/* The sheet's headline, not a second one. See
-                      ./trial-pitch for why this stopped naming the wall. */}
+                      ./trial-pitch for why this stopped naming the wall.
+
+                      A SPOT only. The city is in the brand row three lines
+                      above and in the reports feature row below, and a
+                      column that says Tacoma three times spends its best
+                      line saying nothing new. A spot is not the same
+                      answer: it is the mark the reader reached for, and no
+                      other line here names it. */}
                   <TrialHeadline
-                    placeName={spotName ?? placeName}
-                    placeKind={spotName ? "spot" : "city"}
+                    placeName={spotName}
                     className="mt-2 text-xl sm:text-2xl"
                   />
                 </DialogHeader>

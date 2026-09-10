@@ -2581,6 +2581,9 @@ export default function ExploreShell({
         scrubHour={scrubHour}
         onScrubHour={setScrubHour}
         signedIn={!!user}
+        // The city under the camera, so a locked day here opens the same wall
+        // the phone's pill rail opens: named for where the reader is looking.
+        placeName={labelCity?.name ?? undefined}
         hidden={stripHidden}
         onHide={() => setStripHidden(true)}
         onShow={() => setStripHidden(false)}

@@ -34,6 +34,7 @@ export default function ForecastStrip({
   onHide,
   onShow,
   onLockedAdDay,
+  placeName,
 }: {
   model: ForecastStripModel | null;
   speciesName: string | null;
@@ -48,6 +49,13 @@ export default function ForecastStrip({
   onScrubHour: (h: number) => void;
   /** Signed-out visitors get the sign-up dialog on locked days instead of pricing. */
   signedIn: boolean;
+  /**
+   * The city under the map camera. The strip folds a whole bbox into one row
+   * of days, so there is no one spot a locked day is about, but there is a
+   * place: it is what the wall's brand header stands in and what its headline
+   * names. The pill rail on the phone has carried it all along.
+   */
+  placeName?: string;
   /**
    * The ad frame's handler for a locked day: focus the one offer already on
    * the page instead of opening a dialog.
@@ -238,6 +246,7 @@ export default function ForecastStrip({
         variant={!signedIn && lockTier === "free" ? "signup" : "pro"}
         dayIndex={lockDay ?? undefined}
         onExplore
+        placeName={placeName}
       />
     </>
   );
@@ -253,12 +262,20 @@ export function MobileForecastStrip({
   onSelectDay,
   signedIn,
   onLockedAdDay,
+  placeName,
 }: {
   model: ForecastStripModel | null;
   selectedIso: string;
   onSelectDay: (day: ForecastDay) => void;
   /** Signed-out visitors get the sign-up dialog on locked days instead of pricing. */
   signedIn: boolean;
+  /**
+   * The city under the map camera. The strip folds a whole bbox into one row
+   * of days, so there is no one spot a locked day is about, but there is a
+   * place: it is what the wall's brand header stands in and what its headline
+   * names. The pill rail on the phone has carried it all along.
+   */
+  placeName?: string;
   /**
    * The ad frame's handler for a locked day: focus the one offer already on
    * the page instead of opening a dialog.
@@ -315,6 +332,7 @@ export function MobileForecastStrip({
         variant={!signedIn && lockTier === "free" ? "signup" : "pro"}
         dayIndex={lockDay ?? undefined}
         onExplore
+        placeName={placeName}
       />
     </>
   );

@@ -88,6 +88,7 @@ export default function PlanChoiceModal({
   onOpenChange,
   feature,
   from,
+  cityName,
   signupHref,
 }: {
   open: boolean;
@@ -95,6 +96,8 @@ export default function PlanChoiceModal({
   /** The wall that started this, unchanged from the prompt before it. */
   feature: NagFeatureId;
   from: string;
+  /** The city the wall fired over, for the brand header to stand in. */
+  cityName?: string;
   /** /signup carrying the reader back to where they were stopped. */
   signupHref: string;
 }) {
@@ -184,7 +187,7 @@ export default function PlanChoiceModal({
       onActivate={(method) => takeCta('pro', method)}
     >
       <div className="min-h-0 flex-1 overflow-y-auto px-4 pb-[max(1rem,env(safe-area-inset-bottom))]">
-        <BrandHeader />
+        <BrandHeader city={cityName} />
 
         {/* The offer, set the way Stripe Checkout sets it on the page this
             button leads to: what it is in grey, what it costs today in large

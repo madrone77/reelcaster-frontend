@@ -23,7 +23,7 @@
 
 import { useState } from "react";
 import HomeCityModal from "@/app/components/welcome/home-city-modal";
-import { cityName } from "./around-you";
+import { cityName } from "@/lib/city-name";
 import { useEffectiveHomeCity } from "@/app/explore/lib/use-home-city";
 
 export default function HomeCityRow() {

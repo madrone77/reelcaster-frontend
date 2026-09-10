@@ -130,6 +130,10 @@ export default function ExploreWall({
           onOpenChange={handleOpenChange}
           feature={feature}
           from={from}
+          // The city under the map camera, unless a caller named one. The
+          // chooser has no place of its own to draw on, and its header is
+          // the same header the sheet on every other surface wears.
+          cityName={cityName ?? placeName}
           signupHref={signupHref}
         />
       );
