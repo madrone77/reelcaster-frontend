@@ -160,6 +160,11 @@ export async function fetchPointConditions(
  * AI species/lure/size + EXIF time/GPS + nearest-spot match + conditions
  * snapshot to pre-fill the Log-a-catch form. Returns null on any failure
  * (the form then falls back to manual entry).
+ *
+ * The proxy is signed-in only — the vision pass it fronts costs tokens per
+ * call — so the session token rides along the same way `fetchForecast14d`
+ * sends it. Without one the route answers 401 and this returns null, which
+ * the wizard already treats as "fall back to manual entry".
  */
 export async function fetchCatchPreview(
   file: File,
@@ -174,10 +179,13 @@ export async function fetchCatchPreview(
       }
     }
   }
+  const { data } = await supabase.auth.getSession();
+  const token = data.session?.access_token;
   const res = await fetch("/api/bluecaster/ingest/catch/preview", {
     method: "POST",
     body: form,
     cache: "no-store",
+    headers: token ? { Authorization: `Bearer ${token}` } : undefined,
   });
   if (!res.ok) return null;
   return (await res.json()) as CatchPreviewResponse;
