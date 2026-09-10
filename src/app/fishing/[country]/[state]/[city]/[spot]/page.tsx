@@ -1,6 +1,9 @@
 import type { Metadata } from "next";
 import { notFound, permanentRedirect } from "next/navigation";
-import { fetchHierarchy, fetchSpotLivePage } from "@/lib/bluecaster";
+import {
+  fetchHierarchy,
+  fetchSpotLivePageWithCacheControl,
+} from "@/lib/bluecaster";
 import { breadcrumbJsonLd, SITE_URL, siteUrl } from "@/lib/site";
 import { provinceCodeFromName } from "@/lib/regions";
 import SpotDetailShell from "./spot-detail-shell";
@@ -121,7 +124,21 @@ export async function generateMetadata({
   params,
 }: PageProps): Promise<Metadata> {
   const { spot: slug } = await params;
-  const page = await fetchSpotLivePage(slug).catch(() => null);
+  const { data: page, mergedIntoSlug } = await fetchSpotLivePageWithCacheControl(
+    slug,
+  ).catch(() => ({ data: null, mergedIntoSlug: null }));
+
+  // A merged-away spot redirects to the spot it became. This has to happen
+  // HERE as well as in the body's loader, for the same reason the notFound
+  // below does: metadata resolves first, so a 404 thrown here would answer the
+  // request before the body ever ran its own redirect.
+  if (mergedIntoSlug) {
+    const survivor = findCityForSpot(
+      await fetchHierarchy().catch(() => null),
+      mergedIntoSlug,
+    );
+    if (survivor?.spot.path) permanentRedirect(survivor.spot.path);
+  }
 
   // No server-side read means either "private custom spot" or "gone", and the
   // anonymous render can't tell which — see the page body for why both now
