@@ -19,7 +19,7 @@ import { MapPin } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import HomeCityModal from "@/app/components/welcome/home-city-modal";
-import { cityName } from "@/app/dashboard/around-you";
+import { cityName } from "@/lib/city-name";
 import { useEffectiveHomeCity } from "@/app/explore/lib/use-home-city";
 
 export default function HomeCityCard() {

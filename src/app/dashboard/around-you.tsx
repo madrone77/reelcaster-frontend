@@ -12,6 +12,7 @@ import {
   type FreshCatchVerdict,
 } from "@/app/explore/lib/fresh-catch-types";
 import type { MapSpotsPayload } from "@/lib/bluecaster";
+import { cityName } from "@/lib/city-name";
 
 // Loaded on the tap that opens it, for the reason /explore's `UpgradeDialog`
 // does the same: a static import drags the plan matrix, the pricing tables and
@@ -23,23 +24,6 @@ const ProTrialModal = dynamic(
 
 /** How many spots to list per city before deferring to Explore. */
 const PER_CITY = 3;
-
-/**
- * "sooke-bc" → "Sooke". The map payload carries `city_slug` but no city name,
- * and the only endpoint that resolves names is a second round trip for a label.
- * Every city slug in the covered extent is `<name>-<province>` (checked against
- * all nine: bellingham-wa … victoria-bc), so the province code comes off the
- * end and the rest title-cases. A slug that ever breaks that shape degrades to
- * a readable title-cased string rather than to nothing.
- */
-export function cityName(slug: string): string {
-  return slug
-    .replace(/-(bc|wa|or|ca|ak)$/i, "")
-    .split("-")
-    .filter(Boolean)
-    .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
-    .join(" ");
-}
 
 export type AroundYouSpot = {
   slug: string;
