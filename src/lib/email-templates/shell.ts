@@ -69,6 +69,27 @@ export function shell(bodyHtml: string, options: ShellOptions): string {
  * arrives as `?s=guides` with the guide id eaten lands the reader on the index
  * instead of the guide. Cheap to be correct.
  */
+/**
+ * Text from a person, on its way into an email body.
+ *
+ * Every string in these templates was ours until member names arrived: step
+ * titles, plan labels, dates we formatted. A cardholder name is typed at Stripe
+ * checkout and a first name is typed into our signup form, so both are open
+ * text from outside, and both now land in the welcome email's greeting.
+ *
+ * Mail clients strip scripts, so the risk is not execution; it is a name
+ * containing a quote or an angle bracket closing the surrounding tag and
+ * spilling raw markup into the greeting, which every reader of that send would
+ * see.
+ */
+export function escapeHtml(value: string): string {
+  return value
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
+
 export function attrUrl(href: string): string {
   return href.replace(/&/g, '&amp;');
 }

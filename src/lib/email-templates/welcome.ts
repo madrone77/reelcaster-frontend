@@ -27,7 +27,7 @@
 import { siteUrl } from '@/lib/site';
 import { STEPS, type WelcomeStep } from '@/app/welcome/content';
 import { TRIAL_DAYS } from '@/lib/pricing';
-import { BRAND, INK, INK_MUTE, INK_SOFT, RULE, attrUrl, button, formatDate, shell } from './shell';
+import { BRAND, INK, INK_MUTE, INK_SOFT, RULE, attrUrl, button, escapeHtml, formatDate, shell } from './shell';
 
 export type WelcomeVariant = 'trial' | 'free';
 
@@ -37,6 +37,31 @@ export interface WelcomeEmailParams {
   trialEndsAt?: string | null;
   /** What the card will actually be charged, e.g. "$33". Trial variant only. */
   amountLabel?: string | null;
+  /**
+   * Who to greet, already reduced to a first name. Null and the greeting line
+   * is left out entirely.
+   */
+  firstName?: string | null;
+}
+
+/**
+ * "Hi Nick," and nothing when there is no name.
+ *
+ * Deliberately not "Hi there," or "Hi Angler,". A generic greeting is a form
+ * letter announcing itself, and the heading underneath already opens the email
+ * perfectly well on its own. Half of these sends will have no name, and those
+ * readers should get the version without the seam rather than the version with
+ * a hole in it.
+ *
+ * Escaped, because this is the first thing in any of these templates that a
+ * person outside the company typed. See escapeHtml in ./shell.
+ */
+function greetingHtml(firstName?: string | null): string {
+  const name = firstName?.trim();
+  if (!name) return '';
+  return `<p style="margin:0 0 12px;font-size:15px;line-height:24px;color:${INK_SOFT};">Hi ${escapeHtml(
+    name,
+  )},</p>`;
 }
 
 /**
@@ -197,6 +222,7 @@ export function welcomeEmail(params: WelcomeEmailParams): {
 
   const body = [
     `<tr><td style="padding:0 0 8px;">
+      ${greetingHtml(params.firstName)}
       <h1 style="margin:0 0 14px;font-size:22px;line-height:30px;color:${INK};">${heading}</h1>
       <p style="margin:0 0 18px;font-size:15px;line-height:24px;color:${INK_SOFT};">${overview}</p>
       <p style="margin:0 0 22px;">${button(siteUrl('/welcome'), 'Start here')}</p>

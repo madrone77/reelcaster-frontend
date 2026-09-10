@@ -14,6 +14,10 @@
  * operation, so exactly one email comes out of them the same way it does for
  * the reminder: a conditional UPDATE that the first caller wins.
  *
+ * It opens by name when we hold one. Half of these accounts do not have a
+ * name, so the greeting is a line that appears rather than a slot that gets
+ * filled with "Angler" -- see greetingHtml in the template.
+ *
  * The one wrinkle is that the claim is not simply "sent or not". Somebody can
  * sign up free, read the free note, and start a trial a week later, and the
  * trial version carries a different feature set and a charge date. So a free
@@ -21,8 +25,9 @@
  * the migration for the column pair that encodes that.
  */
 
-import type { SupabaseClient } from '@supabase/supabase-js';
+import type { SupabaseClient, User } from '@supabase/supabase-js';
 import { sendEmail } from '@/lib/email-service';
+import { greetingFirstName } from '@/lib/display-name';
 import { welcomeEmail, type WelcomeVariant } from '@/lib/email-templates/welcome';
 import { SUPPORT_EMAIL } from '@/lib/site';
 
@@ -44,7 +49,7 @@ async function claimWelcome(
   admin: SupabaseClient,
   userId: string,
   variant: WelcomeVariant,
-): Promise<boolean> {
+): Promise<{ claimed: boolean; cardholderName: string | null }> {
   // user_settings rows are created lazily (the Stripe webhook, the attribution
   // write, the first alert), so an account minutes old often has none, and this
   // is exactly the account being welcomed. An UPDATE against a missing row
@@ -56,7 +61,7 @@ async function claimWelcome(
 
   if (ensureError) {
     console.error('[welcome email] could not ensure user_settings row', userId, ensureError);
-    return false;
+    return { claimed: false, cardholderName: null };
   }
 
   const query = admin
@@ -72,14 +77,22 @@ async function claimWelcome(
       ? query.or('welcome_email_sent_at.is.null,welcome_email_variant.eq.free')
       : query.is('welcome_email_sent_at', null);
 
-  const { data, error } = await claimed.select('user_id');
+  // bill_name rides back on the row this statement already returns, so
+  // greeting a buyer by the name on their card costs no extra query and no
+  // Stripe call. The Stripe webhook writes that column moments earlier, in the
+  // same handler that ends up here (src/lib/billing-profile.ts), so it is
+  // populated by the time a trial welcome is claimed.
+  const { data, error } = await claimed.select('user_id, bill_name');
 
   if (error) {
     console.error('[welcome email] claim failed', userId, error);
-    return false;
+    return { claimed: false, cardholderName: null };
   }
 
-  return (data?.length ?? 0) > 0;
+  return {
+    claimed: (data?.length ?? 0) > 0,
+    cardholderName: data?.[0]?.bill_name ?? null,
+  };
 }
 
 /** Put the send back on the table after a failure, so a later trigger retries. */
@@ -96,16 +109,23 @@ async function releaseWelcome(admin: SupabaseClient, userId: string) {
   }
 }
 
-async function emailForUser(
+/**
+ * The auth user, for their address and for the name they gave us.
+ *
+ * Returns the whole user rather than just the address: this call already
+ * carries user_metadata, which is where a Google profile name and the signup
+ * form's first_name live, so reading the greeting out of it is free.
+ */
+async function userFor(
   admin: SupabaseClient,
   userId: string,
-): Promise<string | null> {
+): Promise<User | null> {
   const { data, error } = await admin.auth.admin.getUserById(userId);
   if (error) {
     console.error('[welcome email] could not read user', userId, error);
     return null;
   }
-  return data.user?.email ?? null;
+  return data.user ?? null;
 }
 
 /**
@@ -129,11 +149,13 @@ export async function sendWelcomeEmail(
   },
 ): Promise<WelcomeEmailOutcome> {
   try {
-    if (!(await claimWelcome(admin, params.userId, params.variant))) {
+    const claim = await claimWelcome(admin, params.userId, params.variant);
+    if (!claim.claimed) {
       return 'already_sent';
     }
 
-    const email = await emailForUser(admin, params.userId);
+    const user = await userFor(admin, params.userId);
+    const email = user?.email ?? null;
     if (!email) {
       // Nothing to retry against, and holding the claim stops every later
       // trigger re-doing this lookup for an account with no address.
@@ -144,6 +166,10 @@ export async function sendWelcomeEmail(
       variant: params.variant,
       trialEndsAt: params.trialEndsAt,
       amountLabel: params.amountLabel,
+      // The name they gave us, or failing that the one on the card. Null for
+      // an account that has given us neither, and the email simply opens with
+      // its heading.
+      firstName: greetingFirstName(user, claim.cardholderName),
     });
 
     // The copy says "reply to this email and a person reads it", and the From
