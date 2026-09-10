@@ -386,11 +386,10 @@ export default function SpotMiniMap({
           // named place the spot belongs to are all in the first frame.
           // Anyone who wants the detail back can pinch, or expand.
           //
-          // The phone mocks keep the old framing. Inside a marketing picture
-          // the mark is chosen and the callouts are solved against the frame
-          // it produces, so widening the shot there would be a change to the
-          // ad, not to the page.
-          zoom: frame ? 11.5 : 10,
+          // One number, mocks included. The marketing phones draw this page to
+          // show what it is, so a picture framed tighter than the page would
+          // be selling a screen we do not ship.
+          zoom: 10,
         }}
         mapStyle={mapStyle}
         minZoom={6}
