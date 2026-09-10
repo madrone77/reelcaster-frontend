@@ -187,7 +187,13 @@ export default function CurrentRegulations({
         </div>
 
         {/* Broken-out rules. Expected regs read muted; "Not published" values
-            (row.muted) are always muted regardless of confidence. */}
+            (row.muted) are always muted regardless of confidence.
+
+            The value cell needs `min-w-0 break-words`: WDFW writes a bare
+            halibut URL into its notes, and a 47-character unbreakable token in
+            a `flex-1` cell (min-width auto) refuses to shrink, so on a phone
+            the whole row grew past the card and the text was clipped at the
+            screen edge. */}
         <dl className="mt-4 divide-y divide-rc-rule">
           {rows.map((row) => (
             <div key={row.label} className="flex gap-4 py-2.5">
@@ -195,7 +201,7 @@ export default function CurrentRegulations({
                 {row.label}
               </dt>
               <dd
-                className={`text-sm flex-1 ${
+                className={`text-sm flex-1 min-w-0 break-words ${
                   row.muted || isExpected ? "text-rc-ink-mute" : "text-rc-ink"
                 }`}
               >
