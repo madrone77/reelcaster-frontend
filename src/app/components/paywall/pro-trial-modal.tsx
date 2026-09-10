@@ -389,10 +389,16 @@ export default function ProTrialModal({
                   </div>
                   <TrialEyebrow />
                   {/* The sheet's headline, not a second one. See
-                      ./trial-pitch for why this stopped naming the wall. */}
+                      ./trial-pitch for why this stopped naming the wall.
+
+                      A SPOT only. The city is in the brand row three lines
+                      above and in the reports feature row below, and a
+                      column that says Tacoma three times spends its best
+                      line saying nothing new. A spot is not the same
+                      answer: it is the mark the reader reached for, and no
+                      other line here names it. */}
                   <TrialHeadline
-                    placeName={spotName ?? placeName}
-                    placeKind={spotName ? "spot" : "city"}
+                    placeName={spotName}
                     className="mt-2 text-xl sm:text-2xl"
                   />
                 </DialogHeader>

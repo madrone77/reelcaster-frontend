@@ -96,6 +96,11 @@ export function PlanCompareLine({
  * The place is set in brand blue because it is the one word here the reader
  * chose. A surface that cannot honestly name one drops the phrase rather than
  * inventing a subject.
+ *
+ * As of the brand row naming the city (see ./brand-header), the one caller
+ * hands this a SPOT only: the city is now said twice above and below this
+ * line, and the headline has better uses than a third. The city branch stays
+ * because the sentence still needs it if anything asks again.
  */
 export function TrialHeadline({
   placeName,
