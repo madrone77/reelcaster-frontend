@@ -2,6 +2,10 @@
  * Billing lifecycle emails: trial ending, payment failed, grace ending,
  * Pro lapsed, duplicate-card refusal.
  *
+ * The trial-ending and lapsed notices open by name when we hold one; the
+ * decline and grace-ending notices between them do not yet, and want the same
+ * two lines (see ./shell greeting and src/lib/member-greeting.ts).
+ *
  * The trial-ending one isn't optional garnish — a card-required trial that
  * auto-charges needs clear advance notice of the date and the amount under
  * both Canadian consumer-protection rules and the US FTC's negative-option
@@ -10,7 +14,7 @@
  */
 
 import { siteUrl } from '@/lib/site';
-import { BRAND, INK, INK_MUTE, INK_SOFT, button, formatDate, shell } from './shell';
+import { BRAND, INK, INK_MUTE, INK_SOFT, button, formatDate, greeting, shell } from './shell';
 
 /**
  * What the account has actually set up, so the day-4 note can say something
@@ -83,6 +87,8 @@ export function trialEndingEmail(params: {
   trialEndsAt: string;
   amountLabel: string; // e.g. "$33"
   setup?: TrialSetupState;
+  /** Who to greet, or null when we hold no name. See ./shell greeting. */
+  firstName?: string | null;
 }): { subject: string; html: string } {
   const date = formatDate(params.trialEndsAt);
   const check = params.setup ? checkIn(params.setup) : null;
@@ -94,6 +100,7 @@ export function trialEndingEmail(params: {
     subject: `Your ReelCaster Pro trial ends ${date}`,
     html: shell(
       `<tr><td>
+        ${greeting(params.firstName)}
         <h1 style="margin:0 0 16px;font-size:22px;line-height:30px;color:${INK};">Three days left on your trial</h1>
         ${
           check
@@ -203,6 +210,15 @@ export function graceEndingEmail(params: {
 export function proLapsedEmail(params: {
   amountLabel: string;
   canResume: boolean;
+  /**
+   * Who to greet, or null when we hold no name.
+   *
+   * This is the email that tells somebody their forecasts went dark, and the
+   * one most likely to be read as an automated dunning notice rather than a
+   * message from the people who built the thing. A name at the top is worth
+   * more here than anywhere else.
+   */
+  firstName?: string | null;
 }): { subject: string; html: string } {
   const wayBack = params.canResume
     ? {
@@ -222,6 +238,7 @@ export function proLapsedEmail(params: {
     subject: 'Your ReelCaster Pro has switched off',
     html: shell(
       `<tr><td>
+        ${greeting(params.firstName)}
         <h1 style="margin:0 0 16px;font-size:22px;line-height:30px;color:${INK};">Pro is off for now</h1>
         <p style="margin:0 0 16px;font-size:15px;line-height:24px;color:${INK_SOFT};">
           We could not charge ${params.amountLabel} for ReelCaster Pro, so as of today your account

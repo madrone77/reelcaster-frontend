@@ -4,7 +4,10 @@
  * The decline email opens a 7-day grace window, the two-days-left nudge in
  * ./grace-reminder warns that it is closing, and this is the last of the
  * three: Pro is off, here is what the account keeps, here is how to get it
- * back. Nobody should find out their forecasts went dark by opening the app.
+ * back. Nobody should find out their forecasts went dark by opening the app,
+ * and it opens by name when we hold one: of the three, this is the note most
+ * likely to be read as automated dunning rather than a message from the people
+ * who built the thing.
  *
  * Two things can decide to send it, and they do not agree on timing:
  *
@@ -26,6 +29,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { sendEmail } from '@/lib/email-service';
 import { proLapsedEmail } from '@/lib/email-templates/billing';
 import { SUPPORT_EMAIL } from '@/lib/site';
+import { recipientFor } from '@/lib/member-greeting';
 
 const DAY_MS = 86_400_000;
 
@@ -82,20 +86,26 @@ export async function findLapsedGraceWindows(
 async function claimLapseNotice(
   admin: SupabaseClient,
   userId: string,
-): Promise<boolean> {
+): Promise<{ claimed: boolean; cardholderName: string | null }> {
+  // bill_name rides back on the row this statement already returns, so
+  // greeting somebody by the name on their card costs no extra query and no
+  // Stripe call. See src/lib/member-greeting.ts.
   const { data, error } = await admin
     .from('user_settings')
     .update({ lapse_notice_sent_at: new Date().toISOString() })
     .eq('user_id', userId)
     .is('lapse_notice_sent_at', null)
-    .select('user_id');
+    .select('user_id, bill_name');
 
   if (error) {
     console.error('[lapse notice] claim failed', userId, error);
-    return false;
+    return { claimed: false, cardholderName: null };
   }
 
-  return (data?.length ?? 0) > 0;
+  return {
+    claimed: (data?.length ?? 0) > 0,
+    cardholderName: data?.[0]?.bill_name ?? null,
+  };
 }
 
 /** Put the send back on the table after a failure, so the next run retries. */
@@ -108,18 +118,6 @@ async function releaseLapseNotice(admin: SupabaseClient, userId: string) {
   if (error) {
     console.error('[lapse notice] could not release claim', userId, error);
   }
-}
-
-async function emailForUser(
-  admin: SupabaseClient,
-  userId: string,
-): Promise<string | null> {
-  const { data, error } = await admin.auth.admin.getUserById(userId);
-  if (error) {
-    console.error('[lapse notice] could not read user', userId, error);
-    return null;
-  }
-  return data.user?.email ?? null;
 }
 
 export type LapseNoticeOutcome =
@@ -144,10 +142,11 @@ export async function sendLapseNotice(
     canResume: boolean;
   },
 ): Promise<LapseNoticeOutcome> {
-  if (!(await claimLapseNotice(admin, params.userId))) return 'already_sent';
+  const claim = await claimLapseNotice(admin, params.userId);
+  if (!claim.claimed) return 'already_sent';
 
-  const email = await emailForUser(admin, params.userId);
-  if (!email) {
+  const to = await recipientFor(admin, params.userId, claim.cardholderName);
+  if (!to.email) {
     // Nothing to retry against. Leaving the claim set stops every later run
     // from re-doing this lookup for an account that has no address.
     return 'no_email';
@@ -156,10 +155,11 @@ export async function sendLapseNotice(
   const { subject, html } = proLapsedEmail({
     amountLabel: params.amountLabel,
     canResume: params.canResume,
+    firstName: to.firstName,
   });
 
   // The copy says "reply to this email", and the From is a noreply address.
-  const result = await sendEmail({ to: email, subject, html, replyTo: SUPPORT_EMAIL });
+  const result = await sendEmail({ to: to.email, subject, html, replyTo: SUPPORT_EMAIL });
 
   if (!result.success) {
     console.error('[lapse notice] send failed', params.userId, result.error);

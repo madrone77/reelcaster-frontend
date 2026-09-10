@@ -25,9 +25,9 @@
  * the migration for the column pair that encodes that.
  */
 
-import type { SupabaseClient, User } from '@supabase/supabase-js';
+import type { SupabaseClient } from '@supabase/supabase-js';
 import { sendEmail } from '@/lib/email-service';
-import { greetingFirstName } from '@/lib/display-name';
+import { recipientFor } from '@/lib/member-greeting';
 import { welcomeEmail, type WelcomeVariant } from '@/lib/email-templates/welcome';
 import { SUPPORT_EMAIL } from '@/lib/site';
 
@@ -110,25 +110,6 @@ async function releaseWelcome(admin: SupabaseClient, userId: string) {
 }
 
 /**
- * The auth user, for their address and for the name they gave us.
- *
- * Returns the whole user rather than just the address: this call already
- * carries user_metadata, which is where a Google profile name and the signup
- * form's first_name live, so reading the greeting out of it is free.
- */
-async function userFor(
-  admin: SupabaseClient,
-  userId: string,
-): Promise<User | null> {
-  const { data, error } = await admin.auth.admin.getUserById(userId);
-  if (error) {
-    console.error('[welcome email] could not read user', userId, error);
-    return null;
-  }
-  return data.user ?? null;
-}
-
-/**
  * Welcome one account. Safe to call from anywhere, any number of times.
  *
  * Never throws. Both callers are doing something more important than this when
@@ -154,9 +135,8 @@ export async function sendWelcomeEmail(
       return 'already_sent';
     }
 
-    const user = await userFor(admin, params.userId);
-    const email = user?.email ?? null;
-    if (!email) {
+    const to = await recipientFor(admin, params.userId, claim.cardholderName);
+    if (!to.email) {
       // Nothing to retry against, and holding the claim stops every later
       // trigger re-doing this lookup for an account with no address.
       return 'no_email';
@@ -169,12 +149,12 @@ export async function sendWelcomeEmail(
       // The name they gave us, or failing that the one on the card. Null for
       // an account that has given us neither, and the email simply opens with
       // its heading.
-      firstName: greetingFirstName(user, claim.cardholderName),
+      firstName: to.firstName,
     });
 
     // The copy says "reply to this email and a person reads it", and the From
     // is noreply@. Without this that sentence is untrue.
-    const result = await sendEmail({ to: email, subject, html, replyTo: SUPPORT_EMAIL });
+    const result = await sendEmail({ to: to.email, subject, html, replyTo: SUPPORT_EMAIL });
 
     if (!result.success) {
       console.error('[welcome email] send failed', params.userId, result.error);
