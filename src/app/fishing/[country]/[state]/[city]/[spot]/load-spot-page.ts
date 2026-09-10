@@ -1,5 +1,8 @@
-import { notFound } from "next/navigation";
-import { fetchHierarchy, fetchSpotLivePage } from "@/lib/bluecaster";
+import { notFound, permanentRedirect } from "next/navigation";
+import {
+  fetchHierarchy,
+  fetchSpotLivePageWithCacheControl,
+} from "@/lib/bluecaster";
 import { findCityForSpot, spotPathIndex } from "@/app/fishing/lib/fishing-data";
 import { timezoneFor } from "@/lib/regions";
 import { spotHasFreshReports } from "@/app/explore/lib/fresh-catch-types";
@@ -37,8 +40,41 @@ export interface LoadedSpotPage {
   serverNowMs: number;
 }
 
+/**
+ * Send a merged-away spot to the spot it became, permanently.
+ *
+ * Two rows for one mark means two indexed URLs splitting the same traffic, and
+ * a search engine consolidates them only when the retired one REDIRECTS. A 404
+ * tells it to drop the page and everything the page had earned instead — for
+ * T-10, the URL that was archived was the one carrying three times the
+ * impressions of the survivor, so the 404 would have thrown away most of the
+ * reason for merging.
+ *
+ * 308 rather than 302 (permanentRedirect) because a merge is an editorial
+ * decision that does not get taken back on a schedule, and only a permanent
+ * redirect moves the standing across.
+ *
+ * Returns instead of redirecting when the survivor has no public home, since
+ * there is nowhere to send anyone; the caller then 404s as it always did.
+ */
+async function redirectToSurvivor(mergedIntoSlug: string): Promise<void> {
+  const place = findCityForSpot(
+    await fetchHierarchy().catch(() => null),
+    mergedIntoSlug,
+  );
+  if (place?.spot.path) permanentRedirect(place.spot.path);
+}
+
 export async function loadSpotPage(slug: string): Promise<LoadedSpotPage> {
-  const page = await fetchSpotLivePage(slug);
+  const { data: page, mergedIntoSlug } =
+    await fetchSpotLivePageWithCacheControl(slug);
+
+  // Read before the 404 below, and off the SAME response rather than a second
+  // request: a merged spot is the one kind of "no page here" that has
+  // somewhere to send the reader. Every route that renders a spot comes
+  // through this loader, so the public page, its ad frame, the share-card page
+  // and the retired /explore/spot URL all redirect from this one place.
+  if (mergedIntoSlug) await redirectToSurvivor(mergedIntoSlug);
 
   // No server-side read doesn't mean "gone". A PRIVATE custom spot is 404 to
   // the anonymous server render even for its owner, whose session lives in the

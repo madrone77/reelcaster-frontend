@@ -196,7 +196,16 @@ export async function fetchSpotLivePageWithCacheControl(
    * landing page does not need the freshness the day's own page does.
    */
   revalidate = 60
-): Promise<{ data: SpotPageInitial | null; cacheControl: string | null }> {
+): Promise<{
+  data: SpotPageInitial | null;
+  cacheControl: string | null;
+  /**
+   * Set only on the 404 that means "this spot was merged away": the slug of
+   * the spot it became, when that one is itself public. Lets a caller answer
+   * with a redirect instead of a dead end. See fetchSpotMergedInto.
+   */
+  mergedIntoSlug: string | null;
+}> {
   const baseUrl = process.env.BLUECASTER_API_URL;
   const apiKey = process.env.BLUECASTER_API_KEY;
   if (!baseUrl || !apiKey) throw new Error("BlueCaster env vars not set");
@@ -211,9 +220,20 @@ export async function fetchSpotLivePageWithCacheControl(
     ...(ownerUserId ? { cache: "no-store" as const } : { next: { revalidate } }),
   });
   const cacheControl = res.headers.get("cache-control");
-  if (res.status === 404) return { data: null, cacheControl };
+  if (res.status === 404) {
+    // The merged case rides on the 404 body. Parsing is guarded because every
+    // other 404 here is an ordinary "no such spot", and a body that is not
+    // JSON must read as that rather than take the page down.
+    const merged = await res
+      .json()
+      .then((b: { merged_into_slug?: unknown }) =>
+        typeof b?.merged_into_slug === "string" ? b.merged_into_slug : null
+      )
+      .catch(() => null);
+    return { data: null, cacheControl, mergedIntoSlug: merged };
+  }
   if (!res.ok) throw new Error(`BlueCaster API error: ${res.status}`);
-  return { data: await res.json(), cacheControl };
+  return { data: await res.json(), cacheControl, mergedIntoSlug: null };
 }
 
 /**
