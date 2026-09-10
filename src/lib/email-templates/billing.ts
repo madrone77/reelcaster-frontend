@@ -2,9 +2,11 @@
  * Billing lifecycle emails: trial ending, payment failed, grace ending,
  * Pro lapsed, duplicate-card refusal.
  *
- * The trial-ending and lapsed notices open by name when we hold one; the
- * decline and grace-ending notices between them do not yet, and want the same
- * two lines (see ./shell greeting and src/lib/member-greeting.ts).
+ * Every one of them opens by name when we hold one. The three that make up the
+ * dunning sequence -- decline, two days left, switched off -- say so in that
+ * order to the same person over nine days, and a run of three automated-looking
+ * notices about a card is precisely where a name earns its place. See ./shell
+ * greeting and src/lib/member-greeting.ts.
  *
  * The trial-ending one isn't optional garnish — a card-required trial that
  * auto-charges needs clear advance notice of the date and the amount under
@@ -133,12 +135,15 @@ export function trialEndingEmail(params: {
 export function paymentFailedEmail(params: {
   graceUntil: string;
   amountLabel: string;
+  /** Who to greet, or null when we hold no name. See ./shell greeting. */
+  firstName?: string | null;
 }): { subject: string; html: string } {
   const date = formatDate(params.graceUntil);
   return {
     subject: 'We couldn’t process your ReelCaster payment',
     html: shell(
       `<tr><td>
+        ${greeting(params.firstName)}
         <h1 style="margin:0 0 16px;font-size:22px;line-height:30px;color:${INK};">Your payment didn't go through</h1>
         <p style="margin:0 0 16px;font-size:15px;line-height:24px;color:${INK_SOFT};">
           We tried to charge ${params.amountLabel} for ReelCaster Pro and the card was declined.
@@ -166,12 +171,15 @@ export function paymentFailedEmail(params: {
 export function graceEndingEmail(params: {
   graceUntil: string;
   amountLabel: string;
+  /** Who to greet, or null when we hold no name. See ./shell greeting. */
+  firstName?: string | null;
 }): { subject: string; html: string } {
   const date = formatDate(params.graceUntil);
   return {
     subject: `Your ReelCaster Pro switches off ${date}`,
     html: shell(
       `<tr><td>
+        ${greeting(params.firstName)}
         <h1 style="margin:0 0 16px;font-size:22px;line-height:30px;color:${INK};">Two days left to keep Pro</h1>
         <p style="margin:0 0 16px;font-size:15px;line-height:24px;color:${INK_SOFT};">
           We still have not been able to charge ${params.amountLabel} for ReelCaster Pro, and the

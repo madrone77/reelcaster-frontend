@@ -25,6 +25,7 @@ import {
   resolvePaymentMethodKey,
 } from '@/lib/payment-method';
 import { syncBillingProfile } from '@/lib/billing-profile';
+import { recipientFor } from '@/lib/member-greeting';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -161,11 +162,6 @@ async function provisionUserForSubscription(
     customerId,
   );
   return account.userId;
-}
-
-async function emailForUser(userId: string): Promise<string | null> {
-  const { data } = await admin.auth.admin.getUserById(userId);
-  return data?.user?.email ?? null;
 }
 
 async function applySubscriptionToUser(subscription: Stripe.Subscription) {
@@ -399,7 +395,10 @@ async function handleTrialingSubscription(
   userId: string,
   tier: string,
 ): Promise<boolean> {
-  const email = await emailForUser(userId);
+  // Address only: this path's email is the duplicate-card refusal, which is
+  // the one send that does not open by name. Telling somebody their trial was
+  // refused is not the moment to be familiar.
+  const { email } = await recipientFor(admin, userId);
   const trialEndsAt = subscription.trial_end
     ? new Date(subscription.trial_end * 1000).toISOString()
     : null;
@@ -487,7 +486,7 @@ async function openGraceWindow(subscription: Stripe.Subscription) {
 
   const { data: settings } = await admin
     .from('user_settings')
-    .select('grace_until, subscription_tier, subscription_amount_cents')
+    .select('grace_until, subscription_tier, subscription_amount_cents, bill_name')
     .eq('user_id', userId)
     .maybeSingle();
 
@@ -502,16 +501,20 @@ async function openGraceWindow(subscription: Stripe.Subscription) {
     .update({ grace_until: graceUntil, grace_reminder_sent_at: null, lapse_notice_sent_at: null })
     .eq('user_id', userId);
 
-  const email = await emailForUser(userId);
-  if (email) {
+  // First of the three dunning notices, and the only one sent from here. The
+  // cardholder name comes off the row read above, so greeting them costs
+  // nothing (src/lib/member-greeting.ts).
+  const to = await recipientFor(admin, userId, settings?.bill_name);
+  if (to.email) {
     const { subject, html } = paymentFailedEmail({
       graceUntil,
       amountLabel: amountLabelForStored(
         settings?.subscription_amount_cents,
         settings?.subscription_tier ?? 'pro_annual',
       ),
+      firstName: to.firstName,
     });
-    await sendEmail({ to: email, subject, html });
+    await sendEmail({ to: to.email, subject, html });
   }
 }
 

@@ -12,9 +12,15 @@
 
 import assert from 'node:assert/strict';
 import { welcomeEmail } from './email-templates/welcome';
-import { trialEndingEmail, proLapsedEmail } from './email-templates/billing';
+import {
+  graceEndingEmail,
+  paymentFailedEmail,
+  proLapsedEmail,
+  trialEndingEmail,
+} from './email-templates/billing';
 
 const TRIAL_END = '2026-09-17T15:04:00.000Z';
+const GRACE_UNTIL = '2026-09-17T15:04:00.000Z';
 
 /** Every send that carries a greeting, as a name-in / html-out function. */
 const EMAILS: Array<[string, (firstName?: string | null) => string]> = [
@@ -38,6 +44,17 @@ const EMAILS: Array<[string, (firstName?: string | null) => string]> = [
         firstName,
         setup: { savedSpots: 0, activeAlerts: 0 },
       }).html,
+  ],
+  // The dunning sequence, in the order one person receives it over nine days.
+  [
+    'decline notice',
+    (firstName) =>
+      paymentFailedEmail({ graceUntil: GRACE_UNTIL, amountLabel: '$33', firstName }).html,
+  ],
+  [
+    'grace ending',
+    (firstName) =>
+      graceEndingEmail({ graceUntil: GRACE_UNTIL, amountLabel: '$33', firstName }).html,
   ],
   [
     'lapse notice',
