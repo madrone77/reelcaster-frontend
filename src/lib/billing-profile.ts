@@ -22,6 +22,11 @@
  * dropped from the patch instead of blanking a column that a previous sync,
  * or the backfill, filled correctly.
  *
+ * The invoice figures are the deliberate exception: they are computed from a
+ * list that either read or did not, so inside that branch a null is a known
+ * "has never paid" and is written as one. Anything else would make a figure
+ * that turns out wrong uncorrectable by a re-sync.
+ *
  * SERVER-ONLY: service-role and Stripe keys.
  */
 
@@ -46,7 +51,7 @@ export interface BillingProfilePatch {
   bill_lifetime_cents?: number;
   bill_lifetime_currency?: string;
   bill_paid_invoices?: number;
-  bill_first_paid_at?: string;
+  bill_first_paid_at?: string | null;
   bill_balance_cents?: number;
   bill_cancel_reason?: string;
   bill_cancel_feedback?: string;
@@ -115,27 +120,41 @@ export function billingProfileFrom(
   }
 
   if (paidInvoices) {
+    // Money actually moved, which is not the same as an invoice marked paid.
+    // Stripe raises a ZERO invoice when a trial begins and that invoice
+    // succeeds -- the same trap the purchase conversion in the webhook guards
+    // against. Counting it made a member who has paid nothing read as "1
+    // invoice, first paid Sep 9", which is a false statement about a customer
+    // in the one column a lifetime-value report reads.
+    const charged = paidInvoices.filter((i) => (i.amount_paid ?? 0) > 0);
+
     // Summed from invoices, not inferred from the tier. A comped year bills
     // nothing and a split-test arm bills a different amount, so any figure
     // derived from `subscription_tier` would be fiction for both.
     let cents = 0;
     let firstPaidAt: number | null = null;
-    for (const invoice of paidInvoices) {
+    for (const invoice of charged) {
       cents += invoice.amount_paid ?? 0;
       const at = invoice.status_transitions?.paid_at ?? invoice.created ?? null;
       if (at != null && (firstPaidAt == null || at < firstPaidAt)) firstPaidAt = at;
     }
     patch.bill_lifetime_cents = cents;
-    patch.bill_paid_invoices = paidInvoices.length;
-    if (firstPaidAt != null) {
-      patch.bill_first_paid_at = new Date(firstPaidAt * 1000).toISOString();
-    }
+    patch.bill_paid_invoices = charged.length;
+    // Explicitly null when nothing was charged, rather than absent. Everything
+    // inside this branch is COMPUTED from a list that was readable, so a null
+    // here is a known answer -- "has never paid" -- and not the "could not
+    // read" that the rest of the mapper drops. Without the distinction, a value
+    // that becomes wrong could never be corrected by a re-sync: the first run
+    // of this counted Stripe's $0 trial invoices and stamped a first payment on
+    // 27 members who had paid nothing, and only an explicit null clears them.
+    patch.bill_first_paid_at =
+      firstPaidAt != null ? new Date(firstPaidAt * 1000).toISOString() : null;
     // Stripe locks a customer to the currency of their first invoice forever
     // (the express-checkout route depends on this too), so one currency per
     // customer is safe to state. The customer's own field is preferred over an
-    // invoice's because it is the lock itself.
-    const currency =
-      text(customer?.currency) ?? text(paidInvoices[0]?.currency);
+    // invoice's because it is the lock itself; a trial with no charged invoice
+    // still has one, which is what keeps the zero labelled in a currency.
+    const currency = text(customer?.currency) ?? text(charged[0]?.currency);
     assign(patch, 'bill_lifetime_currency', currency?.toLowerCase());
   }
 

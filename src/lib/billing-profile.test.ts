@@ -150,7 +150,45 @@ function invoice(
   );
   assert.equal(trial.bill_lifetime_cents, 0);
   assert.equal(trial.bill_paid_invoices, 0);
-  assert.ok(!('bill_first_paid_at' in trial), 'never paid has no first payment');
+  // Explicitly null, not absent: the list was readable, so "has never paid" is
+  // an answer, and only writing it can correct a row that a previous run got
+  // wrong.
+  assert.equal(trial.bill_first_paid_at, null);
+  // Still says which currency the zero is in: the customer is already locked
+  // to one, and a bare 0 with no currency cannot be formatted.
+  assert.equal(trial.bill_lifetime_currency, 'usd');
+}
+
+// Stripe raises a ZERO invoice when a trial begins, and it succeeds. Counting
+// it made a member who has paid nothing read as "1 invoice, first paid Sep 9"
+// on the admin page -- a false statement in the column a lifetime-value report
+// reads. Only a charge counts.
+{
+  const trialInvoice = billingProfileFrom(
+    input({ customer: customer(), paidInvoices: [invoice(0, 1_788_985_278)] }),
+    NOW,
+  );
+  assert.equal(trialInvoice.bill_lifetime_cents, 0);
+  assert.equal(trialInvoice.bill_paid_invoices, 0, 'a $0 trial invoice is not a payment');
+  assert.equal(trialInvoice.bill_first_paid_at, null, 'a $0 invoice is not a first payment');
+}
+
+// The week after: the trial's $0 invoice and the real charge both exist, and
+// the first payment is the CHARGE, not the trial's paperwork.
+{
+  const converted = billingProfileFrom(
+    input({
+      customer: customer(),
+      paidInvoices: [invoice(3999, 1_789_590_000), invoice(0, 1_788_985_278)],
+    }),
+    NOW,
+  );
+  assert.equal(converted.bill_lifetime_cents, 3999);
+  assert.equal(converted.bill_paid_invoices, 1);
+  assert.equal(
+    converted.bill_first_paid_at,
+    new Date(1_789_590_000 * 1000).toISOString(),
+  );
 }
 
 // A failed invoices call is NOT a zero. This is the case that would quietly
@@ -164,6 +202,8 @@ function invoice(
   assert.ok(!('bill_lifetime_cents' in unreadable));
   assert.ok(!('bill_paid_invoices' in unreadable));
   assert.ok(!('bill_lifetime_currency' in unreadable));
+  // Including the first payment: null here would erase a real date.
+  assert.ok(!('bill_first_paid_at' in unreadable));
 }
 
 // ── Credit balance ──
