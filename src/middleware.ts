@@ -20,18 +20,15 @@ import { classifyPage, classifySource } from '@/lib/traffic-source'
 import { pacificDay } from '@/lib/pacific-day'
 import { newFishingPath } from '@/lib/legacy-fishing-paths'
 import { isSpotPath } from '@/lib/paths'
-import { isMetaLpArrival, metaLpDestination } from '@/lib/meta-lp-hop'
+import { metaExploreHop } from '@/lib/meta-lp-hop'
 import {
-  CONTROL_ARM,
   LP_SPLIT_COOKIE,
   LP_SPLIT_COOKIE_MAX_AGE,
   TREATMENT_ARM,
-  metaSplit,
   parseLpSplitCookie,
   resolveLpArm,
   serializeLpSplitArms,
   splitForPath,
-  type LpArm,
 } from '@/lib/lp-splits'
 
 // Legacy coming-soon wall, now scoped to nothing.
@@ -323,37 +320,31 @@ export function middleware(req: NextRequest, event: NextFetchEvent) {
   let pendingLpArms: string | null = null
   const isPerson = !isBotUserAgent(req.headers.get('user-agent'))
 
-  // Meta traffic on a landing page: the city's /5 page, or the ad-framed map.
+  // Meta traffic on a landing page goes to the ad-framed map instead.
   //
   // The Meta ads keep pointing at /lp pages (re-pointing an ad restarts its
-  // learning); the edge decides what the click reads. Half are sent on to
-  // `/explore?loc=<city>&ad=day2`, the same href the landing pages' own CTA
-  // carries; the other half read the city's /5 landing page (a click on
-  // another variant of a pinned city is sent to that city's /5 first).
-  // Google traffic falls
-  // through and reads the page. Above the page split and above the
-  // page-view count for the same reason the page split is: the request that
-  // follows the 307 is the one counted and stamped, and a Meta visitor must
-  // not be dealt a page-split arm for a page they never see. Only a person
-  // arriving at a page is hopped; prefetches and RSC fetches pass through.
-  // A self-declaring crawler is dealt the control and no cookie, so Meta's
-  // link preview is the /5 landing page. See src/lib/meta-lp-hop.ts for the
-  // destinations and src/lib/lp-splits.ts for the share.
-  if (req.method === 'GET' && isPageView(req)) {
-    const arrival = {
+  // learning); the edge sends the click on to `/explore?loc=<city>&ad=day2`,
+  // the same href the landing pages' own CTA carries. Google and organic
+  // traffic fall through and read the page.
+  //
+  // This was a 50/50 split against the landing page from 6 to 10 Sep and is
+  // unconditional again now that the map has won it; see
+  // src/lib/meta-lp-hop.ts for the numbers. No arm is dealt and no cookie is
+  // written for it any more.
+  //
+  // Above the page split and above the page-view count for the same reason
+  // the page split is: the request that follows the 307 is the one counted
+  // and stamped, and a Meta visitor must not be dealt a page-split arm for a
+  // page they never see. Only a person arriving at a page is hopped;
+  // prefetches and RSC fetches pass through. A self-declaring crawler is
+  // never hopped, so Meta's own link preview still renders the landing page
+  // and not the map.
+  if (req.method === 'GET' && isPageView(req) && isPerson) {
+    const hop = metaExploreHop({
       pathname,
       search: req.nextUrl.search,
       referrer: req.headers.get('referer') ?? '',
-    }
-    const meta = metaSplit()
-    let arm: LpArm = CONTROL_ARM
-    if (meta && isPerson && isMetaLpArrival(arrival)) {
-      const resolved = resolveLpArm(meta, lpArms, Math.random())
-      lpArms = resolved.arms
-      if (resolved.changed) pendingLpArms = serializeLpSplitArms(resolved.arms)
-      arm = resolved.arm
-    }
-    const hop = meta ? metaLpDestination({ ...arrival, arm }) : null
+    })
     if (hop) {
       const url = req.nextUrl.clone()
       const [hopPath, hopQuery = ''] = hop.split('?')
