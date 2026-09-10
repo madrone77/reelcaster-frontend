@@ -53,45 +53,31 @@ export interface LpPageSplit {
   share: number;
 }
 
-/**
- * The landing page against the map, for Meta clicks only.
- *
- * Every Meta click on any /lp page is dealt an arm. The control reads the
- * city's /5 landing page (a click on /lp/vancouver/4 is sent on to
- * /lp/vancouver/5 first, so the control is one page per city); the treatment
- * skips the page and lands on `/explore?loc=<city>&ad=day2`, which is where
- * every Meta click went before this split. Google and organic traffic are
- * never dealt an arm and read whatever page the link named. See
- * src/lib/meta-lp-hop.ts for the destinations.
- */
-export interface LpMetaSplit {
-  kind: 'meta';
-  key: string;
-  /** Fraction of NEW Meta visitors sent straight to the map, 0 to 1. */
-  share: number;
-}
-
-export type LpSplit = LpPageSplit | LpMetaSplit;
+export type LpSplit = LpPageSplit;
 
 /**
  * Every running split.
  *
  * Remove a row to stop its test. Visitors already in the treatment arm are
  * served the control from then on, because nothing matches their path any
- * more, and their stale cookie entry is dropped on the next visit. Removing
- * the Meta row puts every Meta click back on the landing page; to go back
- * to sending them all to the map instead, set its share to 1.
+ * more, and their stale cookie entry is dropped on the next visit.
  */
 export const LP_SPLITS: readonly LpSplit[] = [
+  // Nothing running.
+  //
   // vancouver_4_5 (3 to 7 Sep: /lp/vancouver/4 against /lp/vancouver/5)
   // concluded for /5. Every /4 visitor now goes to /5 by a redirect in
   // next.config.ts, which needs no cookie because there is no arm to hold
-  // anyone in. Stale vancouver_4_5 cookie keys are dropped on the next visit.
-  {
-    kind: 'meta',
-    key: 'meta_lp5_explore',
-    share: 0.5,
-  },
+  // anyone in.
+  //
+  // meta_lp5_explore (6 to 10 Sep: the city's /5 page against the ad-framed
+  // map) concluded for the map. On 4,679 evenly dealt Meta hits the map put
+  // 6.0% of them in front of a wall against the page's 2.5%; trials were 2
+  // against 1, which at that size is a coin toss and did not decide it. So
+  // the Meta hop is no longer a split at all: it is unconditional, back to
+  // what FE #589 did before the test, and the arm-dealing that used to sit
+  // in middleware is gone with it. Stale cookie keys for both are dropped on
+  // the next visit.
 ];
 
 export const CONTROL_ARM = 'a';
@@ -118,11 +104,6 @@ export function splitForPath(
 ): LpPageSplit | null {
   const path = pathname.replace(/\/+$/, '') || '/';
   return splits.find((s): s is LpPageSplit => isPageSplit(s) && s.control === path) ?? null;
-}
-
-/** The running Meta split, or null when there is none. */
-export function metaSplit(splits: readonly LpSplit[] = LP_SPLITS): LpMetaSplit | null {
-  return splits.find((s): s is LpMetaSplit => s.kind === 'meta') ?? null;
 }
 
 /**

@@ -4,7 +4,6 @@ import {
   LP_SPLITS,
   TREATMENT_ARM,
   isPageSplit,
-  metaSplit,
   parseLpSplitCookie,
   resolveLpArm,
   serializeLpSplitArms,
@@ -98,22 +97,6 @@ test("the cookie round-trips and refuses what it did not write", () => {
   assert.deepEqual(parseLpSplitCookie("vancouver_4_5:z|Bad-Key:a|noarm"), {});
 });
 
-test("the Meta split is found by kind and never by path", () => {
-  const META: LpSplit = { kind: "meta", key: "meta_lp5_explore", share: 0.5 };
-  const both = [SPLIT, META];
-  assert.equal(metaSplit(both), META);
-  assert.equal(metaSplit(ONLY), null);
-  assert.equal(splitForPath("/lp/vancouver/4", both), SPLIT);
-  assert.equal(splitForPath("/lp/seattle/5", both), null);
-  assert.equal(isPageSplit(META), false);
-  assert.equal(isPageSplit(SPLIT), true);
-  // A Meta arm assigned first survives the page split's own resolution.
-  const meta = resolveLpArm(META, {}, 0.1, both);
-  assert.deepEqual(meta.arms, { meta_lp5_explore: "b" });
-  const page = resolveLpArm(SPLIT, meta.arms, 0.9, both);
-  assert.deepEqual(page.arms, { meta_lp5_explore: "b", vancouver_4_5: "a" });
-});
-
 test("the live table is well formed", () => {
   const keys = LP_SPLITS.map((s) => s.key);
   assert.equal(new Set(keys).size, keys.length, "keys are unique");
@@ -128,8 +111,17 @@ test("the live table is well formed", () => {
     // bounced twice.
     assert.equal(splitForPath(s.treatment), null);
   }
-  // At most one Meta split: every Meta click is dealt exactly one arm.
-  assert.ok(LP_SPLITS.filter((s) => s.kind === "meta").length <= 1);
+});
+
+test("a stale arm from a concluded split is dropped, not honoured", () => {
+  // meta_lp5_explore ran until 10 Sep and its cookie lives for thirty days,
+  // so browsers are still sending the key back. The Meta hop no longer
+  // consults an arm at all, and resolveLpArm must not carry an unknown key
+  // forward: a returning arm-a visitor gets the map like everybody else.
+  const stale = { meta_lp5_explore: "a" as const, vancouver_4_5: "b" as const };
+  const resolved = resolveLpArm(SPLIT, stale, 0.9, ONLY);
+  assert.deepEqual(resolved.arms, { vancouver_4_5: "b" });
+  assert.equal(resolved.changed, true, "the tidied cookie is written back");
 });
 
 let failed = 0;
