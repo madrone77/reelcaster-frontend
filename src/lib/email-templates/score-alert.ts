@@ -25,6 +25,9 @@
  */
 
 import type { AlertBeat } from '@/lib/custom-alert-engine';
+// The identical private copy this file used to carry moved to ./shell when the
+// welcome email needed the same guarantee for member names.
+import { escapeHtml } from './shell';
 
 /** One line of the digest: a fishing day at a spot. */
 export interface ScoreAlertItem {
@@ -114,14 +117,6 @@ function dayLabel(item: ScoreAlertItem): string {
   if (item.leadDays === 0) return 'Today';
   if (item.leadDays === 1) return `Tomorrow, ${formatDay(item.targetDate)}`;
   return formatDay(item.targetDate);
-}
-
-function escapeHtml(value: string): string {
-  return value
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;');
 }
 
 /** "A, B and C" without the serial comma, which reads oddly in a subject. */

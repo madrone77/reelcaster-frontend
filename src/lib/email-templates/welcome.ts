@@ -27,7 +27,7 @@
 import { siteUrl } from '@/lib/site';
 import { STEPS, type WelcomeStep } from '@/app/welcome/content';
 import { TRIAL_DAYS } from '@/lib/pricing';
-import { BRAND, INK, INK_MUTE, INK_SOFT, RULE, attrUrl, button, formatDate, shell } from './shell';
+import { BRAND, INK, INK_MUTE, INK_SOFT, RULE, attrUrl, button, formatDate, greeting, shell } from './shell';
 
 export type WelcomeVariant = 'trial' | 'free';
 
@@ -37,6 +37,11 @@ export interface WelcomeEmailParams {
   trialEndsAt?: string | null;
   /** What the card will actually be charged, e.g. "$33". Trial variant only. */
   amountLabel?: string | null;
+  /**
+   * Who to greet, already reduced to a first name. Null and the greeting line
+   * is left out entirely.
+   */
+  firstName?: string | null;
 }
 
 /**
@@ -197,6 +202,7 @@ export function welcomeEmail(params: WelcomeEmailParams): {
 
   const body = [
     `<tr><td style="padding:0 0 8px;">
+      ${greeting(params.firstName)}
       <h1 style="margin:0 0 14px;font-size:22px;line-height:30px;color:${INK};">${heading}</h1>
       <p style="margin:0 0 18px;font-size:15px;line-height:24px;color:${INK_SOFT};">${overview}</p>
       <p style="margin:0 0 22px;">${button(siteUrl('/welcome'), 'Start here')}</p>

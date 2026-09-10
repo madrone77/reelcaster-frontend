@@ -69,6 +69,49 @@ export function shell(bodyHtml: string, options: ShellOptions): string {
  * arrives as `?s=guides` with the guide id eaten lands the reader on the index
  * instead of the guide. Cheap to be correct.
  */
+/**
+ * Text from a person, on its way into an email body.
+ *
+ * Every string in these templates was ours until member names arrived: step
+ * titles, plan labels, dates we formatted. A cardholder name is typed at Stripe
+ * checkout and a first name is typed into our signup form, so both are open
+ * text from outside, and both now land in the welcome email's greeting.
+ *
+ * Mail clients strip scripts, so the risk is not execution; it is a name
+ * containing a quote or an angle bracket closing the surrounding tag and
+ * spilling raw markup into the greeting, which every reader of that send would
+ * see.
+ */
+export function escapeHtml(value: string): string {
+  return value
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
+
+/**
+ * "Hi Nick," and nothing at all when there is no name.
+ *
+ * Deliberately not "Hi there," or "Hi Angler,". A generic greeting is a form
+ * letter announcing itself, and every one of these emails opens perfectly well
+ * on its own heading. 13 of 83 accounts have given us no name by any route, and
+ * those readers should get the version without the seam rather than the version
+ * with a hole in it.
+ *
+ * Lives here rather than in one template because four of them want it and the
+ * escaping rule has to be the same in all four: this is the only text in any of
+ * these emails that somebody outside the company typed. See src/lib/display-name.ts
+ * for how a name is chosen and which ones are refused.
+ */
+export function greeting(firstName?: string | null): string {
+  const name = firstName?.trim();
+  if (!name) return '';
+  return `<p style="margin:0 0 12px;font-size:15px;line-height:24px;color:${INK_SOFT};">Hi ${escapeHtml(
+    name,
+  )},</p>`;
+}
+
 export function attrUrl(href: string): string {
   return href.replace(/&/g, '&amp;');
 }
