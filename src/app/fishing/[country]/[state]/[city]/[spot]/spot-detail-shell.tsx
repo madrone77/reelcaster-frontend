@@ -8,6 +8,7 @@ import { useAuth } from "@/contexts/auth-context";
 import ReferralNag from "@/app/components/referral/referral-nag";
 import { useSubscription } from "@/hooks/use-subscription";
 import { noteEngagement } from "@/lib/upgrade-nag";
+import { noteSpotView } from "@/lib/spot-views";
 import { setPaywallContext } from "@/lib/paywall-context";
 import { trackEvent } from "@/lib/analytics";
 import AdSlot from "@/app/components/ads/ad-slot";
@@ -413,6 +414,9 @@ export default function SpotDetailShell({
   // Once per slug per mount. The species and tier are read at that moment on
   // purpose: a later species pick is its own event, not a second page view.
   useEffect(() => {
+    // A read of this spot, for the Log in / Sign up card that appears after
+    // three of them. The sheet and both page routes all pass through here.
+    noteSpotView(slug);
     trackEvent("Spot Viewed", {
       slug,
       species: selId,

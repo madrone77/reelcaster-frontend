@@ -296,7 +296,8 @@ export type NagFeatureId =
   | "support-the-map"
   | "support"
   | "whole-map"
-  | "depth-gate";
+  | "depth-gate"
+  | "free-account";
 
 /**
  * ⚠ Mostly vestigial: `rowId` is the only field anything still reads.
@@ -433,6 +434,15 @@ export const NAG_FEATURES: Record<NagFeatureId, NagFeature> = {
   // pitch it never makes. See explore/components/depth-gate-prompt.tsx.
   "depth-gate": {
     action: "keep the depth on the map",
+    unlocksAt: "free",
+    pricingFeature: "whole-map",
+  },
+  // The Log in / Sign up for free card that appears after three spot reads
+  // (app/components/free-account-cta.tsx). Not a wall: nothing is locked. It
+  // is here so the report counts it beside the asks that are, under the tier
+  // it actually sells.
+  "free-account": {
+    action: "browse freely",
     unlocksAt: "free",
     pricingFeature: "whole-map",
   },

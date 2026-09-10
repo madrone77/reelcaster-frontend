@@ -544,6 +544,32 @@ ins.adsbygoogle[data-ad-status='unfilled'] {
 body:has([data-ad-frame]) [data-mobile-nav] {
   display: none;
 }
+/* The ad frame is one offer; the Log in / Sign up card would be a second.
+   Same mechanism as the tab bar above. */
+body:has([data-ad-frame]) [data-free-account-cta] {
+  display: none;
+}
+
+/* On the map the card sits under the search row, not over the spot list. Once
+   the phone's spot sheet is open (it unmounts when closed) the sheet's own
+   header is at the top, so the card goes back to the bottom shelf. Desktop
+   Explore keeps it above the forecast strip and left of the zoom control. */
+[data-free-account-cta="map"] {
+  top: 8rem;
+  bottom: auto;
+}
+body:has([data-testid="mobile-spot-sheet"]) [data-free-account-cta="map"] {
+  top: auto;
+  bottom: calc(5.75rem + env(safe-area-inset-bottom, 0px));
+}
+@media (min-width: 1024px) {
+  [data-free-account-cta="map"] {
+    top: auto;
+    bottom: calc(148px + 1.5rem);
+    right: 3.5rem;
+  }
+}
+
 
 /*
  * The ad frame's bar, as one number.
