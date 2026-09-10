@@ -25,8 +25,24 @@ import type { TrialConversion } from './use-trial-conversion'
  * magic link first, and that remains survivable precisely because this is the
  * second reporting leg: the webhook has already queued the same conversion
  * server-side.
+ *
+ * AND IT TELLS THE SERVER IT FIRED. The pixel's Conversions API Gateway
+ * relays this event to Meta as a server copy, so the uploader must not send a
+ * third. It used to skip trial_start unconditionally for that reason, which
+ * meant a trial whose browser copy never fired — ad blocker, in-app webview,
+ * a tab closed on Stripe's receipt — reached Meta not once. The POST below is
+ * how the uploader tells those apart. Fire-and-forget, `keepalive` so it
+ * survives the bounce to /explore two seconds from now, and silent on
+ * failure: a missed report costs a duplicate at worst, and a customer who has
+ * just paid must never see a reporting error.
  */
-export default function MetaStartTrial({ conversion }: { conversion: TrialConversion }) {
+export default function MetaStartTrial({
+  conversion,
+  sessionId,
+}: {
+  conversion: TrialConversion
+  sessionId: string | null
+}) {
   const { event, eventId, emailHash, firstNameHash, lastNameHash } = conversion
   // Usually null here: a signed-out buyer's account is made by the webhook
   // and they are bounced through a magic link later. Sent when it is known.
@@ -53,7 +69,19 @@ export default function MetaStartTrial({ conversion }: { conversion: TrialConver
     // event's match quality off the floor (src/lib/meta-match.ts).
     metaIdentify({ emailHash, firstNameHash, lastNameHash, externalId })
     metaTrack('StartTrial', { eventId })
-  }, [event, eventId, emailHash, firstNameHash, lastNameHash, externalId])
+
+    if (!sessionId) return
+    try {
+      void fetch('/api/stripe/conversion-event', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ session_id: sessionId }),
+        keepalive: true,
+      }).catch(() => {})
+    } catch {
+      // Storage-blocked and privacy-hardened browsers throw from odd places.
+    }
+  }, [event, eventId, emailHash, firstNameHash, lastNameHash, externalId, sessionId])
 
   return null
 }

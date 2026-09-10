@@ -33,16 +33,30 @@ async function stripeClient() {
   return getStripe();
 }
 
-/** The `user_data` object the Conversions API takes, minus the click id. */
+/**
+ * The `user_data` object the Conversions API takes.
+ *
+ * Every field here is one more way Meta can tie the event to a person. The
+ * two unhashed ones are unhashed on Meta's instruction: `client_ip_address`
+ * and `client_user_agent` are sent raw, and are weighted heavily on a server
+ * event precisely because they are the two things a browser would have
+ * supplied for free.
+ */
 export interface MetaIdentity extends MetaUserDataHashes {
   external_id?: string;
   fbp?: string;
+  fbc?: string;
+  client_ip_address?: string;
+  client_user_agent?: string;
 }
 
 interface RowLike {
   user_id: string | null;
   stripe_subscription_id: string | null;
   fbp?: string | null;
+  fbc?: string | null;
+  client_ip?: string | null;
+  client_user_agent?: string | null;
 }
 
 /** The identity to send with a queued conversion row. */
@@ -59,6 +73,9 @@ export async function resolveMetaIdentity(admin: SupabaseClient, row: RowLike): 
   const out: MetaIdentity = { ...hashes };
   if (row.user_id) out.external_id = row.user_id;
   if (row.fbp) out.fbp = row.fbp;
+  if (row.fbc) out.fbc = row.fbc;
+  if (row.client_ip) out.client_ip_address = row.client_ip;
+  if (row.client_user_agent) out.client_user_agent = row.client_user_agent;
   return out;
 }
 

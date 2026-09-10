@@ -25,6 +25,7 @@ import {
   checkTrialEligibilityByEmail,
 } from '@/lib/trial';
 import { EXPRESS_MARKER } from '@/lib/express-checkout';
+import { acquisitionMetadata, forwardedAcquisition } from '@/lib/acquisition-metadata';
 import { PAY_METHOD_KEY, paymentMethodKey } from '@/lib/payment-method';
 
 export const runtime = 'nodejs';
@@ -312,6 +313,12 @@ async function setupStep(
       automatic_payment_methods: { enabled: true },
       metadata: {
         [EXPRESS_MARKER]: '1',
+        // Which ad bought this tap. Step 2 runs as a separate request with no
+        // cookies worth reading, and the subscription it creates is what the
+        // webhook reports on, so the only chance to capture this is here.
+        // Absent until 2026-09-10, which made every wallet sale invisible to
+        // both ad networks.
+        ...acquisitionMetadata(request.headers),
         ...(userId ? { supabase_user_id: userId } : { anon_checkout: 'true' }),
         checkout_email: email,
         currency,
@@ -441,8 +448,10 @@ async function subscribeStep(body: ExpressBody) {
           ...(payMethod ? { [PAY_METHOD_KEY]: payMethod } : {}),
           // Forwarded from the SetupIntent, because the webhook resolves the
           // arm from the SUBSCRIPTION and would otherwise see an express sale
-          // as belonging to no test at all.
+          // as belonging to no test at all. The acquisition keys ride along
+          // for exactly the same reason.
           ...splitMetadata(armsFromMetadata(meta)),
+          ...forwardedAcquisition(meta),
         },
         ...(trialEligible
           ? {

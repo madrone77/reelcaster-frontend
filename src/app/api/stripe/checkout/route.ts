@@ -24,113 +24,18 @@ import {
   checkTrialEligibilityByEmail,
 } from '@/lib/trial';
 import { resolveEntitlement } from '@/lib/entitlement';
-import { readEntry, readFbp, readPaid, readWall, type CampaignParams } from '@/lib/attribution';
+import { readWall } from '@/lib/attribution';
 import { metaIdentityForUser } from '@/lib/meta-identity';
 import { paywallEventRow } from '@/lib/paywall-event';
-import { classifyUserAgent } from '@/lib/device';
-import { readEdgeGeo } from '@/lib/edge-geo';
-
-/** Stripe caps metadata values at 500 chars. Stay well inside it. */
-const META_MAX = 400;
-
-function meta(value: string | null | undefined): string {
-  return (value || '').slice(0, META_MAX);
-}
+import { acquisitionMetadata } from '@/lib/acquisition-metadata';
 
 /**
- * Which wall sent this buyer to checkout, and which ad (if any) bought them,
- * read off cookies rather than threaded down through <ProTrialModal> →
- * <TrialCtaProvider> → <TrialBuy> as props. The cookies are already on the
- * request, and the redirect out to Stripe's hosted page is precisely what a
- * prop would not survive.
+ * Which wall sent this buyer to checkout, and which ad (if any) bought them.
  *
- * Everything goes into `subscription_data.metadata`, not just the session's.
- * The webhook resolves from `subscription.metadata`, so anything left only on
- * the session is invisible to it — which is why the `from` that has been set
- * on sessions all along never reached the database.
- *
- * For the pay-first anon flow this metadata is not merely convenient, it is
- * the ONLY carrier: no account exists yet, so there is no user_settings row
- * holding attribution for the webhook to read. Lose it here and an ad that
- * bought a paying customer is unattributable forever.
- *
- * `acq_*` describes the touch we will report back to the ad network. The paid
- * touch wins when there is one, because that is the click the network sold us
- * and the only one it can match a conversion against; first touch is the
- * fallback so organic campaign tags still land somewhere. `acq_model` records
- * which of the two it was, so nothing downstream has to guess.
+ * Moved to src/lib/acquisition-metadata.ts on 2026-09-10 so the wallet path
+ * can stamp the same thing. `attributionMetadata(request)` is now
+ * `acquisitionMetadata(request.headers)`.
  */
-function attributionMetadata(request: NextRequest): Record<string, string> {
-  const cookieHeader = request.headers.get('cookie') ?? '';
-  const wall = readWall(cookieHeader);
-  const paid = readPaid(cookieHeader);
-  const entry = readEntry(cookieHeader);
-
-  const out: Record<string, string> = {};
-
-  if (wall) {
-    out.attr_feature = meta(wall.feature);
-    out.attr_from = meta(wall.from);
-  }
-
-  // Meta's browser id, for the day-7 purchase upload (src/lib/attribution.ts).
-  const fbp = readFbp(cookieHeader);
-  if (fbp) out.acq_fbp = meta(fbp);
-
-  const touch: CampaignParams | null = paid ?? entry;
-  if (touch) {
-    out.acq_model = paid ? 'paid' : 'first';
-    // Click id is NOT clamped by the normaliser upstream and must not be
-    // altered here either: it is an opaque network token and a truncated one
-    // matches nothing at upload time. 400 chars is far beyond any real id.
-    if (touch.click_id) out.acq_click_id = meta(touch.click_id);
-    if (touch.click_type) out.acq_click_type = touch.click_type;
-    if (touch.utm_source) out.acq_source = meta(touch.utm_source);
-    if (touch.utm_medium) out.acq_medium = meta(touch.utm_medium);
-    if (touch.utm_campaign) out.acq_campaign = meta(touch.utm_campaign);
-    if (touch.utm_content) out.acq_content = meta(touch.utm_content);
-    if (touch.utm_term) out.acq_term = meta(touch.utm_term);
-    if (paid?.landing_path) out.acq_landing = meta(paid.landing_path);
-    // When the CLICK happened, not when checkout did. Meta builds fbc as
-    // fb.1.<click_time_ms>.<fbclid> and match quality drops if this is
-    // guessed at; Google likewise reports against click time.
-    if (paid?.ts) out.acq_click_at = meta(paid.ts);
-    // The long tail as one value rather than eleven keys: Stripe allows 50 and
-    // they are read as a unit, never filtered on.
-    const params = touch.params ?? {};
-    if (Object.keys(params).length > 0) {
-      out.acq_params = meta(JSON.stringify(params));
-    }
-  }
-
-  // Entry path is worth keeping even when the paid touch won, because it says
-  // which landing page variant started the relationship.
-  if (entry?.entry_path) out.acq_entry_path = meta(entry.entry_path);
-
-  // Device and coarse location of THIS request, so the campaign report can
-  // carry its device and location split all the way through to the sale
-  // instead of stopping at the click. Read from headers rather than a cookie:
-  // these describe the machine the purchase is being made on, which is the
-  // only device Stripe will ever be able to tell us about.
-  //
-  // Honest about what it is not. This is the checkout device, not the ad-click
-  // device. Someone who taps an ad on a phone and buys on a laptop is recorded
-  // as a laptop here, and correctly as a phone in campaign_events_daily. The
-  // two columns answer different questions and the report labels them as such.
-  //
-  // No IP is stored: the edge resolves the address to a place before this code
-  // runs, and only the place is kept.
-  const ua = classifyUserAgent(request.headers.get('user-agent'));
-  if (ua.device !== 'unknown') out.acq_device = ua.device;
-  if (ua.os !== 'unknown') out.acq_os = ua.os;
-
-  const geo = readEdgeGeo(request.headers);
-  if (geo.country) out.acq_country = meta(geo.country);
-  if (geo.region) out.acq_region = meta(geo.region);
-  if (geo.city) out.acq_city = meta(geo.city);
-
-  return out;
-}
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -312,7 +217,7 @@ async function anonCheckout(request: NextRequest) {
           plan: 'annual',
           currency,
           trial: String(trialEligible),
-          ...attributionMetadata(request),
+          ...acquisitionMetadata(request.headers),
           // The arms, on the SUBSCRIPTION rather than the session. The webhook
           // resolves from the subscription, and for a pay-first buyer there is
           // no account row to read attribution off, so this is the only thing
@@ -596,7 +501,7 @@ export async function POST(request: NextRequest) {
           plan: 'annual',
           currency,
           trial: String(trialEligible),
-          ...attributionMetadata(request),
+          ...acquisitionMetadata(request.headers),
           // See the note on the anonymous path: the arms ride on the
           // subscription because that is what the webhook reads.
           ...splitMetadata(priced.arms),

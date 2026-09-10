@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { createClient } from '@supabase/supabase-js';
 import { getStripe } from '@/lib/stripe';
 import { EXPRESS_MARKER, isExpressSetupIntentId } from '@/lib/express-checkout';
 import { metaUserDataHashes } from '@/lib/meta-match';
@@ -12,6 +13,12 @@ export const dynamic = 'force-dynamic';
  * should stop answering questions shortly after the purchase it describes.
  */
 const WINDOW_MS = 30 * 60 * 1000;
+
+/** How hard the browser report chases the webhook. See the POST handler. */
+const WRITE_ATTEMPTS = 5;
+const WRITE_RETRY_MS = 1200;
+
+const sleep = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
 
 interface Resolved {
   customerId: string;
@@ -195,4 +202,110 @@ async function customerFromSetupIntent(
   if (!customerId) return { error: 'no_customer', status: 409 };
 
   return { customerId, createdMs: (intent.created ?? 0) * 1000 };
+}
+
+/**
+ * The browser saying it fired its own copy of StartTrial.
+ *
+ * WHY THIS EXISTS. The pixel has a Conversions API Gateway behind it, so one
+ * browser event already reaches Meta twice — once from fbevents.js and once
+ * relayed as a server event. A third copy from our own uploader is what
+ * Ads Manager flagged as "Event not deduplicated" on 2026-09-03, and the fix
+ * at the time was to stop uploading trial_start at all. That traded one
+ * problem for a worse one: a trial whose browser copy never fired, because an
+ * ad blocker ate the script or the buyer shut the tab on Stripe's receipt,
+ * reached Meta zero times. Now the uploader is the backstop for exactly those,
+ * and this route is how it knows which ones they are.
+ *
+ * Trusted the same amount as the GET above, which is to say the session id has
+ * to resolve to a real, recent, trialing subscription on our own Stripe
+ * account. The worst a forger can do with a valid id is suppress the server
+ * copy of a conversion Meta was told about by the browser anyway.
+ *
+ * RACING THE WEBHOOK. The row this stamps is written by the Stripe webhook,
+ * which fires on the same payment this page is celebrating. The page needs two
+ * Stripe round trips before it can fire a pixel, so the webhook normally wins
+ * — but "normally" is not "always", and a miss puts the third copy back. So
+ * the write is retried for a few seconds rather than asked once. It is
+ * retried HERE and not by the caller: the success page bounces to /explore
+ * about two seconds in, and a retry scheduled in that browser would never
+ * run. The request itself survives the navigation because the caller sends it
+ * with `keepalive`. The 20-minute grace window in conversion-upload.ts is the
+ * backstop for the backstop.
+ */
+export async function POST(request: NextRequest) {
+  const noStore = (body: Record<string, unknown>, status = 200) =>
+    NextResponse.json(body, { status, headers: { 'Cache-Control': 'no-store' } });
+
+  let sessionId = '';
+  try {
+    const body = (await request.json()) as { session_id?: unknown };
+    sessionId = typeof body.session_id === 'string' ? body.session_id.trim() : '';
+  } catch {
+    return noStore({ error: 'invalid_body' }, 400);
+  }
+
+  const express = isExpressSetupIntentId(sessionId);
+  if (!sessionId || (!express && !sessionId.startsWith('cs_'))) {
+    return noStore({ error: 'invalid_session' }, 400);
+  }
+
+  const resolved = express
+    ? await customerFromSetupIntent(sessionId)
+    : await customerFromCheckoutSession(sessionId);
+  if ('error' in resolved) return noStore({ error: resolved.error }, resolved.status);
+
+  if (!resolved.createdMs || Date.now() - resolved.createdMs > WINDOW_MS) {
+    return noStore({ error: 'session_expired' }, 410);
+  }
+
+  const stripe = await stripeOrNull();
+  if (!stripe) return noStore({ error: 'stripe_unavailable' }, 503);
+
+  let subscriptions;
+  try {
+    subscriptions = await stripe.subscriptions.list({
+      customer: resolved.customerId,
+      status: 'trialing',
+      limit: 1,
+    });
+  } catch {
+    return noStore({ error: 'stripe_unavailable' }, 502);
+  }
+
+  const subscription = subscriptions.data[0];
+  if (!subscription) return noStore({ recorded: false, reason: 'no_trial' });
+
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!url || !key) return noStore({ recorded: false, reason: 'unconfigured' });
+
+  const admin = createClient(url, key, {
+    auth: { autoRefreshToken: false, persistSession: false },
+  });
+
+  for (let attempt = 0; attempt < WRITE_ATTEMPTS; attempt++) {
+    if (attempt > 0) await sleep(WRITE_RETRY_MS);
+
+    // Only while the row is still pending. A conversion already sent, skipped
+    // or failed has had its decision made, and stamping it now would rewrite
+    // history for no benefit.
+    const { data, error } = await admin
+      .from('marketing_conversions')
+      .update({ browser_reported_at: new Date().toISOString() })
+      .eq('stripe_subscription_id', subscription.id)
+      .eq('event_type', 'trial_start')
+      .eq('upload_status', 'pending')
+      .is('browser_reported_at', null)
+      .select('id');
+
+    if (error) {
+      // Reporting, never the page. The grace window covers this.
+      console.warn('[conversion-event] browser report failed', error);
+      return noStore({ recorded: false, reason: 'write_failed' });
+    }
+    if ((data?.length ?? 0) > 0) return noStore({ recorded: true });
+  }
+
+  return noStore({ recorded: false, reason: 'no_row' });
 }

@@ -17,10 +17,13 @@
  * uploader must be "nothing was sent", never "the webhook 500s and Stripe
  * retries the subscription write".
  *
- * Deliberately NOT sent: email, hashed or otherwise. Meta's match rate would
- * improve with it, and the privacy policy says we do not send it, so we do not
- * send it. The click id is the only identifier that leaves here, and the
- * network issued that id itself.
+ * WHAT IDENTIFIES A PERSON HERE. Hashed email, phone and name, the account id,
+ * both Meta browser cookies, and the address and user agent of the checkout
+ * request. This changed on 2026-09-08 (#630/#631) and again on 2026-09-10; the
+ * header used to say an email never left this file, on the strength of a
+ * privacy policy that has since been updated to describe hashed advanced
+ * matching. Everything personal is SHA-256 before it goes, per Meta's own
+ * normalisation in src/lib/meta-match.ts.
  *
  * WHAT MOVES TO META FROM HERE, AND WHAT DOES NOT. The pixel on
  * 1209354965605238 is wired to a Meta Conversions API Gateway: every event the
@@ -30,8 +33,16 @@
  * is a third arrival of the same event. Meta pairs the browser event with one
  * server copy and leaves the other standing, which is the "Event not
  * deduplicated" flag Ads Manager raised on Initiate checkout on 2026-09-03.
- * `META_GATEWAY_OWNED_EVENTS` names the events the browser owns; this file
- * sends Meta only what no browser can, which is the day-7 `Purchase`.
+ *
+ * `paywall_view` is therefore never sent from here: the browser always fires
+ * it, because the browser is what opened the paywall. `trial_start` is the
+ * hard case and is decided per row. It USUALLY has a browser copy, fired on
+ * the checkout return page — but not when an ad blocker ate fbevents.js, not
+ * from an in-app webview, and not when the buyer closed the tab on Stripe's
+ * receipt. Those trials reached Meta zero times while this file skipped the
+ * event wholesale. So the browser now says when it has fired
+ * (`browser_reported_at`), and this file sends the server copy only for the
+ * ones where it has not. See `trialCopyIsOurs`.
  */
 
 import type { SupabaseClient } from '@supabase/supabase-js';
@@ -63,6 +74,17 @@ export interface ConversionRow {
   user_id: string | null;
   /** Meta's `_fbp` browser id off the checkout, when it carried one. */
   fbp?: string | null;
+  /** Meta's `_fbc` click cookie, as fbevents.js wrote it at the ad click. */
+  fbc?: string | null;
+  /** The checkout request's address and user agent, for Meta's matching. */
+  client_ip?: string | null;
+  client_user_agent?: string | null;
+  /**
+   * When the pixel confirmed it fired its own copy. Null means no browser
+   * copy is coming and the server upload is Meta's only chance to hear about
+   * this conversion.
+   */
+  browser_reported_at?: string | null;
   /**
    * Set only on `paywall_view`, the one event with neither a subscription nor
    * an account to key on. See src/lib/paywall-conversion.ts.
@@ -135,7 +157,13 @@ export function conversionValue(
 export type UploadOutcome =
   | { status: 'sent' }
   | { status: 'skipped'; reason: string }
-  | { status: 'failed'; error: string };
+  | { status: 'failed'; error: string }
+  /**
+   * Not now, but not resolved either: leave the row exactly as it is, do not
+   * spend one of its five attempts, and look again next drain. Distinct from
+   * `skipped`, which is a resting state a row never leaves.
+   */
+  | { status: 'deferred'; reason: string };
 
 // ── Google Ads ───────────────────────────────────────────────────────
 
@@ -243,37 +271,121 @@ function metaConfig() {
  * where the 1 is the subdomain-index and the timestamp is when the click
  * happened. Sending the raw id is accepted by the endpoint and then matches
  * nothing, which is the worst of both outcomes.
+ *
+ * The stored `_fbc` cookie wins when there is one. fbevents.js assembled it at
+ * the click, from the click, and it is the same string the browser events
+ * carry — so the server copy and the browser copy agree.
+ *
+ * Rebuilt only from a real click time. This used to fall back to
+ * `occurred_at`, which on a day-7 purchase produced an fbc asserting the click
+ * happened a week after it did: accepted by the endpoint, matched against
+ * nothing, and indistinguishable from working. No click time now means no
+ * fbc, and the event goes on the other identifiers instead.
  */
 export function metaFbc(row: ConversionRow): string | null {
-  if (!row.click_id) return null;
-  const clickMs = new Date(row.click_at ?? row.occurred_at).getTime();
+  if (row.fbc) return row.fbc;
+  if (!row.click_id || row.click_type !== 'fbclid' || !row.click_at) return null;
+  const clickMs = new Date(row.click_at).getTime();
+  if (!Number.isFinite(clickMs)) return null;
   return `fb.1.${clickMs}.${row.click_id}`;
 }
 
 /**
- * Events the browser reports to Meta itself, and which the pixel's Conversions
- * API Gateway then relays as the server copy. Sending them from here as well
- * makes three arrivals of one event, and Meta only dedupes two of them. See the
- * file header. Not here on purpose: `purchase`, which is charged on day 7 with
- * no browser left to fire anything, so this queue is its only route to Meta.
- * `signup` is the same shape as these two and is left as-is for now.
+ * Events the browser ALWAYS reports to Meta itself, and which the pixel's
+ * Conversions API Gateway then relays as the server copy. Sending them from
+ * here as well makes three arrivals of one event, and Meta only dedupes two of
+ * them. See the file header.
+ *
+ * "Always" is the whole membership test, and it is why only one event is left
+ * in here. A paywall open is fired BY the browser opening the paywall: there
+ * is no version of that event where no browser saw it. `trial_start` looked
+ * like the same shape and was in this set until 2026-09-10, but its browser
+ * copy fires on a page the buyer may never load, so the trials that most
+ * needed reporting were the exact ones being skipped. It is decided per row
+ * now: see `trialCopyIsOurs`.
+ *
+ * Never here: `purchase`, charged on day 7 with no browser left to fire
+ * anything, so this queue is its only route to Meta. `signup` fires from the
+ * browser but is queued only when it carries a click id, and it is not the
+ * event any campaign bids on; left as-is.
  */
 export const META_GATEWAY_OWNED_EVENTS: ReadonlySet<ConversionRow['event_type']> = new Set([
   'paywall_view',
-  'trial_start',
 ]);
+
+/** How long to wait for the pixel to say it fired before sending our own copy. */
+export const BROWSER_COPY_GRACE_MS = 20 * 60 * 1000;
+
+/**
+ * Whether the server copy of a `trial_start` is ours to send.
+ *
+ *   'browser'  the pixel reported. Its copy plus the gateway's relay is
+ *              already two arrivals; a third is the deduplication flag.
+ *   'wait'     too early to tell. The return page fires within seconds of the
+ *              redirect back from Stripe, so twenty minutes of silence is a
+ *              generous read of "no browser copy is coming".
+ *   'ours'     nobody reported. An ad blocker, an in-app webview, a tab shut
+ *              on Stripe's receipt, or a magic-link bounce into a different
+ *              browser. These are the trials Meta never heard about at all,
+ *              and they are the reason this branch exists.
+ *
+ * Every other event type is unaffected: a purchase has no browser to wait for
+ * and a paywall open never leaves this queue.
+ */
+export function trialCopyIsOurs(
+  row: Pick<ConversionRow, 'event_type' | 'occurred_at' | 'browser_reported_at'>,
+  nowMs: number = Date.now(),
+): 'browser' | 'wait' | 'ours' {
+  if (row.event_type !== 'trial_start') return 'ours';
+  if (row.browser_reported_at) return 'browser';
+  const occurredMs = new Date(row.occurred_at).getTime();
+  // An unparseable timestamp must not wedge a row in the queue forever.
+  if (!Number.isFinite(occurredMs)) return 'ours';
+  return nowMs - occurredMs < BROWSER_COPY_GRACE_MS ? 'wait' : 'ours';
+}
+
+/**
+ * Meta needs at least one thing to match a person on, and some things are not
+ * worth matching on.
+ *
+ * The address and the user agent are deliberately not enough by themselves.
+ * Meta accepts them, and a match made on a shared mobile IP and a common
+ * Android user agent is a coin toss that credits somebody else's ad. They
+ * sharpen a match; they do not make one.
+ */
+export function hasMetaIdentifier(userData: MetaIdentity & { fbc?: string }): boolean {
+  return Boolean(
+    userData.fbc || userData.fbp || userData.em || userData.ph || userData.external_id,
+  );
+}
 
 async function uploadToMeta(row: ConversionRow, identity?: MetaIdentity): Promise<UploadOutcome> {
   if (META_GATEWAY_OWNED_EVENTS.has(row.event_type)) {
     return { status: 'skipped', reason: `gateway_owned:${row.event_type}` };
   }
+  // Whose copy this is, decided before the credentials are looked at, so the
+  // reason names the real cause in every environment rather than reading as
+  // an unconfigured uploader.
+  const browserCopy = trialCopyIsOurs(row);
+  if (browserCopy === 'browser') {
+    return { status: 'skipped', reason: 'browser_reported' };
+  }
+  if (browserCopy === 'wait') {
+    return { status: 'deferred', reason: 'awaiting_browser_copy' };
+  }
+
   const cfg = metaConfig();
   if (!cfg) return { status: 'skipped', reason: 'meta_not_configured' };
-  if (row.click_type !== 'fbclid') {
-    return { status: 'skipped', reason: `not_a_meta_click:${row.click_type}` };
-  }
+
+  // The click id is one identifier among several now, not the price of entry.
+  // Requiring it dropped two thirds of the purchases in the thirty days to
+  // 2026-09-10 and biased everything Meta learned towards the browsers that
+  // keep query strings. See networkForStripeConversion in src/lib/conversions.ts.
   const fbc = metaFbc(row);
-  if (!fbc) return { status: 'skipped', reason: 'no_click_id' };
+  const userData: MetaIdentity = { ...(identity ?? {}), ...(fbc ? { fbc } : {}) };
+  if (!hasMetaIdentifier(userData)) {
+    return { status: 'skipped', reason: 'no_meta_identifier' };
+  }
 
   const eventId = conversionEventId(row);
   if (!eventId) return { status: 'skipped', reason: 'no_event_id' };
@@ -295,10 +407,10 @@ async function uploadToMeta(row: ConversionRow, identity?: MetaIdentity): Promis
         // CompleteRegistration with these same ids, and Meta dedupes the pair
         // on them rather than counting each conversion twice.
         event_id: eventId,
-        // The click id, plus everything the account holds by now, hashed
-        // Meta's way: this is a server-only event with no pixel to carry the
-        // browser's identifiers, so the match is only as good as this object.
-        user_data: { ...(identity ?? {}), fbc },
+        // Everything the account holds by now, hashed Meta's way: this is a
+        // server-only event with no pixel to carry the browser's identifiers,
+        // so the match is only as good as this object.
+        user_data: userData,
         ...(value ? { custom_data: value } : {}),
       },
     ],
@@ -359,11 +471,11 @@ export async function uploadConversion(
 export async function uploadPendingConversions(
   admin: SupabaseClient,
   limit = 25,
-): Promise<{ sent: number; skipped: number; failed: number }> {
+): Promise<{ sent: number; skipped: number; failed: number; deferred: number }> {
   const { data, error } = await admin
     .from('marketing_conversions')
     .select(
-      'id, event_type, occurred_at, click_at, value_cents, modeled_value_cents, currency, click_id, click_type, upload_network, upload_attempts, landing_path, stripe_subscription_id, user_id, dedupe_key, fbp',
+      'id, event_type, occurred_at, click_at, value_cents, modeled_value_cents, currency, click_id, click_type, upload_network, upload_attempts, landing_path, stripe_subscription_id, user_id, dedupe_key, fbp, fbc, client_ip, client_user_agent, browser_reported_at',
     )
     .eq('upload_status', 'pending')
     .lt('upload_attempts', MAX_ATTEMPTS)
@@ -372,22 +484,35 @@ export async function uploadPendingConversions(
 
   if (error || !data) {
     console.warn('[conversion-upload] queue read failed', error);
-    return { sent: 0, skipped: 0, failed: 0 };
+    return { sent: 0, skipped: 0, failed: 0, deferred: 0 };
   }
 
   let sent = 0;
   let skipped = 0;
   let failed = 0;
+  let deferred = 0;
 
   for (const row of data as ConversionRow[]) {
-    // Only the Meta leg wants an identity, and only the rows it will send
-    // (purchase, in practice) are worth a Stripe read for one. Best effort:
-    // a failed lookup uploads with the click id alone, as before.
-    const identity =
-      row.upload_network === 'meta' && !META_GATEWAY_OWNED_EVENTS.has(row.event_type)
-        ? await resolveMetaIdentity(admin, row)
-        : undefined;
+    // Only the Meta leg wants an identity, and only the rows it might send are
+    // worth two Stripe reads for one. A trial still inside its grace window is
+    // skipped here too: it will usually turn out to be the browser's, and
+    // resolving an identity for it every drain is a Stripe call per row per
+    // fifteen minutes for nothing. Best effort throughout — a failed lookup
+    // uploads on whatever identifiers the row itself carries.
+    const wantsIdentity =
+      row.upload_network === 'meta' &&
+      !META_GATEWAY_OWNED_EVENTS.has(row.event_type) &&
+      trialCopyIsOurs(row) === 'ours';
+    const identity = wantsIdentity ? await resolveMetaIdentity(admin, row) : undefined;
     const outcome = await uploadConversion(row, identity);
+
+    // A deferred row is untouched: no status, no attempt spent, no error
+    // recorded. It is not a failure and it must not age out of the queue.
+    if (outcome.status === 'deferred') {
+      deferred++;
+      continue;
+    }
+
     const attempts = (row.upload_attempts ?? 0) + 1;
 
     if (outcome.status === 'sent') {
@@ -433,5 +558,5 @@ export async function uploadPendingConversions(
       .eq('id', row.id);
   }
 
-  return { sent, skipped, failed };
+  return { sent, skipped, failed, deferred };
 }

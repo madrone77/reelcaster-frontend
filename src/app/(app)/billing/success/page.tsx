@@ -193,7 +193,7 @@ function BillingSuccessInner() {
       {/* All render null. They share one resolved answer (useTrialConversion)
           and fire independently off it, so one network's config or failure
           cannot take another's reporting down. */}
-      <MetaStartTrial conversion={conversion} />
+      <MetaStartTrial conversion={conversion} sessionId={sessionId} />
       <GoogleStartTrial conversion={conversion} />
       <PlausibleStartTrial conversion={conversion} />
       <p className="font-rc-mono text-[10px] uppercase tracking-[0.14em] text-rc-ink-mute">
