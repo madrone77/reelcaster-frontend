@@ -51,27 +51,28 @@ export function paymentMethodIdOf(
 }
 
 /**
- * The payment method a subscription bills against, as a key.
+ * The payment method a subscription bills against.
  *
  * Webhook payloads are never expanded, so `default_payment_method` arrives as
  * a bare id and has to be fetched. A subscription with none of its own bills
  * off the customer's default instead, which is the shape a hosted Checkout can
  * leave behind, so that is the second place to look.
  *
- * Best-effort throughout: every failure returns null and the caller leaves the
- * subscription unstamped, to be picked up by the next event that carries one.
- * A missing stamp is recoverable; a wrong one is forever.
+ * Best-effort throughout: every failure returns null and the caller does
+ * without, to be picked up by the next event that carries a method. For the
+ * stamp below that trade is the whole design -- a missing stamp is
+ * recoverable, a wrong one is forever.
  */
-export async function resolvePaymentMethodKey(
+export async function resolvePaymentMethod(
   stripe: Stripe,
   subscription: Stripe.Subscription,
-): Promise<string | null> {
+): Promise<Stripe.PaymentMethod | null> {
   const direct = subscription.default_payment_method;
-  if (direct && typeof direct !== 'string') return paymentMethodKey(direct);
+  if (direct && typeof direct !== 'string') return direct;
 
   try {
     if (typeof direct === 'string') {
-      return paymentMethodKey(await stripe.paymentMethods.retrieve(direct));
+      return await stripe.paymentMethods.retrieve(direct);
     }
 
     const customerId =
@@ -86,11 +87,23 @@ export async function resolvePaymentMethodKey(
     if (customer.deleted) return null;
 
     const fallback = customer.invoice_settings?.default_payment_method;
-    return fallback && typeof fallback !== 'string'
-      ? paymentMethodKey(fallback)
-      : null;
+    return fallback && typeof fallback !== 'string' ? fallback : null;
   } catch (err) {
     console.warn('[pay-method] could not resolve payment method', err);
     return null;
   }
+}
+
+/**
+ * The same resolution, reduced to the stamp's vocabulary.
+ *
+ * Kept as its own export because the stamp is the only thing most callers
+ * want, and a caller that has no use for the card object should not have to
+ * know that resolving one is how the answer is reached.
+ */
+export async function resolvePaymentMethodKey(
+  stripe: Stripe,
+  subscription: Stripe.Subscription,
+): Promise<string | null> {
+  return paymentMethodKey(await resolvePaymentMethod(stripe, subscription));
 }
