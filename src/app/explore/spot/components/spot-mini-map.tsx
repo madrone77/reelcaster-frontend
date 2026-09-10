@@ -376,7 +376,21 @@ export default function SpotMiniMap({
         initialViewState={{
           latitude: spot.lat,
           longitude: spot.lng,
-          zoom: 11.5,
+          // Wide enough to put the spot next to land.
+          //
+          // At 11.5 an offshore mark filled the box with open water: T10 Buoy,
+          // 8km off Richmond, opened on nothing but blue and depth contours,
+          // which tells a reader neither where the spot is nor what it is off.
+          // 10 covers roughly 3x the area - about 39km across a phone and 56km
+          // across the desktop box - so the shoreline, the river mouth and the
+          // named place the spot belongs to are all in the first frame.
+          // Anyone who wants the detail back can pinch, or expand.
+          //
+          // The phone mocks keep the old framing. Inside a marketing picture
+          // the mark is chosen and the callouts are solved against the frame
+          // it produces, so widening the shot there would be a change to the
+          // ad, not to the page.
+          zoom: frame ? 11.5 : 10,
         }}
         mapStyle={mapStyle}
         minZoom={6}
