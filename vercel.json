@@ -6,7 +6,7 @@
     },
     {
       "path": "/api/cron/upload-conversions",
-      "schedule": "0 * * * *"
+      "schedule": "*/15 * * * *"
     },
     {
       "path": "/api/cron/ingest-ad-spend",

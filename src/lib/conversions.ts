@@ -46,8 +46,10 @@ import {
   extraParamsOf,
   type EntryAttribution,
   type PaidAttribution,
+  readFbc,
   readFbp,
 } from './attribution';
+import { clientIp } from './acquisition-metadata';
 
 /**
  * `paywall_view` is the odd one out: no subscription, no account, and usually
@@ -69,6 +71,42 @@ const NETWORK_BY_CLICK_TYPE: Record<string, string> = {
 export function networkForClickType(clickType: string | null | undefined): string | null {
   if (!clickType) return null;
   return NETWORK_BY_CLICK_TYPE[clickType] ?? null;
+}
+
+/**
+ * Which network to tell about a Stripe conversion, which is not the same
+ * question as which network sold the click.
+ *
+ * A click id is one identifier out of the eight Meta will match on, and it is
+ * the most fragile: stripped by a browser, lost through an in-app webview,
+ * absent entirely on the wallet path until 2026-09-10. Eight of the twelve
+ * purchases in the thirty days to that date had none and were therefore never
+ * reported, which does not merely lose eight conversions — it hands Meta a
+ * sample biased towards the browsers that keep query strings, and asks it to
+ * model the rest of the world from that.
+ *
+ * So a trial or a purchase with no resolvable click network is still sent to
+ * Meta, on the strength of the hashed email, name, phone, account id and
+ * browser ids that `resolveMetaIdentity` assembles from the Stripe customer.
+ * Meta decides for itself whether it can tie the person to an ad; that is its
+ * job and it is much better at it than a query parameter is. What it cannot
+ * do is attribute an event it was never told about.
+ *
+ * The upper-funnel events keep the old rule. `paywall_view` is explicitly only
+ * for traffic we paid for, and a signup has no Stripe customer to identify.
+ *
+ * KNOWN GAP: `upload_network` is one column, so a conversion whose click came
+ * from Google is reported to Google and not to Meta. That was already true and
+ * is not made worse here; it matters only if both networks run at once, and
+ * the Google upload leg has been dead since the Seattle launch.
+ */
+export function networkForStripeConversion(
+  event: ConversionEvent,
+  clickType: string | null | undefined,
+): string | null {
+  const sold = networkForClickType(clickType);
+  if (sold) return sold;
+  return event === 'trial_start' || event === 'purchase' ? 'meta' : null;
 }
 
 /**
@@ -161,6 +199,21 @@ export interface SubscriptionAcquisition {
    * for the day-7 purchase upload, which has no browser of its own.
    */
   fbp: string | null;
+  /**
+   * Meta's `_fbc` click cookie, which is the click id and the click time in
+   * the exact string Meta wants. The uploader prefers it over rebuilding the
+   * same value out of `click_id` and `click_at`, because those two arrive
+   * from different places and the rebuild guessed at the time when the second
+   * was missing.
+   */
+  fbc: string | null;
+  /**
+   * The address and the user agent of the checkout request. For Meta's
+   * matching only: no report reads them, and the parsed form of the agent is
+   * already in `device` and `os`.
+   */
+  client_ip: string | null;
+  client_user_agent: string | null;
 }
 
 function str(value: string | undefined): string | null {
@@ -212,6 +265,9 @@ export function acquisitionFromSubscription(
     params,
     split_tests: armsFromMetadata(m),
     fbp: str(m.acq_fbp),
+    fbc: str(m.acq_fbc),
+    client_ip: str(m.acq_ip),
+    client_user_agent: str(m.acq_ua),
   };
 }
 
@@ -292,6 +348,9 @@ export function acquisitionFromRequest(input: {
     // payment method that nobody uses.
     pay_method: null,
     fbp: readFbp(input.headers.get('cookie')),
+    fbc: readFbc(input.headers.get('cookie')),
+    client_ip: clientIp(input.headers),
+    client_user_agent: input.headers.get('user-agent'),
   };
 }
 
@@ -463,13 +522,14 @@ export async function recordConversion(
   params: RecordConversionParams,
 ): Promise<number | null> {
   const acq = acquisitionFromSubscription(params.subscription);
-  const network = networkForClickType(acq.click_type);
+  const network = networkForStripeConversion(params.event, acq.click_type);
 
-  // A conversion with no click id is still worth recording — it is real
-  // revenue and belongs in the CAC denominator — but there is nowhere to send
-  // it. `skipped` is a resting state, not a failure, and keeping it out of the
-  // pending queue is what stops the uploader retrying it forever.
-  const uploadStatus = acq.click_id && network ? 'pending' : 'skipped';
+  // Queued whenever there is a network willing to hear about it. Before
+  // 2026-09-10 that also required a click id, which is what kept two thirds of
+  // the purchases out of the queue; see networkForStripeConversion. A row with
+  // nowhere to go still rests at `skipped`, which is a resting state and not a
+  // failure — it keeps the uploader from retrying it forever.
+  const uploadStatus = network ? 'pending' : 'skipped';
 
   const { data, error } = await admin
     .from('marketing_conversions')

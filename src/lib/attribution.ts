@@ -426,3 +426,30 @@ export function readFbp(cookieHeader?: string | null): string | null {
   const value = decodeURIComponent(hit.slice(FBP_COOKIE.length + 1));
   return FBP_SHAPE.test(value) ? value : null;
 }
+
+/**
+ * Meta's click cookie, `_fbc`, which fbevents.js writes as
+ * `fb.1.<click_time_ms>.<fbclid>` the first time a visitor arrives with an
+ * fbclid on the URL.
+ *
+ * Preferred over rebuilding the same string from `click_id` and `click_at`.
+ * Our two halves come from different places — the id off the query string, the
+ * time off the rc_paid cookie — and when the time is missing the rebuild used
+ * to fall back to the moment of the conversion, producing an fbc claiming the
+ * click happened a week after it did. fbevents.js assembled this one at the
+ * click, from the click. Validated by shape for the same reason as `_fbp`: it
+ * goes to Meta verbatim and a cookie is a thing a visitor can edit.
+ */
+export const FBC_COOKIE = '_fbc';
+const FBC_SHAPE = /^fb\.\d\.\d{10,16}\.[A-Za-z0-9_-]{1,400}$/;
+
+export function readFbc(cookieHeader?: string | null): string | null {
+  if (!cookieHeader) return null;
+  const hit = cookieHeader
+    .split(';')
+    .map((part) => part.trim())
+    .find((part) => part.startsWith(`${FBC_COOKIE}=`));
+  if (!hit) return null;
+  const value = decodeURIComponent(hit.slice(FBC_COOKIE.length + 1));
+  return FBC_SHAPE.test(value) ? value : null;
+}
