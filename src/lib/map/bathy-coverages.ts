@@ -7,12 +7,31 @@
 // fields `tier`, `system` ("ft" | "m"), `depth` (positive, in that system's
 // unit, 0 = the coastline) and `depth_m`.
 //
-// Newer manifests also ship `land` (vector, source layer `land`, the OSM
+// Schema 1 manifests also ship `land` (vector, source layer `land`, the OSM
 // land polygons clipped to the footprint) and `relief` (WebP raster, the
 // colour relief + hillshade bake, z8 to z14) per coverage. Older manifests
 // carry only the contour pair and still work.
 //
+// Schema 2 (`coverages_schema: 2`) adds a top-level `base` object: one
+// coast-wide relief raster (`base.relief`, ETOPO, z0 to z9, land and BC's own
+// waters baked transparent) and one coast-wide land archive (`base.land`, OSM
+// polygons, layer `land`) from Baja to the top of BC. Per-coverage `land` is
+// gone from schema 2 and the per-coverage relief rasters are feathered to
+// transparent at their edges, so the 18 footprints stop reading as rectangles
+// on a flat blue sea. A schema 1 manifest that still carries per-coverage
+// `land` keeps drawing it.
+//
 // What this module does to a style built by buildReliefStyle:
+//   - for a manifest with `base`: a bounded raster source `relief-base` and a
+//     clone of the BC `color-relief` layer (`color-relief--base-relief`)
+//     right after the BC raster, so it sits under every footprint relief
+//     and under every contour. The relief style has no zone fills, so the
+//     BC raster is the anchor (the admin map anchors on its last zone fill
+//     for the same reason: BC must keep winning and Washington must not be
+//     hidden). BC still wins because the base raster is transparent wherever
+//     BC draws. Plus a bounded vector source `land-base` and a clone of the
+//     BC `land` fill (`land--base-land`) right after it, before any
+//     per-coverage land clone;
 //   - one source per non-BC coverage and archive, served through this app's
 //     own per-tile proxy (see tile-sets.ts; no pmtiles protocol on the
 //     client), `bounds` from the coverage bbox so MapLibre never asks for a
@@ -22,10 +41,13 @@
 //     (the 0 ft contour draws the shore even when a coverage has no land
 //     archive). t1 below TIER_SWITCH_ZOOM, t3 from there up;
 //   - the BC `color-relief` raster layer cloned per coverage right after the
-//     original, so the blue depth shading sits under the contours and under
-//     everything BC draws over its own relief;
-//   - the BC `land` fill cloned per coverage right after the original, so the
-//     US shore gets the same opaque LAND_COLOR mask as the BC coast;
+//     original (after the base relief when there is one), so the blue depth
+//     shading sits under the contours and under everything BC draws over
+//     its own relief;
+//   - the BC `land` fill cloned per coverage right after the original (after
+//     the base land when there is one), so the US shore gets the same opaque
+//     LAND_COLOR mask as the BC coast; schema 2 has no per-coverage land, so
+//     this only happens on a schema 1 manifest;
 //   - the coverage's attribution on each of its sources. MapLibre's
 //     attribution control shows identical strings once, so 18 NOAA coverages
 //     read as one credit;
@@ -61,10 +83,32 @@ export interface BathyCoverage {
   [key: string]: unknown;
 }
 
+/** A raster entry of the top-level `base` object: the file plus its zoom range. */
+export interface BaseRasterPmtiles extends CoveragePmtiles {
+  minzoom?: number;
+  maxzoom?: number;
+}
+
+/**
+ * Schema 2's top-level `base`: the coast-wide relief raster and land
+ * polygons that draw under and beside every coverage (bluecaster
+ * docs/bathymetry.md, "Coast-wide base relief and land").
+ */
+export interface BathyBase {
+  relief?: BaseRasterPmtiles;
+  land?: BaseRasterPmtiles;
+  bbox?: Bbox;
+  attribution?: string;
+  /** Not in the manifest today; the bake date in the file name stands in for it. */
+  version?: string;
+  [key: string]: unknown;
+}
+
 export interface BathyManifestLike {
   version?: string;
   coverages_schema?: number;
   coverages?: BathyCoverage[];
+  base?: BathyBase;
   [key: string]: unknown;
 }
 
@@ -132,6 +176,19 @@ export const LABEL_DEPTHS_FT = [10, 20, 30, 50, 75, 100, 200, 400, 700];
 
 const CLONE_SEP = "--";
 const SET_PREFIX = "cov-";
+const BASE_SET_PREFIX = "base-";
+
+/** The pseudo coverage id the base relief and land hang off (`relief-base`, `color-relief--base-relief`). */
+export const BASE_ID = "base";
+/** The base archives the style draws. */
+export type BaseArchive = "relief" | "land";
+const BASE_ARCHIVES: readonly BaseArchive[] = ["relief", "land"];
+/** Zoom range of the base relief when the manifest entry does not say (ETOPO at 305 m, native z9). */
+export const BASE_RELIEF_MINZOOM = 0;
+export const BASE_RELIEF_MAXZOOM = 9;
+/** Zoom range of the base land when the manifest entry does not say. */
+export const BASE_LAND_MINZOOM = 0;
+export const BASE_LAND_MAXZOOM = 14;
 
 /** Tile-proxy set id for one coverage archive. Embeds the bake version so the
  *  immutable tile cache can never serve a stale bake (see tile-sets.ts). */
@@ -139,8 +196,27 @@ export function coverageSetId(coverage: Pick<BathyCoverage, "id" | "version">, a
   return `${SET_PREFIX}${coverage.id}-${archive}-${coverage.version ?? "0"}`;
 }
 
+/**
+ * The bake version of a base archive, for its set id. The manifest's `base`
+ * carries no `version`, so the bake date in the file name stands in
+ * (`relief-base.westcoast.2026-09.pmtiles` is `2026-09`); a file with no
+ * such token uses its whole stem, so a renamed bake still gets a fresh id.
+ */
+export function baseVersion(base: Pick<BathyBase, "version"> | undefined, file: string): string {
+  if (typeof base?.version === "string" && base.version) return base.version;
+  const dated = /\.(\d{4}-\d{2}[a-z]?)\.pmtiles$/i.exec(file);
+  if (dated) return dated[1];
+  return file.replace(/\.pmtiles$/i, "").replace(/[^A-Za-z0-9_-]+/g, "-") || "0";
+}
+
+/** Tile-proxy set id for one base archive: `base-relief-2026-09`, `base-land-2026-09`. */
+export function baseSetId(base: BathyBase, archive: BaseArchive): string {
+  return `${BASE_SET_PREFIX}${archive}-${baseVersion(base, base[archive]?.file ?? "")}`;
+}
+
+/** True for a per-coverage set id and for a base set id: both resolve against the manifest. */
 export function isCoverageSetId(setId: string): boolean {
-  return setId.startsWith(SET_PREFIX);
+  return setId.startsWith(SET_PREFIX) || setId.startsWith(BASE_SET_PREFIX);
 }
 
 /** Style source id per coverage archive: `contours-<id>-t3`, `land-<id>`, `relief-<id>`. */
@@ -209,8 +285,39 @@ export function drawableCoverages(manifest: BathyManifestLike | null | undefined
 }
 
 function hasFile(cov: BathyCoverage, archive: CoverageArchive): boolean {
-  const f = cov.pmtiles?.[archive]?.file;
-  return typeof f === "string" && f.length > 0;
+  return isFileEntry(cov.pmtiles?.[archive]);
+}
+
+function isFileEntry(p: CoveragePmtiles | undefined): p is CoveragePmtiles {
+  return !!p && typeof p.file === "string" && p.file.length > 0;
+}
+
+/** The manifest's `base` when it is well formed and ships at least one archive, else null. */
+export function drawableBase(manifest: BathyManifestLike | null | undefined): BathyBase | null {
+  const base = manifest?.base;
+  if (!base || typeof base !== "object") return null;
+  if (base.bbox !== undefined && (!isBbox(base.bbox) || !isFiniteBboxOrder(base.bbox))) return null;
+  return baseArchivesOf(base).length > 0 ? base : null;
+}
+
+/** Every base archive the manifest ships, relief first. */
+export function baseArchivesOf(base: BathyBase | null | undefined): BaseArchive[] {
+  if (!base) return [];
+  return BASE_ARCHIVES.filter((a) => isFileEntry(base[a]));
+}
+
+function zoomOf(entry: BaseRasterPmtiles | undefined, key: "minzoom" | "maxzoom", fallback: number): number {
+  const v = entry?.[key];
+  return typeof v === "number" && Number.isFinite(v) ? v : fallback;
+}
+
+/** The proxy zoom range of a base archive: the entry's own, else the bake's known range. */
+export function baseZoomRange(base: BathyBase, archive: BaseArchive): { minzoom: number; maxzoom: number } {
+  const entry = base[archive];
+  if (archive === "relief") {
+    return { minzoom: zoomOf(entry, "minzoom", BASE_RELIEF_MINZOOM), maxzoom: zoomOf(entry, "maxzoom", BASE_RELIEF_MAXZOOM) };
+  }
+  return { minzoom: zoomOf(entry, "minzoom", BASE_LAND_MINZOOM), maxzoom: zoomOf(entry, "maxzoom", BASE_LAND_MAXZOOM) };
 }
 
 export function tiersOf(cov: BathyCoverage): ContourTier[] {
@@ -236,12 +343,21 @@ function archiveDef(archive: CoverageArchive, url: string): TileSetDef {
 }
 
 /**
- * Resolve a proxy set id (`cov-<coverage>-<archive>-<version>`) against the
- * manifest. Null when the manifest has no such archive, which the proxy turns
- * into a 400 like any other unknown set.
+ * Resolve a proxy set id (`cov-<coverage>-<archive>-<version>` or
+ * `base-<archive>-<version>`) against the manifest. Null when the manifest
+ * has no such archive, which the proxy turns into a 400 like any other
+ * unknown set.
  */
 export function coverageTileSet(manifest: BathyManifestLike | null | undefined, setId: string): TileSetDef | null {
   if (!isCoverageSetId(setId)) return null;
+  const base = drawableBase(manifest);
+  if (base) {
+    for (const archive of baseArchivesOf(base)) {
+      if (baseSetId(base, archive) !== setId) continue;
+      const def = archiveDef(archive, `${CDN}/${base[archive]!.file}`);
+      return { ...def, ...baseZoomRange(base, archive) };
+    }
+  }
   for (const cov of drawableCoverages(manifest)) {
     for (const archive of archivesOf(cov)) {
       if (coverageSetId(cov, archive) !== setId) continue;
@@ -307,29 +423,32 @@ export interface ApplyResult {
   added: string[];
   /** Coverage ids skipped because they were the BC bake or malformed. */
   skipped: string[];
+  /** Which of the manifest's `base` archives were drawn (`relief`, `land`). */
+  base: BaseArchive[];
 }
 
 /**
- * Add sources and layer clones per coverage: the contour family, the relief
- * raster and the land fill, each riding right after its BC original. `origin`
- * is the absolute origin the tile-proxy URLs are built on (MapLibre resolves
+ * Add sources and layer clones for the manifest: the schema 2 base relief and
+ * land first, then per coverage the contour family, the relief raster and
+ * the land fill, each riding right after its BC original. `origin` is the
+ * absolute origin the tile-proxy URLs are built on (MapLibre resolves
  * vector-tile URLs in a worker, so root-relative fails silently; same rule as
  * buildReliefStyle's callers). Mutates `style` in place and returns a result;
- * a manifest with no `coverages` leaves the style untouched.
+ * a manifest with neither `coverages` nor `base` leaves the style untouched.
  */
 export function applyBathyCoverages(style: StyleLike, manifest: BathyManifestLike | null | undefined, origin: string): ApplyResult {
-  const result: ApplyResult = { added: [], skipped: [] };
+  const result: ApplyResult = { added: [], skipped: [], base: [] };
   const all = Array.isArray(manifest?.coverages) ? manifest!.coverages : [];
-  if (all.length === 0) return result;
+  const base = drawableBase(manifest);
+  if (all.length === 0 && !base) return result;
 
   const line = style.layers.find((l) => l.id === BC_CONTOUR_LINE);
-  if (!line) return result;
   const labels = style.layers.find((l) => l.id === BC_CONTOUR_LABELS);
-  const templates = templatesFor(line, labels);
+  const templates = line ? templatesFor(line, labels) : [];
   const reliefBase = style.layers.find((l) => l.id === BC_RELIEF_LAYER && l.type === "raster");
   const landBase = style.layers.find((l) => l.id === BC_LAND_LAYER && l.type === "fill");
 
-  const drawable = drawableCoverages(manifest);
+  const drawable = line ? drawableCoverages(manifest) : [];
   const drawableIds = new Set(drawable.map((c) => c.id));
   for (const cov of all) {
     if (cov && typeof cov.id === "string" && !drawableIds.has(cov.id)) result.skipped.push(cov.id);
@@ -343,6 +462,46 @@ export function applyBathyCoverages(style: StyleLike, manifest: BathyManifestLik
     list.push(layer);
     after.set(baseId, list);
   };
+
+  // The base goes first at each anchor so every footprint draws over it:
+  // relief right after the BC raster, land right after the BC land mask.
+  if (base) {
+    const attribution = typeof base.attribution === "string" ? base.attribution.trim() : "";
+    const bounds = isBbox(base.bbox) ? ([...base.bbox] as Bbox) : undefined;
+    const sourceFor = (archive: BaseArchive, extra: Partial<StyleSourceLike>): StyleSourceLike => {
+      const source: StyleSourceLike = {
+        type: archive === "relief" ? "raster" : "vector",
+        tiles: [tileUrlTemplate(origin, baseSetId(base, archive))],
+        ...baseZoomRange(base, archive),
+        ...extra,
+      };
+      if (bounds) source.bounds = [...bounds] as Bbox;
+      if (attribution) source.attribution = attribution;
+      return source;
+    };
+    const archives = baseArchivesOf(base);
+    if (reliefBase && archives.includes("relief")) {
+      const sourceId = coverageSourceId(BASE_ID, "relief");
+      style.sources[sourceId] = sourceFor("relief", { tileSize: 256 });
+      const layer = clone(reliefBase);
+      layer.id = coverageLayerId(BC_RELIEF_LAYER, BASE_ID, "relief");
+      layer.source = sourceId;
+      layer.metadata = { ...layer.metadata, "bathy:coverage": BASE_ID, "bathy:archive": "relief" };
+      push(BC_RELIEF_LAYER, layer);
+      result.base.push("relief");
+    }
+    if (landBase && archives.includes("land")) {
+      const sourceId = coverageSourceId(BASE_ID, "land");
+      style.sources[sourceId] = sourceFor("land", {});
+      const layer = clone(landBase);
+      layer.id = coverageLayerId(BC_LAND_LAYER, BASE_ID, "land");
+      layer.source = sourceId;
+      layer["source-layer"] = base.land?.source_layer || "land";
+      layer.metadata = { ...layer.metadata, "bathy:coverage": BASE_ID, "bathy:archive": "land" };
+      push(BC_LAND_LAYER, layer);
+      result.base.push("land");
+    }
+  }
 
   for (const cov of drawable) {
     const tiers = tiersOf(cov);
@@ -371,7 +530,9 @@ export function applyBathyCoverages(style: StyleLike, manifest: BathyManifestLik
       push(BC_RELIEF_LAYER, layer);
     }
 
-    // Shore: an opaque LAND_COLOR fill clone right after the BC land mask.
+    // Shore: an opaque LAND_COLOR fill clone right after the BC land mask
+    // (and after the base land). Schema 1 only: schema 2 drops the key and
+    // the coast-wide base land draws the shore instead.
     if (landBase && hasFile(cov, "land")) {
       const sourceId = coverageSourceId(cov.id, "land");
       style.sources[sourceId] = sourceFor("land", { minzoom: 4, maxzoom: 14 });
@@ -403,7 +564,7 @@ export function applyBathyCoverages(style: StyleLike, manifest: BathyManifestLik
     result.added.push(cov.id);
   }
 
-  if (result.added.length === 0) return result;
+  if (result.added.length === 0 && result.base.length === 0) return result;
 
   const layers: StyleLayerLike[] = [];
   for (const layer of style.layers) {

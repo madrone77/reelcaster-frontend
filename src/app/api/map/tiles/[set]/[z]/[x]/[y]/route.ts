@@ -23,9 +23,10 @@ import { fetchBathyManifest } from "@/lib/map/bathy-manifest";
  * Set ids that start with `cov-` are the manifest's per-coverage archives
  * (US west coast, see src/lib/map/bathy-coverages.ts): contours (MVT,
  * re-gzipped), land (MVT) and relief (WebP raster, served as-is like the BC
- * relief set). Resolved against the live manifest, which is cached in module
- * scope, so an archive the manifest does not list is a 400 like any other
- * unknown set.
+ * relief set). Ids that start with `base-` are the manifest's coast-wide
+ * base relief (WebP, z0 to z9) and base land (MVT). All resolved against the
+ * live manifest, which is cached in module scope, so an archive the manifest
+ * does not list is a 400 like any other unknown set.
  */
 
 async function resolveSet(setId: string): Promise<TileSetDef | undefined> {

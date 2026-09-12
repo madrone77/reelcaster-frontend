@@ -77,8 +77,10 @@ export interface CustomSpotPin {
 // + contours + their labels, found by id family at toggle time
 // (isBathymetryLayer) since the depth shading and contour families each hold
 // one clone per US coverage (`color-relief--us-ca-monterey-relief`,
-// `contour-line--us-ca-monterey-t3` and so on) and the manifest arrives late.
-// Land is not bathymetry, so the BC mask and its US clones stay put.
+// `contour-line--us-ca-monterey-t3` and so on) plus the coast-wide base
+// relief (`color-relief--base-relief`), and the manifest arrives late.
+// Land is not bathymetry, so the BC mask, the base land and any US clones
+// stay put.
 // Labels = place names.
 const LABEL_LAYERS = ["places-t0", "places-t1", "places-t2", "places-t3", "places-t4"];
 // WDFW regulatory layers (WA marine-area grid + MPAs). The relief style ships
