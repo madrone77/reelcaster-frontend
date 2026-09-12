@@ -19,7 +19,7 @@ import type {
 import "maplibre-gl/dist/maplibre-gl.css";
 import type { RailSpot } from "../lib/explore-data";
 import { buildReliefStyle, buildSummaryStyle } from "@/lib/map/relief-style";
-import { applyBathyCoverages, isBathyContourLayer, type StyleLike } from "@/lib/map/bathy-coverages";
+import { applyBathyCoverages, isBathymetryLayer, type StyleLike } from "@/lib/map/bathy-coverages";
 import { useBathyManifest } from "@/lib/map/use-bathy-manifest";
 import { attachRcaHatch, ensureRcaHatch } from "@/lib/map/rca-hatch";
 import {
@@ -74,10 +74,12 @@ export interface CustomSpotPin {
 }
 
 // Layer groups the toggles flip (relief style ids). Bathymetry = depth shading
-// + contours + their labels; labels = place names. The contour family also
-// holds one clone per US coverage (`contour-line--us-ca-monterey-t3` and so
-// on), found by id family at toggle time since the manifest arrives late.
-const RELIEF_LAYERS = ["color-relief"];
+// + contours + their labels, found by id family at toggle time
+// (isBathymetryLayer) since the depth shading and contour families each hold
+// one clone per US coverage (`color-relief--us-ca-monterey-relief`,
+// `contour-line--us-ca-monterey-t3` and so on) and the manifest arrives late.
+// Land is not bathymetry, so the BC mask and its US clones stay put.
+// Labels = place names.
 const LABEL_LAYERS = ["places-t0", "places-t1", "places-t2", "places-t3", "places-t4"];
 // WDFW regulatory layers (WA marine-area grid + MPAs). The relief style ships
 // them hidden (Canada-first); they flip on when the active city is in Washington.
@@ -313,8 +315,9 @@ export default function ExploreMap({
   }, []);
 
   // Flip layer visibility for the relief/labels toggles once the style is up.
-  // Re-applied on every `styledata` too: the US contour clones land in a style
-  // diff after the manifest arrives, and a diff does not know the toggle.
+  // Re-applied on every `styledata` too: the US relief and contour clones land
+  // in a style diff after the manifest arrives, and a diff does not know the
+  // toggle.
   useEffect(() => {
     if (!mapObj) return;
     const apply = () => {
@@ -324,10 +327,10 @@ export default function ExploreMap({
             mapObj.setLayoutProperty(id, "visibility", on ? "visible" : "none");
           }
         });
-      const contourIds = (mapObj.getStyle()?.layers ?? [])
+      const bathyIds = (mapObj.getStyle()?.layers ?? [])
         .map((l) => l.id)
-        .filter(isBathyContourLayer);
-      set([...RELIEF_LAYERS, ...contourIds], relief);
+        .filter(isBathymetryLayer);
+      set(bathyIds, relief);
       set(LABEL_LAYERS, labels);
       set(WDFW_LAYERS, wdfwRegs ?? false);
     };
