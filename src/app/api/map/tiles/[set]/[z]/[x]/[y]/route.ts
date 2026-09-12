@@ -1,7 +1,9 @@
 import { NextRequest } from "next/server";
 import { gzipSync } from "node:zlib";
 import { PMTiles, FetchSource } from "pmtiles";
-import { TILE_SETS } from "@/lib/map/tile-sets";
+import { TILE_SETS, type TileSetDef } from "@/lib/map/tile-sets";
+import { coverageTileSet, isCoverageSetId } from "@/lib/map/bathy-coverages";
+import { fetchBathyManifest } from "@/lib/map/bathy-manifest";
 
 /**
  * GET /api/map/tiles/[set]/[z]/[x]/[y]
@@ -17,7 +19,19 @@ import { TILE_SETS } from "@/lib/map/tile-sets";
  * 204 = valid coords but no tile there (MapLibre renders it as empty, no
  * console error). 400 = unknown set / malformed coords. Errors are never
  * cached.
+ *
+ * Set ids that start with `cov-` are the manifest's per-coverage contour
+ * archives (US west coast, see src/lib/map/bathy-coverages.ts): resolved
+ * against the live manifest, which is cached in module scope, so an archive
+ * the manifest does not list is a 400 like any other unknown set.
  */
+
+async function resolveSet(setId: string): Promise<TileSetDef | undefined> {
+  const fixed = TILE_SETS[setId];
+  if (fixed) return fixed;
+  if (!isCoverageSetId(setId)) return undefined;
+  return coverageTileSet(await fetchBathyManifest(), setId) ?? undefined;
+}
 
 // Module scope: PMTiles' internal SharedPromiseCache keeps the archive header
 // and directories across requests within a warm instance, so a typical tile
@@ -42,7 +56,7 @@ export async function GET(
   { params }: { params: Promise<{ set: string; z: string; x: string; y: string }> },
 ) {
   const { set, z, x, y } = await params;
-  const def = TILE_SETS[set];
+  const def = await resolveSet(set);
   const zi = Number(z);
   const xi = Number(x);
   const yi = Number(y);
