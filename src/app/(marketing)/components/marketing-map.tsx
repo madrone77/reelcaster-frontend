@@ -11,6 +11,8 @@ import Map, {
 import type { ExpressionSpecification, Map as MlMap, StyleSpecification } from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
 import { buildReliefStyle } from "@/lib/map/relief-style";
+import { applyBathyCoverages, type StyleLike } from "@/lib/map/bathy-coverages";
+import { useBathyManifest } from "@/lib/map/use-bathy-manifest";
 import {
   attachScorePucks,
   ensureScorePucks,
@@ -123,10 +125,12 @@ export default function MarketingMap({
   // Absolute origin is REQUIRED — MapLibre resolves vector-tile URLs inside a
   // Web Worker that can't expand root-relative paths, so contour + land tiles
   // would silently load zero features. Same reason as ExploreMap.
+  // US coverages from the bathymetry manifest, so a US home city gets depth.
+  const bathyManifest = useBathyManifest();
   const mapStyle = useMemo(() => {
-    const style = buildReliefStyle(
-      typeof window !== "undefined" ? window.location.origin : "",
-    );
+    const origin = typeof window !== "undefined" ? window.location.origin : "";
+    const style = buildReliefStyle(origin);
+    applyBathyCoverages(style as unknown as StyleLike, bathyManifest, origin);
     // Strip the style back to depth + land in the STYLE ITSELF, rather than
     // hiding the layers once the map has loaded.
     //
@@ -149,7 +153,7 @@ export default function MarketingMap({
       }
     }
     return style as unknown as StyleSpecification;
-  }, []);
+  }, [bathyManifest]);
 
   /** The best few, high to low — what the card cycles through. */
   const featured = useMemo(

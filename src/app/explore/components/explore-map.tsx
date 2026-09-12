@@ -19,6 +19,8 @@ import type {
 import "maplibre-gl/dist/maplibre-gl.css";
 import type { RailSpot } from "../lib/explore-data";
 import { buildReliefStyle, buildSummaryStyle } from "@/lib/map/relief-style";
+import { applyBathyCoverages, isBathyContourLayer, type StyleLike } from "@/lib/map/bathy-coverages";
+import { useBathyManifest } from "@/lib/map/use-bathy-manifest";
 import { attachRcaHatch, ensureRcaHatch } from "@/lib/map/rca-hatch";
 import {
   attachScorePucks,
@@ -72,8 +74,10 @@ export interface CustomSpotPin {
 }
 
 // Layer groups the toggles flip (relief style ids). Bathymetry = depth shading
-// + contours + their labels; labels = place names.
-const RELIEF_LAYERS = ["color-relief", "contour-line", "contour-labels"];
+// + contours + their labels; labels = place names. The contour family also
+// holds one clone per US coverage (`contour-line--us-ca-monterey-t3` and so
+// on), found by id family at toggle time since the manifest arrives late.
+const RELIEF_LAYERS = ["color-relief"];
 const LABEL_LAYERS = ["places-t0", "places-t1", "places-t2", "places-t3", "places-t4"];
 // WDFW regulatory layers (WA marine-area grid + MPAs). The relief style ships
 // them hidden (Canada-first); they flip on when the active city is in Washington.
@@ -309,18 +313,34 @@ export default function ExploreMap({
   }, []);
 
   // Flip layer visibility for the relief/labels toggles once the style is up.
+  // Re-applied on every `styledata` too: the US contour clones land in a style
+  // diff after the manifest arrives, and a diff does not know the toggle.
   useEffect(() => {
     if (!mapObj) return;
-    const set = (ids: string[], on: boolean) =>
-      ids.forEach((id) => {
-        if (mapObj.getLayer(id)) {
-          mapObj.setLayoutProperty(id, "visibility", on ? "visible" : "none");
-        }
-      });
-    set(RELIEF_LAYERS, relief);
-    set(LABEL_LAYERS, labels);
-    set(WDFW_LAYERS, wdfwRegs ?? false);
+    const apply = () => {
+      const set = (ids: string[], on: boolean) =>
+        ids.forEach((id) => {
+          if (mapObj.getLayer(id)) {
+            mapObj.setLayoutProperty(id, "visibility", on ? "visible" : "none");
+          }
+        });
+      const contourIds = (mapObj.getStyle()?.layers ?? [])
+        .map((l) => l.id)
+        .filter(isBathyContourLayer);
+      set([...RELIEF_LAYERS, ...contourIds], relief);
+      set(LABEL_LAYERS, labels);
+      set(WDFW_LAYERS, wdfwRegs ?? false);
+    };
+    apply();
+    mapObj.on("styledata", apply);
+    return () => {
+      mapObj.off("styledata", apply);
+    };
   }, [mapObj, relief, labels, wdfwRegs]);
+
+  // The bathymetry manifest's US coverages, folded into the style once read.
+  // The summary map draws no contours, so it never asks.
+  const bathyManifest = useBathyManifest(!summary);
 
   // Absolute origin is REQUIRED: MapLibre builds vector-tile URLs inside a Web
   // Worker that can't resolve root-relative paths ("/api/map/tiles/…" → "Failed
@@ -330,8 +350,10 @@ export default function ExploreMap({
   const mapStyle = useMemo(() => {
     const origin = typeof window !== "undefined" ? window.location.origin : "";
     const build = summary ? buildSummaryStyle : buildReliefStyle;
-    return build(origin) as unknown as StyleSpecification;
-  }, [summary]);
+    const style = build(origin);
+    if (!summary) applyBathyCoverages(style as unknown as StyleLike, bathyManifest, origin);
+    return style as unknown as StyleSpecification;
+  }, [summary, bathyManifest]);
 
   const data = useMemo(
     /**

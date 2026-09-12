@@ -36,6 +36,8 @@ import type {
 } from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
 import { buildReliefStyle } from "@/lib/map/relief-style";
+import { applyBathyCoverages, type StyleLike } from "@/lib/map/bathy-coverages";
+import { useBathyManifest } from "@/lib/map/use-bathy-manifest";
 import { MAP_CUSTOM_ATTRIBUTION } from "@/lib/map/map-brand";
 import { TIER_PIN, tierFor, type Tier } from "@/app/explore/lib/explore-data";
 import {
@@ -191,13 +193,17 @@ export default function CitySpotMap({
   // depends on zoom alone here — no rotation, and panning cannot change it.
   const [declutterZoom, setDeclutterZoom] = useState(CHART_FLOOR_ZOOM);
 
+  // US coverages from the bathymetry manifest, so a US city's chart has depth.
+  const bathyManifest = useBathyManifest();
   const mapStyle = useMemo(() => {
     // Absolute origin is REQUIRED — MapLibre builds vector-tile URLs inside a
     // worker that cannot resolve root-relative paths, and the failure is
     // silent (zero features, no error). Same note as the Explore map.
     const origin = typeof window !== "undefined" ? window.location.origin : "";
-    return buildReliefStyle(origin) as unknown as StyleSpecification;
-  }, []);
+    const style = buildReliefStyle(origin);
+    applyBathyCoverages(style as unknown as StyleLike, bathyManifest, origin);
+    return style as unknown as StyleSpecification;
+  }, [bathyManifest]);
 
   const bySlug = useMemo(() => {
     const m = new Map<string, RankedSpot>();

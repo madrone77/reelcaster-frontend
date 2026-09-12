@@ -7,6 +7,8 @@ import Map, { Source, Layer, type MapRef } from "react-map-gl/maplibre";
 import type { Map as MlMap, StyleSpecification } from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
 import { buildReliefStyle } from "@/lib/map/relief-style";
+import { applyBathyCoverages, type StyleLike } from "@/lib/map/bathy-coverages";
+import { useBathyManifest } from "@/lib/map/use-bathy-manifest";
 import { attachRcaHatch, ensureRcaHatch } from "@/lib/map/rca-hatch";
 import { useFlow, useFlowLayer, type FlowKind } from "../../lib/use-flow";
 import {
@@ -169,13 +171,14 @@ export default function SpotMiniMap({
     };
   }, [expanded]);
 
-  const mapStyle = useMemo(
-    () =>
-      buildReliefStyle(
-        typeof window !== "undefined" ? window.location.origin : "",
-      ) as unknown as StyleSpecification,
-    [],
-  );
+  // US coverages from the bathymetry manifest, diffed in once it arrives.
+  const bathyManifest = useBathyManifest();
+  const mapStyle = useMemo(() => {
+    const origin = typeof window !== "undefined" ? window.location.origin : "";
+    const style = buildReliefStyle(origin);
+    applyBathyCoverages(style as unknown as StyleLike, bathyManifest, origin);
+    return style as unknown as StyleSpecification;
+  }, [bathyManifest]);
 
   // One feature, so the icon id is computed here rather than as a GL
   // expression. Ring is always "sel": this IS the spot the reader chose, and
