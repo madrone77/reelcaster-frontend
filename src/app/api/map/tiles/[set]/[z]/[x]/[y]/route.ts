@@ -20,10 +20,12 @@ import { fetchBathyManifest } from "@/lib/map/bathy-manifest";
  * console error). 400 = unknown set / malformed coords. Errors are never
  * cached.
  *
- * Set ids that start with `cov-` are the manifest's per-coverage contour
- * archives (US west coast, see src/lib/map/bathy-coverages.ts): resolved
- * against the live manifest, which is cached in module scope, so an archive
- * the manifest does not list is a 400 like any other unknown set.
+ * Set ids that start with `cov-` are the manifest's per-coverage archives
+ * (US west coast, see src/lib/map/bathy-coverages.ts): contours (MVT,
+ * re-gzipped), land (MVT) and relief (WebP raster, served as-is like the BC
+ * relief set). Resolved against the live manifest, which is cached in module
+ * scope, so an archive the manifest does not list is a 400 like any other
+ * unknown set.
  */
 
 async function resolveSet(setId: string): Promise<TileSetDef | undefined> {
