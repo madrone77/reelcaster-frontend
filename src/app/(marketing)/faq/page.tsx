@@ -38,7 +38,7 @@ const FAQS: Array<{ q: string; a: string }> = [
   },
   {
     q: 'Which regions are covered?',
-    a: 'British Columbia is the launch region: Salish Sea, west coast Vancouver Island, and parts of the north coast and inlets. Other provinces and Pacific Northwest US waters are on the roadmap; sign up for updates and you’ll hear when your area lights up.',
+    a: 'The saltwater coast of British Columbia, Washington, Oregon and California: the BC coast from the Salish Sea to Prince Rupert, Puget Sound and the Washington outer coast, the Oregon coast from Brookings to Astoria, and California from Crescent City to San Diego. If your water is not on the map yet, sign up for updates and you’ll hear when it lights up.',
   },
   {
     q: 'How accurate are the forecasts?',

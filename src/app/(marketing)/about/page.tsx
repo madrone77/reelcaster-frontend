@@ -9,7 +9,7 @@ export const metadata: Metadata = {
   // so naming it here too rendered "About ReelCaster | … | ReelCaster".
   title: 'About: West Coast Fishing Forecasts',
   description:
-    'ReelCaster turns tides, weather, water conditions, and DFO, WDFW and CDFW rules into one score for the BC, Washington and California coasts. Built by anglers in Victoria, BC.',
+    'ReelCaster turns tides, weather, water conditions, and DFO, WDFW, ODFW and CDFW rules into one score for the BC, Washington, Oregon and California coasts. Built by anglers in Victoria, BC.',
   alternates: { canonical: `${SITE_URL}/about` },
   openGraph: {
     title: 'About ReelCaster',
@@ -48,9 +48,9 @@ const JSONLD = {
 
 // Coverage rollout — honest about what's live vs. expanding.
 const COVERAGE = [
-  { status: 'Live now', place: 'Victoria & South Vancouver Island', tone: 'live' },
-  { status: 'Expanding', place: 'Across the Salish Sea', tone: 'soon' },
-  { status: 'Coming', place: 'The wider Pacific Northwest', tone: 'later' },
+  { status: 'Live now', place: 'British Columbia and Washington', tone: 'live' },
+  { status: 'Live now', place: 'The Oregon coast, Brookings to Astoria', tone: 'live' },
+  { status: 'Live now', place: 'California, Crescent City to San Diego', tone: 'live' },
 ];
 
 // How the score works — numbered, like the reference's feature cards.

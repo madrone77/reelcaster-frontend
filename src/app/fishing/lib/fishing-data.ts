@@ -254,7 +254,7 @@ export function findCityForSpot(
  * COVERED_PROVINCES, which is a list of state codes.
  *
  * ⚠️ Safe only because the covered STATE codes are unique across countries:
- * BC exists only under Canada, WA and CA only under the US. "CA" is Canada in
+ * BC exists only under Canada, WA, OR and CA only under the US. "CA" is Canada in
  * the country slot and California in the state slot, and that is fine here
  * because getFishingProvince matches the state code inside each country in
  * turn, never the country by the state code. The day a state code repeats

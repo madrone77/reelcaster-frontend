@@ -94,8 +94,10 @@ export function readVisitorPoint(
  * destination, not a boat ramp, and the arithmetic stops meaning what it says —
  * see the hub list below.
  *
- * 250 km covers the whole Salish Sea from any of its cities and reaches down to
- * Portland, which snaps to Seattle on the honest nearest rule anyway.
+ * 250 km covers the whole Salish Sea from any of its cities, and every gap
+ * along the outer coast from San Diego to Neah Bay is narrower than that.
+ * Portland snaps to Garibaldi or Astoria on the honest nearest rule, which is
+ * the coast a Portland angler actually drives to.
  */
 export const LOCAL_RADIUS_KM = 250;
 
@@ -108,24 +110,32 @@ export const LOCAL_RADIUS_KM = 250;
  * become a hub by shipping spots — Prince Rupert's 26 already outrank Seattle's
  * 16 — which is a silent change to where a whole continent lands.
  *
- * The four are the anchors of the four separated clusters we cover:
- *   • vancouver-bc     — the BC south coast and the Lower Mainland.
- *   • seattle-wa       — Puget Sound.
- *   • prince-rupert-bc — the north coast, 700 km from anything else on the
- *                        list, and the right answer for Alaska.
- *   • san-diego-ca     — Southern California, 1,700 km south of Seattle, and
- *                        the right answer for the Southwest and Mexico.
+ * Since Oregon and the rest of California published (2026-09-13) the covered
+ * coast is one chain from San Diego to Prince Rupert with no gap wider than
+ * the local radius, so the hubs are no longer separate clusters. They are the
+ * anchors a far arrival should land on, by the direction they come from:
+ *   • vancouver-bc     : the BC south coast and the Lower Mainland; the
+ *                        prairie lands here.
+ *   • seattle-wa       : Puget Sound; the inland Northwest and the East.
+ *   • prince-rupert-bc : the north coast, and the right answer for Alaska.
+ *   • newport-or       : the middle of the Oregon coast. Without it southeast
+ *                        Oregon and southern Idaho opened on Seattle.
+ *   • san-francisco-ca : Northern California. Without it Reno and Salt
+ *                        Lake City opened on San Diego instead of the
+ *                        nearer Bay Area coast.
+ *   • san-diego-ca     : Southern California, the Southwest and Mexico.
  *
- * Everything else we cover sits inside one of those clusters and is reachable
- * by the local rule. Add a slug here only when a new city anchors a cluster of
- * its own; a hub that fails the covered/published/has-spots gates is ignored,
- * so a stale entry degrades to the plain nearest city rather than to an empty
- * map.
+ * Everything else we cover is reachable by the local rule. Add a slug here
+ * only when a far arrival demonstrably lands on the wrong stretch of coast; a
+ * hub that fails the covered/published/has-spots gates is ignored, so a stale
+ * entry degrades to the plain nearest city rather than to an empty map.
  */
 export const HUB_CITY_SLUGS = [
   "vancouver-bc",
   "seattle-wa",
   "prince-rupert-bc",
+  "newport-or",
+  "san-francisco-ca",
   "san-diego-ca",
 ] as const;
 

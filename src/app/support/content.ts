@@ -345,9 +345,9 @@ export const ARTICLES: Article[] = [
     id: 'coverage',
     question: 'Which regions are covered?',
     topic: 'Map & spots',
-    tags: ['region', 'area', 'bc', 'washington', 'coverage', 'where'],
+    tags: ['region', 'area', 'bc', 'washington', 'oregon', 'california', 'coverage', 'where'],
     answer:
-      'British Columbia is the launch region: the Salish Sea, the west coast of Vancouver Island, and parts of the north coast and inlets. Other provinces and Pacific Northwest US waters are on the roadmap. If you want a specific area prioritised, file a feature request; we rank by demand.',
+      'The saltwater coast of British Columbia, Washington, Oregon and California: the BC coast from the Salish Sea to Prince Rupert, Puget Sound and the Washington outer coast, the Oregon coast from Brookings to Astoria, and California from Crescent City to San Diego. If you want a specific area prioritised, file a feature request; we rank by demand.',
   },
   {
     id: 'wrong-spot',

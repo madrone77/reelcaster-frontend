@@ -36,9 +36,8 @@ const PAY_FIRST = process.env.NEXT_PUBLIC_PAY_FIRST_CHECKOUT === '1';
 const REGIONS = [
   { value: 'BC', label: 'British Columbia' },
   { value: 'WA', label: 'Washington' },
+  { value: 'OR', label: 'Oregon' },
   { value: 'CA', label: 'California' },
-  // Oregon deliberately absent: no published cities, so it belongs behind
-  // "Somewhere else", which routes to the waitlist instead of taking money.
   { value: 'Other', label: 'Somewhere else' },
 ];
 
