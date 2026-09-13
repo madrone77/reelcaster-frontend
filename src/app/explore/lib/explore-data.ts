@@ -16,6 +16,16 @@ import type {
 import { spotPath } from "@/lib/paths";
 import { COVERED_PROVINCES } from "@/lib/regions";
 import { formatHour12 } from "@/lib/time-format";
+import {
+  CA_EXPLORE_RAIL_UNITS,
+  chooseUnits,
+  formatSignedTide,
+  formatWholeTemp,
+  unitCountryFor,
+  unitCountryForCitySlug,
+  type UnitCountry,
+  type UnitPrefs,
+} from "@/lib/unit-system";
 import { resolveSea } from "./sea-state";
 
 // ── Score tiers ─────────────────────────────────────────────────────
@@ -96,10 +106,10 @@ export const TIER_PIN: Record<Tier, string> = {
 export interface RailConditions {
   wind: string | null; // "12 kn SW"
   sea: string | null; // "Light Chop"
-  tide: string | null; // "+2.4m ▲"
+  tide: string | null; // "+2.4m ▲" (Canada) / "+7.9ft ▲" (US)
   current: string | null; // "0.4 kn" / "Slack"
   sky: string | null; // "Clear" / "Cloudy" / "Rain"
-  air: string | null; // "18°C"
+  air: string | null; // "18°C" (Canada) / "64°F" (US)
 }
 
 export interface RailSpot {
@@ -347,9 +357,9 @@ function seaState(cell: MapCondCell): string | null {
   return seaWord(resolveSea(cell.wav, cell.wkt, null)?.m ?? null);
 }
 
-function fmtTide(c: MapCondCell): string | null {
+function fmtTide(c: MapCondCell, units: RailUnits): string | null {
   if (c.tide == null) return null;
-  const h = `${c.tide >= 0 ? "+" : ""}${c.tide.toFixed(1)}m`;
+  const h = formatSignedTide(c.tide, units.tideUnit);
   if (!c.tph) return h;
   if (c.tph.startsWith("flood")) return `${h} ▲`;
   if (c.tph.startsWith("ebb")) return `${h} ▼`;
@@ -370,20 +380,43 @@ function skyWord(cld: number | null, pcp: number | null): string | null {
   return "Overcast";
 }
 
-function fmtAir(air: number | null): string | null {
-  return air == null ? null : `${Math.round(air)}°C`;
+function fmtAir(air: number | null, units: RailUnits): string | null {
+  return air == null ? null : formatWholeTemp(air, units.tempUnit);
 }
 
-export function formatConditions(cell: MapCondCell | null): RailConditions {
+/** The two units the rail formats itself. Wind and current stay knots. */
+export type RailUnits = Pick<UnitPrefs, "tideUnit" | "tempUnit">;
+
+/**
+ * The rail's units for a spot before any angler choice is known: what the
+ * server renders, and what the drawer falls back to. Canadian water keeps the
+ * metres and Celsius this rail always printed; US water reads feet and
+ * Fahrenheit.
+ */
+export function railUnitsFor(country: UnitCountry | null): RailUnits {
+  return chooseUnits(country, {}, CA_EXPLORE_RAIL_UNITS);
+}
+
+/** The country a rail spot's units follow: its city's state or province. */
+export function railSpotUnitCountry(
+  spot: Pick<RailSpot, "provinceCode" | "citySlug">,
+): UnitCountry | null {
+  return unitCountryFor(spot.provinceCode) ?? unitCountryForCitySlug(spot.citySlug);
+}
+
+export function formatConditions(
+  cell: MapCondCell | null,
+  units: RailUnits = CA_EXPLORE_RAIL_UNITS,
+): RailConditions {
   if (!cell)
     return { wind: null, sea: null, tide: null, current: null, sky: null, air: null };
   return {
     wind: fmtWind(cell),
     sea: seaState(cell),
-    tide: fmtTide(cell),
+    tide: fmtTide(cell, units),
     current: fmtCurrent(cell.cur),
     sky: skyWord(cell.cld, cell.pcp),
-    air: fmtAir(cell.air),
+    air: fmtAir(cell.air, units),
   };
 }
 
@@ -585,6 +618,7 @@ function deriveScoring(
   entry: MapSpotEntry | undefined,
   speciesDict: SpeciesDict,
   atHour: number,
+  country: UnitCountry | null = null,
 ): ScoringFields {
   if (!entry) return EMPTY_SCORING;
   const leadId = leadSpeciesId(entry, speciesDict);
@@ -606,7 +640,7 @@ function deriveScoring(
       ? speciesDisplayName(speciesDict[leadId]?.name ?? "")
       : null,
     peakHour: strip?.peak_hour ?? null,
-    conditions: formatConditions(cell),
+    conditions: formatConditions(cell, railUnitsFor(country)),
     condStrip: entry.conditions ?? null,
     hours24: strip
       ? strip.hours.map((h) => (h ? Math.round(h.s * 100) : null))
@@ -717,7 +751,12 @@ export function railSpotFromEntry(
     provinceCode: "",
     distanceKm: null,
     hasReports: entry.has_reports === true,
-    ...deriveScoring(entry, payload.species, atHour),
+    ...deriveScoring(
+      entry,
+      payload.species,
+      atHour,
+      unitCountryForCitySlug(entry.city_slug),
+    ),
   };
 }
 
@@ -824,7 +863,12 @@ export function railSpotsFromPayload(
     const home = entry.home_city_slug
       ? cities.get(entry.home_city_slug)
       : undefined;
-    const s = deriveScoring(entry, payload.species, atHour);
+    const s = deriveScoring(
+      entry,
+      payload.species,
+      atHour,
+      railSpotUnitCountry({ provinceCode: place.provinceCode, citySlug: place.slug }),
+    );
     out.push({
       id: entry.id,
       slug: entry.slug,
@@ -963,8 +1007,13 @@ export function buildExploreData(
     // the rail's grouping, so it's dropped here exactly as it was before.
     if (!place) continue;
 
-    const s = deriveScoring(entry, speciesDict, nowHour);
     const { city, regionSlug, regionName, provinceCode } = place;
+    const s = deriveScoring(
+      entry,
+      speciesDict,
+      nowHour,
+      railSpotUnitCountry({ provinceCode, citySlug: city.slug }),
+    );
     // The HOME city, which is a different lookup from the grouping one above.
     const homePlace = entry.home_city_slug
       ? cityIndex.get(entry.home_city_slug)

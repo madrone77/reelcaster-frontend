@@ -22,12 +22,13 @@ import {
   currentLocalHour,
   fmtPeak,
   formatConditions,
+  railSpotUnitCountry,
   tierFor,
   type RailSpot,
 } from "../lib/explore-data";
 import HourlyBars from "./hourly-bars";
 import { useUnitPreferences } from "@/contexts/unit-preferences-context";
-import { convertDistance, formatDistance } from "@/app/utils/unit-conversions";
+import { CA_EXPLORE_RAIL_UNITS, formatSpotDistance } from "@/lib/unit-system";
 import { formatHour12 } from "@/lib/time-format";
 import { spotHref } from "@/lib/paths";
 import { withAdParams } from "@/lib/ad-mode";
@@ -116,7 +117,13 @@ export default function SpotDrawer({
   // Hover-scrub over the 24h chart: while the mouse is on a bar the score,
   // pill, header stamp, and conditions grid preview that hour; leaving the
   // chart reverts to the day-peak resting state.
-  const { distanceUnit } = useUnitPreferences();
+  // Units follow the spot's country (US water reads feet, °F and miles), then
+  // any unit the angler picked. Canadian water keeps the rail's metres.
+  const unitCountry = railSpotUnitCountry(spot);
+  const { distanceUnit, tideUnit, tempUnit } = useUnitPreferences(
+    unitCountry,
+    CA_EXPLORE_RAIL_UNITS,
+  );
   const [hoverHour, setHoverHour] = useState<number | null>(null);
   const handleHourHover = (h: number | null) => {
     setHoverHour(h);
@@ -137,7 +144,9 @@ export default function SpotDrawer({
   const displayHour = activeHour;
   const displayCell =
     displayHour !== null ? spot.condStrip?.[displayHour] : null;
-  const conditions = displayCell ? formatConditions(displayCell) : spot.conditions;
+  const conditions = displayCell
+    ? formatConditions(displayCell, { tideUnit, tempUnit })
+    : spot.conditions;
 
   const tier = tierFor(score);
   const peak = fmtPeak(spot.peakHour);
@@ -259,11 +268,7 @@ export default function SpotDrawer({
         <p className="font-rc-mono text-xs text-rc-ink-soft mt-1">
           {spot.regionName}
           {spot.distanceKm !== null
-            ? ` · ${
-                distanceUnit === "km"
-                  ? `${spot.distanceKm} km`
-                  : formatDistance(convertDistance(spot.distanceKm, "km", distanceUnit), distanceUnit)
-              }`
+            ? ` · ${formatSpotDistance(spot.distanceKm, distanceUnit)}`
             : ""}
         </p>
 

@@ -26,6 +26,8 @@ import {
 } from "./city-sections";
 import { licenceFor } from "./city-licence";
 import CityTides from "./city-tides";
+import { UnitCountryScope } from "@/contexts/unit-preferences-context";
+import { unitCountryFor } from "@/lib/unit-system";
 
 // Scores refresh through the day — keep the page fresh-ish without going
 // fully dynamic (the hierarchy behind it is cached 1h regardless).
@@ -237,7 +239,9 @@ export default async function CityPage({
     : null;
 
   return (
-    <>
+    // Every reading on the page (the instrument, the tide tiles) takes the
+    // city's own country's units: feet and °F in the States.
+    <UnitCountryScope country={unitCountryFor(city.provinceCode)}>
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbs) }}
@@ -359,6 +363,6 @@ export default async function CityPage({
 
         <NearbyCities cities={nearby} />
       </div>
-    </>
+    </UnitCountryScope>
   );
 }
