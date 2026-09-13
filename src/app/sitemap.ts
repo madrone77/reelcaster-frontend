@@ -81,6 +81,11 @@ const STATIC_ENTRIES: Omit<SitemapEntry, "lastModified">[] = [
     priority: 0.7,
   },
   {
+    url: siteUrl("/fishing-licence/or"),
+    changeFrequency: "monthly",
+    priority: 0.7,
+  },
+  {
     url: siteUrl("/fishing-licence/ca"),
     changeFrequency: "monthly",
     priority: 0.7,

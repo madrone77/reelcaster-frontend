@@ -234,7 +234,7 @@ test("Toronto opens on Seattle, not on 6 km closer Bellingham", () => {
   assert.equal(opensOn(43.6532, -79.3832), "seattle-wa");
 });
 
-test("Los Angeles opens on Seattle", () => {
+test("Los Angeles opens on Seattle when the fixture has no California", () => {
   assert.equal(opensOn(34.0522, -118.2437), "seattle-wa");
 });
 
@@ -303,15 +303,16 @@ test("a closer city with no published spots is skipped", () => {
 });
 
 test("a closer city in an uncovered province is skipped", () => {
-  // Oregon is the standing case: it can hold a published city and still not be
-  // somewhere we sell or forecast. Opening the map there would be worse than
-  // opening it far away.
+  // Alaska is the standing case now Oregon is covered: it can hold a published
+  // city and still not be somewhere we sell or forecast. Opening the map there
+  // would be worse than opening it far away.
   const h = hierarchy([
     province("BC", "British Columbia", BC_CITIES.map((c) => city(c))),
     province("WA", "Washington", WA_CITIES.map((c) => city(c))),
-    province("OR", "Oregon", [city(["astoria-or", "Astoria", 46.1879, -123.831])]),
+    province("AK", "Alaska", [city(["ketchikan-ak", "Ketchikan", 55.3422, -131.6461])]),
   ]);
-  assert.equal(opensOn(45.5152, -122.6784, h), "seattle-wa");
+  // From Ketchikan itself: Prince Rupert is 143 km.
+  assert.equal(opensOn(55.3422, -131.6461, h), "prince-rupert-bc");
 });
 
 test("a hub that fails the gates is ignored, not opened on", () => {
@@ -333,6 +334,56 @@ test("with no hub left standing, a far arrival still gets the nearest city", () 
     province("BC", "British Columbia", [city(BC_CITIES[3])]), // Victoria only
   ]);
   assert.equal(opensOn(40.7128, -74.006, h), "victoria-bc");
+});
+
+// ── the whole outer coast, since Oregon (2026-09-13) ────────────────────────
+//
+// The fixture above predates California and Oregon. These run against the
+// coast as it stands: the hubs plus the outer-coast cities near each arrival.
+
+console.log("nearestOpeningCity: outer coast");
+
+const COAST: CitySpec[] = [
+  ["neah-bay-wa", "Neah Bay", 48.368, -124.617],
+  ["la-push-wa", "La Push", 47.91, -124.635],
+  ["astoria-or", "Astoria", 46.188, -123.832],
+  ["garibaldi-or", "Garibaldi", 45.556, -123.912],
+  ["newport-or", "Newport", 44.625, -124.05],
+  ["brookings-or", "Brookings", 42.044, -124.27],
+  ["crescent-city-ca", "Crescent City", 41.745, -124.184],
+  ["san-francisco-ca", "San Francisco", 37.808, -122.415],
+  ["san-diego-ca", "San Diego", 32.7157, -117.1611],
+];
+const coast = () =>
+  hierarchy([
+    province("BC", "British Columbia", BC_CITIES.map((c) => city(c))),
+    province("WA", "Washington", [...WA_CITIES, ...COAST.slice(0, 2)].map((c) => city(c))),
+    province("OR", "Oregon", COAST.slice(2, 6).map((c) => city(c))),
+    province("CA", "California", COAST.slice(6).map((c) => city(c))),
+  ]);
+
+test("Portland opens on Garibaldi, the coast it drives to, not Seattle", () => {
+  assert.equal(opensOn(45.5152, -122.6784, coast()), "garibaldi-or");
+});
+
+test("Forks opens on La Push", () => {
+  assert.equal(opensOn(47.95, -124.39, coast()), "la-push-wa");
+});
+
+test("Boise opens on Newport, not Seattle", () => {
+  assert.equal(opensOn(43.615, -116.2023, coast()), "newport-or");
+});
+
+test("Reno opens on San Francisco, not San Diego", () => {
+  assert.equal(opensOn(39.5296, -119.8138, coast()), "san-francisco-ca");
+});
+
+test("Salt Lake City opens on San Francisco, not San Diego", () => {
+  assert.equal(opensOn(40.7608, -111.891, coast()), "san-francisco-ca");
+});
+
+test("Phoenix still opens on San Diego", () => {
+  assert.equal(opensOn(33.4484, -112.074, coast()), "san-diego-ca");
 });
 
 console.log(`\n${passed} passed, ${failed} failed`);

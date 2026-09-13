@@ -189,16 +189,17 @@ export default function PlanMatrix({
         </div>
       )}
 
-      {/* Names only what a customer can actually use today. Oregon used to be
-          listed here and in COVERED_PROVINCES despite having no cities in
-          BlueCaster at all, so this sold water we don't forecast; it has been
-          swept out of the covered set and every other surface that named it.
-          "More coming soon" covers the next region without naming a date.
+      {/* Names only what a customer can actually use today. Oregon was once
+          listed here and in COVERED_PROVINCES before it had a single city,
+          so this sold water we didn't forecast; it came back 2026-09-13 when
+          nine Oregon coast cities published. Add a region here the day it has
+          a published city, never before. "More coming soon" covers the next
+          region without naming a date.
 
           The currency sentence stays: the price above says "$33" and nothing
           else on this modal says which dollar that is. */}
       <p className="px-4 sm:px-6 py-4 text-[11px] leading-relaxed text-rc-ink-mute border-t border-rc-rule">
-        Pro available in British Columbia, Washington and California. More coming soon.
+        Pro available in British Columbia, Washington, Oregon and California. More coming soon.
         Billed in CAD in Canada, USD in the US.
       </p>
 </div>

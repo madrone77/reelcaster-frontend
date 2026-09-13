@@ -11,13 +11,12 @@
 // city, not the day we intend to build one.
 //
 // California joined 2026-09-12 with san-diego-ca published (41 spots).
-// Oregon is wired below (ODFW, timezone) but stays OUT of this list until the
-// first Oregon city publishes; the backend is running Oregon cities now, so a
-// later session flips it by adding "OR" here and to the footer Locations.
+// Oregon joined 2026-09-13 with nine coast cities published at once, Brookings
+// to Astoria.
 
 import { cmToIn, round1 } from "@/lib/units";
 
-export const COVERED_PROVINCES = ["BC", "WA", "CA"] as const;
+export const COVERED_PROVINCES = ["BC", "WA", "OR", "CA"] as const;
 export type CoveredProvince = (typeof COVERED_PROVINCES)[number];
 
 /**

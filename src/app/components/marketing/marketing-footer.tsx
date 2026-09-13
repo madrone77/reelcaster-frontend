@@ -19,8 +19,8 @@ export default function MarketingFooter() {
           (the /coming-soon wall was retired), so a stale link here is a dead
           link. Locations lists the /fishing province directories; add a region
           here once it has lifecycle-published cities. Washington qualified when
-          Seattle was promoted, California when San Diego did; Oregon still has
-          none.
+          Seattle was promoted, California when San Diego did, Oregon when nine
+          coast cities from Brookings to Astoria did (2026-09-13).
           "Support" points at /support, which paywalls non-Pro visitors. FAQ
           and Contact directly above it are the open routes.
 
@@ -48,9 +48,9 @@ export default function MarketingFooter() {
           md this is a 2-column grid, and a grid row track is as tall as its
           taller column, so pairing a 4-link block with a 2-link one leaves the
           short one padded out with dead space and drops the next header far
-          below its neighbour's. Locations (6, since California) and Company
-          (4) share the first row, so Company carries a two-link void under it;
-          nothing on the site has six links to pair Locations with, and
+          below its neighbour's. Locations (8, since Oregon) and Company
+          (4) share the first row, so Company carries a four-link void under it;
+          nothing on the site has eight links to pair Locations with, and
           splitting the regions from their licence guides would cost the
           reader more than the gap does. Product (3) and Account (2) take the
           other ragged step at the bottom where nothing follows it in that
@@ -65,15 +65,17 @@ export default function MarketingFooter() {
                 California has no legacy shape at all. */}
             <li><Link href="/fishing/ca/bc" prefetch={false} className="block py-2.5 md:py-0 hover:text-rc-ink">British Columbia</Link></li>
             <li><Link href="/fishing/us/wa" prefetch={false} className="block py-2.5 md:py-0 hover:text-rc-ink">Washington</Link></li>
+            <li><Link href="/fishing/us/or" prefetch={false} className="block py-2.5 md:py-0 hover:text-rc-ink">Oregon</Link></li>
             <li><Link href="/fishing/us/ca" prefetch={false} className="block py-2.5 md:py-0 hover:text-rc-ink">California</Link></li>
             {/* Sitewide links so the guides aren't reachable only from search,
                 an indexable page nothing links to reads as low value. They sit
                 under Locations because each is region-specific. Note the
-                spelling split: BC copy says "licence" (DFO), WA and CA say
-                "license" (WDFW, CDFW), while all share the /fishing-licence/
+                spelling split: BC copy says "licence" (DFO), WA, OR and CA
+                say "license" (WDFW, ODFW, CDFW), while all share the /fishing-licence/
                 route segment. */}
             <li><Link href="/fishing-licence/bc" prefetch={false} className="block py-2.5 md:py-0 hover:text-rc-ink">BC fishing licence</Link></li>
             <li><Link href="/fishing-licence/wa" prefetch={false} className="block py-2.5 md:py-0 hover:text-rc-ink">WA fishing license</Link></li>
+            <li><Link href="/fishing-licence/or" prefetch={false} className="block py-2.5 md:py-0 hover:text-rc-ink">OR fishing license</Link></li>
             <li><Link href="/fishing-licence/ca" prefetch={false} className="block py-2.5 md:py-0 hover:text-rc-ink">CA fishing license</Link></li>
           </ul>
         </div>
@@ -115,7 +117,7 @@ export default function MarketingFooter() {
             Fishing intelligence for the West Coast, from British Columbia
             to California. Forecasts are reference only. Always verify
             regulations with your regulator: DFO in BC, WDFW in Washington,
-            CDFW in California.
+            ODFW in Oregon, CDFW in California.
           </p>
           {/* ReelCaster is a website, not a download. Stated on every page
               because search and AI answers have been confusing it with an
