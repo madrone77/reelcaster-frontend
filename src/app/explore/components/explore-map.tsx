@@ -19,7 +19,7 @@ import type {
 import "maplibre-gl/dist/maplibre-gl.css";
 import type { RailSpot } from "../lib/explore-data";
 import { buildReliefStyle, buildSummaryStyle } from "@/lib/map/relief-style";
-import { applyBathyCoverages, isBathymetryLayer, type StyleLike } from "@/lib/map/bathy-coverages";
+import { applyBathyCoverages, isBathymetryLayer, isBathyPlacesLayer, type StyleLike } from "@/lib/map/bathy-coverages";
 import { useBathyManifest } from "@/lib/map/use-bathy-manifest";
 import { attachRcaHatch, ensureRcaHatch } from "@/lib/map/rca-hatch";
 import {
@@ -74,14 +74,14 @@ export interface CustomSpotPin {
 }
 
 // Layer groups the toggles flip (relief style ids). Bathymetry = depth shading
-// + contours + their labels, found by id family at toggle time
-// (isBathymetryLayer) since the depth shading and contour families each hold
-// one clone per US coverage (`color-relief--us-ca-monterey-relief`,
-// `contour-line--us-ca-monterey-t3` and so on) plus the coast-wide base
-// relief (`color-relief--base-relief`), and the manifest arrives late.
-// Land is not bathymetry, so the BC mask, the base land and any US clones
-// stay put.
-// Labels = place names.
+// + contours + their labels + US soundings + intertidal bands, found by id
+// family at toggle time (isBathymetryLayer) since each family holds one clone
+// per US coverage (`color-relief--us-ca-monterey-relief`,
+// `contour-line--us-ca-monterey-t3`, `soundings-structures--us-ca-monterey-soundings`
+// and so on) plus the coast-wide base relief (`color-relief--base-relief`),
+// and the manifest arrives late. Land is not bathymetry, so the BC mask, the
+// base land and any US clones stay put.
+// Labels = place names, plus the US undersea names (`places-undersea--base-places`).
 const LABEL_LAYERS = ["places-t0", "places-t1", "places-t2", "places-t3", "places-t4"];
 // WDFW regulatory layers (WA marine-area grid + MPAs). The relief style ships
 // them hidden (Canada-first); they flip on when the active city is in Washington.
@@ -334,6 +334,10 @@ export default function ExploreMap({
         .filter(isBathymetryLayer);
       set(bathyIds, relief);
       set(LABEL_LAYERS, labels);
+      set(
+        (mapObj.getStyle()?.layers ?? []).map((l) => l.id).filter(isBathyPlacesLayer),
+        labels,
+      );
       set(WDFW_LAYERS, wdfwRegs ?? false);
     };
     apply();
@@ -461,6 +465,13 @@ export default function ExploreMap({
   // The tail tip sits PUCK_TIP_OFFSET above the sprite's bottom edge (the drop
   // shadow needs the room), so the icon is nudged down by that much to land the
   // tip exactly on the spot rather than the shadow.
+  //
+  // `icon-ignore-placement` stays true on purpose: a puck that claimed its box
+  // in the collision index would push the BC town names (Victoria, Saanich)
+  // and the border words off the map wherever spots crowd them. The undersea
+  // names from the manifest, which often share a spot's own name and point
+  // (Cortes Bank, the 43 Fathom Spot), keep clear another way: they hang
+  // below their point while the puck stands above it (bathy-coverages.ts).
   const spotPuckLayer: LayerProps = {
     id: SPOT_PUCK,
     type: "symbol",

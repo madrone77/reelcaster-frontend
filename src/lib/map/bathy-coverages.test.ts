@@ -6,7 +6,10 @@
  * a two-tier US coverage that splits at the switch zoom, a one-tier coverage,
  * a coverage that also ships land + relief (the newer manifest), and the
  * malformed entries that must not take the map down, and the schema 2 `base`
- * (coast-wide relief + land) with the schema 1 per-coverage land fallback.
+ * (coast-wide relief + land) with the schema 1 per-coverage land fallback,
+ * and the 2026-09c quality pass: per-coverage soundings and intertidal band,
+ * base places, offshore coverages, zoom ranges read from each entry, and the
+ * US contour paint by depth with index contours.
  */
 
 import assert from "node:assert/strict";
@@ -20,7 +23,15 @@ import {
   coverageSetId,
   coverageSourceId,
   coverageTileSet,
+  coverageZoomRange,
+  indexContourExpr,
+  INDEX_STEPS_FT,
   isBathyContourLayer,
+  isBathyIntertidalLayer,
+  isBathyPlacesLayer,
+  isBathySoundingsLayer,
+  isIndexDepthFt,
+  usContourLinePaint,
   isBathyLandLayer,
   isBathyReliefLayer,
   isBathymetryLayer,
@@ -130,7 +141,10 @@ const bc: BathyCoverage = {
   assert.equal(t1.source, coverageSourceId("us-ca-monterey", "t1"));
   assert.equal(t3.source, coverageSourceId("us-ca-monterey", "t3"));
   assert.equal(t3["source-layer"], "contours");
-  assert.deepEqual(t3.paint, byId.get("contour-line")!.paint, "same ink as the BC lines");
+  assert.deepEqual(t3.paint, usContourLinePaint(), "US lines get the depth paint");
+  assert.deepEqual(t1.paint, usContourLinePaint());
+  assert.notDeepEqual(byId.get("contour-line")!.paint, usContourLinePaint(), "BC keeps its own ink");
+  assert.deepEqual(byId.get("contour-line")!.paint, freshStyle().layers.find((l) => l.id === "contour-line")!.paint, "BC paint untouched");
   assert.deepEqual(t3.filter, ["all", ["==", ["get", "system"], "ft"], ["!=", ["get", "depth"], 0]]);
   assert.deepEqual(t3.metadata, { "bathy:coverage": "us-ca-monterey", "bathy:tier": "t3" });
 
@@ -141,7 +155,7 @@ const bc: BathyCoverage = {
   assert.equal(labels.minzoom, 12, "keeps the BC labels' floor, which is above the switch");
   assert.deepEqual(labels.layout?.["text-field"], ["concat", ["to-string", ["get", "depth"]], " ft"]);
   assert.deepEqual(labels.layout?.["text-font"], ["Open Sans Semibold"], "the one font this app ships");
-  assert.deepEqual(labels.filter, ["all", ["==", ["get", "system"], "ft"], ["in", ["get", "depth"], ["literal", [10, 20, 30, 50, 75, 100, 200, 400, 700]]]]);
+  assert.deepEqual(labels.filter, ["all", ["==", ["get", "system"], "ft"], ["!=", ["to-number", ["get", "depth"]], 0], indexContourExpr()], "index contours only");
 
   // The toggle reaches the whole family and nothing else.
   for (const id of ids) {
@@ -484,6 +498,255 @@ function schema2Coverage(id: string): BathyCoverage {
   assert.equal(ids[ids.indexOf("land") + 2], coverageLayerId("land", "us-wa-graysharbor", "land"));
   assert.equal(ids[ids.indexOf("color-relief") + 1], coverageLayerId("color-relief", BASE_ID, "relief"));
   assert.equal(ids[ids.indexOf("color-relief") + 2], coverageLayerId("color-relief", "us-wa-graysharbor", "relief"));
+}
+
+// Index contours: every fifth t3 level, rounded to chart numbers (admin rule).
+{
+  const index = [15, 30, 45, 150, 200, 250, 300, 400, 1000, 1250, 2000, 2500, 3000, 4000, 6000];
+  const other = [0, 5, 10, 20, 50, 160, 175, 350, 450, 1100, 1600, 2100, 3500, 4500];
+  for (const d of index) assert.equal(isIndexDepthFt(d), true, `${d} ft is an index line`);
+  for (const d of other) assert.equal(isIndexDepthFt(d), false, `${d} ft is not`);
+  assert.deepEqual(INDEX_STEPS_FT.map((r) => r.step), [15, 50, 100, 250, 500]);
+
+  // The style expression says the same thing as the plain function. Walk it
+  // by hand: ["case", cond1, val1, ..., fallback], each cond ["<=", d, max],
+  // each val ["==", ["%", d, step], 0].
+  const expr = indexContourExpr();
+  const evalIndex = (d: number): boolean => {
+    for (let i = 1; i < expr.length - 1; i += 2) {
+      const max = (expr[i] as [string, unknown, number])[2];
+      const step = ((expr[i + 1] as [string, [string, unknown, number], number])[1])[2];
+      if (d <= max) return d % step === 0;
+    }
+    const last = expr[expr.length - 1] as [string, [string, unknown, number], number];
+    return d % last[1][2] === 0;
+  };
+  for (const d of [...index, ...other.filter((x) => x !== 0)]) assert.equal(evalIndex(d), isIndexDepthFt(d), `expr agrees at ${d}`);
+
+  // Paint: colour by depth in metres (ft x 0.3048), index lines wider from z12
+  // and fully opaque from z11, other lines fading with depth.
+  const paint = usContourLinePaint() as Record<string, unknown[]>;
+  const depthM = ["*", ["to-number", ["get", "depth"]], 0.3048];
+  assert.deepEqual(paint["line-color"], ["interpolate", ["linear"], depthM, 0, "#5C92B4", 40, "#3D78A9", 90, "#9DC9E6", 200, "rgba(226,242,255,0.72)"]);
+  assert.deepEqual(paint["line-width"], ["interpolate", ["linear"], ["zoom"], 8, 0.3, 11, 0.5, 12, ["case", expr, 1.1, 0.5], 14, ["case", expr, 1.8, 0.8]]);
+  const opacity = paint["line-opacity"];
+  assert.deepEqual(opacity.slice(0, 3), ["interpolate", ["linear"], ["zoom"]]);
+  assert.deepEqual(opacity.filter((_, i) => i >= 3 && i % 2 === 1), [10, 11, 13, 14], "opacity stops at z10, z11, z13, z14");
+  assert.deepEqual(opacity[4], ["interpolate", ["linear"], depthM, 0, 1, 120, 0.9, 200, 0.6, 500, 0.45], "z10: every line fades with depth");
+  assert.deepEqual(opacity[6], ["case", expr, 1, ["interpolate", ["linear"], depthM, 0, 1, 120, 0.85, 200, 0.45, 400, 0.3]]);
+  assert.deepEqual(opacity[10], ["case", expr, 1, ["interpolate", ["linear"], depthM, 0, 1, 200, 0.7, 400, 0.5]]);
+}
+
+// The 2026-09c quality pass, shaped like the live manifest: base relief,
+// land and places; a nearshore coverage with soundings and intertidal; an
+// offshore coverage listed FIRST in the manifest's own order after it, with
+// relief z8 to z12 and soundings.
+const QP_ATTR = "Base relief: NOAA NCEI ETOPO 2022 (public domain). Land (c) OpenStreetMap contributors (ODbL). Place names: IHO-IOC GEBCO Gazetteer of Undersea Feature Names, www.gebco.net; USGS GNIS (public domain).";
+function qpBase(): BathyBase {
+  return {
+    relief: { file: "relief-base.westcoast.2026-09b.pmtiles", source_layer: null, minzoom: 0, maxzoom: 9 },
+    land: { file: "bathymetry-land.westcoast.2026-09b.pmtiles", source_layer: "land" },
+    places: { file: "bathymetry-places.us-westcoast.2026-09.pmtiles", source_layer: "places" },
+    bbox: [-140, 18, -95, 60],
+    attribution: QP_ATTR,
+  };
+}
+function qpNearshore(id: string): BathyCoverage {
+  const cov = usCoverage(id);
+  cov.kind = "nearshore";
+  cov.version = "2026-09c";
+  cov.pmtiles.relief = { file: `relief-hybrid-webp.${id}.2026-09c.pmtiles`, source_layer: null };
+  cov.pmtiles.soundings = { file: `bathymetry-soundings.${id}.2026-09c.pmtiles`, source_layer: "soundings" };
+  cov.pmtiles.intertidal = { file: `bathymetry-intertidal.${id}.2026-09c.pmtiles`, source_layer: "intertidal_band" };
+  return cov;
+}
+function qpOffshore(id: string, soundings = true): BathyCoverage {
+  const cov = usCoverage(id);
+  cov.kind = "offshore";
+  cov.version = "2026-09c";
+  cov.bbox = [-121, 31.9, -119, 32.9];
+  cov.pmtiles.relief = { file: `relief-hybrid-webp.${id}.2026-09c.pmtiles`, source_layer: null, minzoom: 8, maxzoom: 12 };
+  if (soundings) cov.pmtiles.soundings = { file: `bathymetry-soundings.${id}.2026-09c.pmtiles`, source_layer: "soundings" };
+  return cov;
+}
+const CDN_BASE = "https://szbrwccppikqkystlgmq.supabase.co/storage/v1/object/public/bathymetry";
+{
+  const style = freshStyle();
+  const near = qpNearshore("us-ca-sandiego");
+  const off = qpOffshore("us-off-ca-cortes");
+  const offBare = qpOffshore("us-off-or-n", false);
+  const manifest: BathyManifestLike = { coverages_schema: 2, base: qpBase(), coverages: [bc, near, off, offBare] };
+  const r = applyBathyCoverages(style, manifest, ORIGIN);
+  assert.deepEqual(r.added, ["us-off-ca-cortes", "us-off-or-n", "us-ca-sandiego"], "offshore walked first, stable otherwise");
+  assert.deepEqual(r.skipped, ["bc"]);
+  assert.deepEqual(r.base, ["relief", "land", "places"]);
+
+  // Zoom ranges come from each entry; the fallback only fills the silence.
+  const offRelief = style.sources[coverageSourceId("us-off-ca-cortes", "relief")];
+  assert.equal(offRelief.minzoom, 8);
+  assert.equal(offRelief.maxzoom, 12, "offshore relief stops at 12 and overzooms above");
+  const nearRelief = style.sources[coverageSourceId("us-ca-sandiego", "relief")];
+  assert.equal(nearRelief.minzoom, 8);
+  assert.equal(nearRelief.maxzoom, 14);
+  assert.equal(style.sources[coverageSourceId(BASE_ID, "relief")].maxzoom, 9);
+  assert.deepEqual(style.sources[coverageSourceId(BASE_ID, "relief")].bounds, [-140, 18, -95, 60]);
+
+  const ids = style.layers.map((l) => l.id);
+  const byId = new Map(style.layers.map((l) => [l.id, l]));
+  // No raster layer has a zoom gate.
+  for (const l of style.layers.filter((x) => x.type === "raster")) {
+    assert.equal(l.minzoom, undefined, `${l.id} has no layer minzoom`);
+    assert.equal(l.maxzoom, undefined, `${l.id} has no layer maxzoom`);
+  }
+
+  // Relief order: BC, base, offshore, nearshore, then the intertidal bands,
+  // all under the contours.
+  const at = ids.indexOf("color-relief");
+  assert.deepEqual(ids.slice(at, at + 6), [
+    "color-relief",
+    "color-relief--base-relief",
+    "color-relief--us-off-ca-cortes-relief",
+    "color-relief--us-off-or-n-relief",
+    "color-relief--us-ca-sandiego-relief",
+    "intertidal-band--us-ca-sandiego-intertidal",
+  ]);
+  assert.ok(ids.indexOf("intertidal-band--us-ca-sandiego-intertidal") < ids.indexOf("contour-line"));
+  // Offshore contour clones sit under the nearshore ones.
+  assert.ok(ids.indexOf(coverageLayerId("contour-line", "us-off-ca-cortes", "t1")) < ids.indexOf(coverageLayerId("contour-line", "us-ca-sandiego", "t1")));
+
+  // Intertidal: a pale fill from the entry's source layer, bounded source.
+  const band = byId.get("intertidal-band--us-ca-sandiego-intertidal")!;
+  assert.equal(band.type, "fill");
+  assert.equal(band.source, "intertidal-us-ca-sandiego");
+  assert.equal(band["source-layer"], "intertidal_band");
+  assert.equal(band.minzoom, 8);
+  assert.deepEqual(band.paint, { "fill-color": "#DFECBD", "fill-antialias": false });
+  const bandSrc = style.sources["intertidal-us-ca-sandiego"];
+  assert.equal(bandSrc.type, "vector");
+  assert.deepEqual(bandSrc.bounds, near.bbox);
+  assert.deepEqual([bandSrc.minzoom, bandSrc.maxzoom], [8, 14]);
+  assert.deepEqual(bandSrc.tiles, [`${ORIGIN}/api/map/tiles/cov-us-ca-sandiego-intertidal-2026-09c/{z}/{x}/{y}`]);
+  assert.equal(style.sources["intertidal-us-off-ca-cortes"], undefined, "offshore has no band");
+
+  // Soundings: four layers per coverage that ships them, right under the
+  // first place tier, then the undersea names, then places-t0.
+  const t0 = ids.indexOf("places-t0");
+  const expectedTail = [
+    ...["us-off-ca-cortes", "us-ca-sandiego"].flatMap((c) =>
+      ["soundings-structures", "soundings-peaks", "soundings-structures-labels", "soundings-peaks-labels"].map((b) => coverageLayerId(b, c, "soundings")),
+    ),
+    "places-undersea--base-places",
+    "places-t0",
+  ];
+  assert.deepEqual(ids.slice(t0 - expectedTail.length + 1, t0 + 1), expectedTail);
+  assert.ok(ids.indexOf("land--base-land") < t0 - expectedTail.length, "soundings and names draw above the land");
+  assert.equal(ids.indexOf(coverageLayerId("soundings-structures", "us-off-or-n", "soundings")), -1, "no soundings archive, no layers");
+  const struct = byId.get(coverageLayerId("soundings-structures-labels", "us-ca-sandiego", "soundings"))!;
+  assert.equal(struct.type, "symbol");
+  assert.equal(struct.source, "soundings-us-ca-sandiego");
+  assert.equal(struct["source-layer"], "soundings");
+  assert.equal(struct.minzoom, 12);
+  assert.deepEqual(struct.layout?.["text-field"], ["concat", ["to-string", ["get", "depth_ft"]], " ft"], "feet only");
+  assert.deepEqual(struct.layout?.["text-font"], ["Open Sans Semibold"], "the one font this app ships");
+  const peaks = byId.get(coverageLayerId("soundings-peaks", "us-ca-sandiego", "soundings"))!;
+  assert.equal(peaks.minzoom, 13);
+  assert.deepEqual(peaks.filter, ["all", ["==", ["get", "kind"], "peak"], [">=", ["get", "prominence_m"], 5], ["<=", ["get", "depth_m"], 100]]);
+  assert.equal(byId.get(coverageLayerId("soundings-peaks-labels", "us-ca-sandiego", "soundings"))!.minzoom, 14);
+  const soundSrc = style.sources["soundings-us-off-ca-cortes"];
+  assert.deepEqual([soundSrc.minzoom, soundSrc.maxzoom], [8, 14]);
+  assert.deepEqual(soundSrc.bounds, off.bbox);
+  assert.deepEqual(soundSrc.tiles, [`${ORIGIN}/api/map/tiles/cov-us-off-ca-cortes-soundings-2026-09c/{z}/{x}/{y}`]);
+
+  // Undersea names from base.places.
+  const names = byId.get("places-undersea--base-places")!;
+  assert.equal(names.type, "symbol");
+  assert.equal(names.source, "places-base");
+  assert.equal(names["source-layer"], "places");
+  assert.equal(names.minzoom, 7);
+  assert.deepEqual(names.layout?.["text-font"], ["Open Sans Semibold"]);
+  assert.equal(names.layout?.["symbol-sort-key"], 35);
+  assert.equal(names.layout?.["text-anchor"], "top", "hangs below its point, clear of a puck standing above the same point");
+  assert.equal(names.layout?.["text-allow-overlap"], undefined, "a name never forces itself over another label");
+  assert.deepEqual(names.layout?.["text-size"], ["interpolate", ["linear"], ["zoom"], 7, 10, 10, 12, 13, 15]);
+  const nameKinds = ((names.filter as unknown[])[2] as [string, string[]])[1];
+  for (const k of ["bank", "canyon", "seamount", "ground", "knoll", "trench"]) assert.ok(nameKinds.includes(k), k);
+  const placesSrc = style.sources["places-base"];
+  assert.equal(placesSrc.type, "vector");
+  assert.deepEqual([placesSrc.minzoom, placesSrc.maxzoom], [6, 14], "no zoom in the entry: the archive's z6 to z14");
+  assert.deepEqual(placesSrc.bounds, [-140, 18, -95, 60]);
+  assert.equal(placesSrc.attribution, QP_ATTR, "the gazetteer credit rides on the names source");
+  assert.deepEqual(placesSrc.tiles, [`${ORIGIN}/api/map/tiles/base-places-2026-09/{z}/{x}/{y}`]);
+
+  // Toggle families: soundings and bands ride with Bathymetry, names with Labels.
+  const sid = coverageLayerId("soundings-peaks-labels", "us-ca-sandiego", "soundings");
+  assert.equal(isBathySoundingsLayer(sid), true);
+  assert.equal(isBathymetryLayer(sid), true);
+  assert.equal(isBathyIntertidalLayer("intertidal-band--us-ca-sandiego-intertidal"), true);
+  assert.equal(isBathymetryLayer("intertidal-band--us-ca-sandiego-intertidal"), true);
+  assert.equal(isBathyPlacesLayer("places-undersea--base-places"), true);
+  assert.equal(isBathymetryLayer("places-undersea--base-places"), false);
+  assert.equal(isBathyPlacesLayer("places-t0"), false);
+  assert.equal(isBathySoundingsLayer("soundings-structures"), false, "no BC original");
+  for (const id of freshStyle().layers.map((l) => l.id)) {
+    assert.equal(isBathySoundingsLayer(id) || isBathyIntertidalLayer(id) || isBathyPlacesLayer(id), false, id);
+  }
+
+  // The proxy resolves every new set id with the entry's zoom range.
+  const offReliefDef = coverageTileSet(manifest, coverageSetId(off, "relief"));
+  assert.ok(offReliefDef);
+  assert.equal(offReliefDef.url, `${CDN_BASE}/relief-hybrid-webp.us-off-ca-cortes.2026-09c.pmtiles`);
+  assert.deepEqual([offReliefDef.minzoom, offReliefDef.maxzoom, offReliefDef.contentType, offReliefDef.gzip], [8, 12, "image/webp", false]);
+  const soundDef = coverageTileSet(manifest, "cov-us-ca-sandiego-soundings-2026-09c");
+  assert.ok(soundDef);
+  assert.equal(soundDef.url, `${CDN_BASE}/bathymetry-soundings.us-ca-sandiego.2026-09c.pmtiles`);
+  assert.deepEqual([soundDef.minzoom, soundDef.maxzoom, soundDef.contentType, soundDef.gzip], [8, 14, "application/x-protobuf", true]);
+  const bandDef = coverageTileSet(manifest, "cov-us-ca-sandiego-intertidal-2026-09c");
+  assert.ok(bandDef);
+  assert.equal(bandDef.url, `${CDN_BASE}/bathymetry-intertidal.us-ca-sandiego.2026-09c.pmtiles`);
+  const placesDef = coverageTileSet(manifest, "base-places-2026-09");
+  assert.ok(placesDef);
+  assert.equal(placesDef.url, `${CDN_BASE}/bathymetry-places.us-westcoast.2026-09.pmtiles`);
+  assert.deepEqual([placesDef.minzoom, placesDef.maxzoom, placesDef.gzip], [6, 14, true]);
+  assert.equal(coverageTileSet(manifest, "cov-us-off-or-n-soundings-2026-09c"), null, "not listed, not served");
+  assert.equal(coverageTileSet(manifest, "cov-us-off-ca-cortes-intertidal-2026-09c"), null);
+  assert.equal(coverageTileSet({ base: { relief: qpBase().relief } }, "base-places-2026-09"), null);
+}
+
+// Zoom reading: entry wins, silence and junk fall back.
+{
+  const cov = qpOffshore("us-off-x");
+  assert.deepEqual(coverageZoomRange(cov, "relief"), { minzoom: 8, maxzoom: 12 });
+  assert.deepEqual(coverageZoomRange(cov, "soundings"), { minzoom: 8, maxzoom: 14 });
+  assert.deepEqual(coverageZoomRange(cov, "t3"), { minzoom: 6, maxzoom: 14 });
+  cov.pmtiles.relief!.maxzoom = 13;
+  assert.deepEqual(coverageZoomRange(cov, "relief"), { minzoom: 8, maxzoom: 13 });
+  cov.pmtiles.relief!.minzoom = "8" as unknown as number;
+  assert.deepEqual(coverageZoomRange(cov, "relief"), { minzoom: 8, maxzoom: 13 }, "a string is not a zoom");
+  cov.pmtiles.relief!.minzoom = 14;
+  cov.pmtiles.relief!.maxzoom = 10;
+  assert.deepEqual(coverageZoomRange(cov, "relief"), { minzoom: 8, maxzoom: 14 }, "a backwards range falls back");
+  const b = qpBase();
+  b.places!.minzoom = 7;
+  b.places!.maxzoom = 12;
+  assert.deepEqual(baseZoomRangeOf(b), { minzoom: 7, maxzoom: 12 });
+}
+function baseZoomRangeOf(b: BathyBase) {
+  const style = freshStyle();
+  applyBathyCoverages(style, { base: b }, ORIGIN);
+  const src = style.sources["places-base"];
+  return { minzoom: src.minzoom, maxzoom: src.maxzoom };
+}
+
+// A style with no place tiers (a stripped style) draws no soundings or names
+// rather than appending them on top of everything.
+{
+  const style = freshStyle();
+  style.layers = style.layers.filter((l) => !l.id.startsWith("places-t"));
+  const r = applyBathyCoverages(style, { base: qpBase(), coverages: [qpNearshore("us-ca-sandiego")] }, ORIGIN);
+  assert.deepEqual(r.base, ["relief", "land"]);
+  assert.ok(!style.layers.some((l) => isBathySoundingsLayer(l.id) || isBathyPlacesLayer(l.id)));
+  assert.equal(style.sources["places-base"], undefined);
+  assert.equal(style.sources["soundings-us-ca-sandiego"], undefined);
 }
 
 console.log("bathy-coverages: all cases pass");
