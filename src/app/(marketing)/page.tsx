@@ -17,7 +17,7 @@ export const revalidate = 3600;
 
 // The tagline is the H1's job. The <title> has to carry the terms people
 // actually type (forecast, reports, tides, wind, currents), and it stays
-// region-neutral because coverage now spans BC and Washington.
+// region-neutral because coverage now spans BC, Washington and California.
 //
 // `title.absolute` opts out of the root layout's "%s | ReelCaster" template —
 // the brand is already in the string.
@@ -26,7 +26,7 @@ export const metadata: Metadata = {
     absolute: 'Accurate Fishing Forecast, Reports, Tides, Wind and Currents | ReelCaster',
   },
   description:
-    'ReelCaster turns tides, weather, water conditions, and regulations into one fishing score, so you know when and where to fish on the BC and Washington coasts.',
+    'ReelCaster turns tides, weather, water conditions, and regulations into one fishing score, so you know when and where to fish on the BC, Washington and California coasts.',
   alternates: { canonical: siteUrl('/') },
   openGraph: {
     // A page-level openGraph block REPLACES the root layout's, so siteName
@@ -36,7 +36,7 @@ export const metadata: Metadata = {
     siteName: SITE_NAME,
     title: 'ReelCaster: Know the bite. Before you go.',
     description:
-      'Tides, weather, water conditions, and regulations in one simple fishing score for the BC and Washington coasts.',
+      'Tides, weather, water conditions, and regulations in one simple fishing score for the BC, Washington and California coasts.',
     url: siteUrl('/'),
     type: 'website',
     ...DEFAULT_OG,
@@ -52,7 +52,7 @@ const HOMEPAGE_JSONLD = {
   url: SITE_URL,
   publisher: { '@id': `${SITE_URL}/#organization` },
   description:
-    'Fishing forecasts for the BC and Washington coasts: tides, weather, water conditions, and regulations combined into one simple score.',
+    'Fishing forecasts for the BC, Washington and California coasts: tides, weather, water conditions, and regulations combined into one simple score.',
 };
 
 export default function MarketingHomePage() {

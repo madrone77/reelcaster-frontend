@@ -128,7 +128,7 @@ export function button(href: string, label: string): string {
  * a trial ending at 00:43 UTC is the previous evening in Vancouver. Getting
  * that wrong by a day on a notice that legally has to state when the card is
  * charged is not a rounding error. Pacific covers the whole customer base
- * (BC and Washington), so it is the honest one to show.
+ * (BC, Washington and California), so it is the honest one to show.
  */
 export function formatDate(iso: string): string {
   return new Date(iso).toLocaleDateString('en-CA', {

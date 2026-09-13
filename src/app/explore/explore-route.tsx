@@ -28,8 +28,10 @@ import { PREVIEW_COOKIE, parsePreviewState } from "@/lib/preview-gate";
 import ExploreShell from "./explore-shell";
 
 
-// Covers BC + WA + OR — the same extent the old province pills spanned.
-const COVERED_BBOX_ALL = "-139.06,41.99,-114.03,60";
+// Covers BC + WA + CA. The south edge used to stop at 41.99, the Oregon line,
+// which left every San Diego spot outside the box; 31.9 takes in 60 Mile Bank
+// (32.02) and Cortes Bank, the farthest published water off California.
+const COVERED_BBOX_ALL = "-139.06,31.9,-114.03,60";
 
 /**
  * Both Explore routes, one implementation.
@@ -205,7 +207,7 @@ export async function renderExplore({
   // ── Ship the opening city's spots, not three provinces' worth ────────────
   //
   // This used to fetch COVERED_BBOX_ALL — every published spot in BC, WA and
-  // OR — and serialize the lot into the document: 685 KB of JSON, 91 KB over
+  // CA — and serialize the lot into the document: 685 KB of JSON, 91 KB over
   // the wire, for a map that opens on one city. Everything past the opening
   // viewport was paid for at boot and read only if the angler happened to pan
   // there. The shell now loads spots as the map moves (see `loadedSpots`), so

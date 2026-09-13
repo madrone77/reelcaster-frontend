@@ -17,7 +17,7 @@ By using the Service, including by browsing it without an account, you confirm t
 This box is a convenience, not part of the agreement. The numbered sections below are what actually binds you.
 
 - ReelCaster predicts fishing conditions. It is **not** a navigation tool and must never be used to keep a vessel safe. You take on that risk yourself and you release us from claims about it. See Section 3.
-- Our fishing regulation information is **not** legal advice and may be wrong or out of date. Always check with DFO or WDFW before you fish. If you get fined, that is on you, not us. See Section 4.
+- Our fishing regulation information is **not** legal advice and may be wrong or out of date. Always check with DFO, WDFW or CDFW before you fish. If you get fined, that is on you, not us. See Section 4.
 - Subscriptions renew automatically. You can cancel online at any time. See Section 6.
 - You own your photos and catch logs. We use de-identified data derived from them to improve our models. See Section 11.
 - You must follow all fishing laws. We do not authorize any catch.

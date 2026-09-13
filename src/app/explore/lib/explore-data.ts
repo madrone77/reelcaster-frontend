@@ -805,7 +805,7 @@ export function cityIndexFromLocations(
  * Extracted from `buildExploreData` so the browser can turn a payload fetched
  * for a new viewport into the same rows the server produced for the opening
  * one — Explore loads spots as the map moves now, rather than shipping every
- * spot in BC, WA and OR up front.
+ * spot in BC, WA and CA up front.
  *
  * Entries whose city is not in the covered tree are dropped: they have nowhere
  * to sit in the rail's grouping. That has always been the rule here.

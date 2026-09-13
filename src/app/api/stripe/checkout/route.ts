@@ -306,7 +306,7 @@ async function getUserFromRequest(request: NextRequest) {
 }
 
 interface CheckoutBody {
-  region?: string; // 'BC' | 'WA' | 'OR' | 'Other' | other slug
+  region?: string; // 'BC' | 'WA' | 'CA' | 'Other' | other slug
   from?: string;   // analytics: 'spot' | 'pricing' | etc.
   /** Signed-out buyers only: the address Stripe bills and we provision from. */
   email?: string;

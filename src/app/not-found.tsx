@@ -34,7 +34,7 @@ export default function NotFound() {
             Open the map
           </Link>
           <Link
-            href="/fishing/bc"
+            href="/fishing/ca/bc"
             className="px-5 py-2.5 rounded border border-rc-rule font-semibold text-sm hover:bg-rc-surface transition-colors"
           >
             Browse BC fishing spots

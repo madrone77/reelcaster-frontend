@@ -198,7 +198,7 @@ export default function PlanMatrix({
           The currency sentence stays: the price above says "$33" and nothing
           else on this modal says which dollar that is. */}
       <p className="px-4 sm:px-6 py-4 text-[11px] leading-relaxed text-rc-ink-mute border-t border-rc-rule">
-        Pro available in British Columbia and Washington. More coming soon.
+        Pro available in British Columbia, Washington and California. More coming soon.
         Billed in CAD in Canada, USD in the US.
       </p>
 </div>

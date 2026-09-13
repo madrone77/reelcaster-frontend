@@ -727,7 +727,7 @@ export default function ExploreShell({
   // Scoped to the VIEWPORT, not to the page's covered-region box. This asks
   // one question — "which spots here are this angler's own?" — and the answer
   // only matters for water on screen, but it used to be asked over the whole
-  // of BC, WA and OR: a 685 KB payload, 2.9 s on the wire, re-downloading every
+  // of BC, WA and CA: a 685 KB payload, 2.9 s on the wire, re-downloading every
   // published spot the server render had already sent, on every signed-in load.
   // The viewport box answers the same question in a fraction of that, and
   // follows the map, so a custom spot is loaded by the time it is in frame.

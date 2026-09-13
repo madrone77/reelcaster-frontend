@@ -59,7 +59,7 @@ export const metadata: Metadata = {
     template: `%s | ${SITE_NAME}`,
   },
   description:
-    'Tides, weather, water conditions, and regulations combined into one fishing score for the BC and Washington coasts. Find the best spot and the best window before you go.',
+    'Tides, weather, water conditions, and regulations combined into one fishing score for the BC, Washington and California coasts. Find the best spot and the best window before you go.',
   applicationName: SITE_NAME,
   // `keywords` has been ignored by Google since 2009 and shipped on every page.
   openGraph: {

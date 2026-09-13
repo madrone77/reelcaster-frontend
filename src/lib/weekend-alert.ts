@@ -43,7 +43,7 @@ export function isEmail(value: string): boolean {
 export function normalizePhone(value: string): string | null {
   const trimmed = value.replace(/[\s()\-.]/g, "");
   if (/^\+[1-9]\d{9,14}$/.test(trimmed)) return trimmed;
-  // A bare 10-digit number on a page serving BC and Washington is North
+  // A bare 10-digit number on a page serving BC, Washington and California is North
   // American. Assuming +1 anywhere else would be wrong, but no other country
   // is served by these pages today.
   if (/^\d{10}$/.test(trimmed)) return `+1${trimmed}`;
