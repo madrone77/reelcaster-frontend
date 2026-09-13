@@ -25,6 +25,7 @@ export default function TrialModalButton({
   from,
   spotName,
   placeName,
+  onPress,
   'data-testid': testId,
 }: {
   children: React.ReactNode;
@@ -45,6 +46,8 @@ export default function TrialModalButton({
    * is worse than the plain headline.
    */
   placeName?: string;
+  /** Called on press, before the modal opens. For split-test CTA counters. */
+  onPress?: () => void;
   'data-testid'?: string;
 }) {
   const [open, setOpen] = useState(false);
@@ -54,7 +57,10 @@ export default function TrialModalButton({
       <button
         type="button"
         className={className}
-        onClick={() => setOpen(true)}
+        onClick={() => {
+          onPress?.();
+          setOpen(true);
+        }}
         data-testid={testId}
       >
         {children}
