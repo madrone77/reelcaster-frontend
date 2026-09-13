@@ -28,7 +28,7 @@ export default function ChargeTerms({
   const when = trialOn && chargeDate ? chargeDate : `day ${TRIAL_DAYS}`;
   return (
     <p {...rest} className={`text-[13px] leading-[18px] text-rc-ink-soft ${className ?? ''}`}>
-      Then <span className="font-semibold text-rc-ink">{price}</span> per year
+      Then {price} per year
       starting {when}
     </p>
   );
