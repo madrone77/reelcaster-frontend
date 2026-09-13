@@ -9,7 +9,7 @@ import { guidePath } from "@/lib/paths";
 
 // Same extent /explore fetches (BC + WA + OR) — keeps the sitemap's spot
 // list identical to what the explore surface actually renders.
-const COVERED_BBOX_ALL = "-139.06,41.99,-114.03,60";
+const COVERED_BBOX_ALL = "-139.06,31.9,-114.03,60";
 
 type SitemapEntry = {
   url: string;
@@ -77,6 +77,11 @@ const STATIC_ENTRIES: Omit<SitemapEntry, "lastModified">[] = [
   },
   {
     url: siteUrl("/fishing-licence/wa"),
+    changeFrequency: "monthly",
+    priority: 0.7,
+  },
+  {
+    url: siteUrl("/fishing-licence/ca"),
     changeFrequency: "monthly",
     priority: 0.7,
   },

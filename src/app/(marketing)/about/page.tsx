@@ -7,9 +7,9 @@ import AboutTabs from './about-tabs';
 export const metadata: Metadata = {
   // Bare title — the root layout's "%s | ReelCaster" template adds the brand,
   // so naming it here too rendered "About ReelCaster | … | ReelCaster".
-  title: 'About: BC Fishing Forecasts',
+  title: 'About: West Coast Fishing Forecasts',
   description:
-    'ReelCaster turns tides, weather, water conditions, and DFO and WDFW rules into one score for the BC and Washington coasts. Built by anglers in Victoria, BC.',
+    'ReelCaster turns tides, weather, water conditions, and DFO, WDFW and CDFW rules into one score for the BC, Washington and California coasts. Built by anglers in Victoria, BC.',
   alternates: { canonical: `${SITE_URL}/about` },
   openGraph: {
     title: 'About ReelCaster',
@@ -212,7 +212,7 @@ export default function AboutPage() {
                 </ul>
 
                 <Link
-                  href="/fishing/bc"
+                  href="/fishing/ca/bc"
                   className="mt-8 inline-flex items-center text-sm font-bold text-white underline decoration-white/40 underline-offset-4 transition-colors hover:decoration-white"
                 >
                   See what’s published in British Columbia →

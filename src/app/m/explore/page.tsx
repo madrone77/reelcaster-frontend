@@ -19,7 +19,7 @@ import { renderExplore } from "@/app/explore/explore-route";
 export const metadata: Metadata = {
   title: "Explore the Fishing Map",
   description:
-    "Interactive fishing map: browse covered spots on the BC and Washington coasts with live scores, conditions, and the day's best windows.",
+    "Interactive fishing map: browse covered spots on the BC, Washington and California coasts with live scores, conditions, and the day's best windows.",
   alternates: { canonical: `${SITE_URL}/explore` },
   robots: { index: false, follow: false },
 };

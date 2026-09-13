@@ -19,7 +19,8 @@ export default function MarketingFooter() {
           (the /coming-soon wall was retired), so a stale link here is a dead
           link. Locations lists the /fishing province directories; add a region
           here once it has lifecycle-published cities. Washington qualified when
-          Seattle was promoted; Oregon still has none.
+          Seattle was promoted, California when San Diego did; Oregon still has
+          none.
           "Support" points at /support, which paywalls non-Pro visitors. FAQ
           and Contact directly above it are the open routes.
 
@@ -47,25 +48,33 @@ export default function MarketingFooter() {
           md this is a 2-column grid, and a grid row track is as tall as its
           taller column, so pairing a 4-link block with a 2-link one leaves the
           short one padded out with dead space and drops the next header far
-          below its neighbour's. Locations (4) and Company (4) are paired so
-          that row is flush, which also keeps the last link row level and stops
-          a void opening above the ReelCaster block. Product (3) and Account (2)
-          take the ragged step, one link tall, at the bottom where nothing
-          follows it in that column. Reordering these blocks or changing a
-          link count reopens the gap, so re-pair by count if you do. */}
+          below its neighbour's. Locations (6, since California) and Company
+          (4) share the first row, so Company carries a two-link void under it;
+          nothing on the site has six links to pair Locations with, and
+          splitting the regions from their licence guides would cost the
+          reader more than the gap does. Product (3) and Account (2) take the
+          other ragged step at the bottom where nothing follows it in that
+          column. Reordering these blocks or changing a link count moves the
+          gaps, so re-pair by count if you do. */}
       <div className="max-w-6xl mx-auto px-6 py-8 md:py-12 grid grid-cols-2 md:grid-cols-5 gap-6 md:gap-8 text-sm">
         <div>
           <h4 className="rc-label text-[10px] mb-3">Locations</h4>
           <ul className="md:space-y-2 text-rc-ink-soft">
-            <li><Link href="/fishing/bc" prefetch={false} className="block py-2.5 md:py-0 hover:text-rc-ink">British Columbia</Link></li>
-            <li><Link href="/fishing/wa" prefetch={false} className="block py-2.5 md:py-0 hover:text-rc-ink">Washington</Link></li>
+            {/* New-shape paths, not the retired /fishing/<province> ones: those
+                308 in, and /fishing/ca is Canada in the country slot, so
+                California has no legacy shape at all. */}
+            <li><Link href="/fishing/ca/bc" prefetch={false} className="block py-2.5 md:py-0 hover:text-rc-ink">British Columbia</Link></li>
+            <li><Link href="/fishing/us/wa" prefetch={false} className="block py-2.5 md:py-0 hover:text-rc-ink">Washington</Link></li>
+            <li><Link href="/fishing/us/ca" prefetch={false} className="block py-2.5 md:py-0 hover:text-rc-ink">California</Link></li>
             {/* Sitewide links so the guides aren't reachable only from search,
                 an indexable page nothing links to reads as low value. They sit
                 under Locations because each is region-specific. Note the
-                spelling split: BC copy says "licence" (DFO), WA says "license"
-                (WDFW), while both share the /fishing-licence/ route segment. */}
+                spelling split: BC copy says "licence" (DFO), WA and CA say
+                "license" (WDFW, CDFW), while all share the /fishing-licence/
+                route segment. */}
             <li><Link href="/fishing-licence/bc" prefetch={false} className="block py-2.5 md:py-0 hover:text-rc-ink">BC fishing licence</Link></li>
             <li><Link href="/fishing-licence/wa" prefetch={false} className="block py-2.5 md:py-0 hover:text-rc-ink">WA fishing license</Link></li>
+            <li><Link href="/fishing-licence/ca" prefetch={false} className="block py-2.5 md:py-0 hover:text-rc-ink">CA fishing license</Link></li>
           </ul>
         </div>
 
@@ -103,9 +112,10 @@ export default function MarketingFooter() {
         <div>
           <h4 className="font-bold text-rc-ink mb-3">ReelCaster</h4>
           <p className="text-rc-ink-mute text-xs leading-relaxed">
-            Fishing intelligence for British Columbia and the Pacific
-            Northwest. Forecasts are reference only. Always verify
-            regulations with your regulator: DFO in BC, WDFW in Washington.
+            Fishing intelligence for the West Coast, from British Columbia
+            to California. Forecasts are reference only. Always verify
+            regulations with your regulator: DFO in BC, WDFW in Washington,
+            CDFW in California.
           </p>
           {/* ReelCaster is a website, not a download. Stated on every page
               because search and AI answers have been confusing it with an
@@ -145,7 +155,7 @@ export default function MarketingFooter() {
               </a>
             </li>
           </ul>
-          <p className="text-xs text-rc-ink-mute">© {year} ReelCaster · BC fishing forecasts</p>
+          <p className="text-xs text-rc-ink-mute">© {year} ReelCaster · West Coast fishing forecasts</p>
         </div>
       </div>
     </footer>

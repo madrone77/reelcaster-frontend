@@ -108,11 +108,13 @@ export const LOCAL_RADIUS_KM = 250;
  * become a hub by shipping spots — Prince Rupert's 26 already outrank Seattle's
  * 16 — which is a silent change to where a whole continent lands.
  *
- * The three are the anchors of the three separated clusters we cover:
+ * The four are the anchors of the four separated clusters we cover:
  *   • vancouver-bc     — the BC south coast and the Lower Mainland.
  *   • seattle-wa       — Puget Sound.
  *   • prince-rupert-bc — the north coast, 700 km from anything else on the
  *                        list, and the right answer for Alaska.
+ *   • san-diego-ca     — Southern California, 1,700 km south of Seattle, and
+ *                        the right answer for the Southwest and Mexico.
  *
  * Everything else we cover sits inside one of those clusters and is reachable
  * by the local rule. Add a slug here only when a new city anchors a cluster of
@@ -124,6 +126,7 @@ export const HUB_CITY_SLUGS = [
   "vancouver-bc",
   "seattle-wa",
   "prince-rupert-bc",
+  "san-diego-ca",
 ] as const;
 
 /**

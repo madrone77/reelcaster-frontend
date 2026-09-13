@@ -1,7 +1,7 @@
 /**
  * Phone entry for SMS alerts — North American Numbering Plan only.
  *
- * Every region we sell (see COVERED_PROVINCES: BC, WA) is +1, so asking an
+ * Every region we sell (see COVERED_PROVINCES: BC, WA, CA) is +1, so asking an
  * angler to type a country code is asking them to restate something we already
  * know. These helpers let the UI show a fixed "+1" and collect ten digits,
  * while still accepting whatever someone pastes in — "(250) 555-0134",

@@ -42,7 +42,10 @@ const ANNUAL_SELLABLE = Boolean(ANNUAL_PRICE_ID);
 const CAD_REGIONS = [
   { '@type': 'AdministrativeArea', name: 'British Columbia' },
 ];
-const USD_REGIONS = [{ '@type': 'AdministrativeArea', name: 'Washington' }];
+const USD_REGIONS = [
+  { '@type': 'AdministrativeArea', name: 'Washington' },
+  { '@type': 'AdministrativeArea', name: 'California' },
+];
 
 function proOffer(currency: 'CAD' | 'USD') {
   return {
@@ -62,7 +65,7 @@ const PLANS_JSONLD = {
   '@type': 'Product',
   name: 'ReelCaster Pro',
   description:
-    'Full 14-day fishing forecasts, custom score alerts, and custom spot profiles for the BC and Washington coasts.',
+    'Full 14-day fishing forecasts, custom score alerts, and custom spot profiles for the BC, Washington and California coasts.',
   brand: { '@type': 'Brand', name: SITE_NAME },
   // Search Console flagged this Product as invalid ("Missing field image",
   // first seen 2026-08-24). Google requires an image on Product markup; the
@@ -152,7 +155,7 @@ const FAQ: { q: string; a: React.ReactNode }[] = [
     q: 'Do you cover where I fish?',
     a: (
       <>
-        We’re live in British Columbia and Washington, with more coming soon.
+        We’re live in British Columbia, Washington and California, with more coming soon.
         If you fish somewhere else,{' '}
         <Link
           href="/explore"
@@ -392,8 +395,9 @@ export default function PlansPage() {
       <section className="mx-auto max-w-6xl px-6 py-8">
         <div className="rounded-lg border border-rc-rule bg-rc-panel p-5 text-sm leading-relaxed text-rc-ink-soft">
           Pro is sold only where we forecast:{' '}
-          <strong className="text-rc-ink">British Columbia</strong> and{' '}
-          <strong className="text-rc-ink">Washington</strong>, with more coming
+          <strong className="text-rc-ink">British Columbia</strong>,{' '}
+          <strong className="text-rc-ink">Washington</strong> and{' '}
+          <strong className="text-rc-ink">California</strong>, with more coming
           soon. Prices are in CAD for Canada and USD for the US. Fish somewhere
           else?{' '}
           <Link

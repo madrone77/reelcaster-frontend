@@ -6,6 +6,7 @@ import SpotTypeahead, { type PickedSpot } from "./spot-typeahead";
 const REGION_LABEL: Record<string, string> = {
   BC: "British Columbia",
   WA: "Washington",
+  CA: "California",
 };
 
 /**

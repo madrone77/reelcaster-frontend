@@ -132,8 +132,8 @@ export default function FeaturesSection() {
               Everything you need in one place.
             </h2>
             <p className="mt-4 text-pretty text-sm md:text-base leading-relaxed text-rc-ink-soft">
-              Tides, weather, water and regulations for the BC and Washington
-              coasts, on one map. Every spot is checked by a local guide before
+              Tides, weather, water and regulations for the BC, Washington and
+              California coasts, on one map. Every spot is checked by a local guide before
               it goes live.
             </p>
           </div>

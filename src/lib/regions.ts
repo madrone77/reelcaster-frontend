@@ -9,10 +9,15 @@
 // in the Offer markup, and let someone pick "Oregon" at checkout and pay for
 // water we don't forecast. Add a region back here the day it has a published
 // city, not the day we intend to build one.
+//
+// California joined 2026-09-12 with san-diego-ca published (41 spots).
+// Oregon is wired below (ODFW, timezone) but stays OUT of this list until the
+// first Oregon city publishes; the backend is running Oregon cities now, so a
+// later session flips it by adding "OR" here and to the footer Locations.
 
 import { cmToIn, round1 } from "@/lib/units";
 
-export const COVERED_PROVINCES = ["BC", "WA"] as const;
+export const COVERED_PROVINCES = ["BC", "WA", "CA"] as const;
 export type CoveredProvince = (typeof COVERED_PROVINCES)[number];
 
 /**
@@ -21,7 +26,7 @@ export type CoveredProvince = (typeof COVERED_PROVINCES)[number];
  * denormalized address on `places` — and still needs the right clock and the
  * right fisheries authority even though its region isn't for sale.
  */
-type KnownProvince = "BC" | "WA" | "OR";
+type KnownProvince = "BC" | "WA" | "CA" | "OR";
 
 export function isCovered(provinceCode: string): boolean {
   return (COVERED_PROVINCES as readonly string[]).includes(
@@ -36,6 +41,7 @@ export function isCovered(provinceCode: string): boolean {
 const PROVINCE_CODE_BY_NAME: Record<string, KnownProvince> = {
   "british columbia": "BC",
   washington: "WA",
+  california: "CA",
   oregon: "OR",
 };
 
@@ -59,6 +65,7 @@ export function provinceCodeFromName(region: string): string {
 const TIMEZONE_BY_PROVINCE: Record<KnownProvince, string> = {
   BC: "America/Vancouver",
   WA: "America/Los_Angeles",
+  CA: "America/Los_Angeles",
   OR: "America/Los_Angeles",
 };
 
@@ -163,13 +170,21 @@ const REGULATOR_BY_PROVINCE: Record<KnownProvince, Regulator> = {
     lengthUnit: "in",
     url: "https://wdfw.wa.gov/fishing/regulations",
   },
+  CA: {
+    name: "CDFW",
+    sourceName: "CDFW",
+    areaLabel: "Groundfish Management Area",
+    areaShort: "GMA",
+    lengthUnit: "in",
+    url: "https://wildlife.ca.gov/Fishing/Ocean",
+  },
   OR: {
     name: "ODFW",
     sourceName: "ODFW",
-    areaLabel: "Zone",
+    areaLabel: "Marine Zone",
     areaShort: "Zone",
     lengthUnit: "in",
-    url: "https://myodfw.com/recreation-report/fishing-report",
+    url: "https://myodfw.com/fishing",
   },
 };
 

@@ -134,7 +134,7 @@ export default async function CityOpengraphImage({
               style={{ fontSize: 32, color: MUTED, maxWidth: 880, lineHeight: 1.35 }}
             >
               Tides, weather, water conditions, and regulations in one fishing
-              score for the BC and Washington coasts.
+              score for the BC, Washington and California coasts.
             </div>
           </div>
         </Shell>

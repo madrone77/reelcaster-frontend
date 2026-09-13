@@ -2,7 +2,7 @@ import MarketingHeader from "@/app/components/marketing/marketing-header";
 import MarketingFooter from "@/app/components/marketing/marketing-footer";
 
 // /fishing-licence/* — public, indexable reference pages, one per jurisdiction
-// (BC today; Washington/WDFW is the same shape when it lands). Marketing chrome
+// (BC, Washington and California). Marketing chrome
 // on the light rc-* system, same as (marketing) and /fishing.
 //
 // Its own segment rather than a child of /fishing because the two answer

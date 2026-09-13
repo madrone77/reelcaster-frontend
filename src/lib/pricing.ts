@@ -195,7 +195,7 @@ export function amountLabelForSubscription(
 // ── Region → currency ────────────────────────────────────────────────────
 
 /**
- * BC buys in CAD; WA/OR in USD. When no region is known (paywall CTAs post
+ * BC buys in CAD; WA/CA/OR in USD. When no region is known (paywall CTAs post
  * region '') the caller may pass the request's x-vercel-ip-country header; a
  * Canadian IP gets CAD, any other known country USD, and with no signal at all
  * we default to CAD (the account's home currency).
@@ -206,7 +206,7 @@ export function currencyForRegion(
 ): BillingCurrency {
   const r = (region ?? '').trim().toUpperCase();
   if (r === 'BC') return 'cad';
-  if (r === 'WA' || r === 'OR') return 'usd';
+  if (r === 'WA' || r === 'CA' || r === 'OR') return 'usd';
   const c = (ipCountry ?? '').trim().toUpperCase();
   if (c === 'CA') return 'cad';
   if (c) return 'usd';

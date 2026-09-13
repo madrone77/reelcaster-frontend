@@ -772,7 +772,7 @@ export default function MobileMapSheet({
                   </p>
                   <p className="text-xs text-rc-ink-mute">
                     Pan or zoom the map to find spots. Coverage is rolling out
-                    across BC, WA, and OR.
+                    across BC, WA, and CA.
                   </p>
                 </div>
               )}
