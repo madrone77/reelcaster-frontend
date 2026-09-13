@@ -11,7 +11,7 @@ import Map, {
 import type { ExpressionSpecification, Map as MlMap, StyleSpecification } from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
 import { buildReliefStyle } from "@/lib/map/relief-style";
-import { applyBathyCoverages, type StyleLike } from "@/lib/map/bathy-coverages";
+import { applyBathyCoverages, isBathySoundingsLayer, type StyleLike } from "@/lib/map/bathy-coverages";
 import { useBathyManifest } from "@/lib/map/use-bathy-manifest";
 import {
   attachScorePucks,
@@ -148,7 +148,9 @@ export default function MarketingMap({
       id: string;
       layout?: Record<string, unknown>;
     }>) {
-      if (CLUTTER_LAYERS.has(layer.id)) {
+      // The US soundings are dots with depth numbers, the same kind of
+      // instrument clutter as the tide donuts.
+      if (CLUTTER_LAYERS.has(layer.id) || isBathySoundingsLayer(layer.id)) {
         layer.layout = { ...layer.layout, visibility: "none" };
       }
     }
