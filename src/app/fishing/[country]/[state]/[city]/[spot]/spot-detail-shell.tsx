@@ -79,6 +79,8 @@ import LogCatchDialog from "@/app/explore/spot/components/log-catch-dialog";
 import PullToRefresh from "@/app/explore/spot/components/pull-to-refresh";
 import CreateAlertDialog from "@/app/explore/spot/components/create-alert-dialog";
 import ShareCardDialog from "@/app/explore/spot/components/share-card-dialog";
+import { UnitCountryScope } from "@/contexts/unit-preferences-context";
+import { unitCountryFor } from "@/lib/unit-system";
 
 const ProTrialModal = dynamic(
   () => import("@/app/components/paywall/pro-trial-modal"),
@@ -1066,7 +1068,12 @@ export default function SpotDetailShell({
   );
 
   return (
-    // The document scrolls, not a nested box. A `h-dvh overflow-y-auto` root
+    // Every reading below (conditions strip, charts, depth, the 24-hour and
+    // 14-day strips) takes the spot's own country's units: feet, °F and miles
+    // in US water, the BC convention in Canadian water. The spot's region
+    // first, the breadcrumb city's province where the payload has none.
+    //
+    // The root div: the document scrolls, not a nested box. A `h-dvh overflow-y-auto` root
     // would put the scrollbar *inside* this element, so the body would centre
     // in a viewport half a scrollbar narrower than the one the fixed top bar
     // measures against — the mark landing a few px right of the spot name.
@@ -1081,6 +1088,9 @@ export default function SpotDetailShell({
     // ten times a second. The strip now keeps one flow height in both forms
     // (see the wrapper below), so there is nothing left to anchor against;
     // the rule stays as a guard so no future height change can restart it.
+    <UnitCountryScope
+      country={unitCountryFor(spot.region ?? cityLink?.provinceName, spot.country)}
+    >
     <div
       ref={rootRef}
       className={`${sheet ? "min-h-full" : "min-h-dvh"} bg-rc-panel max-lg:[overflow-anchor:none]`}
@@ -1993,5 +2003,6 @@ export default function SpotDetailShell({
         from="spot-page-reports"
       />
     </div>
+    </UnitCountryScope>
   );
 }

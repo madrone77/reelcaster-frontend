@@ -1,5 +1,6 @@
 import type { User } from '@supabase/supabase-js'
 import { supabase } from './supabase'
+import { choicesFromSaved, type UnitChoices } from './unit-system'
 
 export interface UserPreferences {
   /**
@@ -70,8 +71,8 @@ export interface UserPreferences {
 const DEFAULT_PREFERENCES: UserPreferences = {
   timezone: 'America/Vancouver',
   // BC marine-convention defaults — match what the product surfaces render when
-  // no preference is set (keep in step with DEFAULT_UNITS in
-  // contexts/unit-preferences-context.tsx). Tide + depth in feet, wave in metres.
+  // no preference is set (keep in step with CA_DEFAULT_UNITS in
+  // lib/unit-system.ts). Tide + depth in feet, wave in metres.
   windUnit: 'knots',
   currentUnit: 'knots',
   tempUnit: 'C',
@@ -152,6 +153,26 @@ export class UserPreferencesService {
     } catch (error) {
       console.error('Error getting user preferences:', error)
       return DEFAULT_PREFERENCES
+    }
+  }
+
+  /**
+   * The units this angler actually saved, and nothing else.
+   *
+   * `getUserPreferences` fills every unit in with the Canadian defaults, which
+   * is right for Canadian water and wrong for everything else: a US spot would
+   * read that filled-in "C" as a choice and show Celsius. The spot's country
+   * supplies the defaults instead (lib/unit-system.ts), so this reads the raw
+   * blob.
+   */
+  static async getSavedUnitChoices(): Promise<UnitChoices> {
+    try {
+      const user = await currentUser()
+      const saved = user?.user_metadata?.preferences as Record<string, unknown> | undefined
+      return choicesFromSaved(saved)
+    } catch (error) {
+      console.error('Error getting unit preferences:', error)
+      return {}
     }
   }
 

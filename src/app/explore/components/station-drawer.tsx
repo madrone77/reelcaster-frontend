@@ -9,7 +9,8 @@ import {
   type BuoyConditions,
   type StationConditions,
 } from "@/lib/bluecaster-client";
-import { useUnitPreferences } from "@/contexts/unit-preferences-context";
+import { UnitCountryScope, useUnitPreferences } from "@/contexts/unit-preferences-context";
+import { unitCountryForStationSource } from "@/lib/unit-system";
 import {
   convertHeight,
   convertPressure,
@@ -148,7 +149,7 @@ function TideCurve({
  * feature, then fills with live data (tide curve for stations, latest
  * NDBC observations for buoys).
  */
-export default function StationDrawer({
+function StationDrawerBody({
   pick,
   tz,
   onBack,
@@ -423,5 +424,22 @@ export default function StationDrawer({
         )}
       </div>
     </div>
+  );
+}
+
+/**
+ * A station reads in its own country's units: a NOAA gauge or NDBC buoy in
+ * feet and Fahrenheit, a CHS gauge as it always has. The scope covers the
+ * tide curve inside, which has no station of its own to ask.
+ */
+export default function StationDrawer(props: {
+  pick: StationPick;
+  tz: string;
+  onBack: () => void;
+}) {
+  return (
+    <UnitCountryScope country={unitCountryForStationSource(props.pick.source)}>
+      <StationDrawerBody {...props} />
+    </UnitCountryScope>
   );
 }

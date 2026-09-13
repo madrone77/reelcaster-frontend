@@ -1,35 +1,20 @@
 'use client'
 
-import { createContext, useContext, useEffect, useState, useCallback } from 'react'
+import { createContext, useContext, useEffect, useState, useCallback, useMemo } from 'react'
 import { UserPreferencesService } from '@/lib/user-preferences'
+import { AnyUnit, MetricType, getNextUnit } from '@/app/utils/unit-conversions'
 import {
-  WindUnit,
-  CurrentUnit,
-  TempUnit,
-  PrecipUnit,
-  TideUnit,
-  WaveUnit,
-  DepthUnit,
-  DistanceUnit,
-  PressureUnit,
-  AnyUnit,
-  MetricType,
-  getNextUnit,
-} from '@/app/utils/unit-conversions'
+  CA_DEFAULT_UNITS,
+  chooseUnits,
+  choicesFromLegacyLocal,
+  type UnitChoices,
+  type UnitCountry,
+  type UnitPrefs,
+} from '@/lib/unit-system'
 import { useAuth } from './auth-context'
 import { useMixpanel } from './mixpanel-context'
 
-export interface UnitPrefs {
-  windUnit: WindUnit
-  currentUnit: CurrentUnit
-  tempUnit: TempUnit
-  precipUnit: PrecipUnit
-  tideUnit: TideUnit
-  waveUnit: WaveUnit
-  depthUnit: DepthUnit
-  distanceUnit: DistanceUnit
-  pressureUnit: PressureUnit
-}
+export type { UnitPrefs, UnitCountry } from '@/lib/unit-system'
 
 interface UnitPreferencesContextType extends UnitPrefs {
   setUnit: (type: MetricType, unit: AnyUnit) => Promise<void>
@@ -43,25 +28,10 @@ interface UnitPreferencesContextType extends UnitPrefs {
   /** Re-pull saved prefs (e.g. after the profile page bulk-saves). */
   refresh: () => Promise<void>
   loading: boolean
-}
-
-// Defaults: BC marine convention. Wind + current in knots and pressure in mb
-// (marine standard); tide + wave heights in METRES (how DFO tide tables and
-// marine forecasts quote them); TIDE and DEPTH in FEET (how BC anglers talk
-// about both — the charts are metric but nobody says "the tide is 1.5 metres");
-// distance in km. Each variable is independent — a mixed screen (km + ft + m)
-// is the intended default, not an accident. Keep in step with
-// DEFAULT_PREFERENCES in lib/user-preferences.ts.
-const DEFAULT_UNITS: UnitPrefs = {
-  windUnit: 'knots',
-  currentUnit: 'knots',
-  tempUnit: 'C',
-  precipUnit: 'mm',
-  tideUnit: 'ft',
-  waveUnit: 'm',
-  depthUnit: 'ft',
-  distanceUnit: 'km',
-  pressureUnit: 'mb',
+  /** Only the units the angler picked. Everything else follows the country. */
+  choices: UnitChoices
+  /** The country these units were resolved for; null = no spot in scope. */
+  country: UnitCountry | null
 }
 
 const UNIT_KEY: Record<MetricType, keyof UnitPrefs> = {
@@ -76,60 +46,63 @@ const UNIT_KEY: Record<MetricType, keyof UnitPrefs> = {
   pressure: 'pressureUnit',
 }
 
-// Anonymous visitors keep their units in localStorage; signed-in users get
+// Anonymous visitors keep their choices on the device; signed-in users get
 // the same fast local read first, then the server copy wins when it loads.
-const STORAGE_KEY = 'rc-unit-prefs'
+//
+// Only CHOICES are stored now. The old key held every unit, defaults
+// included, which cannot tell a US spot whether "C" was picked or just
+// written down; it is read once, differences only, when the new key is absent.
+const STORAGE_KEY = 'rc-unit-choices'
+const LEGACY_STORAGE_KEY = 'rc-unit-prefs'
 
-function readLocal(): Partial<UnitPrefs> {
+function readLocal(): UnitChoices {
   if (typeof window === 'undefined') return {}
   try {
-    return JSON.parse(window.localStorage.getItem(STORAGE_KEY) ?? '{}')
+    const raw = window.localStorage.getItem(STORAGE_KEY)
+    if (raw != null) return JSON.parse(raw) ?? {}
+    return choicesFromLegacyLocal(
+      JSON.parse(window.localStorage.getItem(LEGACY_STORAGE_KEY) ?? '{}'),
+    )
   } catch {
     return {}
   }
 }
 
-function writeLocal(prefs: UnitPrefs) {
+function writeLocal(choices: UnitChoices) {
   try {
-    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(prefs))
+    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(choices))
   } catch {
     // Private-mode/quota failures just mean no persistence.
   }
 }
 
-const UnitPreferencesContext = createContext<UnitPreferencesContextType | undefined>(undefined)
+interface ProviderValue {
+  choices: UnitChoices
+  setUnit: UnitPreferencesContextType['setUnit']
+  setUnits: UnitPreferencesContextType['setUnits']
+  refresh: () => Promise<void>
+  loading: boolean
+  trackEvent: ReturnType<typeof useMixpanel>['trackEvent']
+}
+
+const UnitPreferencesContext = createContext<ProviderValue | undefined>(undefined)
 
 export function UnitPreferencesProvider({ children }: { children: React.ReactNode }) {
   const { user } = useAuth()
   const { trackEvent } = useMixpanel()
-  const [units, setUnitsState] = useState<UnitPrefs>(DEFAULT_UNITS)
+  // Starts empty on the server and the first client render alike, so the
+  // server's HTML (country defaults) and hydration agree.
+  const [choices, setChoicesState] = useState<UnitChoices>({})
   const [loading, setLoading] = useState(true)
 
   const loadSaved = useCallback(async () => {
     // Local copy first so anonymous visitors (and the first paint for
     // signed-in users) don't flash defaults.
-    const local = readLocal()
-    setUnitsState((prev) => ({ ...prev, ...local }))
+    setChoicesState(readLocal())
 
     if (user) {
-      const p = await UserPreferencesService.getUserPreferences()
-      const server: UnitPrefs = {
-        windUnit: p.windUnit || DEFAULT_UNITS.windUnit,
-        // Current historically borrowed the wind unit; seed from it once.
-        currentUnit: p.currentUnit || p.windUnit || DEFAULT_UNITS.currentUnit,
-        tempUnit: p.tempUnit || DEFAULT_UNITS.tempUnit,
-        precipUnit: p.precipUnit || DEFAULT_UNITS.precipUnit,
-        // Tide + wave were one "height" key; the new default is metres, so we
-        // don't migrate the old (feet) height here — a deliberate convention shift.
-        tideUnit: p.tideUnit || DEFAULT_UNITS.tideUnit,
-        waveUnit: p.waveUnit || DEFAULT_UNITS.waveUnit,
-        // Depth stays feet, matching the legacy height default, so migrating an
-        // explicit old height choice into depth is safe.
-        depthUnit: p.depthUnit || p.heightUnit || DEFAULT_UNITS.depthUnit,
-        distanceUnit: p.distanceUnit || DEFAULT_UNITS.distanceUnit,
-        pressureUnit: p.pressureUnit || DEFAULT_UNITS.pressureUnit,
-      }
-      setUnitsState(server)
+      const server = await UserPreferencesService.getSavedUnitChoices()
+      setChoicesState(server)
       writeLocal(server)
     }
     setLoading(false)
@@ -142,7 +115,7 @@ export function UnitPreferencesProvider({ children }: { children: React.ReactNod
   const setUnit = useCallback(
     async (type: MetricType, unit: AnyUnit) => {
       const key = UNIT_KEY[type]
-      setUnitsState((prev) => {
+      setChoicesState((prev) => {
         const next = { ...prev, [key]: unit }
         writeLocal(next)
         return next
@@ -156,13 +129,13 @@ export function UnitPreferencesProvider({ children }: { children: React.ReactNod
 
   const setUnits = useCallback(
     async (next: Partial<Record<MetricType, AnyUnit>>) => {
-      const patch: Partial<UnitPrefs> = {}
+      const patch: UnitChoices = {}
       for (const [type, unit] of Object.entries(next)) {
         if (unit) patch[UNIT_KEY[type as MetricType]] = unit as never
       }
       if (Object.keys(patch).length === 0) return
 
-      setUnitsState((prev) => {
+      setChoicesState((prev) => {
         const merged = { ...prev, ...patch }
         writeLocal(merged)
         return merged
@@ -173,6 +146,55 @@ export function UnitPreferencesProvider({ children }: { children: React.ReactNod
     },
     [user],
   )
+
+  const value: ProviderValue = useMemo(
+    () => ({ choices, setUnit, setUnits, refresh: loadSaved, loading, trackEvent }),
+    [choices, setUnit, setUnits, loadSaved, loading, trackEvent],
+  )
+
+  return (
+    <UnitPreferencesContext.Provider value={value}>
+      {children}
+    </UnitPreferencesContext.Provider>
+  )
+}
+
+/**
+ * The country whose units a subtree renders in. A spot page, a city page or
+ * a drawer wraps its body in this; anything outside one keeps the Canadian
+ * defaults every surface had before US water existed.
+ */
+const UnitCountryContext = createContext<UnitCountry | null>(null)
+
+export function UnitCountryScope({
+  country,
+  children,
+}: {
+  country: UnitCountry | null
+  children: React.ReactNode
+}) {
+  return <UnitCountryContext.Provider value={country}>{children}</UnitCountryContext.Provider>
+}
+
+/**
+ * The units to render with: the angler's choices, then the defaults for the
+ * spot's country. `country` overrides the nearest `UnitCountryScope`, for a
+ * component that knows its own spot but renders no scope around itself.
+ * `caBase` keeps a surface's own historic Canadian defaults (see
+ * CA_EXPLORE_RAIL_UNITS); it never touches US water.
+ */
+export function useUnitPreferences(
+  country?: UnitCountry | null,
+  caBase: UnitPrefs = CA_DEFAULT_UNITS,
+): UnitPreferencesContextType {
+  const ctx = useContext(UnitPreferencesContext)
+  const scoped = useContext(UnitCountryContext)
+  if (ctx === undefined) {
+    throw new Error('useUnitPreferences must be used within a UnitPreferencesProvider')
+  }
+  const resolvedCountry = country ?? scoped
+  const units = chooseUnits(resolvedCountry, ctx.choices, caBase)
+  const { setUnit, trackEvent } = ctx
 
   const cycleUnit = useCallback(
     async (type: MetricType) => {
@@ -191,26 +213,14 @@ export function UnitPreferencesProvider({ children }: { children: React.ReactNod
     [units, setUnit, trackEvent],
   )
 
-  const value: UnitPreferencesContextType = {
+  return {
     ...units,
-    setUnit,
-    setUnits,
+    setUnit: ctx.setUnit,
+    setUnits: ctx.setUnits,
     cycleUnit,
-    refresh: loadSaved,
-    loading,
+    refresh: ctx.refresh,
+    loading: ctx.loading,
+    choices: ctx.choices,
+    country: resolvedCountry,
   }
-
-  return (
-    <UnitPreferencesContext.Provider value={value}>
-      {children}
-    </UnitPreferencesContext.Provider>
-  )
-}
-
-export function useUnitPreferences() {
-  const context = useContext(UnitPreferencesContext)
-  if (context === undefined) {
-    throw new Error('useUnitPreferences must be used within a UnitPreferencesProvider')
-  }
-  return context
 }

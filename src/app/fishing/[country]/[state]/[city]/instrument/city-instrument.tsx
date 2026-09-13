@@ -84,6 +84,8 @@ import CitySpotMap from "./city-spot-map";
 import CityTopSpots from "./city-top-spots";
 import CustomSpots from "./custom-spots";
 import { spotHref } from "@/lib/paths";
+import { UnitCountryScope } from "@/contexts/unit-preferences-context";
+import { unitCountryForCitySlug } from "@/lib/unit-system";
 
 /**
  * The same paywall /explore and the spot page open, loaded on the tap that
@@ -488,7 +490,10 @@ export default function CityInstrument({
   const activeDay = stripModel?.days[dayIndex] ?? null;
 
   return (
-    <>
+    // The strip and the conditions below read in the city's country's units.
+    // The slug names the region ("san-diego-ca"), which also holds on the
+    // landing pages that render this without a province to hand.
+    <UnitCountryScope country={unitCountryForCitySlug(citySlug)}>
       {/* ── 1 · The 14-day strip ──────────────────────────────────────────
           Big, white, and the first thing on the page under the headline. It
           is what the ad promised and what the account unlocks, so it leads;
@@ -742,6 +747,6 @@ export default function CityInstrument({
           }`}
         />
       )}
-    </>
+    </UnitCountryScope>
   );
 }
