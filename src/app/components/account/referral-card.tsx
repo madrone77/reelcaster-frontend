@@ -21,6 +21,7 @@ import { useSubscription } from '@/hooks/use-subscription'
 import { useReferralSummary } from '@/hooks/use-referral-summary'
 import { trackEvent } from '@/lib/analytics'
 import { referralShareText } from '@/lib/referrals'
+import { logReferralShare } from '@/lib/referral-share-log'
 
 export default function ReferralCard() {
   const { isPaid, stripeCustomerId } = useSubscription()
@@ -32,6 +33,7 @@ export default function ReferralCard() {
   const copy = useCallback(async () => {
     if (!summary) return
     trackEvent('Referral Link Copied', { friends: summary.friends })
+    logReferralShare('copy', 'account')
     try {
       await navigator.clipboard.writeText(summary.url)
       setCopied(true)
@@ -45,11 +47,13 @@ export default function ReferralCard() {
   const share = useCallback(async () => {
     if (!summary) return
     trackEvent('Referral Link Shared', { friends: summary.friends })
+    logReferralShare('share', 'account')
     try {
       await navigator.share({
         title: 'A month of ReelCaster Pro',
         text: referralShareText(summary.url),
       })
+      logReferralShare('shared', 'account')
     } catch {
       // Dismissed. Nothing to report.
     }

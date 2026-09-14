@@ -21,6 +21,7 @@ import { refreshSubscription, useSubscription } from '@/hooks/use-subscription';
 import { supabase } from '@/lib/supabase';
 import { trackEvent } from '@/lib/analytics';
 import { isReferralNagDismissed, type ReferralNagSurface } from '@/lib/referral-nag';
+import { logReferralShare } from '@/lib/referral-share-log';
 import ReferralModal from './referral-modal';
 
 /**
@@ -77,16 +78,18 @@ export default function ReferralNag({
   const dismiss = () => {
     setHidden(true);
     trackEvent('Referral Nag Dismissed', { surface });
+    logReferralShare('dismiss', surface);
     void saveDismissal(surface);
   };
 
   const openModal = () => {
     trackEvent('Referral Modal Opened', { surface });
+    logReferralShare('open', surface);
     setOpen(true);
   };
 
   const modal = (
-    <ReferralModal open={open} onOpenChange={setOpen} from={`${surface}-nag`} />
+    <ReferralModal open={open} onOpenChange={setOpen} from={`${surface}-nag`} surface={surface} />
   );
 
   if (shape === 'banner') {
