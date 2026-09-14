@@ -16,10 +16,10 @@ import { useIsPhone } from '@/hooks/use-is-phone';
 import { reportPaywall } from '@/lib/paywall-counter';
 import { usePricing } from '@/app/components/split-test/use-pricing';
 import { TRIAL_DAYS } from '@/lib/pricing';
-import { PRO_FORECAST_DAYS } from '@/lib/forecast-horizon';
 import { PLAN_LABELS } from '@/lib/plan-labels';
 import type { NagFeatureId, PlanTierId } from '@/lib/plan-features';
 import { TrialBuy, TrialCtaProvider } from './trial-cta';
+import { MORE_ROW, PRO_ROWS_HEADING, proRows } from './trial-sheet-stripe';
 import BrandHeader from './brand-header';
 import ChargeTerms from './charge-terms';
 import Testimonial from './testimonial';
@@ -63,17 +63,6 @@ import Testimonial from './testimonial';
  * Stripe hop is marked `checkout_tap`, exactly as ./pro-trial-modal marks it,
  * because on this arm this IS the screen the card is reached from.
  */
-
-/** What Pro adds. ./trial-sheet-stripe's rows, in Casey's order. */
-const PRO_ROWS: readonly string[] = [
-  'Daily catch reports',
-  'Custom private spots',
-  "Alerts when it's hot",
-  `Full ${PRO_FORECAST_DAYS} day fishing forecast`,
-  'Smart catch logging',
-  'No ads, no locks, see everything',
-];
-const MORE_ROW = 'And more...';
 
 /** Stripe Checkout's field and pay button, at ./trial-sheet-stripe's sizes. */
 const STRIPE_INPUT = 'h-11 rounded-md px-3 text-[16px]';
@@ -202,10 +191,10 @@ export default function PlanChoiceModal({
         </div>
 
         <p className="mt-6 font-rc-mono text-[10px] font-semibold tracking-[0.14em] text-rc-ink-mute uppercase">
-          Everything in Pro
+          {PRO_ROWS_HEADING}
         </p>
         <ul className="mt-2 divide-y divide-rc-rule-soft">
-          {PRO_ROWS.map((row) => (
+          {proRows(cityName).map((row) => (
             <li key={row} className="flex items-center justify-between gap-3 py-2">
               <span className="text-[15px] leading-5 font-medium text-rc-ink">
                 {row}
