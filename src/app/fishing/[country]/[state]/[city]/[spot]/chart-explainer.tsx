@@ -107,21 +107,10 @@ export default function ChartExplainer({
         >
           How to read this chart
         </h2>
-        <ul className="mt-3 space-y-2 text-[14px] leading-relaxed text-rc-ink-soft">
-          <li>
-            <span className="font-semibold text-rc-ink">Score</span> is the{" "}
-            {speciesName} score for each hour of the day. Green hours are the
-            best time to catch {speciesName}. Red hours are slow.
-          </li>
-          <li>
-            The rows under it are the tide, current, wind, sea state and
-            weather for the same hour, so you can see why {speciesName} scores
-            rise and fall through the day.
-          </li>
-          <li>
-            Tap or drag across the chart to read any hour. The readings above
-            the chart change as you move.
-          </li>
+        <ul className="mt-3 list-disc space-y-1.5 pl-5 text-[15px] leading-snug text-rc-ink-soft">
+          <li>Green = good {speciesName} fishing.</li>
+          <li>Red = slow.</li>
+          <li>Tap any hour to see conditions.</li>
         </ul>
         <button
           type="button"
