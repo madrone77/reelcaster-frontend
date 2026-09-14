@@ -11,21 +11,27 @@ import { TRIAL_DAYS } from '@/lib/pricing';
 import { PRO_FORECAST_DAYS } from '@/lib/forecast-horizon';
 
 /**
- * The rows, in Casey's words and order (2026-09-06). Not the plan matrix
- * rows: the matrix answers "what is the difference between two columns", and
- * these answer "what do I get", which is shorter and plainer. Kept here
- * rather than in plan-features because they belong to this sheet and to
- * nothing else. The last row is "And more...", drawn without a tick.
+ * The rows, in Casey's words and order (reworked 2026-09-14). Not the plan
+ * matrix rows: the matrix answers "what is the difference between two
+ * columns", and these answer "what do I get", which is shorter and plainer.
+ * Kept here rather than in plan-features because they belong to this sheet
+ * (and ./plan-choice-modal, which draws the same list). The catch reports row
+ * names the city the header stands in, and reads plain when there is none.
+ * The last row is "And more...", drawn without a tick.
  */
-const PRO_ROWS: readonly string[] = [
-  'Daily catch reports',
-  'Custom private spots',
-  "Alerts when it's hot",
-  `Full ${PRO_FORECAST_DAYS} day fishing forecast`,
-  'Smart catch logging',
-  'No ads, no locks, see everything',
-];
-const MORE_ROW = 'And more...';
+export function proRows(city?: string): readonly string[] {
+  return [
+    `See full ${PRO_FORECAST_DAYS} day fishing forecast`,
+    'Custom private spots',
+    "SMS alerts when it's hot",
+    'Full regulatory awareness',
+    city ? `Daily ${city} catch reports` : 'Daily catch reports',
+    'Smart catch logging',
+    'No ads, no locks',
+  ];
+}
+export const PRO_ROWS_HEADING = 'What you get with Pro';
+export const MORE_ROW = 'And more...';
 
 /**
  * Stripe Checkout's pay button, in our blue: full width, 44px tall, 6px
@@ -98,6 +104,7 @@ export default function TrialSheetStripe({
   onCtaClick: (extra: Record<string, unknown>) => void;
   onActivate: (method: 'annual' | 'wallet' | 'signup') => void;
 }) {
+  const city = cityName ?? (placeKind === 'city' ? placeName : undefined);
   return (
     <TrialCtaProvider
       from={from}
@@ -113,7 +120,7 @@ export default function TrialSheetStripe({
         {/* An explicit city wins; otherwise the place is a city only when the
             caller did not name a spot. Same resolution the feature list makes
             in ./pro-trial-modal, so the two never disagree on one screen. */}
-        <BrandHeader city={cityName ?? (placeKind === 'city' ? placeName : undefined)} />
+        <BrandHeader city={city} />
 
         {/* The offer, set the way Stripe Checkout sets it on the page after
             this one: what it is in grey, what it costs today in large type,
@@ -128,10 +135,10 @@ export default function TrialSheetStripe({
         </div>
 
         <p className="mt-6 font-rc-mono text-[10px] font-semibold tracking-[0.14em] text-rc-ink-mute uppercase">
-          Everything in Pro
+          {PRO_ROWS_HEADING}
         </p>
         <ul className="mt-2 divide-y divide-rc-rule-soft">
-          {PRO_ROWS.map((row) => (
+          {proRows(city).map((row) => (
             <li
               key={row}
               className="flex items-center justify-between gap-3 py-2"
