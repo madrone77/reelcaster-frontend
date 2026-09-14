@@ -157,10 +157,10 @@ export default function ExploreTopBar({
    * Which edge of the screen the ad frame's bar sits on.
    *
    * "bottom" (the default) is the thumb-reach position the frame shipped
-   * with, and what both ad surfaces pass. "top" is where every other page
-   * keeps the brand blue, the mark and the Start free trial button; the ad
-   * surfaces wore it from 2026-09-04 until the `ad_bar_edge_v1` split
-   * (top against bottom) concluded for the bottom on 2026-09-07.
+   * with. "top" is where every other page keeps the brand blue, the mark and
+   * the Start free trial button, and what both ad surfaces pass. The
+   * `ad_bar_edge_v1` split concluded for the bottom on 2026-09-07; both
+   * surfaces went back to the top on 2026-09-14.
    *
    * Only read under `adFrame`; the product bar is always at the top.
    */
@@ -250,7 +250,7 @@ export default function ExploreTopBar({
   // It never rolls away. `hideOnScroll` is a trade for a long read whose nav
   // lives elsewhere; here the bar is the only ask on the page.
   //
-  // The top edge (`adBarEdge="top"`, nothing passes it today): same bar,
+  // The top edge (`adBarEdge="top"`, what both ad surfaces pass): same bar,
   // same one button, pinned where the product's bar is. It publishes no
   // `data-ad-bar` there, so nothing below moves up to clear it.
   const atBottom = adFrame && adBarEdge === "bottom";

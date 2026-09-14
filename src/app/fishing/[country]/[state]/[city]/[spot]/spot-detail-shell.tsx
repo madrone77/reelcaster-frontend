@@ -361,9 +361,6 @@ export default function SpotDetailShell({
     ready: homeReady,
   } = useHomeSpot(spot.slug, true);
   const { isPaid, loading: tierLoading } = useSubscription();
-  // The ad frame's bar sits on the bottom edge (the `ad_bar_edge_v1` split,
-  // concluded 2026-09-07 for the bottom). A sheet has no bar at all.
-  const adBarBottom = !!ad && !sheet;
   const { user, loading: authLoading } = useAuth();
   // Until `tierLoading` clears, `isPaid` is still its initial `false` — the
   // strip holds off rather than briefly locking a Pro account's days 8–14.
@@ -1137,16 +1134,13 @@ export default function SpotDetailShell({
           trade on a long read whose nav lives elsewhere, and the wrong one
           when the bar is the only ask on the page.
 
-          It sits on the bottom edge (`ad_bar_edge_v1`, concluded 2026-09-07
-          for the bottom). On a long read that is the edge that matters: a
-          top bar carrying the only button on the page is off screen for all
-          of it except the first screenful. */}
+          It sits on the top edge, where the product's bar is. */}
       {/* A sheet has no bar of its own: the map's chrome is still under it,
           and the sheet's header row below carries the way back. */}
       {sheet ? null : ad ? (
         <ExploreTopBar
           adFrame
-          adBarEdge="bottom"
+          adBarEdge="top"
           upgradeCta={!isPaid}
           placeName={cityLink?.cityName ?? spot.city ?? undefined}
         />
@@ -1160,12 +1154,9 @@ export default function SpotDetailShell({
           document's scroll position, and a sheet scrolls its own box. */}
       {!sheet && <PullToRefresh onRefresh={runRefresh} />}
 
-      {/* `pt-16` clears the fixed bar at the top off the ad frame. Under it
-          the bar is on the bottom edge, so the document starts at the top
-          edge and ends one bar-height short of the bottom; `--rc-ad-bar-h`
-          carries the device safe area, which a bare `pb-16` would not. A
-          sheet has no fixed bar to clear. */}
-      <div className={sheet ? "" : adBarBottom ? "pb-[var(--rc-ad-bar-h)]" : "pt-16"}>
+      {/* `pt-16` clears the fixed bar at the top, on the ad frame and off it.
+          A sheet has no fixed bar to clear. */}
+      <div className={sheet ? "" : "pt-16"}>
         {/* Share and get a month, at the top of the page. Not in the phone
             sheet: its head is sticky and measured, and a strip above it
             would push the handle down. Not under the ad frame either, where
