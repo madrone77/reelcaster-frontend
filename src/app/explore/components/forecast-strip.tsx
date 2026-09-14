@@ -11,6 +11,11 @@ import {
 import DayCell from "./day-cell";
 import DayScrubCell from "./day-scrub-cell";
 import UpgradeDialog from "./upgrade-dialog";
+import LockedFortnightOverlay from "./locked-fortnight-overlay";
+import {
+  useFortnightLock,
+  type FortnightLockSurface,
+} from "@/app/components/split-test/use-fortnight-lock";
 
 const CONFIDENCE_NOTE = "Data from: ECMWF + GFS + BlueCaster";
 
@@ -35,9 +40,18 @@ export default function ForecastStrip({
   onShow,
   onLockedAdDay,
   placeName,
+  lockOverlaySurface,
+  authSettled = false,
 }: {
   model: ForecastStripModel | null;
   speciesName: string | null;
+  /**
+   * Puts this strip in `fortnight_lock_overlay_v1` under this surface name.
+   * Unset (the landing pages) keeps the padlocks and counts nothing.
+   */
+  lockOverlaySurface?: FortnightLockSurface;
+  /** Auth has answered, so `signedIn` false really means signed out. */
+  authSettled?: boolean;
   selectedIso: string;
   loading: boolean;
   onSelectDay: (day: ForecastDay) => void;
@@ -100,8 +114,23 @@ export default function ForecastStrip({
     return () => mql.removeEventListener("change", read);
   }, []);
 
+  // `fortnight_lock_overlay_v1`. Only a strip that is actually drawn (lg and
+  // up, not hidden, not loading) to a settled signed-out visitor counts.
+  const firstLockedIdx = model?.days.findIndex((d) => d.locked) ?? -1;
+  const fortnightLock = useFortnightLock(
+    lockOverlaySurface ?? "explore_strip",
+    !!lockOverlaySurface &&
+      authSettled &&
+      !signedIn &&
+      lgUp &&
+      !hidden &&
+      !loading &&
+      firstLockedIdx >= 0,
+  );
+
   const handleDay = (day: ForecastDay) => {
     if (day.locked) {
+      fortnightLock.reportPress();
       if (onLockedAdDay) {
         onLockedAdDay();
         return;
@@ -208,7 +237,10 @@ export default function ForecastStrip({
           </div>
         ) : (
           <div className="flex gap-1.5 flex-1 min-h-0">
-            {model.days.map((day) => {
+            {(fortnightLock.overlay
+              ? model.days.slice(0, firstLockedIdx)
+              : model.days
+            ).map((day) => {
               const isSel = day.iso === selectedIso;
               // The selected, unlocked day expands into the 24h scrub lane;
               // every other day stays a compact peak cell (flex ratios let the
@@ -235,6 +267,19 @@ export default function ForecastStrip({
                 />
               );
             })}
+            {fortnightLock.overlay && (
+              <LockedFortnightOverlay
+                days={model.days.slice(firstLockedIdx)}
+                placeName={placeName}
+                from={
+                  lockOverlaySurface === "ad_explore_strip"
+                    ? "explore-ad-strip-overlay"
+                    : "explore-strip-overlay"
+                }
+                onPress={fortnightLock.reportPress}
+                tileMinWidth={0}
+              />
+            )}
           </div>
         )}
       </div>

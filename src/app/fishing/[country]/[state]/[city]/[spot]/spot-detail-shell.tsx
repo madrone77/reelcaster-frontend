@@ -61,6 +61,8 @@ import ScoreFactors from "@/app/explore/spot/components/score-factors";
 import { useFavorite } from "@/app/explore/lib/use-favorite";
 import { useHomeSpot } from "@/app/explore/lib/use-home-spot";
 import HomeSpotOffer from "./home-spot-offer";
+import LockedFortnightOverlay from "@/app/explore/components/locked-fortnight-overlay";
+import { useFortnightLock } from "@/app/components/split-test/use-fortnight-lock";
 import {
   buildTerminalHours,
   tideRangeFrom,
@@ -570,6 +572,15 @@ export default function SpotDetailShell({
     [fcSource, selId, tierLoading, accessTier, regulation, page.sun],
   );
 
+  // `fortnight_lock_overlay_v1`: signed-out visitors only, once the tier has
+  // settled (a pending day is neither locked nor open). Arm b draws the run
+  // from the first locked day to the end as blank tiles under one panel.
+  const firstLockedIdx = stripModel?.days.findIndex((d) => d.locked) ?? -1;
+  const fortnightLock = useFortnightLock(
+    ad ? "ad_spot_strip" : sheet ? "sheet_spot_strip" : "spot_strip",
+    !authLoading && !user && !tierLoading && firstLockedIdx >= 0,
+  );
+
   const [selectedIso, setSelectedIso] = useState<string | null>(openOnIso);
   const [upgradeOpen, setUpgradeOpen] = useState(false);
 
@@ -897,6 +908,7 @@ export default function SpotDetailShell({
       // form now, so a locked day on a paid page does what a locked day does
       // everywhere else, and the two paths have collapsed into one.
       setLockedTier(day.lockTier ?? "pro");
+      fortnightLock.reportPress();
       trackEvent("Locked Day Tapped", {
         index: day.index,
         lock_tier: day.lockTier,
@@ -1634,7 +1646,10 @@ export default function SpotDetailShell({
                 ref={dayStripRef}
                 className="flex gap-1.5 h-[124px] pt-2 overflow-x-auto scrollbar-hide"
               >
-                {(stripModel?.days ?? []).map((day) => (
+                {(fortnightLock.overlay
+                  ? (stripModel?.days ?? []).slice(0, firstLockedIdx)
+                  : (stripModel?.days ?? [])
+                ).map((day) => (
                   <div key={day.index} className="flex-1 min-w-[54px] flex">
                     <DayCell
                       day={day}
@@ -1644,11 +1659,21 @@ export default function SpotDetailShell({
                     />
                   </div>
                 ))}
+                {fortnightLock.overlay && stripModel && (
+                  <LockedFortnightOverlay
+                    days={stripModel.days.slice(firstLockedIdx)}
+                    spotName={spot.name}
+                    from={ad ? "spot-ad-strip-overlay" : "spot-strip-overlay"}
+                    onPress={fortnightLock.reportPress}
+                  />
+                )}
               </div>
               <div
                 aria-hidden
                 className={`pointer-events-none absolute right-0 top-2 bottom-0 w-10 flex items-center justify-end pr-0.5 bg-gradient-to-l from-rc-panel to-transparent transition-opacity duration-200 ${
-                  dayStripScrollable ? "opacity-100" : "opacity-0"
+                  // Arm b's panel is pinned over the visible run; the fade
+                  // would sit on top of its words.
+                  dayStripScrollable && !fortnightLock.overlay ? "opacity-100" : "opacity-0"
                 }`}
               >
                 <ChevronRight className="w-4 h-4 text-rc-ink-mute" />
@@ -1656,7 +1681,7 @@ export default function SpotDetailShell({
               <div
                 aria-hidden
                 className={`pointer-events-none absolute left-0 top-2 bottom-0 w-10 flex items-center justify-start pl-0.5 bg-gradient-to-r from-rc-panel to-transparent transition-opacity duration-200 ${
-                  dayStripScrolledLeft ? "opacity-100" : "opacity-0"
+                  dayStripScrolledLeft && !fortnightLock.overlay ? "opacity-100" : "opacity-0"
                 }`}
               >
                 <ChevronLeft className="w-4 h-4 text-rc-ink-mute" />
