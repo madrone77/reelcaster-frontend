@@ -1,6 +1,6 @@
 "use client";
 
-import { useLayoutEffect, useRef } from "react";
+import { useLayoutEffect, useRef, type RefObject } from "react";
 import { Crown } from "lucide-react";
 import type { ForecastDay } from "@/app/explore/lib/forecast-strip";
 import TrialModalButton from "@/app/components/paywall/trial-modal-button";
@@ -36,6 +36,63 @@ import {
 /** Below this the headline and button stop fitting; the panel holds this width. */
 const MIN_PANEL_PX = 200;
 
+/**
+ * The trial button's words, matching the visitor's top bar and ad bar. Reads
+ * the `trial_cta_label_v1` arm without counting an exposure to that test.
+ */
+export function useTrialButtonLabel(): string {
+  const arms = useSplitArms();
+  return arms[TRIAL_CTA_LABEL_TEST] === "b" ? TRIAL_CTA_LABELS.b : TRIAL_CTA_LABELS.a;
+}
+
+/**
+ * Keeps `panel` over the part of `run` that its scrolling parent shows, never
+ * narrower than `minPx`. Writes left and width straight to the panel's style
+ * on scroll and resize, so a touch scroll re-renders nothing.
+ */
+export function usePinnedToVisibleRun(
+  runRef: RefObject<HTMLElement | null>,
+  panelRef: RefObject<HTMLElement | null>,
+  minPx: number,
+  dep: unknown,
+): void {
+  useLayoutEffect(() => {
+    const run = runRef.current;
+    const panel = panelRef.current;
+    const scroller = run?.parentElement;
+    if (!run || !panel || !scroller) return;
+    let raf = 0;
+    const place = () => {
+      raf = 0;
+      const r = run.getBoundingClientRect();
+      const s = scroller.getBoundingClientRect();
+      const minW = Math.min(r.width, minPx);
+      let left = Math.max(0, s.left - r.left);
+      let right = Math.min(r.width, s.right - r.left);
+      if (right - left < minW) {
+        if (left === 0) right = minW;
+        else left = Math.max(0, right - minW);
+      }
+      panel.style.left = `${left}px`;
+      panel.style.width = `${right - left}px`;
+    };
+    const schedule = () => {
+      if (!raf) raf = requestAnimationFrame(place);
+    };
+    place();
+    scroller.addEventListener("scroll", schedule, { passive: true });
+    const ro =
+      typeof ResizeObserver === "undefined" ? null : new ResizeObserver(schedule);
+    ro?.observe(scroller);
+    ro?.observe(run);
+    return () => {
+      if (raf) cancelAnimationFrame(raf);
+      scroller.removeEventListener("scroll", schedule);
+      ro?.disconnect();
+    };
+  }, [runRef, panelRef, minPx, dep]);
+}
+
 export default function LockedFortnightOverlay({
   days,
   spotName,
@@ -61,45 +118,9 @@ export default function LockedFortnightOverlay({
 }) {
   const runRef = useRef<HTMLDivElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
-  const arms = useSplitArms();
-  const label =
-    arms[TRIAL_CTA_LABEL_TEST] === "b" ? TRIAL_CTA_LABELS.b : TRIAL_CTA_LABELS.a;
+  const label = useTrialButtonLabel();
+  usePinnedToVisibleRun(runRef, panelRef, MIN_PANEL_PX, days.length);
 
-  useLayoutEffect(() => {
-    const run = runRef.current;
-    const panel = panelRef.current;
-    const scroller = run?.parentElement;
-    if (!run || !panel || !scroller) return;
-    let raf = 0;
-    const place = () => {
-      raf = 0;
-      const r = run.getBoundingClientRect();
-      const s = scroller.getBoundingClientRect();
-      const minW = Math.min(r.width, MIN_PANEL_PX);
-      let left = Math.max(0, s.left - r.left);
-      let right = Math.min(r.width, s.right - r.left);
-      if (right - left < minW) {
-        if (left === 0) right = minW;
-        else left = Math.max(0, right - minW);
-      }
-      panel.style.left = `${left}px`;
-      panel.style.width = `${right - left}px`;
-    };
-    const schedule = () => {
-      if (!raf) raf = requestAnimationFrame(place);
-    };
-    place();
-    scroller.addEventListener("scroll", schedule, { passive: true });
-    const ro =
-      typeof ResizeObserver === "undefined" ? null : new ResizeObserver(schedule);
-    ro?.observe(scroller);
-    ro?.observe(run);
-    return () => {
-      if (raf) cancelAnimationFrame(raf);
-      scroller.removeEventListener("scroll", schedule);
-      ro?.disconnect();
-    };
-  }, [days.length]);
 
   if (days.length === 0) return null;
 

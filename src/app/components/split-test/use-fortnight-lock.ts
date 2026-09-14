@@ -12,12 +12,13 @@
  * LockedFortnightOverlay.
  *
  * WHO. Signed-out visitors only, on the spot page, the ad frame of the spot
- * page, the spot sheet on Explore, and Explore's desktop strip with and
- * without the ad frame. A signed-in free account keeps its padlocks on both
- * arms. Each surface reports separately (`spot_strip`, `ad_spot_strip`,
- * `sheet_spot_strip`, `explore_strip`, `ad_explore_strip`) so paid and
- * organic are never pooled by accident. Explore's phone pill rail is not in
- * the test.
+ * page, the spot sheet on Explore, Explore's desktop strip, and Explore's
+ * phone date pill, the last two with and without the ad frame. A signed-in
+ * free account keeps its padlocks on both arms. Each surface reports
+ * separately (`spot_strip`, `ad_spot_strip`, `sheet_spot_strip`,
+ * `explore_strip`, `ad_explore_strip`, `explore_pill`, `ad_explore_pill`) so
+ * paid and organic are never pooled by accident. The pill's arm b is its own
+ * layout (PillLockedRun): the 64px pill has no room for the strip's panel.
  *
  * WHAT COUNTS. Exposure = the strip rendered with a locked day to a signed-out
  * visitor whose arm is known. cta_click = arm a tapping a padlock tile, arm b
@@ -43,7 +44,9 @@ export type FortnightLockSurface =
   | 'ad_spot_strip'
   | 'sheet_spot_strip'
   | 'explore_strip'
-  | 'ad_explore_strip';
+  | 'ad_explore_strip'
+  | 'explore_pill'
+  | 'ad_explore_pill';
 
 /** Module scope, so it dedupes across remounts within one page load. */
 const seen = new Set<string>();
