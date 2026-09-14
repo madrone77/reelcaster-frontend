@@ -9,6 +9,7 @@
 // ─── Spot identity ─────────────────────────────────────────────────────
 
 import type { CreelAreaReport } from "./creel-types";
+import type { SeaHour } from "@/app/explore/lib/sea-state";
 
 export type LiveSpot = {
   id: string;
@@ -89,6 +90,14 @@ export type HourlyConditions = {
   waveM: number | null;
   tideM: number | null;
   tideTrend: "rising" | "falling" | null;
+  // Sea state from BlueCaster's sea-feel model (2026-09-13). Optional: older
+  // payloads carry none of these. Periods are mean periods (s), directions FROM.
+  swellPeriodS?: number | null;
+  swellDirDeg?: number | null;
+  chopM?: number | null;
+  chopPeriodS?: number | null;
+  chopDirDeg?: number | null;
+  sea?: SeaHour | null;
 };
 
 export type RightNowSnapshot = {
@@ -105,6 +114,14 @@ export type RightNowSnapshot = {
   waveM: number | null;
   tideM: number | null;
   tideTrend: "rising" | "falling" | null;
+  // Sea state from BlueCaster's sea-feel model (2026-09-13). Optional: older
+  // payloads carry none of these. Periods are mean periods (s), directions FROM.
+  swellPeriodS?: number | null;
+  swellDirDeg?: number | null;
+  chopM?: number | null;
+  chopPeriodS?: number | null;
+  chopDirDeg?: number | null;
+  sea?: SeaHour | null;
 };
 
 // ─── Tide ──────────────────────────────────────────────────────────────

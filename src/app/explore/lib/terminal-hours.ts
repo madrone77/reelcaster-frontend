@@ -1,6 +1,6 @@
 import type { HourlyConditions } from "@/lib/bluecaster/live-spot-types";
 import type { TerminalHours } from "@/app/explore/spot/components/spot-terminal";
-import { resolveSea } from "./sea-state";
+import { readSea } from "./sea-state";
 
 /**
  * One day of hourly conditions, folded into the arrays SpotTerminal draws.
@@ -38,22 +38,25 @@ export function buildTerminalHours(
     );
   const wind = pick("windKt");
   const gust = pick("windGustKt");
-  // Sea state falls back to a wind-derived estimate hour by hour: the wave grid
-  // has dry-land cells (Point Robinson never gets a wave height at all) and its
-  // wave partition also runs out around day 10, which used to blank the row.
-  // `seaEst` flags which hours are inferred so the chart can say so rather than
-  // passing an estimate off as a model reading.
-  const seaRead = Array.from({ length: 24 }, (_, i) =>
-    resolveSea(g[i]?.waveM ?? null, wind[i], gust[i]),
-  );
+  // Sea state reads BlueCaster's `sea` object (swell and chop split out, a
+  // label the scorer agrees with) and falls back to the combined height, then
+  // to a wind-derived estimate, hour by hour: the wave grid has dry-land cells
+  // (Point Robinson never gets a wave height at all) and its wave partition
+  // runs out around day 10. `seaEst` flags which hours are inferred so the
+  // chart can say so rather than passing an estimate off as a model reading.
+  const seaRead = Array.from({ length: 24 }, (_, i) => readSea(g[i]));
   return {
     score: scores,
     tide: pick("tideM"),
     wind,
     gust,
     windDir: pick("windDirDeg"),
-    sea: seaRead.map((r) => r?.m ?? null),
+    sea: seaRead.map((r) => r?.heightM ?? null),
     seaEst: seaRead.map((r) => r?.estimated ?? false),
+    seaLabel: seaRead.map((r) => r?.label ?? null),
+    swell: seaRead.map((r) => r?.swell ?? null),
+    chop: seaRead.map((r) => r?.chop ?? null),
+    seaReason: seaRead.map((r) => r?.reason ?? null),
     cloud: pick("cloudPct"),
     precip: pick("precipMm"),
     air: pick("airTempC"),

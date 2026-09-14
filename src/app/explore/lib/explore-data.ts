@@ -26,7 +26,7 @@ import {
   type UnitCountry,
   type UnitPrefs,
 } from "@/lib/unit-system";
-import { resolveSea } from "./sea-state";
+import { readRailSea, seaDetailLine } from "./sea-state";
 
 // ── Score tiers ─────────────────────────────────────────────────────
 
@@ -105,7 +105,9 @@ export const TIER_PIN: Record<Tier, string> = {
 
 export interface RailConditions {
   wind: string | null; // "12 kn SW"
-  sea: string | null; // "Light Chop"
+  sea: string | null; // "Lumpy": Flat | Easy | Lumpy | Choppy | Rough | Dangerous
+  /** Swell as a buoy reads it, "4 ft @ 13 s W"; absent without a split swell. */
+  seaDetail?: string | null;
   tide: string | null; // "+2.4m ▲" (Canada) / "+7.9ft ▲" (US)
   current: string | null; // "0.4 kn" / "Slack"
   sky: string | null; // "Clear" / "Cloudy" / "Rain"
@@ -320,41 +322,24 @@ function fmtWind(c: MapCondCell): string | null {
   return `${Math.round(c.wkt)} kn${dir}`;
 }
 
-function seaWord(m: number | null): string | null {
-  if (m == null) return null;
-  if (m < 0.2) return "Calm";
-  if (m < 0.5) return "Light";
-  if (m < 1.0) return "Light Chop";
-  if (m < 2.0) return "Moderate";
-  return "Rough";
-}
-
 /**
- * Sea state for the card, with the wind-derived fallback the rest of the
- * product already uses.
+ * Sea state for the card and drawer: BlueCaster's label (swell and chop by
+ * period and exposure, the same judgement the score uses) when the map payload
+ * carries it, and the combined height with the wind-derived fallback when it
+ * does not.
  *
- * Open-Meteo's wave grid is about 9.3 km and its land mask marks whole inland
- * cells dry, which on Puget Sound is not an edge case: Blake Island, Duwamish
- * Head and Point Robinson come back null for all 24 hours of every day, and
- * South Puget Sound loses a further run of marks. This function used to read
- * `wav` straight and print an em dash for every one of them.
- *
- * `resolveSea` -- already the source of truth on the spot page, the city
- * instrument page, the dashboard hero and the conditions strip -- estimates a
- * height from the wind when the model has nothing. It was simply never wired
- * in here, so the Explore card and the drawer said "—" about water whose own
- * spot page had a reading.
- *
- * The estimate is not dressed up as a measurement. sea-state.ts sets the
- * condition plainly: show the WORD without a height. This cell has only ever
- * shown a word, so it already meets that bar and needs no extra marker.
- *
- * Gusts are passed as null because the map payload has no gust field; the
- * estimate simply runs off the sustained wind, which is what MapCondCell
- * carries.
+ * The fallback matters on Puget Sound: Open-Meteo's wave grid marks whole
+ * inland cells dry, so Blake Island, Duwamish Head and Point Robinson come
+ * back with no wave height for all 24 hours of every day. The estimate is not
+ * dressed up as a measurement: it only ever supplies the word, never a height.
  */
 function seaState(cell: MapCondCell): string | null {
-  return seaWord(resolveSea(cell.wav, cell.wkt, null)?.m ?? null);
+  return readRailSea(cell)?.label ?? null;
+}
+
+/** "4 ft @ 13 s W" (or the chop) for the drawer's sea cell; null for a wind estimate. */
+function seaDetail(cell: MapCondCell, units: RailUnits): string | null {
+  return seaDetailLine(readRailSea(cell), units.tideUnit === "ft" ? "ft" : "m");
 }
 
 function fmtTide(c: MapCondCell, units: RailUnits): string | null {
@@ -413,6 +398,7 @@ export function formatConditions(
   return {
     wind: fmtWind(cell),
     sea: seaState(cell),
+    seaDetail: seaDetail(cell, units),
     tide: fmtTide(cell, units),
     current: fmtCurrent(cell.cur),
     sky: skyWord(cell.cld, cell.pcp),

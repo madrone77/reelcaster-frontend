@@ -17,23 +17,13 @@ import {
   formatWind,
 } from "@/app/utils/unit-conversions";
 import { formatFractionalHour12 } from "@/lib/time-format";
-import { resolveSea, SEA_ESTIMATE_NOTE } from "../../lib/sea-state";
+import { readSea, seaDetailLine, SEA_ESTIMATE_NOTE } from "../../lib/sea-state";
 import WeatherIcon, {
   weatherFromHour,
   type WeatherCondition,
 } from "./weather-icon";
 
 const DASH = "—";
-
-// Sea-state words — one vocabulary with the 24h chart and the old panel.
-function seaState(wav: number | null): string | null {
-  if (wav == null) return null;
-  if (wav < 0.2) return "Calm";
-  if (wav < 0.35) return "Rippled";
-  if (wav < 0.65) return "Light chop";
-  if (wav < 1.0) return "Choppy";
-  return "Rough";
-}
 
 /** Air-temp word — same bands as the 24h chart's AIR row. */
 function airWord(t: number | null): string | null {
@@ -208,9 +198,11 @@ export default function CurrentConditionsStrip({
     rn?.windKt != null && rn?.windGustKt != null && rn.windGustKt - rn.windKt > 8;
   const windName = windCardinal(rn?.windDirDeg) ?? rn?.windDir ?? null;
 
-  // Falls back to a wind-derived sea at spots the wave grid calls dry land, where
-  // `waveM` is null for every hour of every day. See lib/sea-state.ts.
-  const sea = resolveSea(rn?.waveM, rn?.windKt, rn?.windGustKt);
+  // BlueCaster's sea label and swell when the payload has them; otherwise the
+  // combined height, or a wind-derived sea at spots the wave grid calls dry
+  // land, where `waveM` is null for every hour of every day. See lib/sea-state.ts.
+  const sea = readSea(rn);
+  const seaUnit = waveUnit === "ft" ? "ft" : "m";
 
   const scoreTier = tierFor(score);
 
@@ -276,13 +268,14 @@ export default function CurrentConditionsStrip({
     },
     {
       label: "Sea state",
-      value: seaState(sea?.m ?? null) ?? DASH,
-      // An estimate wears the word but never a height. A wind-derived number
-      // is not a wave measurement and should not read like one.
+      value: sea?.label ?? DASH,
+      // Swell as a buoy reads it ("4 ft @ 13 s W") when there is one worth
+      // naming, else the chop, else the combined height. An estimate wears the word but never a
+      // height: a wind-derived number is not a wave measurement.
       sub: sea
         ? sea.estimated
           ? SEA_ESTIMATE_NOTE
-          : formatHeight(convertHeight(sea.m, "m", waveUnit), waveUnit)
+          : seaDetailLine(sea, seaUnit)
         : null,
     },
     {
