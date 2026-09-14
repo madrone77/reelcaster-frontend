@@ -1,5 +1,6 @@
 import type { LiveRegulation } from "@/lib/bluecaster/live-spot-types";
 import { lengthLabel, lengthRangeLabel, type Regulator } from "@/lib/regions";
+import { isRulesNotLoaded, RULES_NOT_LOADED_LABEL } from "./reg-status";
 
 /**
  * Shared formatting for the regulation figures — the limits, the length rule,
@@ -81,11 +82,15 @@ function gearPhrase(gear: string | null): string | null {
  * permission. The reopening date takes their place when the calendar has one.
  * Release-only drops the size rule for the same reason: nothing is being kept,
  * so a minimum length is not a rule you can act on.
+ *
+ * A row whose rules were never loaded says only that. Its `status` is a
+ * scoring placeholder, so neither "No retention" nor any figure applies.
  */
 export function regHighlights(
   r: LiveRegulation,
   regulator: Regulator,
 ): string[] {
+  if (isRulesNotLoaded(r)) return [RULES_NOT_LOADED_LABEL];
   if (r.status === "Closed") {
     const reopen = fmtMD(r.nextOpenDate);
     return ["No retention", ...(reopen ? [`reopens ${reopen}`] : [])];

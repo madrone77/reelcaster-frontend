@@ -52,6 +52,11 @@ import NeighbourSpots from "@/app/explore/spot/components/neighbour-spots";
 import SeasonalityStrip from "@/app/explore/spot/components/seasonality-strip";
 import CurrentConditionsStrip from "@/app/explore/spot/components/current-conditions-strip";
 import CurrentRegulations from "@/app/explore/spot/components/current-regulations";
+import {
+  isRulesNotLoaded,
+  RULES_NOT_LOADED_LABEL,
+  RULES_NOT_LOADED_PILL,
+} from "@/app/explore/lib/reg-status";
 import ScoreFactors from "@/app/explore/spot/components/score-factors";
 import { useFavorite } from "@/app/explore/lib/use-favorite";
 import { useHomeSpot } from "@/app/explore/lib/use-home-spot";
@@ -1056,12 +1061,15 @@ export default function SpotDetailShell({
       {regulation && (
         <span
           className={`px-2 py-0.5 rounded-full text-[10px] font-semibold uppercase tracking-[0.06em] ${
-            regulation.status === "Open"
-              ? "bg-rc-brand-soft text-rc-brand"
-              : (REG_PILL[regulation.status] ?? "bg-rc-surface text-rc-ink-mute")
+            isRulesNotLoaded(regulation)
+              ? RULES_NOT_LOADED_PILL
+              : regulation.status === "Open"
+                ? "bg-rc-brand-soft text-rc-brand"
+                : (REG_PILL[regulation.status] ?? "bg-rc-surface text-rc-ink-mute")
           }`}
         >
-          {selSpecies?.name} · {regulation.status}
+          {selSpecies?.name} ·{" "}
+          {isRulesNotLoaded(regulation) ? RULES_NOT_LOADED_LABEL : regulation.status}
         </span>
       )}
     </div>
@@ -1835,6 +1843,7 @@ export default function SpotDetailShell({
                 todayWeek={page.todayWeek}
                 nextOpenDate={regulation?.nextOpenDate ?? null}
                 nextOpenSummary={regulation?.nextOpenSummary ?? null}
+                rulesNotLoaded={isRulesNotLoaded(regulation)}
               />
             </div>
           )}

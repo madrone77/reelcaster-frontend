@@ -205,6 +205,13 @@ export type LiveRegulation = {
   // calendar. Lets non-retention species show "Non-retention · opens Aug 1".
   nextOpenDate: string | null;
   nextOpenSummary: string | null;
+  // True when no rule for this species has been read from the regulator yet
+  // (bluecaster #442). `status` stays "Closed" so nothing scores the row as
+  // open, but it is NOT a closure: say "Rules not loaded yet" and link
+  // `regulatorUrl`. Absent on payloads older than that change.
+  rulesNotLoaded?: boolean;
+  // The regulator's regulations page when `rulesNotLoaded`, else null.
+  regulatorUrl?: string | null;
 };
 
 // ─── Catch signals ────────────────────────────────────────────────────

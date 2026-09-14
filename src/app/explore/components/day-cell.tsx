@@ -96,7 +96,7 @@ export default function DayCell({
         <div className="rc-label text-[9px] leading-none text-center">{day.dow}</div>
         <div className="font-rc-mono text-[10px] text-rc-ink-soft">{day.date}</div>
         <div className="font-rc-mono text-[9px] text-rc-ink-soft text-center leading-tight px-0.5 my-1">
-          Non-retention
+          {day.rulesNotLoaded ? "Rules not loaded" : "Non-retention"}
         </div>
       </button>
     );

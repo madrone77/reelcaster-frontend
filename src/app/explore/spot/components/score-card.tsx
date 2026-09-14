@@ -3,6 +3,7 @@
 import { Bell } from "lucide-react";
 import { tierFor, TIER_PILL, TIER_TEXT } from "../../lib/explore-data";
 import { regHighlights } from "../../lib/reg-limits";
+import { isRulesNotLoaded, regulatorCheckLink } from "../../lib/reg-status";
 import type { LiveRegulation } from "@/lib/bluecaster/live-spot-types";
 import type { Regulator } from "@/lib/regions";
 
@@ -115,15 +116,21 @@ export default function ScoreCard({
   const leadingWithPeak = peak != null;
   // Release-only used to render as "closed" here, because this strip took a
   // boolean. It's a third state: the fishery is on, you just can't keep one.
+  // A row whose rules were never loaded has no status word: the second line
+  // says "Rules not loaded yet · Check CDFW" and the notice links there.
+  const notLoaded = isRulesNotLoaded(regulation);
+  const checkLink = notLoaded && regulation ? regulatorCheckLink(regulation, regulator) : null;
   const statusWord =
-    regulation == null
+    regulation == null || notLoaded
       ? null
       : regulation.status === "Open"
         ? "open"
         : regulation.status === "Release"
           ? "release only"
           : "closed";
-  const highlights = regulation ? regHighlights(regulation, regulator) : [];
+  const highlights = regulation
+    ? [...regHighlights(regulation, regulator), ...(checkLink ? [checkLink.label] : [])]
+    : [];
   // "Peaks at 89" while the headline above reads 89 is the same number twice,
   // eight lines apart. The window box is drawn from the same day grid, so its
   // peak IS the headline peak by construction; what it adds is WHEN and what
@@ -226,7 +233,7 @@ export default function ScoreCard({
             click that no longer exists. */}
         {dfoArea && (
           <RegulatoryNotice
-            href={adFrame ? null : regulator.url}
+            href={adFrame ? null : (checkLink?.url ?? regulator.url)}
             className="mt-3 lg:mt-0 flex min-h-[88px] flex-col justify-center gap-1.5 rounded border border-rc-fair-border bg-rc-fair-bg px-3 py-2.5 font-rc-mono text-[11px] text-rc-fair-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-rc-brand transition-all"
           >
             <span className="flex items-center justify-between gap-2">

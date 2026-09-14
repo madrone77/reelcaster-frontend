@@ -1,6 +1,7 @@
 "use client";
 
 import type { RegWeekState, SeasonState } from "@/lib/bluecaster/live-spot-types";
+import { RULES_NOT_LOADED_LABEL, RULES_NOT_LOADED_PILL } from "../../lib/reg-status";
 
 // Cell FILL per abundance state — pure biology. Closure is no longer a fill;
 // it's a hatch overlay (see REG_HATCH). Off/no-data reads as a muted rail;
@@ -155,6 +156,7 @@ export default function SeasonalityStrip({
   todayWeek,
   nextOpenDate = null,
   nextOpenSummary = null,
+  rulesNotLoaded = false,
 }: {
   speciesName: string;
   weeks: SeasonState[];
@@ -163,23 +165,38 @@ export default function SeasonalityStrip({
   todayWeek: number;
   nextOpenDate?: string | null;
   nextOpenSummary?: string | null;
+  /** The species' regulation row is a placeholder nobody has read yet
+   *  (bluecaster #442). Its weeks come through as "closed" only because the
+   *  row fails closed for scoring, so they are drawn as no data, never as a
+   *  red closure, and the header says the rules are not loaded. */
+  rulesNotLoaded?: boolean;
 }) {
   if (!weeks || weeks.length === 0) return null;
 
-  const regNow: RegWeekState = regWeeks?.[todayWeek] ?? "nodata";
+  const shownRegWeeks: RegWeekState[] | undefined = rulesNotLoaded
+    ? regWeeks?.map((r) => (r === "closed" ? "nodata" : r))
+    : regWeeks;
+  const regNow: RegWeekState = shownRegWeeks?.[todayWeek] ?? "nodata";
   const runMono = runHeadline(state, weeksLeftInRun(weeks, todayWeek));
-  const status = buildStatus(
-    state,
-    regNow,
-    speciesName,
-    nextOpenDate,
-    nextOpenSummary,
-    runMono,
-  );
+  const status = rulesNotLoaded
+    ? {
+        pillLabel: RULES_NOT_LOADED_LABEL,
+        pillClass: RULES_NOT_LOADED_PILL,
+        sentence: `We have not loaded the rules for ${speciesName} here yet`,
+        mono: runMono,
+      }
+    : buildStatus(
+        state,
+        regNow,
+        speciesName,
+        nextOpenDate,
+        nextOpenSummary,
+        runMono,
+      );
 
   // Only surface a hatch legend entry for states that actually appear.
-  const hasRelease = regWeeks?.some((r) => r === "release_only") ?? false;
-  const hasClosed = regWeeks?.some((r) => r === "closed") ?? false;
+  const hasRelease = shownRegWeeks?.some((r) => r === "release_only") ?? false;
+  const hasClosed = shownRegWeeks?.some((r) => r === "closed") ?? false;
 
   return (
     <div>
@@ -220,7 +237,7 @@ export default function SeasonalityStrip({
           >
             {weeks.map((w, i) => {
               const isToday = i === todayWeek;
-              const reg = regWeeks?.[i];
+              const reg = shownRegWeeks?.[i];
               const overlay = reg ? REG_HATCH[reg] : undefined;
               const regNote = reg && REG_LABEL[reg] ? ` · ${REG_LABEL[reg]}` : "";
               return (
