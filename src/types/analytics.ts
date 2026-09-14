@@ -261,6 +261,8 @@ export type AnalyticsEventName =
   | 'Ad Frame Spot Opened'
   | 'Ad Intro Shown'
   | 'Ad Intro Dismissed'
+  | 'Chart Explainer Shown'
+  | 'Chart Explainer Dismissed'
   | 'Back To Map Clicked'
   // Spot page
   | 'Spot Viewed'

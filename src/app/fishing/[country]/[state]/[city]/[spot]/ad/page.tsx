@@ -6,6 +6,7 @@ import SpotDetailShell from "../spot-detail-shell";
 import { loadSpotPage } from "../load-spot-page";
 import { parseWall } from "@/lib/ad-mode";
 import { spotPath } from "@/lib/paths";
+import { matchSpeciesParam, speciesKeywordName } from "@/lib/species-param";
 
 /**
  * The ad frame of a spot page.
@@ -36,13 +37,18 @@ function first(v: string | string[] | undefined): string {
 
 export async function generateMetadata({
   params,
+  searchParams,
 }: PageProps): Promise<Metadata> {
   const { country, state, city, spot: slug } = await params;
+  const sp = await searchParams;
   const page = await fetchSpotLivePage(slug).catch(() => null);
   const name = page?.spot.name ?? "This spot";
+  const fish = page ? matchSpeciesParam(first(sp.species), page.species) : null;
 
   return {
-    title: `${name} Fishing Forecast`,
+    title: fish
+      ? `${name} ${speciesKeywordName(fish.name)} Fishing Report`
+      : `${name} Fishing Forecast`,
     // noindex, and a canonical pointing at the page this one is a frame of.
     // The robots directive is what actually keeps it out of the index; the
     // canonical is what stops any link that leaks into the wild from splitting
@@ -76,6 +82,10 @@ export default async function SpotAdPage({ params, searchParams }: PageProps) {
   const angleRaw = first(sp.a).trim().toLowerCase();
   const angle = ANGLES.some((a) => a.id === angleRaw) ? angleRaw : "";
 
+  // The fish the search keyword named (`&species=chinook`). Null when this
+  // spot does not carry it, and the page opens on its own lead species.
+  const fish = matchSpeciesParam(first(sp.species), page.species);
+
   return (
     <SpotDetailShell
       page={page}
@@ -85,6 +95,10 @@ export default async function SpotAdPage({ params, searchParams }: PageProps) {
       serverNowMs={serverNowMs}
       cityLink={cityLink}
       ad={{ wall, angle }}
+      openOnSpeciesId={fish?.id ?? null}
+      landingSpecies={
+        fish ? { id: fish.id, name: speciesKeywordName(fish.name) } : null
+      }
     />
   );
 }
