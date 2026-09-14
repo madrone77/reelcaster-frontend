@@ -198,7 +198,7 @@ export default function SpotDrawer({
     { label: "TIDE", value: conditions.tide ?? "—", sub: null, icon: ArrowUpDown },
     { label: "CURRENT", value: conditions.current ?? "—", sub: null, icon: Navigation },
     { label: "WIND", value: conditions.wind ?? "—", sub: null, icon: Wind },
-    { label: "SEA STATE", value: conditions.sea ?? "—", sub: null, icon: Waves },
+    { label: "SEA STATE", value: conditions.sea ?? "—", sub: conditions.seaDetail ?? null, icon: Waves },
     { label: "SKY", value: conditions.sky ?? "—", sub: null, icon: Cloud },
     { label: "AIR TEMP", value: conditions.air ?? "—", sub: null, icon: Thermometer },
   ];

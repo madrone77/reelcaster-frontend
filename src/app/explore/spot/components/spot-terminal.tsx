@@ -7,6 +7,7 @@ import { niceCurrentScale } from "../../lib/current-series";
 import { tierFor, type Tier } from "../../lib/explore-data";
 import { band4Fill } from "../../lib/band4";
 import { windCardinal } from "../../lib/wind-rose";
+import { seaColor, seaDetailLine, type SeaLabel, type SeaTrain } from "../../lib/sea-state";
 import { monoInterp as interp } from "../../lib/curve";
 import {
   weatherFromHour,
@@ -47,9 +48,16 @@ export type TerminalHours = {
   wind: (number | null)[];
   gust: (number | null)[];
   windDir: (number | null)[];
+  /** Per hour combined sea height (m): the old `waveM`, or the wind estimate. */
   sea: (number | null)[];
   /** Per hour: true when `sea` is a wind-derived estimate, not a modelled wave. */
   seaEst: boolean[];
+  /** Per hour sea-state label (backend label, or the height fallback). Optional for older callers. */
+  seaLabel?: (SeaLabel | null)[];
+  /** Per hour primary swell and wind chop, when the payload splits them. */
+  swell?: (SeaTrain | null)[];
+  chop?: (SeaTrain | null)[];
+  seaReason?: (string | null)[];
   cloud: (number | null)[];
   precip: (number | null)[];
   air: (number | null)[];
@@ -96,21 +104,43 @@ const ratingBg = (s: number | null) => band4Fill(s);
 const ratingInk = (s: number | null) => TIER_INK[tierFor(s)];
 const verdict = (s: number | null) => TIER_WORD[tierFor(s)];
 const windName = (d: number | null) => windCardinal(d) ?? "—";
-const seaWord = (m: number | null) =>
-  m == null ? "—" : m < 0.2 ? "Calm" : m < 0.35 ? "Rippled" : m < 0.65 ? "Light" : m < 1 ? "Chop" : "Rough";
 // Row note for SEA STATE. Says so when the row is carrying wind-derived hours,
 // so nobody reads an inferred sea as a modelled one. Must fit the 132px label
-// gutter, about 20 chars at 10px mono. The 0/max ticks live in the plot, not here,
-// so dropping the scale from the estimate wording costs no information.
-const seaNote = (hours: TerminalHours, waveUnit: string, maxTick: string) => {
-  let real = 0, est = 0;
+// gutter, about 20 chars at 10px mono.
+const seaNote = (hours: TerminalHours, waveUnit: string) => {
+  let real = 0, est = 0, split = false;
   for (let i = 0; i < 24; i++) {
-    if (num(hours.sea[i]) == null) continue;
+    if (num(hours.sea[i]) == null && !hours.swell?.[i] && !hours.chop?.[i]) continue;
     if (hours.seaEst?.[i]) est++; else real++;
+    if (hours.swell?.[i]) split = true;
   }
-  if (est === 0) return `wave ${waveUnit} · 0-${maxTick}`;
-  return real === 0 ? "est. from wind" : "part est. from wind";
+  if (est > 0) return real === 0 ? "est. from wind" : "part est. from wind";
+  return split ? `${waveUnit} · swell+chop` : `wave ${waveUnit}`;
 };
+
+/**
+ * Sea row axis top, metres. Scaled to the day so a 12 ft swell and a 1 ft
+ * chop both fill the row readably, with a floor so a calm Salish day stays
+ * a row of small grey bars instead of being blown up to full height. Steps
+ * are round numbers in the unit the angler reads.
+ */
+const SEA_STEPS_FT = [2, 3, 4, 5, 6, 8, 10, 12, 15, 20, 25, 30, 40];
+const SEA_STEPS_M = [0.6, 1, 1.5, 2, 2.5, 3, 4, 5, 6, 8, 10, 12];
+function seaAxisMax(hours: TerminalHours, unit: string): number {
+  let mx = 0;
+  for (let i = 0; i < 24; i++) {
+    const main = hours.swell?.[i]?.h ?? num(hours.sea[i]) ?? 0;
+    const chop = hours.chop?.[i]?.h ?? 0;
+    mx = Math.max(mx, main, chop);
+  }
+  if (unit === "ft") {
+    const ft = mx * 3.28084;
+    const step = SEA_STEPS_FT.find((v) => v >= ft) ?? Math.ceil(ft / 10) * 10;
+    return step / 3.28084;
+  }
+  return SEA_STEPS_M.find((v) => v >= mx) ?? Math.ceil(mx);
+}
+
 const airWord = (t: number | null) => (t == null ? "—" : t < 11 ? "Cold" : t < 18 ? "Mild" : "Warm");
 const hh = (t: number) => formatFractionalHour12(t);
 // Chart-internal variant: the SVG annotations and axis are pixel-starved, so
@@ -340,7 +370,7 @@ function buildSvg(
     { k: "cur", l: "Current", n: `${cLbl} · +flood −ebb`, h: 128 * base },
     { k: "wind", l: "Wind", n: `${wLbl} · bar+gust`, h: mob ? 84 : 122 },
     { k: "arrow", l: "", n: "", h: mob ? 22 : 32 },
-    { k: "sea", l: "Sea State", n: seaNote(hours, u.waveUnit, tickFmt(cvWave(1))), h: 70 * base },
+    { k: "sea", l: "Sea State", n: seaNote(hours, u.waveUnit), h: 70 * base },
     { k: "air", l: "Air Temp", n: `°${u.tempUnit} · ${Math.round(cvT(5))}-${Math.round(cvT(25))} fixed`, h: mob ? 42 : 56 },
     // Note must fit the 132px label gutter — at 10px mono (~6px/char) that's
     // ~20 chars before it runs out from under the label and into the plot.
@@ -525,14 +555,46 @@ function buildSvg(
       s += `<g transform="translate(${ax.toFixed(1)},${ay.toFixed(1)}) rotate(${dir})"><path d="M0,-6 L0,6 M0,6 L-3,2 M0,6 L3,2" stroke="${C.soft}" stroke-width="1.3" fill="none" stroke-linecap="round"/></g>`;
       if (wide && k % 3 === 0) s += `<text class="tm-tick" x="${ax.toFixed(1)}" y="${ar.y1 + 2}" text-anchor="middle">${windName(dv)}</text>`; } }
 
-  // SEA 0-1
-  { const r = Y.sea; s += `<line x1="${x0}" y1="${yIn(0.5, r.y0, r.y1, 0, 1).toFixed(1)}" x2="${x1}" y2="${yIn(0.5, r.y0, r.y1, 0, 1).toFixed(1)}" stroke="${C.ruleSoft}" stroke-width="1" stroke-dasharray="3 3"/>`;
-    s += `<text class="tm-tick" x="${x0 - 5}" y="${r.y0 + 7}" text-anchor="end">${tickFmt(cvWave(1))}</text><text class="tm-tick" x="${x0 - 5}" y="${r.y1}" text-anchor="end">0</text>`;
-    for (let i = 0; i < 24; i++) { const v = num(hours.sea[i]); if (v == null) continue; const cx = xAt(i), bw = hw * 0.56, col = v < 0.35 ? C.faint : v < 0.65 ? C.r[2] : C.r[3], by = yIn(v, r.y0, r.y1, 0, 1);
+  // SEA STATE. Swell is the bar and wind chop a thin dark line in front of it,
+  // both on one axis scaled to the day. Bars take the backend label's colour
+  // (sea-state.ts), not a colour from raw height: a 4 ft swell at 13 s is an
+  // ordinary outer-coast hour and draws grey, where the old row drew every
+  // hour over 0.65 m dark orange. Hours with no split (older payloads, far
+  // days) draw the combined height as the bar.
+  { const r = Y.sea, smax = seaAxisMax(hours, u.waveUnit);
+    // Desktop reserves the top of the band for swell direction arrows.
+    const arrowH = wide ? 12 : 0, py0 = r.y0 + arrowH;
+    const yS = (v: number) => yIn(Math.min(v, smax), py0, r.y1, 0, smax);
+    s += `<line x1="${x0}" y1="${yS(smax / 2).toFixed(1)}" x2="${x1}" y2="${yS(smax / 2).toFixed(1)}" stroke="${C.ruleSoft}" stroke-width="1" stroke-dasharray="3 3"/>`;
+    s += `<text class="tm-tick" x="${x0 - 5}" y="${py0 + 7}" text-anchor="end">${tickFmt(Math.round(cvWave(smax) * 10) / 10)}</text><text class="tm-tick" x="${x0 - 5}" y="${r.y1}" text-anchor="end">0</text>`;
+    for (let i = 0; i < 24; i++) {
+      const sw = hours.swell?.[i] ?? null, ch = hours.chop?.[i] ?? null;
+      const main = sw ? sw.h : num(hours.sea[i]) ?? ch?.h ?? null;
+      if (main == null) continue;
+      const cx = xAt(i) + hw / 2, bw = hw * 0.56, by = yS(main);
+      const col = seaColor(hours.seaLabel?.[i] ?? null);
       // Wind-derived hours plot at reduced opacity, so a mixed day reads at a
       // glance as part modelled, part inferred.
       const op = hours.seaEst?.[i] ? ' fill-opacity="0.5"' : "";
-      s += `<rect x="${(cx + hw / 2 - bw / 2).toFixed(1)}" y="${by.toFixed(1)}" width="${bw.toFixed(1)}" height="${Math.max(1.5, r.y1 - by).toFixed(1)}" rx="1" fill="${col}"${op}/>`; } }
+      s += `<rect x="${(cx - bw / 2).toFixed(1)}" y="${by.toFixed(1)}" width="${bw.toFixed(1)}" height="${Math.max(1.5, r.y1 - by).toFixed(1)}" rx="1" fill="${col}"${op}/>`;
+      if (sw && ch && ch.h > 0) {
+        const cyTop = yS(ch.h), lw = Math.max(1.6, Math.min(3, hw * 0.12));
+        // On sheltered water the chop outgrows the swell and is what the label
+        // is about, so it carries the label's colour once that colour means
+        // something (Lumpy or Choppy and up).
+        const lbl = hours.seaLabel?.[i] ?? null;
+        const chopCol = ch.h > sw.h && lbl && lbl !== "Flat" && lbl !== "Easy" ? col : C.soft;
+        s += `<rect x="${(cx - lw / 2).toFixed(1)}" y="${cyTop.toFixed(1)}" width="${lw.toFixed(1)}" height="${Math.max(1, r.y1 - cyTop).toFixed(1)}" fill="${chopCol}" opacity=".9"/>`;
+      }
+    }
+    if (wide) {
+      const step = mob ? 2 : 1;
+      for (let k = 0; k < 24; k += step) {
+        const sw = hours.swell?.[k]; if (!sw || sw.dir == null) continue;
+        const ax = xAt(k) + hw / 2, ay = r.y0 + arrowH / 2 + 1, dir = (sw.dir + 180) % 360;
+        s += `<g transform="translate(${ax.toFixed(1)},${ay.toFixed(1)}) rotate(${dir})"><path d="M0,-4 L0,4 M0,4 L-2.4,1.2 M0,4 L2.4,1.2" stroke="${C.muted}" stroke-width="1.1" fill="none" stroke-linecap="round"/></g>`;
+      }
+    } }
 
   // (Sky is no longer an in-stack row — cloud + precip now render as the
   // weather-icon row beneath the hour axis; see below.)
@@ -745,8 +807,21 @@ export default function SpotTerminal({
       tide: convertHeight(num(hours.tide[hi]) ?? 0, "m", tideUnit).toFixed(1) + tideUnit, tideS: tR ? "Rising ▲" : "Falling ▼",
       curSigned: (cv >= 0 ? "+" : "") + cvC(cv).toFixed(1) + cLbl, curS: cs,
       wind: cvW(num(hours.wind[hi]) ?? 0).toFixed(0) + wLbl, windS: windName(hours.windDir[hi]) + " G" + cvW(num(hours.gust[hi]) ?? 0).toFixed(0),
-      sea: hours.seaEst?.[hi] ? "" : convertHeight(num(hours.sea[hi]) ?? 0, "m", waveUnit).toFixed(1) + waveUnit,
-      seaS: seaWord(num(hours.sea[hi])) + (hours.seaEst?.[hi] ? " (est. from wind)" : ""),
+      // Swell as a buoy would read it ("4 ft @ 13 s W"), else the chop, else the
+      // combined height; nothing for a wind estimate, which is not a wave
+      // measurement.
+      sea:
+        seaDetailLine(
+          hours.seaLabel?.[hi]
+            ? {
+                label: hours.seaLabel[hi]!, severity: null, reason: null, modelled: true,
+                swell: hours.swell?.[hi] ?? null, chop: hours.chop?.[hi] ?? null,
+                heightM: num(hours.sea[hi]), estimated: hours.seaEst?.[hi] ?? false,
+              }
+            : null,
+          waveUnit === "ft" ? "ft" : "m",
+        ) ?? "",
+      seaS: (hours.seaLabel?.[hi] ?? "no reading") + (hours.seaEst?.[hi] ? " (est. from wind)" : ""),
       air: convertTemp(num(hours.air[hi]) ?? 0, "C", tempUnit).toFixed(1) + "°", airS: airWord(num(hours.air[hi])),
     };
   };

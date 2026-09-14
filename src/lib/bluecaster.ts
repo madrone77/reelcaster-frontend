@@ -383,6 +383,14 @@ export interface MapCondCell {
   cld: number | null; // cloud cover (%)
   pcp: number | null; // precipitation (mm)
   air: number | null; // air temperature (°C)
+  // Sea state from BlueCaster's sea-feel model (2026-09-13). Absent on older
+  // payloads; see readRailSea in src/app/explore/lib/sea-state.ts.
+  sea?: string | null; // Flat | Easy | Lumpy | Choppy | Rough | Dangerous
+  sev?: number | null; // severity 0..1
+  swh?: number | null; // primary swell height (m)
+  swp?: number | null; // primary swell mean period (s)
+  swd?: number | null; // primary swell direction (deg, FROM)
+  sest?: boolean; // no wave model reading: label estimated from wind
 }
 
 export type MapCondStrip = (MapCondCell | null)[]; // length 24

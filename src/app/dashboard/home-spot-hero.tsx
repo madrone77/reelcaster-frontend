@@ -13,7 +13,7 @@ import {
 import type { LucideIcon } from "lucide-react";
 import type { RightNowSnapshot } from "@/lib/bluecaster/live-spot-types";
 import { TIER_PILL, tierFor, type Tier } from "@/app/explore/lib/explore-data";
-import { resolveSea } from "@/app/explore/lib/sea-state";
+import { readSea } from "@/app/explore/lib/sea-state";
 import { formatHour12 } from "@/lib/time-format";
 import SpotDayStrip, {
   type SpotDay,
@@ -40,14 +40,6 @@ const TIER: Record<Tier, { line: string; pill: string }> = {
   none: { line: "var(--rc-ink-mute)", pill: TIER_PILL.none },
 };
 const tierOf = (s: number): Tier => tierFor(s);
-
-function seaState(waveM: number | null | undefined): string | null {
-  if (typeof waveM !== "number") return null;
-  if (waveM < 0.3) return "Calm";
-  if (waveM < 0.6) return "Light chop";
-  if (waveM < 1.2) return "Moderate";
-  return "Rough";
-}
 
 function hourLabel(h: number): string {
   return formatHour12(h);
@@ -570,12 +562,12 @@ export default function HomeSpotHero({
             {/* No wave data at some spots (the wave grid has dry-land cells), so
                 this falls back to a wind-derived sea, marked as an estimate. */}
             {(() => {
-              const sea = resolveSea(rn.waveM, rn.windKt, rn.windGustKt);
+              const sea = readSea(rn);
               return (
                 <ConditionTile
                   Icon={Sailboat}
                   label="Sea"
-                  value={seaState(sea?.m ?? null)}
+                  value={sea?.label ?? null}
                   note={sea?.estimated ? "est." : null}
                 />
               );
