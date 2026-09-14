@@ -356,9 +356,15 @@ export default function NeighbourSpots({
   spots,
   regulator,
   tz,
+  mapHref,
   onViewMap,
   onOpenSpot,
 }: {
+  /** Where "View all on map" goes off the sheet: Explore framed on the viewed
+   *  spot (`/explore?spot=<slug>`), so the neighbours are on screen. A bare
+   *  `/explore` opened on the default city, which is Victoria for a reader
+   *  with no remembered view, whatever coast the spot is on. */
+  mapHref: string;
   /** Set inside the phone's spot sheet: the map is right behind it, so
    *  "View all on map" closes the sheet instead of navigating to /explore. */
   onViewMap?: () => void;
@@ -388,7 +394,7 @@ export default function NeighbourSpots({
           </button>
         ) : (
           <Link
-            href="/explore"
+            href={mapHref}
             className="font-rc-mono text-[11px] font-semibold text-rc-brand hover:underline shrink-0"
           >
             View all on map →
