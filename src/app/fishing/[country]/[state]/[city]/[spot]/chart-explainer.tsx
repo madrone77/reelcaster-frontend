@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { X } from "lucide-react";
 import { trackEvent } from "@/lib/analytics";
+import { chartExplainerLines, type LandingTopic } from "@/lib/landing-topic";
 
 /**
  * How to read the 24-hour chart, laid over the chart itself on an ad landing
@@ -48,17 +49,20 @@ export default function ChartExplainer({
   slug,
   speciesId,
   speciesName,
+  topic = null,
 }: {
   slug: string;
   speciesId: string;
   /** The keyword name, e.g. "Chinook". */
   speciesName: string;
+  /** Worded around the searched topic ("tides" explains the tide row). */
+  topic?: LandingTopic | null;
 }) {
   // Decided in an effect: the shell server renders, and storage is a
   // per-browser answer the server HTML cannot match.
   const [open, setOpen] = useState(false);
   const openedAt = useRef<number | null>(null);
-  const key = storageKey(slug, speciesId);
+  const key = `${storageKey(slug, speciesId)}:${topic ?? ""}`;
 
   useEffect(() => {
     if (alreadyDismissed(key)) return;
@@ -108,9 +112,9 @@ export default function ChartExplainer({
           How to read this chart
         </h2>
         <ul className="mt-3 list-disc space-y-1.5 pl-5 text-[15px] leading-snug text-rc-ink-soft">
-          <li>Green = good {speciesName} fishing.</li>
-          <li>Red = slow.</li>
-          <li>Tap any hour to see conditions.</li>
+          {chartExplainerLines(speciesName, topic).map((line) => (
+            <li key={line}>{line}</li>
+          ))}
         </ul>
         <button
           type="button"
