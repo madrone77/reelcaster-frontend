@@ -3,6 +3,7 @@
 import { tierFor, TIER_TEXT } from "../../lib/explore-data";
 import SpotTrend from "../../components/spot-trend";
 import type { LiveSpecies, LiveRegulation } from "@/lib/bluecaster/live-spot-types";
+import { isRulesNotLoaded, speciesCardRegLabel } from "../../lib/reg-status";
 
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 // "2026-08-01" → "Aug 1". Slice (not Date) to avoid any TZ shift.
@@ -15,11 +16,17 @@ function fmtOpenDate(iso: string): string {
 // A species that can't be retained right now shows a regulatory label instead
 // of a score — a "0" reads as terrible fishing when the fish are there but
 // non-retention. Returns null when retention is open (show the score).
+//
+// A row whose rules were never loaded is not a closure. It gets its own words
+// and no reopening date, since there is no calendar behind it.
 function retentionNote(reg: LiveRegulation | undefined): { label: string; sub: string | null } | null {
   if (!reg) return null;
-  if (reg.status !== "Release" && reg.status !== "Closed") return null;
-  const label = reg.status === "Closed" ? "Closed" : "Non-retention";
-  const sub = reg.nextOpenDate ? `opens ${fmtOpenDate(reg.nextOpenDate)}` : null;
+  const label = speciesCardRegLabel(reg);
+  if (label == null) return null;
+  const sub =
+    !isRulesNotLoaded(reg) && reg.nextOpenDate
+      ? `opens ${fmtOpenDate(reg.nextOpenDate)}`
+      : null;
   return { label, sub };
 }
 

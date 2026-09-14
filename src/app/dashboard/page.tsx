@@ -44,6 +44,13 @@ import { fetchAlertProfiles } from "@/lib/alerts-client";
 import { PAGE_MEASURE } from "@/app/components/layout/page-measure";
 import type { AlertProfile } from "@/lib/custom-alert-engine";
 import type { SpotPageInitial } from "@/lib/bluecaster/live-spot-types";
+import { regulatorFrom } from "@/lib/regions";
+import {
+  isRulesNotLoaded,
+  regulatorCheckLink,
+  RULES_NOT_LOADED_LABEL,
+  RULES_NOT_LOADED_PILL,
+} from "@/app/explore/lib/reg-status";
 
 /** A real spot id, as opposed to the slug `unscoredRailSpot` stands in with. */
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -873,9 +880,18 @@ export default function DashboardPage() {
   );
 
   // Regulations rail — a restrictive reg on the home spot, if any.
-  const restrictiveReg = (homeLive?.regulations ?? []).find(
+  // A real restriction outranks a row whose rules were never loaded; that
+  // row is only named when nothing else is, and never as a closure.
+  const restrictiveCandidates = (homeLive?.regulations ?? []).filter(
     (r) => r.status !== "Open" || r.nextOpenDate
   );
+  const restrictiveReg =
+    restrictiveCandidates.find((r) => !isRulesNotLoaded(r)) ??
+    restrictiveCandidates[0];
+  const homeRegulator = regulatorFrom({
+    agency: homeLive?.regAgency,
+    region: homeLive?.spot.region,
+  });
 
   // Alert rail — the first (active-preferred) alert, with pts-away if we can
   // resolve its spot's current score.
@@ -1328,14 +1344,31 @@ export default function DashboardPage() {
                     <span className="truncate text-sm font-medium text-rc-ink">
                       {restrictiveReg.speciesCommon}
                     </span>
-                    <Pill className={REG_PILL[restrictiveReg.status]}>
-                      {restrictiveReg.status.toUpperCase()}
-                    </Pill>
+                    {isRulesNotLoaded(restrictiveReg) ? (
+                      <Pill className={RULES_NOT_LOADED_PILL}>
+                        {RULES_NOT_LOADED_LABEL.toUpperCase()}
+                      </Pill>
+                    ) : (
+                      <Pill className={REG_PILL[restrictiveReg.status]}>
+                        {restrictiveReg.status.toUpperCase()}
+                      </Pill>
+                    )}
                   </div>
                   <div className="mt-0.5 font-rc-mono text-[12px] text-rc-ink-soft">
-                    {restrictiveReg.nextOpenSummary ??
+                    {isRulesNotLoaded(restrictiveReg) ? (
+                      <a
+                        href={regulatorCheckLink(restrictiveReg, homeRegulator).url}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="underline hover:text-rc-ink"
+                      >
+                        {regulatorCheckLink(restrictiveReg, homeRegulator).label} ↗
+                      </a>
+                    ) : (
+                      restrictiveReg.nextOpenSummary ??
                       restrictiveReg.detail ??
-                      "See details"}
+                      "See details"
+                    )}
                   </div>
                   <Link
                     href={`/explore/spot/${homeSlug}`}

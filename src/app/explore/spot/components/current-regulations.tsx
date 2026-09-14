@@ -3,6 +3,13 @@
 import type { LiveRegulation, RegStatus } from "@/lib/bluecaster/live-spot-types";
 import type { Regulator } from "@/lib/regions";
 import { fmtMD, sizeText } from "../../lib/reg-limits";
+import {
+  isRulesNotLoaded,
+  regulatorCheckLink,
+  RULES_NOT_LOADED_LABEL,
+  RULES_NOT_LOADED_PILL,
+  RULES_NOT_LOADED_TEXT,
+} from "../../lib/reg-status";
 
 const STATUS_LABEL: Record<RegStatus, string> = {
   Open: "Retention open",
@@ -28,8 +35,22 @@ const STATUS_TAG: Record<RegStatus, string> = {
 // bare "0" — that reads as "zero allowed" (a closure), the opposite of "unknown".
 const NOT_PUBLISHED = "Not published";
 
+// A row flagged rulesNotLoaded carries status "Closed" only so it never scores
+// as open. It reads as unknown here, in a neutral colour, and never as a
+// closure. Rows without the flag go through the maps above untouched.
+function statusLabel(r: LiveRegulation): string {
+  return isRulesNotLoaded(r) ? RULES_NOT_LOADED_LABEL : STATUS_LABEL[r.status];
+}
+function statusPill(r: LiveRegulation): string {
+  return isRulesNotLoaded(r) ? RULES_NOT_LOADED_PILL : STATUS_PILL[r.status];
+}
+function statusTag(r: LiveRegulation): string {
+  return isRulesNotLoaded(r) ? RULES_NOT_LOADED_TEXT : STATUS_TAG[r.status];
+}
+
 /** The daily-retention allowance (quantity). */
 function limitText(r: LiveRegulation): string {
+  if (isRulesNotLoaded(r)) return RULES_NOT_LOADED_LABEL;
   if (r.status === "Closed") return "No retention";
   if (r.status === "Release" || r.dailyLimit === 0) return "Catch-and-release only";
   if (r.dailyLimit != null && r.dailyLimit > 0)
@@ -74,6 +95,42 @@ function syncedText(iso: string | null, nowMs: number): string {
 }
 
 /**
+ * "Check CDFW", pointing at the regulator for a row whose rules were never
+ * loaded. On the ad frame it keeps its words and loses the link, for the same
+ * reason the panel's own "Always check with" line does (see below).
+ */
+function RegulatorCheck({
+  r,
+  regulator,
+  adFrame,
+  className = "",
+}: {
+  r: LiveRegulation;
+  regulator: Regulator;
+  adFrame: boolean;
+  className?: string;
+}) {
+  const link = regulatorCheckLink(r, regulator);
+  if (adFrame) {
+    return (
+      <span className={`font-rc-mono font-medium text-rc-ink-soft ${className}`}>
+        {link.label}
+      </span>
+    );
+  }
+  return (
+    <a
+      href={link.url}
+      target="_blank"
+      rel="noreferrer"
+      className={`font-rc-mono font-medium text-rc-ink-soft hover:text-rc-ink underline ${className}`}
+    >
+      {link.label} ↗
+    </a>
+  );
+}
+
+/**
  * The current, in-effect regulations for the active species at this spot,
  * broken out — daily quantity, size/length, gear, and any other restrictions —
  * rather than collapsed into a one-liner or a bare status pill. Other species
@@ -110,23 +167,26 @@ export default function CurrentRegulations({
   // Retention-context rows (possession + annual quota) only make sense where you
   // may actually keep fish; under a closure/release the daily row already says so.
   const canRetain = active.status === "Open";
+  // No rule behind it: no limit, size, gear, season or reopening to print, and
+  // no "Expected" badge, which would dress a blank up as a seasonal pattern.
+  const notLoaded = isRulesNotLoaded(active);
   // Unverified default rows render muted, never dressed up as confirmed regs.
-  const isExpected = active.confidence === "expected";
+  const isExpected = !notLoaded && active.confidence === "expected";
 
-  const size = sizeText(active, regulator);
+  const size = notLoaded ? null : sizeText(active, regulator);
   const season =
-    active.seasonOpenDate && active.seasonCloseDate
+    !notLoaded && active.seasonOpenDate && active.seasonCloseDate
       ? `${fmtMD(active.seasonOpenDate)} to ${fmtMD(active.seasonCloseDate)}`
       : null;
   const reopen =
-    active.status !== "Open" && active.nextOpenDate
+    !notLoaded && active.status !== "Open" && active.nextOpenDate
       ? `${fmtMD(active.nextOpenDate)}${active.nextOpenSummary ? ` · ${active.nextOpenSummary}` : ""}`
       : null;
 
   // `muted` forces a value to the muted ink regardless of confidence — used for
   // "Not published", which is an absence, not a confirmed rule.
   const rows: Array<{ label: string; value: string; muted?: boolean }> = [
-    { label: "Daily limit", value: limitText(active) },
+    { label: "Daily limit", value: limitText(active), muted: notLoaded },
     ...(canRetain
       ? [
           {
@@ -137,7 +197,7 @@ export default function CurrentRegulations({
         ]
       : []),
     ...(size ? [{ label: "Size", value: size }] : []),
-    ...(active.gearRestrictions
+    ...(!notLoaded && active.gearRestrictions
       ? [{ label: "Gear", value: active.gearRestrictions }]
       : []),
     ...(canRetain
@@ -149,7 +209,7 @@ export default function CurrentRegulations({
           },
         ]
       : []),
-    ...(active.notes ? [{ label: "Other", value: active.notes }] : []),
+    ...(!notLoaded && active.notes ? [{ label: "Other", value: active.notes }] : []),
     ...(season ? [{ label: "Season", value: season }] : []),
     ...(reopen ? [{ label: "Reopens", value: reopen }] : []),
   ];
@@ -179,9 +239,9 @@ export default function CurrentRegulations({
               </span>
             )}
             <span
-              className={`px-2.5 py-1 rounded font-rc-mono text-[10px] font-bold uppercase tracking-[0.08em] ${STATUS_PILL[active.status]}`}
+              className={`px-2.5 py-1 rounded font-rc-mono text-[10px] font-bold uppercase tracking-[0.08em] ${statusPill(active)}`}
             >
-              {STATUS_LABEL[active.status]}
+              {statusLabel(active)}
             </span>
           </div>
         </div>
@@ -205,6 +265,10 @@ export default function CurrentRegulations({
           ))}
         </dl>
 
+        {notLoaded && (
+          <RegulatorCheck r={active} regulator={regulator} adFrame={adFrame} className="inline-block mt-2 text-[12px]" />
+        )}
+
         {/* Other species at this spot */}
         {others.length > 0 && (
           <div className="mt-4 pt-4 border-t border-rc-rule">
@@ -218,9 +282,15 @@ export default function CurrentRegulations({
                   className="text-[13px] text-rc-ink-soft"
                 >
                   {r.speciesCommon}{" "}
-                  <span className={`font-semibold ${STATUS_TAG[r.status]}`}>
-                    {STATUS_LABEL[r.status]}
+                  <span className={`font-semibold ${statusTag(r)}`}>
+                    {statusLabel(r)}
                   </span>
+                  {isRulesNotLoaded(r) && (
+                    <>
+                      {" · "}
+                      <RegulatorCheck r={r} regulator={regulator} adFrame={adFrame} className="text-[12px]" />
+                    </>
+                  )}
                 </span>
               ))}
             </div>

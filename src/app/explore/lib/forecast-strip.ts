@@ -71,6 +71,9 @@ export interface ForecastDay {
    *  would read as bad fishing when the fish are there but non-retention).
    *  Set for days before the species' reopen date; the cell shows a label. */
   nonRetention: boolean;
+  /** Set with `nonRetention` when the species' rules were never loaded, so the
+   *  cell says that instead of "Non-retention". Nothing is known to be shut. */
+  rulesNotLoaded?: boolean;
   /** Dominant daylight weather (best-window-weighted); null until the 14-day
    *  conditions grid loads, or on the viewport strip. Drives the weather icon. */
   weather: WeatherCondition | null;
@@ -138,6 +141,9 @@ function dayWeather(
 export interface StripRegulation {
   status: string; // "Open" | "Release" | "Closed"
   nextOpenDate: string | null; // YYYY-MM-DD, or null when no reopening
+  /** A placeholder row (bluecaster #442): status stays "Closed" for scoring,
+   *  but the words must say the rules are not loaded. */
+  rulesNotLoaded?: boolean;
 }
 
 /** Whether the selected species is non-retention on `iso` (YYYY-MM-DD):
@@ -234,6 +240,8 @@ export function buildForecastDays(
     // daily score the engine already computed.
     const score = fromGrid.score ?? d.score ?? null;
     const nonRetention = isNonRetentionOn(reg, d.iso);
+    // Same gating as any non-retention day; only the label changes.
+    const rulesNotLoaded = nonRetention && reg?.rulesNotLoaded === true;
     const pending = pendingFrom !== null && i >= pendingFrom;
     // A non-retention day has no retention score to gate — show the label
     // ungated rather than a lock/paywall. A pending day is neither locked
@@ -253,6 +261,7 @@ export function buildForecastDays(
       lockTier,
       isBest: false,
       nonRetention,
+      ...(rulesNotLoaded ? { rulesNotLoaded: true } : {}),
       weather: dayWeather(payload.hourlyConditionsGrid?.[i], sun, fromGrid.hour),
       // Once the tier is known, the spot page's payload is fetched under the
       // caller's session, so every lock state is final on arrival.

@@ -10,6 +10,11 @@ import { buildTerminalHours } from '@/app/explore/lib/terminal-hours';
 import { useSpotClock } from '@/app/explore/lib/use-spot-clock';
 import { formatHour12 } from '@/lib/time-format';
 import type { SpotHeroFeed } from './spot-hero-feed';
+import {
+  isRulesNotLoaded,
+  RULES_NOT_LOADED_LABEL,
+  RULES_NOT_LOADED_PILL,
+} from '@/app/explore/lib/reg-status';
 
 /**
  * The map arrives as its own chunk, on demand.
@@ -195,13 +200,18 @@ export default function SpotHeroPhone({
             {regulation && (
               <span
                 className={`rounded-full px-2 py-0.5 text-[10px] font-semibold tracking-[0.06em] uppercase ${
-                  regulation.status === 'Open'
-                    ? 'bg-rc-brand-soft text-rc-brand'
-                    : (REG_PILL[regulation.status] ??
-                      'bg-rc-surface text-rc-ink-mute')
+                  isRulesNotLoaded(regulation)
+                    ? RULES_NOT_LOADED_PILL
+                    : regulation.status === 'Open'
+                      ? 'bg-rc-brand-soft text-rc-brand'
+                      : (REG_PILL[regulation.status] ??
+                        'bg-rc-surface text-rc-ink-mute')
                 }`}
               >
-                {selSpecies?.name} &middot; {regulation.status}
+                {selSpecies?.name} &middot;{' '}
+                {isRulesNotLoaded(regulation)
+                  ? RULES_NOT_LOADED_LABEL
+                  : regulation.status}
               </span>
             )}
           </div>

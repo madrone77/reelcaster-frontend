@@ -249,7 +249,9 @@ export default function DatePillRail({
                     /* The best day is marked in colour alone, so it has to be
                        said here or it does not exist for a screen reader. */
                     aria-label={`${day.dow} ${day.date}${
-                      day.nonRetention
+                      day.rulesNotLoaded
+                        ? ", rules not loaded yet"
+                        : day.nonRetention
                         ? ", non-retention"
                         : day.locked
                           ? ", locked"
@@ -322,7 +324,7 @@ export default function DatePillRail({
                           isSel ? "text-white/85" : "text-rc-ink-soft"
                         }`}
                       >
-                        No keep
+                        {day.rulesNotLoaded ? "Check rules" : "No keep"}
                       </span>
                     ) : day.locked ? (
                       <Lock
