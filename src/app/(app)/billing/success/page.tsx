@@ -38,7 +38,7 @@ function BillingSuccessInner() {
   // Pay-first purchases land here with no session at all: the account was
   // created from the email Stripe billed, and this is where it gets claimed.
   const [claimState, setClaimState] = useState<
-    'idle' | 'working' | 'created' | 'emailed'
+    'idle' | 'working' | 'created' | 'emailed' | 'duplicate'
   >('idle')
   // The address the account is being made under, as Stripe reports it. The
   // phone sheet never asked for one, so this is the first time the buyer sees
@@ -76,6 +76,13 @@ function BillingSuccessInner() {
           attempts += 1
           if (attempts < 15) setTimeout(claim, 2000)
           else setClaimState('emailed')
+          return
+        }
+
+        // The address already had Pro; the webhook cancelled and refunded
+        // this purchase and emailed them. Nothing to sign in to from here.
+        if (body?.status === 'duplicate') {
+          setClaimState('duplicate')
           return
         }
 
@@ -208,14 +215,33 @@ function BillingSuccessInner() {
           <CheckCircle2 className="h-7 w-7 text-rc-good" />
         </div>
         <h1 className="mt-4 text-2xl font-black tracking-[-0.02em] text-rc-ink md:text-3xl">
-          Welcome to ReelCaster Pro
+          {claimState === 'duplicate' ? 'You already have ReelCaster Pro' : 'Welcome to ReelCaster Pro'}
         </h1>
-        <p className="mt-3 text-sm leading-relaxed text-rc-ink-soft">
-          Your 14-day forecast, multi-species scoring, bathymetry layer, and expanded alerts are
-          unlocking now.
-        </p>
+        {claimState !== 'duplicate' && (
+          <p className="mt-3 text-sm leading-relaxed text-rc-ink-soft">
+            Your 14-day forecast, multi-species scoring, bathymetry layer, and expanded alerts are
+            unlocking now.
+          </p>
+        )}
 
-        {claimState === 'working' || claimState === 'created' ? (
+        {claimState === 'duplicate' ? (
+          <div className="mt-6 text-sm leading-relaxed text-rc-ink-soft" data-testid="billing-duplicate">
+            {claimEmail ? (
+              <span className="font-semibold text-rc-ink">{claimEmail}</span>
+            ) : (
+              'This email'
+            )}{' '}
+            already had Pro, so we cancelled this second subscription and refunded anything it
+            charged. Your existing Pro is unchanged, and the details are in your inbox.{' '}
+            <Link
+              href="/login"
+              className="font-semibold text-rc-brand underline underline-offset-2 hover:text-rc-brand-hover"
+            >
+              Sign in to use it
+            </Link>
+            .
+          </div>
+        ) : claimState === 'working' || claimState === 'created' ? (
           <div className="mt-6">
             {claimState === 'working' ? (
               <div className="inline-flex items-center gap-2 text-sm text-rc-ink-mute">

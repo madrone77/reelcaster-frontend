@@ -111,7 +111,7 @@ export type AnonCheckoutResult =
       priced: PricedCheckout;
       trialEligible: boolean;
     }
-  | { ok: false; error: 'plan_unavailable' };
+  | { ok: false; error: 'plan_unavailable' | 'trial_used' };
 
 /**
  * Create the session. Stripe errors throw; the caller decides what a failure
@@ -128,6 +128,14 @@ export async function createAnonCheckoutSession(params: {
   from: string;
   /** Stamped on both the session and the subscription. */
   extraMetadata?: Record<string, string>;
+  /**
+   * What to do when the email has already had its trial. 'refuse' returns
+   * `trial_used` and creates nothing, for a caller whose screen promised a
+   * trial and has to say otherwise before the buyer reaches Stripe. 'charge'
+   * opens a paid session, for a caller that already quoted paid terms (the
+   * reminder email reads eligibility before it writes the offer).
+   */
+  withheldTrial?: 'refuse' | 'charge';
 }): Promise<AnonCheckoutResult> {
   const { request, stripe, admin, currency, email, region, from } = params;
   const extra = params.extraMetadata ?? {};
@@ -148,6 +156,9 @@ export async function createAnonCheckoutSession(params: {
   const trialEligible = eligibility.eligible;
   if (!trialEligible) {
     console.info('[stripe checkout] anon trial withheld', eligibility.reason);
+    if (params.withheldTrial === 'refuse') {
+      return { ok: false, error: 'trial_used' };
+    }
   }
 
   const origin = appOrigin(request);
