@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from 'next/server';
-import type Stripe from 'stripe';
 import { createClient } from '@supabase/supabase-js';
 import { getStripe, appOrigin } from '@/lib/stripe';
 import {
@@ -8,21 +7,14 @@ import {
   TRIAL_DAYS,
   type BillingCurrency,
 } from '@/lib/pricing';
+import { splitMetadata } from '@/lib/split-tests';
+import { checkTrialEligibility } from '@/lib/trial';
 import {
-  resolveSplitContext,
-  verifiedPriceForCheckout,
-} from '@/lib/split-tests-server';
-import {
-  SPLIT_COOKIE,
-  SPLIT_COOKIE_MAX_AGE,
-  serializeSplitArms,
-  splitMetadata,
-  type SplitArms,
-} from '@/lib/split-tests';
-import {
-  checkTrialEligibility,
-  checkTrialEligibilityByEmail,
-} from '@/lib/trial';
+  PAY_FIRST_ENABLED,
+  createAnonCheckoutSession,
+  resolveCheckoutPrice,
+  withSplitCookie,
+} from '@/lib/anon-checkout';
 import { resolveEntitlement } from '@/lib/entitlement';
 import { readWall } from '@/lib/attribution';
 import { metaIdentityForUser } from '@/lib/meta-identity';
@@ -49,67 +41,10 @@ const admin = createClient(supabaseUrl, supabaseServiceKey, {
 });
 
 /**
- * Pay-first checkout (buy Pro with no account, account provisioned from the
- * email Stripe bills). NEXT_PUBLIC_ so the paywall UI and this route read the
- * same switch — the modal shows its email field only when this is on.
+ * The price resolution, the split cookie and the signed-out session itself
+ * live in src/lib/anon-checkout.ts, shared with the "almost done" reminder's
+ * resume link.
  */
-const PAY_FIRST_ENABLED = process.env.NEXT_PUBLIC_PAY_FIRST_CHECKOUT === '1';
-
-/**
- * The price to charge this visitor, and the arms to stamp on the subscription.
- *
- * Both handlers below need exactly this and would otherwise each grow their
- * own copy, which is how the anonymous path and the signed-in path end up
- * charging different arms for the same visitor.
- *
- * A refusal here is returned to the caller as `plan_unavailable`, the same
- * shape an unset price id already produces, rather than being quietly
- * downgraded to the control. The reason is in verifiedPriceForCheckout: a
- * fallback would charge an amount that was never displayed, which is the one
- * outcome this whole design exists to make impossible.
- */
-async function resolveCheckoutPrice(
-  request: NextRequest,
-  stripe: Stripe,
-  currency: BillingCurrency,
-): Promise<
-  | { ok: true; priceId: string; arms: SplitArms; changed: boolean; cookie: string }
-  | { ok: false }
-> {
-  const ctx = await resolveSplitContext(request.headers.get('cookie'), currency);
-  const priced = await verifiedPriceForCheckout(stripe, ctx.pricing);
-  if (!priced.ok) {
-    console.error('[stripe checkout] price refused', priced.reason, ctx.pricing);
-    return { ok: false };
-  }
-  return {
-    ok: true,
-    priceId: priced.priceId,
-    arms: ctx.arms,
-    changed: ctx.changed,
-    cookie: serializeSplitArms(ctx.arms),
-  };
-}
-
-/**
- * Attach the arm cookie to a response, so a buyer who was assigned during
- * checkout keeps the same arm if they come back.
- */
-function withSplitCookie(
-  response: NextResponse,
-  priced: { changed: boolean; cookie: string },
-): NextResponse {
-  if (priced.changed) {
-    response.cookies.set(SPLIT_COOKIE, priced.cookie, {
-      maxAge: SPLIT_COOKIE_MAX_AGE,
-      path: '/',
-      sameSite: 'lax',
-      httpOnly: false,
-      secure: process.env.NODE_ENV === 'production',
-    });
-  }
-  return response;
-}
 
 /**
  * Checkout for someone who has no account yet.
@@ -153,89 +88,28 @@ async function anonCheckout(request: NextRequest) {
     return NextResponse.json({ redirect: '/explore?waitlist=1' }, { status: 200 });
   }
 
-  if (!ANNUAL_PRICE_ID) {
-    console.error('[stripe checkout] STRIPE_ANNUAL_PRICE_ID is not configured');
-    return NextResponse.json(
-      { error: 'plan_unavailable', plan: 'annual' },
-      { status: 503 },
-    );
-  }
-
   const stripe = await getStripe();
   const currency: BillingCurrency = currencyForRegion(
     region,
     request.headers.get('x-vercel-ip-country'),
   );
 
-  const priced = await resolveCheckoutPrice(request, stripe, currency);
-  if (!priced.ok) {
-    return NextResponse.json(
-      { error: 'plan_unavailable', plan: 'annual' },
-      { status: 503 },
-    );
-  }
-
-  // No email, no pre-check: Stripe collects the address and the webhook's
-  // guards decide after the fact.
-  const eligibility = email
-    ? await checkTrialEligibilityByEmail(admin, email)
-    : { eligible: true as const };
-  const trialEligible = eligibility.eligible;
-  if (!trialEligible) {
-    console.info('[stripe checkout] anon trial withheld', eligibility.reason);
-  }
-
   try {
-    const origin = appOrigin(request);
-    const session = await stripe.checkout.sessions.create({
-      mode: 'subscription',
-      // No `customer`: Stripe creates one from the email it collects, and the
-      // webhook binds it to the account it provisions. Prefilled only when
-      // our UI collected one; otherwise Stripe's own field asks.
-      ...(email ? { customer_email: email } : {}),
+    const created = await createAnonCheckoutSession({
+      request,
+      stripe,
+      admin,
       currency,
-      line_items: [{ price: priced.priceId, quantity: 1 }],
-      allow_promotion_codes: true,
-      payment_method_collection: 'always',
-      success_url: `${origin}/billing/success?session_id={CHECKOUT_SESSION_ID}`,
-      cancel_url: `${origin}/billing/cancel`,
-      metadata: {
-        // No supabase_user_id yet — `anon_checkout` is the webhook's signal to
-        // provision one rather than log an unresolvable subscription.
-        anon_checkout: 'true',
-        ...(email ? { checkout_email: email } : {}),
-        plan: 'annual',
-        currency,
-        region: region || '',
-        from: body.from ?? '',
-        trial: String(trialEligible),
-      },
-      subscription_data: {
-        metadata: {
-          anon_checkout: 'true',
-          ...(email ? { checkout_email: email } : {}),
-          plan: 'annual',
-          currency,
-          trial: String(trialEligible),
-          ...acquisitionMetadata(request.headers),
-          // The arms, on the SUBSCRIPTION rather than the session. The webhook
-          // resolves from the subscription, and for a pay-first buyer there is
-          // no account row to read attribution off, so this is the only thing
-          // that survives the trip out to Stripe and back a week later. Lose
-          // it and the report can count who saw each price but not which price
-          // anybody bought.
-          ...splitMetadata(priced.arms),
-        },
-        ...(trialEligible
-          ? {
-              trial_period_days: TRIAL_DAYS,
-              trial_settings: {
-                end_behavior: { missing_payment_method: 'cancel' as const },
-              },
-            }
-          : {}),
-      },
+      email: email || null,
+      region,
+      from: body.from ?? '',
     });
+    if (!created.ok) {
+      return NextResponse.json(
+        { error: 'plan_unavailable', plan: 'annual' },
+        { status: 503 },
+      );
+    }
 
     // Awaited, unlike the client-side reporters: this route is already doing a
     // round trip to Stripe, one insert is noise beside it, and a fire-and-forget
@@ -244,11 +118,11 @@ async function anonCheckout(request: NextRequest) {
 
     return withSplitCookie(
       NextResponse.json({
-        url: session.url,
-        id: session.id,
-        trial_days: trialEligible ? TRIAL_DAYS : 0,
+        url: created.session.url,
+        id: created.session.id,
+        trial_days: created.trialEligible ? TRIAL_DAYS : 0,
       }),
-      priced,
+      created.priced,
     );
   } catch (err) {
     console.error('[stripe checkout] anon session failed', err);

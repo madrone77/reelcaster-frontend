@@ -11,6 +11,7 @@ import { recordTrialGrant, recordTrialCardFingerprint } from '@/lib/trial';
 import { recordConversion } from '@/lib/conversions';
 import { uploadPendingConversions } from '@/lib/conversion-upload';
 import { findOrCreateUserForCheckout } from '@/lib/checkout-account';
+import { REMINDER_TOKEN_METADATA, recordReminderSignup } from '@/lib/checkout-reminder';
 import { sendEmail } from '@/lib/email-service';
 import {
   paymentFailedEmail,
@@ -155,6 +156,14 @@ async function provisionUserForSubscription(
     // Not fatal: user_settings.stripe_customer_id below is the other lookup
     // path, so resolution still works without the stamp.
     console.warn('[stripe webhook] could not stamp customer metadata', err);
+  }
+
+  // Came back through the "almost done signing up" email. Credited only for an
+  // account this purchase created: somebody who already had one was never
+  // sent that email, so it did not sign them up. See src/lib/checkout-reminder.ts.
+  const reminderToken = subscription.metadata?.[REMINDER_TOKEN_METADATA];
+  if (reminderToken && account.created) {
+    await recordReminderSignup(admin, reminderToken, account.userId);
   }
 
   console.info(
