@@ -27,16 +27,21 @@ import { useReferralSummary } from '@/hooks/use-referral-summary';
 import { useSubscription } from '@/hooks/use-subscription';
 import { trackEvent } from '@/lib/analytics';
 import { referralShareText } from '@/lib/referrals';
+import { logReferralShare } from '@/lib/referral-share-log';
+import type { ReferralNagSurface } from '@/lib/referral-nag';
 
 export default function ReferralModal({
   open,
   onOpenChange,
   from,
+  surface,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   /** Which nag opened it, for the event. */
   from: string;
+  /** The same answer as a surface, for the admin's tap log. */
+  surface: ReferralNagSurface;
 }) {
   const phone = useIsPhone();
   const { summary, failed } = useReferralSummary(open);
@@ -50,9 +55,13 @@ export default function ReferralModal({
   const share = () => {
     if (!summary) return;
     trackEvent('Referral Link Shared', { friends: summary.friends, from });
+    logReferralShare('share', surface);
     navigator
       .share({ title: 'A month of ReelCaster Pro', text: referralShareText(summary.url) })
-      .then(() => onOpenChange(false))
+      .then(() => {
+        logReferralShare('shared', surface);
+        onOpenChange(false);
+      })
       // A dismissed share sheet rejects. That is a change of mind, not an error.
       .catch(() => {});
   };
@@ -60,6 +69,7 @@ export default function ReferralModal({
   const copy = useCallback(async () => {
     if (!summary) return;
     trackEvent('Referral Link Copied', { friends: summary.friends, from });
+    logReferralShare('copy', surface);
     try {
       await navigator.clipboard.writeText(summary.url);
       setCopied(true);
@@ -67,7 +77,7 @@ export default function ReferralModal({
     } catch {
       // Clipboard blocked. The link is on screen; long press still works.
     }
-  }, [summary, from]);
+  }, [summary, from, surface]);
 
   const yours = isPaid && stripeCustomerId ? 'a month off your next year' : 'a free month of Pro';
   const days = summary?.days ?? 30;
