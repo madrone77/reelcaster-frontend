@@ -1853,6 +1853,7 @@ export default function SpotDetailShell({
                 spots={page.nearbySpots}
                 regulator={regulator}
                 tz={TZ}
+                mapHref={`/explore?spot=${encodeURIComponent(spot.slug)}`}
                 onViewMap={sheet?.onClose}
                 onOpenSpot={sheet?.onOpenSpot}
               />
