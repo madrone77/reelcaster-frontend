@@ -64,6 +64,8 @@ import HomeSpotOffer from "./home-spot-offer";
 import LockedFortnightOverlay from "@/app/explore/components/locked-fortnight-overlay";
 import { useFortnightLock } from "@/app/components/split-test/use-fortnight-lock";
 import ChartExplainer from "./chart-explainer";
+import TopicSummary from "./topic-summary";
+import { landingTitle, type LandingTopic } from "@/lib/landing-topic";
 import {
   buildTerminalHours,
   tideRangeFrom,
@@ -229,6 +231,7 @@ export default function SpotDetailShell({
   openOnIso = null,
   sheet = null,
   landingSpecies = null,
+  landingTopic = null,
 }: {
   page: SpotPageForClient;
   slug: string;
@@ -276,6 +279,13 @@ export default function SpotDetailShell({
    * the public page renders exactly what it did before.
    */
   landingSpecies?: { id: string; name: string } | null;
+  /**
+   * What the ad's keyword asked about (`&topic=tides`), from the ad segment
+   * only. Sets the title, puts that answer at the top (TopicSummary), moves
+   * the reports up for "report" and the map up for "map", and words the chart
+   * explainer around it. Null everywhere else.
+   */
+  landingTopic?: LandingTopic | null;
   /**
    * Set when this render is the body of the phone's spot sheet on Explore
    * (see explore/components/mobile-spot-sheet.tsx) rather than a page of its
@@ -1423,8 +1433,8 @@ export default function SpotDetailShell({
                 {pills}
                 <div className="flex items-center gap-2 mt-3">
                   <h1 className="rc-title-lg text-3xl lg:text-4xl min-w-0">
-                    {landingSpecies
-                      ? `${spot.name} ${landingSpecies.name} Fishing Report`
+                    {landingSpecies || landingTopic
+                      ? landingTitle(spot.name, landingSpecies?.name ?? null, landingTopic)
                       : spot.name}
                   </h1>
                   {/* Save, home spot and alerts all act on an ACCOUNT. On a
@@ -1509,9 +1519,11 @@ export default function SpotDetailShell({
                     </>
                   )}
                 </div>
-                {landingSpecies ? (
+                {landingSpecies || landingTopic ? (
                   <p className="font-rc-mono text-xs text-rc-ink-mute mt-1.5">
-                    Updated today
+                    {/* The reports band under a "report" title carries its own
+                        age, which is rarely today; the forecast always is. */}
+                    {landingTopic === "report" ? "Forecast updated today" : "Updated today"}
                   </p>
                 ) : (
                 <p className="font-rc-mono text-xs text-rc-ink-mute mt-1.5">
@@ -1540,6 +1552,38 @@ export default function SpotDetailShell({
               />
             )}
 
+            {/* The answer to what the ad's keyword asked, before anything else:
+                today's tides for "tides", the reports for "fishing report". */}
+            {landingTopic && landingTopic !== "report" && landingTopic !== "map" && (
+              <TopicSummary
+                topic={landingTopic}
+                spotName={spot.name}
+                fish={landingSpecies?.name ?? (selSpecies ? speciesKeywordName(selSpecies.name) : null)}
+                hours={terminalHours}
+                current={chartCurrent}
+                nowHour={nowHour}
+                isToday={dayIndex === 0}
+                dayLabel={dayIndex === 0 ? "Today" : (stripModel?.days[dayIndex]?.dow ?? "Today")}
+                bestWindowLabel={dayIndex === 0 ? win.label : null}
+                days={stripModel?.days ?? []}
+              />
+            )}
+            {landingTopic === "report" && (
+              <RecentReportsBand
+              teaser={page.recentReportsTeaser}
+              updatedAt={page.recentReportsUpdatedAt}
+              /* null while the request is in flight. The upsell only appears
+                 once the server has actually said no. */
+              locked={reportsLocked}
+              reports={reports}
+              creel={creel}
+              fresh={fresh}
+              days={FRESH_DAYS}
+              onUpgrade={() => setReportsUpgradeOpen(true)}
+              neutralLock={!!ad}
+            />
+            )}
+
             {/* Species switcher drives every score below — pick first. */}
             {species.length > 1 && (
               <div>
@@ -1563,7 +1607,7 @@ export default function SpotDetailShell({
             {/* Score info (left) beside the map (right) — a two-column band for
                 verdict + orientation. Stacks on mobile with the score first. */}
             <div className="grid gap-5 lg:grid-cols-2 lg:items-start">
-              <div className="order-2">
+              <div className={landingTopic === "map" ? "order-first" : "order-2"}>
                 <SpotMiniMap
                   spot={spot}
                   /* Unscrubbed, the day's best — matching the headline above it
@@ -1626,7 +1670,7 @@ export default function SpotDetailShell({
                   speciesName={selSpecies?.name ?? null}
                   regulation={regulation}
                   windowTitle={
-                    landingSpecies && selSpecies
+                    (landingSpecies || landingTopic) && selSpecies
                       ? `Best Window to Catch ${speciesKeywordName(selSpecies.name)}`
                       : undefined
                   }
@@ -1639,6 +1683,7 @@ export default function SpotDetailShell({
                 narrative left a tall gap beside the map. Full width also lets
                 the three columns (here / what worked / nearby) sit side by side
                 instead of stacking. */}
+            {landingTopic !== "report" && (
             <RecentReportsBand
               teaser={page.recentReportsTeaser}
               updatedAt={page.recentReportsUpdatedAt}
@@ -1652,6 +1697,7 @@ export default function SpotDetailShell({
               onUpgrade={() => setReportsUpgradeOpen(true)}
               neutralLock={!!ad}
             />
+            )}
           </div>
           {/* end identity + score cluster (items 1–3) */}
 
@@ -1659,7 +1705,7 @@ export default function SpotDetailShell({
           <div className="border-t border-rc-rule pt-8">
             <div className="flex items-baseline justify-between gap-3 mb-3">
               <div className="rc-label text-[9px]">
-                {landingSpecies ? "14 Day Fishing Forecast" : "14-Day Forecast"}
+                {landingSpecies || landingTopic ? "14 Day Fishing Forecast" : "14-Day Forecast"}
               </div>
               <span className="font-rc-mono text-[10px] text-rc-ink-mute italic shrink-0">
                 Data from: ECMWF + GFS + BlueCaster
@@ -1825,10 +1871,11 @@ export default function SpotDetailShell({
               </div>
             </div>
             <div className="relative">
-            {landingSpecies && selSpecies && (
+            {(landingSpecies || landingTopic) && selSpecies && (
               <ChartExplainer
                 slug={slug}
-                speciesId={landingSpecies.id}
+                topic={landingTopic}
+                speciesId={landingSpecies?.id ?? selSpecies.id}
                 speciesName={speciesKeywordName(selSpecies.name)}
               />
             )}

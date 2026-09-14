@@ -7,6 +7,7 @@ import { loadSpotPage } from "../load-spot-page";
 import { parseWall } from "@/lib/ad-mode";
 import { spotPath } from "@/lib/paths";
 import { matchSpeciesParam, speciesKeywordName } from "@/lib/species-param";
+import { landingTitle, parseTopic } from "@/lib/landing-topic";
 
 /**
  * The ad frame of a spot page.
@@ -44,11 +45,13 @@ export async function generateMetadata({
   const page = await fetchSpotLivePage(slug).catch(() => null);
   const name = page?.spot.name ?? "This spot";
   const fish = page ? matchSpeciesParam(first(sp.species), page.species) : null;
+  const topic = parseTopic(first(sp.topic));
 
   return {
-    title: fish
-      ? `${name} ${speciesKeywordName(fish.name)} Fishing Report`
-      : `${name} Fishing Forecast`,
+    title:
+      fish || topic
+        ? landingTitle(name, fish ? speciesKeywordName(fish.name) : null, topic)
+        : `${name} Fishing Forecast`,
     // noindex, and a canonical pointing at the page this one is a frame of.
     // The robots directive is what actually keeps it out of the index; the
     // canonical is what stops any link that leaks into the wild from splitting
@@ -85,6 +88,9 @@ export default async function SpotAdPage({ params, searchParams }: PageProps) {
   // The fish the search keyword named (`&species=chinook`). Null when this
   // spot does not carry it, and the page opens on its own lead species.
   const fish = matchSpeciesParam(first(sp.species), page.species);
+  // What the keyword asked about (`&topic=tides`): the title and the answer
+  // at the top of the page follow it.
+  const topic = parseTopic(first(sp.topic));
 
   return (
     <SpotDetailShell
@@ -99,6 +105,7 @@ export default async function SpotAdPage({ params, searchParams }: PageProps) {
       landingSpecies={
         fish ? { id: fish.id, name: speciesKeywordName(fish.name) } : null
       }
+      landingTopic={topic}
     />
   );
 }
