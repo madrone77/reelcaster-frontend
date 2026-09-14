@@ -1909,9 +1909,10 @@ export default function SpotDetailShell({
           )}
 
           {/* 9 · Spot profile — reference material (depth/structure/launch/
-              peak), below the forecast reasoning. Map lives in the top band. */}
+              peak) and the nearest boat ramps, below the forecast reasoning.
+              Map lives in the top band. */}
           <div className="border-t border-rc-rule pt-8">
-            <SpotProfile spot={spot} seasonState={seasonState} />
+            <SpotProfile spot={spot} seasonState={seasonState} launches={page.launches} />
           </div>
 
           {/* 10 · Neighbouring spots. A list of ways off the page the ad paid
