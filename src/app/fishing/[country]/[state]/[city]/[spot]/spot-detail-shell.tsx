@@ -63,6 +63,7 @@ import { useHomeSpot } from "@/app/explore/lib/use-home-spot";
 import HomeSpotOffer from "./home-spot-offer";
 import LockedFortnightOverlay from "@/app/explore/components/locked-fortnight-overlay";
 import { useFortnightLock } from "@/app/components/split-test/use-fortnight-lock";
+import ChartExplainer from "./chart-explainer";
 import {
   buildTerminalHours,
   tideRangeFrom,
@@ -80,6 +81,7 @@ import {
   type CampaignTarget,
 } from "@/app/lp/_shared/lp-telemetry";
 import { withAdParams, type AdMode, type AdWall } from "@/lib/ad-mode";
+import { speciesKeywordName } from "@/lib/species-param";
 import MarketingFooter from "@/app/components/marketing/marketing-footer";
 import { PAGE_MEASURE } from "@/app/components/layout/page-measure";
 import LogCatchDialog from "@/app/explore/spot/components/log-catch-dialog";
@@ -226,6 +228,7 @@ export default function SpotDetailShell({
   openOnSpeciesId = null,
   openOnIso = null,
   sheet = null,
+  landingSpecies = null,
 }: {
   page: SpotPageForClient;
   slug: string;
@@ -261,6 +264,18 @@ export default function SpotDetailShell({
    */
   openOnSpeciesId?: string | null;
   openOnIso?: string | null;
+  /**
+   * The fish an ad's search keyword named (`&species=chinook` on the ad URL),
+   * already matched to this spot's roster. `name` is the keyword form,
+   * "Chinook". Null everywhere else.
+   *
+   * Turns the page into a report on that fish: its card leads the row, the
+   * title reads "<Spot> Chinook Fishing Report", the best window and 14-day
+   * strip are labelled for fishing it, and the 24-hour chart opens under a
+   * card explaining it in that fish's name. Set only by the ad segment, so
+   * the public page renders exactly what it did before.
+   */
+  landingSpecies?: { id: string; name: string } | null;
   /**
    * Set when this render is the body of the phone's spot sheet on Explore
    * (see explore/components/mobile-spot-sheet.tsx) rather than a page of its
@@ -320,10 +335,15 @@ export default function SpotDetailShell({
     setSelectedHour(nowHour);
   }, [nowHour]);
 
-  const species = useMemo(
-    () => [...page.species].sort((a, b) => a.rank - b.rank),
-    [page.species],
-  );
+  const species = useMemo(() => {
+    const byRank = [...page.species].sort((a, b) => a.rank - b.rank);
+    // The searched-for fish is the first card, whatever its rank here.
+    if (!landingSpecies) return byRank;
+    return [
+      ...byRank.filter((s) => s.id === landingSpecies.id),
+      ...byRank.filter((s) => s.id !== landingSpecies.id),
+    ];
+  }, [page.species, landingSpecies]);
   const [selId, setSelId] = useState<string | null>(() => {
     // A shared link's species wins over the spot's own default, but only if the
     // spot actually carries it — a stale card must not select nothing.
@@ -1412,7 +1432,9 @@ export default function SpotDetailShell({
                 {pills}
                 <div className="flex items-center gap-2 mt-3">
                   <h1 className="rc-title-lg text-3xl lg:text-4xl min-w-0">
-                    {spot.name}
+                    {landingSpecies
+                      ? `${spot.name} ${landingSpecies.name} Fishing Report`
+                      : spot.name}
                   </h1>
                   {/* Save, home spot and alerts all act on an ACCOUNT. On a
                       cold ad click there is no account, so each one is a
@@ -1496,6 +1518,11 @@ export default function SpotDetailShell({
                     </>
                   )}
                 </div>
+                {landingSpecies ? (
+                  <p className="font-rc-mono text-xs text-rc-ink-mute mt-1.5">
+                    Updated today
+                  </p>
+                ) : (
                 <p className="font-rc-mono text-xs text-rc-ink-mute mt-1.5">
                   {`${Math.abs(spot.lat).toFixed(2)}°${
                     spot.lat >= 0 ? "N" : "S"
@@ -1503,6 +1530,7 @@ export default function SpotDetailShell({
                     spot.lng >= 0 ? "E" : "W"
                   }`}
                 </p>
+                )}
               </div>
 
             {/* The pin, said out loud. Sits under the identity rather than
@@ -1606,6 +1634,11 @@ export default function SpotDetailShell({
                   regulator={regulator}
                   speciesName={selSpecies?.name ?? null}
                   regulation={regulation}
+                  windowTitle={
+                    landingSpecies && selSpecies
+                      ? `Best Window to Catch ${speciesKeywordName(selSpecies.name)}`
+                      : undefined
+                  }
                 />
               </div>
             </div>
@@ -1634,7 +1667,9 @@ export default function SpotDetailShell({
           {/* 4 · 14-day forecast */}
           <div className="border-t border-rc-rule pt-8">
             <div className="flex items-baseline justify-between gap-3 mb-3">
-              <div className="rc-label text-[9px]">14-Day Forecast</div>
+              <div className="rc-label text-[9px]">
+                {landingSpecies ? "14 Day Fishing Forecast" : "14-Day Forecast"}
+              </div>
               <span className="font-rc-mono text-[10px] text-rc-ink-mute italic shrink-0">
                 Data from: ECMWF + GFS + BlueCaster
               </span>
@@ -1798,6 +1833,14 @@ export default function SpotDetailShell({
                 </div>
               </div>
             </div>
+            <div className="relative">
+            {landingSpecies && selSpecies && (
+              <ChartExplainer
+                slug={slug}
+                speciesId={landingSpecies.id}
+                speciesName={speciesKeywordName(selSpecies.name)}
+              />
+            )}
             <SpotTerminal
               hours={terminalHours}
               realCurrent={chartCurrent}
@@ -1809,6 +1852,7 @@ export default function SpotDetailShell({
               onSelectHour={selectHour}
               bestWindow={win.window}
             />
+            </div>
             {/* Sells the days a viewer can't see — so it has no business on a
                 Pro account, which already has all 14. Held until `tierLoading`
                 clears (isPaid starts `false`), same as the day strip, so a Pro
