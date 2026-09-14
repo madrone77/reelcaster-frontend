@@ -17,21 +17,19 @@ import { PRO_FORECAST_DAYS } from '@/lib/forecast-horizon';
  * Kept here rather than in plan-features because they belong to this sheet
  * (and ./plan-choice-modal, which draws the same list). The catch reports row
  * names the city the header stands in, and reads plain when there is none.
- * The last row is "And more...", drawn without a tick.
+ * "And more..." closes the last row rather than standing as its own.
  */
 export function proRows(city?: string): readonly string[] {
   return [
     `See full ${PRO_FORECAST_DAYS} day fishing forecast`,
     'Custom private spots',
     "SMS alerts when it's hot",
-    'Full regulatory awareness',
     city ? `Daily ${city} catch reports` : 'Daily catch reports',
     'Smart catch logging',
-    'No ads, no locks',
+    'No ads, no locks, and more...',
   ];
 }
 export const PRO_ROWS_HEADING = 'What you get with Pro';
-export const MORE_ROW = 'And more...';
 
 /**
  * Stripe Checkout's pay button, in our blue: full width, 44px tall, 6px
@@ -154,11 +152,6 @@ export default function TrialSheetStripe({
               </span>
             </li>
           ))}
-          <li className="py-2">
-            <span className="text-[15px] leading-5 font-medium text-rc-ink-soft">
-              {MORE_ROW}
-            </span>
-          </li>
         </ul>
 
         <Testimonial className="mt-4 rounded-xl border border-rc-rule-soft bg-rc-surface p-4" />

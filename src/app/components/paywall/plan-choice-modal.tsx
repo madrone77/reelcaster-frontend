@@ -19,7 +19,7 @@ import { TRIAL_DAYS } from '@/lib/pricing';
 import { PLAN_LABELS } from '@/lib/plan-labels';
 import type { NagFeatureId, PlanTierId } from '@/lib/plan-features';
 import { TrialBuy, TrialCtaProvider } from './trial-cta';
-import { MORE_ROW, PRO_ROWS_HEADING, proRows } from './trial-sheet-stripe';
+import { PRO_ROWS_HEADING, proRows } from './trial-sheet-stripe';
 import BrandHeader from './brand-header';
 import ChargeTerms from './charge-terms';
 import Testimonial from './testimonial';
@@ -207,11 +207,6 @@ export default function PlanChoiceModal({
               </span>
             </li>
           ))}
-          <li className="py-2">
-            <span className="text-[15px] leading-5 font-medium text-rc-ink-soft">
-              {MORE_ROW}
-            </span>
-          </li>
         </ul>
 
         {/* One field and one button, the way Stripe's page opens: no wallet
