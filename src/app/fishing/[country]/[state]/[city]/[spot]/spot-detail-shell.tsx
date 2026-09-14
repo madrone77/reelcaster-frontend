@@ -1554,7 +1554,42 @@ export default function SpotDetailShell({
 
             {/* The answer to what the ad's keyword asked, before anything else:
                 today's tides for "tides", the reports for "fishing report". */}
-            {landingTopic && landingTopic !== "report" && landingTopic !== "map" && (
+            {/* Tides: the 24-hour chart's own tide row, cropped out and put
+                first, then one large way down to the full chart. */}
+            {landingTopic === "tides" && (
+              <section className="rounded border border-rc-rule bg-rc-panel px-3 pt-3 pb-4" data-testid="topic-tide">
+                <h2 className="rc-label text-[10px] text-rc-brand px-1">
+                  {dayIndex === 0 ? "Today" : (stripModel?.days[dayIndex]?.dow ?? "Today")}&rsquo;s tides at {spot.name}
+                </h2>
+                <div className="mt-2">
+                  <SpotTerminal
+                    only="tide"
+                    hours={terminalHours}
+                    realCurrent={chartCurrent}
+                    tideRange={tideRange}
+                    sun={page.sun}
+                    nowHour={dayIndex === 0 ? nowHour : null}
+                    selectedHour={selectedHour}
+                    onSelectHour={selectHour}
+                    bestWindow={win.window}
+                  />
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    trackEvent("Topic Full Conditions Clicked", { slug, topic: landingTopic });
+                    document.getElementById("conditions-24h")?.scrollIntoView({ behavior: "smooth", block: "start" });
+                  }}
+                  className="mt-4 w-full rounded-xl bg-rc-brand px-4 py-3.5 text-left text-white transition-colors hover:bg-rc-brand-hover"
+                >
+                  <span className="block text-[19px] font-bold leading-tight">View full conditions &darr;</span>
+                  <span className="mt-1 block text-[13px] leading-snug text-white/85">
+                    Tide, current, wind, sea state, air temp and weather, hour by hour
+                  </span>
+                </button>
+              </section>
+            )}
+            {landingTopic && landingTopic !== "report" && landingTopic !== "map" && landingTopic !== "tides" && (
               <TopicSummary
                 topic={landingTopic}
                 spotName={spot.name}

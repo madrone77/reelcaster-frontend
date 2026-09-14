@@ -328,7 +328,10 @@ function extremes(arr: (number | null)[]): Extreme[] {
 
 type Dims = { w: number; LABEL: number; READ: number; mobile: boolean; id: string;
   /** Live hour on this axis, or null when the day being drawn is not today. */
-  now: number | null };
+  now: number | null;
+  /** Draw H/L, SLACK and peak annotations even on narrow phone cells. Set when
+   *  a single row is shown on its own (`only`), where there is room for them. */
+  annotate?: boolean };
 
 // Hover-pill geometry (desktop). TAG_PAD is the horizontal breathing room on
 // each side of the label — the pill used to be a fixed 104px box that the
@@ -362,11 +365,11 @@ function buildSvg(
   const x0 = LABEL, x1 = W - READ, cw = x1 - x0, hw = cw / 24;
   // Annotations (H/L, SLACK, wind names…) need roomy hour cells — that's all
   // desktop widths, plus the mobile variant when it renders at tablet width.
-  const wide = !mob || hw > 22;
+  const wide = !mob || hw > 22 || !!d.annotate;
   const base = mob ? 0.62 : 1;
   const rows = [
     { k: "score", l: "Score", n: "colour = rating", h: mob ? 20 : 34 },
-    { k: "tide", l: "Tide", n: `${u.tideUnit} · ${tickFmt(cvTide(ts.mn))}-${tickFmt(cvTide(ts.mx))} fixed`, h: 116 * base },
+    { k: "tide", l: "Tide", n: `${u.tideUnit} · ${tickFmt(cvTide(ts.mn))}-${tickFmt(cvTide(ts.mx))} fixed`, h: 116 * (d.annotate ? 1 : base) },
     { k: "cur", l: "Current", n: `${cLbl} · +flood −ebb`, h: 128 * base },
     { k: "wind", l: "Wind", n: `${wLbl} · bar+gust`, h: mob ? 84 : 122 },
     { k: "arrow", l: "", n: "", h: mob ? 22 : 32 },
@@ -720,9 +723,29 @@ function buildSvg(
   return s;
 }
 
+function HourTicks({ mob, w, className }: { mob: boolean; w: number; className?: string }) {
+  if (!w) return null;
+  const { LABEL, READ } = gutters(mob);
+  const hw = (w - LABEL - READ) / 24;
+  return (
+    <div className={`relative h-4 font-rc-mono text-[10px] text-rc-ink-mute ${className ?? ""}`} aria-hidden>
+      {[0, 6, 12, 18, 24].map((h) => (
+        <span
+          key={h}
+          className="absolute top-0 -translate-x-1/2"
+          style={{ left: `${((LABEL + h * hw) / w) * 100}%` }}
+        >
+          {formatHourCompact(h % 24)}
+        </span>
+      ))}
+    </div>
+  );
+}
+
 export default function SpotTerminal({
   hours, realCurrent, tideRange, sun, nowHour, selectedHour, onSelectHour, bestWindow,
   phone = false,
+  only = null,
 }: {
   hours: TerminalHours;
   /** Signed real current (kn, +flood −ebb) for the day; null → tide-derived fallback. */
@@ -746,6 +769,13 @@ export default function SpotTerminal({
    * and drew it into a phone. This pins the answer to the container.
    */
   phone?: boolean;
+  /**
+   * Show one instrument row by itself: the same SVG, cropped to that row's
+   * band, with an hour axis under it. The tides ad landing puts the chart's
+   * own tide row at the top of the page rather than a second, different
+   * drawing of the same water.
+   */
+  only?: "tide" | null;
 }) {
   const deskRef = useRef<HTMLDivElement>(null);
   const mobRef = useRef<HTMLDivElement>(null);
@@ -885,8 +915,22 @@ export default function SpotTerminal({
 
   // Build both SVGs when data changes.
   useEffect(() => {
-    if (deskRef.current && deskW > 400) deskRef.current.innerHTML = buildSvg(hours, cur, ts, sun, bestWindow, { w: deskW, ...gutters(false), mobile: false, id: "tmd", now: nowHour }, units);
-    if (mobRef.current) mobRef.current.innerHTML = buildSvg(hours, cur, ts, sun, bestWindow, { w: mobW, ...gutters(true), mobile: true, id: "tmm", now: nowHour }, units);
+    if (deskRef.current && deskW > 400) deskRef.current.innerHTML = buildSvg(hours, cur, ts, sun, bestWindow, { w: deskW, ...gutters(false), mobile: false, id: "tmd", now: nowHour, annotate: !!only }, units);
+    if (mobRef.current) mobRef.current.innerHTML = buildSvg(hours, cur, ts, sun, bestWindow, { w: mobW, ...gutters(true), mobile: true, id: "tmm", now: nowHour, annotate: !!only }, units);
+    if (only === "tide") {
+      // Crop each SVG to the tide band: its label above (phone) or inside
+      // (desktop) the box, the box itself, and a little air under it.
+      for (const [host, mob] of [[deskRef.current, false], [mobRef.current, true]] as const) {
+        const svg = host?.querySelector("svg");
+        if (!svg) continue;
+        const ty0 = Number(svg.getAttribute("data-ty0"));
+        const ty1 = Number(svg.getAttribute("data-ty1"));
+        const w = svg.viewBox.baseVal.width;
+        const top = ty0 - (mob ? 22 : 14);
+        const bottom = ty1 + (mob ? 8 : 12);
+        svg.setAttribute("viewBox", `0 ${top} ${w} ${bottom - top}`);
+      }
+    }
     const wire = (host: HTMLDivElement | null, id: string, mob: boolean) => {
       const svg = host?.querySelector("svg") as SVGSVGElement | null; if (!svg) return;
       // Fractional curve-time under the pointer (0–24), clamped to scored cells.
@@ -997,7 +1041,7 @@ export default function SpotTerminal({
     // passing a fresh [start, end] each render must not rebuild the SVG (and
     // tear down an in-flight scrub gesture).
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [hours, realCurrent, tideRange, sun, nowHour, bestWindow?.[0], bestWindow?.[1], deskW, mobW, windUnit, currentUnit, tempUnit, precipUnit, tideUnit, waveUnit]);
+  }, [hours, realCurrent, tideRange, sun, nowHour, bestWindow?.[0], bestWindow?.[1], deskW, mobW, windUnit, currentUnit, tempUnit, precipUnit, tideUnit, waveUnit, only]);
 
   // Move cursor + refresh readouts when the selected hour changes (pointer,
   // keyboard, parent, or a data refresh) — always the selected hour's centre.
@@ -1043,6 +1087,14 @@ export default function SpotTerminal({
           1120px chart nobody will ever see. */}
       {phone ? null : <div ref={deskRef} className="hidden lg:block" />}
       <div ref={mobRef} className={phone ? undefined : "lg:hidden"} />
+      {/* The cropped row loses the chart's own hour axis, so it gets one here,
+          placed on the same gutters the SVG plots against. */}
+      {only && (
+        <>
+          {!phone && <HourTicks mob={false} w={deskW} className="hidden lg:block" />}
+          <HourTicks mob w={mobW} className={phone ? undefined : "lg:hidden"} />
+        </>
+      )}
     </div>
   );
 }

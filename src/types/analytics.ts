@@ -263,6 +263,7 @@ export type AnalyticsEventName =
   | 'Ad Intro Dismissed'
   | 'Chart Explainer Shown'
   | 'Chart Explainer Dismissed'
+  | 'Topic Full Conditions Clicked'
   | 'Back To Map Clicked'
   // Spot page
   | 'Spot Viewed'
