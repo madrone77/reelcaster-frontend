@@ -1,8 +1,16 @@
 "use client";
 
-import type { LiveSpot, SeasonState } from "@/lib/bluecaster/live-spot-types";
+import type { LiveSpot, SeasonState, SpotLaunch } from "@/lib/bluecaster/live-spot-types";
 import { useUnitPreferences } from "@/contexts/unit-preferences-context";
-import { convertDepth, DEPTH_LABELS } from "@/app/utils/unit-conversions";
+import {
+  convertDepth,
+  convertDistance,
+  DEPTH_LABELS,
+  DISTANCE_LABELS,
+} from "@/app/utils/unit-conversions";
+
+/** BlueCaster's search radius for launches (lib/bluecaster/launches/nearest.ts). */
+const LAUNCH_RADIUS_KM = 25;
 
 const SEASON_LABEL: Record<SeasonState, string> = {
   peak: "Peak now",
@@ -42,15 +50,33 @@ function ProfileCell({
   );
 }
 
-/** Static spot profile panel — depth, structure, peak season, DFO area. */
+function directionsHref(l: SpotLaunch): string {
+  return `https://www.google.com/maps/dir/?api=1&destination=${l.lat},${l.lng}`;
+}
+
+/** Static spot profile panel: depth, launch, peak season, structure. */
 export default function SpotProfile({
   spot,
   seasonState,
+  launches,
 }: {
   spot: LiveSpot;
   seasonState: SeasonState | null;
+  /** Undefined when the payload predates launches; empty when none qualify. */
+  launches?: SpotLaunch[];
 }) {
-  const { depthUnit } = useUnitPreferences();
+  const { depthUnit, distanceUnit } = useUnitPreferences();
+  const distLbl = DISTANCE_LABELS[distanceUnit];
+  const dist = (km: number) => {
+    const v = convertDistance(km, "km", distanceUnit);
+    return `${v < 10 ? v.toFixed(1) : Math.round(v)} ${distLbl}`;
+  };
+  const nearest = launches?.[0] ?? null;
+  const launchValue = !launches
+    ? "Not mapped"
+    : nearest
+      ? nearest.name
+      : `None within ${Math.round(convertDistance(LAUNCH_RADIUS_KM, "km", distanceUnit))} ${distLbl}`;
   const depthLbl = DEPTH_LABELS[depthUnit];
   const depthVal = (m: number) => Math.round(convertDepth(m, "m", depthUnit));
   const depth =
@@ -65,9 +91,11 @@ export default function SpotProfile({
       <div className="rc-label text-[9px] mb-3">SPOT PROFILE</div>
       <div className="grid grid-cols-2 gap-3">
         <ProfileCell label="DEPTH" value={depth} sub={titleCase(spot.bottomType)} />
-        {/* Launch/ramp data isn't in the spot payload yet — explicit unbuilt
-            state (not a bare "—", which reads as a load failure). */}
-        <ProfileCell label="LAUNCH" value="Not mapped" />
+        <ProfileCell
+          label="LAUNCH"
+          value={launchValue}
+          sub={nearest ? `${dist(nearest.distanceKm)} away` : null}
+        />
         <ProfileCell
           label="PEAK"
           value={seasonState ? SEASON_LABEL[seasonState] : "—"}
@@ -78,6 +106,36 @@ export default function SpotProfile({
           sub={titleCase(spot.exposure)}
         />
       </div>
+
+      {launches && launches.length > 0 && (
+        <div className="mt-5">
+          <div className="rc-label text-[9px]">BOAT LAUNCHES NEARBY</div>
+          <ul className="mt-2 divide-y divide-rc-rule border-y border-rc-rule">
+            {launches.map((l) => (
+              <li key={l.id} className="flex items-baseline justify-between gap-3 py-2.5">
+                <div className="min-w-0">
+                  <div className="text-sm font-semibold text-rc-ink">{l.name}</div>
+                  <div className="font-rc-mono text-[10px] text-rc-ink-mute mt-0.5">
+                    {dist(l.distanceKm)}
+                    {l.fee === "free" ? " · Free" : l.fee === "fee" ? " · Fee" : ""}
+                  </div>
+                </div>
+                <a
+                  href={directionsHref(l)}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="shrink-0 text-xs font-medium text-rc-brand hover:underline"
+                >
+                  Directions
+                </a>
+              </li>
+            ))}
+          </ul>
+          <p className="font-rc-mono text-[10px] text-rc-ink-mute mt-2">
+            Distances are in a straight line, not by water.
+          </p>
+        </div>
+      )}
     </div>
   );
 }
