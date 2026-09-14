@@ -267,9 +267,8 @@ export default function ExploreShell({
   // the floating location pill both begin at the screen edge; everyone else
   // begins under the 64px bar. One value, so the two cannot drift apart, and
   // every pill measured from the map box keeps its offset at either tier.
-  // The ad frame's bar is at the BOTTOM of the screen (the `ad_bar_edge_v1`
-  // split, concluded 2026-09-07 for the bottom), so there is nothing above
-  // the map and it starts at the edge like a Pro viewer's. A FULL REPORT
+  // The ad frame's bar is at the top too, where the product bar is, so the
+  // offset is the same as the product bar's. A FULL REPORT
   // press on a card is a separate thing: it stays on the map and opens the
   // trial modal.
   const [adOfferOpen, setAdOfferOpen] = useState(false);
@@ -308,13 +307,10 @@ export default function ExploreShell({
     },
     [ad, router],
   );
-  // The ad frame's bar sits on the bottom edge, the 2026-09-02 shape: nothing
-  // above the map, so the floating location pill starts at the screen edge
-  // like a Pro viewer's, and the map's box is shortened by the bar's height
-  // so the bar never overlays water. It was the top edge from 2026-09-04
-  // until the `ad_bar_edge_v1` split settled it (2026-09-07: the bottom).
-  const adBarBottom = !!ad;
-  const mobileTop = isPaid || adBarBottom ? "top-0" : "top-16";
+  // The ad frame's bar sits on the top edge. `ad_bar_edge_v1` concluded for
+  // the bottom on 2026-09-07, and Casey put every visitor back on the top on
+  // 2026-09-14.
+  const mobileTop = isPaid ? "top-0" : "top-16";
   const { citySlug, spotSlug, day, stn, setQuery } = useExploreState();
 
   // ── Return-trip memory ──────────────────────────────────────────────────
@@ -2263,12 +2259,7 @@ export default function ExploreShell({
          bar keeps its own room via `--rc-tabbar-clearance`, which is what the
          sheet and the preview dock sit above; nothing needs the map to be
          short as well. */
-      /* The ad frame shortens the box by exactly its bottom bar's height, so
-         the bar never overlays water and never has to be dismissed.
-         `--rc-ad-bar-h` carries the device safe area. */
-      className={`relative overflow-hidden lg:min-h-0 ${
-        adBarBottom ? "h-[calc(100dvh_-_var(--rc-ad-bar-h))]" : "h-dvh"
-      }`}
+      className="relative overflow-hidden lg:min-h-0 h-dvh"
       /* Marks this render as the ad frame for the one piece of chrome outside
          this tree: the mobile tab bar in the root layout. */
       data-ad-frame={ad ? "" : undefined}
@@ -2293,8 +2284,7 @@ export default function ExploreShell({
           into the trial modal the bar is the thing that opens it, so it comes
           back in `adFrame` dress — mark, one button, and none of the nav,
           search, sign-in or avatar that made it an exit. It sits on the
-          bottom edge, under a thumb; the top edge lost the `ad_bar_edge_v1`
-          split (2026-09-07). It shows at every width and for every tier,
+          top edge, where the product's bar is. It shows at every width and for every tier,
           because on this page it is the only ask there is.
 
           Same `placeName` either way: the city under the camera, which the
@@ -2305,7 +2295,7 @@ export default function ExploreShell({
       {ad ? (
         <ExploreTopBar
           adFrame
-          adBarEdge="bottom"
+          adBarEdge="top"
           containerClassName={BLEED_MEASURE}
           upgradeCta={!isPaid}
           placeName={labelCity?.name ?? undefined}
@@ -2372,15 +2362,10 @@ export default function ExploreShell({
       {/* The single map instance — full-screen on every breakpoint. Mobile
           floats the location header + a pull-up spot sheet over it; desktop
           keeps the rail + docked forecast strip. */}
-      {/* `lg:top-16` is the desktop top bar's band. The ad frame has no top
-          bar at any width (its bar is on the bottom edge), and the offset
-          would leave an empty strip across the top of a desktop window with
-          nothing in it. */}
-      <div
-        className={`absolute inset-x-0 bottom-0 ${mobileTop} ${
-          adBarBottom ? "lg:top-0" : "lg:top-16"
-        }`}
-      >
+      {/* `lg:top-16` is the desktop top bar's band. The ad frame's bar sits
+          in the same band at every width, so the map starts under it there
+          too. */}
+      <div className={`absolute inset-x-0 bottom-0 ${mobileTop} lg:top-16`}>
         <ExploreMap
           mapRef={mapRef}
           spots={filteredSpots}
