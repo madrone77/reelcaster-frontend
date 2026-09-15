@@ -233,7 +233,7 @@ export default function ExploreShell({
   const mapRef = useRef<MapRef>(null);
   const router = useRouter();
   const { isPaid, loading: tierLoading } = useSubscription();
-  const { user, session, loading: authLoading } = useAuth();
+  const { user, session } = useAuth();
 
   // ── The depth gate ───────────────────────────────────────────────────────
   //
@@ -2566,8 +2566,6 @@ export default function ExploreShell({
         scrubHour={scrubHour}
         onScrubHour={setScrubHour}
         signedIn={!!user}
-        authSettled={!authLoading && !tierLoading}
-        lockOverlaySurface={ad ? "ad_explore_strip" : "explore_strip"}
         // The city under the camera, so a locked day here opens the same wall
         // the phone's pill rail opens: named for where the reader is looking.
         placeName={labelCity?.name ?? undefined}

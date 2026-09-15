@@ -34,33 +34,24 @@ const TIER_CHIP: Record<Tier, string> = {
  * One forecast-strip day cell per the reference: DOW · date (two lines) ·
  * large tier-colored score · tier-tinted peak-time chip. Selected = brand
  * fill; best day gets a gold "BEST" badge tab on the top edge; locked days
- * show a lock + "Upgrade to Pro" ("Become a Member" for signed-out visitors
- * on days a Member account unlocks).
+ * show a lock + "Unlock with Pro".
+ *
+ * Every locked day says Pro, days 3-7 included. Those used to say "Become a
+ * Member" (or a bare "Locked" on the ad frame), but a tap on any locked day
+ * opens the same 14-day Pro sheet, with the free account offered at its foot,
+ * so a tile naming a different plan promised something the next screen did not
+ * lead with. The ad frame's bar sells Pro too, so naming Pro there is the same
+ * offer twice, not a second one.
  */
 export default function DayCell({
   day,
   selected,
   onSelect,
-  neutralLock = false,
   onScreen = true,
 }: {
   day: ForecastDay;
   selected: boolean;
   onSelect: () => void;
-  /**
-   * Drop the plan name from a locked tile, leaving the lock alone.
-   *
-   * Set on the ad frame of the spot page, where "Become a Member" would sit four
-   * tiles wide directly above a form asking for a card. Two offers on one
-   * screen is one too many, and the cheaper one wins by being cheaper rather
-   * than by being what the visit was bought for. The tile still says there is
-   * more here and still leads to the same place; it just stops naming a
-   * second price.
-   *
-   * Everywhere else the plan name stays, because on the product a locked day
-   * SHOULD say what unlocks it.
-   */
-  neutralLock?: boolean;
   /**
    * Whether this cell sits on a viewport that actually shows it.
    *
@@ -136,11 +127,7 @@ export default function DayCell({
           <div className="font-rc-mono text-[10px] text-rc-ink-soft">{day.date}</div>
           <Lock className="w-5 h-5 text-rc-ink-soft my-0.5" />
           <div className="font-rc-mono text-[9px] text-rc-ink-soft text-center leading-tight px-0.5">
-            {neutralLock
-              ? "Locked"
-              : day.lockTier === "free"
-                ? "Become a Member"
-                : "Upgrade to Pro"}
+            Unlock with Pro
           </div>
         </div>
       </button>

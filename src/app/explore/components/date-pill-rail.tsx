@@ -16,8 +16,6 @@ import type {
 } from "../lib/forecast-strip";
 import { useLockedDayTreatment } from "@/app/components/split-test/use-locked-day";
 import UpgradeDialog from "./upgrade-dialog";
-import PillLockedRun from "./pill-locked-run";
-import { useFortnightLock } from "@/app/components/split-test/use-fortnight-lock";
 import { trackEvent } from "@/lib/analytics";
 
 /** Score colour per tier — the same tokens the day cells and the sheet use. */
@@ -94,25 +92,6 @@ export default function DatePillRail({
     "pill_rail",
     !!model?.days.some((d) => d.locked),
   );
-  // `fortnight_lock_overlay_v1`. This rail is mounted inside the phone map
-  // sheet, which React mounts at desktop widths too with CSS hiding it, so a
-  // phone-width check keeps a desktop load from booking a pill exposure it
-  // never drew (the same trap the desktop strip's `lgUp` closes). A locked day
-  // only exists once the tier has answered, so "signed out" here is settled.
-  const [phone, setPhone] = useState(false);
-  useEffect(() => {
-    const mql = window.matchMedia("(max-width:1023px)");
-    const read = () => setPhone(mql.matches);
-    read();
-    mql.addEventListener("change", read);
-    return () => mql.removeEventListener("change", read);
-  }, []);
-  const firstLockedIdx = model?.days.findIndex((d) => d.locked) ?? -1;
-  const fortnightLock = useFortnightLock(
-    onLockedAdDay ? "ad_explore_pill" : "explore_pill",
-    phone && !signedIn && firstLockedIdx >= 0,
-  );
-  const pillOverlay = fortnightLock.overlay;
   const [upgradeOpen, setUpgradeOpen] = useState(false);
   const [lockTier, setLockTier] = useState<LockTier>("pro");
   // Which tile was tapped. Reported with the wall, never rendered. See
@@ -163,7 +142,6 @@ export default function DatePillRail({
   const handleDay = (day: ForecastDay) => {
     if (day.locked) {
       lock.reportTap();
-      fortnightLock.reportPress();
       trackEvent("Locked Day Tapped", {
         index: day.index,
         lock_tier: day.lockTier,
@@ -231,7 +209,7 @@ export default function DatePillRail({
                   className="w-[52px] shrink-0 animate-pulse rounded border border-rc-rule bg-rc-surface"
                 />
               ))
-            : (pillOverlay ? model.days.slice(0, firstLockedIdx) : model.days).map((day) => {
+            : model.days.map((day) => {
                 const isSel = day.iso === selectedIso;
                 // Still resolving whether this day is ours to show (see
                 // ForecastDay.pending). Not a button: this tile has no answer
@@ -352,11 +330,16 @@ export default function DatePillRail({
                         {day.rulesNotLoaded ? "Check rules" : "No keep"}
                       </span>
                     ) : day.locked ? (
-                      <Lock
-                        className={`h-3.5 w-3.5 ${
-                          isSel ? "text-white" : "text-rc-ink-soft"
-                        }`}
-                      />
+                      /* Padlock and plan on one line, in the score's slot, so
+                         the tile says what unlocks it without growing. Plain
+                         ink, never a tier colour: a locked day has no score to
+                         hint at. */
+                      <span className="flex h-[17px] items-center gap-0.5 text-rc-ink-soft">
+                        <Lock className="h-3 w-3" />
+                        <span className="rc-label text-[8px] leading-none text-rc-ink-soft">
+                          Pro
+                        </span>
+                      </span>
                     ) : (
                       <span
                         className={`text-[17px] font-bold leading-none tracking-[-0.03em] ${
@@ -369,14 +352,6 @@ export default function DatePillRail({
                   </button>
                 );
               })}
-          {model && pillOverlay && (
-            <PillLockedRun
-              days={model.days.slice(firstLockedIdx)}
-              placeName={placeName}
-              from={onLockedAdDay ? "explore-ad-pill-overlay" : "explore-pill-overlay"}
-              onPress={fortnightLock.reportPress}
-            />
-          )}
           </div>
 
           {/* Says there is more fortnight off the right edge. A pill this
@@ -388,9 +363,7 @@ export default function DatePillRail({
           <div
             aria-hidden
             className={`pointer-events-none absolute inset-y-0 right-0 flex w-10 items-center justify-end bg-gradient-to-l from-rc-panel via-rc-panel/85 to-transparent pr-2 transition-opacity duration-200 ${
-              // Arm b's panel is pinned over the visible run; the arrow would
-              // sit on its words.
-              atEnd || pillOverlay ? "opacity-0" : "opacity-100"
+              atEnd ? "opacity-0" : "opacity-100"
             }`}
           >
             <ChevronRight className="h-4 w-4 text-rc-ink-mute" />
