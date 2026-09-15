@@ -122,10 +122,15 @@ export default function KeepToday({
   rows,
   cityName,
   regulator,
+  adFrame = false,
 }: {
   rows: BlueCasterCitySeasonRow[];
   cityName: string;
   regulator: Regulator;
+  /** Name the regulator without linking it: on the city ad page a link to a
+   *  government site is a way off a page the click paid for. Same call as the
+   *  spot ad page's ScoreCard and CurrentRegulations. */
+  adFrame?: boolean;
 }) {
   // A species with no resolved state is not rendered as a blank row: an
   // unanswered legality question looks identical to "no rules apply".
@@ -207,14 +212,18 @@ export default function KeepToday({
             into rather than the city they are driving from. */}
         Rules differ between {areaWords(regulator.areaLabel)} and change in
         season. Check{" "}
-        <a
-          href={regulator.url}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="text-rc-brand hover:text-rc-brand-hover underline underline-offset-2"
-        >
-          {regulator.name}
-        </a>{" "}
+        {adFrame ? (
+          <span className="font-semibold text-rc-ink">{regulator.name}</span>
+        ) : (
+          <a
+            href={regulator.url}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-rc-brand hover:text-rc-brand-hover underline underline-offset-2"
+          >
+            {regulator.name}
+          </a>
+        )}{" "}
         for the {areaWord(regulator.areaLabel)} you are fishing before you keep
         anything.
       </p>

@@ -90,6 +90,7 @@ export default function MarketingMap({
   center,
   zoom,
   featuredSlug,
+  featuredSlugs,
   fallback = null,
 }: {
   spots: MapSpot[];
@@ -101,6 +102,12 @@ export default function MarketingMap({
    * wandering off to a neighbour would be a different answer.
    */
   featuredSlug?: string;
+  /**
+   * Cycle the card through these spots, in this order. The city ad page
+   * passes its most-fished marks for the searched fish, so the map walks the
+   * same list the page ranks underneath it.
+   */
+  featuredSlugs?: string[];
   /** Drawn instead of the map once the GPU context is gone. */
   fallback?: ReactNode;
 }) {
@@ -168,11 +175,20 @@ export default function MarketingMap({
   const featured = useMemo(() => {
     const pinned = featuredSlug ? spots.find((s) => s.slug === featuredSlug) : undefined;
     if (pinned) return [pinned];
+    if (featuredSlugs?.length) {
+      // A plain object: this file's `Map` is react-map-gl's component.
+      const bySlug: Record<string, MapSpot> = Object.fromEntries(spots.map((s) => [s.slug, s]));
+      const listed = featuredSlugs
+        .map((slug) => bySlug[slug])
+        .filter((s): s is MapSpot => !!s)
+        .slice(0, FEATURED_COUNT);
+      if (listed.length) return listed;
+    }
     return [...spots]
       .filter((s) => s.score !== null)
       .sort((a, b) => (b.score ?? -1) - (a.score ?? -1))
       .slice(0, FEATURED_COUNT);
-  }, [spots, featuredSlug]);
+  }, [spots, featuredSlug, featuredSlugs]);
 
   const [activeIdx, setActiveIdx] = useState(0);
   const featuredCount = featured.length;

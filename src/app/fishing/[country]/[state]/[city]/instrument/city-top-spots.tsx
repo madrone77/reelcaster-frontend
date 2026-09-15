@@ -26,6 +26,8 @@ import { recognitionLabel, type RankedSpot } from "./featured";
 import Section from "./section";
 import { spotHref } from "@/lib/paths";
 import { trackEvent } from "@/lib/analytics";
+import { useAdFrame } from "@/app/explore/lib/ad-frame";
+import { withAdParams } from "@/lib/ad-mode";
 
 /** How many marks the list names. The map below it carries the rest. */
 const SHOWN = 6;
@@ -48,17 +50,26 @@ function windowLabel(row: RankedSpot): string | null {
 export default function CityTopSpots({
   rows,
   cityName,
+  title,
+  limit = SHOWN,
 }: {
   rows: RankedSpot[];
   cityName: string;
+  /** "Top Chinook spots near Victoria" on the city ad page. */
+  title?: string;
+  /** How many marks to name. The city ad page names more, having no map right under it. */
+  limit?: number;
 }) {
-  const shown = rows.slice(0, SHOWN);
+  // Under an ad frame every mark opens its framed spot page, with the
+  // keyword's species carried on, so no link in the list leaves the frame.
+  const ad = useAdFrame();
+  const shown = rows.slice(0, limit);
   if (!shown.length) return null;
 
   return (
     <Section
-      title={`The spots people actually fish in ${cityName}`}
-      aside={rows.length > SHOWN ? `${rows.length - SHOWN} more on the map` : undefined}
+      title={title ?? `The spots people actually fish in ${cityName}`}
+      aside={rows.length > limit ? `${rows.length - limit} more on the map` : undefined}
       claims={[
         {
           head: "A year of catch reports",
@@ -110,7 +121,7 @@ export default function CityTopSpots({
           return (
             <li key={spot.id}>
               <Link
-                href={spotHref(spot)}
+                href={withAdParams(spotHref(spot), ad)}
                 className="group flex items-center gap-4 py-3 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-rc-brand"
                 onClick={() =>
                   trackEvent("Top Spot Clicked", {

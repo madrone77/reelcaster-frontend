@@ -19,6 +19,8 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import { useAdFrame } from "@/app/explore/lib/ad-frame";
+import { withAdParams } from "@/lib/ad-mode";
 import MapGL, {
   AttributionControl,
   Layer,
@@ -444,6 +446,7 @@ export default function CitySpotMap({
     el.classList.remove("maplibregl-compact-show");
   }, []);
 
+  const ad = useAdFrame();
   const onClick = useCallback(
     (ev: MapLayerMouseEvent) => {
       const props = ev.features?.[0]?.properties as
@@ -452,9 +455,9 @@ export default function CitySpotMap({
       const slug = props?.slug;
       // `path` rides on the feature for the same reason city-shell looks one
       // up: the map draws marks homed in other cities.
-      if (slug) router.push(props?.path || legacySpotPath(slug));
+      if (slug) router.push(withAdParams(props?.path || legacySpotPath(slug), ad));
     },
-    [router],
+    [router, ad],
   );
 
   /**

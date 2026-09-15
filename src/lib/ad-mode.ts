@@ -97,12 +97,21 @@ export function isAdParam(value: string | null | undefined): boolean {
  */
 export function withAdParams(
   href: string,
-  ad: { wall: AdWall; angle?: string } | null | undefined,
+  ad:
+    | { wall: AdWall; angle?: string; params?: Record<string, string> }
+    | null
+    | undefined,
 ): string {
   if (!ad) return href;
   const [path, query = ""] = href.split("?");
   const params = new URLSearchParams(query);
   params.set("ad", ad.wall);
   if (ad.angle) params.set("a", ad.angle);
+  // Keyword params a framed page hands on to the pages it links to, e.g. the
+  // city ad page's `species` onto its spot links. Never overwrites what the
+  // href already says.
+  for (const [k, v] of Object.entries(ad.params ?? {})) {
+    if (v && !params.has(k)) params.set(k, v);
+  }
   return `${path}?${params.toString()}`;
 }
