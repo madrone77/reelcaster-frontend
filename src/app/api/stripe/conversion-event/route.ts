@@ -287,15 +287,25 @@ export async function POST(request: NextRequest) {
   for (let attempt = 0; attempt < WRITE_ATTEMPTS; attempt++) {
     if (attempt > 0) await sleep(WRITE_RETRY_MS);
 
-    // Only while the row is still pending. A conversion already sent, skipped
-    // or failed has had its decision made, and stamping it now would rewrite
-    // history for no benefit.
+    // Pending or skipped. This used to be `pending` alone, on the reasoning
+    // that a decided row should not be rewritten — which was right for Meta
+    // and blind for Google. A google row is decided within seconds: the
+    // webhook drains the queue the moment it records, the Google leg answered
+    // `skipped / google_not_configured`, and this POST arrives 3 to 8 seconds
+    // later to find nothing pending. So every google row carried a null here,
+    // and the null was read as "the tag never fired" when it meant "nobody
+    // asked". That is the whole reason it was impossible to say from the
+    // database whether the Google trial tag was working.
+    //
+    // `sent` and `failed` are still left alone: those rows had a server copy
+    // actually attempted, and the stamp is about what the browser did, not
+    // about reopening an upload decision.
     const { data, error } = await admin
       .from('marketing_conversions')
       .update({ browser_reported_at: new Date().toISOString() })
       .eq('stripe_subscription_id', subscription.id)
       .eq('event_type', 'trial_start')
-      .eq('upload_status', 'pending')
+      .in('upload_status', ['pending', 'skipped'])
       .is('browser_reported_at', null)
       .select('id');
 
