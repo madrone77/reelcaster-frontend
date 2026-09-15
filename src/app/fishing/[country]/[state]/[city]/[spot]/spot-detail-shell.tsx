@@ -1281,7 +1281,7 @@ export default function SpotDetailShell({
           <div
             className={`${PAGE_MEASURE} flex flex-wrap items-center justify-between gap-2 py-3`}
           >
-            <div className="flex items-center gap-2 font-rc-mono text-[11px] text-rc-ink-mute">
+            <div className="flex min-w-0 items-center gap-2 font-rc-mono text-[11px] text-rc-ink-mute">
               {/* Under the ad frame this is the one link on the page, and it
                   is not an exit: it carries `?ad=` back onto Explore, which
                   wears the same frame, so a paid visit that opened a spot from
@@ -1316,16 +1316,42 @@ export default function SpotDetailShell({
                   onClick={() =>
                     trackEvent("Back To Map Clicked", { slug, ad_wall: ad?.wall })
                   }
-                  className="flex items-center gap-1 text-rc-brand hover:underline"
+                  className="flex shrink-0 items-center gap-1 text-rc-brand hover:underline"
                 >
                   <ChevronLeft className="w-3.5 h-3.5" />
                   Back to map
                 </Link>
               )}
-              {/* The trail up the hierarchy is desktop-only, and on an ad page
-                  it does not exist: every anchor in it is an exit, and a
+              {/* The trail up the hierarchy is desktop-only, and on most ad
+                  pages it does not exist: every anchor in it is an exit, and a
                   display:none link is still in the document, still a tab
-                  stop. */}
+                  stop. `day2` gets the trail as plain text, at every width,
+                  so a paid visitor can see they landed in the right place
+                  without being handed a way out of the frame. */}
+              {ad?.wall === "day2" && (
+                <>
+                  <span className="shrink-0 text-rc-rule">·</span>
+                  <nav aria-label="Breadcrumb" className="min-w-0 truncate">
+                    {cityLink
+                      ? [
+                          cityLink.countryName,
+                          cityLink.provinceName,
+                          cityLink.cityName,
+                        ].join(" › ")
+                      : [
+                          spot.country ? countryDisplayName(spot.country) : null,
+                          spot.region,
+                          spot.city,
+                        ]
+                          .filter(Boolean)
+                          .join(" › ")}
+                    {" › "}
+                    <span className="text-rc-ink-soft" aria-current="page">
+                      {spot.name}
+                    </span>
+                  </nav>
+                </>
+              )}
               {!ad && (
                 <>
                   <span className="hidden lg:inline text-rc-rule">·</span>
