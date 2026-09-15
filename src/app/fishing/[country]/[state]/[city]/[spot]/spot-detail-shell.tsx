@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import Link from "next/link";
 import dynamic from "next/dynamic";
 import { ArrowUpCircle, ChevronLeft, ChevronRight, Home, Bell, Share2, X } from "lucide-react";
@@ -64,6 +64,7 @@ import HomeSpotOffer from "./home-spot-offer";
 import LockedFortnightOverlay from "@/app/explore/components/locked-fortnight-overlay";
 import { useFortnightLock } from "@/app/components/split-test/use-fortnight-lock";
 import ChartExplainer from "./chart-explainer";
+import AdHero, { AD_HERO_REEL_COL } from "./ad-intro";
 import TopicSummary from "./topic-summary";
 import { landingTitle, type LandingTopic } from "@/lib/landing-topic";
 import {
@@ -232,6 +233,7 @@ export default function SpotDetailShell({
   sheet = null,
   landingSpecies = null,
   landingTopic = null,
+  adReel = null,
 }: {
   page: SpotPageForClient;
   slug: string;
@@ -286,6 +288,11 @@ export default function SpotDetailShell({
    * explainer around it. Null everywhere else.
    */
   landingTopic?: LandingTopic | null;
+  /**
+   * The ad hero's phone reel, rendered on the server by ad/ad-reel.tsx and
+   * handed in so its loaders never run for the public page. Ad frame only.
+   */
+  adReel?: ReactNode;
   /**
    * Set when this render is the body of the phone's spot sheet on Explore
    * (see explore/components/mobile-spot-sheet.tsx) rather than a page of its
@@ -406,6 +413,7 @@ export default function SpotDetailShell({
         : "anonymous";
   const [favUpgradeOpen, setFavUpgradeOpen] = useState(false);
   const [reportsUpgradeOpen, setReportsUpgradeOpen] = useState(false);
+  const [introTrialOpen, setIntroTrialOpen] = useState(false);
   // One-shot "pop" when favoriting (not on un-favorite or load) — mirrors the
   // rail SpotCard star interaction exactly, including the free-tier cap.
   const [savePop, setSavePop] = useState(false);
@@ -1171,6 +1179,7 @@ export default function SpotDetailShell({
         <ExploreTopBar
           adFrame
           adBarEdge="top"
+          ctaOverColumn={adReel ? AD_HERO_REEL_COL : undefined}
           upgradeCta={!isPaid}
           placeName={cityLink?.cityName ?? spot.city ?? undefined}
         />
@@ -1454,7 +1463,34 @@ export default function SpotDetailShell({
           {/* 1–3 · Identity + score cluster. ScoreCard already carries the
               Best Window callout (item 2) and the DFO reg strip (item 3). */}
           <div className="space-y-5">
-            {/* 1 · Spot header — name reads first, it's the spot's identity. */}
+            {/* 1 · Spot header — name reads first, it's the spot's identity.
+                On a paid click it is the search, answered, beside the
+                product running on this spot. See ad-intro.tsx. */}
+            {ad ? (
+              <AdHero
+                pills={pills}
+                title={
+                  landingSpecies || landingTopic
+                    ? landingTitle(spot.name, landingSpecies?.name ?? null, landingTopic)
+                    : `${spot.name} Fishing Forecast`
+                }
+                updatedLabel={landingTopic === "report" ? "Forecast updated today" : "Updated today"}
+                spotName={spot.name}
+                fish={selSpecies ? speciesKeywordName(selSpecies.name) : null}
+                /* The same numbers the score card below headlines, so the
+                   answer and the proof cannot disagree. Always today's. */
+                score={peakScore ?? todayScore}
+                windowLabel={win.label}
+                tidePhase={peakTidePhase}
+                reel={adReel}
+                onTrial={() => {
+                  trackEvent("Spot Ad Intro Trial Clicked", { slug, ad_wall: ad.wall });
+                  setIntroTrialOpen(true);
+                }}
+                mapHref={withAdParams(`/explore?spot=${spot.slug}`, ad)}
+                onMap={() => trackEvent("Spot Ad Intro Map Clicked", { slug, ad_wall: ad.wall })}
+              />
+            ) : (
             <div>
                 {pills}
                 <div className="flex items-center gap-2 mt-3">
@@ -1561,6 +1597,7 @@ export default function SpotDetailShell({
                 </p>
                 )}
               </div>
+            )}
 
             {/* The pin, said out loud. Sits under the identity rather than
                 above it — the angler should read WHICH spot this is before
@@ -2179,6 +2216,13 @@ export default function SpotDetailShell({
         onOpenChange={setReportsUpgradeOpen}
         feature="catch-reports"
         from="spot-page-reports"
+      />
+      <ProTrialModal
+        open={introTrialOpen}
+        onOpenChange={setIntroTrialOpen}
+        feature="forecast-14d"
+        from="spot-ad-intro"
+        spotName={spot.name}
       />
     </div>
     </UnitCountryScope>

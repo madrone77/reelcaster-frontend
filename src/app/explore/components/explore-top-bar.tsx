@@ -98,6 +98,7 @@ export default function ExploreTopBar({
   placeName,
   adFrame = false,
   adBarEdge = "bottom",
+  ctaOverColumn,
 }: {
   /** "brand" (the default) is a blue bar with a white mark/links; "default"
    *  is the light bar, kept available for any surface that needs it. */
@@ -165,6 +166,14 @@ export default function ExploreTopBar({
    * Only read under `adFrame`; the product bar is always at the top.
    */
   adBarEdge?: "top" | "bottom";
+  /**
+   * Width, in px, of a right-hand page column the bar's button should sit
+   * centred over on desktop. The ad spot page passes its hero's phone column
+   * so the Try Pro free button hangs directly above the phone. The bar and
+   * the page share PAGE_MEASURE, so a box this wide at the bar's right edge is
+   * that column. Unset keeps the button flush right.
+   */
+  ctaOverColumn?: number;
 } = {}) {
   const { user, session, loading } = useAuth();
   const pathname = usePathname();
@@ -365,7 +374,16 @@ export default function ExploreTopBar({
         </nav>
         )}
 
-        <div className="flex items-center gap-2 sm:gap-3 ml-auto">
+        <div
+          className={`flex items-center gap-2 sm:gap-3 ml-auto ${
+            ctaOverColumn ? "lg:w-[var(--rc-cta-col)] lg:justify-center" : ""
+          }`}
+          style={
+            ctaOverColumn
+              ? ({ "--rc-cta-col": `${ctaOverColumn}px` } as React.CSSProperties)
+              : undefined
+          }
+        >
           {/* Search is a way to somewhere else, which on a paid landing is the
               one thing this bar must not offer. */}
           {!adFrame && <SearchTrigger brand={brand} />}

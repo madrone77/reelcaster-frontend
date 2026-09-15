@@ -110,7 +110,7 @@ const DEVICE = 'w-full';
  * under the phone, so the box states the scaled size and the slot is drawn
  * inside it, absolutely positioned.
  */
-const SLOT_CSS = `
+export const SLOT_CSS = `
 .rcpbox{position:relative;width:258.05px;height:559px;margin-inline:auto}
 .rcpslot{
   position:absolute;top:0;left:0;
