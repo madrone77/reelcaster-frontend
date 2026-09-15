@@ -1,7 +1,6 @@
 "use client";
 
 import { useRef } from "react";
-import { Crown } from "lucide-react";
 import type { ForecastDay } from "../lib/forecast-strip";
 import TrialModalButton from "@/app/components/paywall/trial-modal-button";
 import { btn } from "@/app/components/ui/button";
@@ -18,7 +17,7 @@ import {
  * The pill is locked to the tab bar's 64px, so each tile is 52px tall and only
  * about 140px of the run shows beside Today and Tue. The spot page's
  * headline-under-the-dates panel does not fit there, so this one covers the
- * whole tile height: "See All 14 Days with Pro" over a full-width green crown
+ * whole tile height: "See All 14 Days with Pro" over a full-width green
  * button. The dates under the panel are hidden; the ones that scroll out from
  * under it on either side still read.
  */
@@ -76,9 +75,8 @@ export default function PillLockedRun({
             placeName={placeName}
             onPress={onPress}
             data-testid="fortnight-lock-cta"
-            className={`${btn.pillPro} gap-1`}
+            className={btn.pillPro}
           >
-            <Crown aria-hidden className="w-3 h-3" fill="currentColor" />
             {label}
           </TrialModalButton>
         </div>

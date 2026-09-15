@@ -1,7 +1,6 @@
 "use client";
 
 import { useLayoutEffect, useRef, type RefObject } from "react";
-import { Crown } from "lucide-react";
 import type { ForecastDay } from "@/app/explore/lib/forecast-strip";
 import TrialModalButton from "@/app/components/paywall/trial-modal-button";
 import { btn } from "@/app/components/ui/button";
@@ -161,11 +160,10 @@ export default function LockedFortnightOverlay({
             from={from}
             spotName={spotName}
             placeName={placeName}
-            className={`${btn.navPro} gap-2`}
+            className={btn.navPro}
             onPress={onPress}
             data-testid="fortnight-lock-cta"
           >
-            <Crown aria-hidden className="w-4 h-4" fill="currentColor" />
             {label}
           </TrialModalButton>
         </div>
