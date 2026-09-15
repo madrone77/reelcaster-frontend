@@ -1,5 +1,7 @@
 import type { Metadata } from "next";
-import { fetchSpotLivePage } from "@/lib/bluecaster";
+import { notFound } from "next/navigation";
+import { fetchHierarchy, fetchSpotLivePage } from "@/lib/bluecaster";
+import { findCityForSpot } from "@/app/fishing/lib/fishing-data";
 import { siteUrl } from "@/lib/site";
 import { ANGLES } from "@/app/lp/_shared/lp-angles";
 import SpotDetailShell from "../spot-detail-shell";
@@ -43,8 +45,15 @@ export async function generateMetadata({
   const { country, state, city, spot: slug } = await params;
   const sp = await searchParams;
   const page = await fetchSpotLivePage(slug).catch(() => null);
-  const name = page?.spot.name ?? "This spot";
-  const fish = page ? matchSpeciesParam(first(sp.species), page.species) : null;
+  // Same gate as the public page, and here as well as in the body: metadata
+  // resolves first, so bailing only in the body flushes a 200 with 404 UI.
+  // BlueCaster's spot-page payload does not check whether a spot is
+  // published, so without this an unpublished spot (pulled because it has no
+  // scores) kept rendering a blank forecast to every ad click.
+  if (!page) notFound();
+  if (!findCityForSpot(await fetchHierarchy().catch(() => null), slug)) notFound();
+  const name = page.spot.name;
+  const fish = matchSpeciesParam(first(sp.species), page.species);
   const topic = parseTopic(first(sp.topic));
 
   return {
@@ -74,8 +83,10 @@ export async function generateMetadata({
 export default async function SpotAdPage({ params, searchParams }: PageProps) {
   const { spot: slug } = await params;
   const sp = await searchParams;
-  const { page, freshTracked, cityLink, tz, serverNowMs } =
+  const { page, freshTracked, cityLink, canonicalPath, tz, serverNowMs } =
     await loadSpotPage(slug);
+  // No public home: unpublished spot or unpublished city. See generateMetadata.
+  if (!canonicalPath) notFound();
 
   const wall = parseWall(first(sp.ad));
 
