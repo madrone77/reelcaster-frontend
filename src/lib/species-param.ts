@@ -13,6 +13,28 @@ import type { LiveSpecies } from "@/lib/bluecaster/live-spot-types";
  * spot's roster returns null and the page opens as it would without it, the
  * same as a stale species on a shared link.
  */
+/**
+ * What anglers call a fish, mapped to the word its slug uses. Puget Sound says
+ * Kings and the Strait of Georgia says Springs, and both are the slug's
+ * "chinook"; a keyword written the way the water talks has to land on the
+ * same row. Plurals included, because ad groups are named the way people
+ * search ("kings", "silvers").
+ */
+const ALIASES: Record<string, string> = {
+  king: "chinook",
+  kings: "chinook",
+  spring: "chinook",
+  springs: "chinook",
+  tyee: "chinook",
+  silver: "coho",
+  silvers: "coho",
+  ling: "lingcod",
+  lings: "lingcod",
+  humpy: "pink",
+  humpies: "pink",
+  pinks: "pink",
+};
+
 export function matchSpeciesParam(
   raw: string | null | undefined,
   species: LiveSpecies[],
@@ -24,7 +46,10 @@ export function matchSpeciesParam(
   if (exact) return exact;
   // Every word of the param has to be a word of the slug: "chinook" finds
   // "chinook-salmon", "salmon" finds the spot's best-ranked salmon.
-  const words = want.split("-").filter(Boolean);
+  const words = want
+    .split("-")
+    .filter(Boolean)
+    .map((w) => ALIASES[w] ?? w);
   return (
     byRank.find((s) => {
       const slugWords = s.slug.toLowerCase().split("-");

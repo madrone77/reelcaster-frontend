@@ -89,11 +89,18 @@ export default function MarketingMap({
   spots,
   center,
   zoom,
+  featuredSlug,
   fallback = null,
 }: {
   spots: MapSpot[];
   center: { lat: number; lng: number };
   zoom: number;
+  /**
+   * Hold the card on this one spot instead of cycling the best few. The ad
+   * spot page's reel is about the spot the reader searched for, and a card
+   * wandering off to a neighbour would be a different answer.
+   */
+  featuredSlug?: string;
   /** Drawn instead of the map once the GPU context is gone. */
   fallback?: ReactNode;
 }) {
@@ -158,14 +165,14 @@ export default function MarketingMap({
   }, [bathyManifest]);
 
   /** The best few, high to low — what the card cycles through. */
-  const featured = useMemo(
-    () =>
-      [...spots]
-        .filter((s) => s.score !== null)
-        .sort((a, b) => (b.score ?? -1) - (a.score ?? -1))
-        .slice(0, FEATURED_COUNT),
-    [spots],
-  );
+  const featured = useMemo(() => {
+    const pinned = featuredSlug ? spots.find((s) => s.slug === featuredSlug) : undefined;
+    if (pinned) return [pinned];
+    return [...spots]
+      .filter((s) => s.score !== null)
+      .sort((a, b) => (b.score ?? -1) - (a.score ?? -1))
+      .slice(0, FEATURED_COUNT);
+  }, [spots, featuredSlug]);
 
   const [activeIdx, setActiveIdx] = useState(0);
   const featuredCount = featured.length;

@@ -10,6 +10,7 @@ import { parseWall } from "@/lib/ad-mode";
 import { spotPath } from "@/lib/paths";
 import { matchSpeciesParam, speciesKeywordName } from "@/lib/species-param";
 import { landingTitle, parseTopic } from "@/lib/landing-topic";
+import AdReel from "./ad-reel";
 
 /**
  * The ad frame of a spot page.
@@ -81,7 +82,7 @@ export async function generateMetadata({
 }
 
 export default async function SpotAdPage({ params, searchParams }: PageProps) {
-  const { spot: slug } = await params;
+  const { spot: slug, state } = await params;
   const sp = await searchParams;
   const { page, freshTracked, cityLink, canonicalPath, tz, serverNowMs } =
     await loadSpotPage(slug);
@@ -117,6 +118,14 @@ export default async function SpotAdPage({ params, searchParams }: PageProps) {
         fish ? { id: fish.id, name: speciesKeywordName(fish.name) } : null
       }
       landingTopic={topic}
+      adReel={
+        <AdReel
+          slug={slug}
+          provinceCode={state.toUpperCase()}
+          fishName={fish?.name ?? null}
+          serverNowMs={serverNowMs}
+        />
+      }
     />
   );
 }
