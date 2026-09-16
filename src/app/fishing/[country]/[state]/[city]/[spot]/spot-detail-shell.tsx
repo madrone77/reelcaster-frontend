@@ -74,6 +74,7 @@ import SpotTerminal from "@/app/explore/spot/components/spot-terminal";
 import SpotMiniMap from "@/app/explore/spot/components/spot-mini-map";
 import ScoreCard from "@/app/explore/spot/components/score-card";
 import { RecentReportsBand } from "@/app/explore/components/recent-reports";
+import CityReport from "../city-report";
 import type { CreelAreaReport } from "@/lib/bluecaster/creel-types";
 import type { RecentReports as RecentReportsData } from "@/lib/bluecaster/live-spot-types";
 import type { RailFreshCatch } from "@/app/explore/lib/fresh-catch-types";
@@ -194,6 +195,9 @@ function bestSpeciesId(page: SpotPageForClient): string | null {
  *  spots and spots in cities that aren't published. */
 export type SpotCityLink = {
   cityName: string;
+  /** BlueCaster's city key ("victoria-bc"), not the path segment. Feeds the
+   *  city report that stands in when the spot has none of its own. */
+  citySlug?: string;
   cityPath: string;
   provinceName: string;
   provincePath: string;
@@ -576,6 +580,34 @@ export default function SpotDetailShell({
   useEffect(() => {
     void loadReports();
   }, [loadReports]);
+
+  // No written report for this spot: the city's daily report stands in, so the
+  // slot says what is being caught around here rather than a bare count or
+  // nothing. Keyed on the teaser because it arrives with the static render, so
+  // one block never flashes into the other. Custom spots and unpublished cities
+  // have no city link and keep the spot band.
+  const reportsBand =
+    !page.recentReportsTeaser && cityLink?.citySlug ? (
+      <CityReport
+        citySlug={cityLink.citySlug}
+        cityName={cityLink.cityName}
+        onUpgrade={() => setReportsUpgradeOpen(true)}
+      />
+    ) : (
+      <RecentReportsBand
+        teaser={page.recentReportsTeaser}
+        updatedAt={page.recentReportsUpdatedAt}
+        /* null while the request is in flight. The upsell only appears
+           once the server has actually said no. */
+        locked={reportsLocked}
+        reports={reports}
+        creel={creel}
+        fresh={fresh}
+        days={FRESH_DAYS}
+        onUpgrade={() => setReportsUpgradeOpen(true)}
+        neutralLock={!!ad}
+      />
+    );
 
   // Which species the chart on screen is drawn from, so a refresh can refetch
   // without blanking it. Clearing is for a species SWITCH — showing one
@@ -1728,21 +1760,7 @@ export default function SpotDetailShell({
                 days={stripModel?.days ?? []}
               />
             )}
-            {landingTopic === "report" && (
-              <RecentReportsBand
-              teaser={page.recentReportsTeaser}
-              updatedAt={page.recentReportsUpdatedAt}
-              /* null while the request is in flight. The upsell only appears
-                 once the server has actually said no. */
-              locked={reportsLocked}
-              reports={reports}
-              creel={creel}
-              fresh={fresh}
-              days={FRESH_DAYS}
-              onUpgrade={() => setReportsUpgradeOpen(true)}
-              neutralLock={!!ad}
-            />
-            )}
+            {landingTopic === "report" && reportsBand}
 
             {/* Species switcher drives every score below — pick first. */}
             {species.length > 1 && (
@@ -1843,21 +1861,7 @@ export default function SpotDetailShell({
                 narrative left a tall gap beside the map. Full width also lets
                 the three columns (here / what worked / nearby) sit side by side
                 instead of stacking. */}
-            {landingTopic !== "report" && (
-            <RecentReportsBand
-              teaser={page.recentReportsTeaser}
-              updatedAt={page.recentReportsUpdatedAt}
-              /* null while the request is in flight. The upsell only appears
-                 once the server has actually said no. */
-              locked={reportsLocked}
-              reports={reports}
-              creel={creel}
-              fresh={fresh}
-              days={FRESH_DAYS}
-              onUpgrade={() => setReportsUpgradeOpen(true)}
-              neutralLock={!!ad}
-            />
-            )}
+            {landingTopic !== "report" && reportsBand}
           </div>
           {/* end identity + score cluster (items 1–3) */}
 
