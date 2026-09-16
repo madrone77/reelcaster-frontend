@@ -26,9 +26,22 @@
  */
 const SEO_HERO_MARKETS = new Set(["us/wa"]);
 
-/** Route params as they arrive: lower-case URL segments. */
+/**
+ * Markets where only the SPOT page carries the hero; their city pages keep
+ * the plain header. California joined on 2026-09-16, spot pages only.
+ */
+const SEO_HERO_SPOT_ONLY_MARKETS = new Set(["us/ca"]);
+
+const marketKey = (country: string, state: string) =>
+  `${country.toLowerCase()}/${state.toLowerCase()}`;
+
+/** City pages (and their header). Route params as they arrive. */
 export function seoHeroEnabled(country: string, state: string): boolean {
-  return SEO_HERO_MARKETS.has(
-    `${country.toLowerCase()}/${state.toLowerCase()}`,
-  );
+  return SEO_HERO_MARKETS.has(marketKey(country, state));
+}
+
+/** Spot pages: every city-page market plus the spot-only ones. */
+export function seoHeroEnabledOnSpot(country: string, state: string): boolean {
+  const key = marketKey(country, state);
+  return SEO_HERO_MARKETS.has(key) || SEO_HERO_SPOT_ONLY_MARKETS.has(key);
 }
