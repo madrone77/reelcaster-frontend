@@ -63,6 +63,12 @@ export interface ScoreAlertDigestParams {
   alsoEmailing: boolean;
   appBase: string;
   manageAlertsUrl: string;
+  /**
+   * Replaces the "Manage your alerts" footer line. A lead (an alert with no
+   * account) has nothing to manage, so it gets sign-up and unsubscribe links
+   * instead. Trusted HTML: callers build it from their own strings.
+   */
+  footerHtml?: string;
 }
 
 export interface ScoreAlertMessage {
@@ -274,7 +280,7 @@ function rowHtml(item: ScoreAlertItem, appBase: string): string {
 export function generateScoreAlertDigest(
   params: ScoreAlertDigestParams,
 ): ScoreAlertMessage {
-  const { items, smsItems = items, alsoEmailing, appBase, manageAlertsUrl } = params;
+  const { items, smsItems = items, alsoEmailing, appBase, manageAlertsUrl, footerHtml } = params;
 
   if (items.length === 0) {
     throw new Error('generateScoreAlertDigest called with no items');
@@ -394,7 +400,7 @@ ${heroHtml}
           <tr>
             <td style="padding: 14px 28px 20px; border-top: 1px solid ${RULE};">
               <p style="margin: 0; font-family: ${MONO}; font-size: 10px; letter-spacing: 0.06em; color: ${INK_MUTE};">
-                One message a day, at most. <a href="${manageAlertsUrl}" style="color: ${INK_MUTE};">Manage your alerts</a>
+                ${footerHtml ?? `One message a day, at most. <a href="${manageAlertsUrl}" style="color: ${INK_MUTE};">Manage your alerts</a>`}
               </p>
             </td>
           </tr>

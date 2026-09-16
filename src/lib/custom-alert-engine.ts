@@ -853,7 +853,7 @@ async function alreadyDigestedToday(userId: string, todayLocal: string): Promise
 }
 
 /** "pacific-halibut" → "Pacific Halibut". */
-function speciesLabel(slug: string | null): string | null {
+export function speciesLabel(slug: string | null): string | null {
   if (!slug) return null;
   return slug
     .split('-')

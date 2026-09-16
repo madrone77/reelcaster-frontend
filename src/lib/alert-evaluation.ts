@@ -20,6 +20,7 @@ import { mintShareCard } from '@/lib/share-cards-server';
 import { smsCarriesDigest } from '@/lib/alert-channels';
 import { sendSms, isTwilioConfigured } from '@/lib/twilio';
 import { createClient } from '@supabase/supabase-js';
+import { processAlertLeads } from '@/lib/alert-leads';
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
@@ -355,6 +356,13 @@ export async function runAlertEvaluation(): Promise<AlertEvaluationOutcome> {
       }
     }
 
+    // Leads: signed-out visitors' single email alert. Separate ledger, same
+    // beats and template. A failure here must not sink the account run above.
+    const leadRun = await processAlertLeads().catch((leadError) => {
+      console.error('Alert lead run failed:', leadError);
+      return { leads: 0, sent: 0, failed: 0, errors: 1 };
+    });
+
     const endTime = Date.now();
     const duration = endTime - startTime;
 
@@ -372,6 +380,7 @@ export async function runAlertEvaluation(): Promise<AlertEvaluationOutcome> {
       notifications_failed: failedNotifications,
       results: results.results,
       notification_results: notificationResults,
+      lead_alerts: leadRun,
     };
 
     console.log('Alert evaluation complete:', {

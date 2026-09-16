@@ -304,6 +304,10 @@ export type AnalyticsEventName =
   | 'Custom Spot Create Failed'
   // Alerts. Never the phone number: country and outcome only.
   | 'Alert Created'
+  // Signed-out email alerts (alert_leads). Never the address.
+  | 'Alert Lead Created'
+  | 'Alert Lead Walled'
+  | 'Alert Lead Action'
   | 'Alert Edited'
   | 'Alert Deleted'
   | 'Alert Paused'
