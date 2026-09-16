@@ -7,7 +7,6 @@ import {
   Dialog,
   DialogContent,
   DialogDescription,
-  DialogTitle,
 } from '@/components/ui/dialog';
 import { useAuth } from '@/contexts/auth-context';
 import { useSubscription } from '@/hooks/use-subscription';
@@ -19,7 +18,7 @@ import { TRIAL_DAYS } from '@/lib/pricing';
 import { PLAN_LABELS } from '@/lib/plan-labels';
 import type { NagFeatureId, PlanTierId } from '@/lib/plan-features';
 import { TrialBuy, TrialCtaProvider } from './trial-cta';
-import { PRO_ROWS_HEADING, proRows } from './trial-sheet-stripe';
+import { OfferHeadline, PRO_ROWS_HEADING, proRows } from './trial-sheet-stripe';
 import BrandHeader from './brand-header';
 import ChargeTerms from './charge-terms';
 import Testimonial from './testimonial';
@@ -181,14 +180,7 @@ export default function PlanChoiceModal({
         {/* The offer, set the way Stripe Checkout sets it on the page this
             button leads to: what it is in grey, what it costs today in large
             type, centred, as there. */}
-        <div className="mt-6 text-center">
-          <p className="text-[19px] leading-6 font-medium text-rc-ink-soft">
-            Try ReelCaster Pro
-          </p>
-          <DialogTitle className="mt-1 text-[36px] leading-[40px] font-bold tracking-[-0.02em] text-rc-ink">
-            {TRIAL_DAYS} days free
-          </DialogTitle>
-        </div>
+        <OfferHeadline priceAmount={pricing.amount} />
 
         <p className="mt-6 font-rc-mono text-[10px] font-semibold tracking-[0.14em] text-rc-ink-mute uppercase">
           {PRO_ROWS_HEADING}

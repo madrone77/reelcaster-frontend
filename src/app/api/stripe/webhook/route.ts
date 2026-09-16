@@ -6,14 +6,20 @@ import {
   ANNUAL_PRICE_ID,
   amountLabelForStored,
   amountLabelForSubscription,
+  dollars,
 } from '@/lib/pricing';
+import { SUPPORT_EMAIL } from '@/lib/site';
 import { recordTrialGrant, recordTrialCardFingerprint } from '@/lib/trial';
 import { recordConversion } from '@/lib/conversions';
 import { uploadPendingConversions } from '@/lib/conversion-upload';
-import { findOrCreateUserForCheckout } from '@/lib/checkout-account';
+import {
+  LIVE_SUBSCRIPTION_STATUSES,
+  findOrCreateUserForCheckout,
+} from '@/lib/checkout-account';
 import { REMINDER_TOKEN_METADATA, recordReminderSignup } from '@/lib/checkout-reminder';
 import { sendEmail } from '@/lib/email-service';
 import {
+  duplicateSubscriptionEmail,
   paymentFailedEmail,
   trialUnavailableEmail,
 } from '@/lib/email-templates/billing';
@@ -138,14 +144,32 @@ async function provisionUserForSubscription(
   // created_via_checkout is what lets the claim route sign this buyer in from
   // the success URL. Only ever set true — an existing account that happens to
   // buy again must not become claimable.
-  await admin.from('user_settings').upsert(
-    {
-      user_id: account.userId,
-      stripe_customer_id: customerId,
-      ...(account.created ? { created_via_checkout: true } : {}),
-    },
-    { onConflict: 'user_id' },
-  );
+  if (account.created) {
+    await admin.from('user_settings').upsert(
+      {
+        user_id: account.userId,
+        stripe_customer_id: customerId,
+        created_via_checkout: true,
+      },
+      { onConflict: 'user_id' },
+    );
+  } else {
+    // An existing account keeps the Stripe customer it has. This used to
+    // overwrite it with the new purchase's customer before anything had
+    // decided whether that purchase stands, so a refused duplicate still
+    // pointed the account's billing portal at a cancelled customer. An
+    // account with no customer yet takes this one; a resubscribe takes the
+    // row in applySubscriptionToUser, once the purchase is known to be the
+    // account's.
+    await admin
+      .from('user_settings')
+      .upsert({ user_id: account.userId }, { onConflict: 'user_id', ignoreDuplicates: true });
+    await admin
+      .from('user_settings')
+      .update({ stripe_customer_id: customerId })
+      .eq('user_id', account.userId)
+      .is('stripe_customer_id', null);
+  }
 
   try {
     const stripe = await getStripe();
@@ -173,13 +197,194 @@ async function provisionUserForSubscription(
   return account.userId;
 }
 
-async function applySubscriptionToUser(subscription: Stripe.Subscription) {
+/**
+ * Metadata key stamped on a subscription this webhook refused as a duplicate,
+ * naming the subscription the account kept. Every later event for the refused
+ * one reads it and stops, so the decision is made once.
+ */
+const DUPLICATE_OF_KEY = 'duplicate_of';
+
+/**
+ * Whether this subscription is somebody else's business than the account row.
+ *
+ * `user_settings` holds ONE subscription per account, and every event used to
+ * overwrite it with whichever subscription the event was about. On 2026-09-14
+ * that let a second, paid subscription (bought signed out, twenty minutes
+ * after a trial) replace the trial on the row, orphaning a trialing
+ * subscription that would have charged the same person again a week later.
+ *
+ * The rule: the subscription on the row is the account's while it is live. A
+ * different subscription only takes the row once that one has ended (a
+ * resubscribe). A different LIVE subscription while the row's is still live
+ * is a duplicate: cancelled, any charge refunded, the customer told. A
+ * different subscription that is not live (an abandoned `incomplete`, the
+ * deleted event for a refused duplicate) is ignored, rather than being allowed
+ * to write its status over the Pro the account actually has.
+ *
+ * Checkout refuses these before payment now (account_exists,
+ * already_subscribed), so this is the backstop for what gets past it: an email
+ * typed on Stripe's own page, two tabs racing.
+ */
+async function isOtherThanAccountSubscription(
+  subscription: Stripe.Subscription,
+  userId: string,
+): Promise<boolean> {
+  if (subscription.metadata?.[DUPLICATE_OF_KEY]) {
+    // Already refused. A charge that settled after the refusal (the invoice
+    // is paid a moment after the subscription event) is refunded here.
+    await refundDuplicateCharges(subscription);
+    return true;
+  }
+
+  const { data: row } = await admin
+    .from('user_settings')
+    .select('stripe_subscription_id')
+    .eq('user_id', userId)
+    .maybeSingle();
+  const heldId = row?.stripe_subscription_id ?? null;
+  if (!heldId || heldId === subscription.id) return false;
+
+  const stripe = await getStripe();
+  let held: Stripe.Subscription | null = null;
+  try {
+    held = await stripe.subscriptions.retrieve(heldId);
+  } catch {
+    // Gone, or from the other Stripe mode (dev and prod share this row).
+    // Either way it holds nothing, and this subscription may take the row.
+    held = null;
+  }
+  if (!held || !LIVE_SUBSCRIPTION_STATUSES.has(held.status)) return false;
+
+  if (!LIVE_SUBSCRIPTION_STATUSES.has(subscription.status)) {
+    console.info(
+      '[stripe webhook] ignoring non-live subscription beside the account\'s live one',
+      subscription.id,
+      subscription.status,
+      heldId,
+    );
+    return true;
+  }
+
+  await refuseDuplicateSubscription(subscription, heldId, userId);
+  return true;
+}
+
+async function refuseDuplicateSubscription(
+  subscription: Stripe.Subscription,
+  heldId: string,
+  userId: string,
+) {
+  const stripe = await getStripe();
+  console.warn(
+    '[stripe webhook] duplicate subscription, cancelling',
+    subscription.id,
+    'account already holds',
+    heldId,
+  );
+
+  // Marked before it is cancelled, so the events racing this one (Checkout
+  // sends three for one purchase) take the early return rather than deciding
+  // again.
+  await stripe.subscriptions.update(subscription.id, {
+    metadata: { [DUPLICATE_OF_KEY]: heldId },
+  });
+
+  let cancelledHere = false;
+  try {
+    await stripe.subscriptions.cancel(subscription.id, { prorate: false });
+    cancelledHere = true;
+  } catch (err) {
+    // A racing event cancelled it first, and that event sends the email.
+    console.info('[stripe webhook] duplicate already cancelled', subscription.id, err);
+  }
+
+  if (cancelledHere) {
+    // What the first invoice asked for, whether or not the payment has settled
+    // yet: a trial's $0 invoice means nothing was charged.
+    let chargedCents = 0;
+    const latest = subscription.latest_invoice;
+    try {
+      const invoice =
+        typeof latest === 'string' ? await stripe.invoices.retrieve(latest) : latest;
+      chargedCents = invoice?.amount_due ?? 0;
+    } catch (err) {
+      console.warn('[stripe webhook] could not read duplicate invoice', subscription.id, err);
+    }
+
+    const { email } = await recipientFor(admin, userId);
+    if (email) {
+      const { subject, html } = duplicateSubscriptionEmail({
+        refundedLabel: chargedCents > 0 ? dollars(chargedCents) : null,
+      });
+      await sendEmail({ to: email, subject, html, replyTo: SUPPORT_EMAIL });
+    }
+  }
+
+  // Last, and allowed to throw: a refund that failed has to come back as a 500
+  // so Stripe redelivers, and the redelivery lands on the marked early return
+  // above, which retries exactly this.
+  await refundDuplicateCharges(subscription);
+}
+
+/**
+ * Refund everything a refused duplicate has been paid. Safe to repeat: each
+ * refund carries an idempotency key per payment, and a payment already
+ * refunded is skipped.
+ */
+async function refundDuplicateCharges(subscription: Stripe.Subscription) {
+  const stripe = await getStripe();
+  const invoices = await stripe.invoices.list({
+    subscription: subscription.id,
+    status: 'paid',
+    limit: 10,
+  });
+
+  for (const invoice of invoices.data) {
+    if (!invoice.id || !(invoice.amount_paid > 0)) continue;
+    const payments = await stripe.invoicePayments.list({
+      invoice: invoice.id,
+      status: 'paid',
+      limit: 10,
+    });
+    for (const payment of payments.data) {
+      const pi = payment.payment.payment_intent;
+      const paymentIntentId = typeof pi === 'string' ? pi : pi?.id;
+      if (!paymentIntentId) continue;
+      try {
+        await stripe.refunds.create(
+          {
+            payment_intent: paymentIntentId,
+            reason: 'duplicate',
+            metadata: { [DUPLICATE_OF_KEY]: subscription.metadata?.[DUPLICATE_OF_KEY] ?? '' },
+          },
+          { idempotencyKey: `duplicate_subscription_refund_${paymentIntentId}` },
+        );
+        console.warn('[stripe webhook] refunded duplicate subscription', subscription.id, paymentIntentId);
+      } catch (err) {
+        if ((err as { code?: string })?.code === 'charge_already_refunded') continue;
+        throw err;
+      }
+    }
+  }
+}
+
+/**
+ * Write a subscription onto its account. Returns false when the subscription
+ * is not the account's (see isOtherThanAccountSubscription), so callers skip
+ * whatever else they would do on its behalf: a purchase conversion, a grace
+ * window, a dunning email.
+ */
+async function applySubscriptionToUser(subscription: Stripe.Subscription): Promise<boolean> {
   const customerId = customerIdOf(subscription);
   const resolvedUserId = await resolveUserId(subscription);
 
   if (!resolvedUserId) {
     console.error('[stripe webhook] no user_id resolvable for subscription', subscription.id);
-    return;
+    return false;
+  }
+
+  if (await isOtherThanAccountSubscription(subscription, resolvedUserId)) {
+    return false;
   }
 
   const item = subscription.items.data[0];
@@ -294,6 +499,8 @@ async function applySubscriptionToUser(subscription: Stripe.Subscription) {
       });
     }
   }
+
+  return true;
 }
 
 /**
@@ -632,8 +839,10 @@ export async function POST(request: Request) {
         const subId = subscriptionIdFromInvoice(invoice);
         if (subId) {
           const sub = await stripe.subscriptions.retrieve(subId);
-          await applySubscriptionToUser(sub);
-          await openGraceWindow(sub);
+          // A refused duplicate's failed charge is not the account's problem.
+          if (await applySubscriptionToUser(sub)) {
+            await openGraceWindow(sub);
+          }
         }
         break;
       }
@@ -644,9 +853,12 @@ export async function POST(request: Request) {
           // applySubscriptionToUser clears grace_until once the status is no
           // longer a payment problem.
           const sub = await stripe.subscriptions.retrieve(subId);
-          await applySubscriptionToUser(sub);
+          const applied = await applySubscriptionToUser(sub);
 
           // The actualized paid conversion.
+          //
+          // Not for a refused duplicate: that charge is being refunded, and an
+          // ad network told about it would learn to buy more of them.
           //
           // Guarded on amount_paid: Stripe raises a $0 invoice when a trial
           // begins, and that invoice succeeds. Without this check every trial
@@ -657,7 +869,7 @@ export async function POST(request: Request) {
           // in marketing_conversions makes the second one a no-op, because a
           // renewal is retention rather than a new customer, and uploading it
           // would tell Google the same ad bought the same person twice.
-          if ((invoice.amount_paid ?? 0) > 0) {
+          if (applied && (invoice.amount_paid ?? 0) > 0) {
             await recordConversion(admin, {
               event: 'purchase',
               subscription: sub,

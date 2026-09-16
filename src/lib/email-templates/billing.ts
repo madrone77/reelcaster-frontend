@@ -292,6 +292,45 @@ export function trialUnavailableEmail(params: {
 }
 
 /**
+ * Sent when a second subscription reached an account that already had Pro and
+ * the webhook cancelled it. See `refuseDuplicateSubscription` in the Stripe
+ * webhook.
+ *
+ * Checkout refuses these before payment now, so this is for the ones that get
+ * past it (an email typed on Stripe's own page, two tabs racing). The customer
+ * has just paid, or started a trial, and then hears it was undone: the first
+ * thing to say is that the Pro they already had is untouched, and the second
+ * is exactly what happened to the money.
+ */
+export function duplicateSubscriptionEmail(params: {
+  /** The amount refunded, e.g. "$33". Null when nothing had been charged. */
+  refundedLabel: string | null;
+}): { subject: string; html: string } {
+  const money = params.refundedLabel
+    ? `and refunded the <strong>${params.refundedLabel}</strong> it charged. The refund
+       reaches your card in 5 to 10 days, depending on your bank.`
+    : 'before it charged anything, so <strong>you have not been charged</strong>.';
+  return {
+    subject: 'You already have ReelCaster Pro',
+    html: shell(
+      `<tr><td>
+        <h1 style="margin:0 0 16px;font-size:22px;line-height:30px;color:${INK};">You already had Pro</h1>
+        <p style="margin:0 0 16px;font-size:15px;line-height:24px;color:${INK_SOFT};">
+          This email address already has ReelCaster Pro, so the second subscription you just started
+          was a duplicate. We cancelled it ${money}
+        </p>
+        <p style="margin:0 0 24px;font-size:15px;line-height:24px;color:${INK_SOFT};">
+          Your existing Pro is exactly as it was. Sign in with this email address to use it, and if
+          anything here looks wrong, reply to this email and a person will sort it out.
+        </p>
+        <p style="margin:0 0 8px;">${button(siteUrl('/login'), 'Sign in to ReelCaster')}</p>
+      </td></tr>`,
+      { preheader: 'Your existing Pro is unchanged. The duplicate was cancelled.' },
+    ),
+  };
+}
+
+/**
  * Sent when an admin approves a comped year (the /first invite link).
  *
  * It closes a loop the customer can't see: they signed up through an offer,

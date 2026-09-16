@@ -32,8 +32,20 @@ export default function ChargeTerms({
   className,
   ...rest
 }: { priceAmount: string; className?: string } & React.HTMLAttributes<HTMLParagraphElement>) {
-  const { chargeDate, trialOn } = useTrialCta();
+  const { chargeDate, trialOn, busy } = useTrialCta();
   const price = /\.\d{2}$/.test(priceAmount) ? priceAmount : `${priceAmount}.00`;
+  // No trial for this buyer (a signed-in account that has had one, or a typed
+  // address checkout just refused a trial for): the charge is today, and a
+  // line promising "day 7" under that button would be the one false sentence
+  // on the screen. While a signed-in read is still loading, the trial wording
+  // holds, as the button's own label does.
+  if (!trialOn && !busy) {
+    return (
+      <p {...rest} className={`text-[13px] leading-[18px] text-rc-ink-soft ${className ?? ''}`}>
+        {price} today, then every year until you cancel
+      </p>
+    );
+  }
   const when = trialOn && chargeDate ? chargeDate : `day ${TRIAL_DAYS}`;
   return (
     <p {...rest} className={`text-[13px] leading-[18px] text-rc-ink-soft ${className ?? ''}`}>

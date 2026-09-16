@@ -303,12 +303,15 @@ export type AnalyticsEventName =
   // (before the OS sheet opens); 'Email Entered' once per paywall when the
   // email field is left holding an address; 'Start Trial Clicked' on the
   // Start N-day free trial (or Get Pro) button itself. 'Checkout Started'
-  // still fires when the request to Stripe actually goes out.
+  // still fires when the request to Stripe actually goes out. 'Checkout
+  // Refused' when checkout sends a signed-out buyer back instead: `reason` is
+  // 'account_exists' (sign in instead) or 'trial_used' (paid terms shown).
   | 'Apple Pay Clicked'
   | 'Google Pay Clicked'
   | 'Email Entered'
   | 'Start Trial Clicked'
   | 'Checkout Started'
+  | 'Checkout Refused'
   | 'Trial Started'
   | 'Account Claimed'
   | 'Checkout Email Corrected'
