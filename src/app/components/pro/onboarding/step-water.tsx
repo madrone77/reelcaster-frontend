@@ -1,14 +1,7 @@
 "use client";
 
-import { COVERED_PROVINCES } from "@/lib/regions";
+import { COVERED_PROVINCES, provinceDisplayName } from "@/lib/regions";
 import SpotTypeahead, { type PickedSpot } from "./spot-typeahead";
-
-const REGION_LABEL: Record<string, string> = {
-  BC: "British Columbia",
-  WA: "Washington",
-  OR: "Oregon",
-  CA: "California",
-};
 
 /**
  * Step 3 — where the angler fishes. The region sets the regulator and seeds
@@ -59,7 +52,7 @@ export default function StepWater({
                     : "border-rc-rule bg-white text-rc-ink hover:bg-rc-surface"
                 }`}
               >
-                {REGION_LABEL[code] ?? code}
+                {provinceDisplayName(code)}
               </button>
             );
           })}

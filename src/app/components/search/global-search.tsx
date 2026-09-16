@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation';
 import dynamic from 'next/dynamic';
 import { Search, MapPin, Building2, Map, Loader2, X } from 'lucide-react';
 import { btn } from '@/app/components/ui/button';
-import { COVERED_PROVINCES } from '@/lib/regions';
+import { coveredRegionsSentence } from '@/lib/regions';
 import type { SearchResult } from '@/lib/search-results';
 import { trackEvent } from '@/lib/analytics';
 
@@ -165,7 +165,7 @@ export default function GlobalSearch({ open, onClose }: Props) {
               /* Says what is in here rather than what to do with it — "start
                  typing" is an instruction anyone already following, and the
                  open question is whether their water is covered at all. The
-                 province list is derived for the same reason the no-results
+                 region list is derived for the same reason the no-results
                  line derives it: it named Oregon for months after Oregon was
                  pulled. */
               <div className="px-4 py-8 text-center space-y-1">
@@ -173,7 +173,7 @@ export default function GlobalSearch({ open, onClose }: Props) {
                   Spots, cities and areas by name
                 </p>
                 <p className="text-xs text-rc-ink-mute">
-                  ReelCaster is live in {COVERED_PROVINCES.join(', ')}.
+                  ReelCaster is live in {coveredRegionsSentence()}.
                 </p>
               </div>
             )}
@@ -185,8 +185,10 @@ export default function GlobalSearch({ open, onClose }: Props) {
                 </p>
                 <p className="text-xs text-rc-ink-mute">
                   {/* Derived, because this line named Oregon for months after
-                      it was pulled from the covered set. */}
-                  ReelCaster is live in {COVERED_PROVINCES.join(', ')}.
+                      it was pulled from the covered set. Spelled out rather
+                      than coded: "CA" in a list that opens with "BC" reads as
+                      Canada to half the people who see it. */}
+                  ReelCaster is live in {coveredRegionsSentence()}.
                 </p>
                 <button
                   onClick={() => setWaitlistOpen(true)}
