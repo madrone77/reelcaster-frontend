@@ -13,7 +13,7 @@ import {
   getFishingCountries,
 } from "@/app/fishing/lib/fishing-data";
 import { spotPath } from "@/lib/paths";
-import { seoHeroEnabled } from "@/lib/seo-hero";
+import { seoHeroEnabledOnSpot } from "@/lib/seo-hero";
 import AdReel from "./ad/ad-reel";
 
 // `spot` is the DIRECTORY name, so it is the param Next fills. Destructured
@@ -320,11 +320,11 @@ export default async function SpotDetailPage({ params }: PageProps) {
         /* Decided from the route, not from the visitor, so this render is the
            same for a crawler and a reader and the route stays prerendered.
            See lib/seo-hero.ts. */
-        seoHero={seoHeroEnabled(country, state)}
+        seoHero={seoHeroEnabledOnSpot(country, state)}
         /* Built only where the hero renders, so a page without one pays none
            of the reel's upstream loads. */
         seoReel={
-          seoHeroEnabled(country, state) ? (
+          seoHeroEnabledOnSpot(country, state) ? (
             <AdReel
               slug={slug}
               provinceCode={state.toUpperCase()}
