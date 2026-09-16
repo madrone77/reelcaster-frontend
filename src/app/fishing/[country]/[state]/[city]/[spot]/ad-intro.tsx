@@ -5,6 +5,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { ArrowRight } from "lucide-react";
 import { TRIAL_DAYS } from "@/lib/pricing";
+import { speciesIllustration } from "@/lib/species-image";
 import { tierFor } from "@/app/explore/lib/explore-data";
 
 /**
@@ -24,30 +25,19 @@ import { tierFor } from "@/app/explore/lib/explore-data";
  */
 
 /**
- * The engraving for the fish the page is about, when there is one.
+ * The drawing for the fish the page is about, when there is one.
  *
- * Cut from two generated navy plates (ink only, transparent ground, so it
- * sits on any panel), one per fish BC pages carry. Two of the plate's labels
- * are wrong and were ignored: its "Dungeness Crab" panel is the black rockfish
- * again, and its "Spot Prawn & Sablefish" panel holds the crab, the prawn,
- * the sablefish and an unlabelled salmon that is not used. Every fish (and the
- * prawn) is mirrored where needed so its head points right, toward the phone
- * beside the copy; the crab faces the reader. Matched loosely on
- * the species name so "Chinook Salmon", "King" and "Spring" all find the same
- * fish. Anything else (sockeye, tuna, California halibut) draws no picture
- * rather than the wrong one.
+ * Was eight navy engravings matched by regex against the keyword name. Now the
+ * shared colour plates, found by species slug — see lib/species-image.ts. The
+ * slug settles what the keyword name could not: "Halibut" is Pacific Halibut
+ * here and California Halibut in San Diego, and each has its own plate instead
+ * of the old table's hand-written exclusion. Coverage went from 8 fish to every
+ * species we score, and a species with no plate still draws nothing rather
+ * than the wrong fish.
+ *
+ * The plates face left, where the engravings were mirrored to face right at
+ * the phone. Casey chose the drawings as they are (2026-09-15).
  */
-const ENGRAVINGS: Array<{ match: RegExp; src: string; w: number; h: number; alt: string }> = [
-  { match: /chinook|king|spring|tyee/i, src: "/marketing/species/chinook-engraving-navy-v2.webp", w: 1100, h: 471, alt: "Chinook salmon" },
-  { match: /coho|silver/i, src: "/marketing/species/coho-engraving-navy-v2.webp", w: 843, h: 349, alt: "Coho salmon" },
-  // "Halibut" alone: California Halibut is a different fish and draws nothing.
-  { match: /^halibut$/i, src: "/marketing/species/halibut-engraving-navy-v2.webp", w: 844, h: 465, alt: "Pacific halibut" },
-  { match: /lingcod/i, src: "/marketing/species/lingcod-engraving-navy-v2.webp", w: 849, h: 306, alt: "Lingcod" },
-  { match: /rockfish/i, src: "/marketing/species/rockfish-engraving-navy-v2.webp", w: 954, h: 503, alt: "Rockfish" },
-  { match: /crab/i, src: "/marketing/species/crab-engraving-navy-v2.webp", w: 602, h: 288, alt: "Dungeness crab" },
-  { match: /prawn|shrimp/i, src: "/marketing/species/prawn-engraving-navy-v2.webp", w: 602, h: 253, alt: "Spot prawn" },
-  { match: /sablefish|black ?cod/i, src: "/marketing/species/sablefish-engraving-navy-v2.webp", w: 689, h: 250, alt: "Sablefish" },
-];
 
 /**
  * The phone column's width on desktop. Exported because the top bar centres
@@ -69,6 +59,7 @@ export default function AdHero({
   updatedLabel,
   spotName,
   fish,
+  fishSlug,
   score,
   windowLabel,
   tidePhase,
@@ -84,6 +75,8 @@ export default function AdHero({
   spotName: string;
   /** Keyword name of the selected fish, "Chinook". */
   fish: string | null;
+  /** Slug of that same fish, "chinook-salmon", which finds its drawing. */
+  fishSlug: string | null;
   /** Today's best score for that fish. Only its tier is said out loud. */
   score: number | null;
   /** "7 AM-11 AM". */
@@ -96,7 +89,7 @@ export default function AdHero({
   mapHref: string;
   onMap: () => void;
 }) {
-  const engraving = fish ? ENGRAVINGS.find((e) => e.match.test(fish)) : undefined;
+  const plate = speciesIllustration(fishSlug);
   const tier = tierFor(score);
   // Roster names are stored as written by whoever added the fish, and a few
   // are lower case ("bluefin tuna"); this one starts a sentence.
@@ -139,12 +132,12 @@ export default function AdHero({
         {/* The picture and the two asks sit centred under the copy, on the
             paragraph's own measure, so they read as one block. */}
         <div className="flex max-w-xl flex-col items-center text-center">
-          {engraving && (
+          {plate && (
             <Image
-              src={engraving.src}
-              width={engraving.w}
-              height={engraving.h}
-              alt={engraving.alt}
+              src={plate.src}
+              width={plate.width}
+              height={plate.height}
+              alt={fishName ?? ""}
               sizes="(min-width: 1024px) 400px, 72vw"
               className="mt-5 h-auto w-[72%] max-w-[400px] select-none"
               data-testid="ad-hero-fish"

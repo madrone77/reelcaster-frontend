@@ -1465,6 +1465,10 @@ export default function SpotDetailShell({
                 updatedLabel={landingTopic === "report" ? "Forecast updated today" : "Updated today"}
                 spotName={spot.name}
                 fish={selSpecies ? speciesKeywordName(selSpecies.name) : null}
+                /* The drawing is found by slug, not by the keyword name the
+                   copy uses: "Halibut" is two different fish and the slug
+                   already knows which one this spot means. */
+                fishSlug={selSpecies?.slug ?? null}
                 /* The same numbers the score card below headlines, so the
                    answer and the proof cannot disagree. Always today's. */
                 score={peakScore ?? todayScore}
