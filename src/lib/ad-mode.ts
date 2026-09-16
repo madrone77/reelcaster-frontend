@@ -26,8 +26,10 @@
  * - `today`  one day open, the rest locked. The ad promised today; the page
  *            delivers today and sells the next thirteen days.
  * - `day2`   what a signed-out visitor already gets on the public page. The
- *            honest control: no tightening, just the ad frame.
- * - `open`   nothing tightened at all. Still two days of forecast, because the
+ *            honest control: no tightening, just the ad frame. The name is
+ *            historical (the anon horizon was two days until 2026-09-16, now
+ *            today only) and stays because live ad URLs carry it.
+ * - `open`   nothing tightened at all. Still today only, because the
  *            horizon is enforced server-side by entitlement, not here. What
  *            "open" opens is the REST of the page.
  */

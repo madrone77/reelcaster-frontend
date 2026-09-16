@@ -39,8 +39,8 @@ export default function PricingSection() {
             </p>
             <p className="mt-4 text-pretty text-sm leading-relaxed text-rc-ink-soft">
               See today&apos;s ReelCaster Score for one location and experience
-              how the platform works. No account at all is Free, and shows the
-              next 2 days.
+              how the platform works. No account at all is Free, and shows
+              today only.
             </p>
             <div className="mt-auto pt-8">
               <TrialModalButton

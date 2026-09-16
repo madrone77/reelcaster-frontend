@@ -333,8 +333,8 @@ export default function PlansPage() {
             <p className="mt-3 px-1 text-xs leading-relaxed text-rc-ink-mute">
               Member accounts can save one spot. Pro is unlimited, and alerts
               are capped at 10 per account. Private spots work anywhere inside a
-              city we cover. Browsing without an account is Free, and shows the
-              next 2 days.
+              city we cover. Browsing without an account is Free, and shows
+              today only.
             </p>
           </div>
         </div>

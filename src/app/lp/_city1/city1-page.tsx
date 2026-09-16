@@ -8,6 +8,7 @@ import { PRICE, PROOF } from "../_shared/lp-content";
 import { fetchMapSpots } from "@/lib/bluecaster";
 import {
   ANON_FORECAST_DAYS,
+  horizonPhrase,
   FREE_FORECAST_DAYS,
   PRO_FORECAST_DAYS,
 } from "@/lib/forecast-horizon";
@@ -137,7 +138,8 @@ const CTA_LABEL = "Start Exploring Free";
 /**
  * There is no line under the button any more.
  *
- * It read "Look at today and tomorrow free." -- the anon horizon stated as
+ * It read "Look at today and tomorrow free." -- the anon horizon (then two
+ * days, today only since 2026-09-16) stated as
  * what you get rather than as what you are missing (#512). Cut at Casey's
  * call: a qualifier under a button is read as a catch whatever it says, and
  * the limits are spelled out further down where there is room to be exact
@@ -724,7 +726,7 @@ export default async function City1Page({
             {/* Every row deep-links to the spot's own page.
                 A reader who has scrolled this far has stopped being sold to
                 and started shopping, and the anon spot page is the product's
-                own free tier: two days of hourly scores, no account. Sending
+                own free tier: today's hourly scores, no account. Sending
                 them to a signup wall instead would waste the one moment they
                 asked to see more. */}
             <div className="marks">
@@ -826,7 +828,7 @@ export default async function City1Page({
             <div className="step">
               <b>No account</b>
               <p>
-                The next <strong>{ANON_FORECAST_DAYS} days</strong>, hour by
+                <strong>{horizonPhrase(ANON_FORECAST_DAYS, { sentenceStart: true })}</strong>, hour by
                 hour, at every {card.cityName} spot. Nothing to fill in.
               </p>
             </div>
@@ -834,7 +836,7 @@ export default async function City1Page({
               <b>Free account</b>
               <p>
                 <strong>{FREE_FORECAST_DAYS} days</strong> ahead instead of{" "}
-                {ANON_FORECAST_DAYS}. An email address, and no card.
+                {horizonPhrase(ANON_FORECAST_DAYS)}. An email address, and no card.
               </p>
             </div>
             <div className="step">
@@ -884,8 +886,8 @@ export default async function City1Page({
             <div className="qa">
               <h3>Do I have to sign up?</h3>
               <p>
-                Not to look. The map opens on {card.cityName} with the next{" "}
-                {ANON_FORECAST_DAYS} days scored and no account at all. An
+                Not to look. The map opens on {card.cityName} with{" "}
+                {horizonPhrase(ANON_FORECAST_DAYS)} scored and no account at all. An
                 account is how you see further out, and Pro is how you see all{" "}
                 {PRO_FORECAST_DAYS} days and score your own custom spots.
               </p>
@@ -899,8 +901,8 @@ export default async function City1Page({
         <div className="shell">
           <h2>Fish the three hours, not the whole day.</h2>
           <p className="sub">
-            Open the live {card.cityName} map and see the next{" "}
-            {ANON_FORECAST_DAYS} days scored, spot by spot and hour by hour.
+            Open the live {card.cityName} map and see{" "}
+            {horizonPhrase(ANON_FORECAST_DAYS)} scored, spot by spot and hour by hour.
           </p>
           <TrackedCta city={city} variant={variant} cta="final" className="go" href={explore}>
             {CTA_LABEL}

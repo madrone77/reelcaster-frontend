@@ -5,7 +5,7 @@ import { resolveEntitlement } from "@/lib/entitlement";
 import { visibleForecastDays } from "@/lib/forecast-horizon";
 
 /**
- * How many forecast days the caller behind a request may see: anon 2, free
+ * How many forecast days the caller behind a request may see: anon 1, free
  * account 7, Pro 14.
  *
  * Three proxies answer this for the same Bearer token — the viewport strip,

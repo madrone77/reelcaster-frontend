@@ -4,7 +4,7 @@
  * Every Meta ad still points at a /lp page, because re-pointing an ad in
  * Meta restarts its learning. The edge decides what the click actually
  * reads: `/explore?loc=<city>&ad=day2`, the ad-framed Explore opened on the
- * city the landing page was about, with the two-day wall the landing pages'
+ * city the landing page was about, with the anon wall (today only) the landing pages'
  * own CTA already links to (src/app/lp/_shared/lp-via.ts builds the same
  * href). Google and organic traffic are left alone and still read the page.
  *

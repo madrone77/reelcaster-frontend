@@ -2,7 +2,7 @@
 // Day scores come from the spot's best-species hourly grid (0–100, same
 // scale the engine emits) so the strip stays species-consistent with its
 // "· CHINOOK" header; dow/date come from daily14. Days past the caller's
-// horizon are locked: signed-out visitors see 2 days, free accounts 7,
+// horizon are locked: signed-out visitors see today only, free accounts 7,
 // Pro all 14.
 
 import type {
@@ -15,14 +15,15 @@ import type {
   MapForecastDayConditions,
   SpotOutlookDayPeak,
 } from "@/lib/bluecaster";
+import { ANON_FORECAST_DAYS } from "@/lib/forecast-horizon";
 import { tierFor, fmtPeak, type Tier } from "./explore-data";
 import {
   dominantWeather,
   type WeatherCondition,
 } from "../spot/components/weather-icon";
 
-/** Signed-out visitors see the first 2 days. */
-export const ANON_STRIP_DAYS = 2;
+/** Signed-out visitors see today only. Kept equal to ANON_FORECAST_DAYS. */
+export const ANON_STRIP_DAYS = ANON_FORECAST_DAYS;
 /** Member accounts see the first 7 days; days 8–14 are Pro. */
 export const FREE_STRIP_DAYS = 7;
 

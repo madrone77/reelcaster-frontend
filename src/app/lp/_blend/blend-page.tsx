@@ -11,6 +11,7 @@ import { loadCityBySlug } from "@/app/fishing/[country]/[state]/[city]/instrumen
 import KeepToday from "@/app/fishing/[country]/[state]/[city]/hub/keep-today";
 import {
   ANON_FORECAST_DAYS,
+  horizonPhrase,
   FREE_FORECAST_DAYS,
   PRO_FORECAST_DAYS,
 } from "@/lib/forecast-horizon";
@@ -130,12 +131,11 @@ const LABEL: Record<BlendAsk, string> = {
  * The line under the button, and the whole of the qualification on it.
  *
  * On the explore variant it names the free horizon rather than the absence of
- * a card, so it stays true on the next screen: ANON_FORECAST_DAYS is 2, which
- * is today and tomorrow. Change that constant and this line has to change
- * with it. The trial variant states its terms in the form instead, under the
+ * a card, so it stays true on the next screen: ANON_FORECAST_DAYS is 1, which
+ * is today. Change that constant and this line has to change with it. The trial variant states its terms in the form instead, under the
  * button, where a card-required trial has to state them.
  */
-const EXPLORE_NOTE = "Look at today and tomorrow free.";
+const EXPLORE_NOTE = "Look at today free.";
 
 /**
  * The way past the card, on the trial variants only.
@@ -155,7 +155,7 @@ const EXPLORE_NOTE = "Look at today and tomorrow free.";
  * Names the horizon, not the absence of a card, for the same reason
  * EXPLORE_NOTE does: it has to still be true on the next screen.
  */
-const EXPLORE_ALT = `Not ready? Open the live map first, ${ANON_FORECAST_DAYS} days free.`;
+const EXPLORE_ALT = `Not ready? Open the live map first, ${horizonPhrase(ANON_FORECAST_DAYS)} free.`;
 
 /**
  * The title and description, and NOTHING read off the query string.
@@ -423,7 +423,7 @@ export default async function BlendPage({
               <div className="step">
                 <b>No account</b>
                 <p>
-                  The next <strong>{ANON_FORECAST_DAYS} days</strong>, hour by
+                  <strong>{horizonPhrase(ANON_FORECAST_DAYS, { sentenceStart: true })}</strong>, hour by
                   hour, at every {city.city.name} spot. Nothing to fill in, and
                   it is what you just scrolled.
                 </p>
@@ -432,7 +432,7 @@ export default async function BlendPage({
                 <b>Free account</b>
                 <p>
                   <strong>{FREE_FORECAST_DAYS} days</strong> ahead instead of{" "}
-                  {ANON_FORECAST_DAYS}. An email address, and no card.
+                  {horizonPhrase(ANON_FORECAST_DAYS)}. An email address, and no card.
                 </p>
               </div>
               <div className="step">
@@ -453,7 +453,7 @@ export default async function BlendPage({
             <p className="sub">
               {window
                 ? `Today it is ${window}. Tomorrow it is somewhere else, and the map already knows where.`
-                : `Open the live ${city.city.name} map and see the next ${ANON_FORECAST_DAYS} days scored, spot by spot and hour by hour.`}
+                : `Open the live ${city.city.name} map and see ${horizonPhrase(ANON_FORECAST_DAYS)} scored, spot by spot and hour by hour.`}
             </p>
             {ask === "trial" ? (
               <>

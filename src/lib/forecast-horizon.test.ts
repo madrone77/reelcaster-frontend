@@ -6,6 +6,7 @@
 import assert from "node:assert/strict";
 import {
   forecastDayIndex,
+  horizonPhrase,
   stripMapSpotsPastHorizon,
   ANON_FORECAST_DAYS,
   FREE_FORECAST_DAYS,
@@ -49,9 +50,13 @@ assert.equal(forecastDayIndex("2026-09-06", "2026-09-05"), -1);
 const today = payload("2026-09-06");
 assert.equal(stripMapSpotsPastHorizon(today, ANON_FORECAST_DAYS, "2026-09-06"), today);
 const day2 = payload("2026-09-07");
-assert.equal(stripMapSpotsPastHorizon(day2, ANON_FORECAST_DAYS, "2026-09-06"), day2);
+assert.equal(stripMapSpotsPastHorizon(day2, FREE_FORECAST_DAYS, "2026-09-06"), day2);
 const day7 = payload("2026-09-12");
 assert.equal(stripMapSpotsPastHorizon(day7, FREE_FORECAST_DAYS, "2026-09-06"), day7);
+
+// Anonymous callers see today only: tomorrow is already past the horizon.
+assert.equal(ANON_FORECAST_DAYS, 1);
+assert.deepEqual(stripMapSpotsPastHorizon(day2, ANON_FORECAST_DAYS, "2026-09-06").spots[0].scores, {});
 
 // Past it, the spots stay and the scores go.
 const day3 = payload("2026-09-08");
@@ -75,5 +80,10 @@ assert.equal(stripMapSpotsPastHorizon(day14, PRO_FORECAST_DAYS, "2026-09-06"), d
 // Yesterday is not past the horizon.
 const past = payload("2026-09-05");
 assert.equal(stripMapSpotsPastHorizon(past, ANON_FORECAST_DAYS, "2026-09-06"), past);
+
+// Copy never says "the next 1 days".
+assert.equal(horizonPhrase(1), "today");
+assert.equal(horizonPhrase(1, { sentenceStart: true }), "Today");
+assert.equal(horizonPhrase(7), "the next 7 days");
 
 console.log("forecast-horizon: all assertions passed");

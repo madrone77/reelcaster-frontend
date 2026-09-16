@@ -17,7 +17,7 @@ import { localDateOf } from "@/lib/score-beats";
  * That response is per-user and must not be shared: it goes out `no-store`,
  * while the anonymous one stays cacheable.
  *
- * A `date` past the caller's forecast horizon (anon 2 days, free account 7,
+ * A `date` past the caller's forecast horizon (anon 1 day, free account 7,
  * Pro 14, the same rule the strip proxies apply) comes back with its spots but
  * without their scores — see `stripMapSpotsPastHorizon`. The strip was already
  * nulling those days; this is the payload that was still colouring the pins
