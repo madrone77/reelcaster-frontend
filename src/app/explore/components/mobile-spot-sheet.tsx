@@ -49,6 +49,7 @@ function cityLinkFrom(spot: RailSpot | null): SpotCityLink | null {
   const [root, country, state, city] = parts;
   return {
     cityName: spot.cityName,
+    citySlug: spot.citySlug || undefined,
     cityPath: `/${root}/${country}/${state}/${city}`,
     provinceName: spot.regionName,
     provincePath: `/${root}/${country}/${state}`,

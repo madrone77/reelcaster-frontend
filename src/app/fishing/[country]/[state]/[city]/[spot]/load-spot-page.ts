@@ -120,13 +120,14 @@ export async function loadSpotPage(slug: string): Promise<LoadedSpotPage> {
   return {
     page: stripPaidIntel({ ...page, ...(nearbySpots ? { nearbySpots } : {}) }),
     freshTracked,
-    // Narrowed to the five strings the breadcrumb needs — `place.city` carries
+    // Narrowed to the strings the breadcrumb and city report need — `place.city` carries
     // the city's whole spot roster, which has no business crossing the
     // server/client boundary on every spot page.
     canonicalPath: place?.spot.path ?? null,
     cityLink: place
       ? {
           cityName: place.city.name,
+          citySlug: place.city.slug,
           cityPath: place.cityPath,
           provinceName: place.city.provinceName,
           provincePath: place.provincePath,
