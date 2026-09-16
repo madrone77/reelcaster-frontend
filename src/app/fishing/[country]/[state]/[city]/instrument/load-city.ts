@@ -166,6 +166,12 @@ async function loadResolvedCity(
           speciesName:
             featuredPage.species.find((sp) => sp.id === featured.speciesId)
               ?.name ?? null,
+          // Off the hub roster rather than the spot payload: `hub.species`
+          // already carries the slug for every species that scored in this
+          // city, and it is the same id space the line above resolves.
+          speciesSlug:
+            hub.species.find((sp) => sp.id === featured.speciesId)?.slug ?? null,
+          peak: featured.entry.peak ?? null,
           lat: featured.spot.lat,
           lng: featured.spot.lng,
           /**

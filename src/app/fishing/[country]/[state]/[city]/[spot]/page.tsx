@@ -13,6 +13,7 @@ import {
   getFishingCountries,
 } from "@/app/fishing/lib/fishing-data";
 import { spotPath } from "@/lib/paths";
+import { seoHeroEnabled } from "@/lib/seo-hero";
 
 // `spot` is the DIRECTORY name, so it is the param Next fills. Destructured
 // as `slug` below because that is what the spot payload calls it, and because
@@ -315,6 +316,10 @@ export default async function SpotDetailPage({ params }: PageProps) {
         tz={tz}
         serverNowMs={serverNowMs}
         cityLink={cityLink}
+        /* Decided from the route, not from the visitor, so this render is the
+           same for a crawler and a reader and the route stays prerendered.
+           See lib/seo-hero.ts. */
+        seoHero={seoHeroEnabled(country, state)}
       />
     </>
   );
