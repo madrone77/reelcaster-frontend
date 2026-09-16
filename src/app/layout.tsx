@@ -17,6 +17,7 @@ import Plausible from '@/app/components/analytics/plausible'
 import GoogleAdsTag from '@/app/components/analytics/google-ads-tag'
 import { ORGANIZATION_JSONLD, SITE_NAME, SITE_URL, WEBSITE_JSONLD } from '@/lib/site'
 import { clientDiagSnippet } from '@/lib/client-diag'
+import { STORED_SESSION_SNIPPET } from '@/lib/stored-session-snippet'
 
 const geistSans = Geist({
   variable: '--font-geist-sans',
@@ -121,8 +122,14 @@ export default function RootLayout({
   children: React.ReactNode
 }>) {
   return (
-    <html lang="en">
+    // suppressHydrationWarning: the head snippet below stamps
+    // data-rc-session on this element before React hydrates it.
+    <html lang="en" suppressHydrationWarning>
       <head>
+        {/* Marks <html> when a session is stored, before the body paints, so
+            signed-out-only content can hide for a signed-in reader without a
+            flash. See src/lib/stored-session-snippet.ts. */}
+        <script dangerouslySetInnerHTML={{ __html: STORED_SESSION_SNIPPET }} />
         {/* No-op unless the URL carries ?diag=1. Registered during head parse
             so the listener is in place before hydration can throw. */}
         <script

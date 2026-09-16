@@ -583,3 +583,20 @@ body:has([data-ad-bar]) {
 body:has([data-ad-frame]):not(:has([data-ad-bar])) {
   --rc-tabbar-clearance: calc(0.75rem + env(safe-area-inset-bottom, 0px));
 }
+
+/*
+ * SEO hero (fishing/seo-hero.tsx) before the session resolves. Both the hero
+ * and the page's own header are in the markup; the wrappers are layout-neutral
+ * and a stored session (data-rc-session, stamped in <head> by the root layout)
+ * decides which one paints, so a signed-in reader never sees the hero flash.
+ */
+[data-seo-hero-slot] {
+  display: contents;
+}
+[data-seo-hero-slot='header'],
+html[data-rc-session] [data-seo-hero-slot='hero-pending'] {
+  display: none;
+}
+html[data-rc-session] [data-seo-hero-slot='header'] {
+  display: contents;
+}

@@ -55,13 +55,17 @@ export default function SeoHero({
   const { user, loading } = useAuth();
   const [trialOpen, setTrialOpen] = useState(false);
 
-  // Only a RESOLVED session hides it. While `loading` is true — which is the
-  // server render and the first paint — the hero shows, so the crawler and
-  // the anonymous reader get the same bytes.
+  // Only a RESOLVED session removes it. While `loading` is true — which is the
+  // server render and the first paint — both versions are in the markup, so
+  // the crawler and every reader get the same bytes, and CSS picks one off the
+  // `data-rc-session` hint the root layout stamps before paint (globals.css).
+  // Without that, a signed-in reader saw the hero flash and then vanish.
   if (!enabled || (!loading && user)) return <>{children}</>;
 
   return (
     <>
+      {loading && <div data-seo-hero-slot="header">{children}</div>}
+      <div data-seo-hero-slot={loading ? "hero-pending" : "hero"}>
       <AdHero
         pills={pills}
         title={title}
@@ -81,6 +85,7 @@ export default function SeoHero({
         mapHref={mapHref}
         onMap={() => trackEvent("Seo Hero Map Clicked", { place })}
       />
+      </div>
       <ProTrialModal
         open={trialOpen}
         onOpenChange={setTrialOpen}
