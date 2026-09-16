@@ -59,7 +59,11 @@ export default function Section({
   return (
     <section
       id={id}
-      className="rounded border border-rc-rule bg-rc-panel px-4 py-5 lg:px-6 lg:py-6"
+      /* `scroll-mt-20` is for the sections that are anchor targets: the bar
+         over /fishing is `sticky top-0` and 64px tall, so a bare `#id` jump
+         parks the heading underneath it. Applied to every section rather than
+         only the linked one — it costs nothing where nothing links. */
+      className="scroll-mt-20 rounded border border-rc-rule bg-rc-panel px-4 py-5 lg:px-6 lg:py-6"
     >
       {/* One wrapping flex row, re-ordered at `sm`. On a wide screen the
           attribution sits on the heading's baseline at the right and the
