@@ -371,6 +371,16 @@ export default function SpotDetailShell({
   // is scored for; anglers report others (crab and lingcod at a salmon spot),
   // and those fold into "Other species" rather than being dropped.
   const selSpecies = species.find((s) => s.id === selId) ?? species[0] ?? null;
+  // The landing headline follows the SELECTED species, not the one the URL
+  // arrived on. Tapping a species card already moves the score, the verdict,
+  // the drawing and the reg strip; leaving the H1 on the landing fish made the
+  // page contradict itself — "Lands End Lingcod Fishing Report" printed over a
+  // halibut. First paint is unchanged, because selId starts on the landing
+  // species when the spot carries it. The <title> and canonical stay as the ad
+  // was bought; only what the reader is looking at moves.
+  const headlineFish = selSpecies
+    ? speciesKeywordName(selSpecies.name)
+    : (landingSpecies?.name ?? null);
 
   // ── lazy data ─────────────────────────────────────────────────────────
   const [fc, setFc] = useState<Forecast14dPayload | null>(null);
@@ -1459,7 +1469,7 @@ export default function SpotDetailShell({
                 pills={pills}
                 title={
                   landingSpecies || landingTopic
-                    ? landingTitle(spot.name, landingSpecies?.name ?? null, landingTopic)
+                    ? landingTitle(spot.name, headlineFish, landingTopic)
                     : `${spot.name} Fishing Forecast`
                 }
                 updatedLabel={landingTopic === "report" ? "Forecast updated today" : "Updated today"}
@@ -1488,7 +1498,7 @@ export default function SpotDetailShell({
                 <div className="flex items-center gap-2 mt-3">
                   <h1 className="rc-title-lg text-3xl lg:text-4xl min-w-0">
                     {landingSpecies || landingTopic
-                      ? landingTitle(spot.name, landingSpecies?.name ?? null, landingTopic)
+                      ? landingTitle(spot.name, headlineFish, landingTopic)
                       : spot.name}
                   </h1>
                   {/* Save, home spot and alerts all act on an ACCOUNT. On a
