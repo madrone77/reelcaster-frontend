@@ -606,6 +606,7 @@ export default function SpotDetailShell({
         days={FRESH_DAYS}
         onUpgrade={() => setReportsUpgradeOpen(true)}
         neutralLock={!!ad}
+        spotName={spot.name}
       />
     );
 
