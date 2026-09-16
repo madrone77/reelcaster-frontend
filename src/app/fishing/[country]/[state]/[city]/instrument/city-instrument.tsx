@@ -369,7 +369,7 @@ export default function CityInstrument({
   // full score row above five empty instrument rows. The spot page solves
   // this by lazy-fetching the spot's own 14-day grid and preferring it; so
   // does this. The proxy strips scores AND conditions past the caller's
-  // horizon, so an anonymous reader gets exactly the two days they can select.
+  // horizon, so an anonymous reader gets exactly the day they can select.
   const [fc, setFc] = useState<Forecast14dPayload | null>(null);
   useEffect(() => {
     if (!featured) return;

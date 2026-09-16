@@ -13,7 +13,7 @@ import {
  * Keeps BLUECASTER_API_KEY server-side. Backs the 14-day strip on spot
  * cards: one request per list, not one per card.
  *
- * Days past the caller's horizon are nulled server-side (anon 2, free
+ * Days past the caller's horizon are nulled server-side (anon 1, free
  * account 7, Pro 14 — see @/lib/forecast-horizon, shared with the viewport
  * strip proxy and the Explore page's prefetch), so a locked score never
  * reaches the browser. The `days` array stays whole; the strip draws its own

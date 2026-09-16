@@ -77,7 +77,8 @@ export function PlanCompareLine({
       {...rest}
       className={`text-sm leading-5 text-rc-ink-soft ${className ?? ''}`}
     >
-      {plan.label} shows {plan.days}. Pro shows {PRO_FORECAST_DAYS} everywhere.
+      {plan.label} shows {plan.days === 1 ? 'today' : plan.days}. Pro shows{' '}
+      {PRO_FORECAST_DAYS} {plan.days === 1 ? 'days ' : ''}everywhere.
     </p>
   );
 }

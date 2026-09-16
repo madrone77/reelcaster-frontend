@@ -309,7 +309,7 @@ export function dayOffset(card: ShareCard, now: Date = new Date()): number {
  * Is the card's day past what a signed-out visitor is shown?
  *
  * This is the whole conversion moment, and it is normally TRUE. Anonymous
- * visitors see `ANON_STRIP_DAYS` (2); a free account sees 7; and score alerts
+ * visitors see `ANON_STRIP_DAYS` (1); a free account sees 7; and score alerts
  * fire up to 6 days ahead. So the day a buddy was invited to almost always
  * sits outside the anonymous window and inside the free one — which makes the
  * honest ask "make a free account to see Sunday", not a generic wall.

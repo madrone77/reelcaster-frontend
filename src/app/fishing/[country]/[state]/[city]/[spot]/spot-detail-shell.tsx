@@ -144,7 +144,7 @@ function formatClock(at: Date, tz: string): string {
  * How far an ad page's wall opens the forecast strip, for a visitor with no
  * account. See ad-mode.ts.
  *
- * `day2` and `open` both land on "anonymous" because two days is what an
+ * `day2` and `open` both land on "anonymous" because today is what an
  * anonymous visitor is ENTITLED to: the horizon is enforced server-side in
  * /api/bluecaster/spots/[slug]/forecast-14d, which nulls out every day past
  * it before the payload leaves the server. A wall here can tighten what is
