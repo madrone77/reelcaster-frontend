@@ -232,6 +232,37 @@ export default function ExploreTopBar({
     };
   }, [hideOnScroll]);
 
+  // The ad frame's copy can sit on the bottom edge instead; see the note above
+  // the header below. Read here as well because a bar down there covers
+  // nothing at the top of the viewport.
+  const atBottom = adFrame && adBarEdge === "bottom";
+
+  // How much of the top of the viewport this bar is covering, published for
+  // anything on the page that pins itself under it.
+  //
+  // The spot page's conditions strip is sticky and pinned to `top: 0` back
+  // when no route that rendered it had a bar up here. Both spot surfaces have
+  // one again — the product bar and, since the ad frame's copy came back to
+  // the top edge, the paid one — so the strip was pinning behind 64px of blue
+  // and the readout the chart is scrubbing went invisible.
+  //
+  // A variable on the document element rather than a prop: this bar is
+  // `fixed`, so it is nobody's ancestor, and the strip is several hundred
+  // lines into a different tree.
+  //
+  // Zero while rolled away, so the strip rides up into the space the bar
+  // just left and back down when it returns. Zero at the bottom edge too.
+  // The value is the phone answer: above lg the bar never rolls away, and
+  // nothing sticky reads this there.
+  useEffect(() => {
+    if (atBottom) return;
+    const root = document.documentElement;
+    root.style.setProperty("--rc-top-bar", rolledAway ? "0px" : "64px");
+    return () => {
+      root.style.removeProperty("--rc-top-bar");
+    };
+  }, [atBottom, rolledAway]);
+
   // "/" would match every path under startsWith, so the home link compares
   // exactly and only the sub-path links use the prefix test.
   const isActive = (href: string) =>
@@ -261,8 +292,9 @@ export default function ExploreTopBar({
   //
   // The top edge (`adBarEdge="top"`, what both ad surfaces pass): same bar,
   // same one button, pinned where the product's bar is. It publishes no
-  // `data-ad-bar` there, so nothing below moves up to clear it.
-  const atBottom = adFrame && adBarEdge === "bottom";
+  // `data-ad-bar` there, so nothing below moves up to clear it. It does
+  // publish `--rc-top-bar`, which is the same idea the other way up — see the
+  // effect above.
   return (
     <header
       data-ad-bar={atBottom ? "" : undefined}

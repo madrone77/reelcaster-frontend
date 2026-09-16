@@ -652,15 +652,12 @@ export default function SpotDetailShell({
   // than assumed: the row wraps at narrow widths.
   const sheetHeadRef = useRef<HTMLDivElement>(null);
   const rootRef = useRef<HTMLDivElement>(null);
-  const [sheetHeadH, setSheetHeadH] = useState(0);
   useEffect(() => {
     const head = sheetHeadRef.current;
     const root = rootRef.current;
     if (!sheet || !head || !root || typeof ResizeObserver === "undefined") return;
     const apply = () => {
-      const h = head.offsetHeight;
-      root.style.setProperty("--rc-sheet-head", `${h}px`);
-      setSheetHeadH(h);
+      root.style.setProperty("--rc-sheet-head", `${head.offsetHeight}px`);
     };
     apply();
     const ro = new ResizeObserver(apply);
@@ -669,11 +666,21 @@ export default function SpotDetailShell({
   }, [sheet]);
 
   // Is the conditions strip pinned? A 1px sentinel sits at its top edge in
-  // the flow; once the sentinel is above the line the strip sticks to (the
-  // top of the viewport on the page, the bottom of the sheet's header in a
-  // sheet), the strip is pinned and wears its compact form. Phones only: the
-  // strip is only sticky under lg, and the desktop row has room for the full
-  // table wherever it is.
+  // the flow; once the sentinel is above the line the strip sticks to (under
+  // the fixed top bar on the page, under the sheet's own header in a sheet),
+  // the strip is pinned and wears its compact form. Phones only: the strip is
+  // only sticky under lg, and the desktop row has room for the full table
+  // wherever it is.
+  //
+  // The pin line is not the top of the viewport in either case, and on the
+  // page it MOVES — the product bar rolls away as the reader heads down and
+  // comes back on an upward flick. So the offset is not in this observer at
+  // all: the sentinel is shifted up by it in CSS (see its `top` below, which
+  // reads the same variables the strip pins to), and the observed line stays
+  // a plain zero. A rootMargin would have to be recomputed and the observer
+  // rebuilt every time the bar moved, which means React state, which means
+  // re-rendering this whole shell mid-scroll — the very thing the note below
+  // is about.
   //
   // The answer goes straight onto the wrapper as `data-strip-pinned`, not
   // through React state. CSS on the wrapper's two children does the rest, so
@@ -701,14 +708,14 @@ export default function SpotDetailShell({
         if (entry.isIntersecting) delete wrap.dataset.stripPinned;
         else wrap.dataset.stripPinned = "";
       },
-      { root, rootMargin: `-${sheet ? sheetHeadH : 0}px 0px 100000px 0px` },
+      { root, rootMargin: "0px 0px 100000px 0px" },
     );
     io.observe(el);
     return () => {
       io.disconnect();
       delete wrap.dataset.stripPinned;
     };
-  }, [sheet, sheetHeadH]);
+  }, [sheet]);
 
   const dayStripRef = useRef<HTMLDivElement>(null);
   const [dayStripScrollable, setDayStripScrollable] = useState(false);
@@ -1930,18 +1937,54 @@ export default function SpotDetailShell({
                 for the whole gesture and costs nothing on desktop, where the
                 hover pill already follows the cursor.
 
-                `top-0` because nothing on this route is fixed to the top of the
-                viewport. The bleed margins put the opaque backdrop under the
-                page gutter as well as the content, so the chart does not show
-                through beside it while it is pinned — and they are safe inside
-                the body's `overflow-x-clip`, which is deliberately `clip` and
-                not `hidden` precisely so sticky still works in here. */}
+                Under the bar, not under the top of the viewport. This used to
+                be a flat `top-0`, written when no route that rendered this
+                strip had anything fixed up there; both spot surfaces have a
+                bar again, so a pinned strip was sliding behind 64px of blue
+                and the numbers a finger was scrubbing went invisible.
+                `--rc-top-bar` is what the bar is covering right now — 64 while
+                it is showing, 0 while it is rolled away — so the strip rides
+                up into the space the bar leaves and back down when it
+                returns.
+
+                The bleed margins put the opaque backdrop under the page gutter
+                as well as the content, so the chart does not show through
+                beside it while it is pinned — and they are safe inside the
+                body's `overflow-x-clip`, which is deliberately `clip` and not
+                `hidden` precisely so sticky still works in here. */}
             {/* Pinned-readout sentinel; see `stripWrapRef`. It carries the
                 gap above the strip and sits flush with the strip's top edge
                 (`-mb-px` takes its own height back out of the flow), so the
                 flip lands the frame the strip locks, not 20px early while it
-                is still moving. */}
-            <div ref={stripSentinelRef} className="mt-5 h-px -mb-px" aria-hidden="true" />
+                is still moving.
+
+                Then `relative` lifts it, and only it, by whatever the strip
+                pins under — the top bar on the page, the sheet's header in a
+                sheet, the same variables the wrapper below reads. That puts
+                the sentinel's box on the pin line instead of on the top of
+                the scroller, which is what makes the plain zero rootMargin in
+                the observer correct. Relative positioning moves the painted
+                box and leaves the flow alone, so nothing shifts, and because
+                it is CSS the line follows the rolling bar for free.
+
+                The offset rides in on `style`, not in a class. Tailwind v4
+                does not emit `top-[var(--x,0px)]` — the class lands on the
+                element and no rule is ever generated for it, silently. The
+                sheet arm below was written that way and had never once taken
+                effect. Every other holder of a runtime length in this app
+                (`--rc-tabbar-clearance` and friends) passes it inline for the
+                same reason. Above lg the strip is not sticky, so the lift is
+                inert whatever it reads. */}
+            <div
+              ref={stripSentinelRef}
+              className="relative mt-5 h-px -mb-px"
+              style={{
+                top: sheet
+                  ? "calc(-1 * var(--rc-sheet-head, 0px))"
+                  : "calc(-1 * var(--rc-top-bar, 0px))",
+              }}
+              aria-hidden="true"
+            />
             {/* The strip is drawn twice under lg, full and compact, stacked in
                 one grid cell, and `data-strip-pinned` (set by the observer
                 above) decides which is visible. The cell is always as tall as
@@ -1958,11 +2001,26 @@ export default function SpotDetailShell({
                 finger there scrubs the chart as if nothing were over it. */}
             <div
               ref={stripWrapRef}
-              className={`group/strip grid max-lg:sticky max-lg:z-20 max-lg:pointer-events-none ${
-                // Under the sheet's own pinned header, not the top of the
-                // scroller; the variable is measured off that header above.
-                sheet ? "max-lg:top-[var(--rc-sheet-head,0px)]" : "max-lg:top-0"
-              }`}
+              className="group/strip grid max-lg:sticky max-lg:z-20 max-lg:pointer-events-none"
+              /* Under the sheet's own pinned header in a sheet — the variable
+                 is measured off that header above — and under the fixed top
+                 bar on the page, which publishes its own. Inline for the
+                 reason given on the sentinel above; `top` is inert over lg,
+                 where this is not sticky.
+
+                 No transition on `top`, however much it would suit a bar that
+                 slides. Chrome does not restart a transition when the change
+                 came from an inherited custom property: the strip held the
+                 0px it had on first paint, before the bar had published
+                 anything, and stayed pinned behind the bar for the life of
+                 the page — the exact bug this is fixing, reintroduced by the
+                 polish. Snapping is also the safer half of the trade, since
+                 the strip is never the thing left under the bar mid-slide. */
+              style={{
+                top: sheet
+                  ? "var(--rc-sheet-head, 0px)"
+                  : "var(--rc-top-bar, 0px)",
+              }}
             >
               {/* The bleed margins put the opaque backdrop under the page
                   gutter as well as the content, so the chart does not show
