@@ -147,7 +147,7 @@ export default function GlobalSearch({ open, onClose }: Props) {
               value={q}
               onChange={(e) => setQ(e.target.value)}
               onKeyDown={handleKeyDown}
-              placeholder="Search spots and cities…"
+              placeholder="Search your favourite fishing spots on the west coast"
               className="flex-1 bg-transparent text-rc-ink placeholder:text-rc-ink-mute text-base focus:outline-none"
             />
             {loading && <Loader2 className="w-4 h-4 animate-spin text-rc-ink-mute" />}
@@ -162,8 +162,19 @@ export default function GlobalSearch({ open, onClose }: Props) {
 
           <div className="max-h-[60vh] overflow-y-auto">
             {!hasQuery && (
-              <div className="px-4 py-8 text-center text-sm text-rc-ink-mute">
-                Start typing to search
+              /* Says what is in here rather than what to do with it — "start
+                 typing" is an instruction anyone already following, and the
+                 open question is whether their water is covered at all. The
+                 province list is derived for the same reason the no-results
+                 line derives it: it named Oregon for months after Oregon was
+                 pulled. */
+              <div className="px-4 py-8 text-center space-y-1">
+                <p className="text-sm text-rc-ink-soft">
+                  Spots, cities and areas by name
+                </p>
+                <p className="text-xs text-rc-ink-mute">
+                  ReelCaster is live in {COVERED_PROVINCES.join(', ')}.
+                </p>
               </div>
             )}
 
