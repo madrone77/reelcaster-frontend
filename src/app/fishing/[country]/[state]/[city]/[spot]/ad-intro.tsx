@@ -64,7 +64,6 @@ export default function AdHero({
   windowLabel,
   tidePhase,
   reel,
-  aside = null,
   breakAfterVerdict = false,
   onTrial,
   mapHref,
@@ -86,15 +85,6 @@ export default function AdHero({
   /** "Tide flooding". */
   tidePhase: string | null;
   reel: ReactNode;
-  /**
-   * What stands in the right-hand column when there is no `reel`.
-   *
-   * The paid hero fills that column with the phone carousel. The public one
-   * (fishing/seo-hero.tsx) has no reel, which left the column empty at desktop
-   * width, so it puts a short Pro panel there instead. Ignored when `reel` is
-   * set — the two never share the column.
-   */
-  aside?: ReactNode;
   /**
    * Put the best-window sentence on its own line under the verdict.
    *
@@ -120,22 +110,9 @@ export default function AdHero({
       }.`
     : null;
 
-  // The side column, and the grid that makes room for it. Both classes are
-  // spelled out in full: Tailwind cannot see a class built from a template, so
-  // a width interpolated here would simply never be generated.
-  //
-  // The reel is centred against the copy; the Pro panel is top-aligned, so it
-  // starts level with the heading rather than floating beside the buttons.
-  const side = reel ?? aside;
-  const sideCols = reel
-    ? "lg:grid-cols-[minmax(0,1fr)_380px] lg:items-center lg:gap-12"
-    : aside
-      ? "lg:grid-cols-[minmax(0,1fr)_300px] lg:items-start lg:gap-12"
-      : "";
-
   return (
     <div
-      className={`grid gap-8 ${sideCols}`}
+      className={`grid gap-8 ${reel ? "lg:grid-cols-[minmax(0,1fr)_380px] lg:items-center lg:gap-12" : ""}`}
       data-testid="ad-hero"
     >
       <div>
@@ -205,7 +182,7 @@ export default function AdHero({
         </div>
       </div>
 
-      {side}
+      {reel}
     </div>
   );
 }
