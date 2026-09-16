@@ -1,5 +1,6 @@
 'use client';
 
+import type { CSSProperties } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { usePathname } from 'next/navigation';
@@ -40,6 +41,23 @@ interface MarketingHeaderProps {
    */
   ctaLabel?: string;
   /**
+   * Width, in px, of a right-hand page column the CTA should sit centred over
+   * on desktop.
+   *
+   * Same job, same name and same mechanism as ExploreTopBar's `ctaOverColumn`,
+   * which hangs the ad hero's Try Pro free button over that hero's phone. This
+   * bar and the pages under it share `max-w-6xl px-6`, so a box this wide at
+   * the bar's right edge IS that column.
+   *
+   * Only the button moves. Search and "Sign in" keep their places and simply
+   * end up further left; centring the whole group would put the button
+   * somewhere between them and the column, which is over neither.
+   *
+   * Desktop only. Below `lg` the hero is one column with the phone under the
+   * copy, and there is nothing to the right to sit over.
+   */
+  ctaOverColumn?: number;
+  /**
    * The city the page is about, when the surface knows one.
    *
    * Same prop, same job and same name as ExploreTopBar's: it becomes the blue
@@ -59,6 +77,7 @@ export default function MarketingHeader({
   variant = 'default',
   signedOutActions = 'full',
   ctaLabel = 'Start free trial',
+  ctaOverColumn,
   placeName,
 }: MarketingHeaderProps = {}) {
   const { user, loading, signOut } = useAuth();
@@ -153,13 +172,26 @@ export default function MarketingHeader({
                   to read the sales page first; it just isn't where a CTA
                   labelled "start" dumps you. Inverted to a white button on the
                   blue bar, same as ExploreTopBar. */}
-              <TrialModalButton
-                from="marketing-header"
-                placeName={placeName}
-                className={brand ? btn.navOnBrand : btn.nav}
+              <div
+                className={
+                  ctaOverColumn
+                    ? 'flex justify-end lg:w-[var(--rc-cta-col)] lg:justify-center'
+                    : 'contents'
+                }
+                style={
+                  ctaOverColumn
+                    ? ({ '--rc-cta-col': `${ctaOverColumn}px` } as CSSProperties)
+                    : undefined
+                }
               >
-                {ctaLabel}
-              </TrialModalButton>
+                <TrialModalButton
+                  from="marketing-header"
+                  placeName={placeName}
+                  className={brand ? btn.navOnBrand : btn.nav}
+                >
+                  {ctaLabel}
+                </TrialModalButton>
+              </div>
             </>
           )}
         </div>
