@@ -60,6 +60,8 @@ interface CatchFormProps {
   spotHref?: string;
   /** Called by "Back to {spot}" when no spotHref (e.g. dialog close). */
   onClose?: () => void;
+  /** Called once the catch is saved. */
+  onSaved?: () => void;
 }
 
 interface SavedCatch {
@@ -82,6 +84,7 @@ export default function CatchForm({
   caughtAtIso = null,
   spotHref,
   onClose,
+  onSaved,
 }: CatchFormProps) {
   const { user, session } = useAuth();
   const { tempUnit, distanceUnit } = useUnitPreferences();
@@ -209,6 +212,7 @@ export default function CatchForm({
         setSaving(false);
         return;
       }
+      onSaved?.();
       const photoUrl = photoPath ? await getCatchPhotoSignedUrl(photoPath) : null;
       setSaved({
         speciesName: species?.name ?? null,

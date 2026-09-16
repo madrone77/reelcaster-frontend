@@ -218,6 +218,13 @@ export type AnalyticsEventName =
   | 'Referral Link Shared'
   | 'Referral Nag Dismissed'
   | 'Referral Modal Opened'
+  // Spot page nudges (components/nudges/spot-nudge.tsx), each with a `nudge`
+  // property: share, catch or feedback. Rated carries the stars.
+  | 'Nudge Shown'
+  | 'Nudge Tapped'
+  | 'Nudge Dismissed'
+  | 'Nudge Rated'
+  | 'Nudge Completed'
   // The friend's side: the /r/<code> page opened, and the account made
   // through it got its month. 'Referral Month Earned' is the sponsor's side
   // and fires from the server, since the sponsor is not in a browser.

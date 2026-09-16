@@ -23,6 +23,7 @@ export default function LogCatchDialog({
   conditions,
   speciesOptions,
   initialSpeciesId,
+  onSaved,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -30,6 +31,7 @@ export default function LogCatchDialog({
   conditions: CatchConditions | null;
   speciesOptions: SpeciesOption[];
   initialSpeciesId?: string | null;
+  onSaved?: () => void;
 }) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -44,6 +46,7 @@ export default function LogCatchDialog({
           speciesOptions={speciesOptions}
           initialSpeciesId={initialSpeciesId}
           onClose={() => onOpenChange(false)}
+          onSaved={onSaved}
         />
       </DialogContent>
     </Dialog>
