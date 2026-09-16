@@ -21,10 +21,9 @@ export default function Hero() {
             where to fish.
           </p>
           {/* compact: full-width fills stacked, primary on top; medium+ they
-              hug (per the button system). Three of them no longer fit the left
-              column on one line at exactly lg — where the grid splits in two
-              while the viewport is at its narrowest — so the row wraps and the
-              labels stay whole instead of breaking mid-phrase. */}
+              hug (per the button system). The row wraps at exactly lg, where
+              the left column is narrowest, so labels stay whole. The free
+              account door lives on /login, not here. */}
           <div className="mt-9 flex flex-col gap-3 sm:flex-row sm:flex-wrap">
             <TrialModalButton
               from="marketing-hero"
@@ -33,18 +32,6 @@ export default function Hero() {
             >
               Start Free
             </TrialModalButton>
-            {/* The free-account door. Every other CTA on this page — this
-                row's primary, the header, and even the $0 MEMBER card in the
-                pricing section — opens the trial modal, which sells Pro. An
-                angler who only wants a Member account had no way in from the
-                homepage; /signup has existed all along, unlinked. */}
-            <Link
-              href="/signup"
-              data-testid="marketing-free-signup-cta"
-              className={`${btn.secondary} whitespace-nowrap`}
-            >
-              Create free account
-            </Link>
             <Link
               href="#how-it-works"
               className={`${btn.secondary} whitespace-nowrap`}
