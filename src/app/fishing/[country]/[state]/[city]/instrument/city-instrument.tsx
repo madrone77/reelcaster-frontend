@@ -679,6 +679,10 @@ export default function CityInstrument({
 
       {/* ── 4 · All of them, on the water ────────────────────────────────── */}
       <Section
+        /* The target of the city header's "View <city> fishing map" button.
+           Harmless on /lp/7/<city>, which renders this same component without
+           a header to link from. */
+        id="city-map"
         title={`Every spot we score in ${cityName}`}
         aside="Bathymetry: NONNA-10 + NRCan"
         claims={[
