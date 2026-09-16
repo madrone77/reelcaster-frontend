@@ -235,6 +235,12 @@ export type AnalyticsEventName =
   | 'Welcome Tour Step'
   | 'Welcome Tour Completed'
   | 'Welcome Tour Dismissed'
+  // The first-login Pro interstitial, shown once to an account that is not Pro
+  // straight after the tour. 'Closed' carries `took`: 'pro' went to Stripe,
+  // 'bypass' pressed the sentence under the button, 'escape' used the key.
+  // All three stop it reappearing; only the first is a conversion.
+  | 'Pro Upsell Shown'
+  | 'Pro Upsell Closed'
   // Performance
   | 'Page Load Time'
   | 'API Call'

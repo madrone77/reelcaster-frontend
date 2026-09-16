@@ -2,12 +2,15 @@
  * The single gate for both welcome modals.
  *
  *   GET  /api/welcome  -> which welcome, if any, is this user owed?
- *   POST /api/welcome  -> they closed the new-user tour; never show it again.
+ *   POST /api/welcome  -> they closed one; never show that one again. The body
+ *                         says which (`{kind}`); a bare POST means the tour,
+ *                         which is what the tour has always sent.
  *
- * Two modals want the root of the app: the three-step new-user tour (every
- * account, once) and the Pro setup wizard (Pro accounts, once). Left to
- * themselves they would both fetch on every signed-in page load and could both
- * decide to render on the same one. This route answers the question once, and
+ * Three modals want the root of the app: the three-step new-user tour (every
+ * account, once), the Pro setup wizard (Pro accounts, once) and the Pro
+ * interstitial (accounts that are NOT Pro, once). Left to themselves they
+ * would each fetch on every signed-in page load and could all decide to render
+ * on the same one. This route answers the question once, and
  * `WelcomeGate` mounts whichever modal won. The Pro wizard keeps its own
  * /api/pro/welcome call for the variant copy it needs (comped, trialing,
  * renewal date), but that call now only happens when a Pro welcome is actually
@@ -15,9 +18,15 @@
  *
  * Ordering is deliberate: the tour comes first even for someone who bought Pro
  * on the way in. Configuring alerts is worth little to someone who does not yet
- * know what the score is made of. `next` tells the gate what to promote when
- * the tour closes, so the Pro wizard follows in the same session without a
- * reload.
+ * know what the score is made of, and neither is an argument for paying.
+ * `next` tells the gate what to promote when the tour closes, so the second
+ * screen follows in the same session without a reload.
+ *
+ * `next` stays a single slot because the two things that can follow the tour
+ * are mutually exclusive by definition: the wizard is for accounts that ARE
+ * Pro and the interstitial for accounts that are not. No account is owed
+ * both, now or later — buying Pro after dismissing the interstitial sets the
+ * wizard owed and leaves `pro_upsell_seen_at` where it is.
  *
  * Like /api/pro/welcome, this deliberately stays off `useSubscription()`:
  * PostgREST fails an entire select if one named column is missing, so a column
@@ -41,7 +50,10 @@ const admin = createClient(supabaseUrl, supabaseServiceKey, {
 /** Columns that predate this feature, so always safe to select. */
 const BASE_COLUMNS = 'subscription_tier, subscription_status, pro_welcome_seen_at';
 
-export type WelcomeKind = 'new' | 'pro';
+/** Added after BASE_COLUMNS shipped; see the retry in GET. */
+const GATE_COLUMNS = 'welcome_seen_at, pro_upsell_seen_at';
+
+export type WelcomeKind = 'new' | 'pro' | 'upsell';
 
 async function getUserId(request: NextRequest): Promise<string | null> {
   const authHeader = request.headers.get('authorization');
@@ -74,17 +86,18 @@ export async function GET(request: NextRequest) {
 
   const { data, error } = await admin
     .from('user_settings')
-    .select(`${BASE_COLUMNS}, welcome_seen_at`)
+    .select(`${BASE_COLUMNS}, ${GATE_COLUMNS}`)
     .eq('user_id', userId)
     .maybeSingle();
 
   let row = data as Record<string, unknown> | null;
 
   if (error) {
-    // Almost certainly an unmigrated database. Retry without the new column so
-    // the Pro wizard, which shipped first, keeps working; the tour just stays
-    // quiet until the migration lands. Showing a modal whose dismissal we
-    // cannot record would loop it forever.
+    // Almost certainly an unmigrated database. Retry without the newer columns
+    // so the Pro wizard, which shipped first, keeps working; the tour and the
+    // interstitial just stay quiet until the migration lands. Showing a modal
+    // whose dismissal we cannot record would loop it forever — which is why
+    // the fallback marks both as already seen rather than as owed.
     const retry = await admin
       .from('user_settings')
       .select(BASE_COLUMNS)
@@ -94,7 +107,10 @@ export async function GET(request: NextRequest) {
       console.error('[welcome] settings read failed', retry.error);
       return NextResponse.json(NOTHING);
     }
-    row = retry.data ? { ...retry.data, welcome_seen_at: new Date().toISOString() } : null;
+    const seen = new Date().toISOString();
+    row = retry.data
+      ? { ...retry.data, welcome_seen_at: seen, pro_upsell_seen_at: seen }
+      : null;
   }
 
   // No row at all. `user_settings` is created lazily (the Stripe webhook, the
@@ -108,29 +124,45 @@ export async function GET(request: NextRequest) {
 
   const tier = (row.subscription_tier as string) ?? 'free';
   const status = (row.subscription_status as string) ?? 'none';
-  const proOwed = isPro(tier, status) && !row.pro_welcome_seen_at;
+  const paid = isPro(tier, status);
+  const proOwed = paid && !row.pro_welcome_seen_at;
+  // The mirror of proOwed, and the reason they can never both be true.
+  const upsellOwed = !paid && !row.pro_upsell_seen_at;
   const tourOwed = !row.welcome_seen_at;
+
+  /** Whichever second screen this account is owed, at most one. */
+  const after: WelcomeKind | null = proOwed
+    ? 'pro'
+    : upsellOwed
+      ? 'upsell'
+      : null;
 
   if (tourOwed) {
     return NextResponse.json({
       kind: 'new' as const,
-      next: proOwed ? ('pro' as const) : null,
+      next: after,
       // Lets the tour name the tier it is describing without a second read.
-      pro: isPro(tier, status),
+      pro: paid,
     });
   }
 
-  return NextResponse.json({
-    kind: proOwed ? ('pro' as const) : null,
-    next: null,
-    pro: isPro(tier, status),
-  });
+  return NextResponse.json({ kind: after, next: null, pro: paid });
 }
 
 export async function POST(request: NextRequest) {
   const userId = await getUserId(request);
   if (!userId) {
     return NextResponse.json({ error: 'unauthorized' }, { status: 401 });
+  }
+
+  // Which screen is being dismissed. A bare POST — no body, or not JSON — is
+  // the tour, which is exactly what the tour sends and has always sent.
+  let kind: WelcomeKind = 'new';
+  try {
+    const body: { kind?: unknown } = await request.json();
+    if (body.kind === 'upsell') kind = 'upsell';
+  } catch {
+    // No body, or not JSON.
   }
 
   // The row may not exist yet for an account created minutes ago, and an
@@ -147,9 +179,10 @@ export async function POST(request: NextRequest) {
   }
 
   const now = new Date().toISOString();
+  const column = kind === 'upsell' ? 'pro_upsell_seen_at' : 'welcome_seen_at';
   const { error } = await admin
     .from('user_settings')
-    .update({ welcome_seen_at: now, updated_at: now })
+    .update({ [column]: now, updated_at: now })
     .eq('user_id', userId);
 
   if (error) {

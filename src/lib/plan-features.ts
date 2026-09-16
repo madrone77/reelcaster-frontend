@@ -296,7 +296,8 @@ export type NagFeatureId =
   | "support-the-map"
   | "support"
   | "whole-map"
-  | "depth-gate";
+  | "depth-gate"
+  | "first-login";
 
 /**
  * ⚠ Mostly vestigial: `rowId` is the only field anything still reads.
@@ -413,6 +414,19 @@ export const NAG_FEATURES: Record<NagFeatureId, NagFeature> = {
   // to highlight and the whole matrix is the pitch, same as "support the map".
   "whole-map": {
     action: "open the whole map",
+    unlocksAt: "pro",
+    pricingFeature: "whole-map",
+  },
+  // The interstitial a brand-new account meets once, after the three-step
+  // tour, if it is not already Pro. Unprompted like the depth gate — nothing
+  // was locked and nobody pressed anything — but unlike it, this one DOES sell
+  // Pro, so the honest `unlocksAt` is "pro".
+  //
+  // No rowId. The screen shows the whole "what you get with Pro" list, so
+  // highlighting one matrix row would name a smaller reason than the one it
+  // actually gives. See components/welcome/pro-upsell-modal.tsx.
+  "first-login": {
+    action: "get the full forecast from day one",
     unlocksAt: "pro",
     pricingFeature: "whole-map",
   },

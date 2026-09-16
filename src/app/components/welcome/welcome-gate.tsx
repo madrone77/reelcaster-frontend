@@ -8,12 +8,17 @@
  * on /explore. Renders null for everyone who is owed nothing, which is almost
  * everyone almost always.
  *
- * Two modals compete for this slot. The three-step tour explains the product;
- * the Pro wizard sets up an account that just went Pro. Before this gate they
- * would each have fetched on every signed-in page load and could both have
- * decided to render on the same one. Now one call to /api/welcome settles it,
- * and `next` lets the Pro wizard follow the tour in the same session rather
- * than waiting for a reload.
+ * Three modals compete for this slot. The three-step tour explains the
+ * product; the Pro wizard sets up an account that just went Pro; the Pro
+ * interstitial asks an account that did NOT to. Before this gate they would
+ * each have fetched on every signed-in page load and could all have decided to
+ * render on the same one. Now one call to /api/welcome settles it, and `next`
+ * lets the second screen follow the tour in the same session rather than
+ * waiting for a reload.
+ *
+ * The wizard and the interstitial are mutually exclusive by definition — one
+ * is for accounts that are Pro, the other for accounts that are not — so `next`
+ * only ever holds one of them and the chain is at most two screens deep.
  *
  * The Pro wizard still owns its own state fetch. It needs variant copy the
  * gate has no use for (comped, trialing, renewal date), and leaving that call
@@ -27,10 +32,11 @@ import { useAuth } from '@/contexts/auth-context';
 import { trackEvent } from '@/lib/analytics';
 import ProWelcomeModal from '@/app/components/pro/pro-welcome-modal';
 import NewUserWelcomeModal from './new-user-welcome-modal';
+import ProUpsellModal from './pro-upsell-modal';
 import HomeCityModal from './home-city-modal';
 import { homeCityAsked, useHomeCityState } from '@/app/explore/lib/use-home-city';
 
-type Kind = 'new' | 'pro' | null;
+type Kind = 'new' | 'pro' | 'upsell' | null;
 
 interface GateState {
   kind: Kind;
@@ -102,6 +108,15 @@ export default function WelcomeGate() {
     setState((s) => ({ kind: s.next, next: null, pro: s.pro }));
   }, []);
 
+  /**
+   * The interstitial closed. Nothing is ever queued behind it — it is the last
+   * screen in the chain — so this only takes it off the slot. Its own
+   * dismissal write already happened; this gate does not repeat it.
+   */
+  const onUpsellClose = useCallback(() => {
+    setState({ kind: null, next: null });
+  }, []);
+
   // `homeCityAsked()` is only meaningful once the hydrate has landed, which is
   // what `homeCityReady` gates: hydrateHomeCity copies the server's
   // homeCityAskedAt into local storage on its way through.
@@ -129,6 +144,8 @@ export default function WelcomeGate() {
   }
 
   if (state.kind === 'pro') return <ProWelcomeModal />;
+
+  if (state.kind === 'upsell') return <ProUpsellModal onClose={onUpsellClose} />;
 
   return null;
 }
