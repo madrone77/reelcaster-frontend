@@ -25,7 +25,11 @@ import { TRIAL_DAYS } from '@/lib/pricing';
  * one unbreakable run, so a narrow phone wraps them together rather than
  * splitting the pair.
  */
-const LINK = 'text-rc-brand underline underline-offset-2 hover:text-rc-brand-hover';
+// Grey and unruled: the pair is the fine print at the end of a fine-print
+// line, and a blue underlined pair there read as the two things to tap on a
+// screen whose one action is the button above them. They inherit the
+// paragraph's ink and darken on hover instead.
+const LINK = 'hover:text-rc-ink';
 
 export default function ChargeTerms({
   priceAmount,

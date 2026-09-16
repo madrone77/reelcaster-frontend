@@ -481,19 +481,18 @@ export default function ProTrialModal({
                   screen. What is left is two links, and links are small print,
                   and the small print on this modal is here. Both columns are
                   on screen together at `lg`, so nothing has moved out of
-                  sight at the moment of the ask. */}
+                  sight at the moment of the ask.
+
+                  Grey and unruled, in the paragraph's own ink: brand blue and
+                  an underline made the two smallest things on the panel look
+                  like the two things to tap, on a screen whose one action is
+                  the buy button. Small print should read as small print. */}
               <p className="px-4 sm:px-6 pb-4 -mt-2 text-[11px] leading-relaxed text-rc-ink-mute">
-                <Link
-                  href="/terms"
-                  className="text-rc-brand underline underline-offset-2 hover:text-rc-brand-hover"
-                >
+                <Link href="/terms" className="hover:text-rc-ink">
                   Terms
                 </Link>
                 {" · "}
-                <Link
-                  href="/privacy"
-                  className="text-rc-brand underline underline-offset-2 hover:text-rc-brand-hover"
-                >
+                <Link href="/privacy" className="hover:text-rc-ink">
                   Privacy
                 </Link>
               </p>
