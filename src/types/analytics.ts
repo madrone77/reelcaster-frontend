@@ -263,6 +263,13 @@ export type AnalyticsEventName =
   | 'Ad Intro Dismissed'
   | 'Spot Ad Intro Trial Clicked'
   | 'Spot Ad Intro Map Clicked'
+  // The same hero at the top of the PUBLIC spot and city pages, where it is
+  // the default rather than something a paid click brings with it. Kept apart
+  // from the two above so the ad's numbers stay readable: these fire on
+  // organic, direct and internal traffic too, and folding them together would
+  // silently inflate every campaign report that counts the ad hero.
+  | 'Seo Hero Trial Clicked'
+  | 'Seo Hero Map Clicked'
   | 'Spot Ad Reel Screen Picked'
   | 'Chart Explainer Shown'
   | 'Chart Explainer Dismissed'

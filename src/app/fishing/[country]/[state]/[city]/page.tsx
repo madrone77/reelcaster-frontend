@@ -16,6 +16,8 @@ import { SpeciesCards } from "./species-cards";
 import ProGate from "./hub/pro-gate";
 import CityInstrument from "./instrument/city-instrument";
 import { loadCity } from "./instrument/load-city";
+import { seoHeroEnabled } from "@/lib/seo-hero";
+import { speciesKeywordName } from "@/lib/species-param";
 import KeepToday from "./hub/keep-today";
 import {
   BeforeYouGo,
@@ -278,6 +280,21 @@ export default async function CityPage({
           provincePath={provincePath}
           city={city}
           window={headlineWindow}
+          /* The hero is written about the mark the page already leads with —
+             the same row `headlineWindow` and the 24-hour chart come from — so
+             the answer at the top and the evidence below it are one story.
+             Enabled from the route, never from the visitor: see
+             lib/seo-hero.ts. */
+          hero={{
+            enabled: seoHeroEnabled(countryParam, stateParam),
+            spotName: featuredFeed?.name ?? city.name,
+            fish: featuredFeed?.speciesName
+              ? speciesKeywordName(featuredFeed.speciesName)
+              : null,
+            fishSlug: featuredFeed?.speciesSlug ?? null,
+            score: featuredFeed?.peak ?? null,
+            mapHref: `/explore?loc=${city.slug}`,
+          }}
         />
 
         {/* The instrument: 14-day strip → 24-hour chart → the marks people

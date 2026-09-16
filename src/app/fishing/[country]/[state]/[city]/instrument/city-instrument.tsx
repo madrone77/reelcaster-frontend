@@ -126,6 +126,12 @@ export interface FeaturedFeed {
    *  refetched 14-day grid below is keyed by id. */
   speciesId: string;
   speciesName: string | null;
+  /** That species' slug, which is how its illustration is found — the display
+   *  name cannot tell the two halibuts apart. See lib/species-image.ts. */
+  speciesSlug: string | null;
+  /** Today's peak for it at this mark, 0–100. The same number the leaderboard
+   *  badges, so the page's headline and its rows cannot disagree. */
+  peak: number | null;
   lat: number;
   lng: number;
   /**

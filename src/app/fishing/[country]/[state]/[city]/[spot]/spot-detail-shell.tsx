@@ -63,6 +63,7 @@ import { useHomeSpot } from "@/app/explore/lib/use-home-spot";
 import HomeSpotOffer from "./home-spot-offer";
 import ChartExplainer from "./chart-explainer";
 import AdHero, { AD_HERO_REEL_COL } from "./ad-intro";
+import SeoHero from "@/app/fishing/seo-hero";
 import TopicSummary from "./topic-summary";
 import { landingTitle, type LandingTopic } from "@/lib/landing-topic";
 import {
@@ -232,6 +233,7 @@ export default function SpotDetailShell({
   landingSpecies = null,
   landingTopic = null,
   adReel = null,
+  seoHero = false,
 }: {
   page: SpotPageForClient;
   slug: string;
@@ -291,6 +293,17 @@ export default function SpotDetailShell({
    * handed in so its loaders never run for the public page. Ad frame only.
    */
   adReel?: ReactNode;
+  /**
+   * Put the landing hero at the top of the PUBLIC page, with no ad frame
+   * around it. Set per market by lib/seo-hero.ts; see that file for why this
+   * is a hard-coded list rather than a test on the visitor.
+   *
+   * Independent of `ad`: this is the plain page, so the wall, the links, the
+   * chrome and the metadata are untouched. It only decides which header the
+   * page opens with, and SeoHero itself hands the ordinary one back to a
+   * signed-in reader.
+   */
+  seoHero?: boolean;
   /**
    * Set when this render is the body of the phone's spot sheet on Explore
    * (see explore/components/mobile-spot-sheet.tsx) rather than a page of its
@@ -1493,6 +1506,24 @@ export default function SpotDetailShell({
                 onMap={() => trackEvent("Spot Ad Intro Map Clicked", { slug, ad_wall: ad.wall })}
               />
             ) : (
+            /* The same hero, on the public page, in the markets that carry it.
+               Off elsewhere and for a signed-in reader, when the block below
+               is what renders. See fishing/seo-hero.tsx. */
+            <SeoHero
+              enabled={seoHero}
+              place={slug}
+              pills={pills}
+              title={`${spot.name} Fishing Forecast`}
+              spotName={spot.name}
+              fish={selSpecies ? speciesKeywordName(selSpecies.name) : null}
+              fishSlug={selSpecies?.slug ?? null}
+              score={peakScore ?? todayScore}
+              windowLabel={win.label}
+              tidePhase={peakTidePhase}
+              /* The product's own map link: there is no frame to stay inside,
+                 so this is the ordinary deep link every other page uses. */
+              mapHref={`/explore?spot=${spot.slug}`}
+            >
             <div>
                 {pills}
                 <div className="flex items-center gap-2 mt-3">
@@ -1599,6 +1630,7 @@ export default function SpotDetailShell({
                 </p>
                 )}
               </div>
+            </SeoHero>
             )}
 
             {/* The pin, said out loud. Sits under the identity rather than
