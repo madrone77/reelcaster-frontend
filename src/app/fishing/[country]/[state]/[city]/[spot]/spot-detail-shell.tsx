@@ -233,6 +233,7 @@ export default function SpotDetailShell({
   landingSpecies = null,
   landingTopic = null,
   adReel = null,
+  seoReel = null,
   seoHero = false,
 }: {
   page: SpotPageForClient;
@@ -293,6 +294,15 @@ export default function SpotDetailShell({
    * handed in so its loaders never run for the public page. Ad frame only.
    */
   adReel?: ReactNode;
+  /**
+   * The same reel for the PUBLIC hero (see seoHero below).
+   *
+   * Separate from `adReel` because only one hero renders at a time and the two
+   * are built by different callers: the ad segment always wants it, the public
+   * page only in the markets that carry the hero. Rendered on the server by
+   * ad/ad-reel.tsx and handed in, so a page without a hero never pays for it.
+   */
+  seoReel?: ReactNode;
   /**
    * Put the landing hero at the top of the PUBLIC page, with no ad frame
    * around it. Set per market by lib/seo-hero.ts; see that file for why this
@@ -1512,6 +1522,7 @@ export default function SpotDetailShell({
             <SeoHero
               enabled={seoHero}
               place={slug}
+              reel={seoReel}
               pills={pills}
               title={`${spot.name} Fishing Forecast`}
               spotName={spot.name}

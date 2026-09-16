@@ -23,6 +23,7 @@
 // tells an angler nothing, and sourcing one per city is a licensing
 // dependency on every new city we launch.
 
+import type { ReactNode } from "react";
 import Link from "next/link";
 import type { FishingCity } from "@/app/fishing/lib/fishing-data";
 import SeoHero from "@/app/fishing/seo-hero";
@@ -50,6 +51,8 @@ export default function CityHeader({
     fishSlug: string | null;
     score: number | null;
     mapHref: string;
+    /** The four-phone reel, built on the server against the lead mark. */
+    reel?: ReactNode;
   } | null;
   /**
    * Today's best window at the top-ranked mark, already formatted, or null.
@@ -114,6 +117,7 @@ export default function CityHeader({
            is read off one mark and the phase would not be true of the rest. */
         tidePhase={null}
         mapHref={hero?.mapHref ?? `/explore?loc=${city.slug}`}
+        reel={hero?.reel ?? null}
       >
       {/* Leads with the answer, and still carries the phrase people search.
           Falls back to the plain form on a day with nothing scored, because

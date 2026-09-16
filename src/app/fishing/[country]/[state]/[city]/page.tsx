@@ -17,6 +17,7 @@ import ProGate from "./hub/pro-gate";
 import CityInstrument from "./instrument/city-instrument";
 import { loadCity } from "./instrument/load-city";
 import { seoHeroEnabled } from "@/lib/seo-hero";
+import AdReel from "./[spot]/ad/ad-reel";
 import { speciesKeywordName } from "@/lib/species-param";
 import KeepToday from "./hub/keep-today";
 import {
@@ -294,6 +295,17 @@ export default async function CityPage({
             fishSlug: featuredFeed?.speciesSlug ?? null,
             score: featuredFeed?.peak ?? null,
             mapHref: `/explore?loc=${city.slug}`,
+            /* Pointed at the lead mark, so the phones show the same water the
+               hero's sentence is about. Built only where the hero renders. */
+            reel:
+              seoHeroEnabled(countryParam, stateParam) && featuredFeed ? (
+                <AdReel
+                  slug={featuredFeed.slug}
+                  provinceCode={city.provinceCode}
+                  fishName={featuredFeed.speciesName}
+                  serverNowMs={Date.now()}
+                />
+              ) : null,
           }}
         />
 

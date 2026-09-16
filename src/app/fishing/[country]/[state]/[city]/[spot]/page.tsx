@@ -14,6 +14,7 @@ import {
 } from "@/app/fishing/lib/fishing-data";
 import { spotPath } from "@/lib/paths";
 import { seoHeroEnabled } from "@/lib/seo-hero";
+import AdReel from "./ad/ad-reel";
 
 // `spot` is the DIRECTORY name, so it is the param Next fills. Destructured
 // as `slug` below because that is what the spot payload calls it, and because
@@ -320,6 +321,20 @@ export default async function SpotDetailPage({ params }: PageProps) {
            same for a crawler and a reader and the route stays prerendered.
            See lib/seo-hero.ts. */
         seoHero={seoHeroEnabled(country, state)}
+        /* Built only where the hero renders, so a page without one pays none
+           of the reel's upstream loads. */
+        seoReel={
+          seoHeroEnabled(country, state) ? (
+            <AdReel
+              slug={slug}
+              provinceCode={state.toUpperCase()}
+              /* No `&species=` on an organic landing: the reel opens on the
+                 mark's own lead fish, the same one the hero names. */
+              fishName={null}
+              serverNowMs={serverNowMs}
+            />
+          ) : null
+        }
       />
     </>
   );

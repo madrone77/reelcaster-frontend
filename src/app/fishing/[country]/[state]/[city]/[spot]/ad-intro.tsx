@@ -64,6 +64,7 @@ export default function AdHero({
   windowLabel,
   tidePhase,
   reel,
+  breakAfterVerdict = false,
   onTrial,
   mapHref,
   onMap,
@@ -84,6 +85,13 @@ export default function AdHero({
   /** "Tide flooding". */
   tidePhase: string | null;
   reel: ReactNode;
+  /**
+   * Put the best-window sentence on its own line under the verdict.
+   *
+   * Opt-in rather than the default because the paid hero's wording has been
+   * settled over several passes and this must not quietly re-flow it.
+   */
+  breakAfterVerdict?: boolean;
   onTrial: () => void;
   /** Explore, framed and opened on this spot. */
   mapHref: string;
@@ -120,7 +128,11 @@ export default function AdHero({
               <strong className={`font-bold ${tier === "good" ? "text-rc-good" : "text-rc-ink"}`}>
                 {verdict}
               </strong>
-            )}{" "}
+            )}
+            {/* A hard break rather than a second <p>: the two sentences are one
+                thought and share the paragraph's leading, so a paragraph gap
+                here would read as a change of subject. */}
+            {breakAfterVerdict && verdict && when ? <br /> : " "}
             {when}
           </p>
         )}
