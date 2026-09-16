@@ -35,6 +35,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
+import { claimAlertLeadForUser } from '@/lib/alert-leads';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -56,6 +57,10 @@ const GATE_COLUMNS = 'welcome_seen_at, pro_upsell_seen_at';
 export type WelcomeKind = 'new' | 'pro' | 'upsell';
 
 async function getUserId(request: NextRequest): Promise<string | null> {
+  return (await getUser(request))?.id ?? null;
+}
+
+async function getUser(request: NextRequest): Promise<{ id: string; email?: string } | null> {
   const authHeader = request.headers.get('authorization');
   if (!authHeader?.startsWith('Bearer ')) return null;
 
@@ -67,7 +72,7 @@ async function getUserId(request: NextRequest): Promise<string | null> {
     error,
   } = await sb.auth.getUser(authHeader.substring(7));
 
-  return error || !user ? null : user.id;
+  return error || !user ? null : { id: user.id, email: user.email };
 }
 
 /** Same rule the six entitlement gates use. */
@@ -81,8 +86,14 @@ function isPro(tier: string, status: string): boolean {
 const NOTHING = { kind: null as WelcomeKind | null, next: null as WelcomeKind | null };
 
 export async function GET(request: NextRequest) {
-  const userId = await getUserId(request);
-  if (!userId) return NextResponse.json(NOTHING);
+  const user = await getUser(request);
+  if (!user) return NextResponse.json(NOTHING);
+  const userId = user.id;
+
+  // An address that left a signed-out alert (alert_leads) and has now made an
+  // account gets that alert moved onto the account. This route runs once per
+  // signed-in load, which makes it the one place a new account is always seen.
+  await claimAlertLeadForUser(userId, user.email);
 
   const { data, error } = await admin
     .from('user_settings')

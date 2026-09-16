@@ -782,19 +782,14 @@ export default function SpotDetailShell({
   // a free account, and clicks made down here are most of the evidence it has.
 
   const handleSetAlert = () => {
-    // Alerts are Pro-only, so a signed-out tap gets the full trial modal —
-    // matrix, cadence, pay-first checkout, free-tier link at its foot — not
-    // the slimmer sign-up gate, which exists for the FREE-tier walls.
-    if (!user) {
-      trackEvent("Alert Setup Opened", {
-        slug,
-        species: selId,
-        outcome: "upgrade-gate",
-      });
-      setAlertUpgradeOpen(true);
-      return;
-    }
-    trackEvent("Alert Setup Opened", { slug, species: selId, outcome: "opened" });
+    // A signed-out tap opens the same dialog in its guest shape: name and
+    // email, one free email alert, confirmed by link. It used to open the Pro
+    // trial modal, which asked for a decision before anyone had seen an alert.
+    trackEvent("Alert Setup Opened", {
+      slug,
+      species: selId,
+      outcome: user ? "opened" : "guest",
+    });
     setAlertOpen(true);
   };
 

@@ -59,6 +59,9 @@ const PUBLIC_PREFIXES = [
   // the one holding the session. Nothing on it is account-specific, and a page
   // that explains the product should not demand a login first.
   '/welcome',
+  // Where a signed-out visitor's alert confirm and unsubscribe links land.
+  // They have no account by definition.
+  '/alert-confirm',
 ]
 
 // Private routes that render their OWN pending state — a skeleton of the page
