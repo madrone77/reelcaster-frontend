@@ -35,6 +35,7 @@ export default function ReferralModal({
   onOpenChange,
   from,
   surface,
+  onShared,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -42,6 +43,8 @@ export default function ReferralModal({
   from: string;
   /** The same answer as a surface, for the admin's tap log. */
   surface: ReferralNagSurface;
+  /** Called when the link is copied or sent from the share sheet. */
+  onShared?: () => void;
 }) {
   const phone = useIsPhone();
   const { summary, failed } = useReferralSummary(open);
@@ -60,6 +63,7 @@ export default function ReferralModal({
       .share({ title: 'A month of ReelCaster Pro', text: referralShareText(summary.url) })
       .then(() => {
         logReferralShare('shared', surface);
+        onShared?.();
         onOpenChange(false);
       })
       // A dismissed share sheet rejects. That is a change of mind, not an error.
@@ -72,12 +76,13 @@ export default function ReferralModal({
     logReferralShare('copy', surface);
     try {
       await navigator.clipboard.writeText(summary.url);
+      onShared?.();
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     } catch {
       // Clipboard blocked. The link is on screen; long press still works.
     }
-  }, [summary, from, surface]);
+  }, [summary, from, surface, onShared]);
 
   const yours = isPaid && stripeCustomerId ? 'a month off your next year' : 'a free month of Pro';
   const days = summary?.days ?? 30;

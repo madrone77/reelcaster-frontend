@@ -5,7 +5,7 @@ import Link from "next/link";
 import dynamic from "next/dynamic";
 import { ArrowUpCircle, ChevronLeft, ChevronRight, Home, Bell, Share2, X } from "lucide-react";
 import { useAuth } from "@/contexts/auth-context";
-import ReferralNag from "@/app/components/referral/referral-nag";
+import SpotNudge from "@/app/components/nudges/spot-nudge";
 import { useSubscription } from "@/hooks/use-subscription";
 import { noteEngagement } from "@/lib/upgrade-nag";
 import { setPaywallContext } from "@/lib/paywall-context";
@@ -759,6 +759,8 @@ export default function SpotDetailShell({
   );
 
   const [logCatchOpen, setLogCatchOpen] = useState(false);
+  // Set when the dialog was opened by the catch nudge, which counts the save.
+  const catchSavedRef = useRef<(() => void) | null>(null);
   const [alertOpen, setAlertOpen] = useState(false);
 
   // ── No proactive ask here ────────────────────────────────────────────────
@@ -1224,13 +1226,21 @@ export default function SpotDetailShell({
       {/* `pt-16` clears the fixed bar at the top, on the ad frame and off it.
           A sheet has no fixed bar to clear. */}
       <div className={sheet ? "" : "pt-16"}>
-        {/* Share and get a month, at the top of the page. Not in the phone
-            sheet: its head is sticky and measured, and a strip above it
-            would push the handle down. Not under the ad frame either, where
-            the one link on the page is meant to be Back to map. An X hides
-            it on this browser for good. */}
+        {/* One nudge at the top of the page: share, log a catch here, or
+            rate ReelCaster, picked per view (components/nudges/spot-nudge).
+            Not in the phone sheet: its head is sticky and measured, and a
+            strip above it would push the handle down. Not under the ad frame
+            either, where the one link on the page is meant to be Back to
+            map. An X retires that nudge on the account. */}
         {!sheet && !ad && (
-          <ReferralNag surface="spot" shape="banner" className={PAGE_MEASURE} />
+          <SpotNudge
+            spotSlug={slug}
+            className={PAGE_MEASURE}
+            onLogCatch={(onSaved) => {
+              catchSavedRef.current = onSaved;
+              setLogCatchOpen(true);
+            }}
+          />
         )}
         {/* Sub-header: the way back to the map, then on desktop the breadcrumb
             and the freshness stamp. Full-bleed rule, inner row on the page
@@ -2259,7 +2269,11 @@ export default function SpotDetailShell({
 
       <LogCatchDialog
         open={logCatchOpen}
-        onOpenChange={setLogCatchOpen}
+        onOpenChange={(open) => {
+          setLogCatchOpen(open);
+          if (!open) catchSavedRef.current = null;
+        }}
+        onSaved={() => catchSavedRef.current?.()}
         spot={catchSpot}
         conditions={catchConditions}
         speciesOptions={speciesOptions}
