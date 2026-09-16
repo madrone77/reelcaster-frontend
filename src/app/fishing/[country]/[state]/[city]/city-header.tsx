@@ -129,12 +129,30 @@ export default function CityHeader({
           ? `Today's best fishing in ${city.name}: ${window}`
           : `Fishing in ${city.name}, ${city.provinceCode}`}
       </h1>
-      {/* No measure cap and no balancing: this is ONE line. At 15px the
+      </SeoHero>
+
+      {/* The lede, and it is OUTSIDE the hero on purpose.
+          It used to sit under the H1 as one of SeoHero's children, which
+          meant the hero swallowed it: in the markets that carry a hero the
+          page lost this line entirely, and it is the one sentence that says
+          what everything below it IS. Out here it renders on every city page
+          — under the H1 where there is no hero, under the hero where there
+          is — and the order a reader sees is unchanged either way.
+
+          Not folded into the hero's own paragraph. That one describes the
+          scoring at one mark; this one frames the whole page under it as
+          evidence rather than a pitch, which is a different claim.
+
+          No measure cap and no balancing: this is ONE line. At 15px the
           sentence runs about 600px, well inside the 1152px container, so it
           fits unbroken on any desktop width. The old 54ch cap was sized for
           the previous two-clause lede and forced this one to wrap mid-phrase.
           A phone still wraps it, which is the width doing it rather than us. */}
-      <p className="mt-2 text-[15px] leading-relaxed text-rc-ink-soft">
+      <p
+        className={`text-[15px] leading-relaxed text-rc-ink-soft ${
+          hero?.enabled ? "mt-8" : "mt-2"
+        }`}
+      >
         {/* Casey's wording, kept verbatim. It frames the page as a sample of
             the product rather than a description of it, which is what the
             page now IS: every number below is live, and the locked days are
@@ -146,7 +164,6 @@ export default function CityHeader({
         This page is full of real data to show you what you can see with
         ReelCaster in {city.name}.
       </p>
-      </SeoHero>
 
       {/* Down to the map.
           The map is the piece of this page that reads as a product rather
