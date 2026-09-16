@@ -10,9 +10,11 @@
 // published spot that holds the species, and being retainable in the city at
 // some point, and a card linking to nothing is worse than no card.
 
+import Image from "next/image";
 import Link from "next/link";
 import type { BlueCasterGuideLink } from "@/lib/bluecaster";
 import { guidePath, type PlaceLocation } from "@/lib/paths";
+import { speciesIllustration } from "@/lib/species-image";
 import { activityPhrase } from "@/app/fishing/lib/activity";
 import { SectionHeading } from "./species/[species]/guide-sections";
 
@@ -91,12 +93,31 @@ export function SpeciesCards({
             guide.open_spot_count === 0 && guide.next_open_date
               ? openingLabel(guide.next_open_date)
               : null;
+          // Decorative: the name is the next line, so an alt here would read
+          // the species twice. A species with no plate keeps the older,
+          // text-only card rather than showing a stand-in fish.
+          const plate = speciesIllustration(guide.species_slug);
           return (
             <li key={guide.species_slug}>
               <Link
                 href={guidePath(location, guide.species_slug)}
                 className="group flex h-full flex-col rounded-lg border border-rc-rule bg-rc-panel p-4 hover:border-rc-brand transition-colors"
               >
+                {plate && (
+                  <div className="mb-3 flex h-20 items-center justify-center">
+                    <Image
+                      src={plate.src}
+                      width={plate.width}
+                      height={plate.height}
+                      alt=""
+                      aria-hidden
+                      sizes="(min-width: 1024px) 320px, (min-width: 640px) 45vw, 90vw"
+                      className="h-full w-auto max-w-full object-contain"
+                      data-testid="species-card-plate"
+                    />
+                  </div>
+                )}
+
                 <div className="flex items-start justify-between gap-2">
                   <h3 className="text-[15px] font-semibold text-rc-ink group-hover:text-rc-brand transition-colors">
                     {guide.species_name}
