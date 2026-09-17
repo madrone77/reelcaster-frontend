@@ -245,6 +245,7 @@ export const LP_CSS = `
   .lp .quote{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);
     padding:18px;margin-top:12px}
   .lp .quote p{font-size:15px;color:var(--ink)}
+  .lp .quote-lab{margin-bottom:10px;font-family:var(--mono);font-size:10px;font-weight:600;letter-spacing:.12em;text-transform:uppercase;color:var(--blue)}
   .lp .quote-attr{margin-top:10px;font-family:var(--mono);font-size:10.5px;letter-spacing:.08em;color:var(--muted)}
 
   /* ---------- score distillation ---------- */
