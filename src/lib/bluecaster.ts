@@ -2030,3 +2030,44 @@ export async function recordSpotPageVerdict(
   const body = (await res.json()) as { verdictId?: string | null };
   return { ok: true, status: res.status, verdictId: body.verdictId ?? null };
 }
+
+// ── Testimonials ────────────────────────────────────────────────────────────
+
+export interface TestimonialInput {
+  name: string;
+  rating: number;
+  body: string;
+  /** Honeypot. Forwarded as-is; BlueCaster drops the row when it is filled. */
+  website?: string;
+  context?: Record<string, unknown>;
+}
+
+export type TestimonialField = "name" | "rating" | "body";
+
+/**
+ * Send one testimonial from /testimonials to BlueCaster.
+ *
+ * Server-only: holds the API key. On a 400 BlueCaster names the field it
+ * refused so the page can put the message next to it.
+ */
+export async function submitTestimonial(
+  input: TestimonialInput,
+): Promise<{ ok: boolean; status: number; field: TestimonialField | null }> {
+  const baseUrl = process.env.BLUECASTER_API_URL;
+  const apiKey = process.env.BLUECASTER_API_KEY;
+  if (!baseUrl || !apiKey) throw new Error("BlueCaster env vars not set");
+
+  const res = await fetch(`${baseUrl}/api/v1/testimonials`, {
+    method: "POST",
+    headers: { "x-api-key": apiKey, "Content-Type": "application/json" },
+    body: JSON.stringify(input),
+    cache: "no-store",
+  });
+  let field: TestimonialField | null = null;
+  if (!res.ok) {
+    const data = (await res.json().catch(() => null)) as { field?: unknown } | null;
+    const f = data?.field;
+    if (f === "name" || f === "rating" || f === "body") field = f;
+  }
+  return { ok: res.ok, status: res.status, field };
+}

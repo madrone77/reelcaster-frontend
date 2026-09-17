@@ -54,6 +54,9 @@ const PUBLIC_PREFIXES = [
   '/contact',
   '/about',
   '/faq',
+  // Unlinked, handed out by hand to customers asked for a quote. They have no
+  // reason to hold a session on the device they open it on.
+  '/testimonials',
   // Where the getting-started email lands. It goes to free accounts as well as
   // trials and gets opened on whichever device is to hand, which is often not
   // the one holding the session. Nothing on it is account-specific, and a page
