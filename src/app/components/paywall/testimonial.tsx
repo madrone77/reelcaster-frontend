@@ -3,6 +3,7 @@
 import { Star } from "lucide-react";
 import { useRef, useState, useSyncExternalStore } from "react";
 import {
+  PRO_TESTIMONIAL_LABEL,
   PROOF,
   proofQuoteFor,
   proofQuotesFor,
@@ -64,6 +65,11 @@ function Quote({ quote, stars }: { quote: ProofQuote; stars: boolean }) {
   const showStars = stars && quote.rating != null;
   return (
     <>
+      {quote.pro && (
+        <div className="mb-2 font-rc-mono text-[10px] font-semibold uppercase tracking-[0.12em] text-rc-brand">
+          {PRO_TESTIMONIAL_LABEL}
+        </div>
+      )}
       {showStars && <Stars rating={quote.rating ?? 0} />}
       <blockquote
         className={

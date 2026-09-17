@@ -4,7 +4,12 @@ import { notFound } from "next/navigation";
 import { angleFrom } from "../_shared/lp-angles";
 import { resolveLpCard } from "../_shared/lp-spot";
 import { lpRegionFor } from "../_shared/lp-region";
-import { PRICE, PROOF, proofQuoteFor } from "../_shared/lp-content";
+import {
+  PRICE,
+  PRO_TESTIMONIAL_LABEL,
+  PROOF,
+  proofQuoteFor,
+} from "../_shared/lp-content";
 import { fetchMapSpots } from "@/lib/bluecaster";
 import {
   ANON_FORECAST_DAYS,
@@ -791,6 +796,9 @@ export default async function City1Page({
               somebody who is not us. */}
           {PROOF.showProof ? (
             <figure className="quote">
+              {quote.pro ? (
+                <span className="lab quote-lab">{PRO_TESTIMONIAL_LABEL}</span>
+              ) : null}
               {quote.rating != null ? (
                 <div
                   className="stars"

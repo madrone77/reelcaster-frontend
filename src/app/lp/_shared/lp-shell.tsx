@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import type { Angle } from "./lp-angles";
-import { buildFeatures, buildLayers, priceStrings, PROOF, proofQuoteFor, type LpTreatment } from "./lp-content";
+import { buildFeatures, buildLayers, priceStrings, PRO_TESTIMONIAL_LABEL, PROOF, proofQuoteFor, type LpTreatment } from "./lp-content";
 import { usePricing } from "@/app/components/split-test/use-pricing";
 import { useSplitExposure } from "@/app/components/split-test/report";
 import { lpRegionFor } from "./lp-region";
@@ -485,6 +485,7 @@ export default function LpShell({
                 ))}
               </div>
               <div className="quote">
+                {quote.pro ? <div className="quote-lab">{PRO_TESTIMONIAL_LABEL}</div> : null}
                 <p>&ldquo;{quote.text}&rdquo;</p>
                 <div className="quote-attr">{quote.attr}</div>
               </div>

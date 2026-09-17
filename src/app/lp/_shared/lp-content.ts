@@ -283,7 +283,15 @@ export interface ProofQuote {
    * surface draws no stars then rather than inventing a number.
    */
   rating?: number;
+  /**
+   * The customer pays for Pro, checked against their subscription. Only then
+   * does a surface frame the quote as a "ReelCaster Pro Testimonial".
+   */
+  pro?: boolean;
 }
+
+/** The frame on a quote from a paying Pro customer. */
+export const PRO_TESTIMONIAL_LABEL = "ReelCaster Pro Testimonial";
 
 export const PROOF: {
   showProof: boolean;
@@ -333,10 +341,15 @@ export const PROOF: {
  * "for down in Tacoma" and "in to consideration": it is his sentence, not ours.
  *
  * No rating. He gave none, so no surface draws stars for it.
+ *
+ * Bob's quote has no `pro` flag because his plan was never checked. Set it
+ * once it has been, and his card gets the frame too.
  */
 export const WA_QUOTE: ProofQuote = {
   text: "Love it! Been using for about a month for down in Tacoma and the \u201cideal times\u201d ratings have been spot on for me. Really nice having all the info I\u2019d take in to consideration all in one place.",
   attr: "Nick S., Tacoma angler",
+  // Active pro_annual since 2026-08-19, checked in user_settings 2026-09-17.
+  pro: true,
 };
 
 /**
