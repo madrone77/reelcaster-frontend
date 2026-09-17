@@ -346,3 +346,12 @@ export const WA_QUOTE: ProofQuote = {
 export function proofQuoteFor(regionCode: string | null | undefined): ProofQuote {
   return regionCode?.trim().toUpperCase() === "WA" ? WA_QUOTE : PROOF.quote;
 }
+
+/**
+ * Every quote, the reader's own region's first. For the swipe row in
+ * `<Testimonial>` (testimonial_swipe_v1, arm b).
+ */
+export function proofQuotesFor(regionCode: string | null | undefined): ProofQuote[] {
+  const first = proofQuoteFor(regionCode);
+  return [first, ...[PROOF.quote, WA_QUOTE].filter((q) => q !== first)];
+}
