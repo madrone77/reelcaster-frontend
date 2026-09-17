@@ -275,10 +275,20 @@ export function buildLayers(
  * quoting them anywhere else, and re-run the queries in the comments rather
  * than nudging the figures.
  */
+export interface ProofQuote {
+  text: string;
+  attr: string;
+  /**
+   * Out of five, as the customer gave it. Absent when they gave none, and a
+   * surface draws no stars then rather than inventing a number.
+   */
+  rating?: number;
+}
+
 export const PROOF: {
   showProof: boolean;
   stats: ReadonlyArray<{ num: string; label: string }>;
-  quote: { text: string; attr: string; rating: number };
+  quote: ProofQuote;
 } = {
   // ON. The quote is real and permissioned, and every figure below is counted
   // from production rather than estimated, which were the two conditions this
@@ -313,3 +323,26 @@ export const PROOF: {
     attr: "Bob N., PNW Fisherman",
   },
 };
+
+/**
+ * The quote Washington readers see in place of Bob's: Seattle and Tacoma
+ * pages, Washington spot pages, and anyone the edge places in WA.
+ *
+ * Nick left it as a comment on a ReelCaster Facebook reel, 2026-09-16, and
+ * Casey chose it for Washington traffic 2026-09-17. Verbatim, including
+ * "for down in Tacoma" and "in to consideration": it is his sentence, not ours.
+ *
+ * No rating. He gave none, so no surface draws stars for it.
+ */
+export const WA_QUOTE: ProofQuote = {
+  text: "Love it! Been using for about a month for down in Tacoma and the \u201cideal times\u201d ratings have been spot on for me. Really nice having all the info I\u2019d take in to consideration all in one place.",
+  attr: "Nick S., Tacoma angler",
+};
+
+/**
+ * The quote for a reader in (or reading about) this state or province. Only
+ * Washington has its own; everywhere else gets Bob's.
+ */
+export function proofQuoteFor(regionCode: string | null | undefined): ProofQuote {
+  return regionCode?.trim().toUpperCase() === "WA" ? WA_QUOTE : PROOF.quote;
+}

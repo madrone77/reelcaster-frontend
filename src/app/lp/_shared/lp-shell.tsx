@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import type { Angle } from "./lp-angles";
-import { buildFeatures, buildLayers, priceStrings, PROOF, type LpTreatment } from "./lp-content";
+import { buildFeatures, buildLayers, priceStrings, PROOF, proofQuoteFor, type LpTreatment } from "./lp-content";
 import { usePricing } from "@/app/components/split-test/use-pricing";
 import { useSplitExposure } from "@/app/components/split-test/report";
 import { lpRegionFor } from "./lp-region";
@@ -330,6 +330,7 @@ export default function LpShell({
   // province, so a Washington ad set never renders Canadian management areas.
   // This happens in both treatments: it is a defect fix, not a style choice.
   const region = lpRegionFor(card.provinceCode);
+  const quote = proofQuoteFor(card.provinceCode);
 
   // The reader's own price, not the build's. This page is ISR-cached, so the
   // server render is the control for everybody; the hook corrects it after
@@ -484,8 +485,8 @@ export default function LpShell({
                 ))}
               </div>
               <div className="quote">
-                <p>&ldquo;{PROOF.quote.text}&rdquo;</p>
-                <div className="quote-attr">{PROOF.quote.attr}</div>
+                <p>&ldquo;{quote.text}&rdquo;</p>
+                <div className="quote-attr">{quote.attr}</div>
               </div>
             </div>
           </section>

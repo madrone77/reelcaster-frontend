@@ -1,7 +1,9 @@
 "use client";
 
 import { Star } from "lucide-react";
-import { PROOF } from "@/app/lp/_shared/lp-content";
+import { useSyncExternalStore } from "react";
+import { PROOF, proofQuoteFor } from "@/app/lp/_shared/lp-content";
+import { readReaderRegion } from "@/lib/reader-region";
 
 /**
  * The customer quote, with its rating.
@@ -22,6 +24,10 @@ import { PROOF } from "@/app/lp/_shared/lp-content";
  * should exist once, so switching the band off or correcting the attribution
  * reaches every surface at once. `ad-trial-cta.tsx` renders this same
  * component now.
+ *
+ * Washington readers get Nick's quote instead (`proofQuoteFor`), picked from
+ * the region cookie middleware writes. Every caller is a modal opened after
+ * hydration, so the cookie is read at mount and there is no swap to see.
  */
 export function Stars({ rating }: { rating: number }) {
   const filled = Math.max(0, Math.min(5, Math.round(rating)));
@@ -40,7 +46,13 @@ export function Stars({ rating }: { rating: number }) {
   );
 }
 
+/** Read once per mount. Nothing to subscribe to: modals mount fresh on each open. */
+const noSubscribe = () => () => {};
+
 export default function Testimonial({ className }: { className?: string }) {
+  const quote = proofQuoteFor(
+    useSyncExternalStore(noSubscribe, readReaderRegion, () => null),
+  );
   if (!PROOF.showProof) return null;
   return (
     <figure
@@ -48,12 +60,18 @@ export default function Testimonial({ className }: { className?: string }) {
         className ?? "mt-5 rounded border border-rc-rule bg-rc-panel/70 p-4"
       }
     >
-      <Stars rating={PROOF.quote.rating} />
-      <blockquote className="rc-body mt-2 text-[13px] leading-relaxed text-rc-ink-soft">
-        {PROOF.quote.text}
+      {quote.rating != null && <Stars rating={quote.rating} />}
+      <blockquote
+        className={
+          quote.rating != null
+            ? "rc-body mt-2 text-[13px] leading-relaxed text-rc-ink-soft"
+            : "rc-body text-[13px] leading-relaxed text-rc-ink-soft"
+        }
+      >
+        {quote.text}
       </blockquote>
       <figcaption className="mt-2 font-rc-mono text-[11px] text-rc-ink-mute">
-        {PROOF.quote.attr}
+        {quote.attr}
       </figcaption>
     </figure>
   );

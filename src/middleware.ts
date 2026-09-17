@@ -16,6 +16,11 @@ import {
 import { AUTH_COOKIE, authStateFromCookie } from '@/lib/auth-cookie'
 import { classifyUserAgent, isBotUserAgent } from '@/lib/device'
 import { readEdgeGeo } from '@/lib/edge-geo'
+import {
+  READER_REGION_COOKIE,
+  READER_REGION_MAX_AGE,
+  readerRegionFor,
+} from '@/lib/reader-region'
 import { classifyPage, classifySource } from '@/lib/traffic-source'
 import { pacificDay } from '@/lib/pacific-day'
 import { newFishingPath } from '@/lib/legacy-fishing-paths'
@@ -145,6 +150,15 @@ function stampAttribution(req: NextRequest, res: NextResponse): NextResponse {
     ...options,
     maxAge: SESSION_MAX_AGE,
   })
+
+  // Which customer quote the paywall modals show. See src/lib/reader-region.ts.
+  const readerRegion = readerRegionFor(pathname, readEdgeGeo(req.headers))
+  if (readerRegion && req.cookies.get(READER_REGION_COOKIE)?.value !== readerRegion) {
+    res.cookies.set(READER_REGION_COOKIE, readerRegion, {
+      ...options,
+      maxAge: READER_REGION_MAX_AGE,
+    })
+  }
 
   return res
 }
