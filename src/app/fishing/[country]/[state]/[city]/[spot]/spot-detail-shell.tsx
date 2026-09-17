@@ -191,6 +191,34 @@ function bestSpeciesId(page: SpotPageForClient): string | null {
   return best ?? page.species[0]?.id ?? null;
 }
 
+// Ad landings lead with the fish the searcher wants, not today's top scorer,
+// which is crab or lingcod most days. Chinook, Coho, Halibut, Lingcod in that
+// order; anything else follows, best score first; crab goes last, so it only
+// leads a spot where it is the only species.
+const AD_LEAD_ORDER = ["chinook", "coho", "halibut", "lingcod"];
+
+function adLeadRank(name: string): number {
+  const n = name.toLowerCase();
+  if (n.includes("crab")) return AD_LEAD_ORDER.length + 1;
+  const i = AD_LEAD_ORDER.findIndex((p) => n.includes(p));
+  return i === -1 ? AD_LEAD_ORDER.length : i;
+}
+
+function adOrderSpecies<T extends { id: string; name: string }>(
+  list: T[],
+  page: SpotPageForClient,
+): T[] {
+  const score = (s: T) => page.topScoreTodayBySpecies[s.id] ?? -1;
+  return [...list].sort((a, b) => {
+    // A species with no score today (closed, unscored) never leads.
+    const scored = Number(score(b) >= 0) - Number(score(a) >= 0);
+    if (scored !== 0) return scored;
+    const rank = adLeadRank(a.name) - adLeadRank(b.name);
+    if (rank !== 0) return rank;
+    return score(b) - score(a);
+  });
+}
+
 /** Where this spot sits in the public /fishing directory; null for custom
  *  spots and spots in cities that aren't published. */
 export type SpotCityLink = {
@@ -377,21 +405,24 @@ export default function SpotDetailShell({
     setSelectedHour(nowHour);
   }, [nowHour]);
 
+  const adLanding = !!ad || seoHero;
   const species = useMemo(() => {
-    const byRank = [...page.species].sort((a, b) => a.rank - b.rank);
+    const sorted = [...page.species].sort((a, b) => a.rank - b.rank);
+    const byRank = adLanding ? adOrderSpecies(sorted, page) : sorted;
     // The searched-for fish is the first card, whatever its rank here.
     if (!landingSpecies) return byRank;
     return [
       ...byRank.filter((s) => s.id === landingSpecies.id),
       ...byRank.filter((s) => s.id !== landingSpecies.id),
     ];
-  }, [page.species, landingSpecies]);
+  }, [page, landingSpecies, adLanding]);
   const [selId, setSelId] = useState<string | null>(() => {
     // A shared link's species wins over the spot's own default, but only if the
     // spot actually carries it — a stale card must not select nothing.
     if (openOnSpeciesId && page.species.some((s) => s.id === openOnSpeciesId)) {
       return openOnSpeciesId;
     }
+    if (adLanding) return species[0]?.id ?? null;
     return bestSpeciesId(page);
   });
   // Names for the per-species report split. The roster is the species this spot
