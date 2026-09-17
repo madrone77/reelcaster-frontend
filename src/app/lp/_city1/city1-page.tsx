@@ -4,7 +4,7 @@ import { notFound } from "next/navigation";
 import { angleFrom } from "../_shared/lp-angles";
 import { resolveLpCard } from "../_shared/lp-spot";
 import { lpRegionFor } from "../_shared/lp-region";
-import { PRICE, PROOF } from "../_shared/lp-content";
+import { PRICE, PROOF, proofQuoteFor } from "../_shared/lp-content";
 import { fetchMapSpots } from "@/lib/bluecaster";
 import {
   ANON_FORECAST_DAYS,
@@ -200,6 +200,8 @@ export default async function City1Page({
   if (!card) notFound();
 
   const region = lpRegionFor(card.provinceCode);
+  // Seattle and Tacoma get Nick's quote, everyone else Bob's. See WA_QUOTE.
+  const quote = proofQuoteFor(card.provinceCode);
 
   /**
    * There is no `from` key here any more, and nothing is lost by that.
@@ -774,11 +776,11 @@ export default async function City1Page({
           </div>
           <div className="one">One number, per hour, per spot.</div>
 
-          {/* Bob's review.
+          {/* The customer quote: Bob's, or Nick's on Washington pages.
               Words, rating and attribution all come from PROOF rather than
               being retyped here, so this page cannot drift from the one record
               that says the quote is real, permissioned and verbatim. The stars
-              are drawn from PROOF.quote.rating for the same reason: hardcoding
+              are drawn from quote.rating, and only when there is one, for the same reason: hardcoding
               five would be a second copy of a claim about a real person, free
               to disagree with the record the moment either changed. showProof
               is honoured, so switching the band off switches it off here too.
@@ -789,23 +791,25 @@ export default async function City1Page({
               somebody who is not us. */}
           {PROOF.showProof ? (
             <figure className="quote">
-              <div
-                className="stars"
-                role="img"
-                aria-label={`${PROOF.quote.rating} out of 5 stars`}
-              >
-                {Array.from({ length: 5 }, (_, i) => (
-                  <span
-                    key={i}
-                    className={i < Math.round(PROOF.quote.rating) ? "on" : ""}
-                    aria-hidden
-                  >
-                    {"\u2605"}
-                  </span>
-                ))}
-              </div>
-              <blockquote>{PROOF.quote.text}</blockquote>
-              <figcaption>{PROOF.quote.attr}</figcaption>
+              {quote.rating != null ? (
+                <div
+                  className="stars"
+                  role="img"
+                  aria-label={`${quote.rating} out of 5 stars`}
+                >
+                  {Array.from({ length: 5 }, (_, i) => (
+                    <span
+                      key={i}
+                      className={i < Math.round(quote.rating ?? 0) ? "on" : ""}
+                      aria-hidden
+                    >
+                      {"\u2605"}
+                    </span>
+                  ))}
+                </div>
+              ) : null}
+              <blockquote>{quote.text}</blockquote>
+              <figcaption>{quote.attr}</figcaption>
             </figure>
           ) : null}
         </div>
