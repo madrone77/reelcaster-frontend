@@ -8,7 +8,6 @@ import { btn, TOP_BAR_CTA_PHONE_WIDTH } from "@/app/components/ui/button";
 import { PAGE_MEASURE } from "@/app/components/layout/page-measure";
 import { useAuth } from "@/contexts/auth-context";
 import TrialModalButton from "@/app/components/paywall/trial-modal-button";
-import { useTrialCtaLabel } from "@/app/components/split-test/use-trial-cta-label";
 import type { NagFeatureId } from "@/lib/plan-features";
 import { fetchAlertProfiles } from "@/lib/alerts-client";
 // Search lives here because this bar is the only chrome every signed-in
@@ -49,30 +48,23 @@ const NAV: {
 ];
 
 /**
- * The signed-out trial button, worded by the `trial_cta_label_v1` split.
- * Its own component so the exposure fires only when the button is actually
- * on screen, not whenever the bar mounts behind a loading or signed-in state.
+ * The signed-out trial button. Reads "Try Pro free": the `trial_cta_label_v1`
+ * split (concluded 2026-09-17) had naming the plan pressed more often than
+ * "Start free trial" with no fewer trials per exposure, so the plan name stays.
+ * Its own component so the two bars (product and ad frame) share one label.
  */
 function TrialCtaButton({
-  surface,
   from,
   placeName,
   className,
 }: {
-  surface: "topbar" | "ad_topbar";
   from: string;
   placeName?: string;
   className: string;
 }) {
-  const { label, reportPress } = useTrialCtaLabel(surface);
   return (
-    <TrialModalButton
-      from={from}
-      placeName={placeName}
-      className={className}
-      onPress={reportPress}
-    >
-      {label}
+    <TrialModalButton from={from} placeName={placeName} className={className}>
+      Try Pro free
     </TrialModalButton>
   );
 }
@@ -444,7 +436,6 @@ export default function ExploreTopBar({
               )
             ) : (
               <TrialCtaButton
-                surface="ad_topbar"
                 from="explore-ad-topbar"
                 placeName={placeName}
                 className={`${brand ? btn.navOnBrand : btn.nav} ${TOP_BAR_CTA_PHONE_WIDTH}`}
@@ -494,7 +485,6 @@ export default function ExploreTopBar({
               {/* Pinned to one phone width (TOP_BAR_CTA_PHONE_WIDTH) so
                   Explore's Add spot, directly under it, is exactly as wide. */}
               <TrialCtaButton
-                surface="topbar"
                 from="explore-topbar"
                 placeName={placeName}
                 className={`${brand ? btn.navOnBrand : btn.nav} ${TOP_BAR_CTA_PHONE_WIDTH}`}
