@@ -329,6 +329,8 @@ export const PROOF: {
     // Given by the customer 2026-08-19. Verbatim.
     text: "ReelCaster has completely changed how I plan my fishing trips. It brings together tides, currents, wind, swell, and water temperature in one place, then pinpoints the best times and locations to fish. It saves me time and gives me real confidence I\u2019m on the water when conditions are ideal.",
     attr: "Bob N., PNW Fisherman",
+    // A Pro customer, confirmed by Casey 2026-09-17.
+    pro: true,
   },
 };
 
@@ -341,9 +343,7 @@ export const PROOF: {
  * "for down in Tacoma" and "in to consideration": it is his sentence, not ours.
  *
  * No rating. He gave none, so no surface draws stars for it.
- *
- * Bob's quote has no `pro` flag because his plan was never checked. Set it
- * once it has been, and his card gets the frame too.
+
  */
 export const WA_QUOTE: ProofQuote = {
   text: "Love it! Been using for about a month for down in Tacoma and the \u201cideal times\u201d ratings have been spot on for me. Really nice having all the info I\u2019d take in to consideration all in one place.",
