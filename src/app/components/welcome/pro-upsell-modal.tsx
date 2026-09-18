@@ -233,7 +233,7 @@ export default function ProUpsellModal({ onClose }: { onClose: () => void }) {
 
           {/* Under the button, not over it: the reader who is ready has
               already acted, and the one who hesitates scrolls into the proof. */}
-          <Testimonial className="mt-5 rounded-xl border border-rc-rule-soft bg-rc-surface p-4" />
+          <Testimonial className="mt-5" />
 
           {/* The way past. Casey's own sentence, kept whole: it names what
               declining costs instead of saying "no thanks", which names

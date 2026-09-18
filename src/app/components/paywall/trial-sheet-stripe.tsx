@@ -154,7 +154,7 @@ export default function TrialSheetStripe({
           ))}
         </ul>
 
-        <Testimonial className="mt-4 rounded-xl border border-rc-rule-soft bg-rc-surface p-4" />
+        <Testimonial className="mt-4" />
       </div>
 
       <div className="shrink-0 border-t border-rc-rule-soft px-4 pt-4 pb-[max(1rem,env(safe-area-inset-bottom))]">
