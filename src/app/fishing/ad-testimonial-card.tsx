@@ -25,12 +25,15 @@ import {
  * more. No links inside: the ad frame's rule is that nothing on the page is
  * a visible link except the trial button.
  *
- * The grid does not stretch the cards to one height (`lg:items-start`):
- * with the photo card in the row an equal-height grid left Bob's and
- * Nick's cards two-thirds empty below their words (Casey, 2026-09-18). Each
- * card ends at its own attribution, and the photo is a wide 5:2 band, not
- * 16:9, so Kevin's card is only a little taller than the other two rather
- * than twice their height.
+ * At desktop the section is one 3x2 grid. The heading and label take the
+ * first two columns of the top row; the photo card takes the third column
+ * across both rows, bottom-aligned, so its photo rises into the space
+ * beside the heading and all three cards share a bottom edge. Before this
+ * an equal-height row left Bob's and Nick's cards two-thirds empty below
+ * their words, and a non-stretching row left the bottoms ragged; Casey
+ * sketched this balance (2026-09-18). The photo is a wide 5:2 band, not
+ * 16:9. On a phone the scroller is untouched: the three figures are plain
+ * flex children until `lg:contents` hands them to the grid.
  *
  * The "ReelCaster Pro Testimonial" label came out of the cards on
  * 2026-09-18 and heads the row once, the same as the paywall modals. Later
@@ -41,18 +44,25 @@ import {
 export default function AdTestimonialCard() {
   const cards = pageTestimonials();
   return (
-    <section aria-label={PRO_TESTIMONIALS_ROW_LABEL}>
-      <h2 className="text-[22px] font-semibold leading-tight text-rc-ink lg:text-[26px]">
-        {PRO_TESTIMONIALS_ROW_TITLE}
-      </h2>
-      <div className="mt-2 mb-4 font-rc-mono text-[10px] font-semibold uppercase tracking-[0.12em] text-rc-brand">
-        {PRO_TESTIMONIALS_ROW_LABEL}
+    <section
+      aria-label={PRO_TESTIMONIALS_ROW_LABEL}
+      className="lg:grid lg:grid-cols-3 lg:grid-rows-[auto_auto] lg:gap-x-4 lg:gap-y-0"
+    >
+      <div className="lg:col-span-2 lg:self-end">
+        <h2 className="text-[22px] font-semibold leading-tight text-rc-ink lg:text-[26px]">
+          {PRO_TESTIMONIALS_ROW_TITLE}
+        </h2>
+        <div className="mt-2 mb-4 font-rc-mono text-[10px] font-semibold uppercase tracking-[0.12em] text-rc-brand">
+          {PRO_TESTIMONIALS_ROW_LABEL}
+        </div>
       </div>
-      <div className="-mx-1 flex snap-x snap-mandatory gap-4 overflow-x-auto px-1 pb-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden lg:mx-0 lg:grid lg:grid-cols-3 lg:items-start lg:overflow-visible lg:px-0 lg:pb-0">
+      <div className="-mx-1 flex snap-x snap-mandatory gap-4 overflow-x-auto px-1 pb-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden lg:contents">
         {cards.map((q) => (
           <figure
             key={q.attr}
-            className="flex w-[82%] shrink-0 snap-start flex-col overflow-hidden rounded-xl border border-rc-rule bg-rc-panel shadow-sm sm:w-[60%] lg:w-auto"
+            className={`flex w-[82%] shrink-0 snap-start flex-col overflow-hidden rounded-xl border border-rc-rule bg-rc-panel shadow-sm sm:w-[60%] lg:w-auto ${
+              q.photo ? "lg:col-start-3 lg:row-start-1 lg:row-span-2 lg:self-end" : ""
+            }`}
           >
             {q.photo && (
               <Image
