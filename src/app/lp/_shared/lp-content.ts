@@ -360,3 +360,28 @@ export function proofQuoteFor(regionCode: string | null | undefined): ProofQuote
   return regionCode?.trim().toUpperCase() === "WA" ? WA_QUOTE : PROOF.quote;
 }
 
+
+/**
+ * The quote with a picture, under the 24-hour chart on ad-framed spot pages.
+ *
+ * Kevin sent it through reelcaster.com/testimonials on 2026-09-17 with the
+ * photo of the fish, and sending that form is the permission. Verbatim apart
+ * from one tidy-up Casey asked for: he wrote "Real Caster" and it reads
+ * "ReelCaster" here and on the row in BlueCaster. Rating as he gave it.
+ *
+ * No `pro`: nobody has checked his subscription, so no surface frames it as
+ * a Pro testimonial.
+ */
+export const SPOT_AD_TESTIMONIAL: ProofQuote & {
+  photo: { src: string; alt: string; width: number; height: number };
+} = {
+  rating: 5,
+  text: "ReelCaster was very helpful in helping me figure out where and when to fish! I was lucky enough to catch a 7 lb Coho right off the beach. The info that the app provided was really helpful and it saved me the trouble of looking at multiple sources to figure out tides, weather, and regulations.",
+  attr: "Kevin, Marrowstone Island, Puget Sound, Washington",
+  photo: {
+    src: "/testimonials/kevin-coho.jpg",
+    alt: "Kevin’s 7 lb coho on a driftwood log beside a tape measure, caught from the beach at Marrowstone Island",
+    width: 1600,
+    height: 899,
+  },
+};
