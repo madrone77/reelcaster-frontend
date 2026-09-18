@@ -2,8 +2,10 @@ import type { Metadata } from 'next';
 import { headers } from 'next/headers';
 import { redirect } from 'next/navigation';
 import { submitTestimonial, type TestimonialField } from '@/lib/bluecaster';
+import PhotoField from './photo-field';
 
-// reelcaster.com/testimonials: five stars, a name, and a box.
+// reelcaster.com/testimonials: five stars, a name, a town, a box, and maybe
+// a photo.
 //
 // Nothing links here on purpose. It is the page you send someone after they
 // have said something kind, so their words arrive in their own hand with their
@@ -26,16 +28,21 @@ export const dynamic = 'force-dynamic';
 
 const STARS = [1, 2, 3, 4, 5] as const;
 const NAME_MAX = 80;
+const LOCATION_MAX = 80;
 const BODY_MAX = 1500;
 
 const ERRORS: Record<TestimonialField, string> = {
   name: 'Add your name.',
+  location: 'Keep it short.',
   rating: 'Pick a star rating.',
   body: 'Write a sentence or two.',
+  photo: 'That photo did not go through. Try a smaller one, or send without it.',
 };
 
+const FIELDS: ReadonlySet<string> = new Set(['name', 'location', 'rating', 'body', 'photo']);
+
 function isField(v: unknown): v is TestimonialField {
-  return v === 'name' || v === 'rating' || v === 'body';
+  return typeof v === 'string' && FIELDS.has(v);
 }
 
 interface PageProps {
@@ -43,6 +50,7 @@ interface PageProps {
     saved?: string;
     e?: string;
     name?: string;
+    location?: string;
     rating?: string;
     body?: string;
   }>;
@@ -53,6 +61,7 @@ export default async function TestimonialsPage({ searchParams }: PageProps) {
   const failed = isField(sp.e) ? sp.e : sp.e === 'send' ? 'send' : null;
   const draft = {
     name: typeof sp.name === 'string' ? sp.name : '',
+    location: typeof sp.location === 'string' ? sp.location : '',
     rating: Number(sp.rating) || 0,
     body: typeof sp.body === 'string' ? sp.body : '',
   };
@@ -68,8 +77,8 @@ export default async function TestimonialsPage({ searchParams }: PageProps) {
         </h1>
         <p className="text-base leading-relaxed text-rc-ink-soft">
           It goes straight to the person who builds ReelCaster. If it ends up
-          on the site it will be in your words, with the name you gave and
-          nothing else.
+          on the site it will be in your words, with the name and place you
+          gave and nothing else.
         </p>
       </article>
     );
@@ -127,27 +136,43 @@ export default async function TestimonialsPage({ searchParams }: PageProps) {
           {failed === 'rating' && <Err>{ERRORS.rating}</Err>}
         </fieldset>
 
-        <div>
-          <label
-            htmlFor="tm-name"
-            className="block font-rc-mono text-[10px] tracking-[0.12em] uppercase text-rc-ink-mute"
-          >
-            Your name
-          </label>
-          <p className="mt-1 text-xs text-rc-ink-mute">
-            First name and last initial is plenty. Add your town if you like.
-          </p>
-          <input
-            id="tm-name"
-            name="name"
-            type="text"
-            autoComplete="name"
-            maxLength={NAME_MAX}
-            defaultValue={draft.name}
-            placeholder="Nick S., Tacoma"
-            className="mt-2 w-full rounded-lg border border-rc-rule bg-rc-surface px-3.5 py-2.5 text-base text-rc-ink placeholder:text-rc-ink-mute/60 focus:border-rc-brand focus:outline-none"
-          />
-          {failed === 'name' && <Err>{ERRORS.name}</Err>}
+        <div className="grid gap-5 sm:grid-cols-2">
+          <div>
+            <label
+              htmlFor="tm-name"
+              className="block font-rc-mono text-[10px] tracking-[0.12em] uppercase text-rc-ink-mute"
+            >
+              Your name
+            </label>
+            <input
+              id="tm-name"
+              name="name"
+              type="text"
+              autoComplete="name"
+              maxLength={NAME_MAX}
+              defaultValue={draft.name}
+              className="mt-2 w-full rounded-lg border border-rc-rule bg-rc-surface px-3.5 py-2.5 text-base text-rc-ink focus:border-rc-brand focus:outline-none"
+            />
+            {failed === 'name' && <Err>{ERRORS.name}</Err>}
+          </div>
+          <div>
+            <label
+              htmlFor="tm-location"
+              className="block font-rc-mono text-[10px] tracking-[0.12em] uppercase text-rc-ink-mute"
+            >
+              Location
+            </label>
+            <input
+              id="tm-location"
+              name="location"
+              type="text"
+              autoComplete="address-level2"
+              maxLength={LOCATION_MAX}
+              defaultValue={draft.location}
+              className="mt-2 w-full rounded-lg border border-rc-rule bg-rc-surface px-3.5 py-2.5 text-base text-rc-ink focus:border-rc-brand focus:outline-none"
+            />
+            {failed === 'location' && <Err>{ERRORS.location}</Err>}
+          </div>
         </div>
 
         <div>
@@ -168,6 +193,8 @@ export default async function TestimonialsPage({ searchParams }: PageProps) {
           {failed === 'body' && <Err>{ERRORS.body}</Err>}
         </div>
 
+        <PhotoField error={failed === 'photo' ? ERRORS.photo : undefined} />
+
         {/* Honeypot: hidden from people, filled by scripts, dropped upstream. */}
         <div className="hidden" aria-hidden="true">
           <label htmlFor="tm-website">Website</label>
@@ -176,7 +203,8 @@ export default async function TestimonialsPage({ searchParams }: PageProps) {
 
         <p className="text-xs leading-relaxed text-rc-ink-mute">
           By sending this you are saying it is fine to quote you on the
-          ReelCaster website, with the name you gave above. Email
+          ReelCaster website, and to show your picture if you added one, with
+          the name and place you gave above. Email
           support@reelcaster.com any time to have it taken down.
         </p>
 
@@ -216,15 +244,20 @@ async function save(formData: FormData): Promise<void> {
   'use server';
   const h = await headers();
   const name = String(formData.get('name') ?? '');
+  const location = String(formData.get('location') ?? '');
   const rating = Number(formData.get('rating')) || 0;
   const body = String(formData.get('body') ?? '');
+  const photoRaw = formData.get('photo');
+  const photo = photoRaw instanceof File && photoRaw.size > 0 ? photoRaw : null;
 
   let field: TestimonialField | 'send' | null = null;
   try {
     const result = await submitTestimonial({
       name,
+      location,
       rating,
       body,
+      photo,
       website: String(formData.get('website') ?? ''),
       context: {
         referer: h.get('referer'),
@@ -241,7 +274,9 @@ async function save(formData: FormData): Promise<void> {
     field = 'send';
   }
 
-  const q = new URLSearchParams({ e: field, name, rating: String(rating || ''), body });
+  // The photo is not carried back: a file cannot ride a query string, and the
+  // page tells them to pick it again.
+  const q = new URLSearchParams({ e: field, name, location, rating: String(rating || ''), body });
   redirect(`/testimonials?${q.toString()}`);
 }
 

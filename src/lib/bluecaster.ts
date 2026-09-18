@@ -2035,19 +2035,31 @@ export async function recordSpotPageVerdict(
 
 export interface TestimonialInput {
   name: string;
+  location: string;
   rating: number;
   body: string;
   /** Honeypot. Forwarded as-is; BlueCaster drops the row when it is filled. */
   website?: string;
+  /** Their picture, or null. Sent as a multipart file. */
+  photo?: File | null;
   context?: Record<string, unknown>;
 }
 
-export type TestimonialField = "name" | "rating" | "body";
+export type TestimonialField = "name" | "location" | "rating" | "body" | "photo";
+
+const TESTIMONIAL_FIELDS: ReadonlySet<string> = new Set([
+  "name",
+  "location",
+  "rating",
+  "body",
+  "photo",
+]);
 
 /**
  * Send one testimonial from /testimonials to BlueCaster.
  *
- * Server-only: holds the API key. On a 400 BlueCaster names the field it
+ * Server-only: holds the API key. Always multipart, photo or not, so there is
+ * one wire shape to reason about. On a 400 BlueCaster names the field it
  * refused so the page can put the message next to it.
  */
 export async function submitTestimonial(
@@ -2057,17 +2069,27 @@ export async function submitTestimonial(
   const apiKey = process.env.BLUECASTER_API_KEY;
   if (!baseUrl || !apiKey) throw new Error("BlueCaster env vars not set");
 
+  const form = new FormData();
+  form.set("name", input.name);
+  form.set("location", input.location);
+  form.set("rating", String(input.rating));
+  form.set("body", input.body);
+  form.set("website", input.website ?? "");
+  form.set("context", JSON.stringify(input.context ?? {}));
+  if (input.photo && input.photo.size > 0) form.set("photo", input.photo, input.photo.name);
+
   const res = await fetch(`${baseUrl}/api/v1/testimonials`, {
     method: "POST",
-    headers: { "x-api-key": apiKey, "Content-Type": "application/json" },
-    body: JSON.stringify(input),
+    headers: { "x-api-key": apiKey },
+    body: form,
     cache: "no-store",
   });
   let field: TestimonialField | null = null;
   if (!res.ok) {
     const data = (await res.json().catch(() => null)) as { field?: unknown } | null;
-    const f = data?.field;
-    if (f === "name" || f === "rating" || f === "body") field = f;
+    if (typeof data?.field === "string" && TESTIMONIAL_FIELDS.has(data.field)) {
+      field = data.field as TestimonialField;
+    }
   }
   return { ok: res.ok, status: res.status, field };
 }
