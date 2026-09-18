@@ -1,5 +1,4 @@
 import Image from "next/image";
-import { Stars } from "@/app/components/paywall/testimonial";
 import {
   PRO_TESTIMONIALS_ROW_LABEL,
   PRO_TESTIMONIALS_ROW_TITLE,
@@ -34,6 +33,13 @@ import {
  * sideways with a portrait crop of the photo beside the quote ("looks like
  * shit"). No links inside: the ad frame's rule is that nothing on the page
  * is a visible link except the trial button.
+ *
+ * Each card opens with the angler: a circle of initials beside the name,
+ * the place under it, then the rating as Trustpilot-style green tiles with
+ * the score beside them, then the words (Casey, 2026-09-18, from two
+ * review-widget crops). The attribution used to close the card in mono;
+ * leading with the person is what those widgets do and it reads as a
+ * review rather than a pull quote.
  *
  * The "ReelCaster Pro Testimonial" label came out of the cards on
  * 2026-09-18 and heads the row once, the same as the paywall modals, under
@@ -78,13 +84,13 @@ export default function AdTestimonialCard() {
             <div
               className={`flex min-w-0 flex-1 flex-col p-4 md:p-5 ${q.photo ? "" : "justify-center lg:justify-start"}`}
             >
-              {q.rating != null && <Stars rating={q.rating} />}
-              <blockquote className="rc-body mt-2 text-[14px] leading-relaxed text-rc-ink-soft">
+              <figcaption>
+                <Byline attr={q.attr} />
+              </figcaption>
+              {q.rating != null && <TileStars rating={q.rating} className="mt-3" />}
+              <blockquote className="rc-body mt-3 text-[14px] leading-relaxed text-rc-ink-soft">
                 {q.text}
               </blockquote>
-              <figcaption className="mt-3 lg:mt-auto font-rc-mono text-[11px] text-rc-ink-mute">
-                {q.attr}
-              </figcaption>
             </div>
           </figure>
         ))}
@@ -93,3 +99,83 @@ export default function AdTestimonialCard() {
   );
 }
 
+
+/** "Nick S., Tacoma WA" → name and place; initials from the name's words. */
+function splitAttr(attr: string) {
+  const comma = attr.indexOf(",");
+  const name = comma === -1 ? attr : attr.slice(0, comma).trim();
+  const place = comma === -1 ? "" : attr.slice(comma + 1).trim();
+  const initials = name
+    .split(/\s+/)
+    .map((w) => w.replace(/[^\p{L}]/gu, "")[0] ?? "")
+    .join("")
+    .slice(0, 2)
+    .toUpperCase();
+  return { name, place, initials };
+}
+
+/**
+ * Circle colours by name, not by position, so the same angler wears the
+ * same circle wherever the cards appear. One light and two solid, like the
+ * widget Casey clipped.
+ */
+const AVATAR_TONES = [
+  "bg-violet-100 text-violet-700",
+  "bg-teal-600 text-white",
+  "bg-amber-100 text-amber-800",
+  "bg-sky-600 text-white",
+] as const;
+
+function Byline({ attr }: { attr: string }) {
+  const { name, place, initials } = splitAttr(attr);
+  let hash = 0;
+  for (const ch of name) hash = (hash * 31 + ch.charCodeAt(0)) >>> 0;
+  const tone = AVATAR_TONES[hash % AVATAR_TONES.length];
+  return (
+    <div className="flex items-center gap-3">
+      <span
+        aria-hidden
+        className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-[13px] font-semibold ${tone}`}
+      >
+        {initials}
+      </span>
+      <span className="min-w-0">
+        <span className="block truncate text-[14px] font-semibold text-rc-ink">{name}</span>
+        {place && <span className="block truncate text-[12px] text-rc-ink-mute">{place}</span>}
+      </span>
+    </div>
+  );
+}
+
+/**
+ * Trustpilot-style rating: five green tiles, a white star on each, the
+ * score beside them. A fractional rating part-fills its tile from the
+ * left, the way that widget shows a 4.4.
+ */
+function TileStars({ rating, className = "" }: { rating: number; className?: string }) {
+  const clamped = Math.max(0, Math.min(5, rating));
+  return (
+    <div
+      className={`flex items-center gap-1.5 ${className}`}
+      aria-label={`${clamped.toFixed(1)} out of 5 stars`}
+    >
+      <div className="flex gap-0.5">
+        {Array.from({ length: 5 }, (_, i) => {
+          const fill = Math.max(0, Math.min(1, clamped - i));
+          return (
+            <span key={i} className="relative block h-5 w-5 overflow-hidden bg-rc-rule">
+              <span
+                className="absolute inset-y-0 left-0 bg-[#00b67a]"
+                style={{ width: `${fill * 100}%` }}
+              />
+              <svg viewBox="0 0 24 24" className="relative h-5 w-5 fill-white p-[3px]" aria-hidden>
+                <path d="M12 2.5l2.9 6.1 6.6.8-4.9 4.6 1.3 6.6L12 17.3l-5.9 3.3 1.3-6.6L2.5 9.4l6.6-.8z" />
+              </svg>
+            </span>
+          );
+        })}
+      </div>
+      <span className="text-[13px] font-semibold text-rc-ink">{clamped.toFixed(1)}</span>
+    </div>
+  );
+}
