@@ -3,18 +3,18 @@
  *
  * The control, and what everyone is served unless a price test is running:
  *
- *   CAD: $45 / year        USD: $39 / year
- *   CAD: $6 / month        USD: $5 / month   (plan picker only)
+ *   CAD: $33 / year        USD: $33 / year
+ *   CAD: $6 / month        USD: $5 / month   (plan picker only, no arm)
  *
- * Repriced 2026-09-18 from $33 in both currencies. Live Stripe prices:
- * annual price_1UACAw47QDx6GFWF3cLGtJGP (lookup pro_annual_v2), monthly
- * price_1UH7IH47QDx6GFWFJwvbqi0E (lookup pro_monthly_v2). The env vars must
- * point at those before this ships: checkout verifies the displayed amount
- * against Stripe and REFUSES the sale on a mismatch, so old ids + new
- * constants (or the reverse) is a 503 on every buy button.
+ * The $45 CAD / $39 USD year is NOT the control: it is arm b of
+ * `price_annual_v2` in the registry, served through STRIPE_ANNUAL_PRICE_ID_B
+ * (price_1UACAw47QDx6GFWF3cLGtJGP) while that test runs. The monthly price
+ * is price_1UH7IH47QDx6GFWFJwvbqi0E (2026-09-18). Checkout verifies every
+ * displayed amount against Stripe and refuses the sale on a mismatch, so
+ * these constants and the env ids must always describe the same prices.
  *
  * Outside the phone sheet's plan picker there is no cadence to choose. The
- * copy does the division for the reader: $39 a year IS $3.25 a month, which
+ * copy does the division for the reader: $33 a year IS $2.75 a month, which
  * is the number every surface leads with.
  *
  * Every subscription starts with a free trial (TRIAL_DAYS): a payment method
@@ -68,8 +68,8 @@ export function billingPlanFrom(value: unknown): BillingPlan {
  * running, a test running with a broken arm, a registry that would not load.
  */
 export const CONTROL_ANNUAL_CENTS: Record<BillingCurrency, number> = {
-  cad: 4500,
-  usd: 3900,
+  cad: 3300,
+  usd: 3300,
 };
 
 /**
