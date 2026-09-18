@@ -14,13 +14,12 @@
  * still move." -- which earns its place: it is what makes an early number
  * read as a plan rather than a promise.
  *
- * ⚠ ONE PART OF THIS IS AHEAD OF THE PRODUCT: the hour.
- * `ScoreAlertItem` carries spot, species, targetDate, leadDays and score, and
- * no peak hour at all, so the real heads-up cannot say "at 7am" yet. Every
- * other word here is the engine's own. Closing the gap is a field on
- * ScoreAlertItem and one interpolation in smsFor(); until then this page is
- * showing an alert one field better than the one that sends. Do not widen
- * that gap, and delete this warning when it closes.
+ * The real message now carries the best window ("6 to 9 AM") and the wind and
+ * tide at its peak, read off the share card minted for the day. This picture
+ * carries one written-down hour and no wind, so it is the real message with
+ * the conditions clause dropped, which is exactly the fallback the real one
+ * sends when no card could be minted. Do not add words here the engine does
+ * not say.
  *
  * WHY THE NUMBERS ARE CONFIGURED AND THE DAY IS NOT
  *
@@ -72,13 +71,13 @@ function leadPhrase(leadDays: number): string {
 }
 
 /**
- * `Sun Sep 6 looks strong for Chinook at The Bell Buoy: 82 at 6am, 5 days
+ * `Sun Sep 6 is shaping up at The Bell Buoy: Chinook 82 at 6am, 5 days
  * out. Forecast can still move.`
  */
 export function formatAlertSms(p: AlertSmsParts, w: AlertSmsWhen): string {
   const text =
-    `${w.day} looks strong for ${p.species} at ${p.spot}: ` +
-    `${p.score} at ${hourLabel(p.hour)}, ${leadPhrase(w.leadDays)}. ` +
+    `${w.day} is shaping up at ${p.spot}: ` +
+    `${p.species} ${p.score} at ${hourLabel(p.hour)}, ${leadPhrase(w.leadDays)}. ` +
     `Forecast can still move.`;
   // The real one truncates at 160 because that is one SMS segment. Kept so a
   // long spot name fails here the same way it would fail in an inbox.
