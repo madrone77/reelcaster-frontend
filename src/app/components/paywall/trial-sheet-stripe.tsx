@@ -1,9 +1,11 @@
 'use client';
 
+import { useEffect, useRef, type MutableRefObject } from 'react';
 import Link from 'next/link';
 import { Check } from 'lucide-react';
 import { DialogDescription, DialogTitle } from '@/components/ui/dialog';
-import { TrialBuy, TrialCtaProvider } from './trial-cta';
+import { TrialBuy, TrialCtaProvider, useTrialCta } from './trial-cta';
+import { useTrialSheetEmail } from '../split-test/use-trial-sheet-email';
 import Testimonial from './testimonial';
 import BrandHeader from './brand-header';
 import ChargeTerms from './charge-terms';
@@ -43,6 +45,9 @@ export const PRO_ROWS_HEADING = 'What you get with Pro';
  */
 const STRIPE_INPUT = 'h-11 rounded-md px-3 text-[16px]';
 
+/** Same switch ./trial-cta reads: the email field exists only on this path. */
+const PAY_FIRST = process.env.NEXT_PUBLIC_PAY_FIRST_CHECKOUT === '1';
+
 const STRIPE_BUTTON =
   'inline-flex h-11 w-full items-center justify-center rounded-md bg-rc-brand px-4 text-[16px] font-semibold text-white shadow-[0_1px_3px_rgba(0,0,0,0.12)] transition-colors hover:bg-rc-brand-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rc-brand focus-visible:ring-offset-2 disabled:opacity-60';
 
@@ -68,6 +73,8 @@ const STRIPE_BUTTON =
  *   produced fewer trials per wall than before. Typing an address is the
  *   small commitment that sorts a curious tap from a buyer, and it is what
  *   lets the trial-eligibility pre-check run before Stripe offers a trial.
+ *   `trial_sheet_no_email_v2` (2026-09-14) tests that one change again on
+ *   its own, since the first read was a single afternoon; see SheetBuy.
  * - The rows in Casey's order, with "And more..." closing the list.
  * - A sheet that fills the screen to just under the header (the modal sets
  *   the height when this arm renders).
@@ -103,12 +110,19 @@ export default function TrialSheetStripe({
   onActivate: (method: 'annual' | 'wallet' | 'signup') => void;
 }) {
   const city = cityName ?? (placeKind === 'city' ? placeName : undefined);
+  // The buy form sits inside the provider and knows whether the reader is
+  // signed out; the provider's onActivate is set out here. The form hands its
+  // split-test press counter up through this ref.
+  const reportSheetPress = useRef<(() => void) | null>(null);
   return (
     <TrialCtaProvider
       from={from}
       region={region}
       theme="light"
-      onActivate={onActivate}
+      onActivate={(method) => {
+        if (method === 'annual') reportSheetPress.current?.();
+        onActivate(method);
+      }}
     >
       <div className="flex shrink-0 justify-center pt-3 pb-1" aria-hidden>
         <div className="h-1 w-10 rounded-full bg-rc-rule" />
@@ -171,12 +185,7 @@ export default function TrialSheetStripe({
           // No wallet row and no "or pay by card" divider above the button:
           // one field and one button, the way Stripe's page opens. Apple Pay
           // is still offered on that page for anyone whose device has it.
-          <TrialBuy
-            signupLabel={ctaLabel}
-            hideLabel
-            buttonClassName={STRIPE_BUTTON}
-            inputClassName={STRIPE_INPUT}
-          />
+          <SheetBuy ctaLabel={ctaLabel} reportPress={reportSheetPress} />
         )}
         {/* The first charge, under the button the way Stripe's page puts the
             terms under Start trial: the reader sees the date and the amount
@@ -186,5 +195,38 @@ export default function TrialSheetStripe({
         </DialogDescription>
       </div>
     </TrialCtaProvider>
+  );
+}
+
+/**
+ * The field and the button, with or without the field by `trial_sheet_no_email_v2`
+ * (see ../split-test/use-trial-sheet-email). Only a signed-out reader on the
+ * pay-first path ever sees the field, so only that reader is in the test.
+ */
+function SheetBuy({
+  ctaLabel,
+  reportPress,
+}: {
+  ctaLabel: string;
+  reportPress: MutableRefObject<(() => void) | null>;
+}) {
+  const { anon } = useTrialCta();
+  const test = useTrialSheetEmail(anon && PAY_FIRST);
+
+  useEffect(() => {
+    reportPress.current = test.reportPress;
+    return () => {
+      reportPress.current = null;
+    };
+  }, [reportPress, test.reportPress]);
+
+  return (
+    <TrialBuy
+      signupLabel={ctaLabel}
+      hideLabel
+      buttonClassName={STRIPE_BUTTON}
+      inputClassName={STRIPE_INPUT}
+      collectEmail={test.collectEmail}
+    />
   );
 }
