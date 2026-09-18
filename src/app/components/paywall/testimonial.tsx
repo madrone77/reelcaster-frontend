@@ -34,7 +34,7 @@ import { readReaderRegion } from "@/lib/reader-region";
  * reaches every surface at once. `ad-trial-cta.tsx` renders this same
  * component now.
  *
- * Washington readers get Nick's quote instead (`proofQuoteFor`), picked from
+ * Washington readers get Nick's quote instead (`modalControlQuoteFor`), picked from
  * the region cookie middleware writes. Every caller is a modal opened after
  * hydration, so the cookie is read at mount and there is no swap to see.
  *
