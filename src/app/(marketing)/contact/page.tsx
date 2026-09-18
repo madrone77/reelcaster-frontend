@@ -1,14 +1,22 @@
 import type { Metadata } from 'next';
 import { DEFAULT_OG, SITE_URL, SUPPORT_EMAIL } from '@/lib/site';
 import Link from 'next/link';
-import { Mail, MessageCircle, AlertCircle, Newspaper, LifeBuoy } from 'lucide-react';
+import {
+  Mail,
+  MessageCircle,
+  AlertCircle,
+  Newspaper,
+  Handshake,
+  Megaphone,
+  LifeBuoy,
+} from 'lucide-react';
 
 export const metadata: Metadata = {
   // Bare title — the root layout's "%s | ReelCaster" template adds the brand,
   // so naming it here too rendered "Contact ReelCaster | … | ReelCaster".
-  title: 'Contact: Support, Billing & Press',
+  title: 'Contact: Support, Billing, Partnerships & Advertising',
   description:
-    'Get in touch with ReelCaster for support, billing questions, spot data corrections, or press inquiries. We respond within two business days.',
+    'Get in touch with ReelCaster for support, billing questions, spot data corrections, press, partnerships, or advertising. We respond within two business days.',
   alternates: { canonical: `${SITE_URL}/contact` },
   openGraph: {
     title: 'Contact ReelCaster',
@@ -49,8 +57,22 @@ const TOPICS = [
   },
   {
     icon: Newspaper,
-    label: 'Press / partnerships',
+    label: 'Press',
     subject: 'Press inquiry',
+  },
+  // Partnerships and advertising each get their own door. A cold inbound from
+  // a guide outfit, a tackle shop or a media buyer should not have to guess
+  // whether "Press" is the right card, and a distinct subject line lets the
+  // inbox sort them before anyone reads them.
+  {
+    icon: Handshake,
+    label: 'Partnerships',
+    subject: 'Partnership inquiry',
+  },
+  {
+    icon: Megaphone,
+    label: 'Advertising',
+    subject: 'Advertising inquiry',
   },
 ];
 
@@ -104,7 +126,7 @@ export default function ContactPage() {
             <h2 className="text-xl font-bold text-rc-ink mb-4">
               Common topics
             </h2>
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
               {TOPICS.map((t) => (
                 <a
                   key={t.label}
