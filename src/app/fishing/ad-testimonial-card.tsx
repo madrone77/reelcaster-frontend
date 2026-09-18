@@ -35,7 +35,10 @@ import {
  * 16:9. On a phone the figures are plain flex children of the snap scroller
  * until `lg:contents` hands them to the grid; there the photo card runs
  * wider than the word cards and its photo is a taller 16:10, so the catch
- * is the thing you see when you swipe to it (Casey, 2026-09-18).
+ * is the thing you see when you swipe to it (Casey, 2026-09-18). The
+ * scroller is as tall as that card whatever we do, so the word-only cards
+ * fill it and centre their quote rather than leaving a blank band under
+ * the card or inside its foot.
  *
  * The "ReelCaster Pro Testimonial" label came out of the cards on
  * 2026-09-18 and heads the row once, the same as the paywall modals. Later
@@ -58,7 +61,7 @@ export default function AdTestimonialCard() {
           {PRO_TESTIMONIALS_ROW_LABEL}
         </div>
       </div>
-      <div className="-mx-1 flex snap-x snap-mandatory items-start gap-4 overflow-x-auto px-1 pb-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden lg:contents">
+      <div className="-mx-1 flex snap-x snap-mandatory gap-4 overflow-x-auto px-1 pb-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden lg:contents">
         {cards.map((q) => (
           <figure
             key={q.attr}
@@ -78,12 +81,14 @@ export default function AdTestimonialCard() {
                 className="aspect-[16/10] w-full object-cover lg:aspect-[5/2]"
               />
             )}
-            <div className="flex flex-1 flex-col p-4 md:p-5">
+            <div
+              className={`flex flex-1 flex-col p-4 md:p-5 ${q.photo ? "" : "justify-center lg:justify-start"}`}
+            >
               {q.rating != null && <Stars rating={q.rating} />}
               <blockquote className="rc-body mt-2 text-[14px] leading-relaxed text-rc-ink-soft">
                 {q.text}
               </blockquote>
-              <figcaption className="mt-auto pt-3 font-rc-mono text-[11px] text-rc-ink-mute">
+              <figcaption className="mt-3 lg:mt-auto lg:pt-3 font-rc-mono text-[11px] text-rc-ink-mute">
                 {q.attr}
               </figcaption>
             </div>
