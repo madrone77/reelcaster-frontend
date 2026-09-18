@@ -1,5 +1,5 @@
 import type { Metadata } from 'next';
-import { DEFAULT_OG, SITE_URL, SUPPORT_EMAIL } from '@/lib/site';
+import { DEFAULT_OG, HELLO_EMAIL, SITE_URL, SUPPORT_EMAIL } from '@/lib/site';
 import Link from 'next/link';
 import {
   Mail,
@@ -44,7 +44,12 @@ const JSONLD = {
   },
 };
 
-const TOPICS = [
+const TOPICS: {
+  icon: typeof Mail;
+  label: string;
+  subject: string;
+  to?: string;
+}[] = [
   {
     icon: AlertCircle,
     label: 'Refund or billing issue',
@@ -60,19 +65,21 @@ const TOPICS = [
     label: 'Press',
     subject: 'Press inquiry',
   },
-  // Partnerships and advertising each get their own door. A cold inbound from
-  // a guide outfit, a tackle shop or a media buyer should not have to guess
-  // whether "Press" is the right card, and a distinct subject line lets the
-  // inbox sort them before anyone reads them.
+  // Partnerships and advertising each get their own door, and they go to the
+  // business inbox rather than support. A cold inbound from a guide outfit, a
+  // tackle shop or a media buyer should not have to guess whether "Press" is
+  // the right card, nor queue behind billing tickets.
   {
     icon: Handshake,
     label: 'Partnerships',
     subject: 'Partnership inquiry',
+    to: HELLO_EMAIL,
   },
   {
     icon: Megaphone,
     label: 'Advertising',
     subject: 'Advertising inquiry',
+    to: HELLO_EMAIL,
   },
 ];
 
@@ -130,7 +137,7 @@ export default function ContactPage() {
               {TOPICS.map((t) => (
                 <a
                   key={t.label}
-                  href={`mailto:${SUPPORT_EMAIL}?subject=${encodeURIComponent(
+                  href={`mailto:${t.to ?? SUPPORT_EMAIL}?subject=${encodeURIComponent(
                     t.subject,
                   )}`}
                   className="bg-rc-panel border border-rc-rule rounded-xl p-4 hover:border-rc-brand/40 transition-colors flex flex-col gap-3"
