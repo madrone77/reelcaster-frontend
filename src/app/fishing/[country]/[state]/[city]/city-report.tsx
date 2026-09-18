@@ -29,6 +29,7 @@ import Markdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { ArrowUpCircle } from "lucide-react";
 import { useAuth } from "@/contexts/auth-context";
+import { formatReportDate } from "@/lib/time-format";
 
 interface ReportPayload {
   locked: boolean;
@@ -87,7 +88,7 @@ export default function CityReport({
           {cityName} report
         </h2>
         <span className="font-rc-mono text-[10px] text-rc-ink-mute">
-          {report.report_date}
+          {formatReportDate(report.report_date)}
         </span>
       </div>
 
