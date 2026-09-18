@@ -25,6 +25,13 @@ import {
  * more. No links inside: the ad frame's rule is that nothing on the page is
  * a visible link except the trial button.
  *
+ * The grid does not stretch the cards to one height (`lg:items-start`):
+ * with the photo card in the row an equal-height grid left Bob's and
+ * Nick's cards two-thirds empty below their words (Casey, 2026-09-18). Each
+ * card ends at its own attribution, and the photo is a wide 5:2 band, not
+ * 16:9, so Kevin's card is only a little taller than the other two rather
+ * than twice their height.
+ *
  * The "ReelCaster Pro Testimonial" label came out of the cards on
  * 2026-09-18 and heads the row once, the same as the paywall modals. Later
  * that day Casey asked for it cleaner: a real heading in words above the
@@ -41,7 +48,7 @@ export default function AdTestimonialCard() {
       <div className="mt-2 mb-4 font-rc-mono text-[10px] font-semibold uppercase tracking-[0.12em] text-rc-brand">
         {PRO_TESTIMONIALS_ROW_LABEL}
       </div>
-      <div className="-mx-1 flex snap-x snap-mandatory gap-4 overflow-x-auto px-1 pb-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden lg:mx-0 lg:grid lg:grid-cols-3 lg:overflow-visible lg:px-0 lg:pb-0">
+      <div className="-mx-1 flex snap-x snap-mandatory gap-4 overflow-x-auto px-1 pb-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden lg:mx-0 lg:grid lg:grid-cols-3 lg:items-start lg:overflow-visible lg:px-0 lg:pb-0">
         {cards.map((q) => (
           <figure
             key={q.attr}
@@ -54,7 +61,7 @@ export default function AdTestimonialCard() {
                 width={q.photo.width}
                 height={q.photo.height}
                 sizes="(min-width: 1024px) 33vw, 82vw"
-                className="aspect-[16/9] w-full object-cover"
+                className="aspect-[5/2] w-full object-cover"
               />
             )}
             <div className="flex flex-1 flex-col p-4 md:p-5">
