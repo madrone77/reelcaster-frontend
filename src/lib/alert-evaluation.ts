@@ -277,10 +277,21 @@ export async function runAlertEvaluation(): Promise<AlertEvaluationOutcome> {
                   userId: job.userId,
                   alertProfileId: item.profileId,
                 });
+                // The card already froze the day's best window and the
+                // conditions at its peak, so the message can say "glass at
+                // dawn" from the same numbers the card shows. Without a card
+                // the copy falls back to the score alone.
                 return card
                   ? {
                       ...item,
                       shareUrl: `${appBase}/explore/spot/${item.spotSlug}?share=${card.token}`,
+                      conditions: {
+                        windowStartHour: card.windowStartHour,
+                        windowEndHour: card.windowEndHour,
+                        wind: card.wind,
+                        tide: card.tide,
+                        current: card.current,
+                      },
                     }
                   : item;
               } catch (mintError) {
