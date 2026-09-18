@@ -113,6 +113,15 @@ async function loadResolvedCity(
   // The API key, which is never the URL segment.
   const citySlug = city.slug;
 
+  // The 14-day city forecast needs only the slug, so it starts here with the
+  // first wave rather than after it. On a cold render (every city page after
+  // a deploy, since none are prerendered) the waves are serial and each one
+  // is a second or more; this read used to wait for the slowest read of the
+  // first wave before it began.
+  const cityForecastPromise = fetchMapForecast14d({ city: citySlug }).catch(
+    () => null,
+  );
+
   const [payload, cityPage, cityToday] = await Promise.all([
     fetchMapSpots({ city: citySlug }),
     fetchCityPage(citySlug),
@@ -151,7 +160,7 @@ async function loadResolvedCity(
   );
 
   const [cityForecast, featuredPage] = await Promise.all([
-    fetchMapForecast14d({ city: citySlug }).catch(() => null),
+    cityForecastPromise,
     featured
       ? fetchSpotLivePage(featured.spot.slug).catch(() => null)
       : Promise.resolve(null),
