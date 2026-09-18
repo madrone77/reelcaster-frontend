@@ -5,7 +5,7 @@ import { useSyncExternalStore } from "react";
 import {
   PRO_TESTIMONIAL_LABEL,
   PROOF,
-  proofQuoteFor,
+  modalTestimonialsFor,
   type ProofQuote,
 } from "@/app/lp/_shared/lp-content";
 import { readReaderRegion } from "@/lib/reader-region";
@@ -35,7 +35,11 @@ import { readReaderRegion } from "@/lib/reader-region";
  * hydration, so the cookie is read at mount and there is no swap to see.
  *
  * testimonial_swipe_v1 (2026-09-17) tried a swipe row of both quotes with no
- * stars against this single quote and concluded for the single quote.
+ * stars against this single quote and concluded for the single quote. On
+ * 2026-09-18 Casey asked for three five-star cards in a horizontal scroller
+ * instead, in the same place: Bob, Nick's form quote and Kevin's, every one
+ * with the stars its author gave. `modalTestimonialsFor` orders them by
+ * region, the Washington angler first for Washington readers.
  */
 export function Stars({ rating }: { rating: number }) {
   const filled = Math.max(0, Math.min(5, Math.round(rating)));
@@ -57,7 +61,10 @@ export function Stars({ rating }: { rating: number }) {
 /** Read once per mount. Nothing to subscribe to: modals mount fresh on each open. */
 const noSubscribe = () => () => {};
 
-const FIGURE_CLASS = "mt-5 rounded border border-rc-rule bg-rc-panel/70 p-4";
+/** One card. Callers used to style the single figure; now the row is theirs
+ *  to place (its margin) and every card wears this. */
+const CARD_CLASS =
+  "w-[84%] shrink-0 snap-start rounded-xl border border-rc-rule-soft bg-rc-surface p-4 sm:w-[72%]";
 
 function Quote({ quote }: { quote: ProofQuote }) {
   const showStars = quote.rating != null;
@@ -85,12 +92,26 @@ function Quote({ quote }: { quote: ProofQuote }) {
   );
 }
 
+/**
+ * Three cards in a row the reader scrolls sideways, snapping card to card.
+ * The next card peeks in from the right edge, which is the whole cue that
+ * there is more; no dots, no arrows. `className` is the row's placement
+ * (its top margin); the cards style themselves.
+ */
 export default function Testimonial({ className }: { className?: string }) {
   const region = useSyncExternalStore(noSubscribe, readReaderRegion, () => null);
   if (!PROOF.showProof) return null;
+  const quotes = modalTestimonialsFor(region);
   return (
-    <figure className={className ?? FIGURE_CLASS}>
-      <Quote quote={proofQuoteFor(region)} />
-    </figure>
+    <div
+      className={`${className ?? "mt-5"} -mx-1 flex snap-x snap-mandatory gap-3 overflow-x-auto px-1 pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden`}
+      aria-label="What ReelCaster anglers say"
+    >
+      {quotes.map((q) => (
+        <figure key={q.attr} className={CARD_CLASS}>
+          <Quote quote={q} />
+        </figure>
+      ))}
+    </div>
   );
 }

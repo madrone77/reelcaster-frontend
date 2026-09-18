@@ -185,7 +185,7 @@ export default function PlanMatrix({
           PROOF.showProof is off, and the border goes with it. */}
       {withProof && PROOF.showProof && (
         <div className="border-t border-rc-rule px-4 sm:px-6 py-4">
-          <Testimonial className="" />
+          <Testimonial className="mt-0" />
         </div>
       )}
 

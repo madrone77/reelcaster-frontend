@@ -385,3 +385,51 @@ export const SPOT_AD_TESTIMONIAL: ProofQuote & {
     height: 899,
   },
 };
+
+/**
+ * Nick's second quote, sent through reelcaster.com/testimonials on
+ * 2026-09-17 with five stars. Verbatim apart from "Reel Caster" tidied to
+ * "ReelCaster", which Casey asked for; the BlueCaster row reads the same.
+ * Unlike WA_QUOTE (his Facebook comment) this one carries a rating he gave.
+ */
+export const NICK_FORM_QUOTE: ProofQuote = {
+  rating: 5,
+  text: "I\u2019ve been using ReelCaster for about a month and I love it! Having all the conditions listed together is really handy and makes deciding when to go a no brainer instead of checking multiple apps and sites to get wind, current, sea conditions and tides. I highly recommend ReelCaster!",
+  attr: "Nick S., Tacoma",
+  pro: true,
+};
+
+/**
+ * The three five-star quotes the paywall modals scroll through, in the
+ * order a reader in this region should meet them: the Washington angler
+ * first for Washington, Bob first everywhere else. Every entry carries a
+ * rating the customer gave, so every card draws stars.
+ */
+export function modalTestimonialsFor(regionCode: string | null | undefined): ProofQuote[] {
+  const kevin: ProofQuote = {
+    rating: SPOT_AD_TESTIMONIAL.rating,
+    text: SPOT_AD_TESTIMONIAL.text,
+    attr: SPOT_AD_TESTIMONIAL.attr,
+  };
+  return regionCode?.trim().toUpperCase() === "WA"
+    ? [NICK_FORM_QUOTE, KEVIN_SHORT_ATTR(kevin), PROOF.quote]
+    : [PROOF.quote, NICK_FORM_QUOTE, KEVIN_SHORT_ATTR(kevin)];
+}
+
+/** The card is narrow; "Kevin, Marrowstone Island, WA" fits where the long form wraps to three lines. */
+function KEVIN_SHORT_ATTR(q: ProofQuote): ProofQuote {
+  return { ...q, attr: "Kevin, Marrowstone Island, WA" };
+}
+
+/**
+ * The same three quotes for the row under the 24-hour chart on the spot and
+ * city pages. Kevin first, because his card carries the photo and anchors
+ * the row; the other two are words alone.
+ */
+export function pageTestimonials(): Array<ProofQuote & { photo?: typeof SPOT_AD_TESTIMONIAL.photo }> {
+  return [
+    { ...SPOT_AD_TESTIMONIAL, attr: "Kevin, Marrowstone Island, WA" },
+    NICK_FORM_QUOTE,
+    PROOF.quote,
+  ];
+}
