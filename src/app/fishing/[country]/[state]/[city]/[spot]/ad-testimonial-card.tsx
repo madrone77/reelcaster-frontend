@@ -3,10 +3,11 @@ import { Stars } from "@/app/components/paywall/testimonial";
 import { SPOT_AD_TESTIMONIAL } from "@/app/lp/_shared/lp-content";
 
 /**
- * Kevin's coho, under the 24-hour chart on `?ad=today` spot pages.
+ * Kevin's coho, at the foot of the ad hero.
  *
- * The chart above it is the promise the ad made; this is somebody who acted
- * on that promise and what came of it. Words and picture are read from the
+ * The hero above it is the promise; this is somebody who acted on that
+ * promise and what came of it. Rendered by AdHero itself, so it appears on
+ * every surface that carries the hero copy. Words and picture are read from the
  * one record in lp-content.ts, same as every other quote, so a correction
  * there reaches this box too. No link out: the ad frame's rule is that nothing
  * on the page is a visible link except the trial button.

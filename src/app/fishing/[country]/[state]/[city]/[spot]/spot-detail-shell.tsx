@@ -62,7 +62,6 @@ import { useFavorite } from "@/app/explore/lib/use-favorite";
 import { useHomeSpot } from "@/app/explore/lib/use-home-spot";
 import HomeSpotOffer from "./home-spot-offer";
 import ChartExplainer from "./chart-explainer";
-import AdTestimonialCard from "./ad-testimonial-card";
 import AdHero, { AD_HERO_REEL_COL } from "./ad-intro";
 import SeoHero from "@/app/fishing/seo-hero";
 import TopicSummary from "./topic-summary";
@@ -2120,11 +2119,6 @@ export default function SpotDetailShell({
               bestWindow={win.window}
             />
             </div>
-            {/* An angler's word for it, right under the chart the ad sold.
-                Only on the today wall: that is the ad traffic, and the box
-                is a picture and a quote, not something a returning reader
-                needs to scroll past. */}
-            {ad?.wall === "today" && <AdTestimonialCard />}
             {/* Sells the days a viewer can't see — so it has no business on a
                 Pro account, which already has all 14. Held until `tierLoading`
                 clears (isPaid starts `false`), same as the day strip, so a Pro
