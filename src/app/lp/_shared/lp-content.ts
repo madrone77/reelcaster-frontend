@@ -381,19 +381,11 @@ export function proofQuoteFor(regionCode: string | null | undefined): ProofQuote
  * No `pro`: nobody has checked his subscription, so no surface frames it as
  * a Pro testimonial.
  */
-export const SPOT_AD_TESTIMONIAL: ProofQuote & {
-  photo: { src: string; alt: string; width: number; height: number };
-} = {
+export const SPOT_AD_TESTIMONIAL: ProofQuote = {
   rating: 5,
   text: "ReelCaster was very helpful in helping me figure out where and when to fish! I was lucky enough to catch a 7 lb Coho right off the beach. The info that the app provided was really helpful and it saved me the trouble of looking at multiple sources to figure out tides, weather, and regulations.",
   // "Name, Place REGION", the same shape as Bob's and Nick's (Casey, 2026-09-18).
   attr: "Kevin, Marrowstone Island WA",
-  photo: {
-    src: "/testimonials/kevin-coho.jpg",
-    alt: "Kevin’s 7 lb coho on a driftwood log beside a tape measure, caught from the beach at Marrowstone Island",
-    width: 1600,
-    height: 899,
-  },
 };
 
 /**
@@ -440,11 +432,11 @@ export function modalTestimonialsFor(regionCode: string | null | undefined): Pro
 
 /**
  * The same three quotes for the row under the 24-hour chart on the spot and
- * city pages. The two word-only cards first, Nick then Bob, and Kevin's
- * photo card last to close the row (Casey, 2026-09-18; it opened the row
- * before that).
+ * city pages, words only. Nick then Bob, and Kevin last (Casey, 2026-09-18;
+ * he opened the row before that). Kevin's coho photo came off
+ * the row on 2026-09-18, see AdTestimonialCard.
  */
-export function pageTestimonials(): Array<ProofQuote & { photo?: typeof SPOT_AD_TESTIMONIAL.photo }> {
+export function pageTestimonials(): ProofQuote[] {
   return [
     NICK_FORM_QUOTE,
     PROOF.quote,

@@ -109,17 +109,17 @@ function Quote({ quote }: { quote: ProofQuote }) {
   );
 }
 
-/** Arm b: the review-card shape, angler first. */
+/** Arm b: the review-card shape: stars, the words, the angler under them. */
 function BylineQuote({ quote }: { quote: ProofQuote }) {
   return (
     <>
-      <figcaption>
-        <Byline attr={quote.attr} />
-      </figcaption>
-      {quote.rating != null && <TileStars rating={quote.rating} className="mt-3" />}
+      {quote.rating != null && <TileStars rating={quote.rating} />}
       <blockquote className="rc-body mt-3 text-[13px] leading-relaxed text-rc-ink-soft">
         {quote.text}
       </blockquote>
+      <figcaption className="mt-3">
+        <Byline attr={quote.attr} />
+      </figcaption>
     </>
   );
 }
