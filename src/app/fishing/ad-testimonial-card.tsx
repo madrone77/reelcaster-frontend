@@ -17,28 +17,23 @@ import {
  * catch belongs with the proof. On 2026-09-18 the single photo box became
  * this row of three, the same three cards the paywall modals scroll through.
  *
- * Three equal cards. Kevin's carries his photo across the top, which is what
- * anchors the row; Bob's and Nick's are words alone with the same frame, so
- * the row reads as one set rather than a picture with two footnotes. At
- * desktop all three sit side by side; on a phone they snap sideways with the
- * next card peeking in from the right, which is the whole cue that there is
- * more. No links inside: the ad frame's rule is that nothing on the page is
- * a visible link except the trial button.
- *
  * At desktop the section is one 3x2 grid. The heading and label take the
  * first two columns of the top row; the photo card takes the third column
  * across both rows, bottom-aligned, so its photo rises into the space
  * beside the heading and all three cards share a bottom edge. Before this
  * an equal-height row left Bob's and Nick's cards two-thirds empty below
  * their words, and a non-stretching row left the bottoms ragged; Casey
- * sketched this balance (2026-09-18). The photo is a wide 5:2 band, not
- * 16:9. On a phone the figures are plain flex children of the snap scroller
- * until `lg:contents` hands them to the grid; there the photo card runs
- * wider than the word cards and its photo is a taller 16:10, so the catch
- * is the thing you see when you swipe to it (Casey, 2026-09-18). The
- * scroller is as tall as that card whatever we do, so the word-only cards
- * fill it and centre their quote rather than leaving a blank band under
- * the card or inside its foot.
+ * sketched this balance (2026-09-18). The photo is a wide 5:2 band there.
+ *
+ * On a phone the three cards stack down the page, each at its own height,
+ * and the photo is a taller 16:10 that runs the full card width. This row
+ * was a sideways snap scroller until 2026-09-18; a scroller is as tall as
+ * its tallest card, so once Casey asked for a bigger photo on the phone
+ * the two word-only cards were padded to match it, blank above or below
+ * the quote whatever alignment we chose. Stacking is the only layout
+ * where a taller photo costs the other cards nothing. No links inside: the
+ * ad frame's rule is that nothing on the page is a visible link except the
+ * trial button.
  *
  * The "ReelCaster Pro Testimonial" label came out of the cards on
  * 2026-09-18 and heads the row once, the same as the paywall modals. Later
@@ -61,14 +56,12 @@ export default function AdTestimonialCard() {
           {PRO_TESTIMONIALS_ROW_LABEL}
         </div>
       </div>
-      <div className="-mx-1 flex snap-x snap-mandatory gap-4 overflow-x-auto px-1 pb-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden lg:contents">
+      <div className="flex flex-col gap-4 lg:contents">
         {cards.map((q) => (
           <figure
             key={q.attr}
-            className={`flex shrink-0 snap-start flex-col overflow-hidden rounded-xl border border-rc-rule bg-rc-panel shadow-sm lg:w-auto ${
-              q.photo
-                ? "w-[92%] sm:w-[70%] lg:col-start-3 lg:row-start-1 lg:row-span-2 lg:self-end"
-                : "w-[82%] sm:w-[60%]"
+            className={`flex flex-col overflow-hidden rounded-xl border border-rc-rule bg-rc-panel shadow-sm ${
+              q.photo ? "lg:col-start-3 lg:row-start-1 lg:row-span-2 lg:self-end" : ""
             }`}
           >
             {q.photo && (
@@ -77,18 +70,16 @@ export default function AdTestimonialCard() {
                 alt={q.photo.alt}
                 width={q.photo.width}
                 height={q.photo.height}
-                sizes="(min-width: 1024px) 33vw, 82vw"
+                sizes="(min-width: 1024px) 33vw, 100vw"
                 className="aspect-[16/10] w-full object-cover lg:aspect-[5/2]"
               />
             )}
-            <div
-              className={`flex flex-1 flex-col p-4 md:p-5 ${q.photo ? "" : "justify-center lg:justify-start"}`}
-            >
+            <div className="flex flex-1 flex-col p-4 md:p-5">
               {q.rating != null && <Stars rating={q.rating} />}
               <blockquote className="rc-body mt-2 text-[14px] leading-relaxed text-rc-ink-soft">
                 {q.text}
               </blockquote>
-              <figcaption className="mt-3 lg:mt-auto lg:pt-3 font-rc-mono text-[11px] text-rc-ink-mute">
+              <figcaption className="mt-auto pt-3 font-rc-mono text-[11px] text-rc-ink-mute">
                 {q.attr}
               </figcaption>
             </div>
