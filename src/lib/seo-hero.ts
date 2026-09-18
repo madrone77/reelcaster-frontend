@@ -22,9 +22,12 @@
  *
  * TO WIDEN: add a `<country>/<state>` pair. Washington is first because it is
  * where the Google Ads spend already is, so the hero's effect on organic
- * arrivals can be read against a market whose paid numbers we know.
+ * arrivals can be read against a market whose paid numbers we know. British
+ * Columbia joined on 2026-09-17: its city pages already carried the ad-frame
+ * hero on the spot routes, and the city URLs in the BC campaigns were landing
+ * on the plain header.
  */
-const SEO_HERO_MARKETS = new Set(["us/wa"]);
+const SEO_HERO_MARKETS = new Set(["us/wa", "ca/bc"]);
 
 /**
  * Markets where only the SPOT page carries the hero; their city pages keep
