@@ -60,7 +60,7 @@ export default function SharedCardDialog({
   const signupHref = `/signup?next=${encodeURIComponent(`/s/${card.token}`)}`;
 
   // The conversion moment, and it is the NORMAL case rather than an edge one.
-  // Alerts fire up to 6 days out, anonymous visitors see 2 days, and a free
+  // Alerts fire up to 6 days out, anonymous visitors see today only, and a free
   // account sees 7 — so the day a friend sent almost always sits in the gap.
   // That makes the ask specific and true: not "sign up for more", but "the day
   // you were sent is one free account away". A stale card has nothing left to

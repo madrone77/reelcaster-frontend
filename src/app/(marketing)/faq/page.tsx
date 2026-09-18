@@ -25,7 +25,7 @@ export const metadata: Metadata = {
 const FAQS: Array<{ q: string; a: string }> = [
   {
     q: 'What does Pro give me that Free doesn’t?',
-    a: 'Pro unlocks the full 14-day forecast (a Member account sees 7 days; browsing Free, with no account, shows the next 2), up to 10 custom alerts with SMS delivery, custom spots anywhere in our covered waters, and the full per-spot breakdown panel (wind, swell, tide, pressure, solunar). Member covers the live map and city/spot pages, the 7-day forecast, 1 email alert, favorites, and catch logging, and costs nothing.',
+    a: 'Pro unlocks the full 14-day forecast (a Member account sees 7 days; browsing Free, with no account, shows today only), up to 10 custom alerts with SMS delivery, custom spots anywhere in our covered waters, and the full per-spot breakdown panel (wind, swell, tide, pressure, solunar). Member covers the live map and city/spot pages, the 7-day forecast, 1 email alert, favorites, and catch logging, and costs nothing.',
   },
   // Search and AI answers have been mixing ReelCaster up with an unrelated
   // app called Reelcast. This entry states the difference in plain words so
