@@ -35,7 +35,7 @@ import { useAuth } from "@/contexts/auth-context";
  * the day it exists, with no edit here.
  */
 import {
-  lpPathTarget,
+  campaignPathTarget,
   reportCampaignCta,
   useCampaignHit,
   type CampaignTarget,
@@ -301,13 +301,14 @@ export default function CityInstrument({
     return i >= 0 ? i : 0;
   }, [featured, activeIso]);
 
-  // Counts this view once per tab when an ad frame is what rendered us. The
-  // path answers on /lp/<n>/<city>; a city-first landing page hands us
-  // `campaign` because its path cannot. Null on the public page, which counts
-  // nothing.
+  // Counts this view once per tab when an ad is what brought the reader. The
+  // path answers on /lp/<n>/<city>, and on the public city page when the URL
+  // carries campaign parameters; a city-first landing page hands us
+  // `campaign` because its path cannot. Null on an organic city visit, which
+  // counts nothing.
   // Memoised because it is read off `window.location` and so is a fresh
   // object every render, which would rebuild `handleDay` on each one.
-  const pathTarget = useMemo(() => lpPathTarget(""), []);
+  const pathTarget = useMemo(() => campaignPathTarget(""), []);
   const campaignTarget = campaign ?? pathTarget;
   useCampaignHit(campaignTarget);
 
