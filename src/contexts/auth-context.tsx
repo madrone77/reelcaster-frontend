@@ -60,7 +60,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       // every resolution, not only on the transitions, because the reader who
       // never touches a login form is the one whose cookie has to be kept
       // alive. See src/lib/auth-cookie.ts.
-      writeAuthCookie(Boolean(session))
+      writeAuthCookie(session ? 'in' : 'out')
     }
     const deadline = setTimeout(() => settle(null), SESSION_DEADLINE_MS)
     supabase.auth
@@ -76,7 +76,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setSession(session)
       setUser(session?.user ?? null)
       setLoading(false)
-      writeAuthCookie(Boolean(session))
+      writeAuthCookie(session ? 'in' : 'out')
       if (event === 'PASSWORD_RECOVERY') {
         setIsPasswordRecovery(true)
       }
