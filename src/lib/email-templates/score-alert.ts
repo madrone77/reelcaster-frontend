@@ -487,7 +487,7 @@ function smsFor(items: ScoreAlertItem[], alsoEmailing: boolean): string {
 
 /** The species chip the site's score card wears: "COHO SALMON · TODAY". */
 function chipHtml(text: string): string {
-  return `<span style="display: inline-block; background-color: ${BRAND_SOFT}; color: ${BRAND}; font-family: ${MONO}; font-size: 10px; font-weight: 600; letter-spacing: 0.14em; text-transform: uppercase; padding: 4px 8px; border-radius: 4px;">${escapeHtml(text)}</span>`;
+  return `<span style="display: inline-block; background-color: ${BRAND_SOFT}; color: ${BRAND}; font-family: ${MONO}; font-size: 10px; font-weight: 600; letter-spacing: 0.14em; text-transform: uppercase; white-space: nowrap; padding: 4px 8px; border-radius: 4px;">${escapeHtml(text)}</span>`;
 }
 
 /**
@@ -531,7 +531,7 @@ function scoreCardHtml(item: ScoreAlertItem): string {
   const win = windowText(item);
   const tidePhase = c?.tide?.split(' ')[0];
   const tideWord = tidePhase === 'Flood' || tidePhase === 'Ebb' ? `${tidePhase} tide` : null;
-  const chip = `${item.speciesName ?? 'Best species'} · ${dayLabel(item)}`;
+  const chip = item.speciesName ?? 'Best species';
   const details = [c?.wind ? `Wind ${c.wind}` : null, c?.tide ?? null, c?.current ? `Current ${c.current}` : null]
     .filter((p): p is string => !!p)
     .map(escapeHtml)
