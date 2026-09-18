@@ -9,6 +9,7 @@ import MobileBottomNav from '@/app/components/mobile-bottom-nav'
 import WelcomeGate from '@/app/components/welcome/welcome-gate'
 import ArrivalRecorder from '@/app/components/welcome/arrival-recorder'
 import AttributionCapture from '@/app/components/attribution/attribution-capture'
+import WebVitalsReporter from '@/app/components/analytics/web-vitals-reporter'
 import { GoogleAnalytics } from '@next/third-parties/google'
 import { ADSENSE_CLIENT } from '@/lib/adsense'
 import AdSenseLoader from '@/app/components/ads/adsense-loader'
@@ -168,6 +169,10 @@ export default function RootLayout({
               public marketing and city pages, which is where acquisition
               actually lands. */}
           <AttributionCapture />
+          {/* Renders null. Reports each page's Core Web Vitals to
+              /api/web-vitals for the admin's Speed tile; outside AuthGate so
+              the public spot and city pages, the slow ones, are measured. */}
+          <WebVitalsReporter />
           <MixpanelProvider>
             <UnitPreferencesProvider>
               <AuthGate>
