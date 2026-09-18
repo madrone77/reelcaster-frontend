@@ -125,8 +125,11 @@ export const PUCK = {
 /**
  * PREVIEW: a smaller puck with no white ring. Local overrides of the shared
  * geometry, so the landing-page reel puck (which reads PUCK) keeps its size.
+ *
+ * Exported as MAP_PUCK so the nearby-spot card's pin (map-puck-svg.tsx) is
+ * the puck the Explore map actually draws today, not the reel's larger one.
  */
-const G = {
+export const MAP_PUCK = {
   ...PUCK,
   PILL_H: 20,
   PILL_H_HOT: 30,
@@ -143,6 +146,15 @@ const G = {
   SCORE_FONT: { size: 12, weight: 600 },
   TAG_FONT: { size: 9, weight: 600 },
 } as const;
+const G = MAP_PUCK;
+
+/** The fill and numeral colour the map gives a score. Exported so an SVG twin
+ *  of the map puck (explore/components/map-puck-svg.tsx) paints the same. */
+export function mapPuckPaint(score: number | null): { fill: string; ink: string } {
+  return score === null || !Number.isFinite(score)
+    ? { fill: NO_DATA_COLOR, ink: "#374151" }
+    : puck4(score);
+}
 
 const {
   PAD,
