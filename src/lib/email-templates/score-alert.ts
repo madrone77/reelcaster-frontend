@@ -227,15 +227,6 @@ function partOfToday(item: ScoreAlertItem): string {
   return 'this evening';
 }
 
-/** "in the morning" / "in the afternoon" / "in the evening" / "". */
-function partOfDay(item: ScoreAlertItem): string {
-  const start = item.conditions?.windowStartHour ?? null;
-  if (start === null) return '';
-  if (start < 12) return 'in the morning';
-  if (start < 17) return 'in the afternoon';
-  return 'in the evening';
-}
-
 /**
  * The name an angler says out loud. "Hat Island (Gedney Island) South End"
  * is the chart's name and belongs on the spot page; in a subject line and a
