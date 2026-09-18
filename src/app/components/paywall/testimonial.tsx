@@ -3,7 +3,7 @@
 import { Star } from "lucide-react";
 import { useSyncExternalStore } from "react";
 import {
-  PRO_TESTIMONIAL_LABEL,
+  PRO_TESTIMONIALS_ROW_LABEL,
   PROOF,
   modalTestimonialsFor,
   type ProofQuote,
@@ -39,7 +39,9 @@ import { readReaderRegion } from "@/lib/reader-region";
  * 2026-09-18 Casey asked for three five-star cards in a horizontal scroller
  * instead, in the same place: Bob, Nick's form quote and Kevin's, every one
  * with the stars its author gave. `modalTestimonialsFor` orders them by
- * region, the Washington angler first for Washington readers.
+ * region, the Washington angler first for Washington readers. Later that day
+ * the "ReelCaster Pro Testimonial" label came out of the cards and sits once
+ * above the row as its heading.
  */
 export function Stars({ rating }: { rating: number }) {
   const filled = Math.max(0, Math.min(5, Math.round(rating)));
@@ -70,11 +72,6 @@ function Quote({ quote }: { quote: ProofQuote }) {
   const showStars = quote.rating != null;
   return (
     <>
-      {quote.pro && (
-        <div className="mb-2 font-rc-mono text-[10px] font-semibold uppercase tracking-[0.12em] text-rc-brand">
-          {PRO_TESTIMONIAL_LABEL}
-        </div>
-      )}
       {showStars && <Stars rating={quote.rating ?? 0} />}
       <blockquote
         className={
@@ -93,25 +90,27 @@ function Quote({ quote }: { quote: ProofQuote }) {
 }
 
 /**
- * Three cards in a row the reader scrolls sideways, snapping card to card.
- * The next card peeks in from the right edge, which is the whole cue that
- * there is more; no dots, no arrows. `className` is the row's placement
- * (its top margin); the cards style themselves.
+ * A heading, then three cards in a row the reader scrolls sideways, snapping
+ * card to card. The next card peeks in from the right edge, which is the
+ * whole cue that there is more; no dots, no arrows. `className` is the
+ * block's placement (its top margin); the cards style themselves.
  */
 export default function Testimonial({ className }: { className?: string }) {
   const region = useSyncExternalStore(noSubscribe, readReaderRegion, () => null);
   if (!PROOF.showProof) return null;
   const quotes = modalTestimonialsFor(region);
   return (
-    <div
-      className={`${className ?? "mt-5"} -mx-1 flex snap-x snap-mandatory gap-3 overflow-x-auto px-1 pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden`}
-      aria-label="What ReelCaster anglers say"
-    >
-      {quotes.map((q) => (
-        <figure key={q.attr} className={CARD_CLASS}>
-          <Quote quote={q} />
-        </figure>
-      ))}
-    </div>
+    <section className={className ?? "mt-5"} aria-label={PRO_TESTIMONIALS_ROW_LABEL}>
+      <div className="mb-2 font-rc-mono text-[10px] font-semibold uppercase tracking-[0.12em] text-rc-brand">
+        {PRO_TESTIMONIALS_ROW_LABEL}
+      </div>
+      <div className="-mx-1 flex snap-x snap-mandatory gap-3 overflow-x-auto px-1 pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+        {quotes.map((q) => (
+          <figure key={q.attr} className={CARD_CLASS}>
+            <Quote quote={q} />
+          </figure>
+        ))}
+      </div>
+    </section>
   );
 }

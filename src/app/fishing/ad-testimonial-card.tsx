@@ -1,6 +1,6 @@
 import Image from "next/image";
 import { Stars } from "@/app/components/paywall/testimonial";
-import { PRO_TESTIMONIAL_LABEL, pageTestimonials } from "@/app/lp/_shared/lp-content";
+import { PRO_TESTIMONIALS_ROW_LABEL, pageTestimonials } from "@/app/lp/_shared/lp-content";
 
 /**
  * Three anglers' word for it, under the 24-hour chart on every page that
@@ -20,13 +20,16 @@ import { PRO_TESTIMONIAL_LABEL, pageTestimonials } from "@/app/lp/_shared/lp-con
  * next card peeking in from the right, which is the whole cue that there is
  * more. No links inside: the ad frame's rule is that nothing on the page is
  * a visible link except the trial button.
+ *
+ * The "ReelCaster Pro Testimonial" label came out of the cards on
+ * 2026-09-18 and heads the row once, the same as the paywall modals.
  */
 export default function AdTestimonialCard() {
   const cards = pageTestimonials();
   return (
-    <section aria-label="What ReelCaster anglers say">
-      <div className="mb-3 font-rc-mono text-[10px] font-semibold uppercase tracking-[0.12em] text-rc-ink-mute">
-        From ReelCaster anglers
+    <section aria-label={PRO_TESTIMONIALS_ROW_LABEL}>
+      <div className="mb-3 font-rc-mono text-[10px] font-semibold uppercase tracking-[0.12em] text-rc-brand">
+        {PRO_TESTIMONIALS_ROW_LABEL}
       </div>
       <div className="-mx-1 flex snap-x snap-mandatory gap-4 overflow-x-auto px-1 pb-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden lg:mx-0 lg:grid lg:grid-cols-3 lg:overflow-visible lg:px-0 lg:pb-0">
         {cards.map((q) => (
@@ -45,11 +48,6 @@ export default function AdTestimonialCard() {
               />
             )}
             <div className="flex flex-1 flex-col p-4 md:p-5">
-              {q.pro && (
-                <div className="mb-2 font-rc-mono text-[10px] font-semibold uppercase tracking-[0.12em] text-rc-brand">
-                  {PRO_TESTIMONIAL_LABEL}
-                </div>
-              )}
               {q.rating != null && <Stars rating={q.rating} />}
               <blockquote className="rc-body mt-2 text-[14px] leading-relaxed text-rc-ink-soft">
                 {q.text}
