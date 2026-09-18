@@ -28,11 +28,12 @@ import { Byline, TileStars } from "@/app/components/testimonial-parts";
  * right. No links inside: the ad frame's rule is that nothing on the page
  * is a visible link except the trial button.
  *
- * Each card opens with the angler: a circle of initials beside the name,
- * the place under it, then the rating as Trustpilot-style green tiles with
- * the score beside them, then the words (Casey, 2026-09-18, from two
- * review-widget crops). The "ReelCaster Pro Testimonial" label heads the
- * row once, under a real heading in words, the same as the paywall modals.
+ * Each card opens with the rating, five yellow stars and the score beside
+ * them, then the words, then the angler's name with the place under it.
+ * The card carried a circle of initials and led with the byline through
+ * 2026-09-18; Casey took the circle out and moved the name under the quote
+ * the same day. The "ReelCaster Pro Testimonial" label heads the row once,
+ * under a real heading in words, the same as the paywall modals.
  */
 export default function AdTestimonialCard() {
   const cards = pageTestimonials();
@@ -50,13 +51,13 @@ export default function AdTestimonialCard() {
             key={q.attr}
             className="flex w-[82%] shrink-0 snap-start flex-col rounded-xl border border-rc-rule bg-rc-panel p-4 shadow-sm sm:w-[60%] md:p-5 lg:w-auto"
           >
-            <figcaption>
-              <Byline attr={q.attr} />
-            </figcaption>
-            {q.rating != null && <TileStars rating={q.rating} className="mt-3" />}
-            <blockquote className="rc-body mt-3 text-[14px] leading-relaxed text-rc-ink-soft">
+            {q.rating != null && <TileStars rating={q.rating} />}
+            <blockquote className="rc-body mt-3 flex-1 text-[14px] leading-relaxed text-rc-ink-soft">
               {q.text}
             </blockquote>
+            <figcaption className="mt-4">
+              <Byline attr={q.attr} />
+            </figcaption>
           </figure>
         ))}
       </div>
