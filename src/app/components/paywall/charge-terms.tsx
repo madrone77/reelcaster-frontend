@@ -24,6 +24,16 @@ import { TRIAL_DAYS, dollars } from '@/lib/pricing';
  * the reader before the tap, not only on Stripe's page after it. They sit in
  * one unbreakable run, so a narrow phone wraps them together rather than
  * splitting the pair.
+ *
+ * One line for both plans (2026-09-18): the monthly sentence ("$6.00 per
+ * month, charged today, until you cancel · Terms · Privacy") ran two lines on
+ * a phone where the yearly one ran one, so switching plans grew the sheet by
+ * a line and the button jumped under the thumb. The monthly line now has the
+ * yearly line's shape and length ("$6.00 per month starting today"), the
+ * yearly line loses its leading "Then" (the card and the title above it
+ * already say the week is free), and the paragraph is held to a single line
+ * so the two plans can never differ in height. On a 320px phone the line
+ * shrinks a step rather than wrapping.
  */
 // Grey and unruled: the pair is the fine print at the end of a fine-print
 // line, and a blue underlined pair there read as the two things to tap on a
@@ -43,12 +53,15 @@ export default function ChargeTerms({
   const price = /\.\d{2}$/.test(shown) ? shown : `${shown}.00`;
   const when = trialOn && chargeDate ? chargeDate : `day ${TRIAL_DAYS}`;
   return (
-    <p {...rest} className={`text-[13px] leading-[18px] text-rc-ink-soft ${className ?? ''}`}>
+    <p
+      {...rest}
+      className={`whitespace-nowrap text-[13px] leading-[18px] text-rc-ink-soft max-[359px]:text-[12px] ${className ?? ''}`}
+    >
       {plan === 'monthly' ? (
-        <>{price} per month, charged today, until you cancel</>
+        <>{price} per month starting today</>
       ) : (
         <>
-          Then {price} per year starting {when}
+          {price} per year starting {when}
         </>
       )}{' '}
       <span className="whitespace-nowrap">
