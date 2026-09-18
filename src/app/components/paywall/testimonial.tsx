@@ -2,6 +2,8 @@
 
 import { Star } from "lucide-react";
 import { useSyncExternalStore } from "react";
+import { Byline, TileStars } from "@/app/components/testimonial-parts";
+import { useTestimonialByline } from "@/app/components/split-test/use-testimonial-byline";
 import {
   PRO_TESTIMONIALS_ROW_LABEL,
   PROOF,
@@ -42,6 +44,13 @@ import { readReaderRegion } from "@/lib/reader-region";
  * region, the Washington angler first for Washington readers. Later that day
  * the "ReelCaster Pro Testimonial" label came out of the cards and sits once
  * above the row as its heading.
+ *
+ * testimonial_byline_v1 (2026-09-18) splits the card's shape. Arm a is this
+ * one: small gold stars, the quote, the name in mono at the foot. Arm b is
+ * the shape the row under the chart wears: byline with an initials circle
+ * first, Trustpilot-style tile stars with the score, then the words
+ * (`testimonial-parts.tsx`). See use-testimonial-byline.ts. Either way the
+ * rating is read from the record, never drawn by hand.
  */
 export function Stars({ rating }: { rating: number }) {
   const filled = Math.max(0, Math.min(5, Math.round(rating)));
@@ -59,7 +68,6 @@ export function Stars({ rating }: { rating: number }) {
     </div>
   );
 }
-
 /** Read once per mount. Nothing to subscribe to: modals mount fresh on each open. */
 const noSubscribe = () => () => {};
 
@@ -68,6 +76,7 @@ const noSubscribe = () => () => {};
 const CARD_CLASS =
   "w-[84%] shrink-0 snap-start rounded-xl border border-rc-rule-soft bg-rc-surface p-4 sm:w-[72%]";
 
+/** Arm a: the card as it has been since the row of three arrived. */
 function Quote({ quote }: { quote: ProofQuote }) {
   const showStars = quote.rating != null;
   return (
@@ -89,6 +98,21 @@ function Quote({ quote }: { quote: ProofQuote }) {
   );
 }
 
+/** Arm b: the review-card shape, angler first. */
+function BylineQuote({ quote }: { quote: ProofQuote }) {
+  return (
+    <>
+      <figcaption>
+        <Byline attr={quote.attr} />
+      </figcaption>
+      {quote.rating != null && <TileStars rating={quote.rating} className="mt-3" />}
+      <blockquote className="rc-body mt-3 text-[13px] leading-relaxed text-rc-ink-soft">
+        {quote.text}
+      </blockquote>
+    </>
+  );
+}
+
 /**
  * A heading, then three cards in a row the reader scrolls sideways, snapping
  * card to card. The next card peeks in from the right edge, which is the
@@ -97,6 +121,7 @@ function Quote({ quote }: { quote: ProofQuote }) {
  */
 export default function Testimonial({ className }: { className?: string }) {
   const region = useSyncExternalStore(noSubscribe, readReaderRegion, () => null);
+  const byline = useTestimonialByline();
   if (!PROOF.showProof) return null;
   const quotes = modalTestimonialsFor(region);
   return (
@@ -106,8 +131,8 @@ export default function Testimonial({ className }: { className?: string }) {
       </div>
       <div className="-mx-1 flex snap-x snap-mandatory gap-3 overflow-x-auto px-1 pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
         {quotes.map((q) => (
-          <figure key={q.attr} className={CARD_CLASS}>
-            <Quote quote={q} />
+          <figure key={q.attr} className={CARD_CLASS} data-testimonial-arm={byline ? "b" : "a"}>
+            {byline ? <BylineQuote quote={q} /> : <Quote quote={q} />}
           </figure>
         ))}
       </div>
