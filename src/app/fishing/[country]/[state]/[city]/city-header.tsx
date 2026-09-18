@@ -28,6 +28,7 @@ import Link from "next/link";
 import { ArrowDown } from "lucide-react";
 import type { FishingCity } from "@/app/fishing/lib/fishing-data";
 import SeoHero from "@/app/fishing/seo-hero";
+import type { Biting } from "@/lib/lead-species";
 
 export default function CityHeader({
   city,
@@ -54,6 +55,9 @@ export default function CityHeader({
     mapHref: string;
     /** The four-phone reel, built on the server against the lead mark. */
     reel?: ReactNode;
+    /** "What's biting now around Victoria: Coho", when the city's headline
+     *  fish came from catches. Null hides the line. */
+    biting?: Biting | null;
   } | null;
   /**
    * Today's best window at the top-ranked mark, already formatted, or null.
@@ -119,6 +123,7 @@ export default function CityHeader({
         tidePhase={null}
         mapHref={hero?.mapHref ?? `/explore?loc=${city.slug}`}
         reel={hero?.reel ?? null}
+        biting={hero?.biting ?? null}
       >
       {/* Leads with the answer, and still carries the phrase people search.
           Falls back to the plain form on a day with nothing scored, because

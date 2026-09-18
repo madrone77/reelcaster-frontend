@@ -85,7 +85,7 @@ import {
   type CampaignTarget,
 } from "@/app/lp/_shared/lp-telemetry";
 import { withAdParams, type AdMode, type AdWall } from "@/lib/ad-mode";
-import { orderLeadSpecies } from "@/lib/lead-species";
+import { bitingFor, orderLeadSpecies } from "@/lib/lead-species";
 import { speciesKeywordName } from "@/lib/species-param";
 import MarketingFooter from "@/app/components/marketing/marketing-footer";
 import { PAGE_MEASURE } from "@/app/components/layout/page-measure";
@@ -193,19 +193,33 @@ function bestSpeciesId(page: SpotPageForClient): string | null {
   return best ?? page.species[0]?.id ?? null;
 }
 
-// Ad landings lead with the fish the searcher wants, not today's top scorer.
-// The order itself lives in lib/lead-species.ts, shared with the city hero.
+// Ad landings lead with the fish anglers are catching, not today's top scorer.
+//
+// BlueCaster decides that on the payload (`leadSpecies`): this spot's reports
+// over the fortnight, then its city's, then the city's creel checks, each
+// already gated to species scored today and retention-open here, crab last.
+// The fixed order in lib/lead-species.ts (shared with the city hero) orders
+// the rest of the row and stands in entirely for a payload without the field.
 
 function adOrderSpecies<T extends { id: string; name: string }>(
   list: T[],
   page: SpotPageForClient,
 ): T[] {
-  return orderLeadSpecies(
+  const ordered = orderLeadSpecies(
     list.map((s) => ({
       ...s,
       score: page.topScoreTodayBySpecies[s.id] ?? -1,
     })),
   );
+  const leadId = page.leadSpecies?.speciesId;
+  // Only a species the row carries AND that scored today can move up; the
+  // payload should never name one that did not, but a stale card must not
+  // select nothing.
+  const lead = leadId
+    ? ordered.find((s) => s.id === leadId && s.score >= 0)
+    : undefined;
+  if (!lead) return ordered;
+  return [lead, ...ordered.filter((s) => s.id !== lead.id)];
 }
 
 /** Where this spot sits in the public /fishing directory; null for custom
@@ -428,6 +442,14 @@ export default function SpotDetailShell({
   const headlineFish = selSpecies
     ? speciesKeywordName(selSpecies.name)
     : (landingSpecies?.name ?? null);
+  // "What's biting now", only while the SELECTED fish is the one the catches
+  // picked: tap another card and the line goes, because nothing says that fish
+  // is biting. Named for the spot or its city by which tier decided.
+  const biting = bitingFor(
+    page.leadSpecies,
+    selSpecies ? { id: selSpecies.id, fish: speciesKeywordName(selSpecies.name) } : null,
+    { spot: spot.name, city: cityLink?.cityName ?? spot.city ?? null },
+  );
 
   // ── lazy data ─────────────────────────────────────────────────────────
   const [fc, setFc] = useState<Forecast14dPayload | null>(null);
@@ -1574,6 +1596,7 @@ export default function SpotDetailShell({
                 windowLabel={win.label}
                 tidePhase={peakTidePhase}
                 reel={adReel}
+                biting={biting}
                 onTrial={() => {
                   trackEvent("Spot Ad Intro Trial Clicked", { slug, ad_wall: ad.wall });
                   setIntroTrialOpen(true);
@@ -1597,6 +1620,7 @@ export default function SpotDetailShell({
               score={peakScore ?? todayScore}
               windowLabel={win.label}
               tidePhase={peakTidePhase}
+              biting={biting}
               /* The product's own map link: there is no frame to stay inside,
                  so this is the ordinary deep link every other page uses. */
               mapHref={`/explore?spot=${spot.slug}`}

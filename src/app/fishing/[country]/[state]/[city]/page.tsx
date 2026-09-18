@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { bitingFor } from "@/lib/lead-species";
 import { notFound } from "next/navigation";
 import {
   fetchCityGuides,
@@ -295,6 +296,18 @@ export default async function CityPage({
             fishSlug: featuredFeed?.speciesSlug ?? null,
             score: featuredFeed?.peak ?? null,
             mapHref: `/explore?loc=${city.slug}`,
+            /* Only when the featured mark is drawing the city's headline fish
+               AND that fish was picked from catches, so the line is true of
+               the fish the hero names. */
+            biting: bitingFor(
+              cityToday?.headline && cityToday.headline_source && cityToday.headline_source !== "default"
+                ? { speciesId: cityToday.headline.species_id, source: cityToday.headline_source }
+                : null,
+              featuredFeed?.speciesName
+                ? { id: featuredFeed.speciesId, fish: speciesKeywordName(featuredFeed.speciesName) }
+                : null,
+              { spot: featuredFeed?.name ?? city.name, city: city.name },
+            ),
             /* Pointed at the lead mark, so the phones show the same water the
                hero's sentence is about. Built only where the hero renders. */
             reel:

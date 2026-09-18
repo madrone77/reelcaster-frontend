@@ -5,6 +5,7 @@ import dynamic from "next/dynamic";
 import { useAuth } from "@/contexts/auth-context";
 import { trackEvent } from "@/lib/analytics";
 import AdHero from "./[country]/[state]/[city]/[spot]/ad-intro";
+import type { Biting } from "@/lib/lead-species";
 
 const ProTrialModal = dynamic(
   () => import("@/app/components/paywall/pro-trial-modal"),
@@ -25,6 +26,7 @@ export default function SeoHero({
   mapHref,
   place,
   reel = null,
+  biting = null,
 }: {
   /** Off outside the markets in lib/seo-hero.ts, where this renders nothing
    *  of its own and the page's own header stands. */
@@ -51,6 +53,8 @@ export default function SeoHero({
   mapHref: string;
   /** Slug reported with the events, so spot and city read apart. */
   place: string;
+  /** The "What's biting now" line, when the lead fish came from catches. */
+  biting?: Biting | null;
 }) {
   const { user, loading } = useAuth();
   const [trialOpen, setTrialOpen] = useState(false);
@@ -77,6 +81,7 @@ export default function SeoHero({
         windowLabel={windowLabel}
         tidePhase={tidePhase}
         reel={reel}
+        biting={biting}
         breakAfterVerdict
         onTrial={() => {
           trackEvent("Seo Hero Trial Clicked", { place });
