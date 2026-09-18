@@ -1679,6 +1679,9 @@ export interface BlueCasterCityToday {
    *  score surfaces the flattest species: crab and bottomfish hold a wide
    *  all-day plateau while salmon spike around the exchange. */
   headline: BlueCasterCityTodaySpecies | null;
+  /** Which tier picked `headline`: the city's reports, its creel checks, or
+   *  the roster default. Optional so a cached pre-field body still parses. */
+  headline_source?: "city_reports" | "creel" | "default" | null;
   species: BlueCasterCityTodaySpecies[];
   ahead: {
     horizon_days: number;

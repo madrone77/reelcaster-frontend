@@ -193,19 +193,33 @@ function bestSpeciesId(page: SpotPageForClient): string | null {
   return best ?? page.species[0]?.id ?? null;
 }
 
-// Ad landings lead with the fish the searcher wants, not today's top scorer.
-// The order itself lives in lib/lead-species.ts, shared with the city hero.
+// Ad landings lead with the fish anglers are catching, not today's top scorer.
+//
+// BlueCaster decides that on the payload (`leadSpecies`): this spot's reports
+// over the fortnight, then its city's, then the city's creel checks, each
+// already gated to species scored today and retention-open here, crab last.
+// The fixed order in lib/lead-species.ts (shared with the city hero) orders
+// the rest of the row and stands in entirely for a payload without the field.
 
 function adOrderSpecies<T extends { id: string; name: string }>(
   list: T[],
   page: SpotPageForClient,
 ): T[] {
-  return orderLeadSpecies(
+  const ordered = orderLeadSpecies(
     list.map((s) => ({
       ...s,
       score: page.topScoreTodayBySpecies[s.id] ?? -1,
     })),
   );
+  const leadId = page.leadSpecies?.speciesId;
+  // Only a species the row carries AND that scored today can move up; the
+  // payload should never name one that did not, but a stale card must not
+  // select nothing.
+  const lead = leadId
+    ? ordered.find((s) => s.id === leadId && s.score >= 0)
+    : undefined;
+  if (!lead) return ordered;
+  return [lead, ...ordered.filter((s) => s.id !== lead.id)];
 }
 
 /** Where this spot sits in the public /fishing directory; null for custom
