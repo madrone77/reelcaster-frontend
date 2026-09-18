@@ -20,5 +20,10 @@ import { spotSlugFromPath } from "@/lib/paths";
 export default function FishingFooter() {
   const pathname = usePathname() ?? "";
   if (spotSlugFromPath(pathname)) return null;
-  return <MarketingFooter />;
+  // Hidden under the city ad frame; see fishing-header.tsx.
+  return (
+    <div data-fishing-chrome="" className="contents">
+      <MarketingFooter />
+    </div>
+  );
 }

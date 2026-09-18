@@ -85,6 +85,8 @@ import CitySpotMap from "./city-spot-map";
 import CityTopSpots from "./city-top-spots";
 import CustomSpots from "./custom-spots";
 import { spotHref } from "@/lib/paths";
+import { useAdFrame } from "@/app/explore/lib/ad-frame";
+import { withAdParams } from "@/lib/ad-mode";
 import { UnitCountryScope } from "@/contexts/unit-preferences-context";
 import { unitCountryForCitySlug } from "@/lib/unit-system";
 
@@ -194,6 +196,9 @@ export default function CityInstrument({
   rosterCount,
   campaign,
   testimonial = false,
+  hideTopSpots = false,
+  topSpotsTitle,
+  topSpotsLimit,
 }: {
   /** Put Kevin's testimonial box under the 24-hour chart. On for the pages
    *  that open with the landing hero (lib/seo-hero.ts), off elsewhere. */
@@ -238,7 +243,13 @@ export default function CityInstrument({
    * the path still decides, and the public page still counts nothing.
    */
   campaign?: CampaignTarget | null;
+  /** The city ad page draws the ranked list itself, right under its hero. */
+  hideTopSpots?: boolean;
+  /** The ad page names the keyword's fish in the list's title. */
+  topSpotsTitle?: string;
+  topSpotsLimit?: number;
 }) {
+  const ad = useAdFrame();
   const { isPaid, loading: tierLoading } = useSubscription();
   const { user } = useAuth();
   const { hour: nowHour } = useSpotClock(tz, serverNowMs);
@@ -612,7 +623,7 @@ export default function CityInstrument({
                 <>
                   A city has no tide or wind of its own, so this is{" "}
                   <Link
-                    href={spotHref(featured)}
+                    href={withAdParams(spotHref(featured), ad)}
                     className="text-rc-brand font-semibold hover:underline"
                   >
                     {featured.name}
@@ -688,7 +699,9 @@ export default function CityInstrument({
       )}
 
       {/* ── 3 · The marks people actually fish ───────────────────────────── */}
-      <CityTopSpots rows={rows} cityName={cityName} />
+      {!hideTopSpots && (
+        <CityTopSpots rows={rows} cityName={cityName} title={topSpotsTitle} limit={topSpotsLimit} />
+      )}
 
       {/* ── 4 · All of them, on the water ────────────────────────────────── */}
       <Section

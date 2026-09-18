@@ -35,10 +35,10 @@ const ALIASES: Record<string, string> = {
   pinks: "pink",
 };
 
-export function matchSpeciesParam(
+export function matchSpeciesParam<T extends Pick<LiveSpecies, "slug" | "rank">>(
   raw: string | null | undefined,
-  species: LiveSpecies[],
-): LiveSpecies | null {
+  species: T[],
+): T | null {
   const want = (raw ?? "").trim().toLowerCase().replace(/[\s_]+/g, "-");
   if (!want) return null;
   const byRank = [...species].sort((a, b) => a.rank - b.rank);

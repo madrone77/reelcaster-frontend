@@ -24,7 +24,7 @@ import {
 import { classifyPage, classifySource } from '@/lib/traffic-source'
 import { pacificDay } from '@/lib/pacific-day'
 import { newFishingPath } from '@/lib/legacy-fishing-paths'
-import { isSpotPath } from '@/lib/paths'
+import { isCityPath, isSpotPath } from '@/lib/paths'
 import { metaExploreHop } from '@/lib/meta-lp-hop'
 import {
   LP_SPLIT_COOKIE,
@@ -419,8 +419,13 @@ export function middleware(req: NextRequest, event: NextFetchEvent) {
   // redirect now, and a rewrite there would frame a page that is about to
   // 308 anyway; the ?ad= query survives the redirect, so an ad click on an old
   // link still lands framed, one hop later.
+  //
+  // City pages get the same treatment for city-level keywords ("victoria
+  // chinook fishing"): `/fishing/<country>/<state>/<city>?ad=` renders
+  // `./ad`, the city's landing frame. `ad` is already a reserved spot
+  // segment, so no spot slug can shadow it.
   if (
-    isSpotPath(pathname) &&
+    (isSpotPath(pathname) || isCityPath(pathname)) &&
     !pathname.endsWith('/ad') &&
     req.nextUrl.searchParams.has('ad')
   ) {

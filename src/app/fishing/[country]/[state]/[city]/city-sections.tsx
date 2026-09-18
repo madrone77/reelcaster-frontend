@@ -21,6 +21,19 @@ import type {
 } from "@/lib/bluecaster";
 import { SectionHeading } from "./species/[species]/guide-sections";
 import { licenceFor } from "./city-licence";
+import { withAdParams, type AdWall } from "@/lib/ad-mode";
+
+/**
+ * The ad frame, as the page hands it to server-rendered sections: the rule
+ * is that no link leaves the frame, so a section either carries these params
+ * onto a page that is framed too (another city) or drops the link (a guide, a
+ * regulator's site) and keeps the words.
+ */
+export type SectionAdFrame = {
+  wall: AdWall;
+  angle?: string;
+  params?: Record<string, string>;
+};
 
 const MONTHS = ["J", "F", "M", "A", "M", "J", "J", "A", "S", "O", "N", "D"];
 const MONTH_NAMES = [
@@ -42,25 +55,31 @@ export function CityProse({
   aboutMd,
   localIntelMd,
   cityName,
+  adFrame = false,
 }: {
   aboutMd: string | null;
   localIntelMd: string | null;
   cityName: string;
+  /** Authored markdown can carry links; in the frame they render as text. */
+  adFrame?: boolean;
 }) {
   if (!aboutMd && !localIntelMd) return null;
+  const components = adFrame
+    ? { a: ({ children }: { children?: React.ReactNode }) => <span>{children}</span> }
+    : undefined;
   return (
     <section className="space-y-5">
       <SectionHeading id="about">Fishing {cityName}</SectionHeading>
       {aboutMd && (
         <div className={`max-w-3xl ${prose}`}>
-          <Markdown remarkPlugins={[remarkGfm]}>{aboutMd}</Markdown>
+          <Markdown remarkPlugins={[remarkGfm]} components={components}>{aboutMd}</Markdown>
         </div>
       )}
       {localIntelMd && (
         <div className="max-w-3xl rounded-lg border border-rc-rule bg-rc-panel p-4">
           <div className="rc-label text-[9px] text-rc-ink-mute">Local intel</div>
           <div className={`mt-1.5 ${prose}`}>
-            <Markdown remarkPlugins={[remarkGfm]}>{localIntelMd}</Markdown>
+            <Markdown remarkPlugins={[remarkGfm]} components={components}>{localIntelMd}</Markdown>
           </div>
         </div>
       )}
@@ -207,10 +226,13 @@ export function BeforeYouGo({
   areas,
   provinceCode,
   cityName,
+  adFrame = false,
 }: {
   areas: BlueCasterCityPage["regulatory_areas"];
   provinceCode: string;
   cityName: string;
+  /** In the frame the licence guide and the regulator are named, not linked. */
+  adFrame?: boolean;
 }) {
   const licence = licenceFor(provinceCode);
   if (!areas.length && !licence) return null;
@@ -280,6 +302,11 @@ export function BeforeYouGo({
             <p className="text-[13px] text-rc-ink-soft mt-2.5">
               {licence.caveat}
             </p>
+            {adFrame ? (
+              <p className="text-[13px] text-rc-ink-mute mt-3">
+                Sold by {licence.regulator}.
+              </p>
+            ) : (
             <div className="flex flex-wrap gap-x-4 gap-y-1 mt-3">
               <Link
                 href={licence.href}
@@ -296,6 +323,7 @@ export function BeforeYouGo({
                 Buy from {licence.regulator}
               </a>
             </div>
+            )}
           </div>
         )}
       </div>
@@ -339,7 +367,10 @@ export function CityFaq({
 
 export function NearbyCities({
   cities,
+  ad,
 }: {
+  /** Set inside the ad frame: a neighbouring city opens framed too. */
+  ad?: SectionAdFrame | null;
   /**
    * `path` is the city's canonical path, precomputed by the loader. Do NOT
    * rebuild it from the province path and a slug: `slug` is the API key
@@ -356,7 +387,7 @@ export function NearbyCities({
         {cities.map((c) => (
           <li key={c.slug}>
             <Link
-              href={c.path}
+              href={withAdParams(c.path, ad)}
               className="group flex items-baseline gap-2 rounded-full border border-rc-rule bg-rc-panel px-3 py-1.5 hover:border-rc-brand transition-colors"
             >
               <span className="text-[13px] font-medium text-rc-ink group-hover:text-rc-brand transition-colors">

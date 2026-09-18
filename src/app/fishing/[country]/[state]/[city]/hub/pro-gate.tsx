@@ -30,6 +30,7 @@ import {
   PricePerMonth,
 } from "@/app/components/split-test/price-text";
 import { PANEL, TYPE } from "./ui";
+import { AdTrialButton } from "../ad/city-ad-view";
 
 const FEATURES = [
   "Every hour of the next 14 days, not just today",
@@ -43,9 +44,15 @@ export default function ProGate({
   provinceCode,
   citySlug,
   variant = "full",
+  adFrame = false,
 }: {
   provinceCode: string;
   citySlug: string;
+  /**
+   * Inside the city ad frame the ask opens the trial modal rather than
+   * linking to checkout, so the frame keeps its one rule: no link leaves it.
+   */
+  adFrame?: boolean;
   /**
    * `full` is the feature block that closes the conversion column. `banner`
    * is the second ask, after the map.
@@ -85,12 +92,21 @@ export default function ProGate({
               when your water crosses the score you set.
             </p>
           </div>
-          <Link
-            href={`/plans/checkout?${params.toString()}`}
-            className="shrink-0 rounded-lg bg-rc-emerald px-5 py-3.5 text-center text-[15px] font-bold text-rc-navy-deep hover:brightness-110 transition-all"
-          >
-            Start your {TRIAL_DAYS}-day free trial
-          </Link>
+          {adFrame ? (
+            <AdTrialButton
+              placement="map-banner"
+              className="shrink-0 rounded-lg bg-rc-emerald px-5 py-3.5 text-center text-[15px] font-bold text-rc-navy-deep hover:brightness-110 transition-all"
+            >
+              Start your {TRIAL_DAYS}-day free trial
+            </AdTrialButton>
+          ) : (
+            <Link
+              href={`/plans/checkout?${params.toString()}`}
+              className="shrink-0 rounded-lg bg-rc-emerald px-5 py-3.5 text-center text-[15px] font-bold text-rc-navy-deep hover:brightness-110 transition-all"
+            >
+              Start your {TRIAL_DAYS}-day free trial
+            </Link>
+          )}
         </div>
         <p className="mt-3 font-rc-mono text-[11px] text-slate-400">{terms}</p>
       </section>

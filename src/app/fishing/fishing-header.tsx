@@ -80,11 +80,18 @@ export default function FishingHeader() {
   // under /fishing whose subject is a single city. The province index covers a
   // whole province and the licence guides cover none, so both keep the plain
   // headline rather than naming whichever city happened to be declared last.
+  // `data-fishing-chrome`: the city ad page (`?ad=` on this same path, see
+  // [city]/ad) wears its own top bar, and globals.css hides this one under it.
+  // Decided in CSS rather than here because reading the query string would opt
+  // the prerendered public city page out of static rendering. `contents`, so
+  // the wrapper draws no box and the header's `sticky` still works.
   return (
-    <MarketingHeader
-      ctaLabel={isCityPage ? "Try Pro free" : undefined}
-      ctaOverColumn={heroColumn}
-      placeName={isCityPage ? (place ?? undefined) : undefined}
-    />
+    <div data-fishing-chrome="" className="contents">
+      <MarketingHeader
+        ctaLabel={isCityPage ? "Try Pro free" : undefined}
+        ctaOverColumn={heroColumn}
+        placeName={isCityPage ? (place ?? undefined) : undefined}
+      />
+    </div>
   );
 }

@@ -283,6 +283,8 @@ export type AnalyticsEventName =
   // silently inflate every campaign report that counts the ad hero.
   | 'Seo Hero Trial Clicked'
   | 'Seo Hero Map Clicked'
+  | 'City Ad Intro Trial Clicked'
+  | 'City Ad Intro Map Clicked'
   | 'Spot Ad Reel Screen Picked'
   | 'Chart Explainer Shown'
   | 'Chart Explainer Dismissed'

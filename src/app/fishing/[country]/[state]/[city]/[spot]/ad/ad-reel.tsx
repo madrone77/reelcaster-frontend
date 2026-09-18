@@ -35,6 +35,8 @@ import AdPhoneReel, { type ReelSlide } from "./ad-phone-reel";
 const PAD_LNG = 0.28;
 const PAD_LAT = 0.2;
 const ZOOM = 10.4;
+/** A city's marks spread wider than one spot's neighbours. */
+const CITY_ZOOM = 9.6;
 
 const CHART_FALLBACK = null;
 
@@ -43,12 +45,25 @@ export default async function AdReel({
   provinceCode,
   fishName,
   serverNowMs,
+  city,
 }: {
   slug: string;
   provinceCode: string;
   /** The species the page opens on, by display name, or null for its lead. */
   fishName: string | null;
   serverNowMs: number;
+  /**
+   * Set on the city ad page. The map screen then shows the whole city and
+   * walks its card through `featuredSlugs` (most-fished first), instead of
+   * holding on one spot; the other three screens stay about `slug`, the
+   * city's top mark for the searched fish.
+   */
+  city?: {
+    name: string;
+    spots: MapSpot[];
+    featuredSlugs: string[];
+    center: { lat: number; lng: number };
+  };
 }) {
   const hero = await loadSpotHeroFeed(slug, provinceCode).catch(() => null);
   if (!hero) return null;
@@ -71,12 +86,13 @@ export default async function AdReel({
     .map((n) => n.toFixed(4))
     .join(",");
 
-  const [conditions, spots] = await Promise.all([
+  const [conditions, bboxSpots] = await Promise.all([
     loadConditionsFeed(null, provinceCode, {
       slug,
       species: selected?.name ?? "",
     }).catch(() => null),
-    Promise.all([fetchHierarchyLight(), fetchMapSpots({ bbox })])
+    // The city page already has its roster; only a spot page loads neighbours.
+    (city ? Promise.resolve([] as MapSpot[]) : Promise.all([fetchHierarchyLight(), fetchMapSpots({ bbox })])
       .then(([hierarchy, payload]) =>
         buildExploreData(hierarchy, payload)
           .spots.filter((s) => s.score !== null)
@@ -91,7 +107,7 @@ export default async function AdReel({
             }),
           ),
       )
-      .catch(() => [] as MapSpot[]),
+      .catch(() => [] as MapSpot[])),
   ]);
 
   // The text's number is today's real peak for the fish, and its hour.
@@ -106,23 +122,31 @@ export default async function AdReel({
 
   const slides: ReelSlide[] = [];
 
-  if (spots.some((s) => s.slug === slug)) {
+  const spots = city?.spots.length ? city.spots : bboxSpots;
+  if (city ? spots.length > 0 : spots.some((s) => s.slug === slug)) {
     slides.push({
       id: "map",
       tab: "The map",
-      title: `${spot.name}, on the live map`,
-      body: "Every spot is scored for today, out of 100. Green is worth the trip, amber is fair, red is slow.",
+      title: city ? `Every spot around ${city.name}, scored` : `${spot.name}, on the live map`,
+      body: city
+        ? "Each number is today's best score out of 100 at that spot. The card walks the most-fished marks."
+        : "Every spot is scored for today, out of 100. Green is worth the trip, amber is fair, red is slow.",
       phone: (
         <PhoneFrame
           width="w-full"
-          label={`The ReelCaster map on a phone with ${spot.name} selected and today's score on its card.`}
+          label={
+            city
+              ? `The ReelCaster map on a phone showing every scored spot around ${city.name}.`
+              : `The ReelCaster map on a phone with ${spot.name} selected and today's score on its card.`
+          }
         >
           <ClientErrorBoundary label="MarketingMap" fallback={CHART_FALLBACK}>
             <MarketingMap
               spots={spots}
-              center={{ lat: spot.lat, lng: spot.lng }}
-              zoom={ZOOM}
-              featuredSlug={slug}
+              center={city?.center ?? { lat: spot.lat, lng: spot.lng }}
+              zoom={city ? CITY_ZOOM : ZOOM}
+              featuredSlug={city ? undefined : slug}
+              featuredSlugs={city?.featuredSlugs}
               fallback={CHART_FALLBACK}
             />
           </ClientErrorBoundary>

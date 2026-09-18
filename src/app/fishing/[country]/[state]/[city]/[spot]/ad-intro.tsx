@@ -70,6 +70,10 @@ export default function AdHero({
   onTrial,
   mapHref,
   onMap,
+  verdictText,
+  whenText,
+  explainerText,
+  footnoteText,
 }: {
   pills: ReactNode;
   /** The H1: "Active Pass Chinook Fishing Report", or the spot's own. */
@@ -104,6 +108,17 @@ export default function AdHero({
   /** Explore, framed and opened on this spot. */
   mapHref: string;
   onMap: () => void;
+  /**
+   * Wording overrides for a page that is not about one spot. The city ad page
+   * names the mark its answer is read from ("Chinook fishing at Constance
+   * Bank, the most-fished mark near Victoria, looks good today."), counts the
+   * city's spots in the explainer, and sells alerts for every spot near the
+   * city. Omitted, the spot page's own wording is built from `spotName`.
+   */
+  verdictText?: string | null;
+  whenText?: string | null;
+  explainerText?: string;
+  footnoteText?: string;
 }) {
   const plate = speciesIllustration(fishSlug);
   const tier = tierFor(score);
@@ -111,8 +126,15 @@ export default function AdHero({
   // are lower case ("bluefin tuna"); this one starts a sentence.
   const fishName = fish ? fish.charAt(0).toUpperCase() + fish.slice(1) : null;
   const subject = `${fishName ?? "Fishing"}${fishName ? " fishing" : ""} at ${spotName}`;
-  const verdict = tier === "none" ? null : `${subject} ${VERDICT[tier]}.`;
-  const when = windowLabel
+  const verdict =
+    verdictText !== undefined
+      ? verdictText
+      : tier === "none"
+        ? null
+        : `${subject} ${VERDICT[tier]}.`;
+  const when = whenText !== undefined
+    ? whenText
+    : windowLabel
     ? `The best time to go is ${windowLabel.replace("-", " to ")}${
         tidePhase ? `, with the ${tidePhase.toLowerCase()}` : ""
       }.`
@@ -154,9 +176,10 @@ export default function AdHero({
           </p>
         )}
         <p className="mt-4 max-w-xl text-pretty text-[16px] leading-relaxed text-rc-ink-soft lg:text-[17px]">
-          ReelCaster scores every hour at {spotName} from 0 to 100, reading the tide, current, wind
-          and weather{fish ? ` for ${fish}` : ""}. The higher the score, the better your odds. Green
-          means go.
+          {explainerText ??
+            `ReelCaster scores every hour at ${spotName} from 0 to 100, reading the tide, current, wind and weather${
+              fish ? ` for ${fish}` : ""
+            }. The higher the score, the better your odds. Green means go.`}
         </p>
         {/* The picture and the two asks sit centred under the copy, on the
             paragraph's own measure, so they read as one block. */}
@@ -194,7 +217,8 @@ export default function AdHero({
             </Link>
           </div>
           <p className="mt-3 text-[13px] text-rc-ink-mute">
-            Pro is free for {TRIAL_DAYS} days: all 14 days, full catch reports and text alerts for {spotName}.
+            {footnoteText ??
+              `Pro is free for ${TRIAL_DAYS} days: all 14 days, full catch reports and text alerts for ${spotName}.`}
           </p>
         </div>
       </div>

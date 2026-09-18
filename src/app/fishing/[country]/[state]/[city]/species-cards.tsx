@@ -67,12 +67,39 @@ function openingLabel(iso: string): string | null {
   return `opens ${d} ${month}`;
 }
 
+/** A card is a link on the public page and a plain box inside the ad frame. */
+function Card({
+  unlinked,
+  href,
+  className,
+  children,
+}: {
+  unlinked: boolean;
+  href: string;
+  className: string;
+  children: React.ReactNode;
+}) {
+  return unlinked ? (
+    <div className={className}>{children}</div>
+  ) : (
+    <Link href={href} className={className}>
+      {children}
+    </Link>
+  );
+}
+
 export function SpeciesCards({
   guides,
   cityName,
   location,
+  unlinked = false,
 }: {
   guides: BlueCasterGuideLink[];
+  /**
+   * The ad frame's setting: the cards read the same but open nothing, because
+   * a guide page is not framed and the frame's rule is that no link leaves it.
+   */
+  unlinked?: boolean;
   cityName: string;
   /**
    * Where the city sits, so the href comes from `guidePath`. A guide lives at
@@ -99,9 +126,12 @@ export function SpeciesCards({
           const plate = speciesIllustration(guide.species_slug);
           return (
             <li key={guide.species_slug}>
-              <Link
+              <Card
+                unlinked={unlinked}
                 href={guidePath(location, guide.species_slug)}
-                className="group flex h-full flex-col rounded-lg border border-rc-rule bg-rc-panel p-4 hover:border-rc-brand transition-colors"
+                className={`group flex h-full flex-col rounded-lg border border-rc-rule bg-rc-panel p-4 ${
+                  unlinked ? "" : "hover:border-rc-brand transition-colors"
+                }`}
               >
                 {plate && (
                   <div className="mb-3 flex h-20 items-center justify-center">
@@ -153,12 +183,14 @@ export function SpeciesCards({
                   </div>
                 </dl>
 
-                <span className="mt-3 pt-3 border-t border-rc-rule text-[13px] font-medium text-rc-brand">
-                  {/* "Dungeness crabbing guide", never "crab fishing". */}
-                  {activityPhrase(guide.activity)} guide
-                  <span aria-hidden> →</span>
-                </span>
-              </Link>
+                {!unlinked && (
+                  <span className="mt-3 pt-3 border-t border-rc-rule text-[13px] font-medium text-rc-brand">
+                    {/* "Dungeness crabbing guide", never "crab fishing". */}
+                    {activityPhrase(guide.activity)} guide
+                    <span aria-hidden> →</span>
+                  </span>
+                )}
+              </Card>
             </li>
           );
         })}
