@@ -40,7 +40,14 @@ export const LEGAL_CONTACT = {
    * "Victoria, British Columbia, Canada" on the following line, and the
    * inline supplier disclosure in Terms section 6 spells the city out.
    */
-  MAILING_ADDRESS: 'Unit 696, 185 - 911 Yates St',
+  MAILING_ADDRESS: '612 View Street, Suite 302',
+
+  /**
+   * The postal address printed at the foot of marketing email, where anti-spam
+   * law wants one. Deliberately a different address from the legal documents,
+   * which keep the registered office above.
+   */
+  EMAIL_FOOTER_ADDRESS: 'Unit 696, 185 - 911 Yates St',
 
   PHONE: '+1 236 857 7771',
 
