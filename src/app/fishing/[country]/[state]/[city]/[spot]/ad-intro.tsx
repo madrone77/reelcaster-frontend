@@ -7,7 +7,6 @@ import { ArrowRight } from "lucide-react";
 import { TRIAL_DAYS } from "@/lib/pricing";
 import { speciesIllustration } from "@/lib/species-image";
 import { tierFor } from "@/app/explore/lib/explore-data";
-import AdTestimonialCard from "./ad-testimonial-card";
 
 /**
  * The top of the spot page on the ad frame: the search, answered, beside the
@@ -180,13 +179,6 @@ export default function AdHero({
           <p className="mt-3 text-[13px] text-rc-ink-mute">
             Pro is free for {TRIAL_DAYS} days: all 14 days, full catch reports and text alerts for {spotName}.
           </p>
-        </div>
-        {/* An angler's word for it, with the fish to show for it. Part of the
-            hero rather than placed by each page, so every surface that sells
-            with this copy (paid spot pages, the WA and CA landing heroes on
-            spot and city pages) carries it (Casey, 2026-09-17). */}
-        <div className="mt-8 max-w-xl text-left">
-          <AdTestimonialCard />
         </div>
       </div>
 

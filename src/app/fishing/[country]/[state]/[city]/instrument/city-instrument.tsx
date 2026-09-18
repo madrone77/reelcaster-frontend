@@ -50,6 +50,7 @@ import dynamic from "next/dynamic";
 import { useMountedOnce } from "@/hooks/use-mounted-once";
 import CurrentConditionsStrip from "@/app/explore/spot/components/current-conditions-strip";
 import SpotTerminal from "@/app/explore/spot/components/spot-terminal";
+import AdTestimonialCard from "@/app/fishing/ad-testimonial-card";
 import {
   buildTerminalHours,
   tideRangeFrom,
@@ -192,7 +193,11 @@ export default function CityInstrument({
   rows,
   rosterCount,
   campaign,
+  testimonial = false,
 }: {
+  /** Put Kevin's testimonial box under the 24-hour chart. On for the pages
+   *  that open with the landing hero (lib/seo-hero.ts), off elsewhere. */
+  testimonial?: boolean;
   citySlug: string;
   cityName: string;
   cityLat: number;
@@ -671,6 +676,13 @@ export default function CityInstrument({
             onSelectHour={selectHour}
             bestWindow={win.window}
           />
+          {/* An angler's word for it, under the chart, on the pages that open
+              with the landing hero. Same box as the spot page's. */}
+          {testimonial && (
+            <div className="mt-6">
+              <AdTestimonialCard />
+            </div>
+          )}
         </Section>
       )}
 
