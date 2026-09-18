@@ -1,14 +1,22 @@
 import type { Metadata } from 'next';
-import { DEFAULT_OG, SITE_URL, SUPPORT_EMAIL } from '@/lib/site';
+import { DEFAULT_OG, HELLO_EMAIL, SITE_URL, SUPPORT_EMAIL } from '@/lib/site';
 import Link from 'next/link';
-import { Mail, MessageCircle, AlertCircle, Newspaper, LifeBuoy } from 'lucide-react';
+import {
+  Mail,
+  MessageCircle,
+  AlertCircle,
+  Newspaper,
+  Handshake,
+  Megaphone,
+  LifeBuoy,
+} from 'lucide-react';
 
 export const metadata: Metadata = {
   // Bare title — the root layout's "%s | ReelCaster" template adds the brand,
   // so naming it here too rendered "Contact ReelCaster | … | ReelCaster".
-  title: 'Contact: Support, Billing & Press',
+  title: 'Contact: Support, Billing, Partnerships & Advertising',
   description:
-    'Get in touch with ReelCaster for support, billing questions, spot data corrections, or press inquiries. We respond within two business days.',
+    'Get in touch with ReelCaster for support, billing questions, spot data corrections, press, partnerships, or advertising. We respond within two business days.',
   alternates: { canonical: `${SITE_URL}/contact` },
   openGraph: {
     title: 'Contact ReelCaster',
@@ -36,7 +44,12 @@ const JSONLD = {
   },
 };
 
-const TOPICS = [
+const TOPICS: {
+  icon: typeof Mail;
+  label: string;
+  subject: string;
+  to?: string;
+}[] = [
   {
     icon: AlertCircle,
     label: 'Refund or billing issue',
@@ -49,8 +62,24 @@ const TOPICS = [
   },
   {
     icon: Newspaper,
-    label: 'Press / partnerships',
+    label: 'Press',
     subject: 'Press inquiry',
+  },
+  // Partnerships and advertising each get their own door, and they go to the
+  // business inbox rather than support. A cold inbound from a guide outfit, a
+  // tackle shop or a media buyer should not have to guess whether "Press" is
+  // the right card, nor queue behind billing tickets.
+  {
+    icon: Handshake,
+    label: 'Partnerships',
+    subject: 'Partnership inquiry',
+    to: HELLO_EMAIL,
+  },
+  {
+    icon: Megaphone,
+    label: 'Advertising',
+    subject: 'Advertising inquiry',
+    to: HELLO_EMAIL,
   },
 ];
 
@@ -104,11 +133,11 @@ export default function ContactPage() {
             <h2 className="text-xl font-bold text-rc-ink mb-4">
               Common topics
             </h2>
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
               {TOPICS.map((t) => (
                 <a
                   key={t.label}
-                  href={`mailto:${SUPPORT_EMAIL}?subject=${encodeURIComponent(
+                  href={`mailto:${t.to ?? SUPPORT_EMAIL}?subject=${encodeURIComponent(
                     t.subject,
                   )}`}
                   className="bg-rc-panel border border-rc-rule rounded-xl p-4 hover:border-rc-brand/40 transition-colors flex flex-col gap-3"
