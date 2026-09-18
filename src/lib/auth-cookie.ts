@@ -1,20 +1,28 @@
 /**
- * The one bit of auth state the edge is allowed to see: is this browser signed
- * in, yes or no.
+ * The one thing about auth the edge is allowed to see: is this browser signed
+ * in, and if so, is the account free or paying.
  *
  * WHY A COOKIE AT ALL. The page-view counter runs in middleware
  * (src/middleware.ts), off the request, before any of our JavaScript exists.
  * It can therefore see everything about the request except the one thing that
- * separates the two audiences a spot page serves: supabase-js keeps the
- * session in localStorage, which no request ever carries. So the client
- * mirrors the ANSWER — one character, never the session — into a cookie, and
- * the counter reads that.
+ * separates the audiences a spot page serves: supabase-js keeps the session in
+ * localStorage, which no request ever carries. So the client mirrors the
+ * ANSWER — one character, never the session — into a cookie, and the counter
+ * reads that.
  *
- * WHAT IS IN IT, and what deliberately is not. `1` or `0`. No user id, no
- * email, no token, nothing that identifies anybody or that would be worth
- * stealing if a page leaked its own cookie jar. traffic_events_daily is a
- * counter table with no visitor id in it and this keeps it that way: the most
- * it can ever say is "some signed-in reader opened a spot page today".
+ * WHAT IS IN IT, and what deliberately is not. One digit:
+ *
+ *   0  signed out
+ *   1  signed in, tier not yet known (the session resolved, the settings row
+ *      has not landed, or the app is older than the tier)
+ *   2  signed in on a free account
+ *   3  signed in on a trial or a paid plan
+ *
+ * No user id, no email, no token, nothing that identifies anybody or that
+ * would be worth stealing if a page leaked its own cookie jar.
+ * traffic_events_daily is a counter table with no visitor id in it and this
+ * keeps it that way: the most it can ever say is "some paying reader opened a
+ * spot page today".
  *
  * WHERE IT IS WRONG, because it is worth knowing before reading the split.
  * The cookie is written by the client after the session resolves, so it
@@ -27,9 +35,13 @@
  *   • Safari caps script-written cookies at seven days. A member who stays
  *     away longer comes back with no cookie and their first page reads as
  *     signed out; the next one is right again.
+ *   • The tier is written once the settings row lands, a moment after the
+ *     session. A reader who navigates inside that moment carries "signed in"
+ *     without a tier for that one view.
  *
- * All three lean the same way — toward "out" — so the signed-in share is a
- * floor, not an estimate that could be wrong in either direction.
+ * All of these lean the same way — toward "out", then toward "tier unknown" —
+ * so the paid share is a floor, not an estimate that could be wrong in either
+ * direction.
  */
 
 /** Read by src/middleware.ts. Not httpOnly: the client is what writes it. */
@@ -45,22 +57,47 @@ export const AUTH_COOKIE = 'rc_auth'
  */
 export const AUTH_COOKIE_MAX_AGE = 60 * 60 * 24 * 90
 
-/** What the counter stores. See the migration for why '' is a value. */
-export type AuthState = 'in' | 'out' | ''
+/**
+ * What the counter stores. See the migrations for why '' is a value: it is
+ * "nothing asked", every row before the counter learned the question.
+ */
+export type AuthState = 'in' | 'out' | 'free' | 'pro' | ''
+
+/** What the client knows. Never '' — the client has always been asked. */
+export type ReaderState = Exclude<AuthState, ''>
+
+const DIGIT: Record<ReaderState, string> = { out: '0', in: '1', free: '2', pro: '3' }
+
+/** The cookie's current digit, or undefined when there is none or it cannot be read. */
+function readAuthCookie(): string | undefined {
+  try {
+    const m = document.cookie.match(/(?:^|;\s*)rc_auth=([^;]*)/)
+    return m?.[1]
+  } catch {
+    return undefined
+  }
+}
 
 /**
- * Mirror the session state into the cookie.
+ * Mirror the reader's state into the cookie.
  *
  * Called on every auth resolution rather than only on the transitions, because
  * the transitions are the case this already handles: it is the reader who has
  * been signed in for a month and never touches a login form whose cookie has
  * to be kept alive.
+ *
+ * 'in' is a floor, not an answer: the session has resolved and the tier has
+ * not. It therefore never overwrites a tier already in the cookie, because the
+ * tier was written by the same browser's last settings read and is the better
+ * reading until the next one lands. 'out', 'free' and 'pro' always write.
  */
-export function writeAuthCookie(signedIn: boolean): void {
+export function writeAuthCookie(state: ReaderState): void {
   if (typeof document === 'undefined') return
   try {
+    const current = readAuthCookie()
+    const value = state === 'in' && (current === '2' || current === '3') ? current : DIGIT[state]
     const secure = window.location.protocol === 'https:' ? '; Secure' : ''
-    document.cookie = `${AUTH_COOKIE}=${signedIn ? '1' : '0'}; path=/; max-age=${AUTH_COOKIE_MAX_AGE}; SameSite=Lax${secure}`
+    document.cookie = `${AUTH_COOKIE}=${value}; path=/; max-age=${AUTH_COOKIE_MAX_AGE}; SameSite=Lax${secure}`
   } catch {
     // Safari with "Block All Cookies" throws on storage access rather than
     // failing quietly, which is how the app has white-screened before. A view
@@ -82,5 +119,14 @@ export function writeAuthCookie(signedIn: boolean): void {
  * it was built to see.
  */
 export function authStateFromCookie(value: string | undefined): AuthState {
-  return value === '1' ? 'in' : 'out'
+  switch (value) {
+    case '1':
+      return 'in'
+    case '2':
+      return 'free'
+    case '3':
+      return 'pro'
+    default:
+      return 'out'
+  }
 }
