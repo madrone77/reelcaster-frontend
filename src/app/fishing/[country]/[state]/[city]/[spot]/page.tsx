@@ -88,13 +88,18 @@ function snippet(text: string): string {
   return `${clean.slice(0, wordEnd > 0 ? wordEnd : DESCRIPTION_BUDGET - 1)}…`;
 }
 
-// Spots render on demand and then cache (`revalidate` below, `dynamicParams`
-// defaults true). They used to be prerendered for head metadata, but that put
-// ~1,300 renders against the live API into every deploy: five of a seven
-// minute build, and a failed deploy whenever one page took over 60 seconds.
-// Crawlers still get <title> and the canonical in <head>: Next blocks
-// metadata for the user agents in `htmlLimitedBots`, and every visit after
-// the first serves the cached HTML.
+// No paths are prerendered, but the function has to exist: without it Next
+// treats a dynamic segment as fully dynamic, renders every request, and sends
+// `cache-control: private, no-store`. An empty list with `dynamicParams` (the
+// default) is what makes a path render once on demand and then serve from the
+// cache, revalidated on the schedule the spot fetch sets. Prerendering the
+// ~1,300 published spots was five of a seven minute build and failed the
+// deploy whenever one page took over 60 seconds. Crawlers still get <title>
+// and the canonical in <head> (Next blocks metadata for `htmlLimitedBots`).
+export function generateStaticParams() {
+  return [];
+}
+
 export async function generateMetadata({
   params,
 }: PageProps): Promise<Metadata> {
