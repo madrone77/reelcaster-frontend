@@ -294,7 +294,7 @@ export interface ProofQuote {
 export const PRO_TESTIMONIAL_LABEL = "ReelCaster Pro Testimonial";
 
 /**
- * The heading over the three-card row in the paywall modals. Casey moved the
+ * The heading over the three-card row in the paywall modals and under the chart. Casey moved the
  * label out of the cards and above the row, once, on 2026-09-18.
  */
 export const PRO_TESTIMONIALS_ROW_LABEL = "ReelCaster Pro Testimonials";
