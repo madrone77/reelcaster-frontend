@@ -282,8 +282,15 @@ export default function ProTrialModal({
             ctaLabel={ctaLabel}
             priceAmount={pricing.amount}
             onCtaClick={trackCta}
+            // The plan is the method when the buy button was pressed with a
+            // card chosen; a wallet tap is the annual plan (the sheet's
+            // wallet never offers monthly).
             onActivate={(method) =>
-              trackCta({ plan: "annual", method, destination: "checkout" })
+              trackCta({
+                plan: method === "monthly" ? "monthly" : "annual",
+                method,
+                destination: "checkout",
+              })
             }
           />
         </DialogContent>

@@ -4,10 +4,18 @@
  * The control, and what everyone is served unless a price test is running:
  *
  *   CAD: $33 / year        USD: $33 / year
+ *   CAD: $6 / month        USD: $5 / month   (plan picker only, no arm)
  *
- * There is no monthly plan to choose any more. The copy does the division for
- * the reader instead of offering a cadence toggle: $33 a year IS $2.75 a
- * month, which is the number every surface leads with.
+ * The $45 CAD / $39 USD year is NOT the control: it is arm b of
+ * `price_annual_v2` in the registry, served through STRIPE_ANNUAL_PRICE_ID_B
+ * (price_1UACAw47QDx6GFWF3cLGtJGP) while that test runs. The monthly price
+ * is price_1UH7IH47QDx6GFWFJwvbqi0E (2026-09-18). Checkout verifies every
+ * displayed amount against Stripe and refuses the sale on a mismatch, so
+ * these constants and the env ids must always describe the same prices.
+ *
+ * Outside the phone sheet's plan picker there is no cadence to choose. The
+ * copy does the division for the reader: $33 a year IS $2.75 a month, which
+ * is the number every surface leads with.
  *
  * Every subscription starts with a free trial (TRIAL_DAYS): a payment method
  * is collected at checkout, $0 is charged today, and the first invoice lands
@@ -41,6 +49,21 @@ import type Stripe from 'stripe';
 export type BillingCurrency = 'cad' | 'usd';
 
 /**
+ * The two cadences the phone sheet's plan picker offers (2026-09-18). Annual
+ * is the plan, the one every surface leads with and the only one that
+ * carries the trial. Monthly exists so the annual price has something to be
+ * compared against on the sheet: a reader who sees $39 a year beside $5 a
+ * month reads the year as a saving, and a reader who sees $39 alone reads it
+ * as $39. Monthly is billed today, no trial, so that "7 days free" stays a
+ * true sentence about the plan it is printed on.
+ */
+export type BillingPlan = 'annual' | 'monthly';
+
+export function billingPlanFrom(value: unknown): BillingPlan {
+  return value === 'monthly' ? 'monthly' : 'annual';
+}
+
+/**
  * Today's price, per currency. The fallback for every degraded path: no test
  * running, a test running with a broken arm, a registry that would not load.
  */
@@ -48,6 +71,29 @@ export const CONTROL_ANNUAL_CENTS: Record<BillingCurrency, number> = {
   cad: 3300,
   usd: 3300,
 };
+
+/**
+ * The monthly price, per currency. Sold only from the plan picker on the
+ * phone sheet, and only beside the annual card. Verified against Stripe at
+ * checkout the same way the annual price is.
+ */
+export const CONTROL_MONTHLY_CENTS: Record<BillingCurrency, number> = {
+  cad: 600,
+  usd: 500,
+};
+
+/**
+ * "Save 35%": what a year costs against twelve months, to the nearest whole
+ * percent. Derived, never typed out, so a price change on either card moves
+ * it: $39 against $5 is 35, $33 against $5 is 45. Rounded rather than
+ * floored because floating-point puts 0.45 * 100 a hair under 45 and a floor
+ * printed 44.
+ */
+export function annualSavingsPercent(annualCents: number, monthlyCents: number): number {
+  const twelve = monthlyCents * 12;
+  if (twelve <= 0 || annualCents >= twelve) return 0;
+  return Math.round(((twelve - annualCents) / twelve) * 100);
+}
 
 /** Free-trial length, in days. Shared by checkout and every piece of UI copy. */
 export const TRIAL_DAYS = 7;
@@ -68,14 +114,20 @@ export const REMINDER_LEAD_DAYS = 3;
 export const ANNUAL_PRICE_ID = process.env.STRIPE_ANNUAL_PRICE_ID ?? '';
 
 /**
- * LEGACY. The old $5/month plan, which is no longer sold anywhere.
- *
- * Customers who subscribed monthly before the switch are still on it and
- * still billing, so billing email needs this to label their renewal and
- * payment-failure notices with the amount they actually pay. Nothing
- * customer-facing may use it to *sell*.
+ * The monthly Stripe price. Unset means the picker's monthly card cannot be
+ * sold, and the sheet draws the single annual button it drew before the
+ * picker existed. The same lock the split arms use: a price nobody wired up
+ * on the Vercel project cannot be charged.
  */
-export const LEGACY_MONTHLY_PRICE_CENTS = 500;
+export const MONTHLY_PRICE_ID = process.env.STRIPE_MONTHLY_PRICE_ID ?? '';
+
+/**
+ * The monthly amount billing email labels a `pro_monthly` renewal with when
+ * the subscription itself is not in hand. Was the legacy $5 plan's constant
+ * from the months nothing sold monthly; the plan picker sells it again at the
+ * same number, so the two are one constant.
+ */
+export const LEGACY_MONTHLY_PRICE_CENTS = CONTROL_MONTHLY_CENTS.cad;
 
 /** "$45", "$3.75" — trailing cents only when there are any. */
 export function dollars(cents: number): string {
@@ -139,6 +191,26 @@ function controlView(currency: BillingCurrency): PricingView {
 /** The control view, for surfaces with no request context to resolve from. */
 export function controlPricing(currency: BillingCurrency = 'cad'): PricingView {
   return controlView(currency);
+}
+
+/**
+ * The monthly plan as a {@link PricingView}, so checkout can verify it against
+ * Stripe on the same terms as the annual price. `cents` is the amount per
+ * MONTH here; `perMonthCents` is the same number, since the period is a month.
+ * No arm: the monthly price does not vary by test.
+ */
+export function monthlyPricing(currency: BillingCurrency = 'cad'): PricingView {
+  const cents = CONTROL_MONTHLY_CENTS[currency];
+  return {
+    currency,
+    cents,
+    perMonthCents: cents,
+    amount: dollars(cents),
+    perMonth: dollars(cents),
+    testKey: null,
+    variant: null,
+    priceEnv: 'STRIPE_MONTHLY_PRICE_ID',
+  };
 }
 
 // ── Billing email ────────────────────────────────────────────────────────

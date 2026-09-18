@@ -3,12 +3,14 @@
 import Link from 'next/link';
 import { Check } from 'lucide-react';
 import { DialogDescription, DialogTitle } from '@/components/ui/dialog';
-import { TrialBuy, TrialCtaProvider } from './trial-cta';
+import { MONTHLY_ON, TrialBuy, TrialCtaProvider, useTrialCta } from './trial-cta';
 import Testimonial from './testimonial';
 import BrandHeader from './brand-header';
 import ChargeTerms from './charge-terms';
-import { TRIAL_DAYS } from '@/lib/pricing';
+import PlanPicker from './plan-picker';
+import { TRIAL_DAYS, dollars } from '@/lib/pricing';
 import { PRO_FORECAST_DAYS } from '@/lib/forecast-horizon';
+import { usePlanPicker } from '@/app/components/split-test/use-plan-picker';
 
 /**
  * The rows, in Casey's words and order (reworked 2026-09-14). Not the plan
@@ -45,6 +47,32 @@ const STRIPE_INPUT = 'h-11 rounded-md px-3 text-[16px]';
 
 const STRIPE_BUTTON =
   'inline-flex h-11 w-full items-center justify-center rounded-md bg-rc-brand px-4 text-[16px] font-semibold text-white shadow-[0_1px_3px_rgba(0,0,0,0.12)] transition-colors hover:bg-rc-brand-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rc-brand focus-visible:ring-offset-2 disabled:opacity-60';
+
+/**
+ * The offer block, set the way Stripe Checkout sets it on the page after
+ * this one: what it is in grey, what it costs today in large type, centred.
+ * Reads the plan off the provider so the title follows the picker: "7 days
+ * free" is the annual card's sentence, and with Monthly chosen the title
+ * says what that card charges instead. The first charge is stated under
+ * the button either way.
+ */
+function Offer() {
+  const s = useTrialCta();
+  const title =
+    s.plan === 'monthly'
+      ? `${dollars(s.monthlyCents)} a month`
+      : `${TRIAL_DAYS} days free`;
+  return (
+    <div className="mt-6 text-center">
+      <p className="text-[19px] leading-6 font-medium text-rc-ink-soft">
+        Try ReelCaster Pro
+      </p>
+      <DialogTitle className="mt-1 text-[36px] leading-[40px] font-bold tracking-[-0.02em] text-rc-ink">
+        {title}
+      </DialogTitle>
+    </div>
+  );
+}
 
 /**
  * The phone trial sheet, drawn the way Stripe Checkout draws the page after
@@ -100,15 +128,22 @@ export default function TrialSheetStripe({
   ctaLabel: string;
   priceAmount: string;
   onCtaClick: (extra: Record<string, unknown>) => void;
-  onActivate: (method: 'annual' | 'wallet' | 'signup') => void;
+  onActivate: (method: 'annual' | 'monthly' | 'wallet' | 'signup') => void;
 }) {
   const city = cityName ?? (placeKind === 'city' ? placeName : undefined);
+  // The two-card picker, when this reader is in that arm and the monthly
+  // price is for sale. A wall that hands in its own href sells nothing here,
+  // so the picker has nothing to pick and the arm is not counted.
+  const { picker, reportPress } = usePlanPicker(MONTHLY_ON && !ctaHref);
   return (
     <TrialCtaProvider
       from={from}
       region={region}
       theme="light"
-      onActivate={onActivate}
+      onActivate={(method) => {
+        reportPress();
+        onActivate(method);
+      }}
     >
       <div className="flex shrink-0 justify-center pt-3 pb-1" aria-hidden>
         <div className="h-1 w-10 rounded-full bg-rc-rule" />
@@ -120,17 +155,12 @@ export default function TrialSheetStripe({
             in ./pro-trial-modal, so the two never disagree on one screen. */}
         <BrandHeader city={city} />
 
-        {/* The offer, set the way Stripe Checkout sets it on the page after
-            this one: what it is in grey, what it costs today in large type,
-            centred, as there. The first charge is stated under the button. */}
-        <div className="mt-6 text-center">
-          <p className="text-[19px] leading-6 font-medium text-rc-ink-soft">
-            Try ReelCaster Pro
-          </p>
-          <DialogTitle className="mt-1 text-[36px] leading-[40px] font-bold tracking-[-0.02em] text-rc-ink">
-            {TRIAL_DAYS} days free
-          </DialogTitle>
-        </div>
+        <Offer />
+
+        {/* Arm b of plan_picker_v1: Yearly beside Monthly, under the title
+            and over the rows, so the reader has chosen a card before they
+            reach the button. See ./plan-picker. */}
+        {picker && <PlanPicker className="mt-5" />}
 
         <p className="mt-6 font-rc-mono text-[10px] font-semibold tracking-[0.14em] text-rc-ink-mute uppercase">
           {PRO_ROWS_HEADING}
