@@ -386,7 +386,8 @@ export const SPOT_AD_TESTIMONIAL: ProofQuote & {
 } = {
   rating: 5,
   text: "ReelCaster was very helpful in helping me figure out where and when to fish! I was lucky enough to catch a 7 lb Coho right off the beach. The info that the app provided was really helpful and it saved me the trouble of looking at multiple sources to figure out tides, weather, and regulations.",
-  attr: "Kevin, Marrowstone Island, Puget Sound, Washington",
+  // "Name, Place REGION", the same shape as Bob's and Nick's (Casey, 2026-09-18).
+  attr: "Kevin, Marrowstone Island WA",
   photo: {
     src: "/testimonials/kevin-coho.jpg",
     alt: "Kevin’s 7 lb coho on a driftwood log beside a tape measure, caught from the beach at Marrowstone Island",
@@ -421,13 +422,8 @@ export function modalTestimonialsFor(regionCode: string | null | undefined): Pro
     attr: SPOT_AD_TESTIMONIAL.attr,
   };
   return regionCode?.trim().toUpperCase() === "WA"
-    ? [NICK_FORM_QUOTE, KEVIN_SHORT_ATTR(kevin), PROOF.quote]
-    : [PROOF.quote, NICK_FORM_QUOTE, KEVIN_SHORT_ATTR(kevin)];
-}
-
-/** The card is narrow; "Kevin, Marrowstone Island, WA" fits where the long form wraps to three lines. */
-function KEVIN_SHORT_ATTR(q: ProofQuote): ProofQuote {
-  return { ...q, attr: "Kevin, Marrowstone Island, WA" };
+    ? [NICK_FORM_QUOTE, kevin, PROOF.quote]
+    : [PROOF.quote, NICK_FORM_QUOTE, kevin];
 }
 
 /**
@@ -440,6 +436,6 @@ export function pageTestimonials(): Array<ProofQuote & { photo?: typeof SPOT_AD_
   return [
     NICK_FORM_QUOTE,
     PROOF.quote,
-    { ...SPOT_AD_TESTIMONIAL, attr: "Kevin, Marrowstone Island, WA" },
+    SPOT_AD_TESTIMONIAL,
   ];
 }
