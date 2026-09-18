@@ -62,6 +62,7 @@ import { useFavorite } from "@/app/explore/lib/use-favorite";
 import { useHomeSpot } from "@/app/explore/lib/use-home-spot";
 import HomeSpotOffer from "./home-spot-offer";
 import ChartExplainer from "./chart-explainer";
+import AdTestimonialCard from "@/app/fishing/ad-testimonial-card";
 import AdHero, { AD_HERO_REEL_COL } from "./ad-intro";
 import SeoHero from "@/app/fishing/seo-hero";
 import TopicSummary from "./topic-summary";
@@ -2119,6 +2120,14 @@ export default function SpotDetailShell({
               bestWindow={win.window}
             />
             </div>
+            {/* An angler's word for it, right under the chart. On every page
+                that opens with the hero sale copy, paid or the hard-coded
+                landing hero, and nowhere else. */}
+            {adLanding && (
+              <div className="mt-6">
+                <AdTestimonialCard />
+              </div>
+            )}
             {/* Sells the days a viewer can't see — so it has no business on a
                 Pro account, which already has all 14. Held until `tierLoading`
                 clears (isPaid starts `false`), same as the day strip, so a Pro

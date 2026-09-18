@@ -328,6 +328,8 @@ export default async function CityPage({
              so the two can differ and the map's caption has to reconcile
              them rather than quietly report the smaller one. */
           rosterCount={spots.length}
+          /* The testimonial goes with the hero's sale copy, under the chart. */
+          testimonial={seoHeroEnabled(countryParam, stateParam)}
         />
 
         {/* What is legal to keep today. It was a child of the hub block; the
