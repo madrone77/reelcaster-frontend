@@ -48,6 +48,8 @@ export default function CityAdView({
     title: string;
     spotName: string;
     fish: string | null;
+    /** The fish's slug, for the engraved plate beside the verdict. */
+    fishSlug: string | null;
     score: number | null;
     windowLabel: string | null;
     verdictText: string | null;
@@ -83,6 +85,7 @@ export default function CityAdView({
             updatedLabel="Updated today"
             spotName={hero.spotName}
             fish={hero.fish}
+            fishSlug={hero.fishSlug}
             score={hero.score}
             windowLabel={hero.windowLabel}
             tidePhase={null}

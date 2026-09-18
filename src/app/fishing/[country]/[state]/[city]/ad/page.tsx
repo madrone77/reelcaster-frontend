@@ -109,6 +109,7 @@ export default async function CityAdPage({ params, searchParams }: PageProps) {
   const leadSpeciesId = fish?.id ?? featured?.speciesId ?? rankedRows[0]?.speciesId ?? null;
   const entry = leadSpot && leadSpeciesId ? leadSpot.bySpecies[leadSpeciesId] ?? null : null;
   const leadSpeciesFull = fish?.name ?? featured?.speciesName ?? null;
+  const leadFishSlug = fish?.slug ?? featured?.speciesSlug ?? null;
   const leadFish = fishName ?? (leadSpeciesFull ? speciesKeywordName(leadSpeciesFull) : null);
 
   const tier = tierFor(entry?.peak ?? null);
@@ -175,6 +176,7 @@ export default async function CityAdPage({ params, searchParams }: PageProps) {
             : `${city.name} Fishing Forecast`,
         spotName: city.name,
         fish: leadFish,
+        fishSlug: leadFishSlug,
         score: entry?.peak ?? null,
         windowLabel: null,
         verdictText,
