@@ -8,6 +8,11 @@ import { PAGE_MEASURE } from "@/app/components/layout/page-measure";
 import { useSubscription } from "@/hooks/use-subscription";
 import { trackEvent } from "@/lib/analytics";
 import { withAdParams, type AdWall } from "@/lib/ad-mode";
+import {
+  reportCampaignCta,
+  useCampaignHit,
+  type CampaignTarget,
+} from "@/app/lp/_shared/lp-telemetry";
 import AdHero, { AD_HERO_REEL_COL } from "../[spot]/ad-intro";
 
 /**
@@ -56,6 +61,7 @@ export default function CityAdView({
   cityName,
   wall,
   angle,
+  campaign,
   speciesParam,
   hero,
   reel,
@@ -65,6 +71,10 @@ export default function CityAdView({
   cityName: string;
   wall: AdWall;
   angle: string;
+  /** What Campaign results counts this page as. The page builds it once and
+   *  hands the same object to the instrument, so the hit is filed under one
+   *  key and counted once per tab. */
+  campaign: CampaignTarget;
   /** The keyword's species slug, carried onto every framed spot link. */
   speciesParam: string | null;
   hero: {
@@ -86,8 +96,18 @@ export default function CityAdView({
 }) {
   const { isPaid } = useSubscription();
   const [trialOpen, setTrialOpen] = useState(false);
+
+  // The landing hit, once per tab. Unconditional: this frame only renders
+  // under ?ad=, and nothing but an ad link carries that, so a framed visit
+  // is an ad arrival whether or not the UTM tags survived the hop.
+  useCampaignHit(campaign);
+
   const openTrial = (placement: string) => {
     trackEvent("City Ad Intro Trial Clicked", { city: citySlug, ad_wall: wall, placement });
+    // The report's CTR numerator. The hero's trial button is the hero press;
+    // the banner under the map is the second ask. Same positions the spot
+    // and /lp pages use, so the column compares across page kinds.
+    reportCampaignCta(placement === "hero" ? "hero" : "secondary", campaign);
     setTrialOpen(true);
   };
   const frame = {

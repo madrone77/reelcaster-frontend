@@ -95,8 +95,18 @@ const CLICK_TYPE_SET = new Set<string>(CLICK_TYPES);
  * `spot` — one ad sells a named piece of water, the other sells the whole
  * roster — and keeping them as separate landing keys is what makes that
  * comparison the top line of the report rather than something to derive.
+ *
+ * `city` is the fourth: the public city page reached from an ad, either in
+ * its ad frame (/fishing/<c>/<s>/<city>?ad=…, which carries a wall) or as a
+ * plain tagged visit (no frame, no wall). The client had been sending this
+ * key since the city page started counting itself (see `campaignPathTarget`
+ * in src/app/lp/_shared/lp-telemetry.tsx) and this shape answered 400
+ * invalid_landing to every one of them, so the city campaigns' trials sat on
+ * Campaign results under "Not a landing page" with no hits row to read them
+ * against. Same lesson as the digits-only tail above: the shape lives in two
+ * places, and the second one is here.
  */
-const LANDING_SHAPE = /^(lp[a-z0-9]{1,24}|spot|explore)$/;
+const LANDING_SHAPE = /^(lp[a-z0-9]{1,24}|spot|explore|city)$/;
 
 /** Which paywall the ad frame was running. Read from the live list. */
 const WALL_SET = new Set<string>(AD_WALLS);
