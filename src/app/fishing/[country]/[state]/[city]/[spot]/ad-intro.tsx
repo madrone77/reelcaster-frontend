@@ -1,6 +1,7 @@
 "use client";
 
 import type { ReactNode } from "react";
+import { bitingLine, type Biting } from "@/lib/lead-species";
 import Image from "next/image";
 import Link from "next/link";
 import { ArrowRight } from "lucide-react";
@@ -65,6 +66,7 @@ export default function AdHero({
   tidePhase,
   reel,
   breakAfterVerdict = false,
+  biting = null,
   onTrial,
   mapHref,
   onMap,
@@ -92,6 +94,12 @@ export default function AdHero({
    * settled over several passes and this must not quietly re-flow it.
    */
   breakAfterVerdict?: boolean;
+  /**
+   * "What's biting now around Victoria: Coho", when the lead fish was picked
+   * from catches rather than the fixed order. Null hides the line. See
+   * lib/lead-species.ts.
+   */
+  biting?: Biting | null;
   onTrial: () => void;
   /** Explore, framed and opened on this spot. */
   mapHref: string;
@@ -121,6 +129,15 @@ export default function AdHero({
           {title}
         </h1>
         <p className="mt-2 font-rc-mono text-xs text-rc-ink-mute">{updatedLabel}</p>
+        {biting && (
+          <p
+            className="mt-4 inline-flex items-center gap-2 rounded-full bg-rc-good-bg px-3 py-1.5 text-[14px] font-semibold text-rc-good-ink lg:text-[15px]"
+            data-testid="ad-hero-biting"
+          >
+            <span className="h-2 w-2 shrink-0 rounded-full bg-rc-good" aria-hidden />
+            {bitingLine(biting)}
+          </p>
+        )}
 
         {(verdict || when) && (
           <p className="mt-5 text-pretty text-[20px] leading-snug text-rc-ink lg:text-[24px]">

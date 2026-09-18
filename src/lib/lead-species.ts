@@ -45,3 +45,54 @@ export function orderLeadSpecies<T extends { name: string; score: number }>(
     return b.score - a.score;
   });
 }
+
+/**
+ * Where a hero's lead fish came from, when it came from catches.
+ *
+ * BlueCaster picks the lead from what is being caught (spot reports, then the
+ * city's, then the area's dockside checks) and says which tier decided. The
+ * hero turns that into one line, "What's biting now", and shows it ONLY when
+ * a tier of evidence picked the fish. A `default` pick is the fixed order
+ * and says nothing about the bite, so the line is not shown for it.
+ */
+export type BitingSource = "spot_reports" | "city_reports" | "creel";
+
+export interface Biting {
+  fish: string;
+  source: BitingSource;
+  /** "Constance Bank" for a spot tier, "Victoria" for a city or area tier. */
+  place: string;
+}
+
+/**
+ * The line itself. Never a count, never a source: report counts are Pro and
+ * the forums the spot tier reads must stay unnamed, and the area tier is kept
+ * fish, so it says "biting", which is true of a fish that was boxed, and not
+ * "caught", which the checks under-count.
+ */
+export function bitingLine(b: Biting): string {
+  switch (b.source) {
+    case "spot_reports":
+      return `What's biting now at ${b.place}: ${b.fish}`;
+    case "city_reports":
+      return `What's biting now around ${b.place}: ${b.fish}`;
+    case "creel":
+      return `What's biting now near ${b.place}: ${b.fish}`;
+  }
+}
+
+/** Builds the line's input from a payload pick, or null when there is nothing
+ *  honest to say: a default pick, or a fish other than the one being shown. */
+export function bitingFor(
+  pick: { speciesId: string; source: string } | null | undefined,
+  shown: { id: string; fish: string } | null,
+  places: { spot: string; city: string | null },
+): Biting | null {
+  if (!pick || !shown || pick.speciesId !== shown.id) return null;
+  if (pick.source === "spot_reports") return { fish: shown.fish, source: "spot_reports", place: places.spot };
+  if (pick.source === "city_reports" || pick.source === "creel") {
+    if (!places.city) return null;
+    return { fish: shown.fish, source: pick.source, place: places.city };
+  }
+  return null;
+}

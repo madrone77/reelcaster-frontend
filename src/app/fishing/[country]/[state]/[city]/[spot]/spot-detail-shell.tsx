@@ -85,7 +85,7 @@ import {
   type CampaignTarget,
 } from "@/app/lp/_shared/lp-telemetry";
 import { withAdParams, type AdMode, type AdWall } from "@/lib/ad-mode";
-import { orderLeadSpecies } from "@/lib/lead-species";
+import { bitingFor, orderLeadSpecies } from "@/lib/lead-species";
 import { speciesKeywordName } from "@/lib/species-param";
 import MarketingFooter from "@/app/components/marketing/marketing-footer";
 import { PAGE_MEASURE } from "@/app/components/layout/page-measure";
@@ -442,6 +442,14 @@ export default function SpotDetailShell({
   const headlineFish = selSpecies
     ? speciesKeywordName(selSpecies.name)
     : (landingSpecies?.name ?? null);
+  // "What's biting now", only while the SELECTED fish is the one the catches
+  // picked: tap another card and the line goes, because nothing says that fish
+  // is biting. Named for the spot or its city by which tier decided.
+  const biting = bitingFor(
+    page.leadSpecies,
+    selSpecies ? { id: selSpecies.id, fish: speciesKeywordName(selSpecies.name) } : null,
+    { spot: spot.name, city: cityLink?.cityName ?? spot.city ?? null },
+  );
 
   // ── lazy data ─────────────────────────────────────────────────────────
   const [fc, setFc] = useState<Forecast14dPayload | null>(null);
@@ -1588,6 +1596,7 @@ export default function SpotDetailShell({
                 windowLabel={win.label}
                 tidePhase={peakTidePhase}
                 reel={adReel}
+                biting={biting}
                 onTrial={() => {
                   trackEvent("Spot Ad Intro Trial Clicked", { slug, ad_wall: ad.wall });
                   setIntroTrialOpen(true);
@@ -1611,6 +1620,7 @@ export default function SpotDetailShell({
               score={peakScore ?? todayScore}
               windowLabel={win.label}
               tidePhase={peakTidePhase}
+              biting={biting}
               /* The product's own map link: there is no frame to stay inside,
                  so this is the ordinary deep link every other page uses. */
               mapHref={`/explore?spot=${spot.slug}`}
