@@ -46,7 +46,7 @@ export function checkoutReminderEmail(params: {
   const footer = `You are getting this one email because you started checkout on
     <a href="${siteUrl('/')}" style="color:${BRAND};">reelcaster.com</a> with this address.
     We will not send another. <a href="${urls.unsubscribe}" style="color:${BRAND};">Unsubscribe</a>.<br>
-    ReelCaster &middot; ${LEGAL_CONTACT.MAILING_ADDRESS}, Victoria, BC ${LEGAL_CONTACT.POSTAL_CODE}, Canada`;
+    <span style="font-size:9px;line-height:14px;color:#CBD5E1;">ReelCaster &middot; ${LEGAL_CONTACT.MAILING_ADDRESS}, Victoria, BC, Canada</span>`;
 
   return {
     subject: "You're almost done signing up for ReelCaster",

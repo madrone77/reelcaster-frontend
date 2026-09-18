@@ -37,12 +37,10 @@ export const LEGAL_CONTACT = {
 
   /**
    * Street line only. The contact blocks in both documents print
-   * "Victoria, British Columbia V8V 4Y9, Canada" on the following line, and the
+   * "Victoria, British Columbia, Canada" on the following line, and the
    * inline supplier disclosure in Terms section 6 spells the city out.
    */
   MAILING_ADDRESS: 'Unit 696, 185 - 911 Yates St',
-
-  POSTAL_CODE: 'V8V 4Y9',
 
   PHONE: '+1 236 857 7771',
 
