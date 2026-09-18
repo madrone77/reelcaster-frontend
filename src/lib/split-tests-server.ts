@@ -260,6 +260,9 @@ export function priceIdFromEnv(priceEnv: string): string {
       return process.env.STRIPE_ANNUAL_PRICE_ID ?? '';
     case 'STRIPE_ANNUAL_PRICE_ID_B':
       return process.env.STRIPE_ANNUAL_PRICE_ID_B ?? '';
+    // The plan picker's monthly card (src/lib/pricing.ts, monthlyPricing).
+    case 'STRIPE_MONTHLY_PRICE_ID':
+      return process.env.STRIPE_MONTHLY_PRICE_ID ?? '';
     default:
       return '';
   }

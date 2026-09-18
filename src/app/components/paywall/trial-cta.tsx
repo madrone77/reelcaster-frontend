@@ -20,7 +20,13 @@ import { useUpgradeFlow } from '@/hooks/use-upgrade-flow';
 import { goToCheckout } from '@/lib/checkout-redirect';
 import { cn } from '@/lib/utils';
 import ExpressCheckout from './express-checkout';
-import { TRIAL_DAYS, dollars } from '@/lib/pricing';
+import {
+  CONTROL_MONTHLY_CENTS,
+  TRIAL_DAYS,
+  currencyForRegion,
+  dollars,
+  type BillingPlan,
+} from '@/lib/pricing';
 import { usePricing } from '@/app/components/split-test/use-pricing';
 import { reportSplitCta } from '@/app/components/split-test/report';
 
@@ -60,6 +66,8 @@ interface CheckoutStatus {
   trial_available: boolean;
   trial_days: number;
   annual_available: boolean;
+  /** The plan picker's monthly card can be sold in this environment. */
+  monthly_available?: boolean;
   /** Hashed email / phone / name for the pixel; see src/lib/meta-identity.ts. */
   meta_identity?: { em?: string; ph?: string; fn?: string; ln?: string } | null;
 }
@@ -70,8 +78,20 @@ interface CheckoutStatus {
  */
 const PAY_FIRST = process.env.NEXT_PUBLIC_PAY_FIRST_CHECKOUT === '1';
 
-/** How the purchase was started, for the caller's analytics. */
-export type TrialCtaMethod = 'annual' | 'wallet' | 'signup';
+/**
+ * The monthly card on the phone sheet's plan picker. NEXT_PUBLIC_ so a
+ * signed-out reader, who never gets a status read, can be told whether the
+ * second card is for sale; the server holds the price id itself. Unset, the
+ * picker is never drawn and the sheet is the single annual button.
+ */
+export const MONTHLY_ON = process.env.NEXT_PUBLIC_STRIPE_MONTHLY_ON === '1';
+
+/**
+ * How the purchase was started, for the caller's analytics. 'annual' and
+ * 'monthly' are the buy button with that plan chosen; the phone sheet's
+ * plan picker is the only thing that produces 'monthly'.
+ */
+export type TrialCtaMethod = 'annual' | 'monthly' | 'wallet' | 'signup';
 
 /**
  * How long the button waits for the auth context to settle before it draws
@@ -150,10 +170,31 @@ interface TrialCtaState {
   anon: boolean;
   trialOn: boolean;
   trialDays: number;
+  /** The amount per `periodWord`, for the plan in hand. */
   priceCents: number;
   periodWord: string;
   chargeDate: string;
   planDown: boolean;
+  /**
+   * Which cadence the buy button sells. Annual unless the plan picker on the
+   * phone sheet moved it; every surface without a picker never sees monthly.
+   * Monthly carries no trial, so `trialOn` reads false while it is chosen.
+   */
+  plan: BillingPlan;
+  setPlan: (plan: BillingPlan) => void;
+  /** The annual amount, regardless of `plan`, for the picker's card. */
+  annualCents: number;
+  /** The monthly amount, regardless of `plan`, for the picker's card. */
+  monthlyCents: number;
+  /** Whether the monthly card can be sold at all (price wired up). */
+  monthlyAvailable: boolean;
+  /**
+   * Whether the ANNUAL plan would trial for this reader, whichever card is
+   * chosen. `trialOn` is that gated by `plan`; the picker's yearly card
+   * needs the ungated answer so it keeps saying "7 days free" while the
+   * monthly card is selected.
+   */
+  annualTrial: boolean;
   isLight: boolean;
   from: string;
   /**
@@ -351,13 +392,21 @@ export function TrialCtaProvider({
   // the button label, the disclosure under it and the summary above it cannot
   // disagree about what the card is about to be charged.
   const pricing = usePricing(region);
+  const [plan, setPlan] = useState<BillingPlan>('annual');
+  const monthlyCents = CONTROL_MONTHLY_CENTS[currencyForRegion(region)];
+  // Signed out, the picker trusts the build-time switch the sheet reads;
+  // signed in, the status read says whether the monthly price is wired up.
+  const monthlyAvailable = MONTHLY_ON && (status ? Boolean(status.monthly_available) : true);
+  const priceCents = plan === 'monthly' ? monthlyCents : pricing.cents;
 
   const anon = authSettled && !signedIn;
   // Eligibility for a signed-out buyer is checked server-side against the
   // email they give — typed, or handed over by the wallet — so an optimistic
   // `true` here never survives into the session for someone who has already
-  // had a trial.
-  const trialOn = anon || Boolean(status?.trial_available);
+  // had a trial. Monthly never trials: the picker's monthly card is charged
+  // today, and the button and the terms under it say so.
+  const annualTrial = anon || Boolean(status?.trial_available);
+  const trialOn = plan === 'annual' && annualTrial;
   const trialDays = status?.trial_days ?? TRIAL_DAYS;
   const chargeDate = useMemo(
     () => shortDate(trialOn ? addDays(trialDays) : new Date()),
@@ -373,6 +422,7 @@ export function TrialCtaProvider({
       region,
       signed_in: false,
       trial: trialOn,
+      plan,
       pricing: pricing.variant ?? 'control',
     });
     setAnonSubmitting(true);
@@ -381,7 +431,7 @@ export function TrialCtaProvider({
       const res = await fetch('/api/stripe/checkout', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ from, region, email: email.trim() }),
+        body: JSON.stringify({ from, region, email: email.trim(), plan }),
       });
       let payload: { url?: string; id?: string; redirect?: string; error?: string } = {};
       try {
@@ -415,10 +465,16 @@ export function TrialCtaProvider({
     anon,
     trialOn,
     trialDays,
-    priceCents: pricing.cents,
-    periodWord: 'year',
+    priceCents,
+    periodWord: plan === 'monthly' ? 'month' : 'year',
     chargeDate,
     planDown: Boolean(status && !status.annual_available),
+    plan,
+    setPlan,
+    annualCents: pricing.cents,
+    monthlyCents,
+    monthlyAvailable,
+    annualTrial,
     isLight: theme === 'light',
     from,
     region,
@@ -434,7 +490,8 @@ export function TrialCtaProvider({
         signed_in: !anon,
         trial: trialOn,
         trial_days: trialDays,
-        price_cents: pricing.cents,
+        plan,
+        price_cents: priceCents,
         pricing: pricing.variant ?? 'control',
       });
     },
@@ -451,6 +508,7 @@ export function TrialCtaProvider({
         from,
         region,
         signed_in: true,
+        plan,
         tier: isPaid ? 'pro' : 'free',
       });
       // The same token the eligibility read used, so the POST does not go
@@ -460,6 +518,7 @@ export function TrialCtaProvider({
         region,
         accessToken,
         viewerTier: isPaid ? 'pro' : 'free',
+        plan,
       }).catch(() => {
         /* surfaced through errorText */
       });
@@ -596,6 +655,7 @@ export function TrialBuy({
   const ctaLabel = s.trialOn
     ? `Start ${s.trialDays}-day free trial`
     : `Get Pro · ${dollars(s.priceCents)}/${s.periodWord}`;
+  const method: TrialCtaMethod = s.plan;
 
   // Selling an account, not a subscription.
   if (signupHref) {
@@ -634,11 +694,11 @@ export function TrialBuy({
         <button
           type="button"
           data-testid={testId}
-          data-plan="annual"
+          data-plan={s.plan}
           disabled={s.submitting}
           onClick={() => {
             s.reportStartClick();
-            s.onActivate?.('annual');
+            s.onActivate?.(method);
             s.startAnonCheckout();
           }}
           className={ctaClass}
@@ -656,7 +716,7 @@ export function TrialBuy({
             // the field may never blur before the submit, so it runs here too.
             s.reportEmail(s.email);
             s.reportStartClick();
-            s.onActivate?.('annual');
+            s.onActivate?.(method);
             s.startAnonCheckout();
           }}
         >
@@ -705,7 +765,7 @@ export function TrialBuy({
           <button
             type="submit"
             data-testid={testId}
-            data-plan="annual"
+            data-plan={s.plan}
             disabled={s.submitting}
             className={ctaClass}
           >
@@ -716,10 +776,10 @@ export function TrialBuy({
         <Link
           href={`/plans/checkout?from=${encodeURIComponent(s.from)}`}
           data-testid={testId}
-          data-plan="annual"
+          data-plan={s.plan}
           onClick={() => {
             s.reportStartClick();
-            s.onActivate?.('annual');
+            s.onActivate?.(method);
           }}
           className={ctaClass}
         >
@@ -730,10 +790,10 @@ export function TrialBuy({
           type="button"
           disabled={s.busy || s.submitting}
           data-testid={testId}
-          data-plan="annual"
+          data-plan={s.plan}
           onClick={() => {
             s.reportStartClick();
-            s.onActivate?.('annual');
+            s.onActivate?.(method);
             s.startCheckout();
           }}
           className={ctaClass}

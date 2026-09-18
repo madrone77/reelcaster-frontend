@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { useTrialCta } from './trial-cta';
-import { TRIAL_DAYS } from '@/lib/pricing';
+import { TRIAL_DAYS, dollars } from '@/lib/pricing';
 
 /**
  * The first-charge line in Stripe's words ("Then CA$33.00 per year starting
@@ -36,13 +36,21 @@ export default function ChargeTerms({
   className,
   ...rest
 }: { priceAmount: string; className?: string } & React.HTMLAttributes<HTMLParagraphElement>) {
-  const { chargeDate, trialOn } = useTrialCta();
-  const price = /\.\d{2}$/.test(priceAmount) ? priceAmount : `${priceAmount}.00`;
+  const { chargeDate, trialOn, plan, monthlyCents } = useTrialCta();
+  // Monthly is charged today at the monthly amount, and the caller's
+  // `priceAmount` is the annual figure; the hook's is the one to print.
+  const shown = plan === 'monthly' ? dollars(monthlyCents) : priceAmount;
+  const price = /\.\d{2}$/.test(shown) ? shown : `${shown}.00`;
   const when = trialOn && chargeDate ? chargeDate : `day ${TRIAL_DAYS}`;
   return (
     <p {...rest} className={`text-[13px] leading-[18px] text-rc-ink-soft ${className ?? ''}`}>
-      Then {price} per year
-      starting {when}{' '}
+      {plan === 'monthly' ? (
+        <>{price} per month, charged today, until you cancel</>
+      ) : (
+        <>
+          Then {price} per year starting {when}
+        </>
+      )}{' '}
       <span className="whitespace-nowrap">
         {'· '}
         <Link href="/terms" className={LINK}>
