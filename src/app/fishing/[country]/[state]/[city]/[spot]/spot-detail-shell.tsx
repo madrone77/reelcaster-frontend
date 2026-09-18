@@ -1370,11 +1370,14 @@ export default function SpotDetailShell({
               </button>
               <button
                 type="button"
-                onClick={sheet.onClose}
-                aria-label="Close"
-                className="-mr-2 flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-rc-ink-mute hover:bg-rc-surface hover:text-rc-ink"
+                onClick={() => {
+                  trackEvent("Back To Map Clicked", { slug, ad_wall: ad?.wall });
+                  sheet.onClose();
+                }}
+                aria-label="Close and go back to the map"
+                className="-mr-1 ml-1 flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-rc-surface text-rc-ink hover:bg-rc-rule"
               >
-                <X className="h-4 w-4" />
+                <X className="h-5 w-5" strokeWidth={2.4} />
               </button>
             </div>
           ) : (
@@ -1385,7 +1388,7 @@ export default function SpotDetailShell({
             </div>
           )}
           <div
-            className={`${PAGE_MEASURE} flex flex-wrap items-center justify-between gap-2 py-3`}
+            className={`${PAGE_MEASURE} flex flex-nowrap items-center justify-between gap-2 py-3`}
           >
             <div className="flex min-w-0 items-center gap-2 font-rc-mono text-[11px] text-rc-ink-mute">
               {/* Under the ad frame this is the one link on the page, and it
@@ -1398,21 +1401,10 @@ export default function SpotDetailShell({
                   outranks the URL — see explore/lib/view-memory.ts. The
                   product keeps the bare href, which is what that view memory
                   was built around. */}
-              {sheet ? (
-                // The map is right behind the sheet, so "back" is a close,
-                // not a navigation.
-                <button
-                  type="button"
-                  onClick={() => {
-                    trackEvent("Back To Map Clicked", { slug, ad_wall: ad?.wall });
-                    sheet.onClose();
-                  }}
-                  className="flex items-center gap-1 text-rc-brand hover:underline"
-                >
-                  <ChevronLeft className="w-3.5 h-3.5" />
-                  Back to map
-                </button>
-              ) : (
+              {/* The sheet has no Back to map: the map is right behind it
+                  and the X on the right is the exit. Two controls that did
+                  the same thing only made the row crowd itself. */}
+              {!sheet && (
                 <Link
                   href={
                     ad
@@ -1431,13 +1423,19 @@ export default function SpotDetailShell({
               {/* The trail up the hierarchy is desktop-only, and on most ad
                   pages it does not exist: every anchor in it is an exit, and a
                   display:none link is still in the document, still a tab
-                  stop. `day2` gets the trail as plain text, at every width,
-                  so a paid visitor can see they landed in the right place
-                  without being handed a way out of the frame. */}
+                  stop. `day2` gets the trail as plain text so a paid visitor
+                  can see they landed in the right place without being handed
+                  a way out of the frame. Desktop-only like the organic trail:
+                  on a phone it used to squeeze "Back to map" onto two lines
+                  and push the X onto a row of its own; the spot name and the
+                  area chip right below say where the reader is. */}
               {ad?.wall === "day2" && (
                 <>
-                  <span className="shrink-0 text-rc-rule">·</span>
-                  <nav aria-label="Breadcrumb" className="min-w-0 truncate">
+                  <span className="hidden lg:inline shrink-0 text-rc-rule">·</span>
+                  <nav
+                    aria-label="Breadcrumb"
+                    className="hidden lg:block min-w-0 truncate"
+                  >
                     {cityLink
                       ? [
                           cityLink.countryName,
@@ -1522,11 +1520,14 @@ export default function SpotDetailShell({
             {sheet && (
               <button
                 type="button"
-                onClick={sheet.onClose}
-                aria-label="Close"
-                className="-mr-2 flex h-9 w-9 items-center justify-center rounded-full text-rc-ink-mute hover:bg-rc-surface hover:text-rc-ink"
+                onClick={() => {
+                  trackEvent("Back To Map Clicked", { slug, ad_wall: ad?.wall });
+                  sheet.onClose();
+                }}
+                aria-label="Close and go back to the map"
+                className="-mr-1 flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-rc-surface text-rc-ink hover:bg-rc-rule"
               >
-                <X className="h-4 w-4" />
+                <X className="h-5 w-5" strokeWidth={2.4} />
               </button>
             )}
             {/* Desktop-only. On a phone the row is the way back and nothing
