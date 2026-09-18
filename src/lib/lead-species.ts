@@ -24,6 +24,9 @@ export function leadSpeciesRank(name: string | null | undefined): number {
   if (!name) return LEAD_ORDER.length;
   const n = name.toLowerCase();
   if (n.includes("crab")) return LEAD_ORDER.length + 1;
+  // "Halibut" on the list is Pacific halibut. California halibut is a
+  // different fish on a different coast and ranks with the unlisted species.
+  if (n.includes("california halibut")) return LEAD_ORDER.length;
   const i = LEAD_ORDER.findIndex((p) => n.includes(p));
   return i === -1 ? LEAD_ORDER.length : i;
 }
@@ -55,7 +58,7 @@ export function orderLeadSpecies<T extends { name: string; score: number }>(
  * a tier of evidence picked the fish. A `default` pick is the fixed order
  * and says nothing about the bite, so the line is not shown for it.
  */
-export type BitingSource = "spot_reports" | "city_reports" | "creel";
+export type BitingSource = "spot_reports" | "city_reports" | "creel" | "port_rates";
 
 export interface Biting {
   fish: string;
@@ -78,6 +81,9 @@ export function bitingLine(b: Biting): string {
       return `What's biting now around ${b.place}: ${b.fish}`;
     case "creel":
       return `What's biting now near ${b.place}: ${b.fish}`;
+    case "port_rates":
+      // Oregon's port sampling: the boats out of the city's ports.
+      return `What's biting now off ${b.place}: ${b.fish}`;
   }
 }
 
@@ -90,7 +96,7 @@ export function bitingFor(
 ): Biting | null {
   if (!pick || !shown || pick.speciesId !== shown.id) return null;
   if (pick.source === "spot_reports") return { fish: shown.fish, source: "spot_reports", place: places.spot };
-  if (pick.source === "city_reports" || pick.source === "creel") {
+  if (pick.source === "city_reports" || pick.source === "creel" || pick.source === "port_rates") {
     if (!places.city) return null;
     return { fish: shown.fish, source: pick.source, place: places.city };
   }

@@ -1681,7 +1681,7 @@ export interface BlueCasterCityToday {
   headline: BlueCasterCityTodaySpecies | null;
   /** Which tier picked `headline`: the city's reports, its creel checks, or
    *  the roster default. Optional so a cached pre-field body still parses. */
-  headline_source?: "city_reports" | "creel" | "default" | null;
+  headline_source?: "city_reports" | "creel" | "port_rates" | "default" | null;
   species: BlueCasterCityTodaySpecies[];
   ahead: {
     horizon_days: number;
