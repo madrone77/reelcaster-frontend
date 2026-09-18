@@ -11,8 +11,20 @@ import type { MapSpot } from "@/app/(marketing)/components/marketing-map";
 import { loadCity } from "../instrument/load-city";
 import { recognitionLabel } from "../instrument/featured";
 import CityInstrument from "../instrument/city-instrument";
-import CityTopSpots from "../instrument/city-top-spots";
 import KeepToday from "../hub/keep-today";
+import CityLive from "../city-live";
+import { SpeciesCards } from "../species-cards";
+import ProGate from "../hub/pro-gate";
+import CityTides from "../city-tides";
+import {
+  BeforeYouGo,
+  CityFaq,
+  CityProse,
+  NearbyCities,
+  SeasonMatrix,
+} from "../city-sections";
+import { fetchCityGuides } from "@/lib/bluecaster";
+import { locationOf } from "@/app/fishing/lib/fishing-data";
 import AdReel from "../[spot]/ad/ad-reel";
 import CityAdView from "./city-ad-view";
 
@@ -84,6 +96,7 @@ export default async function CityAdPage({ params, searchParams }: PageProps) {
   const topic = parseTopic(first(sp.topic));
 
   const {
+    province,
     city,
     tz,
     regulator,
@@ -92,11 +105,24 @@ export default async function CityAdPage({ params, searchParams }: PageProps) {
     featured,
     cityForecast,
     seasonRows,
+    cityPage,
+    cityToday,
     fish,
     hubSpots,
   } = await loadCity(country, state, cityUrlSlug, {
     speciesParam: first(sp.species) || null,
   });
+
+  // The reference material under the fold, same loads as the public page.
+  const cityGuides = await fetchCityGuides(city.slug);
+  const guides = cityGuides?.guides ?? [];
+  const faq = cityPage?.page.faq ?? [];
+  const nearby = (province.cities ?? [])
+    .filter((c) => c.slug !== city.slug)
+    .map((c) => ({ slug: c.slug, path: c.path, name: c.name, spotCount: c.spots.length }))
+    .sort((a, b) => b.spotCount - a.spotCount)
+    .slice(0, 6);
+  const sectionAd = { wall, angle, params: fish ? { species: fish.slug } : undefined };
 
   const fishName = fish ? speciesKeywordName(fish.name) : null;
 
@@ -203,16 +229,12 @@ export default async function CityAdPage({ params, searchParams }: PageProps) {
         ) : null
       }
     >
-      <CityTopSpots
-        rows={rankedRows}
-        cityName={city.name}
-        title={
-          fishName
-            ? `Top ${fishName} spots near ${city.name}`
-            : `The spots people actually fish in ${city.name}`
-        }
-        limit={10}
-      />
+      {/* ── The same flow as the public city page, framed ─────────────────
+          Instrument (14-day band, the 24-hour chart with the testimonial
+          under it, the marks people fish, the map), what you can keep, the
+          live feed, species, the second ask, tides, seasons, before you go,
+          the prose, the FAQ, nearby. Each section either carries the frame
+          onto a framed page or keeps its words and drops its link. */}
       <CityInstrument
         citySlug={city.slug}
         cityName={city.name}
@@ -224,9 +246,40 @@ export default async function CityAdPage({ params, searchParams }: PageProps) {
         featured={featured}
         rows={rankedRows}
         rosterCount={spots.length}
-        hideTopSpots
+        testimonial
+        topSpotsTitle={fishName ? `Top ${fishName} spots near ${city.name}` : undefined}
+        topSpotsLimit={10}
       />
       <KeepToday rows={seasonRows} cityName={city.name} regulator={regulator} adFrame />
+
+      <div className="pt-4 space-y-10">
+        <CityLive cityName={city.name} citySlug={city.slug} />
+        <SpeciesCards guides={guides} cityName={city.name} location={locationOf(city)} unlinked />
+        <ProGate variant="banner" provinceCode={city.provinceCode} citySlug={city.slug} adFrame />
+        {cityToday?.tide_station && (
+          <CityTides
+            station={cityToday.tide_station}
+            tz={cityToday.city.tz}
+            date={cityToday.date}
+            cityName={city.name}
+          />
+        )}
+        <SeasonMatrix rows={seasonRows} cityName={city.name} />
+        <BeforeYouGo
+          areas={cityPage?.regulatory_areas ?? []}
+          provinceCode={city.provinceCode}
+          cityName={city.name}
+          adFrame
+        />
+        <CityProse
+          aboutMd={cityPage?.page.about_md ?? null}
+          localIntelMd={cityPage?.page.local_intel_md ?? null}
+          cityName={city.name}
+          adFrame
+        />
+        <CityFaq faq={faq} cityName={city.name} />
+        <NearbyCities cities={nearby} ad={sectionAd} />
+      </div>
     </CityAdView>
   );
 }

@@ -197,6 +197,8 @@ export default function CityInstrument({
   campaign,
   testimonial = false,
   hideTopSpots = false,
+  topSpotsTitle,
+  topSpotsLimit,
 }: {
   /** Put Kevin's testimonial box under the 24-hour chart. On for the pages
    *  that open with the landing hero (lib/seo-hero.ts), off elsewhere. */
@@ -243,6 +245,9 @@ export default function CityInstrument({
   campaign?: CampaignTarget | null;
   /** The city ad page draws the ranked list itself, right under its hero. */
   hideTopSpots?: boolean;
+  /** The ad page names the keyword's fish in the list's title. */
+  topSpotsTitle?: string;
+  topSpotsLimit?: number;
 }) {
   const ad = useAdFrame();
   const { isPaid, loading: tierLoading } = useSubscription();
@@ -694,7 +699,9 @@ export default function CityInstrument({
       )}
 
       {/* ── 3 · The marks people actually fish ───────────────────────────── */}
-      {!hideTopSpots && <CityTopSpots rows={rows} cityName={cityName} />}
+      {!hideTopSpots && (
+        <CityTopSpots rows={rows} cityName={cityName} title={topSpotsTitle} limit={topSpotsLimit} />
+      )}
 
       {/* ── 4 · All of them, on the water ────────────────────────────────── */}
       <Section

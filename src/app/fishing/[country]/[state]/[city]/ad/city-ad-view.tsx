@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, type ReactNode } from "react";
+import { createContext, useContext, useState, type ReactNode } from "react";
 import dynamic from "next/dynamic";
 import ExploreTopBar from "@/app/explore/components/explore-top-bar";
 import { AdFrameProvider } from "@/app/explore/lib/ad-frame";
@@ -9,6 +9,30 @@ import { useSubscription } from "@/hooks/use-subscription";
 import { trackEvent } from "@/lib/analytics";
 import { withAdParams, type AdWall } from "@/lib/ad-mode";
 import AdHero, { AD_HERO_REEL_COL } from "../[spot]/ad-intro";
+
+/**
+ * "Open the trial modal", handed down the frame so the second ask below the
+ * map (see ProGate adFrame) opens the same modal as the hero button instead
+ * of linking out to /plans/checkout, which would leave the frame.
+ */
+const AdTrialContext = createContext<((placement: string) => void) | null>(null);
+
+export function AdTrialButton({
+  placement,
+  className,
+  children,
+}: {
+  placement: string;
+  className: string;
+  children: ReactNode;
+}) {
+  const open = useContext(AdTrialContext);
+  return (
+    <button type="button" className={className} onClick={() => open?.(placement)}>
+      {children}
+    </button>
+  );
+}
 
 const ProTrialModal = dynamic(() => import("@/app/components/paywall/pro-trial-modal"), {
   ssr: false,
@@ -62,6 +86,10 @@ export default function CityAdView({
 }) {
   const { isPaid } = useSubscription();
   const [trialOpen, setTrialOpen] = useState(false);
+  const openTrial = (placement: string) => {
+    trackEvent("City Ad Intro Trial Clicked", { city: citySlug, ad_wall: wall, placement });
+    setTrialOpen(true);
+  };
   const frame = {
     wall,
     angle,
@@ -94,14 +122,13 @@ export default function CityAdView({
             explainerText={hero.explainerText}
             footnoteText={hero.footnoteText}
             reel={reel}
-            onTrial={() => {
-              trackEvent("City Ad Intro Trial Clicked", { city: citySlug, ad_wall: wall });
-              setTrialOpen(true);
-            }}
+            onTrial={() => openTrial("hero")}
             mapHref={withAdParams(`/explore?loc=${encodeURIComponent(citySlug)}`, { wall, angle })}
             onMap={() => trackEvent("City Ad Intro Map Clicked", { city: citySlug, ad_wall: wall })}
           />
-          <AdFrameProvider value={frame}>{children}</AdFrameProvider>
+          <AdFrameProvider value={frame}>
+            <AdTrialContext.Provider value={openTrial}>{children}</AdTrialContext.Provider>
+          </AdFrameProvider>
         </div>
       </div>
       <ProTrialModal
