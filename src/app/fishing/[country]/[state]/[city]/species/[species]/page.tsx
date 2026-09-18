@@ -31,12 +31,15 @@ import {
 // Fifteen minutes keeps the page honest without re-deriving it per request.
 export const revalidate = 900;
 
-// Guides render on demand and then cache (`revalidate` above). Prerendering
-// them meant one fetchCityGuides call per covered city, in series, during
-// "Collecting page data" on every deploy, and the renders themselves went
-// against the live API. Crawlers still get head metadata via Next's
-// `htmlLimitedBots` blocking; everyone after the first visitor gets the
-// cached HTML.
+// No paths are prerendered, but the function has to exist: without it Next
+// treats a dynamic segment as fully dynamic and renders every request. An
+// empty list with `dynamicParams` (the default) renders a guide once on demand
+// and serves it from the cache for `revalidate` above. Prerendering meant one
+// fetchCityGuides call per covered city, in series, during "Collecting page
+// data" on every deploy, plus the renders themselves against the live API.
+export function generateStaticParams() {
+  return [];
+}
 
 async function load(
   countryParam: string,
