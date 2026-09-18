@@ -184,45 +184,59 @@ export function TrialTimeline({
   priceAmount: string;
   className?: string;
 }) {
-  const { chargeDate, trialOn } = useTrialCta();
-  const rows = [
-    {
-      key: 'today',
-      when: 'Today',
-      amount: '$0.00',
-      note: `Pro unlocks now. Nothing is charged for ${TRIAL_DAYS} days.`,
-      tone: 'now' as const,
-    },
-    {
-      key: 'reminder',
-      when: `Day ${REMINDER_DAY}`,
-      amount: 'Email reminder',
-      // The row's whole job is to answer "what if I forget", so it says so.
-      // It was the one row with no note under it, which read as the one row
-      // with nothing to add.
-      note: "So you don't forget",
-      tone: 'pending' as const,
-    },
-    {
-      key: 'charge',
-      when: `Day ${TRIAL_DAYS}`,
-      amount: `${priceAmount}/yr`,
-      // "Day 7" is a countdown, not a date, and the date is the half a reader
-      // needs to put it in a calendar.
-      //
-      // One sentence, not two. It used to open by stating the charge —
-      // "Charged Sep 9. Cancel any time before then…" — which puts the bill
-      // first and the way out second, in a row whose amount column is already
-      // showing the price. Naming the date inside the cancel clause says the
-      // same two things in the order a reader hesitating over a card wants
-      // them.
-      note:
-        trialOn && chargeDate
-          ? `Cancel any time before ${chargeDate} and you pay nothing.`
-          : 'Cancel any time before this and you pay nothing.',
-      tone: 'charge' as const,
-    },
-  ];
+  const { chargeDate, trialOn, busy } = useTrialCta();
+  // No trial for this buyer: there is no week to lay out, only today's charge.
+  // Three rows promising $0.00 today above a button that says "Get Pro" would
+  // contradict it.
+  const noTrial = !trialOn && !busy;
+  const rows = noTrial
+    ? [
+        {
+          key: 'charge',
+          when: 'Today',
+          amount: `${priceAmount}/yr`,
+          note: 'Pro unlocks now and renews yearly until you cancel.',
+          tone: 'charge' as const,
+        },
+      ]
+    : [
+        {
+          key: 'today',
+          when: 'Today',
+          amount: '$0.00',
+          note: `Pro unlocks now. Nothing is charged for ${TRIAL_DAYS} days.`,
+          tone: 'now' as const,
+        },
+        {
+          key: 'reminder',
+          when: `Day ${REMINDER_DAY}`,
+          amount: 'Email reminder',
+          // The row's whole job is to answer "what if I forget", so it says so.
+          // It was the one row with no note under it, which read as the one row
+          // with nothing to add.
+          note: "So you don't forget",
+          tone: 'pending' as const,
+        },
+        {
+          key: 'charge',
+          when: `Day ${TRIAL_DAYS}`,
+          amount: `${priceAmount}/yr`,
+          // "Day 7" is a countdown, not a date, and the date is the half a reader
+          // needs to put it in a calendar.
+          //
+          // One sentence, not two. It used to open by stating the charge —
+          // "Charged Sep 9. Cancel any time before then…" — which puts the bill
+          // first and the way out second, in a row whose amount column is already
+          // showing the price. Naming the date inside the cancel clause says the
+          // same two things in the order a reader hesitating over a card wants
+          // them.
+          note:
+            trialOn && chargeDate
+              ? `Cancel any time before ${chargeDate} and you pay nothing.`
+              : 'Cancel any time before this and you pay nothing.',
+          tone: 'charge' as const,
+        },
+      ];
 
   return (
     <div

@@ -40,8 +40,8 @@ export type WelcomeEmailOutcome =
 /**
  * Take the send, or find out somebody else already has.
  *
- * One statement, so two concurrent callers cannot both come away thinking they
- * won. A trial claim also matches a row already stamped with the free variant,
+ * Conditional updates, so two concurrent callers cannot both come away thinking
+ * they won. A trial claim also matches a row already stamped with the free variant,
  * which is what lets a free signup who later starts a trial get the trial
  * note; the write then sets the variant to 'trial' and closes both doors.
  */
@@ -64,26 +64,34 @@ async function claimWelcome(
     return { claimed: false, cardholderName: null };
   }
 
-  const query = admin
-    .from('user_settings')
-    .update({
-      welcome_email_sent_at: new Date().toISOString(),
-      welcome_email_variant: variant,
-    })
-    .eq('user_id', userId);
+  const update = () =>
+    admin
+      .from('user_settings')
+      .update({
+        welcome_email_sent_at: new Date().toISOString(),
+        welcome_email_variant: variant,
+      })
+      .eq('user_id', userId);
 
-  const claimed =
-    variant === 'trial'
-      ? query.or('welcome_email_sent_at.is.null,welcome_email_variant.eq.free')
-      : query.is('welcome_email_sent_at', null);
+  // Two single-filter statements, never one `.or()`. PostgREST rejects an
+  // UPDATE that combines an `or` filter with a returned selection ("column
+  // user_settings.welcome_email_sent_at does not exist", 42703), and that is
+  // exactly what the trial claim used to send: from 2026-08-30 to 2026-09-14
+  // every trial welcome failed at the claim and not one was sent, while the
+  // free variant, with its plain `is` filter, went out fine. Each statement is
+  // still atomic, so two callers cannot both win either one.
+  //
+  // bill_name rides back on the row the statement returns, so greeting a buyer
+  // by the name on their card costs no extra query and no Stripe call. The
+  // Stripe webhook writes that column moments earlier, in the same handler
+  // that ends up here (src/lib/billing-profile.ts).
+  let result = await update().is('welcome_email_sent_at', null).select('user_id, bill_name');
+  if (!result.error && (result.data?.length ?? 0) === 0 && variant === 'trial') {
+    // A free note already went out; a trial may still upgrade it.
+    result = await update().eq('welcome_email_variant', 'free').select('user_id, bill_name');
+  }
 
-  // bill_name rides back on the row this statement already returns, so
-  // greeting a buyer by the name on their card costs no extra query and no
-  // Stripe call. The Stripe webhook writes that column moments earlier, in the
-  // same handler that ends up here (src/lib/billing-profile.ts), so it is
-  // populated by the time a trial welcome is claimed.
-  const { data, error } = await claimed.select('user_id, bill_name');
-
+  const { data, error } = result;
   if (error) {
     console.error('[welcome email] claim failed', userId, error);
     return { claimed: false, cardholderName: null };

@@ -72,6 +72,16 @@ export async function POST(request: NextRequest) {
   // the customer right now, not the one on the session, so a correction made
   // while waiting (PATCH below) shows up on the next poll.
   if (!link) {
+    // Or it never will: the webhook refused this purchase because the address
+    // already had Pro, cancelled it and refunded it (see
+    // isOtherThanAccountSubscription in the Stripe webhook). Said here so the
+    // success page stops saying "Welcome to Pro" about a cancelled purchase.
+    if (proof.subscriptionId && (await isRefusedDuplicate(proof.subscriptionId))) {
+      return NextResponse.json({
+        status: 'duplicate',
+        email: await customerEmail(customerId, proof.email),
+      });
+    }
     return NextResponse.json(
       { status: 'pending', email: await customerEmail(customerId, proof.email) },
       { status: 202 },
@@ -243,6 +253,17 @@ async function customerEmail(
     return customer.deleted ? fallback : (customer.email ?? fallback);
   } catch {
     return fallback;
+  }
+}
+
+/** Whether the webhook refused this subscription as a second one for an account. */
+async function isRefusedDuplicate(subscriptionId: string): Promise<boolean> {
+  try {
+    const stripe = await getStripe();
+    const sub = await stripe.subscriptions.retrieve(subscriptionId);
+    return Boolean(sub.metadata?.duplicate_of);
+  } catch {
+    return false;
   }
 }
 

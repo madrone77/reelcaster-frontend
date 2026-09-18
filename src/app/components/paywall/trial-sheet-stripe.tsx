@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { Check } from 'lucide-react';
 import { DialogDescription, DialogTitle } from '@/components/ui/dialog';
-import { TrialBuy, TrialCtaProvider } from './trial-cta';
+import { TrialBuy, TrialCtaProvider, useTrialCta } from './trial-cta';
 import Testimonial from './testimonial';
 import BrandHeader from './brand-header';
 import ChargeTerms from './charge-terms';
@@ -30,6 +30,29 @@ export function proRows(city?: string): readonly string[] {
   ];
 }
 export const PRO_ROWS_HEADING = 'What you get with Pro';
+
+/**
+ * "Try ReelCaster Pro / 7 days free", or the paid offer when this buyer has no
+ * trial: an address checkout just refused a trial for, or a signed-in account
+ * that has had one. Reads the same state as the button, so a headline in 36px
+ * type can no longer promise a free week above a button that says "Get Pro ·
+ * $33/year". Must render inside a TrialCtaProvider; shared with
+ * ./plan-choice-modal, which sets the same offer block.
+ */
+export function OfferHeadline({ priceAmount }: { priceAmount: string }) {
+  const { trialOn, busy } = useTrialCta();
+  const paid = !trialOn && !busy;
+  return (
+    <div className="mt-6 text-center">
+      <p className="text-[19px] leading-6 font-medium text-rc-ink-soft">
+        {paid ? 'ReelCaster Pro' : 'Try ReelCaster Pro'}
+      </p>
+      <DialogTitle className="mt-1 text-[36px] leading-[40px] font-bold tracking-[-0.02em] text-rc-ink">
+        {paid ? `${priceAmount}/year` : `${TRIAL_DAYS} days free`}
+      </DialogTitle>
+    </div>
+  );
+}
 
 /**
  * Stripe Checkout's pay button, in our blue: full width, 44px tall, 6px
@@ -123,14 +146,7 @@ export default function TrialSheetStripe({
         {/* The offer, set the way Stripe Checkout sets it on the page after
             this one: what it is in grey, what it costs today in large type,
             centred, as there. The first charge is stated under the button. */}
-        <div className="mt-6 text-center">
-          <p className="text-[19px] leading-6 font-medium text-rc-ink-soft">
-            Try ReelCaster Pro
-          </p>
-          <DialogTitle className="mt-1 text-[36px] leading-[40px] font-bold tracking-[-0.02em] text-rc-ink">
-            {TRIAL_DAYS} days free
-          </DialogTitle>
-        </div>
+        <OfferHeadline priceAmount={priceAmount} />
 
         <p className="mt-6 font-rc-mono text-[10px] font-semibold tracking-[0.14em] text-rc-ink-mute uppercase">
           {PRO_ROWS_HEADING}

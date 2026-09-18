@@ -22,7 +22,7 @@ import type {
   StripeExpressCheckoutElementConfirmEvent,
   StripeExpressCheckoutElementReadyEvent,
 } from '@stripe/stripe-js';
-import { apiFetch } from '@/lib/api-client';
+import { ApiError, apiFetch } from '@/lib/api-client';
 import { useAuth } from '@/contexts/auth-context';
 import { trackEvent } from '@/lib/analytics';
 import { TRIAL_DAYS, dollars } from '@/lib/pricing';
@@ -337,8 +337,9 @@ function WalletButtons({
           body: { step: 'subscribe', setup_intent: setupIntent.id },
         });
 
-        // Only reachable for a repeat customer with no trial left, whose first
-        // charge lands immediately and needs a 3DS step.
+        // A first charge that needs a 3DS step. Only a subscription without a
+        // trial can get here, and since 2026-09-14 the setup step refuses those
+        // (the sheet quoted a trial), so this is a backstop, not a path.
         if (result.requires_action && result.client_secret) {
           const { error: actionError } = await stripe.handleNextAction({
             clientSecret: result.client_secret,
@@ -355,8 +356,22 @@ function WalletButtons({
         window.location.href = `/billing/success?session_id=${encodeURIComponent(
           setupIntent.id,
         )}`;
-      } catch {
-        fail('We couldn’t complete that purchase. Please try again.');
+      } catch (err) {
+        // The setup step's refusals, each of which charged nothing and each of
+        // which needs the buyer to do something other than try again.
+        const code =
+          err instanceof ApiError && err.status === 409
+            ? (err.body as { error?: string } | null)?.error
+            : undefined;
+        fail(
+          code === 'account_exists'
+            ? 'That email already has a ReelCaster account. Sign in to it first, then come back here.'
+            : code === 'trial_used'
+              ? 'That email has already had a free trial, so nothing was charged. Enter your email below to get Pro on paid terms.'
+              : code === 'already_subscribed'
+                ? 'You already have ReelCaster Pro, so nothing was charged.'
+                : 'We couldn’t complete that purchase. Please try again.',
+        );
       }
     },
     [stripe, elements, from, region],

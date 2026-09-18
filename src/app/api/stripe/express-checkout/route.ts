@@ -27,6 +27,7 @@ import {
 import { EXPRESS_MARKER } from '@/lib/express-checkout';
 import { acquisitionMetadata, forwardedAcquisition } from '@/lib/acquisition-metadata';
 import { PAY_METHOD_KEY, paymentMethodKey } from '@/lib/payment-method';
+import { LIVE_SUBSCRIPTION_STATUSES, findUserIdByEmail } from '@/lib/checkout-account';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -206,9 +207,18 @@ async function setupStep(
 
     const { data: settings } = await admin
       .from('user_settings')
-      .select('stripe_customer_id, stripe_subscription_id')
+      .select('stripe_customer_id, stripe_subscription_id, subscription_status')
       .eq('user_id', userId)
       .maybeSingle();
+
+    // Same refusal as the hosted route: Pro is never sold to an account that
+    // already holds it.
+    if (
+      settings?.stripe_subscription_id &&
+      LIVE_SUBSCRIPTION_STATUSES.has(settings.subscription_status ?? '')
+    ) {
+      return noStore({ error: 'already_subscribed' }, { status: 409 });
+    }
 
     let existing = settings?.stripe_customer_id ?? null;
     let hadSubscription = Boolean(settings?.stripe_subscription_id);
@@ -280,14 +290,36 @@ async function setupStep(
       return noStore({ error: 'email_required' }, { status: 400 });
     }
 
+    // Before a Stripe customer exists, for the same reason and in the same
+    // words as the hosted route: an address with an account signs in.
+    if (await findUserIdByEmail(admin, email)) {
+      return noStore({ error: 'account_exists' }, { status: 409 });
+    }
+
+    const eligibility = await checkTrialEligibilityByEmail(admin, email);
+    trialEligible = eligibility.eligible;
+
+    // Checked before the customer is created, so a refusal leaves nothing
+    // behind in Stripe for the "almost done" sweep to find.
+    if (!trialEligible) {
+      return noStore({ error: 'trial_used' }, { status: 409 });
+    }
+
     const customer = await stripe.customers.create({
       email,
       metadata: { anon_checkout: 'true' },
     });
     customerId = customer.id;
+  }
 
-    const eligibility = await checkTrialEligibilityByEmail(admin, email);
-    trialEligible = eligibility.eligible;
+  // The wallet sheet has already been approved by the time this runs, and it
+  // quoted a free trial: "Free for 7 days, then $33 a year" is written into
+  // Apple's own UI (see express-checkout.tsx) and cannot be taken back. So a
+  // buyer without a trial is refused here, with no charge, instead of being
+  // billed an amount the sheet said was a week away. The card form beside the
+  // wallet states paid terms and takes them from there.
+  if (!trialEligible) {
+    return noStore({ error: 'trial_used' }, { status: 409 });
   }
 
   try {
