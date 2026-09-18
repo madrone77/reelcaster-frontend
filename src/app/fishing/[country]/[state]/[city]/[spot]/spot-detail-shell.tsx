@@ -85,6 +85,7 @@ import {
   type CampaignTarget,
 } from "@/app/lp/_shared/lp-telemetry";
 import { withAdParams, type AdMode, type AdWall } from "@/lib/ad-mode";
+import { orderLeadSpecies } from "@/lib/lead-species";
 import { speciesKeywordName } from "@/lib/species-param";
 import MarketingFooter from "@/app/components/marketing/marketing-footer";
 import { PAGE_MEASURE } from "@/app/components/layout/page-measure";
@@ -192,32 +193,19 @@ function bestSpeciesId(page: SpotPageForClient): string | null {
   return best ?? page.species[0]?.id ?? null;
 }
 
-// Ad landings lead with the fish the searcher wants, not today's top scorer,
-// which is crab or lingcod most days. Chinook, Coho, Halibut, Lingcod in that
-// order; anything else follows, best score first; crab goes last, so it only
-// leads a spot where it is the only species.
-const AD_LEAD_ORDER = ["chinook", "coho", "halibut", "lingcod"];
-
-function adLeadRank(name: string): number {
-  const n = name.toLowerCase();
-  if (n.includes("crab")) return AD_LEAD_ORDER.length + 1;
-  const i = AD_LEAD_ORDER.findIndex((p) => n.includes(p));
-  return i === -1 ? AD_LEAD_ORDER.length : i;
-}
+// Ad landings lead with the fish the searcher wants, not today's top scorer.
+// The order itself lives in lib/lead-species.ts, shared with the city hero.
 
 function adOrderSpecies<T extends { id: string; name: string }>(
   list: T[],
   page: SpotPageForClient,
 ): T[] {
-  const score = (s: T) => page.topScoreTodayBySpecies[s.id] ?? -1;
-  return [...list].sort((a, b) => {
-    // A species with no score today (closed, unscored) never leads.
-    const scored = Number(score(b) >= 0) - Number(score(a) >= 0);
-    if (scored !== 0) return scored;
-    const rank = adLeadRank(a.name) - adLeadRank(b.name);
-    if (rank !== 0) return rank;
-    return score(b) - score(a);
-  });
+  return orderLeadSpecies(
+    list.map((s) => ({
+      ...s,
+      score: page.topScoreTodayBySpecies[s.id] ?? -1,
+    })),
+  );
 }
 
 /** Where this spot sits in the public /fishing directory; null for custom

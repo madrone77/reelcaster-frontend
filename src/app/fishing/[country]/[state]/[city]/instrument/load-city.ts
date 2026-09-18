@@ -147,6 +147,7 @@ async function loadResolvedCity(
   const featured = featuredSpot(
     hub.spots,
     cityToday?.headline?.species_id ?? null,
+    hub.species,
   );
 
   const [cityForecast, featuredPage] = await Promise.all([
