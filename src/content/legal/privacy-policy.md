@@ -278,7 +278,7 @@ If you believe a child under 13 has given us personal information, contact {{PRI
 **Privacy Officer**\
 Copia Digital Incorporated\
 {{MAILING_ADDRESS}}\
-Victoria, British Columbia, Canada\
+Victoria, British Columbia {{POSTAL_CODE}}, Canada\
 Telephone: {{PHONE}}\
 Privacy requests and questions: {{PRIVACY_EMAIL}}\
 General and support: {{CONTACT_EMAIL}}
