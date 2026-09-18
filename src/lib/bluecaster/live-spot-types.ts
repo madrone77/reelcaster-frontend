@@ -346,7 +346,7 @@ export type LiveSpotDetail = {
    */
   leadSpecies?: {
     speciesId: string;
-    source: "spot_reports" | "city_reports" | "creel" | "default";
+    source: "spot_reports" | "city_reports" | "creel" | "port_rates" | "default";
     claims: number;
     windowDays: number;
   } | null;
