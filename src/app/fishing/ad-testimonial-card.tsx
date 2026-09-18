@@ -32,8 +32,10 @@ import {
  * an equal-height row left Bob's and Nick's cards two-thirds empty below
  * their words, and a non-stretching row left the bottoms ragged; Casey
  * sketched this balance (2026-09-18). The photo is a wide 5:2 band, not
- * 16:9. On a phone the scroller is untouched: the three figures are plain
- * flex children until `lg:contents` hands them to the grid.
+ * 16:9. On a phone the figures are plain flex children of the snap scroller
+ * until `lg:contents` hands them to the grid; there the photo card runs
+ * wider than the word cards and its photo is a taller 16:10, so the catch
+ * is the thing you see when you swipe to it (Casey, 2026-09-18).
  *
  * The "ReelCaster Pro Testimonial" label came out of the cards on
  * 2026-09-18 and heads the row once, the same as the paywall modals. Later
@@ -56,12 +58,14 @@ export default function AdTestimonialCard() {
           {PRO_TESTIMONIALS_ROW_LABEL}
         </div>
       </div>
-      <div className="-mx-1 flex snap-x snap-mandatory gap-4 overflow-x-auto px-1 pb-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden lg:contents">
+      <div className="-mx-1 flex snap-x snap-mandatory items-start gap-4 overflow-x-auto px-1 pb-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden lg:contents">
         {cards.map((q) => (
           <figure
             key={q.attr}
-            className={`flex w-[82%] shrink-0 snap-start flex-col overflow-hidden rounded-xl border border-rc-rule bg-rc-panel shadow-sm sm:w-[60%] lg:w-auto ${
-              q.photo ? "lg:col-start-3 lg:row-start-1 lg:row-span-2 lg:self-end" : ""
+            className={`flex shrink-0 snap-start flex-col overflow-hidden rounded-xl border border-rc-rule bg-rc-panel shadow-sm lg:w-auto ${
+              q.photo
+                ? "w-[92%] sm:w-[70%] lg:col-start-3 lg:row-start-1 lg:row-span-2 lg:self-end"
+                : "w-[82%] sm:w-[60%]"
             }`}
           >
             {q.photo && (
@@ -71,7 +75,7 @@ export default function AdTestimonialCard() {
                 width={q.photo.width}
                 height={q.photo.height}
                 sizes="(min-width: 1024px) 33vw, 82vw"
-                className="aspect-[5/2] w-full object-cover"
+                className="aspect-[16/10] w-full object-cover lg:aspect-[5/2]"
               />
             )}
             <div className="flex flex-1 flex-col p-4 md:p-5">
