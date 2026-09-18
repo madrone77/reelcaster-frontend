@@ -2,6 +2,10 @@ import type { NextConfig } from "next";
 import bundleAnalyzer from "@next/bundle-analyzer";
 
 const nextConfig: NextConfig = {
+  // /testimonials posts a photo through a server action. The default cap is
+  // 1 MB; the browser shrinks the picture to about 3 MB first, and Vercel's
+  // own request ceiling is 4.5 MB, so 4 MB is the most that can arrive anyway.
+  experimental: { serverActions: { bodySizeLimit: "4mb" } },
   trailingSlash: false,
   // Required by the /ingest rewrites below. PostHog's ingest endpoints carry a
   // trailing slash (/i/v0/e/), and with trailingSlash:false Next would answer
