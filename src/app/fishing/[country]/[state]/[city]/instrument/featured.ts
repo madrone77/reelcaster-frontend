@@ -12,7 +12,8 @@
 // same score the spot page shows for the same water. What changes is which
 // mark gets to be first.
 
-import type { HubSpeciesEntry, HubSpot } from "../hub/hub-data";
+import { orderLeadSpecies } from "@/lib/lead-species";
+import type { HubSpecies, HubSpeciesEntry, HubSpot } from "../hub/hub-data";
 
 export interface RankedSpot {
   spot: HubSpot;
@@ -124,12 +125,35 @@ export function featuredSpot(
    * featured, only which species is drawn at it.
    */
   preferredSpeciesId: string | null = null,
+  /**
+   * The city's species, for naming the ids on the spot. Without it the
+   * fallback below cannot rank anything and keeps the spot's own top scorer.
+   */
+  speciesList: HubSpecies[] = [],
 ): RankedSpot | null {
   const top = rankByRecognition(spots, null, 1)[0];
   if (!top) return null;
-  if (!preferredSpeciesId) return top;
-  const preferred = top.spot.bySpecies[preferredSpeciesId];
-  return preferred
-    ? { ...top, speciesId: preferredSpeciesId, entry: preferred }
+  const preferred = preferredSpeciesId
+    ? top.spot.bySpecies[preferredSpeciesId]
+    : undefined;
+  if (preferred) {
+    return { ...top, speciesId: preferredSpeciesId!, entry: preferred };
+  }
+  // The city's headline species is not scored at this mark — Chinook is
+  // release-only at Point Defiance, so it never reaches the page — and the
+  // spot's own `bestSpeciesId` is a tie between fish a point apart, settled
+  // by payload order. That put "Pink fishing at Point Defiance" over a Coho
+  // on the same 82. Rank the fallback the way the ad pages do instead.
+  const nameById = new Map(speciesList.map((sp) => [sp.id, sp.name]));
+  const ranked = orderLeadSpecies(
+    Object.entries(top.spot.bySpecies).map(([id, entry]) => ({
+      id,
+      name: nameById.get(id) ?? "",
+      score: entry.peak,
+      entry,
+    })),
+  )[0];
+  return ranked
+    ? { ...top, speciesId: ranked.id, entry: ranked.entry }
     : top;
 }
