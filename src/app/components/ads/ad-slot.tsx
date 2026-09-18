@@ -75,6 +75,7 @@ export default function AdSlot({ placement, only, className }: AdSlotProps) {
   const { isPaid, loading } = useSubscription();
   const insRef = useRef<HTMLModElement | null>(null);
   const pushed = useRef(false);
+  const queued = useRef<object | null>(null);
   // `null` until measured — there is no viewport on the server, and guessing
   // would mount the wrong copy for a tick and let it claim the slot.
   const [breakpointOk, setBreakpointOk] = useState<boolean | null>(null);
@@ -135,16 +136,45 @@ export default function AdSlot({ placement, only, className }: AdSlotProps) {
 
       pushed.current = true;
       try {
-        (window.adsbygoogle = window.adsbygoogle || []).push({});
+        // A named entry, so the cleanup below can take it back. The loader is
+        // `lazyOnload`, so on a fresh page `adsbygoogle` is still a plain
+        // array for a second or two and every push just sits in it. An <ins>
+        // that unmounts inside that window (the Explore sheet closing, a spot
+        // change swapping the rail) leaves its push behind with no element to
+        // claim; when the script finally drains the queue it counts more
+        // pushes than unclaimed elements and throws "All 'ins' elements in
+        // the DOM with class=adsbygoogle already have ads in them" for the
+        // orphan. Seen on prod Explore, with exactly one unfilled slot.
+        const entry = {};
+        queued.current = entry;
+        (window.adsbygoogle = window.adsbygoogle || []).push(entry);
       } catch {
         // An ad that fails to enqueue is not worth a broken page. The most
         // common cause is the loader being blocked, which is not ours to fix.
         pushed.current = false;
+        queued.current = null;
       }
       return true;
     };
 
-    if (enqueue()) return;
+    // Once the script has loaded, push() runs immediately and the entry is
+    // spent; before that the queue is an array we can still edit. Withdraw
+    // our entry if this element is going away while it is still waiting.
+    const withdraw = () => {
+      const entry = queued.current;
+      queued.current = null;
+      const q = window.adsbygoogle;
+      if (!entry || !Array.isArray(q) || (q as { loaded?: boolean }).loaded) return;
+      const i = q.indexOf(entry);
+      if (i < 0) return;
+      q.splice(i, 1);
+      // Nothing reached the script, so this element is still unclaimed and
+      // may enqueue again if the effect re-runs (a breakpoint change flips
+      // `shouldRender` off and back on for the same instance).
+      pushed.current = false;
+    };
+
+    if (enqueue()) return withdraw;
 
     // Not measurable yet. Retry on every size change until it is.
     //
@@ -159,7 +189,10 @@ export default function AdSlot({ placement, only, className }: AdSlotProps) {
       if (enqueue()) observer.disconnect();
     });
     observer.observe(el);
-    return () => observer.disconnect();
+    return () => {
+      observer.disconnect();
+      withdraw();
+    };
   }, [shouldRender]);
 
   // Watch for the answer. Separate from the enqueue effect above because it
