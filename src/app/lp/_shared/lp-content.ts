@@ -299,6 +299,9 @@ export const PRO_TESTIMONIAL_LABEL = "ReelCaster Pro Testimonial";
  */
 export const PRO_TESTIMONIALS_ROW_LABEL = "ReelCaster Pro Testimonials";
 
+/** The heading in words over the row under the chart, above that label. */
+export const PRO_TESTIMONIALS_ROW_TITLE = "What others are saying about ReelCaster Pro";
+
 export const PROOF: {
   showProof: boolean;
   stats: ReadonlyArray<{ num: string; label: string }>;
@@ -429,13 +432,14 @@ function KEVIN_SHORT_ATTR(q: ProofQuote): ProofQuote {
 
 /**
  * The same three quotes for the row under the 24-hour chart on the spot and
- * city pages. Kevin first, because his card carries the photo and anchors
- * the row; the other two are words alone.
+ * city pages. The two word-only cards first, Nick then Bob, and Kevin's
+ * photo card last to close the row (Casey, 2026-09-18; it opened the row
+ * before that).
  */
 export function pageTestimonials(): Array<ProofQuote & { photo?: typeof SPOT_AD_TESTIMONIAL.photo }> {
   return [
-    { ...SPOT_AD_TESTIMONIAL, attr: "Kevin, Marrowstone Island, WA" },
     NICK_FORM_QUOTE,
     PROOF.quote,
+    { ...SPOT_AD_TESTIMONIAL, attr: "Kevin, Marrowstone Island, WA" },
   ];
 }
