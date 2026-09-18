@@ -8,8 +8,8 @@ import {
   PRO_TESTIMONIAL_LABEL,
   PRO_TESTIMONIALS_ROW_LABEL,
   PROOF,
+  modalControlQuoteFor,
   modalTestimonialsFor,
-  proofQuoteFor,
   type ProofQuote,
 } from "@/app/lp/_shared/lp-content";
 import { readReaderRegion } from "@/lib/reader-region";
@@ -45,9 +45,12 @@ import { readReaderRegion } from "@/lib/reader-region";
  * and Trustpilot-style tile stars, the shape the row under the chart wears,
  * and then pulled back: "go back to 1 testimonial with the yellow 5 stars as
  * the base... we are testing too much too quick". So testimonial_byline_v1
- * puts the whole change on one arm. Arm a is the single quote exactly as it
- * was after the swipe test concluded: the Pro label, five small gold stars,
- * the words, the name in mono. Arm b is the row of three review cards
+ * puts the whole change on one arm. Arm a is the single quote as it was
+ * after the swipe test concluded: the Pro label, five small gold stars, the
+ * words, the name in mono, with one change Casey asked for: a Washington
+ * reader gets Nick's five-star form quote, not his unrated Facebook comment,
+ * so the control wears gold stars everywhere (`modalControlQuoteFor`). Arm b
+ * is the row of three review cards
  * (`testimonial-parts.tsx`, `modalTestimonialsFor` orders them by region,
  * the Washington angler first for Washington readers). See
  * use-testimonial-byline.ts. Either way the rating is read from the
@@ -136,7 +139,7 @@ export default function Testimonial({ className }: { className?: string }) {
   if (!byline) {
     return (
       <figure className={`${margin} ${SINGLE_CLASS}`} data-testimonial-arm="a">
-        <Quote quote={proofQuoteFor(region)} />
+        <Quote quote={modalControlQuoteFor(region)} />
       </figure>
     );
   }

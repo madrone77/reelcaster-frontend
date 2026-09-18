@@ -410,6 +410,18 @@ export const NICK_FORM_QUOTE: ProofQuote = {
 };
 
 /**
+ * The one quote the paywall modals show as the control of
+ * testimonial_byline_v1: Bob's with his five stars, or, for a Washington
+ * reader, Nick's form quote with the five stars he gave rather than his
+ * Facebook comment, which carries none. Casey: "put 5 stars in yellow on
+ * nicks testimonial as the base" (2026-09-18). The stars are his rating,
+ * read from the record; the unrated comment stays unrated where it is used.
+ */
+export function modalControlQuoteFor(regionCode: string | null | undefined): ProofQuote {
+  return regionCode?.trim().toUpperCase() === "WA" ? NICK_FORM_QUOTE : PROOF.quote;
+}
+
+/**
  * The three five-star quotes the paywall modals scroll through, in the
  * order a reader in this region should meet them: the Washington angler
  * first for Washington, Bob first everywhere else. Every entry carries a
