@@ -28,10 +28,12 @@
  * A window of water, not a number. The thing an angler wants to hear is "glass
  * at dawn on Saturday", and the score is the evidence for it, so the copy leads
  * with the conditions when it has them and falls back to the number when it
- * does not. The sea-state words are earned, never decorative: "glass" is a
- * claim about wind and is only said when the wind at the peak hour is known
- * and under GLASS_KT. A message that said glass on a 12-knot morning would be
- * the last one that angler read.
+ * does not. The sea-state words are earned, never decorative, and rare by
+ * design: "glass" is a claim about wind and is only said when the wind at
+ * the peak hour is known and at or under GLASS_KT, which most mornings are
+ * not. The ordinary alert names the window and the wind and leaves it there.
+ * A message that said glass on a 12-knot morning would be the last one that
+ * angler read, and one that said it every week would be filed unread.
  */
 
 import type { AlertBeat } from '@/lib/custom-alert-engine';
@@ -132,13 +134,16 @@ const RULE_SOFT = '#EDEFF1';
 const SMS_BUDGET = 160;
 
 /**
- * Wind at or under this is glass. Beaufort 1 tops out at 3 kn with ripples
- * and no crests; 4 rounds the boundary in the angler's favour by one knot,
- * which the ripple test on the water forgives and a 5-knot "glass" would not.
+ * Glass is rare and has to stay rare. It means no wind and no waves, the
+ * morning an angler talks about for a month, and if the word shows up in
+ * most alerts it stops meaning anything. So the bar is Beaufort 0, dead
+ * calm, and wind is the only thing we can see: 2 kn or less at the peak
+ * hour, and nothing over that. Most alerts will say neither word, and that
+ * is the point.
  */
-const GLASS_KT = 4;
-/** Beaufort 2, "light breeze": small wavelets, no whitecaps. Calm, not glass. */
-const CALM_KT = 9;
+const GLASS_KT = 2;
+/** Beaufort 1, "light air": ripples, no wavelets. Calm, not glass. */
+const CALM_KT = 5;
 /** The score at which a calm day gets called pristine. */
 const PRISTINE_SCORE = 85;
 
@@ -179,13 +184,14 @@ function seaWord(sea: SeaState, capital: boolean): string {
 }
 
 /**
- * The quality word for a window: pristine when the score is high and the
- * water is quiet, otherwise the tier word. A high score on a 15-knot day is
- * still good fishing, but "pristine" is a word about the whole morning.
+ * The quality word for a window: pristine only when the score is high AND
+ * the water is glass, otherwise the tier word. A high score on a 15-knot
+ * day is still good fishing, but "pristine" is a word about the whole
+ * morning, and like glass it has to stay rare to mean anything.
  */
 function windowQuality(item: ScoreAlertItem): string {
   const rounded = Math.round(item.score);
-  if (rounded >= PRISTINE_SCORE && seaState(item) !== null) return 'pristine';
+  if (rounded >= PRISTINE_SCORE && seaState(item) === 'glass') return 'pristine';
   return tierFor(rounded).label.toLowerCase();
 }
 
