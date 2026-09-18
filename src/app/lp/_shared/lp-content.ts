@@ -293,6 +293,12 @@ export interface ProofQuote {
 /** The frame on a quote from a paying Pro customer. */
 export const PRO_TESTIMONIAL_LABEL = "ReelCaster Pro Testimonial";
 
+/**
+ * The heading over the three-card row in the paywall modals. Casey moved the
+ * label out of the cards and above the row, once, on 2026-09-18.
+ */
+export const PRO_TESTIMONIALS_ROW_LABEL = "ReelCaster Pro Testimonials";
+
 export const PROOF: {
   showProof: boolean;
   stats: ReadonlyArray<{ num: string; label: string }>;
@@ -328,7 +334,7 @@ export const PROOF: {
     rating: 5,
     // Given by the customer 2026-08-19. Verbatim.
     text: "ReelCaster has completely changed how I plan my fishing trips. It brings together tides, currents, wind, swell, and water temperature in one place, then pinpoints the best times and locations to fish. It saves me time and gives me real confidence I\u2019m on the water when conditions are ideal.",
-    attr: "Bob N., PNW Fisherman",
+    attr: "Bob N., Victoria BC",
     // A Pro customer, confirmed by Casey 2026-09-17.
     pro: true,
   },
@@ -347,7 +353,7 @@ export const PROOF: {
  */
 export const WA_QUOTE: ProofQuote = {
   text: "Love it! Been using for about a month for down in Tacoma and the \u201cideal times\u201d ratings have been spot on for me. Really nice having all the info I\u2019d take in to consideration all in one place.",
-  attr: "Nick S., Tacoma angler",
+  attr: "Nick S., Tacoma WA",
   // Active pro_annual since 2026-08-19, checked in user_settings 2026-09-17.
   pro: true,
 };
@@ -395,7 +401,7 @@ export const SPOT_AD_TESTIMONIAL: ProofQuote & {
 export const NICK_FORM_QUOTE: ProofQuote = {
   rating: 5,
   text: "I\u2019ve been using ReelCaster for about a month and I love it! Having all the conditions listed together is really handy and makes deciding when to go a no brainer instead of checking multiple apps and sites to get wind, current, sea conditions and tides. I highly recommend ReelCaster!",
-  attr: "Nick S., Tacoma",
+  attr: "Nick S., Tacoma WA",
   pro: true,
 };
 
