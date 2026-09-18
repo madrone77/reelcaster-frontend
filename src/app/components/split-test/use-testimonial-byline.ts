@@ -1,20 +1,21 @@
 'use client';
 
 /**
- * The paywall modals' testimonial cards: today's shape, or the review-widget
- * shape the row under the chart already wears.
+ * One quote, or the row of three review cards, in the paywall modals.
  *
- * Arm a is today: five small gold stars, the quote, the name in mono at the
- * foot. Arm b leads with the angler, a circle of initials beside the name
- * and the place under it, then Trustpilot-style green tiles with the score,
- * then the quote. The question is whether a card that reads as a review
- * rather than a pull quote moves more readers to start a trial.
+ * Arm a is the single quote as it stood after testimonial_swipe_v1: the Pro
+ * label, five small gold stars, the words, the name in mono. Bob's, or
+ * Nick's for a Washington reader. Arm b is three cards in a sideways row,
+ * each opening with the angler (a circle of initials beside the name, the
+ * place under it), Trustpilot-style green tiles with the score, then the
+ * words. Casey chose to test the whole change on one arm rather than stack
+ * two tests (2026-09-18): "we are testing too much too quick".
  *
  * WHERE. Every modal that renders `<Testimonial>`: the phone trial sheet, the
  * plan choice sheet, the Pro upsell after first sign-in, and the desktop plan
  * matrix. One arm per visitor across all of them. Surface: `testimonial`.
  * The row under the chart on ad and landing pages is NOT in the test; it
- * shows arm b's shape to everyone.
+ * shows arm b's card shape to everyone.
  *
  * No cta_click: the buy buttons belong to the sheets, not the quote. The
  * primary metric is paid conversion, which carries every arm the reader held.
@@ -32,7 +33,7 @@ const SURFACE = 'testimonial';
 
 const seen = new Set<string>();
 
-/** True when this reader should see the byline-and-tiles cards. */
+/** True when this reader should see the row of three review cards. */
 export function useTestimonialByline(): boolean {
   const arms = useSplitArms();
   const arm = arms[TESTIMONIAL_BYLINE_TEST] ?? null;
