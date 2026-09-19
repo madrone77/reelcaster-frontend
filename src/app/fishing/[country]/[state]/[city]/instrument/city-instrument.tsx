@@ -739,7 +739,7 @@ export default function CityInstrument({
                 head: "Pro unlocks every spot",
                 body: (
                   <>
-                    Half the marks are locked on this preview. Pro shows the
+                    Most of the marks are locked on this preview. Pro shows the
                     score at all {rows.length} spots around {cityName}, every
                     hour, 14 days out. Tap any lock to start.
                   </>
