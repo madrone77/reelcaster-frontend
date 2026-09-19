@@ -151,6 +151,7 @@ export default async function CityPage({
     headlineWindow,
     cityPage,
     cityToday,
+    reportTeaser,
   } = await loadCity(countryParam, stateParam, cityUrlSlug);
 
   // Published species guides for this city. Additive: a city with none
@@ -322,6 +323,12 @@ export default async function CityPage({
           }}
         />
 
+        {/* Today's report, above the forecast. The headline is what anglers
+            are catching on this water now; the forecast is what the water will
+            do. The catching comes first because it is the thing no one else
+            has. Locked below the headline for a free reader. */}
+        <CityLive cityName={city.name} citySlug={city.slug} teaser={reportTeaser} />
+
         {/* The instrument: 14-day strip → 24-hour chart → the marks people
             fish → all of them on the water. It replaces the conversion stack
             (bite radar, spotlight, leaderboard, weekend signup) that stood
@@ -356,8 +363,6 @@ export default async function CityPage({
       </div>
 
       <div className="max-w-6xl mx-auto px-6 pt-10 pb-16 space-y-10">
-        <CityLive cityName={city.name} citySlug={city.slug} />
-
         <SpeciesCards
           guides={guides}
           cityName={city.name}

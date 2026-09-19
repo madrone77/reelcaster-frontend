@@ -20,15 +20,32 @@
 //      renders nothing at all rather than an empty state. A stale briefing
 //      presented as today's is worse than no section.
 //
-// Fetched client-side rather than server-rendered, because the response varies
-// by reader and the page is prerendered. The static render carries no report,
-// which is what keeps it cacheable.
+// The BODY is fetched client-side, because it varies by reader and the page
+// is prerendered. The HEADLINE is free to everyone, so the server hands it in
+// as `teaser` and the band is in the static HTML: it sits above the 14-day
+// strip, and a band that arrived after the strip painted would shove the
+// whole instrument down under the reader's thumb. Until the fetch answers,
+// the space under the headline holds the same grey lines the locked state
+// shows, so a free reader sees no change and a Pro reader sees them fill.
+//
+// THE TEASER, when locked: the headline in full, then three grey lines
+// standing where the report's prose would be, then the ask. The lines are
+// fixed widths and say nothing; they are not a blur of the real text (which
+// would put the body in the HTML) and they carry no counts (rule 1). The same
+// shape as the spot page's locked report preview, which beat the plain
+// upgrade row there.
 
 import { useEffect, useState } from "react";
 import Markdown from "react-markdown";
 import remarkGfm from "remark-gfm";
-import { ArrowUpCircle } from "lucide-react";
+import { Lock } from "lucide-react";
 import { useAuth } from "@/contexts/auth-context";
+
+/** The one part of the report the server may put in a prerendered page. */
+export interface ReportTeaser {
+  headline: string;
+  reportDate: string;
+}
 
 interface ReportPayload {
   locked: boolean;
@@ -49,10 +66,13 @@ const prose =
 export default function CityReport({
   citySlug,
   cityName,
+  teaser = null,
   onUpgrade,
 }: {
   citySlug: string;
   cityName: string;
+  /** Today's headline as the server saw it, or null when it saw none. */
+  teaser?: ReportTeaser | null;
   onUpgrade: () => void;
 }) {
   const [data, setData] = useState<ReportPayload | null>(null);
@@ -75,10 +95,21 @@ export default function CityReport({
     // payload.
   }, [citySlug, userId]);
 
-  // Nothing to show, or nothing worth showing. Renders no section at all.
-  if (!data || data.status !== "ready" || !data.report?.headline) return null;
+  // What to draw. The fetch is the authority once it has answered; before
+  // that, the server's headline holds the band open. A fetch that answers
+  // "nothing current" takes the band down even where the server had a
+  // headline (the signals dried up between the render and the visit), and a
+  // fetch that finds a report where the server had none puts it up.
+  const settled = data !== null;
+  const ready = settled ? data.status === "ready" && !!data.report?.headline : !!teaser;
+  if (!ready) return null;
 
-  const { report, locked } = data;
+  const headline = settled ? data.report!.headline! : teaser!.headline;
+  const reportDate = settled ? data.report!.report_date : teaser!.reportDate;
+  // Locked until the server says otherwise: a Pro reader sees the grey lines
+  // for the round trip, a free reader sees the same lines become the ask.
+  const locked = settled ? data.locked : true;
+  const report = settled ? data.report! : null;
 
   return (
     <section className="rounded-lg border border-rc-rule bg-rc-panel p-5 space-y-3">
@@ -87,22 +118,43 @@ export default function CityReport({
           {cityName} report
         </h2>
         <span className="font-rc-mono text-[10px] text-rc-ink-mute">
-          {report.report_date}
+          {reportDate}
         </span>
       </div>
 
       <p className="text-[17px] sm:text-[19px] font-semibold text-rc-ink leading-snug">
-        {report.headline}
+        {headline}
       </p>
 
-      {locked ? (
+      {locked || !report ? (
         <button
           type="button"
-          onClick={onUpgrade}
-          className="w-full flex items-center gap-2 rounded bg-rc-brand-soft text-rc-brand font-rc-mono text-xs font-semibold tracking-[0.04em] px-4 py-3 hover:bg-rc-brand-soft/70 transition-colors"
+          onClick={settled ? onUpgrade : undefined}
+          aria-disabled={!settled}
+          className="group block w-full text-left pt-1"
         >
-          <ArrowUpCircle className="w-4 h-4" aria-hidden />
-          Read what anglers are catching around {cityName}
+          {/* Where the prose would be. Fixed widths, no words, no counts. */}
+          <div aria-hidden className="space-y-2.5 select-none">
+            <span className="block h-2.5 w-[94%] rounded-full bg-rc-surface" />
+            <span className="block h-2.5 w-[88%] rounded-full bg-rc-surface" />
+            <span className="block h-2.5 w-[61%] rounded-full bg-rc-surface" />
+          </div>
+          <span
+            className={`mt-4 flex items-center gap-3 rounded border border-rc-brand/40 bg-rc-brand-soft px-4 py-3 transition-opacity duration-200 group-hover:bg-rc-brand-soft/70 ${
+              settled ? "opacity-100" : "opacity-0"
+            }`}
+          >
+            <Lock className="h-4 w-4 shrink-0 text-rc-brand" aria-hidden />
+            <span className="min-w-0 flex-1">
+              <span className="block text-[14px] font-semibold text-rc-ink">
+                Read what anglers are catching around {cityName}
+              </span>
+              <span className="block font-rc-mono text-[11px] text-rc-ink-mute">
+                What is being caught, what worked, and the best windows ahead
+              </span>
+            </span>
+            <span className="shrink-0 font-rc-mono text-[13px] font-bold text-rc-brand">→</span>
+          </span>
         </button>
       ) : (
         <div className="space-y-4 pt-1">
