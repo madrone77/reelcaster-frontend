@@ -6,7 +6,8 @@ import { useTrialCta } from './trial-cta';
 import { TRIAL_DAYS, annualSavingsPercent, dollars } from '@/lib/pricing';
 
 /**
- * Two cards under the sheet's title: Yearly, then Monthly.
+ * Two cards on either shape of the trial modal: Yearly, then Monthly. Under
+ * the phone sheet's title, and under the desktop dialog's feature list.
  *
  * Yearly is preselected and carries the free week and the Save badge. The
  * badge is the arithmetic between the two prices (annualSavingsPercent), so

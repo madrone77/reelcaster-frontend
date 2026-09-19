@@ -13,12 +13,16 @@
  * the guess is that the annual price reads as a saving beside a monthly one
  * and as a cost on its own.
  *
- * WHERE. The phone sheet only (src/app/components/paywall/trial-sheet-stripe),
- * and only when the monthly price is wired up (NEXT_PUBLIC_STRIPE_MONTHLY_ON,
- * STRIPE_MONTHLY_PRICE_ID). With either unset the sheet draws arm a whatever
- * the cookie says, and nothing is counted. Surface: `sheet_plan`. Exposure =
- * the sheet rendered with an arm; cta_click = the buy button pressed, either
- * card.
+ * WHERE. Both shapes of the trial modal: the phone sheet
+ * (src/app/components/paywall/trial-sheet-stripe, surface `sheet_plan`) and
+ * the centred desktop dialog (src/app/components/paywall/pro-trial-modal,
+ * surface `dialog_plan`), and only when the monthly price is wired up
+ * (NEXT_PUBLIC_STRIPE_MONTHLY_ON, STRIPE_MONTHLY_PRICE_ID). With either unset
+ * the surface draws arm a whatever the cookie says, and nothing is counted.
+ * Exposure = the surface rendered with an arm; cta_click = the buy button
+ * pressed, either card. The desktop shape shipped a day after the sheet
+ * (2026-09-19): until then a desktop reader in arm b was assigned, drew the
+ * single annual button, and counted nothing.
  *
  * ONE EXPOSURE PER ARM PER PAGE LOAD, the house rule. Stop the test with an
  * UPDATE on `split_tests`; with no arm assigned every reader gets arm a.
@@ -29,7 +33,9 @@ import { useSplitArms } from './use-pricing';
 import { reportSplitArmCta, reportSplitArmExposure } from './report';
 
 export const PLAN_PICKER_TEST = 'plan_picker_v1';
-const SURFACE = 'sheet_plan';
+
+/** Where the picker is drawn, for the counters. */
+export type PlanPickerSurface = 'sheet_plan' | 'dialog_plan';
 
 const seen = new Set<string>();
 
@@ -41,26 +47,31 @@ export interface PlanPickerArm {
 }
 
 /**
- * @param active  The monthly card can be sold here. Nothing is counted while
- *                false, and the picker is never drawn.
+ * @param active   The monthly card can be sold here. Nothing is counted while
+ *                 false, and the picker is never drawn.
+ * @param surface  Which shape is drawing it. One exposure per arm per surface
+ *                 per page load; a page never mounts both shapes at once.
  */
-export function usePlanPicker(active: boolean): PlanPickerArm {
+export function usePlanPicker(
+  active: boolean,
+  surface: PlanPickerSurface = 'sheet_plan',
+): PlanPickerArm {
   const arms = useSplitArms();
   const arm = active ? (arms[PLAN_PICKER_TEST] ?? null) : null;
 
   useEffect(() => {
     if (!arm) return;
-    const key = `${PLAN_PICKER_TEST}:${arm}`;
+    const key = `${PLAN_PICKER_TEST}:${arm}:${surface}`;
     if (seen.has(key)) return;
     seen.add(key);
-    reportSplitArmExposure(PLAN_PICKER_TEST, arm, SURFACE);
-  }, [arm]);
+    reportSplitArmExposure(PLAN_PICKER_TEST, arm, surface);
+  }, [arm, surface]);
 
   return {
     picker: arm === 'b',
     reportPress: () => {
       if (!arm) return;
-      reportSplitArmCta(PLAN_PICKER_TEST, arm, SURFACE);
+      reportSplitArmCta(PLAN_PICKER_TEST, arm, surface);
     },
   };
 }
