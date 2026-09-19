@@ -7,6 +7,10 @@ import Link from 'next/link'
 import { CheckCircle2, Loader2 } from 'lucide-react'
 import { apiFetch } from '@/lib/api-client'
 import { trackEvent } from '@/lib/analytics'
+import {
+  isTrialStartedConfirmable,
+  trackTrialStartedOnce,
+} from '@/lib/trial-started'
 import { useSubscription } from '@/hooks/use-subscription'
 import { useAuth } from '@/contexts/auth-context'
 import MetaStartTrial from '@/app/components/analytics/meta-start-trial'
@@ -49,6 +53,9 @@ function BillingSuccessInner() {
   // The sign-in link, once the claim has produced one. Followed a moment
   // later unless the buyer is mid-correction, in which case it waits.
   const [signInUrl, setSignInUrl] = useState<string | null>(null)
+  // Pay-first claim resolved to a completed, provisioned purchase. Distinct
+  // from claimState === 'emailed' after a 202 timeout, which is not Pro yet.
+  const [claimProvisioned, setClaimProvisioned] = useState(false)
 
   useEffect(() => {
     if (authLoading || user || !sessionId) return
@@ -81,11 +88,23 @@ function BillingSuccessInner() {
 
         if (body?.status === 'signed_in' && body.url) {
           trackEvent('Account Claimed')
+          // Fire here, not after conversion.settled: the magic link leaves
+          // this page in ~3s and never sets `activated`.
+          trackTrialStartedOnce(sessionId, { claimed: 'created' })
+          setClaimProvisioned(true)
           // The magic link signs them in and returns to /explore. Followed by
           // the effect below, after the buyer has had a moment to read the
           // address it was made under.
           setSignInUrl(body.url)
           setClaimState('created')
+          return
+        }
+        if (body?.status === 'emailed') {
+          // Existing account or already-claimed handoff — the purchase is
+          // real; only the inbox can finish sign-in.
+          trackTrialStartedOnce(sessionId, { claimed: 'emailed' })
+          setClaimProvisioned(true)
+          setClaimState('emailed')
           return
         }
         setClaimState('emailed')
@@ -113,14 +132,18 @@ function BillingSuccessInner() {
   // Poll the checkout status endpoint until the webhook flips
   // user_settings.subscription_status to active. Bail out after ~30s.
   useEffect(() => {
+    // Wait for auth: the status endpoint is cookie-authed, and starting
+    // while the session is still loading burned the 15 attempts on 401s.
+    if (!sessionId || authLoading) return
     // Signed-out buyer: nothing to poll with. The claim effect above owns
     // that path until the magic link lands them back here signed in.
-    if (!sessionId || (!authLoading && !user)) {
+    if (!user) {
       setPolling(false)
       return
     }
     let cancelled = false
     let attempts = 0
+    setPolling(true)
     const poll = async () => {
       try {
         const data = await apiFetch<CheckoutStatus>(
@@ -148,30 +171,69 @@ function BillingSuccessInner() {
     return () => {
       cancelled = true
     }
-    // subscription.refresh / router are stable refs; we want this to fire once.
+    // subscription.refresh / router are stable refs. user?.id, not user:
+    // AuthProvider re-emits a fresh object on every auth event.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [sessionId])
+  }, [sessionId, authLoading, user?.id])
 
-  // Same gate and once-per-session guard as the Meta and Plausible tags, and
-  // for the same reason: Mixpanel does not dedupe, so a refresh here would
-  // count a second trial.
+  // Poll timed out (or the first request lost the race) but the shared
+  // subscription hook already knows this account is Pro. Treat that as
+  // activation so Mixpanel and the bounce still run.
   useEffect(() => {
-    if (!activated || !conversion.settled || !status || !sessionId) return
-    const key = `rc_mixpanel_fired:${sessionId}`
-    try {
-      if (window.sessionStorage.getItem(key)) return
-      window.sessionStorage.setItem(key, '1')
-    } catch {
-      // Storage unavailable. Fire rather than go quiet; see plausible-start-trial.
+    if (!sessionId || !user || subscription.loading || !subscription.isPaid) return
+    setActivated(true)
+    setPolling(false)
+    setStatus((prev) =>
+      prev ?? {
+        tier: subscription.tier,
+        status: subscription.status,
+        is_active: true,
+        period_end: subscription.periodEnd,
+      },
+    )
+  }, [
+    sessionId,
+    user,
+    subscription.loading,
+    subscription.isPaid,
+    subscription.tier,
+    subscription.status,
+    subscription.periodEnd,
+  ])
+
+  // Mixpanel fires as soon as Pro / trialing is confirmed on this page.
+  // It does NOT wait for Meta/Google/Plausible conversion.settled — those
+  // tags stay gated on the conversion helper; this event used to share that
+  // gate and was dropped on the pay-first claim path and on poll timeout.
+  useEffect(() => {
+    if (!sessionId) return
+    if (
+      !isTrialStartedConfirmable({
+        sessionId,
+        checkoutActive: activated,
+        subscriptionPaid: Boolean(user && !subscription.loading && subscription.isPaid),
+        claimProvisioned,
+      })
+    ) {
+      return
     }
-    trackEvent('Trial Started', {
-      tier: status.tier,
-      status: status.status,
+    trackTrialStartedOnce(sessionId, {
+      tier: status?.tier ?? (subscription.isPaid ? subscription.tier : undefined),
+      status: status?.status ?? (subscription.isPaid ? subscription.status : undefined),
       claimed: claimState,
     })
-    // status and claimState are settled by the time `activated` flips.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activated, conversion.settled, sessionId])
+  }, [
+    sessionId,
+    activated,
+    claimProvisioned,
+    claimState,
+    status,
+    user,
+    subscription.loading,
+    subscription.isPaid,
+    subscription.tier,
+    subscription.status,
+  ])
 
   // The bounce to /explore, held until the conversion question is answered.
   //
