@@ -157,18 +157,15 @@ export default function CityAdView({
             footnoteText={hero.footnoteText}
             reel={reel}
             onTrial={() => openTrial("hero")}
-            /* Trial button alone at the today wall: ad_hero_map_button_v1
-               (concluded 2026-09-19, arm b) read 5.0% hero presses per
-               exposure against 1.9% with the map button beside it. */
-            mapHref={
-              wall === "today"
-                ? null
-                : withAdParams(`/explore?loc=${encodeURIComponent(citySlug)}`, {
-                    wall,
-                    angle,
-                    params: keepSlug ? { keep: keepSlug } : undefined,
-                  })
-            }
+            /* Both buttons. ad_hero_map_button_v1 (concluded 2026-09-19,
+               arm a) tried the trial button alone at the today wall: more
+               hero presses, fewer trials (1 vs 3), and trials are the
+               metric. */
+            mapHref={withAdParams(`/explore?loc=${encodeURIComponent(citySlug)}`, {
+              wall,
+              angle,
+              params: keepSlug ? { keep: keepSlug } : undefined,
+            })}
             onMap={() => trackEvent("City Ad Intro Map Clicked", { city: citySlug, ad_wall: wall })}
           />
           <AdFrameProvider value={frame}>

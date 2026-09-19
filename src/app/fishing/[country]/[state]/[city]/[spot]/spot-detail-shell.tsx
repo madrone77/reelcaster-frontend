@@ -1601,10 +1601,11 @@ export default function SpotDetailShell({
                   trackEvent("Spot Ad Intro Trial Clicked", { slug, ad_wall: ad.wall });
                   setIntroTrialOpen(true);
                 }}
-                /* Trial button alone at the today wall: ad_hero_map_button_v1
-                   (concluded 2026-09-19, arm b) read 5.0% hero presses per
-                   exposure against 1.9% with the map button beside it. */
-                mapHref={ad.wall === "today" ? null : withAdParams(`/explore?spot=${spot.slug}`, ad)}
+                /* Both buttons. ad_hero_map_button_v1 (concluded 2026-09-19,
+                   arm a) tried the trial button alone at the today wall: more
+                   hero presses, fewer trials (1 vs 3), and trials are the
+                   metric. */
+                mapHref={withAdParams(`/explore?spot=${spot.slug}`, ad)}
                 onMap={() => trackEvent("Spot Ad Intro Map Clicked", { slug, ad_wall: ad.wall })}
               />
             ) : (

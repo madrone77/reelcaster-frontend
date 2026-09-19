@@ -106,8 +106,8 @@ export default function AdHero({
   biting?: Biting | null;
   onTrial: () => void;
   /** Explore, framed and opened on this spot. Null renders the trial button
-   *  alone, which is what the ad frame does at the today wall since
-   *  `ad_hero_map_button_v1` concluded for it (2026-09-19). */
+   *  alone; nobody passes null today (`ad_hero_map_button_v1` tried it and
+   *  the control won on trials, 2026-09-19). */
   mapHref: string | null;
   onMap?: () => void;
   /**
