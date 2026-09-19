@@ -39,6 +39,7 @@ import {
   type PricingView,
 } from '@/lib/pricing';
 import type { SplitArms } from '@/lib/split-tests';
+import { withPreview } from '@/lib/split-preview';
 
 export interface SplitResponse {
   arms: SplitArms;
@@ -58,6 +59,9 @@ async function fetchSplit(region?: string): Promise<SplitResponse | null> {
       .then((res) => (res.ok ? (res.json() as Promise<SplitResponse>) : null))
       .then((value) => {
         if (value?.pricing) {
+          // An admin looking at an arm on purpose (?rc_arm=) sees that arm,
+          // whatever the coin toss said. See src/lib/split-preview.ts.
+          value = { ...value, arms: withPreview(value.arms) };
           cached = value;
           for (const notify of subscribers) notify(value);
         }
