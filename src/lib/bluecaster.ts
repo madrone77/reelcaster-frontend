@@ -706,12 +706,18 @@ export async function fetchFreshCatches(opts: {
 export async function fetchStationConditions(
   source: "chs" | "noaa",
   sid: string,
+  opts: {
+    /** How far behind now the curve starts, 0 to 30. Default 6 (the map
+     *  drawer). The city tide section passes 30 for the whole local day. */
+    backHours?: number;
+  } = {},
 ): Promise<StationConditions | null> {
   // First click on a cold station makes BlueCaster backfill predictions
   // upstream; cache briefly so repeat opens are instant.
   return bcGet<StationConditions>("/api/v1/map/station-conditions", {
     source,
     sid,
+    ...(opts.backHours !== undefined ? { back_hours: String(opts.backHours) } : {}),
   });
 }
 

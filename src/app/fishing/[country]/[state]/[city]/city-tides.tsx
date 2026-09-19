@@ -56,9 +56,17 @@ function localHour(iso: string, tz: string): number {
 }
 
 /**
+ * How far behind now to ask the feed to start. Local midnight is at most 24
+ * hours back at any hour of the day; the feed's default of six drew a
+ * quarter of the day at 9 PM and dropped the morning's high and low from
+ * the tiles. 30 is the most the feed allows and covers the day with room.
+ */
+const BACK_HOURS = 30;
+
+/**
  * The station series, windowed to one local day as 24 hourly heights.
  *
- * The feed runs from six hours back to thirty ahead, so it covers parts of
+ * The feed runs from thirty hours back to thirty ahead, so it covers parts of
  * three local days and cannot be plotted as-is. `TideChart` wants exactly 24
  * slots indexed by local hour and bridges the nulls itself, which is also how
  * the spot page feeds it, so both pages draw the same curve the same way.
@@ -99,7 +107,7 @@ export default function CityTides({
   useEffect(() => {
     if (!station) return;
     let cancelled = false;
-    fetchStationConditions(station.source, station.sid)
+    fetchStationConditions(station.source, station.sid, { backHours: BACK_HOURS })
       .then((d) => {
         if (!cancelled) setData(d);
       })
@@ -111,7 +119,7 @@ export default function CityTides({
 
   if (!station || !data) return null;
 
-  // The series runs from six hours back to thirty ahead, so it has to be
+  // The series runs from thirty hours back to thirty ahead, so it has to be
   // windowed to the city's own day rather than taken whole.
   const todays = data.extremes.filter((e) => localDate(e.time_utc, tz) === date);
   if (!todays.length) return null;

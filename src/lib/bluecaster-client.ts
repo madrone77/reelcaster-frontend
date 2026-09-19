@@ -661,8 +661,10 @@ export async function fetchPoolIntelligence(
 export async function fetchStationConditions(
   source: "chs" | "noaa",
   sid: string,
+  opts: { backHours?: number } = {},
 ): Promise<StationConditions | null> {
   const qs = new URLSearchParams({ source, sid });
+  if (opts.backHours !== undefined) qs.set("back_hours", String(opts.backHours));
   const res = await fetch(`/api/bluecaster/map/station-conditions?${qs}`);
   if (!res.ok) return null;
   return (await res.json()) as StationConditions;
