@@ -22,9 +22,12 @@ import {
   NO_DATA_LABEL,
 } from "@/app/explore/lib/score-puck";
 import { tierFor } from "@/app/explore/lib/explore-data";
+import { LOCK_LABEL } from "@/app/explore/lib/score-puck";
 
 const SOURCE_ID = "mk-spots";
 const SPOT_PUCK = "mk-spot-puck";
+
+const NO_LOCKS: ReadonlySet<string> = new Set();
 
 /**
  * Everything in the relief style that is neither bathymetry nor a spot.
@@ -92,6 +95,7 @@ export default function MarketingMap({
   featuredSlug,
   featuredSlugs,
   fallback = null,
+  lockedSlugs = NO_LOCKS,
 }: {
   spots: MapSpot[];
   center: { lat: number; lng: number };
@@ -110,6 +114,14 @@ export default function MarketingMap({
   featuredSlugs?: string[];
   /** Drawn instead of the map once the GPU context is gone. */
   fallback?: ReactNode;
+  /**
+   * Pins that wear a padlock instead of a score (`explore_locked_spots_v1`).
+   * Decided by the caller, not here: this map also draws on the homepage,
+   * which mounts outside the auth provider, so it cannot ask who is looking.
+   * The /fishing hero reel's wrapper (hero-reel-map.tsx) works it out and
+   * passes the set; the homepage carousel and the /lp reels pass nothing.
+   */
+  lockedSlugs?: ReadonlySet<string>;
 }) {
   const [mapObj, setMapObj] = useState<MlMap | null>(null);
   const mapRef = useRef<MapRef | null>(null);
@@ -185,10 +197,11 @@ export default function MarketingMap({
       if (listed.length) return listed;
     }
     return [...spots]
-      .filter((s) => s.score !== null)
+      // Never walk the card onto a locked pin: the card prints the score.
+      .filter((s) => s.score !== null && !lockedSlugs.has(s.slug))
       .sort((a, b) => (b.score ?? -1) - (a.score ?? -1))
       .slice(0, FEATURED_COUNT);
-  }, [spots, featuredSlug, featuredSlugs]);
+  }, [spots, featuredSlug, featuredSlugs, lockedSlugs]);
 
   const [activeIdx, setActiveIdx] = useState(0);
   const featuredCount = featured.length;
@@ -231,8 +244,12 @@ export default function MarketingMap({
           geometry: { type: "Point" as const, coordinates: [s.lng, s.lat] as [number, number] },
           properties: {
             slug: s.slug,
-            label: s.score === null ? NO_DATA_LABEL : String(s.score),
-            opacity: s.score === null ? 0.6 : 1,
+            label: lockedSlugs.has(s.slug)
+              ? LOCK_LABEL
+              : s.score === null
+                ? NO_DATA_LABEL
+                : String(s.score),
+            opacity: s.score === null && !lockedSlugs.has(s.slug) ? 0.6 : 1,
             // Marketing has no viewer, so no reports and no owned spots: every
             // puck is a plain curated one.
             fresh: 0,
@@ -241,7 +258,7 @@ export default function MarketingMap({
           },
         })),
     }),
-    [spots],
+    [spots, lockedSlugs],
   );
 
   // The featured spot wears the same selected ring Explore gives a chosen spot,

@@ -1,6 +1,7 @@
 import { fetchHierarchyLight, fetchMapSpots } from "@/lib/bluecaster";
 import { buildExploreData } from "@/app/explore/lib/explore-data";
-import MarketingMap, { type MapSpot } from "@/app/(marketing)/components/marketing-map";
+import { type MapSpot } from "@/app/(marketing)/components/marketing-map";
+import HeroReelMap from "./hero-reel-map";
 import PhoneFrame from "@/app/(marketing)/components/phone-frame";
 import SpotHeroPhone from "@/app/(marketing)/components/spot-hero-phone";
 import { loadSpotHeroFeed } from "@/app/(marketing)/components/spot-hero-feed";
@@ -141,7 +142,7 @@ export default async function AdReel({
           }
         >
           <ClientErrorBoundary label="MarketingMap" fallback={CHART_FALLBACK}>
-            <MarketingMap
+            <HeroReelMap
               spots={spots}
               center={city?.center ?? { lat: spot.lat, lng: spot.lng }}
               zoom={city ? CITY_ZOOM : ZOOM}

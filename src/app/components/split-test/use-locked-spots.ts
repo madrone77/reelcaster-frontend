@@ -30,8 +30,8 @@ import { useSplitArms } from './use-pricing';
 import { reportSplitArmCta, reportSplitArmExposure } from './report';
 import { LOCKED_SPOTS_TEST } from '@/app/explore/lib/spot-locks';
 
-/** Which framed map: Explore itself, or the city ad page's chart. */
-export type LockedSpotsSurface = 'explore_map' | 'city_map';
+/** Which map: Explore, the city page's chart, or the hero phone reel. */
+export type LockedSpotsSurface = 'explore_map' | 'city_map' | 'hero_reel';
 
 /** Module scope, so a remount of the shell does not count a second exposure. */
 const seen = new Set<string>();
@@ -44,8 +44,8 @@ export interface LockedSpotsSplit {
 }
 
 /**
- * @param surface   Which map, or null when the test does not apply here:
- *                  outside the ad frame, or a signed-in viewer. Nothing is
+ * @param surface   Which map, or null when the test does not apply here: a
+ *                  signed-in viewer, or auth still resolving. Nothing is
  *                  counted, and nothing locks, while null.
  */
 export function useLockedSpotsSplit(surface: LockedSpotsSurface | null): LockedSpotsSplit {

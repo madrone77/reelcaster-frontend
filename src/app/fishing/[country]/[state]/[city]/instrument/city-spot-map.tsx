@@ -207,13 +207,15 @@ export default function CitySpotMap({
   lockKeepSlug?: string | null;
 }) {
   const router = useRouter();
-  // Locked pins, `explore_locked_spots_v1`, on the ad page's chart: only in
-  // the ad frame and only for a viewer with no account, so only paid traffic
-  // is assigned. A tap on a lock opens the Pro wall, worded for the city.
+  // Locked pins, `explore_locked_spots_v1`, on the chart for every signed-out
+  // viewer once auth has settled. A tap on a lock opens the Pro wall, worded
+  // for the city.
   const ad = useAdFrame();
-  const { user } = useAuth();
+  const { user, loading: authLoading } = useAuth();
   const { isPaid } = useSubscription();
-  const lockSplit = useLockedSpotsSplit(ad && !user && !isPaid ? "city_map" : null);
+  const lockSplit = useLockedSpotsSplit(
+    !authLoading && !user && !isPaid ? "city_map" : null,
+  );
   const keepSet = useMemo(() => new Set(lockKeepSlug ? [lockKeepSlug] : []), [lockKeepSlug]);
   const lockedSlugs = useMemo(() => {
     if (!lockSplit.locksOn) return new Set<string>();
@@ -655,7 +657,7 @@ export default function CitySpotMap({
           open={lockWallOpen}
           onOpenChange={setLockWallOpen}
           feature="locked-spots"
-          from="city-ad-map-lock"
+          from={ad ? "city-ad-map-lock" : "city-map-lock"}
           placeName={cityName}
           headline={`Unlock scoring at all ${cityName} spots`}
         />

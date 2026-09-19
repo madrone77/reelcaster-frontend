@@ -4,8 +4,8 @@
 -- (`?spot=`) and the mark the city ad page featured (`?keep=`) stay open.
 --
 -- Code: src/app/components/split-test/use-locked-spots.ts, read by
--- src/app/explore/explore-shell.tsx only inside an ad frame (`?ad=`) for a
--- viewer with no account, so only paid traffic is ever assigned. The lock
+-- src/app/explore/explore-shell.tsx, the city page chart and the hero reel
+-- for every signed-out viewer (widened from ad traffic only on 2026-09-19). The lock
 -- rule is src/app/explore/lib/spot-locks.ts. Exposure = the framed map
 -- rendered with an arm; cta_click = a lock pressed.
 --

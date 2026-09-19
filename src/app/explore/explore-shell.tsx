@@ -238,7 +238,7 @@ export default function ExploreShell({
   const mapRef = useRef<MapRef>(null);
   const router = useRouter();
   const { isPaid, loading: tierLoading } = useSubscription();
-  const { user, session } = useAuth();
+  const { user, session, loading: authLoading } = useAuth();
 
   // ── The depth gate ───────────────────────────────────────────────────────
   //
@@ -278,10 +278,12 @@ export default function ExploreShell({
   // trial modal.
   const [adOfferOpen, setAdOfferOpen] = useState(false);
   const [adOfferSpotName, setAdOfferSpotName] = useState<string | undefined>();
-  // Locked pins, `explore_locked_spots_v1`: only inside the ad frame, only
-  // for a viewer with no account, so only paid traffic is assigned an arm.
-  // The landing spot and anything `?keep=` named stay open (lib/spot-locks).
-  const lockSplit = useLockedSpotsSplit(ad && !user && !isPaid ? "explore_map" : null);
+  // Locked pins, `explore_locked_spots_v1`, for every signed-out viewer once
+  // auth has settled (a member must never see locks flash on and off). The
+  // landing spot and anything `?keep=` named stay open (lib/spot-locks).
+  const lockSplit = useLockedSpotsSplit(
+    !authLoading && !user && !isPaid ? "explore_map" : null,
+  );
   const locksOn = lockSplit.locksOn;
   const keepSet = useMemo(
     () => new Set([...keepSlugs, ...(initialSpot ? [initialSpot.slug] : [])]),
