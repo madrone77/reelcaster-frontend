@@ -252,7 +252,7 @@ export default function CityInstrument({
 }) {
   const ad = useAdFrame();
   const { isPaid, loading: tierLoading } = useSubscription();
-  const { user } = useAuth();
+  const { user, loading: authLoading } = useAuth();
   const { hour: nowHour } = useSpotClock(tz, serverNowMs);
 
   // Until `tierLoading` clears, `isPaid` is still its initial `false`. Days
@@ -265,7 +265,9 @@ export default function CityInstrument({
   // locks mean; the hook counts one exposure per surface, so two readers on
   // one page do not double it. Casey (2026-09-19): "somewhere around the
   // spot city map we need the language unlock all spots with pro".
-  const spotLocks = useLockedSpotsSplit(ad && !user && !isPaid ? "city_map" : null).locksOn;
+  const spotLocks = useLockedSpotsSplit(
+    !authLoading && !user && !isPaid ? "city_map" : null,
+  ).locksOn;
 
   // ── 14-day strip ──────────────────────────────────────────────────────
   const [forecast, setForecast] = useState<MapForecast14dPayload | null>(
@@ -739,9 +741,9 @@ export default function CityInstrument({
                 head: "Pro unlocks every spot",
                 body: (
                   <>
-                    Most of the marks are locked on this preview. Pro shows the
-                    score at all {rows.length} spots around {cityName}, every
-                    hour, 14 days out. Tap any lock to start.
+                    Most of the marks are locked. Pro shows the score at all{" "}
+                    {rows.length} spots around {cityName}, every hour, 14 days
+                    out. Tap any lock to start.
                   </>
                 ),
               }

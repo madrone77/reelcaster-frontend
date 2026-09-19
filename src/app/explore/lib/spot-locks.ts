@@ -1,8 +1,8 @@
 /**
  * Locked spots on the ad-framed map: `explore_locked_spots_v1`.
  *
- * Casey (2026-09-19): on the anonymous map reached from a Meta or Google ad,
- * put locks instead of scores on some spots, so a tap says "unlock scoring
+ * Casey (2026-09-19): on the anonymous map, put locks instead of scores on
+ * some spots, so a tap says "unlock scoring
  * at every spot with Pro". The spot the visitor landed on, or the mark the
  * city ad page featured, stays open: the test never takes away a number the
  * page they came from already showed them.
@@ -15,9 +15,11 @@
  * best spots was considered and set aside for a first test: the visible
  * scores would then all be middling, and the map would undersell itself.
  *
- * WHO. Only inside the ad frame (`?ad=`), only arm b, and never a signed-in
- * viewer: the frame is what says the visit was paid for, and a member who
- * clicked their own ad keeps what their account entitles them to.
+ * WHO. Every signed-out viewer in arm b, on Explore, the city page chart and
+ * the hero reel. Never a signed-in viewer, and never while auth is still
+ * resolving, so a member does not watch locks appear and then vanish. It
+ * began on the ad frame only and was widened to all anonymous traffic the
+ * same day (Casey, 2026-09-19).
  *
  * WHAT IS STRIPPED. Everything that is a score: the day peak, the hourly
  * series, the per-species peaks and the driver species. Conditions stay,
