@@ -109,6 +109,7 @@ export default async function CityAdPage({ params, searchParams }: PageProps) {
     cityToday,
     fish,
     hubSpots,
+    reportTeaser,
   } = await loadCity(country, state, cityUrlSlug, {
     speciesParam: first(sp.species) || null,
   });
@@ -230,11 +231,13 @@ export default async function CityAdPage({ params, searchParams }: PageProps) {
       }
     >
       {/* ── The same flow as the public city page, framed ─────────────────
-          Instrument (14-day band, the 24-hour chart with the testimonial
-          under it, the marks people fish, the map), what you can keep, the
-          live feed, species, the second ask, tides, seasons, before you go,
-          the prose, the FAQ, nearby. Each section either carries the frame
-          onto a framed page or keeps its words and drops its link. */}
+          Today's report (headline free, body behind the frame's trial modal),
+          instrument (14-day band, the 24-hour chart with the testimonial
+          under it, the marks people fish, the map), what you can keep,
+          species, the second ask, tides, seasons, before you go, the prose,
+          the FAQ, nearby. Each section either carries the frame onto a framed
+          page or keeps its words and drops its link. */}
+      <CityLive cityName={city.name} citySlug={city.slug} teaser={reportTeaser} />
       <CityInstrument
         citySlug={city.slug}
         cityName={city.name}
@@ -253,7 +256,6 @@ export default async function CityAdPage({ params, searchParams }: PageProps) {
       <KeepToday rows={seasonRows} cityName={city.name} regulator={regulator} adFrame />
 
       <div className="pt-4 space-y-10">
-        <CityLive cityName={city.name} citySlug={city.slug} />
         <SpeciesCards guides={guides} cityName={city.name} location={locationOf(city)} unlinked />
         <ProGate variant="banner" provinceCode={city.provinceCode} citySlug={city.slug} adFrame />
         {cityToday?.tide_station && (

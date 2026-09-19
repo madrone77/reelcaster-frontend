@@ -17,6 +17,16 @@ import AdHero, { AD_HERO_REEL_COL } from "../[spot]/ad-intro";
  */
 const AdTrialContext = createContext<((placement: string) => void) | null>(null);
 
+/**
+ * The frame's "open the trial modal", or null outside the frame. For a
+ * component that renders on both the public city page and this frame and has
+ * to send its locked state somewhere different on each: the report band opens
+ * the upgrade dialog on the public page and this modal here.
+ */
+export function useAdTrial(): ((placement: string) => void) | null {
+  return useContext(AdTrialContext);
+}
+
 export function AdTrialButton({
   placement,
   className,

@@ -15,6 +15,7 @@ import { notFound } from "next/navigation";
 import {
   fetchCityPage,
   fetchCityToday,
+  fetchCityDailyReport,
   fetchHierarchy,
   fetchMapForecast14d,
   fetchMapSpots,
@@ -73,6 +74,14 @@ export interface LoadedCity {
   fish: HubSpecies | null;
   /** Every mark that scored anything today, for callers that re-rank. */
   hubSpots: HubSpot[];
+  /**
+   * Today's report headline, for the band above the 14-day strip, or null
+   * when the city has nothing current to say. The one part of the report that
+   * is free to everyone and so safe in a prerendered page. Read with `peek`,
+   * so a build does not enrol every city in daily generation; the band's own
+   * client fetch is the read that counts as demand.
+   */
+  reportTeaser: { headline: string; reportDate: string } | null;
 }
 
 export interface LoadCityOptions {
@@ -130,14 +139,24 @@ async function loadResolvedCity(
   // The API key, which is never the URL segment.
   const citySlug = city.slug;
 
-  const [payload, cityPage, cityToday] = await Promise.all([
+  const [payload, cityPage, cityToday, dailyReport] = await Promise.all([
     fetchMapSpots({ city: citySlug }),
     fetchCityPage(citySlug),
     // At the ANON horizon on purpose. Both routes are prerendered, so the
     // static render is always the signed-out state; asking for 14 here would
     // bake a day 9 answer into HTML served to everyone.
     fetchCityToday(citySlug, ANON_FORECAST_DAYS).catch(() => null),
+    fetchCityDailyReport(citySlug, { peek: true }).catch(() => null),
   ]);
+
+  // Same rule as /api/bluecaster/city-report: a report with nothing current
+  // behind it (no posts, no creel checks in the window) is not shown, because
+  // a month-old briefing presented as today's is worse than none.
+  const dr = dailyReport?.status === "ready" ? dailyReport.report : null;
+  const reportTeaser =
+    dr?.headline && ((dr.reports_signal_count ?? 0) > 0 || (dr.creel_survey_count ?? 0) > 0)
+      ? { headline: dr.headline, reportDate: dr.report_date }
+      : null;
 
   // Narrowed by id, not by `citySlug`. A spot has one home city but can be a
   // member of another, and `citySlug` carries the home — so filtering on it
@@ -259,5 +278,6 @@ async function loadResolvedCity(
     cityToday,
     fish: fish ? { id: fish.id, slug: fish.slug, name: fish.name, spotCount: fish.spotCount, bestPeak: fish.bestPeak } : null,
     hubSpots: hub.spots,
+    reportTeaser,
   };
 }

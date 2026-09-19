@@ -1717,12 +1717,22 @@ export async function fetchCityToday(
 
 export async function fetchCityDailyReport(
   citySlug: string,
+  opts: {
+    /**
+     * Read without counting as demand. A plain read stamps the city as wanted
+     * and, for a city with no report yet, kicks off a generation (one Opus
+     * call). The public city page's SERVER render must not do that: it runs
+     * for every published city on every deploy, reader or no reader. Its
+     * client fetch still reads plainly, so a real visit still creates demand.
+     */
+    peek?: boolean;
+  } = {},
 ): Promise<BlueCasterCityDailyReport | null> {
   // Short revalidate, not none: the report changes once a day, but a stale
   // card on a dashboard is worse than a slightly slower one, and this is
   // already behind a Pro gate that forbids shared caching downstream.
   return bcGet<BlueCasterCityDailyReport>(
-    `/api/v1/cities/${encodeURIComponent(citySlug)}/daily-report`,
+    `/api/v1/cities/${encodeURIComponent(citySlug)}/daily-report${opts.peek ? "?peek=1" : ""}`,
     {},
     300,
   );
