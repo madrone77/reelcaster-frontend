@@ -212,6 +212,7 @@ export default async function CityAdPage({ params, searchParams }: PageProps) {
       angle={angle}
       campaign={campaign}
       speciesParam={fish?.slug ?? null}
+      keepSlug={leadSlug}
       hero={{
         pills,
         title:

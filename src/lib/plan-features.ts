@@ -296,6 +296,7 @@ export type NagFeatureId =
   | "support-the-map"
   | "support"
   | "whole-map"
+  | "locked-spots"
   | "depth-gate"
   | "first-login";
 
@@ -414,6 +415,12 @@ export const NAG_FEATURES: Record<NagFeatureId, NagFeature> = {
   // to highlight and the whole matrix is the pitch, same as "support the map".
   "whole-map": {
     action: "open the whole map",
+    unlocksAt: "pro",
+    pricingFeature: "whole-map",
+  },
+  /** A padlocked pin on the ad-framed map (explore_locked_spots_v1). */
+  "locked-spots": {
+    action: "see the score at every spot",
     unlocksAt: "pro",
     pricingFeature: "whole-map",
   },

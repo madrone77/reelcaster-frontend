@@ -21,6 +21,7 @@ import { nearestOpeningCity, readVisitorPoint } from "./lib/opening-city";
 import { HOME_SPOT_COOKIE, sanitizeHomeSpotSlug } from "./lib/home-spot-cookie";
 import { HOME_CITY_COOKIE, sanitizeHomeCitySlug } from "./lib/home-city-cookie";
 import { parseWall } from "@/lib/ad-mode";
+import { parseKeepParam } from "./lib/spot-locks";
 import { ANGLES } from "@/app/lp/_shared/lp-angles";
 import { parseVia, viaAngle } from "@/app/lp/_shared/lp-via";
 import { openingBbox, spotViewBox } from "./lib/viewport-bbox";
@@ -105,6 +106,10 @@ export async function renderExplore({
   const cityAlias = ad && typeof params.city === "string" ? params.city : null;
   const loc = locParam ?? cityAlias;
   const spot = typeof params.spot === "string" ? params.spot : null;
+  // `?keep=` names spots the ad map's lock test must leave open: the mark the
+  // city ad page featured. See lib/spot-locks. Read under `ad` only; the
+  // product map has no locks to exempt anything from.
+  const keepSlugs = ad ? parseKeepParam(params.keep) : [];
 
   /**
    * `?z` — an opening zoom, for links that know the frame they want.
@@ -342,6 +347,7 @@ export async function renderExplore({
         bbox={COVERED_BBOX_ALL}
         initialCitySlug={framedCity}
         initialSpot={spotCoords}
+        keepSlugs={keepSlugs}
         initialZoomOverride={initialZoomOverride}
         initialForecast={initialForecast}
         initialForecastBbox={initialBbox}

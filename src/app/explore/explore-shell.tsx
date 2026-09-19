@@ -94,6 +94,8 @@ import MobileHourBar from "./components/mobile-hour-bar";
 import type { FlowKind } from "./lib/use-flow";
 import ForecastStrip from "./components/forecast-strip";
 import { AdFrameProvider } from "./lib/ad-frame";
+import { applySpotLocks } from "./lib/spot-locks";
+import { useLockedSpotsSplit } from "@/app/components/split-test/use-locked-spots";
 
 // ── Loaded on demand ─────────────────────────────────────────────────────
 //
@@ -169,6 +171,7 @@ export default function ExploreShell({
   bbox,
   initialCitySlug,
   initialSpot,
+  keepSlugs = [],
   initialZoomOverride = null,
   initialForecast,
   initialForecastBbox,
@@ -194,6 +197,8 @@ export default function ExploreShell({
    * around it and the camera should open on it rather than on a city.
    */
   initialSpot?: { slug: string; lat: number; lng: number } | null;
+  /** Spots the ad map's lock test leaves open, from `?keep=`. See lib/spot-locks. */
+  keepSlugs?: string[];
   /** Opening zoom from `?z`. Loses to a restored view and to a
    *  server-framed spot, so only a cold arrival is framed by it. */
   initialZoomOverride?: number | null;
@@ -273,6 +278,17 @@ export default function ExploreShell({
   // trial modal.
   const [adOfferOpen, setAdOfferOpen] = useState(false);
   const [adOfferSpotName, setAdOfferSpotName] = useState<string | undefined>();
+  // Locked pins, `explore_locked_spots_v1`: only inside the ad frame, only
+  // for a viewer with no account, so only paid traffic is assigned an arm.
+  // The landing spot and anything `?keep=` named stay open (lib/spot-locks).
+  const lockSplit = useLockedSpotsSplit(ad && !user && !isPaid ? "explore_map" : null);
+  const locksOn = lockSplit.locksOn;
+  const keepSet = useMemo(
+    () => new Set([...keepSlugs, ...(initialSpot ? [initialSpot.slug] : [])]),
+    [keepSlugs, initialSpot],
+  );
+  const [lockedWallOpen, setLockedWallOpen] = useState(false);
+  const [lockedWallSpotName, setLockedWallSpotName] = useState<string | undefined>();
   // The spot open in the phone's sheet (see components/mobile-spot-sheet.tsx),
   // or null. Local state, not the URL: `?spot=` is the map's selection, which
   // is the preview card, and this sits on top of that without replacing it.
@@ -817,7 +833,7 @@ export default function ExploreShell({
 
   // Species filter: re-score each spot to the chosen species (pins recolor,
   // rail re-ranks, forecast strip keys off it). "Best bet" (null) = unchanged.
-  const displaySpots = useMemo(() => {
+  const scoredSpots = useMemo(() => {
     if (!speciesFilter) return effectiveSpots;
     const name = allSpecies.find((s) => s.id === speciesFilter)?.name ?? null;
     return effectiveSpots
@@ -827,6 +843,32 @@ export default function ExploreShell({
       })
       .sort((a, b) => (b.score ?? -1) - (a.score ?? -1));
   }, [effectiveSpots, speciesFilter, allSpecies]);
+
+  // Applied AFTER the species re-score, so a chip cannot bring a locked
+  // spot's number back. Locked spots have null scores and sort to the tail of
+  // the rail; the pins stay on the water wearing a padlock.
+  const displaySpots = useMemo(
+    () => (locksOn ? applySpotLocks(scoredSpots, keepSet) : scoredSpots),
+    [scoredSpots, locksOn, keepSet],
+  );
+
+  /**
+   * A tap on a locked spot, from the map or the rail: the wall, not the
+   * spot. Returns true when it took the tap.
+   */
+  const openLockedSpot = useCallback(
+    (slug: string): boolean => {
+      const spot = displaySpots.find((s) => s.slug === slug);
+      if (!spot?.locked) return false;
+      trackEvent("Locked Spot Pressed", { slug, ad_wall: ad?.wall });
+      lockSplit.reportLockPress();
+      setPaywallContext({ spotSlug: slug, page: "explore" });
+      setLockedWallSpotName(spot.name);
+      setLockedWallOpen(true);
+      return true;
+    },
+    [displaySpots, ad, lockSplit],
+  );
 
   // Belt-and-braces dedupe by slug. buildExploreData now builds RailSpots from
   // the map payload, which carries one entry per spot, so this should be a
@@ -1749,6 +1791,7 @@ export default function ExploreShell({
 
   const handleMapSelectSpot = useCallback(
     (slug: string) => {
+      if (openLockedSpot(slug)) return;
       noteEngagement("browse", "spot_preview");
       trackEvent("Spot Selected", {
         slug,
@@ -1760,7 +1803,7 @@ export default function ExploreShell({
       setPreviewAnchor(slug);
       focusSpotOnMap(slug);
     },
-    [focusSpotOnMap, speciesFilter, selectedIso],
+    [focusSpotOnMap, speciesFilter, selectedIso, openLockedSpot],
   );
 
   /**
@@ -1783,6 +1826,7 @@ export default function ExploreShell({
 
   const handleSelectSpot = useCallback(
     (slug: string) => {
+      if (openLockedSpot(slug)) return;
       // Counted before the mobile branch below navigates away: the count lives
       // in sessionStorage precisely so the click that leaves /explore is still
       // banked when they come back to it.
@@ -1828,7 +1872,7 @@ export default function ExploreShell({
         });
       }
     },
-    [setQuery, displaySpots, ad, onAdOpenSpot, isPaid],
+    [setQuery, displaySpots, ad, onAdOpenSpot, isPaid, openLockedSpot],
   );
 
   // ── Search picks ────────────────────────────────────────────────────
@@ -2651,6 +2695,18 @@ export default function ExploreShell({
         prompt="spot-views"
         from="explore-ad-open-spot"
         spotName={adOfferSpotName}
+        placeName={labelCity?.name ?? undefined}
+      />
+
+      {/* A padlocked pin on the ad-framed map (explore_locked_spots_v1):
+          the wall names the spot whose score is being withheld. */}
+      <ExploreWall
+        open={lockedWallOpen}
+        onOpenChange={setLockedWallOpen}
+        feature="locked-spots"
+        from="explore-locked-spot"
+        headline="Unlock scoring at every spot"
+        spotName={lockedWallSpotName}
         placeName={labelCity?.name ?? undefined}
       />
 

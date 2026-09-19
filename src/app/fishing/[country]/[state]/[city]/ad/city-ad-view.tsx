@@ -74,6 +74,7 @@ export default function CityAdView({
   angle,
   campaign,
   speciesParam,
+  keepSlug,
   hero,
   reel,
   children,
@@ -88,6 +89,9 @@ export default function CityAdView({
   campaign: CampaignTarget;
   /** The keyword's species slug, carried onto every framed spot link. */
   speciesParam: string | null;
+  /** The mark the hero features. The map link names it in `?keep=` so the ad
+   *  map's lock test leaves it open: the page already showed its score. */
+  keepSlug: string | null;
   hero: {
     pills: ReactNode;
     title: string;
@@ -161,7 +165,11 @@ export default function CityAdView({
             mapHref={
               mapSplit.hideMap
                 ? null
-                : withAdParams(`/explore?loc=${encodeURIComponent(citySlug)}`, { wall, angle })
+                : withAdParams(`/explore?loc=${encodeURIComponent(citySlug)}`, {
+                    wall,
+                    angle,
+                    params: keepSlug ? { keep: keepSlug } : undefined,
+                  })
             }
             onMap={() => trackEvent("City Ad Intro Map Clicked", { city: citySlug, ad_wall: wall })}
           />

@@ -73,6 +73,7 @@ export default function ExploreWall({
   spotName,
   placeName,
   cityName,
+  headline,
   context,
   eligible = true,
 }: {
@@ -86,6 +87,8 @@ export default function ExploreWall({
   spotName?: string;
   placeName?: string;
   cityName?: string;
+  /** The wall's own sentence for the full modal; see ProTrialModal. */
+  headline?: string;
   context?: Record<string, string | number | boolean>;
   /**
    * Whether this wall is in the test at all. True everywhere on /explore.
@@ -158,6 +161,7 @@ export default function ExploreWall({
       open={open}
       onOpenChange={handleOpenChange}
       feature={feature}
+      headline={headline}
       from={from}
       spotName={spotName}
       placeName={placeName}

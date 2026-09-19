@@ -84,6 +84,9 @@ export default function ProTrialModal({
   placeName,
   /** The city the spot sits in, for the sheet's reports line. */
   cityName,
+  /** The wall's own sentence, when the fortnight line is not what it is
+   *  selling ("Unlock scoring at all Seattle spots"). Both shapes show it. */
+  headline,
   /**
    * Wall-specific detail for the event log: which locked day was tapped, which
    * limit was hit. Small scalars only — the server whitelists the shape.
@@ -99,6 +102,7 @@ export default function ProTrialModal({
   spotName?: string;
   placeName?: string;
   cityName?: string;
+  headline?: string;
   context?: Record<string, string | number | boolean>;
 }) {
   const { user } = useAuth();
@@ -277,6 +281,7 @@ export default function ProTrialModal({
             // A spot when there is one, otherwise the city the map is on.
             placeKind={spotName ? 'spot' : 'city'}
             cityName={cityName}
+            headline={headline}
             from={from}
             ctaHref={ctaHref}
             ctaLabel={ctaLabel}
@@ -406,6 +411,7 @@ export default function ProTrialModal({
                       other line here names it. */}
                   <TrialHeadline
                     placeName={spotName}
+                    text={headline}
                     className="mt-2 text-xl sm:text-2xl"
                   />
                 </DialogHeader>
