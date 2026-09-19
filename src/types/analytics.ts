@@ -287,6 +287,7 @@ export type AnalyticsEventName =
   | 'City Ad Intro Trial Clicked'
   | 'City Ad Intro Map Clicked'
   | 'Spot Ad Reel Screen Picked'
+  | 'Home Carousel Screen Picked'
   | 'Chart Explainer Shown'
   | 'Chart Explainer Dismissed'
   | 'Topic Full Conditions Clicked'
