@@ -5,7 +5,7 @@ import { DialogTitle } from '@/components/ui/dialog';
 import { useTrialCta } from './trial-cta';
 import { sheetFeatures, type PlanTierId } from '@/lib/plan-features';
 import { PLAN_LABELS } from '@/lib/plan-labels';
-import { REMINDER_LEAD_DAYS, TRIAL_DAYS } from '@/lib/pricing';
+import { REMINDER_LEAD_DAYS, TRIAL_DAYS, dollars } from '@/lib/pricing';
 import {
   ANON_FORECAST_DAYS,
   FREE_FORECAST_DAYS,
@@ -39,13 +39,18 @@ function viewerPlan(tier: PlanTierId) {
     : { label: PLAN_LABELS.free, days: FREE_FORECAST_DAYS };
 }
 
-/** The eyebrow over the headline, on both shapes. */
+/**
+ * The eyebrow over the headline, on both shapes. Reads the plan off the
+ * provider: with the picker's Monthly card chosen there is no trial to
+ * announce, so it names the plan instead, the way the sheet's title does.
+ */
 export function TrialEyebrow({ className }: { className?: string }) {
+  const { plan } = useTrialCta();
   return (
     <p
       className={`font-rc-mono text-[10px] font-semibold tracking-[0.14em] text-rc-ink-mute uppercase ${className ?? ''}`}
     >
-      {TRIAL_DAYS}-day free trial
+      {plan === 'monthly' ? 'Pro, billed monthly' : `${TRIAL_DAYS}-day free trial`}
     </p>
   );
 }
@@ -188,8 +193,25 @@ export function TrialTimeline({
   priceAmount: string;
   className?: string;
 }) {
-  const { chargeDate, trialOn } = useTrialCta();
-  const rows = [
+  const { chargeDate, trialOn, plan, priceCents } = useTrialCta();
+  // The picker's Monthly card carries no trial: one row, charged today.
+  // Three rows about a reminder and a day-7 charge would describe the
+  // other card.
+  const rows: Array<{
+    key: string;
+    when: string;
+    amount: string;
+    note?: string;
+    tone: 'now' | 'pending' | 'charge';
+  }> = plan === 'monthly' ? [
+    {
+      key: 'today',
+      when: 'Today',
+      amount: `${dollars(priceCents)}/mo`,
+      note: 'Pro unlocks now. Billed monthly, cancel anytime.',
+      tone: 'charge',
+    },
+  ] : [
     {
       key: 'today',
       when: 'Today',

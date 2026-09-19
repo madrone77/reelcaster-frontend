@@ -14,7 +14,13 @@ import { useAnalytics } from "@/hooks/use-analytics";
 import { captureWall } from "@/lib/attribution";
 import { reportPaywall } from "@/lib/paywall-counter";
 import { noteWallShown } from "@/lib/upgrade-nag";
-import { TrialBuy, TrialCtaProvider, TrialExpress } from "./trial-cta";
+import {
+  MONTHLY_ON,
+  TrialBuy,
+  TrialCtaProvider,
+  TrialExpress,
+  useTrialCta,
+} from "./trial-cta";
 import {
   PlanCompareLine,
   TrialEyebrow,
@@ -24,11 +30,13 @@ import {
 } from "./trial-pitch";
 import BrandHeader from "./brand-header";
 import PlanMatrix from "./plan-matrix";
+import PlanPicker from "./plan-picker";
 import TrialSheetStripe from "./trial-sheet-stripe";
 import { useIsPhone } from "@/hooks/use-is-phone";
 import { TRIAL_DAYS } from "@/lib/pricing";
 import { usePricing } from "@/app/components/split-test/use-pricing";
 import { useSplitExposure } from "@/app/components/split-test/report";
+import { usePlanPicker } from "@/app/components/split-test/use-plan-picker";
 import {
   NAG_FEATURES,
   type NagFeatureId,
@@ -347,6 +355,67 @@ export default function ProTrialModal({
            would scroll a thing whose halves already do. */
         className="bg-rc-panel border-rc-rule text-rc-ink p-0 gap-0 sm:max-w-lg lg:max-w-4xl max-h-[88dvh] lg:max-h-[min(88dvh,44rem)] flex flex-col overflow-y-auto overscroll-contain lg:overflow-hidden [&>[data-slot=dialog-close]]:z-20 lg:[&>[data-slot=dialog-close]]:right-[calc(50%+1rem)]"
       >
+        <DialogBody
+          from={from}
+          ctaHref={ctaHref}
+          ctaLabel={ctaLabel}
+          viewerTier={viewerTier}
+          spotName={spotName}
+          placeName={placeName}
+          cityName={cityName}
+          headline={headline}
+          priceAmount={pricing.amount}
+          highlightRowId={nag.rowId}
+          trackCta={trackCta}
+        />
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+/**
+ * The centred dialog's contents, inside the provider that prices them.
+ *
+ * Its own component, and not inline in the modal, so the plan-picker hook
+ * runs only while the dialog is open: Radix mounts `DialogContent` on open,
+ * and an exposure counted from the modal's own render would fire for every
+ * wall that mounted closed. Same reason the sheet reads its arm inside
+ * ./trial-sheet-stripe.
+ */
+function DialogBody({
+  from,
+  ctaHref,
+  ctaLabel,
+  viewerTier,
+  spotName,
+  placeName,
+  cityName,
+  headline,
+  priceAmount,
+  highlightRowId,
+  trackCta,
+}: {
+  from: string;
+  ctaHref?: string;
+  ctaLabel: string;
+  viewerTier: PlanTierId;
+  spotName?: string;
+  placeName?: string;
+  cityName?: string;
+  headline?: string;
+  priceAmount: string;
+  highlightRowId?: string;
+  trackCta: (extra: Record<string, unknown>) => void;
+}) {
+  // The two-card picker, when this reader is in that arm and the monthly
+  // price is for sale. A wall that hands in its own href sells nothing here,
+  // so the picker has nothing to pick and the arm is not counted.
+  const { picker, reportPress } = usePlanPicker(
+    MONTHLY_ON && !ctaHref,
+    "dialog_plan",
+  );
+  return (
+    <>
         {/* One provider around every piece: the wallet, the buy form, the
             timeline and the terms — sharing one resolution of trial
             eligibility rather than each asking again. The timeline prints the
@@ -354,9 +423,17 @@ export default function ProTrialModal({
         <TrialCtaProvider
           from={from}
           theme="light"
-          onActivate={(method) =>
-            trackCta({ plan: "annual", method, destination: "checkout" })
-          }
+          // The plan is the method when the buy button was pressed with a
+          // card chosen; a wallet tap is the annual plan (the wallet row is
+          // hidden while Monthly is chosen, see below).
+          onActivate={(method) => {
+            reportPress();
+            trackCta({
+              plan: method === "monthly" ? "monthly" : "annual",
+              method,
+              destination: "checkout",
+            });
+          }}
         >
           {/* Equal halves, so the left column's right edge is the panel's 50%
               line — which is where the close button is moved to at `lg` (see
@@ -430,11 +507,18 @@ export default function ProTrialModal({
                   className="mt-4"
                 />
 
+                {/* Arm b of plan_picker_v1: Yearly beside Monthly, under
+                    the argument and over the timeline, so the reader has
+                    chosen a card before the timeline says when it charges.
+                    The phone sheet draws the same cards under its title;
+                    see ./plan-picker. */}
+                {picker && <PlanPicker className="mt-4" />}
+
                 {/* What happens and when, on the shape that has the table
                     beside it to say what you get. The matrix answers "what am
                     I buying"; this answers "when does it charge me", which is
                     the question a card-required trial actually stalls on. */}
-                <TrialTimeline priceAmount={pricing.amount} className="mt-4" />
+                <TrialTimeline priceAmount={priceAmount} className="mt-4" />
               </div>
 
               {/* The controls, at the foot of their own column so they stay on
@@ -458,7 +542,10 @@ export default function ProTrialModal({
                   </Link>
                 ) : (
                   <>
-                    <TrialExpress className="mb-3" />
+                    {/* The wallet sells the annual plan only, so it steps
+                        aside while the Monthly card is chosen rather than
+                        charge a year the reader did not pick. */}
+                    <WalletUnlessMonthly />
                     <TrialBuy signupLabel={ctaLabel} hideLabel />
                   </>
                 )}
@@ -477,7 +564,7 @@ export default function ProTrialModal({
                   them — see plan-matrix. */}
               <PlanMatrix
                 viewerTier={viewerTier}
-                highlightRowId={nag.rowId}
+                highlightRowId={highlightRowId}
                 withProof
                 sharedRows={false}
                 className="lg:border-t-0"
@@ -512,7 +599,13 @@ export default function ProTrialModal({
             </div>
           </div>
         </TrialCtaProvider>
-      </DialogContent>
-    </Dialog>
+    </>
   );
+}
+
+/** The wallet row, unless the picker has moved the plan to Monthly. */
+function WalletUnlessMonthly() {
+  const { plan } = useTrialCta();
+  if (plan === "monthly") return null;
+  return <TrialExpress className="mb-3" />;
 }
