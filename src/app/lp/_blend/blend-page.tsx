@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Image from "next/image";
 import { notFound } from "next/navigation";
+import { LpDataNote } from "../_shared/lp-data-note";
 import { angleFrom } from "../_shared/lp-angles";
 import { resolveLpCard } from "../_shared/lp-spot";
 import { lpRegionFor } from "../_shared/lp-region";
@@ -218,6 +219,9 @@ export default async function BlendPage({
     resolveLpCard(cfg.slug),
     fetchMapSpots({ city: cfg.slug }).catch(() => null),
   ]);
+  // Only an unknown city 404s. A real city with no scores for the live
+  // forecast version keeps its page: every band here that quotes a number is
+  // already behind a `proof` guard. See LpCard.hasScores.
   if (!card) notFound();
 
   const region = lpRegionFor(card.provinceCode);
@@ -495,6 +499,13 @@ export default async function BlendPage({
             )}
           </div>
         </section>
+
+        <LpDataNote
+          hasScores={card.hasScores}
+          stale={card.stale}
+          scoredAt={card.scoredAt}
+          cityName={card.cityName}
+        />
 
         <div className="foot">
           ReelCaster {"·"} {city.city.name} and {cfg.water}
