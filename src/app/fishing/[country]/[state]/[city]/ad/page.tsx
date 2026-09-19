@@ -27,6 +27,7 @@ import { fetchCityGuides } from "@/lib/bluecaster";
 import { locationOf } from "@/app/fishing/lib/fishing-data";
 import AdReel from "../[spot]/ad/ad-reel";
 import CityAdView from "./city-ad-view";
+import type { CampaignTarget } from "@/app/lp/_shared/lp-telemetry";
 
 /**
  * The ad frame of a city page, for city-level keywords.
@@ -124,6 +125,21 @@ export default async function CityAdPage({ params, searchParams }: PageProps) {
     .slice(0, 6);
   const sectionAd = { wall, angle, params: fish ? { species: fish.slug } : undefined };
 
+  // What this page is counted as on Campaign results: the city landing key,
+  // with the wall, so a framed city visit sits in the same table as a framed
+  // spot visit. `target_city` is the URL slug ("seattle"), the same slug the
+  // spot ad page reports from its directory link, so the two rows compare.
+  // ONE object, handed to both the frame (which counts the hit and the hero
+  // press) and the instrument (whose own counter would otherwise read the
+  // path, miss the wall and file a second hit under a different key).
+  const campaign: CampaignTarget = {
+    landing: "city",
+    target_city: cityUrlSlug,
+    target_spot: "",
+    wall,
+    angle,
+  };
+
   const fishName = fish ? speciesKeywordName(fish.name) : null;
 
   // The mark the answer is read from: under a keyword, the most-fished mark
@@ -193,6 +209,7 @@ export default async function CityAdPage({ params, searchParams }: PageProps) {
       cityName={city.name}
       wall={wall}
       angle={angle}
+      campaign={campaign}
       speciesParam={fish?.slug ?? null}
       hero={{
         pills,
@@ -246,6 +263,7 @@ export default async function CityAdPage({ params, searchParams }: PageProps) {
         featured={featured}
         rows={rankedRows}
         rosterCount={spots.length}
+        campaign={campaign}
         testimonial
         topSpotsTitle={fishName ? `Top ${fishName} spots near ${city.name}` : undefined}
         topSpotsLimit={10}
