@@ -9,6 +9,8 @@ import Link from "next/link";
 export const metadata: Metadata = {
   title: "Page not found",
   robots: { index: false, follow: true },
+  // Read by AuthGate: a 404 is public whatever path raised it.
+  other: { "rc-not-found": "1" },
 };
 
 export default function NotFound() {

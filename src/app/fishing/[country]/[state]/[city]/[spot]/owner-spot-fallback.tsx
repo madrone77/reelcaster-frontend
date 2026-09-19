@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useState } from "react";
 import { useAuth } from "@/contexts/auth-context";
 import type { SpotPageInitial } from "@/lib/bluecaster/live-spot-types";
@@ -87,6 +88,23 @@ export default function OwnerSpotFallback({ slug }: { slug: string }) {
           This spot doesn&apos;t exist, or it&apos;s a private spot belonging to
           another angler.
         </p>
+        {/* A dead end here is a visitor lost. The link that brought them was
+            usually a renamed or unpublished spot, so hand them the map and the
+            directory, the same two doors the root 404 offers. */}
+        <div className="mt-6 flex flex-wrap items-center justify-center gap-3">
+          <Link
+            href="/explore"
+            className="rounded bg-rc-brand px-5 py-2.5 text-sm font-semibold text-white transition-opacity hover:opacity-90"
+          >
+            Open the map
+          </Link>
+          <Link
+            href="/"
+            className="rounded border border-rc-rule px-5 py-2.5 text-sm font-semibold text-rc-ink transition-colors hover:bg-rc-surface"
+          >
+            Back to the homepage
+          </Link>
+        </div>
       </div>
     );
   }
