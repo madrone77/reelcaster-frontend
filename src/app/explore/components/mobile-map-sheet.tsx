@@ -592,6 +592,7 @@ export default function MobileMapSheet({
                     tz={tz}
                     onSelect={() => onSelectSpot(sp.slug)}
                     fresh={freshCatches?.spots[sp.id]}
+                    reportsLayout="row"
                   />
                 )}
               </div>
@@ -786,6 +787,7 @@ export default function MobileMapSheet({
                     tz={tz}
                     onSelect={() => onSelectSpot(spot.slug)}
                     fresh={freshCatches?.spots[spot.id]}
+                    reportsLayout="row"
                   />
                   {/* Same position as the desktop rail — after the third spot,
                       or at the foot of a shorter list. */}
