@@ -108,6 +108,7 @@ export default function TrialSheetStripe({
   placeName,
   placeKind,
   cityName,
+  headline,
   from,
   region,
   ctaHref,
@@ -122,6 +123,9 @@ export default function TrialSheetStripe({
   placeName?: string;
   placeKind?: 'spot' | 'city';
   cityName?: string;
+  /** One line naming what the wall unlocks, over the offer. Only the
+   *  locked-pin walls pass it; every other sheet reads as before. */
+  headline?: string;
   from: string;
   region?: string;
   ctaHref?: string;
@@ -154,6 +158,12 @@ export default function TrialSheetStripe({
             caller did not name a spot. Same resolution the feature list makes
             in ./pro-trial-modal, so the two never disagree on one screen. */}
         <BrandHeader city={city} />
+
+        {headline && (
+          <p className="mt-5 text-center text-[22px] leading-7 font-bold tracking-[-0.02em] text-rc-ink text-balance">
+            {headline}
+          </p>
+        )}
 
         <Offer />
 

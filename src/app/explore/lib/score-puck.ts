@@ -56,6 +56,16 @@ export const NO_DATA_LABEL = "·";
 /** Tag worn by spots with catch reports in the intel window. */
 export const HOT_TAG = "Hot";
 
+/**
+ * Label used for a spot whose score the ad-framed map is withholding
+ * (explore/lib/spot-locks.ts). Rides the same `rcp:<label>:…` id grammar as a
+ * numeral, so the layer expression and the sprite registry need no new case;
+ * `drawPuck` sees it and paints a padlock where the number would be.
+ */
+export const LOCK_LABEL = "lock";
+/** Slate: neither a score band nor the "no data" grey. */
+export const LOCK_COLOR = "#334155";
+
 // RATIO is the retina multiplier, applied at rasterisation only. Everything
 // else is in logical px.
 const RATIO = 2;
@@ -326,15 +336,67 @@ export function puckBox(textW: number, hot: boolean, shape: PuckShape): PuckBox 
 
 type PuckImage = { width: number; height: number; data: Uint8ClampedArray };
 
+/**
+ * A padlock centred on (cx, cy), drawn at the score glyph's height: a filled
+ * body with rounded corners, a stroked shackle above it, a keyhole punched
+ * out. Same silhouette as lucide's Lock, which the card badge uses, so the
+ * pin and the card say the same thing.
+ */
+function drawPadlock(ctx: CanvasRenderingContext2D, cx: number, cy: number, ink: string, hole: string): void {
+  const bodyW = 11;
+  const bodyH = 8.5;
+  const bodyX = cx - bodyW / 2;
+  const bodyY = cy - 1.5;
+  const r = 2;
+  ctx.save();
+  ctx.fillStyle = ink;
+  ctx.strokeStyle = ink;
+  // Shackle.
+  ctx.lineWidth = 1.8;
+  ctx.lineCap = "round";
+  ctx.beginPath();
+  ctx.arc(cx, bodyY - 0.5, 3.4, Math.PI, 0);
+  ctx.stroke();
+  ctx.beginPath();
+  ctx.moveTo(cx - 3.4, bodyY - 0.5);
+  ctx.lineTo(cx - 3.4, bodyY + 0.6);
+  ctx.moveTo(cx + 3.4, bodyY - 0.5);
+  ctx.lineTo(cx + 3.4, bodyY + 0.6);
+  ctx.stroke();
+  // Body.
+  ctx.beginPath();
+  ctx.moveTo(bodyX + r, bodyY);
+  ctx.lineTo(bodyX + bodyW - r, bodyY);
+  ctx.quadraticCurveTo(bodyX + bodyW, bodyY, bodyX + bodyW, bodyY + r);
+  ctx.lineTo(bodyX + bodyW, bodyY + bodyH - r);
+  ctx.quadraticCurveTo(bodyX + bodyW, bodyY + bodyH, bodyX + bodyW - r, bodyY + bodyH);
+  ctx.lineTo(bodyX + r, bodyY + bodyH);
+  ctx.quadraticCurveTo(bodyX, bodyY + bodyH, bodyX, bodyY + bodyH - r);
+  ctx.lineTo(bodyX, bodyY + r);
+  ctx.quadraticCurveTo(bodyX, bodyY, bodyX + r, bodyY);
+  ctx.closePath();
+  ctx.fill();
+  // Keyhole, painted in the pill's own colour (erasing would cut through
+  // the pill body under it too).
+  ctx.shadowColor = "transparent";
+  ctx.fillStyle = hole;
+  ctx.beginPath();
+  ctx.arc(cx, bodyY + 3.4, 1.25, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.fillRect(cx - 0.6, bodyY + 3.6, 1.2, 2.4);
+  ctx.restore();
+}
+
 /** Render one puck. Returns null server-side or without a 2D context. */
 function drawPuck(label: string, ring: PuckRing, hot: boolean, shape: PuckShape): PuckImage | null {
   if (typeof document === "undefined") return null;
 
   const noData = label === NO_DATA_LABEL;
+  const locked = label === LOCK_LABEL;
   const score = Number(label);
-  const band = noData || !Number.isFinite(score) ? null : puck4(score);
-  const base = band ? band.fill : NO_DATA_COLOR;
-  const ink = band ? band.ink : "#374151";
+  const band = noData || locked || !Number.isFinite(score) ? null : puck4(score);
+  const base = band ? band.fill : locked ? LOCK_COLOR : NO_DATA_COLOR;
+  const ink = band ? band.ink : locked ? "#ffffff" : "#374151";
   const collar = COLLAR[ring];
 
   const measure = document.createElement("canvas").getContext("2d");
@@ -342,7 +404,8 @@ function drawPuck(label: string, ring: PuckRing, hot: boolean, shape: PuckShape)
   const FONT = scoreFont();
   const TAG_FONT = tagFont();
   measure.font = FONT;
-  const scoreW = measure.measureText(label).width;
+  // A lock is sized like a two-digit score so it sits in the same pill.
+  const scoreW = measure.measureText(locked ? "88" : label).width;
   measure.font = TAG_FONT;
   const tagW = hot ? measure.measureText(HOT_TAG).width : 0;
   // Stacked, so the body only has to be as wide as the wider of the two lines.
@@ -413,7 +476,9 @@ function drawPuck(label: string, ring: PuckRing, hot: boolean, shape: PuckShape)
   ctx.shadowColor = "rgba(15, 23, 42, 0.45)";
   ctx.shadowBlur = 2;
   ctx.shadowOffsetY = 1;
-  if (hot) {
+  if (locked) {
+    drawPadlock(ctx, midX, PAD + pillH / 2, ink, base);
+  } else if (hot) {
     ctx.font = TAG_FONT;
     ctx.fillText(HOT_TAG, midX, PAD + pillH * TAG_Y_FRAC);
     ctx.font = FONT;

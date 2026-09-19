@@ -4,7 +4,7 @@
 // (app/map/MapExplorer.tsx + scoring-ui.ts).
 
 import { TIER_PIN, tierFor, type RailSpot } from "./explore-data";
-import { PIN_MIN_DIST } from "./score-puck";
+import { LOCK_LABEL, LOCK_COLOR, PIN_MIN_DIST } from "./score-puck";
 
 export const NO_DATA_COLOR = "#9ca3af"; // zinc-400 — unscored dot
 export const SELECT_HEX = "#1F40E0"; // cobalt — selected stroke
@@ -121,10 +121,13 @@ export function spotsToFeatureCollection(
           spotId: s.id,
           slug: s.slug,
           name: s.name,
-          label: has ? String(raw) : "·",
-          color: scoreColor(raw),
-          txtColor: has ? "#ffffff" : "#374151",
-          opacity: has ? 1 : 0.6,
+          // A locked spot has no score by construction; it wears a padlock
+          // at full opacity rather than the faded "no data" dot, because the
+          // number exists and is being withheld, not missing.
+          label: s.locked ? LOCK_LABEL : has ? String(raw) : "·",
+          color: s.locked ? LOCK_COLOR : scoreColor(raw),
+          txtColor: has || s.locked ? "#ffffff" : "#374151",
+          opacity: has || s.locked ? 1 : 0.6,
           // Drives the brand-blue ring that marks a spot as yours. 1/0 rather
           // than a boolean: MapLibre filter expressions compare numbers.
           isCustom: s.isCustom ? 1 : 0,

@@ -86,6 +86,7 @@ import CityTopSpots from "./city-top-spots";
 import CustomSpots from "./custom-spots";
 import { spotHref } from "@/lib/paths";
 import { useAdFrame } from "@/app/explore/lib/ad-frame";
+import { useLockedSpotsSplit } from "@/app/components/split-test/use-locked-spots";
 import { withAdParams } from "@/lib/ad-mode";
 import { UnitCountryScope } from "@/contexts/unit-preferences-context";
 import { unitCountryForCitySlug } from "@/lib/unit-system";
@@ -259,6 +260,12 @@ export default function CityInstrument({
   // account never watches a padlock appear over days it has paid for and then
   // disappear — the lock-then-unlock flash this app has fixed twice already.
   const accessTier: ForecastTier = isPaid ? "pro" : user ? "free" : "anonymous";
+  // Whether the chart below is wearing locks (explore_locked_spots_v1). Read
+  // here as well as in the chart so the section's own copy can say what the
+  // locks mean; the hook counts one exposure per surface, so two readers on
+  // one page do not double it. Casey (2026-09-19): "somewhere around the
+  // spot city map we need the language unlock all spots with pro".
+  const spotLocks = useLockedSpotsSplit(ad && !user && !isPaid ? "city_map" : null).locksOn;
 
   // ── 14-day strip ──────────────────────────────────────────────────────
   const [forecast, setForecast] = useState<MapForecast14dPayload | null>(
@@ -724,7 +731,21 @@ export default function CityInstrument({
               </>
             ),
           },
-          {
+          spotLocks
+            ? {
+                /* The lock test's own line: what a padlocked mark means and
+                   what opens it. Replaces the count, which would otherwise
+                   promise "all scored" over a chart half of which is locked. */
+                head: "Pro unlocks every spot",
+                body: (
+                  <>
+                    Half the marks are locked on this preview. Pro shows the
+                    score at all {rows.length} spots around {cityName}, every
+                    hour, 14 days out. Tap any lock to start.
+                  </>
+                ),
+              }
+            : {
             /* Reconciles its own count with the page title's, which counts the
                ROSTER. A mark with no species scored today has nothing to draw,
                so Seattle is 15 of 16 — and a map captioned "15 marks" under a
@@ -752,7 +773,15 @@ export default function CityInstrument({
           },
         ]}
       >
-        <CitySpotMap rows={rows} cityLat={cityLat} cityLng={cityLng} />
+        <CitySpotMap
+          rows={rows}
+          cityLat={cityLat}
+          cityLng={cityLng}
+          cityName={cityName}
+          // The hero's mark stays open under the ad chart's lock test: the
+          // page has already shown its number (lib/spot-locks).
+          lockKeepSlug={featured?.slug ?? rows[0]?.spot.slug ?? null}
+        />
       </Section>
 
       {/* Placed directly under the map, because the map is what raises the

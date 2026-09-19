@@ -106,9 +106,13 @@ export function PlanCompareLine({
 export function TrialHeadline({
   placeName,
   placeKind = 'spot',
+  text,
   className,
 }: {
   placeName?: string;
+  /** A wall's own sentence, in place of the fortnight line. Used by the
+   *  locked-pin walls, which are not selling days. */
+  text?: string;
   /**
    * Which kind of place that is, because English cares: you fish AT a spot and
    * IN a city. Only the preposition depends on it.
@@ -120,8 +124,8 @@ export function TrialHeadline({
     <DialogTitle
       className={`font-black tracking-[-0.02em] text-balance text-rc-ink ${className ?? ''}`}
     >
-      See the next {PRO_FORECAST_DAYS} days
-      {placeName ? (
+      {text ?? <>See the next {PRO_FORECAST_DAYS} days</>}
+      {placeName && !text ? (
         <>
           {placeKind === 'city' ? ' in ' : ' at '}
           <span className="text-rc-brand">{placeName}</span>
