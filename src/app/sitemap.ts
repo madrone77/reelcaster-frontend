@@ -124,6 +124,14 @@ export default async function sitemap(): Promise<SitemapEntry[]> {
   // home city and therefore its URL. That also removes the old orphan problem
   // for free, since the tree only contains spots a crawler could reach by
   // walking the site.
+  // The directory's front door, one level above the countries.
+  entries.push({
+    url: siteUrl("/fishing"),
+    lastModified: scoredAt,
+    changeFrequency: "weekly",
+    priority: 0.7,
+  });
+
   for (const country of getFishingCountries(hierarchy)) {
     entries.push({
       url: siteUrl(`/fishing/${country.code.toLowerCase()}`),
