@@ -190,7 +190,16 @@ export function choicesFromLegacyLocal(blob: Record<string, unknown> | null | un
   const out: Record<string, string> = {};
   for (const key of UNIT_KEYS) {
     const v = blob[key];
-    if (typeof v === "string" && v && v !== CA_DEFAULT_UNITS[key]) out[key] = v;
+    if (typeof v !== "string" || !v || v === CA_DEFAULT_UNITS[key]) continue;
+    // Tides defaulted to metres from 2026-08-05 to 2026-08-21, and the old
+    // blob was written with every unit in it whenever anything was set or a
+    // signed-in session loaded its server prefs. So a legacy "m" is almost
+    // always that default written down, not a pick, and reading it as one
+    // pinned every returning visitor from that window to metres while a new
+    // visitor got the feet the product decided on. It is dropped; anyone who
+    // wants metres is one tap from it on the tide row.
+    if (key === "tideUnit" && v === "m") continue;
+    out[key] = v;
   }
   return out as UnitChoices;
 }
