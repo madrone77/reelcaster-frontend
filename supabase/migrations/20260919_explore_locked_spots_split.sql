@@ -1,5 +1,5 @@
 -- Locked spots on the ad-framed Explore map. Arm a is today: every pin shows
--- its score. Arm b: a stable half of the pins wear a padlock instead of a
+-- its score. Arm b: a stable three in five of the pins wear a padlock instead of a
 -- score, and a tap on one opens the Pro wall. The spot the visitor landed on
 -- (`?spot=`) and the mark the city ad page featured (`?keep=`) stay open.
 --
@@ -23,7 +23,7 @@ values (
   'Ad map: locked pins vs open map',
   'treatment',
   'draft',
-  'Locking half the pins on the ad-framed map, with the landing spot left open, earns more trials per exposure than a fully open map.',
+  'Locking about 60% of the pins on the ad-framed map, with the landing spot left open, earns more trials per exposure than a fully open map.',
   'paid_conversion',
   false
 )

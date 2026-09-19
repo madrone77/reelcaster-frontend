@@ -7,10 +7,11 @@
  * city ad page featured, stays open: the test never takes away a number the
  * page they came from already showed them.
  *
- * WHICH SPOTS. A stable half, chosen by hashing the slug. Stable so the same
- * pin is locked on every visit and after every pan, which reads as a rule
- * rather than a tease; a half so the open pins still show real highs and
- * lows and the map keeps demonstrating that spots differ. Locking only the
+ * WHICH SPOTS. A stable three in five, chosen by hashing the slug. Stable so
+ * the same pin is locked on every visit and after every pan, which reads as a
+ * rule rather than a tease; enough left open that the map still shows real
+ * highs and lows and keeps demonstrating that spots differ. Casey set the
+ * share at roughly 60% (2026-09-19) after seeing the half-locked frames. Locking only the
  * best spots was considered and set aside for a first test: the visible
  * scores would then all be middling, and the map would undersell itself.
  *
@@ -55,9 +56,13 @@ function hashSlug(slug: string): number {
   return h >>> 0;
 }
 
+/** Locked share, in tenths of the slug-hash space. 6 = about 60% of spots. */
+export const LOCKED_TENTHS = 6;
+
 /**
- * Is this spot locked under the test? Odd hashes lock; the keep set is exempt.
- * A viewer's own spot is never locked: it is their data, not ours to sell.
+ * Is this spot locked under the test? The hash's last decimal digit decides
+ * (`< LOCKED_TENTHS` locks); the keep set is exempt. A viewer's own spot is
+ * never locked: it is their data, not ours to sell.
  */
 export function isSpotLocked(
   spot: Pick<RailSpot, "slug" | "isCustom">,
@@ -65,7 +70,7 @@ export function isSpotLocked(
 ): boolean {
   if (spot.isCustom) return false;
   if (keep.has(spot.slug)) return false;
-  return (hashSlug(spot.slug) & 1) === 1;
+  return hashSlug(spot.slug) % 10 < LOCKED_TENTHS;
 }
 
 /**
