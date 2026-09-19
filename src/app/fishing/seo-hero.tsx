@@ -1,11 +1,42 @@
 "use client";
 
-import { useState, type ReactNode } from "react";
+import {
+  createContext,
+  useContext,
+  useState,
+  type ReactNode,
+} from "react";
 import dynamic from "next/dynamic";
 import { useAuth } from "@/contexts/auth-context";
 import { trackEvent } from "@/lib/analytics";
 import AdHero from "./[country]/[state]/[city]/[spot]/ad-intro";
 import type { Biting } from "@/lib/lead-species";
+
+/**
+ * True inside the header copy that SeoHero keeps in the markup while the
+ * session is still loading. That copy is hidden by CSS but it is real DOM,
+ * and the hero beside it already carries the page's <h1>; a second one there
+ * gave every hero-bearing city and spot page two h1s. The header renders its
+ * title through PageHeading, which demotes to a <p> under this flag and is
+ * an <h1> everywhere else (no hero, or a signed-in reader once the session
+ * resolves and the hero leaves).
+ */
+const HeroHeaderSlotContext = createContext(false);
+
+export function PageHeading({
+  className,
+  children,
+}: {
+  className?: string;
+  children: ReactNode;
+}) {
+  const inSlot = useContext(HeroHeaderSlotContext);
+  return inSlot ? (
+    <p className={className}>{children}</p>
+  ) : (
+    <h1 className={className}>{children}</h1>
+  );
+}
 
 const ProTrialModal = dynamic(
   () => import("@/app/components/paywall/pro-trial-modal"),
@@ -68,7 +99,13 @@ export default function SeoHero({
 
   return (
     <>
-      {loading && <div data-seo-hero-slot="header">{children}</div>}
+      {loading && (
+        <div data-seo-hero-slot="header">
+          <HeroHeaderSlotContext.Provider value={true}>
+            {children}
+          </HeroHeaderSlotContext.Provider>
+        </div>
+      )}
       <div data-seo-hero-slot={loading ? "hero-pending" : "hero"}>
       <AdHero
         pills={pills}
