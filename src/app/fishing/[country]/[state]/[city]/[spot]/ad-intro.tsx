@@ -105,9 +105,10 @@ export default function AdHero({
    */
   biting?: Biting | null;
   onTrial: () => void;
-  /** Explore, framed and opened on this spot. */
-  mapHref: string;
-  onMap: () => void;
+  /** Explore, framed and opened on this spot. Null renders the trial button
+   *  alone: arm b of `ad_hero_map_button_v1` (split-test/use-ad-hero-map.ts). */
+  mapHref: string | null;
+  onMap?: () => void;
   /**
    * Wording overrides for a page that is not about one spot. The city ad page
    * names the mark its answer is read from ("Chinook fishing at Constance
@@ -208,13 +209,15 @@ export default function AdHero({
               Try Pro free
               <ArrowRight className="h-4 w-4" aria-hidden />
             </button>
-            <Link
-              href={mapHref}
-              onClick={onMap}
-              className="inline-flex flex-1 items-center justify-center rounded-xl border-2 border-rc-brand bg-white px-4 py-3.5 text-[16px] font-semibold text-rc-brand transition-colors hover:bg-rc-brand-soft focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-rc-brand sm:flex-none sm:px-7 sm:text-[17px]"
-            >
-              Explore the map
-            </Link>
+            {mapHref && (
+              <Link
+                href={mapHref}
+                onClick={onMap}
+                className="inline-flex flex-1 items-center justify-center rounded-xl border-2 border-rc-brand bg-white px-4 py-3.5 text-[16px] font-semibold text-rc-brand transition-colors hover:bg-rc-brand-soft focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-rc-brand sm:flex-none sm:px-7 sm:text-[17px]"
+              >
+                Explore the map
+              </Link>
+            )}
           </div>
           <p className="mt-3 text-[13px] text-rc-ink-mute">
             {footnoteText ??

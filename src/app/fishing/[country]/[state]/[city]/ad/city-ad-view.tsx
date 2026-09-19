@@ -14,6 +14,7 @@ import {
   type CampaignTarget,
 } from "@/app/lp/_shared/lp-telemetry";
 import AdHero, { AD_HERO_REEL_COL } from "../[spot]/ad-intro";
+import { useAdHeroMapSplit } from "@/app/components/split-test/use-ad-hero-map";
 
 /**
  * "Open the trial modal", handed down the frame so the second ask below the
@@ -112,8 +113,12 @@ export default function CityAdView({
   // is an ad arrival whether or not the UTM tags survived the hop.
   useCampaignHit(campaign);
 
+  // The hero's map button, on test at the today wall. See use-ad-hero-map.ts.
+  const mapSplit = useAdHeroMapSplit(wall === "today" ? "city_ad_hero" : null);
+
   const openTrial = (placement: string) => {
     trackEvent("City Ad Intro Trial Clicked", { city: citySlug, ad_wall: wall, placement });
+    if (placement === "hero") mapSplit.reportTrialPress();
     // The report's CTR numerator. The hero's trial button is the hero press;
     // the banner under the map is the second ask. Same positions the spot
     // and /lp pages use, so the column compares across page kinds.
@@ -153,7 +158,11 @@ export default function CityAdView({
             footnoteText={hero.footnoteText}
             reel={reel}
             onTrial={() => openTrial("hero")}
-            mapHref={withAdParams(`/explore?loc=${encodeURIComponent(citySlug)}`, { wall, angle })}
+            mapHref={
+              mapSplit.hideMap
+                ? null
+                : withAdParams(`/explore?loc=${encodeURIComponent(citySlug)}`, { wall, angle })
+            }
             onMap={() => trackEvent("City Ad Intro Map Clicked", { city: citySlug, ad_wall: wall })}
           />
           <AdFrameProvider value={frame}>

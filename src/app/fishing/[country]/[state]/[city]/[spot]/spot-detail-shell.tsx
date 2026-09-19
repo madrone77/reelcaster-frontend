@@ -84,6 +84,7 @@ import {
   useCampaignHit,
   type CampaignTarget,
 } from "@/app/lp/_shared/lp-telemetry";
+import { useAdHeroMapSplit } from "@/app/components/split-test/use-ad-hero-map";
 import { withAdParams, type AdMode, type AdWall } from "@/lib/ad-mode";
 import { bitingFor, orderLeadSpecies } from "@/lib/lead-species";
 import { speciesKeywordName } from "@/lib/species-param";
@@ -1185,6 +1186,10 @@ export default function SpotDetailShell({
     : null;
   useCampaignHit(adTarget);
 
+  // The ad hero's map button, on test at the today wall. See
+  // split-test/use-ad-hero-map.ts. Null outside the frame: nothing counted.
+  const mapSplit = useAdHeroMapSplit(ad?.wall === "today" ? "spot_ad_hero" : null);
+
   // The billing region decides the currency (BC bills CAD, WA bills USD).
   //
   // This one DOES follow the breadcrumb city, unlike the regulator above it: a
@@ -1599,9 +1604,10 @@ export default function SpotDetailShell({
                 biting={biting}
                 onTrial={() => {
                   trackEvent("Spot Ad Intro Trial Clicked", { slug, ad_wall: ad.wall });
+                  mapSplit.reportTrialPress();
                   setIntroTrialOpen(true);
                 }}
-                mapHref={withAdParams(`/explore?spot=${spot.slug}`, ad)}
+                mapHref={mapSplit.hideMap ? null : withAdParams(`/explore?spot=${spot.slug}`, ad)}
                 onMap={() => trackEvent("Spot Ad Intro Map Clicked", { slug, ad_wall: ad.wall })}
               />
             ) : (
