@@ -51,7 +51,6 @@ import { useState } from "react";
 import { ChevronDown, Lock, TrendingDown, TrendingUp } from "lucide-react";
 import { useAuth } from "@/contexts/auth-context";
 import { usePricing } from "@/app/components/split-test/use-pricing";
-import { useLockedReportPreview } from "@/app/components/split-test/use-locked-report-preview";
 import type { RecentReports as RecentReportsData } from "@/lib/bluecaster/live-spot-types";
 import { reportAge, type RailFreshCatch } from "@/app/explore/lib/fresh-catch-types";
 import {
@@ -254,10 +253,11 @@ function PlaceholderRow({ dot, name }: { dot: string; name: number }) {
 }
 
 /**
- * Arm b of locked_report_preview_v1: the shape of the full report, drawn from
- * nothing, with the offer on top. Every bar here is a fixed placeholder; no
- * count, species or verdict for this spot is known to the page or implied by
- * the drawing, which is the same on every spot.
+ * The locked card: the shape of the full report, drawn from nothing, with the
+ * offer on top. Won locked_report_preview_v1 (concluded 2026-09-19) over the
+ * plain upgrade row, which survives only on the ad frame. Every bar here is a
+ * fixed placeholder; no count, species or verdict for this spot is known to
+ * the page or implied by the drawing, which is the same on every spot.
  *
  * The trial is promised only to a signed-out reader, who is always eligible
  * (the top bar makes the same call). A signed-in free reader may have had a
@@ -364,10 +364,6 @@ export function RecentReportsBand({
   className?: string;
 }) {
   const [expanded, setExpanded] = useState(false);
-  // The teaser lock is the only one under test, and never on the ad frame.
-  const teaserLocked = !reports && !creel && !!teaser && locked === true;
-  const lockTest = useLockedReportPreview(teaserLocked && !neutralLock);
-
   // Resolved once, before the state guards narrow `fresh` away. Freshest known
   // date wins: the full report if we have it, else the date that travelled with
   // the teaser, else whatever the counts carry.
@@ -391,28 +387,19 @@ export function RecentReportsBand({
         <p className="mt-3 text-[17px] font-semibold leading-snug text-rc-ink lg:text-[19px]">
           {teaser}
         </p>
-        {locked === true && lockTest.preview && (
-          <LockedPreview
-            spotName={spotName}
-            onPress={() => {
-              lockTest.reportPress();
-              onUpgrade?.();
-            }}
-          />
+        {locked === true && !neutralLock && (
+          <LockedPreview spotName={spotName} onPress={onUpgrade} />
         )}
-        {locked === true && !lockTest.preview && (
+        {locked === true && neutralLock && (
           <button
             type="button"
-            onClick={() => {
-              lockTest.reportPress();
-              onUpgrade?.();
-            }}
+            onClick={onUpgrade}
             className="mt-3 flex w-full items-center gap-3 rounded border border-rc-brand/40 bg-rc-brand-soft px-4 py-3 text-left transition-colors hover:bg-rc-brand-soft/70"
           >
             <Lock className="h-4 w-4 shrink-0 text-rc-brand" />
             <span className="min-w-0 flex-1">
               <span className="block text-[14px] font-semibold text-rc-ink">
-                {neutralLock ? "Read the full report" : "Upgrade to Pro for the full report"}
+                Read the full report
               </span>
               <span className="block font-rc-mono text-[11px] text-rc-ink-mute">
                 What is being caught here, what worked, and what is going nearby
