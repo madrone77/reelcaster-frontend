@@ -23,16 +23,42 @@
 // tells an angler nothing, and sourcing one per city is a licensing
 // dependency on every new city we launch.
 
+import type { ReactNode } from "react";
 import Link from "next/link";
+import { ArrowDown } from "lucide-react";
 import type { FishingCity } from "@/app/fishing/lib/fishing-data";
+import SeoHero from "@/app/fishing/seo-hero";
+import type { Biting } from "@/lib/lead-species";
 
 export default function CityHeader({
   city,
   provincePath,
   window,
+  hero,
 }: {
   city: FishingCity;
   provincePath: string;
+  /**
+   * The landing hero, in the markets that carry it.
+   *
+   * Wraps the H1 and the line under it, NOT the breadcrumb: those three links
+   * are the page's way back up the hierarchy and are worth as much to a
+   * crawler as the heading is. See fishing/seo-hero.tsx.
+   */
+  hero?: {
+    enabled: boolean;
+    /** The city's lead mark, which is what the hero's copy is written about. */
+    spotName: string;
+    fish: string | null;
+    fishSlug: string | null;
+    score: number | null;
+    mapHref: string;
+    /** The four-phone reel, built on the server against the lead mark. */
+    reel?: ReactNode;
+    /** "What's biting now around Victoria: Coho", when the city's headline
+     *  fish came from catches. Null hides the line. */
+    biting?: Biting | null;
+  } | null;
   /**
    * Today's best window at the top-ranked mark, already formatted, or null.
    *
@@ -71,6 +97,34 @@ export default function CityHeader({
         </ol>
       </nav>
 
+      <SeoHero
+        enabled={hero?.enabled ?? false}
+        place={city.slug}
+        pills={null}
+        /* The SAME heading the block below would have rendered, answer-first
+           and with the hours in it. The hero must not quietly cost this page
+           the H1 it was given on purpose — see the note over that <h1>. */
+        title={
+          window
+            ? `Today's best fishing in ${city.name}: ${window}`
+            : `Fishing in ${city.name}, ${city.provinceCode}`
+        }
+        spotName={hero?.spotName ?? city.name}
+        fish={hero?.fish ?? null}
+        fishSlug={hero?.fishSlug ?? null}
+        score={hero?.score ?? null}
+        /* Null, not `window`: the H1 above already names the hours, and the
+           hero's sentence would otherwise repeat them two lines later. The
+           verdict ("Chinook fishing at Sand Point Hump looks good today")
+           still carries, which is the half the heading does not say. */
+        windowLabel={null}
+        /* Spot pages name the tide beside the window; a city's headline window
+           is read off one mark and the phase would not be true of the rest. */
+        tidePhase={null}
+        mapHref={hero?.mapHref ?? `/explore?loc=${city.slug}`}
+        reel={hero?.reel ?? null}
+        biting={hero?.biting ?? null}
+      >
       {/* Leads with the answer, and still carries the phrase people search.
           Falls back to the plain form on a day with nothing scored, because
           "Today's best fishing in Seattle:" with no time after it is worse
@@ -97,6 +151,30 @@ export default function CityHeader({
         This page is full of real data to show you what you can see with
         ReelCaster in {city.name}.
       </p>
+      </SeoHero>
+
+      {/* Down to the map.
+          The map is the piece of this page that reads as a product rather
+          than a page — every mark we cover, on charted seabed — and it sits
+          four sections below the fold, past the 14-day strip, the 24-hour
+          chart and the top-spots list. A reader who came for "where do I fish
+          around here" had no way to reach it without scrolling through the
+          sell.
+
+          A plain anchor, not a scroll handler: it works before hydration and
+          with JavaScript off, and it leaves a real fragment in the URL that
+          can be shared. No smooth easing, deliberately — `scroll-behavior`
+          only takes effect on <html>, so buying it here would mean turning it
+          on for Explore and the dashboard too. The section it lands on
+          carries `scroll-mt` to clear the sticky bar: see
+          instrument/section.tsx. */}
+      <a
+        href="#city-map"
+        className="mt-5 inline-flex items-center gap-2 rounded bg-rc-brand-soft px-4 py-2.5 text-rc-brand font-rc-mono text-xs font-semibold tracking-[0.04em] hover:bg-rc-brand-soft/70 transition-colors"
+      >
+        View {city.name} fishing map
+        <ArrowDown className="h-3.5 w-3.5" aria-hidden />
+      </a>
     </header>
   );
 }

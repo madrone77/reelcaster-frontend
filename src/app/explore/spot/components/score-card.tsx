@@ -68,9 +68,13 @@ export default function ScoreCard({
   onSetAlert,
   children,
   adFrame = false,
+  windowTitle = "BEST WINDOW",
 }: {
   /** On the ad frame the regulatory notice is a box, not a link out. */
   adFrame?: boolean;
+  /** The window callout's label. An ad landing that names a fish says
+   *  "Best Window to Catch Chinook". */
+  windowTitle?: string;
   /** The current hour with its zone, e.g. "9 PM PDT". */
   nowTime: string;
   /** Is the live hour the day's peak hour? Then the secondary line would be
@@ -204,7 +208,7 @@ export default function ScoreCard({
 
         {windowLabel && (
           <div className="mt-4 lg:mt-0 rounded bg-rc-good-bg text-center py-3 px-3">
-            <div className="rc-label text-[9px] text-rc-good-ink">BEST WINDOW</div>
+            <div className="rc-label text-[9px] text-rc-good-ink">{windowTitle}</div>
             <div className="text-lg font-bold text-rc-good-ink mt-0.5">
               {windowLabel}
             </div>

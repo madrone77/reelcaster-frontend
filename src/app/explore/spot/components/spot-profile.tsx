@@ -1,16 +1,8 @@
 "use client";
 
-import type { LiveSpot, SeasonState } from "@/lib/bluecaster/live-spot-types";
+import type { LiveSpot } from "@/lib/bluecaster/live-spot-types";
 import { useUnitPreferences } from "@/contexts/unit-preferences-context";
 import { convertDepth, DEPTH_LABELS } from "@/app/utils/unit-conversions";
-
-const SEASON_LABEL: Record<SeasonState, string> = {
-  peak: "Peak now",
-  shoulder: "Shoulder",
-  off: "Off season",
-  closed: "Closed",
-  nodata: "—",
-};
 
 function titleCase(v: string | null): string | null {
   if (!v) return null;
@@ -42,14 +34,8 @@ function ProfileCell({
   );
 }
 
-/** Static spot profile panel — depth, structure, peak season, DFO area. */
-export default function SpotProfile({
-  spot,
-  seasonState,
-}: {
-  spot: LiveSpot;
-  seasonState: SeasonState | null;
-}) {
+/** Static spot profile panel: depth and structure. */
+export default function SpotProfile({ spot }: { spot: LiveSpot }) {
   const { depthUnit } = useUnitPreferences();
   const depthLbl = DEPTH_LABELS[depthUnit];
   const depthVal = (m: number) => Math.round(convertDepth(m, "m", depthUnit));
@@ -65,13 +51,6 @@ export default function SpotProfile({
       <div className="rc-label text-[9px] mb-3">SPOT PROFILE</div>
       <div className="grid grid-cols-2 gap-3">
         <ProfileCell label="DEPTH" value={depth} sub={titleCase(spot.bottomType)} />
-        {/* Launch/ramp data isn't in the spot payload yet — explicit unbuilt
-            state (not a bare "—", which reads as a load failure). */}
-        <ProfileCell label="LAUNCH" value="Not mapped" />
-        <ProfileCell
-          label="PEAK"
-          value={seasonState ? SEASON_LABEL[seasonState] : "—"}
-        />
         <ProfileCell
           label="STRUCTURE"
           value={titleCase(spot.spotType) ?? "—"}

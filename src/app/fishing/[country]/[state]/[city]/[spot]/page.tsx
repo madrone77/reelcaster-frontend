@@ -8,11 +8,10 @@ import { breadcrumbJsonLd, SITE_URL, siteUrl } from "@/lib/site";
 import { provinceCodeFromName } from "@/lib/regions";
 import SpotDetailShell from "./spot-detail-shell";
 import { loadSpotPage } from "./load-spot-page";
-import {
-  findCityForSpot,
-  getFishingCountries,
-} from "@/app/fishing/lib/fishing-data";
+import { findCityForSpot } from "@/app/fishing/lib/fishing-data";
 import { spotPath } from "@/lib/paths";
+import { seoHeroEnabledOnSpot } from "@/lib/seo-hero";
+import AdReel from "./ad/ad-reel";
 
 // `spot` is the DIRECTORY name, so it is the param Next fills. Destructured
 // as `slug` below because that is what the spot payload calls it, and because
@@ -89,35 +88,16 @@ function snippet(text: string): string {
   return `${clean.slice(0, wordEnd > 0 ? wordEnd : DESCRIPTION_BUDGET - 1)}…`;
 }
 
-// Prerender the published spots. On-demand rendering makes Next stream
-// metadata, which lands <title> and the canonical at the end of the body
-// instead of in <head>; prerendering resolves them before the first byte.
-// Custom and newly-published spots still render on demand and then cache.
-export async function generateStaticParams() {
-  try {
-    // The hierarchy, not the map payload. A spot's path needs its home city,
-    // and /map/spots is bbox-scoped with no place chain on it: it can say a
-    // spot exists but not where its URL goes. Walking the lifecycle-gated tree
-    // also means only spots that HAVE a public home are prerendered, which is
-    // the same set the sitemap lists.
-    const countries = getFishingCountries(await fetchHierarchy());
-    return countries.flatMap((country) =>
-      country.provinces.flatMap((province) =>
-        province.cities.flatMap((city) =>
-          city.spots.map((spot) => ({
-            country: country.code.toLowerCase(),
-            state: province.code.toLowerCase(),
-            city: city.urlSlug,
-            spot: spot.slug,
-          })),
-        ),
-      ),
-    );
-  } catch {
-    // Upstream down at build time — fall back to pure on-demand rendering
-    // rather than failing the build.
-    return [];
-  }
+// No paths are prerendered, but the function has to exist: without it Next
+// treats a dynamic segment as fully dynamic, renders every request, and sends
+// `cache-control: private, no-store`. An empty list with `dynamicParams` (the
+// default) is what makes a path render once on demand and then serve from the
+// cache, revalidated on the schedule the spot fetch sets. Prerendering the
+// ~1,300 published spots was five of a seven minute build and failed the
+// deploy whenever one page took over 60 seconds. Crawlers still get <title>
+// and the canonical in <head> (Next blocks metadata for `htmlLimitedBots`).
+export function generateStaticParams() {
+  return [];
 }
 
 export async function generateMetadata({
@@ -315,6 +295,24 @@ export default async function SpotDetailPage({ params }: PageProps) {
         tz={tz}
         serverNowMs={serverNowMs}
         cityLink={cityLink}
+        /* Decided from the route, not from the visitor, so this render is the
+           same for a crawler and a reader and the route stays prerendered.
+           See lib/seo-hero.ts. */
+        seoHero={seoHeroEnabledOnSpot(country, state)}
+        /* Built only where the hero renders, so a page without one pays none
+           of the reel's upstream loads. */
+        seoReel={
+          seoHeroEnabledOnSpot(country, state) ? (
+            <AdReel
+              slug={slug}
+              provinceCode={state.toUpperCase()}
+              /* No `&species=` on an organic landing: the reel opens on the
+                 mark's own lead fish, the same one the hero names. */
+              fishName={null}
+              serverNowMs={serverNowMs}
+            />
+          ) : null
+        }
       />
     </>
   );

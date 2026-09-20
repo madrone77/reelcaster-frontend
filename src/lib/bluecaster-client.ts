@@ -54,7 +54,7 @@ export type { CatchPreviewResponse } from "./bluecaster/catch-ingest-types";
 export async function fetchForecast14d(
   spotSlug: string
 ): Promise<Forecast14dPayload> {
-  // The proxy gates days past the caller's horizon server-side (anon 2,
+  // The proxy gates days past the caller's horizon server-side (anon 1,
   // free 7, Pro 14) — attach the session token so signed-in callers get
   // their full horizon.
   const { data } = await supabase.auth.getSession();
@@ -543,7 +543,7 @@ export async function fetchSpotRecentReports(
  *
  *  Forwards the Supabase token for the same reason `fetchFreshCatches` does:
  *  the route reads `Authorization: Bearer`, not cookies, so a bare fetch would
- *  authenticate as nobody and quietly hand a Pro angler the 2-day payload. */
+ *  authenticate as nobody and quietly hand a Pro angler the 1-day payload. */
 export async function fetchSpotsOutlook14d(
   scope: { spotIds?: string[]; citySlug?: string; speciesId?: string },
 ): Promise<SpotsOutlook14dPayload | null> {
@@ -661,8 +661,10 @@ export async function fetchPoolIntelligence(
 export async function fetchStationConditions(
   source: "chs" | "noaa",
   sid: string,
+  opts: { backHours?: number } = {},
 ): Promise<StationConditions | null> {
   const qs = new URLSearchParams({ source, sid });
+  if (opts.backHours !== undefined) qs.set("back_hours", String(opts.backHours));
   const res = await fetch(`/api/bluecaster/map/station-conditions?${qs}`);
   if (!res.ok) return null;
   return (await res.json()) as StationConditions;
@@ -689,7 +691,7 @@ export async function fetchBuoyConditions(
 export async function fetchMapForecast14d(
   scope: string | { bbox?: string; city?: string }
 ): Promise<MapForecast14dPayload> {
-  // The proxy gates days past the caller's horizon server-side (anon 2,
+  // The proxy gates days past the caller's horizon server-side (anon 1,
   // free 7, Pro 14) — attach the session token so signed-in callers get
   // their full horizon.
   const { data } = await supabase.auth.getSession();

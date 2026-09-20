@@ -5,7 +5,7 @@ import { DialogTitle } from '@/components/ui/dialog';
 import { useTrialCta } from './trial-cta';
 import { sheetFeatures, type PlanTierId } from '@/lib/plan-features';
 import { PLAN_LABELS } from '@/lib/plan-labels';
-import { REMINDER_LEAD_DAYS, TRIAL_DAYS } from '@/lib/pricing';
+import { REMINDER_LEAD_DAYS, TRIAL_DAYS, dollars } from '@/lib/pricing';
 import {
   ANON_FORECAST_DAYS,
   FREE_FORECAST_DAYS,
@@ -39,13 +39,18 @@ function viewerPlan(tier: PlanTierId) {
     : { label: PLAN_LABELS.free, days: FREE_FORECAST_DAYS };
 }
 
-/** The eyebrow over the headline, on both shapes. */
+/**
+ * The eyebrow over the headline, on both shapes. Reads the plan off the
+ * provider: with the picker's Monthly card chosen there is no trial to
+ * announce, so it names the plan instead, the way the sheet's title does.
+ */
 export function TrialEyebrow({ className }: { className?: string }) {
+  const { plan } = useTrialCta();
   return (
     <p
       className={`font-rc-mono text-[10px] font-semibold tracking-[0.14em] text-rc-ink-mute uppercase ${className ?? ''}`}
     >
-      {TRIAL_DAYS}-day free trial
+      {plan === 'monthly' ? 'Pro, billed monthly' : `${TRIAL_DAYS}-day free trial`}
     </p>
   );
 }
@@ -77,7 +82,8 @@ export function PlanCompareLine({
       {...rest}
       className={`text-sm leading-5 text-rc-ink-soft ${className ?? ''}`}
     >
-      {plan.label} shows {plan.days}. Pro shows {PRO_FORECAST_DAYS} everywhere.
+      {plan.label} shows {plan.days === 1 ? 'today' : plan.days}. Pro shows{' '}
+      {PRO_FORECAST_DAYS} {plan.days === 1 ? 'days ' : ''}everywhere.
     </p>
   );
 }
@@ -105,9 +111,13 @@ export function PlanCompareLine({
 export function TrialHeadline({
   placeName,
   placeKind = 'spot',
+  text,
   className,
 }: {
   placeName?: string;
+  /** A wall's own sentence, in place of the fortnight line. Used by the
+   *  locked-pin walls, which are not selling days. */
+  text?: string;
   /**
    * Which kind of place that is, because English cares: you fish AT a spot and
    * IN a city. Only the preposition depends on it.
@@ -119,8 +129,8 @@ export function TrialHeadline({
     <DialogTitle
       className={`font-black tracking-[-0.02em] text-balance text-rc-ink ${className ?? ''}`}
     >
-      See the next {PRO_FORECAST_DAYS} days
-      {placeName ? (
+      {text ?? <>See the next {PRO_FORECAST_DAYS} days</>}
+      {placeName && !text ? (
         <>
           {placeKind === 'city' ? ' in ' : ' at '}
           <span className="text-rc-brand">{placeName}</span>
@@ -183,59 +193,72 @@ export function TrialTimeline({
   priceAmount: string;
   className?: string;
 }) {
-  const { chargeDate, trialOn, busy } = useTrialCta();
+  const { chargeDate, trialOn, busy, plan, priceCents } = useTrialCta();
   // No trial for this buyer: there is no week to lay out, only today's charge.
   // Three rows promising $0.00 today above a button that says "Get Pro" would
-  // contradict it.
+  // contradict it. The picker's Monthly card is one row for its own reason:
+  // it never trials, and it is charged at its own amount.
   const noTrial = !trialOn && !busy;
-  const rows = noTrial
-    ? [
-        {
-          key: 'charge',
-          when: 'Today',
-          amount: `${priceAmount}/yr`,
-          note: 'Pro unlocks now and renews yearly until you cancel.',
-          tone: 'charge' as const,
-        },
-      ]
-    : [
-        {
-          key: 'today',
-          when: 'Today',
-          amount: '$0.00',
-          note: `Pro unlocks now. Nothing is charged for ${TRIAL_DAYS} days.`,
-          tone: 'now' as const,
-        },
-        {
-          key: 'reminder',
-          when: `Day ${REMINDER_DAY}`,
-          amount: 'Email reminder',
-          // The row's whole job is to answer "what if I forget", so it says so.
-          // It was the one row with no note under it, which read as the one row
-          // with nothing to add.
-          note: "So you don't forget",
-          tone: 'pending' as const,
-        },
-        {
-          key: 'charge',
-          when: `Day ${TRIAL_DAYS}`,
-          amount: `${priceAmount}/yr`,
-          // "Day 7" is a countdown, not a date, and the date is the half a reader
-          // needs to put it in a calendar.
-          //
-          // One sentence, not two. It used to open by stating the charge —
-          // "Charged Sep 9. Cancel any time before then…" — which puts the bill
-          // first and the way out second, in a row whose amount column is already
-          // showing the price. Naming the date inside the cancel clause says the
-          // same two things in the order a reader hesitating over a card wants
-          // them.
-          note:
-            trialOn && chargeDate
-              ? `Cancel any time before ${chargeDate} and you pay nothing.`
-              : 'Cancel any time before this and you pay nothing.',
-          tone: 'charge' as const,
-        },
-      ];
+  const rows: Array<{
+    key: string;
+    when: string;
+    amount: string;
+    note?: string;
+    tone: 'now' | 'pending' | 'charge';
+  }> = plan === 'monthly' ? [
+    {
+      key: 'today',
+      when: 'Today',
+      amount: `${dollars(priceCents)}/mo`,
+      note: 'Pro unlocks now. Billed monthly, cancel anytime.',
+      tone: 'charge',
+    },
+  ] : noTrial ? [
+    {
+      key: 'charge',
+      when: 'Today',
+      amount: `${priceAmount}/yr`,
+      note: 'Pro unlocks now and renews yearly until you cancel.',
+      tone: 'charge',
+    },
+  ] : [
+    {
+      key: 'today',
+      when: 'Today',
+      amount: '$0.00',
+      note: `Pro unlocks now. Nothing is charged for ${TRIAL_DAYS} days.`,
+      tone: 'now' as const,
+    },
+    {
+      key: 'reminder',
+      when: `Day ${REMINDER_DAY}`,
+      amount: 'Email reminder',
+      // The row's whole job is to answer "what if I forget", so it says so.
+      // It was the one row with no note under it, which read as the one row
+      // with nothing to add.
+      note: "So you don't forget",
+      tone: 'pending' as const,
+    },
+    {
+      key: 'charge',
+      when: `Day ${TRIAL_DAYS}`,
+      amount: `${priceAmount}/yr`,
+      // "Day 7" is a countdown, not a date, and the date is the half a reader
+      // needs to put it in a calendar.
+      //
+      // One sentence, not two. It used to open by stating the charge —
+      // "Charged Sep 9. Cancel any time before then…" — which puts the bill
+      // first and the way out second, in a row whose amount column is already
+      // showing the price. Naming the date inside the cancel clause says the
+      // same two things in the order a reader hesitating over a card wants
+      // them.
+      note:
+        trialOn && chargeDate
+          ? `Cancel any time before ${chargeDate} and you pay nothing.`
+          : 'Cancel any time before this and you pay nothing.',
+      tone: 'charge' as const,
+    },
+  ];
 
   return (
     <div

@@ -9,7 +9,7 @@ import { stripViewportForecast } from "@/lib/forecast-horizon";
  * calls this with the current map bbox; a city page calls it with `city`, and
  * gets that city's whole roster rather than whatever a rectangle caught.
  *
- * Day peaks past the caller's horizon are stripped server-side (anon 2
+ * Day peaks past the caller's horizon are stripped server-side (anon 1
  * days, free account 7, Pro 14 — see @/lib/forecast-horizon, which the
  * Explore page's prefetch and the per-spot outlook share); the day entries
  * stay so the strip renders its locked tiles. Upstream fetch is cached by

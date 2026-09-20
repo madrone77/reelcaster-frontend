@@ -180,6 +180,12 @@ export interface RailSpot {
    * which is public by design.
    */
   hasReports?: boolean;
+  /**
+   * Scores withheld by the ad-framed map's lock test (lib/spot-locks.ts).
+   * The score fields above are already null when this is set; the flag is
+   * what tells the pin and the card to draw a padlock rather than "no score".
+   */
+  locked?: boolean;
 }
 
 /**

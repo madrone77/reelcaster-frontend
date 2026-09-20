@@ -52,6 +52,8 @@ const TITLES: Partial<Record<JoinPromptKey, string>> = {
   alerts: "Get an alert on this spot",
   "sms-alerts": "Get alerts by text",
   "custom-spots": "Add your own spot",
+  /** A padlocked pin on the ad-framed map. */
+  "locked-spots": "Unlock every spot",
   "catch-log": "Log this catch",
 };
 

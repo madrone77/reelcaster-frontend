@@ -27,7 +27,7 @@ import { trackEvent } from "@/lib/analytics";
  * tier matrix already sells it.
  *
  * THE PROMISES ARE THE FREE TIER'S, precisely. Depth, a week of forecast rather
- * than two days, one email alert. It must not promise the fortnight: a free
+ * than today only, one email alert. It must not promise the fortnight: a free
  * account does not get it, and a gate that oversells is worse than one that
  * asks twice.
  *

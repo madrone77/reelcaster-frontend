@@ -10,9 +10,11 @@ import {
   type ReactNode,
 } from "react";
 import { ChevronDown, ChevronUp, X } from "lucide-react";
+import { useAuth } from "@/contexts/auth-context";
 import AdSlot from "@/app/components/ads/ad-slot";
 import type { RailSpot } from "../lib/explore-data";
 import { MAP_INSET_ATTR, MAP_INSET_RESTING_ATTR } from "../lib/sheet-safe-center";
+import { prewarmSpotPage } from "../lib/spot-page-prewarm";
 import type { ForecastStripModel, ForecastDay } from "../lib/forecast-strip";
 import type { FreshCatchesResponse } from "../lib/fresh-catch-types";
 import SpotCard from "./spot-card";
@@ -33,6 +35,13 @@ const PEEK_SLIVER = 36;
 
 /** Pointer travel below which a drag on the header counts as a tap. */
 const TAP_SLOP = 6;
+
+/**
+ * How long a preview card has to stay in hand before its page is fetched. A
+ * swipe settles in ~90 ms, so this lets a fling pass through the cards on
+ * the way without building a page for each of them.
+ */
+const PREWARM_DWELL_MS = 400;
 
 /**
  * Squared distance between two spots in degrees, longitude corrected for
@@ -482,6 +491,27 @@ export default function MobileMapSheet({
   // What the counter and the mount window read: where the rail actually sits,
   // falling back to the selection before the first scroll event of a session.
   const liveIndex = railIndex >= 0 && railIndex < previewOrder.length ? railIndex : previewIndex;
+
+  // ── Prewarm ─────────────────────────────────────────────────────────
+  // The card in hand is the spot about to be opened, so its page starts
+  // loading now and FULL REPORT opens onto it instead of onto loading dots.
+  // Only the docked card, never the browse list: a list flick would build a
+  // page for every spot it passed. A custom spot needs the owner's token to
+  // be read at all, so it waits until there is one.
+  const { session } = useAuth();
+  const accessToken = session?.access_token;
+  const warmSpot = previewing ? previewOrder[previewIndex] : null;
+  const warmSlug = warmSpot?.slug ?? null;
+  const warmCustom = !!warmSpot?.isCustom;
+  useEffect(() => {
+    if (!warmSlug || window.matchMedia("(min-width:1024px)").matches) return;
+    if (warmCustom && !accessToken) return;
+    const timer = window.setTimeout(
+      () => prewarmSpotPage(warmSlug, warmCustom ? accessToken : undefined),
+      PREWARM_DWELL_MS,
+    );
+    return () => window.clearTimeout(timer);
+  }, [warmSlug, warmCustom, accessToken]);
 
   if (previewing) {
     const spot = previewOrder[previewIndex];

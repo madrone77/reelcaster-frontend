@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { useAuth } from '@/contexts/auth-context'
 import { AuthForm } from '../components/auth/auth-form'
@@ -16,6 +16,16 @@ export default function LoginPage() {
   // Track if user was already signed in when page loaded (not from form submit)
   const wasAlreadyAuthed = useRef(false)
   const initialLoadDone = useRef(false)
+  /**
+   * Sign-in and sign-up are one screen, switched in place rather than by
+   * navigation. The door marked "Sign in" is where someone without an account
+   * arrives, so it has to be able to make them one — for free, without being
+   * handed the Pro plan matrix first. AuthForm already does both; it just took
+   * its mode as a fixed prop, so the `key` below remounts it on the switch and
+   * `defaultMode` lands as the new mode.
+   */
+  const [mode, setMode] = useState<'signin' | 'signup'>('signin')
+  const signingUp = mode === 'signup'
 
   useEffect(() => {
     if (!loading && !initialLoadDone.current) {
@@ -67,31 +77,65 @@ export default function LoginPage() {
             </Link>
 
             <h1 className="mt-10 text-balance text-3xl font-black tracking-[-0.02em] text-rc-ink">
-              Welcome back
+              {signingUp ? 'Create your free account' : 'Welcome back'}
             </h1>
             <p className="mt-2 text-pretty text-sm text-rc-ink-mute">
-              Sign in to pick up right where you left off.
+              {signingUp
+                ? 'No card. Join as a Member and see today\u2019s ReelCaster Score in under a minute.'
+                : 'Sign in to pick up right where you left off.'}
             </p>
           </div>
 
           <div className="mt-8">
             <AuthForm
-              defaultMode="signin"
+              key={mode}
+              defaultMode={mode}
               source="login-page"
-              onSuccess={() => router.push(readNextParam('/dashboard'))}
+              onSuccess={() =>
+                router.push(readNextParam(signingUp ? '/explore' : '/dashboard'))
+              }
             />
           </div>
 
+          {/* The free account is the offer on this line now. It used to open
+              the trial modal, which puts a plan matrix in front of someone who
+              only wanted to make an account; Pro keeps its own line below. */}
           <p className="mt-6 text-center text-sm text-rc-ink-mute">
-            New to ReelCaster?{' '}
-            {/* Same modal as every other signup entry. Someone who only
-                wants a Member account gets it from the link at its foot, one
-                click away, having seen what the tiers actually differ on. */}
+            {signingUp ? (
+              <>
+                Already have an account?{' '}
+                <button
+                  type="button"
+                  onClick={() => setMode('signin')}
+                  className="font-semibold text-rc-brand hover:text-rc-brand-hover transition-colors"
+                >
+                  Sign in
+                </button>
+              </>
+            ) : (
+              <>
+                New to ReelCaster?{' '}
+                <button
+                  type="button"
+                  onClick={() => setMode('signup')}
+                  className="font-semibold text-rc-brand hover:text-rc-brand-hover transition-colors"
+                >
+                  Create a free account
+                </button>
+              </>
+            )}
+          </p>
+
+          {/* This page is full-screen with no header, so without this line it
+              would offer no route to Pro at all. Same `from` key as before, so
+              the attribution on a trial opened from here is unchanged. */}
+          <p className="mt-2 text-center text-xs text-rc-ink-mute">
+            Want the full 14-day forecast?{' '}
             <TrialModalButton
               from="login-page"
               className="font-semibold text-rc-brand hover:text-rc-brand-hover transition-colors"
             >
-              Create an account
+              Start a free Pro trial
             </TrialModalButton>
           </p>
         </div>
@@ -108,14 +152,17 @@ export default function LoginPage() {
           {/* Quiet header — subordinate to the standings below. */}
           <div className="text-center">
             <p className="font-rc-mono text-[11px] uppercase tracking-wider text-rc-ink-soft">
-              Your spots, ranked
+              {signingUp ? 'Scoring right now' : 'Your spots, ranked'}
             </p>
             <h2 className="mt-3 text-2xl font-black tracking-[-0.02em] text-rc-ink">
               The water&apos;s waiting.
             </h2>
+            {/* A brand-new account has no spots yet, so the returning-angler
+                line would be a promise about something they have never seen. */}
             <p className="mx-auto mt-2 max-w-sm text-pretty text-sm leading-relaxed text-rc-ink-soft">
-              Your spots, live scores, and the next great window are right where
-              you left them.
+              {signingUp
+                ? 'Live scores on the water we cover. Save the ones you fish and they show up here.'
+                : 'Your spots, live scores, and the next great window are right where you left them.'}
             </p>
           </div>
 

@@ -193,7 +193,8 @@ export function cameFromLandingPage(): boolean {
  * Split out of `useLpHit` so a component that is shared between a /lp/<n>/
  * route and something else can ask the path first and fall back to dimensions
  * handed to it. `CityInstrument` is that component: it renders at
- * /fishing/<prov>/<city> (nothing to count), at /lp/7/<city> (the path is the
+ * /fishing/<country>/<state>/<city> (a landing page only when an ad sent the
+ * visit; see `campaignPathTarget`), at /lp/7/<city> (the path is the
  * authority) and now under a city-first landing page like /lp/seattle/2, where
  * the path parser returns an empty landing and the page has to say what it is.
  *
@@ -209,6 +210,46 @@ export function lpPathTarget(angle: string): CampaignTarget | null {
   return landing
     ? { landing, target_city, target_spot: "", wall: "", angle }
     : null;
+}
+
+/**
+ * Is this visit one an ad sent? True when the URL carries a utm_source or a
+ * network click id, which is what every ad link carries and no organic link
+ * does. Read off the URL on this page load only, never off the rc_paid
+ * cookie, for the reason `cameFromLandingPage` gives.
+ */
+function isTaggedVisit(): boolean {
+  if (typeof window === "undefined") return false;
+  const dims = campaignDims();
+  return Boolean(dims.utm_source || dims.click_type);
+}
+
+/**
+ * The public city page as a landing page.
+ *
+ * Since September 2026 the ads point at /fishing/<country>/<state>/<city>
+ * rather than at an /lp page: the hero is hard-coded onto the city page for
+ * everyone, so there is no frame to select and nothing on the URL but the
+ * campaign parameters. Before this, such a visit counted nothing here, and
+ * the trial it produced sat on Campaign results under "Not a landing page"
+ * with no hits row to read it against.
+ *
+ * Counts ONLY a tagged visit. The same path serves every organic reader, and
+ * a hit for each of them would put search traffic in the paid funnel.
+ *
+ * Returns the /lp target where the path is an /lp page, so the one caller
+ * that renders on both (`CityInstrument`) asks one question.
+ */
+export function campaignPathTarget(angle: string): CampaignTarget | null {
+  const lp = lpPathTarget(angle);
+  if (lp) return lp;
+  if (typeof window === "undefined") return null;
+  // ["fishing", "us", "wa", "seattle-wa"]: a city page and nothing deeper. A
+  // spot page has a fifth segment and counts itself, with the ad frame.
+  const parts = window.location.pathname.split("/").filter(Boolean);
+  if (parts.length !== 4 || parts[0] !== "fishing") return null;
+  if (!isTaggedVisit()) return null;
+  return { landing: "city", target_city: parts[3], target_spot: "", wall: "", angle };
 }
 
 /**

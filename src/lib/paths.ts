@@ -128,6 +128,18 @@ export function legacyCityPath(stateCode: string, citySlug: string): string {
  * decide where to rewrite the ad frame, so it has to agree with the route tree
  * by construction rather than by a second regex kept in step by hand.
  */
+/**
+ * Is this the canonical city page, `/fishing/<country>/<state>/<city>`?
+ *
+ * Four segments under the fishing root. The middleware uses it to send paid
+ * traffic with `?ad=` to the city's ad frame at `./ad`, the same way
+ * `isSpotPath` does for spot pages.
+ */
+export function isCityPath(pathname: string): boolean {
+  const parts = pathname.replace(/\/+$/, "").split("/").filter(Boolean);
+  return parts.length === 4 && parts[0] === FISHING_ROOT.slice(1);
+}
+
 export function isSpotPath(pathname: string): boolean {
   const parts = pathname.replace(/\/+$/, "").split("/").filter(Boolean);
   if (parts.length !== 5) return false;

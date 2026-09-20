@@ -4,10 +4,16 @@ import { notFound } from "next/navigation";
 import { angleFrom } from "../_shared/lp-angles";
 import { resolveLpCard } from "../_shared/lp-spot";
 import { lpRegionFor } from "../_shared/lp-region";
-import { PRICE, PROOF } from "../_shared/lp-content";
+import {
+  PRICE,
+  PRO_TESTIMONIAL_LABEL,
+  PROOF,
+  proofQuoteFor,
+} from "../_shared/lp-content";
 import { fetchMapSpots } from "@/lib/bluecaster";
 import {
   ANON_FORECAST_DAYS,
+  horizonPhrase,
   FREE_FORECAST_DAYS,
   PRO_FORECAST_DAYS,
 } from "@/lib/forecast-horizon";
@@ -137,7 +143,8 @@ const CTA_LABEL = "Start Exploring Free";
 /**
  * There is no line under the button any more.
  *
- * It read "Look at today and tomorrow free." -- the anon horizon stated as
+ * It read "Look at today and tomorrow free." -- the anon horizon (then two
+ * days, today only since 2026-09-16) stated as
  * what you get rather than as what you are missing (#512). Cut at Casey's
  * call: a qualifier under a button is read as a catch whatever it says, and
  * the limits are spelled out further down where there is room to be exact
@@ -198,6 +205,8 @@ export default async function City1Page({
   if (!card) notFound();
 
   const region = lpRegionFor(card.provinceCode);
+  // Seattle and Tacoma get Nick's quote, everyone else Bob's. See WA_QUOTE.
+  const quote = proofQuoteFor(card.provinceCode);
 
   /**
    * There is no `from` key here any more, and nothing is lost by that.
@@ -724,7 +733,7 @@ export default async function City1Page({
             {/* Every row deep-links to the spot's own page.
                 A reader who has scrolled this far has stopped being sold to
                 and started shopping, and the anon spot page is the product's
-                own free tier: two days of hourly scores, no account. Sending
+                own free tier: today's hourly scores, no account. Sending
                 them to a signup wall instead would waste the one moment they
                 asked to see more. */}
             <div className="marks">
@@ -772,11 +781,11 @@ export default async function City1Page({
           </div>
           <div className="one">One number, per hour, per spot.</div>
 
-          {/* Bob's review.
+          {/* The customer quote: Bob's, or Nick's on Washington pages.
               Words, rating and attribution all come from PROOF rather than
               being retyped here, so this page cannot drift from the one record
               that says the quote is real, permissioned and verbatim. The stars
-              are drawn from PROOF.quote.rating for the same reason: hardcoding
+              are drawn from quote.rating, and only when there is one, for the same reason: hardcoding
               five would be a second copy of a claim about a real person, free
               to disagree with the record the moment either changed. showProof
               is honoured, so switching the band off switches it off here too.
@@ -787,23 +796,28 @@ export default async function City1Page({
               somebody who is not us. */}
           {PROOF.showProof ? (
             <figure className="quote">
-              <div
-                className="stars"
-                role="img"
-                aria-label={`${PROOF.quote.rating} out of 5 stars`}
-              >
-                {Array.from({ length: 5 }, (_, i) => (
-                  <span
-                    key={i}
-                    className={i < Math.round(PROOF.quote.rating) ? "on" : ""}
-                    aria-hidden
-                  >
-                    {"\u2605"}
-                  </span>
-                ))}
-              </div>
-              <blockquote>{PROOF.quote.text}</blockquote>
-              <figcaption>{PROOF.quote.attr}</figcaption>
+              {quote.pro ? (
+                <span className="lab quote-lab">{PRO_TESTIMONIAL_LABEL}</span>
+              ) : null}
+              {quote.rating != null ? (
+                <div
+                  className="stars"
+                  role="img"
+                  aria-label={`${quote.rating} out of 5 stars`}
+                >
+                  {Array.from({ length: 5 }, (_, i) => (
+                    <span
+                      key={i}
+                      className={i < Math.round(quote.rating ?? 0) ? "on" : ""}
+                      aria-hidden
+                    >
+                      {"\u2605"}
+                    </span>
+                  ))}
+                </div>
+              ) : null}
+              <blockquote>{quote.text}</blockquote>
+              <figcaption>{quote.attr}</figcaption>
             </figure>
           ) : null}
         </div>
@@ -826,7 +840,7 @@ export default async function City1Page({
             <div className="step">
               <b>No account</b>
               <p>
-                The next <strong>{ANON_FORECAST_DAYS} days</strong>, hour by
+                <strong>{horizonPhrase(ANON_FORECAST_DAYS, { sentenceStart: true })}</strong>, hour by
                 hour, at every {card.cityName} spot. Nothing to fill in.
               </p>
             </div>
@@ -834,7 +848,7 @@ export default async function City1Page({
               <b>Free account</b>
               <p>
                 <strong>{FREE_FORECAST_DAYS} days</strong> ahead instead of{" "}
-                {ANON_FORECAST_DAYS}. An email address, and no card.
+                {horizonPhrase(ANON_FORECAST_DAYS)}. An email address, and no card.
               </p>
             </div>
             <div className="step">
@@ -884,8 +898,8 @@ export default async function City1Page({
             <div className="qa">
               <h3>Do I have to sign up?</h3>
               <p>
-                Not to look. The map opens on {card.cityName} with the next{" "}
-                {ANON_FORECAST_DAYS} days scored and no account at all. An
+                Not to look. The map opens on {card.cityName} with{" "}
+                {horizonPhrase(ANON_FORECAST_DAYS)} scored and no account at all. An
                 account is how you see further out, and Pro is how you see all{" "}
                 {PRO_FORECAST_DAYS} days and score your own custom spots.
               </p>
@@ -899,8 +913,8 @@ export default async function City1Page({
         <div className="shell">
           <h2>Fish the three hours, not the whole day.</h2>
           <p className="sub">
-            Open the live {card.cityName} map and see the next{" "}
-            {ANON_FORECAST_DAYS} days scored, spot by spot and hour by hour.
+            Open the live {card.cityName} map and see{" "}
+            {horizonPhrase(ANON_FORECAST_DAYS)} scored, spot by spot and hour by hour.
           </p>
           <TrackedCta city={city} variant={variant} cta="final" className="go" href={explore}>
             {CTA_LABEL}

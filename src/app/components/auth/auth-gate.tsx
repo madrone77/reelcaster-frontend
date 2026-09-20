@@ -54,11 +54,17 @@ const PUBLIC_PREFIXES = [
   '/contact',
   '/about',
   '/faq',
+  // Unlinked, handed out by hand to customers asked for a quote. They have no
+  // reason to hold a session on the device they open it on.
+  '/testimonials',
   // Where the getting-started email lands. It goes to free accounts as well as
   // trials and gets opened on whichever device is to hand, which is often not
   // the one holding the session. Nothing on it is account-specific, and a page
   // that explains the product should not demand a login first.
   '/welcome',
+  // Where a signed-out visitor's alert confirm and unsubscribe links land.
+  // They have no account by definition.
+  '/alert-confirm',
 ]
 
 // Private routes that render their OWN pending state — a skeleton of the page

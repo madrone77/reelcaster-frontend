@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { apiFetch } from '@/lib/api-client';
 import { goToCheckout } from '@/lib/checkout-redirect';
 import type { PlanTierId } from '@/lib/plan-features';
+import type { BillingPlan } from '@/lib/pricing';
 
 export interface OpenCheckoutOptions {
   /** Region slug (e.g. 'BC', 'WA', 'OR'); 'Other' triggers waitlist redirect. */
@@ -20,6 +21,8 @@ export interface OpenCheckoutOptions {
   accessToken?: string | null;
   /** Who is buying, for the hop beacons. Defaults to 'free': signed in. */
   viewerTier?: PlanTierId;
+  /** Which cadence. Omitted means annual, the plan every surface sells. */
+  plan?: BillingPlan;
 }
 
 interface CheckoutResponse {
@@ -58,6 +61,7 @@ export function useUpgradeFlow() {
         body: {
           region: opts.region ?? '',
           from: opts.from ?? '',
+          ...(opts.plan ? { plan: opts.plan } : {}),
         },
       });
 

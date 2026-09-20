@@ -49,6 +49,8 @@
 
 import { useState } from "react";
 import { ChevronDown, Lock, TrendingDown, TrendingUp } from "lucide-react";
+import { useAuth } from "@/contexts/auth-context";
+import { usePricing } from "@/app/components/split-test/use-pricing";
 import type { RecentReports as RecentReportsData } from "@/lib/bluecaster/live-spot-types";
 import { reportAge, type RailFreshCatch } from "@/app/explore/lib/fresh-catch-types";
 import {
@@ -238,6 +240,87 @@ function KeptAcrossArea({ creel, expanded }: { creel: CreelAreaReport; expanded:
   );
 }
 
+/** A grey stand-in for one species row of the Pro report. */
+function PlaceholderRow({ dot, name }: { dot: string; name: number }) {
+  return (
+    <div className="flex items-center gap-3">
+      <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${dot}`} />
+      <span className="h-2 shrink-0 rounded-full bg-rc-ink-mute/30" style={{ width: name }} />
+      <span className="h-1.5 min-w-0 flex-1 rounded-full bg-rc-surface" />
+      <span className="h-2 w-7 shrink-0 rounded-full bg-rc-ink-mute/20" />
+    </div>
+  );
+}
+
+/**
+ * The locked card: the shape of the full report, drawn from nothing, with the
+ * offer on top. Won locked_report_preview_v1 (concluded 2026-09-19) over the
+ * plain upgrade row, which survives only on the ad frame. Every bar here is a
+ * fixed placeholder; no count, species or verdict for this spot is known to
+ * the page or implied by the drawing, which is the same on every spot.
+ *
+ * The trial is promised only to a signed-out reader, who is always eligible
+ * (the top bar makes the same call). A signed-in free reader may have had a
+ * trial already, and eligibility is a server question this card does not ask,
+ * so they are quoted the price instead and the modal states their real terms.
+ */
+function LockedPreview({
+  spotName,
+  onPress,
+}: {
+  spotName?: string;
+  onPress?: () => void;
+}) {
+  const { user, loading } = useAuth();
+  const pricing = usePricing();
+  const trial = !loading && !user;
+  // "The Bell Buoy" reads "The full Bell Buoy report", not "The full The ...".
+  const name = spotName?.replace(/^the\s+/i, "");
+  const title = name ? `The full ${name} report` : "The full report";
+  return (
+    <button
+      type="button"
+      onClick={onPress}
+      className="group relative mt-4 block w-full text-left"
+    >
+      <div aria-hidden className="min-h-[176px] select-none opacity-60">
+        <ColLabel>Caught here</ColLabel>
+        <div className="mt-3 flex flex-col gap-3.5">
+          <PlaceholderRow dot="bg-rc-good" name={112} />
+          <PlaceholderRow dot="bg-rc-fair" name={86} />
+          <PlaceholderRow dot="bg-rc-ink-mute" name={98} />
+        </div>
+        <div className="mt-4">
+          <ColLabel>What worked</ColLabel>
+          <div className="mt-2.5 flex flex-col gap-2">
+            <span className="block h-2 w-[92%] rounded-full bg-rc-surface" />
+            <span className="block h-2 w-[64%] rounded-full bg-rc-surface" />
+          </div>
+        </div>
+      </div>
+      <div className="absolute inset-0 flex items-center justify-center p-2">
+        <div className="w-full max-w-[360px] rounded border border-rc-rule bg-rc-panel px-4 py-3.5 text-center">
+          <div className="flex items-center justify-center gap-1.5 text-[15px] font-semibold text-rc-ink">
+            <Lock className="h-3.5 w-3.5 shrink-0 text-rc-brand" aria-hidden />
+            <span className="truncate">{title}</span>
+          </div>
+          <p className="mt-1 text-[12.5px] leading-snug text-rc-ink-soft">
+            What&apos;s biting, the gear and depth that worked, and what&apos;s going nearby.
+          </p>
+          <p className="mt-0.5 text-[12px] text-rc-ink-mute">
+            {trial
+              ? "Free for 7 days, cancel anytime"
+              : `Pro is ${pricing.perMonth} a month, billed yearly`}
+          </p>
+          <span className="mt-3 inline-flex min-h-10 items-center justify-center rounded bg-rc-brand px-5 text-[14px] font-semibold text-white transition-colors group-hover:bg-rc-brand-hover">
+            {trial ? "Start free trial" : "Get Pro"}
+          </span>
+        </div>
+      </div>
+    </button>
+  );
+}
+
 export function RecentReportsBand({
   teaser,
   updatedAt,
@@ -248,6 +331,7 @@ export function RecentReportsBand({
   locked,
   onUpgrade,
   neutralLock = false,
+  spotName,
   className = "",
 }: {
   /** Truncated headline. Present for everyone, including crawlers, and the only
@@ -275,10 +359,11 @@ export function RecentReportsBand({
    *  on the ad frame of the spot page there is one offer, and it is the form
    *  further down that these panels scroll to. */
   neutralLock?: boolean;
+  /** Names the report in the locked preview card. */
+  spotName?: string;
   className?: string;
 }) {
   const [expanded, setExpanded] = useState(false);
-
   // Resolved once, before the state guards narrow `fresh` away. Freshest known
   // date wins: the full report if we have it, else the date that travelled with
   // the teaser, else whatever the counts carry.
@@ -302,7 +387,10 @@ export function RecentReportsBand({
         <p className="mt-3 text-[17px] font-semibold leading-snug text-rc-ink lg:text-[19px]">
           {teaser}
         </p>
-        {locked === true && (
+        {locked === true && !neutralLock && (
+          <LockedPreview spotName={spotName} onPress={onUpgrade} />
+        )}
+        {locked === true && neutralLock && (
           <button
             type="button"
             onClick={onUpgrade}
@@ -311,7 +399,7 @@ export function RecentReportsBand({
             <Lock className="h-4 w-4 shrink-0 text-rc-brand" />
             <span className="min-w-0 flex-1">
               <span className="block text-[14px] font-semibold text-rc-ink">
-                {neutralLock ? "Read the full report" : "Upgrade to Pro for the full report"}
+                Read the full report
               </span>
               <span className="block font-rc-mono text-[11px] text-rc-ink-mute">
                 What is being caught here, what worked, and what is going nearby

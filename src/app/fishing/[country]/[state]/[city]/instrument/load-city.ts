@@ -15,6 +15,7 @@ import { notFound } from "next/navigation";
 import {
   fetchCityPage,
   fetchCityToday,
+  fetchCityDailyReport,
   fetchHierarchy,
   fetchMapForecast14d,
   fetchMapSpots,
@@ -36,7 +37,8 @@ import {
   getFishingProvince,
   type FishingCity,
   type FishingProvince, getFishingProvinceByCode} from "@/app/fishing/lib/fishing-data";
-import { buildHubData } from "../hub/hub-data";
+import { buildHubData, type HubSpecies, type HubSpot } from "../hub/hub-data";
+import { matchSpeciesParam } from "@/lib/species-param";
 import { featuredSpot, rankByRecognition, type RankedSpot } from "./featured";
 import type { FeaturedFeed } from "./city-instrument";
 
@@ -63,6 +65,28 @@ export interface LoadedCity {
   /** Today's city verdict. The SEO renderer's tide panel reads its station;
    *  the instrument only used it to pick the headline species. */
   cityToday: Awaited<ReturnType<typeof fetchCityToday>>;
+  /**
+   * The fish an ad keyword named (`&species=`), matched against the species
+   * the city's spots scored today, or null. When set, `rankedRows` and
+   * `featured` are about THIS fish: most-fished first among the marks that
+   * scored it, and the 24-hour chart drawn at the top one.
+   */
+  fish: HubSpecies | null;
+  /** Every mark that scored anything today, for callers that re-rank. */
+  hubSpots: HubSpot[];
+  /**
+   * Today's report headline, for the band above the 14-day strip, or null
+   * when the city has nothing current to say. The one part of the report that
+   * is free to everyone and so safe in a prerendered page. Read with `peek`,
+   * so a build does not enrol every city in daily generation; the band's own
+   * client fetch is the read that counts as demand.
+   */
+  reportTeaser: { headline: string; reportDate: string } | null;
+}
+
+export interface LoadCityOptions {
+  /** Raw `&species=` from an ad URL. Loose, like the spot page's. */
+  speciesParam?: string | null;
 }
 
 /**
@@ -97,30 +121,42 @@ export async function loadCity(
   countryParam: string,
   stateParam: string,
   cityUrlSlug: string,
+  options: LoadCityOptions = {},
 ): Promise<LoadedCity> {
   const hierarchy = await fetchHierarchy();
   const province = getFishingProvince(hierarchy, countryParam, stateParam);
   const city = getFishingCity(province, cityUrlSlug);
   if (!province || !city) notFound();
-  return loadResolvedCity(hierarchy, province, city);
+  return loadResolvedCity(hierarchy, province, city, options);
 }
 
 async function loadResolvedCity(
   hierarchy: Awaited<ReturnType<typeof fetchHierarchy>>,
   province: FishingProvince,
   city: FishingCity,
+  options: LoadCityOptions = {},
 ): Promise<LoadedCity> {
   // The API key, which is never the URL segment.
   const citySlug = city.slug;
 
-  const [payload, cityPage, cityToday] = await Promise.all([
+  const [payload, cityPage, cityToday, dailyReport] = await Promise.all([
     fetchMapSpots({ city: citySlug }),
     fetchCityPage(citySlug),
     // At the ANON horizon on purpose. Both routes are prerendered, so the
     // static render is always the signed-out state; asking for 14 here would
     // bake a day 9 answer into HTML served to everyone.
     fetchCityToday(citySlug, ANON_FORECAST_DAYS).catch(() => null),
+    fetchCityDailyReport(citySlug, { peek: true }).catch(() => null),
   ]);
+
+  // Same rule as /api/bluecaster/city-report: a report with nothing current
+  // behind it (no posts, no creel checks in the window) is not shown, because
+  // a month-old briefing presented as today's is worse than none.
+  const dr = dailyReport?.status === "ready" ? dailyReport.report : null;
+  const reportTeaser =
+    dr?.headline && ((dr.reports_signal_count ?? 0) > 0 || (dr.creel_survey_count ?? 0) > 0)
+      ? { headline: dr.headline, reportDate: dr.report_date }
+      : null;
 
   // Narrowed by id, not by `citySlug`. A spot has one home city but can be a
   // member of another, and `citySlug` carries the home — so filtering on it
@@ -139,15 +175,25 @@ async function loadResolvedCity(
 
   const hub = buildHubData(payload, inCity, "all", pathBySlug);
 
+  // The ad keyword's fish, if it names one the city scored today. `hub.species`
+  // is ordered best peak first, so a loose keyword like `salmon` resolves to
+  // the city's best-scoring salmon today.
+  const fish = options.speciesParam
+    ? matchSpeciesParam(
+        options.speciesParam,
+        hub.species.map((s, rank) => ({ ...s, rank })),
+      )
+    : null;
+
   // Popularity leads, today's score breaks its ties — see instrument/featured.ts.
-  const rankedRows = rankByRecognition(hub.spots, null, hub.spots.length);
+  const rankedRows = rankByRecognition(hub.spots, fish?.id ?? null, hub.spots.length);
   // The chart follows the city's headline species where the featured mark
   // scored it, so an August Victoria page leads with salmon rather than with
-  // whatever peaked highest there that morning.
-  const featured = featuredSpot(
-    hub.spots,
-    cityToday?.headline?.species_id ?? null,
-  );
+  // whatever peaked highest there that morning. Under a species keyword it is
+  // the most-fished mark that scored THAT fish, drawn for it.
+  const featured =
+    (fish ? rankedRows[0] : null) ??
+    featuredSpot(hub.spots, cityToday?.headline?.species_id ?? null, hub.species);
 
   const [cityForecast, featuredPage] = await Promise.all([
     fetchMapForecast14d({ city: citySlug }).catch(() => null),
@@ -166,6 +212,12 @@ async function loadResolvedCity(
           speciesName:
             featuredPage.species.find((sp) => sp.id === featured.speciesId)
               ?.name ?? null,
+          // Off the hub roster rather than the spot payload: `hub.species`
+          // already carries the slug for every species that scored in this
+          // city, and it is the same id space the line above resolves.
+          speciesSlug:
+            hub.species.find((sp) => sp.id === featured.speciesId)?.slug ?? null,
+          peak: featured.entry.peak ?? null,
           lat: featured.spot.lat,
           lng: featured.spot.lng,
           /**
@@ -224,5 +276,8 @@ async function loadResolvedCity(
     headlineWindow,
     cityPage,
     cityToday,
+    fish: fish ? { id: fish.id, slug: fish.slug, name: fish.name, spotCount: fish.spotCount, bestPeak: fish.bestPeak } : null,
+    hubSpots: hub.spots,
+    reportTeaser,
   };
 }

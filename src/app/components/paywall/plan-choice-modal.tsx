@@ -222,7 +222,7 @@ export default function PlanChoiceModal({
 
         {/* Under the button, not over it: the reader who is ready has already
             acted, and the one who hesitates scrolls straight into the proof. */}
-        <Testimonial className="mt-5 rounded-xl border border-rc-rule-soft bg-rc-surface p-4" />
+        <Testimonial className="mt-5" />
 
         {/* Bare. No heading, no explanation, no "not ready for Pro?" — every
             word of that was an argument for the cheaper thing sitting under

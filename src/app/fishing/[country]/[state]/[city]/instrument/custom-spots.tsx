@@ -16,6 +16,8 @@
 // other wall on this page opens, credited to THIS wall.
 
 import Link from "next/link";
+import { useAdFrame } from "@/app/explore/lib/ad-frame";
+import { withAdParams } from "@/lib/ad-mode";
 import dynamic from "next/dynamic";
 import { useState } from "react";
 import { MapPin, Tag, Fish } from "lucide-react";
@@ -62,6 +64,7 @@ export default function CustomSpots({
    *  Null on the public city page, where there is nothing to count. */
   campaign?: CampaignTarget | null;
 }) {
+  const ad = useAdFrame();
   const { isPaid, loading: tierLoading } = useSubscription();
   const [upgradeOpen, setUpgradeOpen] = useState(false);
   const upgradeMounted = useMountedOnce(upgradeOpen);
@@ -115,7 +118,7 @@ export default function CustomSpots({
       {!tierLoading &&
         (isPaid ? (
           <Link
-            href="/explore"
+            href={withAdParams("/explore", ad)}
             className="mt-5 inline-flex items-center rounded bg-rc-brand-soft px-4 py-2.5 text-rc-brand font-rc-mono text-xs font-semibold tracking-[0.04em] hover:bg-rc-brand-soft/70 transition-colors"
           >
             Add a spot near {cityName}

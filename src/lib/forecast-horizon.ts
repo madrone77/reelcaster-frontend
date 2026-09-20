@@ -18,12 +18,24 @@ import type {
   SpotsOutlook14dPayload,
 } from "@/lib/bluecaster";
 
-/** Free: signed out, no account. The first 2 days. */
-export const ANON_FORECAST_DAYS = 2;
+/** Free: signed out, no account. Today only. */
+export const ANON_FORECAST_DAYS = 1;
 /** Member: signed in, paying nothing. The first 7; days 8–14 are Pro. */
 export const FREE_FORECAST_DAYS = 7;
 /** The whole strip. */
 export const PRO_FORECAST_DAYS = 14;
+
+/**
+ * A horizon as words: "today" for one day, "the next 7 days" otherwise.
+ * Copy that quotes a horizon goes through this so "the next 1 days" can't ship.
+ */
+export function horizonPhrase(
+  days: number,
+  { sentenceStart = false }: { sentenceStart?: boolean } = {},
+): string {
+  const phrase = days === 1 ? "today" : `the next ${days} days`;
+  return sentenceStart ? phrase[0].toUpperCase() + phrase.slice(1) : phrase;
+}
 
 /** Days visible to a caller, from the two facts a route can establish. */
 export function visibleForecastDays(

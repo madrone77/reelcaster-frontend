@@ -20,17 +20,22 @@ export default function Hero() {
             regulations into one simple score, so you know exactly when and
             where to fish.
           </p>
-          {/* compact: two full-width fills stacked, primary on top; medium+
-              they hug (per the button system). */}
-          <div className="mt-9 flex flex-col gap-3 sm:flex-row">
+          {/* compact: full-width fills stacked, primary on top; medium+ they
+              hug (per the button system). The row wraps at exactly lg, where
+              the left column is narrowest, so labels stay whole. The free
+              account door lives on /login, not here. */}
+          <div className="mt-9 flex flex-col gap-3 sm:flex-row sm:flex-wrap">
             <TrialModalButton
               from="marketing-hero"
               data-testid="marketing-primary-cta"
-              className={btn.primary}
+              className={`${btn.primary} whitespace-nowrap`}
             >
               Start Free
             </TrialModalButton>
-            <Link href="#how-it-works" className={btn.secondary}>
+            <Link
+              href="#how-it-works"
+              className={`${btn.secondary} whitespace-nowrap`}
+            >
               How It Works
             </Link>
           </div>

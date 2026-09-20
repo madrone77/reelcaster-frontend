@@ -706,12 +706,18 @@ export async function fetchFreshCatches(opts: {
 export async function fetchStationConditions(
   source: "chs" | "noaa",
   sid: string,
+  opts: {
+    /** How far behind now the curve starts, 0 to 30. Default 6 (the map
+     *  drawer). The city tide section passes 30 for the whole local day. */
+    backHours?: number;
+  } = {},
 ): Promise<StationConditions | null> {
   // First click on a cold station makes BlueCaster backfill predictions
   // upstream; cache briefly so repeat opens are instant.
   return bcGet<StationConditions>("/api/v1/map/station-conditions", {
     source,
     sid,
+    ...(opts.backHours !== undefined ? { back_hours: String(opts.backHours) } : {}),
   });
 }
 
@@ -1679,6 +1685,9 @@ export interface BlueCasterCityToday {
    *  score surfaces the flattest species: crab and bottomfish hold a wide
    *  all-day plateau while salmon spike around the exchange. */
   headline: BlueCasterCityTodaySpecies | null;
+  /** Which tier picked `headline`: the city's reports, its creel checks, or
+   *  the roster default. Optional so a cached pre-field body still parses. */
+  headline_source?: "city_reports" | "creel" | "port_rates" | "default" | null;
   species: BlueCasterCityTodaySpecies[];
   ahead: {
     horizon_days: number;
@@ -1714,12 +1723,22 @@ export async function fetchCityToday(
 
 export async function fetchCityDailyReport(
   citySlug: string,
+  opts: {
+    /**
+     * Read without counting as demand. A plain read stamps the city as wanted
+     * and, for a city with no report yet, kicks off a generation (one Opus
+     * call). The public city page's SERVER render must not do that: it runs
+     * for every published city on every deploy, reader or no reader. Its
+     * client fetch still reads plainly, so a real visit still creates demand.
+     */
+    peek?: boolean;
+  } = {},
 ): Promise<BlueCasterCityDailyReport | null> {
   // Short revalidate, not none: the report changes once a day, but a stale
   // card on a dashboard is worse than a slightly slower one, and this is
   // already behind a Pro gate that forbids shared caching downstream.
   return bcGet<BlueCasterCityDailyReport>(
-    `/api/v1/cities/${encodeURIComponent(citySlug)}/daily-report`,
+    `/api/v1/cities/${encodeURIComponent(citySlug)}/daily-report${opts.peek ? "?peek=1" : ""}`,
     {},
     300,
   );
@@ -2029,4 +2048,67 @@ export async function recordSpotPageVerdict(
   if (!res.ok) return { ok: false, status: res.status, verdictId: null };
   const body = (await res.json()) as { verdictId?: string | null };
   return { ok: true, status: res.status, verdictId: body.verdictId ?? null };
+}
+
+// ── Testimonials ────────────────────────────────────────────────────────────
+
+export interface TestimonialInput {
+  name: string;
+  location: string;
+  rating: number;
+  body: string;
+  /** Honeypot. Forwarded as-is; BlueCaster drops the row when it is filled. */
+  website?: string;
+  /** Their picture, or null. Sent as a multipart file. */
+  photo?: File | null;
+  context?: Record<string, unknown>;
+}
+
+export type TestimonialField = "name" | "location" | "rating" | "body" | "photo";
+
+const TESTIMONIAL_FIELDS: ReadonlySet<string> = new Set([
+  "name",
+  "location",
+  "rating",
+  "body",
+  "photo",
+]);
+
+/**
+ * Send one testimonial from /testimonials to BlueCaster.
+ *
+ * Server-only: holds the API key. Always multipart, photo or not, so there is
+ * one wire shape to reason about. On a 400 BlueCaster names the field it
+ * refused so the page can put the message next to it.
+ */
+export async function submitTestimonial(
+  input: TestimonialInput,
+): Promise<{ ok: boolean; status: number; field: TestimonialField | null }> {
+  const baseUrl = process.env.BLUECASTER_API_URL;
+  const apiKey = process.env.BLUECASTER_API_KEY;
+  if (!baseUrl || !apiKey) throw new Error("BlueCaster env vars not set");
+
+  const form = new FormData();
+  form.set("name", input.name);
+  form.set("location", input.location);
+  form.set("rating", String(input.rating));
+  form.set("body", input.body);
+  form.set("website", input.website ?? "");
+  form.set("context", JSON.stringify(input.context ?? {}));
+  if (input.photo && input.photo.size > 0) form.set("photo", input.photo, input.photo.name);
+
+  const res = await fetch(`${baseUrl}/api/v1/testimonials`, {
+    method: "POST",
+    headers: { "x-api-key": apiKey },
+    body: form,
+    cache: "no-store",
+  });
+  let field: TestimonialField | null = null;
+  if (!res.ok) {
+    const data = (await res.json().catch(() => null)) as { field?: unknown } | null;
+    if (typeof data?.field === "string" && TESTIMONIAL_FIELDS.has(data.field)) {
+      field = data.field as TestimonialField;
+    }
+  }
+  return { ok: res.ok, status: res.status, field };
 }

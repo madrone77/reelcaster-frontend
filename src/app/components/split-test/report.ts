@@ -12,6 +12,7 @@
 
 import { useEffect, useRef } from 'react';
 import type { PricingView } from '@/lib/pricing';
+import { previewActive } from '@/lib/split-preview';
 
 const ENDPOINT = '/api/split-tests/event';
 
@@ -29,6 +30,8 @@ interface EventPayload {
  * dent in the numerator alone makes a working arm look like a losing one.
  */
 function post(payload: EventPayload): void {
+  // A previewed arm is a lens, not a reader. Nothing it draws is counted.
+  if (previewActive()) return;
   const body = JSON.stringify(payload);
   try {
     if (typeof navigator !== 'undefined' && typeof navigator.sendBeacon === 'function') {

@@ -19,6 +19,15 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import dynamic from "next/dynamic";
+import { Lock } from "lucide-react";
+import { useAdFrame } from "@/app/explore/lib/ad-frame";
+import { withAdParams } from "@/lib/ad-mode";
+import { isSpotLocked } from "@/app/explore/lib/spot-locks";
+import { useLockedSpotsSplit } from "@/app/components/split-test/use-locked-spots";
+import { useAuth } from "@/contexts/auth-context";
+import { useSubscription } from "@/hooks/use-subscription";
+import { trackEvent } from "@/lib/analytics";
 import MapGL, {
   AttributionControl,
   Layer,
@@ -43,6 +52,7 @@ import { TIER_PIN, tierFor, type Tier } from "@/app/explore/lib/explore-data";
 import {
   attachScorePucks,
   ensureScorePucks,
+  LOCK_LABEL,
   puckIconId,
   puckIconImageExpr,
   PUCK_TIP_OFFSET,
@@ -55,6 +65,10 @@ import { legacySpotPath } from "@/lib/paths";
 
 const SPOT_SOURCE = "city-spots";
 const SPOT_PUCK = "city-spot-puck";
+
+const ProTrialModal = dynamic(() => import("@/app/components/paywall/pro-trial-modal"), {
+  ssr: false,
+});
 const INTERACTIVE = [SPOT_PUCK];
 
 const expr = (e: unknown) => e as ExpressionSpecification;
@@ -102,6 +116,8 @@ const TIER_WORD: Record<Tier, string> = {
 
 type HoverCard = {
   name: string;
+  /** The score is being withheld by the lock test; the card says so. */
+  locked?: boolean;
   score: number | null;
   tier: Tier;
   /** "Regularly fished" / "Known mark", or null when the mark has no record
@@ -177,14 +193,35 @@ export default function CitySpotMap({
   rows,
   cityLat,
   cityLng,
+  cityName,
+  lockKeepSlug = null,
 }: {
   /** Every mark that SCORED today, best-known first. The list above shows a
    *  handful; the map shows all of these, which is the point of it. */
   rows: RankedSpot[];
   cityLat: number;
   cityLng: number;
+  /** Named in the lock wall's headline. */
+  cityName: string;
+  /** The mark the ad hero featured, which the lock test leaves open. */
+  lockKeepSlug?: string | null;
 }) {
   const router = useRouter();
+  // Locked pins, `explore_locked_spots_v1`, on the chart for every signed-out
+  // viewer once auth has settled. A tap on a lock opens the Pro wall, worded
+  // for the city.
+  const ad = useAdFrame();
+  const { user, loading: authLoading } = useAuth();
+  const { isPaid } = useSubscription();
+  const lockSplit = useLockedSpotsSplit(
+    !authLoading && !user && !isPaid ? "city_map" : null,
+  );
+  const keepSet = useMemo(() => new Set(lockKeepSlug ? [lockKeepSlug] : []), [lockKeepSlug]);
+  const lockedSlugs = useMemo(() => {
+    if (!lockSplit.locksOn) return new Set<string>();
+    return new Set(rows.filter((r) => isSpotLocked(r.spot, keepSet)).map((r) => r.spot.slug));
+  }, [rows, lockSplit.locksOn, keepSet]);
+  const [lockWallOpen, setLockWallOpen] = useState(false);
   const mapRef = useRef<MapRef | null>(null);
   const [hover, setHover] = useState<HoverCard | null>(null);
   const [mapObj, setMapObj] = useState<MlMap | null>(null);
@@ -230,7 +267,7 @@ export default function CitySpotMap({
             // Carried so a click can navigate to the mark's OWN city, which is
             // not always the city this map belongs to.
             path: r.spot.path ?? '',
-            label: String(r.entry.peak),
+            label: lockedSlugs.has(r.spot.slug) ? LOCK_LABEL : String(r.entry.peak),
             // Both report signals stay off. They are Pro-gated on Explore, and
             // this body is public and CDN-cached, so it cannot resolve a tier
             // to gate them on — the same reason `spotsToFeatureCollection`
@@ -244,7 +281,7 @@ export default function CitySpotMap({
           },
         })),
     }),
-    [rows],
+    [rows, lockedSlugs],
   );
 
   // ── Draw the pucks before the map asks for them ─────────────────────────
@@ -405,6 +442,22 @@ export default function CitySpotMap({
       }
       const { spot, entry } = row;
       const cell = cellAt(spot, entry.peak_hour);
+      if (lockedSlugs.has(slug!)) {
+        setHover({
+          name: spot.name,
+          locked: true,
+          score: null,
+          tier: "none",
+          recognition: recognitionLabel(spot),
+          peakLabel: null,
+          phase: null,
+          chop: null,
+          bottom: null,
+          x: ev.point.x,
+          y: ev.point.y,
+        });
+        return;
+      }
       setHover({
         name: spot.name,
         score: entry.peak,
@@ -418,7 +471,7 @@ export default function CitySpotMap({
         y: ev.point.y,
       });
     },
-    [bySlug],
+    [bySlug, lockedSlugs],
   );
 
   /**
@@ -450,11 +503,19 @@ export default function CitySpotMap({
         | { slug?: string; path?: string }
         | undefined;
       const slug = props?.slug;
+      if (!slug) return;
+      if (lockedSlugs.has(slug)) {
+        trackEvent("Locked Spot Pressed", { slug, ad_wall: ad?.wall, surface: "city_map" });
+        lockSplit.reportLockPress();
+        setHover(null);
+        setLockWallOpen(true);
+        return;
+      }
       // `path` rides on the feature for the same reason city-shell looks one
       // up: the map draws marks homed in other cities.
-      if (slug) router.push(props?.path || legacySpotPath(slug));
+      router.push(withAdParams(props?.path || legacySpotPath(slug), ad));
     },
-    [router],
+    [router, ad, lockedSlugs, lockSplit],
   );
 
   /**
@@ -559,6 +620,14 @@ export default function CitySpotMap({
               {hover.recognition}
             </div>
           )}
+          {hover.locked ? (
+            <div className="flex items-center gap-2 mt-1.5">
+              <Lock className="h-5 w-5 text-slate-700" aria-hidden />
+              <span className="font-rc-mono text-[10px] text-rc-ink-soft">
+                Score locked · tap to unlock
+              </span>
+            </div>
+          ) : (
           <div className="flex items-baseline gap-2 mt-1.5">
             <span
               className="text-[24px] font-bold leading-none tracking-[-0.04em]"
@@ -571,6 +640,7 @@ export default function CitySpotMap({
               {hover.peakLabel ? ` · peaks ${hover.peakLabel}` : ""}
             </span>
           </div>
+          )}
           {(hover.phase || hover.chop || hover.bottom) && (
             <div className="font-rc-mono text-[10px] text-rc-ink-soft mt-1 leading-snug">
               {[hover.phase, hover.chop, hover.bottom]
@@ -581,6 +651,17 @@ export default function CitySpotMap({
         </div>
       )}
 
+      {/* The lock wall, worded for the city: every mark on this chart. */}
+      {lockSplit.locksOn && (
+        <ProTrialModal
+          open={lockWallOpen}
+          onOpenChange={setLockWallOpen}
+          feature="locked-spots"
+          from={ad ? "city-ad-map-lock" : "city-map-lock"}
+          placeName={cityName}
+          headline={`Unlock scoring at all ${cityName} spots`}
+        />
+      )}
     </div>
   );
 }

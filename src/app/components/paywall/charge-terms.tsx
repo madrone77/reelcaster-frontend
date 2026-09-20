@@ -1,7 +1,8 @@
 'use client';
 
+import Link from 'next/link';
 import { useTrialCta } from './trial-cta';
-import { TRIAL_DAYS } from '@/lib/pricing';
+import { TRIAL_DAYS, dollars } from '@/lib/pricing';
 
 /**
  * The first-charge line in Stripe's words ("Then CA$33.00 per year starting
@@ -17,31 +18,70 @@ import { TRIAL_DAYS } from '@/lib/pricing';
  * under the same button: both screens put a card-required trial in front of a
  * reader, and the sentence that discloses it must not be able to drift
  * between them.
+ *
+ * Terms and Privacy close the same line (2026-09-14): the sheets had no link
+ * to either, and the terms a renewing charge is made under belong in front of
+ * the reader before the tap, not only on Stripe's page after it. They sit in
+ * one unbreakable run, so a narrow phone wraps them together rather than
+ * splitting the pair.
+ *
+ * One line for both plans (2026-09-18): the monthly sentence ("$6.00 per
+ * month, charged today, until you cancel · Terms · Privacy") ran two lines on
+ * a phone where the yearly one ran one, so switching plans grew the sheet by
+ * a line and the button jumped under the thumb. The monthly line now has the
+ * yearly line's shape and length ("$6.00 per month starting today"), the
+ * yearly line loses its leading "Then" (the card and the title above it
+ * already say the week is free), and the paragraph is held to a single line
+ * so the two plans can never differ in height. On a 320px phone the line
+ * shrinks a step rather than wrapping.
  */
+// Grey and unruled: the pair is the fine print at the end of a fine-print
+// line, and a blue underlined pair there read as the two things to tap on a
+// screen whose one action is the button above them. They inherit the
+// paragraph's ink and darken on hover instead.
+const LINK = 'hover:text-rc-ink';
+
 export default function ChargeTerms({
   priceAmount,
   className,
   ...rest
 }: { priceAmount: string; className?: string } & React.HTMLAttributes<HTMLParagraphElement>) {
-  const { chargeDate, trialOn, busy } = useTrialCta();
-  const price = /\.\d{2}$/.test(priceAmount) ? priceAmount : `${priceAmount}.00`;
-  // No trial for this buyer (a signed-in account that has had one, or a typed
-  // address checkout just refused a trial for): the charge is today, and a
-  // line promising "day 7" under that button would be the one false sentence
-  // on the screen. While a signed-in read is still loading, the trial wording
-  // holds, as the button's own label does.
-  if (!trialOn && !busy) {
-    return (
-      <p {...rest} className={`text-[13px] leading-[18px] text-rc-ink-soft ${className ?? ''}`}>
-        {price} today, then every year until you cancel
-      </p>
-    );
-  }
+  const { chargeDate, trialOn, busy, plan, monthlyCents } = useTrialCta();
+  // Monthly is charged today at the monthly amount, and the caller's
+  // `priceAmount` is the annual figure; the hook's is the one to print.
+  const shown = plan === 'monthly' ? dollars(monthlyCents) : priceAmount;
+  const price = /\.\d{2}$/.test(shown) ? shown : `${shown}.00`;
+  // No trial for this annual buyer (a signed-in account that has had one, or
+  // a typed address checkout just refused a trial for): the charge is today,
+  // and a line promising "day 7" under that button would be the one false
+  // sentence on the screen. While a signed-in read is still loading, the
+  // trial wording holds, as the button's own label does.
+  const annualToday = plan === 'annual' && !trialOn && !busy;
   const when = trialOn && chargeDate ? chargeDate : `day ${TRIAL_DAYS}`;
   return (
-    <p {...rest} className={`text-[13px] leading-[18px] text-rc-ink-soft ${className ?? ''}`}>
-      Then {price} per year
-      starting {when}
+    <p
+      {...rest}
+      className={`whitespace-nowrap text-[13px] leading-[18px] text-rc-ink-soft max-[359px]:text-[12px] ${className ?? ''}`}
+    >
+      {plan === 'monthly' ? (
+        <>{price} per month starting today</>
+      ) : annualToday ? (
+        <>{price} per year starting today</>
+      ) : (
+        <>
+          {price} per year starting {when}
+        </>
+      )}{' '}
+      <span className="whitespace-nowrap">
+        {'· '}
+        <Link href="/terms" className={LINK}>
+          Terms
+        </Link>
+        {' · '}
+        <Link href="/privacy" className={LINK}>
+          Privacy
+        </Link>
+      </span>
     </p>
   );
 }

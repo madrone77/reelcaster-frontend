@@ -13,6 +13,10 @@ import type {
 } from "@/app/fishing/[country]/[state]/[city]/[spot]/spot-detail-shell";
 import type { RailSpot } from "../lib/explore-data";
 import type { AdMode } from "@/lib/ad-mode";
+import {
+  rememberSpotPage,
+  takePrewarmedSpotPage,
+} from "../lib/spot-page-prewarm";
 
 // The whole spot page, as a client chunk. Explore never renders it on the
 // server, and it is by far the heaviest thing this map can open, so it loads
@@ -45,6 +49,7 @@ function cityLinkFrom(spot: RailSpot | null): SpotCityLink | null {
   const [root, country, state, city] = parts;
   return {
     cityName: spot.cityName,
+    citySlug: spot.citySlug || undefined,
     cityPath: `/${root}/${country}/${state}/${city}`,
     provinceName: spot.regionName,
     provincePath: `/${root}/${country}/${state}`,
@@ -146,6 +151,9 @@ export default function MobileSpotSheet({
   // the same dots with no way out but closing the sheet; now it lands in
   // the failed state, where Try again is.
   const fetchedFor = useRef<string | null>(null);
+  // The slug of the page on screen, read by the prewarmed path below so a
+  // re-run of this effect does not reset a page the reader is already in.
+  const shownSlug = useRef<string | null>(null);
   useEffect(() => {
     if (!slug) return;
     const key = `${slug}#${attempt}`;
@@ -157,6 +165,18 @@ export default function MobileSpotSheet({
     let authTimer: number | undefined;
     let fetchTimer: number | undefined;
     const controller = new AbortController();
+
+    const show = (data: SpotPageInitial) => {
+      shownSlug.current = slug;
+      setLoaded({
+        slug,
+        page: stripPaidIntel(data),
+        tz: timezoneFor(spot?.regionName ?? data.spot.region),
+        nowMs: Date.now(),
+      });
+      scrollerRef.current?.scrollTo({ top: 0 });
+      setScrolled(false);
+    };
 
     const run = (token: string | undefined) => {
       fetchedFor.current = key;
@@ -173,14 +193,8 @@ export default function MobileSpotSheet({
             setFailed(slug);
             return;
           }
-          setLoaded({
-            slug,
-            page: stripPaidIntel(data),
-            tz: timezoneFor(spot?.regionName ?? data.spot.region),
-            nowMs: Date.now(),
-          });
-          scrollerRef.current?.scrollTo({ top: 0 });
-          setScrolled(false);
+          rememberSpotPage(slug, data);
+          show(data);
         })
         .catch(() => {
           if (!cancelled) setFailed(slug);
@@ -188,10 +202,30 @@ export default function MobileSpotSheet({
         .finally(() => window.clearTimeout(fetchTimer));
     };
 
-    if (authLoading) {
-      authTimer = window.setTimeout(() => run(undefined), AUTH_WAIT_MS);
+    const fetchNow = () => {
+      if (authLoading) {
+        authTimer = window.setTimeout(() => run(undefined), AUTH_WAIT_MS);
+      } else {
+        run(accessToken);
+      }
+    };
+
+    // The card the reader pulled up has usually fetched this already (see
+    // spot-page-prewarm.ts): take it, or wait on the request still out, and
+    // skip the auth wait entirely. Try again always asks afresh.
+    const warm = attempt === 0 ? takePrewarmedSpotPage(slug) : null;
+    if (warm) {
+      fetchedFor.current = key;
+      warm.then((data) => {
+        if (cancelled) return;
+        if (!data) {
+          fetchNow();
+          return;
+        }
+        if (shownSlug.current !== slug) show(data);
+      });
     } else {
-      run(accessToken);
+      fetchNow();
     }
     return () => {
       cancelled = true;
@@ -214,6 +248,7 @@ export default function MobileSpotSheet({
       setFailed(null);
       setScrolled(false);
       fetchedFor.current = null;
+      shownSlug.current = null;
     }
   }, [slug]);
 

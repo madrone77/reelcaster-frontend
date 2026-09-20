@@ -3,12 +3,14 @@
 import Link from 'next/link';
 import { Check } from 'lucide-react';
 import { DialogDescription, DialogTitle } from '@/components/ui/dialog';
-import { TrialBuy, TrialCtaProvider, useTrialCta } from './trial-cta';
+import { MONTHLY_ON, TrialBuy, TrialCtaProvider, useTrialCta } from './trial-cta';
 import Testimonial from './testimonial';
 import BrandHeader from './brand-header';
 import ChargeTerms from './charge-terms';
-import { TRIAL_DAYS } from '@/lib/pricing';
+import PlanPicker from './plan-picker';
+import { TRIAL_DAYS, dollars } from '@/lib/pricing';
 import { PRO_FORECAST_DAYS } from '@/lib/forecast-horizon';
+import { usePlanPicker } from '@/app/components/split-test/use-plan-picker';
 
 /**
  * The rows, in Casey's words and order (reworked 2026-09-14). Not the plan
@@ -36,19 +38,28 @@ export const PRO_ROWS_HEADING = 'What you get with Pro';
  * trial: an address checkout just refused a trial for, or a signed-in account
  * that has had one. Reads the same state as the button, so a headline in 36px
  * type can no longer promise a free week above a button that says "Get Pro ·
- * $33/year". Must render inside a TrialCtaProvider; shared with
- * ./plan-choice-modal, which sets the same offer block.
+ * $33/year". Reads the plan off the provider too, so the title follows the
+ * picker: with Monthly chosen it says what that card charges ("$6.00 a
+ * month"), the annual card's sentence being the free week. Must render inside
+ * a TrialCtaProvider; shared with ./plan-choice-modal, which sets the same
+ * offer block.
  */
 export function OfferHeadline({ priceAmount }: { priceAmount: string }) {
-  const { trialOn, busy } = useTrialCta();
-  const paid = !trialOn && !busy;
+  const s = useTrialCta();
+  const monthly = s.plan === 'monthly';
+  const paid = !monthly && !s.trialOn && !s.busy;
+  const title = monthly
+    ? `${dollars(s.monthlyCents)} a month`
+    : paid
+      ? `${priceAmount}/year`
+      : `${TRIAL_DAYS} days free`;
   return (
     <div className="mt-6 text-center">
       <p className="text-[19px] leading-6 font-medium text-rc-ink-soft">
         {paid ? 'ReelCaster Pro' : 'Try ReelCaster Pro'}
       </p>
       <DialogTitle className="mt-1 text-[36px] leading-[40px] font-bold tracking-[-0.02em] text-rc-ink">
-        {paid ? `${priceAmount}/year` : `${TRIAL_DAYS} days free`}
+        {title}
       </DialogTitle>
     </div>
   );
@@ -103,6 +114,7 @@ export default function TrialSheetStripe({
   placeName,
   placeKind,
   cityName,
+  headline,
   from,
   region,
   ctaHref,
@@ -117,21 +129,31 @@ export default function TrialSheetStripe({
   placeName?: string;
   placeKind?: 'spot' | 'city';
   cityName?: string;
+  /** One line naming what the wall unlocks, over the offer. Only the
+   *  locked-pin walls pass it; every other sheet reads as before. */
+  headline?: string;
   from: string;
   region?: string;
   ctaHref?: string;
   ctaLabel: string;
   priceAmount: string;
   onCtaClick: (extra: Record<string, unknown>) => void;
-  onActivate: (method: 'annual' | 'wallet' | 'signup') => void;
+  onActivate: (method: 'annual' | 'monthly' | 'wallet' | 'signup') => void;
 }) {
   const city = cityName ?? (placeKind === 'city' ? placeName : undefined);
+  // The two-card picker, when this reader is in that arm and the monthly
+  // price is for sale. A wall that hands in its own href sells nothing here,
+  // so the picker has nothing to pick and the arm is not counted.
+  const { picker, reportPress } = usePlanPicker(MONTHLY_ON && !ctaHref);
   return (
     <TrialCtaProvider
       from={from}
       region={region}
       theme="light"
-      onActivate={onActivate}
+      onActivate={(method) => {
+        reportPress();
+        onActivate(method);
+      }}
     >
       <div className="flex shrink-0 justify-center pt-3 pb-1" aria-hidden>
         <div className="h-1 w-10 rounded-full bg-rc-rule" />
@@ -143,10 +165,21 @@ export default function TrialSheetStripe({
             in ./pro-trial-modal, so the two never disagree on one screen. */}
         <BrandHeader city={city} />
 
+        {headline && (
+          <p className="mt-5 text-center text-[22px] leading-7 font-bold tracking-[-0.02em] text-rc-ink text-balance">
+            {headline}
+          </p>
+        )}
+
         {/* The offer, set the way Stripe Checkout sets it on the page after
             this one: what it is in grey, what it costs today in large type,
             centred, as there. The first charge is stated under the button. */}
         <OfferHeadline priceAmount={priceAmount} />
+
+        {/* Arm b of plan_picker_v1: Yearly beside Monthly, under the title
+            and over the rows, so the reader has chosen a card before they
+            reach the button. See ./plan-picker. */}
+        {picker && <PlanPicker className="mt-5" />}
 
         <p className="mt-6 font-rc-mono text-[10px] font-semibold tracking-[0.14em] text-rc-ink-mute uppercase">
           {PRO_ROWS_HEADING}
@@ -170,7 +203,7 @@ export default function TrialSheetStripe({
           ))}
         </ul>
 
-        <Testimonial className="mt-4 rounded-xl border border-rc-rule-soft bg-rc-surface p-4" />
+        <Testimonial className="mt-4" />
       </div>
 
       <div className="shrink-0 border-t border-rc-rule-soft px-4 pt-4 pb-[max(1rem,env(safe-area-inset-bottom))]">

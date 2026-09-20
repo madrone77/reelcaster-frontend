@@ -1,11 +1,11 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import Link from "next/link";
 import dynamic from "next/dynamic";
 import { ArrowUpCircle, ChevronLeft, ChevronRight, Home, Bell, Share2, X } from "lucide-react";
 import { useAuth } from "@/contexts/auth-context";
-import ReferralNag from "@/app/components/referral/referral-nag";
+import SpotNudge from "@/app/components/nudges/spot-nudge";
 import { useSubscription } from "@/hooks/use-subscription";
 import { noteEngagement } from "@/lib/upgrade-nag";
 import { setPaywallContext } from "@/lib/paywall-context";
@@ -61,8 +61,12 @@ import ScoreFactors from "@/app/explore/spot/components/score-factors";
 import { useFavorite } from "@/app/explore/lib/use-favorite";
 import { useHomeSpot } from "@/app/explore/lib/use-home-spot";
 import HomeSpotOffer from "./home-spot-offer";
-import LockedFortnightOverlay from "@/app/explore/components/locked-fortnight-overlay";
-import { useFortnightLock } from "@/app/components/split-test/use-fortnight-lock";
+import ChartExplainer from "./chart-explainer";
+import AdTestimonialCard from "@/app/fishing/ad-testimonial-card";
+import AdHero, { AD_HERO_REEL_COL } from "./ad-intro";
+import SeoHero from "@/app/fishing/seo-hero";
+import TopicSummary from "./topic-summary";
+import { landingTitle, type LandingTopic } from "@/lib/landing-topic";
 import {
   buildTerminalHours,
   tideRangeFrom,
@@ -71,6 +75,7 @@ import SpotTerminal from "@/app/explore/spot/components/spot-terminal";
 import SpotMiniMap from "@/app/explore/spot/components/spot-mini-map";
 import ScoreCard from "@/app/explore/spot/components/score-card";
 import { RecentReportsBand } from "@/app/explore/components/recent-reports";
+import CityReport from "../city-report";
 import type { CreelAreaReport } from "@/lib/bluecaster/creel-types";
 import type { RecentReports as RecentReportsData } from "@/lib/bluecaster/live-spot-types";
 import type { RailFreshCatch } from "@/app/explore/lib/fresh-catch-types";
@@ -80,6 +85,8 @@ import {
   type CampaignTarget,
 } from "@/app/lp/_shared/lp-telemetry";
 import { withAdParams, type AdMode, type AdWall } from "@/lib/ad-mode";
+import { bitingFor, orderLeadSpecies } from "@/lib/lead-species";
+import { speciesKeywordName } from "@/lib/species-param";
 import MarketingFooter from "@/app/components/marketing/marketing-footer";
 import { PAGE_MEASURE } from "@/app/components/layout/page-measure";
 import LogCatchDialog from "@/app/explore/spot/components/log-catch-dialog";
@@ -140,7 +147,7 @@ function formatClock(at: Date, tz: string): string {
  * How far an ad page's wall opens the forecast strip, for a visitor with no
  * account. See ad-mode.ts.
  *
- * `day2` and `open` both land on "anonymous" because two days is what an
+ * `day2` and `open` both land on "anonymous" because today is what an
  * anonymous visitor is ENTITLED to: the horizon is enforced server-side in
  * /api/bluecaster/spots/[slug]/forecast-14d, which nulls out every day past
  * it before the payload leaves the server. A wall here can tighten what is
@@ -186,10 +193,42 @@ function bestSpeciesId(page: SpotPageForClient): string | null {
   return best ?? page.species[0]?.id ?? null;
 }
 
+// Ad landings lead with the fish anglers are catching, not today's top scorer.
+//
+// BlueCaster decides that on the payload (`leadSpecies`): this spot's reports
+// over the fortnight, then its city's, then the city's creel checks, each
+// already gated to species scored today and retention-open here, crab last.
+// The fixed order in lib/lead-species.ts (shared with the city hero) orders
+// the rest of the row and stands in entirely for a payload without the field.
+
+function adOrderSpecies<T extends { id: string; name: string }>(
+  list: T[],
+  page: SpotPageForClient,
+): T[] {
+  const ordered = orderLeadSpecies(
+    list.map((s) => ({
+      ...s,
+      score: page.topScoreTodayBySpecies[s.id] ?? -1,
+    })),
+  );
+  const leadId = page.leadSpecies?.speciesId;
+  // Only a species the row carries AND that scored today can move up; the
+  // payload should never name one that did not, but a stale card must not
+  // select nothing.
+  const lead = leadId
+    ? ordered.find((s) => s.id === leadId && s.score >= 0)
+    : undefined;
+  if (!lead) return ordered;
+  return [lead, ...ordered.filter((s) => s.id !== lead.id)];
+}
+
 /** Where this spot sits in the public /fishing directory; null for custom
  *  spots and spots in cities that aren't published. */
 export type SpotCityLink = {
   cityName: string;
+  /** BlueCaster's city key ("victoria-bc"), not the path segment. Feeds the
+   *  city report that stands in when the spot has none of its own. */
+  citySlug?: string;
   cityPath: string;
   provinceName: string;
   provincePath: string;
@@ -226,6 +265,11 @@ export default function SpotDetailShell({
   openOnSpeciesId = null,
   openOnIso = null,
   sheet = null,
+  landingSpecies = null,
+  landingTopic = null,
+  adReel = null,
+  seoReel = null,
+  seoHero = false,
 }: {
   page: SpotPageForClient;
   slug: string;
@@ -261,6 +305,50 @@ export default function SpotDetailShell({
    */
   openOnSpeciesId?: string | null;
   openOnIso?: string | null;
+  /**
+   * The fish an ad's search keyword named (`&species=chinook` on the ad URL),
+   * already matched to this spot's roster. `name` is the keyword form,
+   * "Chinook". Null everywhere else.
+   *
+   * Turns the page into a report on that fish: its card leads the row, the
+   * title reads "<Spot> Chinook Fishing Report", the best window and 14-day
+   * strip are labelled for fishing it, and the 24-hour chart opens under a
+   * card explaining it in that fish's name. Set only by the ad segment, so
+   * the public page renders exactly what it did before.
+   */
+  landingSpecies?: { id: string; name: string } | null;
+  /**
+   * What the ad's keyword asked about (`&topic=tides`), from the ad segment
+   * only. Sets the title, puts that answer at the top (TopicSummary), moves
+   * the reports up for "report" and the map up for "map", and words the chart
+   * explainer around it. Null everywhere else.
+   */
+  landingTopic?: LandingTopic | null;
+  /**
+   * The ad hero's phone reel, rendered on the server by ad/ad-reel.tsx and
+   * handed in so its loaders never run for the public page. Ad frame only.
+   */
+  adReel?: ReactNode;
+  /**
+   * The same reel for the PUBLIC hero (see seoHero below).
+   *
+   * Separate from `adReel` because only one hero renders at a time and the two
+   * are built by different callers: the ad segment always wants it, the public
+   * page only in the markets that carry the hero. Rendered on the server by
+   * ad/ad-reel.tsx and handed in, so a page without a hero never pays for it.
+   */
+  seoReel?: ReactNode;
+  /**
+   * Put the landing hero at the top of the PUBLIC page, with no ad frame
+   * around it. Set per market by lib/seo-hero.ts; see that file for why this
+   * is a hard-coded list rather than a test on the visitor.
+   *
+   * Independent of `ad`: this is the plain page, so the wall, the links, the
+   * chrome and the metadata are untouched. It only decides which header the
+   * page opens with, and SeoHero itself hands the ordinary one back to a
+   * signed-in reader.
+   */
+  seoHero?: boolean;
   /**
    * Set when this render is the body of the phone's spot sheet on Explore
    * (see explore/components/mobile-spot-sheet.tsx) rather than a page of its
@@ -320,22 +408,48 @@ export default function SpotDetailShell({
     setSelectedHour(nowHour);
   }, [nowHour]);
 
-  const species = useMemo(
-    () => [...page.species].sort((a, b) => a.rank - b.rank),
-    [page.species],
-  );
+  const adLanding = !!ad || seoHero;
+  const species = useMemo(() => {
+    const sorted = [...page.species].sort((a, b) => a.rank - b.rank);
+    const byRank = adLanding ? adOrderSpecies(sorted, page) : sorted;
+    // The searched-for fish is the first card, whatever its rank here.
+    if (!landingSpecies) return byRank;
+    return [
+      ...byRank.filter((s) => s.id === landingSpecies.id),
+      ...byRank.filter((s) => s.id !== landingSpecies.id),
+    ];
+  }, [page, landingSpecies, adLanding]);
   const [selId, setSelId] = useState<string | null>(() => {
     // A shared link's species wins over the spot's own default, but only if the
     // spot actually carries it — a stale card must not select nothing.
     if (openOnSpeciesId && page.species.some((s) => s.id === openOnSpeciesId)) {
       return openOnSpeciesId;
     }
+    if (adLanding) return species[0]?.id ?? null;
     return bestSpeciesId(page);
   });
   // Names for the per-species report split. The roster is the species this spot
   // is scored for; anglers report others (crab and lingcod at a salmon spot),
   // and those fold into "Other species" rather than being dropped.
   const selSpecies = species.find((s) => s.id === selId) ?? species[0] ?? null;
+  // The landing headline follows the SELECTED species, not the one the URL
+  // arrived on. Tapping a species card already moves the score, the verdict,
+  // the drawing and the reg strip; leaving the H1 on the landing fish made the
+  // page contradict itself — "Lands End Lingcod Fishing Report" printed over a
+  // halibut. First paint is unchanged, because selId starts on the landing
+  // species when the spot carries it. The <title> and canonical stay as the ad
+  // was bought; only what the reader is looking at moves.
+  const headlineFish = selSpecies
+    ? speciesKeywordName(selSpecies.name)
+    : (landingSpecies?.name ?? null);
+  // "What's biting now", only while the SELECTED fish is the one the catches
+  // picked: tap another card and the line goes, because nothing says that fish
+  // is biting. Named for the spot or its city by which tier decided.
+  const biting = bitingFor(
+    page.leadSpecies,
+    selSpecies ? { id: selSpecies.id, fish: speciesKeywordName(selSpecies.name) } : null,
+    { spot: spot.name, city: cityLink?.cityName ?? spot.city ?? null },
+  );
 
   // ── lazy data ─────────────────────────────────────────────────────────
   const [fc, setFc] = useState<Forecast14dPayload | null>(null);
@@ -361,9 +475,6 @@ export default function SpotDetailShell({
     ready: homeReady,
   } = useHomeSpot(spot.slug, true);
   const { isPaid, loading: tierLoading } = useSubscription();
-  // The ad frame's bar sits on the bottom edge (the `ad_bar_edge_v1` split,
-  // concluded 2026-09-07 for the bottom). A sheet has no bar at all.
-  const adBarBottom = !!ad && !sheet;
   const { user, loading: authLoading } = useAuth();
   // Until `tierLoading` clears, `isPaid` is still its initial `false` — the
   // strip holds off rather than briefly locking a Pro account's days 8–14.
@@ -379,6 +490,7 @@ export default function SpotDetailShell({
         : "anonymous";
   const [favUpgradeOpen, setFavUpgradeOpen] = useState(false);
   const [reportsUpgradeOpen, setReportsUpgradeOpen] = useState(false);
+  const [introTrialOpen, setIntroTrialOpen] = useState(false);
   // One-shot "pop" when favoriting (not on un-favorite or load) — mirrors the
   // rail SpotCard star interaction exactly, including the free-tier cap.
   const [savePop, setSavePop] = useState(false);
@@ -511,6 +623,35 @@ export default function SpotDetailShell({
     void loadReports();
   }, [loadReports]);
 
+  // No written report for this spot: the city's daily report stands in, so the
+  // slot says what is being caught around here rather than a bare count or
+  // nothing. Keyed on the teaser because it arrives with the static render, so
+  // one block never flashes into the other. Custom spots and unpublished cities
+  // have no city link and keep the spot band.
+  const reportsBand =
+    !page.recentReportsTeaser && cityLink?.citySlug ? (
+      <CityReport
+        citySlug={cityLink.citySlug}
+        cityName={cityLink.cityName}
+        onUpgrade={() => setReportsUpgradeOpen(true)}
+      />
+    ) : (
+      <RecentReportsBand
+        teaser={page.recentReportsTeaser}
+        updatedAt={page.recentReportsUpdatedAt}
+        /* null while the request is in flight. The upsell only appears
+           once the server has actually said no. */
+        locked={reportsLocked}
+        reports={reports}
+        creel={creel}
+        fresh={fresh}
+        days={FRESH_DAYS}
+        onUpgrade={() => setReportsUpgradeOpen(true)}
+        neutralLock={!!ad}
+        spotName={spot.name}
+      />
+    );
+
   // Which species the chart on screen is drawn from, so a refresh can refetch
   // without blanking it. Clearing is for a species SWITCH — showing one
   // species' chart under another's name is the thing being avoided, and a
@@ -572,15 +713,6 @@ export default function SpotDetailShell({
     [fcSource, selId, tierLoading, accessTier, regulation, page.sun],
   );
 
-  // `fortnight_lock_overlay_v1`: signed-out visitors only, once the tier has
-  // settled (a pending day is neither locked nor open). Arm b draws the run
-  // from the first locked day to the end as blank tiles under one panel.
-  const firstLockedIdx = stripModel?.days.findIndex((d) => d.locked) ?? -1;
-  const fortnightLock = useFortnightLock(
-    ad ? "ad_spot_strip" : sheet ? "sheet_spot_strip" : "spot_strip",
-    !authLoading && !user && !tierLoading && firstLockedIdx >= 0,
-  );
-
   const [selectedIso, setSelectedIso] = useState<string | null>(openOnIso);
   const [upgradeOpen, setUpgradeOpen] = useState(false);
 
@@ -595,15 +727,12 @@ export default function SpotDetailShell({
   // than assumed: the row wraps at narrow widths.
   const sheetHeadRef = useRef<HTMLDivElement>(null);
   const rootRef = useRef<HTMLDivElement>(null);
-  const [sheetHeadH, setSheetHeadH] = useState(0);
   useEffect(() => {
     const head = sheetHeadRef.current;
     const root = rootRef.current;
     if (!sheet || !head || !root || typeof ResizeObserver === "undefined") return;
     const apply = () => {
-      const h = head.offsetHeight;
-      root.style.setProperty("--rc-sheet-head", `${h}px`);
-      setSheetHeadH(h);
+      root.style.setProperty("--rc-sheet-head", `${head.offsetHeight}px`);
     };
     apply();
     const ro = new ResizeObserver(apply);
@@ -612,11 +741,21 @@ export default function SpotDetailShell({
   }, [sheet]);
 
   // Is the conditions strip pinned? A 1px sentinel sits at its top edge in
-  // the flow; once the sentinel is above the line the strip sticks to (the
-  // top of the viewport on the page, the bottom of the sheet's header in a
-  // sheet), the strip is pinned and wears its compact form. Phones only: the
-  // strip is only sticky under lg, and the desktop row has room for the full
-  // table wherever it is.
+  // the flow; once the sentinel is above the line the strip sticks to (under
+  // the fixed top bar on the page, under the sheet's own header in a sheet),
+  // the strip is pinned and wears its compact form. Phones only: the strip is
+  // only sticky under lg, and the desktop row has room for the full table
+  // wherever it is.
+  //
+  // The pin line is not the top of the viewport in either case, and on the
+  // page it MOVES — the product bar rolls away as the reader heads down and
+  // comes back on an upward flick. So the offset is not in this observer at
+  // all: the sentinel is shifted up by it in CSS (see its `top` below, which
+  // reads the same variables the strip pins to), and the observed line stays
+  // a plain zero. A rootMargin would have to be recomputed and the observer
+  // rebuilt every time the bar moved, which means React state, which means
+  // re-rendering this whole shell mid-scroll — the very thing the note below
+  // is about.
   //
   // The answer goes straight onto the wrapper as `data-strip-pinned`, not
   // through React state. CSS on the wrapper's two children does the rest, so
@@ -644,14 +783,14 @@ export default function SpotDetailShell({
         if (entry.isIntersecting) delete wrap.dataset.stripPinned;
         else wrap.dataset.stripPinned = "";
       },
-      { root, rootMargin: `-${sheet ? sheetHeadH : 0}px 0px 100000px 0px` },
+      { root, rootMargin: "0px 0px 100000px 0px" },
     );
     io.observe(el);
     return () => {
       io.disconnect();
       delete wrap.dataset.stripPinned;
     };
-  }, [sheet, sheetHeadH]);
+  }, [sheet]);
 
   const dayStripRef = useRef<HTMLDivElement>(null);
   const [dayStripScrollable, setDayStripScrollable] = useState(false);
@@ -695,6 +834,8 @@ export default function SpotDetailShell({
   );
 
   const [logCatchOpen, setLogCatchOpen] = useState(false);
+  // Set when the dialog was opened by the catch nudge, which counts the save.
+  const catchSavedRef = useRef<(() => void) | null>(null);
   const [alertOpen, setAlertOpen] = useState(false);
 
   // ── No proactive ask here ────────────────────────────────────────────────
@@ -716,19 +857,14 @@ export default function SpotDetailShell({
   // a free account, and clicks made down here are most of the evidence it has.
 
   const handleSetAlert = () => {
-    // Alerts are Pro-only, so a signed-out tap gets the full trial modal —
-    // matrix, cadence, pay-first checkout, free-tier link at its foot — not
-    // the slimmer sign-up gate, which exists for the FREE-tier walls.
-    if (!user) {
-      trackEvent("Alert Setup Opened", {
-        slug,
-        species: selId,
-        outcome: "upgrade-gate",
-      });
-      setAlertUpgradeOpen(true);
-      return;
-    }
-    trackEvent("Alert Setup Opened", { slug, species: selId, outcome: "opened" });
+    // A signed-out tap opens the same dialog in its guest shape: name and
+    // email, one free email alert, confirmed by link. It used to open the Pro
+    // trial modal, which asked for a decision before anyone had seen an alert.
+    trackEvent("Alert Setup Opened", {
+      slug,
+      species: selId,
+      outcome: user ? "opened" : "guest",
+    });
     setAlertOpen(true);
   };
 
@@ -908,7 +1044,6 @@ export default function SpotDetailShell({
       // form now, so a locked day on a paid page does what a locked day does
       // everywhere else, and the two paths have collapsed into one.
       setLockedTier(day.lockTier ?? "pro");
-      fortnightLock.reportPress();
       trackEvent("Locked Day Tapped", {
         index: day.index,
         lock_tier: day.lockTier,
@@ -916,7 +1051,7 @@ export default function SpotDetailShell({
         tier: accessTier,
         surface: "spot",
       });
-      // Every locked day opens the same modal, including the "Become a Member"
+      // Every locked day opens the same modal, including the account's
       // days 3–7: the free account they unlock is offered by the link at the
       // foot of that modal rather than by a separate sign-up dialog.
       setUpgradeOpen(true);
@@ -1137,16 +1272,14 @@ export default function SpotDetailShell({
           trade on a long read whose nav lives elsewhere, and the wrong one
           when the bar is the only ask on the page.
 
-          It sits on the bottom edge (`ad_bar_edge_v1`, concluded 2026-09-07
-          for the bottom). On a long read that is the edge that matters: a
-          top bar carrying the only button on the page is off screen for all
-          of it except the first screenful. */}
+          It sits on the top edge, where the product's bar is. */}
       {/* A sheet has no bar of its own: the map's chrome is still under it,
           and the sheet's header row below carries the way back. */}
       {sheet ? null : ad ? (
         <ExploreTopBar
           adFrame
-          adBarEdge="bottom"
+          adBarEdge="top"
+          ctaOverColumn={adReel ? AD_HERO_REEL_COL : undefined}
           upgradeCta={!isPaid}
           placeName={cityLink?.cityName ?? spot.city ?? undefined}
         />
@@ -1160,19 +1293,24 @@ export default function SpotDetailShell({
           document's scroll position, and a sheet scrolls its own box. */}
       {!sheet && <PullToRefresh onRefresh={runRefresh} />}
 
-      {/* `pt-16` clears the fixed bar at the top off the ad frame. Under it
-          the bar is on the bottom edge, so the document starts at the top
-          edge and ends one bar-height short of the bottom; `--rc-ad-bar-h`
-          carries the device safe area, which a bare `pb-16` would not. A
-          sheet has no fixed bar to clear. */}
-      <div className={sheet ? "" : adBarBottom ? "pb-[var(--rc-ad-bar-h)]" : "pt-16"}>
-        {/* Share and get a month, at the top of the page. Not in the phone
-            sheet: its head is sticky and measured, and a strip above it
-            would push the handle down. Not under the ad frame either, where
-            the one link on the page is meant to be Back to map. An X hides
-            it on this browser for good. */}
+      {/* `pt-16` clears the fixed bar at the top, on the ad frame and off it.
+          A sheet has no fixed bar to clear. */}
+      <div className={sheet ? "" : "pt-16"}>
+        {/* One nudge at the top of the page: share, log a catch here, or
+            rate ReelCaster, picked per view (components/nudges/spot-nudge).
+            Not in the phone sheet: its head is sticky and measured, and a
+            strip above it would push the handle down. Not under the ad frame
+            either, where the one link on the page is meant to be Back to
+            map. An X retires that nudge on the account. */}
         {!sheet && !ad && (
-          <ReferralNag surface="spot" shape="banner" className={PAGE_MEASURE} />
+          <SpotNudge
+            spotSlug={slug}
+            className={PAGE_MEASURE}
+            onLogCatch={(onSaved) => {
+              catchSavedRef.current = onSaved;
+              setLogCatchOpen(true);
+            }}
+          />
         )}
         {/* Sub-header: the way back to the map, then on desktop the breadcrumb
             and the freshness stamp. Full-bleed rule, inner row on the page
@@ -1243,11 +1381,14 @@ export default function SpotDetailShell({
               </button>
               <button
                 type="button"
-                onClick={sheet.onClose}
-                aria-label="Close"
-                className="-mr-2 flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-rc-ink-mute hover:bg-rc-surface hover:text-rc-ink"
+                onClick={() => {
+                  trackEvent("Back To Map Clicked", { slug, ad_wall: ad?.wall });
+                  sheet.onClose();
+                }}
+                aria-label="Close and go back to the map"
+                className="-mr-1 ml-1 flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-rc-surface text-rc-ink hover:bg-rc-rule"
               >
-                <X className="h-4 w-4" />
+                <X className="h-5 w-5" strokeWidth={2.4} />
               </button>
             </div>
           ) : (
@@ -1258,9 +1399,9 @@ export default function SpotDetailShell({
             </div>
           )}
           <div
-            className={`${PAGE_MEASURE} flex flex-wrap items-center justify-between gap-2 py-3`}
+            className={`${PAGE_MEASURE} flex flex-nowrap items-center justify-between gap-2 py-3`}
           >
-            <div className="flex items-center gap-2 font-rc-mono text-[11px] text-rc-ink-mute">
+            <div className="flex min-w-0 items-center gap-2 font-rc-mono text-[11px] text-rc-ink-mute">
               {/* Under the ad frame this is the one link on the page, and it
                   is not an exit: it carries `?ad=` back onto Explore, which
                   wears the same frame, so a paid visit that opened a spot from
@@ -1271,21 +1412,10 @@ export default function SpotDetailShell({
                   outranks the URL — see explore/lib/view-memory.ts. The
                   product keeps the bare href, which is what that view memory
                   was built around. */}
-              {sheet ? (
-                // The map is right behind the sheet, so "back" is a close,
-                // not a navigation.
-                <button
-                  type="button"
-                  onClick={() => {
-                    trackEvent("Back To Map Clicked", { slug, ad_wall: ad?.wall });
-                    sheet.onClose();
-                  }}
-                  className="flex items-center gap-1 text-rc-brand hover:underline"
-                >
-                  <ChevronLeft className="w-3.5 h-3.5" />
-                  Back to map
-                </button>
-              ) : (
+              {/* The sheet has no Back to map: the map is right behind it
+                  and the X on the right is the exit. Two controls that did
+                  the same thing only made the row crowd itself. */}
+              {!sheet && (
                 <Link
                   href={
                     ad
@@ -1295,16 +1425,48 @@ export default function SpotDetailShell({
                   onClick={() =>
                     trackEvent("Back To Map Clicked", { slug, ad_wall: ad?.wall })
                   }
-                  className="flex items-center gap-1 text-rc-brand hover:underline"
+                  className="flex shrink-0 items-center gap-1 text-rc-brand hover:underline"
                 >
                   <ChevronLeft className="w-3.5 h-3.5" />
                   Back to map
                 </Link>
               )}
-              {/* The trail up the hierarchy is desktop-only, and on an ad page
-                  it does not exist: every anchor in it is an exit, and a
+              {/* The trail up the hierarchy is desktop-only, and on most ad
+                  pages it does not exist: every anchor in it is an exit, and a
                   display:none link is still in the document, still a tab
-                  stop. */}
+                  stop. `day2` gets the trail as plain text so a paid visitor
+                  can see they landed in the right place without being handed
+                  a way out of the frame. Desktop-only like the organic trail:
+                  on a phone it used to squeeze "Back to map" onto two lines
+                  and push the X onto a row of its own; the spot name and the
+                  area chip right below say where the reader is. */}
+              {ad?.wall === "day2" && (
+                <>
+                  <span className="hidden lg:inline shrink-0 text-rc-rule">·</span>
+                  <nav
+                    aria-label="Breadcrumb"
+                    className="hidden lg:block min-w-0 truncate"
+                  >
+                    {cityLink
+                      ? [
+                          cityLink.countryName,
+                          cityLink.provinceName,
+                          cityLink.cityName,
+                        ].join(" › ")
+                      : [
+                          spot.country ? countryDisplayName(spot.country) : null,
+                          spot.region,
+                          spot.city,
+                        ]
+                          .filter(Boolean)
+                          .join(" › ")}
+                    {" › "}
+                    <span className="text-rc-ink-soft" aria-current="page">
+                      {spot.name}
+                    </span>
+                  </nav>
+                </>
+              )}
               {!ad && (
                 <>
                   <span className="hidden lg:inline text-rc-rule">·</span>
@@ -1369,11 +1531,14 @@ export default function SpotDetailShell({
             {sheet && (
               <button
                 type="button"
-                onClick={sheet.onClose}
-                aria-label="Close"
-                className="-mr-2 flex h-9 w-9 items-center justify-center rounded-full text-rc-ink-mute hover:bg-rc-surface hover:text-rc-ink"
+                onClick={() => {
+                  trackEvent("Back To Map Clicked", { slug, ad_wall: ad?.wall });
+                  sheet.onClose();
+                }}
+                aria-label="Close and go back to the map"
+                className="-mr-1 flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-rc-surface text-rc-ink hover:bg-rc-rule"
               >
-                <X className="h-4 w-4" />
+                <X className="h-5 w-5" strokeWidth={2.4} />
               </button>
             )}
             {/* Desktop-only. On a phone the row is the way back and nothing
@@ -1407,12 +1572,70 @@ export default function SpotDetailShell({
           {/* 1–3 · Identity + score cluster. ScoreCard already carries the
               Best Window callout (item 2) and the DFO reg strip (item 3). */}
           <div className="space-y-5">
-            {/* 1 · Spot header — name reads first, it's the spot's identity. */}
+            {/* 1 · Spot header — name reads first, it's the spot's identity.
+                On a paid click it is the search, answered, beside the
+                product running on this spot. See ad-intro.tsx. */}
+            {ad ? (
+              <AdHero
+                pills={pills}
+                title={
+                  landingSpecies || landingTopic
+                    ? landingTitle(spot.name, headlineFish, landingTopic)
+                    : `${spot.name} Fishing Forecast`
+                }
+                updatedLabel={landingTopic === "report" ? "Forecast updated today" : "Updated today"}
+                spotName={spot.name}
+                fish={selSpecies ? speciesKeywordName(selSpecies.name) : null}
+                /* The drawing is found by slug, not by the keyword name the
+                   copy uses: "Halibut" is two different fish and the slug
+                   already knows which one this spot means. */
+                fishSlug={selSpecies?.slug ?? null}
+                /* The same numbers the score card below headlines, so the
+                   answer and the proof cannot disagree. Always today's. */
+                score={peakScore ?? todayScore}
+                windowLabel={win.label}
+                tidePhase={peakTidePhase}
+                reel={adReel}
+                biting={biting}
+                onTrial={() => {
+                  trackEvent("Spot Ad Intro Trial Clicked", { slug, ad_wall: ad.wall });
+                  setIntroTrialOpen(true);
+                }}
+                /* Both buttons. ad_hero_map_button_v1 (concluded 2026-09-19,
+                   arm a) tried the trial button alone at the today wall: more
+                   hero presses, fewer trials (1 vs 3), and trials are the
+                   metric. */
+                mapHref={withAdParams(`/explore?spot=${spot.slug}`, ad)}
+                onMap={() => trackEvent("Spot Ad Intro Map Clicked", { slug, ad_wall: ad.wall })}
+              />
+            ) : (
+            /* The same hero, on the public page, in the markets that carry it.
+               Off elsewhere and for a signed-in reader, when the block below
+               is what renders. See fishing/seo-hero.tsx. */
+            <SeoHero
+              enabled={seoHero}
+              place={slug}
+              reel={seoReel}
+              pills={pills}
+              title={`${spot.name} Fishing Forecast`}
+              spotName={spot.name}
+              fish={selSpecies ? speciesKeywordName(selSpecies.name) : null}
+              fishSlug={selSpecies?.slug ?? null}
+              score={peakScore ?? todayScore}
+              windowLabel={win.label}
+              tidePhase={peakTidePhase}
+              biting={biting}
+              /* The product's own map link: there is no frame to stay inside,
+                 so this is the ordinary deep link every other page uses. */
+              mapHref={`/explore?spot=${spot.slug}`}
+            >
             <div>
                 {pills}
                 <div className="flex items-center gap-2 mt-3">
                   <h1 className="rc-title-lg text-3xl lg:text-4xl min-w-0">
-                    {spot.name}
+                    {landingSpecies || landingTopic
+                      ? landingTitle(spot.name, headlineFish, landingTopic)
+                      : spot.name}
                   </h1>
                   {/* Save, home spot and alerts all act on an ACCOUNT. On a
                       cold ad click there is no account, so each one is a
@@ -1496,6 +1719,13 @@ export default function SpotDetailShell({
                     </>
                   )}
                 </div>
+                {landingSpecies || landingTopic ? (
+                  <p className="font-rc-mono text-xs text-rc-ink-mute mt-1.5">
+                    {/* The reports band under a "report" title carries its own
+                        age, which is rarely today; the forecast always is. */}
+                    {landingTopic === "report" ? "Forecast updated today" : "Updated today"}
+                  </p>
+                ) : (
                 <p className="font-rc-mono text-xs text-rc-ink-mute mt-1.5">
                   {`${Math.abs(spot.lat).toFixed(2)}°${
                     spot.lat >= 0 ? "N" : "S"
@@ -1503,7 +1733,10 @@ export default function SpotDetailShell({
                     spot.lng >= 0 ? "E" : "W"
                   }`}
                 </p>
+                )}
               </div>
+            </SeoHero>
+            )}
 
             {/* The pin, said out loud. Sits under the identity rather than
                 above it — the angler should read WHICH spot this is before
@@ -1520,6 +1753,59 @@ export default function SpotDetailShell({
                 signedIn={!authLoading && !!user}
               />
             )}
+
+            {/* The answer to what the ad's keyword asked, before anything else:
+                today's tides for "tides", the reports for "fishing report". */}
+            {/* Tides: the 24-hour chart's own tide row, cropped out and put
+                first, then one large way down to the full chart. */}
+            {landingTopic === "tides" && (
+              <section className="rounded border border-rc-rule bg-rc-panel px-3 pt-3 pb-4" data-testid="topic-tide">
+                <h2 className="rc-label text-[10px] text-rc-brand px-1">
+                  {dayIndex === 0 ? "Today" : (stripModel?.days[dayIndex]?.dow ?? "Today")}&rsquo;s tides at {spot.name}
+                </h2>
+                <div className="mt-2">
+                  <SpotTerminal
+                    only="tide"
+                    hours={terminalHours}
+                    realCurrent={chartCurrent}
+                    tideRange={tideRange}
+                    sun={page.sun}
+                    nowHour={dayIndex === 0 ? nowHour : null}
+                    selectedHour={selectedHour}
+                    onSelectHour={selectHour}
+                    bestWindow={win.window}
+                  />
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    trackEvent("Topic Full Conditions Clicked", { slug, topic: landingTopic });
+                    document.getElementById("conditions-24h")?.scrollIntoView({ behavior: "smooth", block: "start" });
+                  }}
+                  className="mt-4 w-full rounded-xl bg-rc-brand px-4 py-3.5 text-left text-white transition-colors hover:bg-rc-brand-hover"
+                >
+                  <span className="block text-[19px] font-bold leading-tight">View full conditions &darr;</span>
+                  <span className="mt-1 block text-[13px] leading-snug text-white/85">
+                    Tide, current, wind, sea state, air temp and weather, hour by hour
+                  </span>
+                </button>
+              </section>
+            )}
+            {landingTopic && landingTopic !== "report" && landingTopic !== "map" && landingTopic !== "tides" && (
+              <TopicSummary
+                topic={landingTopic}
+                spotName={spot.name}
+                fish={landingSpecies?.name ?? (selSpecies ? speciesKeywordName(selSpecies.name) : null)}
+                hours={terminalHours}
+                current={chartCurrent}
+                nowHour={nowHour}
+                isToday={dayIndex === 0}
+                dayLabel={dayIndex === 0 ? "Today" : (stripModel?.days[dayIndex]?.dow ?? "Today")}
+                bestWindowLabel={dayIndex === 0 ? win.label : null}
+                days={stripModel?.days ?? []}
+              />
+            )}
+            {landingTopic === "report" && reportsBand}
 
             {/* Species switcher drives every score below — pick first. */}
             {species.length > 1 && (
@@ -1544,7 +1830,7 @@ export default function SpotDetailShell({
             {/* Score info (left) beside the map (right) — a two-column band for
                 verdict + orientation. Stacks on mobile with the score first. */}
             <div className="grid gap-5 lg:grid-cols-2 lg:items-start">
-              <div className="order-2">
+              <div className={landingTopic === "map" ? "order-first" : "order-2"}>
                 <SpotMiniMap
                   spot={spot}
                   /* Unscrubbed, the day's best — matching the headline above it
@@ -1606,6 +1892,11 @@ export default function SpotDetailShell({
                   regulator={regulator}
                   speciesName={selSpecies?.name ?? null}
                   regulation={regulation}
+                  windowTitle={
+                    (landingSpecies || landingTopic) && selSpecies
+                      ? `Best Window to Catch ${speciesKeywordName(selSpecies.name)}`
+                      : undefined
+                  }
                 />
               </div>
             </div>
@@ -1615,26 +1906,16 @@ export default function SpotDetailShell({
                 narrative left a tall gap beside the map. Full width also lets
                 the three columns (here / what worked / nearby) sit side by side
                 instead of stacking. */}
-            <RecentReportsBand
-              teaser={page.recentReportsTeaser}
-              updatedAt={page.recentReportsUpdatedAt}
-              /* null while the request is in flight. The upsell only appears
-                 once the server has actually said no. */
-              locked={reportsLocked}
-              reports={reports}
-              creel={creel}
-              fresh={fresh}
-              days={FRESH_DAYS}
-              onUpgrade={() => setReportsUpgradeOpen(true)}
-              neutralLock={!!ad}
-            />
+            {landingTopic !== "report" && reportsBand}
           </div>
           {/* end identity + score cluster (items 1–3) */}
 
           {/* 4 · 14-day forecast */}
           <div className="border-t border-rc-rule pt-8">
             <div className="flex items-baseline justify-between gap-3 mb-3">
-              <div className="rc-label text-[9px]">14-Day Forecast</div>
+              <div className="rc-label text-[9px]">
+                {landingSpecies || landingTopic ? "14 Day Fishing Forecast" : "14-Day Forecast"}
+              </div>
               <span className="font-rc-mono text-[10px] text-rc-ink-mute italic shrink-0">
                 Data from: ECMWF + GFS + BlueCaster
               </span>
@@ -1646,34 +1927,20 @@ export default function SpotDetailShell({
                 ref={dayStripRef}
                 className="flex gap-1.5 h-[124px] pt-2 overflow-x-auto scrollbar-hide"
               >
-                {(fortnightLock.overlay
-                  ? (stripModel?.days ?? []).slice(0, firstLockedIdx)
-                  : (stripModel?.days ?? [])
-                ).map((day) => (
+                {(stripModel?.days ?? []).map((day) => (
                   <div key={day.index} className="flex-1 min-w-[54px] flex">
                     <DayCell
                       day={day}
                       selected={day.iso === activeIso}
                       onSelect={() => handleDay(day)}
-                      neutralLock={!!ad}
                     />
                   </div>
                 ))}
-                {fortnightLock.overlay && stripModel && (
-                  <LockedFortnightOverlay
-                    days={stripModel.days.slice(firstLockedIdx)}
-                    spotName={spot.name}
-                    from={ad ? "spot-ad-strip-overlay" : "spot-strip-overlay"}
-                    onPress={fortnightLock.reportPress}
-                  />
-                )}
               </div>
               <div
                 aria-hidden
                 className={`pointer-events-none absolute right-0 top-2 bottom-0 w-10 flex items-center justify-end pr-0.5 bg-gradient-to-l from-rc-panel to-transparent transition-opacity duration-200 ${
-                  // Arm b's panel is pinned over the visible run; the fade
-                  // would sit on top of its words.
-                  dayStripScrollable && !fortnightLock.overlay ? "opacity-100" : "opacity-0"
+                  dayStripScrollable ? "opacity-100" : "opacity-0"
                 }`}
               >
                 <ChevronRight className="w-4 h-4 text-rc-ink-mute" />
@@ -1681,7 +1948,7 @@ export default function SpotDetailShell({
               <div
                 aria-hidden
                 className={`pointer-events-none absolute left-0 top-2 bottom-0 w-10 flex items-center justify-start pl-0.5 bg-gradient-to-r from-rc-panel to-transparent transition-opacity duration-200 ${
-                  dayStripScrolledLeft && !fortnightLock.overlay ? "opacity-100" : "opacity-0"
+                  dayStripScrolledLeft ? "opacity-100" : "opacity-0"
                 }`}
               >
                 <ChevronLeft className="w-4 h-4 text-rc-ink-mute" />
@@ -1729,18 +1996,54 @@ export default function SpotDetailShell({
                 for the whole gesture and costs nothing on desktop, where the
                 hover pill already follows the cursor.
 
-                `top-0` because nothing on this route is fixed to the top of the
-                viewport. The bleed margins put the opaque backdrop under the
-                page gutter as well as the content, so the chart does not show
-                through beside it while it is pinned — and they are safe inside
-                the body's `overflow-x-clip`, which is deliberately `clip` and
-                not `hidden` precisely so sticky still works in here. */}
+                Under the bar, not under the top of the viewport. This used to
+                be a flat `top-0`, written when no route that rendered this
+                strip had anything fixed up there; both spot surfaces have a
+                bar again, so a pinned strip was sliding behind 64px of blue
+                and the numbers a finger was scrubbing went invisible.
+                `--rc-top-bar` is what the bar is covering right now — 64 while
+                it is showing, 0 while it is rolled away — so the strip rides
+                up into the space the bar leaves and back down when it
+                returns.
+
+                The bleed margins put the opaque backdrop under the page gutter
+                as well as the content, so the chart does not show through
+                beside it while it is pinned — and they are safe inside the
+                body's `overflow-x-clip`, which is deliberately `clip` and not
+                `hidden` precisely so sticky still works in here. */}
             {/* Pinned-readout sentinel; see `stripWrapRef`. It carries the
                 gap above the strip and sits flush with the strip's top edge
                 (`-mb-px` takes its own height back out of the flow), so the
                 flip lands the frame the strip locks, not 20px early while it
-                is still moving. */}
-            <div ref={stripSentinelRef} className="mt-5 h-px -mb-px" aria-hidden="true" />
+                is still moving.
+
+                Then `relative` lifts it, and only it, by whatever the strip
+                pins under — the top bar on the page, the sheet's header in a
+                sheet, the same variables the wrapper below reads. That puts
+                the sentinel's box on the pin line instead of on the top of
+                the scroller, which is what makes the plain zero rootMargin in
+                the observer correct. Relative positioning moves the painted
+                box and leaves the flow alone, so nothing shifts, and because
+                it is CSS the line follows the rolling bar for free.
+
+                The offset rides in on `style`, not in a class. Tailwind v4
+                does not emit `top-[var(--x,0px)]` — the class lands on the
+                element and no rule is ever generated for it, silently. The
+                sheet arm below was written that way and had never once taken
+                effect. Every other holder of a runtime length in this app
+                (`--rc-tabbar-clearance` and friends) passes it inline for the
+                same reason. Above lg the strip is not sticky, so the lift is
+                inert whatever it reads. */}
+            <div
+              ref={stripSentinelRef}
+              className="relative mt-5 h-px -mb-px"
+              style={{
+                top: sheet
+                  ? "calc(-1 * var(--rc-sheet-head, 0px))"
+                  : "calc(-1 * var(--rc-top-bar, 0px))",
+              }}
+              aria-hidden="true"
+            />
             {/* The strip is drawn twice under lg, full and compact, stacked in
                 one grid cell, and `data-strip-pinned` (set by the observer
                 above) decides which is visible. The cell is always as tall as
@@ -1757,11 +2060,26 @@ export default function SpotDetailShell({
                 finger there scrubs the chart as if nothing were over it. */}
             <div
               ref={stripWrapRef}
-              className={`group/strip grid max-lg:sticky max-lg:z-20 max-lg:pointer-events-none ${
-                // Under the sheet's own pinned header, not the top of the
-                // scroller; the variable is measured off that header above.
-                sheet ? "max-lg:top-[var(--rc-sheet-head,0px)]" : "max-lg:top-0"
-              }`}
+              className="group/strip grid max-lg:sticky max-lg:z-20 max-lg:pointer-events-none"
+              /* Under the sheet's own pinned header in a sheet — the variable
+                 is measured off that header above — and under the fixed top
+                 bar on the page, which publishes its own. Inline for the
+                 reason given on the sentinel above; `top` is inert over lg,
+                 where this is not sticky.
+
+                 No transition on `top`, however much it would suit a bar that
+                 slides. Chrome does not restart a transition when the change
+                 came from an inherited custom property: the strip held the
+                 0px it had on first paint, before the bar had published
+                 anything, and stayed pinned behind the bar for the life of
+                 the page — the exact bug this is fixing, reintroduced by the
+                 polish. Snapping is also the safer half of the trade, since
+                 the strip is never the thing left under the bar mid-slide. */
+              style={{
+                top: sheet
+                  ? "var(--rc-sheet-head, 0px)"
+                  : "var(--rc-top-bar, 0px)",
+              }}
             >
               {/* The bleed margins put the opaque backdrop under the page
                   gutter as well as the content, so the chart does not show
@@ -1798,6 +2116,15 @@ export default function SpotDetailShell({
                 </div>
               </div>
             </div>
+            <div className="relative">
+            {(landingSpecies || landingTopic) && selSpecies && (
+              <ChartExplainer
+                slug={slug}
+                topic={landingTopic}
+                speciesId={landingSpecies?.id ?? selSpecies.id}
+                speciesName={speciesKeywordName(selSpecies.name)}
+              />
+            )}
             <SpotTerminal
               hours={terminalHours}
               realCurrent={chartCurrent}
@@ -1809,6 +2136,15 @@ export default function SpotDetailShell({
               onSelectHour={selectHour}
               bestWindow={win.window}
             />
+            </div>
+            {/* An angler's word for it, right under the chart. On every page
+                that opens with the hero sale copy, paid or the hard-coded
+                landing hero, and nowhere else. */}
+            {adLanding && (
+              <div className="mt-6">
+                <AdTestimonialCard />
+              </div>
+            )}
             {/* Sells the days a viewer can't see — so it has no business on a
                 Pro account, which already has all 14. Held until `tierLoading`
                 clears (isPaid starts `false`), same as the day strip, so a Pro
@@ -1873,10 +2209,10 @@ export default function SpotDetailShell({
             </div>
           )}
 
-          {/* 9 · Spot profile — reference material (depth/structure/launch/
-              peak), below the forecast reasoning. Map lives in the top band. */}
+          {/* 9 · Spot profile — reference material (depth/structure), below
+              the forecast reasoning. Map lives in the top band. */}
           <div className="border-t border-rc-rule pt-8">
-            <SpotProfile spot={spot} seasonState={seasonState} />
+            <SpotProfile spot={spot} />
           </div>
 
           {/* 10 · Neighbouring spots. A list of ways off the page the ad paid
@@ -1990,7 +2326,11 @@ export default function SpotDetailShell({
 
       <LogCatchDialog
         open={logCatchOpen}
-        onOpenChange={setLogCatchOpen}
+        onOpenChange={(open) => {
+          setLogCatchOpen(open);
+          if (!open) catchSavedRef.current = null;
+        }}
+        onSaved={() => catchSavedRef.current?.()}
         spot={catchSpot}
         conditions={catchConditions}
         speciesOptions={speciesOptions}
@@ -2036,6 +2376,13 @@ export default function SpotDetailShell({
         onOpenChange={setReportsUpgradeOpen}
         feature="catch-reports"
         from="spot-page-reports"
+      />
+      <ProTrialModal
+        open={introTrialOpen}
+        onOpenChange={setIntroTrialOpen}
+        feature="forecast-14d"
+        from="spot-ad-intro"
+        spotName={spot.name}
       />
     </div>
     </UnitCountryScope>

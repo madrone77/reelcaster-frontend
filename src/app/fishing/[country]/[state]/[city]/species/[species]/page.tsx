@@ -9,8 +9,7 @@ import {
   type BlueCasterSpeciesGuide,
 } from "@/lib/bluecaster";
 import { breadcrumbJsonLd, DEFAULT_OG, siteUrl } from "@/lib/site";
-import { COVERED_PROVINCES } from "@/lib/regions";
-import { getFishingCity, getFishingProvince, getFishingProvinceByCode, locationOf, spotPathIndex } from "@/app/fishing/lib/fishing-data";
+import { getFishingCity, getFishingProvince, locationOf, spotPathIndex } from "@/app/fishing/lib/fishing-data";
 import { guidePath, spotHref } from "@/lib/paths";
 import {
   activityPhrase,
@@ -32,38 +31,14 @@ import {
 // Fifteen minutes keeps the page honest without re-deriving it per request.
 export const revalidate = 900;
 
-// Prerender the guides the city pages link to. Same reasoning as the city
-// route: an on-demand render makes Next stream metadata, which drops <title>
-// and the canonical to the end of the body instead of the head.
-export async function generateStaticParams() {
-  try {
-    const hierarchy = await fetchHierarchy();
-    const params: Array<{
-      country: string;
-      state: string;
-      city: string;
-      species: string;
-    }> = [];
-    for (const code of COVERED_PROVINCES) {
-      const province = getFishingProvinceByCode(hierarchy, code);
-      for (const city of province?.cities ?? []) {
-        const guides = await fetchCityGuides(city.slug);
-        for (const g of guides?.guides ?? []) {
-          params.push({
-            country: city.countryCode.toLowerCase(),
-            state: code.toLowerCase(),
-            city: city.urlSlug,
-            species: g.species_slug,
-          });
-        }
-      }
-    }
-    return params;
-  } catch {
-    // Upstream down at build time: fall back to on-demand rendering rather
-    // than failing the build.
-    return [];
-  }
+// No paths are prerendered, but the function has to exist: without it Next
+// treats a dynamic segment as fully dynamic and renders every request. An
+// empty list with `dynamicParams` (the default) renders a guide once on demand
+// and serves it from the cache for `revalidate` above. Prerendering meant one
+// fetchCityGuides call per covered city, in series, during "Collecting page
+// data" on every deploy, plus the renders themselves against the live API.
+export function generateStaticParams() {
+  return [];
 }
 
 async function load(

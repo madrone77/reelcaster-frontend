@@ -39,6 +39,8 @@ export type AdFrame = {
    * carries rather than rebuilding it from the slug.
    */
   onOpenSpot?: (spot: { name?: string; slug?: string; href?: string }) => void;
+  /** Keyword params to carry onto framed links (`species` from a city ad). */
+  params?: Record<string, string>;
 };
 
 const AdFrameContext = createContext<AdFrame | null>(null);

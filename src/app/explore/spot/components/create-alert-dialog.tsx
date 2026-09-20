@@ -2,7 +2,8 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Clock, Loader2, SlidersHorizontal } from "lucide-react";
+import Link from "next/link";
+import { Clock, Loader2, MailCheck, SlidersHorizontal } from "lucide-react";
 import type { LeadTimeMode } from "@/lib/score-beats";
 import {
   Dialog,
@@ -90,6 +91,11 @@ const LEAD_OPTIONS: {
  * arrangement changes. `DialogContent variant="sheet"` owns the geometry, the
  * slide, the scrim and the keyboard measurement, the same way it does for the
  * trial offer in `pro-trial-modal`.
+ *
+ * Signed out, it is the guest shape: a name and an email instead of an
+ * account, email delivery only, and a POST to `/api/alert-leads`, which emails
+ * a confirm link. One guest alert per address; the server answers a second
+ * one with `lead_exists` and the form points at sign-up.
  */
 export default function CreateAlertDialog({
   open,
@@ -135,6 +141,17 @@ export default function CreateAlertDialog({
   const [error, setError] = useState<string | null>(null);
   const [usedCount, setUsedCount] = useState<number | null>(null);
 
+  // Guest shape: no session, so the alert is a lead keyed by email.
+  const guest = !session?.access_token;
+  const [guestName, setGuestName] = useState("");
+  const [guestEmail, setGuestEmail] = useState("");
+  // Honeypot. Hidden from people; bots fill every field.
+  const [website, setWebsite] = useState("");
+  const [sentTo, setSentTo] = useState<{ email: string; active: boolean } | null>(null);
+  const [wall, setWall] = useState<
+    { kind: "lead_exists"; spotName: string } | { kind: "account_exists" } | null
+  >(null);
+
   const limit = isPaid ? 10 : 1;
 
   // Reset + fetch the user's current alert count whenever the modal opens.
@@ -146,6 +163,8 @@ export default function CreateAlertDialog({
     setEmailOn(true);
     setSmsOn(false);
     setError(null);
+    setSentTo(null);
+    setWall(null);
     if (session?.access_token) {
       fetch("/api/alerts", {
         headers: { Authorization: `Bearer ${session.access_token}` },
@@ -193,7 +212,81 @@ export default function CreateAlertDialog({
     router.push(`/profile/custom-alerts?${params.toString()}`);
   };
 
+  // Where a guest goes to add a second alert or sign in, returning here with
+  // the dialog reopened (the spot shell reads ?alert=1).
+  const returnPath = () =>
+    typeof window === "undefined"
+      ? `/explore/spot/${spot.slug}`
+      : `${window.location.pathname}?alert=1`;
+
+  const handleGuestCreate = async () => {
+    const name = guestName.trim();
+    const email = guestEmail.trim();
+    if (!name) {
+      setError("Add your name.");
+      return;
+    }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      setError("Add a valid email address.");
+      return;
+    }
+    setSaving(true);
+    setError(null);
+    setWall(null);
+    try {
+      const res = await fetch("/api/alert-leads", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name,
+          email,
+          website,
+          spot_slug: spot.slug,
+          spot_name: spot.name,
+          spot_lat: spot.lat,
+          spot_lng: spot.lng,
+          target_species: species?.slug ?? null,
+          score_threshold: threshold,
+          lead_time_mode: leadMode,
+          source: "spot-dialog",
+        }),
+      });
+      const body = await res.json().catch(() => ({}));
+      if (res.status === 409 && body.error === "lead_exists") {
+        setWall({ kind: "lead_exists", spotName: body.spot_name ?? "another spot" });
+        trackEvent("Alert Lead Walled", { slug: spot.slug, reason: "lead_exists" });
+        return;
+      }
+      if (res.status === 409 && body.error === "account_exists") {
+        setWall({ kind: "account_exists" });
+        trackEvent("Alert Lead Walled", { slug: spot.slug, reason: "account_exists" });
+        return;
+      }
+      if (!res.ok) {
+        setError(body.error ?? "Couldn't create the alert.");
+        return;
+      }
+      trackEvent("Alert Lead Created", {
+        surface: "spot-dialog",
+        slug: spot.slug,
+        species: species?.slug,
+        threshold,
+        lead_mode: leadMode,
+        status: body.status,
+      });
+      setSentTo({ email, active: body.status === "active" });
+    } catch {
+      setError("Couldn't create the alert.");
+    } finally {
+      setSaving(false);
+    }
+  };
+
   const handleCreate = async () => {
+    if (guest) {
+      await handleGuestCreate();
+      return;
+    }
     if (!session?.access_token || !species) {
       setError("Pick a species first.");
       return;
@@ -296,6 +389,49 @@ export default function CreateAlertDialog({
             .join(" · ")}
         </div>
       </div>
+
+      {guest && (
+        <div className="mt-6">
+          <div className="rc-label text-[9px] text-rc-ink-mute">YOUR DETAILS</div>
+          <div className="text-rc-ink-soft mt-1">
+            Free email alert. No account or password needed.
+          </div>
+          <div className="mt-2 grid gap-2 sm:grid-cols-2">
+            <input
+              type="text"
+              name="name"
+              autoComplete="given-name"
+              placeholder="Name"
+              value={guestName}
+              maxLength={80}
+              onChange={(e) => setGuestName(e.target.value)}
+              aria-label="Name"
+              className="w-full rounded-xl border border-rc-rule bg-rc-panel px-3 py-2.5 text-base sm:text-sm text-rc-ink placeholder:text-rc-ink-mute focus:border-rc-brand focus:outline-none"
+            />
+            <input
+              type="email"
+              name="email"
+              autoComplete="email"
+              inputMode="email"
+              placeholder="Email"
+              value={guestEmail}
+              maxLength={320}
+              onChange={(e) => setGuestEmail(e.target.value)}
+              aria-label="Email"
+              className="w-full rounded-xl border border-rc-rule bg-rc-panel px-3 py-2.5 text-base sm:text-sm text-rc-ink placeholder:text-rc-ink-mute focus:border-rc-brand focus:outline-none"
+            />
+          </div>
+          <input
+            type="text"
+            tabIndex={-1}
+            autoComplete="off"
+            aria-hidden
+            value={website}
+            onChange={(e) => setWebsite(e.target.value)}
+            className="absolute -left-[9999px] h-0 w-0 opacity-0"
+          />
+        </div>
+      )}
 
       {/* Threshold */}
       <div className="mt-6">
@@ -436,6 +572,7 @@ export default function CreateAlertDialog({
         </div>
       </div>
 
+      {!guest && (
       <DeliveryChannelPicker
         className="mt-6"
         emailOn={emailOn}
@@ -452,6 +589,7 @@ export default function CreateAlertDialog({
             : undefined
         }
       />
+      )}
 
       {error && (
         <div className="mt-4 rounded-lg bg-rc-poor-bg text-rc-poor-ink text-sm px-3 py-2">
@@ -459,7 +597,36 @@ export default function CreateAlertDialog({
         </div>
       )}
 
+      {wall && (
+        <div className="mt-4 rounded-lg bg-rc-brand-soft px-3 py-3 text-sm text-rc-ink">
+          {wall.kind === "lead_exists" ? (
+            <>
+              Your free email alert is already set for {wall.spotName}. Create a
+              free account to add more spots and species.
+              <Link
+                href={`/signup?next=${encodeURIComponent(returnPath())}`}
+                className="mt-2 block font-semibold text-rc-brand hover:text-rc-brand-hover"
+              >
+                Create a free account →
+              </Link>
+            </>
+          ) : (
+            <>
+              That email already has a ReelCaster account. Sign in to add this
+              alert.
+              <Link
+                href={`/login?next=${encodeURIComponent(returnPath())}`}
+                className="mt-2 block font-semibold text-rc-brand hover:text-rc-brand-hover"
+              >
+                Sign in →
+              </Link>
+            </>
+          )}
+        </div>
+      )}
+
       {/* Advanced escape hatch — condition-set builder for power users. */}
+      {!guest && (
       <button
         type="button"
         onClick={goAdvanced}
@@ -468,18 +635,58 @@ export default function CreateAlertDialog({
         <SlidersHorizontal className="w-3.5 h-3.5" />
         Need specific conditions? Advanced setup →
       </button>
+      )}
     </>
   );
 
+  // After a guest submits: the form gives way to "check your inbox".
+  const sentPanel = sentTo && (
+    <div className="mt-6 rounded-xl bg-rc-brand-soft px-4 py-5 text-center">
+      <MailCheck className="mx-auto h-8 w-8 text-rc-brand" />
+      {sentTo.active ? (
+        <>
+          <div className="mt-2 font-bold text-rc-ink">Your alert is updated</div>
+          <p className="mt-1 text-sm text-rc-ink-soft">
+            We&apos;ll email {sentTo.email} when {spot.name} hits {threshold}+.
+          </p>
+        </>
+      ) : (
+        <>
+          <div className="mt-2 font-bold text-rc-ink">Check your inbox</div>
+          <p className="mt-1 text-sm text-rc-ink-soft">
+            We sent a confirm link to {sentTo.email}. Tap it and the alert is on.
+          </p>
+        </>
+      )}
+    </div>
+  );
+  const body = sentPanel || form;
+
   const quota = (
     <div className="font-rc-mono text-[11px] text-rc-ink-mute uppercase tracking-[0.04em]">
-      {isPaid ? "PRO" : "MEMBER"} ·{" "}
-      {usedCount != null ? usedCount : "—"} of {limit}{" "}
-      {limit === 1 ? "alert" : "alerts"}
+      {guest ? (
+        "FREE · 1 EMAIL ALERT"
+      ) : (
+        <>
+          {isPaid ? "PRO" : "MEMBER"} ·{" "}
+          {usedCount != null ? usedCount : "—"} of {limit}{" "}
+          {limit === 1 ? "alert" : "alerts"}
+        </>
+      )}
     </div>
   );
 
-  const createButton = (
+  const createButton = sentTo ? (
+    <button
+      type="button"
+      onClick={() => onOpenChange(false)}
+      className={`rounded-xl bg-rc-brand hover:bg-rc-brand-hover text-white font-semibold transition-colors flex items-center justify-center ${
+        phone ? "w-full px-4 py-3 text-[15px]" : "px-5 py-2.5 text-sm"
+      }`}
+    >
+      Done
+    </button>
+  ) : (
     <button
       type="button"
       onClick={handleCreate}
@@ -526,7 +733,7 @@ export default function CreateAlertDialog({
             <p className="mt-1 text-sm text-rc-ink-soft">
               We&apos;ll watch the forecast and ping you when your threshold is met.
             </p>
-            {form}
+            {body}
           </div>
 
           {/* Pinned to the bottom edge, under the thumb. No Cancel here: the
@@ -556,19 +763,21 @@ export default function CreateAlertDialog({
           We&apos;ll watch the forecast and ping you when your threshold is met.
         </p>
 
-        {form}
+        {body}
 
         {/* Footer */}
         <div className="mt-4 flex items-center justify-between gap-3 pt-4 border-t border-rc-rule-soft">
           {quota}
           <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={() => onOpenChange(false)}
-              className="px-4 py-2.5 rounded-xl border border-rc-rule text-rc-ink text-sm font-semibold hover:bg-rc-surface transition-colors"
-            >
-              Cancel
-            </button>
+            {!sentTo && (
+              <button
+                type="button"
+                onClick={() => onOpenChange(false)}
+                className="px-4 py-2.5 rounded-xl border border-rc-rule text-rc-ink text-sm font-semibold hover:bg-rc-surface transition-colors"
+              >
+                Cancel
+              </button>
+            )}
             {createButton}
           </div>
         </div>

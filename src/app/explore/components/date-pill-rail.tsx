@@ -177,11 +177,14 @@ export default function DatePillRail({
           {/* Names the instrument, and stays put while the days scroll under
               it — a caption that scrolled away would be gone by the second
               swipe, which is exactly when you'd want to know what these
-              numbers are. Two lines because a pill this wide can't spare 100px
-              of the fortnight for one. */}
+              numbers are. Stacked because a pill this wide can't spare 100px
+              of the fortnight for one line. */}
           <div className="flex shrink-0 flex-col justify-center gap-0.5 border-r border-rc-rule px-2.5">
             <span className="rc-label text-[8px] leading-none text-rc-ink">
               14-Day
+            </span>
+            <span className="rc-label text-[8px] leading-none text-rc-ink-mute">
+              Fishing
             </span>
             <span className="rc-label text-[8px] leading-none text-rc-ink-mute">
               Forecast
@@ -327,11 +330,16 @@ export default function DatePillRail({
                         {day.rulesNotLoaded ? "Check rules" : "No keep"}
                       </span>
                     ) : day.locked ? (
-                      <Lock
-                        className={`h-3.5 w-3.5 ${
-                          isSel ? "text-white" : "text-rc-ink-soft"
-                        }`}
-                      />
+                      /* Padlock and plan on one line, in the score's slot, so
+                         the tile says what unlocks it without growing. Plain
+                         ink, never a tier colour: a locked day has no score to
+                         hint at. */
+                      <span className="flex h-[17px] items-center gap-0.5 text-rc-ink-soft">
+                        <Lock className="h-3 w-3" />
+                        <span className="rc-label text-[8px] leading-none text-rc-ink-soft">
+                          Pro
+                        </span>
+                      </span>
                     ) : (
                       <span
                         className={`text-[17px] font-bold leading-none tracking-[-0.03em] ${

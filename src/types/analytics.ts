@@ -218,6 +218,13 @@ export type AnalyticsEventName =
   | 'Referral Link Shared'
   | 'Referral Nag Dismissed'
   | 'Referral Modal Opened'
+  // Spot page nudges (components/nudges/spot-nudge.tsx), each with a `nudge`
+  // property: share, catch or feedback. Rated carries the stars.
+  | 'Nudge Shown'
+  | 'Nudge Tapped'
+  | 'Nudge Dismissed'
+  | 'Nudge Rated'
+  | 'Nudge Completed'
   // The friend's side: the /r/<code> page opened, and the account made
   // through it got its month. 'Referral Month Earned' is the sponsor's side
   // and fires from the server, since the sponsor is not in a browser.
@@ -235,6 +242,12 @@ export type AnalyticsEventName =
   | 'Welcome Tour Step'
   | 'Welcome Tour Completed'
   | 'Welcome Tour Dismissed'
+  // The first-login Pro interstitial, shown once to an account that is not Pro
+  // straight after the tour. 'Closed' carries `took`: 'pro' went to Stripe,
+  // 'bypass' pressed the sentence under the button, 'escape' used the key.
+  // All three stop it reappearing; only the first is a conversion.
+  | 'Pro Upsell Shown'
+  | 'Pro Upsell Closed'
   // Performance
   | 'Page Load Time'
   | 'API Call'
@@ -259,8 +272,25 @@ export type AnalyticsEventName =
   | 'Depth Gate Accepted'
   | 'Ad Frame Spot Blocked'
   | 'Ad Frame Spot Opened'
+  | 'Locked Spot Pressed'
   | 'Ad Intro Shown'
   | 'Ad Intro Dismissed'
+  | 'Spot Ad Intro Trial Clicked'
+  | 'Spot Ad Intro Map Clicked'
+  // The same hero at the top of the PUBLIC spot and city pages, where it is
+  // the default rather than something a paid click brings with it. Kept apart
+  // from the two above so the ad's numbers stay readable: these fire on
+  // organic, direct and internal traffic too, and folding them together would
+  // silently inflate every campaign report that counts the ad hero.
+  | 'Seo Hero Trial Clicked'
+  | 'Seo Hero Map Clicked'
+  | 'City Ad Intro Trial Clicked'
+  | 'City Ad Intro Map Clicked'
+  | 'Spot Ad Reel Screen Picked'
+  | 'Home Carousel Screen Picked'
+  | 'Chart Explainer Shown'
+  | 'Chart Explainer Dismissed'
+  | 'Topic Full Conditions Clicked'
   | 'Back To Map Clicked'
   // Spot page
   | 'Spot Viewed'
@@ -278,6 +308,10 @@ export type AnalyticsEventName =
   | 'Custom Spot Create Failed'
   // Alerts. Never the phone number: country and outcome only.
   | 'Alert Created'
+  // Signed-out email alerts (alert_leads). Never the address.
+  | 'Alert Lead Created'
+  | 'Alert Lead Walled'
+  | 'Alert Lead Action'
   | 'Alert Edited'
   | 'Alert Deleted'
   | 'Alert Paused'

@@ -35,7 +35,7 @@ import { useAuth } from "@/contexts/auth-context";
  * the day it exists, with no edit here.
  */
 import {
-  lpPathTarget,
+  campaignPathTarget,
   reportCampaignCta,
   useCampaignHit,
   type CampaignTarget,
@@ -50,6 +50,7 @@ import dynamic from "next/dynamic";
 import { useMountedOnce } from "@/hooks/use-mounted-once";
 import CurrentConditionsStrip from "@/app/explore/spot/components/current-conditions-strip";
 import SpotTerminal from "@/app/explore/spot/components/spot-terminal";
+import AdTestimonialCard from "@/app/fishing/ad-testimonial-card";
 import {
   buildTerminalHours,
   tideRangeFrom,
@@ -84,6 +85,9 @@ import CitySpotMap from "./city-spot-map";
 import CityTopSpots from "./city-top-spots";
 import CustomSpots from "./custom-spots";
 import { spotHref } from "@/lib/paths";
+import { useAdFrame } from "@/app/explore/lib/ad-frame";
+import { useLockedSpotsSplit } from "@/app/components/split-test/use-locked-spots";
+import { withAdParams } from "@/lib/ad-mode";
 import { UnitCountryScope } from "@/contexts/unit-preferences-context";
 import { unitCountryForCitySlug } from "@/lib/unit-system";
 
@@ -126,6 +130,12 @@ export interface FeaturedFeed {
    *  refetched 14-day grid below is keyed by id. */
   speciesId: string;
   speciesName: string | null;
+  /** That species' slug, which is how its illustration is found — the display
+   *  name cannot tell the two halibuts apart. See lib/species-image.ts. */
+  speciesSlug: string | null;
+  /** Today's peak for it at this mark, 0–100. The same number the leaderboard
+   *  badges, so the page's headline and its rows cannot disagree. */
+  peak: number | null;
   lat: number;
   lng: number;
   /**
@@ -186,7 +196,14 @@ export default function CityInstrument({
   rows,
   rosterCount,
   campaign,
+  testimonial = false,
+  hideTopSpots = false,
+  topSpotsTitle,
+  topSpotsLimit,
 }: {
+  /** Put Kevin's testimonial box under the 24-hour chart. On for the pages
+   *  that open with the landing hero (lib/seo-hero.ts), off elsewhere. */
+  testimonial?: boolean;
   citySlug: string;
   cityName: string;
   cityLat: number;
@@ -227,9 +244,15 @@ export default function CityInstrument({
    * the path still decides, and the public page still counts nothing.
    */
   campaign?: CampaignTarget | null;
+  /** The city ad page draws the ranked list itself, right under its hero. */
+  hideTopSpots?: boolean;
+  /** The ad page names the keyword's fish in the list's title. */
+  topSpotsTitle?: string;
+  topSpotsLimit?: number;
 }) {
+  const ad = useAdFrame();
   const { isPaid, loading: tierLoading } = useSubscription();
-  const { user } = useAuth();
+  const { user, loading: authLoading } = useAuth();
   const { hour: nowHour } = useSpotClock(tz, serverNowMs);
 
   // Until `tierLoading` clears, `isPaid` is still its initial `false`. Days
@@ -237,6 +260,14 @@ export default function CityInstrument({
   // account never watches a padlock appear over days it has paid for and then
   // disappear — the lock-then-unlock flash this app has fixed twice already.
   const accessTier: ForecastTier = isPaid ? "pro" : user ? "free" : "anonymous";
+  // Whether the chart below is wearing locks (explore_locked_spots_v1). Read
+  // here as well as in the chart so the section's own copy can say what the
+  // locks mean; the hook counts one exposure per surface, so two readers on
+  // one page do not double it. Casey (2026-09-19): "somewhere around the
+  // spot city map we need the language unlock all spots with pro".
+  const spotLocks = useLockedSpotsSplit(
+    !authLoading && !user && !isPaid ? "city_map" : null,
+  ).locksOn;
 
   // ── 14-day strip ──────────────────────────────────────────────────────
   const [forecast, setForecast] = useState<MapForecast14dPayload | null>(
@@ -290,13 +321,14 @@ export default function CityInstrument({
     return i >= 0 ? i : 0;
   }, [featured, activeIso]);
 
-  // Counts this view once per tab when an ad frame is what rendered us. The
-  // path answers on /lp/<n>/<city>; a city-first landing page hands us
-  // `campaign` because its path cannot. Null on the public page, which counts
-  // nothing.
+  // Counts this view once per tab when an ad is what brought the reader. The
+  // path answers on /lp/<n>/<city>, and on the public city page when the URL
+  // carries campaign parameters; a city-first landing page hands us
+  // `campaign` because its path cannot. Null on an organic city visit, which
+  // counts nothing.
   // Memoised because it is read off `window.location` and so is a fresh
   // object every render, which would rebuild `handleDay` on each one.
-  const pathTarget = useMemo(() => lpPathTarget(""), []);
+  const pathTarget = useMemo(() => campaignPathTarget(""), []);
   const campaignTarget = campaign ?? pathTarget;
   useCampaignHit(campaignTarget);
 
@@ -363,7 +395,7 @@ export default function CityInstrument({
   // full score row above five empty instrument rows. The spot page solves
   // this by lazy-fetching the spot's own 14-day grid and preferring it; so
   // does this. The proxy strips scores AND conditions past the caller's
-  // horizon, so an anonymous reader gets exactly the two days they can select.
+  // horizon, so an anonymous reader gets exactly the day they can select.
   const [fc, setFc] = useState<Forecast14dPayload | null>(null);
   useEffect(() => {
     if (!featured) return;
@@ -600,7 +632,7 @@ export default function CityInstrument({
                 <>
                   A city has no tide or wind of its own, so this is{" "}
                   <Link
-                    href={spotHref(featured)}
+                    href={withAdParams(spotHref(featured), ad)}
                     className="text-rc-brand font-semibold hover:underline"
                   >
                     {featured.name}
@@ -665,14 +697,27 @@ export default function CityInstrument({
             onSelectHour={selectHour}
             bestWindow={win.window}
           />
+          {/* An angler's word for it, under the chart, on the pages that open
+              with the landing hero. Same box as the spot page's. */}
+          {testimonial && (
+            <div className="mt-6">
+              <AdTestimonialCard />
+            </div>
+          )}
         </Section>
       )}
 
       {/* ── 3 · The marks people actually fish ───────────────────────────── */}
-      <CityTopSpots rows={rows} cityName={cityName} />
+      {!hideTopSpots && (
+        <CityTopSpots rows={rows} cityName={cityName} title={topSpotsTitle} limit={topSpotsLimit} />
+      )}
 
       {/* ── 4 · All of them, on the water ────────────────────────────────── */}
       <Section
+        /* The target of the city header's "View <city> fishing map" button.
+           Harmless on /lp/7/<city>, which renders this same component without
+           a header to link from. */
+        id="city-map"
         title={`Every spot we score in ${cityName}`}
         aside="Bathymetry: NONNA-10 + NRCan"
         claims={[
@@ -688,7 +733,21 @@ export default function CityInstrument({
               </>
             ),
           },
-          {
+          spotLocks
+            ? {
+                /* The lock test's own line: what a padlocked mark means and
+                   what opens it. Replaces the count, which would otherwise
+                   promise "all scored" over a chart half of which is locked. */
+                head: "Pro unlocks every spot",
+                body: (
+                  <>
+                    Most of the marks are locked. Pro shows the score at all{" "}
+                    {rows.length} spots around {cityName}, every hour, 14 days
+                    out. Tap any lock to start.
+                  </>
+                ),
+              }
+            : {
             /* Reconciles its own count with the page title's, which counts the
                ROSTER. A mark with no species scored today has nothing to draw,
                so Seattle is 15 of 16 — and a map captioned "15 marks" under a
@@ -716,7 +775,15 @@ export default function CityInstrument({
           },
         ]}
       >
-        <CitySpotMap rows={rows} cityLat={cityLat} cityLng={cityLng} />
+        <CitySpotMap
+          rows={rows}
+          cityLat={cityLat}
+          cityLng={cityLng}
+          cityName={cityName}
+          // The hero's mark stays open under the ad chart's lock test: the
+          // page has already shown its number (lib/spot-locks).
+          lockKeepSlug={featured?.slug ?? rows[0]?.spot.slug ?? null}
+        />
       </Section>
 
       {/* Placed directly under the map, because the map is what raises the

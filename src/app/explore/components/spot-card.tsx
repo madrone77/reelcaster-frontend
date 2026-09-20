@@ -81,7 +81,7 @@ export default function SpotCard({
   // of cards claiming the same fourteen hours, which is not a recommendation.
   // The peak time is still on the day tiles and on the spot page, where it sits
   // beside the hours that produced it.
-  const conclusion = species ?? "No live score yet";
+  const conclusion = spot.locked ? "Score locked" : species ?? "No live score yet";
   // The management area, labelled for whoever set it. Beside the species
   // rather than under the name because seasons and limits are set per area, so
   // it belongs with the thing whose season is in question. Null collapses.
@@ -216,13 +216,22 @@ export default function SpotCard({
                 </span>
               )}
             </span>
-            <span
-              className={`shrink-0 px-2 py-0.5 rounded font-rc-mono text-[11px] font-bold ${TIER_PILL[bt]}`}
-            >
-              {spot.score != null
-                ? `${spot.score} ${bt.toUpperCase()}`
-                : "NO SCORE"}
-            </span>
+            {spot.locked ? (
+              // The ad-framed map's lock test: the number is withheld, not
+              // missing, so the pill says Pro rather than "no score".
+              <span className="inline-flex shrink-0 items-center gap-1 px-2 py-0.5 rounded font-rc-mono text-[11px] font-bold bg-slate-700 text-white">
+                <Lock className="h-3 w-3" aria-hidden />
+                PRO
+              </span>
+            ) : (
+              <span
+                className={`shrink-0 px-2 py-0.5 rounded font-rc-mono text-[11px] font-bold ${TIER_PILL[bt]}`}
+              >
+                {spot.score != null
+                  ? `${spot.score} ${bt.toUpperCase()}`
+                  : "NO SCORE"}
+              </span>
+            )}
           </div>
 
           {/* 2 · conclusion, and where the rules that govern it are set */}

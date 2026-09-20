@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { bitingFor } from "@/lib/lead-species";
 import { notFound } from "next/navigation";
 import {
   fetchCityGuides,
@@ -16,6 +17,9 @@ import { SpeciesCards } from "./species-cards";
 import ProGate from "./hub/pro-gate";
 import CityInstrument from "./instrument/city-instrument";
 import { loadCity } from "./instrument/load-city";
+import { seoHeroEnabled } from "@/lib/seo-hero";
+import AdReel from "./[spot]/ad/ad-reel";
+import { speciesKeywordName } from "@/lib/species-param";
 import KeepToday from "./hub/keep-today";
 import {
   BeforeYouGo,
@@ -147,6 +151,7 @@ export default async function CityPage({
     headlineWindow,
     cityPage,
     cityToday,
+    reportTeaser,
   } = await loadCity(countryParam, stateParam, cityUrlSlug);
 
   // Published species guides for this city. Additive: a city with none
@@ -278,7 +283,51 @@ export default async function CityPage({
           provincePath={provincePath}
           city={city}
           window={headlineWindow}
+          /* The hero is written about the mark the page already leads with —
+             the same row `headlineWindow` and the 24-hour chart come from — so
+             the answer at the top and the evidence below it are one story.
+             Enabled from the route, never from the visitor: see
+             lib/seo-hero.ts. */
+          hero={{
+            enabled: seoHeroEnabled(countryParam, stateParam),
+            spotName: featuredFeed?.name ?? city.name,
+            fish: featuredFeed?.speciesName
+              ? speciesKeywordName(featuredFeed.speciesName)
+              : null,
+            fishSlug: featuredFeed?.speciesSlug ?? null,
+            score: featuredFeed?.peak ?? null,
+            mapHref: `/explore?loc=${city.slug}`,
+            /* Only when the featured mark is drawing the city's headline fish
+               AND that fish was picked from catches, so the line is true of
+               the fish the hero names. */
+            biting: bitingFor(
+              cityToday?.headline && cityToday.headline_source && cityToday.headline_source !== "default"
+                ? { speciesId: cityToday.headline.species_id, source: cityToday.headline_source }
+                : null,
+              featuredFeed?.speciesName
+                ? { id: featuredFeed.speciesId, fish: speciesKeywordName(featuredFeed.speciesName) }
+                : null,
+              { spot: featuredFeed?.name ?? city.name, city: city.name },
+            ),
+            /* Pointed at the lead mark, so the phones show the same water the
+               hero's sentence is about. Built only where the hero renders. */
+            reel:
+              seoHeroEnabled(countryParam, stateParam) && featuredFeed ? (
+                <AdReel
+                  slug={featuredFeed.slug}
+                  provinceCode={city.provinceCode}
+                  fishName={featuredFeed.speciesName}
+                  serverNowMs={Date.now()}
+                />
+              ) : null,
+          }}
         />
+
+        {/* Today's report, above the forecast. The headline is what anglers
+            are catching on this water now; the forecast is what the water will
+            do. The catching comes first because it is the thing no one else
+            has. Locked below the headline for a free reader. */}
+        <CityLive cityName={city.name} citySlug={city.slug} teaser={reportTeaser} />
 
         {/* The instrument: 14-day strip → 24-hour chart → the marks people
             fish → all of them on the water. It replaces the conversion stack
@@ -299,6 +348,8 @@ export default async function CityPage({
              so the two can differ and the map's caption has to reconcile
              them rather than quietly report the smaller one. */
           rosterCount={spots.length}
+          /* The testimonial goes with the hero's sale copy, under the chart. */
+          testimonial={seoHeroEnabled(countryParam, stateParam)}
         />
 
         {/* What is legal to keep today. It was a child of the hub block; the
@@ -312,8 +363,6 @@ export default async function CityPage({
       </div>
 
       <div className="max-w-6xl mx-auto px-6 pt-10 pb-16 space-y-10">
-        <CityLive cityName={city.name} citySlug={city.slug} />
-
         <SpeciesCards
           guides={guides}
           cityName={city.name}

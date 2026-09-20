@@ -16,7 +16,7 @@ import type { Forecast14dPayload } from "@/lib/bluecaster/live-spot-types";
  * Days past the caller's horizon are stripped server-side (scores,
  * conditions, daily summary) while the day entries themselves stay in
  * place so the client strip still renders its locked tiles. Horizon:
- * anonymous 2 days, free account 7, Pro 14 (Bearer token, same pattern
+ * anonymous 1 day, free account 7, Pro 14 (Bearer token, same pattern
  * as /api/spot-page).
  */
 

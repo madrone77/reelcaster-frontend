@@ -26,8 +26,10 @@
  * - `today`  one day open, the rest locked. The ad promised today; the page
  *            delivers today and sells the next thirteen days.
  * - `day2`   what a signed-out visitor already gets on the public page. The
- *            honest control: no tightening, just the ad frame.
- * - `open`   nothing tightened at all. Still two days of forecast, because the
+ *            honest control: no tightening, just the ad frame. The name is
+ *            historical (the anon horizon was two days until 2026-09-16, now
+ *            today only) and stays because live ad URLs carry it.
+ * - `open`   nothing tightened at all. Still today only, because the
  *            horizon is enforced server-side by entitlement, not here. What
  *            "open" opens is the REST of the page.
  */
@@ -95,12 +97,21 @@ export function isAdParam(value: string | null | undefined): boolean {
  */
 export function withAdParams(
   href: string,
-  ad: { wall: AdWall; angle?: string } | null | undefined,
+  ad:
+    | { wall: AdWall; angle?: string; params?: Record<string, string> }
+    | null
+    | undefined,
 ): string {
   if (!ad) return href;
   const [path, query = ""] = href.split("?");
   const params = new URLSearchParams(query);
   params.set("ad", ad.wall);
   if (ad.angle) params.set("a", ad.angle);
+  // Keyword params a framed page hands on to the pages it links to, e.g. the
+  // city ad page's `species` onto its spot links. Never overwrites what the
+  // href already says.
+  for (const [k, v] of Object.entries(ad.params ?? {})) {
+    if (v && !params.has(k)) params.set(k, v);
+  }
   return `${path}?${params.toString()}`;
 }

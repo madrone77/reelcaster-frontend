@@ -546,6 +546,19 @@ body:has([data-ad-frame]) [data-mobile-nav] {
 }
 
 /*
+ * The /fishing layout's marketing header and footer, under the city ad frame.
+ * The city ad page is the same path as the public city page (?ad= rewrites it
+ * to [city]/ad), so the layout cannot tell them apart without reading the
+ * query string, and doing that in a layout would stop the public page
+ * prerendering. The ad page carries its own top bar; every link in these two
+ * is a way off a page the click paid for. display:none also takes them out of
+ * the tab order.
+ */
+body:has([data-ad-frame]) [data-fishing-chrome] {
+  display: none;
+}
+
+/*
  * The ad frame's bar, as one number.
  *
  * The frame's header sits at the bottom of the screen, where a thumb is. Three
@@ -582,4 +595,21 @@ body:has([data-ad-bar]) {
  */
 body:has([data-ad-frame]):not(:has([data-ad-bar])) {
   --rc-tabbar-clearance: calc(0.75rem + env(safe-area-inset-bottom, 0px));
+}
+
+/*
+ * SEO hero (fishing/seo-hero.tsx) before the session resolves. Both the hero
+ * and the page's own header are in the markup; the wrappers are layout-neutral
+ * and a stored session (data-rc-session, stamped in <head> by the root layout)
+ * decides which one paints, so a signed-in reader never sees the hero flash.
+ */
+[data-seo-hero-slot] {
+  display: contents;
+}
+[data-seo-hero-slot='header'],
+html[data-rc-session] [data-seo-hero-slot='hero-pending'] {
+  display: none;
+}
+html[data-rc-session] [data-seo-hero-slot='header'] {
+  display: contents;
 }

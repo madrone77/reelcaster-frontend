@@ -335,6 +335,21 @@ export type LiveSpotDetail = {
    * was out. See creel-types.ts.
    */
   creelReport: CreelAreaReport | null;
+  /**
+   * Which species a landing hero names first, decided upstream from what is
+   * being caught: this spot's reports over the trailing fortnight, then its
+   * home city's, then the city's dockside creel checks, then the fixed order
+   * (Chinook, Coho, Halibut, Lingcod, crab last). Already gated to species
+   * scored today and retention-open here. `claims` is a count, never a post,
+   * and is not paid intel. Optional because a BlueCaster deploy predating the
+   * field omits it; the fixed order in lib/lead-species.ts stands in then.
+   */
+  leadSpecies?: {
+    speciesId: string;
+    source: "spot_reports" | "city_reports" | "creel" | "port_rates" | "default";
+    claims: number;
+    windowDays: number;
+  } | null;
   tideStationName: string | null;
   seasonStateBySpecies: Record<string, SeasonState>;
   seasonWeeksBySpecies: Record<string, SeasonState[]>;
@@ -346,6 +361,25 @@ export type LiveSpotDetail = {
   sun: SunHours;
   guideNotes: GuideNote[];
   nearbySpots: NearbySpotCard[];
+  /**
+   * Up to three public salt-water boat ramps within 25 km, nearest first.
+   * Only ramps in the country whose water the spot is in; lakes, upriver
+   * ramps, club ramps and marinas without a public slipway are left out.
+   * Empty when none qualify. Optional because a BlueCaster deploy that
+   * predates the field omits it, and "Not mapped" is the honest read then.
+   */
+  launches?: SpotLaunch[];
+};
+
+export type SpotLaunch = {
+  id: string;
+  name: string;
+  lat: number;
+  lng: number;
+  /** Straight line from the spot, km. Not a run by water. */
+  distanceKm: number;
+  /** Launch fee when known; null for most ramps. */
+  fee: "free" | "fee" | null;
 };
 
 // ─── Slicer outputs ───────────────────────────────────────────────────

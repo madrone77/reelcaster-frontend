@@ -1,11 +1,16 @@
 import type { Metadata } from "next";
-import { fetchSpotLivePage } from "@/lib/bluecaster";
+import { notFound } from "next/navigation";
+import { fetchHierarchy, fetchSpotLivePage } from "@/lib/bluecaster";
+import { findCityForSpot } from "@/app/fishing/lib/fishing-data";
 import { siteUrl } from "@/lib/site";
 import { ANGLES } from "@/app/lp/_shared/lp-angles";
 import SpotDetailShell from "../spot-detail-shell";
 import { loadSpotPage } from "../load-spot-page";
 import { parseWall } from "@/lib/ad-mode";
 import { spotPath } from "@/lib/paths";
+import { matchSpeciesParam, speciesKeywordName } from "@/lib/species-param";
+import { landingTitle, parseTopic } from "@/lib/landing-topic";
+import AdReel from "./ad-reel";
 
 /**
  * The ad frame of a spot page.
@@ -36,13 +41,27 @@ function first(v: string | string[] | undefined): string {
 
 export async function generateMetadata({
   params,
+  searchParams,
 }: PageProps): Promise<Metadata> {
   const { country, state, city, spot: slug } = await params;
+  const sp = await searchParams;
   const page = await fetchSpotLivePage(slug).catch(() => null);
-  const name = page?.spot.name ?? "This spot";
+  // Same gate as the public page, and here as well as in the body: metadata
+  // resolves first, so bailing only in the body flushes a 200 with 404 UI.
+  // BlueCaster's spot-page payload does not check whether a spot is
+  // published, so without this an unpublished spot (pulled because it has no
+  // scores) kept rendering a blank forecast to every ad click.
+  if (!page) notFound();
+  if (!findCityForSpot(await fetchHierarchy().catch(() => null), slug)) notFound();
+  const name = page.spot.name;
+  const fish = matchSpeciesParam(first(sp.species), page.species);
+  const topic = parseTopic(first(sp.topic));
 
   return {
-    title: `${name} Fishing Forecast`,
+    title:
+      fish || topic
+        ? landingTitle(name, fish ? speciesKeywordName(fish.name) : null, topic)
+        : `${name} Fishing Forecast`,
     // noindex, and a canonical pointing at the page this one is a frame of.
     // The robots directive is what actually keeps it out of the index; the
     // canonical is what stops any link that leaks into the wild from splitting
@@ -63,10 +82,12 @@ export async function generateMetadata({
 }
 
 export default async function SpotAdPage({ params, searchParams }: PageProps) {
-  const { spot: slug } = await params;
+  const { spot: slug, state } = await params;
   const sp = await searchParams;
-  const { page, freshTracked, cityLink, tz, serverNowMs } =
+  const { page, freshTracked, cityLink, canonicalPath, tz, serverNowMs } =
     await loadSpotPage(slug);
+  // No public home: unpublished spot or unpublished city. See generateMetadata.
+  if (!canonicalPath) notFound();
 
   const wall = parseWall(first(sp.ad));
 
@@ -75,6 +96,13 @@ export default async function SpotAdPage({ params, searchParams }: PageProps) {
   // inventing one, matching how the campaign counter validates it.
   const angleRaw = first(sp.a).trim().toLowerCase();
   const angle = ANGLES.some((a) => a.id === angleRaw) ? angleRaw : "";
+
+  // The fish the search keyword named (`&species=chinook`). Null when this
+  // spot does not carry it, and the page opens on its own lead species.
+  const fish = matchSpeciesParam(first(sp.species), page.species);
+  // What the keyword asked about (`&topic=tides`): the title and the answer
+  // at the top of the page follow it.
+  const topic = parseTopic(first(sp.topic));
 
   return (
     <SpotDetailShell
@@ -85,6 +113,19 @@ export default async function SpotAdPage({ params, searchParams }: PageProps) {
       serverNowMs={serverNowMs}
       cityLink={cityLink}
       ad={{ wall, angle }}
+      openOnSpeciesId={fish?.id ?? null}
+      landingSpecies={
+        fish ? { id: fish.id, name: speciesKeywordName(fish.name) } : null
+      }
+      landingTopic={topic}
+      adReel={
+        <AdReel
+          slug={slug}
+          provinceCode={state.toUpperCase()}
+          fishName={fish?.name ?? null}
+          serverNowMs={serverNowMs}
+        />
+      }
     />
   );
 }

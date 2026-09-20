@@ -574,6 +574,7 @@ ${PHONE_CSS}
   box-shadow:var(--l8-shadow-bar,0 2px 12px rgba(18,21,26,.05));
 }
 .l8 .stars{display:flex;gap:3px;margin-bottom:12px}
+.l8 .quote .quote-lab{margin:0 0 12px;color:var(--l8-brand)}
 .l8 .stars span{color:var(--l8-rule);font-size:15px;line-height:1}
 .l8 .stars span.on{color:#FFCB1F}
 .l8 .quote blockquote{

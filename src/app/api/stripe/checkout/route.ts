@@ -3,9 +3,12 @@ import { createClient } from '@supabase/supabase-js';
 import { getStripe, appOrigin } from '@/lib/stripe';
 import {
   ANNUAL_PRICE_ID,
+  MONTHLY_PRICE_ID,
+  billingPlanFrom,
   currencyForRegion,
   TRIAL_DAYS,
   type BillingCurrency,
+  type BillingPlan,
 } from '@/lib/pricing';
 import { splitMetadata } from '@/lib/split-tests';
 import { checkTrialEligibility } from '@/lib/trial';
@@ -84,6 +87,7 @@ async function anonCheckout(request: NextRequest) {
   }
 
   const region = (body.region ?? '').toString().trim();
+  const plan = billingPlanFrom(body.plan);
 
   if (region.toLowerCase() === 'other') {
     return NextResponse.json({ redirect: '/explore?waitlist=1' }, { status: 200 });
@@ -117,6 +121,7 @@ async function anonCheckout(request: NextRequest) {
       email: email || null,
       region,
       from: body.from ?? '',
+      plan,
       // Every signed-out button reads "Start 7-day free trial" until the email
       // is known, so a withheld trial has to come back to the sheet and be said
       // there, not appear for the first time as a price on Stripe's page. The
@@ -128,7 +133,7 @@ async function anonCheckout(request: NextRequest) {
     }
     if (!created.ok) {
       return NextResponse.json(
-        { error: 'plan_unavailable', plan: 'annual' },
+        { error: 'plan_unavailable', plan },
         { status: 503 },
       );
     }
@@ -212,6 +217,11 @@ interface CheckoutBody {
    * withheld trial is refused with `trial_used` rather than charged.
    */
   accept_paid?: boolean;
+  /**
+   * 'annual' (default) or 'monthly'. Monthly comes only from the plan
+   * picker on the phone sheet; anything else reads as annual.
+   */
+  plan?: string;
 }
 
 /** Deliberately loose — Stripe re-validates, and we only need to reject junk. */
@@ -233,6 +243,7 @@ export async function POST(request: NextRequest) {
   }
 
   const region = (body.region ?? '').toString().trim();
+  const plan: BillingPlan = billingPlanFrom(body.plan);
 
   // "Other" region = uncovered. Bounce to waitlist instead of taking money for
   // something we can't deliver yet.
@@ -243,14 +254,17 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  if (!ANNUAL_PRICE_ID) {
-    // STRIPE_ANNUAL_PRICE_ID is unset (see src/lib/pricing.ts). Fail with JSON
-    // rather than crashing on an empty line_items price, which surfaces as an
-    // unparseable 500 client-side. There is only one plan, so this gap takes
-    // the whole product — and the trial that rides on it — down with it.
-    console.error('[stripe checkout] STRIPE_ANNUAL_PRICE_ID is not configured');
+  if (plan === 'monthly' ? !MONTHLY_PRICE_ID : !ANNUAL_PRICE_ID) {
+    // The price id is unset (see src/lib/pricing.ts). Fail with JSON rather
+    // than crashing on an empty line_items price, which surfaces as an
+    // unparseable 500 client-side. Annual is the product, so that gap takes
+    // the whole thing — and the trial that rides on it — down with it;
+    // monthly missing only takes the picker's second card.
+    console.error(
+      `[stripe checkout] ${plan === 'monthly' ? 'STRIPE_MONTHLY_PRICE_ID' : 'STRIPE_ANNUAL_PRICE_ID'} is not configured`,
+    );
     return NextResponse.json(
-      { error: 'plan_unavailable', plan: 'annual' },
+      { error: 'plan_unavailable', plan },
       { status: 503 },
     );
   }
@@ -366,23 +380,27 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    const trialEligible = eligibility.eligible && !hadSubscription;
+    // Monthly never trials: the card is charged today, which is what the
+    // sheet's monthly card says. Only the annual plan carries the free week.
+    const trialEligible = plan === 'annual' && eligibility.eligible && !hadSubscription;
 
     if (!trialEligible) {
       console.info(
         '[stripe checkout] trial withheld',
         user.id,
-        eligibility.reason ?? (hadSubscription ? 'prior_subscription' : 'unknown'),
+        plan === 'monthly'
+          ? 'monthly_plan'
+          : (eligibility.reason ?? (hadSubscription ? 'prior_subscription' : 'unknown')),
       );
     }
 
     // Resolved here rather than at the top of the handler, because `currency`
     // may have just been overridden by the customer's Stripe-locked currency,
     // and the arms are not the same amount in both.
-    const priced = await resolveCheckoutPrice(request, stripe, currency);
+    const priced = await resolveCheckoutPrice(request, stripe, currency, plan);
     if (!priced.ok) {
       return NextResponse.json(
-        { error: 'plan_unavailable', plan: 'annual' },
+        { error: 'plan_unavailable', plan },
         { status: 503 },
       );
     }
@@ -401,7 +419,7 @@ export async function POST(request: NextRequest) {
       cancel_url: `${origin}/billing/cancel`,
       metadata: {
         supabase_user_id: user.id,
-        plan: 'annual',
+        plan,
         currency,
         region: region || '',
         from: body.from ?? '',
@@ -410,7 +428,7 @@ export async function POST(request: NextRequest) {
       subscription_data: {
         metadata: {
           supabase_user_id: user.id,
-          plan: 'annual',
+          plan,
           currency,
           trial: String(trialEligible),
           ...acquisitionMetadata(request.headers),
@@ -494,5 +512,8 @@ export async function GET(request: NextRequest) {
     trial_available: annualAvailable && trialEligibility.eligible,
     trial_days: TRIAL_DAYS,
     annual_available: annualAvailable,
+    // The plan picker's second card. Unset in an environment means the sheet
+    // draws the single annual button instead of a choice with a dead option.
+    monthly_available: Boolean(MONTHLY_PRICE_ID),
   });
 }

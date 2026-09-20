@@ -275,10 +275,37 @@ export function buildLayers(
  * quoting them anywhere else, and re-run the queries in the comments rather
  * than nudging the figures.
  */
+export interface ProofQuote {
+  text: string;
+  attr: string;
+  /**
+   * Out of five, as the customer gave it. Absent when they gave none, and a
+   * surface draws no stars then rather than inventing a number.
+   */
+  rating?: number;
+  /**
+   * The customer pays for Pro, checked against their subscription. Only then
+   * does a surface frame the quote as a "ReelCaster Pro Testimonial".
+   */
+  pro?: boolean;
+}
+
+/** The frame on a quote from a paying Pro customer. */
+export const PRO_TESTIMONIAL_LABEL = "ReelCaster Pro Testimonial";
+
+/**
+ * The heading over the three-card row in the paywall modals and under the chart. Casey moved the
+ * label out of the cards and above the row, once, on 2026-09-18.
+ */
+export const PRO_TESTIMONIALS_ROW_LABEL = "ReelCaster Pro Testimonials";
+
+/** The heading in words over the row under the chart, above that label. */
+export const PRO_TESTIMONIALS_ROW_TITLE = "What others are saying about ReelCaster Pro";
+
 export const PROOF: {
   showProof: boolean;
   stats: ReadonlyArray<{ num: string; label: string }>;
-  quote: { text: string; attr: string; rating: number };
+  quote: ProofQuote;
 } = {
   // ON. The quote is real and permissioned, and every figure below is counted
   // from production rather than estimated, which were the two conditions this
@@ -310,6 +337,109 @@ export const PROOF: {
     rating: 5,
     // Given by the customer 2026-08-19. Verbatim.
     text: "ReelCaster has completely changed how I plan my fishing trips. It brings together tides, currents, wind, swell, and water temperature in one place, then pinpoints the best times and locations to fish. It saves me time and gives me real confidence I\u2019m on the water when conditions are ideal.",
-    attr: "Bob N., PNW Fisherman",
+    attr: "Bob N., Victoria BC",
+    // A Pro customer, confirmed by Casey 2026-09-17.
+    pro: true,
   },
 };
+
+/**
+ * The quote Washington readers see in place of Bob's: Seattle and Tacoma
+ * pages, Washington spot pages, and anyone the edge places in WA.
+ *
+ * Nick left it as a comment on a ReelCaster Facebook reel, 2026-09-16, and
+ * Casey chose it for Washington traffic 2026-09-17. Verbatim, including
+ * "for down in Tacoma" and "in to consideration": it is his sentence, not ours.
+ *
+ * No rating. He gave none, so no surface draws stars for it.
+
+ */
+export const WA_QUOTE: ProofQuote = {
+  text: "Love it! Been using for about a month for down in Tacoma and the \u201cideal times\u201d ratings have been spot on for me. Really nice having all the info I\u2019d take in to consideration all in one place.",
+  attr: "Nick S., Tacoma WA",
+  // Active pro_annual since 2026-08-19, checked in user_settings 2026-09-17.
+  pro: true,
+};
+
+/**
+ * The quote for a reader in (or reading about) this state or province. Only
+ * Washington has its own; everywhere else gets Bob's.
+ */
+export function proofQuoteFor(regionCode: string | null | undefined): ProofQuote {
+  return regionCode?.trim().toUpperCase() === "WA" ? WA_QUOTE : PROOF.quote;
+}
+
+
+/**
+ * The quote with a picture, under the 24-hour chart on ad-framed spot pages.
+ *
+ * Kevin sent it through reelcaster.com/testimonials on 2026-09-17 with the
+ * photo of the fish, and sending that form is the permission. Verbatim apart
+ * from one tidy-up Casey asked for: he wrote "Real Caster" and it reads
+ * "ReelCaster" here and on the row in BlueCaster. Rating as he gave it.
+ *
+ * No `pro`: nobody has checked his subscription, so no surface frames it as
+ * a Pro testimonial.
+ */
+export const SPOT_AD_TESTIMONIAL: ProofQuote = {
+  rating: 5,
+  text: "ReelCaster was very helpful in helping me figure out where and when to fish! I was lucky enough to catch a 7 lb Coho right off the beach. The info that the app provided was really helpful and it saved me the trouble of looking at multiple sources to figure out tides, weather, and regulations.",
+  // "Name, Place REGION", the same shape as Bob's and Nick's (Casey, 2026-09-18).
+  attr: "Kevin, Marrowstone Island WA",
+};
+
+/**
+ * Nick's second quote, sent through reelcaster.com/testimonials on
+ * 2026-09-17 with five stars. Verbatim apart from "Reel Caster" tidied to
+ * "ReelCaster", which Casey asked for; the BlueCaster row reads the same.
+ * Unlike WA_QUOTE (his Facebook comment) this one carries a rating he gave.
+ */
+export const NICK_FORM_QUOTE: ProofQuote = {
+  rating: 5,
+  text: "I\u2019ve been using ReelCaster for about a month and I love it! Having all the conditions listed together is really handy and makes deciding when to go a no brainer instead of checking multiple apps and sites to get wind, current, sea conditions and tides. I highly recommend ReelCaster!",
+  attr: "Nick S., Tacoma WA",
+  pro: true,
+};
+
+/**
+ * The one quote the paywall modals show as the control of
+ * testimonial_byline_v1: Bob's with his five stars, or, for a Washington
+ * reader, Nick's form quote with the five stars he gave rather than his
+ * Facebook comment, which carries none. Casey: "put 5 stars in yellow on
+ * nicks testimonial as the base" (2026-09-18). The stars are his rating,
+ * read from the record; the unrated comment stays unrated where it is used.
+ */
+export function modalControlQuoteFor(regionCode: string | null | undefined): ProofQuote {
+  return regionCode?.trim().toUpperCase() === "WA" ? NICK_FORM_QUOTE : PROOF.quote;
+}
+
+/**
+ * The three five-star quotes the paywall modals scroll through, in the
+ * order a reader in this region should meet them: the Washington angler
+ * first for Washington, Bob first everywhere else. Every entry carries a
+ * rating the customer gave, so every card draws stars.
+ */
+export function modalTestimonialsFor(regionCode: string | null | undefined): ProofQuote[] {
+  const kevin: ProofQuote = {
+    rating: SPOT_AD_TESTIMONIAL.rating,
+    text: SPOT_AD_TESTIMONIAL.text,
+    attr: SPOT_AD_TESTIMONIAL.attr,
+  };
+  return regionCode?.trim().toUpperCase() === "WA"
+    ? [NICK_FORM_QUOTE, kevin, PROOF.quote]
+    : [PROOF.quote, NICK_FORM_QUOTE, kevin];
+}
+
+/**
+ * The same three quotes for the row under the 24-hour chart on the spot and
+ * city pages, words only. Nick then Bob, and Kevin last (Casey, 2026-09-18;
+ * he opened the row before that). Kevin's coho photo came off
+ * the row on 2026-09-18, see AdTestimonialCard.
+ */
+export function pageTestimonials(): ProofQuote[] {
+  return [
+    NICK_FORM_QUOTE,
+    PROOF.quote,
+    SPOT_AD_TESTIMONIAL,
+  ];
+}

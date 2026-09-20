@@ -10,9 +10,11 @@
 // published spot that holds the species, and being retainable in the city at
 // some point, and a card linking to nothing is worse than no card.
 
+import Image from "next/image";
 import Link from "next/link";
 import type { BlueCasterGuideLink } from "@/lib/bluecaster";
 import { guidePath, type PlaceLocation } from "@/lib/paths";
+import { speciesIllustration } from "@/lib/species-image";
 import { activityPhrase } from "@/app/fishing/lib/activity";
 import { SectionHeading } from "./species/[species]/guide-sections";
 
@@ -65,12 +67,39 @@ function openingLabel(iso: string): string | null {
   return `opens ${d} ${month}`;
 }
 
+/** A card is a link on the public page and a plain box inside the ad frame. */
+function Card({
+  unlinked,
+  href,
+  className,
+  children,
+}: {
+  unlinked: boolean;
+  href: string;
+  className: string;
+  children: React.ReactNode;
+}) {
+  return unlinked ? (
+    <div className={className}>{children}</div>
+  ) : (
+    <Link href={href} className={className}>
+      {children}
+    </Link>
+  );
+}
+
 export function SpeciesCards({
   guides,
   cityName,
   location,
+  unlinked = false,
 }: {
   guides: BlueCasterGuideLink[];
+  /**
+   * The ad frame's setting: the cards read the same but open nothing, because
+   * a guide page is not framed and the frame's rule is that no link leaves it.
+   */
+  unlinked?: boolean;
   cityName: string;
   /**
    * Where the city sits, so the href comes from `guidePath`. A guide lives at
@@ -91,12 +120,34 @@ export function SpeciesCards({
             guide.open_spot_count === 0 && guide.next_open_date
               ? openingLabel(guide.next_open_date)
               : null;
+          // Decorative: the name is the next line, so an alt here would read
+          // the species twice. A species with no plate keeps the older,
+          // text-only card rather than showing a stand-in fish.
+          const plate = speciesIllustration(guide.species_slug);
           return (
             <li key={guide.species_slug}>
-              <Link
+              <Card
+                unlinked={unlinked}
                 href={guidePath(location, guide.species_slug)}
-                className="group flex h-full flex-col rounded-lg border border-rc-rule bg-rc-panel p-4 hover:border-rc-brand transition-colors"
+                className={`group flex h-full flex-col rounded-lg border border-rc-rule bg-rc-panel p-4 ${
+                  unlinked ? "" : "hover:border-rc-brand transition-colors"
+                }`}
               >
+                {plate && (
+                  <div className="mb-3 flex h-20 items-center justify-center">
+                    <Image
+                      src={plate.src}
+                      width={plate.width}
+                      height={plate.height}
+                      alt=""
+                      aria-hidden
+                      sizes="(min-width: 1024px) 320px, (min-width: 640px) 45vw, 90vw"
+                      className="h-full w-auto max-w-full object-contain"
+                      data-testid="species-card-plate"
+                    />
+                  </div>
+                )}
+
                 <div className="flex items-start justify-between gap-2">
                   <h3 className="text-[15px] font-semibold text-rc-ink group-hover:text-rc-brand transition-colors">
                     {guide.species_name}
@@ -132,12 +183,14 @@ export function SpeciesCards({
                   </div>
                 </dl>
 
-                <span className="mt-3 pt-3 border-t border-rc-rule text-[13px] font-medium text-rc-brand">
-                  {/* "Dungeness crabbing guide", never "crab fishing". */}
-                  {activityPhrase(guide.activity)} guide
-                  <span aria-hidden> →</span>
-                </span>
-              </Link>
+                {!unlinked && (
+                  <span className="mt-3 pt-3 border-t border-rc-rule text-[13px] font-medium text-rc-brand">
+                    {/* "Dungeness crabbing guide", never "crab fishing". */}
+                    {activityPhrase(guide.activity)} guide
+                    <span aria-hidden> →</span>
+                  </span>
+                )}
+              </Card>
             </li>
           );
         })}

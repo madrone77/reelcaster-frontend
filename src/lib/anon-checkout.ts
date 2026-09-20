@@ -16,7 +16,14 @@ import { NextResponse } from 'next/server';
 import type Stripe from 'stripe';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { appOrigin } from '@/lib/stripe';
-import { ANNUAL_PRICE_ID, TRIAL_DAYS, type BillingCurrency } from '@/lib/pricing';
+import {
+  ANNUAL_PRICE_ID,
+  MONTHLY_PRICE_ID,
+  TRIAL_DAYS,
+  monthlyPricing,
+  type BillingCurrency,
+  type BillingPlan,
+} from '@/lib/pricing';
 import {
   resolveSplitContext,
   verifiedPriceForCheckout,
@@ -68,11 +75,17 @@ export async function resolveCheckoutPrice(
   request: Request,
   stripe: Stripe,
   currency: BillingCurrency,
+  plan: BillingPlan = 'annual',
 ): Promise<PricedCheckout | { ok: false }> {
   const ctx = await resolveSplitContext(request.headers.get('cookie'), currency);
-  const priced = await verifiedPriceForCheckout(stripe, ctx.pricing);
+  // Monthly is one price with no arm, but it goes through the same Stripe
+  // check as the annual arms: the sheet printed $5, and $5 is what the card
+  // must be charged. The visitor's arms still ride to Stripe so a monthly
+  // buyer counts for whichever tests they were in.
+  const view = plan === 'monthly' ? monthlyPricing(currency) : ctx.pricing;
+  const priced = await verifiedPriceForCheckout(stripe, view);
   if (!priced.ok) {
-    console.error('[stripe checkout] price refused', priced.reason, ctx.pricing);
+    console.error('[stripe checkout] price refused', priced.reason, view);
     return { ok: false };
   }
   return {
@@ -126,6 +139,11 @@ export async function createAnonCheckoutSession(params: {
   email: string | null;
   region: string;
   from: string;
+  /**
+   * Which cadence. Annual unless the plan picker's monthly card was chosen.
+   * Monthly carries no trial: it is charged today, and the sheet says so.
+   */
+  plan?: BillingPlan;
   /** Stamped on both the session and the subscription. */
   extraMetadata?: Record<string, string>;
   /**
@@ -138,25 +156,34 @@ export async function createAnonCheckoutSession(params: {
   withheldTrial?: 'refuse' | 'charge';
 }): Promise<AnonCheckoutResult> {
   const { request, stripe, admin, currency, email, region, from } = params;
+  const plan: BillingPlan = params.plan ?? 'annual';
   const extra = params.extraMetadata ?? {};
 
-  if (!ANNUAL_PRICE_ID) {
-    console.error('[stripe checkout] STRIPE_ANNUAL_PRICE_ID is not configured');
+  if (plan === 'monthly' ? !MONTHLY_PRICE_ID : !ANNUAL_PRICE_ID) {
+    console.error(
+      `[stripe checkout] ${plan === 'monthly' ? 'STRIPE_MONTHLY_PRICE_ID' : 'STRIPE_ANNUAL_PRICE_ID'} is not configured`,
+    );
     return { ok: false, error: 'plan_unavailable' };
   }
 
-  const priced = await resolveCheckoutPrice(request, stripe, currency);
+  const priced = await resolveCheckoutPrice(request, stripe, currency, plan);
   if (!priced.ok) return { ok: false, error: 'plan_unavailable' };
 
   // No email, no pre-check: Stripe collects the address and the webhook's
-  // guards decide after the fact.
-  const eligibility = email
-    ? await checkTrialEligibilityByEmail(admin, email)
-    : { eligible: true as const };
+  // guards decide after the fact. Monthly never trials, so it never asks.
+  const eligibility =
+    plan === 'monthly'
+      ? { eligible: false as const, reason: 'monthly_plan' }
+      : email
+        ? await checkTrialEligibilityByEmail(admin, email)
+        : { eligible: true as const };
   const trialEligible = eligibility.eligible;
   if (!trialEligible) {
     console.info('[stripe checkout] anon trial withheld', eligibility.reason);
-    if (params.withheldTrial === 'refuse') {
+    // Only an annual buyer whose screen promised a free week is sent back to
+    // the sheet to see paid terms. Monthly never had a trial to withhold: its
+    // card already says it is charged today, so there is nothing to re-say.
+    if (params.withheldTrial === 'refuse' && plan === 'annual') {
       return { ok: false, error: 'trial_used' };
     }
   }
@@ -180,7 +207,7 @@ export async function createAnonCheckoutSession(params: {
       // provision one rather than log an unresolvable subscription.
       anon_checkout: 'true',
       ...(email ? { checkout_email: email } : {}),
-      plan: 'annual',
+      plan,
       currency,
       region: region || '',
       from,
@@ -191,7 +218,7 @@ export async function createAnonCheckoutSession(params: {
       metadata: {
         anon_checkout: 'true',
         ...(email ? { checkout_email: email } : {}),
-        plan: 'annual',
+        plan,
         currency,
         trial: String(trialEligible),
         ...acquisitionMetadata(request.headers),

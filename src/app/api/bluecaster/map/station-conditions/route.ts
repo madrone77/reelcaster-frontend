@@ -8,7 +8,9 @@ import { fetchStationConditions } from "@/lib/bluecaster";
  * Serves the tide panel that opens when a tide-station donut is clicked
  * on the Explore map, without exposing the BlueCaster API key.
  *
- * Query params (passed through): source=chs|noaa · sid=<station id>
+ * Query params (passed through): source=chs|noaa · sid=<station id> ·
+ * back_hours=<0..30> (how far behind now the curve starts; the city tide
+ * section asks for 30 so it covers the whole local day)
  */
 export async function GET(request: NextRequest) {
   const sp = request.nextUrl.searchParams;
@@ -22,8 +24,11 @@ export async function GET(request: NextRequest) {
     );
   }
 
+  const backRaw = sp.get("back_hours");
+  const backHours = backRaw !== null && /^[0-9]{1,2}$/.test(backRaw) ? Number(backRaw) : undefined;
+
   try {
-    const data = await fetchStationConditions(source, sid);
+    const data = await fetchStationConditions(source, sid, { backHours });
     if (!data) {
       return NextResponse.json({ error: "unavailable" }, { status: 502 });
     }

@@ -22,9 +22,12 @@ import {
   NO_DATA_LABEL,
 } from "@/app/explore/lib/score-puck";
 import { tierFor } from "@/app/explore/lib/explore-data";
+import { LOCK_LABEL } from "@/app/explore/lib/score-puck";
 
 const SOURCE_ID = "mk-spots";
 const SPOT_PUCK = "mk-spot-puck";
+
+const NO_LOCKS: ReadonlySet<string> = new Set();
 
 /**
  * Everything in the relief style that is neither bathymetry nor a spot.
@@ -89,13 +92,36 @@ export default function MarketingMap({
   spots,
   center,
   zoom,
+  featuredSlug,
+  featuredSlugs,
   fallback = null,
+  lockedSlugs = NO_LOCKS,
 }: {
   spots: MapSpot[];
   center: { lat: number; lng: number };
   zoom: number;
+  /**
+   * Hold the card on this one spot instead of cycling the best few. The ad
+   * spot page's reel is about the spot the reader searched for, and a card
+   * wandering off to a neighbour would be a different answer.
+   */
+  featuredSlug?: string;
+  /**
+   * Cycle the card through these spots, in this order. The city ad page
+   * passes its most-fished marks for the searched fish, so the map walks the
+   * same list the page ranks underneath it.
+   */
+  featuredSlugs?: string[];
   /** Drawn instead of the map once the GPU context is gone. */
   fallback?: ReactNode;
+  /**
+   * Pins that wear a padlock instead of a score (`explore_locked_spots_v1`).
+   * Decided by the caller, not here: this map also draws on the homepage,
+   * which mounts outside the auth provider, so it cannot ask who is looking.
+   * The /fishing hero reel's wrapper (hero-reel-map.tsx) works it out and
+   * passes the set; the homepage carousel and the /lp reels pass nothing.
+   */
+  lockedSlugs?: ReadonlySet<string>;
 }) {
   const [mapObj, setMapObj] = useState<MlMap | null>(null);
   const mapRef = useRef<MapRef | null>(null);
@@ -158,14 +184,24 @@ export default function MarketingMap({
   }, [bathyManifest]);
 
   /** The best few, high to low — what the card cycles through. */
-  const featured = useMemo(
-    () =>
-      [...spots]
-        .filter((s) => s.score !== null)
-        .sort((a, b) => (b.score ?? -1) - (a.score ?? -1))
-        .slice(0, FEATURED_COUNT),
-    [spots],
-  );
+  const featured = useMemo(() => {
+    const pinned = featuredSlug ? spots.find((s) => s.slug === featuredSlug) : undefined;
+    if (pinned) return [pinned];
+    if (featuredSlugs?.length) {
+      // A plain object: this file's `Map` is react-map-gl's component.
+      const bySlug: Record<string, MapSpot> = Object.fromEntries(spots.map((s) => [s.slug, s]));
+      const listed = featuredSlugs
+        .map((slug) => bySlug[slug])
+        .filter((s): s is MapSpot => !!s)
+        .slice(0, FEATURED_COUNT);
+      if (listed.length) return listed;
+    }
+    return [...spots]
+      // Never walk the card onto a locked pin: the card prints the score.
+      .filter((s) => s.score !== null && !lockedSlugs.has(s.slug))
+      .sort((a, b) => (b.score ?? -1) - (a.score ?? -1))
+      .slice(0, FEATURED_COUNT);
+  }, [spots, featuredSlug, featuredSlugs, lockedSlugs]);
 
   const [activeIdx, setActiveIdx] = useState(0);
   const featuredCount = featured.length;
@@ -208,8 +244,12 @@ export default function MarketingMap({
           geometry: { type: "Point" as const, coordinates: [s.lng, s.lat] as [number, number] },
           properties: {
             slug: s.slug,
-            label: s.score === null ? NO_DATA_LABEL : String(s.score),
-            opacity: s.score === null ? 0.6 : 1,
+            label: lockedSlugs.has(s.slug)
+              ? LOCK_LABEL
+              : s.score === null
+                ? NO_DATA_LABEL
+                : String(s.score),
+            opacity: s.score === null && !lockedSlugs.has(s.slug) ? 0.6 : 1,
             // Marketing has no viewer, so no reports and no owned spots: every
             // puck is a plain curated one.
             fresh: 0,
@@ -218,7 +258,7 @@ export default function MarketingMap({
           },
         })),
     }),
-    [spots],
+    [spots, lockedSlugs],
   );
 
   // The featured spot wears the same selected ring Explore gives a chosen spot,

@@ -18,8 +18,6 @@ const PRIMARY = 'bg-rc-brand text-white hover:bg-rc-brand-hover';
 const SECONDARY =
   'border border-rc-brand bg-rc-panel text-rc-brand hover:bg-rc-brand-soft';
 const ON_BRAND = 'bg-white text-rc-brand hover:bg-white/90';
-// Green, for a Pro ask that has to stand apart from the blue page around it.
-const PRO = 'bg-rc-good text-white hover:bg-rc-good-ink';
 
 // Stays large at every range (no desktop step-down) — for the marketing
 // moments that want a big CTA.
@@ -52,6 +50,4 @@ export const btn = {
   // Same compact header CTA, on a brand-colored bar (white button) — the blue
   // top nav's "Start free trial". Identical shape/type to `nav`, inverted fill.
   navOnBrand: `${BASE} ${SMALL} ${ON_BRAND}`,
-  // Same compact shape in green: the locked fortnight panel's trial button.
-  navPro: `${BASE} ${SMALL} ${PRO}`,
 } as const;

@@ -3,6 +3,7 @@
 import { useEffect, useSyncExternalStore } from 'react';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/auth-context';
+import { writeAuthCookie } from '@/lib/auth-cookie';
 
 export type SubscriptionTier = 'free' | 'pro_monthly' | 'pro_annual';
 export type SubscriptionStatus =
@@ -133,15 +134,22 @@ async function load(userId: string): Promise<void> {
 
     const tier = (data.subscription_tier ?? 'free') as SubscriptionTier;
     const status = (data.subscription_status ?? 'none') as SubscriptionStatus;
+    const isPaid =
+      (tier === 'pro_monthly' || tier === 'pro_annual') &&
+      (status === 'active' || status === 'trialing');
+
+    // The page-view counter at the edge reads the tier off a cookie, and this
+    // is the one place the tier is known. Written after every settings read,
+    // so a checkout or a lapse shows on the next page view. See
+    // src/lib/auth-cookie.ts.
+    writeAuthCookie(isPaid ? 'pro' : 'free');
 
     emit({
       userId,
       settings: {
         tier,
         status,
-        isPaid:
-          (tier === 'pro_monthly' || tier === 'pro_annual') &&
-          (status === 'active' || status === 'trialing'),
+        isPaid,
         periodEnd: data.subscription_period_end ?? null,
         stripeCustomerId: data.stripe_customer_id ?? null,
         phoneE164: data.phone_e164 ?? null,

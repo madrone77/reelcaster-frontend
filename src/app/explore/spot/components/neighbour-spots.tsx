@@ -2,12 +2,13 @@
 
 import Link from "next/link";
 import dynamic from "next/dynamic";
-import { useId, useState } from "react";
+import { useState } from "react";
 import { Wind } from "lucide-react";
 import { tierFor, TIER_TEXT } from "../../lib/explore-data";
 import { useFavorite } from "../../lib/use-favorite";
 import { useSubscription } from "@/hooks/use-subscription";
 import HourlyBars from "../../components/hourly-bars";
+import MapPuckSvg, { MAP_PUCK_TIP_Y } from "../../components/map-puck-svg";
 import { regulatorFrom, type Regulator } from "@/lib/regions";
 import type {
   NearbySpotCard,
@@ -42,64 +43,6 @@ const SEASON: Record<SeasonState, { label: string; cls: string }> = {
  *  spot page's own favourite. Falls back to the id when there's no href. */
 function slugOf(n: NearbySpotCard): string {
   return n.href?.split("/").filter(Boolean).pop() ?? n.id;
-}
-
-/**
- * The Explore map's pin, in brand blue and without a score: the same pill and
- * tail `lib/score-puck.ts` rasterises for MapLibre (30×24 body, 7px corners,
- * 12×8 tail, 2px white ring, soft drop shadow), drawn here as SVG so it can sit
- * over an `<img>`. It carries no number because the card already states the
- * score beside the name — a second, smaller one on the pin would be the same
- * fact twice, and the map's own pucks say "selected" in exactly this blue.
- *
- * The tail tip is at (21, 38) of a 42×44 box, and the still is centred on the
- * spot, so the caller places the tip on the image centre.
- */
-const PIN_PATH =
-  "M13 6H29A7 7 0 0 1 36 13V23A7 7 0 0 1 29 30H27L21 38L15 30H13A7 7 0 0 1 6 23V13A7 7 0 0 1 13 6Z";
-
-function CardPin() {
-  // Four cards share a page; SVG paint servers are looked up by document id.
-  const id = useId();
-  const fill = `${id}-fill`;
-  const sheen = `${id}-sheen`;
-  const shadow = `${id}-shadow`;
-  const clip = `${id}-clip`;
-  return (
-    <svg
-      viewBox="0 0 42 44"
-      width="42"
-      height="44"
-      aria-hidden
-      className="pointer-events-none"
-    >
-      <defs>
-        <linearGradient id={fill} x1="0" x2="0" y1="0" y2="1">
-          <stop offset="0" stopColor="#4C66E6" />
-          <stop offset="1" stopColor="#1F40E0" />
-        </linearGradient>
-        <linearGradient id={sheen} x1="0" x2="0" y1="0" y2="1">
-          <stop offset="0" stopColor="#fff" stopOpacity="0.22" />
-          <stop offset="1" stopColor="#fff" stopOpacity="0" />
-        </linearGradient>
-        <filter id={shadow} x="-30%" y="-30%" width="160%" height="160%">
-          <feDropShadow dx="0" dy="2" stdDeviation="2.5" floodColor="#0F172A" floodOpacity="0.45" />
-        </filter>
-        <clipPath id={clip}>
-          <path d={PIN_PATH} />
-        </clipPath>
-      </defs>
-      <path
-        d={PIN_PATH}
-        fill={`url(#${fill})`}
-        stroke="#fff"
-        strokeWidth="2"
-        strokeLinejoin="round"
-        filter={`url(#${shadow})`}
-      />
-      <rect x="6" y="6" width="30" height="15" fill={`url(#${sheen})`} clipPath={`url(#${clip})`} />
-    </svg>
-  );
 }
 
 function NearbyCard({
@@ -166,7 +109,9 @@ function NearbyCard({
           as the backdrop while it loads, and if imagery is unavailable.
 
           `pin=0`: the still comes back without Google's teardrop and the
-          product's own pin is drawn over it (CardPin), tip on the centre. */}
+          Explore map's own puck is drawn over it (MapPuckSvg), tip on the
+          centre, carrying the top species' score in its band colour, so the
+          pin on the card is the pin the angler will find on the map. */}
       <div className="relative h-24 bg-rc-surface">
         <img
           src={`/api/bluecaster/map/spot-thumb?spot=${n.id}&z=12&size=card&pin=0`}
@@ -175,8 +120,11 @@ function NearbyCard({
           loading="lazy"
           className="absolute inset-0 h-full w-full object-cover"
         />
-        <span className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-[38px]">
-          <CardPin />
+        <span
+          className="pointer-events-none absolute left-1/2 top-1/2 -translate-x-1/2"
+          style={{ marginTop: -MAP_PUCK_TIP_Y }}
+        >
+          <MapPuckSvg score={top?.score ?? null} />
         </span>
         {/* Bottom-left, clear of the pin in the centre and the star top-right. */}
         {verdict && (

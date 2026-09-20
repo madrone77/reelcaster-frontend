@@ -8,7 +8,6 @@ import { btn, TOP_BAR_CTA_PHONE_WIDTH } from "@/app/components/ui/button";
 import { PAGE_MEASURE } from "@/app/components/layout/page-measure";
 import { useAuth } from "@/contexts/auth-context";
 import TrialModalButton from "@/app/components/paywall/trial-modal-button";
-import { useTrialCtaLabel } from "@/app/components/split-test/use-trial-cta-label";
 import type { NagFeatureId } from "@/lib/plan-features";
 import { fetchAlertProfiles } from "@/lib/alerts-client";
 // Search lives here because this bar is the only chrome every signed-in
@@ -49,30 +48,23 @@ const NAV: {
 ];
 
 /**
- * The signed-out trial button, worded by the `trial_cta_label_v1` split.
- * Its own component so the exposure fires only when the button is actually
- * on screen, not whenever the bar mounts behind a loading or signed-in state.
+ * The signed-out trial button. Reads "Try Pro free": the `trial_cta_label_v1`
+ * split (concluded 2026-09-17) had naming the plan pressed more often than
+ * "Start free trial" with no fewer trials per exposure, so the plan name stays.
+ * Its own component so the two bars (product and ad frame) share one label.
  */
 function TrialCtaButton({
-  surface,
   from,
   placeName,
   className,
 }: {
-  surface: "topbar" | "ad_topbar";
   from: string;
   placeName?: string;
   className: string;
 }) {
-  const { label, reportPress } = useTrialCtaLabel(surface);
   return (
-    <TrialModalButton
-      from={from}
-      placeName={placeName}
-      className={className}
-      onPress={reportPress}
-    >
-      {label}
+    <TrialModalButton from={from} placeName={placeName} className={className}>
+      Try Pro free
     </TrialModalButton>
   );
 }
@@ -98,6 +90,7 @@ export default function ExploreTopBar({
   placeName,
   adFrame = false,
   adBarEdge = "bottom",
+  ctaOverColumn,
 }: {
   /** "brand" (the default) is a blue bar with a white mark/links; "default"
    *  is the light bar, kept available for any surface that needs it. */
@@ -157,14 +150,22 @@ export default function ExploreTopBar({
    * Which edge of the screen the ad frame's bar sits on.
    *
    * "bottom" (the default) is the thumb-reach position the frame shipped
-   * with, and what both ad surfaces pass. "top" is where every other page
-   * keeps the brand blue, the mark and the Start free trial button; the ad
-   * surfaces wore it from 2026-09-04 until the `ad_bar_edge_v1` split
-   * (top against bottom) concluded for the bottom on 2026-09-07.
+   * with. "top" is where every other page keeps the brand blue, the mark and
+   * the Start free trial button, and what both ad surfaces pass. The
+   * `ad_bar_edge_v1` split concluded for the bottom on 2026-09-07; both
+   * surfaces went back to the top on 2026-09-14.
    *
    * Only read under `adFrame`; the product bar is always at the top.
    */
   adBarEdge?: "top" | "bottom";
+  /**
+   * Width, in px, of a right-hand page column the bar's button should sit
+   * centred over on desktop. The ad spot page passes its hero's phone column
+   * so the Try Pro free button hangs directly above the phone. The bar and
+   * the page share PAGE_MEASURE, so a box this wide at the bar's right edge is
+   * that column. Unset keeps the button flush right.
+   */
+  ctaOverColumn?: number;
 } = {}) {
   const { user, session, loading } = useAuth();
   const pathname = usePathname();
@@ -223,6 +224,37 @@ export default function ExploreTopBar({
     };
   }, [hideOnScroll]);
 
+  // The ad frame's copy can sit on the bottom edge instead; see the note above
+  // the header below. Read here as well because a bar down there covers
+  // nothing at the top of the viewport.
+  const atBottom = adFrame && adBarEdge === "bottom";
+
+  // How much of the top of the viewport this bar is covering, published for
+  // anything on the page that pins itself under it.
+  //
+  // The spot page's conditions strip is sticky and pinned to `top: 0` back
+  // when no route that rendered it had a bar up here. Both spot surfaces have
+  // one again — the product bar and, since the ad frame's copy came back to
+  // the top edge, the paid one — so the strip was pinning behind 64px of blue
+  // and the readout the chart is scrubbing went invisible.
+  //
+  // A variable on the document element rather than a prop: this bar is
+  // `fixed`, so it is nobody's ancestor, and the strip is several hundred
+  // lines into a different tree.
+  //
+  // Zero while rolled away, so the strip rides up into the space the bar
+  // just left and back down when it returns. Zero at the bottom edge too.
+  // The value is the phone answer: above lg the bar never rolls away, and
+  // nothing sticky reads this there.
+  useEffect(() => {
+    if (atBottom) return;
+    const root = document.documentElement;
+    root.style.setProperty("--rc-top-bar", rolledAway ? "0px" : "64px");
+    return () => {
+      root.style.removeProperty("--rc-top-bar");
+    };
+  }, [atBottom, rolledAway]);
+
   // "/" would match every path under startsWith, so the home link compares
   // exactly and only the sub-path links use the prefix test.
   const isActive = (href: string) =>
@@ -250,10 +282,11 @@ export default function ExploreTopBar({
   // It never rolls away. `hideOnScroll` is a trade for a long read whose nav
   // lives elsewhere; here the bar is the only ask on the page.
   //
-  // The top edge (`adBarEdge="top"`, nothing passes it today): same bar,
+  // The top edge (`adBarEdge="top"`, what both ad surfaces pass): same bar,
   // same one button, pinned where the product's bar is. It publishes no
-  // `data-ad-bar` there, so nothing below moves up to clear it.
-  const atBottom = adFrame && adBarEdge === "bottom";
+  // `data-ad-bar` there, so nothing below moves up to clear it. It does
+  // publish `--rc-top-bar`, which is the same idea the other way up — see the
+  // effect above.
   return (
     <header
       data-ad-bar={atBottom ? "" : undefined}
@@ -365,7 +398,16 @@ export default function ExploreTopBar({
         </nav>
         )}
 
-        <div className="flex items-center gap-2 sm:gap-3 ml-auto">
+        <div
+          className={`flex items-center gap-2 sm:gap-3 ml-auto ${
+            ctaOverColumn ? "lg:w-[var(--rc-cta-col)] lg:justify-center" : ""
+          }`}
+          style={
+            ctaOverColumn
+              ? ({ "--rc-cta-col": `${ctaOverColumn}px` } as React.CSSProperties)
+              : undefined
+          }
+        >
           {/* Search is a way to somewhere else, which on a paid landing is the
               one thing this bar must not offer. */}
           {!adFrame && <SearchTrigger brand={brand} />}
@@ -394,7 +436,6 @@ export default function ExploreTopBar({
               )
             ) : (
               <TrialCtaButton
-                surface="ad_topbar"
                 from="explore-ad-topbar"
                 placeName={placeName}
                 className={`${brand ? btn.navOnBrand : btn.nav} ${TOP_BAR_CTA_PHONE_WIDTH}`}
@@ -444,7 +485,6 @@ export default function ExploreTopBar({
               {/* Pinned to one phone width (TOP_BAR_CTA_PHONE_WIDTH) so
                   Explore's Add spot, directly under it, is exactly as wide. */}
               <TrialCtaButton
-                surface="topbar"
                 from="explore-topbar"
                 placeName={placeName}
                 className={`${brand ? btn.navOnBrand : btn.nav} ${TOP_BAR_CTA_PHONE_WIDTH}`}

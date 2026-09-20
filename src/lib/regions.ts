@@ -20,6 +20,39 @@ export const COVERED_PROVINCES = ["BC", "WA", "OR", "CA"] as const;
 export type CoveredProvince = (typeof COVERED_PROVINCES)[number];
 
 /**
+ * How a region is spelled out to a reader.
+ *
+ * The codes are how anglers write a place ("Victoria, BC") and how the titles
+ * have to render to fit, but a bare list of them is not: "BC, WA, OR, CA" puts
+ * a Canadian province first and then asks the reader to work out that CA is
+ * California and not Canada. Prose spells them out.
+ */
+const PROVINCE_DISPLAY_NAME: Record<CoveredProvince, string> = {
+  BC: "British Columbia",
+  WA: "Washington",
+  OR: "Oregon",
+  CA: "California",
+};
+
+export function provinceDisplayName(code: string): string {
+  return PROVINCE_DISPLAY_NAME[code.toUpperCase() as CoveredProvince] ?? code;
+}
+
+/**
+ * The covered regions as a sentence fragment — "British Columbia, Washington,
+ * Oregon and California".
+ *
+ * Derived rather than written out, because the written-out version of this
+ * list is exactly what named Oregon for months after Oregon was pulled, and
+ * what will quietly omit the next region we add.
+ */
+export function coveredRegionsSentence(): string {
+  const names = COVERED_PROVINCES.map(provinceDisplayName);
+  if (names.length < 2) return names.join("");
+  return `${names.slice(0, -1).join(", ")} and ${names[names.length - 1]}`;
+}
+
+/**
  * Every region we can resolve FACTS about (timezone, regulator), which is a
  * wider set than the ones we sell. A spot can sit just over a border — see the
  * denormalized address on `places` — and still needs the right clock and the
