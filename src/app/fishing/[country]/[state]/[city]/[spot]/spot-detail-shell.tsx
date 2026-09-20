@@ -1401,6 +1401,17 @@ export default function SpotDetailShell({
           <div
             className={`${PAGE_MEASURE} flex flex-nowrap items-center justify-between gap-2 py-3`}
           >
+            {/* In the sheet the name sits up here, beside the X, in the slot
+                the breadcrumb leaves empty on a phone. The hero row below
+                keeps the badges and the actions; it used to carry the name
+                too, under a head row that was mostly whitespace. */}
+            {sheet && !ad && (
+              <h1 className="rc-title-lg min-w-0 flex-1 text-2xl leading-tight">
+                {landingSpecies || landingTopic
+                  ? landingTitle(spot.name, headlineFish, landingTopic)
+                  : spot.name}
+              </h1>
+            )}
             <div className="flex min-w-0 items-center gap-2 font-rc-mono text-[11px] text-rc-ink-mute">
               {/* Under the ad frame this is the one link on the page, and it
                   is not an exit: it carries `?ad=` back onto Explore, which
@@ -1632,11 +1643,14 @@ export default function SpotDetailShell({
             <div>
                 {pills}
                 <div className="flex items-center gap-2 mt-3">
-                  <h1 className="rc-title-lg text-3xl lg:text-4xl min-w-0">
-                    {landingSpecies || landingTopic
-                      ? landingTitle(spot.name, headlineFish, landingTopic)
-                      : spot.name}
-                  </h1>
+                  {/* The sheet already showed the name in its head row. */}
+                  {!sheet && (
+                    <h1 className="rc-title-lg text-3xl lg:text-4xl min-w-0">
+                      {landingSpecies || landingTopic
+                        ? landingTitle(spot.name, headlineFish, landingTopic)
+                        : spot.name}
+                    </h1>
+                  )}
                   {/* Save, home spot and alerts all act on an ACCOUNT. On a
                       cold ad click there is no account, so each one is a
                       modal in front of someone who has not yet seen what
