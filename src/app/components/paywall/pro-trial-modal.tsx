@@ -37,7 +37,6 @@ import { TRIAL_DAYS } from "@/lib/pricing";
 import { usePricing } from "@/app/components/split-test/use-pricing";
 import { useSplitExposure } from "@/app/components/split-test/report";
 import { usePlanPicker } from "@/app/components/split-test/use-plan-picker";
-import { useWallLabel } from "@/app/components/split-test/use-wall-label";
 import {
   NAG_FEATURES,
   type NagFeatureId,
@@ -286,7 +285,6 @@ export default function ProTrialModal({
           className="bg-rc-panel border-rc-rule text-rc-ink gap-0 p-0 [&>[data-slot=dialog-close]]:z-20 h-[94dvh] max-h-[94dvh]"
         >
           <TrialSheetStripe
-            feature={feature}
             placeName={spotName ?? placeName}
             // A spot when there is one, otherwise the city the map is on.
             placeKind={spotName ? 'spot' : 'city'}
@@ -358,7 +356,6 @@ export default function ProTrialModal({
         className="bg-rc-panel border-rc-rule text-rc-ink p-0 gap-0 sm:max-w-lg lg:max-w-4xl max-h-[88dvh] lg:max-h-[min(88dvh,44rem)] flex flex-col overflow-y-auto overscroll-contain lg:overflow-hidden [&>[data-slot=dialog-close]]:z-20 lg:[&>[data-slot=dialog-close]]:right-[calc(50%+1rem)]"
       >
         <DialogBody
-          feature={feature}
           from={from}
           ctaHref={ctaHref}
           ctaLabel={ctaLabel}
@@ -386,7 +383,6 @@ export default function ProTrialModal({
  * ./trial-sheet-stripe.
  */
 function DialogBody({
-  feature,
   from,
   ctaHref,
   ctaLabel,
@@ -399,7 +395,6 @@ function DialogBody({
   highlightRowId,
   trackCta,
 }: {
-  feature: NagFeatureId;
   from: string;
   ctaHref?: string;
   ctaLabel: string;
@@ -419,11 +414,6 @@ function DialogBody({
     MONTHLY_ON && !ctaHref,
     "dialog_plan",
   );
-  // Arm b of wall_label_v1: the headline names the lock that was pressed
-  // ("Unlock all spots") instead of the fortnight at the spot. Read here,
-  // not in the modal, for the same reason as the picker: this mounts on
-  // open, the modal mounts closed under every wall on the page.
-  const { label, reportPress: reportLabelPress } = useWallLabel(feature, "dialog");
   return (
     <>
         {/* One provider around every piece: the wallet, the buy form, the
@@ -438,7 +428,6 @@ function DialogBody({
           // hidden while Monthly is chosen, see below).
           onActivate={(method) => {
             reportPress();
-            reportLabelPress();
             trackCta({
               plan: method === "monthly" ? "monthly" : "annual",
               method,
@@ -499,7 +488,7 @@ function DialogBody({
                       other line here names it. */}
                   <TrialHeadline
                     placeName={spotName}
-                    text={label ?? headline}
+                    text={headline}
                     className="mt-2 text-xl sm:text-2xl"
                   />
                 </DialogHeader>
@@ -546,10 +535,7 @@ function DialogBody({
                   <Link
                     href={ctaHref}
                     data-testid="pro-trial-cta"
-                    onClick={() => {
-                      reportLabelPress();
-                      trackCta({ href: ctaHref, position: "top" });
-                    }}
+                    onClick={() => trackCta({ href: ctaHref, position: "top" })}
                     className="block text-center px-4 py-2.5 rounded-lg bg-rc-brand hover:bg-rc-brand-hover text-white text-sm font-bold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rc-brand focus-visible:ring-offset-2"
                   >
                     {ctaLabel}
