@@ -1,5 +1,8 @@
 /**
- * Locked spots on the ad-framed map: `explore_locked_spots_v1`.
+ * Locked spots on the signed-out map.
+ *
+ * Shipped as split test `explore_locked_spots_v1` (2026-09-19) and made the
+ * default 2026-09-20 when locked pins won on trials, 6 to 2.
  *
  * Casey (2026-09-19): on the anonymous map, put locks instead of scores on
  * some spots, so a tap says "unlock scoring
@@ -15,7 +18,7 @@
  * best spots was considered and set aside for a first test: the visible
  * scores would then all be middling, and the map would undersell itself.
  *
- * WHO. Every signed-out viewer in arm b, on Explore, the city page chart and
+ * WHO. Every signed-out viewer, on Explore, the city page chart and
  * the hero reel. Never a signed-in viewer, and never while auth is still
  * resolving, so a member does not watch locks appear and then vanish. It
  * began on the ad frame only and was widened to all anonymous traffic the
@@ -27,12 +30,10 @@
  * the pin still stands on the water; it wears a padlock in place of the
  * number. This is a client-side transform of a payload the browser already
  * holds, so it is a UX gate, not protection: the same today score is one tap
- * away on the public spot page. Fine for a split test.
+ * away on the public spot page.
  */
 
 import type { RailSpot } from "./explore-data";
-
-export const LOCKED_SPOTS_TEST = "explore_locked_spots_v1";
 
 /** `?keep=` names spots the lock must leave open, comma-separated slugs. */
 export const KEEP_PARAM = "keep";
@@ -62,7 +63,7 @@ function hashSlug(slug: string): number {
 export const LOCKED_TENTHS = 6;
 
 /**
- * Is this spot locked under the test? The hash's last decimal digit decides
+ * Is this spot locked? The hash's last decimal digit decides
  * (`< LOCKED_TENTHS` locks); the keep set is exempt. A viewer's own spot is
  * never locked: it is their data, not ours to sell.
  */

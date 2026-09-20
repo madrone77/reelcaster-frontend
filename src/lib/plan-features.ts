@@ -418,7 +418,7 @@ export const NAG_FEATURES: Record<NagFeatureId, NagFeature> = {
     unlocksAt: "pro",
     pricingFeature: "whole-map",
   },
-  /** A padlocked pin on the ad-framed map (explore_locked_spots_v1). */
+  /** A padlocked pin on the signed-out map. */
   "locked-spots": {
     action: "see the score at every spot",
     unlocksAt: "pro",

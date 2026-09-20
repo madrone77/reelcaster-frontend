@@ -86,7 +86,7 @@ import CityTopSpots from "./city-top-spots";
 import CustomSpots from "./custom-spots";
 import { spotHref } from "@/lib/paths";
 import { useAdFrame } from "@/app/explore/lib/ad-frame";
-import { useLockedSpotsSplit } from "@/app/components/split-test/use-locked-spots";
+import { useLockedSpots } from "@/app/components/split-test/use-locked-spots";
 import { withAdParams } from "@/lib/ad-mode";
 import { UnitCountryScope } from "@/contexts/unit-preferences-context";
 import { unitCountryForCitySlug } from "@/lib/unit-system";
@@ -260,12 +260,12 @@ export default function CityInstrument({
   // account never watches a padlock appear over days it has paid for and then
   // disappear — the lock-then-unlock flash this app has fixed twice already.
   const accessTier: ForecastTier = isPaid ? "pro" : user ? "free" : "anonymous";
-  // Whether the chart below is wearing locks (explore_locked_spots_v1). Read
+  // Whether the chart below is wearing locks. Read
   // here as well as in the chart so the section's own copy can say what the
   // locks mean; the hook counts one exposure per surface, so two readers on
   // one page do not double it. Casey (2026-09-19): "somewhere around the
   // spot city map we need the language unlock all spots with pro".
-  const spotLocks = useLockedSpotsSplit(
+  const spotLocks = useLockedSpots(
     !authLoading && !user && !isPaid ? "city_map" : null,
   ).locksOn;
 
