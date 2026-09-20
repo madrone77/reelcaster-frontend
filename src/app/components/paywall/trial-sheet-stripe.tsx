@@ -11,6 +11,8 @@ import PlanPicker from './plan-picker';
 import { TRIAL_DAYS, dollars } from '@/lib/pricing';
 import { PRO_FORECAST_DAYS } from '@/lib/forecast-horizon';
 import { usePlanPicker } from '@/app/components/split-test/use-plan-picker';
+import { useWallLabel } from '@/app/components/split-test/use-wall-label';
+import type { NagFeatureId } from '@/lib/plan-features';
 
 /**
  * The rows, in Casey's words and order (reworked 2026-09-14). Not the plan
@@ -111,6 +113,7 @@ const STRIPE_BUTTON =
  * a screen fewer between the tap and the card gets more of those to a trial.
  */
 export default function TrialSheetStripe({
+  feature,
   placeName,
   placeKind,
   cityName,
@@ -123,6 +126,8 @@ export default function TrialSheetStripe({
   onCtaClick,
   onActivate,
 }: {
+  /** The wall the reader pressed, for arm b's label and the counter. */
+  feature: NagFeatureId;
   /** Where the reader opened this from. The headline does not name it (it is
       set the way Stripe's page sets the offer), but the brand header does:
       these three are how it knows which city to stand in. */
@@ -145,6 +150,11 @@ export default function TrialSheetStripe({
   // price is for sale. A wall that hands in its own href sells nothing here,
   // so the picker has nothing to pick and the arm is not counted.
   const { picker, reportPress } = usePlanPicker(MONTHLY_ON && !ctaHref);
+  // Arm b of wall_label_v1: one line naming the lock that was pressed, in
+  // the slot only the padlocked-pin walls used to fill. Arm a is the sheet
+  // as it stands. See split-test/use-wall-label.
+  const { label, reportPress: reportLabelPress } = useWallLabel(feature, 'sheet');
+  const lead = label ?? headline;
   return (
     <TrialCtaProvider
       from={from}
@@ -152,6 +162,7 @@ export default function TrialSheetStripe({
       theme="light"
       onActivate={(method) => {
         reportPress();
+        reportLabelPress();
         onActivate(method);
       }}
     >
@@ -165,9 +176,12 @@ export default function TrialSheetStripe({
             in ./pro-trial-modal, so the two never disagree on one screen. */}
         <BrandHeader city={city} />
 
-        {headline && (
-          <p className="mt-5 text-center text-[22px] leading-7 font-bold tracking-[-0.02em] text-rc-ink text-balance">
-            {headline}
+        {lead && (
+          <p
+            data-testid="wall-lead"
+            className="mt-5 text-center text-[22px] leading-7 font-bold tracking-[-0.02em] text-rc-ink text-balance"
+          >
+            {lead}
           </p>
         )}
 
