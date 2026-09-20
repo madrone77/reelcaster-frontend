@@ -95,7 +95,7 @@ import type { FlowKind } from "./lib/use-flow";
 import ForecastStrip from "./components/forecast-strip";
 import { AdFrameProvider } from "./lib/ad-frame";
 import { applySpotLocks } from "./lib/spot-locks";
-import { useLockedSpotsSplit } from "@/app/components/split-test/use-locked-spots";
+import { useLockedSpots } from "@/app/components/split-test/use-locked-spots";
 
 // ── Loaded on demand ─────────────────────────────────────────────────────
 //
@@ -278,10 +278,10 @@ export default function ExploreShell({
   // trial modal.
   const [adOfferOpen, setAdOfferOpen] = useState(false);
   const [adOfferSpotName, setAdOfferSpotName] = useState<string | undefined>();
-  // Locked pins, `explore_locked_spots_v1`, for every signed-out viewer once
+  // Locked pins, for every signed-out viewer once
   // auth has settled (a member must never see locks flash on and off). The
   // landing spot and anything `?keep=` named stay open (lib/spot-locks).
-  const lockSplit = useLockedSpotsSplit(
+  const lockSplit = useLockedSpots(
     !authLoading && !user && !isPaid ? "explore_map" : null,
   );
   const locksOn = lockSplit.locksOn;
@@ -2700,7 +2700,7 @@ export default function ExploreShell({
         placeName={labelCity?.name ?? undefined}
       />
 
-      {/* A padlocked pin on the ad-framed map (explore_locked_spots_v1):
+      {/* A padlocked pin on the ad-framed map:
           the wall names the spot whose score is being withheld. */}
       <ExploreWall
         open={lockedWallOpen}

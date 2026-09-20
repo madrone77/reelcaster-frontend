@@ -115,7 +115,7 @@ export default function MarketingMap({
   /** Drawn instead of the map once the GPU context is gone. */
   fallback?: ReactNode;
   /**
-   * Pins that wear a padlock instead of a score (`explore_locked_spots_v1`).
+   * Pins that wear a padlock instead of a score.
    * Decided by the caller, not here: this map also draws on the homepage,
    * which mounts outside the auth provider, so it cannot ask who is looking.
    * The /fishing hero reel's wrapper (hero-reel-map.tsx) works it out and

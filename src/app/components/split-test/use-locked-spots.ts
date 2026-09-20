@@ -1,70 +1,32 @@
 'use client';
 
 /**
- * Locked spots on the ad-framed Explore map: `explore_locked_spots_v1`.
+ * Locked spots on the signed-out map.
  *
- * Arm a is control: every pin shows today's score, as the map does now. Arm b
- * locks a stable half of the pins (see explore/lib/spot-locks.ts); a tap on a
- * lock opens the Pro wall. The question is whether visibly withheld scores
- * earn more trials from paid traffic than a fully open map.
- *
- * WHERE. The ad-framed /explore (`?ad=`) and the city ad page's chart of every
- * mark, for a viewer with no account.
- * The public /explore and every signed-in viewer never enter the test, so
- * only traffic we paid for is ever assigned. Casey's ask (2026-09-19): "ship
- * as a split test only on traffic from meta and google".
- *
- * COUNTS. Exposure = the framed map rendered with an arm. cta_click = a lock
- * pressed (arm b only, by construction; the control has nothing to press, so
- * the rate that matters is trials per exposure on the Split tests page, not
- * CTR).
- *
- * ONE EXPOSURE PER ARM PER SURFACE PER PAGE LOAD, the house rule.
- *
- * Stop the test with an UPDATE on `split_tests`; with no arm assigned nothing
- * is counted and every pin shows its score.
+ * Was `explore_locked_spots_v1`, concluded 2026-09-20 with arm b (locked pins)
+ * the winner: 6 trials on 429 exposures against the open map's 2 on 482. The
+ * locks are now the default for every signed-out viewer on Explore, the city
+ * page chart and the hero reel, with the landing spot and anything `?keep=`
+ * named left open (see explore/lib/spot-locks.ts). Nothing is counted any
+ * more; the hook keeps its shape so the four maps that read it did not have
+ * to change.
  */
-
-import { useEffect } from 'react';
-import { useSplitArms } from './use-pricing';
-import { reportSplitArmCta, reportSplitArmExposure } from './report';
-import { LOCKED_SPOTS_TEST } from '@/app/explore/lib/spot-locks';
 
 /** Which map: Explore, the city page's chart, or the hero phone reel. */
 export type LockedSpotsSurface = 'explore_map' | 'city_map' | 'hero_reel';
 
-/** Module scope, so a remount of the shell does not count a second exposure. */
-const seen = new Set<string>();
-
-export interface LockedSpotsSplit {
-  /** Arm b: lock the pins. */
+export interface LockedSpots {
+  /** Lock the pins. True whenever the viewer is signed out and auth has settled. */
   locksOn: boolean;
-  /** Call when a lock is pressed. No-op outside the test. */
+  /** Kept for the call sites; the split that counted presses has concluded. */
   reportLockPress: () => void;
 }
 
 /**
- * @param surface   Which map, or null when the test does not apply here: a
- *                  signed-in viewer, or auth still resolving. Nothing is
- *                  counted, and nothing locks, while null.
+ * @param surface   Which map, or null when locks do not apply here: a
+ *                  signed-in viewer, or auth still resolving. Nothing locks
+ *                  while null, so a member never sees locks flash on and off.
  */
-export function useLockedSpotsSplit(surface: LockedSpotsSurface | null): LockedSpotsSplit {
-  const arms = useSplitArms();
-  const arm = surface ? (arms[LOCKED_SPOTS_TEST] ?? null) : null;
-
-  useEffect(() => {
-    if (!arm || !surface) return;
-    const key = `${LOCKED_SPOTS_TEST}:${arm}:${surface}`;
-    if (seen.has(key)) return;
-    seen.add(key);
-    reportSplitArmExposure(LOCKED_SPOTS_TEST, arm, surface);
-  }, [arm, surface]);
-
-  return {
-    locksOn: arm === 'b',
-    reportLockPress: () => {
-      if (!arm || !surface) return;
-      reportSplitArmCta(LOCKED_SPOTS_TEST, arm, surface);
-    },
-  };
+export function useLockedSpots(surface: LockedSpotsSurface | null): LockedSpots {
+  return { locksOn: surface !== null, reportLockPress: () => {} };
 }

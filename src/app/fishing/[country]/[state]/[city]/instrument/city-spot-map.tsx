@@ -24,7 +24,7 @@ import { Lock } from "lucide-react";
 import { useAdFrame } from "@/app/explore/lib/ad-frame";
 import { withAdParams } from "@/lib/ad-mode";
 import { isSpotLocked } from "@/app/explore/lib/spot-locks";
-import { useLockedSpotsSplit } from "@/app/components/split-test/use-locked-spots";
+import { useLockedSpots } from "@/app/components/split-test/use-locked-spots";
 import { useAuth } from "@/contexts/auth-context";
 import { useSubscription } from "@/hooks/use-subscription";
 import { trackEvent } from "@/lib/analytics";
@@ -207,13 +207,13 @@ export default function CitySpotMap({
   lockKeepSlug?: string | null;
 }) {
   const router = useRouter();
-  // Locked pins, `explore_locked_spots_v1`, on the chart for every signed-out
+  // Locked pins, on the chart for every signed-out
   // viewer once auth has settled. A tap on a lock opens the Pro wall, worded
   // for the city.
   const ad = useAdFrame();
   const { user, loading: authLoading } = useAuth();
   const { isPaid } = useSubscription();
-  const lockSplit = useLockedSpotsSplit(
+  const lockSplit = useLockedSpots(
     !authLoading && !user && !isPaid ? "city_map" : null,
   );
   const keepSet = useMemo(() => new Set(lockKeepSlug ? [lockKeepSlug] : []), [lockKeepSlug]);
