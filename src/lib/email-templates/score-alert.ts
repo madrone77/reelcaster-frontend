@@ -429,20 +429,21 @@ function smsFor(items: ScoreAlertItem[], alsoEmailing: boolean): string {
   const rest = items.length - 1;
   const sea = seaState(top);
   const win = windowText(top);
-  const wind = top.conditions?.wind ?? null;
+  // "3 kn SW" on its own is a figure; "3 kn SW wind" says what it measures,
+  // the way the tide clause already says "flood tide".
+  const windPhrase = top.conditions?.wind ? `, ${top.conditions.wind} wind` : '';
   const tide = top.conditions?.tide?.split(' ')[0].toLowerCase() ?? null;
   const tidePhrase = tide === 'flood' || tide === 'ebb' ? `, ${tide} tide` : '';
 
-  // The conditions clause, "6 to 10 AM, 3 kn SW, flood tide", or nothing.
-  const clause = (rich: boolean) =>
-    rich && win ? `, ${win}${wind ? `, ${wind}` : ''}${tidePhrase}` : '';
+  // The conditions clause, "6 to 10 AM, 3 kn SW wind, flood tide", or nothing.
+  const clause = (rich: boolean) => (rich && win ? `, ${win}${windPhrase}${tidePhrase}` : '');
 
   const build = (rich: boolean): string => {
     if (rest === 0) {
       if (top.beat === 'confirm') {
         if (top.leadDays === 0) {
           const when = rich ? (windowPhraseToday(top) ?? partOfToday(top)) : 'today';
-          const conds = rich ? `${wind ? `, ${wind}` : ''}${tidePhrase}` : '';
+          const conds = rich ? `${windPhrase}${tidePhrase}` : '';
           return sea && rich
             ? `${seaWord(sea, true)} at ${spot}, ${when}: ${species} ${rounded}${conds}. Go.`
             : `${spot} is on ${when}: ${species} peaking at ${rounded}${conds}. Go.`;
