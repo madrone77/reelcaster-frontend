@@ -10,6 +10,14 @@
  * counter next door this is NOT an event log: no visitor id, no user id, no
  * path, no timestamp finer than the date.
  *
+ * AND ONCE MORE KEYED BY THE SESSION. The counter counts renders, and a reader
+ * who reopens the sheet four times is four exposures and one person, which
+ * makes the arm that invites a second look read as the arm that converts
+ * worse. `split_test_sessions` holds the same two counts per `rc_sess` (the
+ * rotating id paywall_events already carries, minted in middleware, in the
+ * privacy policy), so the report can divide by distinct sessions. A browser
+ * with cookies blocked has no session and lands in the counter only.
+ *
  * THE CLIENT DESCRIBES THE TEST, THE SERVER DESCRIBES THE VISITOR. The body
  * carries the arm, the surface and the currency being quoted, all of which the
  * page already knows and none of which identifies anybody. Location and device
@@ -29,6 +37,7 @@ import { classifyUserAgent, isBotUserAgent } from '@/lib/device';
 import { readEdgeGeo } from '@/lib/edge-geo';
 import { loadSplitTests } from '@/lib/split-tests-server';
 import { pacificDay } from '@/lib/pacific-day';
+import { readSessionId } from '@/lib/paywall-session';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -104,23 +113,45 @@ export async function POST(request: NextRequest) {
 
   const device = classifyUserAgent(ua);
   const geo = readEdgeGeo(request.headers);
+  const day = pacificDay();
+  const deviceKey = device.device === 'unknown' ? '' : device.device;
+  const sessionId = readSessionId(request.headers.get('cookie') ?? '');
 
-  const { error } = await admin.rpc('bump_split_test_counter', {
-    p_day: pacificDay(),
-    p_test_key: testKey,
-    p_variant: variant,
-    p_surface: surface,
-    p_currency: currency,
-    p_geo_country: geo.country ?? '',
-    p_geo_region: geo.region ?? '',
-    p_device: device.device === 'unknown' ? '' : device.device,
-    p_kind: kind,
-  });
+  const [counter, session] = await Promise.all([
+    admin.rpc('bump_split_test_counter', {
+      p_day: day,
+      p_test_key: testKey,
+      p_variant: variant,
+      p_surface: surface,
+      p_currency: currency,
+      p_geo_country: geo.country ?? '',
+      p_geo_region: geo.region ?? '',
+      p_device: deviceKey,
+      p_kind: kind,
+    }),
+    // The RPC drops an empty session itself; skipping the call here saves the
+    // round trip for the cookie-blocked few.
+    sessionId
+      ? admin.rpc('bump_split_test_session', {
+          p_day: day,
+          p_test_key: testKey,
+          p_variant: variant,
+          p_surface: surface,
+          p_currency: currency,
+          p_device: deviceKey,
+          p_session_id: sessionId,
+          p_kind: kind,
+        })
+      : Promise.resolve({ error: null }),
+  ]);
 
-  if (error) {
-    console.warn('[split-tests] counter bump failed', error);
+  if (counter.error) {
+    console.warn('[split-tests] counter bump failed', counter.error);
     // Still 200. A failed count must never be visible to someone trying to
     // buy something, and the caller fires this with sendBeacon anyway.
+  }
+  if (session.error) {
+    console.warn('[split-tests] session bump failed', session.error);
   }
 
   return NextResponse.json({ ok: true });
