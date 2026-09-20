@@ -63,6 +63,7 @@
 
 import { PLAN_LABELS } from "./plan-labels";
 import { TRIAL_DAYS, type PricingView } from "./pricing";
+import { PRO_FORECAST_DAYS } from "./forecast-horizon";
 
 /**
  * How many spots a free account may save. Pro is unlimited, so there is no
@@ -466,6 +467,44 @@ export const NAG_FEATURES: Record<NagFeatureId, NagFeature> = {
     rowId: "catch-reports",
     pricingFeature: "catch-reports",
   },
+};
+
+
+/**
+ * What each wall unlocks, as one line over the offer, for arm b of
+ * `wall_label_v1` (src/app/components/split-test/use-wall-label.ts).
+ *
+ * The reader pressed a lock and the modal that answers it says "Try
+ * ReelCaster Pro" in every case. Arm b puts the thing they pressed back
+ * over the offer, as an unlock: a padlocked pin says "Unlock all spots", a
+ * locked day says "Unlock the full 14-day forecast". Arm a says nothing
+ * here (the desktop dialog keeps its fortnight-at-the-spot line, the phone
+ * sheet goes straight to the offer), which is today.
+ *
+ * A total record, not a partial one, so a new wall cannot open without a
+ * label: the counter and the copy stay in step by the type checker rather
+ * than by memory. "Unlock", every line, so the arm reads as one voice
+ * wherever it lands, and the noun is the lock, never the plan. The plan is
+ * the offer's own line, two lines down.
+ */
+export const WALL_UNLOCK_LABELS: Record<NagFeatureId, string> = {
+  "forecast-14d": `Unlock the full ${PRO_FORECAST_DAYS}-day forecast`,
+  "forecast-week": `Unlock the full ${PRO_FORECAST_DAYS}-day forecast`,
+  "locked-spots": "Unlock all spots",
+  "whole-map": "Unlock the whole map",
+  "favorite-spots": "Unlock unlimited saved spots",
+  alerts: "Unlock score alerts",
+  "sms-alerts": "Unlock alerts by text",
+  "custom-spots": "Unlock your own spots",
+  "catch-reports": "Unlock all catch reports",
+  "catch-log": "Unlock the catch log",
+  "remove-ads": "Unlock an ad-free map",
+  "support-the-map": "Unlock all of Pro",
+  support: "Unlock priority support",
+  "first-login": `Unlock the full ${PRO_FORECAST_DAYS}-day forecast`,
+  // Never opens the trial modal (it asks for a free account); listed so the
+  // record stays total.
+  "depth-gate": "Unlock charted depth",
 };
 
 
