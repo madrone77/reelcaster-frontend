@@ -190,7 +190,7 @@ export default function TrialSheetStripe({
             centred, as there. The first charge is stated under the button. */}
         <OfferHeadline priceAmount={priceAmount} />
 
-        {/* Arm b of plan_picker_v1: Yearly beside Monthly, under the title
+        {/* Arm b of plan_picker_v2: Yearly beside Monthly, under the title
             and over the rows, so the reader has chosen a card before they
             reach the button. See ./plan-picker. */}
         {picker && <PlanPicker className="mt-5" />}

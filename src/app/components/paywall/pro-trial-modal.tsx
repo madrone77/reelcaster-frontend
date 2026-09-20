@@ -518,7 +518,7 @@ function DialogBody({
                   className="mt-4"
                 />
 
-                {/* Arm b of plan_picker_v1: Yearly beside Monthly, under
+                {/* Arm b of plan_picker_v2: Yearly beside Monthly, under
                     the argument and over the timeline, so the reader has
                     chosen a card before the timeline says when it charges.
                     The phone sheet draws the same cards under its title;

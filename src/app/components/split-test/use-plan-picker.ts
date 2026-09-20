@@ -32,7 +32,13 @@ import { useEffect } from 'react';
 import { useSplitArms } from './use-pricing';
 import { reportSplitArmCta, reportSplitArmExposure } from './report';
 
-export const PLAN_PICKER_TEST = 'plan_picker_v1';
+/**
+ * The second run. plan_picker_v1 ran 2026-09-19 18:00 to 2026-09-20 19:17 UTC
+ * and was called a draw (Casey: restart it as a second experiment with the
+ * same variables). Same arms, same weights, same surfaces; only the key and
+ * the counters start over.
+ */
+export const PLAN_PICKER_TEST = 'plan_picker_v2';
 
 /** Where the picker is drawn, for the counters. */
 export type PlanPickerSurface = 'sheet_plan' | 'dialog_plan';
