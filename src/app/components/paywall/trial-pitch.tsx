@@ -193,10 +193,12 @@ export function TrialTimeline({
   priceAmount: string;
   className?: string;
 }) {
-  const { chargeDate, trialOn, plan, priceCents } = useTrialCta();
-  // The picker's Monthly card carries no trial: one row, charged today.
-  // Three rows about a reminder and a day-7 charge would describe the
-  // other card.
+  const { chargeDate, trialOn, busy, plan, priceCents } = useTrialCta();
+  // No trial for this buyer: there is no week to lay out, only today's charge.
+  // Three rows promising $0.00 today above a button that says "Get Pro" would
+  // contradict it. The picker's Monthly card is one row for its own reason:
+  // it never trials, and it is charged at its own amount.
+  const noTrial = !trialOn && !busy;
   const rows: Array<{
     key: string;
     when: string;
@@ -209,6 +211,14 @@ export function TrialTimeline({
       when: 'Today',
       amount: `${dollars(priceCents)}/mo`,
       note: 'Pro unlocks now. Billed monthly, cancel anytime.',
+      tone: 'charge',
+    },
+  ] : noTrial ? [
+    {
+      key: 'charge',
+      when: 'Today',
+      amount: `${priceAmount}/yr`,
+      note: 'Pro unlocks now and renews yearly until you cancel.',
       tone: 'charge',
     },
   ] : [

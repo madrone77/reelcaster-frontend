@@ -34,6 +34,38 @@ export function proRows(city?: string): readonly string[] {
 export const PRO_ROWS_HEADING = 'What you get with Pro';
 
 /**
+ * "Try ReelCaster Pro / 7 days free", or the paid offer when this buyer has no
+ * trial: an address checkout just refused a trial for, or a signed-in account
+ * that has had one. Reads the same state as the button, so a headline in 36px
+ * type can no longer promise a free week above a button that says "Get Pro ·
+ * $33/year". Reads the plan off the provider too, so the title follows the
+ * picker: with Monthly chosen it says what that card charges ("$6.00 a
+ * month"), the annual card's sentence being the free week. Must render inside
+ * a TrialCtaProvider; shared with ./plan-choice-modal, which sets the same
+ * offer block.
+ */
+export function OfferHeadline({ priceAmount }: { priceAmount: string }) {
+  const s = useTrialCta();
+  const monthly = s.plan === 'monthly';
+  const paid = !monthly && !s.trialOn && !s.busy;
+  const title = monthly
+    ? `${dollars(s.monthlyCents)} a month`
+    : paid
+      ? `${priceAmount}/year`
+      : `${TRIAL_DAYS} days free`;
+  return (
+    <div className="mt-6 text-center">
+      <p className="text-[19px] leading-6 font-medium text-rc-ink-soft">
+        {paid ? 'ReelCaster Pro' : 'Try ReelCaster Pro'}
+      </p>
+      <DialogTitle className="mt-1 text-[36px] leading-[40px] font-bold tracking-[-0.02em] text-rc-ink">
+        {title}
+      </DialogTitle>
+    </div>
+  );
+}
+
+/**
  * Stripe Checkout's pay button, in our blue: full width, 44px tall, 6px
  * corners, 16px semibold, a hairline shadow. The reader taps this and lands on
  * a page with the same button a moment later.
@@ -47,32 +79,6 @@ const STRIPE_INPUT = 'h-11 rounded-md px-3 text-[16px]';
 
 const STRIPE_BUTTON =
   'inline-flex h-11 w-full items-center justify-center rounded-md bg-rc-brand px-4 text-[16px] font-semibold text-white shadow-[0_1px_3px_rgba(0,0,0,0.12)] transition-colors hover:bg-rc-brand-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rc-brand focus-visible:ring-offset-2 disabled:opacity-60';
-
-/**
- * The offer block, set the way Stripe Checkout sets it on the page after
- * this one: what it is in grey, what it costs today in large type, centred.
- * Reads the plan off the provider so the title follows the picker: "7 days
- * free" is the annual card's sentence, and with Monthly chosen the title
- * says what that card charges instead. The first charge is stated under
- * the button either way.
- */
-function Offer() {
-  const s = useTrialCta();
-  const title =
-    s.plan === 'monthly'
-      ? `${dollars(s.monthlyCents)} a month`
-      : `${TRIAL_DAYS} days free`;
-  return (
-    <div className="mt-6 text-center">
-      <p className="text-[19px] leading-6 font-medium text-rc-ink-soft">
-        Try ReelCaster Pro
-      </p>
-      <DialogTitle className="mt-1 text-[36px] leading-[40px] font-bold tracking-[-0.02em] text-rc-ink">
-        {title}
-      </DialogTitle>
-    </div>
-  );
-}
 
 /**
  * The phone trial sheet, drawn the way Stripe Checkout draws the page after
@@ -165,7 +171,10 @@ export default function TrialSheetStripe({
           </p>
         )}
 
-        <Offer />
+        {/* The offer, set the way Stripe Checkout sets it on the page after
+            this one: what it is in grey, what it costs today in large type,
+            centred, as there. The first charge is stated under the button. */}
+        <OfferHeadline priceAmount={priceAmount} />
 
         {/* Arm b of plan_picker_v1: Yearly beside Monthly, under the title
             and over the rows, so the reader has chosen a card before they

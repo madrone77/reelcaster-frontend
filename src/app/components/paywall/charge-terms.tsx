@@ -46,11 +46,17 @@ export default function ChargeTerms({
   className,
   ...rest
 }: { priceAmount: string; className?: string } & React.HTMLAttributes<HTMLParagraphElement>) {
-  const { chargeDate, trialOn, plan, monthlyCents } = useTrialCta();
+  const { chargeDate, trialOn, busy, plan, monthlyCents } = useTrialCta();
   // Monthly is charged today at the monthly amount, and the caller's
   // `priceAmount` is the annual figure; the hook's is the one to print.
   const shown = plan === 'monthly' ? dollars(monthlyCents) : priceAmount;
   const price = /\.\d{2}$/.test(shown) ? shown : `${shown}.00`;
+  // No trial for this annual buyer (a signed-in account that has had one, or
+  // a typed address checkout just refused a trial for): the charge is today,
+  // and a line promising "day 7" under that button would be the one false
+  // sentence on the screen. While a signed-in read is still loading, the
+  // trial wording holds, as the button's own label does.
+  const annualToday = plan === 'annual' && !trialOn && !busy;
   const when = trialOn && chargeDate ? chargeDate : `day ${TRIAL_DAYS}`;
   return (
     <p
@@ -59,6 +65,8 @@ export default function ChargeTerms({
     >
       {plan === 'monthly' ? (
         <>{price} per month starting today</>
+      ) : annualToday ? (
+        <>{price} per year starting today</>
       ) : (
         <>
           {price} per year starting {when}

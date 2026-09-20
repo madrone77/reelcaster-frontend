@@ -225,6 +225,23 @@ interface TrialCtaState {
    * as 'checkout_stuck' so the funnel shows how often that happens.
    */
   stuckUrl: string | null;
+  /**
+   * The address a signed-out buyer typed, when it already belongs to an
+   * account. Checkout refuses those (`account_exists`), so the buy form gives
+   * way to a sign-in offer until the address is changed.
+   */
+  existingAccountEmail: string | null;
+  /** 'sent' once the sign-in link for `existingAccountEmail` has gone out. */
+  signInLink: 'idle' | 'sending' | 'sent' | 'error';
+  sendSignInLink: () => void;
+  /** Back to the email field, for someone who typed the wrong address. */
+  clearExistingAccount: () => void;
+  /**
+   * The typed address has already had its free trial (`trial_used`). The
+   * button and terms switch to paid terms, a notice says why, and the next tap
+   * goes to checkout on those terms.
+   */
+  trialWithheld: boolean;
   startAnonCheckout: () => void;
   startCheckout: () => void;
 }
@@ -262,7 +279,7 @@ export function TrialCtaProvider({
   onActivate?: (method: TrialCtaMethod) => void;
   children: React.ReactNode;
 }) {
-  const { user, session, loading: authLoading } = useAuth();
+  const { user, session, loading: authLoading, signInWithMagicLink } = useAuth();
   const { isPaid } = useSubscription();
   const {
     openCheckout,
@@ -295,7 +312,18 @@ export function TrialCtaProvider({
 
   const [status, setStatus] = useState<CheckoutStatus | null>(null);
   const [statusLoading, setStatusLoading] = useState(true);
-  const [email, setEmail] = useState('');
+  const [email, setEmailValue] = useState('');
+  const [existingAccountEmail, setExistingAccountEmail] = useState<string | null>(null);
+  const [signInLink, setSignInLink] = useState<TrialCtaState['signInLink']>('idle');
+  const [trialWithheld, setTrialWithheld] = useState(false);
+  // Both refusals are about one address. A different address has to be asked
+  // about afresh, so editing the field forgets them.
+  function setEmail(value: string) {
+    setEmailValue(value);
+    setExistingAccountEmail(null);
+    setSignInLink('idle');
+    setTrialWithheld(false);
+  }
 
   // Advanced matching for the Meta pixel (src/lib/meta-match.ts). A signed-in
   // reader is identified as soon as the provider knows them, so every event
@@ -401,11 +429,14 @@ export function TrialCtaProvider({
 
   const anon = authSettled && !signedIn;
   // Eligibility for a signed-out buyer is checked server-side against the
-  // email they give — typed, or handed over by the wallet — so an optimistic
-  // `true` here never survives into the session for someone who has already
-  // had a trial. Monthly never trials: the picker's monthly card is charged
-  // today, and the button and the terms under it say so.
-  const annualTrial = anon || Boolean(status?.trial_available);
+  // email they give — typed, or handed over by the wallet. The optimistic
+  // `true` here lasts until then: checkout refuses a withheld trial with
+  // `trial_used` instead of charging, and this flips to paid terms before the
+  // buyer is sent anywhere. It used to survive all the way to Stripe's page,
+  // where the first sign of it was a price. Monthly never trials: the picker's
+  // monthly card is charged today, and the button and the terms under it say
+  // so.
+  const annualTrial = (anon && !trialWithheld) || Boolean(status?.trial_available);
   const trialOn = plan === 'annual' && annualTrial;
   const trialDays = status?.trial_days ?? TRIAL_DAYS;
   const chargeDate = useMemo(
@@ -427,17 +458,37 @@ export function TrialCtaProvider({
     });
     setAnonSubmitting(true);
     setAnonError(null);
+    const address = email.trim();
     try {
       const res = await fetch('/api/stripe/checkout', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ from, region, email: email.trim(), plan }),
+        body: JSON.stringify({
+          from,
+          region,
+          email: address,
+          plan,
+          // Only after the sheet has shown paid terms for this address.
+          accept_paid: trialWithheld,
+        }),
       });
       let payload: { url?: string; id?: string; redirect?: string; error?: string } = {};
       try {
         payload = await res.json();
       } catch {
         /* non-JSON error body */
+      }
+      if (res.status === 409 && payload.error === 'account_exists') {
+        trackEvent('Checkout Refused', { surface: 'paywall', from, reason: 'account_exists' });
+        setExistingAccountEmail(address);
+        setAnonSubmitting(false);
+        return;
+      }
+      if (res.status === 409 && payload.error === 'trial_used') {
+        trackEvent('Checkout Refused', { surface: 'paywall', from, reason: 'trial_used' });
+        setTrialWithheld(true);
+        setAnonSubmitting(false);
+        return;
       }
       if (!res.ok) throw new Error(payload.error ?? 'checkout_failed');
       if (payload.redirect) {
@@ -500,6 +551,22 @@ export function TrialCtaProvider({
       anonError ??
       (error ? 'We couldn’t start checkout. Please try again in a moment.' : null),
     stuckUrl: anonStuckUrl ?? signedInStuckUrl,
+    existingAccountEmail,
+    signInLink,
+    sendSignInLink: () => {
+      if (!existingAccountEmail || signInLink === 'sending' || signInLink === 'sent') return;
+      setSignInLink('sending');
+      signInWithMagicLink(existingAccountEmail)
+        .then(({ error: linkError }) => {
+          setSignInLink(linkError ? 'error' : 'sent');
+          if (!linkError) {
+            trackEvent('Magic Link Requested', { source: 'paywall-account-exists', from });
+          }
+        })
+        .catch(() => setSignInLink('error'));
+    },
+    clearExistingAccount: () => setEmail(''),
+    trialWithheld,
     startAnonCheckout,
     startCheckout: () => {
       reportSplitCta(pricing, 'paywall');
@@ -558,6 +625,14 @@ export function TrialExpress({
   );
 
   if (s.status?.is_active || s.planDown) return null;
+
+  // The wallet sheet quotes a free trial in the operating system's own UI and
+  // cannot be told otherwise once it is open, so it is not offered to a buyer
+  // known to have no trial left. The card form beside it states paid terms.
+  // Unknown (a signed-in read that failed) still shows it: the express route
+  // refuses a trial it would not grant, with no charge.
+  const noTrial = s.anon ? s.trialWithheld : Boolean(s.status && !s.status.trial_available);
+  if (noTrial || s.existingAccountEmail) return null;
 
   return (
     <div className={cn(available ? 'block' : 'hidden', className)}>
@@ -687,8 +762,37 @@ export function TrialBuy({
     );
   }
 
+  // The typed address already has an account, and checkout refused to sell it
+  // a second one. In place of the form, because a buy button here can only be
+  // refused again.
+  if (s.anon && PAY_FIRST && s.existingAccountEmail) {
+    return (
+      <ExistingAccountOffer
+        className={className}
+        buttonClassName={ctaClass}
+      />
+    );
+  }
+
   return (
     <div className={cn('flex flex-col gap-2', className)}>
+      {s.anon && PAY_FIRST && s.trialWithheld && (
+        // Said at the button, where the label and the terms under it have just
+        // changed, so the change reads as an answer rather than a glitch.
+        <p
+          role="status"
+          data-testid="trial-cta-trial-used"
+          className={cn(
+            'rounded-md border p-2.5 text-xs leading-relaxed',
+            s.isLight
+              ? 'border-rc-rule bg-rc-surface text-rc-ink-soft'
+              : 'border-rc-bg-light bg-rc-bg-light text-rc-text',
+          )}
+        >
+          {s.email.trim()} has already had a free trial, so Pro starts today
+          at {dollars(s.priceCents)} a {s.periodWord}.
+        </p>
+      )}
       {s.anon && PAY_FIRST && !collectEmail ? (
         // Pay first, sign up never, and Stripe asks for the email itself.
         <button
@@ -824,6 +928,84 @@ export function TrialBuy({
           {s.errorText}
         </p>
       )}
+    </div>
+  );
+}
+
+/**
+ * What a signed-out buyer sees when the email they typed already has an
+ * account: a way into that account, not a second purchase.
+ *
+ * A sign-in link first, because most of these accounts were made by a checkout
+ * and have no password (src/lib/checkout-account.ts). The password route is
+ * there for the rest, and comes back to this page. Once signed in, the sheet
+ * reads the account's own state: a Pro member is shown "Manage subscription",
+ * anyone else the terms their account qualifies for.
+ */
+function ExistingAccountOffer({
+  className,
+  buttonClassName,
+}: {
+  className?: string;
+  buttonClassName: string;
+}) {
+  const s = useTrialCta();
+  const email = s.existingAccountEmail ?? '';
+  const loginHref = `/login?next=${encodeURIComponent(
+    `${window.location.pathname}${window.location.search}`,
+  )}`;
+  const body = s.isLight ? 'text-rc-ink-soft' : 'text-rc-text';
+  const quiet = cn(
+    'text-sm font-semibold underline underline-offset-2',
+    s.isLight ? 'text-rc-brand hover:text-rc-brand-hover' : 'text-white',
+  );
+
+  return (
+    <div
+      data-testid="trial-cta-account-exists"
+      className={cn('flex flex-col gap-2', className)}
+    >
+      <p role="status" className={cn('text-sm leading-relaxed', body)}>
+        {s.signInLink === 'sent' ? (
+          <>
+            We sent a sign-in link to <strong>{email}</strong>. Open it on this
+            device and you&apos;re in.
+          </>
+        ) : (
+          <>
+            <strong>{email}</strong> already has a ReelCaster account. Sign in
+            to it instead of buying again.
+          </>
+        )}
+      </p>
+      {s.signInLink !== 'sent' && (
+        <button
+          type="button"
+          data-testid="trial-cta-send-sign-in"
+          disabled={s.signInLink === 'sending'}
+          onClick={s.sendSignInLink}
+          className={buttonClassName}
+        >
+          {s.signInLink === 'sending' ? 'Sending…' : 'Email me a sign-in link'}
+        </button>
+      )}
+      {s.signInLink === 'error' && (
+        <p
+          role="alert"
+          className="rounded-md border border-rc-poor/30 bg-rc-poor-bg p-2.5 text-xs text-rc-poor-ink"
+        >
+          We couldn&apos;t send that just now. Try again in a minute, or sign in
+          with your password.
+        </p>
+      )}
+      <div className="flex items-center justify-center gap-4 pt-1">
+        <a href={loginHref} className={quiet}>
+          Sign in with a password
+        </a>
+        <button type="button" onClick={s.clearExistingAccount} className={quiet}>
+          Use a different email
+        </button>
+      </div>
     </div>
   );
 }

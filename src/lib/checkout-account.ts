@@ -18,6 +18,19 @@
 import type { SupabaseClient, User } from '@supabase/supabase-js';
 
 /**
+ * Subscription statuses that still hold Pro, or will again once a retry lands.
+ * An account with one of these must never be sold a second subscription: the
+ * checkout routes refuse, and the webhook cancels and refunds whatever gets
+ * past them (see src/app/api/stripe/webhook/route.ts).
+ */
+export const LIVE_SUBSCRIPTION_STATUSES: ReadonlySet<string> = new Set([
+  'active',
+  'trialing',
+  'past_due',
+  'unpaid',
+]);
+
+/**
  * Locate a user by email address.
  *
  * GoTrue's admin API has no email filter, so this pages through users. That is

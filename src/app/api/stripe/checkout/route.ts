@@ -23,6 +23,7 @@ import { readWall } from '@/lib/attribution';
 import { metaIdentityForUser } from '@/lib/meta-identity';
 import { paywallEventRow } from '@/lib/paywall-event';
 import { acquisitionMetadata } from '@/lib/acquisition-metadata';
+import { LIVE_SUBSCRIPTION_STATUSES, findUserIdByEmail } from '@/lib/checkout-account';
 
 /**
  * Which wall sent this buyer to checkout, and which ad (if any) bought them.
@@ -92,6 +93,19 @@ async function anonCheckout(request: NextRequest) {
     return NextResponse.json({ redirect: '/explore?waitlist=1' }, { status: 200 });
   }
 
+  // An address that already has an account signs in; it does not buy again.
+  // Signed out is not the same as new: 2026-09-14 a trialer who started in
+  // Facebook's in-app browser opened the site in Chrome twenty minutes later,
+  // was a stranger there, typed the same email into the same sheet and was
+  // sold a second, paid subscription on top of the trial. The purchase would
+  // only have attached to the account anyway (src/lib/checkout-account.ts), so
+  // refusing loses no sale that should happen. The sheet offers a sign-in
+  // link instead; signed in, the account's own eligibility and Pro status
+  // decide what it is shown.
+  if (email && (await findUserIdByEmail(admin, email))) {
+    return NextResponse.json({ error: 'account_exists' }, { status: 409 });
+  }
+
   const stripe = await getStripe();
   const currency: BillingCurrency = currencyForRegion(
     region,
@@ -108,7 +122,15 @@ async function anonCheckout(request: NextRequest) {
       region,
       from: body.from ?? '',
       plan,
+      // Every signed-out button reads "Start 7-day free trial" until the email
+      // is known, so a withheld trial has to come back to the sheet and be said
+      // there, not appear for the first time as a price on Stripe's page. The
+      // second tap, on a button that now states the charge, sends accept_paid.
+      withheldTrial: body.accept_paid === true ? 'charge' : 'refuse',
     });
+    if (!created.ok && created.error === 'trial_used') {
+      return NextResponse.json({ error: 'trial_used' }, { status: 409 });
+    }
     if (!created.ok) {
       return NextResponse.json(
         { error: 'plan_unavailable', plan },
@@ -190,6 +212,12 @@ interface CheckoutBody {
   /** Signed-out buyers only: the address Stripe bills and we provision from. */
   email?: string;
   /**
+   * Signed-out buyers only. True once the sheet has told them this email has
+   * already had its trial and they tapped again on paid terms. Without it a
+   * withheld trial is refused with `trial_used` rather than charged.
+   */
+  accept_paid?: boolean;
+  /**
    * 'annual' (default) or 'monthly'. Monthly comes only from the plan
    * picker on the phone sheet; anything else reads as annual.
    */
@@ -252,9 +280,19 @@ export async function POST(request: NextRequest) {
   try {
     const { data: existingSettings } = await admin
       .from('user_settings')
-      .select('stripe_customer_id, stripe_subscription_id')
+      .select('stripe_customer_id, stripe_subscription_id, subscription_status')
       .eq('user_id', user.id)
       .maybeSingle();
+
+    // Already subscribed. The buy button is hidden for these accounts, but the
+    // route is the thing that takes the money, so it refuses on its own
+    // account rather than trusting every surface to have hidden the button.
+    if (
+      existingSettings?.stripe_subscription_id &&
+      LIVE_SUBSCRIPTION_STATUSES.has(existingSettings.subscription_status ?? '')
+    ) {
+      return NextResponse.json({ error: 'already_subscribed' }, { status: 409 });
+    }
 
     let stripeCustomerId = existingSettings?.stripe_customer_id ?? null;
 
