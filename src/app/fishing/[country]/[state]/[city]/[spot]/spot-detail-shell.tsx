@@ -65,6 +65,7 @@ import ChartExplainer from "./chart-explainer";
 import AdTestimonialCard from "@/app/fishing/ad-testimonial-card";
 import AdHero, { AD_HERO_REEL_COL } from "./ad-intro";
 import SeoHero from "@/app/fishing/seo-hero";
+import { PageHeading } from "@/app/fishing/seo-hero";
 import TopicSummary from "./topic-summary";
 import { landingTitle, type LandingTopic } from "@/lib/landing-topic";
 import {
@@ -1632,11 +1633,11 @@ export default function SpotDetailShell({
             <div>
                 {pills}
                 <div className="flex items-center gap-2 mt-3">
-                  <h1 className="rc-title-lg text-3xl lg:text-4xl min-w-0">
+                  <PageHeading className="rc-title-lg text-3xl lg:text-4xl min-w-0">
                     {landingSpecies || landingTopic
                       ? landingTitle(spot.name, headlineFish, landingTopic)
                       : spot.name}
-                  </h1>
+                  </PageHeading>
                   {/* Save, home spot and alerts all act on an ACCOUNT. On a
                       cold ad click there is no account, so each one is a
                       modal in front of someone who has not yet seen what

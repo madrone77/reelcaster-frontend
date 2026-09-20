@@ -28,6 +28,7 @@ import Link from "next/link";
 import { ArrowDown } from "lucide-react";
 import type { FishingCity } from "@/app/fishing/lib/fishing-data";
 import SeoHero from "@/app/fishing/seo-hero";
+import { PageHeading } from "@/app/fishing/seo-hero";
 import type { Biting } from "@/lib/lead-species";
 
 export default function CityHeader({
@@ -129,11 +130,11 @@ export default function CityHeader({
           Falls back to the plain form on a day with nothing scored, because
           "Today's best fishing in Seattle:" with no time after it is worse
           than a title that promises less. */}
-      <h1 className="mt-2 text-[26px] sm:text-[32px] font-bold leading-tight text-rc-ink">
+      <PageHeading className="mt-2 text-[26px] sm:text-[32px] font-bold leading-tight text-rc-ink">
         {window
           ? `Today's best fishing in ${city.name}: ${window}`
           : `Fishing in ${city.name}, ${city.provinceCode}`}
-      </h1>
+      </PageHeading>
       {/* No measure cap and no balancing: this is ONE line. At 15px the
           sentence runs about 600px, well inside the 1152px container, so it
           fits unbroken on any desktop width. The old 54ch cap was sized for
