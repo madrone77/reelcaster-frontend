@@ -8,8 +8,7 @@
  * no trial. The badge is arithmetic off the two prices, never typed. Every
  * top-grossing paywall in the Sports, Navigation and Travel lists (Fishbrain,
  * Flighty, Gaia, onX, Golfshot, 2026-09-18) sets the year against a month
- * this way. Until 2026-09-21 the cards were arm b against a single annual
- * button; now every reader gets them and the test is how they are drawn.
+ * this way. See the two tests below for who gets them.
  *
  * WHERE. The phone sheet (src/app/components/paywall/trial-sheet-stripe,
  * surface `sheet_plan`) and the centred desktop dialog
@@ -20,8 +19,9 @@
  * nothing is counted. Exposure = the surface rendered with an arm; cta_click
  * = the buy button pressed, either card.
  *
- * ONE EXPOSURE PER ARM PER PAGE LOAD, the house rule. Stop the test with an
- * UPDATE on `split_tests`; with no arm assigned every reader gets arm b.
+ * ONE EXPOSURE PER ARM PER PAGE LOAD, the house rule. Stop a test with an
+ * UPDATE on `split_tests`; with no arm the phone draws the cards and the
+ * desktop dialog the single button.
  */
 
 import { useEffect } from 'react';
@@ -29,18 +29,25 @@ import { useSplitArms } from './use-pricing';
 import { reportSplitArmCta, reportSplitArmExposure } from './report';
 
 /**
- * The third run: the cards against the cards drawn differently. plan_picker_v1
- * (2026-09-19 18:00 to 2026-09-20 19:17 UTC) was a draw and v2 ran the same
- * arms again from 19:32; Casey then retired the one-button control (2026-09-21)
- * and every reader gets the cards. v3 asks only how to draw them: b the plain
- * cards, c the same two cards drawn like a forecast day tile, the chosen card
- * filled brand blue with white text the way the selected day is, and the Save
- * badge as the gold tab the best day carries. Same surfaces, half each.
+ * Since 2026-09-21 the two shapes run their own tests, and never on one page.
  *
- * With no arm (the registry unread, or the test stopped) the reader gets the
- * plain cards and nothing is counted: the single annual button is gone.
+ * PHONE, plan_picker_v3: the cards against the cards drawn differently.
+ * plan_picker_v1 (2026-09-19 18:00 to 2026-09-20 19:17 UTC) was a draw and v2
+ * ran the same arms again from 19:32; Casey then retired the one-button
+ * control on the phone and every phone reader gets the cards. v3 asks only
+ * how to draw them: b the plain cards, c the same two cards drawn like a
+ * forecast day tile, the chosen card filled brand blue with white text the
+ * way the selected day is, and the Save badge as the gold tab the best day
+ * carries. Half each. With no arm the phone draws the plain cards.
+ *
+ * DESKTOP, desktop_plan_picker_v1: v2's question asked again on the dialog
+ * alone, because desktop had seen too few readers to answer it (about 20
+ * views and no trials, 09-19 to 09-21). a the single annual button
+ * (control), b the plain cards; the customer quote stays on both. Half each.
+ * With no arm the dialog draws the single button, as it always had.
  */
 export const PLAN_PICKER_TEST = 'plan_picker_v3';
+export const DESKTOP_PLAN_PICKER_TEST = 'desktop_plan_picker_v1';
 
 /** How the two cards are drawn. `tile` is arm c; see ../paywall/plan-picker. */
 export type PlanPickerLook = 'card' | 'tile';
@@ -70,22 +77,24 @@ export function usePlanPicker(
   surface: PlanPickerSurface = 'sheet_plan',
 ): PlanPickerArm {
   const arms = useSplitArms();
-  const arm = active ? (arms[PLAN_PICKER_TEST] ?? null) : null;
+  const desktop = surface === 'dialog_plan';
+  const test = desktop ? DESKTOP_PLAN_PICKER_TEST : PLAN_PICKER_TEST;
+  const arm = active ? (arms[test] ?? null) : null;
 
   useEffect(() => {
     if (!arm) return;
-    const key = `${PLAN_PICKER_TEST}:${arm}:${surface}`;
+    const key = `${test}:${arm}:${surface}`;
     if (seen.has(key)) return;
     seen.add(key);
-    reportSplitArmExposure(PLAN_PICKER_TEST, arm, surface);
-  }, [arm, surface]);
+    reportSplitArmExposure(test, arm, surface);
+  }, [test, arm, surface]);
 
   return {
-    picker: active,
-    look: arm === 'c' ? 'tile' : 'card',
+    picker: desktop ? arm === 'b' : active,
+    look: !desktop && arm === 'c' ? 'tile' : 'card',
     reportPress: () => {
       if (!arm) return;
-      reportSplitArmCta(PLAN_PICKER_TEST, arm, surface);
+      reportSplitArmCta(test, arm, surface);
     },
   };
 }
