@@ -44,7 +44,16 @@ export const PRO_ROWS_HEADING = 'What you get with Pro';
  * a TrialCtaProvider; shared with ./plan-choice-modal, which sets the same
  * offer block.
  */
-export function OfferHeadline({ priceAmount }: { priceAmount: string }) {
+export function OfferHeadline({
+  priceAmount,
+  compact = false,
+}: {
+  priceAmount: string;
+  /** Plan cards drawn under this: they already say "7 days free" and "$6 a
+   *  month", so the 36px title steps aside (kept for screen readers) and the
+   *  sheet fits a phone without scrolling. */
+  compact?: boolean;
+}) {
   const s = useTrialCta();
   const monthly = s.plan === 'monthly';
   const paid = !monthly && !s.trialOn && !s.busy;
@@ -53,10 +62,19 @@ export function OfferHeadline({ priceAmount }: { priceAmount: string }) {
     : paid
       ? `${priceAmount}/year`
       : `${TRIAL_DAYS} days free`;
+  const eyebrow = paid ? 'ReelCaster Pro' : 'Try ReelCaster Pro';
+  if (compact) {
+    return (
+      <div className="mt-4 text-center">
+        <p className="text-[19px] leading-6 font-semibold text-rc-ink">{eyebrow}</p>
+        <DialogTitle className="sr-only">{title}</DialogTitle>
+      </div>
+    );
+  }
   return (
     <div className="mt-6 text-center">
       <p className="text-[19px] leading-6 font-medium text-rc-ink-soft">
-        {paid ? 'ReelCaster Pro' : 'Try ReelCaster Pro'}
+        {eyebrow}
       </p>
       <DialogTitle className="mt-1 text-[36px] leading-[40px] font-bold tracking-[-0.02em] text-rc-ink">
         {title}
@@ -174,21 +192,21 @@ export default function TrialSheetStripe({
         {/* The offer, set the way Stripe Checkout sets it on the page after
             this one: what it is in grey, what it costs today in large type,
             centred, as there. The first charge is stated under the button. */}
-        <OfferHeadline priceAmount={priceAmount} />
+        <OfferHeadline priceAmount={priceAmount} compact={picker} />
 
         {/* Arm b of plan_picker_v2: Yearly beside Monthly, under the title
             and over the rows, so the reader has chosen a card before they
             reach the button. See ./plan-picker. */}
-        {picker && <PlanPicker className="mt-5" />}
+        {picker && <PlanPicker className="mt-4" />}
 
-        <p className="mt-6 font-rc-mono text-[10px] font-semibold tracking-[0.14em] text-rc-ink-mute uppercase">
+        <p className="mt-5 font-rc-mono text-[10px] font-semibold tracking-[0.14em] text-rc-ink-mute uppercase">
           {PRO_ROWS_HEADING}
         </p>
         <ul className="mt-2 divide-y divide-rc-rule-soft">
           {proRows(city).map((row) => (
             <li
               key={row}
-              className="flex items-center justify-between gap-3 py-2"
+              className="flex items-center justify-between gap-3 py-1.5"
             >
               <span className="text-[15px] leading-5 font-medium text-rc-ink">
                 {row}
@@ -203,10 +221,10 @@ export default function TrialSheetStripe({
           ))}
         </ul>
 
-        <Testimonial className="mt-4" />
+        <Testimonial className="mt-3" />
       </div>
 
-      <div className="shrink-0 border-t border-rc-rule-soft px-4 pt-4 pb-[max(1rem,env(safe-area-inset-bottom))]">
+      <div className="shrink-0 border-t border-rc-rule-soft px-4 pt-3 pb-[max(1rem,env(safe-area-inset-bottom))]">
         {ctaHref ? (
           <Link
             href={ctaHref}

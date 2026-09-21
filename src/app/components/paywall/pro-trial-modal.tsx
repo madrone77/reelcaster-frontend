@@ -279,10 +279,12 @@ export default function ProTrialModal({
           data-testid="pro-trial-modal"
           data-shape="sheet"
           data-feature={feature}
-          // A fixed height, near the top of the screen but not at it, so the
+          // A fixed height, a sliver short of the top of the screen, so the
           // sheet reads as a page rather than a tray hanging a third of the
-          // way down.
-          className="bg-rc-panel border-rc-rule text-rc-ink gap-0 p-0 [&>[data-slot=dialog-close]]:z-20 h-[94dvh] max-h-[94dvh]"
+          // way down. It was 94dvh; with the plan cards and the quote both
+          // drawn that scrolled on a 390x844 phone, and the last 6% is what
+          // lets it sit still.
+          className="bg-rc-panel border-rc-rule text-rc-ink gap-0 p-0 [&>[data-slot=dialog-close]]:z-20 h-[calc(100dvh-0.5rem)] max-h-[calc(100dvh-0.5rem)]"
         >
           <TrialSheetStripe
             placeName={spotName ?? placeName}
