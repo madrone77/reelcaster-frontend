@@ -4,7 +4,6 @@ import Link from 'next/link';
 import { Check } from 'lucide-react';
 import { DialogDescription, DialogTitle } from '@/components/ui/dialog';
 import { MONTHLY_ON, TrialBuy, TrialCtaProvider, useTrialCta } from './trial-cta';
-import Testimonial from './testimonial';
 import BrandHeader from './brand-header';
 import ChargeTerms from './charge-terms';
 import PlanPicker from './plan-picker';
@@ -53,10 +52,11 @@ export function OfferHeadline({ priceAmount }: { priceAmount: string }) {
     : paid
       ? `${priceAmount}/year`
       : `${TRIAL_DAYS} days free`;
+  const eyebrow = paid ? 'ReelCaster Pro' : 'Try ReelCaster Pro';
   return (
     <div className="mt-6 text-center">
       <p className="text-[19px] leading-6 font-medium text-rc-ink-soft">
-        {paid ? 'ReelCaster Pro' : 'Try ReelCaster Pro'}
+        {eyebrow}
       </p>
       <DialogTitle className="mt-1 text-[36px] leading-[40px] font-bold tracking-[-0.02em] text-rc-ink">
         {title}
@@ -144,7 +144,7 @@ export default function TrialSheetStripe({
   // The two-card picker, when this reader is in that arm and the monthly
   // price is for sale. A wall that hands in its own href sells nothing here,
   // so the picker has nothing to pick and the arm is not counted.
-  const { picker, reportPress } = usePlanPicker(MONTHLY_ON && !ctaHref);
+  const { picker, look, reportPress } = usePlanPicker(MONTHLY_ON && !ctaHref);
   return (
     <TrialCtaProvider
       from={from}
@@ -159,7 +159,7 @@ export default function TrialSheetStripe({
         <div className="h-1 w-10 rounded-full bg-rc-rule" />
       </div>
 
-      <div className="min-h-0 flex-1 overflow-y-auto px-4 pb-2">
+      <div className="flex min-h-0 flex-1 flex-col overflow-y-auto px-4 pb-2">
         {/* An explicit city wins; otherwise the place is a city only when the
             caller did not name a spot. Same resolution the feature list makes
             in ./pro-trial-modal, so the two never disagree on one screen. */}
@@ -176,19 +176,25 @@ export default function TrialSheetStripe({
             centred, as there. The first charge is stated under the button. */}
         <OfferHeadline priceAmount={priceAmount} />
 
-        {/* Arm b of plan_picker_v2: Yearly beside Monthly, under the title
+        {/* Arms b and c of plan_picker_v3: Yearly beside Monthly, under the title
             and over the rows, so the reader has chosen a card before they
             reach the button. See ./plan-picker. */}
-        {picker && <PlanPicker className="mt-5" />}
+        {/* The sheet's spare height is split evenly: as much white between the
+            title and the cards as between the last row and the email field.
+            The 20px basis stands in for the footer's own padding (pb-2 here,
+            pt-3 there), which the lower gap already has. With no spare height
+            both collapse to their minimum and the body scrolls as before. */}
+        {picker && <div aria-hidden className="min-h-4 flex-1 basis-5" />}
+        {picker && <PlanPicker look={look} />}
 
-        <p className="mt-6 font-rc-mono text-[10px] font-semibold tracking-[0.14em] text-rc-ink-mute uppercase">
+        <p className="mt-5 font-rc-mono text-[10px] font-semibold tracking-[0.14em] text-rc-ink-mute uppercase">
           {PRO_ROWS_HEADING}
         </p>
         <ul className="mt-2 divide-y divide-rc-rule-soft">
           {proRows(city).map((row) => (
             <li
               key={row}
-              className="flex items-center justify-between gap-3 py-2"
+              className="flex items-center justify-between gap-3 py-1.5"
             >
               <span className="text-[15px] leading-5 font-medium text-rc-ink">
                 {row}
@@ -202,11 +208,11 @@ export default function TrialSheetStripe({
             </li>
           ))}
         </ul>
+        {picker && <div aria-hidden className="flex-1 basis-0" />}
 
-        <Testimonial className="mt-4" />
       </div>
 
-      <div className="shrink-0 border-t border-rc-rule-soft px-4 pt-4 pb-[max(1rem,env(safe-area-inset-bottom))]">
+      <div className="shrink-0 border-t border-rc-rule-soft px-4 pt-3 pb-[max(1rem,env(safe-area-inset-bottom))]">
         {ctaHref ? (
           <Link
             href={ctaHref}

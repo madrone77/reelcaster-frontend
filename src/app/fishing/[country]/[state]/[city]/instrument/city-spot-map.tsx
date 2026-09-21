@@ -651,7 +651,7 @@ export default function CitySpotMap({
         </div>
       )}
 
-      {/* The lock wall, worded for the city: every mark on this chart. */}
+      {/* The lock wall. No headline: the plain offer, same as every other wall. */}
       {lockSplit.locksOn && (
         <ProTrialModal
           open={lockWallOpen}
@@ -659,7 +659,6 @@ export default function CitySpotMap({
           feature="locked-spots"
           from={ad ? "city-ad-map-lock" : "city-map-lock"}
           placeName={cityName}
-          headline={`Unlock scoring at all ${cityName} spots`}
         />
       )}
     </div>

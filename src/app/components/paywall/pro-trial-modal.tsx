@@ -279,10 +279,12 @@ export default function ProTrialModal({
           data-testid="pro-trial-modal"
           data-shape="sheet"
           data-feature={feature}
-          // A fixed height, near the top of the screen but not at it, so the
+          // A fixed height, a sliver short of the top of the screen, so the
           // sheet reads as a page rather than a tray hanging a third of the
-          // way down.
-          className="bg-rc-panel border-rc-rule text-rc-ink gap-0 p-0 [&>[data-slot=dialog-close]]:z-20 h-[94dvh] max-h-[94dvh]"
+          // way down. It was 94dvh; with the plan cards and the quote both
+          // drawn that scrolled on a 390x844 phone, and the last 6% is what
+          // lets it sit still.
+          className="bg-rc-panel border-rc-rule text-rc-ink gap-0 p-0 [&>[data-slot=dialog-close]]:z-20 h-[calc(100dvh-0.5rem)] max-h-[calc(100dvh-0.5rem)]"
         >
           <TrialSheetStripe
             placeName={spotName ?? placeName}
@@ -352,8 +354,16 @@ export default function ProTrialModal({
         /* Below `lg` this is the old single column and the panel is the one
            scroller. At `lg` it becomes a fixed-height two-pane box and the
            columns scroll instead — hence `overflow-hidden` there, or the panel
-           would scroll a thing whose halves already do. */
-        className="bg-rc-panel border-rc-rule text-rc-ink p-0 gap-0 sm:max-w-lg lg:max-w-4xl max-h-[88dvh] lg:max-h-[min(88dvh,44rem)] flex flex-col overflow-y-auto overscroll-contain lg:overflow-hidden [&>[data-slot=dialog-close]]:z-20 lg:[&>[data-slot=dialog-close]]:right-[calc(50%+1rem)]"
+           would scroll a thing whose halves already do.
+
+           The height is the taller column's content, capped only by the
+           screen. It was capped at 44rem, which made the left column scroll
+           by a few lines once the plan picker arrived; then fixed at 51rem,
+           which left a band of empty panel under the table. Sized to content,
+           the shorter column ends where the longer one does and nothing
+           scrolls. Only a screen shorter than the content falls back to the
+           lanes scrolling. */
+        className="bg-rc-panel border-rc-rule text-rc-ink p-0 gap-0 sm:max-w-lg lg:max-w-4xl max-h-[88dvh] lg:max-h-[calc(100dvh-2rem)] flex flex-col overflow-y-auto overscroll-contain lg:overflow-hidden [&>[data-slot=dialog-close]]:z-20 lg:[&>[data-slot=dialog-close]]:right-[calc(50%+1rem)]"
       >
         <DialogBody
           from={from}
@@ -410,7 +420,7 @@ function DialogBody({
   // The two-card picker, when this reader is in that arm and the monthly
   // price is for sale. A wall that hands in its own href sells nothing here,
   // so the picker has nothing to pick and the arm is not counted.
-  const { picker, reportPress } = usePlanPicker(
+  const { picker, look, reportPress } = usePlanPicker(
     MONTHLY_ON && !ctaHref,
     "dialog_plan",
   );
@@ -507,12 +517,12 @@ function DialogBody({
                   className="mt-4"
                 />
 
-                {/* Arm b of plan_picker_v2: Yearly beside Monthly, under
+                {/* Arms b and c of plan_picker_v3: Yearly beside Monthly, under
                     the argument and over the timeline, so the reader has
                     chosen a card before the timeline says when it charges.
                     The phone sheet draws the same cards under its title;
                     see ./plan-picker. */}
-                {picker && <PlanPicker className="mt-4" />}
+                {picker && <PlanPicker look={look} className="mt-4" />}
 
                 {/* What happens and when, on the shape that has the table
                     beside it to say what you get. The matrix answers "what am

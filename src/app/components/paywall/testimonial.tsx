@@ -2,7 +2,6 @@
 
 import { Star } from "lucide-react";
 import { useSyncExternalStore } from "react";
-import { useTestimonialHidden } from "@/app/components/split-test/use-testimonial-none";
 import {
   PRO_TESTIMONIAL_LABEL,
   PROOF,
@@ -38,11 +37,10 @@ import { readReaderRegion } from "@/lib/reader-region";
  * Two tests have run on this surface and both kept this single quote:
  * testimonial_swipe_v1 (a swipe row of both quotes, no stars, 2026-09-17) and
  * testimonial_byline_v1 (three review cards with initials byline and tile
- * stars, 2026-09-18). testimonial_none_v1 now asks whether the quote earns
- * its place at all: arm a is this figure, arm b renders nothing here. See
- * use-testimonial-none.ts. The exposure fires for both arms because the
- * hook runs before the arm-b early return, and the rating is read from the
- * record, never drawn by hand.
+ * stars, 2026-09-18). A third, testimonial_none_v1 (quote vs nothing,
+ * 2026-09-20 to 09-21), concluded for nothing on the phone trial sheet only:
+ * Casey's work there is mobile, so the sheet no longer renders this, while
+ * the desktop plan matrix, plan choice and Pro upsell keep the quote.
  */
 export function Stars({ rating }: { rating: number }) {
   const filled = Math.max(0, Math.min(5, Math.round(rating)));
@@ -93,14 +91,12 @@ function Quote({ quote }: { quote: ProofQuote }) {
 }
 
 /**
- * One figure, the reader's region's quote; or nothing, for a reader in arm b
- * of testimonial_none_v1. `className` is the block's placement (its top
- * margin); the card styles itself.
+ * One figure, the reader's region's quote. `className` is the block's
+ * placement (its top margin); the card styles itself.
  */
 export default function Testimonial({ className }: { className?: string }) {
   const region = useSyncExternalStore(noSubscribe, readReaderRegion, () => null);
-  const hidden = useTestimonialHidden();
-  if (!PROOF.showProof || hidden) return null;
+  if (!PROOF.showProof) return null;
   return (
     <figure className={`${className ?? "mt-5"} ${SINGLE_CLASS}`} data-testimonial-arm="a">
       <Quote quote={modalControlQuoteFor(region)} />
