@@ -2707,7 +2707,6 @@ export default function ExploreShell({
         onOpenChange={setLockedWallOpen}
         feature="locked-spots"
         from="explore-locked-spot"
-        headline="Unlock scoring at every spot"
         spotName={lockedWallSpotName}
         placeName={labelCity?.name ?? undefined}
       />
