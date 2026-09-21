@@ -10,6 +10,8 @@ import SignupConversion from '@/app/components/analytics/signup-conversion';
 /** What POST /api/attribution/signup answers, narrowed to what is used here. */
 interface SignupAttributionResponse {
   new_account?: boolean;
+  /** This post inserted the account's one conversion row. Fire on this only. */
+  conversion_recorded?: boolean;
   signup_path?: 'free' | 'checkout';
   /** The account was made through a referral link and got its month. */
   referral_granted?: boolean;
@@ -25,11 +27,12 @@ interface SignupAttributionResponse {
  *      a months-old organic visitor as organic. See src/lib/attribution.ts.
  *   2. When a user turns up, hands rc_entry and rc_wall to the server so the
  *      account carries "which wall earned it" for the dashboard.
- *   3. When that server call reports the account is NEW, renders
- *      <SignupConversion>, which is what turns a free signup into a conversion
- *      event in Plausible and on the Meta pixel. The decision is the server's
- *      because only it can tell a new account from a returning customer signing
- *      in on a new browser.
+ *   3. When that server call reports it just RECORDED the account's signup
+ *      conversion, renders <SignupConversion>, which is what turns a signup
+ *      into a conversion event in Plausible and on the Meta pixel. The decision
+ *      is the server's because only it can tell a new account from a returning
+ *      customer signing in on a new browser, and only its unique index can tell
+ *      the first browser a new account signs in on from the second.
  *
  * Mounted OUTSIDE `<AuthGate>` on purpose. The gate holds a loading state, and
  * public marketing and city pages are where most acquisition actually lands,
@@ -90,6 +93,9 @@ export default function AttributionCapture() {
         if (body.referral_granted) {
           trackEvent('Referral Claimed', { path: body.signup_path ?? 'free' });
         }
+        // Once per ACCOUNT, not per browser: every other post inside the grace
+        // window still says new_account, and Plausible counts each fire.
+        if (!body.conversion_recorded) return;
         setNewAccount({ userId, path: body.signup_path ?? 'free' });
       })
       .catch(() => {});

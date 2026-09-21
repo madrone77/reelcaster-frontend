@@ -1,7 +1,7 @@
 /**
  * POST /api/attribution/signup
  *   → { ok: true, written: boolean, new_account: boolean,
- *       signup_path?: 'free' | 'checkout', offer_claimed: boolean, referral_granted: boolean,
+ *       conversion_recorded: boolean, signup_path?: 'free' | 'checkout', offer_claimed: boolean, referral_granted: boolean,
  *       geo_written: boolean }
  *
  * Stamps "which wall earned this account, and how did they find us" onto
@@ -32,8 +32,17 @@
  * point every account passes through exactly once, whatever door it came in by,
  * it is also the only place that can tell a new account from a customer signing
  * in on a new laptop. So it writes the `marketing_conversions` row and answers
- * `new_account`, which is the browser's cue to fire the Plausible goal and the
- * Meta pixel. See src/lib/signup-conversion.ts for why both halves exist.
+ * `conversion_recorded`, which is the browser's cue to fire the Plausible goal
+ * and the Meta pixel. See src/lib/signup-conversion.ts for why both halves
+ * exist.
+ *
+ * ⚠ The cue is `conversion_recorded`, NOT `new_account`. `new_account` stays
+ * true for every post inside the two-day grace window, so a new account that
+ * signed in on a second browser (Facebook's in-app browser, then Safari) or
+ * came back the next day on another device fired the Plausible goal again, and
+ * Plausible does not deduplicate. 2026-09-21 showed 3 "Free Signup" goals for
+ * one new account. The conversion row's unique index lets exactly one post per
+ * account win, so only the post that inserted it tells the browser to fire.
  *
  * That same "exactly once, whatever door" property is why the getting-started
  * email goes out from here for free signups. Checkout signups are left to the
@@ -254,6 +263,7 @@ export async function POST(request: NextRequest) {
       ok: true,
       written: false,
       new_account: false,
+      conversion_recorded: false,
       reason: 'no_attribution',
     });
   }
@@ -281,6 +291,7 @@ export async function POST(request: NextRequest) {
   // Which path is read from the subscription, not guessed from the cookies. A
   // free account is 'none'; anything else means a card was involved.
   let signupPath: 'free' | 'checkout' = 'free';
+  let conversionRecorded = false;
   if (isNewAccount) {
     const { data: current } = await admin
       .from('user_settings')
@@ -291,7 +302,7 @@ export async function POST(request: NextRequest) {
     const status = current?.subscription_status ?? null;
     if ((status && status !== 'none') || current?.attr_trial_at) signupPath = 'checkout';
 
-    await recordSignupConversion(admin, {
+    const conversionId = await recordSignupConversion(admin, {
       // The account's own creation time, not now. This runs when a browser
       // first authenticates, which for a confirmed-by-email signup can be the
       // next morning, and a conversion dated to the wrong day lands in the
@@ -300,6 +311,10 @@ export async function POST(request: NextRequest) {
       occurredAt: user.created_at,
       acquisition: signupAcquisition(request, entry, paid, wall),
     });
+    // Null on the duplicate every later post hits, and also on a failed
+    // insert. Staying quiet on a failure is right: the next page load retries
+    // the insert, and whichever post finally lands it fires the goal.
+    conversionRecorded = conversionId !== null;
 
     // The getting-started email, for accounts that came in the free door.
     //
@@ -376,6 +391,7 @@ export async function POST(request: NextRequest) {
       ok: true,
       written: false,
       new_account: false,
+      conversion_recorded: false,
       offer_claimed: offerClaimed,
       referral_granted: referralGranted,
       geo_written: geoWritten,
@@ -388,6 +404,7 @@ export async function POST(request: NextRequest) {
       ok: true,
       written: false,
       new_account: true,
+      conversion_recorded: conversionRecorded,
       signup_path: signupPath,
       offer_claimed: offerClaimed,
       referral_granted: referralGranted,
@@ -450,10 +467,11 @@ export async function POST(request: NextRequest) {
   return NextResponse.json({
     ok: true,
     written: (data?.length ?? 0) > 0,
-    // Deliberately independent of `written`, which is false whenever there were
-    // no cookies to write. A signup with no attribution is still a signup, and
-    // the browser fires its conversion events off this field.
+    // Both deliberately independent of `written`, which is false whenever there
+    // were no cookies to write. A signup with no attribution is still a signup.
     new_account: true,
+    // The browser fires its conversion events off this one. See the header.
+    conversion_recorded: conversionRecorded,
     signup_path: signupPath,
     offer_claimed: offerClaimed,
     referral_granted: referralGranted,
