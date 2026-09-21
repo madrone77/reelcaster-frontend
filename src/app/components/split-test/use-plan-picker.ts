@@ -33,12 +33,17 @@ import { useSplitArms } from './use-pricing';
 import { reportSplitArmCta, reportSplitArmExposure } from './report';
 
 /**
- * The second run. plan_picker_v1 ran 2026-09-19 18:00 to 2026-09-20 19:17 UTC
- * and was called a draw (Casey: restart it as a second experiment with the
- * same variables). Same arms, same weights, same surfaces; only the key and
- * the counters start over.
+ * The third run, three arms. plan_picker_v1 (2026-09-19 18:00 to 2026-09-20
+ * 19:17 UTC) was a draw and v2 ran the same arms again from 19:32 until v3
+ * replaced it. v3 keeps both of v2's arms and adds c: the same two cards drawn
+ * like a forecast day tile, the chosen card filled brand blue with white text
+ * the way the selected day is, and the Save badge as the gold tab the best
+ * day carries. Same surfaces; a third each.
  */
-export const PLAN_PICKER_TEST = 'plan_picker_v2';
+export const PLAN_PICKER_TEST = 'plan_picker_v3';
+
+/** How the two cards are drawn. `tile` is arm c; see ../paywall/plan-picker. */
+export type PlanPickerLook = 'card' | 'tile';
 
 /** Where the picker is drawn, for the counters. */
 export type PlanPickerSurface = 'sheet_plan' | 'dialog_plan';
@@ -48,6 +53,8 @@ const seen = new Set<string>();
 export interface PlanPickerArm {
   /** Draw the two cards. */
   picker: boolean;
+  /** Which way to draw them, when `picker` is true. */
+  look: PlanPickerLook;
   /** Call when the buy button is pressed. No-op outside the test. */
   reportPress: () => void;
 }
@@ -74,7 +81,8 @@ export function usePlanPicker(
   }, [arm, surface]);
 
   return {
-    picker: arm === 'b',
+    picker: arm === 'b' || arm === 'c',
+    look: arm === 'c' ? 'tile' : 'card',
     reportPress: () => {
       if (!arm) return;
       reportSplitArmCta(PLAN_PICKER_TEST, arm, surface);

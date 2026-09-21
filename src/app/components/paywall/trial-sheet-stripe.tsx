@@ -162,7 +162,7 @@ export default function TrialSheetStripe({
   // The two-card picker, when this reader is in that arm and the monthly
   // price is for sale. A wall that hands in its own href sells nothing here,
   // so the picker has nothing to pick and the arm is not counted.
-  const { picker, reportPress } = usePlanPicker(MONTHLY_ON && !ctaHref);
+  const { picker, look, reportPress } = usePlanPicker(MONTHLY_ON && !ctaHref);
   return (
     <TrialCtaProvider
       from={from}
@@ -194,10 +194,10 @@ export default function TrialSheetStripe({
             centred, as there. The first charge is stated under the button. */}
         <OfferHeadline priceAmount={priceAmount} compact={picker} />
 
-        {/* Arm b of plan_picker_v2: Yearly beside Monthly, under the title
+        {/* Arms b and c of plan_picker_v3: Yearly beside Monthly, under the title
             and over the rows, so the reader has chosen a card before they
             reach the button. See ./plan-picker. */}
-        {picker && <PlanPicker className="mt-4" />}
+        {picker && <PlanPicker look={look} className="mt-4" />}
 
         <p className="mt-5 font-rc-mono text-[10px] font-semibold tracking-[0.14em] text-rc-ink-mute uppercase">
           {PRO_ROWS_HEADING}

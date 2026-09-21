@@ -420,7 +420,7 @@ function DialogBody({
   // The two-card picker, when this reader is in that arm and the monthly
   // price is for sale. A wall that hands in its own href sells nothing here,
   // so the picker has nothing to pick and the arm is not counted.
-  const { picker, reportPress } = usePlanPicker(
+  const { picker, look, reportPress } = usePlanPicker(
     MONTHLY_ON && !ctaHref,
     "dialog_plan",
   );
@@ -517,12 +517,12 @@ function DialogBody({
                   className="mt-4"
                 />
 
-                {/* Arm b of plan_picker_v2: Yearly beside Monthly, under
+                {/* Arms b and c of plan_picker_v3: Yearly beside Monthly, under
                     the argument and over the timeline, so the reader has
                     chosen a card before the timeline says when it charges.
                     The phone sheet draws the same cards under its title;
                     see ./plan-picker. */}
-                {picker && <PlanPicker className="mt-4" />}
+                {picker && <PlanPicker look={look} className="mt-4" />}
 
                 {/* What happens and when, on the shape that has the table
                     beside it to say what you get. The matrix answers "what am
