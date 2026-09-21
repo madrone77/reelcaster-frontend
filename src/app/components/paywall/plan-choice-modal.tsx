@@ -21,7 +21,6 @@ import { TrialBuy, TrialCtaProvider } from './trial-cta';
 import { OfferHeadline, PRO_ROWS_HEADING, proRows } from './trial-sheet-stripe';
 import BrandHeader from './brand-header';
 import ChargeTerms from './charge-terms';
-import Testimonial from './testimonial';
 
 /**
  * The second and last screen of arm b: the live trial sheet, with a way out
@@ -36,7 +35,7 @@ import Testimonial from './testimonial';
  * prompt, sheet, Stripe.
  *
  * IT IS ./trial-sheet-stripe's CONTENT, sharing its parts rather than
- * echoing them — <BrandHeader>, <TrialBuy>, <ChargeTerms>, <Testimonial>,
+ * echoing them — <BrandHeader>, <TrialBuy>, <ChargeTerms>,
  * inside the same <TrialCtaProvider>. That sheet won `trial_sheet_stripe_v1`
  * and then won the email field back on 2026-09-07 (without it, taps to Stripe
  * doubled and completions per tap fell from about 45% to about 10%), so this
@@ -219,10 +218,6 @@ export default function PlanChoiceModal({
             <ChargeTerms priceAmount={pricing.amount} className="mt-3 text-center" />
           </DialogDescription>
         </div>
-
-        {/* Under the button, not over it: the reader who is ready has already
-            acted, and the one who hesitates scrolls straight into the proof. */}
-        <Testimonial className="mt-5" />
 
         {/* Bare. No heading, no explanation, no "not ready for Pro?" — every
             word of that was an argument for the cheaper thing sitting under

@@ -570,12 +570,11 @@ function DialogBody({
             <div className="lg:min-h-0 lg:overflow-y-auto lg:overscroll-contain lg:border-l lg:border-rc-rule">
               {/* `sharedRows` off: this column is selling, and seven rows of
                   things the reader already has are not an argument for paying.
-                  The customer quote takes their place. /billing/cancel keeps
+                  /billing/cancel keeps
                   them — see plan-matrix. */}
               <PlanMatrix
                 viewerTier={viewerTier}
                 highlightRowId={highlightRowId}
-                withProof
                 sharedRows={false}
                 className="lg:border-t-0"
               />

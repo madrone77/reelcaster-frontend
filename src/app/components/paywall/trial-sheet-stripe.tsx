@@ -4,15 +4,12 @@ import Link from 'next/link';
 import { Check } from 'lucide-react';
 import { DialogDescription, DialogTitle } from '@/components/ui/dialog';
 import { MONTHLY_ON, TrialBuy, TrialCtaProvider, useTrialCta } from './trial-cta';
-import Testimonial from './testimonial';
 import BrandHeader from './brand-header';
 import ChargeTerms from './charge-terms';
 import PlanPicker from './plan-picker';
 import { TRIAL_DAYS, dollars } from '@/lib/pricing';
 import { PRO_FORECAST_DAYS } from '@/lib/forecast-horizon';
 import { usePlanPicker } from '@/app/components/split-test/use-plan-picker';
-import { useSplitArms } from '@/app/components/split-test/use-pricing';
-import { TESTIMONIAL_NONE_TEST } from '@/app/components/split-test/use-testimonial-none';
 
 /**
  * The rows, in Casey's words and order (reworked 2026-09-14). Not the plan
@@ -46,16 +43,7 @@ export const PRO_ROWS_HEADING = 'What you get with Pro';
  * a TrialCtaProvider; shared with ./plan-choice-modal, which sets the same
  * offer block.
  */
-export function OfferHeadline({
-  priceAmount,
-  compact = false,
-}: {
-  priceAmount: string;
-  /** Plan cards drawn under this: they already say "7 days free" and "$6 a
-   *  month", so the 36px title steps aside (kept for screen readers) and the
-   *  sheet fits a phone without scrolling. */
-  compact?: boolean;
-}) {
+export function OfferHeadline({ priceAmount }: { priceAmount: string }) {
   const s = useTrialCta();
   const monthly = s.plan === 'monthly';
   const paid = !monthly && !s.trialOn && !s.busy;
@@ -65,14 +53,6 @@ export function OfferHeadline({
       ? `${priceAmount}/year`
       : `${TRIAL_DAYS} days free`;
   const eyebrow = paid ? 'ReelCaster Pro' : 'Try ReelCaster Pro';
-  if (compact) {
-    return (
-      <div className="mt-4 text-center">
-        <p className="text-[19px] leading-6 font-semibold text-rc-ink">{eyebrow}</p>
-        <DialogTitle className="sr-only">{title}</DialogTitle>
-      </div>
-    );
-  }
   return (
     <div className="mt-6 text-center">
       <p className="text-[19px] leading-6 font-medium text-rc-ink-soft">
@@ -165,8 +145,6 @@ export default function TrialSheetStripe({
   // price is for sale. A wall that hands in its own href sells nothing here,
   // so the picker has nothing to pick and the arm is not counted.
   const { picker, look, reportPress } = usePlanPicker(MONTHLY_ON && !ctaHref);
-  // Read, not reported: <Testimonial> below owns this test's exposure.
-  const noQuote = useSplitArms()[TESTIMONIAL_NONE_TEST] === 'b';
   return (
     <TrialCtaProvider
       from={from}
@@ -181,7 +159,7 @@ export default function TrialSheetStripe({
         <div className="h-1 w-10 rounded-full bg-rc-rule" />
       </div>
 
-      <div className="min-h-0 flex-1 overflow-y-auto px-4 pb-2">
+      <div className="flex min-h-0 flex-1 flex-col overflow-y-auto px-4 pb-2">
         {/* An explicit city wins; otherwise the place is a city only when the
             caller did not name a spot. Same resolution the feature list makes
             in ./pro-trial-modal, so the two never disagree on one screen. */}
@@ -196,14 +174,18 @@ export default function TrialSheetStripe({
         {/* The offer, set the way Stripe Checkout sets it on the page after
             this one: what it is in grey, what it costs today in large type,
             centred, as there. The first charge is stated under the button. */}
-        {/* The big "7 days free" title makes way for the cards only when the
-            quote is also on the sheet; with no quote there is room for both. */}
-        <OfferHeadline priceAmount={priceAmount} compact={picker && !noQuote} />
+        <OfferHeadline priceAmount={priceAmount} />
 
         {/* Arms b and c of plan_picker_v3: Yearly beside Monthly, under the title
             and over the rows, so the reader has chosen a card before they
             reach the button. See ./plan-picker. */}
-        {picker && <PlanPicker look={look} className="mt-4" />}
+        {/* The sheet's spare height is split evenly: as much white between the
+            title and the cards as between the last row and the email field.
+            The 20px basis stands in for the footer's own padding (pb-2 here,
+            pt-3 there), which the lower gap already has. With no spare height
+            both collapse to their minimum and the body scrolls as before. */}
+        {picker && <div aria-hidden className="min-h-4 flex-1 basis-5" />}
+        {picker && <PlanPicker look={look} />}
 
         <p className="mt-5 font-rc-mono text-[10px] font-semibold tracking-[0.14em] text-rc-ink-mute uppercase">
           {PRO_ROWS_HEADING}
@@ -226,8 +208,8 @@ export default function TrialSheetStripe({
             </li>
           ))}
         </ul>
+        {picker && <div aria-hidden className="flex-1 basis-0" />}
 
-        <Testimonial className="mt-3" />
       </div>
 
       <div className="shrink-0 border-t border-rc-rule-soft px-4 pt-3 pb-[max(1rem,env(safe-area-inset-bottom))]">
