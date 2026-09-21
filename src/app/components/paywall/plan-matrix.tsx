@@ -12,6 +12,8 @@ import {
 } from "@/lib/plan-features";
 import { usePricing } from "@/app/components/split-test/use-pricing";
 import { cn } from "@/lib/utils";
+import Testimonial from "./testimonial";
+import { PROOF } from "@/app/lp/_shared/lp-content";
 
 /**
  * The plan matrix: what each tier gets, one row per capability.
@@ -39,6 +41,7 @@ export default function PlanMatrix({
   viewerTier,
   highlightRowId,
   stickyHeader = true,
+  withProof = false,
   sharedRows = true,
   className,
 }: {
@@ -53,11 +56,20 @@ export default function PlanMatrix({
    */
   stickyHeader?: boolean;
   /**
+   * Hang the customer quote off the foot of the table. Opt-in, and today only
+   * the upgrade modal asks for it: that is the surface selling a trial to
+   * somebody who has not bought yet, where another customer's word is the last
+   * argument left. /billing/cancel goes without on purpose — the reader there
+   * already tried to buy, so proof answers a question they had stopped asking,
+   * and that page's job is to get them back to checkout.
+   */
+  withProof?: boolean;
+  /**
    * Show the rows the free tier gets as well, under their own heading.
    *
    * Off on the trial modal, where the column is selling: a reader deciding
    * whether to pay does not need seven rows of things they already have, and
-   * the column is shorter without them. On /billing/cancel they stay —
+   * the space buys a customer's word instead. On /billing/cancel they stay —
    * that reader is being shown what an account keeps if they leave, and the
    * shared rows are the whole of that answer.
    */
@@ -157,6 +169,25 @@ export default function PlanMatrix({
           </Fragment>
         );
       })}
+
+      {/* One customer, in his own words, where the shared rows used to be.
+
+          The table is the claim we make about the product; this is somebody
+          else making it, which is worth more once the reader has seen what is
+          being claimed than as a banner before they know what it refers to.
+          It sits above the coverage note rather than under it so the column
+          closes on the small print, not on a quote followed by small print.
+
+          Off unless a caller asks for it, so the page that shows this table to
+          somebody whose checkout just failed does not argue at them. Rendered
+          from the shared component, which reads PROOF, so the quote is not
+          reproduced here: see testimonial.tsx. Nothing renders when
+          PROOF.showProof is off, and the border goes with it. */}
+      {withProof && PROOF.showProof && (
+        <div className="border-t border-rc-rule px-4 sm:px-6 py-4">
+          <Testimonial className="mt-0" />
+        </div>
+      )}
 
       {/* Names only what a customer can actually use today. Oregon was once
           listed here and in COVERED_PROVINCES before it had a single city,

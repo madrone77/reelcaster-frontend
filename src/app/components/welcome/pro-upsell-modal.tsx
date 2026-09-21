@@ -43,6 +43,7 @@ import { usePricing } from '@/app/components/split-test/use-pricing';
 import { TRIAL_DAYS } from '@/lib/pricing';
 import BrandHeader from '@/app/components/paywall/brand-header';
 import ChargeTerms from '@/app/components/paywall/charge-terms';
+import Testimonial from '@/app/components/paywall/testimonial';
 import { TrialBuy, TrialCtaProvider } from '@/app/components/paywall/trial-cta';
 import {
   PRO_ROWS_HEADING,
@@ -229,6 +230,10 @@ export default function ProUpsellModal({ onClose }: { onClose: () => void }) {
               className="mt-3 text-center"
             />
           </div>
+
+          {/* Under the button, not over it: the reader who is ready has
+              already acted, and the one who hesitates scrolls into the proof. */}
+          <Testimonial className="mt-5" />
 
           {/* The way past. Casey's own sentence, kept whole: it names what
               declining costs instead of saying "no thanks", which names
