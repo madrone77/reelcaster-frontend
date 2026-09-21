@@ -11,6 +11,8 @@ import PlanPicker from './plan-picker';
 import { TRIAL_DAYS, dollars } from '@/lib/pricing';
 import { PRO_FORECAST_DAYS } from '@/lib/forecast-horizon';
 import { usePlanPicker } from '@/app/components/split-test/use-plan-picker';
+import { useSplitArms } from '@/app/components/split-test/use-pricing';
+import { TESTIMONIAL_NONE_TEST } from '@/app/components/split-test/use-testimonial-none';
 
 /**
  * The rows, in Casey's words and order (reworked 2026-09-14). Not the plan
@@ -163,6 +165,8 @@ export default function TrialSheetStripe({
   // price is for sale. A wall that hands in its own href sells nothing here,
   // so the picker has nothing to pick and the arm is not counted.
   const { picker, look, reportPress } = usePlanPicker(MONTHLY_ON && !ctaHref);
+  // Read, not reported: <Testimonial> below owns this test's exposure.
+  const noQuote = useSplitArms()[TESTIMONIAL_NONE_TEST] === 'b';
   return (
     <TrialCtaProvider
       from={from}
@@ -192,7 +196,9 @@ export default function TrialSheetStripe({
         {/* The offer, set the way Stripe Checkout sets it on the page after
             this one: what it is in grey, what it costs today in large type,
             centred, as there. The first charge is stated under the button. */}
-        <OfferHeadline priceAmount={priceAmount} compact={picker} />
+        {/* The big "7 days free" title makes way for the cards only when the
+            quote is also on the sheet; with no quote there is room for both. */}
+        <OfferHeadline priceAmount={priceAmount} compact={picker && !noQuote} />
 
         {/* Arms b and c of plan_picker_v3: Yearly beside Monthly, under the title
             and over the rows, so the reader has chosen a card before they
