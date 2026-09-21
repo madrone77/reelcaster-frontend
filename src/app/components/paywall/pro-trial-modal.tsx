@@ -352,8 +352,16 @@ export default function ProTrialModal({
         /* Below `lg` this is the old single column and the panel is the one
            scroller. At `lg` it becomes a fixed-height two-pane box and the
            columns scroll instead — hence `overflow-hidden` there, or the panel
-           would scroll a thing whose halves already do. */
-        className="bg-rc-panel border-rc-rule text-rc-ink p-0 gap-0 sm:max-w-lg lg:max-w-4xl max-h-[88dvh] lg:max-h-[min(88dvh,44rem)] flex flex-col overflow-y-auto overscroll-contain lg:overflow-hidden [&>[data-slot=dialog-close]]:z-20 lg:[&>[data-slot=dialog-close]]:right-[calc(50%+1rem)]"
+           would scroll a thing whose halves already do.
+
+           The height is fixed, not a cap, and tall enough (51rem) that
+           neither column scrolls with the plan picker, the wallet row and the
+           Yearly timeline all drawn. It was capped at 44rem, which made the
+           left column scroll by a few lines once the picker arrived; and a
+           content-sized panel jumped 40px each time Monthly shortened the
+           timeline. Only a screen shorter than that falls back to the lanes
+           scrolling. */
+        className="bg-rc-panel border-rc-rule text-rc-ink p-0 gap-0 sm:max-w-lg lg:max-w-4xl max-h-[88dvh] lg:h-[min(calc(100dvh-2rem),51rem)] lg:max-h-[calc(100dvh-2rem)] flex flex-col overflow-y-auto overscroll-contain lg:overflow-hidden [&>[data-slot=dialog-close]]:z-20 lg:[&>[data-slot=dialog-close]]:right-[calc(50%+1rem)]"
       >
         <DialogBody
           from={from}
