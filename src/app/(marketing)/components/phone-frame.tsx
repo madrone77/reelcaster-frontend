@@ -111,8 +111,8 @@ export default function PhoneFrame({
                 knockout would put a blue box on a blue bar. */}
             {pro ? (
               // ProHeaderMark at the same 375px measurements, in screen units,
-              // sitting 8 above the bar's centre.
-              <span className="flex -translate-y-[calc(8*var(--sp))] items-center gap-[calc(8*var(--sp))]">
+              // sitting 13 above the bar's centre.
+              <span className="flex -translate-y-[calc(13*var(--sp))] items-center gap-[calc(8*var(--sp))]">
                 <Image
                   src="/reelcaster-mark-pro.svg"
                   alt=""
