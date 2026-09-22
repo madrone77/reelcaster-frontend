@@ -3,7 +3,6 @@
 import type { CSSProperties } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
-import { usePathname } from 'next/navigation';
 import { useAuth } from '@/contexts/auth-context';
 import { btn } from '@/app/components/ui/button';
 import SearchTrigger from '@/app/components/search/search-trigger';
@@ -12,12 +11,6 @@ import { useSubscription } from '@/hooks/use-subscription';
 import { ProHeaderMark } from '@/app/components/pro/pro-mark';
 
 interface MarketingHeaderProps {
-  /**
-   * "brand" is the blue bar with the white mark. Mirrors ExploreTopBar's
-   * variant of the same name — same fill, same rule, same inverted controls —
-   * so the bar doesn't change character crossing between the two.
-   */
-  variant?: 'default' | 'brand';
   /**
    * What the bar offers a signed-out visitor.
    *
@@ -76,7 +69,6 @@ interface MarketingHeaderProps {
 }
 
 export default function MarketingHeader({
-  variant = 'default',
   signedOutActions = 'full',
   ctaLabel = 'Start free trial',
   ctaOverColumn,
@@ -84,29 +76,16 @@ export default function MarketingHeader({
 }: MarketingHeaderProps = {}) {
   const { user, loading, signOut } = useAuth();
   const { isPaid } = useSubscription();
-  const pathname = usePathname();
-
-  const brand = variant === 'brand';
-
-  // On the landing page the bar shares the hero's tint and drops its rule —
-  // the two are one surface, so a divider would just draw a line through the
-  // middle of it. Every other surface gets a white bar with a rule. The brand
-  // variant is its own surface and answers to neither.
-  const onLanding = pathname === '/';
 
   return (
     // Stripped to a pure conversion funnel: logo + a single Start-free CTA, no
     // nav links — the marketing chrome shouldn't offer exits from the pitch.
-    // No backdrop-blur either way: an opaque bar has no backdrop to blur.
+    // Always the blue bar with the white mark, same as ExploreTopBar, so the
+    // chrome doesn't change character crossing between the two. No
+    // backdrop-blur: an opaque bar has no backdrop to blur.
     <header
       data-testid="marketing-header"
-      className={`sticky top-0 z-30 ${
-        brand
-          ? 'bg-rc-brand border-b border-white/15'
-          : onLanding
-            ? 'bg-rc-band'
-            : 'bg-rc-panel border-b border-rc-rule'
-      }`}
+      className="sticky top-0 z-30 bg-rc-brand border-b border-white/15"
     >
       <div className="max-w-6xl mx-auto px-6 h-16 flex items-center">
         <Link href="/" className="shrink-0 flex items-center" aria-label="ReelCaster home">
@@ -116,7 +95,7 @@ export default function MarketingHeader({
             <ProHeaderMark />
           ) : (
             <Image
-              src={brand ? '/reelcaster-mark-white.svg' : '/reelcaster-mark.svg'}
+              src="/reelcaster-mark-white.svg"
               alt="ReelCaster"
               width={104}
               height={48}
@@ -135,7 +114,7 @@ export default function MarketingHeader({
               Not on `signedOutActions: 'none'` — that is /billing/success,
               where the visitor has just paid and the bar deliberately offers
               no control at all until the claim flow opens their account. */}
-          {signedOutActions !== 'none' && <SearchTrigger brand={brand} />}
+          {signedOutActions !== 'none' && <SearchTrigger brand />}
 
           {loading ? null : user ? (
             <>
@@ -143,20 +122,14 @@ export default function MarketingHeader({
               <Link
                 href="/profile"
                 aria-label="Profile"
-                className={`flex items-center justify-center w-8 h-8 rounded-full font-rc-mono font-bold text-[11px] ${
-                  brand ? 'bg-white text-rc-brand' : 'bg-rc-ink text-white'
-                }`}
+                className="flex items-center justify-center w-8 h-8 rounded-full font-rc-mono font-bold text-[11px] bg-white text-rc-brand"
               >
                 {user.email ? user.email.slice(0, 2).toUpperCase() : '··'}
               </Link>
               <button
                 type="button"
                 onClick={() => signOut()}
-                className={`inline-flex items-center px-4 py-2 rounded border text-sm font-semibold transition-colors ${
-                  brand
-                    ? 'border-white/30 text-white hover:bg-white/10'
-                    : 'border-rc-rule text-rc-ink hover:bg-rc-surface'
-                }`}
+                className="inline-flex items-center px-4 py-2 rounded border text-sm font-semibold transition-colors border-white/30 text-white hover:bg-white/10"
               >
                 Sign out
               </button>
@@ -166,11 +139,7 @@ export default function MarketingHeader({
               {signedOutActions === 'full' && (
                 <Link
                   href="/login"
-                  className={`hidden sm:inline-flex text-sm font-semibold uppercase tracking-wide px-3 py-1.5 transition-colors ${
-                    brand
-                      ? 'text-white/80 hover:text-white'
-                      : 'text-rc-ink-soft hover:text-rc-ink'
-                  }`}
+                  className="hidden sm:inline-flex text-sm font-semibold uppercase tracking-wide px-3 py-1.5 transition-colors text-white/80 hover:text-white"
                 >
                   Sign in
                 </Link>
@@ -196,7 +165,7 @@ export default function MarketingHeader({
                 <TrialModalButton
                   from="marketing-header"
                   placeName={placeName}
-                  className={brand ? btn.navOnBrand : btn.nav}
+                  className={btn.navOnBrand}
                 >
                   {ctaLabel}
                 </TrialModalButton>

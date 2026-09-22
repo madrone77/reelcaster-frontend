@@ -32,8 +32,8 @@ export function ProLockup({ size = 'md' }: { size?: 'md' | 'lg' }) {
   const lg = size === 'lg';
   return (
     <div
-      className={`inline-flex items-center rounded-lg bg-rc-brand ${
-        lg ? 'gap-4 px-4 py-3 md:gap-5 md:px-5 md:py-4' : 'gap-3 px-3 py-2.5'
+      className={`inline-flex items-center whitespace-nowrap rounded-lg bg-rc-brand ${
+        lg ? 'gap-3 px-3 py-2.5 lg:gap-5 lg:px-5 lg:py-4' : 'gap-3 px-3 py-2.5'
       }`}
     >
       <Image
@@ -41,11 +41,11 @@ export function ProLockup({ size = 'md' }: { size?: 'md' | 'lg' }) {
         alt=""
         width={lg ? 130 : 104}
         height={lg ? 60 : 48}
-        className={lg ? 'h-12 w-auto md:h-[60px]' : 'h-12 w-auto'}
+        className={lg ? 'h-10 w-auto lg:h-[60px]' : 'h-10 w-auto'}
       />
       <span
         className={`font-black leading-none tracking-[-0.02em] text-white ${
-          lg ? 'text-2xl md:text-4xl' : 'text-xl'
+          lg ? 'text-xl lg:text-4xl' : 'text-xl'
         }`}
       >
         ReelCaster <span className="text-rc-pro-gold">Pro</span>

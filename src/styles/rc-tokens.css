@@ -17,7 +17,7 @@
   --rc-badge:        #FFCB1F;   /* notification badge (legacy extra) */
   --rc-lemon:        #F0E6A8;   /* CTA fill on the brand-blue bar (legacy) */
   --rc-lemon-hover:  #E6DA93;
-  --rc-pro-gold:     #DCB34C;   /* the Pro plus and PRO badge. Only ever on brand blue */
+  --rc-pro-gold:     #FFCB1F;   /* the Pro plus and PRO badge. Only ever on brand blue */
 
   /* ─── INK (text) ────────────────────────────────────────── */
   --rc-ink:          #12151A;   /* all primary text · not pure black */
