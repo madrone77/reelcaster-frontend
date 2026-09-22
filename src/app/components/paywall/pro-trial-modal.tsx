@@ -33,6 +33,7 @@ import PlanMatrix from "./plan-matrix";
 import PlanPicker from "./plan-picker";
 import TrialSheetStripe from "./trial-sheet-stripe";
 import { useIsPhone } from "@/hooks/use-is-phone";
+import { coverMap } from "@/lib/map/map-cover";
 import { TRIAL_DAYS } from "@/lib/pricing";
 import { usePricing } from "@/app/components/split-test/use-pricing";
 import { useSplitExposure } from "@/app/components/split-test/report";
@@ -258,6 +259,14 @@ export default function ProTrialModal({
     // sent them. Last touch wins, and it expires in 30 minutes.
     captureWall(feature, from);
   }, [open, feature, viewerTier, from, trackEvent, bumpCounter]);
+
+  // The phone sheet fills the screen, so a map under it (Explore) has nothing
+  // to draw for. Pausing it frees the main thread for the sheet: a map still
+  // loading tiles underneath froze the email field for seconds on an iPhone.
+  useEffect(() => {
+    if (!open || !phone) return;
+    return coverMap();
+  }, [open, phone]);
 
   // Which shape. `useIsPhone` answers on the first client render, so the
   // shape this mounts in is the shape it keeps. It used to measure in an

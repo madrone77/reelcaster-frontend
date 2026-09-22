@@ -37,6 +37,7 @@ import {
 } from "../lib/sheet-safe-center";
 import { spotsToFeatureCollection, declutterHiddenSlugs } from "../lib/spot-geojson";
 import { useFlow } from "../lib/use-flow";
+import { pauseMap, useMapCovered } from "@/lib/map/map-cover";
 
 const SOURCE_ID = "bc-spots";
 // One layer for every spot now: the body, tail, numeral and ring are all baked
@@ -191,6 +192,18 @@ export default function ExploreMap({
   useFlow({ map: mapObj, kind: "currents", enabled: currents && !summary, timeIso: flowTimeIso ?? null });
   useFlow({ map: mapObj, kind: "wind", enabled: !!wind && !summary, timeIso: flowTimeIso ?? null });
 
+  // Stop drawing while something covers the whole screen (the phone trial
+  // sheet). A map still loading tiles under it kept the main thread busy for
+  // seconds, and iOS takes no tap while it is: the sheet's email field would
+  // not focus. See lib/map/map-cover.
+  const covered = useMapCovered();
+  useEffect(() => {
+    if (!covered) return;
+    const map = mapRef.current?.getMap();
+    if (!map) return;
+    return pauseMap(map);
+  }, [covered, mapRef]);
+
   const wrapRef = useRef<HTMLDivElement | null>(null);
 
   // On a phone the spot sheet floats over the map's bottom edge, so the chrome
@@ -329,15 +342,17 @@ export default function ExploreMap({
             mapObj.setLayoutProperty(id, "visibility", on ? "visible" : "none");
           }
         });
-      const bathyIds = (mapObj.getStyle()?.layers ?? [])
-        .map((l) => l.id)
-        .filter(isBathymetryLayer);
-      set(bathyIds, relief);
+      // `getLayersOrder()`, never `getStyle()`. This runs on every
+      // `styledata`, which fires for every image added and every property
+      // set, and `getStyle()` serializes and deep-clones the whole style,
+      // the spots GeoJSON included. Twice per event, it was the largest
+      // piece of main-thread work while the trial sheet opened over a map
+      // still settling (2026-09-22: ~450 ms of MapLibre's clone at 4x CPU),
+      // and the iPhone email field could not take the tap until it ended.
+      const layerIds = mapObj.getLayersOrder();
+      set(layerIds.filter(isBathymetryLayer), relief);
       set(LABEL_LAYERS, labels);
-      set(
-        (mapObj.getStyle()?.layers ?? []).map((l) => l.id).filter(isBathyPlacesLayer),
-        labels,
-      );
+      set(layerIds.filter(isBathyPlacesLayer), labels);
       set(WDFW_LAYERS, wdfwRegs ?? false);
     };
     apply();
