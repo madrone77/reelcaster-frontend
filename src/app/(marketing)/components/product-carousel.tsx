@@ -210,7 +210,7 @@ export default async function ProductCarousel() {
     {
       id: 'map',
       tab: 'The map',
-      kicker: 'Every mark, scored',
+      kicker: 'Every spot, scored',
       title: ['Every reef, bank and ledge.', 'Mapped.'],
       body: [
         'Discover productive fishing structure, save your favorite spots, and explore waters with confidence.',
@@ -268,7 +268,7 @@ export default async function ProductCarousel() {
             points: [
               {
                 term: 'Where',
-                detail: 'Every mark we score, with the water under it drawn to depth',
+                detail: 'Every spot we score, with the water under it drawn to depth',
               },
               {
                 term: 'What',
@@ -293,7 +293,7 @@ export default async function ProductCarousel() {
               <PhoneFrame
                 pro
                 width={DEVICE}
-                label={`The ReelCaster spot page for ${hero.spot.name} on a phone: the mark, every species scored for it, today's best window, its regulations, and the water underneath.`}
+                label={`The ReelCaster spot page for ${hero.spot.name} on a phone: the spot, every species scored for it, today's best window, its regulations, and the water underneath.`}
               >
                 {/* Same boundary as the map slide, and for the same reason:
                     this screen draws a MapLibre map too, and a lost WebGL

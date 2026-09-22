@@ -637,7 +637,7 @@ export default function CityInstrument({
                   >
                     {featured.name}
                   </Link>
-                  , the most fished mark in {cityName}
+                  , the most fished spot in {cityName}
                   {featured.speciesName
                     ? `, scored for ${featured.speciesName}`
                     : ""}
@@ -741,7 +741,7 @@ export default function CityInstrument({
                 head: "Pro unlocks every spot",
                 body: (
                   <>
-                    Most of the marks are locked. Pro shows the score at all{" "}
+                    Most of the spots are locked. Pro shows the score at all{" "}
                     {rows.length} spots around {cityName}, every hour, 14 days
                     out. Tap any lock to start.
                   </>
@@ -755,8 +755,8 @@ export default function CityInstrument({
                screen. */
             head:
               rows.length < rosterCount
-                ? `${rows.length} of ${rosterCount} marks scored`
-                : `${rosterCount} marks, all scored`,
+                ? `${rows.length} of ${rosterCount} spots scored`
+                : `${rosterCount} spots, all scored`,
             body: (
               <>
                 Every spot we cover around {cityName}, each one carrying its own

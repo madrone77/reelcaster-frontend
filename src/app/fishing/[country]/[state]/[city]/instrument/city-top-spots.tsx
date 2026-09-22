@@ -95,7 +95,7 @@ export default function CityTopSpots({
           ),
         },
         {
-          head: "Every mark has a page",
+          head: "Every spot has a page",
           body: (
             <>
               Its own chart, its own species and its own rules, worked out the
