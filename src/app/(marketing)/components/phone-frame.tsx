@@ -93,7 +93,16 @@ export default function PhoneFrame({
               An anonymous visitor really does get this bar on a phone — it is
               hidden for Pro subscribers only — so the mock is not flattering
               itself by showing the offer. */}
-          <div className="absolute inset-x-0 top-0 flex h-[calc(116*var(--sp))] items-center justify-between bg-rc-brand pt-[calc(52*var(--sp))] pr-[calc(16*var(--sp))] pl-[calc(16*var(--sp))] text-white">
+          {/* The Pro bar is tighter: tucked up under the island (46 of
+              status strip, not 52) and 46 tall rather than 64, with a smaller
+              mark. It has no button to size itself around. */}
+          <div
+            className={`absolute inset-x-0 top-0 flex items-center justify-between bg-rc-brand pr-[calc(16*var(--sp))] pl-[calc(16*var(--sp))] text-white ${
+              pro
+                ? 'h-[calc(92*var(--sp))] pt-[calc(46*var(--sp))]'
+                : 'h-[calc(116*var(--sp))] pt-[calc(52*var(--sp))]'
+            }`}
+          >
             {/* The dynamic island, drawn rather than screenshotted: it stays
                 sharp at any width, and the phone avoids claiming a clock or a
                 battery level we would then have to keep honest. */}
@@ -101,16 +110,16 @@ export default function PhoneFrame({
             {/* White-on-brand mark: this strip is the brand blue, and the blue
                 knockout would put a blue box on a blue bar. */}
             {pro ? (
-              // ProHeaderMark at the same 375px measurements, in screen units.
-              <span className="flex items-center gap-[calc(8*var(--sp))]">
+              // ProHeaderMark, scaled to the tighter bar, in screen units.
+              <span className="flex items-center gap-[calc(6*var(--sp))]">
                 <Image
                   src="/reelcaster-mark-pro.svg"
                   alt=""
                   width={104}
                   height={48}
-                  className="block h-[calc(48*var(--sp))] w-auto"
+                  className="block h-[calc(34*var(--sp))] w-auto"
                 />
-                <span className="rounded-[calc(3*var(--sp))] bg-rc-pro-gold px-[calc(6*var(--sp))] py-[calc(3*var(--sp))] text-[calc(11*var(--sp))] leading-none font-black tracking-[.12em] text-rc-brand">
+                <span className="rounded-[calc(3*var(--sp))] bg-rc-pro-gold px-[calc(5*var(--sp))] py-[calc(2.5*var(--sp))] text-[calc(9*var(--sp))] leading-none font-black tracking-[.12em] text-rc-brand">
                   PRO
                 </span>
               </span>
@@ -132,7 +141,11 @@ export default function PhoneFrame({
             )}
           </div>
 
-          <div className="absolute inset-x-0 top-[calc(116*var(--sp))] bottom-0 overflow-hidden">
+          <div
+            className={`absolute inset-x-0 bottom-0 overflow-hidden ${
+              pro ? 'top-[calc(92*var(--sp))]' : 'top-[calc(116*var(--sp))]'
+            }`}
+          >
             {children}
 
             {/* The tab bar, floating over the map exactly as it does in the
