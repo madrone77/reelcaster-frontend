@@ -225,6 +225,7 @@ export default async function ProductCarousel() {
       ),
       phone: (
         <PhoneFrame
+          pro
           width={DEVICE}
           label="The ReelCaster Explore map on a phone, panning between scored fishing spots in the Salish Sea."
         >
@@ -290,6 +291,7 @@ export default async function ProductCarousel() {
             lazy: true,
             phone: (
               <PhoneFrame
+                pro
                 width={DEVICE}
                 label={`The ReelCaster spot page for ${hero.spot.name} on a phone: the mark, every species scored for it, today's best window, its regulations, and the water underneath.`}
               >

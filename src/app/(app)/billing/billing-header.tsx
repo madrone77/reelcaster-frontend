@@ -23,7 +23,6 @@ export default function BillingHeader() {
 
   return (
     <MarketingHeader
-      variant="brand"
       signedOutActions={onSuccess ? 'none' : 'cta'}
     />
   )

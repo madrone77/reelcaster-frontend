@@ -44,6 +44,7 @@ export default function PhoneFrame({
   children,
   label,
   width = 'w-[min(330px,88%)]',
+  pro = false,
 }: {
   /** Fills the screen under the app bar. */
   children: ReactNode;
@@ -59,6 +60,14 @@ export default function PhoneFrame({
    * of one product in devices of three sizes reads as three products.
    */
   width?: string;
+  /**
+   * Draw the app bar as a Pro subscriber sees it: the Pro mark and badge, and
+   * no trial button. The homepage carousel sets it so the product is shown as
+   * what you get. The landing pages and spot ad pages leave it off; their
+   * phones are the anonymous visitor's bar, and a layout pass on /lp measures
+   * that bar's button.
+   */
+  pro?: boolean;
 }) {
   return (
     <div
@@ -84,28 +93,60 @@ export default function PhoneFrame({
               An anonymous visitor really does get this bar on a phone — it is
               hidden for Pro subscribers only — so the mock is not flattering
               itself by showing the offer. */}
-          <div className="absolute inset-x-0 top-0 flex h-[calc(116*var(--sp))] items-center justify-between bg-rc-brand pt-[calc(52*var(--sp))] pr-[calc(16*var(--sp))] pl-[calc(16*var(--sp))] text-white">
+          {/* The Pro bar is tighter: tucked up under the island (44 of
+              status strip, not 52) and 56 tall rather than 64, around the
+              same 48 mark. It has no button to size itself around. */}
+          <div
+            className={`absolute inset-x-0 top-0 flex items-center justify-between bg-rc-brand pr-[calc(16*var(--sp))] pl-[calc(16*var(--sp))] text-white ${
+              pro
+                ? 'h-[calc(100*var(--sp))] pt-[calc(44*var(--sp))]'
+                : 'h-[calc(116*var(--sp))] pt-[calc(52*var(--sp))]'
+            }`}
+          >
             {/* The dynamic island, drawn rather than screenshotted: it stays
                 sharp at any width, and the phone avoids claiming a clock or a
                 battery level we would then have to keep honest. */}
             <div className="absolute top-[calc(12*var(--sp))] left-1/2 h-[calc(28*var(--sp))] w-[calc(96*var(--sp))] -translate-x-1/2 rounded-full bg-[#0A0C10]" />
             {/* White-on-brand mark: this strip is the brand blue, and the blue
                 knockout would put a blue box on a blue bar. */}
-            <Image
-              src="/reelcaster-mark-white.svg"
-              alt=""
-              width={104}
-              height={48}
-              className="block h-[calc(48*var(--sp))] w-auto"
-            />
-            {/* Sentence case in the markup, uppercased in CSS, as the real
-                button is: a screen reader should hear the product's label. */}
-            <span className="inline-flex h-[calc(40*var(--sp))] items-center rounded-[calc(4*var(--sp))] bg-white px-[calc(16*var(--sp))] text-[calc(12*var(--sp))] font-bold tracking-[calc(.3*var(--sp))] whitespace-nowrap text-rc-brand uppercase">
-              Start free trial
-            </span>
+            {pro ? (
+              // ProHeaderMark at the same 375px measurements, in screen units,
+              // sitting 13 above the bar's centre.
+              <span className="flex -translate-y-[calc(13*var(--sp))] items-center gap-[calc(8*var(--sp))]">
+                <Image
+                  src="/reelcaster-mark-pro.svg"
+                  alt=""
+                  width={104}
+                  height={48}
+                  className="block h-[calc(48*var(--sp))] w-auto"
+                />
+                <span className="rounded-[calc(3*var(--sp))] bg-rc-pro-gold px-[calc(6*var(--sp))] py-[calc(3*var(--sp))] text-[calc(11*var(--sp))] leading-none font-black tracking-[.12em] text-rc-brand">
+                  PRO
+                </span>
+              </span>
+            ) : (
+              <>
+                <Image
+                  src="/reelcaster-mark-white.svg"
+                  alt=""
+                  width={104}
+                  height={48}
+                  className="block h-[calc(48*var(--sp))] w-auto"
+                />
+                {/* Sentence case in the markup, uppercased in CSS, as the real
+                    button is: a screen reader should hear the product's label. */}
+                <span className="inline-flex h-[calc(40*var(--sp))] items-center rounded-[calc(4*var(--sp))] bg-white px-[calc(16*var(--sp))] text-[calc(12*var(--sp))] font-bold tracking-[calc(.3*var(--sp))] whitespace-nowrap text-rc-brand uppercase">
+                  Start free trial
+                </span>
+              </>
+            )}
           </div>
 
-          <div className="absolute inset-x-0 top-[calc(116*var(--sp))] bottom-0 overflow-hidden">
+          <div
+            className={`absolute inset-x-0 bottom-0 overflow-hidden ${
+              pro ? 'top-[calc(100*var(--sp))]' : 'top-[calc(116*var(--sp))]'
+            }`}
+          >
             {children}
 
             {/* The tab bar, floating over the map exactly as it does in the
