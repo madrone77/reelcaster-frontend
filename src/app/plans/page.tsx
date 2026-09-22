@@ -14,6 +14,7 @@ import { TRIAL_DAYS } from '@/lib/trial';
 import { PLAN_FEATURES } from '@/lib/plan-features';
 import { PLAN_LABELS } from '@/lib/plan-labels';
 import PlansFeatureCallout from '@/app/components/plans/plans-feature-callout';
+import { ProLockup } from '@/app/components/pro/pro-mark';
 import {
   breadcrumbJsonLd,
   DEFAULT_OG,
@@ -227,10 +228,8 @@ export default function PlansPage() {
       <section className="mx-auto max-w-6xl px-6 pt-6 pb-10 md:pt-8 md:pb-14">
         <div className="grid gap-10 md:grid-cols-[1fr_minmax(320px,420px)] md:gap-14">
           <div>
-            <p className="font-rc-mono text-[10px] uppercase tracking-[0.14em] text-rc-ink-mute">
-              ReelCaster Pro
-            </p>
-            <h1 className="mt-3 text-4xl font-black tracking-[-0.02em] text-rc-ink md:text-6xl">
+            <ProLockup size="lg" />
+            <h1 className="mt-6 text-4xl font-black tracking-[-0.02em] text-rc-ink md:text-6xl">
               Know before you go.
             </h1>
             {/* Deliberately not a feature list — the table right beside it is

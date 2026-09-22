@@ -13,6 +13,7 @@ import MetaStartTrial from '@/app/components/analytics/meta-start-trial'
 import GoogleStartTrial from '@/app/components/analytics/google-start-trial'
 import PlausibleStartTrial from '@/app/components/analytics/plausible-start-trial'
 import { useTrialConversion } from '@/app/components/analytics/use-trial-conversion'
+import { ProLockup } from '@/app/components/pro/pro-mark'
 
 interface CheckoutStatus {
   tier: string
@@ -203,9 +204,9 @@ function BillingSuccessInner() {
       <MetaStartTrial conversion={conversion} sessionId={sessionId} />
       <GoogleStartTrial conversion={conversion} />
       <PlausibleStartTrial conversion={conversion} />
-      <p className="font-rc-mono text-[10px] uppercase tracking-[0.14em] text-rc-ink-mute">
-        ReelCaster Pro
-      </p>
+      <div>
+        <ProLockup />
+      </div>
 
       <div
         className="mt-6 rounded-xl border border-rc-rule bg-rc-panel p-6 text-center shadow-rc-panel md:p-8"

@@ -8,6 +8,8 @@ import { useAuth } from '@/contexts/auth-context';
 import { btn } from '@/app/components/ui/button';
 import SearchTrigger from '@/app/components/search/search-trigger';
 import TrialModalButton from '@/app/components/paywall/trial-modal-button';
+import { useSubscription } from '@/hooks/use-subscription';
+import { ProHeaderMark } from '@/app/components/pro/pro-mark';
 
 interface MarketingHeaderProps {
   /**
@@ -81,6 +83,7 @@ export default function MarketingHeader({
   placeName,
 }: MarketingHeaderProps = {}) {
   const { user, loading, signOut } = useAuth();
+  const { isPaid } = useSubscription();
   const pathname = usePathname();
 
   const brand = variant === 'brand';
@@ -107,13 +110,19 @@ export default function MarketingHeader({
     >
       <div className="max-w-6xl mx-auto px-6 h-16 flex items-center">
         <Link href="/" className="shrink-0 flex items-center" aria-label="ReelCaster home">
-          <Image
-            src={brand ? '/reelcaster-mark-white.svg' : '/reelcaster-mark.svg'}
-            alt="ReelCaster"
-            width={104}
-            height={48}
-            priority
-          />
+          {/* Pro accounts (paid, trialing or comped) get the Pro mark. isPaid
+              is false until the tier resolves, so it only ever upgrades. */}
+          {user && isPaid ? (
+            <ProHeaderMark />
+          ) : (
+            <Image
+              src={brand ? '/reelcaster-mark-white.svg' : '/reelcaster-mark.svg'}
+              alt="ReelCaster"
+              width={104}
+              height={48}
+              priority
+            />
+          )}
         </Link>
 
         <div className="flex items-center gap-2 min-h-[36px] ml-auto">

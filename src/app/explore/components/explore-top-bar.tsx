@@ -7,6 +7,8 @@ import { usePathname } from "next/navigation";
 import { btn, TOP_BAR_CTA_PHONE_WIDTH } from "@/app/components/ui/button";
 import { PAGE_MEASURE } from "@/app/components/layout/page-measure";
 import { useAuth } from "@/contexts/auth-context";
+import { useSubscription } from "@/hooks/use-subscription";
+import { ProHeaderMark } from "@/app/components/pro/pro-mark";
 import TrialModalButton from "@/app/components/paywall/trial-modal-button";
 import type { NagFeatureId } from "@/lib/plan-features";
 import { fetchAlertProfiles } from "@/lib/alerts-client";
@@ -168,6 +170,7 @@ export default function ExploreTopBar({
   ctaOverColumn?: number;
 } = {}) {
   const { user, session, loading } = useAuth();
+  const { isPaid } = useSubscription();
   const pathname = usePathname();
   const brand = variant === "brand";
   const initials = user?.email ? user.email.slice(0, 2).toUpperCase() : null;
@@ -305,23 +308,31 @@ export default function ExploreTopBar({
             than a door. See the `adFrame` prop for why. */}
         {adFrame ? (
           <span className="shrink-0 flex items-center">
-            <Image
-              src={brand ? "/reelcaster-mark-white.svg" : "/reelcaster-mark.svg"}
-              alt="ReelCaster"
-              width={104}
-              height={48}
-              priority
-            />
+            {user && isPaid ? (
+              <ProHeaderMark />
+            ) : (
+              <Image
+                src={brand ? "/reelcaster-mark-white.svg" : "/reelcaster-mark.svg"}
+                alt="ReelCaster"
+                width={104}
+                height={48}
+                priority
+              />
+            )}
           </span>
         ) : (
           <Link href="/" className="shrink-0 flex items-center" aria-label="ReelCaster home">
-            <Image
-              src={brand ? "/reelcaster-mark-white.svg" : "/reelcaster-mark.svg"}
-              alt="ReelCaster"
-              width={104}
-              height={48}
-              priority
-            />
+            {user && isPaid ? (
+              <ProHeaderMark />
+            ) : (
+              <Image
+                src={brand ? "/reelcaster-mark-white.svg" : "/reelcaster-mark.svg"}
+                alt="ReelCaster"
+                width={104}
+                height={48}
+                priority
+              />
+            )}
           </Link>
         )}
 
