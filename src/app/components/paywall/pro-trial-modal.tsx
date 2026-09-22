@@ -32,12 +32,17 @@ import BrandHeader from "./brand-header";
 import PlanMatrix from "./plan-matrix";
 import PlanPicker from "./plan-picker";
 import TrialSheetStripe from "./trial-sheet-stripe";
+import TrialSheetTimeline from "./trial-sheet-timeline";
 import { useIsPhone } from "@/hooks/use-is-phone";
 import { coverMap } from "@/lib/map/map-cover";
 import { TRIAL_DAYS } from "@/lib/pricing";
-import { usePricing } from "@/app/components/split-test/use-pricing";
+import { usePricing, useSplitArms } from "@/app/components/split-test/use-pricing";
 import { useSplitExposure } from "@/app/components/split-test/report";
 import { usePlanPicker } from "@/app/components/split-test/use-plan-picker";
+import {
+  sheetTimelineOn,
+  useSheetTimeline,
+} from "@/app/components/split-test/use-sheet-timeline";
 import {
   NAG_FEATURES,
   type NagFeatureId,
@@ -133,11 +138,13 @@ export default function ProTrialModal({
   const pricing = usePricing();
   useSplitExposure(pricing, "modal");
 
-  // Which shape. The phone sheet is no longer an arm: trial_sheet_stripe_v1
-  // (2026-09-06 to 2026-09-07) put the Stripe-styled sheet against the Pro
-  // list sheet and the Stripe one won, so it is the only phone sheet now and
-  // nothing here reads or reports a sheet arm.
+  // Which shape. trial_sheet_stripe_v1 (2026-09-06 to 2026-09-07) made the
+  // Stripe-styled sheet the phone sheet. Since 2026-09-22 sheet_timeline_v1
+  // puts it against the timeline sheet (see ./trial-sheet-timeline); a wall
+  // that hands in its own href sells nothing, so it keeps the control.
   const phone = useIsPhone();
+  const splitArms = useSplitArms();
+  const timelineSheet = sheetTimelineOn(splitArms, !ctaHref);
 
   /**
    * The server-side counter behind /admin/reelcaster/paywalls and the
@@ -287,7 +294,10 @@ export default function ProTrialModal({
           variant="sheet"
           data-testid="pro-trial-modal"
           data-shape="sheet"
+          data-sheet-arm={timelineSheet ? "timeline" : "stripe"}
           data-feature={feature}
+          // The timeline sheet draws its own close, white on its blue banner.
+          showCloseButton={!timelineSheet}
           // A fixed height, a sliver short of the top of the screen, so the
           // sheet reads as a page rather than a tray hanging a third of the
           // way down. It was 94dvh; with the plan cards and the quote both
@@ -295,7 +305,9 @@ export default function ProTrialModal({
           // lets it sit still.
           className="bg-rc-panel border-rc-rule text-rc-ink gap-0 p-0 [&>[data-slot=dialog-close]]:z-20 h-[calc(100dvh-0.5rem)] max-h-[calc(100dvh-0.5rem)]"
         >
-          <TrialSheetStripe
+          <PhoneSheet
+            timeline={timelineSheet}
+            sells={!ctaHref}
             placeName={spotName ?? placeName}
             // A spot when there is one, otherwise the city the map is on.
             placeKind={spotName ? 'spot' : 'city'}
@@ -627,4 +639,41 @@ function WalletUnlessMonthly() {
   const { plan } = useTrialCta();
   if (plan === "monthly") return null;
   return <TrialExpress className="mb-3" />;
+}
+
+/**
+ * The phone sheet the reader's sheet_timeline_v1 arm calls for, counted
+ * inside the open dialog so an exposure is a sheet on screen. Either sheet's
+ * buy press is reported for the test before the modal's own tracking runs.
+ */
+function PhoneSheet({
+  timeline,
+  sells,
+  onActivate,
+  ...props
+}: React.ComponentProps<typeof TrialSheetStripe> & {
+  timeline: boolean;
+  sells: boolean;
+}) {
+  const { reportPress } = useSheetTimeline(sells);
+  const activate: typeof onActivate = (method) => {
+    reportPress();
+    onActivate(method);
+  };
+  if (timeline) {
+    return (
+      <TrialSheetTimeline
+        placeName={props.placeName}
+        placeKind={props.placeKind}
+        cityName={props.cityName}
+        headline={props.headline}
+        from={props.from}
+        region={props.region}
+        ctaLabel={props.ctaLabel}
+        priceAmount={props.priceAmount}
+        onActivate={activate}
+      />
+    );
+  }
+  return <TrialSheetStripe {...props} onActivate={activate} />;
 }

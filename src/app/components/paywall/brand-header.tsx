@@ -68,7 +68,7 @@ export default function BrandHeader({ city }: { city?: string | null }) {
  * product where a header that changes under the reader's thumb is worst. Both
  * sources above are already in hand when the sheet opens.
  */
-function useBrandCity(explicit?: string | null): string | null {
+export function useBrandCity(explicit?: string | null): string | null {
   // Stated only, and no hydrate: the local read is synchronous-ish and free,
   // and a server round trip here would land after the sheet has been read.
   const { slug } = useHomeCityState();
