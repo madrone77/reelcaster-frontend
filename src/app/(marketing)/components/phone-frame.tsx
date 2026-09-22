@@ -110,8 +110,9 @@ export default function PhoneFrame({
             {/* White-on-brand mark: this strip is the brand blue, and the blue
                 knockout would put a blue box on a blue bar. */}
             {pro ? (
-              // ProHeaderMark at the same 375px measurements, in screen units.
-              <span className="flex items-center gap-[calc(8*var(--sp))]">
+              // ProHeaderMark at the same 375px measurements, in screen units,
+              // sitting 8 above the bar's centre.
+              <span className="flex -translate-y-[calc(8*var(--sp))] items-center gap-[calc(8*var(--sp))]">
                 <Image
                   src="/reelcaster-mark-pro.svg"
                   alt=""
