@@ -678,6 +678,7 @@ export function TrialBuy({
   inputClassName,
   hideLabel = false,
   collectEmail = true,
+  placeholder = 'angler@example.com',
 }: {
   signupHref?: string;
   signupLabel?: string;
@@ -720,6 +721,8 @@ export function TrialBuy({
    */
   testId?: string;
   className?: string;
+  /** The email field's placeholder. The timeline sheet asks in its own words. */
+  placeholder?: string;
 }) {
   const s = useTrialCta();
   const emailFieldId = useId();
@@ -856,7 +859,7 @@ export function TrialBuy({
             value={s.email}
             onChange={(e) => s.setEmail(e.target.value)}
             onBlur={(e) => s.reportEmail(e.target.value)}
-            placeholder="angler@example.com"
+            placeholder={placeholder}
             disabled={s.submitting}
             className={cn(
               'w-full rounded-lg border px-3 py-2.5 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rc-brand focus-visible:ring-offset-2 disabled:opacity-60',

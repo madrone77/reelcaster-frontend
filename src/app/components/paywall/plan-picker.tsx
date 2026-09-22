@@ -36,11 +36,15 @@ import type { PlanPickerLook } from '@/app/components/split-test/use-plan-picker
 export default function PlanPicker({
   className,
   look = 'card',
+  goldBadge = false,
 }: {
   className?: string;
   look?: PlanPickerLook;
+  /** The Save badge as the gold tab on the plain cards (sheet_timeline_v1 b). */
+  goldBadge?: boolean;
 }) {
   const tile = look === 'tile';
+  const gold = tile || goldBadge;
   const s = useTrialCta();
   const save = annualSavingsPercent(s.annualCents, s.monthlyCents);
   const perMonth = dollars(Math.round(s.annualCents / 12));
@@ -104,7 +108,7 @@ export default function PlanPicker({
               <span
                 className={cn(
                   'absolute right-3 font-rc-mono text-[10px] tracking-[0.06em] uppercase',
-                  tile
+                  gold
                     ? '-top-2 rounded bg-rc-badge px-1.5 py-1 leading-none font-bold text-rc-ink'
                     : '-top-2.5 rounded-full bg-rc-brand px-2 py-0.5 font-semibold text-white',
                 )}
