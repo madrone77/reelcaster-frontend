@@ -562,7 +562,7 @@ export default function LpShell(props: LpShellProps) {
             <div className="tile">
               <h3>Score your own spot</h3>
               <p>
-                Drop a pin on your secret mark and get the same 14-day scoring as
+                Drop a pin on your secret spot and get the same 14-day scoring as
                 everywhere else.
               </p>
             </div>

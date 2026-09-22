@@ -195,7 +195,7 @@ export function buildFeatures(
       title: "Pin your own spots",
       tag: "PRO",
       badge: null,
-      desc: "Drop a pin on your own numbers anywhere we cover. Your secret mark gets the full model, not just the spots we list.",
+      desc: "Drop a pin on your own numbers anywhere we cover. Your secret spot gets the full model, not just the spots we list.",
     },
     catchLog: {
       id: "catchLog",

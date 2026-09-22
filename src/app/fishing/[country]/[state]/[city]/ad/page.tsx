@@ -161,8 +161,8 @@ export default async function CityAdPage({ params, searchParams }: PageProps) {
   // ranks its marks on score, and the sentence has to say that instead.
   const descriptor =
     leadSpot && recognitionLabel(leadSpot)
-      ? `the most-fished mark near ${city.name}`
-      : `the top-scoring mark near ${city.name}`;
+      ? `the most-fished spot near ${city.name}`
+      : `the top-scoring spot near ${city.name}`;
   const verdictText =
     leadSpot && tier !== "none"
       ? `${Fish ? `${Fish} fishing` : "Fishing"} at ${leadSpot.name}, ${descriptor}, ${VERDICT[tier]}.`

@@ -39,7 +39,7 @@ export function recognitionLabel(spot: HubSpot): string | null {
     case "popular":
       return "Regularly fished";
     case "known":
-      return "Known mark";
+      return "Known spot";
     default:
       // "sparse" and "unfished" say nothing worth printing. A badge reading
       // "rarely fished" is true and is not what this page is for; the spot

@@ -130,7 +130,7 @@ export default async function AdReel({
       tab: "The map",
       title: city ? `Every spot around ${city.name}, scored` : `${spot.name}, on the live map`,
       body: city
-        ? "Each number is today's best score out of 100 at that spot. The card walks the most-fished marks."
+        ? "Each number is today's best score out of 100 at that spot. The card walks the most-fished spots."
         : "Every spot is scored for today, out of 100. Green is worth the trip, amber is fair, red is slow.",
       phone: (
         <PhoneFrame

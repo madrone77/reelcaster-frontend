@@ -37,7 +37,7 @@ const FEATURES = [
   "Every spot in the city, not the top five",
   "Alerts by email or text when your water crosses the score you set",
   "Depth contours and bottom structure under the map",
-  "Your own marks scored alongside ours",
+  "Your own spots scored alongside ours",
 ];
 
 export default function ProGate({
