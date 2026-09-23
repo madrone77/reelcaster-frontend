@@ -37,7 +37,11 @@ if (!DRY && (!SUPABASE_URL || !KEY)) {
   process.exit(1);
 }
 
-const auth = { Authorization: `Bearer ${KEY}`, apikey: KEY };
+// A new-style secret key (sb_secret_...) is not a JWT and goes in `apikey`
+// alone; the legacy service_role JWT goes in both.
+const auth = KEY?.startsWith('sb_secret_')
+  ? { apikey: KEY }
+  : { Authorization: `Bearer ${KEY}`, apikey: KEY };
 
 async function ensureBucket() {
   const res = await fetch(`${SUPABASE_URL}/storage/v1/bucket`, {
