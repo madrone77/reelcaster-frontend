@@ -13,6 +13,7 @@ import { useSubscription } from "@/hooks/use-subscription";
 import { useAnalytics } from "@/hooks/use-analytics";
 import { captureWall } from "@/lib/attribution";
 import { reportPaywall } from "@/lib/paywall-counter";
+import { reportModalOpen } from "@/lib/modal-timing";
 import { noteWallShown } from "@/lib/upgrade-nag";
 import {
   MONTHLY_ON,
@@ -251,6 +252,8 @@ export default function ProTrialModal({
   useEffect(() => {
     if (!open) return;
     openedAt.current = Date.now();
+    // Tap to painted sheet, for the admin's Modal open tile. See @/lib/modal-timing.
+    reportModalOpen();
     acted.current = false;
     trackEvent("Upgrade Prompt Shown", {
       feature,

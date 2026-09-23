@@ -13,6 +13,7 @@ import { useSubscription } from '@/hooks/use-subscription';
 import { useAnalytics } from '@/hooks/use-analytics';
 import { useIsPhone } from '@/hooks/use-is-phone';
 import { reportPaywall } from '@/lib/paywall-counter';
+import { reportModalOpen } from '@/lib/modal-timing';
 import { usePricing } from '@/app/components/split-test/use-pricing';
 import { TRIAL_DAYS } from '@/lib/pricing';
 import { PLAN_LABELS } from '@/lib/plan-labels';
@@ -106,6 +107,8 @@ export default function PlanChoiceModal({
   useEffect(() => {
     if (!open) return;
     openedAt.current = Date.now();
+    // Tap to painted sheet, for the admin's Modal open tile. See @/lib/modal-timing.
+    reportModalOpen();
     acted.current = false;
     trackEvent('Plan Choice Shown', { feature, from, viewerTier });
     reportPaywall('impression', {
