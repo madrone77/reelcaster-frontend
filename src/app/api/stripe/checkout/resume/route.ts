@@ -26,7 +26,12 @@ import {
   createAnonCheckoutSession,
   withSplitCookie,
 } from '@/lib/anon-checkout';
-import { CHECKOUT_REMINDER_TABLE, REMINDER_TOKEN_METADATA } from '@/lib/checkout-reminder';
+import {
+  ABANDON_EMAIL_TEST,
+  CHECKOUT_REMINDER_TABLE,
+  REMINDER_TOKEN_METADATA,
+  countReminderEvent,
+} from '@/lib/checkout-reminder';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -49,17 +54,19 @@ export async function GET(request: NextRequest) {
 
   const { data: row, error } = await admin
     .from(CHECKOUT_REMINDER_TABLE)
-    .select('email, region, clicked_at')
+    .select('email, region, clicked_at, variant')
     .eq('token', token)
     .maybeSingle();
   if (error || !row) return fallback();
 
   if (!row.clicked_at) {
-    await admin
+    const { data: first } = await admin
       .from(CHECKOUT_REMINDER_TABLE)
       .update({ clicked_at: new Date().toISOString() })
       .eq('token', token)
-      .is('clicked_at', null);
+      .is('clicked_at', null)
+      .select('token');
+    if (first?.length) await countReminderEvent(admin, { token, variant: row.variant }, 'cta_click');
   }
 
   // Signed up since the email went out. Sending them to buy again would open
@@ -80,6 +87,9 @@ export async function GET(request: NextRequest) {
       region,
       from: FROM,
       extraMetadata: { [REMINDER_TOKEN_METADATA]: token },
+      // The email's arm rides to Stripe, so a trial from either email is
+      // counted for abandon_email_v1 (and the cookie keeps it for later).
+      ...(row.variant ? { forceArms: { [ABANDON_EMAIL_TEST]: row.variant } } : {}),
     });
     if (!created.ok || !created.session.url) return fallback();
 

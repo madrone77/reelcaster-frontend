@@ -12,6 +12,7 @@
  * src/lib/checkout-account.ts.
  */
 
+import { randomBytes } from 'node:crypto';
 import { NextResponse } from 'next/server';
 import type Stripe from 'stripe';
 import type { SupabaseClient } from '@supabase/supabase-js';
@@ -37,6 +38,9 @@ import {
 } from '@/lib/split-tests';
 import { checkTrialEligibilityByEmail } from '@/lib/trial';
 import { acquisitionMetadata } from '@/lib/acquisition-metadata';
+
+/** Metadata key for the token on the session and in the cancel URL. */
+export const CANCEL_TOKEN_METADATA = 'cancel_token';
 
 /**
  * Pay-first checkout (buy Pro with no account, account provisioned from the
@@ -147,6 +151,11 @@ export async function createAnonCheckoutSession(params: {
   /** Stamped on both the session and the subscription. */
   extraMetadata?: Record<string, string>;
   /**
+   * Arms to stamp over the visitor's own, for a caller that already knows
+   * which arm this buyer is in (the reminder email's links).
+   */
+  forceArms?: SplitArms;
+  /**
    * What to do when the email has already had its trial. 'refuse' returns
    * `trial_used` and creates nothing, for a caller whose screen promised a
    * trial and has to say otherwise before the buyer reaches Stripe. 'charge'
@@ -166,8 +175,14 @@ export async function createAnonCheckoutSession(params: {
     return { ok: false, error: 'plan_unavailable' };
   }
 
-  const priced = await resolveCheckoutPrice(request, stripe, currency, plan);
-  if (!priced.ok) return { ok: false, error: 'plan_unavailable' };
+  const resolved = await resolveCheckoutPrice(request, stripe, currency, plan);
+  if (!resolved.ok) return { ok: false, error: 'plan_unavailable' };
+  const priced: PricedCheckout = params.forceArms
+    ? (() => {
+        const arms = { ...resolved.arms, ...params.forceArms };
+        return { ...resolved, arms, changed: true, cookie: serializeSplitArms(arms) };
+      })()
+    : resolved;
 
   // No email, no pre-check: Stripe collects the address and the webhook's
   // guards decide after the fact. Monthly never trials, so it never asks.
@@ -189,6 +204,11 @@ export async function createAnonCheckoutSession(params: {
   }
 
   const origin = appOrigin(request);
+  // Stripe's Back arrow lands on /billing/cancel with this token, which the
+  // page posts back so the abandoned-checkout email goes out right then
+  // (src/lib/checkout-reminder.ts, findCancelledCandidate). Only when we hold
+  // the email: without one there is nobody to write to.
+  const cancelToken = email ? randomBytes(16).toString('hex') : null;
   const session = await stripe.checkout.sessions.create({
     mode: 'subscription',
     // No `customer`: Stripe creates one from the email it collects, and the
@@ -201,8 +221,11 @@ export async function createAnonCheckoutSession(params: {
     payment_method_collection: 'always',
     expires_at: Math.floor(Date.now() / 1000) + ANON_CHECKOUT_TTL_SECONDS,
     success_url: `${origin}/billing/success?session_id={CHECKOUT_SESSION_ID}`,
-    cancel_url: `${origin}/billing/cancel`,
+    cancel_url: cancelToken
+      ? `${origin}/billing/cancel?ct=${cancelToken}`
+      : `${origin}/billing/cancel`,
     metadata: {
+      ...(cancelToken ? { [CANCEL_TOKEN_METADATA]: cancelToken } : {}),
       // No supabase_user_id yet. `anon_checkout` is the webhook's signal to
       // provision one rather than log an unresolvable subscription.
       anon_checkout: 'true',

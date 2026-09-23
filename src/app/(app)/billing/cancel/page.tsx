@@ -48,6 +48,20 @@ export default function BillingCancelPage() {
   useEffect(() => {
     trackEvent('Cancel Page Viewed', { tier: viewerTier })
     reportCheckoutHop('checkout_cancel', { viewerTier })
+    // A signed-out checkout that held an email comes back with ?ct=. Posting
+    // it sends the abandoned-checkout email now rather than when the session
+    // would have expired (src/lib/checkout-reminder.ts). Dropped from the
+    // address bar so a reload or a shared link does not post it again.
+    const ct = new URLSearchParams(window.location.search).get('ct')
+    if (ct) {
+      fetch('/api/stripe/checkout/abandoned', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ t: ct }),
+        keepalive: true,
+      }).catch(() => {})
+      window.history.replaceState(null, '', window.location.pathname)
+    }
     // Once on mount; the tier is whatever had settled at that moment.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])

@@ -94,7 +94,7 @@ async function main() {
 
   const tally: Record<string, number> = {};
   for (const c of candidates) {
-    const outcome = await sendCheckoutReminder(admin, c);
+    const outcome = await sendCheckoutReminder(admin, c, { trigger: 'expiry' });
     tally[outcome] = (tally[outcome] ?? 0) + 1;
     console.log(`${outcome}  ${c.email}`);
     // Resend's default limit is 2 requests a second.

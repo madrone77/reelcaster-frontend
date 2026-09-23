@@ -21,12 +21,24 @@ import { LEGAL_CONTACT } from '@/lib/legal-contact';
 import { TRIAL_DAYS } from '@/lib/pricing';
 import { BRAND, INK, INK_MUTE, INK_SOFT, button, formatDate, shell } from './shell';
 
-export function checkoutReminderUrls(token: string): { resume: string; unsubscribe: string } {
+export function checkoutReminderUrls(token: string): {
+  resume: string;
+  freeAccount: string;
+  unsubscribe: string;
+} {
   const t = encodeURIComponent(token);
   return {
     resume: siteUrl(`/api/stripe/checkout/resume?t=${t}`),
+    freeAccount: siteUrl(`/api/stripe/checkout/free-account?t=${t}`),
     unsubscribe: siteUrl(`/api/stripe/checkout/reminder-unsubscribe?t=${t}`),
   };
+}
+
+function reminderFooter(unsubscribe: string): string {
+  return `You are getting this one email because you started checkout on
+    <a href="${siteUrl('/')}" style="color:${BRAND};">reelcaster.com</a> with this address.
+    We will not send another. <a href="${unsubscribe}" style="color:${BRAND};">Unsubscribe</a>.<br>
+    <span style="font-size:9px;line-height:14px;color:#CBD5E1;">ReelCaster &middot; ${LEGAL_CONTACT.EMAIL_FOOTER_ADDRESS}, Victoria, BC, Canada</span>`;
 }
 
 export function checkoutReminderEmail(params: {
@@ -43,10 +55,7 @@ export function checkoutReminderEmail(params: {
         for ${TRIAL_DAYS} days, and if you cancel before then you pay nothing.`
     : `Finish now and Pro is on as soon as checkout completes.`;
 
-  const footer = `You are getting this one email because you started checkout on
-    <a href="${siteUrl('/')}" style="color:${BRAND};">reelcaster.com</a> with this address.
-    We will not send another. <a href="${urls.unsubscribe}" style="color:${BRAND};">Unsubscribe</a>.<br>
-    <span style="font-size:9px;line-height:14px;color:#CBD5E1;">ReelCaster &middot; ${LEGAL_CONTACT.EMAIL_FOOTER_ADDRESS}, Victoria, BC, Canada</span>`;
+  const footer = reminderFooter(urls.unsubscribe);
 
   return {
     subject: "You're almost done signing up for ReelCaster",
@@ -68,6 +77,52 @@ export function checkoutReminderEmail(params: {
       {
         preheader: 'Your ReelCaster account is one step from done.',
         footerHtml: footer,
+      },
+    ),
+  };
+}
+
+/**
+ * Arm b of abandon_email_v1: the same moment, but they leave with an account.
+ *
+ * The button is a sign-in link that makes a free account (no card) the first
+ * time it is opened; the account is never created before then, so a mistyped
+ * or made-up address never becomes one. Pro checkout is the second link, with
+ * the same trial line as arm a.
+ */
+export function freeAccountReminderEmail(params: {
+  token: string;
+  startedAt: string;
+  trialEligible: boolean;
+}): { subject: string; html: string } {
+  const urls = checkoutReminderUrls(params.token);
+  const started = formatDate(params.startedAt);
+
+  const proLine = params.trialEligible
+    ? `Want the full forecast after all? <a href="${urls.resume}" style="color:${BRAND};font-weight:600;">Start your ${TRIAL_DAYS}-day free Pro trial</a>. Nothing is charged for ${TRIAL_DAYS} days.`
+    : `Want the full forecast after all? <a href="${urls.resume}" style="color:${BRAND};font-weight:600;">Finish signing up for Pro</a>.`;
+
+  return {
+    subject: 'Your free ReelCaster account is ready',
+    html: shell(
+      `<tr><td>
+        <h1 style="margin:0 0 16px;font-size:22px;line-height:30px;color:${INK};">Your free account is ready</h1>
+        <p style="margin:0 0 16px;font-size:15px;line-height:24px;color:${INK_SOFT};">
+          You started signing up for ReelCaster Pro on ${started} but didn't finish.
+          No problem. We set you up with a free account instead, no credit card, so you can still try ReelCaster.
+        </p>
+        <p style="margin:0 0 16px;font-size:15px;line-height:24px;color:${INK_SOFT};">
+          Free gets you today's bite score for every spot, the regulations, a week ahead, and a catch log.
+        </p>
+        <p style="margin:0 0 20px;">${button(urls.freeAccount, 'Open my free account')}</p>
+        <p style="margin:0 0 16px;font-size:14px;line-height:22px;color:${INK_SOFT};">${proLine}</p>
+        <p style="margin:0;font-size:14px;line-height:22px;color:${INK_MUTE};">
+          Card did not go through, or something else got in the way? Reply to this email and a person will read it.
+        </p>
+      </td></tr>`,
+      {
+        preheader: 'No card needed. One tap and you are signed in.',
+        footerHtml: reminderFooter(urls.unsubscribe),
       },
     ),
   };

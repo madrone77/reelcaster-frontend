@@ -101,7 +101,14 @@ export function armsFromCookieHeader(header: string | null | undefined): SplitAr
 
 // ── Assignment ───────────────────────────────────────────────────────────
 
-function pickWeighted(variants: SplitVariant[]): SplitVariant {
+/**
+ * A test whose arm is picked on the server when something is sent (an email),
+ * never handed out by the cookie. Assigning it to every visitor would count
+ * purchases from people who never received the thing being tested.
+ */
+export const EMAIL_SURFACE_KIND = 'email';
+
+export function pickWeighted(variants: SplitVariant[]): SplitVariant {
   const total = variants.reduce((sum, v) => sum + v.weight, 0);
   // Every weight zero is a registry mistake, not an instruction to serve
   // nobody. Fall back to the control so the surface still renders.
@@ -134,7 +141,9 @@ export interface AssignResult {
  *   3. A `paused` test keeps the arms already assigned and hands out no new
  *      ones. That is the difference between paused and stopped: the people
  *      mid-decision keep the price they were quoted.
- *   4. A `running` test with no arm yet gets one, by weight.
+ *   4. A `running` test with no arm yet gets one, by weight. Except an
+ *      email test: its arm is picked at send time and written into the
+ *      cookie by the email's own links, so rules 1 to 3 still govern it.
  */
 export function assignArms(current: SplitArms, tests: SplitTest[]): AssignResult {
   const arms: SplitArms = {};
@@ -159,6 +168,7 @@ export function assignArms(current: SplitArms, tests: SplitTest[]): AssignResult
   for (const test of tests) {
     if (arms[test.key]) continue;
     if (test.status !== 'running') continue; // rule 3
+    if (test.surfaceKind === EMAIL_SURFACE_KIND) continue; // rule 4's exception
     arms[test.key] = pickWeighted(test.variants).variant; // rule 4
     changed = true;
   }

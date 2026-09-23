@@ -15,9 +15,21 @@
  *   - it was already sent this email (the table's primary key, see the claim);
  *   - it is a test domain.
  *
- * WHEN. Signed-out sessions now expire after 3 hours (src/lib/anon-checkout.ts),
- * and GET /api/cron/checkout-reminders runs every 15 minutes, so the email
- * lands 3 to 3.25 hours after somebody opened checkout.
+ * WHEN. Two triggers, one email per address either way (the claim):
+ *
+ *   - 'cancel': they tapped Stripe's Back arrow. The cancel URL carries a
+ *     token that is also on the session's metadata; /billing/cancel posts it
+ *     to /api/stripe/checkout/abandoned, which sends straight away. See
+ *     findCancelledCandidate.
+ *   - 'expiry': they closed the tab. Signed-out sessions expire after 3 hours
+ *     (src/lib/anon-checkout.ts) and GET /api/cron/checkout-reminders runs
+ *     every 15 minutes, so the email lands 3 to 3.25 hours after checkout
+ *     opened.
+ *
+ * WHICH EMAIL. Split test abandon_email_v1, arm picked at send time: a is
+ * "You're almost done" (back into checkout), b is "your free account is
+ * ready" (a sign-in link that makes a free account, Pro link underneath). See
+ * chooseReminderArm.
  *
  * Only sessions that expired after REMINDERS_START are automatic. Everything
  * before it was reviewed by hand and sent (or not) with
@@ -30,9 +42,17 @@
 import type Stripe from 'stripe';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { sendEmail } from '@/lib/email-service';
-import { checkoutReminderEmail } from '@/lib/email-templates/checkout-reminder';
+import {
+  checkoutReminderEmail,
+  freeAccountReminderEmail,
+} from '@/lib/email-templates/checkout-reminder';
 import { checkTrialEligibilityByEmail } from '@/lib/trial';
 import { SUPPORT_EMAIL } from '@/lib/site';
+import { findUserIdByEmail } from '@/lib/checkout-account';
+import { ANON_CHECKOUT_TTL_SECONDS, CANCEL_TOKEN_METADATA } from '@/lib/anon-checkout';
+import { loadSplitTests } from '@/lib/split-tests-server';
+import { pickWeighted, type SplitArms } from '@/lib/split-tests';
+import { pacificDay } from '@/lib/pacific-day';
 
 export const CHECKOUT_REMINDER_TABLE = 'checkout_reminder_emails';
 
@@ -198,6 +218,132 @@ export async function findReminderCandidates(
   return scan;
 }
 
+// ── Which email (split test abandon_email_v1) ────────────────────────────
+
+export const ABANDON_EMAIL_TEST = 'abandon_email_v1';
+
+/** The split-test surface both the exposure and the link clicks count under. */
+export const ABANDON_EMAIL_SURFACE = 'abandon_email';
+
+export type ReminderTrigger = 'cancel' | 'expiry';
+
+export interface ReminderArm {
+  variant: string;
+  /** Arm b: the free-account email. */
+  freeAccount: boolean;
+  /** False when the test is not running: everybody gets a, nobody is counted. */
+  counted: boolean;
+}
+
+/**
+ * The arm for one email. The browser's arm when it already holds one (the
+ * cancel trigger has the request's cookie), otherwise a fresh pick by weight.
+ * Anything short of a running test sends the control uncounted.
+ */
+export async function chooseReminderArm(cookieArms: SplitArms = {}): Promise<ReminderArm> {
+  const tests = await loadSplitTests();
+  const test = tests.find((t) => t.key === ABANDON_EMAIL_TEST);
+  if (!test || test.status !== 'running') {
+    return { variant: 'a', freeAccount: false, counted: false };
+  }
+  const held = test.variants.find((v) => v.variant === cookieArms[ABANDON_EMAIL_TEST]);
+  const arm = held ?? pickWeighted(test.variants);
+  return { variant: arm.variant, freeAccount: arm.config.free_account === true, counted: true };
+}
+
+/**
+ * One exposure (the email sent) or one cta_click (a link in it opened), keyed
+ * by the reminder token so the report's per-session denominator is per email.
+ * Never throws: a lost count must not stop an email or a sign-in.
+ */
+export async function countReminderEvent(
+  admin: SupabaseClient,
+  row: { token: string; variant: string | null },
+  kind: 'exposure' | 'cta_click',
+): Promise<void> {
+  if (!row.variant) return;
+  const base = {
+    p_day: pacificDay(),
+    p_test_key: ABANDON_EMAIL_TEST,
+    p_variant: row.variant,
+    p_surface: ABANDON_EMAIL_SURFACE,
+    p_currency: '',
+    p_device: '',
+    p_kind: kind,
+  };
+  const [counter, session] = await Promise.all([
+    admin.rpc('bump_split_test_counter', { ...base, p_geo_country: '', p_geo_region: '' }),
+    admin.rpc('bump_split_test_session', { ...base, p_session_id: row.token }),
+  ]);
+  if (counter.error || session.error) {
+    console.error('[checkout reminder] split count failed', counter.error ?? session.error);
+  }
+}
+
+// ── The cancel trigger ───────────────────────────────────────────────────
+
+export const CANCEL_TOKEN_RE = /^[0-9a-f]{32}$/;
+
+/**
+ * The address to email right now, for somebody who just tapped Back on
+ * Stripe's page. The token came from the cancel URL; the session carrying it
+ * is found among the signed-out sessions opened inside the TTL (Stripe cannot
+ * filter by metadata, and a few hours of sessions is one or two pages).
+ *
+ * Same skip rules as the cron, except that this session is still open by
+ * definition. It is expired here, so the address reads as abandoned
+ * everywhere and the cron's scan agrees. Null means send nothing.
+ */
+export async function findCancelledCandidate(
+  stripe: Stripe,
+  admin: SupabaseClient,
+  cancelToken: string,
+): Promise<ReminderCandidate | null> {
+  const createdFrom = Math.floor(Date.now() / 1000) - ANON_CHECKOUT_TTL_SECONDS - 300;
+  const recent: Stripe.Checkout.Session[] = [];
+  let session: Stripe.Checkout.Session | null = null;
+  for await (const s of stripe.checkout.sessions.list({ limit: 100, created: { gte: createdFrom } })) {
+    recent.push(s);
+    if (s.metadata?.[CANCEL_TOKEN_METADATA] === cancelToken) session = s;
+  }
+  if (!session || session.metadata?.anon_checkout !== 'true') return null;
+  if (session.status === 'complete') return null;
+
+  const email = emailOf(session);
+  if (!email || TEST_DOMAIN.test(email)) return null;
+
+  const mine = recent.filter((s) => emailOf(s) === email);
+  if (mine.some((s) => s.status === 'complete')) return null;
+  // Another checkout for the same address opened after this one: they went
+  // straight back in (Try again), so this one is not the last word.
+  if (mine.some((s) => s.id !== session!.id && s.status === 'open' && s.created > session!.created)) {
+    return null;
+  }
+  if (await findUserIdByEmail(admin, email)) return null;
+
+  if (session.status === 'open') {
+    try {
+      await stripe.checkout.sessions.expire(session.id);
+    } catch (err) {
+      // Already expired or completed a moment ago. The completed case is
+      // caught by the account check on the next scan; send nothing now.
+      console.warn('[checkout reminder] could not expire cancelled session', err);
+      return null;
+    }
+  }
+
+  return {
+    email,
+    sessionId: session.id,
+    startedAt: iso(session.created),
+    expiredAt: new Date().toISOString(),
+    region: session.metadata?.region || null,
+    from: session.metadata?.from || null,
+    attempts: mine.length,
+    reachedPayment: Boolean(session.customer),
+  };
+}
+
 export type ReminderOutcome = 'sent' | 'already_sent' | 'send_failed';
 
 /**
@@ -208,7 +354,10 @@ export type ReminderOutcome = 'sent' | 'already_sent' | 'send_failed';
 export async function sendCheckoutReminder(
   admin: SupabaseClient,
   candidate: ReminderCandidate,
+  options: { trigger: ReminderTrigger; cookieArms?: SplitArms },
 ): Promise<ReminderOutcome> {
+  const arm = await chooseReminderArm(options.cookieArms);
+
   // Asked now, by the same guard the resume link's checkout will ask, so the
   // email cannot promise a trial the checkout then withholds.
   const eligibility = await checkTrialEligibilityByEmail(admin, candidate.email);
@@ -221,6 +370,10 @@ export async function sendCheckoutReminder(
       region: candidate.region,
       from_surface: candidate.from,
       trial_offered: eligibility.eligible,
+      trigger: options.trigger,
+      // Only a counted arm is recorded, so a row with a variant is a row in
+      // the test and the links know whether to count their clicks.
+      variant: arm.counted ? arm.variant : null,
     })
     .select('token')
     .single();
@@ -231,7 +384,7 @@ export async function sendCheckoutReminder(
     return 'send_failed';
   }
 
-  const { subject, html } = checkoutReminderEmail({
+  const { subject, html } = (arm.freeAccount ? freeAccountReminderEmail : checkoutReminderEmail)({
     token: data.token,
     startedAt: candidate.startedAt,
     trialEligible: eligibility.eligible,
@@ -254,6 +407,8 @@ export async function sendCheckoutReminder(
     .from(CHECKOUT_REMINDER_TABLE)
     .update({ sent_at: new Date().toISOString() })
     .eq('email', candidate.email);
+
+  if (arm.counted) await countReminderEvent(admin, { token: data.token, variant: arm.variant }, 'exposure');
 
   return 'sent';
 }

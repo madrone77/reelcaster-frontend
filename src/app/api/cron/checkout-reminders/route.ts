@@ -1,8 +1,10 @@
 /**
  * GET /api/cron/checkout-reminders
  *
- * Emails "You're almost done signing up for ReelCaster" to every signed-out
- * buyer whose checkout expired unpaid since the last day. Who qualifies, and
+ * Emails every signed-out buyer whose checkout expired unpaid since the last
+ * day (the abandoned-checkout email, either arm of abandon_email_v1). Anyone
+ * who tapped Stripe's Back arrow was already emailed by
+ * /api/stripe/checkout/abandoned and is skipped here by the claim. Who qualifies, and
  * why sending twice is impossible, is in src/lib/checkout-reminder.ts.
  *
  * Every 15 minutes. Sessions expire 3 hours after they open, so this is what
@@ -67,7 +69,7 @@ export async function GET(request: Request) {
 
   // One at a time: Resend rate-limits, and the batch is a quarter hour's worth.
   for (const candidate of batch) {
-    tally[await sendCheckoutReminder(admin, candidate)] += 1;
+    tally[await sendCheckoutReminder(admin, candidate, { trigger: 'expiry' })] += 1;
   }
 
   if (scan.candidates.length > batch.length) {
