@@ -140,14 +140,17 @@ export default function TrialSheetPitch({
             argument and the controls sit below it; a phone has one lane, so it
             is the last thing read before the thumb reaches the field.
 
-            There is no spare height to place it in any more: the sheet is
-            sized to this column rather than to the screen (see the phone
-            branch of ./pro-trial-modal), so it ends where the timeline does
-            and the white band under it has gone. `px-3` and the tighter dot
-            column bring the card in line with the gutters around it. */}
+            `mt-auto` takes whatever height the phone has spare and puts it in
+            ONE gap, above this, so the timeline sits against the controls it
+            discloses. With the cards drawn there is barely any spare on a tall
+            phone; the gap opens when Monthly collapses the timeline to a
+            single row, and it opens above the card rather than under it.
+            Content taller than the lane zeroes the auto margin and the lane
+            scrolls. `px-3` and the tighter dot column bring the card in line
+            with the gutters around it. */}
         <TrialTimeline
           priceAmount={priceAmount}
-          className="mt-5 px-3 [&_li]:pl-5"
+          className="mt-auto pt-5 px-3 [&_li]:pl-5"
         />
       </div>
 

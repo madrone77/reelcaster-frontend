@@ -301,16 +301,12 @@ export default function ProTrialModal({
           // drawn that scrolled on a 390x844 phone, and the last 6% is what
           // lets it sit still.
           //
-          // The pitch sheet is the exception: it is the desktop column, which
-          // is shorter than a phone screen, and a fixed height left a band of
-          // empty panel between its timeline and the button. It takes the same
-          // ceiling and no floor, so it is exactly as tall as the offer it
-          // makes and still fills most of a phone.
-          className={
-            pitchSheet
-              ? "bg-rc-panel border-rc-rule text-rc-ink gap-0 p-0 [&>[data-slot=dialog-close]]:z-20 max-h-[calc(100dvh-0.5rem)]"
-              : "bg-rc-panel border-rc-rule text-rc-ink gap-0 p-0 [&>[data-slot=dialog-close]]:z-20 h-[calc(100dvh-0.5rem)] max-h-[calc(100dvh-0.5rem)]"
-          }
+          // Both shapes, the pitch sheet included: it was briefly sized
+          // to its own column instead, which fitted it to the offer but moved
+          // the top of the panel whenever the plan cards changed the height
+          // under it. A sheet that is the same size every time it opens is
+          // worth more than one that is the exact height of its contents.
+          className="bg-rc-panel border-rc-rule text-rc-ink gap-0 p-0 [&>[data-slot=dialog-close]]:z-20 h-[calc(100dvh-0.5rem)] max-h-[calc(100dvh-0.5rem)]"
         >
           <PhoneSheet
             pitch={pitchSheet}
