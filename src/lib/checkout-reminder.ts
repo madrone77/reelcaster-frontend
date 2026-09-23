@@ -143,6 +143,10 @@ export async function findReminderCandidates(
 
   const byEmail = new Map<string, Stripe.Checkout.Session[]>();
   for (const session of bySession) {
+    // Built by the sheet ahead of a Start tap that never came: the buyer typed
+    // an address and never asked to check out, so there is nothing to remind
+    // them of. The tap stamps `committed` (see the checkout route).
+    if (session.metadata?.prefetched === 'true' && session.metadata?.committed !== 'true') continue;
     const email = emailOf(session);
     if (!email) continue;
     const list = byEmail.get(email) ?? [];

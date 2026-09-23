@@ -154,6 +154,12 @@ export async function createAnonCheckoutSession(params: {
    * reminder email reads eligibility before it writes the offer).
    */
   withheldTrial?: 'refuse' | 'charge';
+  /**
+   * Built before the Start tap, while the buyer is still on the sheet. Marked
+   * on the session only, so the reminder scan can leave it alone unless the
+   * tap commits it.
+   */
+  prefetch?: boolean;
 }): Promise<AnonCheckoutResult> {
   const { request, stripe, admin, currency, email, region, from } = params;
   const plan: BillingPlan = params.plan ?? 'annual';
@@ -166,17 +172,19 @@ export async function createAnonCheckoutSession(params: {
     return { ok: false, error: 'plan_unavailable' };
   }
 
-  const priced = await resolveCheckoutPrice(request, stripe, currency, plan);
-  if (!priced.ok) return { ok: false, error: 'plan_unavailable' };
-
+  // The price and the trial check do not depend on each other, and both sit
+  // on the tap-to-Stripe path, so they go out together rather than in a row.
   // No email, no pre-check: Stripe collects the address and the webhook's
   // guards decide after the fact. Monthly never trials, so it never asks.
-  const eligibility =
+  const [priced, eligibility] = await Promise.all([
+    resolveCheckoutPrice(request, stripe, currency, plan),
     plan === 'monthly'
       ? { eligible: false as const, reason: 'monthly_plan' }
       : email
-        ? await checkTrialEligibilityByEmail(admin, email)
-        : { eligible: true as const };
+        ? checkTrialEligibilityByEmail(admin, email)
+        : { eligible: true as const },
+  ]);
+  if (!priced.ok) return { ok: false, error: 'plan_unavailable' };
   const trialEligible = eligibility.eligible;
   if (!trialEligible) {
     console.info('[stripe checkout] anon trial withheld', eligibility.reason);
@@ -212,6 +220,7 @@ export async function createAnonCheckoutSession(params: {
       region: region || '',
       from,
       trial: String(trialEligible),
+      ...(params.prefetch ? { prefetched: 'true' } : {}),
       ...extra,
     },
     subscription_data: {

@@ -10,6 +10,7 @@ import {
   useRef,
   useState,
 } from 'react';
+import { preconnect } from 'react-dom';
 import Link from 'next/link';
 import { useAuth } from '@/contexts/auth-context';
 import { hashEmailForMeta } from '@/lib/meta-match';
@@ -77,6 +78,39 @@ interface CheckoutStatus {
  * account is created afterwards from the email Stripe billed.
  */
 const PAY_FIRST = process.env.NEXT_PUBLIC_PAY_FIRST_CHECKOUT === '1';
+
+/**
+ * The signed-out Start tap used to wait on a whole round trip: the account
+ * lookup, the trial check, the price and the Stripe session, one after
+ * another, 1.2 s median from tap to redirect on prod (Sept 2026, 109 taps).
+ * So the sheet builds the session while the buyer is still on it, as soon as
+ * the email field holds something that looks like an address and they pause,
+ * and the tap only has to leave. Anything that changes what the session says
+ * (address, plan, region, paid terms) builds a new one.
+ */
+const PREFETCH_EMAIL_RE = /^[^\s@]+@[^\s@]+\.[a-z]{2,}$/i;
+const PREFETCH_DEBOUNCE_MS = 600;
+/** A prefetched session is good for three hours; stop trusting one well before. */
+const PREFETCH_MAX_AGE_MS = 30 * 60 * 1000;
+
+type CheckoutPayload = { url?: string; id?: string; redirect?: string; error?: string };
+type CheckoutReply = { status: number; ok: boolean; payload: CheckoutPayload };
+
+function postAnonCheckout(body: Record<string, unknown>): Promise<CheckoutReply> {
+  return fetch('/api/stripe/checkout', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  }).then(async (res) => {
+    let payload: CheckoutPayload = {};
+    try {
+      payload = await res.json();
+    } catch {
+      /* non-JSON error body */
+    }
+    return { status: res.status, ok: res.ok, payload };
+  });
+}
 
 /**
  * The monthly card on the phone sheet's plan picker. NEXT_PUBLIC_ so a
@@ -444,6 +478,38 @@ export function TrialCtaProvider({
     [trialOn, trialDays],
   );
 
+  // Stripe's page is the next thing a signed-out buyer sees; open the
+  // connection while they read the sheet.
+  useEffect(() => {
+    if (anon && PAY_FIRST) preconnect('https://checkout.stripe.com');
+  }, [anon]);
+
+  const prefetched = useRef<{ key: string; at: number; reply: Promise<CheckoutReply> } | null>(null);
+  const checkoutKey = (address: string) =>
+    JSON.stringify([from, region, address.toLowerCase(), plan, trialWithheld]);
+  useEffect(() => {
+    if (!anon || !PAY_FIRST) return;
+    const address = email.trim();
+    if (!PREFETCH_EMAIL_RE.test(address)) return;
+    const key = checkoutKey(address);
+    const warm = prefetched.current;
+    if (warm && warm.key === key && Date.now() - warm.at < PREFETCH_MAX_AGE_MS) return;
+    const timer = window.setTimeout(() => {
+      const reply = postAnonCheckout({
+        from,
+        region,
+        email: address,
+        plan,
+        accept_paid: trialWithheld,
+        prefetch: true,
+      });
+      reply.catch(() => {});
+      prefetched.current = { key, at: Date.now(), reply };
+    }, PREFETCH_DEBOUNCE_MS);
+    return () => window.clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [anon, email, plan, region, from, trialWithheld]);
+
   async function startAnonCheckout() {
     reportEmail(email);
     reportSplitCta(pricing, 'paywall');
@@ -460,24 +526,34 @@ export function TrialCtaProvider({
     setAnonError(null);
     const address = email.trim();
     try {
-      const res = await fetch('/api/stripe/checkout', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          from,
-          region,
-          email: address,
-          plan,
-          // Only after the sheet has shown paid terms for this address.
-          accept_paid: trialWithheld,
-        }),
-      });
-      let payload: { url?: string; id?: string; redirect?: string; error?: string } = {};
-      try {
-        payload = await res.json();
-      } catch {
-        /* non-JSON error body */
+      // The session the sheet already built for exactly this, when there is
+      // one. A failed or stale prefetch falls through to a fresh request.
+      const warm = prefetched.current;
+      prefetched.current = null;
+      let reply: CheckoutReply | null = null;
+      if (warm && warm.key === checkoutKey(address) && Date.now() - warm.at < PREFETCH_MAX_AGE_MS) {
+        reply = await warm.reply.catch(() => null);
+        if (reply && !reply.ok && reply.status !== 409) reply = null;
+        if (reply?.payload.id) {
+          // The prefetch held its checkout_start back; this is the tap.
+          void fetch('/api/stripe/checkout', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ commit: reply.payload.id }),
+            keepalive: true,
+          }).catch(() => {});
+        }
       }
+      reply ??= await postAnonCheckout({
+        from,
+        region,
+        email: address,
+        plan,
+        // Only after the sheet has shown paid terms for this address.
+        accept_paid: trialWithheld,
+      });
+      const res = reply;
+      const payload = reply.payload;
       if (res.status === 409 && payload.error === 'account_exists') {
         trackEvent('Checkout Refused', { surface: 'paywall', from, reason: 'account_exists' });
         setExistingAccountEmail(address);
