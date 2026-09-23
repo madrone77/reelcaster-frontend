@@ -166,11 +166,12 @@ export default function TrialSheetPitch({
             unruled: on a screen with one action, a blue underlined pair under
             the button reads as two more things to tap. */}
         <p className="mt-2.5 text-center text-[11px] leading-relaxed text-rc-ink-mute">
-          <Link href="/terms" className="hover:text-rc-ink">
+          {/* See ./charge-terms for why these are not prefetched. */}
+          <Link href="/terms" prefetch={false} className="hover:text-rc-ink">
             Terms
           </Link>
           {' · '}
-          <Link href="/privacy" className="hover:text-rc-ink">
+          <Link href="/privacy" prefetch={false} className="hover:text-rc-ink">
             Privacy
           </Link>
         </p>

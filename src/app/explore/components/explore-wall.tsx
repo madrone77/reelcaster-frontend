@@ -1,26 +1,21 @@
 "use client";
 
-import dynamic from "next/dynamic";
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useMountedOnce } from "@/hooks/use-mounted-once";
+import { usePlanChoiceModal, useTrialModal } from "@/hooks/use-paywall-modal";
+import { useIsPhone } from "@/hooks/use-is-phone";
+import { coverMap } from "@/lib/map/map-cover";
 import { useJoinPrompt } from "@/app/components/split-test/use-join-prompt";
 import type { NagFeatureId } from "@/lib/plan-features";
 import type { JoinPromptKey } from "../lib/join-prompt-copy";
 import JoinPromptModal from "./join-prompt-modal";
 
-// Loaded on the tap that opens them, not with the map — the plan matrix, the
-// pricing tables and the Stripe client are a large thing to parse on a page
-// whose whole job is a map. Same reasoning as ./upgrade-dialog, which this
-// now sits under. The chooser is deferred for the same reason one step
-// earlier: most readers who see the join prompt never ask for it.
-const ProTrialModal = dynamic(
-  () => import("@/app/components/paywall/pro-trial-modal"),
-  { ssr: false },
-);
-const PlanChoiceModal = dynamic(
-  () => import("@/app/components/paywall/plan-choice-modal"),
-  { ssr: false },
-);
+// Both modals are code-split — the plan matrix, the pricing tables and the
+// Stripe client are a large thing to parse on a page whose whole job is a
+// map — but neither is loaded ON the tap any more. @/hooks/use-paywall-modal
+// warms the chunk on an idle frame and hands the component back without a
+// Suspense boundary; see there and @/lib/paywall-preload for the two things
+// that were costing a tapped wall two seconds.
 
 /** Which of arm b's two screens the reader is on. */
 type Step = "prompt" | "choice";
@@ -103,6 +98,30 @@ export default function ExploreWall({
 }) {
   const { compact } = useJoinPrompt(open && eligible);
 
+  /**
+   * Pause the map on the TAP, not once the sheet is up.
+   *
+   * <ProTrialModal> already covers the map while it is open (FE #781, the
+   * frozen email field). That cover can only be taken once the sheet has
+   * mounted, which is the wrong end of the problem: the expensive moment is
+   * the render before it, where the sheet's own work queues behind a map that
+   * is still laying out symbols and drawing frames. This component is
+   * statically imported and already mounted, so it can take the cover one
+   * commit earlier — as the state that opens the wall lands, while the
+   * sheet's chunk is still resolving.
+   *
+   * Phone only, and not for the join prompt: that one is a centred dialog
+   * with the map visible around it, and a map that stops mid-load behind a
+   * small dialog is a bug rather than an optimisation. The cover is counted,
+   * so this and the modal's own overlap harmlessly.
+   */
+  const phone = useIsPhone();
+  const sheetWillCover = phone && !(compact && eligible);
+  useEffect(() => {
+    if (!open || !sheetWillCover) return;
+    return coverMap();
+  }, [open, sheetWillCover]);
+
   const [step, setStep] = useState<Step>("prompt");
   /**
    * Where the chooser's Member button sends them. The prompt captures it from
@@ -123,10 +142,16 @@ export default function ExploreWall({
   // Keeps the dynamic chunks off page load while still letting a modal
   // animate closed. Same latch ./upgrade-dialog used.
   const mounted = useMountedOnce(open);
+  // Warmed on an idle frame and rendered without a Suspense boundary; see
+  // @/hooks/use-paywall-modal. Every wall the map raises renders this
+  // component, and the warm is shared, so the nine of them cost one fetch.
+  const ProTrialModal = useTrialModal(mounted && !(compact && eligible));
+  const PlanChoiceModal = usePlanChoiceModal(mounted && compact && eligible);
   if (!mounted) return null;
 
   if (compact && eligible) {
     if (step === "choice") {
+      if (!PlanChoiceModal) return null;
       return (
         <PlanChoiceModal
           open={open}
@@ -156,6 +181,7 @@ export default function ExploreWall({
     );
   }
 
+  if (!ProTrialModal) return null;
   return (
     <ProTrialModal
       open={open}

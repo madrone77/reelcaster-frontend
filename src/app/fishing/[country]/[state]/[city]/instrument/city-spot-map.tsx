@@ -19,7 +19,6 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import dynamic from "next/dynamic";
 import { Lock } from "lucide-react";
 import { useAdFrame } from "@/app/explore/lib/ad-frame";
 import { withAdParams } from "@/lib/ad-mode";
@@ -62,13 +61,13 @@ import { formatHour12 } from "@/lib/time-format";
 import { bottomLabel, cellAt, chopLabel, phaseAt } from "../hub/hub-data";
 import { recognitionLabel, type RankedSpot } from "./featured";
 import { legacySpotPath } from "@/lib/paths";
+import { useMountedOnce } from "@/hooks/use-mounted-once";
+import { useTrialModal } from "@/hooks/use-paywall-modal";
+import { pauseMap, useMapCovered } from "@/lib/map/map-cover";
 
 const SPOT_SOURCE = "city-spots";
 const SPOT_PUCK = "city-spot-puck";
 
-const ProTrialModal = dynamic(() => import("@/app/components/paywall/pro-trial-modal"), {
-  ssr: false,
-});
 const INTERACTIVE = [SPOT_PUCK];
 
 const expr = (e: unknown) => e as ExpressionSpecification;
@@ -222,9 +221,28 @@ export default function CitySpotMap({
     return new Set(rows.filter((r) => isSpotLocked(r.spot, keepSet)).map((r) => r.spot.slug));
   }, [rows, lockSplit.locksOn, keepSet]);
   const [lockWallOpen, setLockWallOpen] = useState(false);
+  // The wall itself: warmed on an idle frame and rendered without a Suspense
+  // boundary, so the tap has nothing left to fetch and nothing to wait on.
+  // Null until it has loaded, which is what `next/dynamic` drew here too.
+  // See @/hooks/use-paywall-modal.
+  const ProTrialModal = useTrialModal(useMountedOnce(lockWallOpen));
   const mapRef = useRef<MapRef | null>(null);
   const [hover, setHover] = useState<HoverCard | null>(null);
   const [mapObj, setMapObj] = useState<MlMap | null>(null);
+
+  /**
+   * Stop drawing while a phone sheet covers the whole screen — the same cover
+   * /explore and the spot page take. See @/lib/map/map-cover: a map still
+   * booting under the trial sheet is 2 seconds of MapLibre in the window the
+   * sheet is trying to paint in, and nobody can see it stop.
+   */
+  const covered = useMapCovered();
+  useEffect(() => {
+    if (!covered) return;
+    const map = mapRef.current?.getMap();
+    if (!map) return;
+    return pauseMap(map);
+  }, [covered, mapObj]);
   // Zoom snapshot for the declutter, quantised to quarter-steps so the hidden
   // set recomputes a few times per pinch rather than every frame. Overlap
   // depends on zoom alone here — no rotation, and panning cannot change it.
@@ -652,7 +670,7 @@ export default function CitySpotMap({
       )}
 
       {/* The lock wall. No headline: the plain offer, same as every other wall. */}
-      {lockSplit.locksOn && (
+      {lockSplit.locksOn && ProTrialModal && (
         <ProTrialModal
           open={lockWallOpen}
           onOpenChange={setLockWallOpen}

@@ -626,11 +626,12 @@ function DialogBody({
                   like the two things to tap, on a screen whose one action is
                   the buy button. Small print should read as small print. */}
               <p className="px-4 sm:px-6 pb-4 -mt-2 text-[11px] leading-relaxed text-rc-ink-mute">
-                <Link href="/terms" className="hover:text-rc-ink">
+                {/* See ./charge-terms for why these are not prefetched. */}
+                <Link href="/terms" prefetch={false} className="hover:text-rc-ink">
                   Terms
                 </Link>
                 {" · "}
-                <Link href="/privacy" className="hover:text-rc-ink">
+                <Link href="/privacy" prefetch={false} className="hover:text-rc-ink">
                   Privacy
                 </Link>
               </p>

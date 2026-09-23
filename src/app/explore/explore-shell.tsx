@@ -96,6 +96,8 @@ import ForecastStrip from "./components/forecast-strip";
 import { AdFrameProvider } from "./lib/ad-frame";
 import { applySpotLocks } from "./lib/spot-locks";
 import { useLockedSpots } from "@/app/components/split-test/use-locked-spots";
+import { useJoinPrompt } from "@/app/components/split-test/use-join-prompt";
+import { useWarmPaywall } from "@/hooks/use-paywall-modal";
 
 // ── Loaded on demand ─────────────────────────────────────────────────────
 //
@@ -284,6 +286,14 @@ export default function ExploreShell({
   const lockSplit = useLockedSpots(
     !authLoading && !user && !isPaid ? "explore_map" : null,
   );
+
+  // Fetch the wall's chunk here rather than in <ExploreWall>, which is the
+  // component that holds the dynamic import but does not exist until the
+  // spots do: measured, a wall mounted at ~2.9s on this surface and the map
+  // is tappable well before that. Passing the arm keeps the warm pointed at
+  // the modal this reader's wall will actually open. `false` because an
+  // exposure is a wall shown, not a map loaded. See @/lib/paywall-preload.
+  useWarmPaywall(useJoinPrompt(false).compact);
   const locksOn = lockSplit.locksOn;
   const keepSet = useMemo(
     () => new Set([...keepSlugs, ...(initialSpot ? [initialSpot.slug] : [])]),

@@ -1,16 +1,12 @@
 "use client";
 
 import { useState, type ReactNode } from "react";
-import dynamic from "next/dynamic";
 import { useAuth } from "@/contexts/auth-context";
 import { trackEvent } from "@/lib/analytics";
 import AdHero from "./[country]/[state]/[city]/[spot]/ad-intro";
 import type { Biting } from "@/lib/lead-species";
-
-const ProTrialModal = dynamic(
-  () => import("@/app/components/paywall/pro-trial-modal"),
-  { ssr: false },
-);
+import { useMountedOnce } from "@/hooks/use-mounted-once";
+import { useTrialModal } from "@/hooks/use-paywall-modal";
 
 export default function SeoHero({
   enabled,
@@ -58,6 +54,11 @@ export default function SeoHero({
 }) {
   const { user, loading } = useAuth();
   const [trialOpen, setTrialOpen] = useState(false);
+  // The wall itself: warmed on an idle frame and rendered without a Suspense
+  // boundary, so the tap has nothing left to fetch and nothing to wait on.
+  // Null until it has loaded, which is what `next/dynamic` drew here too.
+  // See @/hooks/use-paywall-modal.
+  const ProTrialModal = useTrialModal(useMountedOnce(trialOpen));
 
   // Only a RESOLVED session removes it. While `loading` is true — which is the
   // server render and the first paint — both versions are in the markup, so
@@ -91,6 +92,7 @@ export default function SeoHero({
         onMap={() => trackEvent("Seo Hero Map Clicked", { place })}
       />
       </div>
+      {ProTrialModal && (
       <ProTrialModal
         open={trialOpen}
         onOpenChange={setTrialOpen}
@@ -98,6 +100,7 @@ export default function SeoHero({
         from="seo-hero"
         spotName={spotName}
       />
+      )}
     </>
   );
 }

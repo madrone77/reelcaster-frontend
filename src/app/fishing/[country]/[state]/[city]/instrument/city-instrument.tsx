@@ -46,7 +46,6 @@ import { zoneAbbrev } from "@/app/explore/lib/explore-data";
 import { useSpotClock } from "@/app/explore/lib/use-spot-clock";
 import DayCell from "@/app/explore/components/day-cell";
 import { bestWindow } from "@/app/explore/components/hourly-bars";
-import dynamic from "next/dynamic";
 import { useMountedOnce } from "@/hooks/use-mounted-once";
 import CurrentConditionsStrip from "@/app/explore/spot/components/current-conditions-strip";
 import SpotTerminal from "@/app/explore/spot/components/spot-terminal";
@@ -90,6 +89,7 @@ import { useLockedSpots } from "@/app/components/split-test/use-locked-spots";
 import { withAdParams } from "@/lib/ad-mode";
 import { UnitCountryScope } from "@/contexts/unit-preferences-context";
 import { unitCountryForCitySlug } from "@/lib/unit-system";
+import { useTrialModal } from "@/hooks/use-paywall-modal";
 
 /**
  * The same paywall /explore and the spot page open, loaded on the tap that
@@ -105,10 +105,6 @@ import { unitCountryForCitySlug } from "@/lib/unit-system";
  * hydrate — on a page bought with an ad click, where first paint is the whole
  * game.
  */
-const ProTrialModal = dynamic(
-  () => import("@/app/components/paywall/pro-trial-modal"),
-  { ssr: false },
-);
 
 /**
  * Everything the 24-hour chart needs from the featured mark, sliced on the
@@ -346,6 +342,11 @@ export default function CityInstrument({
   const [lockedTier, setLockedTier] = useState<"free" | "pro">("pro");
   // Latched, so closing doesn't rip the modal out mid-animation.
   const upgradeMounted = useMountedOnce(upgradeOpen);
+  // The wall itself: warmed on an idle frame and rendered without a Suspense
+  // boundary, so the tap has nothing left to fetch and nothing to wait on.
+  // Null until it has loaded, which is what `next/dynamic` drew here too.
+  // See @/hooks/use-paywall-modal.
+  const ProTrialModal = useTrialModal(upgradeMounted);
 
   const handleDay = useCallback((day: ForecastDay) => {
     if (day.pending) return;
@@ -804,7 +805,7 @@ export default function CityInstrument({
           The modal writes this into the wall cookie on open, so it survives
           the trip out to Stripe and whatever the visitor converts into knows
           which tile sent them. */}
-      {upgradeMounted && (
+      {ProTrialModal && (
         <ProTrialModal
           open={upgradeOpen}
           onOpenChange={setUpgradeOpen}
