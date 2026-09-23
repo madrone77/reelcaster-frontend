@@ -492,6 +492,36 @@ function drawPuck(label: string, ring: PuckRing, hot: boolean, shape: PuckShape)
   return { width: img.width, height: img.height, data: img.data };
 }
 
+const puckUrls = new Map<string, { src: string; w: number; h: number } | null>();
+
+/**
+ * One puck as an image source, for a map drawn as a picture with its pins as
+ * markup (the reel still). Same drawing as the map's sprites, so the two cannot
+ * drift. `w`/`h` are CSS px; the tip of the tail is at (w / 2, h - PAD).
+ * Client only; null on the server or without a 2D context.
+ */
+export function puckImage(
+  label: string,
+  ring: PuckRing = "base",
+): { src: string; w: number; h: number } | null {
+  const key = `${label}:${ring}`;
+  if (puckUrls.has(key)) return puckUrls.get(key) ?? null;
+  const img = drawPuck(label, ring, false, "rd");
+  let out: { src: string; w: number; h: number } | null = null;
+  if (img) {
+    const canvas = document.createElement("canvas");
+    canvas.width = img.width;
+    canvas.height = img.height;
+    const ctx = canvas.getContext("2d");
+    if (ctx) {
+      ctx.putImageData(new ImageData(img.data, img.width, img.height), 0, 0);
+      out = { src: canvas.toDataURL("image/png"), w: img.width / RATIO, h: img.height / RATIO };
+    }
+  }
+  puckUrls.set(key, out);
+  return out;
+}
+
 type MapLike = {
   hasImage?: (id: string) => boolean;
   addImage: (id: string, image: PuckImage, options?: { pixelRatio?: number }) => void;

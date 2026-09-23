@@ -124,6 +124,8 @@ export default async function SpotAdPage({ params, searchParams }: PageProps) {
           provinceCode={state.toUpperCase()}
           fishName={fish?.name ?? null}
           serverNowMs={serverNowMs}
+          // ad=today: the map screen is a picture, not a map to boot.
+          still={wall === "today"}
         />
       }
     />
