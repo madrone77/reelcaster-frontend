@@ -11,6 +11,7 @@ import Map, {
 import type { ExpressionSpecification, Map as MlMap, StyleSpecification } from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
 import { buildReliefStyle } from "@/lib/map/relief-style";
+import { useNearViewport } from "@/hooks/use-near-viewport";
 import { applyBathyCoverages, isBathySoundingsLayer, type StyleLike } from "@/lib/map/bathy-coverages";
 import { useBathyManifest } from "@/lib/map/use-bathy-manifest";
 import {
@@ -147,6 +148,10 @@ export default function MarketingMap({
    * product-carousel.tsx stays as the backstop for whatever this does not predict.
    */
   const [gpuLost, setGpuLost] = useState(false);
+
+  // Booted on approach, not on hydration. See @/hooks/use-near-viewport.
+  const boxRef = useRef<HTMLDivElement | null>(null);
+  const near = useNearViewport(boxRef);
 
   // Absolute origin is REQUIRED — MapLibre resolves vector-tile URLs inside a
   // Web Worker that can't expand root-relative paths, so contour + land tiles
@@ -357,7 +362,8 @@ export default function MarketingMap({
     // than two thirds of the glass. The map is a phone screen now and its
     // width is whatever the device works out to at the reader's viewport, so
     // the card cannot be a single fixed number that suits both.
-    <div className="relative h-full w-full [container-type:inline-size]">
+    <div ref={boxRef} className="relative h-full w-full [container-type:inline-size]">
+      {near && (
       <Map
         initialViewState={{ ...opening, zoom }}
         mapStyle={mapStyle}
@@ -420,6 +426,7 @@ export default function MarketingMap({
           </Marker>
         )}
       </Map>
+      )}
     </div>
   );
 }

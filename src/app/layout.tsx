@@ -20,14 +20,21 @@ import { ORGANIZATION_JSONLD, SITE_NAME, SITE_URL, WEBSITE_JSONLD } from '@/lib/
 import { clientDiagSnippet } from '@/lib/client-diag'
 import { STORED_SESSION_SNIPPET } from '@/lib/stored-session-snippet'
 
+// Geist is the Tailwind `font-sans` / `font-mono` default, which the rc
+// design system has replaced nearly everywhere (Archivo + Plex Mono below).
+// Not preloaded: seven preloaded font files were racing the page's own JS on
+// a phone link, and the city and spot pages draw no Geist glyph at all. A
+// page that does use it still gets it, one render later, via `swap`.
 const geistSans = Geist({
   variable: '--font-geist-sans',
   subsets: ['latin'],
+  preload: false,
 })
 
 const geistMono = Geist_Mono({
   variable: '--font-geist-mono',
   subsets: ['latin'],
+  preload: false,
 })
 
 // rc light design system fonts (font-rc-sans / font-rc-mono). Loaded at the
