@@ -36,7 +36,14 @@ import TrialSheetPitch from "./trial-sheet-pitch";
 import { useIsPhone } from "@/hooks/use-is-phone";
 import { coverMap } from "@/lib/map/map-cover";
 import { TRIAL_DAYS } from "@/lib/pricing";
-import { usePricing } from "@/app/components/split-test/use-pricing";
+import {
+  usePricing,
+  useSplitArms,
+} from "@/app/components/split-test/use-pricing";
+import {
+  sheetPitchOn,
+  useSheetPitch,
+} from "@/app/components/split-test/use-sheet-pitch";
 import { useSplitExposure } from "@/app/components/split-test/report";
 import {
   NAG_FEATURES,
@@ -138,6 +145,11 @@ export default function ProTrialModal({
   // it against a timeline sheet and ended in one sheet carrying both, which
   // is ./trial-sheet-stripe as it stands.
   const phone = useIsPhone();
+  // Which phone sheet. sheet_pitch_v1 (2026-09-22) puts the sheet as it
+  // stands against the pitch sheet; a wall that hands in its own href sells
+  // nothing, so it keeps the control. See ../split-test/use-sheet-pitch.
+  const splitArms = useSplitArms();
+  const pitchSheet = sheetPitchOn(splitArms, !ctaHref);
 
   /**
    * The server-side counter behind /admin/reelcaster/paywalls and the
@@ -275,10 +287,6 @@ export default function ProTrialModal({
   // sheet's outside-tap listener could catch the tail of the opening tap and
   // dismiss the sheet on the spot. See the hook for the full story.
   if (phone) {
-    // The preview door for ./trial-sheet-pitch; see `sheetLens` at the foot of
-    // this file. Resolved here as well as passed down because the frame around
-    // the sheet — the close button — belongs to the shape.
-    const pitchSheet = sheetLens() === "pitch";
     return (
       // handleOpenChange, not onOpenChange. Both shapes of this modal have to
       // close through the same handler or the sheet reports no dismissals at
@@ -291,8 +299,8 @@ export default function ProTrialModal({
           variant="sheet"
           data-testid="pro-trial-modal"
           data-shape="sheet"
-          // Which sheet is on screen, for a walk that wants to say so. Only
-          // the preview lens below moves it today.
+          // Which sheet is on screen, for a walk that wants to say so: the
+          // arm this reader was dealt for sheet_pitch_v1.
           data-sheet-arm={pitchSheet ? "pitch" : "stripe"}
           data-feature={feature}
           // A fixed height, a sliver short of the top of the screen, so the
@@ -309,7 +317,7 @@ export default function ProTrialModal({
           className="bg-rc-panel border-rc-rule text-rc-ink gap-0 p-0 [&>[data-slot=dialog-close]]:z-20 h-[calc(100dvh-0.5rem)] max-h-[calc(100dvh-0.5rem)]"
         >
           <PhoneSheet
-            pitch={pitchSheet}
+            sells={!ctaHref}
             viewerTier={viewerTier}
             placeName={spotName ?? placeName}
             // A spot when there is one, otherwise the city the map is on.
@@ -645,23 +653,29 @@ function WalletUnlessMonthly() {
  * since the three tests on this modal concluded 2026-09-22, plus the preview
  * door below.
  */
+/**
+ * The phone sheet this reader's sheet_pitch_v1 arm calls for, counted inside
+ * the open dialog so an exposure is a sheet on screen. Either sheet's buy
+ * press is reported for the test before the modal's own tracking runs.
+ *
+ * The `?rc_sheet=pitch` door this replaced is gone: the arm is the way in
+ * now, and `?rc_arm=sheet_pitch_v1:b` is the way to look at one on purpose —
+ * a previewed arm is never counted, which the door was not.
+ */
 function PhoneSheet({
-  pitch,
+  sells,
   viewerTier,
+  onActivate,
   ...props
 }: React.ComponentProps<typeof TrialSheetStripe> & {
-  pitch: boolean;
+  sells: boolean;
   viewerTier: PlanTierId;
 }) {
-  /**
-   * The preview door: `?rc_sheet=pitch` draws ./trial-sheet-pitch instead of
-   * the sheet this reader would otherwise get.
-   *
-   * It counts NOTHING: no test reads it and no exposure is fired for it, so
-   * a walk through the lens cannot move anything.
-   *
-   * Delete this branch when the sheet is registered as an arm.
-   */
+  const { pitch, reportPress } = useSheetPitch(sells);
+  const activate: typeof onActivate = (method) => {
+    reportPress();
+    onActivate(method);
+  };
   if (pitch) {
     return (
       <TrialSheetPitch
@@ -674,19 +688,9 @@ function PhoneSheet({
         viewerTier={viewerTier}
         ctaLabel={props.ctaLabel}
         priceAmount={props.priceAmount}
-        onActivate={props.onActivate}
+        onActivate={activate}
       />
     );
   }
-  return <TrialSheetStripe {...props} />;
-}
-
-/** `?rc_sheet=<name>`, the preview door above. Null anywhere but a browser. */
-function sheetLens(): string | null {
-  if (typeof window === "undefined") return null;
-  try {
-    return new URLSearchParams(window.location.search).get("rc_sheet");
-  } catch {
-    return null;
-  }
+  return <TrialSheetStripe {...props} onActivate={activate} />;
 }
