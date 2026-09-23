@@ -14,7 +14,7 @@ import type { Forecast14dPayload } from "@/lib/bluecaster/live-spot-types";
  * var (BLUECASTER_API_KEY).
  *
  * Days past the caller's horizon are stripped server-side (scores,
- * conditions, daily summary) while the day entries themselves stay in
+ * conditions, daily summary, tides) while the day entries themselves stay in
  * place so the client strip still renders its locked tiles. Horizon:
  * anonymous 1 day, free account 7, Pro 14 (Bearer token, same pattern
  * as /api/spot-page).
@@ -46,7 +46,24 @@ function stripLockedDays(
     hourlyConditionsGrid: data.hourlyConditionsGrid.map((hours, i) =>
       locked(i) ? [] : hours,
     ),
+    tide14d: tideWithin(data.tide14d, visibleDays),
   };
+}
+
+/**
+ * The hourly tide series cut to the first `visibleDays` days. It starts at the
+ * spot's local midnight, so N days is the first N × 24 hours of it (a DST day
+ * is off by one hour, which only moves where the cut falls). Signed out, this
+ * was 13 days of tides nobody could see: 20 KB of a 32 KB payload.
+ */
+function tideWithin(
+  tide: Forecast14dPayload["tide14d"],
+  visibleDays: number,
+): Forecast14dPayload["tide14d"] {
+  const first = tide[0] ? Date.parse(tide[0].hourUtc) : NaN;
+  if (!Number.isFinite(first)) return tide;
+  const end = first + visibleDays * 24 * 3_600_000;
+  return tide.filter((p) => Date.parse(p.hourUtc) < end);
 }
 
 export async function GET(

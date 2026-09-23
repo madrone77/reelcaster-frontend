@@ -125,6 +125,11 @@ const nextConfig: NextConfig = {
       // trials, so the split row is gone and every visitor, bot or person,
       // is sent on. The Vancouver ads still point at /4.
       { source: "/lp/vancouver/4", destination: "/lp/vancouver/5", permanent: false },
+      // /lp/1 is retired (23 Sep): no real visit since page views were first
+      // counted on 28 Aug, and it was the one page still handing a signed-out
+      // reader all 14 scored days. An old link lands on that city's map.
+      { source: "/lp/1", destination: "/explore", permanent: false },
+      { source: "/lp/1/:city", destination: "/explore?loc=:city", permanent: false },
       // The licence guide canonicalises on the Canadian "licence", matching DFO
       // and gov.bc.ca — the sources it quotes. Plenty of people type the
       // American "license", including British Columbians, so that spelling is

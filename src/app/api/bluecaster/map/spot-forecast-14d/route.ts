@@ -67,6 +67,7 @@ export async function GET(request: NextRequest) {
       citySlug,
       bbox,
       speciesId: species,
+      days: visibleDays,
     },
     spotIds.length && userId ? { viewerId: userId } : {},
   );

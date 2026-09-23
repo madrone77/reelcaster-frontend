@@ -23,7 +23,10 @@ import {
   type BlueCasterCitySeasonRow,
   type MapForecast14dPayload,
 } from "@/lib/bluecaster";
-import { ANON_FORECAST_DAYS } from "@/lib/forecast-horizon";
+import {
+  ANON_FORECAST_DAYS,
+  stripViewportForecast,
+} from "@/lib/forecast-horizon";
 import {
   COVERED_PROVINCES,
   regulatorFor,
@@ -196,7 +199,13 @@ async function loadResolvedCity(
     featuredSpot(hub.spots, cityToday?.headline?.species_id ?? null, hub.species);
 
   const [cityForecast, featuredPage] = await Promise.all([
-    fetchMapForecast14d({ city: citySlug }).catch(() => null),
+    // Prerendered and served to every visitor, so it carries the anonymous
+    // horizon and no more: read one day upstream and strip to it. It shipped
+    // every scored day before, under a strip that drew them locked. A
+    // signed-in reader's client refetches through the entitlement-gated proxy.
+    fetchMapForecast14d({ city: citySlug }, { days: ANON_FORECAST_DAYS })
+      .then((f) => (f ? stripViewportForecast(f, ANON_FORECAST_DAYS) : null))
+      .catch(() => null),
     featured
       ? fetchSpotLivePage(featured.spot.slug).catch(() => null)
       : Promise.resolve(null),

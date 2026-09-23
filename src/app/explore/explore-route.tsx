@@ -309,9 +309,15 @@ export async function renderExplore({
     : openingCity ?? data.defaultCitySlug;
 
   const initialBbox = spotBox ?? openingBbox(data.spots, framedCity);
-  const forecast = initialBbox ? await fetchMapForecast14d(initialBbox) : null;
+  // Stripped to the anonymous horizon (the markup is shared), so only that
+  // horizon is read: this fetch holds the HTML, and the other 13 days were
+  // read only to be thrown away.
+  const anonDays = visibleForecastDays(false, false);
+  const forecast = initialBbox
+    ? await fetchMapForecast14d(initialBbox, { days: anonDays })
+    : null;
   const initialForecast = forecast
-    ? stripViewportForecast(forecast, visibleForecastDays(false, false))
+    ? stripViewportForecast(forecast, anonDays)
     : null;
 
   // The Explore canvas is driven by `useSearchParams()` (?loc/?spot/?day/?stn),

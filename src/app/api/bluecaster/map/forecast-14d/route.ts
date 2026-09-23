@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { fetchMapForecast14d } from "@/lib/bluecaster";
 import { callerVisibleDays } from "@/lib/caller-horizon";
-import { stripViewportForecast } from "@/lib/forecast-horizon";
+import { ANON_FORECAST_DAYS, stripViewportForecast } from "@/lib/forecast-horizon";
+import { hasBearer } from "@/lib/server-auth";
 
 /**
  * Same-origin proxy → BlueCaster GET /api/v1/map/forecast-14d.
@@ -29,10 +30,17 @@ export async function GET(request: NextRequest) {
   if (!bbox && !city) {
     return NextResponse.json({ error: "bbox or city required" }, { status: 400 });
   }
-  const [data, visibleDays] = await Promise.all([
-    fetchMapForecast14d({ bbox: bbox ?? undefined, city: city ?? undefined }),
-    callerVisibleDays(request),
-  ]);
+  const scope = { bbox: bbox ?? undefined, city: city ?? undefined };
+  // No token means signed out, known without a round trip: ask upstream for
+  // the one day they can see rather than reading 14 and nulling 13. A token
+  // keeps the tier lookup in parallel with a full read, so signed-in viewers
+  // wait no longer than they did.
+  const [data, visibleDays] = hasBearer(request)
+    ? await Promise.all([fetchMapForecast14d(scope), callerVisibleDays(request)])
+    : [
+        await fetchMapForecast14d(scope, { days: ANON_FORECAST_DAYS }),
+        ANON_FORECAST_DAYS,
+      ];
   if (!data) {
     return NextResponse.json({ error: "upstream unavailable" }, { status: 502 });
   }

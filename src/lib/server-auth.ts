@@ -11,6 +11,12 @@ import { createClient } from '@supabase/supabase-js'
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 
+/** Whether the request carries a session token at all. False is a certain
+ *  "signed out" with no network call; true still needs verifying. */
+export function hasBearer(request: NextRequest): boolean {
+  return !!request.headers.get('authorization')?.startsWith('Bearer ')
+}
+
 export async function getUserIdFromRequest(request: NextRequest): Promise<string | null> {
   const authHeader = request.headers.get('authorization')
   if (!authHeader?.startsWith('Bearer ')) return null
