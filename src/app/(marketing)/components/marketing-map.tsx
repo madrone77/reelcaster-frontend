@@ -49,10 +49,9 @@ const CLUTTER_LAYERS = new Set([
   "border-casing", "border-line", "country-ca", "country-us",
 ]);
 
-/** How many of the best spots the highlight card cycles through, and how long
- *  each one holds. Slow enough to read the card, quick enough to feel alive. */
-export const FEATURED_COUNT = 5;
-export const ROTATE_MS = 4200;
+// Re-exported: the reel still reads them here with the rest of the walk.
+export { FEATURED_COUNT, ROTATE_MS } from "./marketing-map-walk";
+import { FEATURED_COUNT, ROTATE_MS } from "./marketing-map-walk";
 
 const expr = (e: unknown) => e as ExpressionSpecification;
 
