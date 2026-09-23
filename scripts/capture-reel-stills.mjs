@@ -19,7 +19,6 @@
  * city or spot, or everything after a STILL_VERSION bump.
  */
 import { chromium } from '@playwright/test';
-import sharp from 'sharp';
 import fs from 'node:fs';
 
 const BASE = process.env.BASE ?? 'https://www.reelcaster.com';
@@ -119,7 +118,24 @@ async function capture(f) {
     // One more frame so the last tiles are on the canvas, not just loaded.
     await page.waitForTimeout(400);
     const png = await page.screenshot({ clip: { x: 0, y: 0, width: f.w, height: f.h } });
-    const webp = await sharp(png).webp({ quality: 75 }).toBuffer();
+    // Encoded by the same browser, so the job needs no image library.
+    const webp = Buffer.from(
+      await page.evaluate(async (b64) => {
+        const img = new Image();
+        img.src = `data:image/png;base64,${b64}`;
+        await img.decode();
+        const c = document.createElement('canvas');
+        c.width = img.naturalWidth;
+        c.height = img.naturalHeight;
+        c.getContext('2d').drawImage(img, 0, 0);
+        const blob = await new Promise((r) => c.toBlob(r, 'image/webp', 0.75));
+        const bytes = new Uint8Array(await blob.arrayBuffer());
+        let out = '';
+        for (let i = 0; i < bytes.length; i += 0x8000) out += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
+        return btoa(out);
+      }, png.toString('base64')),
+      'base64',
+    );
     if (DRY) fs.writeFileSync(`reel-stills-out/${f.path.replaceAll('/', '_')}`, webp);
     else await upload(f.path, webp);
     done++;
