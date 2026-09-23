@@ -338,11 +338,12 @@ function Timeline({ priceAmount }: { priceAmount: string }) {
           print at the end of the fine print, on a screen whose one action is
           the button above it. */}
       <p className="order-last text-center text-[12px] leading-4 text-rc-ink-soft">
-        <Link href="/terms" className="hover:text-rc-ink">
+        {/* See ./charge-terms for why these are not prefetched. */}
+          <Link href="/terms" prefetch={false} className="hover:text-rc-ink">
           Terms
         </Link>
         {' · '}
-        <Link href="/privacy" className="hover:text-rc-ink">
+        <Link href="/privacy" prefetch={false} className="hover:text-rc-ink">
           Privacy
         </Link>
       </p>

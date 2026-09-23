@@ -18,7 +18,6 @@
 import Link from "next/link";
 import { useAdFrame } from "@/app/explore/lib/ad-frame";
 import { withAdParams } from "@/lib/ad-mode";
-import dynamic from "next/dynamic";
 import { useState } from "react";
 import { MapPin, Tag, Fish } from "lucide-react";
 import { useSubscription } from "@/hooks/use-subscription";
@@ -28,11 +27,8 @@ import {
   reportCampaignCta,
   type CampaignTarget,
 } from "@/app/lp/_shared/lp-telemetry";
+import { useTrialModal } from "@/hooks/use-paywall-modal";
 
-const ProTrialModal = dynamic(
-  () => import("@/app/components/paywall/pro-trial-modal"),
-  { ssr: false },
-);
 
 const STEPS = [
   {
@@ -68,6 +64,11 @@ export default function CustomSpots({
   const { isPaid, loading: tierLoading } = useSubscription();
   const [upgradeOpen, setUpgradeOpen] = useState(false);
   const upgradeMounted = useMountedOnce(upgradeOpen);
+  // The wall itself: warmed on an idle frame and rendered without a Suspense
+  // boundary, so the tap has nothing left to fetch and nothing to wait on.
+  // Null until it has loaded, which is what `next/dynamic` drew here too.
+  // See @/hooks/use-paywall-modal.
+  const ProTrialModal = useTrialModal(upgradeMounted);
 
   return (
     <section className="rounded border border-rc-rule bg-rc-panel px-4 py-5 lg:px-6 lg:py-6">
@@ -141,7 +142,7 @@ export default function CustomSpots({
       {/* Its own `from`, like every other wall on this page. A custom-spot
           click and a locked-day click are different reasons to buy, and one
           shared name would hide which of them actually converts. */}
-      {upgradeMounted && (
+      {ProTrialModal && (
         <ProTrialModal
           open={upgradeOpen}
           onOpenChange={setUpgradeOpen}

@@ -5,6 +5,7 @@ import Link from "next/link";
 import { Maximize2, Minimize2, ChevronLeft } from "lucide-react";
 import Map, { Source, Layer, type MapRef } from "react-map-gl/maplibre";
 import type { Map as MlMap, StyleSpecification } from "maplibre-gl";
+import { pauseMap, useMapCovered } from "@/lib/map/map-cover";
 import "maplibre-gl/dist/maplibre-gl.css";
 import { buildReliefStyle } from "@/lib/map/relief-style";
 import { applyBathyCoverages, type StyleLike } from "@/lib/map/bathy-coverages";
@@ -238,6 +239,28 @@ export default function SpotMiniMap({
     const map = mapRef.current?.getMap();
     if (map) attachMapImages(map);
   }, [attachMapImages, mapObj]);
+
+  /**
+   * Stop drawing while a phone sheet covers the whole screen.
+   *
+   * The same cover /explore's map takes (see lib/map/map-cover and
+   * components/explore-map), for the same reason and one surface further on.
+   * Tapping a locked day here while this map was still booting put the trial
+   * sheet behind 2.3 seconds of MapLibre: the painter setup, the shader
+   * compile and the style serialisation all landed in the window the sheet
+   * was trying to paint in. Measured, the sheet reached the screen 2912ms
+   * after the tap; tapped once the map had settled, 395ms.
+   *
+   * Nobody can see the map stop — the sheet is over all of it — and tiles
+   * already in flight still finish in the workers.
+   */
+  const covered = useMapCovered();
+  useEffect(() => {
+    if (!covered) return;
+    const map = mapRef.current?.getMap();
+    if (!map) return;
+    return pauseMap(map);
+  }, [covered, mapObj]);
 
   // The time bar only makes sense over a field that HAS a time. Bathymetry and
   // satellite are the same picture at 4am and 4pm, and a clock over them would

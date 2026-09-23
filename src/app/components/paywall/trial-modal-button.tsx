@@ -1,10 +1,10 @@
 'use client';
 
-import dynamic from 'next/dynamic';
 import { useState } from 'react';
+import { useMountedOnce } from '@/hooks/use-mounted-once';
+import { useTrialModal } from '@/hooks/use-paywall-modal';
+import { preloadTrialModal } from '@/lib/paywall-preload';
 import type { NagFeatureId } from '@/lib/plan-features';
-
-const ProTrialModal = dynamic(() => import('./pro-trial-modal'), { ssr: false });
 
 /**
  * Any CTA that used to hand someone a signup form.
@@ -16,7 +16,9 @@ const ProTrialModal = dynamic(() => import('./pro-trial-modal'), { ssr: false })
  * be signing up for.
  *
  * Marketing pages are server components, so this exists to give them a client
- * trigger. The modal itself is loaded on click, not with the page.
+ * trigger. The modal's chunk is still kept out of the page's own load — it
+ * goes out on an idle frame after the page settles, which is early enough
+ * that the press itself has nothing to wait for.
  */
 export default function TrialModalButton({
   children,
@@ -52,11 +54,20 @@ export default function TrialModalButton({
 }) {
   const [open, setOpen] = useState(false);
 
+  // Warmed on an idle frame and rendered without a Suspense boundary, so the
+  // press has nothing to fetch and nothing to wait on. See
+  // @/hooks/use-paywall-modal.
+  const ProTrialModal = useTrialModal(useMountedOnce(open));
+
   return (
     <>
       <button
         type="button"
         className={className}
+        // The backstop for a press that beats the idle warm: a finger is on
+        // the glass for 80-300ms before the click fires, and the import can
+        // use every one of them. No-op once the chunk is in the module cache.
+        onPointerDown={preloadTrialModal}
         onClick={() => {
           onPress?.();
           setOpen(true);
@@ -65,9 +76,10 @@ export default function TrialModalButton({
       >
         {children}
       </button>
-      {/* Mounted only once opened — marketing pages shouldn't pay for the
-          matrix, the pricing tables and the checkout client on first paint. */}
-      {open && (
+      {/* Marketing pages still don't pay for the matrix, the pricing tables
+          and the checkout client on first paint — the chunk goes out on an
+          idle frame, not with the page. */}
+      {open && ProTrialModal && (
         <ProTrialModal
           open={open}
           onOpenChange={setOpen}

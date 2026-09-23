@@ -95,11 +95,9 @@ import CreateAlertDialog from "@/app/explore/spot/components/create-alert-dialog
 import ShareCardDialog from "@/app/explore/spot/components/share-card-dialog";
 import { UnitCountryScope } from "@/contexts/unit-preferences-context";
 import { unitCountryFor } from "@/lib/unit-system";
+import { useMountedOnce } from "@/hooks/use-mounted-once";
+import { useTrialModal } from "@/hooks/use-paywall-modal";
 
-const ProTrialModal = dynamic(
-  () => import("@/app/components/paywall/pro-trial-modal"),
-  { ssr: false },
-);
 
 // The prompt is small; the dialog behind it loads on the tap, inside it.
 const PageVerdict = dynamic(
@@ -719,6 +717,16 @@ export default function SpotDetailShell({
   // Which wall the tapped tile belongs to — highlights the matching matrix row.
   const [lockedTier, setLockedTier] = useState<"free" | "pro">("pro");
   const [alertUpgradeOpen, setAlertUpgradeOpen] = useState(false);
+
+  // One loaded copy for all four walls this page raises — same component,
+  // same chunk. Warmed on an idle frame and rendered without a Suspense
+  // boundary, so a tapped lock has nothing to fetch and nothing to wait on.
+  // See @/hooks/use-paywall-modal.
+  const ProTrialModal = useTrialModal(
+    useMountedOnce(
+      alertUpgradeOpen || favUpgradeOpen || reportsUpgradeOpen || introTrialOpen,
+    ),
+  );
 
   // 14-day strip scroll affordance — overlaid arrows that fade in/out with
   // scroll position, so it's clear there's more to see in either direction.
@@ -2370,6 +2378,8 @@ export default function SpotDetailShell({
         existingToken={shareToken}
       />
 
+      {ProTrialModal && (
+      <>
       <ProTrialModal
         open={alertUpgradeOpen}
         onOpenChange={setAlertUpgradeOpen}
@@ -2398,6 +2408,8 @@ export default function SpotDetailShell({
         from="spot-ad-intro"
         spotName={spot.name}
       />
+      </>
+      )}
     </div>
     </UnitCountryScope>
   );

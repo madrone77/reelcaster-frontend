@@ -1,7 +1,6 @@
 "use client";
 
 import { createContext, useContext, useState, type ReactNode } from "react";
-import dynamic from "next/dynamic";
 import ExploreTopBar from "@/app/explore/components/explore-top-bar";
 import { AdFrameProvider } from "@/app/explore/lib/ad-frame";
 import { PAGE_MEASURE } from "@/app/components/layout/page-measure";
@@ -14,6 +13,8 @@ import {
   type CampaignTarget,
 } from "@/app/lp/_shared/lp-telemetry";
 import AdHero, { AD_HERO_REEL_COL } from "../[spot]/ad-intro";
+import { useMountedOnce } from "@/hooks/use-mounted-once";
+import { useTrialModal } from "@/hooks/use-paywall-modal";
 
 /**
  * "Open the trial modal", handed down the frame so the second ask below the
@@ -48,10 +49,6 @@ export function AdTrialButton({
     </button>
   );
 }
-
-const ProTrialModal = dynamic(() => import("@/app/components/paywall/pro-trial-modal"), {
-  ssr: false,
-});
 
 /**
  * The city ad page's frame: the same top bar, hero and trial modal as the spot
@@ -110,6 +107,11 @@ export default function CityAdView({
 }) {
   const { isPaid } = useSubscription();
   const [trialOpen, setTrialOpen] = useState(false);
+  // The wall itself: warmed on an idle frame and rendered without a Suspense
+  // boundary, so the tap has nothing left to fetch and nothing to wait on.
+  // Null until it has loaded, which is what `next/dynamic` drew here too.
+  // See @/hooks/use-paywall-modal.
+  const ProTrialModal = useTrialModal(useMountedOnce(trialOpen));
 
   // The landing hit, once per tab. Unconditional: this frame only renders
   // under ?ad=, and nothing but an ad link carries that, so a framed visit
@@ -173,6 +175,7 @@ export default function CityAdView({
           </AdFrameProvider>
         </div>
       </div>
+      {ProTrialModal && (
       <ProTrialModal
         open={trialOpen}
         onOpenChange={setTrialOpen}
@@ -180,6 +183,7 @@ export default function CityAdView({
         from="city-ad-intro"
         placeName={cityName}
       />
+      )}
     </div>
   );
 }

@@ -74,11 +74,17 @@ export default function ChargeTerms({
       )}{' '}
       <span className="whitespace-nowrap">
         {'· '}
-        <Link href="/terms" className={LINK}>
+        {/* prefetch={false}: these two Links enter the viewport the instant the
+          sheet opens, and Next answers that by fetching both route payloads —
+          44 kB of RSC plus their page chunks — in the same breath the sheet is
+          trying to paint in. Measured arriving 590-830ms after the tap, on the
+          connection the sheet itself was queued on. Small print nobody taps
+          does not get to compete with the thing they did tap. */}
+        <Link href="/terms" prefetch={false} className={LINK}>
           Terms
         </Link>
         {' · '}
-        <Link href="/privacy" className={LINK}>
+        <Link href="/privacy" prefetch={false} className={LINK}>
           Privacy
         </Link>
       </span>

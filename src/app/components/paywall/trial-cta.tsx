@@ -1040,11 +1040,12 @@ export function TrialTerms({ className }: { className?: string }) {
           you cancel.
         </>
       )}{' '}
-      <Link href="/terms" className={linkClass}>
+      {/* See ./charge-terms for why these are not prefetched. */}
+      <Link href="/terms" prefetch={false} className={linkClass}>
         Terms
       </Link>
       {' · '}
-      <Link href="/privacy" className={linkClass}>
+      <Link href="/privacy" prefetch={false} className={linkClass}>
         Privacy
       </Link>
     </p>
