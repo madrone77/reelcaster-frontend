@@ -11,8 +11,10 @@ import Map, {
 import type { ExpressionSpecification, Map as MlMap, StyleSpecification } from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
 import { buildReliefStyle } from "@/lib/map/relief-style";
+import { useNearViewport } from "@/hooks/use-near-viewport";
 import { applyBathyCoverages, isBathySoundingsLayer, type StyleLike } from "@/lib/map/bathy-coverages";
 import { useBathyManifest } from "@/lib/map/use-bathy-manifest";
+import type { BathyManifestLike } from "@/lib/map/bathy-coverages";
 import {
   attachScorePucks,
   ensureScorePucks,
@@ -49,8 +51,8 @@ const CLUTTER_LAYERS = new Set([
 
 /** How many of the best spots the highlight card cycles through, and how long
  *  each one holds. Slow enough to read the card, quick enough to feel alive. */
-const FEATURED_COUNT = 5;
-const ROTATE_MS = 4200;
+export const FEATURED_COUNT = 5;
+export const ROTATE_MS = 4200;
 
 const expr = (e: unknown) => e as ExpressionSpecification;
 
@@ -65,13 +67,110 @@ export interface MapSpot {
   scoresBySpecies: Record<string, number>;
 }
 
+/**
+ * The marketing map's style: the relief style stripped back to depth and land.
+ * Shared with the reel still's capture page (src/app/dev/reel-still), so the
+ * baked picture and the live map are drawn from the same thing.
+ */
+export function buildMarketingStyle(
+  origin: string,
+  bathyManifest: BathyManifestLike | null,
+): StyleSpecification {
+  const style = buildReliefStyle(origin);
+  applyBathyCoverages(style as unknown as StyleLike, bathyManifest, origin);
+  // Strip the style back to depth + land in the STYLE ITSELF, rather than
+  // hiding the layers once the map has loaded.
+  //
+  // A layer that is already hidden when the style is parsed is never laid
+  // out at all, which buys two things. The red polygons and station dots
+  // cannot flash on screen for the second before an effect could hide them.
+  // And `rca-fill` never asks for the hatch pattern, which this map has no
+  // reason to register: it was the one "could not be loaded" warning left on
+  // the homepage console.
+  //
+  // Unknown ids are simply not found: the style evolves, and a layer that
+  // has been renamed should quietly not hide rather than throw and take the
+  // homepage's map down with it.
+  for (const layer of style.layers as Array<{
+    id: string;
+    layout?: Record<string, unknown>;
+  }>) {
+    // The US soundings are dots with depth numbers, the same kind of
+    // instrument clutter as the tide donuts.
+    if (CLUTTER_LAYERS.has(layer.id) || isBathySoundingsLayer(layer.id)) {
+      layer.layout = { ...layer.layout, visibility: "none" };
+    }
+  }
+  return style as unknown as StyleSpecification;
+}
+
 /** Plain-English verdict under the score, so the card explains the number. */
-function verdictOf(score: number | null): string {
+export function verdictOf(score: number | null): string {
   const t = tierFor(score);
   if (t === "good") return "Good conditions";
   if (t === "fair") return "Worth a look";
   if (t === "poor") return "Slow today";
   return "No live score";
+}
+
+/** The marks the card walks, in order. Shared with the reel still. */
+export function pickFeatured(
+  spots: MapSpot[],
+  featuredSlug: string | undefined,
+  featuredSlugs: string[] | undefined,
+  lockedSlugs: ReadonlySet<string>,
+): MapSpot[] {
+  const pinned = featuredSlug ? spots.find((s) => s.slug === featuredSlug) : undefined;
+  if (pinned) return [pinned];
+  if (featuredSlugs?.length) {
+    // A plain object: this file's `Map` is react-map-gl's component.
+    const bySlug: Record<string, MapSpot> = Object.fromEntries(spots.map((s) => [s.slug, s]));
+    const listed = featuredSlugs
+      .map((slug) => bySlug[slug])
+      .filter((s): s is MapSpot => !!s)
+      .slice(0, FEATURED_COUNT);
+    if (listed.length) return listed;
+  }
+  return [...spots]
+    // Never walk the card onto a locked pin: the card prints the score.
+    .filter((s) => s.score !== null && !lockedSlugs.has(s.slug))
+    .sort((a, b) => (b.score ?? -1) - (a.score ?? -1))
+    .slice(0, FEATURED_COUNT);
+}
+
+/**
+ * The card the map walks from mark to mark. Shared with the reel still
+ * (reel-still-map.tsx), which draws the same card over a picture.
+ */
+export function MarketingSpotCard({ spot: active }: { spot: MapSpot }) {
+  return (
+    <div
+      // 220 rather than the 248 this carried in the old landscape
+      // box, and capped at 72% of the map besides: the glass is a
+      // third as wide as that box was, and a card most of the way
+      // across it stops being a label on a map and starts being the
+      // map. The type does not scale with it. The score pucks are
+      // drawn on the canvas at their own size whatever the phone
+      // works out to, and a card that shrank away from them would
+      // read as a different screen's card pasted on.
+      className="pointer-events-none w-[min(220px,72cqw)] rounded border border-rc-rule/60 bg-rc-panel/95 px-3 py-2 shadow-rc-bar backdrop-blur-sm"
+    >
+      <div className="flex items-baseline justify-between gap-2">
+        {/* Wraps rather than truncates: spot names run long ("Howe
+            Sound (Pam Rock / Worlcombe)") and a clipped name on a
+            marketing still reads as a bug. */}
+        <span className="text-[13px] font-semibold leading-snug text-rc-ink">
+          {active.name}
+        </span>
+        <span className="shrink-0 font-rc-mono text-[15px] font-bold text-rc-ink">
+          {active.score}
+        </span>
+      </div>
+      <div className="mt-0.5 font-rc-mono text-[10px] uppercase tracking-[0.06em] text-rc-ink-mute">
+        {verdictOf(active.score)}
+      </div>
+    </div>
+  );
 }
 
 /**
@@ -148,6 +247,10 @@ export default function MarketingMap({
    */
   const [gpuLost, setGpuLost] = useState(false);
 
+  // Booted on approach, not on hydration. See @/hooks/use-near-viewport.
+  const boxRef = useRef<HTMLDivElement | null>(null);
+  const near = useNearViewport(boxRef);
+
   // Absolute origin is REQUIRED — MapLibre resolves vector-tile URLs inside a
   // Web Worker that can't expand root-relative paths, so contour + land tiles
   // would silently load zero features. Same reason as ExploreMap.
@@ -155,53 +258,14 @@ export default function MarketingMap({
   const bathyManifest = useBathyManifest();
   const mapStyle = useMemo(() => {
     const origin = typeof window !== "undefined" ? window.location.origin : "";
-    const style = buildReliefStyle(origin);
-    applyBathyCoverages(style as unknown as StyleLike, bathyManifest, origin);
-    // Strip the style back to depth + land in the STYLE ITSELF, rather than
-    // hiding the layers once the map has loaded.
-    //
-    // A layer that is already hidden when the style is parsed is never laid
-    // out at all, which buys two things. The red polygons and station dots
-    // cannot flash on screen for the second before an effect could hide them.
-    // And `rca-fill` never asks for the hatch pattern, which this map has no
-    // reason to register: it was the one "could not be loaded" warning left on
-    // the homepage console.
-    //
-    // Unknown ids are simply not found: the style evolves, and a layer that
-    // has been renamed should quietly not hide rather than throw and take the
-    // homepage's map down with it.
-    for (const layer of style.layers as Array<{
-      id: string;
-      layout?: Record<string, unknown>;
-    }>) {
-      // The US soundings are dots with depth numbers, the same kind of
-      // instrument clutter as the tide donuts.
-      if (CLUTTER_LAYERS.has(layer.id) || isBathySoundingsLayer(layer.id)) {
-        layer.layout = { ...layer.layout, visibility: "none" };
-      }
-    }
-    return style as unknown as StyleSpecification;
+    return buildMarketingStyle(origin, bathyManifest);
   }, [bathyManifest]);
 
   /** The best few, high to low — what the card cycles through. */
-  const featured = useMemo(() => {
-    const pinned = featuredSlug ? spots.find((s) => s.slug === featuredSlug) : undefined;
-    if (pinned) return [pinned];
-    if (featuredSlugs?.length) {
-      // A plain object: this file's `Map` is react-map-gl's component.
-      const bySlug: Record<string, MapSpot> = Object.fromEntries(spots.map((s) => [s.slug, s]));
-      const listed = featuredSlugs
-        .map((slug) => bySlug[slug])
-        .filter((s): s is MapSpot => !!s)
-        .slice(0, FEATURED_COUNT);
-      if (listed.length) return listed;
-    }
-    return [...spots]
-      // Never walk the card onto a locked pin: the card prints the score.
-      .filter((s) => s.score !== null && !lockedSlugs.has(s.slug))
-      .sort((a, b) => (b.score ?? -1) - (a.score ?? -1))
-      .slice(0, FEATURED_COUNT);
-  }, [spots, featuredSlug, featuredSlugs, lockedSlugs]);
+  const featured = useMemo(
+    () => pickFeatured(spots, featuredSlug, featuredSlugs, lockedSlugs),
+    [spots, featuredSlug, featuredSlugs, lockedSlugs],
+  );
 
   const [activeIdx, setActiveIdx] = useState(0);
   const featuredCount = featured.length;
@@ -357,7 +421,8 @@ export default function MarketingMap({
     // than two thirds of the glass. The map is a phone screen now and its
     // width is whatever the device works out to at the reader's viewport, so
     // the card cannot be a single fixed number that suits both.
-    <div className="relative h-full w-full [container-type:inline-size]">
+    <div ref={boxRef} className="relative h-full w-full [container-type:inline-size]">
+      {near && (
       <Map
         initialViewState={{ ...opening, zoom }}
         mapStyle={mapStyle}
@@ -390,36 +455,11 @@ export default function MarketingMap({
             // Clear the puck: its pill stands ~40px over the coordinate.
             offset={[0, -46]}
           >
-            <div
-              key={active.slug}
-              // 220 rather than the 248 this carried in the old landscape
-              // box, and capped at 72% of the map besides: the glass is a
-              // third as wide as that box was, and a card most of the way
-              // across it stops being a label on a map and starts being the
-              // map. The type does not scale with it. The score pucks are
-              // drawn on the canvas at their own size whatever the phone
-              // works out to, and a card that shrank away from them would
-              // read as a different screen's card pasted on.
-              className="pointer-events-none w-[min(220px,72cqw)] rounded border border-rc-rule/60 bg-rc-panel/95 px-3 py-2 shadow-rc-bar backdrop-blur-sm"
-            >
-              <div className="flex items-baseline justify-between gap-2">
-                {/* Wraps rather than truncates: spot names run long ("Howe
-                    Sound (Pam Rock / Worlcombe)") and a clipped name on a
-                    marketing still reads as a bug. */}
-                <span className="text-[13px] font-semibold leading-snug text-rc-ink">
-                  {active.name}
-                </span>
-                <span className="shrink-0 font-rc-mono text-[15px] font-bold text-rc-ink">
-                  {active.score}
-                </span>
-              </div>
-              <div className="mt-0.5 font-rc-mono text-[10px] uppercase tracking-[0.06em] text-rc-ink-mute">
-                {verdictOf(active.score)}
-              </div>
-            </div>
+            <MarketingSpotCard key={active.slug} spot={active} />
           </Marker>
         )}
       </Map>
+      )}
     </div>
   );
 }

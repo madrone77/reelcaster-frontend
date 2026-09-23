@@ -1,0 +1,59 @@
+name: Capture hero reel map stills
+
+# The ad frames draw the hero reel's map as a baked picture with live pins on
+# top (src/lib/map/reel-still.ts). This bakes any still that is missing: a new
+# city or spot, or all of them after a STILL_VERSION bump. Paths are content-
+# addressed, so a still that exists is never recaptured unless forced. Until a
+# still exists the page shows the live map, so a late or failed run costs
+# speed, not correctness.
+
+on:
+  schedule:
+    # 10:40 UTC, 3:40 AM Pacific: clear of the score fleet's 08:00 and 12:00
+    # UTC windows and of the midnight city purge.
+    - cron: '40 10 * * *'
+  workflow_dispatch:
+    inputs:
+      force:
+        description: 'Recapture stills that already exist'
+        type: boolean
+        default: false
+      only:
+        description: 'city or spot (blank for both)'
+        required: false
+        default: ''
+
+concurrency:
+  group: capture-reel-stills
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  capture:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      - run: npx playwright install --with-deps chromium
+
+      - name: Capture and upload missing stills
+        env:
+          # The app's own Supabase project (not BlueCaster's).
+          SUPABASE_URL: https://pehcvwiwtubzfgahuzuz.supabase.co
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          BASE: https://www.reelcaster.com
+          FORCE: ${{ inputs.force && '1' || '' }}
+          ONLY: ${{ inputs.only }}
+        run: node scripts/capture-reel-stills.mjs

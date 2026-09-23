@@ -44,6 +44,7 @@ import type {
 } from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
 import { buildReliefStyle } from "@/lib/map/relief-style";
+import { useNearViewport } from "@/hooks/use-near-viewport";
 import { applyBathyCoverages, type StyleLike } from "@/lib/map/bathy-coverages";
 import { useBathyManifest } from "@/lib/map/use-bathy-manifest";
 import { MAP_CUSTOM_ATTRIBUTION } from "@/lib/map/map-brand";
@@ -227,6 +228,9 @@ export default function CitySpotMap({
   // See @/hooks/use-paywall-modal.
   const ProTrialModal = useTrialModal(useMountedOnce(lockWallOpen));
   const mapRef = useRef<MapRef | null>(null);
+  // Booted on approach, not on hydration. See @/hooks/use-near-viewport.
+  const boxRef = useRef<HTMLDivElement | null>(null);
+  const near = useNearViewport(boxRef);
   const [hover, setHover] = useState<HoverCard | null>(null);
   const [mapObj, setMapObj] = useState<MlMap | null>(null);
 
@@ -580,7 +584,8 @@ export default function CitySpotMap({
     // a broken map. A squarer frame spends that slack on water instead. The
     // tileset extent is a product-wide limit, not something this page can fix;
     // framing is what this page controls.
-    <div className="relative h-[420px] lg:h-[640px] rounded overflow-hidden border border-rc-rule">
+    <div ref={boxRef} className="relative h-[420px] lg:h-[640px] rounded overflow-hidden border border-rc-rule">
+      {near && (
       <MapGL
         ref={mapRef}
         initialViewState={{ latitude: cityLat, longitude: cityLng, zoom: 9 }}
@@ -616,6 +621,7 @@ export default function CitySpotMap({
           <Layer {...spotPuckLayer} />
         </Source>
       </MapGL>
+      )}
 
       {/* The readout. An HTML card rather than a MapLibre Popup: a popup is a
           map ANCHOR, so it re-projects on every frame of a pan and lags the

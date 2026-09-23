@@ -51,3 +51,7 @@ next-env.d.ts
 .gstack/
 .env*.local
 .claude/launch.json
+
+# Local reel-still captures (scripts/capture-reel-stills.mjs DRY=1)
+/reel-stills-out/
+/public/_stills/

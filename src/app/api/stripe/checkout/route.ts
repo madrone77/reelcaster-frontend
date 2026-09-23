@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest, NextResponse, after } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { getStripe, appOrigin } from '@/lib/stripe';
 import {
@@ -81,6 +81,24 @@ async function anonCheckout(request: NextRequest) {
     return NextResponse.json({ error: 'invalid_body' }, { status: 400 });
   }
 
+  // The tap on a session the sheet built ahead of it. The session exists;
+  // all that is left is the event the prefetch did not write.
+  if (typeof body.commit === 'string' && body.commit.startsWith('cs_')) {
+    const id = body.commit;
+    after(async () => {
+      await recordCheckoutStart(request, 'anon');
+      // Lets the almost-done reminder count this one: a prefetched session is
+      // skipped by it until the buyer has actually asked to check out.
+      try {
+        const stripe = await getStripe();
+        await stripe.checkout.sessions.update(id, { metadata: { committed: 'true' } });
+      } catch (err) {
+        console.warn('[stripe checkout] commit stamp failed', err);
+      }
+    });
+    return new NextResponse(null, { status: 204 });
+  }
+
   const email = (body.email ?? '').toString().trim().toLowerCase();
   if (email && !EMAIL_RE.test(email)) {
     return NextResponse.json({ error: 'email_invalid' }, { status: 400 });
@@ -102,9 +120,13 @@ async function anonCheckout(request: NextRequest) {
   // refusing loses no sale that should happen. The sheet offers a sign-in
   // link instead; signed in, the account's own eligibility and Pro status
   // decide what it is shown.
-  if (email && (await findUserIdByEmail(admin, email))) {
-    return NextResponse.json({ error: 'account_exists' }, { status: 409 });
-  }
+  // Started now and read after the session is built: the lookup and the
+  // session do not depend on each other, and in a row they were most of the
+  // wait between the tap and Stripe's page. A session built for an address
+  // that turns out to have an account is expired, never handed out.
+  const existingAccount: Promise<string | null> = email
+    ? findUserIdByEmail(admin, email)
+    : Promise.resolve(null);
 
   const stripe = await getStripe();
   const currency: BillingCurrency = currencyForRegion(
@@ -113,21 +135,37 @@ async function anonCheckout(request: NextRequest) {
   );
 
   try {
-    const created = await createAnonCheckoutSession({
-      request,
-      stripe,
-      admin,
-      currency,
-      email: email || null,
-      region,
-      from: body.from ?? '',
-      plan,
-      // Every signed-out button reads "Start 7-day free trial" until the email
-      // is known, so a withheld trial has to come back to the sheet and be said
-      // there, not appear for the first time as a price on Stripe's page. The
-      // second tap, on a button that now states the charge, sends accept_paid.
-      withheldTrial: body.accept_paid === true ? 'charge' : 'refuse',
-    });
+    const [created, existingUserId] = await Promise.all([
+      createAnonCheckoutSession({
+        request,
+        stripe,
+        admin,
+        currency,
+        email: email || null,
+        region,
+        from: body.from ?? '',
+        plan,
+        // Every signed-out button reads "Start 7-day free trial" until the email
+        // is known, so a withheld trial has to come back to the sheet and be said
+        // there, not appear for the first time as a price on Stripe's page. The
+        // second tap, on a button that now states the charge, sends accept_paid.
+        withheldTrial: body.accept_paid === true ? 'charge' : 'refuse',
+        prefetch: body.prefetch === true,
+      }),
+      existingAccount,
+    ]);
+    if (existingUserId) {
+      if (created.ok) {
+        const id = created.session.id;
+        after(() =>
+          stripe.checkout.sessions.expire(id).then(
+            () => undefined,
+            (err) => console.warn('[stripe checkout] expire after account_exists failed', err),
+          ),
+        );
+      }
+      return NextResponse.json({ error: 'account_exists' }, { status: 409 });
+    }
     if (!created.ok && created.error === 'trial_used') {
       return NextResponse.json({ error: 'trial_used' }, { status: 409 });
     }
@@ -138,10 +176,10 @@ async function anonCheckout(request: NextRequest) {
       );
     }
 
-    // Awaited, unlike the client-side reporters: this route is already doing a
-    // round trip to Stripe, one insert is noise beside it, and a fire-and-forget
-    // write on a serverless function can be killed by the response returning.
-    await recordCheckoutStart(request, 'anon');
+    // After the response, not before it: `after` keeps the function alive
+    // until the insert lands, so it is not lost, and the buyer is not held
+    // for it. A prefetch writes nothing; its tap commits (see `commit`).
+    if (body.prefetch !== true) after(() => recordCheckoutStart(request, 'anon'));
 
     return withSplitCookie(
       NextResponse.json({
@@ -217,6 +255,18 @@ interface CheckoutBody {
    * withheld trial is refused with `trial_used` rather than charged.
    */
   accept_paid?: boolean;
+  /**
+   * Signed-out buyers only. The sheet builds the session while the buyer is
+   * still on it (once the email field holds a valid address), so the Start
+   * tap has nothing left to wait for. A prefetch records no checkout_start:
+   * nobody has asked to check out yet.
+   */
+  prefetch?: boolean;
+  /**
+   * Signed-out buyers only. The Start tap on a prefetched session: records
+   * the checkout_start the prefetch held back, and does nothing else.
+   */
+  commit?: string;
   /**
    * 'annual' (default) or 'monthly'. Monthly comes only from the plan
    * picker on the phone sheet; anything else reads as annual.

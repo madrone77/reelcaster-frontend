@@ -8,6 +8,7 @@ import type { Map as MlMap, StyleSpecification } from "maplibre-gl";
 import { pauseMap, useMapCovered } from "@/lib/map/map-cover";
 import "maplibre-gl/dist/maplibre-gl.css";
 import { buildReliefStyle } from "@/lib/map/relief-style";
+import { useNearViewport } from "@/hooks/use-near-viewport";
 import { applyBathyCoverages, type StyleLike } from "@/lib/map/bathy-coverages";
 import { useBathyManifest } from "@/lib/map/use-bathy-manifest";
 import { attachRcaHatch, ensureRcaHatch } from "@/lib/map/rca-hatch";
@@ -128,6 +129,9 @@ export default function SpotMiniMap({
   const [base, setBase] = useState<Base>("bathy");
   const { flow, currents, wind, toggleCurrents, toggleWind } = useFlowLayer();
   const [expanded, setExpanded] = useState(false);
+  // Booted on approach, not on hydration. See @/hooks/use-near-viewport.
+  const boxRef = useRef<HTMLDivElement | null>(null);
+  const near = useNearViewport(boxRef);
   // Tracks the same 1024px line the layout uses, because that is the line the
   // map's shape changes on: below it the map is full-bleed, above it it is a
   // boxed column. Starts false so the server and the first client render
@@ -303,6 +307,7 @@ export default function SpotMiniMap({
 
   return (
     <div
+      ref={boxRef}
       className={
         expanded
           ? "fixed inset-0 z-[60] bg-rc-panel"
@@ -397,6 +402,7 @@ export default function SpotMiniMap({
       </button>
       )}
 
+      {(near || expanded) && (
       <Map
         ref={mapRef}
         initialViewState={{
@@ -477,6 +483,7 @@ export default function SpotMiniMap({
           />
         </Source>
       </Map>
+      )}
 
       {/* Tap target over the inert map. The handlers above are already off, so
           the canvas takes no touches either way; this is here to give the map

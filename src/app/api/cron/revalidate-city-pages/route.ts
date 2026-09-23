@@ -15,8 +15,8 @@
  *
  * `revalidatePath` on the dynamic segment purges all of a route's pages in one
  * call, so the next request of each renders fresh (blocking, one time) rather
- * than serving stale. Nothing is rendered here; a city nobody opens costs
- * nothing.
+ * than serving stale. Nothing is rendered here: warm-city-pages, ten minutes
+ * later, takes that one blocking render for every city so no reader does.
  *
  * Runs at 07:10 and 08:10 UTC: 00:10 Pacific under daylight time and under
  * standard time respectively. The off-season firing is 1:10 AM and harmless.

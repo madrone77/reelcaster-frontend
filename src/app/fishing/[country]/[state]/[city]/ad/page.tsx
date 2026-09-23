@@ -26,6 +26,7 @@ import {
 import { fetchCityGuides } from "@/lib/bluecaster";
 import { locationOf } from "@/app/fishing/lib/fishing-data";
 import AdReel from "../[spot]/ad/ad-reel";
+import { cityStillFrame } from "@/lib/map/reel-still";
 import CityAdView from "./city-ad-view";
 import type { CampaignTarget } from "@/app/lp/_shared/lp-telemetry";
 
@@ -238,11 +239,16 @@ export default async function CityAdPage({ params, searchParams }: PageProps) {
             provinceCode={city.provinceCode}
             fishName={leadSpeciesFull}
             serverNowMs={serverNowMs}
+            // ad=today: the map screen is a picture, not a map to boot.
+            still={wall === "today"}
             city={{
               name: city.name,
               spots: mapSpots,
               featuredSlugs: rankedRows.slice(0, 5).map((r) => r.spot.slug),
               center: { lat: city.lat, lng: city.lng },
+              // Framed on the hierarchy's roster, not today's scored subset,
+              // so the sheet (and its URL) only moves when the roster does.
+              still: cityStillFrame(city.slug, city.spots, { lat: city.lat, lng: city.lng }),
             }}
           />
         ) : null

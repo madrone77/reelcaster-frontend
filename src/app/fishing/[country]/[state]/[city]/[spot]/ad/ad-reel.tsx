@@ -2,6 +2,7 @@ import { fetchHierarchyLight, fetchMapSpots } from "@/lib/bluecaster";
 import { buildExploreData } from "@/app/explore/lib/explore-data";
 import { type MapSpot } from "@/app/(marketing)/components/marketing-map";
 import HeroReelMap from "./hero-reel-map";
+import { spotStillFrame, type StillFrame } from "@/lib/map/reel-still";
 import PhoneFrame from "@/app/(marketing)/components/phone-frame";
 import SpotHeroPhone from "@/app/(marketing)/components/spot-hero-phone";
 import { loadSpotHeroFeed } from "@/app/(marketing)/components/spot-hero-feed";
@@ -47,6 +48,7 @@ export default async function AdReel({
   fishName,
   serverNowMs,
   city,
+  still = false,
 }: {
   slug: string;
   provinceCode: string;
@@ -64,7 +66,14 @@ export default async function AdReel({
     spots: MapSpot[];
     featuredSlugs: string[];
     center: { lat: number; lng: number };
+    /** The city's baked map sheet (cityStillFrame), used when `still` is set. */
+    still?: StillFrame | null;
   };
+  /**
+   * The ad frames: draw the map screen as a baked picture with live pins
+   * rather than booting MapLibre for it. See @/lib/map/reel-still.
+   */
+  still?: boolean;
 }) {
   const hero = await loadSpotHeroFeed(slug, provinceCode).catch(() => null);
   if (!hero) return null;
@@ -149,6 +158,13 @@ export default async function AdReel({
               featuredSlug={city ? undefined : slug}
               featuredSlugs={city?.featuredSlugs}
               fallback={CHART_FALLBACK}
+              still={
+                still
+                  ? city
+                    ? (city.still ?? null)
+                    : spotStillFrame(slug, spot.lat, spot.lng)
+                  : null
+              }
             />
           </ClientErrorBoundary>
         </PhoneFrame>
