@@ -4,7 +4,14 @@ import { Check } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useTrialCta } from './trial-cta';
 import { TRIAL_DAYS, annualSavingsPercent, dollars } from '@/lib/pricing';
-import type { PlanPickerLook } from '@/app/components/split-test/use-plan-picker';
+
+/**
+ * How the cards are drawn. `tile` on the phone sheet, `card` in the desktop
+ * dialog: the two shapes were asked the question separately and answered it
+ * differently (plan_picker_v3 and desktop_plan_picker_v1, both concluded
+ * 2026-09-22).
+ */
+export type PlanPickerLook = 'card' | 'tile';
 
 /**
  * Two cards on either shape of the trial modal: Yearly, then Monthly. Under
@@ -25,26 +32,24 @@ import type { PlanPickerLook } from '@/app/components/split-test/use-plan-picker
  * Fishbrain's cards do it, because "$3.25 / mo" beside "$5 / mo" is the
  * comparison the badge is summarising.
  *
- * `look="tile"` is arm c of plan_picker_v3: the cards drawn the way the
- * forecast strip draws a day (explore/components/day-cell). The chosen card
- * takes the selected day's solid brand fill with white type, the other stays
- * a white panel on the rule colour, and the Save badge becomes the gold tab
- * the best day wears on its top edge. The guess is that a reader who has just
- * tapped a day already reads that fill as "this one" and that gold tab as
- * "the good one", so the yearly card borrows both.
+ * `look="tile"` draws them the way the forecast strip draws a day
+ * (explore/components/day-cell): the chosen card takes the selected day's
+ * solid brand fill with white type, the other stays a white panel on the rule
+ * colour, and the Save badge becomes the gold tab the best day wears on its
+ * top edge. A reader who has just tapped a day already reads that fill as
+ * "this one" and that gold tab as "the good one", so the yearly card borrows
+ * both. It was arm c of plan_picker_v3 and is the phone sheet's only look
+ * since Casey concluded that test for it on 2026-09-22; the desktop dialog
+ * keeps the plain cards.
  */
 export default function PlanPicker({
   className,
   look = 'card',
-  goldBadge = false,
 }: {
   className?: string;
   look?: PlanPickerLook;
-  /** The Save badge as the gold tab on the plain cards (sheet_timeline_v1 b). */
-  goldBadge?: boolean;
 }) {
   const tile = look === 'tile';
-  const gold = tile || goldBadge;
   const s = useTrialCta();
   const save = annualSavingsPercent(s.annualCents, s.monthlyCents);
   const perMonth = dollars(Math.round(s.annualCents / 12));
@@ -108,7 +113,7 @@ export default function PlanPicker({
               <span
                 className={cn(
                   'absolute right-3 font-rc-mono text-[10px] tracking-[0.06em] uppercase',
-                  gold
+                  tile
                     ? '-top-2 rounded bg-rc-badge px-1.5 py-1 leading-none font-bold text-rc-ink'
                     : '-top-2.5 rounded-full bg-rc-brand px-2 py-0.5 font-semibold text-white',
                 )}
