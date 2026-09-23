@@ -1,8 +1,9 @@
 import { fetchHierarchyLight, fetchMapSpots } from "@/lib/bluecaster";
 import { buildExploreData } from "@/app/explore/lib/explore-data";
 import { type MapSpot } from "@/app/(marketing)/components/marketing-map";
+import { FEATURED_COUNT, ROTATE_MS } from "@/app/(marketing)/components/marketing-map-walk";
 import HeroReelMap from "./hero-reel-map";
-import { spotStillFrame, type StillFrame } from "@/lib/map/reel-still";
+import { SPOT_WALK_PAD, spotStillFrame, type StillFrame } from "@/lib/map/reel-still";
 import PhoneFrame from "@/app/(marketing)/components/phone-frame";
 import SpotHeroPhone from "@/app/(marketing)/components/spot-hero-phone";
 import { loadSpotHeroFeed } from "@/app/(marketing)/components/spot-hero-feed";
@@ -133,6 +134,25 @@ export default async function AdReel({
   const slides: ReelSlide[] = [];
 
   const spots = city?.spots.length ? city.spots : bboxSpots;
+
+  // The card's walk: on a city, the city's list; on a spot, the spot itself
+  // and then its best-scoring neighbours close enough to sit on its sheet.
+  // Walking is what shows the map is live everywhere, not just here.
+  const walk = city
+    ? city.featuredSlugs
+    : [
+        slug,
+        ...bboxSpots
+          .filter(
+            (s) =>
+              s.slug !== slug &&
+              s.score !== null &&
+              Math.abs(s.lng - spot.lng) <= SPOT_WALK_PAD.lng &&
+              Math.abs(s.lat - spot.lat) <= SPOT_WALK_PAD.lat,
+          )
+          .sort((a, b) => (b.score ?? -1) - (a.score ?? -1))
+          .map((s) => s.slug),
+      ].slice(0, FEATURED_COUNT);
   if (city ? spots.length > 0 : spots.some((s) => s.slug === slug)) {
     slides.push({
       id: "map",
@@ -141,6 +161,8 @@ export default async function AdReel({
       body: city
         ? "Each number is today's best score out of 100 at that spot. The card walks the most-fished spots."
         : "Every spot is scored for today, out of 100. Green is worth the trip, amber is fair, red is slow.",
+      // Long enough for the card to reach three spots before the next screen.
+      holdMs: walk.length > 1 ? ROTATE_MS * Math.min(3, walk.length) : undefined,
       phone: (
         <PhoneFrame
           width="w-full"
@@ -155,8 +177,7 @@ export default async function AdReel({
               spots={spots}
               center={city?.center ?? { lat: spot.lat, lng: spot.lng }}
               zoom={city ? CITY_ZOOM : ZOOM}
-              featuredSlug={city ? undefined : slug}
-              featuredSlugs={city?.featuredSlugs}
+              featuredSlugs={walk}
               fallback={CHART_FALLBACK}
               still={
                 still

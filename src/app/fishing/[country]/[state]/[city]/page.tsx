@@ -318,6 +318,27 @@ export default async function CityPage({
                   provinceCode={city.provinceCode}
                   fishName={featuredFeed.speciesName}
                   serverNowMs={Date.now()}
+                  // The map screen shows the whole city and walks its card
+                  // from the lead spot through the next most-fished, as the
+                  // city ad page does.
+                  city={{
+                    name: city.name,
+                    spots: spots
+                      .filter((s) => s.score !== null)
+                      .map(({ slug, name, lat, lng, score, scoresBySpecies }) => ({
+                        slug,
+                        name,
+                        lat,
+                        lng,
+                        score,
+                        scoresBySpecies,
+                      })),
+                    featuredSlugs: [
+                      featuredFeed.slug,
+                      ...rankedRows.map((r) => r.spot.slug).filter((s) => s !== featuredFeed.slug),
+                    ].slice(0, 5),
+                    center: { lat: city.lat, lng: city.lng },
+                  }}
                 />
               ) : null,
           }}

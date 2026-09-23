@@ -42,6 +42,8 @@ export interface ReelSlide {
   phone: ReactNode;
   /** Mount the phone on first show. For a slide that draws a second map. */
   lazy?: boolean;
+  /** How long this screen holds before the next, when not HOLD_MS. */
+  holdMs?: number;
 }
 
 const HOLD_MS = 6000;
@@ -105,9 +107,12 @@ export default function AdPhoneReel({ slides }: { slides: ReelSlide[] }) {
 
   useEffect(() => {
     if (taken || hovered || focused || !running || slides.length < 2) return;
-    const id = setInterval(() => setActive((i) => (i + 1) % slides.length), HOLD_MS);
-    return () => clearInterval(id);
-  }, [taken, hovered, focused, running, slides.length]);
+    const id = setTimeout(
+      () => setActive((i) => (i + 1) % slides.length),
+      slides[active]?.holdMs ?? HOLD_MS,
+    );
+    return () => clearTimeout(id);
+  }, [taken, hovered, focused, running, slides, active]);
 
   useEffect(() => {
     setSeen((prev) => (prev.has(active) ? prev : new Set(prev).add(active)));

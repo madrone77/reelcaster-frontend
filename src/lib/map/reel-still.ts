@@ -14,8 +14,9 @@
  * captured yet 404s. The page then falls back to the live map, and the next
  * nightly run fills the gap.
  *
- * - A SPOT still is one window centred on the spot, at the spot reel's zoom.
- *   The spot reel never pans: its card holds on the spot.
+ * - A SPOT still is a SHEET too: SPOT_WALK_PAD of water around the spot plus
+ *   a window's margin on every side, at the spot reel's zoom. The card opens
+ *   on the spot and walks to its best-scoring neighbours inside that box.
  * - A CITY still is a SHEET: the roster's extent plus a window's margin on
  *   every side, at the city reel's zoom. The window pans over it to each
  *   featured mark, as the live map eased between them.
@@ -37,6 +38,13 @@ const STILL_BASE =
 /** Must match ad-reel.tsx's ZOOM and CITY_ZOOM. */
 export const SPOT_STILL_ZOOM = 10.4;
 export const CITY_STILL_ZOOM = 9.6;
+
+/**
+ * How far from the spot the spot reel's card may walk, in degrees. ad-reel.tsx
+ * picks the neighbours it walks to inside this box, and the spot sheet is this
+ * box plus a window, so every one of them can be centred.
+ */
+export const SPOT_WALK_PAD = { lng: 0.12, lat: 0.08 } as const;
 
 /**
  * The reel phone's map box, in CSS px, plus a pixel of slack. The phone is
@@ -113,14 +121,18 @@ function finish(frame: Omit<StillFrame, "path" | "src">): StillFrame {
 }
 
 export function spotStillFrame(slug: string, lat: number, lng: number): StillFrame {
+  const zoom = SPOT_STILL_ZOOM;
+  const world = worldPx(zoom);
+  const w = Math.ceil(((mercX(lng + SPOT_WALK_PAD.lng) - mercX(lng - SPOT_WALK_PAD.lng)) * world + STILL_WINDOW.w) / 2) * 2;
+  const h = Math.ceil(((mercY(lat - SPOT_WALK_PAD.lat) - mercY(lat + SPOT_WALK_PAD.lat)) * world + STILL_WINDOW.h) / 2) * 2;
   return finish({
     kind: "spot",
     slug,
     lat: round5(lat),
     lng: round5(lng),
-    zoom: SPOT_STILL_ZOOM,
-    w: STILL_WINDOW.w,
-    h: STILL_WINDOW.h,
+    zoom,
+    w: Math.min(MAX_SHEET.w, w),
+    h: Math.min(MAX_SHEET.h, h),
   });
 }
 
