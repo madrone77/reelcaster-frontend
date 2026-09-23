@@ -601,6 +601,7 @@ export interface MapForecastDayConditions {
  */
 export async function fetchMapForecast14d(
   scope: string | { bbox?: string; city?: string },
+  opts: { days?: number } = {},
 ): Promise<MapForecast14dPayload | null> {
   // A bare string is the original bbox signature, kept so the Explore map's
   // call sites do not have to change.
@@ -608,7 +609,20 @@ export async function fetchMapForecast14d(
     typeof scope === "string"
       ? { bbox: scope }
       : { bbox: scope.bbox, city: scope.city };
-  return bcGet<MapForecast14dPayload>("/api/v1/map/forecast-14d", query, 120);
+  return bcGet<MapForecast14dPayload>(
+    "/api/v1/map/forecast-14d",
+    { ...query, days: readDaysParam(opts.days) },
+    120,
+  );
+}
+
+/**
+ * `days` for the map forecast endpoints: read only the first N days upstream.
+ * The payload keeps its 14-day shape with nulls past N. Omitted at 14 so a
+ * full read keeps the URL, and so the Data Cache entry, it always had.
+ */
+function readDaysParam(days: number | undefined): number | undefined {
+  return days !== undefined && days < 14 ? days : undefined;
 }
 
 // ── Per-spot 14-day outlook (map/spot-forecast-14d) ─────────────────
@@ -646,6 +660,8 @@ export async function fetchSpotsOutlook14d(
      *  day is the best species at that spot, which reads as a contradiction
      *  beside a surface already filtered to one. */
     speciesId?: string;
+    /** Read only the first N days; see readDaysParam. */
+    days?: number;
   },
   opts: { viewerId?: string } = {},
 ): Promise<SpotsOutlook14dPayload | null> {
@@ -656,6 +672,7 @@ export async function fetchSpotsOutlook14d(
       city: scope.citySlug,
       bbox: scope.bbox,
       species: scope.speciesId,
+      days: readDaysParam(scope.days),
     },
     120,
     opts.viewerId,
