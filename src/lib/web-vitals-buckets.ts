@@ -11,7 +11,12 @@ export const VITAL_BUCKET_EDGES = [
   5000, 6000, 8000, 10000, 15000, 20000,
 ] as const
 
-export const VITAL_METRICS = ['LCP', 'TTFB', 'FCP', 'INP', 'CLS'] as const
+/**
+ * The five Core Web Vitals, plus MODAL: our own measure, the time from the
+ * tap that asks for the paywall to the sheet painted on screen (see
+ * src/lib/modal-timing.ts). Same table, same buckets, same p75.
+ */
+export const VITAL_METRICS = ['LCP', 'TTFB', 'FCP', 'INP', 'CLS', 'MODAL'] as const
 export type VitalMetric = (typeof VITAL_METRICS)[number]
 
 export const VITAL_SURFACES = ['explore', 'spot', 'city', 'home', 'lp', 'other'] as const
