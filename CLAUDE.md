@@ -967,6 +967,15 @@ assumed. Unset the variable to fall back to `/plans/checkout`.
   and under 30 minutes old.
 - `/billing/success` and `/billing/cancel` are now **public in `auth-gate.tsx`**
   — gating them would strand someone who has already paid.
+- Mixpanel `Trial Started` on `/billing/success` fires as soon as Pro / trialing
+  is confirmed (checkout poll `is_active`, signed-in `subscription.isPaid`, or a
+  provisioned pay-first claim). It does **not** wait for
+  `useTrialConversion().settled` — that gate stays on the Meta / Google /
+  Plausible tags only. Deduped once per Stripe `session_id` via
+  `rc_mixpanel_fired:${sessionId}` (`src/lib/trial-started.ts`). Do not couple
+  it back to the ad-conversion race: pay-first buyers leave through a magic
+  link before `activated` + `settled` ever both flip, and that is how the
+  event went missing while `Pro Welcome Shown` still counted.
 - `checkout_claims` and `user_settings.created_via_checkout` already existed in
   the production database with no migration file and no code using them;
   `supabase/migrations/20260803_pay_first_checkout.sql` makes the repo match.

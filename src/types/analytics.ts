@@ -324,8 +324,11 @@ export type AnalyticsEventName =
   | 'Catch Photo Attached'
   | 'Catch Logged'
   | 'Catch Edited'
-  // Billing. 'Trial Started' fires on /billing/success, where Meta and
-  // Plausible already do; it is the conversion, not the intent.
+  // Billing. 'Trial Started' fires on /billing/success the moment Pro /
+  // trialing is confirmed there (checkout poll, already-Pro hook, or
+  // pay-first claim). It does not wait for the Meta/Google/Plausible
+  // conversion helper — those tags stay gated; this is the product
+  // conversion, not the intent.
   // The three taps on the buy control, named for the button. 'Apple Pay
   // Clicked' / 'Google Pay Clicked' fire when the wallet button is tapped
   // (before the OS sheet opens); 'Email Entered' once per paywall when the
