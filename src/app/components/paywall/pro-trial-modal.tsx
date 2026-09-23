@@ -32,6 +32,7 @@ import BrandHeader from "./brand-header";
 import PlanMatrix from "./plan-matrix";
 import PlanPicker from "./plan-picker";
 import TrialSheetStripe from "./trial-sheet-stripe";
+import TrialSheetPitch from "./trial-sheet-pitch";
 import { useIsPhone } from "@/hooks/use-is-phone";
 import { coverMap } from "@/lib/map/map-cover";
 import { TRIAL_DAYS } from "@/lib/pricing";
@@ -274,6 +275,10 @@ export default function ProTrialModal({
   // sheet's outside-tap listener could catch the tail of the opening tap and
   // dismiss the sheet on the spot. See the hook for the full story.
   if (phone) {
+    // The preview door for ./trial-sheet-pitch; see `sheetLens` at the foot of
+    // this file. Resolved here as well as passed down because the frame around
+    // the sheet — the close button — belongs to the shape.
+    const pitchSheet = sheetLens() === "pitch";
     return (
       // handleOpenChange, not onOpenChange. Both shapes of this modal have to
       // close through the same handler or the sheet reports no dismissals at
@@ -286,15 +291,26 @@ export default function ProTrialModal({
           variant="sheet"
           data-testid="pro-trial-modal"
           data-shape="sheet"
+          // Which sheet is on screen, for a walk that wants to say so. Only
+          // the preview lens below moves it today.
+          data-sheet-arm={pitchSheet ? "pitch" : "stripe"}
           data-feature={feature}
           // A fixed height, a sliver short of the top of the screen, so the
           // sheet reads as a page rather than a tray hanging a third of the
           // way down. It was 94dvh; with the plan cards and the quote both
           // drawn that scrolled on a 390x844 phone, and the last 6% is what
           // lets it sit still.
+          //
+          // Both shapes, the pitch sheet included: it was briefly sized
+          // to its own column instead, which fitted it to the offer but moved
+          // the top of the panel whenever the plan cards changed the height
+          // under it. A sheet that is the same size every time it opens is
+          // worth more than one that is the exact height of its contents.
           className="bg-rc-panel border-rc-rule text-rc-ink gap-0 p-0 [&>[data-slot=dialog-close]]:z-20 h-[calc(100dvh-0.5rem)] max-h-[calc(100dvh-0.5rem)]"
         >
-          <TrialSheetStripe
+          <PhoneSheet
+            pitch={pitchSheet}
+            viewerTier={viewerTier}
             placeName={spotName ?? placeName}
             // A spot when there is one, otherwise the city the map is on.
             placeKind={spotName ? 'spot' : 'city'}
@@ -622,4 +638,55 @@ function WalletUnlessMonthly() {
   const { plan } = useTrialCta();
   if (plan === "monthly") return null;
   return <TrialExpress className="mb-3" />;
+}
+
+/**
+ * Which phone sheet is drawn. One sheet for everyone (./trial-sheet-stripe)
+ * since the three tests on this modal concluded 2026-09-22, plus the preview
+ * door below.
+ */
+function PhoneSheet({
+  pitch,
+  viewerTier,
+  ...props
+}: React.ComponentProps<typeof TrialSheetStripe> & {
+  pitch: boolean;
+  viewerTier: PlanTierId;
+}) {
+  /**
+   * The preview door: `?rc_sheet=pitch` draws ./trial-sheet-pitch instead of
+   * the sheet this reader would otherwise get.
+   *
+   * It counts NOTHING: no test reads it and no exposure is fired for it, so
+   * a walk through the lens cannot move anything.
+   *
+   * Delete this branch when the sheet is registered as an arm.
+   */
+  if (pitch) {
+    return (
+      <TrialSheetPitch
+        placeName={props.placeName}
+        placeKind={props.placeKind}
+        cityName={props.cityName}
+        headline={props.headline}
+        from={props.from}
+        region={props.region}
+        viewerTier={viewerTier}
+        ctaLabel={props.ctaLabel}
+        priceAmount={props.priceAmount}
+        onActivate={props.onActivate}
+      />
+    );
+  }
+  return <TrialSheetStripe {...props} />;
+}
+
+/** `?rc_sheet=<name>`, the preview door above. Null anywhere but a browser. */
+function sheetLens(): string | null {
+  if (typeof window === "undefined") return null;
+  try {
+    return new URLSearchParams(window.location.search).get("rc_sheet");
+  } catch {
+    return null;
+  }
 }
