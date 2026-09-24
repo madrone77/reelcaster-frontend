@@ -36,6 +36,34 @@ import { formatHour12 } from "@/lib/time-format";
  * uncached round trips lp-entry.ts's redirect argument is about.
  */
 export interface LpCard {
+  /**
+   * Whether the city had any scored spot when this card was built.
+   *
+   * False is a real, reachable state and NOT a reason to 404. Scoring runs
+   * per city against one globally pinned forecast version, so a city whose
+   * job wrote no rows for the live version has every spot come back unscored
+   * while the rest of the country is fine. That happened to Seattle on
+   * 2026-09-01 and took /lp/seattle/1, /2 and /3 off the air for the better
+   * part of an hour while paid traffic was pointed at them.
+   *
+   * Callers render the page either way and hide the bands that quote a
+   * number. Everything else on these pages -- the city, the water, the
+   * regulator, the copy, the CTA into Explore -- is true whether or not
+   * today's scores exist, and an ad landing page that answers 404 is worse
+   * in every way than one that is briefly short a hero figure.
+   */
+  hasScores: boolean;
+  /**
+   * True when the numbers on this page are real scores from an EARLIER
+   * forecast generation than the live one.
+   *
+   * The page must say so. That is the whole bargain that makes the fallback
+   * acceptable: an unlabelled old score is a lie about how fresh the product
+   * is, on the one page whose argument is that it knows today's water.
+   */
+  stale: boolean;
+  /** ISO instant the served scores were computed. Null unless stale. */
+  scoredAt: string | null;
   /** Real city display name, e.g. "Friday Harbor". */
   cityName: string;
   /**
@@ -149,14 +177,53 @@ function bestWindow(hours: number[]): { from: number; to: number; peak: number }
 export async function resolveLpCard(citySlug: string): Promise<LpCard | null> {
   const [hierarchy, payload, fresh] = await Promise.all([
     fetchHierarchy(),
-    fetchMapSpots({ city: citySlug }),
+    // A landing page would rather print a real score from an earlier
+    // generation, labelled, than nothing. See MapSpotsPayload.stale, and the
+    // disclaimer the pages render off card.stale.
+    fetchMapSpots({ city: citySlug, fallback: true }),
     fetchFreshCatches({ city: citySlug, days: 14 }),
   ]);
   if (!hierarchy || !payload) return null;
 
   const data = buildExploreData(hierarchy, payload);
-  const candidates = data.spots.filter((s) => s.citySlug === citySlug && s.score !== null);
-  if (!candidates.length) return null;
+  const citySpots = data.spots.filter((s) => s.citySlug === citySlug);
+
+  // No spots at all means the slug is wrong or the city has nothing
+  // published. That IS a 404: there is no page to draw.
+  if (!citySpots.length) return null;
+
+  const candidates = citySpots.filter((s) => s.score !== null);
+
+  // Spots, but none of them scored. Hand back everything the page needs that
+  // is not a number -- the city, the jurisdiction, a real mark to name -- and
+  // let the caller drop the bands that quote today's figures. See hasScores.
+  if (!candidates.length) {
+    const rep = citySpots[0]!;
+    return {
+      hasScores: false,
+      stale: false,
+      scoredAt: null,
+      cityName: rep.cityName,
+      provinceCode: rep.provinceCode,
+      spotName: rep.name,
+      // Deliberately empty rather than a guess. Nothing here knows which
+      // species is running, and naming one on a page about knowing the water
+      // is the kind of invention a local reader catches.
+      species: "",
+      meta: rep.cityName.toUpperCase(),
+      score: 0,
+      tagWord: "",
+      tier: "none",
+      windowTime: null,
+      windowNote: null,
+      tidePhase: null,
+      hours: [],
+      bestFrom: -1,
+      bestTo: -2,
+      freshCatches: fresh?.spots[rep.id]?.count ?? 0,
+      freshWindowDays: fresh?.days ?? 14,
+    };
+  }
 
   // Target species, then busiest, then best-scoring. Each step falls through to
   // the next, so no city is left without a card.
@@ -179,6 +246,9 @@ export async function resolveLpCard(citySlug: string): Promise<LpCard | null> {
   const freshEntry = fresh?.spots[rep.id] ?? null;
 
   return {
+    hasScores: true,
+    stale: payload.stale === true,
+    scoredAt: payload.stale === true ? (payload.scored_at ?? null) : null,
     cityName: rep.cityName,
     provinceCode: rep.provinceCode,
     spotName: rep.name,
