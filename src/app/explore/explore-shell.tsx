@@ -48,6 +48,7 @@ import {
   fetchMapForecast14d,
   fetchMapSpotsAsViewer,
   fetchMapSpotsCached,
+  fetchMapSpotsScored,
   fetchMyCustomSpots,
   fetchSpotCoords,
   fetchSpotsOutlook14d,
@@ -668,13 +669,20 @@ export default function ExploreShell({
     // is safe (and is what the cleanup needs) — the lint rule is warning about
     // DOM refs.
     const claimed = spotFetchRef.current;
-    const key = `${vpBbox}|${selectedIso}`;
+    const isToday = selectedIso === today;
+    // Past today the anonymous read carries no scores (the signed-out horizon
+    // is today only), so a signed-in angler asks with their token. Keyed on
+    // whether a token was sent, so the read made before auth settled is redone
+    // once it has, rather than leaving that day's pins grey for the visit.
+    const scoredToken = !isToday ? accessToken : null;
+    const key = `${scoredToken ? "u" : "a"}|${vpBbox}|${selectedIso}`;
     if (claimed.has(key)) return;
     claimed.add(key);
-    const isToday = selectedIso === today;
     let cancelled = false;
     let landed = false;
-    fetchMapSpotsCached(vpBbox, selectedIso)
+    (scoredToken
+      ? fetchMapSpotsScored(vpBbox, selectedIso, scoredToken)
+      : fetchMapSpotsCached(vpBbox, selectedIso))
       .then((p) => {
         if (cancelled || !p) return;
         landed = true;
@@ -708,7 +716,7 @@ export default function ExploreShell({
       // fast pan both take this path.
       if (!landed) claimed.delete(key);
     };
-  }, [vpBbox, selectedIso, today, cityIndex]);
+  }, [vpBbox, selectedIso, today, cityIndex, accessToken]);
 
   /** The loaded set for the date on screen. */
   const loadedSpots = useMemo(
