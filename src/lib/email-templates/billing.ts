@@ -145,8 +145,8 @@ function checkIn(setup: TrialSetupState): {
   // something they already did.
   const todo: string[] = [];
   if (spots === 0 && alerts > 0) {
-    todo.push(`<strong>Star your spots.</strong> Starred spots sit on your
-      <a href="${siteUrl('/dashboard')}" style="color:${BRAND};">dashboard</a> with their 14-day forecast side by side.`);
+    todo.push(`<strong>Star your spots</strong> so they show on your
+      <a href="${siteUrl('/dashboard')}" style="color:${BRAND};">dashboard</a> when you log in, with their 14-day forecast side by side.`);
   }
   if (alerts === 0 && spots === 0) {
     todo.push(`<strong>Set an alert.</strong> Pick a score and we message you when a day reaches it.`);
