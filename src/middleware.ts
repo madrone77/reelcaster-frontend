@@ -22,7 +22,7 @@ import {
   readerRegionFor,
 } from '@/lib/reader-region'
 import { classifyPage, classifySource } from '@/lib/traffic-source'
-import { pacificDay } from '@/lib/pacific-day'
+import { pacificDay, pacificHour } from '@/lib/pacific-day'
 import { newFishingPath } from '@/lib/legacy-fishing-paths'
 import { isCityPath, isSpotPath } from '@/lib/paths'
 import { metaExploreHop } from '@/lib/meta-lp-hop'
@@ -226,8 +226,13 @@ function countPageView(req: NextRequest, event: NextFetchEvent): void {
   const geo = readEdgeGeo(req.headers)
   const { device, os } = classifyUserAgent(userAgent)
 
+  // One instant for both, so a request at midnight cannot be stamped with one
+  // day and the other day's hour.
+  const now = new Date()
+
   const body = JSON.stringify({
-    p_day: pacificDay(),
+    p_day: pacificDay(now),
+    p_hour: pacificHour(now),
     p_page_kind: page.kind,
     p_page_slug: page.slug,
     p_source_kind: source.kind,
