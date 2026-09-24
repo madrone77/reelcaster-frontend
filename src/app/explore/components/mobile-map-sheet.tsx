@@ -19,6 +19,8 @@ import type { ForecastStripModel, ForecastDay } from "../lib/forecast-strip";
 import type { FreshCatchesResponse } from "../lib/fresh-catch-types";
 import SpotCard from "./spot-card";
 import SortControl, { type SortKey, sortSpots } from "./sort-control";
+import AccessToggle, { EMPTY_TITLE, SHORE_EMPTY_BODY } from "./access-toggle";
+import type { AccessFilter } from "@/lib/spot-access";
 import DatePillRail from "./date-pill-rail";
 import ExploreFooter from "./explore-footer";
 
@@ -67,6 +69,8 @@ export default function MobileMapSheet({
   spots,
   tz,
   locationName,
+  access = "all",
+  onAccessChange,
   onSelectSpot,
   forecastModel,
   previewForecastModel,
@@ -84,6 +88,10 @@ export default function MobileMapSheet({
   spots: RailSpot[];
   tz: string;
   locationName?: string | null;
+  /** All / Boat / Shore. The switch rides the header row at every detent so a
+   *  shore angler finds it at peek, not only once the list is open. */
+  access?: AccessFilter;
+  onAccessChange?: (v: AccessFilter) => void;
   onSelectSpot: (slug: string) => void;
   forecastModel: ForecastStripModel | null;
   /**
@@ -706,6 +714,9 @@ export default function MobileMapSheet({
             className="flex items-center gap-1.5"
             onPointerDown={(e) => e.stopPropagation()}
           >
+            {onAccessChange && (
+              <AccessToggle value={access} onChange={onAccessChange} size="sm" />
+            )}
             {spots.length > 1 && open && (
               <SortControl sort={sort} onSort={setSort} />
             )}
@@ -798,11 +809,12 @@ export default function MobileMapSheet({
               {spots.length === 0 && (
                 <div className="px-4 py-10 text-center">
                   <p className="mb-1 text-sm font-semibold text-rc-ink">
-                    No published spots here yet
+                    {EMPTY_TITLE[access]}
                   </p>
                   <p className="text-xs text-rc-ink-mute">
-                    Pan or zoom the map to find spots. Coverage is rolling out
-                    across BC, WA, OR, and CA.
+                    {access === "shore"
+                      ? SHORE_EMPTY_BODY
+                      : "Pan or zoom the map to find spots. Coverage is rolling out across BC, WA, OR, and CA."}
                   </p>
                 </div>
               )}

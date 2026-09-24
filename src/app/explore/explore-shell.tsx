@@ -32,6 +32,11 @@ import { useMountedOnce } from "@/hooks/use-mounted-once";
 import { useUpgradeNag } from "@/hooks/use-upgrade-nag";
 import { noteEngagement } from "@/lib/upgrade-nag";
 import { trackEvent } from "@/lib/analytics";
+import {
+  readAccessFilter,
+  writeAccessFilter,
+  type AccessFilter,
+} from "@/lib/spot-access";
 import { clearPaywallContext, setPaywallContext } from "@/lib/paywall-context";
 import {
   depthLocked as isDepthLocked,
@@ -526,6 +531,14 @@ export default function ExploreShell({
   // Currents and Wind share one piece of state, so only ever one of them draws.
   const { flow, currents, wind, toggleCurrents, toggleWind, setFlow } = useFlowLayer();
   const [speciesFilter, setSpeciesFilter] = useState<string | null>(null);
+  // All / Boat / Shore. A standing preference, so it survives the tab (see
+  // lib/spot-access.ts) and is not one of the filters "reset" clears. Read
+  // after mount: the server render cannot know it, and reading it during
+  // render would make the first client paint disagree with the server's.
+  const [accessFilter, setAccessFilter] = useState<AccessFilter>("all");
+  useEffect(() => {
+    setAccessFilter(readAccessFilter());
+  }, []);
 
   // ── Map filters (the phone filter sheet) ────────────────────────────
   // Deliberately NOT part of the saved view. Layers and species persist
@@ -954,17 +967,19 @@ export default function ExploreShell({
   // narrowing the map costs no request. The open spot is always kept: a
   // `?spot=` link, or a card you are reading, must not vanish underneath you
   // because a filter you set afterwards excludes it.
-  const filtersActive = scoreFloor > 0 || reportsOnly || savedOnly;
+  const filtersActive =
+    scoreFloor > 0 || reportsOnly || savedOnly || accessFilter !== "all";
 
   const keepSpot = useCallback(
     (s: RailSpot) => {
       if (s.slug === spotSlug) return true;
+      if (accessFilter !== "all" && (s.access ?? "boat") !== accessFilter) return false;
       if (scoreFloor > 0 && (s.score ?? -1) < scoreFloor) return false;
       if (reportsOnly && !s.hasReports) return false;
       if (savedOnly && !savedSet.has(s.slug)) return false;
       return true;
     },
-    [scoreFloor, reportsOnly, savedOnly, savedSet, spotSlug],
+    [scoreFloor, reportsOnly, savedOnly, savedSet, spotSlug, accessFilter],
   );
 
   /** Everything loaded, filtered — what the map draws pins for. */
@@ -987,9 +1002,10 @@ export default function ExploreShell({
         (s) =>
           (scoreFloor === 0 || (s.score ?? -1) >= scoreFloor) &&
           (!savedOnly || savedSet.has(s.slug)) &&
+          (accessFilter === "all" || (s.access ?? "boat") === accessFilter) &&
           s.hasReports,
       ).length,
-    [viewportSpots, scoreFloor, savedOnly, savedSet],
+    [viewportSpots, scoreFloor, savedOnly, savedSet, accessFilter],
   );
   const savedAvailable = useMemo(
     () =>
@@ -997,9 +1013,10 @@ export default function ExploreShell({
         (s) =>
           (scoreFloor === 0 || (s.score ?? -1) >= scoreFloor) &&
           (!reportsOnly || s.hasReports) &&
+          (accessFilter === "all" || (s.access ?? "boat") === accessFilter) &&
           savedSet.has(s.slug),
       ).length,
-    [viewportSpots, scoreFloor, reportsOnly, savedSet],
+    [viewportSpots, scoreFloor, reportsOnly, savedSet, accessFilter],
   );
 
   // Species counts as an active filter here even though it lives in its own
@@ -2048,6 +2065,13 @@ export default function ExploreShell({
     setSpeciesFilter(id);
   }, [citySlug]);
 
+  const chooseAccess = useCallback((v: AccessFilter) => {
+    noteEngagement("browse", "access_filter");
+    trackEvent("Access Filter Changed", { access: v, city: citySlug });
+    writeAccessFilter(v);
+    setAccessFilter(v);
+  }, [citySlug]);
+
   const chooseScoreFloor = useCallback((floor: ScoreFloor) => {
     noteEngagement("browse", "score_filter");
     trackEvent("Score Floor Changed", { floor, city: citySlug });
@@ -2536,6 +2560,8 @@ export default function ExploreShell({
           </div>
         }
         locationName={labelCity?.name ?? null}
+        access={accessFilter}
+        onAccessChange={chooseAccess}
         onSelectSpot={handleSelectSpot}
         forecastModel={stripModel}
         previewForecastModel={previewStripModel}
@@ -2592,6 +2618,8 @@ export default function ExploreShell({
           species: speciesWithScores,
           speciesFilter,
           onSpeciesChange: chooseSpecies,
+          access: accessFilter,
+          onAccessChange: chooseAccess,
           onNearMe: handleNearMe,
           locating,
         }}

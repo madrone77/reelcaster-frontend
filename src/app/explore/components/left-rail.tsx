@@ -11,6 +11,8 @@ import {
 } from "../lib/explore-data";
 import LocationSelector from "./location-selector";
 import MapFilterChips from "./map-filter-chips";
+import AccessToggle, { EMPTY_TITLE, SHORE_EMPTY_BODY } from "./access-toggle";
+import type { AccessFilter } from "@/lib/spot-access";
 import SortControl, { type SortKey, sortSpots } from "./sort-control";
 import SpotCard from "./spot-card";
 import SpotDrawer from "./spot-drawer";
@@ -31,6 +33,8 @@ interface MapControlsProps {
   species: SpeciesOption[];
   speciesFilter: string | null;
   onSpeciesChange: (id: string | null) => void;
+  access: AccessFilter;
+  onAccessChange: (v: AccessFilter) => void;
   onNearMe: () => void;
   locating: boolean;
 }
@@ -196,9 +200,12 @@ export default function LeftRail({
             />
             <div className="px-3 pt-1 pb-2.5">
               <div className="pb-2 flex items-center justify-between gap-2">
-                <div>
-                  <div className="rc-label text-[9px]">Viewing all spots</div>
-                  <div className="text-[15px] font-semibold text-rc-ink mt-0.5">
+                <div className="flex items-center gap-2.5">
+                  <AccessToggle
+                    value={mapControls.access}
+                    onChange={mapControls.onAccessChange}
+                  />
+                  <div className="text-[15px] font-semibold text-rc-ink">
                     {spots.length} spot{spots.length === 1 ? "" : "s"}
                   </div>
                 </div>
@@ -262,11 +269,12 @@ export default function LeftRail({
               {spots.length === 0 && (
                 <div className="text-center py-10 px-4">
                   <p className="text-sm font-semibold text-rc-ink mb-1">
-                    No published spots here yet
+                    {EMPTY_TITLE[mapControls.access]}
                   </p>
                   <p className="text-xs text-rc-ink-mute">
-                    Coverage is rolling out across BC, WA, OR, and CA, and new spots are
-                    added every week.
+                    {mapControls.access === "shore"
+                      ? SHORE_EMPTY_BODY
+                      : "Coverage is rolling out across BC, WA, OR, and CA, and new spots are added every week."}
                   </p>
                 </div>
               )}
