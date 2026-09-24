@@ -242,7 +242,12 @@ export default function TrialSheetStripe({
         {picker && <div aria-hidden className="flex-1 basis-0" />}
       </div>
 
-      <div className="flex shrink-0 flex-col gap-2 border-t border-rc-rule-soft bg-rc-panel px-4 pt-3 pb-[max(1rem,env(safe-area-inset-bottom))] shadow-[0_-4px_12px_rgba(20,22,31,0.06)]">
+      {/* Bottom padding is the safe-area inset less 1.5rem, floored at
+          0.75rem (2026-09-24): the full inset left ~40pt of white between
+          Terms · Privacy and Safari's floating toolbar, and on a trial year
+          (the timeline is ~66px taller than the monthly line) that white
+          pushed the Pro rows up under the footer. */}
+      <div className="flex shrink-0 flex-col gap-2 border-t border-rc-rule-soft bg-rc-panel px-4 pt-3 pb-[max(0.75rem,calc(env(safe-area-inset-bottom,0px)_-_1.5rem))] shadow-[0_-4px_12px_rgba(20,22,31,0.06)]">
         {ctaHref ? (
           <>
             <Link
