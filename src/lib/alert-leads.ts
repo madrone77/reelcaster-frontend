@@ -22,6 +22,7 @@ import { sendEmail } from '@/lib/email-service';
 import { generateScoreAlertDigest, type ScoreAlertItem } from '@/lib/email-templates/score-alert';
 import { alertLeadConfirmEmail, alertLeadDigestFooter } from '@/lib/email-templates/alert-lead';
 import { SITE_URL } from '@/lib/site';
+import { starAlertSpot } from '@/lib/star-alert-spot';
 
 export interface AlertLead {
   id: string;
@@ -142,6 +143,7 @@ export async function claimAlertLeadForUser(userId: string, email: string | null
           console.error(`[alert-leads] could not move lead ${lead.id} onto ${userId}:`, error);
           return;
         }
+        await starAlertSpot(admin, userId, lead.spot_slug);
       }
     }
 

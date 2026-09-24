@@ -16,30 +16,100 @@
  */
 
 import { siteUrl } from '@/lib/site';
-import { BRAND, INK, INK_MUTE, INK_SOFT, button, formatDate, greeting, shell } from './shell';
+import { BRAND, INK, INK_MUTE, INK_SOFT, button, escapeHtml, formatDate, greeting, shell } from './shell';
+
+/**
+ * One active alert as the day-4 note reports it. Counts come from the send
+ * ledgers (alert_day_notices for score alerts, alert_history for the older
+ * condition alerts), so "fired" means a message actually went out.
+ */
+export interface TrialAlertSummary {
+  /** The spot the alert watches, or the alert's own name when it has none. */
+  label: string;
+  /** Messages delivered for this alert. */
+  messagesSent: number;
+  /** Distinct fishing days it flagged at or above the alert's score. */
+  goodDays: number;
+  /** The best flagged day, when there was one. */
+  bestScore: number | null;
+  bestDay: string | null; // YYYY-MM-DD
+}
 
 /**
  * What the account has actually set up, so the day-4 note can say something
- * true instead of a generic nudge. Both counts come from the database at send
+ * true instead of a generic nudge. Every count comes from the database at send
  * time; see src/lib/trial-reminder.ts.
+ *
+ * Only the first two are required, so a caller holding just the counts still
+ * gets a sensible email.
  */
 export interface TrialSetupState {
   savedSpots: number;
   activeAlerts: number;
+  /** Active alerts, most-fired first. */
+  alerts?: TrialAlertSummary[];
+  catches?: number;
+  phoneVerified?: boolean;
 }
 
 function plural(n: number, one: string, many: string): string {
   return n === 1 ? one : many;
 }
 
+/** A YYYY-MM-DD fishing day. Noon UTC so the Pacific date cannot slip back. */
+function formatDay(day: string): string {
+  return formatDate(`${day}T12:00:00Z`);
+}
+
+const P = `margin:0 0 16px;font-size:15px;line-height:24px;color:${INK_SOFT};`;
+
+/**
+ * What the alerts have done, in one sentence or two. Leads with the praise:
+ * this person did the setup, and the email should say so before it asks for
+ * anything.
+ */
+function alertsDone(alerts: TrialAlertSummary[], activeAlerts: number): string {
+  const sent = alerts.reduce((n, a) => n + a.messagesSent, 0);
+  const days = alerts.reduce((n, a) => n + a.goodDays, 0);
+  const best = alerts
+    .filter((a) => a.bestScore !== null && a.bestDay)
+    .sort((a, b) => (b.bestScore ?? 0) - (a.bestScore ?? 0))[0];
+
+  const opener =
+    activeAlerts === 1
+      ? `You already have an alert running${
+          alerts[0] ? ` at <strong>${escapeHtml(alerts[0].label)}</strong>` : ''
+        }. Nice work.`
+      : `You already have ${activeAlerts} alerts running. Nice work.`;
+
+  if (sent === 0) {
+    return `${opener} It has not needed to message you yet, which means your
+      water has not reached your score since you set it up. It keeps watching
+      the 14-day forecast and tells you the moment a day turns.`;
+  }
+
+  const bestLine = best
+    ? ` The best day it has flagged: <strong>${Math.round(best.bestScore!)}</strong> on
+      ${formatDay(best.bestDay!)}${alerts.length > 1 ? ` at ${escapeHtml(best.label)}` : ''}.`
+    : '';
+
+  return `${opener} ${activeAlerts === 1 ? 'It has' : 'Between them they have'}
+    sent you ${sent} ${plural(sent, 'message', 'messages')} and flagged
+    ${days} good ${plural(days, 'day', 'days')} on the water.${bestLine}`;
+}
+
 /**
  * The soft-touch half of the day-4 email.
  *
- * A trial that ends with nobody having saved a spot did not fail at the price,
- * it failed at the setup, and a billing notice on its own does not fix that.
- * So the email opens by saying where the account actually got to and points at
- * the one thing left undone. The primary button changes with it: someone who
- * has nothing saved should not be sent to a subscription screen.
+ * A trial that ends with nothing set up did not fail at the price, it failed
+ * at the setup, and a billing notice on its own does not fix that. So the email
+ * opens by saying where the account actually got to, then lists what is still
+ * unused. The primary button changes with it: someone who has nothing set up
+ * should not be sent to a subscription screen.
+ *
+ * An alert counts as setup on its own. It used to be that only a starred spot
+ * did, and an angler with an alert already firing was told "you have not saved
+ * a spot yet" and wrote in to say it was broken.
  */
 function checkIn(setup: TrialSetupState): {
   html: string;
@@ -48,33 +118,65 @@ function checkIn(setup: TrialSetupState): {
 } {
   const { savedSpots: spots, activeAlerts: alerts } = setup;
 
-  if (spots === 0) {
-    return {
-      html: `You have not saved a spot yet, so Pro has not had much to work with.
-        Star the water you actually fish and everything else keys off it: the
-        14-day forecast, the alerts, the catch log.`,
-      ctaHref: siteUrl('/explore'),
-      ctaLabel: 'Find your spots',
-    };
+  let lead: string;
+  let ctaHref: string;
+  let ctaLabel: string;
+
+  if (alerts > 0) {
+    lead = alertsDone(setup.alerts ?? [], alerts);
+    ctaHref = siteUrl('/dashboard');
+    ctaLabel = 'Open your dashboard';
+  } else if (spots > 0) {
+    lead = `You have ${spots} ${plural(spots, 'spot', 'spots')} saved. Nice start.
+      The part that works while you are not looking is an alert: pick a spot,
+      set the score you would get out of bed for, and we message you when the
+      week turns.`;
+    ctaHref = siteUrl('/notifications');
+    ctaLabel = 'Set up an alert';
+  } else {
+    lead = `You have not set anything up yet, so Pro has not had much to work
+      with. Star the water you actually fish and everything else keys off it:
+      the 14-day forecast, the alerts, the catch log.`;
+    ctaHref = siteUrl('/explore');
+    ctaLabel = 'Find your spots';
   }
 
-  if (alerts === 0) {
-    return {
-      html: `You have ${spots} ${plural(spots, 'spot', 'spots')} saved. No alerts yet
-        though, and that is the part that works while you are not looking. Pick a
-        spot, set the score you would get out of bed for, and we message you when
-        the week turns.`,
-      ctaHref: siteUrl('/notifications'),
-      ctaLabel: 'Set up an alert',
-    };
+  // What is left. Only things we can see are unused, so nobody is told to do
+  // something they already did.
+  const todo: string[] = [];
+  if (spots === 0 && alerts > 0) {
+    todo.push(`<strong>Star your spots</strong> so they show on your
+      <a href="${siteUrl('/dashboard')}" style="color:${BRAND};">dashboard</a> when you log in, with their 14-day forecast side by side.`);
   }
+  if (alerts === 0 && spots === 0) {
+    todo.push(`<strong>Set an alert.</strong> Pick a score and we message you when a day reaches it.`);
+  }
+  if (alerts > 0 && setup.phoneVerified === false) {
+    todo.push(`<strong>Get alerts by text.</strong> Add your phone in
+      <a href="${siteUrl('/settings/account')}" style="color:${BRAND};">settings</a> and they arrive as an SMS.`);
+  }
+  if (setup.catches === 0) {
+    todo.push(`<strong>Log a catch.</strong> Snap a photo on the water and we
+      record the conditions with it, so you can see what was working.
+      <a href="${siteUrl('/log-catch')}" style="color:${BRAND};">Log one</a>.`);
+  }
+  if (alerts > 0 && alerts < 3) {
+    todo.push(`<strong>Add another alert.</strong> Pro runs up to 10, one per
+      spot or species you care about.`);
+  }
+
+  const todoHtml =
+    todo.length > 0
+      ? `<p style="margin:0 0 8px;font-size:15px;line-height:24px;color:${INK};font-weight:600;">Still worth trying</p>
+        <ul style="margin:0 0 16px;padding:0 0 0 18px;font-size:15px;line-height:24px;color:${INK_SOFT};">
+          ${todo.map((t) => `<li style="margin:0 0 6px;">${t}</li>`).join('')}
+        </ul>`
+      : '';
 
   return {
-    html: `${spots} ${plural(spots, 'spot', 'spots')} saved and ${alerts}
-      ${plural(alerts, 'alert', 'alerts')} running. That is the setup doing its
-      job, so you should be hearing from us when your water turns on.`,
-    ctaHref: siteUrl('/dashboard'),
-    ctaLabel: 'Open your dashboard',
+    html: `<p style="${P}">${lead}</p>${todoHtml}`,
+    ctaHref,
+    ctaLabel,
   };
 }
 
@@ -104,11 +206,7 @@ export function trialEndingEmail(params: {
       `<tr><td>
         ${greeting(params.firstName)}
         <h1 style="margin:0 0 16px;font-size:22px;line-height:30px;color:${INK};">Three days left on your trial</h1>
-        ${
-          check
-            ? `<p style="margin:0 0 16px;font-size:15px;line-height:24px;color:${INK_SOFT};">${check.html}</p>`
-            : ''
-        }
+        ${check ? check.html : ''}
         <p style="margin:0 0 16px;font-size:15px;line-height:24px;color:${INK_SOFT};">
           On ${date} we will charge the card on file <strong>${params.amountLabel} for one year</strong> of ReelCaster Pro,
           and your 14-day forecasts, private spots, and alerts keep running.

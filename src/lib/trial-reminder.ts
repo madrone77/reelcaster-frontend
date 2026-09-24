@@ -30,7 +30,11 @@
 
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { sendEmail } from '@/lib/email-service';
-import { trialEndingEmail, type TrialSetupState } from '@/lib/email-templates/billing';
+import {
+  trialEndingEmail,
+  type TrialAlertSummary,
+  type TrialSetupState,
+} from '@/lib/email-templates/billing';
 import { SUPPORT_EMAIL } from '@/lib/site';
 import { REMINDER_LEAD_DAYS } from '@/lib/pricing';
 import { recipientFor } from '@/lib/member-greeting';
@@ -138,24 +142,30 @@ async function releaseTrialReminder(admin: SupabaseClient, userId: string) {
 }
 
 /**
- * What this account has set up. Head counts, not row fetches: the numbers are
- * all the email uses, and PostgREST truncates a large select at 1000 rows
- * without saying so, which would quietly understate a heavy user.
+ * What this account has set up. Head counts where a count is all the email
+ * uses, because PostgREST truncates a large select at 1000 rows without saying
+ * so, which would quietly understate a heavy user. The alert ledgers are read
+ * as rows, but only for this account's handful of alerts.
  */
 export async function readSetupState(
   admin: SupabaseClient,
   userId: string,
 ): Promise<TrialSetupState | undefined> {
-  const [spots, alerts] = await Promise.all([
+  const [spots, alerts, catches, settings] = await Promise.all([
     admin
       .from('user_favorite_spots')
       .select('user_id', { count: 'exact', head: true })
       .eq('user_id', userId),
     admin
       .from('user_alert_profiles')
-      .select('user_id', { count: 'exact', head: true })
+      .select('id, name, location_name')
       .eq('user_id', userId)
       .eq('is_active', true),
+    admin
+      .from('catch_logs')
+      .select('id', { count: 'exact', head: true })
+      .eq('user_id', userId),
+    admin.from('user_settings').select('phone_verified').eq('user_id', userId).maybeSingle(),
   ]);
 
   if (spots.error || alerts.error) {
@@ -164,10 +174,81 @@ export async function readSetupState(
     return undefined;
   }
 
+  const profiles = alerts.data ?? [];
+
   return {
     savedSpots: spots.count ?? 0,
-    activeAlerts: alerts.count ?? 0,
+    activeAlerts: profiles.length,
+    // The extras are garnish. Missing any of them leaves its line out of the
+    // email rather than stopping it.
+    alerts: profiles.length > 0 ? await readAlertSummaries(admin, profiles) : [],
+    catches: catches.error ? undefined : (catches.count ?? 0),
+    phoneVerified: settings.error ? undefined : Boolean(settings.data?.phone_verified),
   };
+}
+
+/**
+ * What each alert has actually done. Score alerts write one row per message to
+ * alert_day_notices, keyed to the fishing day; condition alerts write
+ * alert_history. Only rows that were delivered count.
+ */
+async function readAlertSummaries(
+  admin: SupabaseClient,
+  profiles: { id: string; name: string | null; location_name: string | null }[],
+): Promise<TrialAlertSummary[]> {
+  const ids = profiles.map((p) => p.id);
+  const [notices, history] = await Promise.all([
+    admin
+      .from('alert_day_notices')
+      .select('alert_profile_id, target_date, score_at_send')
+      .in('alert_profile_id', ids)
+      .eq('notification_sent', true),
+    admin
+      .from('alert_history')
+      .select('alert_profile_id, triggered_at')
+      .in('alert_profile_id', ids)
+      .eq('notification_sent', true),
+  ]);
+
+  if (notices.error || history.error) {
+    console.warn('[trial reminder] alert history unavailable', notices.error ?? history.error);
+  }
+
+  return profiles
+    .map((p) => {
+      const mine = (notices.data ?? []).filter((n) => n.alert_profile_id === p.id);
+      const fired = (history.data ?? []).filter((h) => h.alert_profile_id === p.id);
+
+      const days = new Map<string, number>();
+      for (const n of mine) {
+        const score = Number(n.score_at_send ?? 0);
+        days.set(n.target_date, Math.max(days.get(n.target_date) ?? 0, score));
+      }
+      for (const h of fired) {
+        const day = new Date(h.triggered_at).toLocaleDateString('en-CA', {
+          timeZone: 'America/Vancouver',
+        });
+        if (!days.has(day)) days.set(day, 0);
+      }
+
+      let bestDay: string | null = null;
+      let bestScore: number | null = null;
+      for (const [day, score] of days) {
+        if (score > 0 && (bestScore === null || score > bestScore)) {
+          bestDay = day;
+          bestScore = score;
+        }
+      }
+
+      return {
+        label: p.location_name?.trim() || p.name?.trim() || 'your spot',
+        messagesSent: mine.length + fired.length,
+        goodDays: days.size,
+        bestScore,
+        bestDay,
+      };
+    })
+    .sort((a, b) => b.messagesSent - a.messagesSent);
 }
 
 export type TrialReminderOutcome =

@@ -12,6 +12,7 @@ import { createClient } from '@supabase/supabase-js';
 import type { AlertTriggers } from '@/lib/custom-alert-engine';
 import type { LeadTimeMode } from '@/lib/score-beats';
 import { resolveEntitlement } from '@/lib/entitlement';
+import { starAlertSpot } from '@/lib/star-alert-spot';
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
@@ -368,6 +369,9 @@ export async function POST(request: NextRequest) {
       console.error('Error creating profile:', error);
       return NextResponse.json({ error: 'Failed to create profile' }, { status: 500 });
     }
+
+    // An alert on a spot means they want to keep the spot. See star-alert-spot.
+    await starAlertSpot(supabaseAdmin, userId, profile.target_bluecaster_spot_slug);
 
     return NextResponse.json({ profile }, { status: 201 });
   } catch (error) {
