@@ -8,7 +8,7 @@
  */
 
 import assert from 'node:assert/strict';
-import { pacificDay } from './pacific-day';
+import { pacificDay, pacificHour } from './pacific-day';
 
 const day = (iso: string) => pacificDay(new Date(iso));
 
@@ -38,5 +38,29 @@ assert.equal(day('2026-11-01T05:00:00Z'), '2026-10-31'); // 10pm PDT Oct 31
 
 // ── Shape ────────────────────────────────────────────────────────────
 assert.match(pacificDay(new Date()), /^\d{4}-\d{2}-\d{2}$/);
+
+// ── The hour, which has to agree with the day it is stamped beside ───
+const hour = (iso: string) => pacificHour(new Date(iso));
+
+// The evening cases above, now checked for the hour as well: being on the
+// right day at the wrong hour is the failure this pairing exists to stop.
+assert.equal(hour('2026-08-31T02:00:00Z'), 19); // 7pm PDT on the 30th
+assert.equal(hour('2026-01-15T02:00:00Z'), 18); // 6pm PST on the 14th
+assert.equal(hour('2026-08-30T19:00:00Z'), 12); // midday
+
+// Midnight is 0, not 24, and it belongs to the day that just started.
+assert.equal(hour('2026-01-01T07:59:00Z'), 23);
+assert.equal(hour('2026-01-01T08:00:00Z'), 0);
+
+// The offset moves, and the hour has to move with it.
+assert.equal(hour('2026-03-08T09:59:00Z'), 1); // 1:59am, before spring forward
+assert.equal(hour('2026-03-08T10:01:00Z'), 3); // 3:01am, the 2am hour skipped
+assert.equal(hour('2026-11-01T08:59:00Z'), 1); // 1:59am PDT, before fall back
+assert.equal(hour('2026-11-01T09:01:00Z'), 1); // 1:01am PST, the hour repeats
+
+// Whatever it returns is storable: 0 to 23, or the -1 the counter reads as
+// "not recorded". Never a UTC hour dressed up as a Pacific one.
+const h = pacificHour(new Date());
+assert.ok(Number.isInteger(h) && h >= -1 && h <= 23);
 
 console.log('pacific-day: all assertions passed');

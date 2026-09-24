@@ -29,6 +29,12 @@ const DAY = new Intl.DateTimeFormat("en-CA", {
   day: "2-digit",
 });
 
+const HOUR = new Intl.DateTimeFormat("en-US", {
+  timeZone: PT,
+  hour: "numeric",
+  hourCycle: "h23",
+});
+
 /**
  * The Pacific calendar day, as "YYYY-MM-DD".
  *
@@ -49,4 +55,30 @@ export function pacificDay(now: Date = new Date()): string {
     // fall through
   }
   return now.toISOString().slice(0, 10);
+}
+
+
+/**
+ * The Pacific hour of that same day, 0 to 23, or -1 for "not recorded".
+ *
+ * WHY -1 RATHER THAN A UTC FALLBACK. `pacificDay` falls back to the UTC day
+ * because being one day out at the boundary beats throwing in edge middleware.
+ * The same trade does not hold for the hour: a UTC hour stamped on a Pacific
+ * day is seven hours wrong for every row, so an evening on the water would
+ * chart as mid-morning traffic. -1 is the counter's "no hour", the same value
+ * every row written before this shipped carries, and it means that row is
+ * counted for the day and simply cannot be drawn on an hourly line.
+ *
+ * Pass the same Date as pacificDay, so a request that lands on a midnight
+ * boundary cannot be stamped with one day and the other day's hour.
+ */
+export function pacificHour(now: Date = new Date()): number {
+  try {
+    const part = HOUR.formatToParts(now).find((p) => p.type === "hour")?.value;
+    const hour = Number(part);
+    if (Number.isInteger(hour) && hour >= 0 && hour <= 23) return hour;
+  } catch {
+    // fall through
+  }
+  return -1;
 }
