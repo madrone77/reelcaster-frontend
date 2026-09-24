@@ -48,6 +48,7 @@ import {
   fetchMapForecast14d,
   fetchMapSpotsAsViewer,
   fetchMapSpotsCached,
+  fetchMapSpotsScored,
   fetchMyCustomSpots,
   fetchSpotCoords,
   fetchSpotsOutlook14d,
@@ -668,13 +669,20 @@ export default function ExploreShell({
     // is safe (and is what the cleanup needs) — the lint rule is warning about
     // DOM refs.
     const claimed = spotFetchRef.current;
-    const key = `${vpBbox}|${selectedIso}`;
+    const isToday = selectedIso === today;
+    // Past today the anonymous read carries no scores (the signed-out horizon
+    // is today only), so a signed-in angler asks with their token. Keyed on
+    // whether a token was sent, so the read made before auth settled is redone
+    // once it has, rather than leaving that day's pins grey for the visit.
+    const scoredToken = !isToday ? accessToken : null;
+    const key = `${scoredToken ? "u" : "a"}|${vpBbox}|${selectedIso}`;
     if (claimed.has(key)) return;
     claimed.add(key);
-    const isToday = selectedIso === today;
     let cancelled = false;
     let landed = false;
-    fetchMapSpotsCached(vpBbox, selectedIso)
+    (scoredToken
+      ? fetchMapSpotsScored(vpBbox, selectedIso, scoredToken)
+      : fetchMapSpotsCached(vpBbox, selectedIso))
       .then((p) => {
         if (cancelled || !p) return;
         landed = true;
@@ -708,7 +716,7 @@ export default function ExploreShell({
       // fast pan both take this path.
       if (!landed) claimed.delete(key);
     };
-  }, [vpBbox, selectedIso, today, cityIndex]);
+  }, [vpBbox, selectedIso, today, cityIndex, accessToken]);
 
   /** The loaded set for the date on screen. */
   const loadedSpots = useMemo(
@@ -790,6 +798,39 @@ export default function ExploreShell({
     };
   }, [userId, viewerBbox, selectedIso, ownSpotsRefresh]);
 
+  // The viewer payload's scores for PUBLISHED spots, kept per date.
+  //
+  // The viewport loader reads the anonymous, edge-cached payload, and the proxy
+  // strips every score past the signed-out horizon (today only) from it. So on
+  // any other day every pin it loaded was grey, for Pro and Member alike, while
+  // the scores the angler is entitled to sat in this viewer payload and were
+  // thrown away: only its extras (custom spots) were ever read. Its rows now
+  // win over the loader's. Accumulated per date rather than read off the latest
+  // payload, so the edge of a box panned away from does not fall back to grey.
+  const [viewerRowsByDate, setViewerRowsByDate] = useState<
+    Map<string, Map<string, RailSpot>>
+  >(() => new Map());
+  useEffect(() => {
+    setViewerRowsByDate(new Map());
+  }, [userId]);
+  useEffect(() => {
+    if (!viewerPayload) return;
+    const date = viewerPayload.date;
+    const rows = railSpotsFromPayload(viewerPayload, cityIndex, date === today);
+    if (rows.length === 0) return;
+    setViewerRowsByDate((prev) => {
+      const next = new Map(prev);
+      const forDate = new Map(next.get(date) ?? []);
+      for (const row of rows) forDate.set(row.slug, row);
+      next.set(date, forDate);
+      return next;
+    });
+  }, [viewerPayload, cityIndex, today]);
+  const viewerSpots = useMemo(
+    () => [...(viewerRowsByDate.get(selectedIso)?.values() ?? [])],
+    [viewerRowsByDate, selectedIso],
+  );
+
   // Everything the viewer-scoped payload carries that the server render didn't:
   // this angler's own custom spots, plus any spot published since the hierarchy
   // the base set was built from was cached. Only the former are flagged
@@ -822,16 +863,23 @@ export default function ExploreShell({
 
   const effectiveSpots = useMemo(() => {
     const base = data.spots;
-    if (loadedSpots.length === 0 && extraRailSpots.length === 0) return base;
+    if (
+      loadedSpots.length === 0 &&
+      viewerSpots.length === 0 &&
+      extraRailSpots.length === 0
+    )
+      return base;
     // Later writers win, cheapest source first: the page's opening payload,
     // then whatever the map has loaded since (fetched for THIS date, so its
-    // scores beat a rescore of the opening set), then the angler's own spots.
+    // scores beat a rescore of the opening set), then the same spots as the
+    // signed-in viewer is entitled to see them, then the angler's own spots.
     const bySlug = new Map(base.map((s) => [s.slug, s]));
     for (const s of loadedSpots) bySlug.set(s.slug, s);
+    for (const s of viewerSpots) bySlug.set(s.slug, s);
     for (const s of extraRailSpots) bySlug.set(s.slug, s);
     // Sorted together — a custom spot earns its rail position by score.
     return [...bySlug.values()].sort((a, b) => (b.score ?? -1) - (a.score ?? -1));
-  }, [data.spots, loadedSpots, extraRailSpots]);
+  }, [data.spots, loadedSpots, viewerSpots, extraRailSpots]);
 
   // The filter list grows with the map: species carried by the opening payload,
   // plus any the angler has panned into. Scores here are only a seed — the

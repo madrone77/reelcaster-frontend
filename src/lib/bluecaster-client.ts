@@ -362,6 +362,29 @@ export async function fetchMapSpotsCached(
 }
 
 /**
+ * map/spots for the published spots at a SIGNED-IN caller's horizon.
+ *
+ * The anonymous read above is stripped to the signed-out horizon (today only),
+ * so on any later day it hands a Pro or Member angler pins with no scores.
+ * This sends the token so the proxy strips at the caller's own horizon, and
+ * `own=0` so the upstream read stays the shared, data-cached one instead of the
+ * personalized one (~0.2 s against ~1 s). Custom spots are not in it; they
+ * arrive on the viewer read.
+ */
+export async function fetchMapSpotsScored(
+  bbox: string,
+  date: string,
+  accessToken: string,
+): Promise<MapSpotsPayload | null> {
+  const res = await fetch(
+    `/api/bluecaster/map/spots?bbox=${encodeURIComponent(bbox)}&date=${encodeURIComponent(date)}&own=0`,
+    { headers: { Authorization: `Bearer ${accessToken}` }, cache: "no-store" },
+  );
+  if (!res.ok) return null;
+  return (await res.json().catch(() => null)) as MapSpotsPayload | null;
+}
+
+/**
  * map/spots for a KNOWN set of spot ids — the read for a surface that already
  * has its list, rather than a viewport it is panning.
  *
