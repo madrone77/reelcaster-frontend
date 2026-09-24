@@ -200,7 +200,7 @@ export const GUIDES: Guide[] = [
       {
         title: 'The full 14-day forecast',
         detail:
-          'Pro sees 14 days on every spot page. A Member account sees 7, and browsing Free, signed out, shows the next 2. The extra week is what lets you pick a weekend two weeks out instead of reacting to this one.',
+          'Pro sees 14 days on every spot page. A Member account sees 7, and browsing Free, signed out, shows today only. The extra week is what lets you pick a weekend two weeks out instead of reacting to this one.',
       },
       {
         title: 'Ten alerts with composite triggers',
