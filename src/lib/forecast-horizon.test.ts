@@ -9,11 +9,14 @@ import {
   horizonPhrase,
   stripMapSpotsPastHorizon,
   stripSpotsOutlook,
+  stripSpotScorePastHorizon,
+  horizonEndUtcMs,
   ANON_FORECAST_DAYS,
   FREE_FORECAST_DAYS,
   PRO_FORECAST_DAYS,
 } from "./forecast-horizon";
 import type { MapSpotsPayload, SpotsOutlook14dPayload } from "./bluecaster";
+import type { SpotScorePayload } from "./bluecaster/live-spot-types";
 
 const payload = (date: string): MapSpotsPayload => ({
   date,
@@ -115,3 +118,62 @@ console.log("forecast-horizon: all assertions passed");
 }
 
 console.log("forecast-horizon: ok");
+// horizonEndUtcMs: Pacific midnight at the end of the last visible day.
+{
+  // 19:20 PDT on Sep 24 is 02:20 UTC on Sep 25.
+  const now = new Date("2026-09-25T02:20:00Z");
+  assert.equal(new Date(horizonEndUtcMs(1, now)).toISOString(), "2026-09-25T07:00:00.000Z");
+  assert.equal(new Date(horizonEndUtcMs(7, now)).toISOString(), "2026-10-01T07:00:00.000Z");
+  // Across the November switch back to PST, midnight is 08:00 UTC.
+  assert.equal(
+    new Date(horizonEndUtcMs(1, new Date("2026-11-10T20:00:00Z"))).toISOString(),
+    "2026-11-11T08:00:00.000Z",
+  );
+}
+
+// stripSpotScorePastHorizon: cuts by hour, drops emptied days, recomputes best.
+{
+  const hour = (iso: string, score: number) => ({
+    hour_utc: iso,
+    stocks: [{ stock_id: "default", score, factor_contributions: null }],
+  });
+  const payload: SpotScorePayload = {
+    spot_id: "s",
+    species_ids: ["x"],
+    forecast_version: 1,
+    days: [
+      {
+        date: "2026-09-25",
+        species: {
+          x: {
+            best_score: 0.9,
+            best_hour_utc: "2026-09-25T10:00:00+00:00",
+            hours: [
+              hour("2026-09-25T02:00:00+00:00", 0.6),
+              hour("2026-09-25T06:00:00+00:00", 0.7),
+              hour("2026-09-25T07:00:00+00:00", 0.8),
+              hour("2026-09-25T10:00:00+00:00", 0.9),
+            ],
+          },
+        },
+      },
+      {
+        date: "2026-09-26",
+        species: { x: { best_score: 0.5, best_hour_utc: "2026-09-26T01:00:00+00:00", hours: [hour("2026-09-26T01:00:00+00:00", 0.5)] } },
+      },
+    ],
+  };
+  const now = new Date("2026-09-25T02:20:00Z");
+  const anon = stripSpotScorePastHorizon(payload, ANON_FORECAST_DAYS, now);
+  assert.equal(anon.days.length, 1);
+  assert.deepEqual(anon.days[0].species.x.hours.map((h) => h.hour_utc), [
+    "2026-09-25T02:00:00+00:00",
+    "2026-09-25T06:00:00+00:00",
+  ]);
+  assert.equal(anon.days[0].species.x.best_score, 0.7);
+  assert.equal(anon.days[0].species.x.best_hour_utc, "2026-09-25T06:00:00+00:00");
+  assert.equal(stripSpotScorePastHorizon(payload, PRO_FORECAST_DAYS, now), payload);
+  assert.equal(stripSpotScorePastHorizon(payload, FREE_FORECAST_DAYS, now).days.length, 2);
+}
+
+console.log("forecast-horizon score cut: ok");

@@ -17,6 +17,7 @@ import type {
   MapSpotsPayload,
   SpotsOutlook14dPayload,
 } from "@/lib/bluecaster";
+import type { SpotScorePayload } from "@/lib/bluecaster/live-spot-types";
 
 /** Free: signed out, no account. Today only. */
 export const ANON_FORECAST_DAYS = 1;
@@ -132,5 +133,82 @@ export function stripMapSpotsPastHorizon(
       scores: {},
       ...("pins" in spot ? { pins: {} } : {}),
     })),
+  };
+}
+
+/** The zone every forecast horizon is counted in. The strip's days are Pacific. */
+const HORIZON_TZ = "America/Vancouver";
+
+/**
+ * The UTC instant that ends a caller's horizon: Pacific midnight at the end
+ * of day `visibleDays - 1`, counted from the Pacific date of `now`. Pacific
+ * midnight is 07:00 or 08:00 UTC, so the two candidates are checked rather
+ * than pulling in a timezone library.
+ */
+export function horizonEndUtcMs(visibleDays: number, now: Date = new Date()): number {
+  const today = new Intl.DateTimeFormat("en-CA", {
+    timeZone: HORIZON_TZ,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(now); // YYYY-MM-DD
+  const [y, m, d] = today.split("-").map(Number);
+  const hourIn = new Intl.DateTimeFormat("en-US", {
+    timeZone: HORIZON_TZ,
+    hour: "2-digit",
+    hourCycle: "h23",
+  });
+  for (const utcHour of [7, 8]) {
+    const t = Date.UTC(y, m - 1, d + visibleDays, utcHour);
+    if (hourIn.format(t) === "00") return t;
+  }
+  return Date.UTC(y, m - 1, d + visibleDays, 8);
+}
+
+/**
+ * Score breakdown (fishing-spots/[id]/score): drop every hour past the
+ * caller's horizon. Its days are UTC dates, so a Pacific day spans two of
+ * them and a whole-day cut would either leak tomorrow morning or lose
+ * tonight; the cut is by hour. A day left with no hours goes, and each
+ * species' best is recomputed from the hours that stay.
+ */
+export function stripSpotScorePastHorizon(
+  data: SpotScorePayload,
+  visibleDays: number,
+  now: Date = new Date(),
+): SpotScorePayload {
+  if (visibleDays >= PRO_FORECAST_DAYS) return data;
+  const end = horizonEndUtcMs(visibleDays, now);
+  const days = data.days
+    .map((day) => ({
+      ...day,
+      species: Object.fromEntries(
+        Object.entries(day.species).map(([speciesId, entry]) => {
+          const hours = entry.hours.filter((h) => Date.parse(h.hour_utc) < end);
+          let best: { score: number; hour: string } | null = null;
+          for (const h of hours) {
+            for (const st of h.stocks) {
+              if (best === null || st.score > best.score) {
+                best = { score: st.score, hour: h.hour_utc };
+              }
+            }
+          }
+          return [
+            speciesId,
+            {
+              ...entry,
+              hours,
+              best_score: best?.score ?? null,
+              best_hour_utc: best?.hour ?? null,
+            },
+          ];
+        }),
+      ),
+    }))
+    .filter((day) => Object.values(day.species).some((e) => e.hours.length > 0));
+  return {
+    ...data,
+    days,
+    meta: data.meta ? { ...data.meta, days_returned: days.length } : data.meta,
   };
 }

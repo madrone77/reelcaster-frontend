@@ -97,9 +97,16 @@ export async function fetchSpotScore(
   days = 1
 ): Promise<SpotScorePayload | null> {
   const qs = new URLSearchParams({ species: speciesId, days: String(days) });
+  // The route cuts hours past the caller's plan and lets an owner read their
+  // own private spot, both off the token, so a bare fetch reads as signed out.
+  const { data } = await supabase.auth.getSession();
+  const token = data.session?.access_token;
   const res = await fetch(
     `/api/bluecaster/fishing-spots/${encodeURIComponent(spotId)}/score?${qs}`,
-    { cache: "no-store" }
+    {
+      cache: "no-store",
+      headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+    }
   );
   if (!res.ok) return null;
   return (await res.json()) as SpotScorePayload;
