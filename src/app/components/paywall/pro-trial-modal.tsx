@@ -101,6 +101,13 @@ export default function ProTrialModal({
    * limit was hit. Small scalars only — the server whitelists the shape.
    */
   context,
+  /**
+   * Billing region ('WA', 'BC', ...) when the page knows whose water it is
+   * selling. It prices the sheet and the Stripe session in that currency, so a
+   * Seattle page quotes USD to a reader on a Canadian IP. Unset, the price
+   * follows the reader's location, as every wall that can open anywhere does.
+   */
+  region,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -113,6 +120,7 @@ export default function ProTrialModal({
   cityName?: string;
   headline?: string;
   context?: Record<string, string | number | boolean>;
+  region?: string;
 }) {
   const { user } = useAuth();
   const { isPaid } = useSubscription();
@@ -130,7 +138,7 @@ export default function ProTrialModal({
   // The price this reader is quoted, and the exposure that quoting it counts
   // as. The modal is the highest-intent surface a price arm is shown on, so
   // its denominator is the one the report leans on hardest.
-  const pricing = usePricing();
+  const pricing = usePricing(region);
   useSplitExposure(pricing, "modal");
 
   // Which shape. trial_sheet_stripe_v1 (2026-09-06 to 2026-09-07) made the
@@ -307,6 +315,7 @@ export default function ProTrialModal({
             cityName={cityName}
             headline={headline}
             from={from}
+            region={region}
             ctaHref={ctaHref}
             ctaLabel={ctaLabel}
             priceAmount={pricing.amount}
@@ -388,6 +397,7 @@ export default function ProTrialModal({
           placeName={placeName}
           cityName={cityName}
           headline={headline}
+          region={region}
           priceAmount={pricing.amount}
           highlightRowId={nag.rowId}
           trackCta={trackCta}
@@ -415,6 +425,7 @@ function DialogBody({
   placeName,
   cityName,
   headline,
+  region,
   priceAmount,
   highlightRowId,
   trackCta,
@@ -427,6 +438,7 @@ function DialogBody({
   placeName?: string;
   cityName?: string;
   headline?: string;
+  region?: string;
   priceAmount: string;
   highlightRowId?: string;
   trackCta: (extra: Record<string, unknown>) => void;
@@ -442,6 +454,7 @@ function DialogBody({
             charge date this same resolution produces. */}
         <TrialCtaProvider
           from={from}
+          region={region}
           theme="light"
           // The plan is the method when the buy button was pressed with a
           // card chosen; a wallet tap is the annual plan (the wallet row is

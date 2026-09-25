@@ -15,6 +15,7 @@ import {
 import AdHero, { AD_HERO_REEL_COL } from "../[spot]/ad-intro";
 import { useMountedOnce } from "@/hooks/use-mounted-once";
 import { useTrialModal } from "@/hooks/use-paywall-modal";
+import { useEarlyTap } from "@/hooks/use-early-tap";
 
 /**
  * "Open the trial modal", handed down the frame so the second ask below the
@@ -43,8 +44,9 @@ export function AdTrialButton({
   children: ReactNode;
 }) {
   const open = useContext(AdTrialContext);
+  const earlyTap = useEarlyTap(() => open?.(placement));
   return (
-    <button type="button" className={className} onClick={() => open?.(placement)}>
+    <button type="button" {...earlyTap} className={className} onClick={() => open?.(placement)}>
       {children}
     </button>
   );
@@ -136,6 +138,7 @@ export default function CityAdView({
     <div data-ad-frame="" className="min-h-dvh bg-rc-panel">
       <ExploreTopBar
         adFrame
+        adCtaFrom="city-ad-topbar"
         adBarEdge="top"
         upgradeCta={!isPaid}
         placeName={cityName}

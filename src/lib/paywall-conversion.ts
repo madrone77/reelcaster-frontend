@@ -128,7 +128,13 @@ export function paywallViewDedupeKey(input: {
  *
  * `null` (a wall reported without a surface) is not asked for either.
  */
-const ASKED_FOR_SURFACES: ReadonlySet<string> = new Set(['explore-ad-topbar', 'explore-topbar']);
+const ASKED_FOR_SURFACES: ReadonlySet<string> = new Set([
+  'explore-ad-topbar',
+  'explore-topbar',
+  // The same bar's button on the city ad page, filed apart from framed
+  // Explore since 2026-09-24 so the two can be read separately.
+  'city-ad-topbar',
+]);
 
 export function paywallViewIsAskedFor(surface: string | null | undefined): boolean {
   if (!surface) return false;

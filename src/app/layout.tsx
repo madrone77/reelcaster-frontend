@@ -19,6 +19,7 @@ import GoogleAdsTag from '@/app/components/analytics/google-ads-tag'
 import { ORGANIZATION_JSONLD, SITE_NAME, SITE_URL, WEBSITE_JSONLD } from '@/lib/site'
 import { clientDiagSnippet } from '@/lib/client-diag'
 import { STORED_SESSION_SNIPPET } from '@/lib/stored-session-snippet'
+import { EARLY_TAP_SNIPPET } from '@/lib/early-tap-snippet'
 
 // Geist is the Tailwind `font-sans` / `font-mono` default, which the rc
 // design system has replaced nearly everywhere (Archivo + Plex Mono below).
@@ -138,6 +139,10 @@ export default function RootLayout({
             signed-out-only content can hide for a signed-in reader without a
             flash. See src/lib/stored-session-snippet.ts. */}
         <script dangerouslySetInnerHTML={{ __html: STORED_SESSION_SNIPPET }} />
+        {/* Keeps a trial-button tap that lands before hydration, so the
+            modal opens once the page is live instead of the tap being lost.
+            See src/lib/early-tap-snippet.ts. */}
+        <script dangerouslySetInnerHTML={{ __html: EARLY_TAP_SNIPPET }} />
         {/* No-op unless the URL carries ?diag=1. Registered during head parse
             so the listener is in place before hydration can throw. */}
         <script
