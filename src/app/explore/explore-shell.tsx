@@ -320,7 +320,11 @@ export default function ExploreShell({
   // sheet an unframed session gets), the framed spot page on desktop.
   const onAdOpenSpot = useCallback(
     (spot: { name?: string; slug?: string; href?: string }) => {
-      if (ad && spot.slug && takeAdSpotOpen(ad.wall)) {
+      // A signed-in viewer is never on the allowance: the offer is for cold
+      // traffic, and a Pro member who reached the map through an ad link (their
+      // own, or a saved one) was being sold the plan they already have on the
+      // third spot they opened. Same rule as `accessTier` above.
+      if (ad && spot.slug && (user || takeAdSpotOpen(ad.wall))) {
         trackEvent("Ad Frame Spot Opened", { slug: spot.slug, ad_wall: ad.wall });
         if (
           typeof window !== "undefined" &&
@@ -339,7 +343,7 @@ export default function ExploreShell({
       setAdOfferSpotName(spot.name);
       setAdOfferOpen(true);
     },
-    [ad, router],
+    [ad, router, user],
   );
   // The ad frame's bar sits on the top edge. `ad_bar_edge_v1` concluded for
   // the bottom on 2026-09-07, and Casey put every visitor back on the top on
