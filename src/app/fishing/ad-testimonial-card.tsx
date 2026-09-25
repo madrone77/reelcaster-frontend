@@ -1,3 +1,6 @@
+"use client";
+
+import { useSubscription } from "@/hooks/use-subscription";
 import {
   PRO_TESTIMONIALS_ROW_LABEL,
   PRO_TESTIMONIALS_ROW_TITLE,
@@ -34,8 +37,14 @@ import { Byline, TileStars } from "@/app/components/testimonial-parts";
  * 2026-09-18; Casey took the circle out and moved the name under the quote
  * the same day. The "ReelCaster Pro Testimonial" label heads the row once,
  * under a real heading in words, the same as the paywall modals.
+ *
+ * Never on a Pro account (Casey, 2026-09-24): a Pro viewer already bought,
+ * so the row is selling them something they have. Held until the tier
+ * settles (`isPaid` starts `false`) so Pro never gets a flash of it.
  */
 export default function AdTestimonialCard() {
+  const { isPaid, loading: tierLoading } = useSubscription();
+  if (tierLoading || isPaid) return null;
   const cards = pageTestimonials();
   return (
     <section aria-label={PRO_TESTIMONIALS_ROW_LABEL}>
