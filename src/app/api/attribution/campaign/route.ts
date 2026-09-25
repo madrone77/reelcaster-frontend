@@ -33,6 +33,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { ANGLES } from '@/app/lp/_shared/lp-angles';
+
+/** The quiz persona stamp on an /lp/q press. See src/app/lp/q/_quiz/persona.ts. */
+const QUIZ_ANGLE_SHAPE = /^q:(weekend|shore|newcomer|hardcore)$/;
 import { VIA_ANGLE_SHAPE } from '@/app/lp/_shared/lp-via';
 import { AD_WALLS } from "@/lib/ad-mode";
 import { CLICK_TYPES } from '@/lib/attribution';
@@ -157,7 +160,12 @@ export async function POST(request: NextRequest) {
   // on an Explore arrival the column says which page sent the visit. See
   // src/app/lp/_shared/lp-via.ts.
   const angleRaw = tag(body.angle);
-  const angle = ANGLE_IDS.has(angleRaw) || VIA_ANGLE_SHAPE.test(angleRaw) ? angleRaw : '';
+  // And the quiz's persona on its button press (`q:weekend`), so Campaign
+  // results can split /lp/q presses by who the quiz decided the reader was.
+  const angle =
+    ANGLE_IDS.has(angleRaw) || VIA_ANGLE_SHAPE.test(angleRaw) || QUIZ_ANGLE_SHAPE.test(angleRaw)
+      ? angleRaw
+      : '';
 
   const cityRaw = tag(body.target_city);
   const targetCity = SLUG_SHAPE.test(cityRaw) ? cityRaw : '';

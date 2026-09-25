@@ -163,7 +163,7 @@ function toScore(v: number): number {
 
 
 /** Widen from the peak while the score holds within PEAK_BAND, then cap. */
-function windowAround(
+export function windowAround(
   hours: number[],
   peakHour: number,
 ): { from: number; to: number } | null {

@@ -146,6 +146,14 @@ test("Google and organic still read the landing page", () => {
   assert.equal(metaExploreHop({ pathname: "/lp/tacoma/5", search: "", referrer: "" }), null);
 });
 
+test("the quiz is never hopped, Meta or not", () => {
+  for (const pathname of ["/lp/q", "/lp/q/seattle-wa", "/lp/q/seattle"]) {
+    assert.equal(metaExploreHop({ pathname, search: "?fbclid=abc&utm_source=meta", referrer: "https://m.facebook.com/" }), null, pathname);
+  }
+  // A variant whose name merely starts with q is not the quiz.
+  assert.notEqual(metaExploreHop({ pathname: "/lp/quick/1", search: "?fbclid=abc", referrer: "" }), null);
+});
+
 let failed = 0;
 for (const [name, fn] of tests) {
   try {

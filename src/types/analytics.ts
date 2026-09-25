@@ -354,6 +354,10 @@ export type AnalyticsEventName =
   | 'LP CTA Clicked'
   | 'LP Alert Code Sent'
   | 'LP Alert Confirmed'
+  // The /lp/q quiz: one event per answer, one at the result, one on the button
+  | 'Quiz Answered'
+  | 'Quiz Completed'
+  | 'Quiz CTA Clicked'
   // City and home pages
   | 'City Day Chosen'
   | 'City Species Chosen'
@@ -373,6 +377,8 @@ export interface UserProperties {
   favoriteLocation?: string;
   favoriteHotspot?: string;
   favoriteSpecies?: string;
+  /** Persona the /lp/q quiz put this reader in: weekend, shore, newcomer, hardcore. */
+  quizPersona?: string;
   accountType?: 'authenticated' | 'anonymous';
   windUnit?: string;
   tempUnit?: string;
