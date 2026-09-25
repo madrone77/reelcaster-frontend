@@ -102,6 +102,13 @@ const PAY_FIRST = process.env.NEXT_PUBLIC_PAY_FIRST_CHECKOUT === '1';
  * finishes differently is never used and expires on its own.
  */
 const PREFETCH_EMAIL_RE = /^[^\s@]+@[^\s@]+\.[a-z]{2,}$/i;
+/**
+ * OFF 2026-09-25. Since the prefetch shipped (#791, 09-23 10:16 PT) no trial
+ * has been paid with Stripe Link, which paid 47 of ~77 trials the three weeks
+ * before, and Stripe arrivals starting a trial fell from 51% to 0 of 8 after
+ * 09-24 01:52 PT. Off to test that; the tap builds the session as it did.
+ */
+const PREFETCH_ENABLED = false;
 const PREFETCH_DEBOUNCE_MS = 250;
 /** A prefetched session is good for three hours; stop trusting one well before. */
 const PREFETCH_MAX_AGE_MS = 30 * 60 * 1000;
@@ -539,7 +546,7 @@ export function TrialCtaProvider({
   // that is already built or on its way. Returns false when there is nothing
   // to build for (signed in, or not yet an address).
   function prefetchCheckout(): boolean {
-    if (!anon || !PAY_FIRST) return false;
+    if (!PREFETCH_ENABLED || !anon || !PAY_FIRST) return false;
     const address = email.trim();
     if (!PREFETCH_EMAIL_RE.test(address)) return false;
     const key = checkoutKey(address);
@@ -558,7 +565,7 @@ export function TrialCtaProvider({
     return true;
   }
   useEffect(() => {
-    if (!anon || !PAY_FIRST) return;
+    if (!PREFETCH_ENABLED || !anon || !PAY_FIRST) return;
     if (!PREFETCH_EMAIL_RE.test(email.trim())) return;
     const timer = window.setTimeout(prefetchCheckout, PREFETCH_DEBOUNCE_MS);
     return () => window.clearTimeout(timer);
