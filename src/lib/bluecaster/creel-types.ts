@@ -92,8 +92,9 @@ export function shortAreaLabel(report: CreelAreaReport): string {
 
 /**
  * The one-line verdict, written the way the report band writes its own
- * headline: what is being kept, and where. This is also the teaser a free
- * reader sees, so it must stand on its own and must not lean on the count.
+ * headline: what is being kept, and where. Pro only: it is the verdict, so a
+ * free reader gets the species-only line from the spot page's
+ * stripPaidIntel instead. It must still not lean on the count.
  */
 export function creelHeadline(report: CreelAreaReport): string {
   const area = shortAreaLabel(report);

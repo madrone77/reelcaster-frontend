@@ -8,7 +8,7 @@ import { resolveEntitlement } from "@/lib/entitlement";
  * The Pro gate for the written report on a spot page.
  *
  * The spot page is prerendered for search, so its static HTML can only carry
- * what is safe for everyone: the teaser headline and nothing else. A paying
+ * what is safe for everyone: the teaser line (the fish, never the verdict) and nothing else. A paying
  * angler fetches the rest here, at request time, after their entitlement has
  * been checked server-side.
  *

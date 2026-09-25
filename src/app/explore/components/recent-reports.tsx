@@ -334,8 +334,9 @@ export function RecentReportsBand({
   spotName,
   className = "",
 }: {
-  /** Truncated headline. Present for everyone, including crawlers, and the only
-   *  part of the report that lives in the prerendered HTML. */
+  /** The fish the report covers, never its verdict. Present for everyone,
+   *  including crawlers, and the only part of the report that lives in the
+   *  prerendered HTML. */
   teaser: string | null;
   /** Date of the newest report. Drives the "Updated ..." stamp in the header. */
   updatedAt: string | null;
@@ -373,11 +374,9 @@ export function RecentReportsBand({
 
   const shell = `rounded border border-rc-rule bg-rc-panel p-4 lg:p-5 ${className}`;
 
-  // Locked, but there IS a report. Show the start of its actual headline rather
-  // than a generic "reports tracked here": a real sentence about this spot,
-  // cut off, is a far better argument for Pro than a padlock. The rest of the
-  // sentence never reaches the browser, so there is nothing to read around it.
-  // Teaser: the headline is public and renders straight away. Below it, nothing
+  // Locked, but there IS a report. Name the fish it covers rather than a
+  // generic "reports tracked here", but never the verdict: the headline is
+  // Pro and never reaches the browser. The teaser renders straight away. Below it, nothing
   // at all until the server answers — no skeleton, because a grey box that
   // appears and vanishes is the same flash by another name.
   if (!reports && !creel && teaser) {
