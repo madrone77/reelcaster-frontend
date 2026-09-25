@@ -15,6 +15,8 @@ import {
 import { useFavorite } from "../lib/use-favorite";
 import { useSubscription } from "@/hooks/use-subscription";
 import { FreshCatchBlock } from "./fresh-catch-reports";
+import ShoreIcon from "@/app/components/common/shore-icon";
+import { shoreTypeLabel } from "@/lib/spot-access";
 import type { RailFreshCatch } from "../lib/fresh-catch-types";
 import {
   TIER_PILL,
@@ -269,6 +271,15 @@ export default function SpotDrawer({
             </svg>
           </button>
         </div>
+        {/* A shore spot says so under its name, wearing the pin's sand wave,
+            so the panel matches the pin that opened it. */}
+        {spot.access === "shore" && (
+          <span className="inline-flex items-center gap-1.5 mt-1.5 px-2 py-0.5 rounded-full bg-rc-surface text-rc-ink font-rc-mono text-[10px] font-semibold uppercase tracking-[0.06em]">
+            <ShoreIcon />
+            Shore spot
+            {shoreTypeLabel(spot.shoreType) ? ` · ${shoreTypeLabel(spot.shoreType)}` : ""}
+          </span>
+        )}
         <p className="font-rc-mono text-xs text-rc-ink-soft mt-1">
           {spot.regionName}
           {spot.distanceKm !== null

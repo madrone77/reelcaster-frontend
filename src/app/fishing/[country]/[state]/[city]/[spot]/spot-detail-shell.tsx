@@ -10,6 +10,7 @@ import { useSubscription } from "@/hooks/use-subscription";
 import { noteEngagement } from "@/lib/upgrade-nag";
 import { setPaywallContext } from "@/lib/paywall-context";
 import { accessBadgeLabel, spotAccessOf } from "@/lib/spot-access";
+import ShoreIcon from "@/app/components/common/shore-icon";
 import { trackEvent } from "@/lib/analytics";
 import AdSlot from "@/app/components/ads/ad-slot";
 import { countryDisplayName, regulatorFrom } from "@/lib/regions";
@@ -1207,7 +1208,8 @@ export default function SpotDetailShell({
     <div className="flex flex-wrap items-center gap-2">
       {/* Boat or shore first: it decides whether this page is any use to the
           reader at all, before the area or the season does. */}
-      <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-rc-surface text-rc-ink font-rc-mono text-[10px] font-semibold uppercase tracking-[0.06em]">
+      <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-rc-surface text-rc-ink font-rc-mono text-[10px] font-semibold uppercase tracking-[0.06em]">
+        {access === "shore" && <ShoreIcon />}
         {accessBadgeLabel(access, spot.spotType)}
       </span>
       {/* Neutral area label — no open/closed claim. Area-level status isn't

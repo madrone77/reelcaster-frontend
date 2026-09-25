@@ -52,7 +52,7 @@ export type PuckRing = "base" | "fresh" | "sel";
 export type PuckShape = "rd" | "sq" | "sh";
 
 /** The shore badge: a sand disc with a wave, on the pill's top-right corner. */
-const SHORE_BADGE = { r: 5.5, fill: "#E8C77E", wave: "#0F3B57" };
+export const SHORE_BADGE = { r: 5.5, fill: "#E8C77E", wave: "#0F3B57" };
 
 /** Label used for a spot with no score at the scrubbed hour. */
 export const NO_DATA_LABEL = "·";
