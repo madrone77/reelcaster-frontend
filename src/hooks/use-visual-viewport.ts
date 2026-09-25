@@ -14,6 +14,14 @@ export interface ViewportMetrics {
    * `keyboard`.
    */
   offsetTop: number;
+  /**
+   * True while a software keyboard is up: the visible area is shorter than
+   * the layout viewport by more than any browser chrome accounts for. Read
+   * this, not `keyboard > 0`, to decide: when Safari has panned the page to
+   * chase a focused field, `offsetTop + height` can exceed the layout height
+   * and `keyboard` reads 0 while the keys are plainly on screen.
+   */
+  up: boolean;
 }
 
 /**
@@ -53,11 +61,12 @@ export function useVisualViewport(active: boolean): ViewportMetrics {
     keyboard: 0,
     height: 0,
     offsetTop: 0,
+    up: false,
   });
 
   useEffect(() => {
     if (!active) {
-      setMetrics({ keyboard: 0, height: 0, offsetTop: 0 });
+      setMetrics({ keyboard: 0, height: 0, offsetTop: 0, up: false });
       return;
     }
     const vv = window.visualViewport;
@@ -67,10 +76,13 @@ export function useVisualViewport(active: boolean): ViewportMetrics {
     const measure = () => {
       frame = 0;
       const covered = window.innerHeight - (vv.height + vv.offsetTop);
+      // How much shorter the visible area is than the page, pan or no pan.
+      const shrunk = window.innerHeight - vv.height;
       const next: ViewportMetrics = {
         keyboard: covered > KEYBOARD_MIN ? Math.round(covered) : 0,
         height: Math.round(vv.height),
         offsetTop: Math.round(vv.offsetTop),
+        up: shrunk > KEYBOARD_MIN,
       };
       // Same numbers, same object. iOS fires `scroll` on the visual viewport
       // for every frame of a rubber-band or a URL-bar collapse, and a fresh
@@ -79,7 +91,8 @@ export function useVisualViewport(active: boolean): ViewportMetrics {
       setMetrics((prev) =>
         prev.keyboard === next.keyboard &&
         prev.height === next.height &&
-        prev.offsetTop === next.offsetTop
+        prev.offsetTop === next.offsetTop &&
+        prev.up === next.up
           ? prev
           : next,
       );

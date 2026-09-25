@@ -138,8 +138,8 @@ function DialogPanel({
   showCloseButton?: boolean
   variant?: DialogVariant
 }) {
-  const { keyboard, height, offsetTop } = useVisualViewport(true)
-  const squeezed = keyboard > 0 && height > 0
+  const { height, offsetTop, up } = useVisualViewport(true)
+  const squeezed = up && height > 0
   const sheet = variant === "sheet"
 
   return (
@@ -164,25 +164,25 @@ function DialogPanel({
         squeezed
           ? sheet
             ? {
-                // A bottom-pinned panel does not move to the middle of the
-                // gap; its CONTENT sits on top of the keyboard. `keyboard` is
-                // how much of the layout viewport the keys cover, in the same
-                // coordinates `bottom` and padding resolve in.
+                // The sheet becomes the visible band, exactly: its top at the
+                // top of what the reader can see, its height the height of
+                // it, so the footer (the email field, the button, the charge
+                // line) sits on the keys and the body scrolls above.
                 //
-                // Padding, not `bottom: keyboard`. Lifting the whole panel
-                // left the band it had vacated as scrim, and a thumb landing
-                // there (reaching for where the button had just been, or
-                // brushing the screen while the keys animated in) counted as
-                // a tap outside: the sheet closed and took the half-typed
-                // email with it. Padded instead, the panel still reaches the
-                // bottom edge, the keys cover only its padding, and every tap
-                // in that band lands on the sheet. It also means the panel no
-                // longer jumps up and back when iOS autofill collapses and
-                // re-raises the keyboard; only the padding breathes.
-                paddingBottom: keyboard,
-                // The visible part is capped at the band above the keys; the
-                // padding hidden under them is on top of that.
-                maxHeight: Math.max(height - 32, 160) + keyboard,
+                // It used to stay pinned to the layout bottom and pad its
+                // own bottom by the keyboard's height. Safari defeated that:
+                // the field is in the footer, so the instant the keys rise
+                // it is under them, and Safari pans the whole page up to
+                // chase it before any padding lands. Panned, the layout
+                // bottom sits mid-screen, the padded sheet ends there, and
+                // the page under the scrim (the Explore chart) showed between
+                // the sheet and the keys. Sized to the visible band, the
+                // sheet reads the pan (`offsetTop`) and covers it.
+                top: offsetTop,
+                bottom: "auto",
+                height,
+                maxHeight: height,
+                borderRadius: 0,
                 ...style,
               }
             : {
