@@ -10,8 +10,9 @@ import type { ConditionsFeed } from "../../_city1/load-conditions";
 import type { QuizSpotLive, QuizSpotRegs } from "@/app/api/lp/quiz-spot/route";
 import type { LiveRegulation } from "@/lib/bluecaster/live-spot-types";
 import { formatHour12 } from "@/lib/time-format";
-import type { ShowcaseBlock } from "./persona";
-import type { QuizData, QuizPick, QuizPin } from "./quiz-data";
+import PhoneFrame from "@/app/(marketing)/components/phone-frame";
+import type { Access, ShowcaseBlock } from "./persona";
+import { KAYAK_REACH_KM, type QuizData, type QuizPick, type QuizPin } from "./quiz-data";
 
 /**
  * The result page's showcase: the product, shown on the reader's own spot.
@@ -263,6 +264,7 @@ function RegsPanel({ regs, speciesName, regulator, isUS }: { regs: QuizSpotRegs 
 function pinsLine(pins: QuizPin[], shore: boolean, species: string, cityName: string): string {
   const good = pins.filter((p) => p.score >= 75).length;
   const noun = shore ? "shore spots" : "spots";
+  if (pins.length === 1) return `${pins[0].name} is scored for ${species} today, ${pins[0].score}/100.`;
   if (!pins.length) return `We score ${noun} for ${species} all around ${cityName}.`;
   return good
     ? `${pins.length} ${noun} scored for ${species} near ${cityName} today. ${good} of them read GOOD right now.`
@@ -275,9 +277,10 @@ export default function QuizShowcase(props: {
   pick: QuizPick;
   pins: QuizPin[];
   speciesName: string;
-  shore: boolean;
+  access: Access;
 }) {
-  const { data, blocks, pick, pins, speciesName, shore } = props;
+  const { data, blocks, pick, pins, speciesName, access } = props;
+  const shore = access === "shore";
   const [live, setLive] = useState<QuizSpotLive | null>(null);
   const [failed, setFailed] = useState(false);
 
@@ -300,7 +303,13 @@ export default function QuizShowcase(props: {
   }, [pick.slug, pick.speciesId, data.provinceCode]);
 
   const feed: ConditionsFeed | null = live?.feed ?? null;
-  const shownPins = shore ? pins.filter((p) => p.access === "shore") : pins;
+  // Shore readers see shore spots; a kayak sees only what is inside a
+  // paddle; a boat sees its whole reach.
+  const shownPins = shore
+    ? pins.filter((p) => p.access === "shore")
+    : access === "kayak"
+      ? pins.filter((p) => p.distanceKm <= KAYAK_REACH_KM)
+      : pins;
   const mapSpots = [
     ...shownPins.filter((p) => p.slug !== pick.slug),
     { slug: pick.slug, name: pick.name, lat: pick.lat, lng: pick.lng, score: pick.score, access: pick.access },
@@ -334,12 +343,24 @@ export default function QuizShowcase(props: {
             ) : null}
 
             {b.id === "map" ? (
-              <div className="overflow-hidden rounded-2xl border border-rc-rule bg-rc-panel">
-                <div className="relative h-[300px] bg-rc-surface">
-                  <MarketingMap spots={mapSpots} center={{ lat: pick.lat, lng: pick.lng }} zoom={shore ? 10 : 9} featuredSlug={pick.slug} />
-                </div>
-                <p className="px-5 py-3 text-sm text-rc-ink-soft">{pinsLine(shownPins, shore, speciesName, data.cityName)}</p>
-              </div>
+              <>
+                {/* The map on the app's own phone, app bar and tab bar
+                    included, as the landing pages and the homepage show it:
+                    a map in a plain box is a website, the bar is what says
+                    this is the app you carry to the ramp. */}
+                <PhoneFrame
+                  width="w-[min(397px,100%)]"
+                  label={`The ReelCaster map on a phone showing the spots scored for ${speciesName} around ${data.cityName}, with ${pick.name} selected.`}
+                >
+                  <MarketingMap
+                    spots={mapSpots}
+                    center={{ lat: pick.lat, lng: pick.lng }}
+                    zoom={shore ? 10 : access === "kayak" ? 10.5 : 9}
+                    featuredSlug={pick.slug}
+                  />
+                </PhoneFrame>
+                <p className="mt-3 text-center text-sm text-rc-ink-soft">{pinsLine(shownPins, shore, speciesName, data.cityName)}</p>
+              </>
             ) : null}
 
             {b.id === "regs" ? (
