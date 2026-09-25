@@ -19,6 +19,12 @@ import { useSubscription } from '@/hooks/use-subscription';
 import { trackEvent } from '@/lib/analytics';
 import { useUpgradeFlow } from '@/hooks/use-upgrade-flow';
 import { goToCheckout } from '@/lib/checkout-redirect';
+import {
+  currentPath,
+  forgetTrialSheet,
+  recallTrialEmail,
+  rememberTrialEmail,
+} from '@/lib/trial-return';
 import { cn } from '@/lib/utils';
 import ExpressCheckout from './express-checkout';
 import {
@@ -107,7 +113,8 @@ function postAnonCheckout(body: Record<string, unknown>): Promise<CheckoutReply>
   return fetch('/api/stripe/checkout', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(body),
+    // Stripe's back arrow returns here rather than to /billing/cancel.
+    body: JSON.stringify({ ...body, return_to: currentPath() }),
   }).then(async (res) => {
     let payload: CheckoutPayload = {};
     try {
@@ -367,6 +374,7 @@ export function TrialCtaProvider({
   // about afresh, so editing the field forgets them.
   function setEmail(value: string) {
     setEmailValue(value);
+    rememberTrialEmail(value);
     setExistingAccountEmail(null);
     setSignInLink('idle');
     setTrialWithheld(false);
@@ -413,6 +421,33 @@ export function TrialCtaProvider({
   const [anonStuckUrl, setAnonStuckUrl] = useState<string | null>(null);
   const cancelHop = useRef<(() => void) | null>(null);
   useEffect(() => () => cancelHop.current?.(), []);
+
+  // The address typed into any sheet earlier in this tab, so a reader back
+  // from Stripe (or opening a second wall) does not type it again. See
+  // src/lib/trial-return.ts.
+  useEffect(() => {
+    const kept = recallTrialEmail();
+    if (kept) setEmailValue((v) => v || kept);
+  }, []);
+
+  // Back from Stripe by the browser's back button, the page can come out of
+  // the back/forward cache exactly as it was left: this sheet still open, the
+  // button reading "Starting…", field and button disabled. Confirmed on a
+  // plain city page in Chrome 2026-09-24. Nothing re-runs on a restore, so
+  // undo the hop here and hand the reader a live form.
+  useEffect(() => {
+    const onShow = (e: PageTransitionEvent) => {
+      if (!e.persisted) return;
+      cancelHop.current?.();
+      cancelHop.current = null;
+      setAnonSubmitting(false);
+      setAnonStuckUrl(null);
+      // The sheet is back on its own; <TrialReturn> must not open another.
+      forgetTrialSheet();
+    };
+    window.addEventListener('pageshow', onShow);
+    return () => window.removeEventListener('pageshow', onShow);
+  }, []);
 
   useEffect(() => {
     if (!authSettled) return;

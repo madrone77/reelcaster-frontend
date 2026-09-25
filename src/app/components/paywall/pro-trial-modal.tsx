@@ -1,5 +1,6 @@
 "use client";
 
+import { rememberTrialSheet } from "@/lib/trial-return";
 import Link from "next/link";
 import { useCallback, useEffect, useRef } from "react";
 import {
@@ -243,8 +244,11 @@ export default function ProTrialModal({
       acted.current = true;
       const checkoutTap = extra.destination === "checkout" && extra.method !== "signup";
       bumpCounter("cta_click", checkoutTap ? { checkout_tap: true } : undefined);
+      // This sheet is what a reader back from Stripe gets reopened for them.
+      // See @/lib/trial-return and <TrialReturn>.
+      if (checkoutTap) rememberTrialSheet({ from, feature, spotName, placeName, region });
     },
-    [trackEvent, feature, viewerTier, from, bumpCounter],
+    [trackEvent, feature, viewerTier, from, bumpCounter, spotName, placeName, region],
   );
 
   useEffect(() => {

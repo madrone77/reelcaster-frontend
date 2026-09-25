@@ -13,6 +13,7 @@ import { useSubscription } from '@/hooks/use-subscription'
 import type { PlanTierId } from '@/lib/plan-features'
 import { trackEvent } from '@/lib/analytics'
 import { reportCheckoutHop } from '@/lib/paywall-counter'
+import { markTrialSheetBack, safeReturnPath } from '@/lib/trial-return'
 
 /**
  * Where Stripe's Back arrow lands.
@@ -40,14 +41,26 @@ export default function BillingCancelPage() {
   const { isPaid } = useSubscription()
   const router = useRouter()
   const [retrying, setRetrying] = useState(false)
+  // A signed-out checkout names the page it left (`?back=`, see
+  // src/lib/trial-return.ts): Stripe's back arrow is a reader going back to
+  // what they were reading, so they go there, with the sheet reopened and the
+  // address still in it. This page is for everyone else. Undecided until the
+  // effect runs, so the server render and the first client render agree.
+  const [goingBack, setGoingBack] = useState<boolean | null>(null)
 
   // Same derivation as ProTrialModal, so the "You" column marks the same
   // tier whether they abandoned checkout or hit a wall inside the app.
   const viewerTier: PlanTierId = isPaid ? 'pro' : user ? 'free' : 'anon'
 
   useEffect(() => {
-    trackEvent('Cancel Page Viewed', { tier: viewerTier })
+    const back = safeReturnPath(new URLSearchParams(window.location.search).get('back'))
+    setGoingBack(Boolean(back))
+    trackEvent('Cancel Page Viewed', { tier: viewerTier, back: Boolean(back) })
     reportCheckoutHop('checkout_cancel', { viewerTier })
+    if (back) {
+      markTrialSheetBack()
+      window.location.replace(back)
+    }
     // Once on mount; the tier is whatever had settled at that moment.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
@@ -65,6 +78,12 @@ export default function BillingCancelPage() {
   // form offering them the account they already have, and a flash of it on
   // first paint reads as exactly that.
   const offerFreeAccount = !authLoading && !user
+
+  // On the way back to the reader's page: a blank panel, never the
+  // "Checkout canceled" card for the moment before the page swaps.
+  if (goingBack !== false) {
+    return <div className="min-h-[60vh]" data-testid="billing-cancel-returning" />
+  }
 
   return (
     <div className="mx-auto flex max-w-2xl flex-col px-6 py-12 md:py-16">

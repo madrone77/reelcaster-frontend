@@ -20,6 +20,7 @@ import { ORGANIZATION_JSONLD, SITE_NAME, SITE_URL, WEBSITE_JSONLD } from '@/lib/
 import { clientDiagSnippet } from '@/lib/client-diag'
 import { STORED_SESSION_SNIPPET } from '@/lib/stored-session-snippet'
 import { EARLY_TAP_SNIPPET } from '@/lib/early-tap-snippet'
+import TrialReturn from '@/app/components/paywall/trial-return'
 
 // Geist is the Tailwind `font-sans` / `font-mono` default, which the rc
 // design system has replaced nearly everywhere (Archivo + Plex Mono below).
@@ -196,6 +197,9 @@ export default function RootLayout({
                     wizard, and renders null for everyone owed neither. */}
                 <ArrivalRecorder />
                 <WelcomeGate />
+                {/* Renders null unless the reader is back from Stripe on the
+                    page they left it from; then it reopens that sheet. */}
+                <TrialReturn />
               </AuthGate>
             </UnitPreferencesProvider>
           </MixpanelProvider>

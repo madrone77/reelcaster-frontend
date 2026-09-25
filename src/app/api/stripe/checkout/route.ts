@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse, after } from 'next/server';
+import { safeReturnPath } from '@/lib/trial-return';
 import { createClient } from '@supabase/supabase-js';
 import { getStripe, appOrigin } from '@/lib/stripe';
 import {
@@ -151,6 +152,7 @@ async function anonCheckout(request: NextRequest) {
         // second tap, on a button that now states the charge, sends accept_paid.
         withheldTrial: body.accept_paid === true ? 'charge' : 'refuse',
         prefetch: body.prefetch === true,
+        returnTo: safeReturnPath(body.return_to),
       }),
       existingAccount,
     ]);
@@ -262,6 +264,8 @@ interface CheckoutBody {
    * nobody has asked to check out yet.
    */
   prefetch?: boolean;
+  /** Signed-out buyers only. The page to come back to; see safeReturnPath. */
+  return_to?: string;
   /**
    * Signed-out buyers only. The Start tap on a prefetched session: records
    * the checkout_start the prefetch held back, and does nothing else.

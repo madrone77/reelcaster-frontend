@@ -160,6 +160,13 @@ export async function createAnonCheckoutSession(params: {
    * tap commits it.
    */
   prefetch?: boolean;
+  /**
+   * The page the buyer left for Stripe, validated by safeReturnPath. Stripe's
+   * back arrow goes through /billing/cancel and on to it, with the sheet
+   * reopened (src/lib/trial-return.ts). Unset or unsafe, the arrow lands on
+   * /billing/cancel as it always has.
+   */
+  returnTo?: string | null;
 }): Promise<AnonCheckoutResult> {
   const { request, stripe, admin, currency, email, region, from } = params;
   const plan: BillingPlan = params.plan ?? 'annual';
@@ -209,7 +216,9 @@ export async function createAnonCheckoutSession(params: {
     payment_method_collection: 'always',
     expires_at: Math.floor(Date.now() / 1000) + ANON_CHECKOUT_TTL_SECONDS,
     success_url: `${origin}/billing/success?session_id={CHECKOUT_SESSION_ID}`,
-    cancel_url: `${origin}/billing/cancel`,
+    cancel_url: params.returnTo
+      ? `${origin}/billing/cancel?back=${encodeURIComponent(params.returnTo)}`
+      : `${origin}/billing/cancel`,
     metadata: {
       // No supabase_user_id yet. `anon_checkout` is the webhook's signal to
       // provision one rather than log an unresolvable subscription.
