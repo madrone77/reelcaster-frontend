@@ -142,7 +142,12 @@ export default function QuizSpotCard(props: {
             </p>
           </div>
           <div className="flex flex-none flex-col items-center">
-            <span className="text-3xl font-bold tabular-nums text-rc-ink">{pick.score}</span>
+            {/* Out of 100, said out loud: a bare "87" reads as a random number
+                to someone who has never seen the product. */}
+            <span className="whitespace-nowrap font-bold tabular-nums text-rc-ink" aria-label={`${pick.score} out of 100`}>
+              <span className="text-3xl">{pick.score}</span>
+              <span className="text-base text-rc-ink-mute">/100</span>
+            </span>
             <span className={"mt-1 rounded-full px-2 py-0.5 text-[11px] font-bold " + tier.pill}>{tier.word}</span>
           </div>
         </div>
@@ -165,7 +170,10 @@ export default function QuizSpotCard(props: {
                 >
                   <span className="text-[10px] font-bold uppercase">{d.dow}</span>
                   <span className="text-[10px]">{d.date}</span>
-                  <span className="text-lg font-bold tabular-nums">{pick.score}</span>
+                  <span className="font-bold tabular-nums leading-none">
+                    <span className="text-lg">{pick.score}</span>
+                    <span className="text-[9px]">/100</span>
+                  </span>
                 </li>
               ) : (
                 <li
