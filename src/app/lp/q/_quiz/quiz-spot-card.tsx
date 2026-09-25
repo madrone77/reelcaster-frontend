@@ -52,9 +52,8 @@ function evidenceLine(p: QuizPick, species: string, cityName: string): string {
         ? `${species} are being kept across ${p.areaLabel} right now.`
         : `${species} are being kept in these waters right now.`;
     default:
-      return `No recent catches near ${cityName} yet. This is today's best-rated ${
-        p.access === "shore" ? "shore spot" : "spot"
-      } for ${species}.`;
+      // No catch is claimed, and none is denied: a score is all we know here.
+      return `Today's best-rated ${p.access === "shore" ? "shore spot" : "spot"} for ${species} near ${cityName}.`;
   }
 }
 

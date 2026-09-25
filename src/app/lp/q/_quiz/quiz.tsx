@@ -13,6 +13,7 @@ import {
   recapLine,
   scorePersona,
   wantsShore,
+  type Access,
   type Persona,
   type QuizAnswers,
 } from "./persona";
@@ -98,13 +99,29 @@ function metaCustom(event: string, data: Record<string, string>): void {
   }
 }
 
-export default function Quiz({ data }: { data: QuizData }) {
-  const questions = useMemo(
-    () => buildQuestions(data.cityName, data.species.map((s) => ({ slug: s.slug, name: s.name }))),
-    [data],
+/** Up to five fish offered to this way of fishing, most evidence first. */
+function speciesFor(data: QuizData, access: Access | undefined): QuizData["species"] {
+  const list = data.species.filter((s) =>
+    access === "shore" ? s.shoreOffer : access === "both" ? s.boatOffer || s.shoreOffer : s.boatOffer,
   );
+  return list.slice(0, 5);
+}
 
+function questionsFor(data: QuizData, access: Access | undefined) {
+  return buildQuestions(
+    data.cityName,
+    speciesFor(data, access).map((s) => ({ slug: s.slug, name: s.name })),
+  );
+}
+
+export default function Quiz({ data }: { data: QuizData }) {
   const [answers, setAnswers] = useState<Partial<QuizAnswers>>({});
+  // The species question follows the access answer before it: a shore reader
+  // is never offered halibut.
+  const questions = useMemo(
+    () => questionsFor(data, answers.access),
+    [data, answers.access],
+  );
   const [step, setStep] = useState(0);
   const [phase, setPhase] = useState<Phase>("questions");
   const [picked, setPicked] = useState<string | null>(null);
@@ -126,15 +143,16 @@ export default function Quiz({ data }: { data: QuizData }) {
     const s = readStored(data.citySlug);
     if (!s) return;
     const clean: Partial<QuizAnswers> = {};
-    questions.forEach((q) => {
+    const stored = questionsFor(data, s.answers.access);
+    stored.forEach((q) => {
       const v = s.answers[q.id];
       if (isAnswer(q, v)) (clean as Record<string, string>)[q.id] = v;
     });
-    const complete = questions.every((q) => q.id in clean);
+    const complete = stored.every((q) => q.id in clean);
     setAnswers(clean);
     if (complete && s.phase !== "questions") setPhase("result");
-    else setStep(Math.min(Math.max(0, s.step), questions.length - 1));
-  }, [data.citySlug, questions]);
+    else setStep(Math.min(Math.max(0, s.step), stored.length - 1));
+  }, [data]);
 
   useEffect(() => {
     if (!restored.current) return;
@@ -185,7 +203,19 @@ export default function Quiz({ data }: { data: QuizData }) {
       answer: value,
     });
     window.setTimeout(() => {
-      setAnswers((a) => ({ ...a, [q.id]: value }));
+      setAnswers((a) => {
+        const next: Partial<QuizAnswers> = { ...a, [q.id]: value };
+        // Switching to shore after picking halibut drops the halibut.
+        if (
+          q.id === "access" &&
+          next.species &&
+          next.species !== "any" &&
+          !speciesFor(data, value as Access).some((x) => x.slug === next.species)
+        ) {
+          delete next.species;
+        }
+        return next;
+      });
       setPicked(null);
       if (step + 1 < questions.length) setStep(step + 1);
       else setPhase("building");
@@ -352,7 +382,10 @@ function ResultScreen(props: {
   // "Whatever's biting" is the fish with the most evidence, which is the
   // first on the list. A shore reader whose fish is a boat fish here is shown
   // where the boats are catching it, and told so.
-  const fish = (answers.species === "any" ? data.species[0] : data.species.find((x) => x.slug === answers.species)) ?? null;
+  const fish =
+    (answers.species === "any"
+      ? speciesFor(data, answers.access)[0]
+      : data.species.find((x) => x.slug === answers.species)) ?? null;
   const shore = wantsShore(answers);
   const pick = fish ? (shore ? fish.shore ?? fish.boat : fish.boat ?? fish.shore) : null;
   const boatInstead = !!(fish && shore && !fish.shore && fish.boat);

@@ -10,6 +10,7 @@ import { speciesDisplayName } from "@/app/explore/lib/explore-data";
 import { windowAround } from "../../_reel/city-proof";
 import { lpRegionFor } from "../../_shared/lp-region";
 import {
+  NEAR_KM,
   distanceKm,
   pickSpot,
   rankSpecies,
@@ -63,6 +64,10 @@ export interface QuizSpecies {
   proven: boolean;
   boat: QuizPick | null;
   shore: QuizPick | null;
+  /** Offered to boat and kayak readers. */
+  boatOffer: boolean;
+  /** Offered to shore readers. */
+  shoreOffer: boolean;
 }
 
 export interface QuizData {
@@ -73,11 +78,11 @@ export interface QuizData {
   isUS: boolean;
   /** Spots with any score today inside the evidence box. */
   spotCount: number;
-  /** Up to five, most evidence first. */
+  /** Most evidence first. The quiz shows up to five of those offered for
+   *  the reader's own access (see speciesFor in persona.ts). */
   species: QuizSpecies[];
 }
 
-const MAX_SPECIES = 5;
 /** Reports window. A month catches a run without dredging up last season. */
 const REPORT_DAYS = 30;
 /**
@@ -195,6 +200,8 @@ export async function loadQuizData(citySlug: string): Promise<QuizData | null> {
       .map((ref) => ({ ref, proven: false }));
   }
 
+  const hasEvidence = (p: QuizPick | null) => !!p && p.source !== "score";
+
   const toPick = (p: ReturnType<typeof pickSpot>): QuizPick | null => {
     if (!p) return null;
     const sc = p.spot.scores[p.speciesId];
@@ -215,20 +222,42 @@ export async function loadQuizData(citySlug: string): Promise<QuizData | null> {
     };
   };
 
-  const built: QuizSpecies[] = ranked.map(({ ref, proven }) => ({
-    slug: ref.slug,
-    name: shortSpecies(ref.name),
-    proven,
-    boat: toPick(pickSpot(spots, ref.id, ref.name, "boat", reports, kept, isWdfwArea, city)),
-    shore: toPick(pickSpot(spots, ref.id, ref.name, "shore", reports, kept, isWdfwArea, city)),
-  }));
-  // A fish is offered only when there is a spot to send the reader to where
-  // it is actually being caught. Being landed somewhere in the area is not
-  // enough if every water it is open on today has no catches: that is the
-  // Chinook a Seattle reader would drive to Tacoma for on a score alone.
-  const hasEvidence = (p: QuizPick | null) => !!p && p.source !== "score";
-  const provenSpecies = built.filter((s) => s.proven && (hasEvidence(s.boat) || hasEvidence(s.shore)));
-  const species = (provenSpecies.length ? provenSpecies : built).slice(0, MAX_SPECIES);
+  // Crab is what a shore reader most often comes for, and it is steady
+  // rather than a run that posts announce, so a crab scored at a shore spot
+  // near the city is offered to shore readers even without recent posts. The
+  // card then says "best-rated today", never that crab are being caught.
+  const nearShoreCrab = new Set<string>();
+  for (const s of spots) {
+    if (s.access !== "shore" || distanceKm(city, s) > NEAR_KM) continue;
+    for (const id of Object.keys(s.scores)) if (/crab/i.test(refs[id]?.name ?? "")) nearShoreCrab.add(id);
+  }
+  const pool = [...ranked];
+  for (const id of nearShoreCrab) {
+    if (!pool.some((r) => r.ref.id === id) && refs[id]) pool.push({ ref: refs[id], proven: false });
+  }
+
+  const built: QuizSpecies[] = pool.map(({ ref, proven }) => {
+    const boat = toPick(pickSpot(spots, ref.id, ref.name, "boat", reports, kept, isWdfwArea, city));
+    const shore = toPick(pickSpot(spots, ref.id, ref.name, "shore", reports, kept, isWdfwArea, city));
+    const crab = /crab/i.test(ref.name);
+    return {
+      slug: ref.slug,
+      name: shortSpecies(ref.name),
+      proven,
+      boat,
+      shore,
+      // Boat: only where a spot has catches of it. That is the Chinook a
+      // Seattle reader would otherwise drive to Tacoma for on a score alone.
+      boatOffer: proven && hasEvidence(boat),
+      // Shore: a shore spot exists for it (never halibut or lingcod off a
+      // pier, see evidence.ts) and somebody is landing it, or it is crab.
+      shoreOffer: !!shore && (proven || (crab && nearShoreCrab.has(ref.id))),
+    };
+  });
+  const offered = built.filter((s) => s.boatOffer || s.shoreOffer);
+  const species = offered.length
+    ? offered
+    : built.map((s) => ({ ...s, boatOffer: !!s.boat, shoreOffer: !!s.shore }));
 
   return {
     citySlug,
