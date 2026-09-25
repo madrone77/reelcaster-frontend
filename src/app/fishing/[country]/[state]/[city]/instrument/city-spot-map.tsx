@@ -222,6 +222,8 @@ export default function CitySpotMap({
     return new Set(rows.filter((r) => isSpotLocked(r.spot, keepSet)).map((r) => r.spot.slug));
   }, [rows, lockSplit.locksOn, keepSet]);
   const [lockWallOpen, setLockWallOpen] = useState(false);
+  // The locked mark the reader tapped, named by sheet_names_wall_v1's arm b.
+  const [lockedName, setLockedName] = useState<string | null>(null);
   // The wall itself: warmed on an idle frame and rendered without a Suspense
   // boundary, so the tap has nothing left to fetch and nothing to wait on.
   // Null until it has loaded, which is what `next/dynamic` drew here too.
@@ -530,6 +532,7 @@ export default function CitySpotMap({
         trackEvent("Locked Spot Pressed", { slug, ad_wall: ad?.wall, surface: "city_map" });
         lockSplit.reportLockPress();
         setHover(null);
+        setLockedName(rows.find((r) => r.spot.slug === slug)?.spot.name ?? null);
         setLockWallOpen(true);
         return;
       }
@@ -537,7 +540,7 @@ export default function CitySpotMap({
       // up: the map draws marks homed in other cities.
       router.push(withAdParams(props?.path || legacySpotPath(slug), ad));
     },
-    [router, ad, lockedSlugs, lockSplit],
+    [router, ad, lockedSlugs, lockSplit, rows],
   );
 
   /**
@@ -683,6 +686,7 @@ export default function CitySpotMap({
           feature="locked-spots"
           from={ad ? "city-ad-map-lock" : "city-map-lock"}
           placeName={cityName}
+          tapped={lockedName ? `See today's score at ${lockedName}` : undefined}
         />
       )}
     </div>

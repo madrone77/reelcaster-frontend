@@ -340,6 +340,10 @@ export default function CityInstrument({
    * does.
    */
   const [lockedTier, setLockedTier] = useState<"free" | "pro">("pro");
+  // The day the reader reached for, for sheet_names_wall_v1's arm b
+  // ("See Friday, Sep 25 in Seattle"). Read at noon UTC so the date is the
+  // tile's own whatever the reader's zone.
+  const [lockedDayLabel, setLockedDayLabel] = useState<string | null>(null);
   // Latched, so closing doesn't rip the modal out mid-animation.
   const upgradeMounted = useMountedOnce(upgradeOpen);
   // The wall itself: warmed on an idle frame and rendered without a Suspense
@@ -358,6 +362,14 @@ export default function CityInstrument({
     });
     if (day.locked) {
       setLockedTier(day.lockTier ?? "pro");
+      setLockedDayLabel(
+        new Date(`${day.iso.slice(0, 10)}T12:00:00Z`).toLocaleDateString("en-US", {
+          weekday: "long",
+          month: "short",
+          day: "numeric",
+          timeZone: "UTC",
+        }),
+      );
       // The primary ask on this page: the reader reached for a day they cannot
       // open. "hero" rather than a truer name because the CTA vocabulary is
       // POSITION, and this is the ask the page is built around.
@@ -813,6 +825,7 @@ export default function CityInstrument({
           from={`city-${citySlug}-${
             lockedTier === "free" ? "forecast-week" : "forecast-14d"
           }`}
+          tapped={lockedDayLabel ? `See ${lockedDayLabel} in ${cityName}` : undefined}
         />
       )}
     </UnitCountryScope>
