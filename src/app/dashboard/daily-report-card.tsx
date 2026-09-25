@@ -56,7 +56,7 @@ interface DailyReport {
 interface Payload {
   locked?: boolean;
   city?: { slug: string; name: string } | null;
-  status?: "ready" | "pending" | "no_home_city";
+  status?: "ready" | "pending" | "no_home_city" | "no_signals" | "unavailable";
   /** Locked: only `teaser`, `report_date` and `generated_at` arrive. */
   report?: DailyReport | LockedReport | null;
 }
@@ -156,10 +156,13 @@ export function DailyReportCard({ cityName }: { cityName?: string | null }) {
         const res = await fetch("/api/bluecaster/city-daily-report", {
           headers: { Authorization: `Bearer ${token}` },
         });
-        const json = (await res.json()) as Payload;
+        // A failed read is not a verdict on the reader's plan. It used to
+        // fall through to the locked card, which sold Pro to Pro readers on
+        // any upstream blip; now the card steps aside instead.
+        const json = res.ok ? ((await res.json()) as Payload) : { status: "unavailable" as const };
         if (!cancelled) setData(json);
       } catch {
-        if (!cancelled) setData({ locked: true });
+        if (!cancelled) setData({ status: "unavailable" });
       }
     })();
     return () => {
@@ -238,6 +241,25 @@ export function DailyReportCard({ cityName }: { cityName?: string | null }) {
           from="dashboard-daily-report"
         />
       </>
+    );
+  }
+
+  if (data.status === "unavailable") return null;
+
+  if (data.status === "no_signals") {
+    return (
+      <div className="overflow-hidden rounded border border-rc-rule bg-rc-panel">
+        <div className="px-4 py-4">
+          <span className="text-[15px] font-medium text-rc-ink">
+            {data.city?.name ?? cityName ?? "Your area"} report
+          </span>
+          <p className="mt-2 font-rc-mono text-[12px] text-rc-ink-soft">
+            No fresh reports from anglers around{" "}
+            {data.city?.name ?? cityName ?? "you"} in the last two weeks. The
+            scores still read the water every hour.
+          </p>
+        </div>
+      </div>
     );
   }
 
