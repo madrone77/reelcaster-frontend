@@ -689,7 +689,7 @@ export function TrialBuy({
   buttonClassName,
   inputClassName,
   hideLabel = false,
-  collectEmail = true,
+  collectEmail = false,
   placeholder = 'angler@example.com',
 }: {
   signupHref?: string;
@@ -708,12 +708,16 @@ export function TrialBuy({
    */
   inputClassName?: string;
   /**
-   * Whether a signed-out buyer types an email here before Stripe. Off, the
-   * button goes straight to checkout and Stripe's own form takes the email
-   * with the card, which is how the phone sheet works: one screen fewer, and
-   * the address is typed once. The trial-eligibility pre-check needs the
-   * address, so a surface that turns this off is trusting the webhook's
-   * guards to catch a repeat trial instead.
+   * Whether a signed-out buyer types an email here before Stripe. Off (the
+   * default since 2026-09-25), the button goes straight to checkout and
+   * Stripe's own form takes the email with the card: one screen fewer, and
+   * the address is typed once. Every trial sold before the sheet grew a field
+   * was sold this way. The address the sheet collected used to be prefilled
+   * on Stripe's page, which opens Link's log-in screen over the form for a
+   * Link account holder; from 2026-09-23 no Link buyer completed a session.
+   * The trial-eligibility pre-check needs the address, so with this off the
+   * webhook's guards catch a repeat trial instead, and an abandoned session
+   * has no address for the reminder email.
    */
   collectEmail?: boolean;
   /**
