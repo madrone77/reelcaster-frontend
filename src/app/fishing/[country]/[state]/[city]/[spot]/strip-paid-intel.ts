@@ -7,7 +7,6 @@
 
 import type { SpotPageInitial } from "@/lib/bluecaster/live-spot-types";
 import type { SpotPageForClient } from "./spot-detail-shell";
-import type { CreelAreaReport } from "@/lib/bluecaster/creel-types";
 
 /**
  * The hook a free reader sees: which fish the report is about, and nothing
@@ -15,25 +14,21 @@ import type { CreelAreaReport } from "@/lib/bluecaster/creel-types";
  *
  * It used to be the first 38 characters of the report's own headline, cut at
  * a word: "Salmon and halibut both going at…". That is the fish AND the
- * verdict, which is most of what Pro sells for this spot. Now it is built from
- * the species names alone, so it carries no verdict, no method and no other
- * water. The spot is named by the page itself, so naming it here gives
- * nothing away.
+ * verdict, which is most of what Pro sells for this spot. Now it is the
+ * report's own `teaser`, which BlueCaster writes and scans for exactly that
+ * (no verdict, no method, no other water), and where a report has none, a
+ * line built from the species names alone. The spot is named by the page
+ * itself, so naming it here gives nothing away.
  *
  * Returns null when there is no report, which is what keeps the block absent
  * rather than teasing something that does not exist.
  */
 export function teaserLine(reports: unknown): string | null {
-  const r = reports as { headline?: unknown; species?: Array<{ name?: unknown }> } | null;
+  const r = reports as { headline?: unknown; teaser?: unknown; species?: Array<{ name?: unknown }> } | null;
   if (!r || typeof r.headline !== "string" || !r.headline.trim()) return null;
+  if (typeof r.teaser === "string" && r.teaser.trim()) return r.teaser.trim();
   const fish = speciesList((r.species ?? []).map((s) => s?.name));
   return fish ? `${fish} in the latest reports from this spot` : "The latest reports from this spot";
-}
-
-/** Same rule for the area-wide catch checks: the fish kept, no area, no pace. */
-function creelTeaserLine(report: CreelAreaReport): string {
-  const fish = speciesList(report.kept.map((k) => k.species));
-  return fish ? `${fish} in the latest catch checks nearby` : "The latest catch checks nearby";
 }
 
 /** "Chinook", "Chinook and Coho". Two at most: a longer list starts to read
@@ -61,11 +56,14 @@ export function stripPaidIntel(raw: SpotPageInitial): SpotPageForClient {
   const { catchSignals, intelVerdict, recentReports, creelReport, ...rest } = raw;
   void catchSignals;
   void intelVerdict;
-  // The area-wide catch checks are the same product as the written report:
-  // what is being kept nearby, this fortnight. They take the same gate, so
-  // they are stripped here too and only a teaser survives. On most Washington
-  // water there is no written report at all and this teaser is the band.
-  const teaser = teaserLine(recentReports) ?? (creelReport ? creelTeaserLine(creelReport) : null);
+  void creelReport;
+  // The area-wide catch checks take the same gate, so they are stripped here
+  // too. They no longer earn a teaser of their own: they are the marine
+  // area's numbers, not reports from this spot, so a spot with nothing but
+  // them has no teaser and the shell shows the city report instead (which on
+  // Washington water is written from those same checks). A Pro reader on a
+  // spot that does have a written report still gets the checks with it.
+  const teaser = teaserLine(recentReports);
   return {
     ...rest,
     recentReportsTeaser: teaser,
@@ -73,7 +71,7 @@ export function stripPaidIntel(raw: SpotPageInitial): SpotPageForClient {
     // information (how fresh the news is, not what the news says) and the
     // gated block needs it to say "Updated 2 days ago" before a free reader
     // has anything else.
-    recentReportsUpdatedAt: latestReportDate(recentReports) ?? creelReport?.latestSurveyDate ?? null,
+    recentReportsUpdatedAt: latestReportDate(recentReports),
   };
 }
 

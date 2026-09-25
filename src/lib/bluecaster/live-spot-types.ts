@@ -496,7 +496,11 @@ export interface RecentReportsNearby extends RecentReportsSpecies {
 }
 
 export interface RecentReports {
+  /** Pro content: the verdict. Never shown to a locked reader. */
   headline: string;
+  /** The fish only, for a locked reader. Absent on older summaries, null when
+   *  BlueCaster's scan rejected it. */
+  teaser?: string | null;
   body: string;
   species: RecentReportsSpecies[];
   nearby: RecentReportsNearby[];
