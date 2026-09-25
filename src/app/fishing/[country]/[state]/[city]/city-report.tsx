@@ -76,12 +76,16 @@ export default function CityReport({
   onUpgrade: () => void;
 }) {
   const [data, setData] = useState<ReportPayload | null>(null);
-  const { user } = useAuth();
-  const userId = user?.id ?? null;
+  const { session } = useAuth();
+  const token = session?.access_token ?? null;
 
   useEffect(() => {
     let cancelled = false;
-    fetch(`/api/bluecaster/city-report?city=${encodeURIComponent(citySlug)}`)
+    // The route gates the body on a Bearer token, not a cookie: without this
+    // header every reader, Pro included, is answered as free.
+    fetch(`/api/bluecaster/city-report?city=${encodeURIComponent(citySlug)}`, {
+      headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+    })
       .then((r) => (r.ok ? r.json() : null))
       .then((p: ReportPayload | null) => {
         if (!cancelled) setData(p);
@@ -93,7 +97,7 @@ export default function CityReport({
     // Re-runs on the session: the gate reads the access token, so a pass fired
     // before Supabase rehydrates would leave a Pro reader holding the locked
     // payload.
-  }, [citySlug, userId]);
+  }, [citySlug, token]);
 
   // What to draw. The fetch is the authority once it has answered; before
   // that, the server's headline holds the band open. A fetch that answers
