@@ -98,6 +98,7 @@ import { UnitCountryScope } from "@/contexts/unit-preferences-context";
 import { unitCountryFor } from "@/lib/unit-system";
 import { useMountedOnce } from "@/hooks/use-mounted-once";
 import { useTrialModal } from "@/hooks/use-paywall-modal";
+import LeaveAdFrameWhenSignedIn from "@/components/leave-ad-frame-when-signed-in";
 
 
 // The prompt is small; the dialog behind it loads on the tap, inside it.
@@ -1270,6 +1271,8 @@ export default function SpotDetailShell({
          done with an attribute and a CSS rule rather than a prop. */
       data-ad-frame={ad ? "" : undefined}
     >
+      {/* A signed-in angler is sent to the public spot page at a clean URL. */}
+      {ad ? <LeaveAdFrameWhenSignedIn /> : null}
       {/* The spot page is a long read on a phone, so the bar rolls away as you
           head down it and comes back on the first upward flick. The `pt-16`
           below stays put either way — the bar moves, the document does not. */}
