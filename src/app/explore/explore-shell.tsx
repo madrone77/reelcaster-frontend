@@ -2889,21 +2889,8 @@ export default function ExploreShell({
       {ad &&
         (via === "lpq" ? (
           // A quiz reader: the card is written from their answers and their
-          // spot (src/lib/quiz-handoff.ts), and "See the full report" opens
-          // that spot the way a tap on its dot would.
-          <QuizIntroCard
-            wall={ad.wall}
-            cityName={labelCity?.name ?? undefined}
-            onReport={(slug) => {
-              // The report page itself, on every device: the card promised
-              // the best times, and those are on the report. It spends one
-              // of the wall's opens, the same as FULL REPORT on the card.
-              if (tapWall) takeAdSpotOpen(tapWall);
-              trackEvent("Ad Frame Spot Opened", { slug, ad_wall: tapWall ?? ad.wall, via: "quiz" });
-              const known = viewportSpots.find((s) => s.slug === slug);
-              router.push(withAdParams(spotHref({ slug, path: known?.path ?? null }), ad));
-            }}
-          />
+          // spot (src/lib/quiz-handoff.ts); its one button dismisses it.
+          <QuizIntroCard wall={ad.wall} cityName={labelCity?.name ?? undefined} />
         ) : ad.wall === "day2" ? (
           <AdIntroCard wall={ad.wall} cityName={labelCity?.name ?? undefined} />
         ) : null)}

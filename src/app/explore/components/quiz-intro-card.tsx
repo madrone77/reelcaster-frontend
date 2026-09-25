@@ -13,8 +13,7 @@ import AdIntroCard from "./ad-intro-card";
  * They answered six questions and were shown one spot; then "Show me on the
  * map" put them on a live map of forty dots. This says, in their own terms:
  * where the map put them and why (the evidence that picked the spot), what
- * today looks like there (score and best window), what the map is, and what
- * to press next (the full report, which is where the best times are).
+ * today looks like there (score and best window), and what the map is.
  *
  * Written from the handoff the quiz left in sessionStorage
  * (src/lib/quiz-handoff.ts). A `via=lpq` arrival with no handoff (a link
@@ -62,12 +61,9 @@ function mapLine(h: QuizHandoff): string {
 export default function QuizIntroCard({
   wall,
   cityName,
-  onReport,
 }: {
   wall: AdWall;
   cityName?: string;
-  /** Open the reader's spot in full. Called with its slug. */
-  onReport: (slug: string) => void;
 }) {
   // Decided in an effect: storage is per browser and must not reach SSR.
   const [handoff, setHandoff] = useState<QuizHandoff | null | undefined>(undefined);
@@ -87,7 +83,7 @@ export default function QuizIntroCard({
   }, []);
 
   const dismiss = useCallback(
-    (via: "button" | "outside" | "esc" | "report") => {
+    (via: "button" | "outside" | "esc") => {
       if (!handoff) return;
       trackEvent("Quiz Intro Dismissed", {
         city: handoff.citySlug,
@@ -143,23 +139,12 @@ export default function QuizIntroCard({
         <p className="mt-1.5 text-[14.5px] leading-relaxed text-rc-ink-soft">{mapLine(h)}</p>
         <button
           type="button"
-          onClick={() => {
-            dismiss("report");
-            onReport(h.spot.slug);
-          }}
+          onClick={() => dismiss("button")}
           autoFocus
-          data-testid="quiz-intro-report"
+          data-testid="quiz-intro-dismiss"
           className="mt-4 flex w-full items-center justify-center rounded-xl bg-rc-brand px-4 py-2.5 text-[15px] font-semibold text-white transition-colors hover:bg-rc-brand-hover"
         >
-          See the full report
-        </button>
-        <button
-          type="button"
-          onClick={() => dismiss("button")}
-          data-testid="quiz-intro-dismiss"
-          className="mt-2 flex w-full items-center justify-center rounded-xl px-4 py-2 text-[14px] font-medium text-rc-ink-mute hover:text-rc-ink"
-        >
-          Look around first
+          Start exploring
         </button>
       </div>
     </div>
