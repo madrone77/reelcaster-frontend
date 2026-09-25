@@ -2895,11 +2895,13 @@ export default function ExploreShell({
             wall={ad.wall}
             cityName={labelCity?.name ?? undefined}
             onReport={(slug) => {
-              if (typeof window !== "undefined" && !window.matchMedia("(min-width:1024px)").matches) {
-                setSheetSpot(slug);
-                return;
-              }
-              router.push(withAdParams(spotHref({ slug }), ad));
+              // The report page itself, on every device: the card promised
+              // the best times, and those are on the report. It spends one
+              // of the wall's opens, the same as FULL REPORT on the card.
+              if (tapWall) takeAdSpotOpen(tapWall);
+              trackEvent("Ad Frame Spot Opened", { slug, ad_wall: tapWall ?? ad.wall, via: "quiz" });
+              const known = viewportSpots.find((s) => s.slug === slug);
+              router.push(withAdParams(spotHref({ slug, path: known?.path ?? null }), ad));
             }}
           />
         ) : (
