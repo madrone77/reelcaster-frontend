@@ -115,7 +115,8 @@ export function wantsShore(a: Pick<QuizAnswers, "access">): boolean {
 }
 
 /**
- * The questions, in order. Species options come from the city's own roster,
+ * The questions, in order. Experience leads (Casey, 2026-09-24): the easiest
+ * question to answer, and it frames the rest as being about the reader. Species options come from the city's own roster,
  * so they are passed in rather than listed here.
  */
 export function buildQuestions(
@@ -123,6 +124,15 @@ export function buildQuestions(
   species: Array<{ slug: string; name: string }>,
 ): QuizQuestion[] {
   return [
+    {
+      id: "experience",
+      title: `How long have you fished around ${cityName}?`,
+      options: [
+        { value: "new", label: "I'm new to it" },
+        { value: "seasons", label: "A few seasons" },
+        { value: "lifelong", label: "Most of my life" },
+      ],
+    },
     {
       id: "access",
       title: `How do you fish around ${cityName}?`,
@@ -159,15 +169,6 @@ export function buildQuestions(
         { value: "regs", label: "Not sure what's open", hint: "Seasons, limits, closures" },
         { value: "conditions", label: "Wind, tide and current", hint: "Getting blown off the water" },
         { value: "where", label: "Not knowing where to go", hint: "Too much water, no plan" },
-      ],
-    },
-    {
-      id: "experience",
-      title: `How long have you fished around ${cityName}?`,
-      options: [
-        { value: "new", label: "I'm new to it" },
-        { value: "seasons", label: "A few seasons" },
-        { value: "lifelong", label: "Most of my life" },
       ],
     },
     {
