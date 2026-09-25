@@ -449,6 +449,13 @@ export interface MapSpotEntry {
   scores: Record<string, MapSpeciesStrip>;
   conditions: MapCondStrip | null;
   /**
+   * Set when this entry came from the slim `shape=pins` body (expanded in
+   * src/lib/map-pins.ts): `conditions` then holds only the hours a pin or rail
+   * card reads, not all 24. A surface that scrubs every hour reads the spot
+   * again by id. Absent on the full body.
+   */
+  conditions_partial?: boolean;
+  /**
    * How well fished the mark is over the trailing YEAR: `"popular"` (roughly
    * one report a month or better), `"known"`, or `"sparse"`. Absent means no
    * catch report resolved to it in that year at all.
@@ -546,6 +553,11 @@ export async function fetchMapSpots(opts: {
   spotIds?: string[];
   /** Verified viewer — adds that angler's own custom spots to the payload. */
   viewerId?: string;
+  /**
+   * "pins" asks for the slim map body (see src/lib/map-pins.ts). The caller
+   * gets it back as-is and expands it where it lands.
+   */
+  shape?: "pins";
 }): Promise<MapSpotsPayload | null> {
   return bcGet<MapSpotsPayload>(
     "/api/v1/map/spots",
@@ -560,6 +572,7 @@ export async function fetchMapSpots(opts: {
       // same bbox — the origin never runs. Identity stays in the header; this
       // is just a flag, so no user id ever lands in a URL or an access log.
       viewer: opts.viewerId ? "1" : undefined,
+      shape: opts.shape,
     },
     300,
     opts.viewerId,

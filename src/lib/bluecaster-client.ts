@@ -10,6 +10,7 @@
 // in this codebase). No `NEXT_PUBLIC_BLUECASTER_*` env var needed.
 
 import { supabase } from "./supabase";
+import { inflateMapSpotsBody } from "./map-pins";
 import type { FreshCatchesResponse } from "@/app/explore/lib/fresh-catch-types";
 import type {
   StationConditions,
@@ -352,13 +353,13 @@ export async function fetchMapSpotsCached(
   date: string,
 ): Promise<MapSpotsPayload | null> {
   const res = await fetch(
-    `/api/bluecaster/map/spots?bbox=${encodeURIComponent(bbox)}&date=${encodeURIComponent(date)}`,
+    `/api/bluecaster/map/spots?bbox=${encodeURIComponent(bbox)}&date=${encodeURIComponent(date)}&shape=pins`,
     // The rail and the pins can fill in a moment late; the forecast strip
     // cannot, and this is the request it would otherwise be stuck behind.
     { priority: "low" },
   );
   if (!res.ok) return null;
-  return (await res.json().catch(() => null)) as MapSpotsPayload | null;
+  return inflateMapSpotsBody(await res.json().catch(() => null));
 }
 
 /**
@@ -377,11 +378,11 @@ export async function fetchMapSpotsScored(
   accessToken: string,
 ): Promise<MapSpotsPayload | null> {
   const res = await fetch(
-    `/api/bluecaster/map/spots?bbox=${encodeURIComponent(bbox)}&date=${encodeURIComponent(date)}&own=0`,
+    `/api/bluecaster/map/spots?bbox=${encodeURIComponent(bbox)}&date=${encodeURIComponent(date)}&own=0&shape=pins`,
     { headers: { Authorization: `Bearer ${accessToken}` }, cache: "no-store" },
   );
   if (!res.ok) return null;
-  return (await res.json().catch(() => null)) as MapSpotsPayload | null;
+  return inflateMapSpotsBody(await res.json().catch(() => null));
 }
 
 /**
@@ -424,7 +425,7 @@ export async function fetchMapSpotsAsViewer(
   const token = data.session?.access_token;
   if (!token) return null;
   const res = await fetch(
-    `/api/bluecaster/map/spots?bbox=${encodeURIComponent(bbox)}&date=${encodeURIComponent(date)}`,
+    `/api/bluecaster/map/spots?bbox=${encodeURIComponent(bbox)}&date=${encodeURIComponent(date)}&shape=pins`,
     {
       headers: { Authorization: `Bearer ${token}` },
       cache: "no-store",
@@ -432,7 +433,7 @@ export async function fetchMapSpotsAsViewer(
     },
   );
   if (!res.ok) return null;
-  return (await res.json().catch(() => null)) as MapSpotsPayload | null;
+  return inflateMapSpotsBody(await res.json().catch(() => null));
 }
 
 /**

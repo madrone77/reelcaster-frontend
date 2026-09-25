@@ -27,6 +27,7 @@ import {
   type RailSpot,
 } from "../lib/explore-data";
 import HourlyBars from "./hourly-bars";
+import { useFullCondStrip } from "../lib/use-full-cond-strip";
 import { useUnitPreferences } from "@/contexts/unit-preferences-context";
 import { CA_EXPLORE_RAIL_UNITS, formatSpotDistance } from "@/lib/unit-system";
 import { formatHour12 } from "@/lib/time-format";
@@ -142,8 +143,11 @@ export default function SpotDrawer({
     activeHour !== null ? spot.hours24[activeHour] : null;
   const score = activeScore ?? restScore ?? spot.score;
   const displayHour = activeHour;
+  // The map's slim body carries only a few hours of conditions; the drawer
+  // scrubs all 24, so it reads this spot's whole strip on open.
+  const condStrip = useFullCondStrip(spot, date);
   const displayCell =
-    displayHour !== null ? spot.condStrip?.[displayHour] : null;
+    displayHour !== null ? condStrip?.[displayHour] : null;
   const conditions = displayCell
     ? formatConditions(displayCell, { tideUnit, tempUnit })
     : spot.conditions;
