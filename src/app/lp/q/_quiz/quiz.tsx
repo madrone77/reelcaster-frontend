@@ -18,6 +18,7 @@ import {
 } from "./persona";
 import type { QuizData } from "./quiz-data";
 import QuizTrialForm from "./quiz-trial-form";
+import QuizSpotCard from "./quiz-spot-card";
 
 /**
  * The quiz landing page: six taps, a short "building your plan" beat, then a
@@ -29,9 +30,12 @@ import QuizTrialForm from "./quiz-trial-form";
  * ad's query string (utm_*, fbclid) stays in the address bar the whole way
  * for the attribution code that reads it.
  *
- * The result recommends no spot (Casey, 2026-09-24). It is the reader's plan:
- * their answers read back, what Pro does for their kind of fishing, and one
- * email field that goes straight to Stripe (./quiz-trial-form.tsx).
+ * The result is the reader's plan: their answers read back, their fish, the
+ * water it is actually being caught on right now with today's score and the
+ * locked fortnight (./quiz-spot-card.tsx, picked by ./evidence.ts from real
+ * reports and dockside checks, never from score alone when catches exist),
+ * what Pro does for their kind of fishing, and one email field that goes
+ * straight to Stripe (./quiz-trial-form.tsx).
  *
  * Counted three ways. The campaign counter gets a hit under `lpq` and the
  * trial submit with the persona in its angle column (`q:<persona>`), so
@@ -344,6 +348,14 @@ function ResultScreen(props: {
   });
   const quote = proofQuoteFor(data.provinceCode);
   const emailRef = useRef<HTMLInputElement>(null);
+
+  // "Whatever's biting" is the fish with the most evidence, which is the
+  // first on the list. A shore reader whose fish is a boat fish here is shown
+  // where the boats are catching it, and told so.
+  const fish = (answers.species === "any" ? data.species[0] : data.species.find((x) => x.slug === answers.species)) ?? null;
+  const shore = wantsShore(answers);
+  const pick = fish ? (shore ? fish.shore ?? fish.boat : fish.boat ?? fish.shore) : null;
+  const boatInstead = !!(fish && shore && !fish.shore && fish.boat);
   // Every plan gets the horizon; the Die-Hard's own list already says it.
   const benefits =
     persona === "hardcore"
@@ -367,6 +379,17 @@ function ResultScreen(props: {
       <p className="mt-5 rounded-2xl bg-rc-band px-4 py-3 text-[15px] leading-snug text-rc-ink-soft">
         {recapLine(answers, picked ?? "fish")}
       </p>
+
+      {fish && pick ? (
+        <QuizSpotCard
+          pick={pick}
+          speciesSlug={fish.slug}
+          speciesName={fish.name}
+          cityName={data.cityName}
+          isUS={data.isUS}
+          boatInstead={boatInstead}
+        />
+      ) : null}
 
       <section className="mt-6 rounded-2xl border border-rc-rule bg-rc-panel p-5 shadow-sm">
         <p className="text-xs font-semibold uppercase tracking-wider text-rc-ink-mute">Your plan includes</p>
