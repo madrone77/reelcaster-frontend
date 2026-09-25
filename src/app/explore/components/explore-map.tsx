@@ -5,6 +5,7 @@ import { DESKTOP_STRIP_H } from "../lib/forecast-strip";
 import Map, {
   Source,
   Layer,
+  Marker,
   NavigationControl,
   AttributionControl,
   type MapRef,
@@ -126,6 +127,7 @@ export default function ExploreMap({
   summary = false,
   showReports = false,
   onBearingChange,
+  lockNote = null,
 }: {
   mapRef: RefObject<MapRef | null>;
   /** Fired on every rotate with the new bearing, for the phone's compass. */
@@ -167,6 +169,11 @@ export default function ExploreMap({
    * by omission.
    */
   showReports?: boolean;
+  /**
+   * The ad treatment's note over a padlocked pin (2026-09-24): "Pro required
+   * to see score", Pro a link that opens the wall. Null draws nothing.
+   */
+  lockNote?: { lat: number; lng: number; onPro: () => void; onDismiss: () => void } | null;
 }) {
   const [cursor, setCursor] = useState<string>("");
   const [mapObj, setMapObj] = useState<MlMap | null>(null);
@@ -509,7 +516,11 @@ export default function ExploreMap({
         return;
       }
       const f = e.features?.[0];
-      if (!f) return;
+      if (!f) {
+        // A tap on open water puts the padlock note away.
+        lockNote?.onDismiss();
+        return;
+      }
       if (f.layer.id === SPOT_PUCK) {
         const slug = f.properties?.slug;
         if (slug) onSelect(slug as string);
@@ -537,7 +548,7 @@ export default function ExploreMap({
         });
       }
     },
-    [onSelect, onSelectStation, pinDropMode, onMapPick],
+    [onSelect, onSelectStation, pinDropMode, onMapPick, lockNote],
   );
 
   // Hover: pointer cursor only. The puck no longer thickens on hover — its
@@ -603,6 +614,40 @@ export default function ExploreMap({
         <Source id={SOURCE_ID} type="geojson" data={data}>
           <Layer {...spotPuckLayer} />
         </Source>
+
+        {lockNote && (
+          // Anchored at the pin's tip and lifted clear of the puck (~32px
+          // tall with its tail), so the note sits above the padlock it
+          // explains rather than over it.
+          <Marker
+            longitude={lockNote.lng}
+            latitude={lockNote.lat}
+            anchor="bottom"
+            offset={[0, -40]}
+          >
+            <div
+              role="status"
+              data-testid="lock-note"
+              className="relative whitespace-nowrap rounded-lg bg-white px-3 py-2 text-[13px] leading-4 font-medium text-rc-ink shadow-rc-panel"
+            >
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  lockNote.onPro();
+                }}
+                className="font-bold text-rc-brand underline underline-offset-2"
+              >
+                Pro
+              </button>{" "}
+              required to see score
+              <span
+                aria-hidden
+                className="absolute left-1/2 top-full -ml-1.5 size-0 border-x-[6px] border-t-[6px] border-x-transparent border-t-white"
+              />
+            </div>
+          </Marker>
+        )}
       </Map>
     </div>
   );

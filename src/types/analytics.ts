@@ -274,6 +274,7 @@ export type AnalyticsEventName =
   | 'Ad Frame Spot Blocked'
   | 'Ad Frame Spot Opened'
   | 'Locked Spot Pressed'
+  | 'Locked Spot Noted'
   | 'Ad Intro Shown'
   | 'Ad Intro Dismissed'
   | 'Spot Ad Intro Trial Clicked'
