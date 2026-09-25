@@ -5,6 +5,7 @@ import { useState } from "react";
 import { Wind, Waves, Navigation, Lock, Globe } from "lucide-react";
 import { TIER_PILL, tierFor, type RailSpot } from "../lib/explore-data";
 import { areaLabelFor } from "@/lib/regions";
+import { shoreTypeLabel } from "@/lib/spot-access";
 import { useFavorite } from "../lib/use-favorite";
 import { useSubscription } from "@/hooks/use-subscription";
 import SpotTrend from "./spot-trend";
@@ -237,6 +238,14 @@ export default function SpotCard({
           {/* 2 · conclusion, and where the rules that govern it are set */}
           <div className="font-rc-mono text-[12px] text-rc-ink-soft mt-0.5 truncate">
             {conclusion}
+            {/* Shore spots say what you stand on, before the area: a boat
+                angler scanning the list can skip them, a shore angler finds
+                them. */}
+            {spot.access === "shore" && (
+              <span className="ml-1.5 pl-1.5 border-l border-rc-rule text-rc-ink">
+                {shoreTypeLabel(spot.shoreType) ?? "Shore"}
+              </span>
+            )}
             {area && (
               <span className="ml-1.5 pl-1.5 border-l border-rc-rule text-rc-ink-mute">
                 {area}
