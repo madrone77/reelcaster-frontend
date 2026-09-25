@@ -21,6 +21,7 @@ import {
 } from "./persona";
 import type { QuizData, QuizPick } from "./quiz-data";
 import QuizTrialForm from "./quiz-trial-form";
+import { quizExploreHref, rememberQuizHandoff } from "@/lib/quiz-handoff";
 import QuizSpotCard from "./quiz-spot-card";
 import QuizShowcase from "./quiz-showcase";
 import { quizId, recordAnswer, recordComplete, resetQuizId } from "./quiz-track";
@@ -463,6 +464,40 @@ function ResultScreen(props: {
           isUS={data.isUS}
           boatInstead={boatInstead}
         />
+      ) : null}
+
+      {fish && pick ? (
+        // The map, opened on their spot, with a card that says why (see
+        // src/lib/quiz-handoff.ts and explore/components/quiz-intro-card).
+        <a
+          href={quizExploreHref(data.citySlug, pick.slug)}
+          onClick={() => {
+            rememberQuizHandoff({
+              citySlug: data.citySlug,
+              cityName: data.cityName,
+              persona,
+              access: answers.access,
+              species: fish.name,
+              boatInstead,
+              spot: {
+                slug: pick.slug,
+                name: pick.name,
+                access: pick.access,
+                score: pick.score,
+                bestFrom: pick.bestFrom,
+                bestTo: pick.bestTo,
+                source: pick.source,
+                areaLabel: pick.areaLabel,
+                distanceKm: pick.distanceKm,
+              },
+            });
+            trackEvent("Quiz Map Clicked", { landing: "lpq", city: data.citySlug, persona, spot: pick.slug });
+          }}
+          className="mt-4 flex min-h-[52px] items-center justify-center rounded-2xl border-2 border-rc-brand bg-rc-panel px-6 text-[16px] font-bold text-rc-brand hover:bg-rc-brand-soft"
+          data-testid="quiz-map-cta"
+        >
+          Show me {pick.name} on the map
+        </a>
       ) : null}
 
       {fish && pick ? (

@@ -359,6 +359,9 @@ export type AnalyticsEventName =
   | 'Quiz Answered'
   | 'Quiz Completed'
   | 'Quiz CTA Clicked'
+  | 'Quiz Map Clicked'
+  | 'Quiz Intro Shown'
+  | 'Quiz Intro Dismissed'
   // City and home pages
   | 'City Day Chosen'
   | 'City Species Chosen'

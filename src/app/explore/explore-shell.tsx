@@ -47,6 +47,7 @@ import {
 } from "@/lib/preview-gate";
 import DepthGatePrompt from "./components/depth-gate-prompt";
 import AdIntroCard from "./components/ad-intro-card";
+import QuizIntroCard from "./components/quiz-intro-card";
 import ExploreWall from "./components/explore-wall";
 import {
   fetchFreshCatches,
@@ -2885,9 +2886,25 @@ export default function ExploreShell({
           way the bar's CTA does. It was arm b of `ad_intro_v1` from
           2026-09-07 until the split settled it (2026-09-09: the card), and
           every day2 visitor gets it now with no arm read. */}
-      {ad?.wall === "day2" && (
-        <AdIntroCard wall={ad.wall} cityName={labelCity?.name ?? undefined} />
-      )}
+      {ad?.wall === "day2" &&
+        (via === "lpq" ? (
+          // A quiz reader: the card is written from their answers and their
+          // spot (src/lib/quiz-handoff.ts), and "See the full report" opens
+          // that spot the way a tap on its dot would.
+          <QuizIntroCard
+            wall={ad.wall}
+            cityName={labelCity?.name ?? undefined}
+            onReport={(slug) => {
+              if (typeof window !== "undefined" && !window.matchMedia("(min-width:1024px)").matches) {
+                setSheetSpot(slug);
+                return;
+              }
+              router.push(withAdParams(spotHref({ slug }), ad));
+            }}
+          />
+        ) : (
+          <AdIntroCard wall={ad.wall} cityName={labelCity?.name ?? undefined} />
+        ))}
 
       {/* Says what just happened, once. Without it the relief simply vanishing
           reads as the map failing rather than as the answer they gave. */}
