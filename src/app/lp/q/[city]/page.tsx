@@ -11,8 +11,7 @@ import { loadQuizData } from "../_quiz/quiz-data";
  * `/lp/q/<city>` -- the quiz landing page.
  *
  * Six taps, then a result page written for the persona the answers add up
- * to, with the reader's best spot today and a button onto the map at that
- * spot. The logic is in ../_quiz/persona.ts, the data in ../_quiz/quiz-data.ts
+ * to, ending in the 7-day Pro trial. The logic is in ../_quiz/persona.ts, the data in ../_quiz/quiz-data.ts
  * and the screens in ../_quiz/quiz.tsx.
  *
  * Takes the full slug (`seattle-wa`) or the bare city (`seattle`), since the
@@ -35,7 +34,7 @@ export const revalidate = 900;
 
 export const metadata: Metadata = {
   title: "Your Fishing Plan",
-  description: "Six quick questions, then the best spot for how you fish, scored for today.",
+  description: "Six quick questions, then a fishing plan built for how you fish.",
 };
 
 async function fullSlugFor(bare: string): Promise<string | null> {
