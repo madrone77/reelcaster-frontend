@@ -4,7 +4,6 @@ import { fetchHierarchy } from "@/lib/bluecaster";
 import { COVERED_PROVINCES } from "@/lib/regions";
 import { getFishingProvinceByCode } from "@/app/fishing/lib/fishing-data";
 import Quiz from "../_quiz/quiz";
-import CityHop from "../_quiz/city-hop";
 import { loadQuizData } from "../_quiz/quiz-data";
 
 /**
@@ -15,10 +14,8 @@ import { loadQuizData } from "../_quiz/quiz-data";
  * and the screens in ../_quiz/quiz.tsx.
  *
  * Takes the full slug (`seattle-wa`) or the bare city (`seattle`), since the
- * short form is what someone types into an ad manager. A bare name that
- * matches exactly one covered city redirects to the full slug, so each city
- * has one URL and one row in the counter. The hop is client-side so the
- * query string survives it (see ../_quiz/city-hop.tsx).
+ * short form is what goes in the ads. A bare name that matches exactly one
+ * covered city renders that city's quiz directly, with no redirect.
  *
  * Never hopped to Explore for Meta traffic (src/lib/meta-lp-hop.ts): the quiz
  * IS the Meta experiment.
@@ -55,12 +52,17 @@ export default async function LpQuizPage({ params }: PageProps) {
   const slug = raw.trim().toLowerCase();
   if (!/^[a-z0-9]+(-[a-z0-9]+)*$/.test(slug)) notFound();
 
-  const data = await loadQuizData(slug);
+  // The bare city (`seattle`) is the URL the ads carry, so it renders the
+  // quiz itself rather than hopping to `seattle-wa`: a redirect is a second
+  // page load on the one click we paid for. The counter and checkout read
+  // `data.citySlug`, which is always the full slug, so both URLs count as one
+  // city.
+  let data = await loadQuizData(slug);
   if (!data) {
     const full = await fullSlugFor(slug);
-    if (full && full !== slug) return <CityHop to={`/lp/q/${full}`} />;
-    notFound();
+    if (full && full !== slug) data = await loadQuizData(full);
   }
+  if (!data) notFound();
 
   return <Quiz data={data} />;
 }
