@@ -137,21 +137,30 @@ jobs:
             fi
           } >> "$GITHUB_STEP_SUMMARY"
 
-  # Render every public landing page once, right after the purge, so the first
-  # reader of each does not have to.
+  # Render the city pages and their ad frames once, right after the purge, so
+  # the first reader of each does not have to.
   #
-  # A deploy starts the new build with no cached spot pages at all (they are
-  # not prerendered, see the spot page's generateStaticParams), and the purge
-  # above empties the Data Cache under the city pages as well. Measured on prod
-  # the morning of 2026-09-23, minutes after a deploy: a spot page's first
-  # request took 15.4 s, city pages 2.4 to 7.2 s, and each one's second request
-  # 0.1 to 0.4 s. Every deploy handed that to the first visitor of every page,
-  # and on an ad that visitor is a paid click.
+  # A deploy starts the new build with no cached pages, and the purge above
+  # empties the Data Cache under the city pages as well. Measured on prod the
+  # morning of 2026-09-23, minutes after a deploy: city pages took 2.4 to
+  # 7.2 s on their first request and 0.1 to 0.4 s on their second. Every
+  # deploy handed that to the first visitor of every city page, and on an ad
+  # that visitor is a paid click.
   #
   # Cities and their /lp/7 frames go through the app's own warm route (the one
-  # the midnight cron uses), then every /fishing URL in the sitemap, shallowest
-  # first, four at a time. The user agent says `monitor`, which the app's bot
-  # filter drops, so none of it reaches the page-view counts.
+  # the midnight cron uses). The user agent says `monitor`, which the app's
+  # bot filter drops, so none of it reaches the page-view counts.
+  #
+  # Spot pages are deliberately NOT warmed. From 2026-09-23 to 2026-09-25 this
+  # job also walked every /fishing URL in the sitemap, four at a time: ~1,500
+  # spot pages per production deploy, each a cold render of ~39 serial reads
+  # against BlueCaster's Postgres. With 10 to 25 deploys a day that walk ran
+  # for hours at 100 to 240 spot renders a minute and crashed the production
+  # database six times on 2026-09-25 alone (checkpoint stalls, then the
+  # instance died). A spot page renders on demand and caches only briefly, so
+  # the warm bought a few minutes of speed on pages almost nobody opens. The
+  # six spot pages that ads point at are walked by BlueCaster's paid-flow
+  # Sentinel every ten minutes anyway.
   warm:
     needs: purge
     if: needs.purge.outputs.production == 'true'
@@ -168,18 +177,3 @@ jobs:
             "$APP_URL/api/cron/warm-city-pages" || echo "::warning::city warm failed"
           echo
 
-      - name: Warm every /fishing page in the sitemap
-        run: |
-          curl -sS --max-time 60 https://www.reelcaster.com/sitemap.xml \
-            | grep -o '<loc>[^<]*/fishing/[^<]*</loc>' \
-            | sed -E 's#</?loc>##g' \
-            | awk -F/ '{ print NF "\t" $0 }' | sort -n -s -k1,1 | cut -f2 \
-            > urls.txt
-          echo "Warming $(wc -l < urls.txt) pages"
-          START=$(date +%s)
-          xargs -P 4 -I{} curl -s -o /dev/null --max-time 60 \
-            -A 'ReelCaster-Warm/1.0 (monitor)' \
-            -w '%{http_code} %{time_starttransfer}\n' {} < urls.txt > results.txt || true
-          echo "Done in $(( $(date +%s) - START ))s"
-          echo "Status codes:"; cut -d' ' -f1 results.txt | sort | uniq -c
-          echo "Slowest first bytes (s):"; cut -d' ' -f2 results.txt | sort -rn | head -5
