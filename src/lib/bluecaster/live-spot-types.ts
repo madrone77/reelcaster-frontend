@@ -23,6 +23,9 @@ export type LiveSpot = {
   /** "boat" or "shore". Optional until every cached payload carries it; read
    *  it through `spotAccessOf` in lib/spot-access.ts. */
   access?: "boat" | "shore";
+  /** Shore spots: how anglers most often fish it ("float fishing with cut
+   *  herring off the rocks"). Absent on boat spots and older payloads. */
+  shoreTechnique?: string | null;
   depthMinM: number | null;
   depthMaxM: number | null;
   depthMeanM: number | null;

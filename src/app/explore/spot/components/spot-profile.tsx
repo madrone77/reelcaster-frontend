@@ -3,6 +3,7 @@
 import type { LiveSpot } from "@/lib/bluecaster/live-spot-types";
 import { useUnitPreferences } from "@/contexts/unit-preferences-context";
 import { convertDepth, DEPTH_LABELS } from "@/app/utils/unit-conversions";
+import { shoreTypeLabel, spotAccessOf } from "@/lib/spot-access";
 
 function titleCase(v: string | null): string | null {
   if (!v) return null;
@@ -34,8 +35,46 @@ function ProfileCell({
   );
 }
 
-/** Static spot profile panel: depth and structure. */
+/**
+ * A shore angler's profile: what they stand on, how to get there, and how
+ * people fish it. Depth and seabed describe a boat mark and are unknown here.
+ */
+function ShoreProfile({ spot }: { spot: LiveSpot }) {
+  const kind = shoreTypeLabel(spot.spotType) ?? "Shore";
+  return (
+    <div>
+      <div className="rc-label text-[9px] mb-3">SHORE PROFILE</div>
+      <div className="grid grid-cols-2 gap-3">
+        <ProfileCell label="FISHED FROM" value={kind} />
+        <ProfileCell label="ACCESS" value="On foot" sub="No boat needed" />
+      </div>
+      {(spot.notes || spot.shoreTechnique) && (
+        <dl className="mt-3 grid gap-3">
+          {spot.notes && (
+            <div className="rounded border border-rc-rule bg-rc-surface p-3">
+              <dt className="rc-label text-[9px]">GETTING THERE</dt>
+              <dd className="text-sm text-rc-ink mt-1 leading-relaxed">{spot.notes}</dd>
+            </div>
+          )}
+          {spot.shoreTechnique && (
+            <div className="rounded border border-rc-rule bg-rc-surface p-3">
+              <dt className="rc-label text-[9px]">HOW IT&apos;S FISHED</dt>
+              <dd className="text-sm text-rc-ink mt-1 leading-relaxed">{spot.shoreTechnique}</dd>
+            </div>
+          )}
+        </dl>
+      )}
+    </div>
+  );
+}
+
+/** Static spot profile panel: depth and structure, or the shore version. */
 export default function SpotProfile({ spot }: { spot: LiveSpot }) {
+  if (spotAccessOf(spot.access, spot.spotType) === "shore") return <ShoreProfile spot={spot} />;
+  return <BoatProfile spot={spot} />;
+}
+
+function BoatProfile({ spot }: { spot: LiveSpot }) {
   const { depthUnit } = useUnitPreferences();
   const depthLbl = DEPTH_LABELS[depthUnit];
   const depthVal = (m: number) => Math.round(convertDepth(m, "m", depthUnit));
