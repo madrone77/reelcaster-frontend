@@ -41,7 +41,7 @@ export const PRO_ROWS_HEADING = 'What you get with Pro';
  * rows are written as what happens rather than what it is called, and the
  * smart-catch-logging row is gone — it is the one row that describes work the
  * reader does rather than something they get. Five rows and the timeline fit
- * the footer without scrolling on a 390x844 phone; six did not.
+ * without scrolling on a 390x844 phone; six did not.
  */
 function sheetRows(city: string | null): readonly string[] {
   return [
@@ -126,13 +126,13 @@ const BUTTON =
  *   concluded 2026-09-22), the chosen one filled brand blue with the Save
  *   badge as the gold tab the best day wears.
  * - Five rows rather than six (see `sheetRows`).
- * - A footer pinned to the bottom of the screen holding the three-step
- *   timeline (today, the reminder email, the first charge), the email field
- *   and the button. The button never scrolls away, and on a trial year the
- *   timeline is the disclosure: it names the charge date and the amount above
- *   the tap, with Terms and Privacy under it. Monthly, or a year with no
- *   trial, has no week to draw, so the one-line charge sentence takes its
- *   place (./charge-terms, which carries the same two links).
+ * - On a trial year, the three-step timeline (today, the reminder email, the
+ *   first charge) under the rows. It sat in the pinned footer until
+ *   2026-09-24 and moved into the scrolling body (see `TrialSteps`).
+ * - A footer pinned to the bottom of the screen holding the email field, the
+ *   button and the one-line charge sentence (./charge-terms: the date, the
+ *   amount, Terms and Privacy). The button never scrolls away, and neither
+ *   does the disclosure.
  *
  * The email field left on 2026-09-06 (Stripe asks for the address with the
  * card) and came back on 2026-09-07: without it, taps through to Stripe
@@ -204,7 +204,8 @@ export default function TrialSheetStripe({
 
         {/* The offer, set the way Stripe Checkout sets it on the page after
             this one: what it is in grey, what it costs today in large type,
-            centred, as there. When it charges is in the footer's timeline. */}
+            centred, as there. When it charges is in the timeline under the
+            rows, and in the one line under the button. */}
         <OfferHeadline priceAmount={priceAmount} />
 
         {/* Yearly beside Monthly, under the title and over the rows, so the
@@ -239,14 +240,19 @@ export default function TrialSheetStripe({
             </li>
           ))}
         </ul>
+
+        {/* Today, the reminder, the first charge: in the body since
+            2026-09-24, so it scrolls with the rows instead of riding the
+            keyboard up in the pinned footer. A wall that hands in its own
+            href never drew it, and still does not. */}
+        {!ctaHref && <TrialSteps />}
         {picker && <div aria-hidden className="flex-1 basis-0" />}
       </div>
 
       {/* Bottom padding is the safe-area inset less 1.5rem, floored at
           0.75rem (2026-09-24): the full inset left ~40pt of white between
-          Terms · Privacy and Safari's floating toolbar, and on a trial year
-          (the timeline is ~66px taller than the monthly line) that white
-          pushed the Pro rows up under the footer. */}
+          Terms · Privacy and Safari's floating toolbar, which pushed the Pro
+          rows up under the footer. */}
       <div className="flex shrink-0 flex-col gap-2 border-t border-rc-rule-soft bg-rc-panel px-4 pt-3 pb-[max(0.75rem,calc(env(safe-area-inset-bottom,0px)_-_1.5rem))] shadow-[0_-4px_12px_rgba(20,22,31,0.06)]">
         {ctaHref ? (
           <>
@@ -264,10 +270,12 @@ export default function TrialSheetStripe({
           </>
         ) : (
           <>
-            {/* What happens and when, over the button rather than under it:
-                the reader reads the charge date with the thumb already on the
-                control that produces it. */}
-            <Timeline priceAmount={priceAmount} />
+            {/* The charge date and amount stay pinned at the button on every
+                plan (one line, Terms and Privacy closing it): the timeline
+                above can scroll out of view, the disclosure cannot. */}
+            <DialogDescription asChild>
+              <ChargeTerms priceAmount={priceAmount} className="order-last text-center" />
+            </DialogDescription>
             {/* No wallet row and no "or pay by card" divider above the
                 button: one field and one button, the way Stripe's page
                 opens. */}
@@ -293,24 +301,19 @@ function shortDate(daysAhead: number): string {
 }
 
 /**
- * Today, the reminder, the first charge. Only while the year is on a trial;
- * otherwise ./charge-terms' one-line sentence, since there is no week to draw.
+ * Today, the reminder, the first charge, as three steps in the sheet's body.
+ * Only while the year is on a trial: monthly, or a year with no trial, has no
+ * week to draw, and the footer's charge line says what that plan charges.
  *
- * Terms and Privacy close it. The charge line carries that pair (2026-09-14,
- * the terms a renewing charge is made under belong in front of the reader,
- * not only on Stripe's page after the tap), and a timeline standing in its
- * place has to carry it too.
+ * Pinned in the footer over the email field from 2026-09-22 to 2026-09-24;
+ * there it rode the keyboard up and stayed on screen while the reader typed.
+ * The footer's ./charge-terms line carries the date, the amount, Terms and
+ * Privacy at the button, so the steps are free to scroll.
  */
-function Timeline({ priceAmount }: { priceAmount: string }) {
+function TrialSteps() {
   const s = useTrialCta();
   const trial = s.plan === 'annual' && (s.trialOn || s.busy);
-  if (!trial) {
-    return (
-      <DialogDescription asChild>
-        <ChargeTerms priceAmount={priceAmount} className="order-last text-center" />
-      </DialogDescription>
-    );
-  }
+  if (!trial) return null;
   const steps = [
     { when: 'Today', what: 'Pro unlocked', detail: 'Full access, free' },
     {
@@ -321,37 +324,20 @@ function Timeline({ priceAmount }: { priceAmount: string }) {
     { when: s.chargeDate, what: 'Trial ends', detail: `${dollars(s.annualCents)} a year starts` },
   ];
   return (
-    <>
-      <DialogDescription asChild>
-        <ol aria-label="How the trial works" className="mb-0.5 grid grid-cols-3 gap-x-1.5">
-          {steps.map((step, i) => (
-            <li key={step.what} className="flex min-w-0 flex-col gap-1">
-              <span aria-hidden className="flex items-center gap-1.5">
-                <span className={`size-[7px] shrink-0 rounded-full ${i === 0 ? 'bg-rc-brand' : 'bg-rc-rule'}`} />
-                {i < steps.length - 1 && <span className="h-0.5 flex-1 bg-rc-rule-soft" />}
-              </span>
-              <span className="flex flex-col gap-px text-[12px] leading-[15px]">
-                <strong className="font-extrabold text-rc-ink">{step.when}</strong>
-                <span className="font-semibold text-rc-ink">{step.what}</span>
-                <span className="text-rc-ink-soft">{step.detail}</span>
-              </span>
-            </li>
-          ))}
-        </ol>
-      </DialogDescription>
-      {/* Grey and unruled, the way ./charge-terms sets the same pair: the fine
-          print at the end of the fine print, on a screen whose one action is
-          the button above it. */}
-      <p className="order-last text-center text-[12px] leading-4 text-rc-ink-soft">
-        {/* See ./charge-terms for why these are not prefetched. */}
-          <Link href="/terms" prefetch={false} className="hover:text-rc-ink">
-          Terms
-        </Link>
-        {' · '}
-        <Link href="/privacy" prefetch={false} className="hover:text-rc-ink">
-          Privacy
-        </Link>
-      </p>
-    </>
+    <ol aria-label="How the trial works" className="mt-5 grid grid-cols-3 gap-x-1.5">
+      {steps.map((step, i) => (
+        <li key={step.what} className="flex min-w-0 flex-col gap-1">
+          <span aria-hidden className="flex items-center gap-1.5">
+            <span className={`size-[7px] shrink-0 rounded-full ${i === 0 ? 'bg-rc-brand' : 'bg-rc-rule'}`} />
+            {i < steps.length - 1 && <span className="h-0.5 flex-1 bg-rc-rule-soft" />}
+          </span>
+          <span className="flex flex-col gap-px text-[12px] leading-[15px]">
+            <strong className="font-extrabold text-rc-ink">{step.when}</strong>
+            <span className="font-semibold text-rc-ink">{step.what}</span>
+            <span className="text-rc-ink-soft">{step.detail}</span>
+          </span>
+        </li>
+      ))}
+    </ol>
   );
 }
