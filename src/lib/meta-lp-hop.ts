@@ -103,6 +103,15 @@ export function isLpPath(pathname: string): boolean {
 }
 
 /**
+ * The quiz (/lp/q, /lp/q/<city>) is never hopped. It exists to be the Meta
+ * landing page, so sending Meta clicks past it to the map would leave it with
+ * no traffic at all. Everything else under /lp still hops.
+ */
+export function isQuizPath(pathname: string): boolean {
+  return /^\/lp\/q(\/|$)/.test(pathname);
+}
+
+/**
  * Where a Meta click on a landing page goes instead, as a path plus query, or
  * null when this request should read the landing page.
  *
@@ -117,6 +126,7 @@ export function metaExploreHop(input: {
   referrer: string;
 }): string | null {
   if (!isLpPath(input.pathname)) return null;
+  if (isQuizPath(input.pathname)) return null;
   if (!isMetaTraffic(input)) return null;
 
   const params = new URLSearchParams(input.search);

@@ -38,6 +38,13 @@ import {
 import { classifyUserAgent } from './device';
 import { readEdgeGeo } from './edge-geo';
 
+/** The rc_quiz cookie, checked against its own shape before it is trusted. */
+export function readQuizCookie(cookieHeader: string): string | null {
+  const m = cookieHeader.match(/(?:^|;\s*)rc_quiz=([^;]*)/);
+  const v = m ? decodeURIComponent(m[1]).trim() : '';
+  return /^(weekend|shore|newcomer|hardcore)\.[a-z0-9-]{1,60}\.(boat|kayak|shore|both)$/.test(v) ? v : null;
+}
+
 /** Stripe caps metadata values at 500 chars. Stay well inside it. */
 export const META_MAX = 400;
 
@@ -121,6 +128,11 @@ export function acquisitionMetadata(headers: Headers): Record<string, string> {
       out.acq_params = meta(JSON.stringify(params));
     }
   }
+
+  // The /lp/q quiz's answer, "<persona>.<species>.<access>", so a sale can be
+  // read by the persona that bought it. Set by src/app/lp/q/_quiz/quiz.tsx.
+  const quiz = readQuizCookie(cookieHeader);
+  if (quiz) out.acq_quiz = quiz;
 
   // Entry path is worth keeping even when the paid touch won, because it says
   // which landing page variant started the relationship.
