@@ -65,7 +65,7 @@ export default function SpotCard({
   dayStripDensity?: "labelled" | "compact";
 }) {
   const [fav, toggleFav] = useFavorite(spot.slug);
-  const { isPaid } = useSubscription();
+  const { isPaid, loading: tierLoading } = useSubscription();
   const [upgradeOpen, setUpgradeOpen] = useState(false);
   const [reportsUpgradeOpen, setReportsUpgradeOpen] = useState(false);
   const [forecastUpgradeOpen, setForecastUpgradeOpen] = useState(false);
@@ -132,7 +132,7 @@ export default function SpotCard({
     // Both refusals open the same modal: it sells the trial to a free account
     // at the cap and offers registration to an anonymous one, off the tier it
     // detects itself. Never a silent no-op either way.
-    const res = await toggleFav({ isPaid, spotId: spot.id });
+    const res = await toggleFav({ isPaid: tierLoading ? undefined : isPaid, spotId: spot.id });
     if (res === "signed-out" || res === "at-cap") {
       setUpgradeOpen(true);
       return;

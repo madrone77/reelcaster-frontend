@@ -173,13 +173,13 @@ export default function SpotDrawer({
   };
   const alertHref = withAdParams(`${spotHref(spot)}?alert=1`, adFrame);
   const [fav, toggleFav] = useFavorite(spot.slug);
-  const { isPaid } = useSubscription();
+  const { isPaid, loading: tierLoading } = useSubscription();
   const [upgradeOpen, setUpgradeOpen] = useState(false);
   const [reportsUpgradeOpen, setReportsUpgradeOpen] = useState(false);
   // Drives the one-shot "pop" animation when a spot is favorited (not on load).
   const [popping, setPopping] = useState(false);
   const onStar = async () => {
-    const res = await toggleFav({ isPaid, spotId: spot.id });
+    const res = await toggleFav({ isPaid: tierLoading ? undefined : isPaid, spotId: spot.id });
     if (res === "signed-out" || res === "at-cap") {
       setUpgradeOpen(true);
       return;

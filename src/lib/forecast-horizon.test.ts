@@ -8,11 +8,12 @@ import {
   forecastDayIndex,
   horizonPhrase,
   stripMapSpotsPastHorizon,
+  stripSpotsOutlook,
   ANON_FORECAST_DAYS,
   FREE_FORECAST_DAYS,
   PRO_FORECAST_DAYS,
 } from "./forecast-horizon";
-import type { MapSpotsPayload } from "./bluecaster";
+import type { MapSpotsPayload, SpotsOutlook14dPayload } from "./bluecaster";
 
 const payload = (date: string): MapSpotsPayload => ({
   date,
@@ -87,3 +88,30 @@ assert.equal(horizonPhrase(1, { sentenceStart: true }), "Today");
 assert.equal(horizonPhrase(7), "the next 7 days");
 
 console.log("forecast-horizon: all assertions passed");
+
+// stripSpotsOutlook stamps the caller's horizon on every payload, Pro
+// included, so a card can tell a locked day from a day with no score.
+{
+  const cell = { score: 80, peak_hour: 7 } as unknown as NonNullable<
+    SpotsOutlook14dPayload["by_spot"][string][number]
+  >;
+  const outlook: SpotsOutlook14dPayload = {
+    start: "2026-09-24",
+    tz: "America/Vancouver",
+    forecast_version: 1,
+    days: [],
+    species: {},
+    // Scored 7 days, then nothing: a spot whose scoring stops short.
+    by_spot: { a: [...Array(7).fill(cell), ...Array(7).fill(null)] },
+  };
+  const pro = stripSpotsOutlook(outlook, PRO_FORECAST_DAYS);
+  assert.equal(pro.visible_days, 14);
+  assert.deepEqual(pro.by_spot, outlook.by_spot);
+  const member = stripSpotsOutlook(outlook, FREE_FORECAST_DAYS);
+  assert.equal(member.visible_days, 7);
+  const anon = stripSpotsOutlook(outlook, ANON_FORECAST_DAYS);
+  assert.equal(anon.visible_days, 1);
+  assert.equal(anon.by_spot.a.filter(Boolean).length, 1);
+}
+
+console.log("forecast-horizon: ok");

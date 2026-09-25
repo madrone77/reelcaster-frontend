@@ -76,9 +76,12 @@ export function stripSpotsOutlook(
   data: SpotsOutlook14dPayload,
   visibleDays: number,
 ): SpotsOutlook14dPayload {
-  if (visibleDays >= PRO_FORECAST_DAYS) return data;
+  // The horizon travels with the payload so a card can tell a locked day
+  // from a day that simply has no score (see spotDaysFrom).
+  if (visibleDays >= PRO_FORECAST_DAYS) return { ...data, visible_days: visibleDays };
   return {
     ...data,
+    visible_days: visibleDays,
     by_spot: Object.fromEntries(
       Object.entries(data.by_spot).map(([spotId, cells]) => [
         spotId,

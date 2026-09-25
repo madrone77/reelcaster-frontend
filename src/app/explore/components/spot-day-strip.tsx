@@ -126,12 +126,16 @@ export function spotDaysFrom(
   if (!payload) return null;
   const cells = payload.by_spot[spotId];
   if (!cells) return null;
-  // Locked days are a suffix — the route nulls from the horizon onward — so
-  // the first null with a scored day after it is a gap, not a lock.
+  // The route says how far this caller's plan reaches, and only days past
+  // that are locked. Guessing from the nulls drew Pro padlocks for Pro readers
+  // on any spot whose scores stop short of day 14. The guess stays only as a
+  // fallback for a payload that predates `visible_days`.
   const lastScored = cells.reduce((last, c, i) => (c ? i : last), -1);
+  const visible = payload.visible_days;
   return payload.days.map((d, i) => {
     const cell = cells[i] ?? null;
-    const locked = cell === null && i > lastScored;
+    const locked =
+      visible !== undefined ? i >= visible : cell === null && i > lastScored;
     return {
       dow: d.dow,
       date: d.date,

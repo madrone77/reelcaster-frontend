@@ -63,7 +63,8 @@ export default function AlertsClient({ spots }: Props) {
     })();
   }, [session]);
 
-  const atLimit = !isPaid && profiles.length >= 1;
+  // Not while the tier loads: a Pro reader reads as free until it lands.
+  const atLimit = !subLoading && !isPaid && profiles.length >= 1;
 
   const handleCreate = async (form: ScoreAlertFormValue) => {
     if (!session?.access_token) return;

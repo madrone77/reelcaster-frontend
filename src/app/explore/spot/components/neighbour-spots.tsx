@@ -66,7 +66,7 @@ function NearbyCard({
     ? regulatorFrom({ agency: n.areaAgency })
     : fallback;
   const [fav, toggle] = useFavorite(slugOf(n));
-  const { isPaid } = useSubscription();
+  const { isPaid, loading: tierLoading } = useSubscription();
   const [favUpgradeOpen, setFavUpgradeOpen] = useState(false);
   // One-shot "pop" when saving, not on un-save or load — the rail card's star.
   const [popping, setPopping] = useState(false);
@@ -89,7 +89,7 @@ function NearbyCard({
   const onStar = async (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    const res = await toggle({ isPaid, spotId: n.id });
+    const res = await toggle({ isPaid: tierLoading ? undefined : isPaid, spotId: n.id });
     if (res === "signed-out" || res === "at-cap") {
       setFavUpgradeOpen(true);
       return;

@@ -662,6 +662,12 @@ export interface SpotsOutlook14dPayload {
   /** spot id → 14 entries, index i = days[i]. null = no score, or a locked day. */
   by_spot: Record<string, (SpotOutlookDayPeak | null)[]>;
   meta?: { spots: number };
+  /**
+   * How many days, from today, this caller's plan shows (1 signed out, 7 for
+   * a member, 14 for Pro). Set by the FE proxy. A null cell below it is a day
+   * with no score; a null at or past it is a locked day.
+   */
+  visible_days?: number;
 }
 
 /**
