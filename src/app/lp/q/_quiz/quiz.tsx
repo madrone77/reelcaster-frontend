@@ -4,51 +4,45 @@ import Image from "next/image";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { trackEvent, setUserProperties } from "@/lib/analytics";
 import { writeAccessFilter } from "@/lib/spot-access";
-import { useCampaignHit, type CampaignTarget } from "../../_shared/lp-telemetry";
-import { PRO_TESTIMONIAL_LABEL, proofQuoteFor } from "../../_shared/lp-content";
+import { reportCampaignCta, useCampaignHit, type CampaignTarget } from "../../_shared/lp-telemetry";
+import { exploreHrefFrom } from "../../_shared/lp-via";
 import {
   buildQuestions,
   isAnswer,
-  personaCopy,
-  planFeatures,
-  recapLine,
   scorePersona,
-  showcaseFor,
   wantsShore,
   type Access,
   type Persona,
   type QuizAnswers,
 } from "./persona";
 import type { QuizData, QuizPick } from "./quiz-data";
-import QuizTrialForm from "./quiz-trial-form";
-import { quizExploreHref, rememberQuizHandoff } from "@/lib/quiz-handoff";
-import QuizSpotCard from "./quiz-spot-card";
-import QuizShowcase from "./quiz-showcase";
-import { quizId, recordAnswer, recordComplete, resetQuizId } from "./quiz-track";
+import { quizId, recordAnswer, recordComplete, recordCta } from "./quiz-track";
+import { rememberQuizHandoff, type QuizHandoff } from "@/lib/quiz-handoff";
 
 /**
- * The quiz landing page: six taps, a short "building your plan" beat, then a
- * result page written for the persona the answers add up to, ending in the
- * 7-day Pro trial.
+ * The quiz landing page: six taps, a short "building your plan" beat, then
+ * straight onto the map (Casey, 2026-09-25: "after they go through the quiz
+ * just drop them on the explore map with ad=today at a good spot").
  *
  * One client component on one route. Questions never navigate, so a slow
  * phone on a boat ramp never waits on the network between taps, and the
  * ad's query string (utm_*, fbclid) stays in the address bar the whole way
  * for the attribution code that reads it.
  *
- * The result is the reader's plan: their answers read back, their fish, the
- * water it is actually being caught on right now with today's score and the
- * locked fortnight (./quiz-spot-card.tsx, picked by ./evidence.ts from real
- * reports and dockside checks, never from score alone when catches exist),
- * what Pro does for their kind of fishing, and one email field that goes
- * straight to Stripe (./quiz-trial-form.tsx).
+ * The hand-off is Explore in the ad frame on today's scores
+ * (`/explore?loc=<city>&ad=today&via=lpq&spot=<slug>`), opened on the best
+ * spot for the reader's fish and their way to the water (`exploreHref`):
+ * `spot=` both selects it and keeps it unlocked for a signed-out reader
+ * (explore/lib/spot-locks.ts), so the spot the quiz just found is the one the
+ * map is guaranteed to show a score for. The result page with the email field
+ * (FE #816, #826) is gone.
  *
  * Counted three ways. The campaign counter gets a hit under `lpq` and the
- * trial submit with the persona in its angle column (`q:<persona>`), so
- * Campaign results can read quiz traffic beside every other landing page.
+ * hand-off as the press with the persona in its angle column (`q:<persona>`),
+ * so Campaign results can read quiz traffic beside every other landing page.
  * PostHog and Mixpanel get every answer, for the drop-off by question. And
- * the persona rides to Stripe twice: `from=lpq-<persona>` on the checkout,
- * and the `rc_quiz` cookie as `acq_quiz`.
+ * the persona rides on in the `rc_quiz` cookie as `acq_quiz` for whatever
+ * checkout follows on the map.
  */
 
 const LANDING = "lpq";
@@ -57,7 +51,7 @@ const BUILD_MS = 2600;
 /** Long enough to see the tile light up, short enough to feel instant. */
 const ADVANCE_MS = 220;
 
-type Phase = "questions" | "building" | "result";
+type Phase = "questions" | "building";
 
 interface Stored {
   city: string;
@@ -137,6 +131,55 @@ function pickFor(fish: QuizData["species"][number], access: Access): QuizPick | 
   }
 }
 
+/** Where the quiz drops the reader: Explore in the ad frame on today's
+ *  scores, opened on the best spot for their fish and their way to the water.
+ *  `spot=` both selects it and keeps it unlocked for a signed-out reader. */
+function exploreHref(data: QuizData, a: QuizAnswers): string {
+  const pick = pickedSpot(data, a)?.pick ?? null;
+  const url = new URL(exploreHrefFrom(data.citySlug, LANDING), "http://x");
+  url.searchParams.set("ad", "today");
+  if (pick) url.searchParams.set("spot", pick.slug);
+  return `${url.pathname}${url.search}`;
+}
+
+function pickedSpot(data: QuizData, a: QuizAnswers) {
+  const fish =
+    (a.species === "any" ? speciesFor(data, a.access)[0] : data.species.find((x) => x.slug === a.species)) ??
+    null;
+  const pick = fish ? pickFor(fish, a.access) : null;
+  return fish && pick ? { fish, pick } : null;
+}
+
+/**
+ * What the map's first card says (explore/components/quiz-intro-card): the
+ * spot, why it was picked, today's score and window, written for the
+ * persona. Left in sessionStorage for the tab; see src/lib/quiz-handoff.ts.
+ */
+function handoffFor(data: QuizData, a: QuizAnswers, persona: Persona): Omit<QuizHandoff, "at"> | null {
+  const picked = pickedSpot(data, a);
+  if (!picked) return null;
+  const { fish, pick } = picked;
+  return {
+    citySlug: data.citySlug,
+    cityName: data.cityName,
+    persona,
+    access: a.access,
+    species: fish.name,
+    boatInstead: wantsShore(a) && !fish.shore && !!fish.boat,
+    spot: {
+      slug: pick.slug,
+      name: pick.name,
+      access: pick.access,
+      score: pick.score,
+      bestFrom: pick.bestFrom,
+      bestTo: pick.bestTo,
+      source: pick.source,
+      areaLabel: pick.areaLabel,
+      distanceKm: pick.distanceKm,
+    },
+  };
+}
+
 function questionsFor(data: QuizData, access: Access | undefined) {
   return buildQuestions(
     data.cityName,
@@ -178,10 +221,11 @@ export default function Quiz({ data }: { data: QuizData }) {
       const v = s.answers[q.id];
       if (isAnswer(q, v)) (clean as Record<string, string>)[q.id] = v;
     });
-    const complete = stored.every((q) => q.id in clean);
+    // A finished quiz (the reader came back from the map) reopens on its
+    // last question, never on the building beat, which would send them
+    // straight back out.
     setAnswers(clean);
-    if (complete && s.phase !== "questions") setPhase("result");
-    else setStep(Math.min(Math.max(0, s.step), stored.length - 1));
+    setStep(Math.min(Math.max(0, s.step), stored.length - 1));
   }, [data]);
 
   useEffect(() => {
@@ -189,38 +233,49 @@ export default function Quiz({ data }: { data: QuizData }) {
     writeStored({ city: data.citySlug, answers, phase, step });
   }, [answers, phase, step, data.citySlug]);
 
+  const complete = questions.every((q) => q.id in answers);
+  const full = complete ? (answers as QuizAnswers) : null;
+  const persona = full ? scorePersona(full).persona : null;
+
+  // The building beat ends on the map. Once per run: analytics, the pixel,
+  // the checkout cookie, the map filter, then the hand-off itself, counted as
+  // the quiz's press with the persona in the angle column (`q:<persona>`).
+  const reported = useRef(false);
   useEffect(() => {
-    if (phase !== "building") return;
-    const t = window.setTimeout(() => setPhase("result"), BUILD_MS);
+    if (phase !== "building" || !full || !persona) return;
+    const t = window.setTimeout(() => {
+      if (reported.current) return;
+      reported.current = true;
+      trackEvent("Quiz Completed", { landing: LANDING, city: data.citySlug, persona, ...full });
+      recordComplete(data.citySlug, persona, full);
+      setUserProperties({ quizPersona: persona });
+      metaCustom("QuizCompleted", { persona, city: data.citySlug, species: full.species });
+      writeQuizCookie(persona, full.species, full.access);
+      if (wantsShore(full)) writeAccessFilter("shore");
+      const href = exploreHref(data, full);
+      reportCampaignCta("hero", {
+        landing: LANDING,
+        target_city: data.citySlug,
+        target_spot: new URLSearchParams(href.split("?")[1]).get("spot") ?? "",
+        wall: "",
+        angle: `q:${persona}`,
+      });
+      trackEvent("Quiz CTA Clicked", { landing: LANDING, city: data.citySlug, persona, cta: "map" });
+      recordCta(data.citySlug);
+      // Back to the questions in the stored state, so the browser's back
+      // button lands on the quiz, not on another hand-off.
+      writeStored({ city: data.citySlug, answers, phase: "questions", step: questions.length - 1 });
+      const handoff = handoffFor(data, full, persona);
+      if (handoff) rememberQuizHandoff(handoff);
+      window.location.assign(href);
+    }, BUILD_MS);
     return () => window.clearTimeout(t);
-  }, [phase]);
+  }, [phase, full, persona, data, answers, questions.length]);
 
   useEffect(() => {
     window.scrollTo({ top: 0 });
   }, [step, phase]);
 
-  const complete = questions.every((q) => q.id in answers);
-  const full = complete ? (answers as QuizAnswers) : null;
-  const persona = full ? scorePersona(full).persona : null;
-
-  // Once per result: analytics, the pixel, the checkout cookie, the map filter.
-  const reported = useRef(false);
-  useEffect(() => {
-    if (phase !== "result" || !full || !persona || reported.current) return;
-    reported.current = true;
-    const props = {
-      landing: LANDING,
-      city: data.citySlug,
-      persona,
-      ...full,
-    };
-    trackEvent("Quiz Completed", props);
-    recordComplete(data.citySlug, persona, full);
-    setUserProperties({ quizPersona: persona });
-    metaCustom("QuizCompleted", { persona, city: data.citySlug, species: full.species });
-    writeQuizCookie(persona, full.species, full.access);
-    if (wantsShore(full)) writeAccessFilter("shore");
-  }, [phase, full, persona, data.citySlug]);
 
   function choose(value: string) {
     const q = questions[step];
@@ -255,22 +310,7 @@ export default function Quiz({ data }: { data: QuizData }) {
   }
 
   function back() {
-    if (phase === "result") {
-      setPhase("questions");
-      setStep(questions.length - 1);
-      reported.current = false;
-      return;
-    }
     if (step > 0) setStep(step - 1);
-  }
-
-  function restart() {
-    setAnswers({});
-    setStep(0);
-    setPhase("questions");
-    reported.current = false;
-    // A second run is a second row, not an edit of the first.
-    resetQuizId();
   }
 
   return (
@@ -297,10 +337,6 @@ export default function Quiz({ data }: { data: QuizData }) {
       ) : null}
 
       {phase === "building" && full ? <BuildingScreen data={data} answers={full} /> : null}
-
-      {phase === "result" && full && persona ? (
-        <ResultScreen data={data} answers={full} persona={persona} onRestart={restart} />
-      ) : null}
     </div>
   );
 }
@@ -393,181 +429,6 @@ function BuildingScreen({ data, answers }: { data: QuizData; answers: QuizAnswer
           </li>
         ))}
       </ul>
-    </main>
-  );
-}
-
-function ResultScreen(props: {
-  data: QuizData;
-  answers: QuizAnswers;
-  persona: Persona;
-  onRestart: () => void;
-}) {
-  const { data, answers, persona, onRestart } = props;
-  const picked = answers.species === "any" ? null : speciesName(data, answers.species);
-  const copy = personaCopy(persona, {
-    species: picked ?? "every species",
-    regulator: data.regulator,
-    cityName: data.cityName,
-  });
-  const quote = proofQuoteFor(data.provinceCode);
-  const emailRef = useRef<HTMLInputElement>(null);
-
-  // "Whatever's biting" is the fish with the most evidence, which is the
-  // first on the list. A shore reader whose fish is a boat fish here is shown
-  // where the boats are catching it, and told so.
-  const fish =
-    (answers.species === "any"
-      ? speciesFor(data, answers.access)[0]
-      : data.species.find((x) => x.slug === answers.species)) ?? null;
-  const shore = wantsShore(answers);
-  const pick = fish ? pickFor(fish, answers.access) : null;
-  const boatInstead = !!(fish && shore && !fish.shore && fish.boat);
-
-  // The showcase is written around the reader's own spot and fish.
-  const speciesWord = fish ? fish.name : "whatever's biting";
-  const blocks = pick
-    ? showcaseFor(persona, answers, {
-        cityName: data.cityName,
-        spotName: pick.name,
-        species: speciesWord,
-        regulator: data.regulator,
-        shore,
-      })
-    : [];
-  const features = planFeatures(persona, { species: speciesWord, regulator: data.regulator });
-
-  // The sticky bar takes the reader to the one field on the page. Focus only
-  // on a tap, never on load: an autofocused email field throws a phone
-  // keyboard over the plan before anyone has read it.
-  function toForm() {
-    emailRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
-    emailRef.current?.focus({ preventScroll: true });
-  }
-
-  return (
-    <main className="flex flex-1 flex-col">
-      <p className="mt-2 text-xs font-semibold uppercase tracking-wider text-rc-brand">Your {data.cityName} fishing plan</p>
-      <h1 className="mt-2 text-[30px] font-bold leading-tight text-rc-ink">{copy.name}</h1>
-      <p className="mt-2 text-lg text-rc-ink-soft">{copy.promise}</p>
-
-      <p className="mt-5 rounded-2xl bg-rc-band px-4 py-3 text-[15px] leading-snug text-rc-ink-soft">
-        {recapLine(answers, picked ?? "fish")}
-      </p>
-
-      {fish && pick ? (
-        <QuizSpotCard
-          pick={pick}
-          speciesSlug={fish.slug}
-          speciesName={fish.name}
-          cityName={data.cityName}
-          isUS={data.isUS}
-          boatInstead={boatInstead}
-        />
-      ) : null}
-
-      {fish && pick ? (
-        // The map, opened on their spot, with a card that says why (see
-        // src/lib/quiz-handoff.ts and explore/components/quiz-intro-card).
-        <a
-          href={quizExploreHref(data.citySlug, pick.slug)}
-          onClick={() => {
-            rememberQuizHandoff({
-              citySlug: data.citySlug,
-              cityName: data.cityName,
-              persona,
-              access: answers.access,
-              species: fish.name,
-              boatInstead,
-              spot: {
-                slug: pick.slug,
-                name: pick.name,
-                access: pick.access,
-                score: pick.score,
-                bestFrom: pick.bestFrom,
-                bestTo: pick.bestTo,
-                source: pick.source,
-                areaLabel: pick.areaLabel,
-                distanceKm: pick.distanceKm,
-              },
-            });
-            trackEvent("Quiz Map Clicked", { landing: "lpq", city: data.citySlug, persona, spot: pick.slug });
-          }}
-          className="mt-4 flex min-h-[52px] items-center justify-center rounded-2xl border-2 border-rc-brand bg-rc-panel px-6 text-[16px] font-bold text-rc-brand hover:bg-rc-brand-soft"
-          data-testid="quiz-map-cta"
-        >
-          Show me {pick.name} on the map
-        </a>
-      ) : null}
-
-      {fish && pick ? (
-        <QuizShowcase data={data} blocks={blocks} pick={pick} pins={fish.pins} speciesName={fish.name} access={answers.access} />
-      ) : null}
-
-      <section className="mt-8 rounded-2xl border border-rc-rule bg-rc-panel p-5 shadow-sm">
-        <p className="text-xs font-semibold uppercase tracking-wider text-rc-ink-mute">Also in your plan</p>
-        <ul className="mt-3 flex flex-col gap-4">
-          {features.map((f) => (
-            <li key={f.title} className="flex gap-3">
-              <span className="mt-0.5 flex h-5 w-5 flex-none items-center justify-center rounded-full bg-rc-good-bg text-xs font-bold text-rc-good-ink" aria-hidden>
-                ✓
-              </span>
-              <span>
-                <span className="block text-[15px] font-semibold leading-snug text-rc-ink">{f.title}</span>
-                <span className="block text-sm leading-snug text-rc-ink-soft">{f.desc}</span>
-              </span>
-            </li>
-          ))}
-        </ul>
-        <p className="mt-4 text-sm text-rc-ink-mute">
-          Built on {data.spotCount} spots around {data.cityName}, scored every hour.
-        </p>
-      </section>
-
-      <section className="mt-8">
-        <h2 className="text-xl font-bold text-rc-ink">Start your {copy.name.replace(/^The /, "")} plan free for 7 days</h2>
-        <p className="mt-1 text-sm text-rc-ink-soft">
-          {pick ? `${pick.name} and every other spot, 14 days out, with alerts and the rules.` : "Every spot, 14 days out, with alerts and the rules."}
-        </p>
-        <div className="mt-3">
-          <QuizTrialForm
-            ref={emailRef}
-            citySlug={data.citySlug}
-            region={data.provinceCode}
-            persona={persona}
-            inputId="quiz-email"
-            cta="hero"
-            ctaLabel="Start my 7-day free trial"
-          />
-        </div>
-      </section>
-
-      <figure className="mt-8 rounded-2xl border border-rc-rule bg-rc-panel p-5">
-        {quote.pro ? (
-          <p className="text-[11px] font-semibold uppercase tracking-wider text-rc-ink-mute">{PRO_TESTIMONIAL_LABEL}</p>
-        ) : null}
-        {quote.rating ? (
-          <p className="mt-1 text-rc-pro-gold" aria-label={`${quote.rating} out of 5`}>
-            {"★".repeat(quote.rating)}
-          </p>
-        ) : null}
-        <blockquote className="mt-2 text-[15px] leading-snug text-rc-ink">&ldquo;{quote.text}&rdquo;</blockquote>
-        <figcaption className="mt-2 text-sm font-medium text-rc-ink-mute">{quote.attr}</figcaption>
-      </figure>
-
-      <button type="button" onClick={onRestart} className="mx-auto mt-6 px-3 py-2 text-sm text-rc-ink-mute underline">
-        Start over
-      </button>
-
-      <div className="fixed inset-x-0 bottom-0 z-10 border-t border-rc-rule bg-rc-panel/95 px-4 pb-[max(12px,env(safe-area-inset-bottom))] pt-3 backdrop-blur">
-        <button
-          type="button"
-          onClick={toForm}
-          className="mx-auto flex min-h-[52px] w-full max-w-[528px] items-center justify-center rounded-2xl bg-rc-brand px-6 text-base font-bold text-white hover:bg-rc-brand-hover"
-        >
-          Start my 7-day free trial
-        </button>
-      </div>
     </main>
   );
 }

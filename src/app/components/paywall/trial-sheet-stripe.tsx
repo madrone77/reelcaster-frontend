@@ -321,7 +321,10 @@ function TrialSteps() {
       what: 'Reminder email',
       detail: 'Before any charge',
     },
-    { when: s.chargeDate, what: 'Trial ends', detail: `${dollars(s.annualCents)} a year starts` },
+    // No amount here: the plan tile above and the charge line pinned at the
+    // button already print it, and a third "$33" on one screen read as a
+    // page papered with the price (2026-09-25).
+    { when: s.chargeDate, what: 'Trial ends', detail: 'Year plan starts' },
   ];
   return (
     <ol aria-label="How the trial works" className="mt-5 grid grid-cols-3 gap-x-1.5">
