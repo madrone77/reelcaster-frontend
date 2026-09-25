@@ -389,7 +389,7 @@ export function middleware(req: NextRequest, event: NextFetchEvent) {
   // held in a cookie so a return visit lands on the same page. See
   // src/lib/lp-splits.ts for the table, and for why this is not the
   // registry-driven split-test system.
-  const lpSplit = splitForPath(pathname)
+  const lpSplit = splitForPath(pathname, req.nextUrl.search)
   if (lpSplit && req.method === 'GET' && isPageView(req) && isPerson) {
     const resolved = resolveLpArm(lpSplit, lpArms, Math.random())
     lpArms = resolved.arms
@@ -437,8 +437,10 @@ export function middleware(req: NextRequest, event: NextFetchEvent) {
     const url = req.nextUrl.clone()
     url.pathname = `${pathname.replace(/\/$/, '')}/ad`
     // Stamped, not skipped: this IS the ad landing, and its query string is
-    // the only place the click id will ever appear.
-    return stampAttribution(req, NextResponse.rewrite(url))
+    // the only place the click id will ever appear. The landing split above
+    // may have just dealt this visitor the control (the Seattle city page is
+    // one), so the arm is written here too or their next visit re-rolls.
+    return withLpArms(req, stampAttribution(req, NextResponse.rewrite(url)), pendingLpArms)
   }
 
   const walled = WALLED_PREFIXES.some(

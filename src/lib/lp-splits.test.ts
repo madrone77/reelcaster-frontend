@@ -4,6 +4,7 @@ import {
   LP_SPLITS,
   TREATMENT_ARM,
   isPageSplit,
+  isPaidAdClick,
   parseLpSplitCookie,
   resolveLpArm,
   serializeLpSplitArms,
@@ -23,13 +24,13 @@ const SPLIT: LpPageSplit = {
 const ONLY = [SPLIT];
 
 test("the control path matches, with or without a trailing slash", () => {
-  assert.equal(splitForPath("/lp/vancouver/4", ONLY), SPLIT);
-  assert.equal(splitForPath("/lp/vancouver/4/", ONLY), SPLIT);
+  assert.equal(splitForPath("/lp/vancouver/4", "", ONLY), SPLIT);
+  assert.equal(splitForPath("/lp/vancouver/4/", "", ONLY), SPLIT);
 });
 
 test("the treatment and every other path do not match", () => {
   for (const p of ["/lp/vancouver/5", "/lp/vancouver/1", "/lp/seattle/4", "/lp/vancouver", "/"]) {
-    assert.equal(splitForPath(p, ONLY), null, p);
+    assert.equal(splitForPath(p, "", ONLY), null, p);
   }
 });
 
@@ -103,12 +104,14 @@ test("the live table is well formed", () => {
     assert.match(s.key, /^[a-z0-9_]{1,64}$/);
     assert.ok(s.share >= 0 && s.share <= 1);
     if (!isPageSplit(s)) continue;
-    assert.ok(s.control.startsWith("/lp/"), s.control);
+    // A control outside /lp/ is a public page, so it may only split bought
+    // clicks; organic readers of a city page are never bounced.
+    assert.ok(s.control.startsWith("/lp/") || s.paidOnly, s.control);
     assert.ok(s.treatment.startsWith("/lp/"), s.treatment);
     assert.notEqual(s.control, s.treatment);
     // The treatment must never itself be a control, or a visitor could be
-    // bounced twice.
-    assert.equal(splitForPath(s.treatment), null);
+    // bounced twice. The query rides along, so test it as a bought click.
+    assert.equal(splitForPath(s.treatment, "?ad=today&fbclid=x"), null);
   }
 });
 
@@ -121,6 +124,38 @@ test("a stale arm from a concluded split is dropped, not honoured", () => {
   const resolved = resolveLpArm(SPLIT, stale, 0.9, ONLY);
   assert.deepEqual(resolved.arms, { vancouver_4_5: "b" });
   assert.equal(resolved.changed, true, "the tidied cookie is written back");
+});
+
+const PAID: LpPageSplit = {
+  key: "seattle_city_quiz",
+  control: "/fishing/us/wa/seattle",
+  treatment: "/lp/q/seattle",
+  share: 0.5,
+  paidOnly: true,
+};
+
+test("a paid-only split matches a bought click and nothing else", () => {
+  const only = [PAID];
+  for (const q of [
+    "?ad=today&fbclid=x",
+    "?ad=today&gclid=x",
+    "?ad=today&gbraid=x",
+    "?ad=today&utm_source=meta",
+    "?ad=day2&utm_source=Google&utm_campaign=1",
+  ]) {
+    assert.equal(splitForPath("/fishing/us/wa/seattle", q, only), PAID, q);
+  }
+  for (const q of ["", "?ad=today", "?fbclid=x", "?utm_source=meta", "?ad=today&utm_source=chatgpt.com"]) {
+    assert.equal(splitForPath("/fishing/us/wa/seattle", q, only), null, q);
+  }
+  // Another city's ad click is not in it.
+  assert.equal(splitForPath("/fishing/us/wa/tacoma", "?ad=today&fbclid=x", only), null);
+});
+
+test("isPaidAdClick needs ?ad= as well as the paid marker", () => {
+  assert.equal(isPaidAdClick("?ad=today&fbclid=abc"), true);
+  assert.equal(isPaidAdClick("?fbclid=abc"), false);
+  assert.equal(isPaidAdClick("?ad=today&fbclid="), false);
 });
 
 let failed = 0;

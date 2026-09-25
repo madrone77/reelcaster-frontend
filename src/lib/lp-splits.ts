@@ -51,6 +51,13 @@ export interface LpPageSplit {
   treatment: string;
   /** Fraction of NEW visitors sent to the treatment, 0 to 1. */
   share: number;
+  /**
+   * Only split a bought click: `?ad=` on the URL plus a click id (fbclid,
+   * gclid, gbraid, wbraid) or a paid utm_source. For a control that is also
+   * a public page (a city page), so organic readers, shared links and the
+   * paid-flow Sentinel always read the control and are never dealt an arm.
+   */
+  paidOnly?: boolean;
 }
 
 export type LpSplit = LpPageSplit;
@@ -63,7 +70,16 @@ export type LpSplit = LpPageSplit;
  * more, and their stale cookie entry is dropped on the next visit.
  */
 export const LP_SPLITS: readonly LpSplit[] = [
-  // Nothing running.
+  // seattle_city_quiz (from 25 Sep): bought Seattle clicks, Meta and Google,
+  // land on the framed city page (/fishing/us/wa/seattle?ad=...). Half of
+  // them are sent on to the quiz instead. Judged on trials per session.
+  {
+    key: 'seattle_city_quiz',
+    control: '/fishing/us/wa/seattle',
+    treatment: '/lp/q/seattle',
+    share: 0.5,
+    paidOnly: true,
+  },
   //
   // vancouver_4_5 (3 to 7 Sep: /lp/vancouver/4 against /lp/vancouver/5)
   // concluded for /5. Every /4 visitor now goes to /5 by a redirect in
@@ -97,13 +113,33 @@ export function isPageSplit(split: LpSplit): split is LpPageSplit {
   return split.kind === undefined || split.kind === 'page';
 }
 
+/** Click ids the ad networks append. Any one of them marks a bought click. */
+const CLICK_IDS = ['fbclid', 'gclid', 'gbraid', 'wbraid'];
+
+/** utm_source values the link builder and hand-typed ad links use. */
+const PAID_SOURCES = new Set(['meta', 'facebook', 'instagram', 'fb', 'ig', 'google']);
+
+/** Is this query string an ad click: `?ad=` plus a click id or a paid source? */
+export function isPaidAdClick(search: string): boolean {
+  const params = new URLSearchParams(search);
+  if (!params.has('ad')) return false;
+  if (CLICK_IDS.some((id) => params.get(id))) return true;
+  return PAID_SOURCES.has((params.get('utm_source') ?? '').trim().toLowerCase());
+}
+
 /** The page split whose control path this is, or null. */
 export function splitForPath(
   pathname: string,
+  search = '',
   splits: readonly LpSplit[] = LP_SPLITS,
 ): LpPageSplit | null {
   const path = pathname.replace(/\/+$/, '') || '/';
-  return splits.find((s): s is LpPageSplit => isPageSplit(s) && s.control === path) ?? null;
+  return (
+    splits.find(
+      (s): s is LpPageSplit =>
+        isPageSplit(s) && s.control === path && (!s.paidOnly || isPaidAdClick(search)),
+    ) ?? null
+  );
 }
 
 /**
