@@ -47,8 +47,12 @@ const PREFIX = "rcp";
 
 /** Ring treatments, in the order the map resolves them. */
 export type PuckRing = "base" | "fresh" | "sel";
-/** `rd` = curated (rounded), `sq` = the viewer's own spot (square corners). */
-export type PuckShape = "rd" | "sq";
+/** `rd` = curated boat mark (rounded), `sq` = the viewer's own spot (square
+ *  corners), `sh` = a shore spot: the rounded pill wearing a sand wave badge. */
+export type PuckShape = "rd" | "sq" | "sh";
+
+/** The shore badge: a sand disc with a wave, on the pill's top-right corner. */
+const SHORE_BADGE = { r: 5.5, fill: "#E8C77E", wave: "#0F3B57" };
 
 /** Label used for a spot with no score at the scrubbed hour. */
 export const NO_DATA_LABEL = "·";
@@ -466,6 +470,30 @@ function drawPuck(label: string, ring: PuckRing, hot: boolean, shape: PuckShape)
     ctx.stroke();
   }
 
+  // Shore spots wear a small sand disc with a wave on the top-right corner, so
+  // a pier or beach reads apart from a boat mark without touching the score.
+  if (shape === "sh") {
+    const bx = PAD + pillW - 1;
+    const by = PAD + 1;
+    ctx.save();
+    ctx.fillStyle = SHORE_BADGE.fill;
+    ctx.strokeStyle = "#ffffff";
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.arc(bx, by, SHORE_BADGE.r, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.stroke();
+    ctx.strokeStyle = SHORE_BADGE.wave;
+    ctx.lineWidth = 1.2;
+    ctx.lineCap = "round";
+    ctx.beginPath();
+    ctx.moveTo(bx - 3.2, by + 0.6);
+    ctx.quadraticCurveTo(bx - 1.6, by - 1.6, bx, by + 0.6);
+    ctx.quadraticCurveTo(bx + 1.6, by + 2.8, bx + 3.2, by + 0.6);
+    ctx.stroke();
+    ctx.restore();
+  }
+
   // Text. "Hot" sits on its own line above the score, smaller and heavier, so
   // the score stays the thing you read first and the tag reads as a label on it.
   const midX = PAD + pillW / 2;
@@ -536,7 +564,7 @@ function registerPuck(map: MapLike, id: string | undefined): void {
   if (parts.length !== 5) return;
   const [, label, ring, hot, shape] = parts;
   if (!(ring in COLLAR)) return;
-  if (shape !== "rd" && shape !== "sq") return;
+  if (shape !== "rd" && shape !== "sq" && shape !== "sh") return;
   const img = drawPuck(label, ring as PuckRing, hot === "1", shape);
   if (img) map.addImage(id, img, { pixelRatio: RATIO });
 }
@@ -592,6 +620,8 @@ export interface PuckFeatureProps {
   fresh: number;
   hot: number;
   isCustom: number;
+  /** 1 on a shore spot (pier, beach...). Absent reads as a boat mark. */
+  shore?: number;
 }
 
 /**
@@ -609,7 +639,7 @@ export function puckIconId(
 ): string {
   const ring: PuckRing =
     p.slug === selectedSlug ? "sel" : p.fresh === 1 ? "fresh" : "base";
-  const shape: PuckShape = p.isCustom === 1 ? "sq" : "rd";
+  const shape: PuckShape = p.isCustom === 1 ? "sq" : p.shore === 1 ? "sh" : "rd";
   return `${PREFIX}:${p.label}:${ring}:${p.hot}:${shape}`;
 }
 
@@ -632,6 +662,6 @@ export function puckIconImageExpr(selectedSlug: string | null): unknown[] {
       "base",
     ],
     ":", ["to-string", ["get", "hot"]],
-    ":", ["case", ["==", ["get", "isCustom"], 1], "sq", "rd"],
+    ":", ["case", ["==", ["get", "isCustom"], 1], "sq", ["==", ["get", "shore"], 1], "sh", "rd"],
   ];
 }

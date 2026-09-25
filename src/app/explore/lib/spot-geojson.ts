@@ -59,6 +59,8 @@ export interface SpotFeatureProps {
    * sit above, while the collar does not.
    */
   hot: number;
+  /** 1 on a shore spot: the puck wears the sand wave badge. */
+  shore: number;
 }
 
 export type SpotFeatureCollection = {
@@ -131,6 +133,7 @@ export function spotsToFeatureCollection(
           // Drives the brand-blue ring that marks a spot as yours. 1/0 rather
           // than a boolean: MapLibre filter expressions compare numbers.
           isCustom: s.isCustom ? 1 : 0,
+          shore: s.access === "shore" ? 1 : 0,
           fresh: showReports && s.hasReports ? 1 : 0,
           // A tag reading "Hot" next to no score at all would contradict
           // itself, so it needs a number to sit above.
