@@ -192,6 +192,7 @@ export type NagAction =
   | 'search_species'
   | 'species_filter'
   | 'score_filter'
+  | 'access_filter'
   | 'station_pick'
   | 'day_pick'
   | 'spot_page'

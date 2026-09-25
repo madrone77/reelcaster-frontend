@@ -436,6 +436,15 @@ export interface MapSpotEntry {
    * city can be over a border. Optional for the same reason `area` is.
    */
   area_agency?: string | null;
+  /**
+   * How an angler reaches the mark: "boat" or "shore". Optional because it is
+   * newer than responses the edge may still serve; read it through
+   * `spotAccessOf` in lib/spot-access.ts, which treats absent as boat.
+   */
+  access?: "boat" | "shore";
+  /** Shore spots only: "pier" | "jetty" | "beach" | "breakwater" |
+   *  "river_mouth" | "rock_outcrop" | "public_dock". Null on boat spots. */
+  shore_type?: string | null;
   best_species_id: string | null;
   scores: Record<string, MapSpeciesStrip>;
   conditions: MapCondStrip | null;

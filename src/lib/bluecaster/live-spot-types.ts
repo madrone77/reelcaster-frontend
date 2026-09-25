@@ -18,7 +18,11 @@ export type LiveSpot = {
   lat: number;
   lng: number;
   bottomType: string | null;
+  /** A seabed shape on a boat spot, the kind of shore on a shore spot. */
   spotType: string | null;
+  /** "boat" or "shore". Optional until every cached payload carries it; read
+   *  it through `spotAccessOf` in lib/spot-access.ts. */
+  access?: "boat" | "shore";
   depthMinM: number | null;
   depthMaxM: number | null;
   depthMeanM: number | null;

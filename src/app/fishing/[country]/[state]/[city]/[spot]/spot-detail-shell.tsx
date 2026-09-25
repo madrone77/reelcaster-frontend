@@ -9,6 +9,7 @@ import SpotNudge from "@/app/components/nudges/spot-nudge";
 import { useSubscription } from "@/hooks/use-subscription";
 import { noteEngagement } from "@/lib/upgrade-nag";
 import { setPaywallContext } from "@/lib/paywall-context";
+import { accessBadgeLabel, spotAccessOf } from "@/lib/spot-access";
 import { trackEvent } from "@/lib/analytics";
 import AdSlot from "@/app/components/ads/ad-slot";
 import { countryDisplayName, regulatorFrom } from "@/lib/regions";
@@ -1201,8 +1202,14 @@ export default function SpotDetailShell({
   // nearest city is across a border — a BC mark on friday-harbor-wa's roster
   // is DFO water sold to a Washington reader in USD, and both of those are
   // right.
+  const access = spotAccessOf(spot.access, spot.spotType);
   const pills = (
     <div className="flex flex-wrap items-center gap-2">
+      {/* Boat or shore first: it decides whether this page is any use to the
+          reader at all, before the area or the season does. */}
+      <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-rc-surface text-rc-ink font-rc-mono text-[10px] font-semibold uppercase tracking-[0.06em]">
+        {accessBadgeLabel(access, spot.spotType)}
+      </span>
       {/* Neutral area label — no open/closed claim. Area-level status isn't
           in the payload, and management areas carry in-season closures we
           can't see here; only the per-species pill below is data-driven.

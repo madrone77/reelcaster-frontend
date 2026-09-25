@@ -14,6 +14,7 @@ import type {
   MapCondStrip,
 } from "@/lib/bluecaster";
 import { spotPath } from "@/lib/paths";
+import { spotAccessOf, type SpotAccess } from "@/lib/spot-access";
 import { COVERED_PROVINCES } from "@/lib/regions";
 import { formatHour12 } from "@/lib/time-format";
 import {
@@ -180,6 +181,13 @@ export interface RailSpot {
    * which is public by design.
    */
   hasReports?: boolean;
+  /**
+   * Boat or shore. Absent reads as boat: custom spots, and any caller that
+   * builds a RailSpot without a map payload behind it.
+   */
+  access?: SpotAccess;
+  /** Shore spots only: "pier", "beach"... (see lib/spot-access.ts). */
+  shoreType?: string | null;
   /**
    * Scores withheld by the ad-framed map's lock test (lib/spot-locks.ts).
    * The score fields above are already null when this is set; the flag is
@@ -709,6 +717,11 @@ export function extraRailSpotsFromPayload(
     });
 }
 
+function accessFields(entry: MapSpotEntry): Pick<RailSpot, "access" | "shoreType"> {
+  const access = spotAccessOf(entry.access, entry.shore_type);
+  return { access, shoreType: access === "shore" ? (entry.shore_type ?? null) : null };
+}
+
 /**
  * One map/spots entry → a RailSpot, scores and conditions derived the same way
  * the rail does it. The payload carries only `city_slug`, so region/province
@@ -743,6 +756,7 @@ export function railSpotFromEntry(
     provinceCode: "",
     distanceKm: null,
     hasReports: entry.has_reports === true,
+    ...accessFields(entry),
     ...deriveScoring(
       entry,
       payload.species,
@@ -880,6 +894,7 @@ export function railSpotsFromPayload(
           ? Math.round(haversineKm(place.lat, place.lng, entry.lat, entry.lng))
           : null,
       hasReports: entry.has_reports === true,
+      ...accessFields(entry),
       ...s,
     });
   }
@@ -1046,6 +1061,7 @@ export function buildExploreData(
       hours24: s.hours24,
       scoresBySpecies: s.scoresBySpecies,
       hasReports: entry.has_reports === true,
+      ...accessFields(entry),
     });
 
     if (s.score !== null) {

@@ -261,6 +261,7 @@ export type AnalyticsEventName =
   | 'Species Chosen'
   | 'Day Chosen'
   | 'Score Floor Changed'
+  | 'Access Filter Changed'
   | 'Map Moved'
   | 'City Chosen'
   | 'Near Me Used'
