@@ -1,9 +1,9 @@
 import type { Metadata } from "next";
-import { notFound } from "next/navigation";
 import { fetchHierarchy } from "@/lib/bluecaster";
 import { COVERED_PROVINCES } from "@/lib/regions";
 import { getFishingProvinceByCode } from "@/app/fishing/lib/fishing-data";
 import Quiz from "../_quiz/quiz";
+import NearestHop from "../_quiz/nearest-hop";
 import { loadQuizData } from "../_quiz/quiz-data";
 
 /**
@@ -15,7 +15,9 @@ import { loadQuizData } from "../_quiz/quiz-data";
  *
  * Takes the full slug (`seattle-wa`) or the bare city (`seattle`), since the
  * short form is what goes in the ads. A bare name that matches exactly one
- * covered city renders that city's quiz directly, with no redirect.
+ * covered city renders that city's quiz directly, with no redirect. Anything
+ * else (`/lp/q/1` was in a live ad) hops to the visitor's nearest city rather
+ * than 404ing a paid click; see ../_quiz/nearest-hop.tsx.
  *
  * Never hopped to Explore for Meta traffic (src/lib/meta-lp-hop.ts): the quiz
  * IS the Meta experiment.
@@ -50,7 +52,7 @@ async function fullSlugFor(bare: string): Promise<string | null> {
 export default async function LpQuizPage({ params }: PageProps) {
   const { city: raw } = await params;
   const slug = raw.trim().toLowerCase();
-  if (!/^[a-z0-9]+(-[a-z0-9]+)*$/.test(slug)) notFound();
+  if (!/^[a-z0-9]+(-[a-z0-9]+)*$/.test(slug)) return <NearestHop />;
 
   // The bare city (`seattle`) is the URL the ads carry, so it renders the
   // quiz itself rather than hopping to `seattle-wa`: a redirect is a second
@@ -62,7 +64,7 @@ export default async function LpQuizPage({ params }: PageProps) {
     const full = await fullSlugFor(slug);
     if (full && full !== slug) data = await loadQuizData(full);
   }
-  if (!data) notFound();
+  if (!data) return <NearestHop />;
 
   return <Quiz data={data} />;
 }
