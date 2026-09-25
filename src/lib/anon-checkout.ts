@@ -200,10 +200,15 @@ export async function createAnonCheckoutSession(params: {
   const origin = appOrigin(request);
   const session = await stripe.checkout.sessions.create({
     mode: 'subscription',
-    // No `customer`: Stripe creates one from the email it collects, and the
-    // webhook binds it to the account it provisions. Prefilled only when
-    // our UI collected one; otherwise Stripe's own field asks.
-    ...(email ? { customer_email: email } : {}),
+    // No `customer`, and no `customer_email` either: Stripe creates the
+    // customer from the address its own field collects, and the webhook binds
+    // it to the account it provisions. The sheet's address still rides in the
+    // metadata (trial eligibility was checked against it, and the reminder
+    // email reads it), but it is NOT prefilled on Stripe's page. Prefilling a
+    // Link address makes Checkout open on Link's log-in screen before the form;
+    // from 2026-09-23 11:04 PT no Link buyer completed a session, and card and
+    // wallet buyers all but stopped too, while page loads held steady. Letting
+    // Stripe ask for the email is how the first trials were sold.
     currency,
     line_items: [{ price: priced.priceId, quantity: 1 }],
     allow_promotion_codes: true,
