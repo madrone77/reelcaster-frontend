@@ -411,6 +411,20 @@ function ResultScreen(props: {
   });
   const quote = proofQuoteFor(data.provinceCode);
   const emailRef = useRef<HTMLInputElement>(null);
+  const formRef = useRef<HTMLElement>(null);
+
+  // The fixed bar is a shortcut to the form, so it goes away the moment the
+  // form is on screen. On iOS a fixed bottom bar rides up above the keyboard
+  // and sat squarely on the email field; hiding it while the form is in view
+  // is the only reliable cure.
+  const [formInView, setFormInView] = useState(false);
+  useEffect(() => {
+    const el = formRef.current;
+    if (!el || typeof IntersectionObserver === "undefined") return;
+    const io = new IntersectionObserver(([e]) => setFormInView(e.isIntersecting), { threshold: 0.15 });
+    io.observe(el);
+    return () => io.disconnect();
+  }, []);
 
   // "Whatever's biting" is the fish with the most evidence, which is the
   // first on the list. A shore reader whose fish is a boat fish here is shown
@@ -440,8 +454,10 @@ function ResultScreen(props: {
   // on a tap, never on load: an autofocused email field throws a phone
   // keyboard over the plan before anyone has read it.
   function toForm() {
-    emailRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
-    emailRef.current?.focus({ preventScroll: true });
+    setFormInView(true);
+    formRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+    // Focus after the scroll lands, so the keyboard opens on a settled page.
+    window.setTimeout(() => emailRef.current?.focus({ preventScroll: true }), 350);
   }
 
   return (
@@ -489,7 +505,7 @@ function ResultScreen(props: {
         </p>
       </section>
 
-      <section className="mt-8">
+      <section ref={formRef} className="mt-8 scroll-mt-6">
         <h2 className="text-xl font-bold text-rc-ink">Start your {copy.name.replace(/^The /, "")} plan free for 7 days</h2>
         <p className="mt-1 text-sm text-rc-ink-soft">
           {pick ? `${pick.name} and every other spot, 14 days out, with alerts and the rules.` : "Every spot, 14 days out, with alerts and the rules."}
@@ -524,6 +540,7 @@ function ResultScreen(props: {
         Start over
       </button>
 
+      {formInView ? null : (
       <div className="fixed inset-x-0 bottom-0 z-10 border-t border-rc-rule bg-rc-panel/95 px-4 pb-[max(12px,env(safe-area-inset-bottom))] pt-3 backdrop-blur">
         <button
           type="button"
@@ -533,6 +550,7 @@ function ResultScreen(props: {
           Start my 7-day free trial
         </button>
       </div>
+      )}
     </main>
   );
 }
