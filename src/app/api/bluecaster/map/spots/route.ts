@@ -32,7 +32,11 @@ import { localDateOf } from "@/lib/score-beats";
  * day past today: it colours the pins at close to anonymous speed with the
  * scores that angler is entitled to. The custom spots arrive on their own read.
  *
- * Query params (passed through): bbox=w,s,e,n · city=<slug> · date=YYYY-MM-DD · own=0
+ * `shape=pins` asks for the slim map body (src/lib/map-pins.ts), which the
+ * client expands. Forwarded as-is; the horizon strip blanks its `pins` the
+ * same way it blanks `scores`.
+ *
+ * Query params (passed through): bbox=w,s,e,n · city=<slug> · date=YYYY-MM-DD · own=0 · shape=pins
  */
 export async function GET(request: NextRequest) {
   const sp = request.nextUrl.searchParams;
@@ -68,6 +72,7 @@ export async function GET(request: NextRequest) {
       bbox,
       city,
       date,
+      shape: sp.get("shape") === "pins" ? ("pins" as const) : undefined,
     };
     const [viewerId, visibleDays, data] = publishedOnly
       ? await Promise.all([

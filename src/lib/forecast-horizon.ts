@@ -122,10 +122,12 @@ export function stripMapSpotsPastHorizon(
   if (forecastDayIndex(todayIso, data.date) < visibleDays) return data;
   return {
     ...data,
+    // A slim `shape=pins` body carries its scores as `pins`; those go too.
     spots: data.spots.map((spot) => ({
       ...spot,
       best_species_id: null,
       scores: {},
+      ...("pins" in spot ? { pins: {} } : {}),
     })),
   };
 }

@@ -162,6 +162,9 @@ export interface RailSpot {
   conditions: RailConditions;
   /** Raw 24h conditions strip — lets the card re-read at the scrubbed hour. */
   condStrip: MapCondStrip | null;
+  /** `condStrip` holds only a few hours (the slim map body); the drawer
+   *  reads this spot again in full before it scrubs. */
+  condStripPartial?: boolean;
   /** Best-species hourly scores 0–100, null = unavailable that hour. */
   hours24: (number | null)[];
   /** Per-species peak score (0–100) keyed by species id — powers the filter. */
@@ -548,6 +551,7 @@ interface ScoringFields {
   peakHour: number | null;
   conditions: RailConditions;
   condStrip: MapCondStrip | null;
+  condStripPartial?: boolean;
   hours24: (number | null)[];
   scoresBySpecies: Record<string, number>;
 }
@@ -642,6 +646,7 @@ function deriveScoring(
     peakHour: strip?.peak_hour ?? null,
     conditions: formatConditions(cell, railUnitsFor(country)),
     condStrip: entry.conditions ?? null,
+    ...(entry.conditions_partial ? { condStripPartial: true } : {}),
     hours24: strip
       ? strip.hours.map((h) => (h ? Math.round(h.s * 100) : null))
       : new Array(24).fill(null),
@@ -1058,6 +1063,7 @@ export function buildExploreData(
           : null,
       conditions: s.conditions,
       condStrip: s.condStrip,
+      ...(s.condStripPartial ? { condStripPartial: true } : {}),
       hours24: s.hours24,
       scoresBySpecies: s.scoresBySpecies,
       hasReports: entry.has_reports === true,
