@@ -4,9 +4,7 @@ import Image from "next/image";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { trackEvent, setUserProperties } from "@/lib/analytics";
 import { writeAccessFilter } from "@/lib/spot-access";
-import { formatHour12 } from "@/lib/time-format";
-import { reportCampaignCta, useCampaignHit, type CampaignTarget } from "../../_shared/lp-telemetry";
-import { exploreHrefFrom } from "../../_shared/lp-via";
+import { useCampaignHit, type CampaignTarget } from "../../_shared/lp-telemetry";
 import { PRO_TESTIMONIAL_LABEL, proofQuoteFor } from "../../_shared/lp-content";
 import {
   buildQuestions,
@@ -18,28 +16,29 @@ import {
   type Persona,
   type QuizAnswers,
 } from "./persona";
-import type { QuizData, QuizPick } from "./quiz-data";
+import type { QuizData } from "./quiz-data";
+import QuizTrialForm from "./quiz-trial-form";
 
 /**
  * The quiz landing page: six taps, a short "building your plan" beat, then a
- * result page written for the persona the answers add up to.
+ * result page written for the persona the answers add up to, ending in the
+ * 7-day Pro trial.
  *
  * One client component on one route. Questions never navigate, so a slow
  * phone on a boat ramp never waits on the network between taps, and the
  * ad's query string (utm_*, fbclid) stays in the address bar the whole way
  * for the attribution code that reads it.
  *
- * The result's button opens Explore in the ad frame, on the reader's own
- * spot: `spot=` both selects it and keeps it unlocked for a signed-out
- * reader (explore/lib/spot-locks.ts), so the spot the page just promised is
- * the one spot the map is guaranteed to show a score for.
+ * The result recommends no spot (Casey, 2026-09-24). It is the reader's plan:
+ * their answers read back, what Pro does for their kind of fishing, and one
+ * email field that goes straight to Stripe (./quiz-trial-form.tsx).
  *
  * Counted three ways. The campaign counter gets a hit under `lpq` and the
- * button press with the persona in its angle column (`q:<persona>`), so
+ * trial submit with the persona in its angle column (`q:<persona>`), so
  * Campaign results can read quiz traffic beside every other landing page.
  * PostHog and Mixpanel get every answer, for the drop-off by question. And
- * the persona rides to Stripe in the `rc_quiz` cookie as `acq_quiz`, which is
- * the only way to learn which persona actually pays.
+ * the persona rides to Stripe twice: `from=lpq-<persona>` on the checkout,
+ * and the `rc_quiz` cookie as `acq_quiz`.
  */
 
 const LANDING = "lpq";
@@ -93,18 +92,6 @@ function metaCustom(event: string, data: Record<string, string>): void {
   } catch {
     // Never let a pixel throw into the page.
   }
-}
-
-function windowText(p: QuizPick): string | null {
-  if (p.bestFrom < 0 || p.bestTo < 0) return null;
-  if (p.bestFrom === p.bestTo) return `around ${formatHour12(p.bestFrom)}`;
-  return `${formatHour12(p.bestFrom)} to ${formatHour12(p.bestTo + 1)}`;
-}
-
-function tierOf(score: number): { word: string; pill: string } {
-  if (score >= 75) return { word: "GOOD", pill: "bg-rc-good-bg text-rc-good-ink" };
-  if (score >= 55) return { word: "FAIR", pill: "bg-rc-fair-bg text-rc-fair-ink" };
-  return { word: "POOR", pill: "bg-rc-poor-bg text-rc-poor-ink" };
 }
 
 export default function Quiz({ data }: { data: QuizData }) {
@@ -342,15 +329,6 @@ function BuildingScreen({ data, answers }: { data: QuizData; answers: QuizAnswer
   );
 }
 
-function pickFor(data: QuizData, a: QuizAnswers): QuizPick | null {
-  const shore = wantsShore(a);
-  const bySpecies = a.species === "any" ? null : data.species.find((s) => s.slug === a.species);
-  const order: Array<QuizPick | null | undefined> = shore
-    ? [bySpecies?.shore, data.any.shore, bySpecies?.boat, data.any.boat]
-    : [bySpecies?.boat, bySpecies?.shore, data.any.boat, data.any.shore];
-  return order.find((p): p is QuizPick => Boolean(p)) ?? null;
-}
-
 function ResultScreen(props: {
   data: QuizData;
   answers: QuizAnswers;
@@ -364,34 +342,21 @@ function ResultScreen(props: {
     regulator: data.regulator,
     cityName: data.cityName,
   });
-  const pick = pickFor(data, answers);
-  const others = Math.max(0, (wantsShore(answers) ? data.shoreCount : data.spotCount) - 1);
-
-  const href = useMemo(() => {
-    const base = exploreHrefFrom(data.citySlug, LANDING);
-    return pick ? `${base}&spot=${encodeURIComponent(pick.slug)}` : base;
-  }, [data.citySlug, pick]);
-
-  function press(cta: "hero" | "sticky") {
-    reportCampaignCta(cta, {
-      landing: LANDING,
-      target_city: data.citySlug,
-      target_spot: pick?.slug ?? "",
-      wall: "",
-      angle: `q:${persona}`,
-    });
-    trackEvent("Quiz CTA Clicked", {
-      landing: LANDING,
-      city: data.citySlug,
-      persona,
-      cta,
-      spot: pick?.slug ?? "",
-    });
-  }
-
   const quote = proofQuoteFor(data.provinceCode);
-  const tier = pick ? tierOf(pick.score) : null;
-  const win = pick ? windowText(pick) : null;
+  const emailRef = useRef<HTMLInputElement>(null);
+  // Every plan gets the horizon; the Die-Hard's own list already says it.
+  const benefits =
+    persona === "hardcore"
+      ? copy.benefits
+      : [...copy.benefits, "A 14-day forecast for every spot, so you can plan your trips ahead."];
+
+  // The sticky bar takes the reader to the one field on the page. Focus only
+  // on a tap, never on load: an autofocused email field throws a phone
+  // keyboard over the plan before anyone has read it.
+  function toForm() {
+    emailRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+    emailRef.current?.focus({ preventScroll: true });
+  }
 
   return (
     <main className="flex flex-1 flex-col">
@@ -403,39 +368,10 @@ function ResultScreen(props: {
         {recapLine(answers, picked ?? "fish")}
       </p>
 
-      {pick && tier ? (
-        <section className="mt-6 rounded-2xl border border-rc-rule bg-rc-panel p-5 shadow-sm">
-          <p className="text-xs font-semibold uppercase tracking-wider text-rc-ink-mute">Your best spot today</p>
-          <div className="mt-2 flex items-start justify-between gap-3">
-            <div>
-              <h2 className="text-xl font-bold text-rc-ink">{pick.name}</h2>
-              <p className="mt-0.5 text-sm text-rc-ink-mute">
-                {pick.species}
-                {pick.shoreKind ? ` · Shore · ${pick.shoreKind}` : pick.access === "shore" ? " · Shore" : " · Boat"}
-              </p>
-            </div>
-            <div className="flex flex-col items-center">
-              <span className="text-3xl font-bold tabular-nums text-rc-ink">{pick.score}</span>
-              <span className={"mt-1 rounded-full px-2 py-0.5 text-[11px] font-bold " + tier.pill}>{tier.word}</span>
-            </div>
-          </div>
-          {win ? (
-            <p className="mt-4 text-[15px] text-rc-ink">
-              Best window: <span className="font-semibold">{win}</span>
-            </p>
-          ) : null}
-          {others > 0 ? (
-            <p className="mt-2 text-sm text-rc-ink-mute">
-              Plus {others} more {wantsShore(answers) ? "shore spots" : "spots"} on the map. Pro unlocks the score at every one.
-            </p>
-          ) : null}
-        </section>
-      ) : null}
-
-      <section className="mt-6">
-        <h2 className="text-lg font-bold text-rc-ink">What ReelCaster does for you</h2>
+      <section className="mt-6 rounded-2xl border border-rc-rule bg-rc-panel p-5 shadow-sm">
+        <p className="text-xs font-semibold uppercase tracking-wider text-rc-ink-mute">Your plan includes</p>
         <ul className="mt-3 flex flex-col gap-3">
-          {copy.benefits.map((b) => (
+          {benefits.map((b) => (
             <li key={b} className="flex gap-3 text-[15px] leading-snug text-rc-ink">
               <span className="mt-0.5 flex h-5 w-5 flex-none items-center justify-center rounded-full bg-rc-good-bg text-xs font-bold text-rc-good-ink" aria-hidden>
                 ✓
@@ -444,9 +380,27 @@ function ResultScreen(props: {
             </li>
           ))}
         </ul>
+        <p className="mt-4 text-sm text-rc-ink-mute">
+          Built on {data.spotCount} spots around {data.cityName}, scored every hour.
+        </p>
       </section>
 
-      <figure className="mt-6 rounded-2xl border border-rc-rule bg-rc-panel p-5">
+      <section className="mt-6">
+        <h2 className="text-xl font-bold text-rc-ink">Start your plan free for 7 days</h2>
+        <div className="mt-3">
+          <QuizTrialForm
+            ref={emailRef}
+            citySlug={data.citySlug}
+            region={data.provinceCode}
+            persona={persona}
+            inputId="quiz-email"
+            cta="hero"
+            ctaLabel="Start my 7-day free trial"
+          />
+        </div>
+      </section>
+
+      <figure className="mt-8 rounded-2xl border border-rc-rule bg-rc-panel p-5">
         {quote.pro ? (
           <p className="text-[11px] font-semibold uppercase tracking-wider text-rc-ink-mute">{PRO_TESTIMONIAL_LABEL}</p>
         ) : null}
@@ -459,27 +413,18 @@ function ResultScreen(props: {
         <figcaption className="mt-2 text-sm font-medium text-rc-ink-mute">{quote.attr}</figcaption>
       </figure>
 
-      <a
-        href={href}
-        onClick={() => press("hero")}
-        className="mt-8 flex min-h-[56px] items-center justify-center rounded-2xl bg-rc-brand px-6 text-lg font-bold text-white hover:bg-rc-brand-hover"
-      >
-        {copy.cta}
-      </a>
-      <p className="mt-2 text-center text-sm text-rc-ink-mute">Free to look. No card needed.</p>
-
       <button type="button" onClick={onRestart} className="mx-auto mt-6 px-3 py-2 text-sm text-rc-ink-mute underline">
         Start over
       </button>
 
       <div className="fixed inset-x-0 bottom-0 z-10 border-t border-rc-rule bg-rc-panel/95 px-4 pb-[max(12px,env(safe-area-inset-bottom))] pt-3 backdrop-blur">
-        <a
-          href={href}
-          onClick={() => press("sticky")}
-          className="mx-auto flex min-h-[52px] max-w-[528px] items-center justify-center rounded-2xl bg-rc-brand px-6 text-base font-bold text-white hover:bg-rc-brand-hover"
+        <button
+          type="button"
+          onClick={toForm}
+          className="mx-auto flex min-h-[52px] w-full max-w-[528px] items-center justify-center rounded-2xl bg-rc-brand px-6 text-base font-bold text-white hover:bg-rc-brand-hover"
         >
-          {copy.cta}
-        </a>
+          Start my 7-day free trial
+        </button>
       </div>
     </main>
   );
