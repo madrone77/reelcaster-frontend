@@ -133,8 +133,13 @@ export default function ProTrialModal({
   tapped?: string;
 }) {
   const { user } = useAuth();
-  const { isPaid } = useSubscription();
+  const { isPaid, loading: tierLoading } = useSubscription();
   const { trackEvent } = useAnalytics();
+
+  // A reader who already has Pro never gets sold it. Any lock that still
+  // opens this for them is a stale lock; closing beats pitching a trial to a
+  // paying customer. A caller that names the tier itself is left alone.
+  const proViewer = !viewerTierProp && !!user && !tierLoading && isPaid;
 
   const nag = NAG_FEATURES[feature];
   const viewerTier: PlanTierId =
@@ -265,7 +270,11 @@ export default function ProTrialModal({
   );
 
   useEffect(() => {
-    if (!open) return;
+    if (open && proViewer) onOpenChange(false);
+  }, [open, proViewer, onOpenChange]);
+
+  useEffect(() => {
+    if (!open || proViewer) return;
     openedAt.current = Date.now();
     // Tap to painted sheet, for the admin's Modal open tile. See @/lib/modal-timing.
     reportModalOpen();
@@ -288,15 +297,15 @@ export default function ProTrialModal({
     // out to Stripe, so whatever the visitor converts into knows which wall
     // sent them. Last touch wins, and it expires in 30 minutes.
     captureWall(feature, from);
-  }, [open, feature, viewerTier, from, trackEvent, bumpCounter]);
+  }, [open, proViewer, feature, viewerTier, from, trackEvent, bumpCounter]);
 
   // The phone sheet fills the screen, so a map under it (Explore) has nothing
   // to draw for. Pausing it frees the main thread for the sheet: a map still
   // loading tiles underneath froze the email field for seconds on an iPhone.
   useEffect(() => {
-    if (!open || !phone) return;
+    if (!open || !phone || proViewer) return;
     return coverMap();
-  }, [open, phone]);
+  }, [open, phone, proViewer]);
 
   // Which shape. `useIsPhone` answers on the first client render, so the
   // shape this mounts in is the shape it keeps. It used to measure in an
@@ -304,6 +313,8 @@ export default function ProTrialModal({
   // dialog, then swapped it for the sheet a frame later, and on WebKit the
   // sheet's outside-tap listener could catch the tail of the opening tap and
   // dismiss the sheet on the spot. See the hook for the full story.
+  if (proViewer) return null;
+
   if (phone) {
     return (
       // handleOpenChange, not onOpenChange. Both shapes of this modal have to

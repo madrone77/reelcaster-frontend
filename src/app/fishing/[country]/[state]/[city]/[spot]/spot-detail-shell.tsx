@@ -496,7 +496,7 @@ export default function SpotDetailShell({
   // rail SpotCard star interaction exactly, including the free-tier cap.
   const [savePop, setSavePop] = useState(false);
   const handleToggleSaved = async () => {
-    const res = await toggleSaved({ isPaid, spotId: spot.id });
+    const res = await toggleSaved({ isPaid: tierLoading ? undefined : isPaid, spotId: spot.id });
     trackEvent("Spot Saved", { outcome: res, slug, paid: isPaid });
     if (res === "signed-out" || res === "at-cap") {
       setFavUpgradeOpen(true);
@@ -618,7 +618,10 @@ export default function SpotDetailShell({
     } catch {
       if (liveKey.current.slug === forSlug) setReportsLocked(true);
     }
-  }, [page.recentReportsTeaser, spot.slug]);
+    // The reader and their tier are deps on purpose: the route unlocks by the
+    // token, so a sign-in or an upgrade on this page has to ask again.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [page.recentReportsTeaser, spot.slug, user?.id, isPaid]);
 
   useEffect(() => {
     void loadReports();

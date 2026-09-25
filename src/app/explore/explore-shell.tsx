@@ -1436,8 +1436,18 @@ export default function ExploreShell({
   const displayForecast = fcPayload ?? seedForecast;
   const onSeed = fcPayload === null && seedForecast !== null;
 
+  // Who the cached strips were trimmed for. The route cuts days to the
+  // caller's horizon, so a sign-in, sign-out or upgrade mid-visit has to
+  // refetch rather than keep showing the old tier's days.
+  const fcViewer = `${userId ?? "anon"}:${isPaid ? "pro" : "std"}`;
+  const fcViewerRef = useRef(fcViewer);
+
   useEffect(() => {
     if (!vpBbox) return;
+    if (fcViewerRef.current !== fcViewer) {
+      fcViewerRef.current = fcViewer;
+      fcCacheRef.current.clear();
+    }
     const cached = fcCacheRef.current.get(vpBbox);
     if (cached) {
       setFcPayload(cached);
@@ -1462,7 +1472,7 @@ export default function ExploreShell({
     return () => {
       cancelled = true;
     };
-  }, [vpBbox]);
+  }, [vpBbox, fcViewer]);
 
   // The strip no longer waits for the tier before rendering anything.
   //

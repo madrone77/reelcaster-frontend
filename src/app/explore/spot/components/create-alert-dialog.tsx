@@ -124,7 +124,7 @@ export default function CreateAlertDialog({
   onUpgradeRequired?: () => void;
 }) {
   const { session } = useAuth();
-  const { isPaid } = useSubscription();
+  const { isPaid, loading: tierLoading } = useSubscription();
   const router = useRouter();
   // Answers on the first client render, so the shape this mounts in is the
   // shape it keeps. See the hook for why an effect would not do.
@@ -174,8 +174,10 @@ export default function CreateAlertDialog({
           const used: number | null = d?.profiles?.length ?? null;
           setUsedCount(used);
           // Already out of slots — hand straight off to the upgrade modal
-          // rather than rendering a form the API will refuse.
-          if (!isPaid && onUpgradeRequired && used != null && used >= limit) {
+          // rather than rendering a form the API will refuse. Not while the
+          // tier is still loading: a Pro reader reads as free until it lands,
+          // and the route enforces the real cap either way.
+          if (!tierLoading && !isPaid && onUpgradeRequired && used != null && used >= limit) {
             onOpenChange(false);
             onUpgradeRequired();
           }
