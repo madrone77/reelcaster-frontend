@@ -6,6 +6,7 @@ import { Wind, Waves, Navigation, Lock, Globe } from "lucide-react";
 import { TIER_PILL, tierFor, type RailSpot } from "../lib/explore-data";
 import { areaLabelFor } from "@/lib/regions";
 import { shoreTypeLabel } from "@/lib/spot-access";
+import ShoreIcon from "@/app/components/common/shore-icon";
 import { useFavorite } from "../lib/use-favorite";
 import { useSubscription } from "@/hooks/use-subscription";
 import SpotTrend from "./spot-trend";
@@ -243,6 +244,7 @@ export default function SpotCard({
                 them. */}
             {spot.access === "shore" && (
               <span className="ml-1.5 pl-1.5 border-l border-rc-rule text-rc-ink">
+                <ShoreIcon className="inline-block h-3 w-3 mr-1 -mt-px align-middle" />
                 {shoreTypeLabel(spot.shoreType) ?? "Shore"}
               </span>
             )}

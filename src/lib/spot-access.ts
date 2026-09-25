@@ -35,11 +35,11 @@ export function shoreTypeLabel(spotType: string | null | undefined): string | nu
   return (spotType && SHORE_TYPE_LABEL[spotType]) || null;
 }
 
-/** The spot page pill: "Boat", or "Shore · Pier". */
+/** The spot page pill: "Boat", or "Shore spot · Pier". */
 export function accessBadgeLabel(access: SpotAccess, spotType: string | null | undefined): string {
   if (access === "boat") return "Boat";
   const kind = shoreTypeLabel(spotType);
-  return kind ? `Shore · ${kind}` : "Shore";
+  return kind ? `Shore spot · ${kind}` : "Shore spot";
 }
 
 const STORAGE_KEY = "rc:spotAccess";
