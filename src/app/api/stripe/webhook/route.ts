@@ -94,24 +94,33 @@ async function resolveUserId(subscription: Stripe.Subscription): Promise<string 
   return provisionUserForSubscription(subscription);
 }
 
-/** The billing email Stripe holds for this subscription's customer. */
+/**
+ * The billing email Stripe holds for this subscription's customer.
+ *
+ * The address Stripe collected on its page comes first: since 2026-09-25 the
+ * sheet's address is no longer prefilled there, so a buyer can type a different
+ * one, and the account has to be the one Stripe bills. The sheet's address in
+ * the metadata is the fallback, for a session built before that or a customer
+ * Stripe cannot return.
+ */
 async function customerEmailOf(
   subscription: Stripe.Subscription,
 ): Promise<string | null> {
-  const fromMeta =
-    subscription.metadata?.checkout_email ??
-    (typeof subscription.customer === 'string' || subscription.customer.deleted
+  const fromMeta = subscription.metadata?.checkout_email ?? null;
+  const inline =
+    typeof subscription.customer === 'string' || subscription.customer.deleted
       ? null
-      : subscription.customer.email);
-  if (fromMeta) return fromMeta;
+      : subscription.customer.email;
+  if (inline) return inline;
 
   try {
     const stripe = await getStripe();
     const customer = await stripe.customers.retrieve(customerIdOf(subscription));
-    return customer.deleted ? null : (customer.email ?? null);
+    const billed = customer.deleted ? null : (customer.email ?? null);
+    return billed ?? fromMeta;
   } catch (err) {
     console.error('[stripe webhook] could not read customer email', err);
-    return null;
+    return fromMeta;
   }
 }
 
