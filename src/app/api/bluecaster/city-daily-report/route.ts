@@ -72,6 +72,28 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: "upstream unavailable" }, { status: 502 });
   }
 
+  // Nothing fed it: no angler reports and no creel checks in the window. The
+  // city keeps its last briefing when the chatter dries up, and a month-old
+  // report shown as the current one is worse than saying there is none. The
+  // public city report makes the same call (../city-report).
+  if (
+    data.status === "ready" &&
+    data.report &&
+    (data.report.reports_signal_count ?? 0) === 0 &&
+    (data.report.creel_survey_count ?? 0) === 0
+  ) {
+    return NextResponse.json(
+      {
+        locked: false,
+        city: data.city,
+        citySource: city.source,
+        status: "no_signals",
+        report: null,
+      },
+      { headers: { "Cache-Control": "private, no-store" } },
+    );
+  }
+
   if (!isPro) {
     // The city and the teaser, and no more. Same tier-to-tier shape as the
     // public city page: the body is not sent and hidden, it is not sent.
