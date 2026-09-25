@@ -7,6 +7,7 @@ import { usePricing } from "@/app/components/split-test/use-pricing";
 import { reportCampaignCta, type LpCtaId } from "../../_shared/lp-telemetry";
 import { trackEvent } from "@/lib/analytics";
 import type { Persona } from "./persona";
+import { recordCta } from "./quiz-track";
 
 /**
  * The quiz's ask: one email field that posts straight to Stripe for the
@@ -70,6 +71,7 @@ const QuizTrialForm = forwardRef<HTMLInputElement, Props>(function QuizTrialForm
       angle: `q:${persona}`,
     });
     trackEvent("Quiz CTA Clicked", { landing: "lpq", city: citySlug, persona, cta });
+    recordCta(citySlug);
 
     setSubmitting(true);
     setError(null);

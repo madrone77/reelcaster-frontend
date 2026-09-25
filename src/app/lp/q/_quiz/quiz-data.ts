@@ -9,6 +9,7 @@ import { inflateMapSpotsBody } from "@/lib/map-pins";
 import { speciesDisplayName } from "@/app/explore/lib/explore-data";
 import { windowAround } from "../../_reel/city-proof";
 import { lpRegionFor } from "../../_shared/lp-region";
+import { timezoneFor } from "@/lib/regions";
 import {
   NEAR_KM,
   distanceKm,
@@ -44,8 +45,12 @@ export interface QuizPick {
   lng: number;
   access: "boat" | "shore";
   shoreKind: string | null;
+  /** The scoring species id, for the live screen the result page fetches. */
+  speciesId: string;
   /** Today's peak, 0..100. */
   score: number;
+  /** Today's 24 hourly scores at this spot for this fish, 0..100. */
+  hours: number[];
   /** Local hours of today's best window, -1 when there is none. */
   bestFrom: number;
   bestTo: number;
@@ -57,6 +62,16 @@ export interface QuizPick {
   distanceKm: number;
 }
 
+/** A scored spot on the result page's map. */
+export interface QuizPin {
+  slug: string;
+  name: string;
+  lat: number;
+  lng: number;
+  score: number;
+  access: "boat" | "shore";
+}
+
 export interface QuizSpecies {
   slug: string;
   name: string;
@@ -64,6 +79,9 @@ export interface QuizSpecies {
   proven: boolean;
   boat: QuizPick | null;
   shore: QuizPick | null;
+  /** The best-scored spots for this fish near the city, for the map. Boat
+   *  and shore mixed; the page filters by the reader's own access. */
+  pins: QuizPin[];
   /** Offered to boat and kayak readers. */
   boatOffer: boolean;
   /** Offered to shore readers. */
@@ -76,6 +94,8 @@ export interface QuizData {
   provinceCode: string;
   regulator: string;
   isUS: boolean;
+  /** The city's clock, for the live screen. */
+  tz: string;
   /** Spots with any score today inside the evidence box. */
   spotCount: number;
   /** Most evidence first. The quiz shows up to five of those offered for
@@ -92,6 +112,9 @@ const REPORT_DAYS = 30;
  */
 const BOX_LAT = 0.9;
 const BOX_LNG = 1.3;
+/** Pins per access on the result map. Enough to read as a roster, few enough
+ *  that the payload stays small. */
+const PINS_PER_ACCESS = 8;
 
 /**
  * "Pacific Halibut" reads as "Halibut" to everyone who fishes for one, and the
@@ -213,7 +236,9 @@ export async function loadQuizData(citySlug: string): Promise<QuizData | null> {
       lng: p.spot.lng,
       access: p.spot.access,
       shoreKind: p.spot.shoreKind,
+      speciesId: p.speciesId,
       score: sc?.score ?? 0,
+      hours: sc?.hours ?? [],
       bestFrom: win?.from ?? -1,
       bestTo: win?.to ?? -1,
       source: p.source,
@@ -236,6 +261,20 @@ export async function loadQuizData(citySlug: string): Promise<QuizData | null> {
     if (!pool.some((r) => r.ref.id === id) && refs[id]) pool.push({ ref: refs[id], proven: false });
   }
 
+  // The map behind the result: the best-scored spots for the fish within the
+  // near ring, most of them boat marks, every shore spot kept so a shore
+  // reader's map is not empty. Eight boat and eight shore at most.
+  const pinsFor = (speciesId: string): QuizPin[] => {
+    const near = spots.filter((s) => s.scores[speciesId] && distanceKm(city, s) <= NEAR_KM);
+    const take = (access: "boat" | "shore") =>
+      near
+        .filter((s) => s.access === access)
+        .sort((a, b) => b.scores[speciesId].score - a.scores[speciesId].score)
+        .slice(0, PINS_PER_ACCESS)
+        .map((s) => ({ slug: s.slug, name: s.name, lat: s.lat, lng: s.lng, score: s.scores[speciesId].score, access }));
+    return [...take("boat"), ...take("shore")];
+  };
+
   const built: QuizSpecies[] = pool.map(({ ref, proven }) => {
     const boat = toPick(pickSpot(spots, ref.id, ref.name, "boat", reports, kept, isWdfwArea, city));
     const shore = toPick(pickSpot(spots, ref.id, ref.name, "shore", reports, kept, isWdfwArea, city));
@@ -246,6 +285,7 @@ export async function loadQuizData(citySlug: string): Promise<QuizData | null> {
       proven,
       boat,
       shore,
+      pins: pinsFor(ref.id),
       // Boat: only where a spot has catches of it. That is the Chinook a
       // Seattle reader would otherwise drive to Tacoma for on a score alone.
       boatOffer: proven && hasEvidence(boat),
@@ -265,6 +305,7 @@ export async function loadQuizData(citySlug: string): Promise<QuizData | null> {
     provinceCode,
     regulator: region.regulator.name,
     isUS: region.isUS,
+    tz: timezoneFor(provinceCode),
     spotCount: spots.length,
     species,
   };

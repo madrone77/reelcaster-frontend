@@ -38,11 +38,26 @@ import {
 import { classifyUserAgent } from './device';
 import { readEdgeGeo } from './edge-geo';
 
-/** The rc_quiz cookie, checked against its own shape before it is trusted. */
+/**
+ * The rc_quiz cookie, checked against its own shape before it is trusted.
+ *
+ * `<persona>.<species>.<access>` and, since 2026-09-25, an optional fourth
+ * part: the quiz id (16 to 32 hex) of the `quiz_responses` row holding every
+ * answer, so a trial can be read back against the quiz that produced it. See
+ * src/app/lp/q/_quiz/quiz-track.ts and `quizIdFrom` below.
+ */
 export function readQuizCookie(cookieHeader: string): string | null {
   const m = cookieHeader.match(/(?:^|;\s*)rc_quiz=([^;]*)/);
   const v = m ? decodeURIComponent(m[1]).trim() : '';
-  return /^(weekend|shore|newcomer|hardcore)\.[a-z0-9-]{1,60}\.(boat|kayak|shore|both)$/.test(v) ? v : null;
+  return /^(weekend|shore|newcomer|hardcore)\.[a-z0-9-]{1,60}\.(boat|kayak|shore|both)(\.[a-f0-9]{16,32})?$/.test(v)
+    ? v
+    : null;
+}
+
+/** The quiz id inside an `acq_quiz` value, or null when it carries none. */
+export function quizIdFrom(acqQuiz: string | null | undefined): string | null {
+  const m = (acqQuiz ?? '').match(/\.([a-f0-9]{16,32})$/);
+  return m ? m[1] : null;
 }
 
 /** Stripe caps metadata values at 500 chars. Stay well inside it. */

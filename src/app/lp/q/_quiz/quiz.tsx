@@ -10,8 +10,10 @@ import {
   buildQuestions,
   isAnswer,
   personaCopy,
+  planFeatures,
   recapLine,
   scorePersona,
+  showcaseFor,
   wantsShore,
   type Access,
   type Persona,
@@ -20,6 +22,8 @@ import {
 import type { QuizData } from "./quiz-data";
 import QuizTrialForm from "./quiz-trial-form";
 import QuizSpotCard from "./quiz-spot-card";
+import QuizShowcase from "./quiz-showcase";
+import { quizId, recordAnswer, recordComplete, resetQuizId } from "./quiz-track";
 
 /**
  * The quiz landing page: six taps, a short "building your plan" beat, then a
@@ -80,10 +84,11 @@ function writeStored(s: Stored): void {
   }
 }
 
-/** Persona for the checkout metadata. 90 days, like the entry cookie. */
+/** Persona and the quiz row's id for the checkout metadata. 90 days, like
+ *  the entry cookie. The id is what lets a trial find its answers. */
 function writeQuizCookie(persona: Persona, species: string, access: string): void {
   try {
-    const value = `${persona}.${species}.${access}`.replace(/[^a-z0-9.-]/g, "");
+    const value = `${persona}.${species}.${access}.${quizId()}`.replace(/[^a-z0-9.-]/g, "");
     document.cookie = `rc_quiz=${value}; path=/; max-age=${60 * 60 * 24 * 90}; samesite=lax`;
   } catch {
     // Cookies blocked. The counter and analytics still carry the persona.
@@ -185,6 +190,7 @@ export default function Quiz({ data }: { data: QuizData }) {
       ...full,
     };
     trackEvent("Quiz Completed", props);
+    recordComplete(data.citySlug, persona, full);
     setUserProperties({ quizPersona: persona });
     metaCustom("QuizCompleted", { persona, city: data.citySlug, species: full.species });
     writeQuizCookie(persona, full.species, full.access);
@@ -202,6 +208,7 @@ export default function Quiz({ data }: { data: QuizData }) {
       step: step + 1,
       answer: value,
     });
+    recordAnswer(data.citySlug, q.id, step + 1, value);
     window.setTimeout(() => {
       setAnswers((a) => {
         const next: Partial<QuizAnswers> = { ...a, [q.id]: value };
@@ -237,6 +244,8 @@ export default function Quiz({ data }: { data: QuizData }) {
     setStep(0);
     setPhase("questions");
     reported.current = false;
+    // A second run is a second row, not an edit of the first.
+    resetQuizId();
   }
 
   return (
@@ -389,11 +398,19 @@ function ResultScreen(props: {
   const shore = wantsShore(answers);
   const pick = fish ? (shore ? fish.shore ?? fish.boat : fish.boat ?? fish.shore) : null;
   const boatInstead = !!(fish && shore && !fish.shore && fish.boat);
-  // Every plan gets the horizon; the Die-Hard's own list already says it.
-  const benefits =
-    persona === "hardcore"
-      ? copy.benefits
-      : [...copy.benefits, "A 14-day forecast for every spot, so you can plan your trips ahead."];
+
+  // The showcase is written around the reader's own spot and fish.
+  const speciesWord = fish ? fish.name : "whatever's biting";
+  const blocks = pick
+    ? showcaseFor(persona, answers, {
+        cityName: data.cityName,
+        spotName: pick.name,
+        species: speciesWord,
+        regulator: data.regulator,
+        shore,
+      })
+    : [];
+  const features = planFeatures(persona, { species: speciesWord, regulator: data.regulator });
 
   // The sticky bar takes the reader to the one field on the page. Focus only
   // on a tap, never on load: an autofocused email field throws a phone
@@ -424,15 +441,22 @@ function ResultScreen(props: {
         />
       ) : null}
 
-      <section className="mt-6 rounded-2xl border border-rc-rule bg-rc-panel p-5 shadow-sm">
-        <p className="text-xs font-semibold uppercase tracking-wider text-rc-ink-mute">Your plan includes</p>
-        <ul className="mt-3 flex flex-col gap-3">
-          {benefits.map((b) => (
-            <li key={b} className="flex gap-3 text-[15px] leading-snug text-rc-ink">
+      {fish && pick ? (
+        <QuizShowcase data={data} blocks={blocks} pick={pick} pins={fish.pins} speciesName={fish.name} shore={shore} />
+      ) : null}
+
+      <section className="mt-8 rounded-2xl border border-rc-rule bg-rc-panel p-5 shadow-sm">
+        <p className="text-xs font-semibold uppercase tracking-wider text-rc-ink-mute">Also in your plan</p>
+        <ul className="mt-3 flex flex-col gap-4">
+          {features.map((f) => (
+            <li key={f.title} className="flex gap-3">
               <span className="mt-0.5 flex h-5 w-5 flex-none items-center justify-center rounded-full bg-rc-good-bg text-xs font-bold text-rc-good-ink" aria-hidden>
                 ✓
               </span>
-              {b}
+              <span>
+                <span className="block text-[15px] font-semibold leading-snug text-rc-ink">{f.title}</span>
+                <span className="block text-sm leading-snug text-rc-ink-soft">{f.desc}</span>
+              </span>
             </li>
           ))}
         </ul>
@@ -441,8 +465,11 @@ function ResultScreen(props: {
         </p>
       </section>
 
-      <section className="mt-6">
-        <h2 className="text-xl font-bold text-rc-ink">Start your plan free for 7 days</h2>
+      <section className="mt-8">
+        <h2 className="text-xl font-bold text-rc-ink">Start your {copy.name.replace(/^The /, "")} plan free for 7 days</h2>
+        <p className="mt-1 text-sm text-rc-ink-soft">
+          {pick ? `${pick.name} and every other spot, 14 days out, with alerts and the rules.` : "Every spot, 14 days out, with alerts and the rules."}
+        </p>
         <div className="mt-3">
           <QuizTrialForm
             ref={emailRef}

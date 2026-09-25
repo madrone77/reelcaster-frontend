@@ -12,7 +12,7 @@
  */
 
 import assert from 'node:assert/strict';
-import { acquisitionMetadata, clientIp, forwardedAcquisition } from './acquisition-metadata';
+import { acquisitionMetadata, clientIp, forwardedAcquisition, quizIdFrom, readQuizCookie } from './acquisition-metadata';
 import { readFbc } from './attribution';
 
 const FBC = 'fb.1.1756909733083.IwY2xjawUFabcDEF-_123';
@@ -25,6 +25,15 @@ function headers(over: Record<string, string> = {}): Headers {
 }
 
 function main() {
+  // ── rc_quiz: persona.species.access, with or without the quiz row's id ──
+  assert.equal(readQuizCookie('rc_quiz=weekend.coho-salmon.boat'), 'weekend.coho-salmon.boat');
+  assert.equal(readQuizCookie('a=1; rc_quiz=shore.any.shore.0123456789abcdef'), 'shore.any.shore.0123456789abcdef');
+  assert.equal(readQuizCookie('rc_quiz=shore.any.shore.NOTHEX'), null);
+  assert.equal(readQuizCookie('rc_quiz=guru.any.shore'), null);
+  assert.equal(quizIdFrom('shore.any.shore.0123456789abcdef'), '0123456789abcdef');
+  assert.equal(quizIdFrom('shore.any.shore'), null);
+  assert.equal(quizIdFrom(undefined), null);
+
   // ── _fbc, validated by shape because a visitor can edit a cookie ──────
   assert.equal(readFbc(`_fbc=${FBC}`), FBC);
   assert.equal(readFbc(`_ga=1; _fbc=${FBC}; _fbp=${FBP}`), FBC);
