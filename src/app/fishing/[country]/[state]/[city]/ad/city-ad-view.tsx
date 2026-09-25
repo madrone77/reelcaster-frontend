@@ -16,6 +16,7 @@ import AdHero, { AD_HERO_REEL_COL } from "../[spot]/ad-intro";
 import { useMountedOnce } from "@/hooks/use-mounted-once";
 import { useTrialModal } from "@/hooks/use-paywall-modal";
 import { useEarlyTap } from "@/hooks/use-early-tap";
+import LeaveAdFrameWhenSignedIn from "@/components/leave-ad-frame-when-signed-in";
 
 /**
  * "Open the trial modal", handed down the frame so the second ask below the
@@ -136,6 +137,8 @@ export default function CityAdView({
 
   return (
     <div data-ad-frame="" className="min-h-dvh bg-rc-panel">
+      {/* A signed-in angler is sent to the public city page at a clean URL. */}
+      <LeaveAdFrameWhenSignedIn />
       <ExploreTopBar
         adFrame
         adCtaFrom="city-ad-topbar"

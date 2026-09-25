@@ -100,6 +100,7 @@ import MobileHourBar from "./components/mobile-hour-bar";
 import type { FlowKind } from "./lib/use-flow";
 import ForecastStrip from "./components/forecast-strip";
 import { AdFrameProvider } from "./lib/ad-frame";
+import LeaveAdFrameWhenSignedIn from "@/components/leave-ad-frame-when-signed-in";
 import { applySpotLocks } from "./lib/spot-locks";
 import { useLockedSpots } from "@/app/components/split-test/use-locked-spots";
 import { useJoinPrompt } from "@/app/components/split-test/use-join-prompt";
@@ -2373,6 +2374,8 @@ export default function ExploreShell({
         ad ? { wall: ad.wall, angle: ad.angle, onOpenSpot: onAdOpenSpot } : null
       }
     >
+    {/* A signed-in angler is sent to the plain map at a clean URL. */}
+    {ad ? <LeaveAdFrameWhenSignedIn /> : null}
     <div
       /* The map runs the full height of the viewport on every surface, phone
          included, the ad frame too: its bar sits on the TOP edge now, in the
