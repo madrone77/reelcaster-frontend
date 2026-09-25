@@ -625,7 +625,8 @@ export default function SpotDetailShell({
 
   // No written report for this spot: the city's daily report stands in, so the
   // slot says what is being caught around here rather than a bare count or
-  // nothing. Keyed on the teaser because it arrives with the static render, so
+  // nothing. That includes a Washington spot with only its marine area's
+  // catch checks: those are the area's numbers, not reports from this spot. Keyed on the teaser because it arrives with the static render, so
   // one block never flashes into the other. Custom spots and unpublished cities
   // have no city link and keep the spot band.
   const reportsBand =

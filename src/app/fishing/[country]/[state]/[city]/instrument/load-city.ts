@@ -78,13 +78,15 @@ export interface LoadedCity {
   /** Every mark that scored anything today, for callers that re-rank. */
   hubSpots: HubSpot[];
   /**
-   * Today's report headline, for the band above the 14-day strip, or null
-   * when the city has nothing current to say. The one part of the report that
-   * is free to everyone and so safe in a prerendered page. Read with `peek`,
+   * Today's report teaser, for the band above the 14-day strip, or null when
+   * the city has nothing current to say. The teaser, NOT the headline: the
+   * headline is the report in one sentence (spot, species, verdict) and a
+   * prerendered page is served to everyone. `line` is null when the report
+   * has no teaser; the band shows a plain line of its own. Read with `peek`,
    * so a build does not enrol every city in daily generation; the band's own
    * client fetch is the read that counts as demand.
    */
-  reportTeaser: { headline: string; reportDate: string } | null;
+  reportTeaser: { line: string | null; reportDate: string } | null;
 }
 
 export interface LoadCityOptions {
@@ -158,7 +160,7 @@ async function loadResolvedCity(
   const dr = dailyReport?.status === "ready" ? dailyReport.report : null;
   const reportTeaser =
     dr?.headline && ((dr.reports_signal_count ?? 0) > 0 || (dr.creel_survey_count ?? 0) > 0)
-      ? { headline: dr.headline, reportDate: dr.report_date }
+      ? { line: dr.teaser ?? null, reportDate: dr.report_date }
       : null;
 
   // Narrowed by id, not by `citySlug`. A spot has one home city but can be a

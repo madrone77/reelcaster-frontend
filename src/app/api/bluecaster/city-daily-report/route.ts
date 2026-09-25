@@ -18,12 +18,11 @@ import {
  * load-bearing check — same reasoning as the fresh-catches route.
  *
  * A free caller gets `{ locked: true }` with the resolved city and the
- * report's headline and date, and nothing else: no prose, no outlook, no tips,
- * so a locked card has no body to reveal in the network tab. The headline is
- * free for the same reason it is free on the public city page (see
- * ../city-report): it is the line that says a real report exists for this
- * water, and a member who cannot see that it exists cannot be sold on it. The
- * gate sits on the body, not on the city.
+ * report's teaser and date, and nothing else: no headline, no prose, no
+ * outlook, no tips, so a locked card has nothing to reveal in the network tab.
+ * The teaser is free for the same reason it is free on the public city page
+ * (see ../city-report): it says a real report exists for this water without
+ * saying where or how it is fishing. The headline says both, so it is Pro.
  *
  * The city is resolved server-side from the caller's own account — it is
  * deliberately NOT a query parameter. Letting the browser name the city would
@@ -74,7 +73,7 @@ export async function GET(request: NextRequest) {
   }
 
   if (!isPro) {
-    // The city and the headline, and no more. Same tier-to-tier shape as the
+    // The city and the teaser, and no more. Same tier-to-tier shape as the
     // public city page: the body is not sent and hidden, it is not sent.
     const r = data.report;
     return NextResponse.json(
@@ -86,7 +85,7 @@ export async function GET(request: NextRequest) {
         report:
           data.status === "ready" && r
             ? {
-                headline: r.headline,
+                teaser: r.teaser ?? null,
                 report_date: r.report_date,
                 generated_at: r.generated_at,
               }
