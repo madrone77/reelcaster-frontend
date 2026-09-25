@@ -1629,7 +1629,13 @@ export interface BlueCasterCityDailyReport {
   status: "ready" | "pending";
   report: {
     report_date: string;
+    /** The report in one sentence: spot, species and how it is fishing.
+     *  Pro content. Never show it to a locked reader. */
     headline: string | null;
+    /** The line a locked reader may see: the city and the species, nothing
+     *  else. Null on older rows and when BlueCaster's scan rejected it;
+     *  show a plain line then, never the headline. Absent on an older API. */
+    teaser?: string | null;
     reports_md: string | null;
     reports_window_days: number;
     outlook_md: string | null;

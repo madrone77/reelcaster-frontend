@@ -21,9 +21,12 @@ import { getFishingProvinceByCode } from "@/app/fishing/lib/fishing-data";
  *
  *   1. The slug is checked against the published hierarchy before it reaches
  *      BlueCaster, so this cannot be used to enumerate unpublished cities.
- *   2. The GATE MOVES FROM THE CITY TO THE BODY. Everyone gets the headline,
- *      because that is the line the page is indexed on and the hook that sells
- *      the rest. Only a Pro reader gets `reports_md`, `outlook_md` and `tips`.
+ *   2. The GATE MOVES FROM THE CITY TO THE BODY. Everyone gets the teaser,
+ *      which names the city and the fish and nothing else. The headline is
+ *      NOT free: it is the report in one sentence ("Sandheads still the
+ *      busiest water for springs and coho, with clipped fish hard to come
+ *      by"), which is the intel Pro sells. Only a Pro reader gets
+ *      `headline`, `reports_md`, `outlook_md` and `tips`.
  *
  * So a free caller here gets strictly less than a Pro caller on the same city,
  * and the dashboard route's stronger rule is untouched.
@@ -87,14 +90,14 @@ export async function GET(request: NextRequest) {
   const isPro = await isProViewer(request);
 
   if (!isPro) {
-    // Headline only. The body is not sent at all rather than sent and hidden,
-    // so a locked band has nothing to reveal in the network tab.
+    // Teaser only. The headline and body are not sent at all rather than sent
+    // and hidden, so a locked band has nothing to reveal in the network tab.
     return NextResponse.json(
       {
         locked: true,
         status: "ready",
         report: {
-          headline: report.headline,
+          teaser: report.teaser ?? null,
           report_date: report.report_date,
           generated_at: report.generated_at,
         },

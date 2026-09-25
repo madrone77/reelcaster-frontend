@@ -2,10 +2,11 @@
 
 // The daily city report, on a public page.
 //
-// Headline free, body Pro. The headline is a real sentence about real water
-// today ("Chinook keepers coming steady along the inner waterfront while
-// Halibut stays slow"), which is both the strongest thing on the page and the
-// most honest possible advertisement for what the rest of it contains.
+// Teaser free, headline and body Pro. The headline used to be free, and it
+// was the report in one sentence ("Sandheads still the busiest water for
+// springs and coho, with clipped fish hard to come by"): a reader got the
+// spot, the fish and the verdict without paying. The teaser names the city
+// and the fish only, written by BlueCaster under its own leak scan.
 //
 // Two rules this component inherits and must not undo:
 //
@@ -20,15 +21,15 @@
 //      renders nothing at all rather than an empty state. A stale briefing
 //      presented as today's is worse than no section.
 //
-// The BODY is fetched client-side, because it varies by reader and the page
-// is prerendered. The HEADLINE is free to everyone, so the server hands it in
-// as `teaser` and the band is in the static HTML: it sits above the 14-day
+// The HEADLINE and BODY are fetched client-side, because they vary by reader
+// and the page is prerendered. The TEASER is free to everyone, so the server
+// hands it in and the band is in the static HTML: it sits above the 14-day
 // strip, and a band that arrived after the strip painted would shove the
 // whole instrument down under the reader's thumb. Until the fetch answers,
 // the space under the headline holds the same grey lines the locked state
 // shows, so a free reader sees no change and a Pro reader sees them fill.
 //
-// THE TEASER, when locked: the headline in full, then three grey lines
+// THE TEASER, when locked: the teaser line, then three grey lines
 // standing where the report's prose would be, then the ask. The lines are
 // fixed widths and say nothing; they are not a blur of the real text (which
 // would put the body in the HTML) and they carry no counts (rule 1). The same
@@ -43,8 +44,14 @@ import { useAuth } from "@/contexts/auth-context";
 
 /** The one part of the report the server may put in a prerendered page. */
 export interface ReportTeaser {
-  headline: string;
+  /** Null when the report has no teaser; the band shows `fallbackLine`. */
+  line: string | null;
   reportDate: string;
+}
+
+/** For a report with no teaser. Says a report exists and nothing about it. */
+function fallbackLine(cityName: string): string {
+  return `The latest from the water around ${cityName}`;
 }
 
 interface ReportPayload {
@@ -52,7 +59,9 @@ interface ReportPayload {
   status: "ready" | "pending" | "no_signals";
   report: {
     report_date: string;
-    headline: string | null;
+    /** Pro only. A locked payload carries `teaser` instead. */
+    headline?: string | null;
+    teaser?: string | null;
     reports_md?: string | null;
     outlook_md?: string | null;
     tips?: Array<{ text: string }>;
@@ -71,7 +80,7 @@ export default function CityReport({
 }: {
   citySlug: string;
   cityName: string;
-  /** Today's headline as the server saw it, or null when it saw none. */
+  /** Today's teaser as the server saw it, or null when it saw no report. */
   teaser?: ReportTeaser | null;
   onUpgrade: () => void;
 }) {
@@ -101,15 +110,20 @@ export default function CityReport({
   // headline (the signals dried up between the render and the visit), and a
   // fetch that finds a report where the server had none puts it up.
   const settled = data !== null;
-  const ready = settled ? data.status === "ready" && !!data.report?.headline : !!teaser;
+  const ready = settled ? data.status === "ready" && !!data.report : !!teaser;
   if (!ready) return null;
 
-  const headline = settled ? data.report!.headline! : teaser!.headline;
   const reportDate = settled ? data.report!.report_date : teaser!.reportDate;
   // Locked until the server says otherwise: a Pro reader sees the grey lines
   // for the round trip, a free reader sees the same lines become the ask.
   const locked = settled ? data.locked : true;
   const report = settled ? data.report! : null;
+  // The headline only once the server has said this reader is Pro. Until
+  // then, and for every locked reader, the teaser or the plain line.
+  const headline =
+    (!locked && report?.headline) ||
+    (settled ? report?.teaser : teaser!.line) ||
+    fallbackLine(cityName);
 
   return (
     <section className="rounded-lg border border-rc-rule bg-rc-panel p-5 space-y-3">

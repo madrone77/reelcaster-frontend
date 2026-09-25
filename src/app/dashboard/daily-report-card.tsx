@@ -34,7 +34,7 @@ const ProTrialModal = dynamic(
 //
 // The prose is Pro-only, and the gate is server-side in
 // /api/bluecaster/city-daily-report: a free caller gets `{ locked: true }`
-// with the city and the headline and no body, so there is nothing to reveal
+// with the city and the teaser and no headline or body, so there is nothing to reveal
 // in the network tab. This component only decides what to render.
 //
 // The city is resolved server-side from `preferences.homeCitySlug`, falling
@@ -57,8 +57,15 @@ interface Payload {
   locked?: boolean;
   city?: { slug: string; name: string } | null;
   status?: "ready" | "pending" | "no_home_city";
-  /** Locked: only `headline`, `report_date` and `generated_at` arrive. */
-  report?: DailyReport | Pick<DailyReport, "headline" | "report_date" | "generated_at"> | null;
+  /** Locked: only `teaser`, `report_date` and `generated_at` arrive. */
+  report?: DailyReport | LockedReport | null;
+}
+
+/** What a locked reader is sent. `teaser` names the city and the fish only. */
+interface LockedReport {
+  teaser: string | null;
+  report_date: string;
+  generated_at: string;
 }
 
 /** The prose arrived, which only happens for a Pro reader. */
@@ -179,18 +186,18 @@ export function DailyReportCard({ cityName }: { cityName?: string | null }) {
   // was noise beside the other upgrade prompts. That was the wrong call for
   // this one card: what anglers are actually catching around you is the single
   // best argument for paying, and a Member who never sees it exists cannot be
-  // persuaded by it. So the card keeps its frame, its city, its date and its
-  // headline, and withholds only the prose.
+  // persuaded by it. So the card keeps its frame, its city, its date and a
+  // teaser line, and withholds the headline and the prose.
   //
-  // The headline is the real one, the same line a free reader gets on the
-  // public city page. The route sends nothing below it, so the body cannot be
-  // read out of the network tab. The city is the one the route resolved for
+  // The teaser is the same line a free reader gets on the public city page:
+  // the city and the fish, never the water or how it is fishing. The route
+  // sends nothing else, so the report cannot be read out of the network tab. The city is the one the route resolved for
   // this reader, which for a free account is usually the nearest covered city
   // to where they are; the caller's name is the fallback for a read that came
   // back without one.
   if (data.locked) {
     const lockedCity = data.city?.name ?? cityName;
-    const teaser = data.report;
+    const teaser = data.report && !isFullReport(data.report) ? data.report : null;
     return (
       <>
         <button
@@ -209,7 +216,7 @@ export function DailyReportCard({ cityName }: { cityName?: string | null }) {
             )}
           </div>
           <p className="mt-1.5 text-[15px] font-semibold leading-snug text-rc-ink">
-            {teaser?.headline ??
+            {teaser?.teaser ??
               `What anglers are catching around ${lockedCity ?? "you"}`}
           </p>
           <p className="mt-1 text-[13px] leading-relaxed text-rc-ink-soft">
