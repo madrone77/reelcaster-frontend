@@ -49,7 +49,7 @@ import {
   readFbc,
   readFbp,
 } from './attribution';
-import { clientIp } from './acquisition-metadata';
+import { clientIp, quizIdFrom } from './acquisition-metadata';
 
 /**
  * `paywall_view` is the odd one out: no subscription, no account, and usually
@@ -241,6 +241,10 @@ export function acquisitionFromSubscription(
       // attribution is independent of it and still worth recording.
     }
   }
+  // The quiz's answer rides in the bag too, so a sale can be grouped by the
+  // persona that made it without a column of its own. Set by the /lp/q quiz
+  // through the rc_quiz cookie; see acquisition-metadata.ts.
+  if (m.acq_quiz) params = { ...(params ?? {}), acq_quiz: m.acq_quiz };
 
   return {
     attribution_model: str(m.acq_model),
@@ -558,5 +562,35 @@ export async function recordConversion(
     return null;
   }
 
+  // A trial that started from the quiz closes the loop on its answers.
+  if (params.event === 'trial_start') {
+    await markQuizConverted(admin, acq.params?.acq_quiz, params.subscription.id, params.occurredAt);
+  }
+
   return data?.[0]?.id ?? null;
+}
+
+/**
+ * Stamp the quiz row that produced this trial, when there is one.
+ *
+ * The id was made in the reader's tab (src/app/lp/q/_quiz/quiz-track.ts),
+ * carried to Stripe in the rc_quiz cookie and came back on the subscription's
+ * metadata: that is the only path from a subscription to a quiz, and it only
+ * exists for readers who finished the quiz and started a trial in the same
+ * browser. A miss here is a row that stays unconverted, never an error.
+ */
+async function markQuizConverted(
+  admin: SupabaseClient,
+  acqQuiz: string | undefined,
+  subscriptionId: string,
+  occurredAt: string,
+): Promise<void> {
+  const id = quizIdFrom(acqQuiz);
+  if (!id) return;
+  const { error } = await admin
+    .from('quiz_responses')
+    .update({ converted_at: occurredAt, stripe_subscription_id: subscriptionId, updated_at: occurredAt })
+    .eq('quiz_id', id)
+    .is('converted_at', null);
+  if (error) console.warn('[conversions] quiz row not stamped', error);
 }

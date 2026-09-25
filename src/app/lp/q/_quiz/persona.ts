@@ -285,3 +285,160 @@ export function recapLine(a: QuizAnswers, speciesName: string): string {
 export function isAnswer(q: QuizQuestion, value: unknown): value is string {
   return typeof value === "string" && q.options.some((o) => o.value === value);
 }
+
+/* -------------------------------------------------------------------------
+ * The result page's showcase: which screens each reader is shown, in what
+ * order, and what the headline over each one says.
+ *
+ * Four screens exist, all drawn from the reader's own spot and fish:
+ *   day    the spot's real day, hour by hour, on the conditions phone
+ *   map    the scored spots around the city, the pick featured
+ *   regs   what is open there and the limits, from the regulator
+ *   alert  the text that arrives when the spot turns good
+ *
+ * The order is the persona's, and then the screen that answers the pain the
+ * reader named goes first, because that is the one thing they told us they
+ * would pay to fix. The headline over each screen changes with the pain
+ * and the persona for the same reason. Copy rules as above: plain words,
+ * no dashes, nothing the product does not do.
+ * ---------------------------------------------------------------------- */
+
+export type ShowcaseId = "day" | "map" | "regs" | "alert";
+
+export interface ShowcaseBlock {
+  id: ShowcaseId;
+  /** The kicker over the headline, e.g. "Hour by hour". */
+  kicker: string;
+  headline: string;
+  /** One line under the headline saying what the reader is looking at. */
+  lede: string;
+}
+
+const PERSONA_ORDER_OF_BLOCKS: Record<Persona, ShowcaseId[]> = {
+  weekend: ["day", "alert", "map", "regs"],
+  shore: ["map", "day", "regs", "alert"],
+  newcomer: ["regs", "map", "day", "alert"],
+  hardcore: ["day", "map", "alert", "regs"],
+};
+
+/** The screen that answers each pain. */
+const PAIN_BLOCK: Record<Pain, ShowcaseId> = {
+  skunked: "day",
+  regs: "regs",
+  conditions: "day",
+  where: "map",
+};
+
+export interface ShowcaseContext {
+  cityName: string;
+  spotName: string;
+  /** "Coho", or "whatever's biting". */
+  species: string;
+  regulator: string;
+  shore: boolean;
+}
+
+function blockCopy(id: ShowcaseId, persona: Persona, a: QuizAnswers, c: ShowcaseContext): ShowcaseBlock {
+  const { cityName, spotName, species, regulator, shore } = c;
+  switch (id) {
+    case "day": {
+      let headline = `Your day at ${spotName}, hour by hour`;
+      if (a.pain === "skunked") headline = "Never drive out on the wrong day again";
+      else if (a.pain === "conditions") headline = "Wind, tide and current, on the same line as the score";
+      else if (a.planning === "morning") headline = "Check it with your coffee. The line sits on this hour.";
+      else if (persona === "hardcore") headline = `Every reading at ${spotName}, by the hour`;
+      return {
+        id,
+        kicker: "Hour by hour",
+        headline,
+        lede: `This is ${spotName} today, scored for ${species}. Tide, current, wind, sea and sky sit on the same hour as the score. Drag the line yourself.`,
+      };
+    }
+    case "map": {
+      let headline = `Every spot near ${cityName}, scored for ${species} today`;
+      if (shore) headline = `Shore spots around ${cityName} you can reach on foot, scored`;
+      else if (a.pain === "where") headline = "Stop guessing where to go";
+      else if (persona === "newcomer") headline = "The spots locals fish, ranked for today";
+      return {
+        id,
+        kicker: shore ? "No boat needed" : "Where to go",
+        headline,
+        lede: shore
+          ? `Piers, beaches and docks scored for ${species}, so you know which one to walk onto before you leave.`
+          : `Green is go. The number on each pin is that spot's score for ${species} today, so the best water stands out before you pick a launch.`,
+      };
+    }
+    case "regs": {
+      let headline = `What's open at ${spotName}, from ${regulator}`;
+      if (a.pain === "regs") headline = "Know what's open before you leave the driveway";
+      else if (persona === "newcomer") headline = "Limits and openings, on the same screen as the score";
+      return {
+        id,
+        kicker: "The rules, checked daily",
+        headline,
+        lede: `Openings, daily limits and sizes for the exact water you are looking at, straight from ${regulator}. No pamphlet to decode.`,
+      };
+    }
+    case "alert":
+    default: {
+      let headline = `A text when ${spotName} turns good`;
+      if (a.pain === "skunked" || a.planning === "night") headline = "We watch the water. You get a text.";
+      else if (persona === "hardcore") headline = "Up to 10 spots watched around the clock";
+      else if (a.frequency === "few") headline = "Fish more days without checking every day";
+      return {
+        id,
+        kicker: "Alerts",
+        headline,
+        lede: `Set the score you care about on up to 10 spots. When ${spotName} clears it, your phone tells you, days ahead, so there is still time to plan.`,
+      };
+    }
+  }
+}
+
+/** The showcase, in order, for this reader. Always all four. */
+export function showcaseFor(persona: Persona, a: QuizAnswers, c: ShowcaseContext): ShowcaseBlock[] {
+  const first = PAIN_BLOCK[a.pain];
+  const order = [first, ...PERSONA_ORDER_OF_BLOCKS[persona].filter((b) => b !== first)];
+  return order.map((id) => blockCopy(id, persona, a, c));
+}
+
+/**
+ * The plan's other features, listed after the screens. What is not shown as
+ * a screen is still promised here, so no persona's plan reads shorter than
+ * another's. Claims stay inside the tier matrix: 14 days, 10 alerts, custom
+ * spots inside covered water.
+ */
+export function planFeatures(persona: Persona, ctx: { species: string; regulator: string }): Array<{ title: string; desc: string }> {
+  const { species, regulator } = ctx;
+  const forecast = {
+    title: "14 days ahead, every spot",
+    desc: `Scores for ${species} at every spot, hour by hour, two weeks out. Pick your day before you pick your spot.`,
+  };
+  const custom = {
+    title: "Your own spots, scored",
+    desc: "Drop a pin on the ledge or the rip you found yourself. It gets the full model, private to you.",
+  };
+  const log = {
+    title: "A catch log that reads the water back",
+    desc: "Log a fish and the tide, current and pressure are saved with it. Over a season the pattern shows.",
+  };
+  const regs = {
+    title: "Rules on the same screen",
+    desc: `Openings, limits and sizes from ${regulator} beside every score.`,
+  };
+  const fresh = {
+    title: "What's biting right now",
+    desc: "Fresh catch reports and dockside counts, so the score is checked against real fish.",
+  };
+  switch (persona) {
+    case "hardcore":
+      return [forecast, custom, log, fresh];
+    case "shore":
+      return [forecast, fresh, log];
+    case "newcomer":
+      return [forecast, fresh, log];
+    case "weekend":
+    default:
+      return [forecast, custom, fresh, regs];
+  }
+}
