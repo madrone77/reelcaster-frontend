@@ -17,6 +17,7 @@ import {
 } from "./persona";
 import type { QuizData, QuizPick } from "./quiz-data";
 import { quizId, recordAnswer, recordComplete, recordCta } from "./quiz-track";
+import { rememberQuizHandoff, type QuizHandoff } from "@/lib/quiz-handoff";
 
 /**
  * The quiz landing page: six taps, a short "building your plan" beat, then
@@ -134,14 +135,49 @@ function pickFor(fish: QuizData["species"][number], access: Access): QuizPick | 
  *  scores, opened on the best spot for their fish and their way to the water.
  *  `spot=` both selects it and keeps it unlocked for a signed-out reader. */
 function exploreHref(data: QuizData, a: QuizAnswers): string {
-  const fish =
-    (a.species === "any" ? speciesFor(data, a.access)[0] : data.species.find((x) => x.slug === a.species)) ??
-    null;
-  const pick = fish ? pickFor(fish, a.access) : null;
+  const pick = pickedSpot(data, a)?.pick ?? null;
   const url = new URL(exploreHrefFrom(data.citySlug, LANDING), "http://x");
   url.searchParams.set("ad", "today");
   if (pick) url.searchParams.set("spot", pick.slug);
   return `${url.pathname}${url.search}`;
+}
+
+function pickedSpot(data: QuizData, a: QuizAnswers) {
+  const fish =
+    (a.species === "any" ? speciesFor(data, a.access)[0] : data.species.find((x) => x.slug === a.species)) ??
+    null;
+  const pick = fish ? pickFor(fish, a.access) : null;
+  return fish && pick ? { fish, pick } : null;
+}
+
+/**
+ * What the map's first card says (explore/components/quiz-intro-card): the
+ * spot, why it was picked, today's score and window, written for the
+ * persona. Left in sessionStorage for the tab; see src/lib/quiz-handoff.ts.
+ */
+function handoffFor(data: QuizData, a: QuizAnswers, persona: Persona): Omit<QuizHandoff, "at"> | null {
+  const picked = pickedSpot(data, a);
+  if (!picked) return null;
+  const { fish, pick } = picked;
+  return {
+    citySlug: data.citySlug,
+    cityName: data.cityName,
+    persona,
+    access: a.access,
+    species: fish.name,
+    boatInstead: wantsShore(a) && !fish.shore && !!fish.boat,
+    spot: {
+      slug: pick.slug,
+      name: pick.name,
+      access: pick.access,
+      score: pick.score,
+      bestFrom: pick.bestFrom,
+      bestTo: pick.bestTo,
+      source: pick.source,
+      areaLabel: pick.areaLabel,
+      distanceKm: pick.distanceKm,
+    },
+  };
 }
 
 function questionsFor(data: QuizData, access: Access | undefined) {
@@ -229,6 +265,8 @@ export default function Quiz({ data }: { data: QuizData }) {
       // Back to the questions in the stored state, so the browser's back
       // button lands on the quiz, not on another hand-off.
       writeStored({ city: data.citySlug, answers, phase: "questions", step: questions.length - 1 });
+      const handoff = handoffFor(data, full, persona);
+      if (handoff) rememberQuizHandoff(handoff);
       window.location.assign(href);
     }, BUILD_MS);
     return () => window.clearTimeout(t);

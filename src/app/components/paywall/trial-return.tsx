@@ -43,7 +43,6 @@ export default function TrialReturn() {
       spotName={sheet.spotName}
       placeName={sheet.placeName}
       region={sheet.region}
-      tapped={sheet.tapped}
     />
   );
 }

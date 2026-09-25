@@ -47,6 +47,7 @@ import {
 } from "@/lib/preview-gate";
 import DepthGatePrompt from "./components/depth-gate-prompt";
 import AdIntroCard from "./components/ad-intro-card";
+import QuizIntroCard from "./components/quiz-intro-card";
 import ExploreWall from "./components/explore-wall";
 import {
   fetchFreshCatches,
@@ -104,7 +105,6 @@ import { AdFrameProvider } from "./lib/ad-frame";
 import LeaveAdFrameWhenSignedIn from "@/components/leave-ad-frame-when-signed-in";
 import { applySpotLocks } from "./lib/spot-locks";
 import { useLockedSpots } from "@/app/components/split-test/use-locked-spots";
-import { useJoinPrompt } from "@/app/components/split-test/use-join-prompt";
 import { useWarmPaywall } from "@/hooks/use-paywall-modal";
 
 // ── Loaded on demand ─────────────────────────────────────────────────────
@@ -301,7 +301,7 @@ export default function ExploreShell({
   // is tappable well before that. Passing the arm keeps the warm pointed at
   // the modal this reader's wall will actually open. `false` because an
   // exposure is a wall shown, not a map loaded. See @/lib/paywall-preload.
-  useWarmPaywall(useJoinPrompt(false).compact);
+  useWarmPaywall();
   const locksOn = lockSplit.locksOn;
   const keepSet = useMemo(
     () => new Set([...keepSlugs, ...(initialSpot ? [initialSpot.slug] : [])]),
@@ -1176,6 +1176,8 @@ export default function ExploreShell({
   }, [data.locations, viewCenter, viewBounds, displaySpots]);
 
   const labelCity = nearestCity ?? selectedCity;
+  // The billing region of the water on screen, for every wall the map raises.
+  const wallRegion = labelCity?.provinceCode || undefined;
 
   // ── Ad frame bookkeeping ─────────────────────────────────────────────────
   //
@@ -2828,6 +2830,7 @@ export default function ExploreShell({
       )}
 
       <ExploreWall
+        region={wallRegion}
         open={alertUpgradeOpen}
         onOpenChange={setAlertUpgradeOpen}
         feature="alerts"
@@ -2839,6 +2842,7 @@ export default function ExploreShell({
           The same wall as every other one on /explore, in whichever of the two
           shapes `explore_join_prompt_v1` puts this reader in. */}
       <ExploreWall
+        region={wallRegion}
         open={customUpgradeOpen}
         onOpenChange={setCustomUpgradeOpen}
         feature="custom-spots"
@@ -2848,13 +2852,13 @@ export default function ExploreShell({
       {/* The ad frame's offer, made on a FULL REPORT press. Same modal as
           the bar's button, named after the spot that was pressed. */}
       <ExploreWall
+        region={wallRegion}
         open={adOfferOpen}
         onOpenChange={setAdOfferOpen}
         feature="forecast-14d"
         // The counter still files this as the fortnight, which is what the
         // big modal sells. The small one talks about the map, because that is
         // what the reader was doing when it stopped them.
-        prompt="spot-views"
         from="explore-ad-open-spot"
         spotName={adOfferSpotName}
         placeName={labelCity?.name ?? undefined}
@@ -2863,6 +2867,7 @@ export default function ExploreShell({
       {/* A padlocked pin on the ad-framed map:
           the wall names the spot whose score is being withheld. */}
       <ExploreWall
+        region={wallRegion}
         open={lockedWallOpen}
         onOpenChange={setLockedWallOpen}
         feature="locked-spots"
@@ -2881,9 +2886,27 @@ export default function ExploreShell({
           way the bar's CTA does. It was arm b of `ad_intro_v1` from
           2026-09-07 until the split settled it (2026-09-09: the card), and
           every day2 visitor gets it now with no arm read. */}
-      {ad?.wall === "day2" && (
-        <AdIntroCard wall={ad.wall} cityName={labelCity?.name ?? undefined} />
-      )}
+      {ad &&
+        (via === "lpq" ? (
+          // A quiz reader: the card is written from their answers and their
+          // spot (src/lib/quiz-handoff.ts), and "See the full report" opens
+          // that spot the way a tap on its dot would.
+          <QuizIntroCard
+            wall={ad.wall}
+            cityName={labelCity?.name ?? undefined}
+            onReport={(slug) => {
+              // The report page itself, on every device: the card promised
+              // the best times, and those are on the report. It spends one
+              // of the wall's opens, the same as FULL REPORT on the card.
+              if (tapWall) takeAdSpotOpen(tapWall);
+              trackEvent("Ad Frame Spot Opened", { slug, ad_wall: tapWall ?? ad.wall, via: "quiz" });
+              const known = viewportSpots.find((s) => s.slug === slug);
+              router.push(withAdParams(spotHref({ slug, path: known?.path ?? null }), ad));
+            }}
+          />
+        ) : ad.wall === "day2" ? (
+          <AdIntroCard wall={ad.wall} cityName={labelCity?.name ?? undefined} />
+        ) : null)}
 
       {/* Says what just happened, once. Without it the relief simply vanishing
           reads as the map failing rather than as the answer they gave. */}

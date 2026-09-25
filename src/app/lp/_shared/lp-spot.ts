@@ -33,7 +33,7 @@ import { formatHour12 } from "@/lib/time-format";
  * (300s for spots, 600s for fresh catches). They ride the Data Cache, so the
  * dynamic render these pages do — forced by reading `searchParams` for the
  * angle — costs a React pass against warm cache entries rather than the
- * uncached round trips lp-entry.ts's redirect argument is about.
+ * uncached round trips on a paid click.
  */
 export interface LpCard {
   /** Real city display name, e.g. "Friday Harbor". */

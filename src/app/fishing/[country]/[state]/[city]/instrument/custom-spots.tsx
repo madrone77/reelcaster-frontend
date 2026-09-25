@@ -148,7 +148,6 @@ export default function CustomSpots({
           onOpenChange={setUpgradeOpen}
           feature="custom-spots"
           from={`city-${citySlug}-custom-spots`}
-          tapped={`Score your own spots near ${cityName}`}
         />
       )}
     </section>

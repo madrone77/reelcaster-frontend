@@ -104,12 +104,15 @@ export interface LoadCityOptions {
  * still not the source of truth: a city is a row in the hierarchy, so this
  * searches rather than parsing. A slug we do not cover 404s.
  */
-export async function loadCityBySlug(citySlug: string): Promise<LoadedCity> {
+export async function loadCityBySlug(
+  citySlug: string,
+  options: LoadCityOptions = {},
+): Promise<LoadedCity> {
   const hierarchy = await fetchHierarchy();
   for (const code of COVERED_PROVINCES) {
     const province = getFishingProvinceByCode(hierarchy, code);
     const city = province?.cities.find((c) => c.slug === citySlug);
-    if (province && city) return loadResolvedCity(hierarchy, province, city);
+    if (province && city) return loadResolvedCity(hierarchy, province, city, options);
   }
   notFound();
 }

@@ -18,13 +18,8 @@ import { metaIdentify } from '@/lib/meta-pixel';
 import { useSubscription } from '@/hooks/use-subscription';
 import { trackEvent } from '@/lib/analytics';
 import { useUpgradeFlow } from '@/hooks/use-upgrade-flow';
-import { goToCheckout } from '@/lib/checkout-redirect';
-import {
-  currentPath,
-  forgetTrialSheet,
-  recallTrialEmail,
-  rememberTrialEmail,
-} from '@/lib/trial-return';
+import { startAnonCheckout as sendToStripe } from '@/lib/start-checkout';
+import { forgetTrialSheet, recallTrialEmail, rememberTrialEmail } from '@/lib/trial-return';
 import { cn } from '@/lib/utils';
 import ExpressCheckout from './express-checkout';
 import {
@@ -84,54 +79,6 @@ interface CheckoutStatus {
  * account is created afterwards from the email Stripe billed.
  */
 const PAY_FIRST = process.env.NEXT_PUBLIC_PAY_FIRST_CHECKOUT === '1';
-
-/**
- * The signed-out Start tap used to wait on a whole round trip: the account
- * lookup, the trial check, the price and the Stripe session, one after
- * another, 1.2 s median from tap to redirect on prod (Sept 2026, 109 taps).
- * So the sheet builds the session while the buyer is still on it, as soon as
- * the email field holds something that looks like an address and they pause,
- * and the tap only has to leave. Anything that changes what the session says
- * (address, plan, region, paid terms) builds a new one.
- *
- * The pause was 600 ms, and building the session takes another 600-900 ms,
- * so a reader who typed and tapped straight away beat it: in half the
- * 2026-09-24 flow-loop walks the tap still waited 300-700 ms on it. 250 ms
- * still skips most keystrokes, and a finger landing on the button starts it
- * outright (`warmCheckout`). A session built for an address the reader then
- * finishes differently is never used and expires on its own.
- */
-const PREFETCH_EMAIL_RE = /^[^\s@]+@[^\s@]+\.[a-z]{2,}$/i;
-/**
- * OFF 2026-09-25. Since the prefetch shipped (#791, 09-23 10:16 PT) no trial
- * has been paid with Stripe Link, which paid 47 of ~77 trials the three weeks
- * before, and Stripe arrivals starting a trial fell from 51% to 0 of 8 after
- * 09-24 01:52 PT. Off to test that; the tap builds the session as it did.
- */
-const PREFETCH_ENABLED = false;
-const PREFETCH_DEBOUNCE_MS = 250;
-/** A prefetched session is good for three hours; stop trusting one well before. */
-const PREFETCH_MAX_AGE_MS = 30 * 60 * 1000;
-
-type CheckoutPayload = { url?: string; id?: string; redirect?: string; error?: string };
-type CheckoutReply = { status: number; ok: boolean; payload: CheckoutPayload };
-
-function postAnonCheckout(body: Record<string, unknown>): Promise<CheckoutReply> {
-  return fetch('/api/stripe/checkout', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    // Stripe's back arrow returns here rather than to /billing/cancel.
-    body: JSON.stringify({ ...body, return_to: currentPath() }),
-  }).then(async (res) => {
-    let payload: CheckoutPayload = {};
-    try {
-      payload = await res.json();
-    } catch {
-      /* non-JSON error body */
-    }
-    return { status: res.status, ok: res.ok, payload };
-  });
-}
 
 /**
  * The monthly card on the phone sheet's plan picker. NEXT_PUBLIC_ so a
@@ -298,12 +245,6 @@ interface TrialCtaState {
    */
   trialWithheld: boolean;
   startAnonCheckout: () => void;
-  /**
-   * Start building the signed-out session now, without the pause. For the
-   * buy button's pointerdown: the finger is on the glass 80-300 ms before the
-   * submit fires, and the session can use every one of them.
-   */
-  warmCheckout: () => void;
   startCheckout: () => void;
 }
 
@@ -539,39 +480,6 @@ export function TrialCtaProvider({
     if (anon && PAY_FIRST) preconnect('https://checkout.stripe.com');
   }, [anon]);
 
-  const prefetched = useRef<{ key: string; at: number; reply: Promise<CheckoutReply> } | null>(null);
-  const checkoutKey = (address: string) =>
-    JSON.stringify([from, region, address.toLowerCase(), plan, trialWithheld]);
-  // Builds the session for what the field holds now, unless one for exactly
-  // that is already built or on its way. Returns false when there is nothing
-  // to build for (signed in, or not yet an address).
-  function prefetchCheckout(): boolean {
-    if (!PREFETCH_ENABLED || !anon || !PAY_FIRST) return false;
-    const address = email.trim();
-    if (!PREFETCH_EMAIL_RE.test(address)) return false;
-    const key = checkoutKey(address);
-    const warm = prefetched.current;
-    if (warm && warm.key === key && Date.now() - warm.at < PREFETCH_MAX_AGE_MS) return true;
-    const reply = postAnonCheckout({
-      from,
-      region,
-      email: address,
-      plan,
-      accept_paid: trialWithheld,
-      prefetch: true,
-    });
-    reply.catch(() => {});
-    prefetched.current = { key, at: Date.now(), reply };
-    return true;
-  }
-  useEffect(() => {
-    if (!PREFETCH_ENABLED || !anon || !PAY_FIRST) return;
-    if (!PREFETCH_EMAIL_RE.test(email.trim())) return;
-    const timer = window.setTimeout(prefetchCheckout, PREFETCH_DEBOUNCE_MS);
-    return () => window.clearTimeout(timer);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [anon, email, plan, region, from, trialWithheld]);
-
   async function startAnonCheckout() {
     reportEmail(email);
     reportSplitCta(pricing, 'paywall');
@@ -587,65 +495,31 @@ export function TrialCtaProvider({
     setAnonSubmitting(true);
     setAnonError(null);
     const address = email.trim();
-    try {
-      // The session the sheet already built for exactly this, when there is
-      // one. A failed or stale prefetch falls through to a fresh request.
-      const warm = prefetched.current;
-      prefetched.current = null;
-      let reply: CheckoutReply | null = null;
-      if (warm && warm.key === checkoutKey(address) && Date.now() - warm.at < PREFETCH_MAX_AGE_MS) {
-        reply = await warm.reply.catch(() => null);
-        if (reply && !reply.ok && reply.status !== 409) reply = null;
-        if (reply?.payload.id) {
-          // The prefetch held its checkout_start back; this is the tap.
-          void fetch('/api/stripe/checkout', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ commit: reply.payload.id }),
-            keepalive: true,
-          }).catch(() => {});
-        }
-      }
-      reply ??= await postAnonCheckout({
-        from,
-        region,
-        email: address,
-        plan,
-        // Only after the sheet has shown paid terms for this address.
-        accept_paid: trialWithheld,
-      });
-      const res = reply;
-      const payload = reply.payload;
-      if (res.status === 409 && payload.error === 'account_exists') {
-        trackEvent('Checkout Refused', { surface: 'paywall', from, reason: 'account_exists' });
-        setExistingAccountEmail(address);
+    const result = await sendToStripe({
+      from,
+      region,
+      email: address,
+      plan,
+      // Only after the sheet has shown paid terms for this address.
+      acceptPaid: trialWithheld,
+      onStuck: (url) => {
+        setAnonStuckUrl(url);
         setAnonSubmitting(false);
-        return;
-      }
-      if (res.status === 409 && payload.error === 'trial_used') {
-        trackEvent('Checkout Refused', { surface: 'paywall', from, reason: 'trial_used' });
-        setTrialWithheld(true);
-        setAnonSubmitting(false);
-        return;
-      }
-      if (!res.ok) throw new Error(payload.error ?? 'checkout_failed');
-      if (payload.redirect) {
-        window.location.href = payload.redirect;
-        return;
-      }
-      if (!payload.url) throw new Error('no_url');
-      cancelHop.current = goToCheckout(payload.url, {
-        sessionId: payload.id ?? null,
-        viewerTier: 'anon',
-        onStuck: (url) => {
-          setAnonStuckUrl(url);
-          setAnonSubmitting(false);
-        },
-      });
-    } catch {
-      setAnonError('We couldn’t start checkout. Please try again in a moment.');
-      setAnonSubmitting(false);
+      },
+    });
+    if (result.kind === 'left') {
+      cancelHop.current = result.cancel;
+      return;
     }
+    if (result.kind === 'refused') {
+      trackEvent('Checkout Refused', { surface: 'paywall', from, reason: result.reason });
+      if (result.reason === 'account_exists') setExistingAccountEmail(address);
+      else setTrialWithheld(true);
+      setAnonSubmitting(false);
+      return;
+    }
+    setAnonError('We couldn’t start checkout. Please try again in a moment.');
+    setAnonSubmitting(false);
   }
 
   const value: TrialCtaState = {
@@ -706,9 +580,6 @@ export function TrialCtaProvider({
     clearExistingAccount: () => setEmail(''),
     trialWithheld,
     startAnonCheckout,
-    warmCheckout: () => {
-      prefetchCheckout();
-    },
     startCheckout: () => {
       reportSplitCta(pricing, 'paywall');
       trackEvent('Checkout Started', {
@@ -1015,7 +886,6 @@ export function TrialBuy({
             data-testid={testId}
             data-plan={s.plan}
             // The finger is down: build the session now if the pause has not.
-            onPointerDown={s.warmCheckout}
             disabled={s.submitting}
             className={ctaClass}
           >

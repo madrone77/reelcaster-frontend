@@ -82,24 +82,6 @@ async function anonCheckout(request: NextRequest) {
     return NextResponse.json({ error: 'invalid_body' }, { status: 400 });
   }
 
-  // The tap on a session the sheet built ahead of it. The session exists;
-  // all that is left is the event the prefetch did not write.
-  if (typeof body.commit === 'string' && body.commit.startsWith('cs_')) {
-    const id = body.commit;
-    after(async () => {
-      await recordCheckoutStart(request, 'anon');
-      // Lets the almost-done reminder count this one: a prefetched session is
-      // skipped by it until the buyer has actually asked to check out.
-      try {
-        const stripe = await getStripe();
-        await stripe.checkout.sessions.update(id, { metadata: { committed: 'true' } });
-      } catch (err) {
-        console.warn('[stripe checkout] commit stamp failed', err);
-      }
-    });
-    return new NextResponse(null, { status: 204 });
-  }
-
   const email = (body.email ?? '').toString().trim().toLowerCase();
   if (email && !EMAIL_RE.test(email)) {
     return NextResponse.json({ error: 'email_invalid' }, { status: 400 });
@@ -151,7 +133,6 @@ async function anonCheckout(request: NextRequest) {
         // there, not appear for the first time as a price on Stripe's page. The
         // second tap, on a button that now states the charge, sends accept_paid.
         withheldTrial: body.accept_paid === true ? 'charge' : 'refuse',
-        prefetch: body.prefetch === true,
         returnTo: safeReturnPath(body.return_to),
       }),
       existingAccount,
@@ -180,8 +161,8 @@ async function anonCheckout(request: NextRequest) {
 
     // After the response, not before it: `after` keeps the function alive
     // until the insert lands, so it is not lost, and the buyer is not held
-    // for it. A prefetch writes nothing; its tap commits (see `commit`).
-    if (body.prefetch !== true) after(() => recordCheckoutStart(request, 'anon'));
+    // for it.
+    after(() => recordCheckoutStart(request, 'anon'));
 
     return withSplitCookie(
       NextResponse.json({
@@ -257,20 +238,8 @@ interface CheckoutBody {
    * withheld trial is refused with `trial_used` rather than charged.
    */
   accept_paid?: boolean;
-  /**
-   * Signed-out buyers only. The sheet builds the session while the buyer is
-   * still on it (once the email field holds a valid address), so the Start
-   * tap has nothing left to wait for. A prefetch records no checkout_start:
-   * nobody has asked to check out yet.
-   */
-  prefetch?: boolean;
   /** Signed-out buyers only. The page to come back to; see safeReturnPath. */
   return_to?: string;
-  /**
-   * Signed-out buyers only. The Start tap on a prefetched session: records
-   * the checkout_start the prefetch held back, and does nothing else.
-   */
-  commit?: string;
   /**
    * 'annual' (default) or 'monthly'. Monthly comes only from the plan
    * picker on the phone sheet; anything else reads as annual.

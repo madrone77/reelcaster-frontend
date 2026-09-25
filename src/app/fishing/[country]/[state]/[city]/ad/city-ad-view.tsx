@@ -69,6 +69,7 @@ export function AdTrialButton({
 export default function CityAdView({
   citySlug,
   cityName,
+  region,
   wall,
   angle,
   campaign,
@@ -80,6 +81,8 @@ export default function CityAdView({
 }: {
   citySlug: string;
   cityName: string;
+  /** Billing region of this city's water ("WA", "BC"): prices the sheet. */
+  region: string;
   wall: AdWall;
   angle: string;
   /** What Campaign results counts this page as. The page builds it once and
@@ -110,10 +113,6 @@ export default function CityAdView({
 }) {
   const { isPaid } = useSubscription();
   const [trialOpen, setTrialOpen] = useState(false);
-  // Which ask opened the sheet. Only the locked report band is a wall the
-  // reader hit rather than asked for, so only it names itself to
-  // sheet_names_wall_v1 (arm b).
-  const [trialPlacement, setTrialPlacement] = useState<string | null>(null);
   // The wall itself: warmed on an idle frame and rendered without a Suspense
   // boundary, so the tap has nothing left to fetch and nothing to wait on.
   // Null until it has loaded, which is what `next/dynamic` drew here too.
@@ -131,7 +130,6 @@ export default function CityAdView({
     // the banner under the map is the second ask. Same positions the spot
     // and /lp pages use, so the column compares across page kinds.
     reportCampaignCta(placement === "hero" ? "hero" : "secondary", campaign);
-    setTrialPlacement(placement);
     setTrialOpen(true);
   };
   const frame = {
@@ -193,7 +191,7 @@ export default function CityAdView({
         feature="forecast-14d"
         from="city-ad-intro"
         placeName={cityName}
-        tapped={trialPlacement === "report" ? `Read today's catch reports from ${cityName}` : undefined}
+        region={region}
       />
       )}
     </div>

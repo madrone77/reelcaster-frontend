@@ -35,7 +35,6 @@ import PlanMatrix from "./plan-matrix";
 import PlanPicker from "./plan-picker";
 import TrialSheetStripe from "./trial-sheet-stripe";
 import { useIsPhone } from "@/hooks/use-is-phone";
-import { useSheetNamesWall } from "@/app/components/split-test/use-sheet-names-wall";
 import { coverMap } from "@/lib/map/map-cover";
 import { TRIAL_DAYS } from "@/lib/pricing";
 import { usePricing } from "@/app/components/split-test/use-pricing";
@@ -110,13 +109,6 @@ export default function ProTrialModal({
    * follows the reader's location, as every wall that can open anywhere does.
    */
   region,
-  /**
-   * What the reader tapped, as one line ("See Friday, Sep 25 in Seattle"),
-   * for a wall they hit rather than asked for. Arm b of sheet_names_wall_v1
-   * sets it over the phone sheet's offer; arm a and every other shape ignore
-   * it. See @/app/components/split-test/use-sheet-names-wall.
-   */
-  tapped,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -130,7 +122,6 @@ export default function ProTrialModal({
   headline?: string;
   context?: Record<string, string | number | boolean>;
   region?: string;
-  tapped?: string;
 }) {
   const { user } = useAuth();
   const { isPaid, loading: tierLoading } = useSubscription();
@@ -161,9 +152,6 @@ export default function ProTrialModal({
   // it against a timeline sheet and ended in one sheet carrying both, which
   // is ./trial-sheet-stripe as it stands.
   const phone = useIsPhone();
-  const namesWall = useSheetNamesWall(
-    open && phone && !ctaHref && !headline && Boolean(tapped),
-  );
   // sheet_pitch_v1 (2026-09-22 to 2026-09-23) put it against the desktop
   // dialog's left column drawn for the phone, and the sheet as it stands won
   // (3 trials to 0), so it is the phone sheet on every wall, iOS and Android.
@@ -263,10 +251,9 @@ export default function ProTrialModal({
       bumpCounter("cta_click", checkoutTap ? { checkout_tap: true } : undefined);
       // This sheet is what a reader back from Stripe gets reopened for them.
       // See @/lib/trial-return and <TrialReturn>.
-      if (checkoutTap) rememberTrialSheet({ from, feature, spotName, placeName, region, tapped });
-      if (checkoutTap) namesWall.reportPress();
+      if (checkoutTap) rememberTrialSheet({ from, feature, spotName, placeName, region });
     },
-    [trackEvent, feature, viewerTier, from, bumpCounter, spotName, placeName, region, tapped, namesWall],
+    [trackEvent, feature, viewerTier, from, bumpCounter, spotName, placeName, region],
   );
 
   useEffect(() => {
@@ -341,9 +328,7 @@ export default function ProTrialModal({
             // A spot when there is one, otherwise the city the map is on.
             placeKind={spotName ? 'spot' : 'city'}
             cityName={cityName}
-            // Arm b of sheet_names_wall_v1 names what was tapped; the hook
-            // only hands out an arm where the wall set no headline itself.
-            headline={namesWall.named ? tapped : headline}
+            headline={headline}
             from={from}
             region={region}
             ctaHref={ctaHref}

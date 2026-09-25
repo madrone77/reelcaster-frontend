@@ -23,12 +23,9 @@ import ExploreWall from "./explore-wall";
  * modal reads the real tier from auth itself.
  *
  * It renders `<ExploreWall>` rather than the modal directly, which is where
- * the two shapes are chosen and where the dynamic import and the mount latch
- * now live. THREE surfaces render this wrapper, not one: /explore's strip and
- * pill rail, the city page's live panel, and the spot page. Only the first is
- * in `explore_join_prompt_v1`, so `onExplore` decides eligibility and the
- * other two are untouched. It defaults to false: a new caller that forgets it
- * gets today's modal, which is the safe way round.
+ * the dynamic import and the mount latch live. THREE surfaces render this
+ * wrapper: /explore's strip and pill rail, the city page's live panel, and
+ * the spot page. All three get the same sheet.
  */
 export default function UpgradeDialog({
   open,
@@ -38,7 +35,6 @@ export default function UpgradeDialog({
   spotName,
   placeName,
   cityName,
-  onExplore = false,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -78,11 +74,6 @@ export default function UpgradeDialog({
    * two-bucket count.
    */
   dayIndex?: number;
-  /**
-   * True when this locked day is on the Explore map, which is the only
-   * surface `explore_join_prompt_v1` runs on. See the note above.
-   */
-  onExplore?: boolean;
 }) {
   return (
     <ExploreWall
@@ -90,7 +81,6 @@ export default function UpgradeDialog({
       onOpenChange={onOpenChange}
       feature={variant === "signup" ? "forecast-week" : "forecast-14d"}
       from="explore-forecast"
-      eligible={onExplore}
       spotName={spotName}
       placeName={placeName}
       cityName={cityName}

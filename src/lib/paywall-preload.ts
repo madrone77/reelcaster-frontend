@@ -47,9 +47,6 @@ import type { ComponentType } from 'react';
 export type TrialModalProps = ComponentType<
   React.ComponentProps<typeof import('@/app/components/paywall/pro-trial-modal').default>
 >;
-export type PlanChoiceModalProps = ComponentType<
-  React.ComponentProps<typeof import('@/app/components/paywall/plan-choice-modal').default>
->;
 
 /**
  * Module-level constants, not inline arrows: `useLazyComponent` takes these
@@ -57,11 +54,9 @@ export type PlanChoiceModalProps = ComponentType<
  * forever.
  */
 export const loadTrialModal = () => import('@/app/components/paywall/pro-trial-modal');
-export const loadPlanChoiceModal = () => import('@/app/components/paywall/plan-choice-modal');
 
 /** Set before the import resolves, so concurrent callers never double-fetch. */
 let trialModalWarm = false;
-let planChoiceWarm = false;
 
 /**
  * The Pro trial modal — the sheet on a phone, the centred dialog elsewhere —
@@ -77,15 +72,6 @@ export function preloadTrialModal(): void {
     trialModalWarm = false;
   });
   new Image().src = '/reelcaster-mark-pro.svg';
-}
-
-/** Arm b's second screen on /explore (see ../app/explore/components/explore-wall). */
-export function preloadPlanChoice(): void {
-  if (planChoiceWarm || typeof window === 'undefined') return;
-  planChoiceWarm = true;
-  void loadPlanChoiceModal().catch(() => {
-    planChoiceWarm = false;
-  });
 }
 
 /**

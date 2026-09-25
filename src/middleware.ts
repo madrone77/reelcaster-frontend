@@ -16,25 +16,10 @@ import {
 import { AUTH_COOKIE, authStateFromCookie } from '@/lib/auth-cookie'
 import { classifyUserAgent, isBotUserAgent } from '@/lib/device'
 import { readEdgeGeo } from '@/lib/edge-geo'
-import {
-  READER_REGION_COOKIE,
-  READER_REGION_MAX_AGE,
-  readerRegionFor,
-} from '@/lib/reader-region'
 import { classifyPage, classifySource } from '@/lib/traffic-source'
 import { pacificDay, pacificHour } from '@/lib/pacific-day'
 import { newFishingPath } from '@/lib/legacy-fishing-paths'
 import { isCityPath, isSpotPath } from '@/lib/paths'
-import { metaExploreHop } from '@/lib/meta-lp-hop'
-import {
-  LP_SPLIT_COOKIE,
-  LP_SPLIT_COOKIE_MAX_AGE,
-  TREATMENT_ARM,
-  parseLpSplitCookie,
-  resolveLpArm,
-  serializeLpSplitArms,
-  splitForPath,
-} from '@/lib/lp-splits'
 
 // Legacy coming-soon wall, now scoped to nothing.
 //
@@ -151,15 +136,6 @@ function stampAttribution(req: NextRequest, res: NextResponse): NextResponse {
     maxAge: SESSION_MAX_AGE,
   })
 
-  // Which customer quote the paywall modals show. See src/lib/reader-region.ts.
-  const readerRegion = readerRegionFor(pathname, readEdgeGeo(req.headers))
-  if (readerRegion && req.cookies.get(READER_REGION_COOKIE)?.value !== readerRegion) {
-    res.cookies.set(READER_REGION_COOKIE, readerRegion, {
-      ...options,
-      maxAge: READER_REGION_MAX_AGE,
-    })
-  }
-
   return res
 }
 
@@ -265,29 +241,6 @@ function countPageView(req: NextRequest, event: NextFetchEvent): void {
   )
 }
 
-/**
- * Remember which arm of a landing split this browser is in.
- *
- * Written only when the membership changed, so a visitor already in an arm
- * gets no Set-Cookie on every page of their visit. httpOnly, because nothing
- * in the browser needs to read it: the page a visitor is on IS their arm.
- */
-function withLpArms(
-  req: NextRequest,
-  res: NextResponse,
-  arms: string | null,
-): NextResponse {
-  if (arms === null) return res
-  res.cookies.set(LP_SPLIT_COOKIE, arms, {
-    path: '/',
-    sameSite: 'lax',
-    secure: req.nextUrl.protocol === 'https:',
-    httpOnly: true,
-    maxAge: LP_SPLIT_COOKIE_MAX_AGE,
-  })
-  return res
-}
-
 export function middleware(req: NextRequest, event: NextFetchEvent) {
   const { pathname } = req.nextUrl
 
@@ -332,75 +285,6 @@ export function middleware(req: NextRequest, event: NextFetchEvent) {
     return NextResponse.redirect(url, 308)
   }
 
-  // The arm memberships this browser already holds, and whether they need
-  // writing back. Both landing splits below read and extend the same jar, so
-  // one cannot overwrite the other's fresh assignment.
-  let lpArms = parseLpSplitCookie(req.cookies.get(LP_SPLIT_COOKIE)?.value)
-  let pendingLpArms: string | null = null
-  const isPerson = !isBotUserAgent(req.headers.get('user-agent'))
-
-  // Meta traffic on a landing page goes to the ad-framed map instead.
-  //
-  // The Meta ads keep pointing at /lp pages (re-pointing an ad restarts its
-  // learning); the edge sends the click on to `/explore?loc=<city>&ad=day2`,
-  // the same href the landing pages' own CTA carries. Google and organic
-  // traffic fall through and read the page.
-  //
-  // This was a 50/50 split against the landing page from 6 to 10 Sep and is
-  // unconditional again now that the map has won it; see
-  // src/lib/meta-lp-hop.ts for the numbers. No arm is dealt and no cookie is
-  // written for it any more.
-  //
-  // Above the page split and above the page-view count for the same reason
-  // the page split is: the request that follows the 307 is the one counted
-  // and stamped, and a Meta visitor must not be dealt a page-split arm for a
-  // page they never see. Only a person arriving at a page is hopped;
-  // prefetches and RSC fetches pass through. A self-declaring crawler is
-  // never hopped, so Meta's own link preview still renders the landing page
-  // and not the map.
-  if (req.method === 'GET' && isPageView(req) && isPerson) {
-    const hop = metaExploreHop({
-      pathname,
-      search: req.nextUrl.search,
-      referrer: req.headers.get('referer') ?? '',
-    })
-    if (hop) {
-      const url = req.nextUrl.clone()
-      const [hopPath, hopQuery = ''] = hop.split('?')
-      url.pathname = hopPath
-      url.search = hopQuery ? `?${hopQuery}` : ''
-      return withLpArms(req, NextResponse.redirect(url, 307), pendingLpArms)
-    }
-  }
-
-  // A whole-page landing split: the ad points at the control, and a share of
-  // the people who click it are sent on to the treatment instead.
-  //
-  // Decided HERE, above the page-view count and returned as a redirect rather
-  // than stamped, on purpose: the request that follows the 307 is the one
-  // that gets counted and gets the first-touch cookie, so a split visit is
-  // counted once and every record names the page the visitor actually saw.
-  // The query string rides along untouched, because the click id and the UTM
-  // fields on it are the only attribution the visit has.
-  //
-  // Only a person arriving at a page is split. Prefetches and RSC fetches
-  // pass straight through (isPageView), and a self-declaring crawler always
-  // gets the control, so an ad network's link preview is stable. The arm is
-  // held in a cookie so a return visit lands on the same page. See
-  // src/lib/lp-splits.ts for the table, and for why this is not the
-  // registry-driven split-test system.
-  const lpSplit = splitForPath(pathname, req.nextUrl.search)
-  if (lpSplit && req.method === 'GET' && isPageView(req) && isPerson) {
-    const resolved = resolveLpArm(lpSplit, lpArms, Math.random())
-    lpArms = resolved.arms
-    if (resolved.changed) pendingLpArms = serializeLpSplitArms(resolved.arms)
-    if (resolved.arm === TREATMENT_ARM) {
-      const url = req.nextUrl.clone()
-      url.pathname = lpSplit.treatment
-      return withLpArms(req, NextResponse.redirect(url, 307), pendingLpArms)
-    }
-  }
-
   // Counted here rather than at the top of this function, so a mixed-case URL
   // is counted once on the lowercase request the browser follows the 308 to,
   // not twice.
@@ -437,22 +321,20 @@ export function middleware(req: NextRequest, event: NextFetchEvent) {
     const url = req.nextUrl.clone()
     url.pathname = `${pathname.replace(/\/$/, '')}/ad`
     // Stamped, not skipped: this IS the ad landing, and its query string is
-    // the only place the click id will ever appear. The landing split above
-    // may have just dealt this visitor the control (the Seattle city page is
-    // one), so the arm is written here too or their next visit re-rolls.
-    return withLpArms(req, stampAttribution(req, NextResponse.rewrite(url)), pendingLpArms)
+    // the only place the click id will ever appear.
+    return stampAttribution(req, NextResponse.rewrite(url))
   }
 
   const walled = WALLED_PREFIXES.some(
     (p) => pathname === p || pathname.startsWith(p + '/'),
   )
   if (!walled) {
-    return withLpArms(req, stampAttribution(req, NextResponse.next()), pendingLpArms)
+    return stampAttribution(req, NextResponse.next())
   }
 
   const url = req.nextUrl.clone()
   url.pathname = '/coming-soon'
-  return withLpArms(req, stampAttribution(req, NextResponse.rewrite(url)), pendingLpArms)
+  return stampAttribution(req, NextResponse.rewrite(url))
 }
 
 export const config = {
