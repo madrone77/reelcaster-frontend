@@ -83,7 +83,8 @@ import {
 import { viaAngle } from "@/app/lp/_shared/lp-via";
 import { withAdParams, type AdWall } from "@/lib/ad-mode";
 import { spotHref } from "@/lib/paths";
-import { takeAdSpotOpen } from "./lib/ad-spot-opens";
+import { takeAdSpotOpen, takeAdSpotPreview } from "./lib/ad-spot-opens";
+import { usePaidVisit } from "./lib/paid-visit";
 import { BLEED_MEASURE } from "@/app/components/layout/page-measure";
 import ExploreMap, { type StationPick, type CustomSpotPin } from "./components/explore-map";
 
@@ -313,6 +314,18 @@ export default function ExploreShell({
   // is the preview card, and this sits on top of that without replacing it.
   const [sheetSpot, setSheetSpot] = useState<string | null>(null);
   const closeSheetSpot = useCallback(() => setSheetSpot(null), []);
+  // The ad treatment's taps (Casey, 2026-09-24), for a signed-out reader a
+  // Meta or Google ad sent here: the `?ad=` link, or a bought click recorded
+  // by middleware in the last day (a Google click that landed on a city page
+  // and walked to the map). Organic readers keep the plain map's taps.
+  //   - A padlocked pin shows a note over it ("Pro required to see score",
+  //     Pro a link to the wall) instead of opening the wall on the tap.
+  //   - An unlocked pin shows its card five times; the sixth tap is the offer.
+  //   - Opening a spot (the card, FULL REPORT) goes through the wall's opens
+  //     below; a paid click with no `?ad=` gets `day2`'s two.
+  const paidVisit = usePaidVisit();
+  const tapWall: AdWall | null = user ? null : ad ? ad.wall : paidVisit ? "day2" : null;
+  const [lockNoteSlug, setLockNoteSlug] = useState<string | null>(null);
   // `day2` lets the first two opens through before the offer (Casey,
   // 2026-09-04); the other walls ask on the first tap. The allowance lives
   // in ./lib/ad-spot-opens. An allowed open goes where an unframed open
@@ -325,8 +338,8 @@ export default function ExploreShell({
       // traffic, and a Pro member who reached the map through an ad link (their
       // own, or a saved one) was being sold the plan they already have on the
       // third spot they opened. Same rule as `accessTier` above.
-      if (ad && spot.slug && (user || takeAdSpotOpen(ad.wall))) {
-        trackEvent("Ad Frame Spot Opened", { slug: spot.slug, ad_wall: ad.wall });
+      if (spot.slug && ((ad && user) || (tapWall && takeAdSpotOpen(tapWall)))) {
+        trackEvent("Ad Frame Spot Opened", { slug: spot.slug, ad_wall: tapWall ?? ad?.wall });
         if (
           typeof window !== "undefined" &&
           !window.matchMedia("(min-width:1024px)").matches
@@ -334,17 +347,18 @@ export default function ExploreShell({
           setSheetSpot(spot.slug);
           return;
         }
-        router.push(spot.href ?? withAdParams(spotHref({ slug: spot.slug }), ad));
+        const plain = spotHref({ slug: spot.slug });
+        router.push(spot.href ?? (ad ? withAdParams(plain, ad) : plain));
         return;
       }
       trackEvent("Ad Frame Spot Blocked", {
         slug: spot.slug ?? spot.name,
-        ad_wall: ad?.wall,
+        ad_wall: tapWall ?? ad?.wall,
       });
       setAdOfferSpotName(spot.name);
       setAdOfferOpen(true);
     },
-    [ad, router, user],
+    [ad, tapWall, router, user],
   );
   // The ad frame's bar sits on the top edge. `ad_bar_edge_v1` concluded for
   // the bottom on 2026-09-07, and Casey put every visitor back on the top on
@@ -935,9 +949,16 @@ export default function ExploreShell({
    * spot. Returns true when it took the tap.
    */
   const openLockedSpot = useCallback(
-    (slug: string): boolean => {
+    (slug: string, from: "map" | "rail" = "rail"): boolean => {
       const spot = displaySpots.find((s) => s.slug === slug);
       if (!spot?.locked) return false;
+      // Under the ad treatment a padlocked PIN says why it is locked instead
+      // of opening the wall; the note's "Pro" link opens it (openLockNoteWall).
+      if (tapWall && from === "map") {
+        trackEvent("Locked Spot Noted", { slug, ad_wall: tapWall });
+        setLockNoteSlug(slug);
+        return true;
+      }
       trackEvent("Locked Spot Pressed", { slug, ad_wall: ad?.wall });
       lockSplit.reportLockPress();
       setPaywallContext({ spotSlug: slug, page: "explore" });
@@ -945,8 +966,23 @@ export default function ExploreShell({
       setLockedWallOpen(true);
       return true;
     },
-    [displaySpots, ad, lockSplit],
+    [displaySpots, ad, tapWall, lockSplit],
   );
+
+  const lockNoteSpot = useMemo(
+    () =>
+      lockNoteSlug ? displaySpots.find((s) => s.slug === lockNoteSlug && s.locked) ?? null : null,
+    [displaySpots, lockNoteSlug],
+  );
+  const openLockNoteWall = useCallback(() => {
+    if (!lockNoteSpot) return;
+    trackEvent("Locked Spot Pressed", { slug: lockNoteSpot.slug, ad_wall: tapWall, via: "note" });
+    lockSplit.reportLockPress();
+    setPaywallContext({ spotSlug: lockNoteSpot.slug, page: "explore" });
+    setLockedWallSpotName(lockNoteSpot.name);
+    setLockNoteSlug(null);
+    setLockedWallOpen(true);
+  }, [lockNoteSpot, tapWall, lockSplit]);
 
   // Belt-and-braces dedupe by slug. buildExploreData now builds RailSpots from
   // the map payload, which carries one entry per spot, so this should be a
@@ -1883,7 +1919,18 @@ export default function ExploreShell({
 
   const handleMapSelectSpot = useCallback(
     (slug: string) => {
-      if (openLockedSpot(slug)) return;
+      if (openLockedSpot(slug, "map")) return;
+      setLockNoteSlug(null);
+      // The ad treatment's preview allowance: a fresh card five times, then
+      // the offer. Re-tapping the pin already showing its card is free.
+      if (tapWall && slug !== spotSlug && !takeAdSpotPreview()) {
+        const spot = displaySpots.find((s) => s.slug === slug);
+        trackEvent("Ad Frame Spot Blocked", { slug, ad_wall: tapWall, via: "preview" });
+        setPaywallContext({ spotSlug: slug, page: "explore" });
+        setAdOfferSpotName(spot?.name);
+        setAdOfferOpen(true);
+        return;
+      }
       noteEngagement("browse", "spot_preview");
       trackEvent("Spot Selected", {
         slug,
@@ -1895,7 +1942,7 @@ export default function ExploreShell({
       setPreviewAnchor(slug);
       focusSpotOnMap(slug);
     },
-    [focusSpotOnMap, speciesFilter, selectedIso, openLockedSpot],
+    [focusSpotOnMap, speciesFilter, selectedIso, openLockedSpot, tapWall, spotSlug, displaySpots],
   );
 
   /**
@@ -1939,13 +1986,13 @@ export default function ExploreShell({
         typeof window !== "undefined" &&
         !window.matchMedia("(min-width:1024px)").matches
       ) {
-        // Under the ad frame the tap goes through the wall's allowance:
+        // Under the ad treatment the tap goes through the wall's allowance:
         // the sheet while it lasts, then the offer (Casey's call, 2026-09-04).
-        if (ad) {
+        if (tapWall) {
           onAdOpenSpot({
             name: spot?.name,
             slug,
-            href: spot ? withAdParams(spotHref(spot), ad) : undefined,
+            href: spot && ad ? withAdParams(spotHref(spot), ad) : undefined,
           });
           return;
         }
@@ -1964,7 +2011,7 @@ export default function ExploreShell({
         });
       }
     },
-    [setQuery, displaySpots, ad, onAdOpenSpot, isPaid, openLockedSpot],
+    [setQuery, displaySpots, ad, tapWall, onAdOpenSpot, isPaid, openLockedSpot],
   );
 
   // ── Search picks ────────────────────────────────────────────────────
@@ -1982,8 +2029,8 @@ export default function ExploreShell({
         typeof window !== "undefined" &&
         !window.matchMedia("(min-width:1024px)").matches
       ) {
-        // Same under the ad frame for a search pick.
-        if (ad) {
+        // Same under the ad treatment for a search pick.
+        if (tapWall) {
           onAdOpenSpot({ slug });
           return;
         }
@@ -2005,7 +2052,7 @@ export default function ExploreShell({
         duration: 700,
       });
     },
-    [setQuery, ad, onAdOpenSpot],
+    [setQuery, tapWall, onAdOpenSpot],
   );
 
   const handleSearchSelectRegion = useCallback(
@@ -2516,6 +2563,16 @@ export default function ExploreShell({
           spots={filteredSpots}
           selectedSlug={selectedSpot?.slug ?? null}
           onSelect={handleMapSelectSpot}
+          lockNote={
+            lockNoteSpot
+              ? {
+                  lat: lockNoteSpot.lat,
+                  lng: lockNoteSpot.lng,
+                  onPro: openLockNoteWall,
+                  onDismiss: () => setLockNoteSlug(null),
+                }
+              : null
+          }
           onSelectStation={handleSelectStation}
           initialCenter={initialCenter}
           initialZoom={initialZoom}

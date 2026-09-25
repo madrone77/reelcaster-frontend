@@ -52,3 +52,35 @@ export function takeAdSpotOpen(wall: AdWall): boolean {
   }
   return true;
 }
+
+/**
+ * Preview cards a paid visit may call up from the map before the offer
+ * (Casey, 2026-09-24): an unlocked pin's tap shows its card, five times, and
+ * the sixth tap makes the offer. Counted per tab like the opens above, and
+ * the same for every wall, since a preview is a glance, not a report.
+ */
+export const SPOT_PREVIEWS_BEFORE_OFFER = 5;
+
+const PREVIEW_KEY = "rc_ad_spot_previews";
+
+/**
+ * Spend one preview. True when the card may show, false when the previews
+ * are used up and the caller should make the offer.
+ */
+export function takeAdSpotPreview(): boolean {
+  if (typeof window === "undefined") return false;
+  let used = 0;
+  try {
+    const n = Number(window.sessionStorage.getItem(PREVIEW_KEY));
+    used = Number.isFinite(n) && n > 0 ? n : 0;
+  } catch {
+    // Unreadable store: count from zero.
+  }
+  if (used >= SPOT_PREVIEWS_BEFORE_OFFER) return false;
+  try {
+    window.sessionStorage.setItem(PREVIEW_KEY, String(used + 1));
+  } catch {
+    // Nothing to persist to; the next tap counts from zero again.
+  }
+  return true;
+}
