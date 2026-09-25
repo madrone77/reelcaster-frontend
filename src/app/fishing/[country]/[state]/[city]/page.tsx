@@ -401,6 +401,7 @@ export default async function CityPage({
           variant="banner"
           provinceCode={city.provinceCode}
           citySlug={city.slug}
+          cityName={city.name}
         />
 
         {cityToday?.tide_station && (

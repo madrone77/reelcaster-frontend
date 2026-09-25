@@ -87,9 +87,16 @@ const PAY_FIRST = process.env.NEXT_PUBLIC_PAY_FIRST_CHECKOUT === '1';
  * the email field holds something that looks like an address and they pause,
  * and the tap only has to leave. Anything that changes what the session says
  * (address, plan, region, paid terms) builds a new one.
+ *
+ * The pause was 600 ms, and building the session takes another 600-900 ms,
+ * so a reader who typed and tapped straight away beat it: in half the
+ * 2026-09-24 flow-loop walks the tap still waited 300-700 ms on it. 250 ms
+ * still skips most keystrokes, and a finger landing on the button starts it
+ * outright (`warmCheckout`). A session built for an address the reader then
+ * finishes differently is never used and expires on its own.
  */
 const PREFETCH_EMAIL_RE = /^[^\s@]+@[^\s@]+\.[a-z]{2,}$/i;
-const PREFETCH_DEBOUNCE_MS = 600;
+const PREFETCH_DEBOUNCE_MS = 250;
 /** A prefetched session is good for three hours; stop trusting one well before. */
 const PREFETCH_MAX_AGE_MS = 30 * 60 * 1000;
 
@@ -277,6 +284,12 @@ interface TrialCtaState {
    */
   trialWithheld: boolean;
   startAnonCheckout: () => void;
+  /**
+   * Start building the signed-out session now, without the pause. For the
+   * buy button's pointerdown: the finger is on the glass 80-300 ms before the
+   * submit fires, and the session can use every one of them.
+   */
+  warmCheckout: () => void;
   startCheckout: () => void;
 }
 
@@ -487,25 +500,32 @@ export function TrialCtaProvider({
   const prefetched = useRef<{ key: string; at: number; reply: Promise<CheckoutReply> } | null>(null);
   const checkoutKey = (address: string) =>
     JSON.stringify([from, region, address.toLowerCase(), plan, trialWithheld]);
-  useEffect(() => {
-    if (!anon || !PAY_FIRST) return;
+  // Builds the session for what the field holds now, unless one for exactly
+  // that is already built or on its way. Returns false when there is nothing
+  // to build for (signed in, or not yet an address).
+  function prefetchCheckout(): boolean {
+    if (!anon || !PAY_FIRST) return false;
     const address = email.trim();
-    if (!PREFETCH_EMAIL_RE.test(address)) return;
+    if (!PREFETCH_EMAIL_RE.test(address)) return false;
     const key = checkoutKey(address);
     const warm = prefetched.current;
-    if (warm && warm.key === key && Date.now() - warm.at < PREFETCH_MAX_AGE_MS) return;
-    const timer = window.setTimeout(() => {
-      const reply = postAnonCheckout({
-        from,
-        region,
-        email: address,
-        plan,
-        accept_paid: trialWithheld,
-        prefetch: true,
-      });
-      reply.catch(() => {});
-      prefetched.current = { key, at: Date.now(), reply };
-    }, PREFETCH_DEBOUNCE_MS);
+    if (warm && warm.key === key && Date.now() - warm.at < PREFETCH_MAX_AGE_MS) return true;
+    const reply = postAnonCheckout({
+      from,
+      region,
+      email: address,
+      plan,
+      accept_paid: trialWithheld,
+      prefetch: true,
+    });
+    reply.catch(() => {});
+    prefetched.current = { key, at: Date.now(), reply };
+    return true;
+  }
+  useEffect(() => {
+    if (!anon || !PAY_FIRST) return;
+    if (!PREFETCH_EMAIL_RE.test(email.trim())) return;
+    const timer = window.setTimeout(prefetchCheckout, PREFETCH_DEBOUNCE_MS);
     return () => window.clearTimeout(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [anon, email, plan, region, from, trialWithheld]);
@@ -644,6 +664,9 @@ export function TrialCtaProvider({
     clearExistingAccount: () => setEmail(''),
     trialWithheld,
     startAnonCheckout,
+    warmCheckout: () => {
+      prefetchCheckout();
+    },
     startCheckout: () => {
       reportSplitCta(pricing, 'paywall');
       trackEvent('Checkout Started', {
@@ -949,6 +972,8 @@ export function TrialBuy({
             type="submit"
             data-testid={testId}
             data-plan={s.plan}
+            // The finger is down: build the session now if the pause has not.
+            onPointerDown={s.warmCheckout}
             disabled={s.submitting}
             className={ctaClass}
           >

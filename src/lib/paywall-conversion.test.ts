@@ -120,14 +120,16 @@ console.log('paywall-conversion: ok');
 
 import { paywallViewIsAskedFor } from './paywall-conversion';
 
-// The signed-out Start free trial button, in the product bar and the ad bar.
-for (const surface of ['explore-ad-topbar', 'explore-topbar']) {
+// The signed-out Start free trial button, in the product bar and the ad bar
+// (framed Explore, and the city ad page's copy of it).
+for (const surface of ['explore-ad-topbar', 'explore-topbar', 'city-ad-topbar']) {
   assert.equal(paywallViewIsAskedFor(surface), true, surface);
 }
 // Not the signed-in Upgrade to Pro buttons, and not the marketing site.
 for (const surface of [
   'explore-ad-topbar-upgrade',
   'explore-topbar-upgrade',
+  'city-ad-topbar-upgrade',
   'marketing-hero',
   'marketing-header',
   'marketing-pricing-pro',

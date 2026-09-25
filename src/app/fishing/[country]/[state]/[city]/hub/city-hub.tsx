@@ -317,7 +317,7 @@ export default function CityHub({
               is the reader most likely to want thirteen more days of it, and
               the old placement made them scroll past the whole leaderboard
               and the regulations first. */}
-          <ProGate provinceCode={provinceCode} citySlug={citySlug} />
+          <ProGate provinceCode={provinceCode} citySlug={citySlug} cityName={cityName} />
 
           <SpotLeaderboard
             rows={rest}

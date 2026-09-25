@@ -5,6 +5,7 @@ import { bitingLine, type Biting } from "@/lib/lead-species";
 import Image from "next/image";
 import Link from "next/link";
 import { ArrowRight } from "lucide-react";
+import { useEarlyTap } from "@/hooks/use-early-tap";
 import { TRIAL_DAYS } from "@/lib/pricing";
 import { speciesIllustration } from "@/lib/species-image";
 import { tierFor } from "@/app/explore/lib/explore-data";
@@ -123,6 +124,8 @@ export default function AdHero({
   footnoteText?: string;
 }) {
   const plate = speciesIllustration(fishSlug);
+  // A tap before hydration, replayed once this button is live.
+  const earlyTap = useEarlyTap(onTrial);
   const tier = tierFor(score);
   // Roster names are stored as written by whoever added the fish, and a few
   // are lower case ("bluefin tuna"); this one starts a sentence.
@@ -204,6 +207,7 @@ export default function AdHero({
           <div className="mt-7 flex w-full justify-center gap-3">
             <button
               type="button"
+              {...earlyTap}
               onClick={onTrial}
               className="inline-flex flex-1 items-center justify-center gap-2 rounded-xl border-2 border-rc-brand bg-rc-brand px-4 py-3.5 text-[16px] font-semibold text-white shadow-sm transition-colors hover:border-rc-brand-hover hover:bg-rc-brand-hover focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-rc-brand sm:flex-none sm:px-7 sm:text-[17px]"
             >

@@ -614,3 +614,10 @@ html[data-rc-session] [data-seo-hero-slot='hero-pending'] {
 html[data-rc-session] [data-seo-hero-slot='header'] {
   display: contents;
 }
+
+/* A trial button tapped before the page hydrated (src/lib/early-tap-snippet.ts):
+   drawn pressed until the modal opens, so the tap is seen to have landed. */
+[data-early-tapped] {
+  opacity: 0.7;
+  cursor: progress;
+}

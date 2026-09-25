@@ -93,6 +93,7 @@ export default function ExploreTopBar({
   adFrame = false,
   adBarEdge = "bottom",
   ctaOverColumn,
+  adCtaFrom = "explore-ad-topbar",
 }: {
   /** "brand" (the default) is a blue bar with a white mark/links; "default"
    *  is the light bar, kept available for any surface that needs it. */
@@ -168,6 +169,13 @@ export default function ExploreTopBar({
    * that column. Unset keeps the button flush right.
    */
   ctaOverColumn?: number;
+  /**
+   * The ad frame's trial CTA `from`, which is its paywall surface. The city ad
+   * page passes "city-ad-topbar" so its taps are not filed with the framed
+   * Explore map's; the signed-in upgrade button takes the same key plus
+   * "-upgrade". Both keys are in paywall-conversion's ASKED_FOR_SURFACES.
+   */
+  adCtaFrom?: string;
 } = {}) {
   const { user, session, loading } = useAuth();
   const { isPaid } = useSubscription();
@@ -437,7 +445,7 @@ export default function ExploreTopBar({
             signedIn ? (
               upgradeCta && (
                 <TrialModalButton
-                  from="explore-ad-topbar-upgrade"
+                  from={`${adCtaFrom}-upgrade`}
                   placeName={placeName}
                   className={brand ? btn.navOnBrand : btn.nav}
                 >
@@ -447,7 +455,7 @@ export default function ExploreTopBar({
               )
             ) : (
               <TrialCtaButton
-                from="explore-ad-topbar"
+                from={adCtaFrom}
                 placeName={placeName}
                 className={`${brand ? btn.navOnBrand : btn.nav} ${TOP_BAR_CTA_PHONE_WIDTH}`}
               />

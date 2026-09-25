@@ -1,11 +1,12 @@
 // The upgrade rail at the bottom of the conversion block.
 //
-// It sends to the same `/plans/checkout` entry the landing pages use, with
-// the region attached. That is not cosmetic: the checkout prices the session
-// off the region, BC in CAD and WA in USD, and without it the route falls
-// back to geo inference and then to Canadian dollars. A Seattle reader must
-// not be quoted CAD from a page that has been speaking Fahrenheit and Marine
-// Areas the whole way down.
+// It opens the same trial modal as the page's header button (it used to link
+// out to `/plans/checkout`, a second page load and a second form in front of
+// Stripe, 2026-09-24). The region travels with it. That is not cosmetic: the
+// checkout prices the session off the region, BC in CAD and WA in USD, and
+// without it the route falls back to geo inference and then to Canadian
+// dollars. A Seattle reader must not be quoted CAD from a page that has been
+// speaking Fahrenheit and Marine Areas the whole way down.
 //
 // `from` is the attribution key that lands in the conversion columns, so a
 // trial started here is distinguishable from one started on an /lp page.
@@ -19,7 +20,6 @@
 // page ends up advertising terms the checkout no longer honours — and on a
 // paid page that is a refund conversation, not a typo.
 
-import Link from "next/link";
 import {
   TRIAL_DAYS,
   currencyLabelForRegion,
@@ -31,6 +31,7 @@ import {
 } from "@/app/components/split-test/price-text";
 import { PANEL, TYPE } from "./ui";
 import { AdTrialButton } from "../ad/city-ad-view";
+import TrialModalButton from "@/app/components/paywall/trial-modal-button";
 
 const FEATURES = [
   "Every hour of the next 14 days, not just today",
@@ -45,9 +46,12 @@ export default function ProGate({
   citySlug,
   variant = "full",
   adFrame = false,
+  cityName,
 }: {
   provinceCode: string;
   citySlug: string;
+  /** Names the city in the trial modal's header. */
+  cityName?: string;
   /**
    * Inside the city ad frame the ask opens the trial modal rather than
    * linking to checkout, so the frame keeps its one rule: no link leaves it.
@@ -64,12 +68,9 @@ export default function ProGate({
    */
   variant?: "full" | "banner";
 }) {
-  const params = new URLSearchParams({
-    // Distinct attribution per placement, so the second ask can be judged on
-    // its own rather than being credited to the first.
-    from: `city-${citySlug}${variant === "banner" ? "-map" : ""}`,
-  });
-  if (provinceCode) params.set("region", provinceCode);
+  // Distinct attribution per placement, so the second ask can be judged on
+  // its own rather than being credited to the first.
+  const from = `city-${citySlug}${variant === "banner" ? "-map" : ""}`;
 
   const terms = (
     <>
@@ -100,12 +101,14 @@ export default function ProGate({
               Start your {TRIAL_DAYS}-day free trial
             </AdTrialButton>
           ) : (
-            <Link
-              href={`/plans/checkout?${params.toString()}`}
+            <TrialModalButton
+              from={from}
+              region={provinceCode}
+              placeName={cityName}
               className="shrink-0 rounded-lg bg-rc-emerald px-5 py-3.5 text-center text-[15px] font-bold text-rc-navy-deep hover:brightness-110 transition-all"
             >
               Start your {TRIAL_DAYS}-day free trial
-            </Link>
+            </TrialModalButton>
           )}
         </div>
         <p className="mt-3 font-rc-mono text-[11px] text-slate-400">{terms}</p>
@@ -132,12 +135,14 @@ export default function ProGate({
         ))}
       </ul>
 
-      <Link
-        href={`/plans/checkout?${params.toString()}`}
-        className="mt-4 block rounded-lg bg-rc-emerald px-5 py-3.5 text-center text-[16px] font-bold text-rc-navy-deep hover:brightness-110 transition-all"
+      <TrialModalButton
+        from={from}
+        region={provinceCode}
+        placeName={cityName}
+        className="mt-4 block w-full rounded-lg bg-rc-emerald px-5 py-3.5 text-center text-[16px] font-bold text-rc-navy-deep hover:brightness-110 transition-all"
       >
         Start your {TRIAL_DAYS}-day free trial
-      </Link>
+      </TrialModalButton>
 
       {/* Said plainly, under the button. A card IS collected at checkout, and
           a trial CTA that implies otherwise converts worse the moment the

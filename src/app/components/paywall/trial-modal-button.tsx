@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { useMountedOnce } from '@/hooks/use-mounted-once';
+import { useEarlyTap } from '@/hooks/use-early-tap';
 import { useTrialModal } from '@/hooks/use-paywall-modal';
 import { preloadTrialModal } from '@/lib/paywall-preload';
 import type { NagFeatureId } from '@/lib/plan-features';
@@ -28,6 +29,7 @@ export default function TrialModalButton({
   spotName,
   placeName,
   onPress,
+  region,
   'data-testid': testId,
 }: {
   children: React.ReactNode;
@@ -50,6 +52,8 @@ export default function TrialModalButton({
   placeName?: string;
   /** Called on press, before the modal opens. For split-test CTA counters. */
   onPress?: () => void;
+  /** Billing region for the modal's price and checkout; see ProTrialModal. */
+  region?: string;
   'data-testid'?: string;
 }) {
   const [open, setOpen] = useState(false);
@@ -59,19 +63,27 @@ export default function TrialModalButton({
   // @/hooks/use-paywall-modal.
   const ProTrialModal = useTrialModal(useMountedOnce(open));
 
+  const press = () => {
+    onPress?.();
+    setOpen(true);
+  };
+  // A tap before hydration, replayed once this button is live.
+  const earlyTap = useEarlyTap(() => {
+    preloadTrialModal();
+    press();
+  });
+
   return (
     <>
       <button
         type="button"
+        {...earlyTap}
         className={className}
         // The backstop for a press that beats the idle warm: a finger is on
         // the glass for 80-300ms before the click fires, and the import can
         // use every one of them. No-op once the chunk is in the module cache.
         onPointerDown={preloadTrialModal}
-        onClick={() => {
-          onPress?.();
-          setOpen(true);
-        }}
+        onClick={press}
         data-testid={testId}
       >
         {children}
@@ -87,6 +99,7 @@ export default function TrialModalButton({
           from={from}
           spotName={spotName}
           placeName={placeName}
+          region={region}
         />
       )}
     </>
