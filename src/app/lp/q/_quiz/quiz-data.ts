@@ -70,6 +70,9 @@ export interface QuizPin {
   lng: number;
   score: number;
   access: "boat" | "shore";
+  /** Straight line from the city, rounded. The page keeps a kayak's map
+   *  inside KAYAK_REACH_KM. */
+  distanceKm: number;
 }
 
 export interface QuizSpecies {
@@ -78,12 +81,16 @@ export interface QuizSpecies {
   /** Somebody is landing this fish right now (reports or kept). */
   proven: boolean;
   boat: QuizPick | null;
+  /** The boat pick inside a paddle of the city, or null. */
+  kayak: QuizPick | null;
   shore: QuizPick | null;
   /** The best-scored spots for this fish near the city, for the map. Boat
-   *  and shore mixed; the page filters by the reader's own access. */
+   *  and shore mixed; the page filters by the reader's own access and reach. */
   pins: QuizPin[];
-  /** Offered to boat and kayak readers. */
+  /** Offered to boat readers. */
   boatOffer: boolean;
+  /** Offered to kayak readers: a boat spot within KAYAK_REACH_KM has catches. */
+  kayakOffer: boolean;
   /** Offered to shore readers. */
   shoreOffer: boolean;
 }
@@ -115,6 +122,20 @@ const BOX_LNG = 1.3;
 /** Pins per access on the result map. Enough to read as a roster, few enough
  *  that the payload stays small. */
 const PINS_PER_ACCESS = 8;
+
+/**
+ * How far a spot may be from the city, straight line, by how the reader
+ * gets there. The evidence box is 100 km wide so a Seattle reader's halibut
+ * can be found in Admiralty Inlet, but the box is where evidence is LOOKED
+ * FOR, not where a reader is sent. Vancouver's best lingcod reports are at
+ * Thrasher Rock, 42 km away across the open Strait of Georgia: a run for a
+ * big boat on a calm day and no place to send a kayak, ever (Casey,
+ * 2026-09-25). So a boat is sent at most 30 km and a kayak at most 15 km,
+ * and a fish with no spot inside that reach is simply not offered to that
+ * reader, the same rule the shore reader already had.
+ */
+export const BOAT_REACH_KM = 30;
+export const KAYAK_REACH_KM = 15;
 
 /**
  * "Pacific Halibut" reads as "Halibut" to everyone who fishes for one, and the
@@ -265,18 +286,32 @@ export async function loadQuizData(citySlug: string): Promise<QuizData | null> {
   // near ring, most of them boat marks, every shore spot kept so a shore
   // reader's map is not empty. Eight boat and eight shore at most.
   const pinsFor = (speciesId: string): QuizPin[] => {
-    const near = spots.filter((s) => s.scores[speciesId] && distanceKm(city, s) <= NEAR_KM);
+    const near = spots.filter((s) => s.scores[speciesId] && distanceKm(city, s) <= BOAT_REACH_KM);
     const take = (access: "boat" | "shore") =>
       near
         .filter((s) => s.access === access)
         .sort((a, b) => b.scores[speciesId].score - a.scores[speciesId].score)
         .slice(0, PINS_PER_ACCESS)
-        .map((s) => ({ slug: s.slug, name: s.name, lat: s.lat, lng: s.lng, score: s.scores[speciesId].score, access }));
+        .map((s) => ({
+          slug: s.slug,
+          name: s.name,
+          lat: s.lat,
+          lng: s.lng,
+          score: s.scores[speciesId].score,
+          access,
+          distanceKm: Math.round(distanceKm(city, s)),
+        }));
     return [...take("boat"), ...take("shore")];
   };
 
+  // Where each kind of reader can be sent. Shore keeps the evidence ring
+  // (a drive); a boat and a kayak get the reach above.
+  const boatWater = spots.filter((s) => distanceKm(city, s) <= BOAT_REACH_KM);
+  const kayakWater = spots.filter((s) => distanceKm(city, s) <= KAYAK_REACH_KM);
+
   const built: QuizSpecies[] = pool.map(({ ref, proven }) => {
-    const boat = toPick(pickSpot(spots, ref.id, ref.name, "boat", reports, kept, isWdfwArea, city));
+    const boat = toPick(pickSpot(boatWater, ref.id, ref.name, "boat", reports, kept, isWdfwArea, city));
+    const kayak = toPick(pickSpot(kayakWater, ref.id, ref.name, "boat", reports, kept, isWdfwArea, city));
     const shore = toPick(pickSpot(spots, ref.id, ref.name, "shore", reports, kept, isWdfwArea, city));
     const crab = /crab/i.test(ref.name);
     return {
@@ -284,20 +319,24 @@ export async function loadQuizData(citySlug: string): Promise<QuizData | null> {
       name: shortSpecies(ref.name),
       proven,
       boat,
+      kayak,
       shore,
       pins: pinsFor(ref.id),
-      // Boat: only where a spot has catches of it. That is the Chinook a
-      // Seattle reader would otherwise drive to Tacoma for on a score alone.
+      // Boat: only where a spot has catches of it, inside the boat's reach.
+      // That is the Chinook a Seattle reader would otherwise drive to Tacoma
+      // for on a score alone, and the lingcod a Vancouver reader would
+      // otherwise be sent across the Strait for.
       boatOffer: proven && hasEvidence(boat),
+      kayakOffer: proven && hasEvidence(kayak),
       // Shore: a shore spot exists for it (never halibut or lingcod off a
       // pier, see evidence.ts) and somebody is landing it, or it is crab.
       shoreOffer: !!shore && (proven || (crab && nearShoreCrab.has(ref.id))),
     };
   });
-  const offered = built.filter((s) => s.boatOffer || s.shoreOffer);
+  const offered = built.filter((s) => s.boatOffer || s.kayakOffer || s.shoreOffer);
   const species = offered.length
     ? offered
-    : built.map((s) => ({ ...s, boatOffer: !!s.boat, shoreOffer: !!s.shore }));
+    : built.map((s) => ({ ...s, boatOffer: !!s.boat, kayakOffer: !!s.kayak, shoreOffer: !!s.shore }));
 
   return {
     citySlug,

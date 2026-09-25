@@ -19,7 +19,7 @@ import {
   type Persona,
   type QuizAnswers,
 } from "./persona";
-import type { QuizData } from "./quiz-data";
+import type { QuizData, QuizPick } from "./quiz-data";
 import QuizTrialForm from "./quiz-trial-form";
 import QuizSpotCard from "./quiz-spot-card";
 import QuizShowcase from "./quiz-showcase";
@@ -104,12 +104,36 @@ function metaCustom(event: string, data: Record<string, string>): void {
   }
 }
 
-/** Up to five fish offered to this way of fishing, most evidence first. */
+/** Up to five fish offered to this way of fishing, most evidence first. A
+ *  kayak is offered only fish with a spot inside a paddle of the city. */
 function speciesFor(data: QuizData, access: Access | undefined): QuizData["species"] {
-  const list = data.species.filter((s) =>
-    access === "shore" ? s.shoreOffer : access === "both" ? s.boatOffer || s.shoreOffer : s.boatOffer,
-  );
+  const list = data.species.filter((s) => {
+    switch (access) {
+      case "shore":
+        return s.shoreOffer;
+      case "kayak":
+        return s.kayakOffer;
+      case "both":
+        return s.boatOffer || s.shoreOffer;
+      default:
+        return s.boatOffer;
+    }
+  });
   return list.slice(0, 5);
+}
+
+/** The spot to show this reader for this fish, by how they get there. */
+function pickFor(fish: QuizData["species"][number], access: Access): QuizPick | null {
+  switch (access) {
+    case "shore":
+      return fish.shore ?? fish.boat;
+    case "kayak":
+      return fish.kayak ?? fish.shore;
+    case "both":
+      return fish.boat ?? fish.shore;
+    default:
+      return fish.boat ?? fish.shore;
+  }
 }
 
 function questionsFor(data: QuizData, access: Access | undefined) {
@@ -396,7 +420,7 @@ function ResultScreen(props: {
       ? speciesFor(data, answers.access)[0]
       : data.species.find((x) => x.slug === answers.species)) ?? null;
   const shore = wantsShore(answers);
-  const pick = fish ? (shore ? fish.shore ?? fish.boat : fish.boat ?? fish.shore) : null;
+  const pick = fish ? pickFor(fish, answers.access) : null;
   const boatInstead = !!(fish && shore && !fish.shore && fish.boat);
 
   // The showcase is written around the reader's own spot and fish.
@@ -442,7 +466,7 @@ function ResultScreen(props: {
       ) : null}
 
       {fish && pick ? (
-        <QuizShowcase data={data} blocks={blocks} pick={pick} pins={fish.pins} speciesName={fish.name} shore={shore} />
+        <QuizShowcase data={data} blocks={blocks} pick={pick} pins={fish.pins} speciesName={fish.name} access={answers.access} />
       ) : null}
 
       <section className="mt-8 rounded-2xl border border-rc-rule bg-rc-panel p-5 shadow-sm">

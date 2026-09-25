@@ -355,17 +355,21 @@ function blockCopy(id: ShowcaseId, persona: Persona, a: QuizAnswers, c: Showcase
       };
     }
     case "map": {
+      const kayak = a.access === "kayak";
       let headline = `Every spot near ${cityName}, scored for ${species} today`;
       if (shore) headline = `Shore spots around ${cityName} you can reach on foot, scored`;
+      else if (kayak) headline = `Water you can paddle to from ${cityName}, scored for ${species}`;
       else if (a.pain === "where") headline = "Stop guessing where to go";
       else if (persona === "newcomer") headline = "The spots locals fish, ranked for today";
       return {
         id,
-        kicker: shore ? "No boat needed" : "Where to go",
+        kicker: shore ? "No boat needed" : kayak ? "Within a paddle" : "Where to go",
         headline,
         lede: shore
           ? `Piers, beaches and docks scored for ${species}, so you know which one to walk onto before you leave.`
-          : `Green is go. The number on each pin is that spot's score for ${species} today, so the best water stands out before you pick a launch.`,
+          : kayak
+            ? `Only spots close in, never a crossing. The number on each pin is that spot's score for ${species} today.`
+            : `Green is go. The number on each pin is that spot's score for ${species} today, so the best water stands out before you pick a launch.`,
       };
     }
     case "regs": {
