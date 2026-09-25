@@ -8,6 +8,7 @@ import { reportCampaignCta, type LpCtaId } from "../../_shared/lp-telemetry";
 import { trackEvent } from "@/lib/analytics";
 import type { Persona } from "./persona";
 import { recordCta } from "./quiz-track";
+import { startAnonCheckout } from "@/lib/start-checkout";
 
 /**
  * The quiz's ask: one email field that posts straight to Stripe for the
@@ -56,6 +57,7 @@ const QuizTrialForm = forwardRef<HTMLInputElement, Props>(function QuizTrialForm
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [errorCode, setErrorCode] = useState<string>("");
+  const [stuckUrl, setStuckUrl] = useState<string | null>(null);
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -76,23 +78,23 @@ const QuizTrialForm = forwardRef<HTMLInputElement, Props>(function QuizTrialForm
     setSubmitting(true);
     setError(null);
     setErrorCode("");
-    try {
-      const res = await fetch("/api/stripe/checkout", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ from: `lpq-${persona}`, region, email: email.trim() }),
-      });
-      const body = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(body.error ?? "checkout_failed");
-      const dest = body.url ?? body.redirect;
-      if (!dest) throw new Error("no_url");
-      window.location.href = dest;
-    } catch (err) {
-      const code = err instanceof Error ? err.message : "";
-      setErrorCode(code);
-      setError(ERRORS[code] ?? "We couldn’t start checkout. Please try again.");
-      setSubmitting(false);
-    }
+    setStuckUrl(null);
+    // The same call the trial sheet makes: wall captured, one POST, the hop
+    // reported, a fallback link if the browser will not leave.
+    const result = await startAnonCheckout({
+      from: `lpq-${persona}`,
+      region,
+      email,
+      onStuck: (url) => {
+        setStuckUrl(url);
+        setSubmitting(false);
+      },
+    });
+    if (result.kind === "left") return;
+    const code = result.kind === "refused" ? result.reason : result.error;
+    setErrorCode(code);
+    setError(ERRORS[code] ?? "We couldn’t start checkout. Please try again.");
+    setSubmitting(false);
   }
 
   // Someone who already has an account belongs on sign in; a used trial can
@@ -131,6 +133,15 @@ const QuizTrialForm = forwardRef<HTMLInputElement, Props>(function QuizTrialForm
         <strong className="text-rc-ink">{PRICE.year}</strong> until you cancel. Cancel any time
         before then and you pay nothing. No account needed, we make one from this email.
       </p>
+      {stuckUrl ? (
+        <a
+          href={stuckUrl}
+          className="flex min-h-[48px] items-center justify-center rounded-2xl border-2 border-rc-brand px-6 text-base font-bold text-rc-brand"
+          data-testid="trial-cta-continue"
+        >
+          Continue to secure checkout
+        </a>
+      ) : null}
       {error ? (
         <p className="rounded-xl bg-rc-poor-bg px-3 py-2 text-sm text-rc-poor-ink" role="alert">
           {error}{" "}

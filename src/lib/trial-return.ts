@@ -35,8 +35,6 @@ export interface TrialSheetRecord {
   spotName?: string;
   placeName?: string;
   region?: string;
-  /** The wall's line for sheet_names_wall_v1, so arm b reopens as it was. */
-  tapped?: string;
   at: number;
   /** Set by /billing/cancel: the reader pressed Stripe's back arrow. */
   back?: boolean;

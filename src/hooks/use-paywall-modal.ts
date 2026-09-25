@@ -4,12 +4,9 @@ import { useEffect } from 'react';
 import { useSubscription } from '@/hooks/use-subscription';
 import { useLazyComponent } from '@/hooks/use-lazy-component';
 import {
-  loadPlanChoiceModal,
   loadTrialModal,
-  preloadPlanChoice,
   preloadTrialModal,
   warmOnIdle,
-  type PlanChoiceModalProps,
   type TrialModalProps,
 } from '@/lib/paywall-preload';
 
@@ -52,18 +49,6 @@ export function useTrialModal(active = false): TrialModalProps | null {
   return useLazyComponent(loadTrialModal, active);
 }
 
-/** The same, for arm b's plan chooser on /explore. */
-export function usePlanChoiceModal(active = false): PlanChoiceModalProps | null {
-  const { isPaid } = useSubscription();
-
-  useEffect(() => {
-    if (active || isPaid) return;
-    return warmOnIdle(preloadPlanChoice);
-  }, [active, isPaid]);
-
-  return useLazyComponent(loadPlanChoiceModal, active);
-}
-
 /**
  * Warm the wall's code without rendering it, for a surface that knows a wall
  * is reachable long before the component that holds one exists.
@@ -73,15 +58,12 @@ export function usePlanChoiceModal(active = false): PlanChoiceModalProps | null 
  * spots have loaded — measured at ~2.9s, by which time a reader can already
  * be reaching for the map. The shell mounts at hydration and can ask for the
  * chunk then.
- *
- * @param choice  True on arm b of the join-prompt test, whose walls open the
- *                plan chooser rather than the trial modal.
  */
-export function useWarmPaywall(choice: boolean): void {
+export function useWarmPaywall(): void {
   const { isPaid } = useSubscription();
 
   useEffect(() => {
     if (isPaid) return;
-    return warmOnIdle(choice ? preloadPlanChoice : preloadTrialModal);
-  }, [isPaid, choice]);
+    return warmOnIdle(preloadTrialModal);
+  }, [isPaid]);
 }

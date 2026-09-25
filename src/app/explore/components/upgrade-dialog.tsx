@@ -90,7 +90,6 @@ export default function UpgradeDialog({
       onOpenChange={onOpenChange}
       feature={variant === "signup" ? "forecast-week" : "forecast-14d"}
       from="explore-forecast"
-      eligible={onExplore}
       spotName={spotName}
       placeName={placeName}
       cityName={cityName}

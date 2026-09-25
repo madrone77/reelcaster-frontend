@@ -1,10 +1,10 @@
 import type { Metadata } from "next";
 import "maplibre-gl/dist/maplibre-gl.css";
 
-// /lp/* — cold-traffic ad landing pages. noindex (paid traffic only, never a
-// search result), on the light rc-* system. No marketing header/footer: these
-// pages carry their own distraction-free chrome (a single logo + one CTA) so
-// nothing competes with the free-trial conversion.
+// /lp/* — the addresses paid ads point at. noindex (paid traffic only, never
+// a search result), on the light rc-* system. Two pages live here: the
+// landing page ([...path], the framed city page with the trial sheet) and the
+// quiz (q/). No marketing header or footer: each carries its own chrome.
 export const metadata: Metadata = {
   robots: { index: false, follow: true },
 };

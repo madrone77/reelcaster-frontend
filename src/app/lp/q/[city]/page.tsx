@@ -19,9 +19,6 @@ import { loadQuizData } from "../_quiz/quiz-data";
  * else (`/lp/q/1` was in a live ad) hops to the visitor's nearest city rather
  * than 404ing a paid click; see ../_quiz/nearest-hop.tsx.
  *
- * Never hopped to Explore for Meta traffic (src/lib/meta-lp-hop.ts): the quiz
- * IS the Meta experiment.
- *
  * ISR, never searchParams. Reading them here would opt every ad click out of
  * the cache; the query string is read on the client by the telemetry.
  * noindex comes from src/app/lp/layout.tsx.

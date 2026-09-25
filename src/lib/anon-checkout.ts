@@ -155,12 +155,6 @@ export async function createAnonCheckoutSession(params: {
    */
   withheldTrial?: 'refuse' | 'charge';
   /**
-   * Built before the Start tap, while the buyer is still on the sheet. Marked
-   * on the session only, so the reminder scan can leave it alone unless the
-   * tap commits it.
-   */
-  prefetch?: boolean;
-  /**
    * The page the buyer left for Stripe, validated by safeReturnPath. Stripe's
    * back arrow goes through /billing/cancel and on to it, with the sheet
    * reopened (src/lib/trial-return.ts). Unset or unsafe, the arrow lands on
@@ -229,7 +223,6 @@ export async function createAnonCheckoutSession(params: {
       region: region || '',
       from,
       trial: String(trialEligible),
-      ...(params.prefetch ? { prefetched: 'true' } : {}),
       ...extra,
     },
     subscription_data: {
