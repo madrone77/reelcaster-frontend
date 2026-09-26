@@ -4,8 +4,6 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { trackEvent } from "@/lib/analytics";
 import { formatHour12 } from "@/lib/time-format";
 import { takeQuizHandoff, type QuizHandoff } from "@/lib/quiz-handoff";
-import type { AdWall } from "@/lib/ad-mode";
-import AdIntroCard from "./ad-intro-card";
 
 /**
  * The card a quiz reader sees when the map opens on their spot.
@@ -17,7 +15,10 @@ import AdIntroCard from "./ad-intro-card";
  *
  * Written from the handoff the quiz left in sessionStorage
  * (src/lib/quiz-handoff.ts). A `via=lpq` arrival with no handoff (a link
- * opened in a new tab, storage blocked) gets the map's ordinary intro.
+ * opened in a new tab, storage blocked, or this card already shown once and
+ * the shell mounted again) gets NO card at all. It used to fall back to the
+ * live-map intro, which is how a quiz reader came to dismiss two cards in a
+ * row (Casey, 2026-09-25): the quiz's own, then "You're on the live map".
  *
  * NOT AN OFFER, same as AdIntroCard: no trial, no price. The frame's own
  * paywall flow runs after it exactly as it would without it.
@@ -58,13 +59,7 @@ function mapLine(h: QuizHandoff): string {
   return "Every dot is a scored mark. The number is today's peak; tap one for the hour-by-hour with tide, current and wind.";
 }
 
-export default function QuizIntroCard({
-  wall,
-  cityName,
-}: {
-  wall: AdWall;
-  cityName?: string;
-}) {
+export default function QuizIntroCard() {
   // Decided in an effect: storage is per browser and must not reach SSR.
   const [handoff, setHandoff] = useState<QuizHandoff | null | undefined>(undefined);
   const openedAt = useRef<number | null>(null);
@@ -105,10 +100,8 @@ export default function QuizIntroCard({
     return () => window.removeEventListener("keydown", onKey);
   }, [handoff, dismiss]);
 
-  // Not decided yet: draw nothing, so the ordinary intro cannot flash first.
-  if (handoff === undefined) return null;
-  // No handoff for this tab: the map's own intro.
-  if (handoff === null) return <AdIntroCard wall={wall} cityName={cityName} />;
+  // Not decided yet, no handoff for this tab, or dismissed: nothing.
+  if (!handoff) return null;
 
   const h = handoff;
   const km = h.spot.distanceKm > 0 ? ` (${h.spot.distanceKm} km from ${h.cityName})` : "";

@@ -291,8 +291,9 @@ export default function ExploreShell({
   // Locked pins, for every signed-out viewer once
   // auth has settled (a member must never see locks flash on and off). The
   // landing spot and anything `?keep=` named stay open (lib/spot-locks).
+  // A quiz reader (`via=lpq`, see quizVisit below) gets every pin open.
   const lockSplit = useLockedSpots(
-    !authLoading && !user && !isPaid ? "explore_map" : null,
+    !authLoading && !user && !isPaid && via !== "lpq" ? "explore_map" : null,
   );
 
   // Fetch the wall's chunk here rather than in <ExploreWall>, which is the
@@ -324,7 +325,13 @@ export default function ExploreShell({
   //   - Opening a spot (the card, FULL REPORT) goes through the wall's opens
   //     below; a paid click with no `?ad=` gets `day2`'s two.
   const paidVisit = usePaidVisit();
-  const tapWall: AdWall | null = user ? null : ad ? ad.wall : paidVisit ? "day2" : null;
+  // A quiz reader (Casey, 2026-09-25): they answered six questions to be put
+  // on a spot, so the map holds nothing back from them. No preview cap, no
+  // spot-open allowance, no padlocked pins; their one card is the quiz's
+  // own (QuizIntroCard below). The bar's own offer stays, and the trial sheet
+  // still opens from a locked day or FULL REPORT the way it does for anyone.
+  const quizVisit = via === "lpq";
+  const tapWall: AdWall | null = user || quizVisit ? null : ad ? ad.wall : paidVisit ? "day2" : null;
   const [lockNoteSlug, setLockNoteSlug] = useState<string | null>(null);
   // `day2` lets the first two opens through before the offer (Casey,
   // 2026-09-04); the other walls ask on the first tap. The allowance lives
@@ -338,7 +345,7 @@ export default function ExploreShell({
       // traffic, and a Pro member who reached the map through an ad link (their
       // own, or a saved one) was being sold the plan they already have on the
       // third spot they opened. Same rule as `accessTier` above.
-      if (spot.slug && ((ad && user) || (tapWall && takeAdSpotOpen(tapWall)))) {
+      if (spot.slug && ((ad && (user || quizVisit)) || (tapWall && takeAdSpotOpen(tapWall)))) {
         trackEvent("Ad Frame Spot Opened", { slug: spot.slug, ad_wall: tapWall ?? ad?.wall });
         if (
           typeof window !== "undefined" &&
@@ -358,7 +365,7 @@ export default function ExploreShell({
       setAdOfferSpotName(spot.name);
       setAdOfferOpen(true);
     },
-    [ad, tapWall, router, user],
+    [ad, tapWall, router, user, quizVisit],
   );
   // The ad frame's bar sits on the top edge. `ad_bar_edge_v1` concluded for
   // the bottom on 2026-09-07, and Casey put every visitor back on the top on
@@ -2887,10 +2894,11 @@ export default function ExploreShell({
           2026-09-07 until the split settled it (2026-09-09: the card), and
           every day2 visitor gets it now with no arm read. */}
       {ad &&
-        (via === "lpq" ? (
+        (quizVisit ? (
           // A quiz reader: the card is written from their answers and their
-          // spot (src/lib/quiz-handoff.ts); its one button dismisses it.
-          <QuizIntroCard wall={ad.wall} cityName={labelCity?.name ?? undefined} />
+          // spot (src/lib/quiz-handoff.ts); its one button dismisses it, and
+          // it is the ONLY card they get: never the live-map one as well.
+          <QuizIntroCard />
         ) : ad.wall === "day2" ? (
           <AdIntroCard wall={ad.wall} cityName={labelCity?.name ?? undefined} />
         ) : null)}
