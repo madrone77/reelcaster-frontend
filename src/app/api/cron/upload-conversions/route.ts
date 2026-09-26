@@ -24,7 +24,7 @@
 
 import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
-import { uploadPendingConversions } from '@/lib/conversion-upload';
+import { requeueGoogleConversions, uploadPendingConversions } from '@/lib/conversion-upload';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -46,6 +46,11 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: 'unauthorized' }, { status: 401 });
   }
 
+  // Reopen anything the dead Google upload leg parked before there was a
+  // working route to Google. A no-op on every run after the first, and a no-op
+  // entirely until Data Manager credentials exist.
+  const requeued = await requeueGoogleConversions(admin);
+
   const result = await uploadPendingConversions(admin, 100);
-  return NextResponse.json({ ok: true, ...result });
+  return NextResponse.json({ ok: true, requeued, ...result });
 }

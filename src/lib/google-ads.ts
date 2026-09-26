@@ -11,17 +11,18 @@
  *
  * Until that rewrite lands, everything Google Ads knows about a conversion
  * arrives through the tag below. That makes this file load-bearing for bidding
- * in a way `meta-pixel.ts` is not: there is no server-side backstop behind it.
+ * in a way `meta-pixel.ts` is not — or rather it was until 2026-09-15, when
+ * src/lib/google-data-manager.ts gave the trial a server-side backstop and gave
+ * the day-7 Purchase its first route to Google at all.
  *
- * The day-7 Purchase is the casualty. No browser is left by then, so a tag can
- * never report it, and Google cannot tell a trial that converts from one that
- * cancels on day 6 until Data Manager is wired up.
+ * What that changes here: nothing, deliberately. The tag stays the fast path
+ * and stays the whole channel for the paywall open. `transaction_id` below is
+ * what keeps the two copies of a trial from counting twice, so it is now
+ * load-bearing in a second way and must keep matching `conversionEventId`.
  *
- * It is also why the paywall-view conversion has a tag here at all. That event
- * was built for the offline upload, `GOOGLE_ADS_CONVERSION_ACTION_PAYWALL_VIEW`
- * is read by conversion-upload.ts, and on this account it will never send
- * anything. A browser is present when a modal opens, so this is the one event
- * below the trial that Google can actually be told about.
+ * The paywall-view conversion is a browser tag and only a browser tag. A
+ * browser is present when a modal opens, so that event has no missing-copy
+ * problem for an upload to solve.
  *
  * Both ids are public values that ship in the page HTML, so they are constants
  * here rather than env vars, matching `src/lib/adsense.ts` and the hardcoded

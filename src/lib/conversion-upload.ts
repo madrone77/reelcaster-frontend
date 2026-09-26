@@ -46,7 +46,15 @@
  */
 
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { googleAdsConfig, googleAccessToken, googleAdsHeaders } from './google-ads-auth';
+import {
+  buildIngestRequest,
+  googleAdIdentifiers,
+  googleDataManagerAction,
+  googleDataManagerConfig,
+  googleEventTimestamp,
+  googleUploadsThisEvent,
+  ingestGoogleEvent,
+} from './google-data-manager';
 import { META_SIGNUP_EVENT, signupEventId } from './signup-conversion';
 import { resolveMetaIdentity, type MetaIdentity } from './meta-identity';
 
@@ -165,91 +173,76 @@ export type UploadOutcome =
    */
   | { status: 'deferred'; reason: string };
 
-// ── Google Ads ───────────────────────────────────────────────────────
-
-const GOOGLE_API_VERSION = 'v18';
-
-/** The conversion action to credit, which differs per event. */
-function googleConversionAction(event: ConversionRow['event_type']): string | null {
-  const raw =
-    event === 'purchase'
-      ? process.env.GOOGLE_ADS_CONVERSION_ACTION_PURCHASE
-      : event === 'signup'
-        ? process.env.GOOGLE_ADS_CONVERSION_ACTION_SIGNUP
-        : event === 'paywall_view'
-          ? process.env.GOOGLE_ADS_CONVERSION_ACTION_PAYWALL_VIEW
-          : process.env.GOOGLE_ADS_CONVERSION_ACTION_TRIAL;
-  return raw?.trim() || null;
-}
+// ── Google ──────────────────────────────────────────────
 
 /**
- * Google wants "yyyy-MM-dd HH:mm:ss+HH:mm" and rejects ISO-8601 with a "T" or
- * a "Z". Emitted in UTC with an explicit +00:00 offset, which is accepted and
- * saves guessing at the advertiser account's timezone.
+ * Report a conversion to Google through the Data Manager API.
+ *
+ * This replaced an `UploadClickConversions` call to the Ads API on
+ * 2026-09-15. That call could never have worked from this account: the offline
+ * upload feature is allowlisted, the allowlist closed on 15 June 2026 to any
+ * developer token that had not already used it, and this account had not. The
+ * rows it was meant to send have been resting at `google_not_configured` ever
+ * since. See src/lib/google-data-manager.ts for the replacement and for why
+ * both copies of a trial are now sent rather than one.
+ *
+ * Unlike the Meta leg, there is no browser-copy grace here. Google dedupes the
+ * gtag conversion against this upload on the shared transaction id, so sending
+ * both is the correct move and is what recovers the trials the return page
+ * never fires for.
  */
-export function googleDateTime(iso: string): string {
-  return `${new Date(iso).toISOString().slice(0, 19).replace('T', ' ')}+00:00`;
-}
-
-async function uploadToGoogle(row: ConversionRow): Promise<UploadOutcome> {
-  const cfg = googleAdsConfig();
+async function uploadToGoogle(row: ConversionRow, identity?: MetaIdentity): Promise<UploadOutcome> {
+  const cfg = googleDataManagerConfig();
   if (!cfg) return { status: 'skipped', reason: 'google_not_configured' };
 
-  const conversionAction = googleConversionAction(row.event_type);
-  if (!conversionAction) {
-    return { status: 'skipped', reason: 'google_conversion_action_unset' };
+  const actionId = googleDataManagerAction(cfg, row.event_type);
+  if (!actionId) return { status: 'skipped', reason: `google_no_action:${row.event_type}` };
+
+  const transactionId = conversionEventId(row);
+  if (!transactionId) return { status: 'skipped', reason: 'no_event_id' };
+
+  // A click id OR a hashed email is enough. Requiring the click id is the
+  // mistake the Meta leg made until 2026-09-10: it biases everything the
+  // network learns towards the browsers that keep query strings. Nothing to
+  // match on at all is a genuine skip.
+  const emailHash = identity?.em ?? null;
+  if (!googleAdIdentifiers(row) && !emailHash) {
+    return { status: 'skipped', reason: 'no_google_identifier' };
   }
-  if (!row.click_id || !row.click_type) {
-    return { status: 'skipped', reason: 'no_click_id' };
+
+  if (!googleEventTimestamp(row.occurred_at)) {
+    return { status: 'skipped', reason: 'bad_timestamp' };
   }
 
-  // gclid, gbraid and wbraid are mutually exclusive fields, not one field with
-  // three names. Sending the wrong key is silently ignored by the API.
-  const idField =
-    row.click_type === 'gclid'
-      ? { gclid: row.click_id }
-      : row.click_type === 'gbraid'
-        ? { gbraid: row.click_id }
-        : row.click_type === 'wbraid'
-          ? { wbraid: row.click_id }
-          : null;
-  if (!idField) return { status: 'skipped', reason: `not_a_google_click:${row.click_type}` };
+  // A trial sends no value, so the fixed value on the conversion action stands
+  // as the single place that number lives. `conversionValue` is documented as
+  // required, so `GOOGLE_DM_TRIAL_VALUE_CENTS` is the escape hatch if the API
+  // turns out to insist; it is unset by default.
+  const value =
+    conversionValue(row) ??
+    (row.event_type === 'trial_start' && cfg.trialValueCents !== null
+      ? { value: cfg.trialValueCents / 100, currency: row.currency.toUpperCase() }
+      : null);
 
-  const token = await googleAccessToken(cfg);
-  const headers = googleAdsHeaders(cfg, token);
+  const body = buildIngestRequest({
+    row,
+    actionId,
+    customerId: cfg.customerId,
+    emailHash,
+    transactionId,
+    value,
+    validateOnly: cfg.validateOnly,
+  });
 
-  const res = await fetch(
-    `https://googleads.googleapis.com/${GOOGLE_API_VERSION}/customers/${cfg.customerId}:uploadClickConversions`,
-    {
-      method: 'POST',
-      headers,
-      body: JSON.stringify({
-        conversions: [
-          {
-            ...idField,
-            conversionAction,
-            // Click time, not conversion time, is what Google reports against.
-            conversionDateTime: googleDateTime(row.click_at ?? row.occurred_at),
-            conversionValue: conversionValue(row)?.value ?? 0,
-            currencyCode: row.currency.toUpperCase(),
-          },
-        ],
-        // Without this a single bad row fails the whole request. With it, the
-        // errors come back per-conversion and are readable.
-        partialFailure: true,
-      }),
-    },
-  );
+  const { requestId } = await ingestGoogleEvent(cfg, body);
 
-  const body = await res.text();
-  if (!res.ok) throw new Error(`google ${res.status}: ${body.slice(0, 300)}`);
-
-  // A 200 with partialFailureError means the conversion was REJECTED. Treating
-  // that as success is the classic way to believe uploads are working for
-  // months while Google has accepted nothing.
-  const parsed = JSON.parse(body) as { partialFailureError?: { message?: string } };
-  if (parsed.partialFailureError) {
-    throw new Error(`google partial failure: ${(parsed.partialFailureError.message ?? '').slice(0, 300)}`);
+  // A dry run proves the credentials and the ids and records nothing, so the
+  // row must stay in the queue. Deferred rather than skipped: skipped is a
+  // resting state a row never leaves, and this one has to be sent for real the
+  // moment the flag comes off.
+  if (cfg.validateOnly) {
+    console.info('[google-data-manager] validated', row.id, requestId);
+    return { status: 'deferred', reason: 'google_validate_only' };
   }
 
   return { status: 'sent' };
@@ -444,7 +437,7 @@ export async function uploadConversion(
   try {
     switch (row.upload_network) {
       case 'google':
-        return await uploadToGoogle(row);
+        return await uploadToGoogle(row, identity);
       case 'meta':
         return await uploadToMeta(row, identity);
       case null:
@@ -457,6 +450,67 @@ export async function uploadConversion(
   } catch (err) {
     return { status: 'failed', error: err instanceof Error ? err.message : 'unknown error' };
   }
+}
+
+/**
+ * The reasons a google row was parked that this code no longer agrees with.
+ *
+ * `google_not_configured` is every google row written since the Seattle launch:
+ * the Ads API upload leg had credentials it could never use, so the drain
+ * rested each row on the first pass. `no_click_id` and the action-unset reason
+ * are the same class of stale decision. None of them are true once Data Manager
+ * credentials exist, and the conversions behind them are real: 4 gclid trials
+ * as of 2026-09-15, one of which the browser tag also lost.
+ */
+const GOOGLE_STALE_SKIPS = [
+  'google_not_configured',
+  'google_conversion_action_unset',
+  'no_click_id',
+];
+
+/**
+ * How far back to reopen. Google accepts a conversion against a click for 90
+ * days; 60 leaves room for the row to sit in the queue and for the click to
+ * predate the conversion by a few days without the upload landing outside the
+ * window on arrival.
+ */
+const GOOGLE_REQUEUE_DAYS = 60;
+
+/**
+ * Put the parked google rows back in the queue.
+ *
+ * Self-healing rather than a post-deploy SQL script, for the same reason the
+ * Meta organic requeue was (#638): a migration someone has to remember to run
+ * by hand is a migration that gets run on some environments and not others,
+ * and this one has to work on production exactly once, unattended, whenever
+ * Casey finishes minting credentials — which will not be the day this deploys.
+ *
+ * Idempotent and self-limiting. A row it reopens either uploads or comes to
+ * rest on a NEW reason (`google_no_action`, `no_google_identifier`), and those
+ * reasons are not in the list above, so nothing loops. Only the two events the
+ * uploader actually sends are touched; a paywall open or a signup would just
+ * be parked again on the next pass.
+ */
+export async function requeueGoogleConversions(admin: SupabaseClient): Promise<number> {
+  if (!googleDataManagerConfig()) return 0;
+
+  const since = new Date(Date.now() - GOOGLE_REQUEUE_DAYS * 24 * 60 * 60 * 1000).toISOString();
+
+  const { data, error } = await admin
+    .from('marketing_conversions')
+    .update({ upload_status: 'pending', upload_attempts: 0, upload_last_error: null })
+    .eq('upload_network', 'google')
+    .eq('upload_status', 'skipped')
+    .in('upload_last_error', GOOGLE_STALE_SKIPS)
+    .in('event_type', ['trial_start', 'purchase'])
+    .gte('occurred_at', since)
+    .select('id');
+
+  if (error) {
+    console.warn('[conversion-upload] google requeue failed', error);
+    return 0;
+  }
+  return data?.length ?? 0;
 }
 
 /**
@@ -493,16 +547,24 @@ export async function uploadPendingConversions(
   let deferred = 0;
 
   for (const row of data as ConversionRow[]) {
-    // Only the Meta leg wants an identity, and only the rows it might send are
-    // worth two Stripe reads for one. A trial still inside its grace window is
-    // skipped here too: it will usually turn out to be the browser's, and
-    // resolving an identity for it every drain is a Stripe call per row per
+    // Both ad networks want an identity, and only the rows they might send are
+    // worth two Stripe reads for one. A Meta trial still inside its grace
+    // window is skipped here too: it will usually turn out to be the browser's,
+    // and resolving an identity for it every drain is a Stripe call per row per
     // fifteen minutes for nothing. Best effort throughout — a failed lookup
     // uploads on whatever identifiers the row itself carries.
+    //
+    // Google takes only the hashed email out of the object (as enhanced
+    // conversions, which is what lifts match quality on an upload), and has no
+    // grace window to respect: its two copies deduplicate on the transaction
+    // id. The Stripe read is worth it for the same reason it is on Meta — the
+    // click id is the identifier most likely to be the one that went missing.
     const wantsIdentity =
-      row.upload_network === 'meta' &&
-      !META_GATEWAY_OWNED_EVENTS.has(row.event_type) &&
-      trialCopyIsOurs(row) === 'ours';
+      row.upload_network === 'google'
+        ? googleUploadsThisEvent(row.event_type)
+        : row.upload_network === 'meta' &&
+          !META_GATEWAY_OWNED_EVENTS.has(row.event_type) &&
+          trialCopyIsOurs(row) === 'ours';
     const identity = wantsIdentity ? await resolveMetaIdentity(admin, row) : undefined;
     const outcome = await uploadConversion(row, identity);
 

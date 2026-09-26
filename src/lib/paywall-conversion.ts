@@ -50,12 +50,13 @@
  * environment so a conversion action can be created, renamed or swapped in the
  * Ads UI without a deploy.
  *
- * NOTE: the Google upload path has been dead for this account since June 2026 —
- * the Ads API refuses UploadClickConversions from a developer token that had
- * not already uploaded offline conversions in a window that has closed. Setting
- * this variable will not by itself make Google receive anything. It is wired up
- * so that the day the account is unblocked, or the Data Manager migration
- * lands, this event goes with the others rather than needing to be added then.
+ * NOTE (revised 2026-09-15): the Ads API upload path this was written for is
+ * gone — see src/lib/google-data-manager.ts, which replaced it. The replacement
+ * deliberately uploads only `trial_start` and `purchase`, so this variable is
+ * read by nothing today. A paywall open is fired by the browser that opened the
+ * paywall, so it has no missing-copy problem to solve, and it is the action
+ * Smart Bidding currently runs on. If that ever changes, the new home for this
+ * is `GOOGLE_DM_ACTION_*` and the action id rather than the tag label.
  */
 export const GOOGLE_PAYWALL_VIEW_ACTION_ENV = 'GOOGLE_ADS_CONVERSION_ACTION_PAYWALL_VIEW';
 
