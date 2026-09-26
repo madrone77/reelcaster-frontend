@@ -10,7 +10,8 @@ import {
   PROOF,
   proofQuoteFor,
 } from "../_shared/lp-content";
-import { fetchMapSpots } from "@/lib/bluecaster";
+import { fetchMapSpots, fetchHierarchy } from "@/lib/bluecaster";
+import { findCityForSpot } from "@/app/fishing/lib/fishing-data";
 import {
   ANON_FORECAST_DAYS,
   horizonPhrase,
@@ -223,8 +224,18 @@ export default async function City1Page({
   // The city-wide numbers and the marks band. Separate from the card because
   // resolveLpCard deliberately returns ONE spot; this page also wants the
   // roster around it. A failure here costs the two proof bands, not the page.
-  const payload = await fetchMapSpots({ city: slug }).catch(() => null);
+  const [payload, hierarchy] = await Promise.all([
+    fetchMapSpots({ city: slug }).catch(() => null),
+    // Only for the marks band's links. The band used to point every row at
+    // the retired /explore/spot/<slug>, which 308s to the spot's /fishing
+    // address: a hop on every one of the page's deep links, and a rail of
+    // redirects on a page paid traffic lands on. Null on a miss, and the
+    // legacy link below still works then.
+    fetchHierarchy().catch(() => null),
+  ]);
   const proof: CityProof | null = payload ? buildCityProof(payload, card) : null;
+  const spotHref = (spotSlug: string) =>
+    findCityForSpot(hierarchy, spotSlug)?.spot.path ?? `/explore/spot/${spotSlug}`;
 
   /**
    * /lp/4's second picture, and /lp/5's fourth band: one mark's own day, live.
@@ -741,7 +752,7 @@ export default async function City1Page({
                 <a
                   className={`mrow${m.name === hero.name ? " top" : ""}`}
                   key={m.slug}
-                  href={`/explore/spot/${m.slug}`}
+                  href={spotHref(m.slug)}
                 >
                   <span className="mn">{m.name}</span>
                   <span className="mb">
