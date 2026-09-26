@@ -66,6 +66,12 @@ async function redirectToSurvivor(mergedIntoSlug: string): Promise<void> {
 }
 
 export async function loadSpotPage(slug: string): Promise<LoadedSpotPage> {
+  // The hierarchy read takes no input, so it leaves with the spot read rather
+  // than after it. Spot pages render on demand after a deploy, and on that
+  // cold path the hierarchy is a second-long read of its own; it is awaited
+  // below, where it was, and by the survivor redirect if that fires first.
+  const hierarchyPromise = fetchHierarchy().catch(() => null);
+
   const { data: page, mergedIntoSlug } =
     await fetchSpotLivePageWithCacheControl(slug);
 
@@ -99,7 +105,7 @@ export async function loadSpotPage(slug: string): Promise<LoadedSpotPage> {
 
   // Where this spot sits in the public directory, so the page can link back up
   // to its city and province. Null for custom spots and unpublished cities.
-  const hierarchy = await fetchHierarchy().catch(() => null);
+  const hierarchy = await hierarchyPromise;
   const place = findCityForSpot(hierarchy, slug);
 
   // BlueCaster builds `nearbySpots[].href` itself, and it still emits the
