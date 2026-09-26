@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { useRouter, usePathname } from 'next/navigation'
 import { useAuth } from '@/contexts/auth-context'
 
@@ -84,6 +84,18 @@ const PUBLIC_PREFIXES = [
 // so account chrome is never shown to someone who isn't signed in.
 const SELF_PENDING_PREFIXES = ['/dashboard']
 
+// The root not-found page renders under this gate for ANY path, including
+// ones that look private (/species/foo, a typo of /dashboard). Its body is
+// withheld while the session loads, so it cannot mark itself from inside;
+// its metadata can, because <head> is rendered by the server for every
+// path. src/app/not-found.tsx sets `other: { 'rc-not-found': '1' }`, and
+// the gate reads that tag rather than bouncing a dead link to /login with
+// the dead URL as ?next=, which only lands the visitor back on the 404.
+function documentIsNotFound(): boolean {
+  if (typeof document === 'undefined') return false
+  return document.querySelector('meta[name="rc-not-found"]') !== null
+}
+
 function isPublicPath(pathname: string): boolean {
   if (PUBLIC_EXACT.includes(pathname)) return true
   return PUBLIC_PREFIXES.some(p => pathname.startsWith(p))
@@ -113,7 +125,13 @@ export default function AuthGate({ children }: { children: React.ReactNode }) {
   const router = useRouter()
   const pathname = usePathname()
 
-  const isPublicRoute = isPublicPath(pathname)
+  // Re-read per path: a client-side navigation from a 404 to a private page
+  // replaces <head>, and that page must still gate.
+  const [notFoundAt, setNotFoundAt] = useState<string | null>(null)
+  useEffect(() => {
+    setNotFoundAt(documentIsNotFound() ? pathname : null)
+  }, [pathname])
+  const isPublicRoute = isPublicPath(pathname) || notFoundAt === pathname
 
   // Where to come back to. Kept out of the effect below so the effect does not
   // depend on `window`, and read from the location rather than useSearchParams
