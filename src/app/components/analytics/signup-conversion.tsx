@@ -30,11 +30,12 @@ import {
  * The browser carries `_fbp`, `_fbc`, a real user agent and a real address, so
  * match quality is not close. The two are reconciled by `signupEventId`.
  *
- * ⚠ Plausible does NOT deduplicate. The server row is protected by a unique
- * index and Meta dedupes on the event id, so this guard is the only thing
- * standing between a second browser and a second signup in the Plausible
- * numbers. localStorage rather than sessionStorage: the post that triggers this
- * runs on every page load for the whole two-day grace window, not once per tab.
+ * ⚠ Plausible does NOT deduplicate. What keeps it to one fire per account is
+ * the server: this only mounts for the one post that inserted the account's
+ * conversion row (`conversion_recorded`). The localStorage key below is a
+ * leftover second guard against a remount in the same browser; on its own it
+ * only ever covered one browser, which is how a new account signing in on a
+ * second device used to count twice.
  */
 export default function SignupConversion({
   userId,
