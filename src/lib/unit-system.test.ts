@@ -126,6 +126,12 @@ test("the old full on-device blob only carries what differs from the default", (
   const blob = { ...CA_DEFAULT_UNITS, tempUnit: "F", distanceUnit: "nm" };
   assert.deepEqual(choicesFromLegacyLocal(blob), { tempUnit: "F", distanceUnit: "nm" });
   assert.deepEqual(choicesFromLegacyLocal({ ...CA_DEFAULT_UNITS }), {});
+  // A metres tide in the old blob was the August default written down, not a
+  // pick; it must not survive as a choice. A feet tide is the current default.
+  assert.deepEqual(
+    choicesFromLegacyLocal({ ...CA_DEFAULT_UNITS, tideUnit: "m", waveUnit: "ft" }),
+    { waveUnit: "ft" },
+  );
   assert.deepEqual(choicesFromLegacyLocal(null), {});
 });
 
