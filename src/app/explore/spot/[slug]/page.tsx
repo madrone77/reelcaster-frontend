@@ -3,7 +3,10 @@ import { permanentRedirect } from "next/navigation";
 import SpotDetailShell from "@/app/fishing/[country]/[state]/[city]/[spot]/spot-detail-shell";
 import { loadSpotPage } from "@/app/fishing/[country]/[state]/[city]/[spot]/load-spot-page";
 
-type PageProps = { params: Promise<{ slug: string }> };
+type PageProps = {
+  params: Promise<{ slug: string }>;
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+};
 
 /**
  * The retired one-segment spot URL.
@@ -37,7 +40,10 @@ export async function generateMetadata(): Promise<Metadata> {
   return { robots: { index: false, follow: true } };
 }
 
-export default async function LegacySpotPage({ params }: PageProps) {
+export default async function LegacySpotPage({
+  params,
+  searchParams,
+}: PageProps) {
   const { slug } = await params;
 
   // notFound() inside for an unreadable slug, which renders this segment's
@@ -45,7 +51,20 @@ export default async function LegacySpotPage({ params }: PageProps) {
   const { page, freshTracked, cityLink, canonicalPath, tz, serverNowMs } =
     await loadSpotPage(slug);
 
-  if (canonicalPath) permanentRedirect(canonicalPath);
+  // The query rides along. `?ad=<wall>` is what makes a paid click land in
+  // the ad frame, and `?share=<token>` is what opens a shared card, and both
+  // are still written against this URL in live ads and sent emails. A bare
+  // redirect dropped them, so an ad click on an old link paid for the plain
+  // spot page instead of the frame it was bought for.
+  if (canonicalPath) {
+    const qs = new URLSearchParams();
+    for (const [k, v] of Object.entries(await searchParams)) {
+      if (Array.isArray(v)) for (const x of v) qs.append(k, x);
+      else if (v != null) qs.append(k, v);
+    }
+    const q = qs.toString();
+    permanentRedirect(q ? `${canonicalPath}?${q}` : canonicalPath);
+  }
 
   // No JSON-LD and no breadcrumb here on purpose: both describe a page's place
   // in a public hierarchy, and a spot that reaches this line has none.
