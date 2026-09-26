@@ -20,6 +20,15 @@ import { classifyPage, classifySource } from '@/lib/traffic-source'
 import { pacificDay, pacificHour } from '@/lib/pacific-day'
 import { newFishingPath } from '@/lib/legacy-fishing-paths'
 import { isCityPath, isSpotPath } from '@/lib/paths'
+import {
+  LP_SPLIT_COOKIE,
+  LP_SPLIT_COOKIE_MAX_AGE,
+  TREATMENT_ARM,
+  parseLpSplitCookie,
+  resolveLpArm,
+  serializeLpSplitArms,
+  splitForRequest,
+} from '@/lib/lp-splits'
 
 // Legacy coming-soon wall, now scoped to nothing.
 //
@@ -241,6 +250,27 @@ function countPageView(req: NextRequest, event: NextFetchEvent): void {
   )
 }
 
+/**
+ * Write the landing-split arms when they changed. httpOnly, because nothing
+ * in the browser needs to read which side of the coin toss it is on, and
+ * thirty days, so a bought click that comes back lands on the same page.
+ */
+function withLpArms(
+  req: NextRequest,
+  res: NextResponse,
+  arms: string | null,
+): NextResponse {
+  if (arms === null) return res
+  res.cookies.set(LP_SPLIT_COOKIE, arms, {
+    path: '/',
+    sameSite: 'lax',
+    secure: req.nextUrl.protocol === 'https:',
+    httpOnly: true,
+    maxAge: LP_SPLIT_COOKIE_MAX_AGE,
+  })
+  return res
+}
+
 export function middleware(req: NextRequest, event: NextFetchEvent) {
   const { pathname } = req.nextUrl
 
@@ -285,6 +315,42 @@ export function middleware(req: NextRequest, event: NextFetchEvent) {
     return NextResponse.redirect(url, 308)
   }
 
+  // The city page against the quiz: half of every bought click on a city
+  // landing page (the framed city page at /fishing/.../<city>?ad=, or any /lp
+  // address the ads were bought against) is sent on to /lp/q/<city> instead.
+  //
+  // Decided HERE, above the page-view count and returned as a redirect rather
+  // than stamped, on purpose: the request that follows the 307 is the one
+  // that gets counted and gets the first-touch cookie, so a split visit is
+  // counted once and every record names the page the visitor actually saw.
+  // The query string rides along untouched, because the click id and the UTM
+  // fields on it are the only attribution the visit has.
+  //
+  // Only a person arriving at a page with a bought click is split. Prefetches
+  // and RSC fetches pass straight through (isPageView); organic readers and
+  // the paid-flow Sentinel's `?ad=today` checks carry no click id and read
+  // the city page; a self-declaring crawler always gets the city page, so an
+  // ad network's link preview is stable. The arm is held in a cookie so a
+  // return visit lands on the same page, and the cookie is written on the
+  // control's response too (below) or a control visitor would re-roll. See
+  // src/lib/lp-splits.ts for the rule, and for why this is not the
+  // registry-driven split-test system.
+  let pendingLpArms: string | null = null
+  const lpSplit =
+    req.method === 'GET' && isPageView(req) && !isBotUserAgent(req.headers.get('user-agent'))
+      ? splitForRequest(pathname, req.nextUrl.search)
+      : null
+  if (lpSplit) {
+    const current = parseLpSplitCookie(req.cookies.get(LP_SPLIT_COOKIE)?.value)
+    const resolved = resolveLpArm(lpSplit.split, current, Math.random())
+    if (resolved.changed) pendingLpArms = serializeLpSplitArms(resolved.arms)
+    if (resolved.arm === TREATMENT_ARM) {
+      const url = req.nextUrl.clone()
+      url.pathname = lpSplit.treatment
+      return withLpArms(req, NextResponse.redirect(url, 307), pendingLpArms)
+    }
+  }
+
   // Counted here rather than at the top of this function, so a mixed-case URL
   // is counted once on the lowercase request the browser follows the 308 to,
   // not twice.
@@ -321,15 +387,18 @@ export function middleware(req: NextRequest, event: NextFetchEvent) {
     const url = req.nextUrl.clone()
     url.pathname = `${pathname.replace(/\/$/, '')}/ad`
     // Stamped, not skipped: this IS the ad landing, and its query string is
-    // the only place the click id will ever appear.
-    return stampAttribution(req, NextResponse.rewrite(url))
+    // the only place the click id will ever appear. The split above may have
+    // just dealt this visitor the city page, so the arm is written here too.
+    return withLpArms(req, stampAttribution(req, NextResponse.rewrite(url)), pendingLpArms)
   }
 
   const walled = WALLED_PREFIXES.some(
     (p) => pathname === p || pathname.startsWith(p + '/'),
   )
   if (!walled) {
-    return stampAttribution(req, NextResponse.next())
+    // The /lp addresses render the city page here; a control-arm visitor on
+    // one of them gets their arm written the same way.
+    return withLpArms(req, stampAttribution(req, NextResponse.next()), pendingLpArms)
   }
 
   const url = req.nextUrl.clone()
