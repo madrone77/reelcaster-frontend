@@ -12,7 +12,7 @@
  * Carried in sessionStorage, not the URL: the copy needs the pick's
  * evidence and window, which the URL should not carry twenty parameters
  * for. `via=lpq` on the URL is the trigger; a tab with the trigger and no
- * record (a link opened in a new tab) gets the map's ordinary intro.
+ * record (a link opened in a new tab) gets no card at all.
  *
  * Every access is wrapped: iOS in private mode throws on storage.
  */
