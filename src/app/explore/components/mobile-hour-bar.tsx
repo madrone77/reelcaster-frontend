@@ -40,6 +40,10 @@ const SEG_CAP: Record<Tier, string> = {
  * the flow layer's own series: the fishing question is "when is it good", and
  * the flow field on the map beside it is what the water is doing at that hour.
  * The label says which field is running so the two read as one instrument.
+ *
+ * The spot page's map runs this same bar, so the two maps scrub, reset and
+ * close the same way. There it rests on the clock ("Now") instead of the peak
+ * and adds the field's own reading at the hour.
  */
 export default function MobileHourBar({
   kind,
@@ -49,6 +53,10 @@ export default function MobileHourBar({
   onScrubHour,
   onReset,
   onClose,
+  resetLabel = "Peak",
+  reading,
+  dayLabel,
+  range,
 }: {
   kind: FlowKind;
   /** In-view best score per hour for the selected day (length 24). */
@@ -65,6 +73,18 @@ export default function MobileHourBar({
    * out, sitting on the thing being dismissed.
    */
   onClose: () => void;
+  /**
+   * What the resting hour is called. Explore rests on the day's peak; the spot
+   * page rests on the clock, so it passes "Now". Null drops the reset entirely,
+   * for a day where the resting hour has no name (another day on the spot page).
+   */
+  resetLabel?: string | null;
+  /** The running field's own reading at the hour ("1.4 kn Flood"). */
+  reading?: string | null;
+  /** "Wed" when the bar is on another day. */
+  dayLabel?: string | null;
+  /** Hours the thumb may land on. Defaults to the whole day. */
+  range?: [number, number];
 }) {
   const laneRef = useRef<HTMLDivElement>(null);
   const draggingRef = useRef(false);
@@ -72,6 +92,9 @@ export default function MobileHourBar({
   const liveScore = num(hours[activeHour]);
   const liveTier = tierFor(liveScore);
   const Icon = kind === "wind" ? Wind : Waves;
+  const [loH, hiH] = range ?? [0, 23];
+  const clamp = (h: number) => Math.max(loH, Math.min(hiH, h));
+  const hourLabel = `${dayLabel ? `${dayLabel} ` : ""}${formatHour12(activeHour)}`;
 
   // Detent: the hour whose column the pointer is in. Committed once per hour
   // crossed, never per frame, so the map re-samples its field at most 24 times
@@ -82,7 +105,7 @@ export default function MobileHourBar({
     const r = el.getBoundingClientRect();
     if (r.width <= 0) return null;
     const t = (clientX - r.left) / r.width;
-    return Math.max(0, Math.min(23, Math.floor(t * 24)));
+    return clamp(Math.floor(t * 24));
   };
   const commit = (clientX: number) => {
     const h = hourFromEvt(clientX);
@@ -106,13 +129,20 @@ export default function MobileHourBar({
 
       <div className="rounded-xl border border-rc-rule bg-rc-panel/95 px-3 pt-2 pb-1.5 shadow-rc-panel backdrop-blur">
       <div className="flex items-center justify-between gap-2">
-        <span className="flex items-center gap-1.5 rc-label text-[10px] text-rc-ink">
-          <Icon className="h-3.5 w-3.5 text-rc-brand" />
-          {kind === "wind" ? "Wind" : "Currents"}
+        <span className="flex min-w-0 items-center gap-1.5">
+          <span className="flex shrink-0 items-center gap-1.5 rc-label text-[10px] text-rc-ink">
+            <Icon className="h-3.5 w-3.5 text-rc-brand" />
+            {kind === "wind" ? "Wind" : "Currents"}
+          </span>
+          {reading && (
+            <span className="truncate font-rc-mono text-[10px] text-rc-ink-soft">
+              {reading}
+            </span>
+          )}
         </span>
-        <span className="flex items-center gap-1.5">
+        <span className="flex shrink-0 items-center gap-1.5">
           <span className="font-rc-mono text-[11px] font-semibold tabular-nums text-rc-ink">
-            {formatHour12(activeHour)}
+            {hourLabel}
           </span>
           <span
             className={`rounded-sm px-1.5 py-0.5 font-rc-mono text-[10px] font-semibold ${TIER_PILL[liveTier]}`}
@@ -121,16 +151,16 @@ export default function MobileHourBar({
           </span>
           {/* The way back to the peak. Explicit, because a scrubbed hour has no
               other tell once the thumb lifts. */}
-          {scrubHour != null && peakHour != null && scrubHour !== peakHour ? (
+          {resetLabel == null ? null : scrubHour != null && peakHour != null && scrubHour !== peakHour ? (
             <button
               type="button"
               onClick={onReset}
               className="rounded px-1.5 py-0.5 bg-rc-brand-soft font-rc-mono text-[10px] font-semibold text-rc-brand"
             >
-              Peak
+              {resetLabel}
             </button>
           ) : (
-            <span className="px-1.5 font-rc-mono text-[10px] text-rc-ink-mute">Peak</span>
+            <span className="px-1.5 font-rc-mono text-[10px] text-rc-ink-mute">{resetLabel}</span>
           )}
         </span>
       </div>
@@ -142,10 +172,10 @@ export default function MobileHourBar({
         role="slider"
         tabIndex={0}
         aria-label="Hour shown on the map"
-        aria-valuemin={0}
-        aria-valuemax={23}
+        aria-valuemin={loH}
+        aria-valuemax={hiH}
         aria-valuenow={activeHour}
-        aria-valuetext={`${formatHour12(activeHour)}, score ${liveScore ?? "unavailable"}`}
+        aria-valuetext={`${hourLabel}, score ${liveScore ?? "unavailable"}${reading ? `, ${reading}` : ""}`}
         className="relative mt-1.5 flex h-5 gap-px cursor-ew-resize touch-none select-none rounded-sm focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-rc-brand"
         onPointerDown={(e) => {
           draggingRef.current = true;
@@ -167,11 +197,11 @@ export default function MobileHourBar({
           let next: number | null = null;
           if (e.key === "ArrowLeft" || e.key === "ArrowDown") next = activeHour - 1;
           else if (e.key === "ArrowRight" || e.key === "ArrowUp") next = activeHour + 1;
-          else if (e.key === "Home") next = 0;
-          else if (e.key === "End") next = 23;
+          else if (e.key === "Home") next = loH;
+          else if (e.key === "End") next = hiH;
           if (next == null) return;
           e.preventDefault();
-          onScrubHour(Math.max(0, Math.min(23, next)));
+          onScrubHour(clamp(next));
         }}
       >
         {hours.map((v, h) => {

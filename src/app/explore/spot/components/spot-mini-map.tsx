@@ -19,8 +19,30 @@ import {
   PUCK_TIP_OFFSET,
   NO_DATA_LABEL,
 } from "../../lib/score-puck";
-import MapHourBar from "./map-hour-bar";
+import MobileHourBar from "../../components/mobile-hour-bar";
+import { useUnitPreferences } from "@/contexts/unit-preferences-context";
+import { convertWind, formatWind } from "@/app/utils/unit-conversions";
+import { niceCurrentScale } from "../../lib/current-series";
+import { windCardinal } from "../../lib/wind-rose";
 import type { LiveSpot, SunHours } from "@/lib/bluecaster/live-spot-types";
+
+const num = (v: number | null | undefined) =>
+  typeof v === "number" && Number.isFinite(v) ? v : null;
+
+/**
+ * The hours the bar may land on. Matches the 24h chart's rule exactly: leading
+ * and trailing hours with no fishing score are empty cells there, and the two
+ * scrubbers share one hour, so a map-only hour would put the chart's cursor on
+ * a blank cell and the conditions strip on nulls.
+ */
+function scoredRange(scores: (number | null)[] | null): [number, number] {
+  if (!scores) return [0, 23];
+  const lo = scores.findIndex((v) => num(v) != null);
+  if (lo < 0) return [0, 23];
+  let hi = 23;
+  while (hi > lo && num(scores[hi]) == null) hi--;
+  return [lo, hi];
+}
 
 /** GeoJSON source + symbol layer that carry this spot's score puck. */
 const PUCK_SOURCE = "spot-puck-src";
@@ -127,7 +149,8 @@ export default function SpotMiniMap({
   /** The map the styleimagemissing listeners are already on. */
   const imagesAttachedTo = useRef<MlMap | null>(null);
   const [base, setBase] = useState<Base>("bathy");
-  const { flow, currents, wind, toggleCurrents, toggleWind } = useFlowLayer();
+  const { flow, currents, wind, toggleCurrents, toggleWind, setFlow } = useFlowLayer();
+  const { windUnit, currentUnit } = useUnitPreferences();
   const [expanded, setExpanded] = useState(false);
   // Booted on approach, not on hydration. See @/hooks/use-near-viewport.
   const boxRef = useRef<HTMLDivElement | null>(null);
@@ -271,6 +294,32 @@ export default function SpotMiniMap({
   // be an instrument reading nothing.
   const barOn = flow != null && !!hours;
 
+  // The running field's own number at the bar's hour, beside the score the
+  // lane plots. Explore's bar reads only the score because it covers many
+  // spots; here there is one spot, so the field has one reading to name.
+  const reading = useMemo(() => {
+    if (!hours || !flow) return null;
+    const h = hours.hour;
+    if (flow === "wind") {
+      const kt = num(hours.wind[h]);
+      if (kt == null) return null;
+      const g = num(hours.gust[h]);
+      const name = windCardinal(hours.windDir[h] ?? null);
+      const gust =
+        g != null && g - kt > 5
+          ? ` G${convertWind(g, "knots", windUnit).toFixed(0)}`
+          : "";
+      return `${formatWind(convertWind(kt, "knots", windUnit), windUnit)}${gust}${name ? ` ${name}` : ""}`;
+    }
+    const v = hours.current ? num(hours.current[h]) : null;
+    if (v == null) return null;
+    // Same slack threshold the conditions strip uses, so the two never
+    // disagree about whether the water is moving.
+    const slackThr = Math.min(0.3, Math.max(0.1, 0.2 * niceCurrentScale(hours.current!)));
+    const state = Math.abs(v) < slackThr ? "Slack" : v > 0 ? "Flood" : "Ebb";
+    return `${formatWind(convertWind(Math.abs(v), "knots", currentUnit), currentUnit, 1)} ${state}`;
+  }, [hours, flow, windUnit, currentUnit]);
+
   // A phone's inline map is a picture, not something you drive.
   //
   // It runs full-bleed at 45svh, so it spans the entire screen width with no
@@ -303,7 +352,11 @@ export default function SpotMiniMap({
 
   // The corner controls sit on the map's bottom edge, which is where the bar
   // docks. Lift them clear rather than letting the bar cover them.
-  const cornerBottom = barOn ? "bottom-[74px]" : "bottom-2";
+  //
+  // The bar carries its own close square above its top-right corner, as it
+  // does on Explore, so the expand button steps left of it rather than stacking.
+  const cornerBottom = barOn ? "bottom-[93px]" : "bottom-2";
+  const expandRight = barOn ? "right-[52px]" : "right-2";
 
   return (
     <div
@@ -391,7 +444,7 @@ export default function SpotMiniMap({
         type="button"
         onClick={() => setExpanded((v) => !v)}
         aria-label={expanded ? "Collapse map" : "Expand map"}
-        className={`absolute ${cornerBottom} right-2 z-10 flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-rc-panel/90 text-rc-ink-soft text-[11px] font-semibold hover:bg-rc-panel transition-colors`}
+        className={`absolute ${cornerBottom} ${expandRight} z-10 flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-rc-panel/90 text-rc-ink-soft text-[11px] font-semibold hover:bg-rc-panel transition-colors`}
       >
         {expanded ? (
           <Minimize2 className="w-3 h-3" />
@@ -512,22 +565,27 @@ export default function SpotMiniMap({
           scroll a thousand pixels to the 24h chart to change what the map is
           showing. Same component and same shared hour on both breakpoints. */}
       {barOn && hours && flow && (
-        <MapHourBar
-          kind={flow}
-          hour={hours.hour}
-          onSelectHour={hours.onSelectHour}
-          nowHour={hours.nowHour}
-          isToday={hours.isToday}
-          scrubbed={hours.scrubbed}
-          onNow={hours.onNow}
-          dayLabel={hours.dayLabel}
-          scores={hours.scores}
-          wind={hours.wind}
-          gust={hours.gust}
-          windDir={hours.windDir}
-          current={hours.current}
-          sun={hours.sun}
-        />
+        <div className="absolute inset-x-2 bottom-2 z-10">
+          <MobileHourBar
+            kind={flow}
+            hours={hours.scores ?? Array(24).fill(null)}
+            // The spot page rests on the clock, not the day's peak: until the
+            // angler pins an hour the bar follows now.
+            scrubHour={
+              hours.scrubbed || (hours.isToday && hours.hour !== hours.nowHour)
+                ? hours.hour
+                : null
+            }
+            peakHour={hours.isToday ? hours.nowHour : hours.hour}
+            onScrubHour={hours.onSelectHour}
+            onReset={hours.onNow}
+            onClose={() => setFlow(null)}
+            resetLabel={hours.isToday ? "Now" : null}
+            reading={reading}
+            dayLabel={hours.dayLabel}
+            range={scoredRange(hours.scores)}
+          />
+        </div>
       )}
     </div>
   );
